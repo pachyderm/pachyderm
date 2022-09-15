@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	
+
 	"net/http"
 	"net/url"
 	"os"
@@ -20,7 +20,9 @@ import (
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
@@ -28,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
@@ -50,6 +53,45 @@ const (
 	pipelines = "pipelines"
 	secrets   = "secrets"
 )
+
+func listJobFilterF(client *client.APIClient, projects []string, pipelineName string, inputCommit []*pfs.Commit,
+	history int64, details bool, jqFilter string,
+	f func(*pps.JobInfo) error) error {
+	var pipeline *pps.Pipeline
+	if pipelineName != "" {
+		// todo error if projects[0] doesn't exist
+		pipeline = &pps.Pipeline{Project: &pfs.Project{Name: projects[0]}, Name: pipelineName}
+	}
+	ctx, cf := context.WithCancel(client.Ctx())
+	defer cf()
+	listJobClient, err := client.PpsAPIClient.ListJob(
+		ctx,
+		&pps.ListJobRequest{
+			Pipeline:    pipeline,
+			InputCommit: inputCommit,
+			History:     history,
+			Details:     details,
+			JqFilter:    jqFilter,
+			Projects:    projects,
+		})
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		ji, err := listJobClient.Recv()
+		if errors.Is(err, io.EOF) {
+			return nil
+		} else if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(ji); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
+			return err
+		}
+	}
+}
 
 // Cmds returns a slice containing pps commands.
 func Cmds() []*cobra.Command {
@@ -175,6 +217,8 @@ If the job fails, the output commit will not be populated with data.`,
 	commands = append(commands, cmdutil.CreateAliases(waitJob, "wait job", jobs))
 
 	var pipelineName string
+	var projects []string
+	var allProjects bool
 	var inputCommitStrs []string
 	var history string
 	var stateStrs []string
@@ -205,6 +249,14 @@ $ {{alias}} -i foo@XXX -i bar@YYY
 # Return all sub-jobs in pipeline foo and whose input commits include bar@YYY
 $ {{alias}} -p foo -i bar@YYY`,
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+			cfg, err := config.Read(false, false)
+			if err != nil {
+				return err
+			}
+			_, pachCtx, err := cfg.ActiveContext(true)
+			if err != nil {
+				return err
+			}
 			commits, err := cmdutil.ParseCommits(inputCommitStrs)
 			if err != nil {
 				return err
@@ -231,6 +283,16 @@ $ {{alias}} -p foo -i bar@YYY`,
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
+			if allProjects {
+				projects = nil
+			} else if len(projects) == 0 {
+				if pachCtx.GetProject() != "" {
+					projects = []string{pachCtx.GetProject()}
+				} else {
+					// default project is literally named "default"
+					projects = []string{"default"}
+				}
+			}
 			if len(args) == 0 {
 				if pipelineName == "" && !expand {
 					// We are listing jobs
@@ -242,7 +304,8 @@ $ {{alias}} -p foo -i bar@YYY`,
 						return errors.Errorf("cannot specify '--history' when listing all jobs")
 					}
 
-					listJobSetClient, err := client.PpsAPIClient.ListJobSet(client.Ctx(), &pps.ListJobSetRequest{})
+					req := &pps.ListJobSetRequest{Projects: projects}
+					listJobSetClient, err := client.PpsAPIClient.ListJobSet(client.Ctx(), req)
 					if err != nil {
 						return grpcutil.ScrubGRPC(err)
 					}
@@ -268,14 +331,14 @@ $ {{alias}} -p foo -i bar@YYY`,
 					// We are listing all sub-jobs, possibly restricted to a single pipeline
 					if raw {
 						e := cmdutil.Encoder(output, os.Stdout)
-						return client.ListJobFilterF(pipelineName, commits, historyCount, true, filter, func(ji *ppsclient.JobInfo) error {
+						return listJobFilterF(client, projects, pipelineName, commits, historyCount, true, filter, func(ji *ppsclient.JobInfo) error {
 							return errors.EnsureStack(e.EncodeProto(ji))
 						})
 					}
 
 					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 						writer := tabwriter.NewWriter(w, pretty.JobHeader)
-						if err := client.ListJobFilterF(pipelineName, commits, historyCount, false, filter, func(ji *ppsclient.JobInfo) error {
+						if err := listJobFilterF(client, projects, pipelineName, commits, historyCount, false, filter, func(ji *ppsclient.JobInfo) error {
 							pretty.PrintJobInfo(writer, ji, fullTimestamps)
 							return nil
 						}); err != nil {
@@ -307,6 +370,8 @@ $ {{alias}} -p foo -i bar@YYY`,
 		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
+	listJob.Flags().StringSliceVar(&projects, "project", []string{}, "Limit to jobs in a project.")
+	listJob.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Show jobs from all projects.")
 	listJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
 	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits. format: <repo>@<branch-or-commit>")
 	listJob.MarkFlagCustom("input", "__pachctl_get_repo_commit")

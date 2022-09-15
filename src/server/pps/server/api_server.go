@@ -593,6 +593,15 @@ func forEachCommitInJob(pachClient *client.APIClient, jobID string, wait bool, c
 	return nil
 }
 
+func stringListContains(l []string, q string) bool {
+	for _, s := range l {
+		if s == q {
+			return true
+		}
+	}
+	return false
+}
+
 // ListJobSet implements the protobuf pps.ListJobSet RPC
 func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_ListJobSetServer) (retErr error) {
 	pachClient := a.env.GetPachClient(serv.Context())
@@ -604,18 +613,34 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	// timestamp due to triggers or deferred processing)
 	jobInfo := &pps.JobInfo{}
 	err := a.jobs.ReadOnly(serv.Context()).List(jobInfo, col.DefaultOptions(), func(string) error {
-		if _, ok := seen[jobInfo.Job.ID]; ok {
+		id := jobInfo.GetJob().GetID()
+		if _, ok := seen[id]; ok {
 			return nil
 		}
-		seen[jobInfo.Job.ID] = struct{}{}
+		seen[id] = struct{}{}
 
-		jobInfos, err := pachClient.InspectJobSet(jobInfo.Job.ID, request.Details)
+		jobInfos, err := pachClient.InspectJobSet(id, request.Details)
 		if err != nil {
 			return err
 		}
+		// filter jobs based on projects
+		if len(request.GetProjects()) > 0 {
+			n := 0
+			for _, ji := range jobInfos {
+				if stringListContains(request.GetProjects(), ji.GetJob().GetPipeline().GetProject().Name) {
+					jobInfos[n] = ji
+					n++
+				}
+			}
+			jobInfos = jobInfos[:n]
+		}
+		// this JobSet doesn't belong to any projects requested
+		if len(jobInfos) == 0 {
+			return nil
+		}
 
 		return errors.EnsureStack(serv.Send(&pps.JobSetInfo{
-			JobSet: client.NewJobSet(jobInfo.Job.ID),
+			JobSet: client.NewJobSet(id),
 			Jobs:   jobInfos,
 		}))
 	})
@@ -690,13 +715,10 @@ func (a *apiServer) intersectCommitSets(ctx context.Context, commits []*pfs.Comm
 // ListJobStream.
 func (a *apiServer) listJob(
 	ctx context.Context,
-	pipeline *pps.Pipeline,
-	inputCommits []*pfs.Commit,
-	history int64,
-	details bool,
-	jqFilter string,
+	request *pps.ListJobRequest,
 	f func(*pps.JobInfo) error,
 ) error {
+	pipeline := request.GetPipeline()
 	if pipeline != nil {
 		// If 'pipeline is set, check that caller has access to the pipeline's
 		// output repo; currently, that's all that's required for ListJob.
@@ -712,6 +734,7 @@ func (a *apiServer) listJob(
 
 	// For each specified input commit, build the set of commitset IDs which
 	// belong to all of them.
+	inputCommits := request.GetInputCommit()
 	commitsets, err := a.intersectCommitSets(ctx, inputCommits)
 	if err != nil {
 		return err
@@ -720,8 +743,8 @@ func (a *apiServer) listJob(
 	var jqCode *gojq.Code
 	var enc serde.Encoder
 	var jsonBuffer bytes.Buffer
-	if jqFilter != "" {
-		jqQuery, err := gojq.Parse(jqFilter)
+	if request.GetJqFilter() != "" {
+		jqQuery, err := gojq.Parse(request.GetJqFilter())
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -735,7 +758,7 @@ func (a *apiServer) listJob(
 
 	// pipelineVersions holds the versions of pipelines that we're interested in
 	pipelineVersions := make(map[string]bool)
-	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, pipeline, history,
+	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, pipeline, request.GetHistory(),
 		func(ptr *pps.PipelineInfo) error {
 			pipelineVersions[ppsdb.VersionKey(ptr.Pipeline, ptr.Version)] = true
 			return nil
@@ -746,7 +769,7 @@ func (a *apiServer) listJob(
 	jobs := a.jobs.ReadOnly(ctx)
 	jobInfo := &pps.JobInfo{}
 	_f := func(string) error {
-		if details {
+		if request.GetDetails() {
 			if err := a.getJobDetails(ctx, jobInfo); err != nil {
 				if auth.IsErrNotAuthorized(err) {
 					return nil // skip job--see note at top of function
@@ -856,7 +879,11 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 
 // ListJob implements the protobuf pps.ListJob RPC
 func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
-	return a.listJob(resp.Context(), request.Pipeline, request.InputCommit, request.History, request.Details, request.JqFilter, func(ji *pps.JobInfo) error {
+	return a.listJob(resp.Context(), request, func(ji *pps.JobInfo) error {
+		projects := request.GetProjects()
+		if len(projects) > 0 && !stringListContains(projects, ji.GetJob().GetPipeline().GetProject().GetName()) {
+			return nil
+		}
 		return errors.EnsureStack(resp.Send(ji))
 	})
 }
@@ -1807,24 +1834,24 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 // CreatePipeline implements the protobuf pps.CreatePipeline RPC
 //
 // Implementation note:
-// - CreatePipeline always creates pipeline output branches such that the
-//   pipeline's spec branch is in the pipeline output branch's provenance
-// - CreatePipeline will always create a new output commit, but that's done
-//   by CreateBranch at the bottom of the function, which sets the new output
-//   branch provenance, rather than commitPipelineInfoFromFileSet higher up.
-// - This is because CreatePipeline calls hardStopPipeline towards the top,
-// 	 breaking the provenance connection from the spec branch to the output branch
-// - For straightforward pipeline updates (e.g. new pipeline image)
-//   stopping + updating + starting the pipeline isn't necessary
-// - However it is necessary in many slightly atypical cases  (e.g. the
-//   pipeline input changed: if the spec commit is created while the
-//   output branch has its old provenance, or the output branch gets new
-//   provenance while the old spec commit is the HEAD of the spec branch,
-//   then an output commit will be created with provenance that doesn't
-//   match its spec's PipelineInfo.Details.Input. Another example is when
-//   request.Reprocess == true).
-// - Rather than try to enumerate every case where we can't create a spec
-//   commit without stopping the pipeline, we just always stop the pipeline
+//   - CreatePipeline always creates pipeline output branches such that the
+//     pipeline's spec branch is in the pipeline output branch's provenance
+//   - CreatePipeline will always create a new output commit, but that's done
+//     by CreateBranch at the bottom of the function, which sets the new output
+//     branch provenance, rather than commitPipelineInfoFromFileSet higher up.
+//   - This is because CreatePipeline calls hardStopPipeline towards the top,
+//     breaking the provenance connection from the spec branch to the output branch
+//   - For straightforward pipeline updates (e.g. new pipeline image)
+//     stopping + updating + starting the pipeline isn't necessary
+//   - However it is necessary in many slightly atypical cases  (e.g. the
+//     pipeline input changed: if the spec commit is created while the
+//     output branch has its old provenance, or the output branch gets new
+//     provenance while the old spec commit is the HEAD of the spec branch,
+//     then an output commit will be created with provenance that doesn't
+//     match its spec's PipelineInfo.Details.Input. Another example is when
+//     request.Reprocess == true).
+//   - Rather than try to enumerate every case where we can't create a spec
+//     commit without stopping the pipeline, we just always stop the pipeline
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *types.Empty, retErr error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -2803,6 +2830,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 
 		// Check if there is an existing job for the output commit
 		job := client.NewJob(pipelineInfo.Pipeline.Name, txnCtx.CommitSetID)
+		job.Pipeline.Project = pipelineInfo.Pipeline.Project
 		jobInfo := &pps.JobInfo{}
 		if err := a.jobs.ReadWrite(txnCtx.SqlTx).Get(ppsdb.JobKey(job), jobInfo); err == nil {
 			continue // Job already exists, skip it

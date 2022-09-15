@@ -294,7 +294,7 @@ func (c APIClient) WaitJobSet(id string, details bool, cb func(*pps.JobInfo) err
 // 0: Return jobs from the current version of the pipeline or pipelines.
 // 1: Return the above and jobs from the next most recent version
 // 2: etc.
-//-1: Return jobs from all historical versions.
+// -1: Return jobs from all historical versions.
 // 'details' controls whether the JobInfo passed to 'f' includes details from
 // the pipeline spec (e.g. the transform). Leaving this 'false' can improve
 // performance.
@@ -330,7 +330,7 @@ func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
 // 0: Return jobs from the current version of the pipeline or pipelines.
 // 1: Return the above and jobs from the next most recent version
 // 2: etc.
-//-1: Return jobs from all historical versions.
+// -1: Return jobs from all historical versions.
 // 'details' controls whether the JobInfo passed to 'f' includes details from the
 // pipeline spec--setting this to 'false' can improve performance.
 func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit,
@@ -716,7 +716,7 @@ func (c APIClient) ListPipeline(details bool) ([]*pps.PipelineInfo, error) {
 // 0: Return the current version of the pipeline or pipelines.
 // 1: Return the above and the next most recent version
 // 2: etc.
-//-1: Return all historical versions.
+// -1: Return all historical versions.
 func (c APIClient) ListPipelineHistory(pipeline string, history int64, details bool) ([]*pps.PipelineInfo, error) {
 	var _pipeline *pps.Pipeline
 	if pipeline != "" {
