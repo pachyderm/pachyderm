@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	
+
 	"net/http"
 	"net/url"
 	"os"
@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
@@ -78,12 +79,13 @@ If the job fails, the output commit will not be populated with data.`,
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(jobDocs, "job", " job$", jobs))
 
+	var project string
 	inspectJob := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job>",
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			job, err := cmdutil.ParseJob(args[0])
+			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil && uuid.IsUUIDWithoutDashes(args[0]) {
 				return errors.New(`Use "list job <id>" to see jobs with a given ID across different pipelines`)
 			} else if err != nil {
@@ -112,6 +114,7 @@ If the job fails, the output commit will not be populated with data.`,
 	}
 	inspectJob.Flags().AddFlagSet(outputFlags)
 	inspectJob.Flags().AddFlagSet(timestampFlags)
+	inspectJob.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing job.")
 	shell.RegisterCompletionFunc(inspectJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectJob, "inspect job", jobs))
 
@@ -155,7 +158,7 @@ If the job fails, the output commit will not be populated with data.`,
 					return err
 				}
 			} else {
-				job, err := cmdutil.ParseJob(args[0])
+				job, err := cmdutil.ParseJob(project, args[0])
 				if err != nil {
 					return err
 				}
@@ -171,6 +174,7 @@ If the job fails, the output commit will not be populated with data.`,
 	}
 	waitJob.Flags().AddFlagSet(outputFlags)
 	waitJob.Flags().AddFlagSet(timestampFlags)
+	waitJob.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing job.")
 	shell.RegisterCompletionFunc(waitJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(waitJob, "wait job", jobs))
 
@@ -331,7 +335,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 		Short: "Delete a job.",
 		Long:  "Delete a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			job, err := cmdutil.ParseJob(args[0])
+			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil {
 				return err
 			}
@@ -346,6 +350,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 			return nil
 		}),
 	}
+	deleteJob.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project within which to delete job")
 	shell.RegisterCompletionFunc(deleteJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteJob, "delete job", jobs))
 
@@ -377,7 +382,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 					return err
 				}
 			} else {
-				job, err := cmdutil.ParseJob(args[0])
+				job, err := cmdutil.ParseJob(project, args[0])
 				if err != nil {
 					return err
 				}
@@ -388,6 +393,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 			return nil
 		}),
 	}
+	stopJob.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing the job")
 	shell.RegisterCompletionFunc(stopJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(stopJob, "stop job", jobs))
 
@@ -409,7 +415,7 @@ each datum.`,
 		Short: "Restart a datum.",
 		Long:  "Restart a datum.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			job, err := cmdutil.ParseJob(args[0])
+			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil {
 				return err
 			}
@@ -432,6 +438,7 @@ each datum.`,
 			return client.RestartDatum(job.Pipeline.Name, job.ID, datumFilter)
 		}),
 	}
+	restartDatum.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing the datum job")
 	commands = append(commands, cmdutil.CreateAliases(restartDatum, "restart datum", datums))
 
 	var pipelineInputPath string
@@ -483,7 +490,7 @@ each datum.`,
 				}
 				return client.ListDatumInput(request.Input, printF)
 			} else if len(args) == 1 {
-				job, err := cmdutil.ParseJob(args[0])
+				job, err := cmdutil.ParseJob(project, args[0])
 				if err != nil {
 					return err
 				}
@@ -494,6 +501,7 @@ each datum.`,
 		}),
 	}
 	listDatum.Flags().StringVarP(&pipelineInputPath, "file", "f", "", "The JSON file containing the pipeline to list datums from, the pipeline need not exist")
+	listDatum.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing the job")
 	listDatum.Flags().AddFlagSet(outputFlags)
 	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listDatum, "list datum", datums))
@@ -503,7 +511,7 @@ each datum.`,
 		Short: "Display detailed info about a single datum.",
 		Long:  "Display detailed info about a single datum. Requires the pipeline to have stats enabled.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			job, err := cmdutil.ParseJob(args[0])
+			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil {
 				return err
 			}
@@ -525,6 +533,7 @@ each datum.`,
 			return nil
 		}),
 	}
+	inspectDatum.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing the job")
 	inspectDatum.Flags().AddFlagSet(outputFlags)
 	commands = append(commands, cmdutil.CreateAliases(inspectDatum, "inspect datum", datums))
 
@@ -610,7 +619,7 @@ each datum.`,
 
 			var jobID string
 			if jobStr != "" {
-				job, err := cmdutil.ParseJob(jobStr)
+				job, err := cmdutil.ParseJob(project, jobStr)
 				if err != nil {
 					return err
 				}
@@ -657,6 +666,7 @@ each datum.`,
 	getLogs.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
 	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
 	getLogs.Flags().StringVar(&since, "since", "24h", "Return log messages more recent than \"since\".")
+	getLogs.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing the job.")
 	shell.RegisterCompletionFunc(getLogs,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "--pipeline" || flag == "-p" {

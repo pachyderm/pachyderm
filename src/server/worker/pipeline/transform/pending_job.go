@@ -161,7 +161,7 @@ func (pj *pendingJob) createParallelDatums(ctx context.Context, taskDoer task.Do
 		if pj.baseMetaCommit != nil {
 			// Upload the datums from the base job into the datum file set format.
 			if err := pj.logger.LogStep("creating full base job datum file set", func() error {
-				baseFileSetID, err = createDatums(pachClient, taskDoer, client.NewJob(pj.ji.Job.Pipeline.Name, pj.baseMetaCommit.ID))
+				baseFileSetID, err = createDatums(pachClient, taskDoer, client.NewProjectJob(pj.ji.Job.Pipeline.Project.GetName(), pj.ji.Job.Pipeline.Name, pj.baseMetaCommit.ID))
 				if err != nil {
 					return err
 				}
