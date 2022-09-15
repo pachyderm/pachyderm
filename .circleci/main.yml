@@ -1188,7 +1188,7 @@ workflows:
             - jupyter-extension-docker-build
           filters:
             branches:
-              ignore: main
+              ignore: master
 
   release:
     jobs:
