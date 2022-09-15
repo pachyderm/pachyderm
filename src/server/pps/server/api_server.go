@@ -162,13 +162,16 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 	return nil
 }
 
-func (a *apiServer) validateInput(pipelineName string, input *pps.Input) error {
+func (a *apiServer) validateInput(pipeline *pps.Pipeline, input *pps.Input) error {
 	if err := validateNames(make(map[string]bool), input); err != nil {
 		return err
 	}
 	return pps.VisitInput(input, func(input *pps.Input) error {
 		set := false
 		if input.Pfs != nil {
+			if input.Pfs.Project == "" {
+				input.Pfs.Project = pipeline.Project.GetName()
+			}
 			set = true
 			switch {
 			case len(input.Pfs.Name) == 0:
@@ -1623,7 +1626,7 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	if err := validateTransform(pipelineInfo.Details.Transform); err != nil {
 		return errors.Wrapf(err, "invalid transform")
 	}
-	if err := a.validateInput(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Input); err != nil {
+	if err := a.validateInput(pipelineInfo.Pipeline, pipelineInfo.Details.Input); err != nil {
 		return err
 	}
 	if err := a.validateEgress(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Egress); err != nil {
