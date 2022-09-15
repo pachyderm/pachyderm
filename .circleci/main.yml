@@ -1223,9 +1223,6 @@ workflows:
       - build-docker-images:
           appVersion: ${CIRCLE_TAG:1}
           filters: *only-release-tags
-          requires:
-            - helm-tests
-            - integration-tests
       - build-pachctl-bin:
           version: ${CIRCLE_TAG:1}
           filters: *only-release-tags
