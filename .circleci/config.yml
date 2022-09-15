@@ -6,6 +6,7 @@ setup: true
 # the continuation orb is required in order to use dynamic configuration
 orbs:
   continuation: circleci/continuation@0.1.2
+  path-filtering: circleci/path-filtering@0.1.3
 
 parameters:
   run_load_tests:
@@ -53,15 +54,26 @@ jobs:
 
 # our single workflow, that triggers the setup job defined above
 workflows:
-  setup:
+  generate-config:
     when:
       and:
         - not: << pipeline.parameters.run_nightly_tag >>
     jobs:
-      - setup:
+      - path-filtering/filter:
+          name: check-updated-files
+          # 3-column, whitespace-delimited mapping. One mapping per
+          # line:
+          # <regex path-to-test> <parameter-to-set> <value-of-pipeline-parameter>
+          mapping: |
+            jupyter-extension/.* run-jupyter-jobs true
+          base-revision: master # NOTE: This should be updated to reflect the base branch (ie. master, 2.3.x)
+          config-path: .circleci/main.yml
+      - setup: # Only run setup on tags, otherwise use path filtering
           filters:
             tags:
               only: /.*/
+            branches:
+              ignore: /.*/
   create-nightly-tag:
     when: << pipeline.parameters.run_nightly_tag >>
     jobs:
