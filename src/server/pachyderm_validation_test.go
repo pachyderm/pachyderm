@@ -104,7 +104,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -117,7 +117,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))

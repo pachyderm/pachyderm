@@ -462,7 +462,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -558,7 +558,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 		[]string{"/bin/bash"},
 		[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline1) + " /pfs/out/"},
 		nil,
-		client.NewPFSInput(pipeline1, "/*"),
+		client.NewProjectPFSInput("", pipeline1, "/*"),
 		"",
 		false,
 	))
@@ -628,7 +628,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"",    // default output branch: master
 		false, // no update
 	))
@@ -1112,7 +1112,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -1181,7 +1181,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 				Stdin: []string{"cp /pfs/*/* /pfs/out"},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
-			Input:           client.NewPFSInput(repo, "/*"),
+			Input:           client.NewProjectPFSInput("", repo, "/*"),
 			Autoscaling:     true,
 		})
 	require.NoError(t, err)
@@ -1252,7 +1252,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 			"cp /pfs/*/* /pfs/out/",
 		},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"", // default output branch: master
 		false,
 	))

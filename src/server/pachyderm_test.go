@@ -83,7 +83,7 @@ func basicPipelineReq(name, input string) *pps.CreatePipelineRequest {
 		ParallelismSpec: &pps.ParallelismSpec{
 			Constant: 1,
 		},
-		Input: client.NewPFSInput(input, "/*"),
+		Input: client.NewProjectPFSInput("", input, "/*"),
 	}
 }
 
@@ -130,7 +130,7 @@ func TestSimplePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -184,7 +184,7 @@ func TestRepoSize(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -247,7 +247,7 @@ func TestPFSPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -288,7 +288,7 @@ func TestPipelineWithParallelism(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 4,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -332,7 +332,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 		},
 		nil,
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -393,7 +393,7 @@ func TestDatumDedup(t *testing.T) {
 			"sleep 10",
 		},
 		nil,
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -438,7 +438,7 @@ func TestPipelineInputDataModification(t *testing.T) {
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 		},
 		nil,
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -884,7 +884,7 @@ func TestRunPipeline(t *testing.T) {
 	//		[]string{"/bin/bash"},
 	//		[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline) + " /pfs/out/"},
 	//		nil,
-	//		client.NewPFSInput(pipeline, "/*"),
+	//		client.NewProjectPFSInput("",pipeline, "/*"),
 	//		"",
 	//		false,
 	//	))
@@ -976,7 +976,7 @@ func TestRunPipeline(t *testing.T) {
 	//		nil,
 	//		client.NewUnionInput(
 	//			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-	//			client.NewPFSInput(pipeline, "/*"),
+	//			client.NewProjectPFSInput("",pipeline, "/*"),
 	//		),
 	//		"",
 	//		false,
@@ -1192,7 +1192,7 @@ func TestPipelineFailure(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -1318,7 +1318,7 @@ func TestInputFailure(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -1344,7 +1344,7 @@ func TestInputFailure(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(pipeline1, "/*"),
+		client.NewProjectPFSInput("", pipeline1, "/*"),
 		"",
 		false,
 	))
@@ -1370,7 +1370,7 @@ func TestInputFailure(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(pipeline2, "/*"),
+		client.NewProjectPFSInput("", pipeline2, "/*"),
 		"",
 		false,
 	))
@@ -1418,7 +1418,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 					ErrCmd:   []string{"bash"},
 					ErrStdin: []string{"if", fmt.Sprintf("[ -a pfs/%v/file3 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
 				},
-				Input: client.NewPFSInput(dataRepo, "/*"),
+				Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 			})
 		require.NoError(t, err)
 
@@ -1443,7 +1443,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 					Stdin:  []string{"if", fmt.Sprintf("[ -a pfs/%v/file1 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
 					ErrCmd: []string{"true"},
 				},
-				Input:  client.NewPFSInput(dataRepo, "/*"),
+				Input:  client.NewProjectPFSInput("", dataRepo, "/*"),
 				Update: true,
 			})
 		require.NoError(t, err)
@@ -1479,7 +1479,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 					ErrCmd:   []string{"bash"},
 					ErrStdin: []string{"true"},
 				},
-				Input: client.NewPFSInput(dataRepo, "/*"),
+				Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 			})
 		require.NoError(t, err)
 
@@ -1503,7 +1503,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 					Cmd:   []string{"bash"},
 					Stdin: []string{"true"},
 				},
-				Input:  client.NewPFSInput(dataRepo, "/*"),
+				Input:  client.NewProjectPFSInput("", dataRepo, "/*"),
 				Update: true,
 			})
 		require.NoError(t, err)
@@ -1723,7 +1723,7 @@ func TestProvenance(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(aRepo, "/*"),
+		client.NewProjectPFSInput("", aRepo, "/*"),
 		"",
 		false,
 	))
@@ -1739,8 +1739,8 @@ func TestProvenance(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewCrossInput(
-			client.NewPFSInput(aRepo, "/*"),
-			client.NewPFSInput(bPipeline, "/*"),
+			client.NewProjectPFSInput("", aRepo, "/*"),
+			client.NewProjectPFSInput("", bPipeline, "/*"),
 		),
 		"",
 		false,
@@ -1808,7 +1808,7 @@ func TestProvenance2(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(aRepo, "/b*"),
+		client.NewProjectPFSInput("", aRepo, "/b*"),
 		"",
 		false,
 	))
@@ -1822,7 +1822,7 @@ func TestProvenance2(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(aRepo, "/c*"),
+		client.NewProjectPFSInput("", aRepo, "/c*"),
 		"",
 		false,
 	))
@@ -1839,8 +1839,8 @@ func TestProvenance2(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewCrossInput(
-			client.NewPFSInput(bPipeline, "/*"),
-			client.NewPFSInput(cPipeline, "/*"),
+			client.NewProjectPFSInput("", bPipeline, "/*"),
+			client.NewProjectPFSInput("", cPipeline, "/*"),
 		),
 		"",
 		false,
@@ -1915,7 +1915,7 @@ func TestStopPipelineExtraCommit(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(aRepo, "/*"),
+		client.NewProjectPFSInput("", aRepo, "/*"),
 		"",
 		false,
 	))
@@ -1929,7 +1929,7 @@ func TestStopPipelineExtraCommit(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(bPipeline, "/*"),
+		client.NewProjectPFSInput("", bPipeline, "/*"),
 		"",
 		false,
 	))
@@ -1992,7 +1992,7 @@ func TestWaitJobSet(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewPFSInput(repo, "/*"),
+			client.NewProjectPFSInput("", repo, "/*"),
 			"",
 			false,
 		))
@@ -2033,7 +2033,7 @@ func TestWaitJobSetFailures(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -2048,7 +2048,7 @@ func TestWaitJobSetFailures(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(pipelineName(0), "/*"),
+		client.NewProjectPFSInput("", pipelineName(0), "/*"),
 		"",
 		false,
 	))
@@ -2060,7 +2060,7 @@ func TestWaitJobSetFailures(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(pipelineName(1), "/*"),
+		client.NewProjectPFSInput("", pipelineName(1), "/*"),
 		"",
 		false,
 	))
@@ -2119,7 +2119,7 @@ func TestWaitCommitSetAfterCreatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"",
 		false,
 	))
@@ -2153,7 +2153,7 @@ func TestRecreatePipeline(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewPFSInput(repo, "/*"),
+			client.NewProjectPFSInput("", repo, "/*"),
 			"",
 			false,
 		))
@@ -2193,7 +2193,7 @@ func TestDeletePipeline(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewPFSInput(repo, "/*"),
+			client.NewProjectPFSInput("", repo, "/*"),
 			"",
 			false,
 		))
@@ -2205,7 +2205,7 @@ func TestDeletePipeline(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewPFSInput(pipelines[0], "/*"),
+			client.NewProjectPFSInput("", pipelines[0], "/*"),
 			"",
 			false,
 		))
@@ -2290,7 +2290,7 @@ func TestPipelineState(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"",
 		false,
 	))
@@ -2360,7 +2360,7 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 		[]string{"sh"},
 		[]string{"exit 1"},
 		nil,
-		client.NewPFSInput(dataRepo, "/"),
+		client.NewProjectPFSInput("", dataRepo, "/"),
 		"",
 		false,
 	))
@@ -2391,7 +2391,7 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 		[]string{"sh"},
 		[]string{"exit 1"},
 		nil,
-		client.NewPFSInput(dataRepo, "/"),
+		client.NewProjectPFSInput("", dataRepo, "/"),
 		"",
 		true,
 	))
@@ -2418,7 +2418,7 @@ func TestAcceptReturnCode(t *testing.T) {
 				Stdin:            []string{"exit 1"},
 				AcceptReturnCode: []int64{1},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		},
 	)
 	require.NoError(t, err)
@@ -2466,7 +2466,7 @@ func TestPrettyPrinting(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 
@@ -2525,7 +2525,7 @@ func TestAuthPrettyPrinting(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 
@@ -2578,7 +2578,7 @@ func TestDeleteAll(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/"),
+		client.NewProjectPFSInput("", dataRepo, "/"),
 		"",
 		false,
 	))
@@ -2623,7 +2623,7 @@ func TestRecursiveCp(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -2661,7 +2661,7 @@ func TestPipelineUniqueness(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(repo, "/"),
+		client.NewProjectPFSInput("", repo, "/"),
 		"",
 		false,
 	))
@@ -2673,7 +2673,7 @@ func TestPipelineUniqueness(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(repo, "/"),
+		client.NewProjectPFSInput("", repo, "/"),
 		"",
 		false,
 	)
@@ -2701,7 +2701,7 @@ func TestUpdatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
@@ -2727,7 +2727,7 @@ func TestUpdatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
@@ -2800,7 +2800,7 @@ func TestUpdatePipeline(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Input:     client.NewPFSInput(dataRepo, "/*"),
+			Input:     client.NewProjectPFSInput("", dataRepo, "/*"),
 			Update:    true,
 			Reprocess: true,
 		})
@@ -2867,7 +2867,7 @@ func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
 					Cmd:   []string{"bash"},
 					Stdin: []string{"sleep 1"},
 				},
-				Input:  client.NewPFSInput(dataRepo, "/*"),
+				Input:  client.NewProjectPFSInput("", dataRepo, "/*"),
 				Update: true,
 			})
 		require.NoError(t, err)
@@ -2920,7 +2920,7 @@ func TestUpdateFailedPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -2947,7 +2947,7 @@ func TestUpdateFailedPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
@@ -2994,7 +2994,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -3045,7 +3045,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
@@ -3110,7 +3110,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 2,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -3162,7 +3162,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 2,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
@@ -3225,7 +3225,7 @@ func TestManyFilesSingleOutputCommit(t *testing.T) {
 				Cmd:   []string{"sh"},
 				Stdin: []string{"while read line; do echo $line > /pfs/out/$line; done < " + path.Join("/pfs", dataRepo, file)},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		},
 	)
 	require.NoError(t, err)
@@ -3270,7 +3270,7 @@ func TestStopPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -3338,7 +3338,7 @@ func TestAutoscalingStandby(t *testing.T) {
 					Transform: &pps.Transform{
 						Cmd: []string{"cp", path.Join("/pfs", input, "file"), "/pfs/out/file"},
 					},
-					Input:       client.NewPFSInput(input, "/*"),
+					Input:       client.NewProjectPFSInput("", input, "/*"),
 					Autoscaling: true,
 				},
 			)
@@ -3409,7 +3409,7 @@ func TestAutoscalingStandby(t *testing.T) {
 					Cmd:   []string{"sh"},
 					Stdin: []string{"echo $PPS_POD_NAME >/pfs/out/pod"},
 				},
-				Input:       client.NewPFSInput(dataRepo, "/"),
+				Input:       client.NewProjectPFSInput("", dataRepo, "/"),
 				Autoscaling: true,
 			},
 		)
@@ -3474,7 +3474,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out", dataRepo),
 				},
 			},
-			Input:       client.NewPFSInput(dataRepo, "/*"),
+			Input:       client.NewProjectPFSInput("", dataRepo, "/*"),
 			Autoscaling: true,
 		},
 	)
@@ -3585,7 +3585,7 @@ func TestPipelineEnv(t *testing.T) {
 
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
-	input := client.NewPFSInput(dataRepo, "/*")
+	input := client.NewProjectPFSInput("", dataRepo, "/*")
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
@@ -3679,7 +3679,7 @@ func TestPipelineWithFullObjects(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -3746,7 +3746,7 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -3838,14 +3838,14 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	}
 
 	// Check normal pipeline.
-	input := client.NewPFSInput(dataRepo, "/")
+	input := client.NewProjectPFSInput("", dataRepo, "/")
 	check(input)
 	// Check pipeline with empty files.
-	input = client.NewPFSInput(dataRepo, "/")
+	input = client.NewProjectPFSInput("", dataRepo, "/")
 	input.Pfs.EmptyFiles = true
 	check(input)
 	// Check pipeline with lazy files.
-	input = client.NewPFSInput(dataRepo, "/")
+	input = client.NewProjectPFSInput("", dataRepo, "/")
 	input.Pfs.Lazy = true
 	check(input)
 }
@@ -3890,7 +3890,7 @@ func TestChainedPipelines(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(aRepo, "/"),
+		client.NewProjectPFSInput("", aRepo, "/"),
 		"",
 		false,
 	))
@@ -3906,8 +3906,8 @@ func TestChainedPipelines(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewCrossInput(
-			client.NewPFSInput(bPipeline, "/"),
-			client.NewPFSInput(dRepo, "/"),
+			client.NewProjectPFSInput("", bPipeline, "/"),
+			client.NewProjectPFSInput("", dRepo, "/"),
 		),
 		"",
 		false,
@@ -3970,7 +3970,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(aRepo, "/"),
+		client.NewProjectPFSInput("", aRepo, "/"),
 		"",
 		false,
 	))
@@ -3986,8 +3986,8 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewCrossInput(
-			client.NewPFSInput(bPipeline, "/"),
-			client.NewPFSInput(eRepo, "/"),
+			client.NewProjectPFSInput("", bPipeline, "/"),
+			client.NewProjectPFSInput("", eRepo, "/"),
 		),
 		"",
 		false,
@@ -4003,7 +4003,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(cPipeline, "/"),
+		client.NewProjectPFSInput("", cPipeline, "/"),
 		"",
 		false,
 	))
@@ -4061,7 +4061,7 @@ func TestStartInternalPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(aRepo, "/"),
+		client.NewProjectPFSInput("", aRepo, "/"),
 		"",
 		false,
 	))
@@ -4074,7 +4074,7 @@ func TestStartInternalPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(bPipeline, "/"),
+		client.NewProjectPFSInput("", bPipeline, "/"),
 		"",
 		false,
 	))
@@ -4119,7 +4119,7 @@ func TestJobDeletion(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/"),
+		client.NewProjectPFSInput("", dataRepo, "/"),
 		"",
 		false,
 	))
@@ -4157,7 +4157,7 @@ func TestStopJob(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/"),
+		client.NewProjectPFSInput("", dataRepo, "/"),
 		"",
 		false,
 	))
@@ -4241,7 +4241,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 					"echo %s", // %s tests a formatting bug we had (#2729)
 				},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 4,
 			},
@@ -4458,7 +4458,7 @@ func TestManyLogs(t *testing.T) {
 					"done",
 				},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 
@@ -4511,7 +4511,7 @@ func TestLokiLogs(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"echo", "foo"},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 
@@ -4588,8 +4588,8 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput("", dataRepo1, "/*"),
+			client.NewProjectPFSInput("", dataRepo2, "/*"),
 		),
 		"",
 		false,
@@ -4634,7 +4634,7 @@ func TestDatumStatusRestart(t *testing.T) {
 			"sleep 20",
 		},
 		nil,
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -5314,7 +5314,7 @@ func TestPipelineLargeOutput(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 4,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -5778,10 +5778,10 @@ func TestUnionInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewUnionInput(
-				client.NewPFSInput(repos[0], "/*"),
-				client.NewPFSInput(repos[1], "/*"),
-				client.NewPFSInput(repos[2], "/*"),
-				client.NewPFSInput(repos[3], "/*"),
+				client.NewProjectPFSInput("", repos[0], "/*"),
+				client.NewProjectPFSInput("", repos[1], "/*"),
+				client.NewProjectPFSInput("", repos[2], "/*"),
+				client.NewProjectPFSInput("", repos[3], "/*"),
 			),
 			"",
 			false,
@@ -5808,12 +5808,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewUnionInput(
 				client.NewCrossInput(
-					client.NewPFSInput(repos[0], "/*"),
-					client.NewPFSInput(repos[1], "/*"),
+					client.NewProjectPFSInput("", repos[0], "/*"),
+					client.NewProjectPFSInput("", repos[1], "/*"),
 				),
 				client.NewCrossInput(
-					client.NewPFSInput(repos[2], "/*"),
-					client.NewPFSInput(repos[3], "/*"),
+					client.NewProjectPFSInput("", repos[2], "/*"),
+					client.NewProjectPFSInput("", repos[3], "/*"),
 				),
 			),
 			"",
@@ -5843,12 +5843,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewCrossInput(
 				client.NewUnionInput(
-					client.NewPFSInput(repos[0], "/*"),
-					client.NewPFSInput(repos[1], "/*"),
+					client.NewProjectPFSInput("", repos[0], "/*"),
+					client.NewProjectPFSInput("", repos[1], "/*"),
 				),
 				client.NewUnionInput(
-					client.NewPFSInput(repos[2], "/*"),
-					client.NewPFSInput(repos[3], "/*"),
+					client.NewProjectPFSInput("", repos[2], "/*"),
+					client.NewProjectPFSInput("", repos[3], "/*"),
 				),
 			),
 			"",
@@ -5926,7 +5926,7 @@ func TestPipelineWithStats(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 4,
 			},
@@ -5993,7 +5993,7 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 4,
 			},
@@ -6069,7 +6069,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 4,
 			},
@@ -6149,7 +6149,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
@@ -6239,7 +6239,7 @@ func TestPipelineOnStatsBranch(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"bash", "-c", "cp -r $(ls -d /pfs/*|grep -v /pfs/out) /pfs/out"},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
@@ -6296,7 +6296,7 @@ func TestSkippedDatums(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 
@@ -6372,7 +6372,7 @@ func TestMetaRepoContents(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 	assertMetaContents := func(commitID string, inputFile string) {
@@ -6463,7 +6463,7 @@ func TestCronPipeline(t *testing.T) {
 			[]string{"/bin/bash"},
 			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline1) + " /pfs/out/"},
 			nil,
-			client.NewPFSInput(pipeline1, "/*"),
+			client.NewProjectPFSInput("", pipeline1, "/*"),
 			"",
 			false,
 		))
@@ -6553,7 +6553,7 @@ func TestCronPipeline(t *testing.T) {
 			nil,
 			client.NewCrossInput(
 				client.NewCronInput("time", "@every 20s"),
-				client.NewPFSInput(dataRepo, "/"),
+				client.NewProjectPFSInput("", dataRepo, "/"),
 			),
 			"",
 			false,
@@ -6599,7 +6599,7 @@ func TestCronPipeline(t *testing.T) {
 			[]string{"/bin/bash"},
 			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline5) + " /pfs/out/"},
 			nil,
-			client.NewPFSInput(pipeline5, "/*"),
+			client.NewProjectPFSInput("", pipeline5, "/*"),
 			"",
 			false,
 		))
@@ -6647,7 +6647,7 @@ func TestCronPipeline(t *testing.T) {
 			[]string{"/bin/bash"},
 			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline7) + " /pfs/out/"},
 			nil,
-			client.NewPFSInput(pipeline7, "/*"),
+			client.NewProjectPFSInput("", pipeline7, "/*"),
 			"",
 			false,
 		))
@@ -6780,7 +6780,7 @@ func TestSelfReferentialPipeline(t *testing.T) {
 		[]string{"true"},
 		nil,
 		nil,
-		client.NewPFSInput(pipeline, "/"),
+		client.NewProjectPFSInput("", pipeline, "/"),
 		"",
 		false,
 	))
@@ -6853,7 +6853,7 @@ func TestFixPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -6880,7 +6880,7 @@ func TestFixPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
@@ -6917,7 +6917,7 @@ func TestListJobTruncated(t *testing.T) {
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 		},
 		nil,
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -6971,7 +6971,7 @@ func TestPipelineEnvVarAlias(t *testing.T) {
 			fmt.Sprintf("cp $%s /pfs/out/", dataRepo),
 		},
 		nil,
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -7011,8 +7011,8 @@ func TestPipelineEnvVarJoinOn(t *testing.T) {
 	require.NoError(t, c.CreateRepo(repo2))
 
 	input := client.NewJoinInput(
-		client.NewPFSInput(repo1, "/(*)"),
-		client.NewPFSInput(repo2, "/(*)"),
+		client.NewProjectPFSInput("", repo1, "/(*)"),
+		client.NewProjectPFSInput("", repo2, "/(*)"),
 	)
 	input.Join[0].Pfs.Name = "repo1"
 	input.Join[1].Pfs.Name = "repo2"
@@ -7067,7 +7067,7 @@ func TestPipelineEnvVarGroupBy(t *testing.T) {
 	require.NoError(t, c.CreateRepo(repo))
 
 	input := client.NewGroupInput(
-		client.NewPFSInput(repo, "/(*)-*"),
+		client.NewProjectPFSInput("", repo, "/(*)-*"),
 	)
 	input.Group[0].Pfs.Name = "repo"
 	input.Group[0].Pfs.GroupBy = "$1"
@@ -7141,7 +7141,7 @@ func TestService(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/"),
+		client.NewProjectPFSInput("", dataRepo, "/"),
 		false,
 		8000,
 		31800,
@@ -7259,7 +7259,7 @@ func TestServiceEnvVars(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Input:  client.NewPFSInput(dataRepo, "/"),
+			Input:  client.NewProjectPFSInput("", dataRepo, "/"),
 			Update: false,
 			Service: &pps.Service{
 				InternalPort: 8000,
@@ -7357,7 +7357,7 @@ func TestDatumSetSpec(t *testing.T) {
 						fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 					},
 				},
-				Input:        client.NewPFSInput(dataRepo, "/*"),
+				Input:        client.NewProjectPFSInput("", dataRepo, "/*"),
 				DatumSetSpec: &pps.DatumSetSpec{Number: 1},
 			})
 		require.NoError(t, err)
@@ -7382,7 +7382,7 @@ func TestDatumSetSpec(t *testing.T) {
 						fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 					},
 				},
-				Input:        client.NewPFSInput(dataRepo, "/*"),
+				Input:        client.NewProjectPFSInput("", dataRepo, "/*"),
 				DatumSetSpec: &pps.DatumSetSpec{SizeBytes: 5},
 			})
 		require.NoError(t, err)
@@ -7421,7 +7421,7 @@ func TestLongDatums(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 4,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -7477,7 +7477,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input:        client.NewPFSInput(dataRepo, "/*"),
+			Input:        client.NewProjectPFSInput("", dataRepo, "/*"),
 			DatumTimeout: types.DurationProto(duration),
 		},
 	)
@@ -7543,7 +7543,7 @@ func TestListDatumDuringJob(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input:        client.NewPFSInput(dataRepo, "/*"),
+			Input:        client.NewProjectPFSInput("", dataRepo, "/*"),
 			DatumTimeout: types.DurationProto(duration),
 			DatumSetSpec: &pps.DatumSetSpec{
 				Number: 2, // since we set the DatumSetSpec number to 2, we expect our datums to be processed in 5 datum sets (10 files / 2 files per set)
@@ -7629,7 +7629,7 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input:        client.NewPFSInput(dataRepo, "/*"),
+			Input:        client.NewProjectPFSInput("", dataRepo, "/*"),
 			DatumTimeout: types.DurationProto(duration),
 		},
 	)
@@ -7684,7 +7684,7 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input:      client.NewPFSInput(dataRepo, "/*"),
+			Input:      client.NewProjectPFSInput("", dataRepo, "/*"),
 			JobTimeout: types.DurationProto(duration),
 		},
 	)
@@ -7790,7 +7790,7 @@ func TestPipelineDescription(t *testing.T) {
 			Pipeline:    client.NewProjectPipeline("", pipeline),
 			Transform:   &pps.Transform{Cmd: []string{"true"}},
 			Description: description,
-			Input:       client.NewPFSInput(dataRepo, "/"),
+			Input:       client.NewProjectPFSInput("", dataRepo, "/"),
 		})
 	require.NoError(t, err)
 	pi, err := c.InspectPipeline(pipeline, true)
@@ -7826,8 +7826,8 @@ func TestListJobInputCommits(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewCrossInput(
-			client.NewPFSInput(aRepo, "/*"),
-			client.NewPFSInput(bRepo, "/*"),
+			client.NewProjectPFSInput("", aRepo, "/*"),
+			client.NewProjectPFSInput("", bRepo, "/*"),
 		),
 		"",
 		false,
@@ -7932,7 +7932,7 @@ func TestCancelJob(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(repo, "/"),
+		client.NewProjectPFSInput("", repo, "/"),
 		"",
 		false,
 	))
@@ -8017,7 +8017,7 @@ func TestCancelManyJobs(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"",
 		false,
 	))
@@ -8105,7 +8105,7 @@ func TestSquashCommitSetPropagation(t *testing.T) {
 	// 			`(( cars_tables == 1 )) && exit 0 || exit 1`,
 	// 		},
 	// 		&pps.ParallelismSpec{Constant: 1},
-	// 		client.NewPFSInput(repo, "/d/*"),
+	// 		client.NewProjectPFSInput("",repo, "/d/*"),
 	// 		"",
 	// 		false,
 	// 	))
@@ -8160,7 +8160,7 @@ func TestDeleteSpecRepo(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/"),
+		client.NewProjectPFSInput("", dataRepo, "/"),
 		"",
 		false,
 	))
@@ -8191,7 +8191,7 @@ func TestDontReadStdin(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/"),
+		client.NewProjectPFSInput("", dataRepo, "/"),
 		"",
 		false,
 	))
@@ -8225,7 +8225,7 @@ func TestStatsDeleteAll(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", fmt.Sprintf("/pfs/%s/file", dataRepo), "/pfs/out"},
 			},
-			Input: client.NewPFSInput(dataRepo, "/"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/"),
 		})
 	require.NoError(t, err)
 
@@ -8248,7 +8248,7 @@ func TestStatsDeleteAll(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", fmt.Sprintf("/pfs/%s/file", dataRepo), "/pfs/out"},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 
@@ -8350,7 +8350,7 @@ func TestDatumTries(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"unknown"}, // Cmd fails because "unknown" isn't a known command.
 			},
-			Input:      client.NewPFSInput(dataRepo, "/"),
+			Input:      client.NewProjectPFSInput("", dataRepo, "/"),
 			DatumTries: tries,
 		})
 	require.NoError(t, err)
@@ -8422,7 +8422,7 @@ func TestPipelineVersions(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewPFSInput(dataRepo, "/*"),
+			client.NewProjectPFSInput("", dataRepo, "/*"),
 			"",
 			i != 0,
 		))
@@ -8466,7 +8466,7 @@ func TestSplitFileHeader(t *testing.T) {
 	//			`(( cars_tables == 1 )) && exit 0 || exit 1`,
 	//		},
 	//		&pps.ParallelismSpec{Constant: 1},
-	//		client.NewPFSInput(repo, "/d/*"),
+	//		client.NewProjectPFSInput("",repo, "/d/*"),
 	//		"",
 	//		false,
 	//	))
@@ -8527,7 +8527,7 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 	//			`(( cars_tables == 1 )) && exit 0 || exit 1`,
 	//		},
 	//		&pps.ParallelismSpec{Constant: 1},
-	//		client.NewPFSInput(repo, "/d/*"),
+	//		client.NewProjectPFSInput("",repo, "/d/*"),
 	//		"",
 	//		false,
 	//	))
@@ -8586,7 +8586,7 @@ func TestDeferredCross(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%v/* /pfs/out", dataSet),
 				},
 			},
-			Input: client.NewPFSInput(dataSet, "master"),
+			Input: client.NewProjectPFSInput("", dataSet, "master"),
 
 			OutputBranch: "master",
 		})
@@ -8621,7 +8621,7 @@ func TestDeferredCross(t *testing.T) {
 					client.NewPFSInputOpts("a", downstreamPipeline, "master", "/", "", "", false, false, nil),
 					client.NewPFSInputOpts("b", downstreamPipeline, "other", "/", "", "", false, false, nil),
 				),
-				client.NewPFSInput(dataSet, "/"),
+				client.NewProjectPFSInput("", dataSet, "/"),
 			),
 			OutputBranch: "master",
 		})
@@ -8669,7 +8669,7 @@ func TestDeferredProcessing(t *testing.T) {
 				Cmd:   []string{"bash"},
 				Stdin: []string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo)},
 			},
-			Input:        client.NewPFSInput(dataRepo, "/*"),
+			Input:        client.NewProjectPFSInput("", dataRepo, "/*"),
 			OutputBranch: "staging",
 		})
 	require.NoError(t, err)
@@ -8685,7 +8685,7 @@ func TestDeferredProcessing(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(pipeline1, "/*"),
+		client.NewProjectPFSInput("", pipeline1, "/*"),
 		"",
 		false,
 	))
@@ -8733,7 +8733,7 @@ func TestPipelineHistory(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
@@ -8757,7 +8757,7 @@ func TestPipelineHistory(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
@@ -8791,7 +8791,7 @@ func TestPipelineHistory(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
@@ -8824,7 +8824,7 @@ func TestPipelineHistory(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
@@ -8900,8 +8900,8 @@ func TestFileHistory(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewCrossInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput("", dataRepo1, "/*"),
+			client.NewProjectPFSInput("", dataRepo2, "/*"),
 		),
 		"",
 		false,
@@ -8950,7 +8950,7 @@ func TestCreatePipelineErrorNoPipeline(t *testing.T) {
 				Cmd:   []string{"/bin/bash"},
 				Stdin: []string{`cat foo >/pfs/out/file`},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.YesError(t, err)
 	require.Matches(t, "request.Pipeline", err.Error())
@@ -8978,7 +8978,7 @@ func TestCreatePipelineError(t *testing.T) {
 		&pps.CreatePipelineRequest{
 			Pipeline:  client.NewProjectPipeline("", pipeline),
 			Transform: nil,
-			Input:     client.NewPFSInput(dataRepo, "/*"),
+			Input:     client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.YesError(t, err)
 	require.Matches(t, "transform", err.Error())
@@ -9009,7 +9009,7 @@ func TestCreatePipelineErrorNoCmd(t *testing.T) {
 				Cmd:   nil,
 				Stdin: []string{`cat foo >/pfs/out/file`},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 	time.Sleep(5 * time.Second) // give pipeline time to start
@@ -9040,7 +9040,7 @@ func TestExtractPipeline(t *testing.T) {
 	//
 	//	// Now set a bunch of fields explicitly so the server will accept the request.
 	//	// Override the input because otherwise the repo won't exist
-	//	request.Input = client.NewPFSInput(dataRepo, "/*")
+	//	request.Input = client.NewProjectPFSInput("",dataRepo, "/*")
 	//	// These must be set explicitly, because extract returns the default values
 	//	// and we want them to match.
 	//	request.Input.Pfs.Name = "input"
@@ -9302,7 +9302,7 @@ func TestCopyOutToIn(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -9375,7 +9375,7 @@ func TestKeepRepo(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -9419,7 +9419,7 @@ func TestKeepRepo(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -9509,7 +9509,7 @@ func TestMalformedPipeline(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline:  client.NewProjectPipeline("", pipelineName),
 		Transform: &pps.Transform{},
-		Input:     client.NewPFSInput("out", "/*"),
+		Input:     client.NewProjectPFSInput("", "out", "/*"),
 	})
 	require.YesError(t, err)
 	require.Matches(t, "input cannot be named \"out\"", err.Error())
@@ -9534,8 +9534,8 @@ func TestMalformedPipeline(t *testing.T) {
 		Pipeline:  client.NewProjectPipeline("", pipelineName),
 		Transform: &pps.Transform{},
 		Input: client.NewCrossInput(
-			client.NewPFSInput("foo", "/*"),
-			client.NewPFSInput("foo", "/*"),
+			client.NewProjectPFSInput("", "foo", "/*"),
+			client.NewProjectPFSInput("", "foo", "/*"),
 		),
 	})
 	require.YesError(t, err)
@@ -9867,7 +9867,7 @@ func TestDebug(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewPFSInput(dataRepo, "/*"),
+			client.NewProjectPFSInput("", dataRepo, "/*"),
 			"",
 			false,
 		))
@@ -9938,7 +9938,7 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewPFSInput(input, "/*"),
+			client.NewProjectPFSInput("", input, "/*"),
 			"",
 			update,
 		)
@@ -9996,7 +9996,7 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewPFSInput(input, "/*"),
+			client.NewProjectPFSInput("", input, "/*"),
 			"",
 			update,
 		)
@@ -10043,7 +10043,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 					"sleep 30",
 				},
 			},
-			Input:           client.NewPFSInput(dataRepo, "/*"),
+			Input:           client.NewProjectPFSInput("", dataRepo, "/*"),
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 4},
 			Autoscaling:     true,
 		},
@@ -10088,8 +10088,8 @@ func TestListDeletedDatums(t *testing.T) {
 	require.NoError(t, c.CreateRepo(threeRepo))
 
 	input := client.NewJoinInput(
-		client.NewPFSInput(twoRepo, "/(*)"),
-		client.NewPFSInput(threeRepo, "/(*)"),
+		client.NewProjectPFSInput("", twoRepo, "/(*)"),
+		client.NewProjectPFSInput("", threeRepo, "/(*)"),
 	)
 	input.Join[0].Pfs.JoinOn = "$1"
 	input.Join[1].Pfs.JoinOn = "$1"
@@ -10203,7 +10203,7 @@ func TestNonrootPipeline(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Input:        client.NewPFSInput(dataRepo, "/*"),
+			Input:        client.NewProjectPFSInput("", dataRepo, "/*"),
 			OutputBranch: "",
 			Update:       false,
 			PodPatch: `[
@@ -10259,7 +10259,7 @@ func TestRewindCrossPipeline(t *testing.T) {
 		var indivInputs []*pps.Input
 		var stdin []string
 		for _, r := range repos {
-			indivInputs = append(indivInputs, client.NewPFSInput(r, "/*"))
+			indivInputs = append(indivInputs, client.NewProjectPFSInput("", r, "/*"))
 			stdin = append(stdin, fmt.Sprintf("cp /pfs/%s/* /pfs/out/", r))
 		}
 		var input *pps.Input
@@ -10348,7 +10348,7 @@ func TestMoveBranchTrigger(t *testing.T) {
 				},
 			},
 			Input: client.NewCrossInput(
-				client.NewPFSInput(dataRepo, "/*"),
+				client.NewProjectPFSInput("", dataRepo, "/*"),
 				client.NewPFSInputOpts("trigger", dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
 					Branch:  "toMove",
 					Commits: 1,
@@ -10462,7 +10462,7 @@ func TestDatumSetCache(t *testing.T) {
 					"sleep 1",
 				},
 			},
-			Input:        client.NewPFSInput(dataRepo, "/*"),
+			Input:        client.NewProjectPFSInput("", dataRepo, "/*"),
 			DatumSetSpec: &pps.DatumSetSpec{Number: 1},
 		})
 	require.NoError(t, err)
@@ -10557,7 +10557,7 @@ func TestPutFileNoErrorOnErroredParentCommit(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput("inA", "/*"),
+		client.NewProjectPFSInput("", "inA", "/*"),
 		"",
 		false,
 	))
@@ -10570,8 +10570,8 @@ func TestPutFileNoErrorOnErroredParentCommit(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewUnionInput(
-			client.NewPFSInput("inB", "/*"),
-			client.NewPFSInput("A", "/*"),
+			client.NewProjectPFSInput("", "inB", "/*"),
+			client.NewProjectPFSInput("", "A", "/*"),
 		),
 		"",
 		false,
@@ -10636,8 +10636,8 @@ func TestTemporaryDuplicatedPath(t *testing.T) {
 	// leading to either a validation error or a repeated path/datum pair
 	req.Update = true
 	req.Input = client.NewCrossInput(
-		client.NewPFSInput(repo, "/*"),
-		client.NewPFSInput(other, "/*"))
+		client.NewProjectPFSInput("", repo, "/*"),
+		client.NewProjectPFSInput("", other, "/*"))
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
 	require.NoError(t, err)
 

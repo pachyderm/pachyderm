@@ -414,7 +414,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 			[]string{"bash"},
 			[]string{"cp /pfs/*/* /pfs/out/"},
 			&pps.ParallelismSpec{Constant: 1},
-			client.NewPFSInput(args.repo, "/*"),
+			client.NewProjectPFSInput("", args.repo, "/*"),
 			"", // default output branch: master
 			args.update,
 		)
@@ -633,8 +633,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: aliceClient,
 		name:   aliceCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput("", dataRepo1, "/*"),
+			client.NewProjectPFSInput("", dataRepo2, "/*"),
 		),
 	}))
 	require.OneOfEquals(t, aliceCrossPipeline, PipelineNames(t, aliceClient))
@@ -648,8 +648,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: aliceClient,
 		name:   aliceUnionPipeline,
 		input: client.NewUnionInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput("", dataRepo1, "/*"),
+			client.NewProjectPFSInput("", dataRepo2, "/*"),
 		),
 	}))
 	require.OneOfEquals(t, aliceUnionPipeline, PipelineNames(t, aliceClient))
@@ -666,8 +666,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   bobCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput("", dataRepo1, "/*"),
+			client.NewProjectPFSInput("", dataRepo2, "/*"),
 		),
 	})
 	require.YesError(t, err)
@@ -680,8 +680,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   bobUnionPipeline,
 		input: client.NewUnionInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput("", dataRepo1, "/*"),
+			client.NewProjectPFSInput("", dataRepo2, "/*"),
 		),
 	})
 	require.YesError(t, err)
@@ -700,7 +700,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		input: client.NewCrossInput(
 			// This cross input deliberately only has one element, to make sure it's
 			// not simply rejected for having a cross input
-			client.NewPFSInput(dataRepo1, "/*"),
+			client.NewProjectPFSInput("", dataRepo1, "/*"),
 		),
 		update: true,
 	}))
@@ -715,8 +715,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   aliceCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput("", dataRepo1, "/*"),
+			client.NewProjectPFSInput("", dataRepo2, "/*"),
 		),
 		update: true,
 	})
@@ -736,8 +736,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   aliceCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput("", dataRepo1, "/*"),
+			client.NewProjectPFSInput("", dataRepo2, "/*"),
 		),
 		update: true,
 	}))
@@ -750,8 +750,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   bobCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput("", dataRepo1, "/*"),
+			client.NewProjectPFSInput("", dataRepo2, "/*"),
 		),
 	}))
 	require.OneOfEquals(t, bobCrossPipeline, PipelineNames(t, aliceClient))
@@ -761,8 +761,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   bobUnionPipeline,
 		input: client.NewUnionInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput("", dataRepo1, "/*"),
+			client.NewProjectPFSInput("", dataRepo2, "/*"),
 		),
 	}))
 	require.OneOfEquals(t, bobUnionPipeline, PipelineNames(t, aliceClient))
@@ -810,7 +810,7 @@ func TestPipelineRevoke(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -866,7 +866,7 @@ func TestPipelineRevoke(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"", // default output branch: master
 		true,
 	))
@@ -915,7 +915,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -955,7 +955,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -1050,7 +1050,7 @@ func TestStopJob(t *testing.T) {
 		[]string{"bash"},
 		[]string{"sleep 600"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -1407,7 +1407,7 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(inputRepo, "/*"),
+		client.NewProjectPFSInput("", inputRepo, "/*"),
 		"",    // default output branch: master
 		false, // Don't update -- we want an error
 	)
@@ -1422,7 +1422,7 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(inputRepo, "/*"),
+		client.NewProjectPFSInput("", inputRepo, "/*"),
 		"",    // default output branch: master
 		false, // Don't update -- we want an error
 	)
@@ -1590,8 +1590,8 @@ func TestListDatum(t *testing.T) {
 		[]string{"ls /pfs/*/*; cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
 		client.NewCrossInput(
-			client.NewPFSInput(repoA, "/*"),
-			client.NewPFSInput(repoB, "/*"),
+			client.NewProjectPFSInput("", repoA, "/*"),
+			client.NewProjectPFSInput("", repoB, "/*"),
 		),
 		"", // default output branch: master
 		false,
@@ -1680,7 +1680,7 @@ func TestListJob(t *testing.T) {
 		[]string{"bash"},
 		[]string{"ls /pfs/*/*; cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -1758,7 +1758,7 @@ func TestInspectDatum(t *testing.T) {
 				Stdin: []string{"cp /pfs/*/* /pfs/out/"},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
-			Input:           client.NewPFSInput(repo, "/*"),
+			Input:           client.NewProjectPFSInput("", repo, "/*"),
 		})
 	require.NoError(t, err)
 
@@ -1814,7 +1814,7 @@ func TestInspectDatum(t *testing.T) {
 //		[]string{"bash"},
 //		[]string{"cp /pfs/*/* /pfs/out/"},
 //		&pps.ParallelismSpec{Constant: 1},
-//		client.NewPFSInput(repo, "/*"),
+//		client.NewProjectPFSInput("",repo, "/*"),
 //		"", // default output branch: master
 //		false,
 //	))
@@ -1911,7 +1911,7 @@ func TestInspectDatum(t *testing.T) {
 //				Stdin: []string{"cp /pfs/*/* /pfs/out/"},
 //			},
 //			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
-//			Input:           client.NewPFSInput(repo, "/*"),
+//			Input:           client.NewProjectPFSInput("",repo, "/*"),
 //		})
 //	require.NoError(t, err)
 //
@@ -1970,8 +1970,8 @@ func TestPipelineNewInput(t *testing.T) {
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
 		client.NewUnionInput(
-			client.NewPFSInput(repo[0], "/*"),
-			client.NewPFSInput(repo[1], "/*"),
+			client.NewProjectPFSInput("", repo[0], "/*"),
+			client.NewProjectPFSInput("", repo[1], "/*"),
 		),
 		"", // default output branch: master
 		false,
@@ -2001,8 +2001,8 @@ func TestPipelineNewInput(t *testing.T) {
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
 		client.NewUnionInput(
-			client.NewPFSInput(repo[1], "/*"),
-			client.NewPFSInput(repo[2], "/*"),
+			client.NewProjectPFSInput("", repo[1], "/*"),
+			client.NewProjectPFSInput("", repo[2], "/*"),
 		),
 		"", // default output branch: master
 		true,
@@ -2300,7 +2300,7 @@ func TestGetJobsBugFix(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -2400,7 +2400,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 		"does-not-exist", // nonexistant image
 		[]string{"true"}, nil,
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -2445,7 +2445,7 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 		"does-not-exist", // nonexistant image
 		[]string{"true"}, nil,
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -2640,7 +2640,7 @@ func TestDebug(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewPFSInput(dataRepo, "/*"),
+			client.NewProjectPFSInput("", dataRepo, "/*"),
 			"",
 			false,
 		))
@@ -2847,7 +2847,7 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(aliceRepo, "/*"),
+		client.NewProjectPFSInput("", aliceRepo, "/*"),
 		"", // default output branch: master
 		false,
 	)

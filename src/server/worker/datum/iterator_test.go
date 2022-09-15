@@ -35,7 +35,7 @@ func TestIterators(t *testing.T) {
 	}
 	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 	// Zero datums.
-	in0 := client.NewPFSInput(dataRepo, "!(**)")
+	in0 := client.NewProjectPFSInput("", dataRepo, "!(**)")
 	in0.Pfs.Commit = commit.ID
 	t.Run("ZeroDatums", func(t *testing.T) {
 		pfs0, err := NewIterator(c, taskDoer, in0)
@@ -43,9 +43,9 @@ func TestIterators(t *testing.T) {
 		validateDI(t, pfs0)
 	})
 	// Basic PFS inputs
-	in1 := client.NewPFSInput(dataRepo, "/foo?1")
+	in1 := client.NewProjectPFSInput("", dataRepo, "/foo?1")
 	in1.Pfs.Commit = commit.ID
-	in2 := client.NewPFSInput(dataRepo, "/foo*2")
+	in2 := client.NewProjectPFSInput("", dataRepo, "/foo*2")
 	in2.Pfs.Commit = commit.ID
 	t.Run("Basic", func(t *testing.T) {
 		pfs1, err := NewIterator(c, taskDoer, in1)
