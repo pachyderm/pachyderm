@@ -78,12 +78,12 @@ const (
 //
 // Deprecated: use NewProjectJob instead.
 func NewJob(pipelineName, jobID string) *pps.Job {
-	return &pps.Job{Pipeline: NewPipeline(pipelineName), ID: jobID}
+	return NewProjectJob("", pipelineName, jobID)
 }
 
 // NewProjectJob creates a pps.Job.
 func NewProjectJob(projectName, pipelineName, jobID string) *pps.Job {
-	return &pps.Job{Pipeline: NewPipeline(pipelineName), ID: jobID}
+	return &pps.Job{Pipeline: NewProjectPipeline(projectName, pipelineName), ID: jobID}
 }
 
 // NewJobSet creates a pps.JobSet.
@@ -211,6 +211,14 @@ func NewProjectJobInput(projectName, repoName, branchName, commitID, glob string
 // NewPipeline creates a pps.Pipeline.
 func NewPipeline(pipelineName string) *pps.Pipeline {
 	return &pps.Pipeline{Name: pipelineName}
+}
+
+// NewProjectPipeline creates a pps.Pipeline.
+func NewProjectPipeline(projectName, pipelineName string) *pps.Pipeline {
+	return &pps.Pipeline{
+		Project: NewProject(projectName),
+		Name:    pipelineName,
+	}
 }
 
 // InspectJob returns info about a specific job.
