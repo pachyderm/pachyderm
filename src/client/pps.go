@@ -110,6 +110,8 @@ func NewProjectPFSInput(project, repo, glob string) *pps.Input {
 }
 
 // NewPFSInputOpts returns a new PFS input. It includes all options.
+//
+// Deprecated: use NewProjectPFSInputOpts instead.
 func NewPFSInputOpts(name, repo, branch, glob, joinOn, groupBy string, outerJoin, lazy bool, trigger *pfs.Trigger) *pps.Input {
 	return NewProjectPFSInputOpts(name, "", repo, branch, glob, joinOn, groupBy, outerJoin, lazy, trigger)
 }

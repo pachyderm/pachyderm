@@ -517,8 +517,8 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewPFSInputOpts("dirA", dataRepo, "", "/dirA/*", "", "", false, false, nil),
-			client.NewPFSInputOpts("dirB", dataRepo, "", "/dirB/*", "", "", false, false, nil),
+			client.NewProjectPFSInputOpts("", "dirA", dataRepo, "", "/dirA/*", "", "", false, false, nil),
+			client.NewProjectPFSInputOpts("", "dirB", dataRepo, "", "/dirB/*", "", "", false, false, nil),
 		),
 		"",
 		false,
@@ -598,8 +598,8 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-			client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
+			client.NewProjectPFSInputOpts("", "branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+			client.NewProjectPFSInputOpts("", "branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 		),
 		"",
 		false,
@@ -657,8 +657,8 @@ func TestRunPipeline(t *testing.T) {
 	//		},
 	//		nil,
 	//		client.NewCrossInput(
-	//			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-	//			client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("","branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("","branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 	//		),
 	//		"",
 	//		false,
@@ -802,8 +802,8 @@ func TestRunPipeline(t *testing.T) {
 	//		},
 	//		nil,
 	//		client.NewCrossInput(
-	//			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-	//			client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("","branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("","branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 	//		),
 	//		"",
 	//		false,
@@ -852,8 +852,8 @@ func TestRunPipeline(t *testing.T) {
 	//		},
 	//		nil,
 	//		client.NewCrossInput(
-	//			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-	//			client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("","branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("","branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 	//		),
 	//		"",
 	//		false,
@@ -942,8 +942,8 @@ func TestRunPipeline(t *testing.T) {
 	//		},
 	//		nil,
 	//		client.NewCrossInput(
-	//			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-	//			client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("","branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("","branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 	//		),
 	//		"",
 	//		false,
@@ -975,7 +975,7 @@ func TestRunPipeline(t *testing.T) {
 	//		},
 	//		nil,
 	//		client.NewUnionInput(
-	//			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("","branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
 	//			client.NewProjectPFSInput("",pipeline, "/*"),
 	//		),
 	//		"",
@@ -1043,8 +1043,8 @@ func TestRunPipeline(t *testing.T) {
 	//		},
 	//		nil,
 	//		client.NewCrossInput(
-	//			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-	//			client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("","branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("","branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
 	//		),
 	//		"",
 	//		false,
@@ -1081,7 +1081,7 @@ func TestRunPipeline(t *testing.T) {
 	//		[]string{"bash"},
 	//		[]string{"false"},
 	//		nil,
-	//		client.NewPFSInputOpts("branch-a", dataRepo, "branchA", "/*", "", "", false, false, nil),
+	//		client.NewProjectPFSInputOpts("","branch-a", dataRepo, "branchA", "/*", "", "", false, false, nil),
 	//		"",
 	//		false,
 	//	))
@@ -1137,7 +1137,7 @@ func TestRunPipeline(t *testing.T) {
 	//					"echo ran-pipeline",
 	//				},
 	//			},
-	//			Input:       client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+	//			Input:       client.NewProjectPFSInputOpts("","branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
 	//		})
 	//	require.NoError(t, err)
 
@@ -1540,7 +1540,7 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts("", dataRepo, "", "/*", "", "", false, true, nil),
+		client.NewProjectPFSInputOpts("", "", dataRepo, "", "/*", "", "", false, true, nil),
 		"",
 		false,
 	))
@@ -1553,7 +1553,7 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts("", pipelineA, "", "/*", "", "", false, true, nil),
+		client.NewProjectPFSInputOpts("", "", pipelineA, "", "/*", "", "", false, true, nil),
 		"",
 		false,
 	))
@@ -5368,8 +5368,8 @@ func TestJoinInput(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewJoinInput(
-			client.NewPFSInputOpts("", repos[0], "", "/file-?.(11*)", "$1", "", false, false, nil),
-			client.NewPFSInputOpts("", repos[1], "", "/file-?.(*0)", "$1", "", false, false, nil),
+			client.NewProjectPFSInputOpts("", "", repos[0], "", "/file-?.(11*)", "$1", "", false, false, nil),
+			client.NewProjectPFSInputOpts("", "", repos[1], "", "/file-?.(*0)", "$1", "", false, false, nil),
 		),
 		"",
 		false,
@@ -5408,8 +5408,8 @@ func TestJoinInput(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewJoinInput(
-			client.NewPFSInputOpts("", dataRepo0, "", "/dir-(?)(?)", "$2", "", false, false, nil),
-			client.NewPFSInputOpts("", dataRepo1, "", "/dir-(?)(?)", "$1", "", false, false, nil),
+			client.NewProjectPFSInputOpts("", "", dataRepo0, "", "/dir-(?)(?)", "$2", "", false, false, nil),
+			client.NewProjectPFSInputOpts("", "", dataRepo1, "", "/dir-(?)(?)", "$1", "", false, false, nil),
 		),
 		"",
 		false,
@@ -5453,7 +5453,7 @@ func TestGroupInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewGroupInput(
-				client.NewPFSInputOpts("", repo, "", "/file.(?)(?)(?)(?)", "", "$3", false, false, nil),
+				client.NewProjectPFSInputOpts("", "", repo, "", "/file.(?)(?)(?)(?)", "", "$3", false, false, nil),
 			),
 			"",
 			false,
@@ -5529,8 +5529,8 @@ func TestGroupInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewGroupInput(
-				client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "", "$3", false, false, nil),
-				client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "", "$2", false, false, nil),
+				client.NewProjectPFSInputOpts("", "", repos[0], "", "/file-?.(?)(?)(?)(?)", "", "$3", false, false, nil),
+				client.NewProjectPFSInputOpts("", "", repos[1], "", "/file-?.(?)(?)(?)(?)", "", "$2", false, false, nil),
 			),
 			"",
 			false,
@@ -5625,8 +5625,8 @@ func TestGroupInput(t *testing.T) {
 			},
 			client.NewGroupInput(
 				client.NewJoinInput(
-					client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "$1$2$3$4", "$3", false, false, nil),
-					client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "$4$3$2$1", "$2", false, false, nil),
+					client.NewProjectPFSInputOpts("", "", repos[0], "", "/file-?.(?)(?)(?)(?)", "$1$2$3$4", "$3", false, false, nil),
+					client.NewProjectPFSInputOpts("", "", repos[1], "", "/file-?.(?)(?)(?)(?)", "$4$3$2$1", "$2", false, false, nil),
 				),
 			),
 			"",
@@ -5699,7 +5699,7 @@ func TestGroupInput(t *testing.T) {
 						"done"},
 				},
 				Input: client.NewGroupInput(
-					client.NewPFSInputOpts("", repo, "master", "/*-PATID(*)-*.txt", "", "$1", false, false, nil),
+					client.NewProjectPFSInputOpts("", "", repo, "master", "/*-PATID(*)-*.txt", "", "$1", false, false, nil),
 				),
 				ParallelismSpec: &pps.ParallelismSpec{
 					Constant: 1,
@@ -5877,10 +5877,10 @@ func TestUnionInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewUnionInput(
-				client.NewPFSInputOpts("in", repos[0], "", "/*", "", "", false, false, nil),
-				client.NewPFSInputOpts("in", repos[1], "", "/*", "", "", false, false, nil),
-				client.NewPFSInputOpts("in", repos[2], "", "/*", "", "", false, false, nil),
-				client.NewPFSInputOpts("in", repos[3], "", "/*", "", "", false, false, nil),
+				client.NewProjectPFSInputOpts("", "in", repos[0], "", "/*", "", "", false, false, nil),
+				client.NewProjectPFSInputOpts("", "in", repos[1], "", "/*", "", "", false, false, nil),
+				client.NewProjectPFSInputOpts("", "in", repos[2], "", "/*", "", "", false, false, nil),
+				client.NewProjectPFSInputOpts("", "in", repos[3], "", "/*", "", "", false, false, nil),
 			),
 			"",
 			false,
@@ -8618,8 +8618,8 @@ func TestDeferredCross(t *testing.T) {
 			},
 			Input: client.NewCrossInput(
 				client.NewUnionInput(
-					client.NewPFSInputOpts("a", downstreamPipeline, "master", "/", "", "", false, false, nil),
-					client.NewPFSInputOpts("b", downstreamPipeline, "other", "/", "", "", false, false, nil),
+					client.NewProjectPFSInputOpts("", "a", downstreamPipeline, "master", "/", "", "", false, false, nil),
+					client.NewProjectPFSInputOpts("", "b", downstreamPipeline, "other", "/", "", "", false, false, nil),
 				),
 				client.NewProjectPFSInput("", dataSet, "/"),
 			),
@@ -9603,7 +9603,7 @@ func TestTrigger(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts(dataRepo, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+		client.NewProjectPFSInputOpts("", dataRepo, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
 			Branch: "master",
 			Size_:  "1K",
 		}),
@@ -9620,7 +9620,7 @@ func TestTrigger(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts(pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
+		client.NewProjectPFSInputOpts("", pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
 			Size_: "2K",
 		}),
 		"",
@@ -9681,7 +9681,7 @@ func TestTrigger(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts(pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
+		client.NewProjectPFSInputOpts("", pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
 			Size_: "3K",
 		}),
 		"",
@@ -10349,7 +10349,7 @@ func TestMoveBranchTrigger(t *testing.T) {
 			},
 			Input: client.NewCrossInput(
 				client.NewProjectPFSInput("", dataRepo, "/*"),
-				client.NewPFSInputOpts("trigger", dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+				client.NewProjectPFSInputOpts("", "trigger", dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
 					Branch:  "toMove",
 					Commits: 1,
 				}),
