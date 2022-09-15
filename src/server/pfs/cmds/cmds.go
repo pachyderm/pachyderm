@@ -6,7 +6,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -942,7 +941,6 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 				return err
 			}
 			defer c.Close()
-			log.Println("QQQ", project, cmdutil.ParseRepo(project, args[0]))
 			branchClient, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(project, args[0])})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)

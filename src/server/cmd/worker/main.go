@@ -57,8 +57,6 @@ func do(ctx context.Context, config interface{}) error {
 		env.Config().PPSSpecCommitID,
 	) // get pipeline creds for pachClient
 	if err != nil {
-		log.Println("QQQ", env.Config().PPSProjectName)
-		log.Println("QQQ", os.Environ())
 		return errors.Wrapf(err, "error getting pipelineInfo for %q", p)
 	}
 

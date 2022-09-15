@@ -1960,7 +1960,6 @@ func (d *driver) listBranch(ctx context.Context, reverse bool, cb func(*pfs.Bran
 }
 
 func (d *driver) listBranchInTransaction(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, reverse bool, cb func(*pfs.BranchInfo) error) error {
-	log.Println("QQQ", repo.Project.GetName(), repo.Name)
 	// Validate arguments
 	if repo == nil {
 		return errors.New("repo cannot be nil")
