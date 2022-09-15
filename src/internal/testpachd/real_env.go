@@ -1,7 +1,6 @@
 package testpachd
 
 import (
-	"fmt"
 	"net"
 	"net/url"
 	"path"
@@ -131,7 +130,7 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 		Use(func(txnctx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
 			return nil, col.ErrNotFound{
 				Type: "pipelines",
-				Key:  fmt.Sprintf("%s/%s", pipeline.Project.GetName(), pipeline.Name),
+				Key:  pipeline.String(),
 			}
 		})
 
