@@ -108,7 +108,6 @@ func ParseRepo(project, name string) *pfs.Repo {
 		repo.Name = name
 		repo.Type = pfs.UserRepoType
 	}
-	repo.Project = new(pfs.Project) // ensure that Project is not nil
 	return &repo
 }
 
