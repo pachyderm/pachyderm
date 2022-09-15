@@ -20,13 +20,13 @@ sleep 300
 # provision a pulumi test env
 WORKSPACE=${CIRCLE_TAG//./-}
 
-if [ "$1" = "aws" ]; then
+if [ "${1-default}" = "aws" ]; then
   curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
   -F name="${WORKSPACE}-${CIRCLE_SHA1:0:7}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG:1}-${CIRCLE_SHA1}" \
   -F backend="aws_cluster" -F infraJson=@etc/testing/circle/workloads/aws-examples/infra.json -F valuesYaml=@etc/testing/circle/workloads/aws-examples/values.yaml \
     https://helium.pachyderm.io/v1/api/workspace
 else
-  # assume gcp
+  # assume default gcp
   curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
   -F name="${WORKSPACE}-${CIRCLE_SHA1:0:7}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG:1}-${CIRCLE_SHA1}" \
     https://helium.pachyderm.io/v1/api/workspace
@@ -55,14 +55,14 @@ fi
 
 pachdIp=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/${WORKSPACE}-${CIRCLE_SHA1:0:7}"  | jq .Workspace.PachdIp)
 
-if [ "$1" = "aws" ]; then
+if [ "${1-default}" = "aws" ]; then
   withEnvoy=$(echo "$pachdIp" | sed 's/grpc:\/\//grpc:\/\/pachd-/g' | sed 's/30651/30650/g')
   echo "${withEnvoy}"
   pachctlCtx=$(echo "{\"pachd_address\": ${withEnvoy}, \"source\": 2}" | tr -d \\)
   echo "${pachctlCtx}"
   echo "${pachctlCtx}" | pachctl config set context "${WORKSPACE}-${CIRCLE_SHA1:0:7}" --overwrite && pachctl config set active-context "${WORKSPACE}-${CIRCLE_SHA1:0:7}"
 else
-  # assume gcp
+  # assume default gcp
   echo "{\"pachd_address\": ${pachdIp}, \"source\": 2}" | tr -d \\ | pachctl config set context "${WORKSPACE}-${CIRCLE_SHA1:0:7}" --overwrite && pachctl config set active-context "${WORKSPACE}-${CIRCLE_SHA1:0:7}"
 fi
 

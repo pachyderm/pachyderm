@@ -1,0 +1,5 @@
+{
+  "baseUrl": "http://localhost:8888/",
+  "defaultCommandTimeout": 20000,
+  "projectId": "dttaoj"
+}
