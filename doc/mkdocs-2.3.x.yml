@@ -20,10 +20,10 @@ copyright: 'Copyright Pachyderm Inc, 2022'
 # Version of Pachyderm featured in the product
 
 
-pach_featured_version: '2.3.2'
+pach_featured_version: '2.3.3'
 
 # Latest version of Pachyderm
-pach_latest_version: '2.3.2'
+pach_latest_version: '2.3.3'
 pach_major_minor_version: '2.3'
 search_index_version: '2.3.x'
 
