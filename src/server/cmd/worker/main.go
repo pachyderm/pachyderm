@@ -6,7 +6,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -16,6 +15,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
@@ -44,15 +45,21 @@ func do(ctx context.Context, config interface{}) error {
 
 	// Construct a client that connects to the sidecar.
 	pachClient := env.GetPachClient(ctx)
+	p := &pps.Pipeline{
+		Project: &pfs.Project{Name: env.Config().PPSProjectName},
+		Name:    env.Config().PPSPipelineName,
+	}
 	pipelineInfo, err := ppsutil.GetWorkerPipelineInfo(
 		pachClient,
 		env.GetDBClient(),
 		env.GetPostgresListener(),
-		client.NewPipeline(env.Config().PPSPipelineName),
+		p,
 		env.Config().PPSSpecCommitID,
 	) // get pipeline creds for pachClient
 	if err != nil {
-		return errors.Wrapf(err, "error getting pipelineInfo")
+		log.Println("QQQ", env.Config().PPSProjectName)
+		log.Println("QQQ", os.Environ())
+		return errors.Wrapf(err, "error getting pipelineInfo for %q", p)
 	}
 
 	// Construct worker API server.

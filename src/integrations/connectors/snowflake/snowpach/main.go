@@ -145,7 +145,7 @@ func connect() (*sqlx.DB, error) {
 }
 
 func read(db *sqlx.DB) error {
-	stage := env("PPS_PIPELINE_NAME", true) + env("PACH_JOB_ID", false)
+	stage := env("PPS_PROJECT_NAME", true) + env("PPS_PIPELINE_NAME", true) + env("PACH_JOB_ID", false)
 	if err := copyIntoStage(db, stage); err != nil {
 		return err
 	}
@@ -166,7 +166,7 @@ func writeTable(db *sqlx.DB, files []string, table string) error {
 		return nil
 	}
 	// create temporary stage to stage files
-	stage := env("PPS_PIPELINE_NAME", true) + env("PACH_JOB_ID", false)
+	stage := env("PPS_PROJECT_NAME", true) + env("PPS_PIPELINE_NAME", true) + env("PACH_JOB_ID", false)
 	if err := createTempStage(db, stage); err != nil {
 		return err
 	}

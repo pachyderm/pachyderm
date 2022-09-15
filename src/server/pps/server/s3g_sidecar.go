@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 	logrus "github.com/sirupsen/logrus"
@@ -58,7 +59,8 @@ func (a *apiServer) ServeSidecarS3G() {
 			s.pachClient,
 			a.env.DB,
 			a.env.Listener,
-			client.NewPipeline(a.env.Config.PPSPipelineName),
+			&pps.Pipeline{Project: &pfs.Project{Name: a.env.Config.PPSProjectName},
+				Name: a.env.Config.PPSPipelineName},
 			a.env.Config.PPSSpecCommitID,
 		)
 		return errors.Wrapf(err, "sidecar s3 gateway: could not find pipeline")
