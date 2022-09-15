@@ -209,7 +209,7 @@ func TestMountParsing(t *testing.T) {
 			File: client.NewProjectFile("", "repo4", "master", "dee0c3904d6f44beb4fa10fc0db12d02", ""),
 		},
 	}
-	opts, err := parseRepoOpts([]string{"repo1@branch+w", "repo2+w", "repo3", "repo4@master=dee0c3904d6f44beb4fa10fc0db12d02"})
+	opts, err := parseRepoOpts("", []string{"repo1@branch+w", "repo2+w", "repo3", "repo4@master=dee0c3904d6f44beb4fa10fc0db12d02"})
 	require.NoError(t, err)
 	for repo, ro := range expected {
 		require.Equal(t, ro, opts[repo])

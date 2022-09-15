@@ -277,7 +277,6 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 		tracing.TagAnySpan(span, "pollpipelines-or-autoscaling-event", "true")
 	}
 	defer tracing.FinishAnySpan(span, "err", retErr)
-	// derive the latest pipelineInfo with a corresponding auth'd context
 	pi, ctx, err := pc.psDriver.FetchState(pc.ctx, pc.pipeline)
 	if err != nil {
 		// if we fail to create a new step, there was an error querying the pipeline info, and there's nothing we can do
