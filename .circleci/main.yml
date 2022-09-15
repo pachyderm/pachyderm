@@ -1135,7 +1135,7 @@ workflows:
             - jupyter-extension-docker-build
           filters:
             branches:
-              ignore: main
+              ignore: 2.3.x #NOTE: Needs to be replaced with base branch
 
   release:
     jobs:
