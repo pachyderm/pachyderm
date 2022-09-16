@@ -4,11 +4,9 @@ import (
 	io "io"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
-
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -71,16 +69,12 @@ func (cc *CacheClient) put(key string, commit *pfs.Commit) {
 }
 
 func (cc *CacheClient) WithCreateFileSetClient(cb func(client.ModifyFile) error) (*pfs.CreateFileSetResponse, error) {
-	pachClient := pfsload.NewPachClient(cc.APIClient)
-	resp, err := pachClient.WithCreateFileSetClient(cc.Ctx(), func(mf client.ModifyFile) error {
+	resp, err := cc.APIClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
 		ccfsc := &cacheCreateFileSetClient{
 			ModifyFile:  mf,
 			CacheClient: cc,
 		}
-		if err := cb(ccfsc); err != nil {
-			return err
-		}
-		return nil
+		return cb(ccfsc)
 	})
 	return resp, errors.EnsureStack(err)
 }

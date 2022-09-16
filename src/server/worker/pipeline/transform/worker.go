@@ -263,9 +263,9 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, task *DatumS
 	var outputFileSetID, metaFileSetID string
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-		// Setup file operation client for output meta commit.
 		pachClient := pachClient.WithCtx(ctx)
 		cacheClient := pfssync.NewCacheClient(pachClient, renewer)
+		// Setup file operation client for output meta commit.
 		resp, err := cacheClient.WithCreateFileSetClient(func(mfMeta client.ModifyFile) error {
 			// Setup file operation client for output PFS commit.
 			resp, err := cacheClient.WithCreateFileSetClient(func(mfPFS client.ModifyFile) (retErr error) {
