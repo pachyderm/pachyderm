@@ -135,6 +135,8 @@ func NewProjectPFSInputOpts(name, project, repo, branch, glob, joinOn, groupBy s
 }
 
 // NewS3PFSInput returns a new PFS input with 'S3' set.
+//
+// Deprecated: use NewProjectS3PFSInput instead.
 func NewS3PFSInput(name, repo, branch string) *pps.Input {
 	return NewProjectS3PFSInput("", name, repo, branch)
 }
