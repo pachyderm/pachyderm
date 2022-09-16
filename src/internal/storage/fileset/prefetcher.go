@@ -15,7 +15,9 @@ import (
 // files as well as chunks that contain the content of a larger file. This is
 // handled by buffering file metadata up to chunk boundaries, then kicking off
 // concurrent tasks to prefetch the chunks and emit the files associated with
-// the chunks.
+// the chunks. The prefetching of files with more chunks than the prefetch
+// limit will not be handled by this abstraction. In this case, the prefetching
+// will be handled when the content of the file is needed.
 type prefetcher struct {
 	FileSet
 	storage *Storage
@@ -48,6 +50,21 @@ func (p *prefetcher) Iterate(ctx context.Context, cb func(File) error, opts ...i
 				return nil
 			}, nil
 		})
+	}
+	waitFile := func(f File) error {
+		done := make(chan struct{})
+		return taskChain.CreateTask(func(_ context.Context) (func() error, error) {
+			return func() error {
+				defer close(done)
+				return cb(f)
+			}, nil
+		})
+		select {
+		case <-done:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 	var ref *chunk.DataRef
 	var files []File
@@ -89,28 +106,26 @@ func (p *prefetcher) Iterate(ctx context.Context, cb func(File) error, opts ...i
 			return nil
 		}
 		// Handle files that span multiple chunks.
-		// Fetch the curent chunk first.
+		// Fetch the current chunk first.
 		if err := fetchChunk(ref, files); err != nil {
 			return err
 		}
-		// Fetch the first chunk if it is different from the current chunk.
-		// It will be fetched by the above fetchChunk if it is the same.
-		if !bytes.Equal(dataRefs[0].Ref.Id, ref.Ref.Id) {
-			if err := fetchChunk(chunk.FullRef(dataRefs[0]), nil); err != nil {
-				return err
-			}
+		ref = nil
+		files = nil
+		// Handle files that span more chunks than the prefetch limit.
+		// Don't attempt to prefetch these files and wait for the client
+		// to be done with them to prevent thrashing the cache.
+		if len(dataRefs) > p.storage.prefetchLimit {
+			return waitFile(f)
 		}
 		// Fetch the full chunks that the file spans.
-		for i := 1; i < len(dataRefs)-1; i++ {
+		for i := 0; i < len(dataRefs)-1; i++ {
 			if err := fetchChunk(chunk.FullRef(dataRefs[i]), nil); err != nil {
 				return err
 			}
 		}
-		// Set the current chunk to the last chunk and buffer the file.
-		// The file will be emitted when the last chunk has been fetched.
-		ref = chunk.FullRef(dataRefs[len(dataRefs)-1])
-		files = []File{f}
-		return nil
+		// Emit the file when the last chunk has been fetched.
+		return fetchChunk(chunk.FullRef(dataRefs[len(dataRefs)-1]), []File{f})
 	}, opts...); err != nil {
 		return err
 	}
