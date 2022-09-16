@@ -11,18 +11,16 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
-	"golang.org/x/sync/semaphore"
 )
 
 // Reader reads data from chunk storage.
 type Reader struct {
-	ctx           context.Context
-	client        Client
-	memCache      kv.GetPut
-	deduper       *miscutil.WorkDeduper
-	dataRefs      []*DataRef
-	offsetBytes   int64
-	prefetchLimit int
+	ctx         context.Context
+	client      Client
+	memCache    kv.GetPut
+	deduper     *miscutil.WorkDeduper
+	dataRefs    []*DataRef
+	offsetBytes int64
 }
 
 type ReaderOption func(*Reader)
@@ -33,14 +31,13 @@ func WithOffsetBytes(offsetBytes int64) ReaderOption {
 	}
 }
 
-func newReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper, prefetchLimit int, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
+func newReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
 	r := &Reader{
-		ctx:           ctx,
-		client:        client,
-		memCache:      memCache,
-		deduper:       deduper,
-		prefetchLimit: prefetchLimit,
-		dataRefs:      dataRefs,
+		ctx:      ctx,
+		client:   client,
+		memCache: memCache,
+		deduper:  deduper,
+		dataRefs: dataRefs,
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -56,41 +53,15 @@ func newReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *
 }
 
 // Get writes the concatenation of the data referenced by the data references.
-func (r *Reader) Get(w io.Writer) (retErr error) {
-	if len(r.dataRefs) == 0 {
-		return nil
-	}
-	if len(r.dataRefs) == 1 {
-		_, err := io.Copy(w, newDataReader(r.ctx, r.client, r.memCache, r.deduper, r.dataRefs[0], r.offsetBytes))
-		return errors.EnsureStack(err)
-	}
-	ctx, cancel := context.WithCancel(r.ctx)
-	defer cancel()
-	taskChain := NewTaskChain(ctx, semaphore.NewWeighted(int64(r.prefetchLimit)))
-	defer func() {
-		if retErr != nil {
-			cancel()
-		}
-		if err := taskChain.Wait(); retErr == nil {
-			retErr = err
-		}
-	}()
+func (r *Reader) Get(w io.Writer) error {
 	for i, dataRef := range r.dataRefs {
 		var offset int64
 		if i == 0 {
 			offset = r.offsetBytes
 		}
 		dr := newDataReader(r.ctx, r.client, r.memCache, r.deduper, dataRef, offset)
-		if err := taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
-			if err := dr.fetchData(); err != nil {
-				return nil, err
-			}
-			return func() error {
-				_, err := io.Copy(w, dr)
-				return errors.EnsureStack(err)
-			}, nil
-		}); err != nil {
-			return err
+		if _, err := io.Copy(w, dr); err != nil {
+			return errors.EnsureStack(err)
 		}
 	}
 	return nil

@@ -16,21 +16,19 @@ import (
 
 const (
 	// TrackerPrefix is the prefix used when creating tracker objects for chunks
-	TrackerPrefix        = "chunk/"
-	prefix               = "chunk"
-	defaultChunkTTL      = 30 * time.Minute
-	defaultPrefetchLimit = 10
+	TrackerPrefix   = "chunk/"
+	prefix          = "chunk"
+	defaultChunkTTL = 30 * time.Minute
 )
 
 // Storage is the abstraction that manages chunk storage.
 type Storage struct {
-	objClient     obj.Client
-	db            *pachsql.DB
-	tracker       track.Tracker
-	store         kv.Store
-	memCache      kv.GetPut
-	deduper       *miscutil.WorkDeduper
-	prefetchLimit int
+	objClient obj.Client
+	db        *pachsql.DB
+	tracker   track.Tracker
+	store     kv.Store
+	memCache  kv.GetPut
+	deduper   *miscutil.WorkDeduper
 
 	createOpts CreateOptions
 }
@@ -38,12 +36,11 @@ type Storage struct {
 // NewStorage creates a new Storage.
 func NewStorage(objC obj.Client, memCache kv.GetPut, db *pachsql.DB, tracker track.Tracker, opts ...StorageOption) *Storage {
 	s := &Storage{
-		objClient:     objC,
-		db:            db,
-		tracker:       tracker,
-		memCache:      memCache,
-		deduper:       &miscutil.WorkDeduper{},
-		prefetchLimit: defaultPrefetchLimit,
+		objClient: objC,
+		db:        db,
+		tracker:   tracker,
+		memCache:  memCache,
+		deduper:   &miscutil.WorkDeduper{},
 		createOpts: CreateOptions{
 			Compression: CompressionAlgo_GZIP_BEST_SPEED,
 		},
@@ -59,12 +56,17 @@ func NewStorage(objC obj.Client, memCache kv.GetPut, db *pachsql.DB, tracker tra
 // NewReader creates a new Reader.
 func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
 	client := NewClient(s.store, s.db, s.tracker, nil)
-	return newReader(ctx, client, s.memCache, s.deduper, s.prefetchLimit, dataRefs, opts...)
+	return newReader(ctx, client, s.memCache, s.deduper, dataRefs, opts...)
 }
 
 func (s *Storage) NewDataReader(ctx context.Context, dataRef *DataRef) io.Reader {
 	client := NewClient(s.store, s.db, s.tracker, nil)
 	return newDataReader(ctx, client, s.memCache, s.deduper, dataRef, 0)
+}
+
+func (s *Storage) PrefetchData(ctx context.Context, dataRef *DataRef) error {
+	client := NewClient(s.store, s.db, s.tracker, nil)
+	return newDataReader(ctx, client, s.memCache, s.deduper, dataRef, 0).fetchData()
 }
 
 // List lists all of the chunks in object storage.
