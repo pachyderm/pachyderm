@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"golang.org/x/sync/semaphore"
@@ -53,17 +54,19 @@ func (p *prefetcher) Iterate(ctx context.Context, cb func(File) error, opts ...i
 	}
 	waitFile := func(f File) error {
 		done := make(chan struct{})
-		return taskChain.CreateTask(func(_ context.Context) (func() error, error) {
+		if err := taskChain.CreateTask(func(_ context.Context) (func() error, error) {
 			return func() error {
 				defer close(done)
 				return cb(f)
 			}, nil
-		})
+		}); err != nil {
+			return err
+		}
 		select {
 		case <-done:
 			return nil
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.EnsureStack(ctx.Err())
 		}
 	}
 	var ref *chunk.DataRef
