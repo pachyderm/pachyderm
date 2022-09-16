@@ -135,13 +135,19 @@ func NewProjectPFSInputOpts(name, project, repo, branch, glob, joinOn, groupBy s
 }
 
 // NewS3PFSInput returns a new PFS input with 'S3' set.
-func NewS3PFSInput(name string, repo string, branch string) *pps.Input {
+func NewS3PFSInput(name, repo, branch string) *pps.Input {
+	return NewProjectS3PFSInput("", name, repo, branch)
+}
+
+// NewProjectS3PFSInput returns a new PFS input with 'S3' set.
+func NewProjectS3PFSInput(project, name, repo, branch string) *pps.Input {
 	return &pps.Input{
 		Pfs: &pps.PFSInput{
-			Name:   name,
-			Repo:   repo,
-			Branch: branch,
-			S3:     true,
+			Project: project,
+			Name:    name,
+			Repo:    repo,
+			Branch:  branch,
+			S3:      true,
 		},
 	}
 }
