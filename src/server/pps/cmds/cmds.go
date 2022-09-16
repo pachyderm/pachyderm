@@ -344,7 +344,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 				return err
 			}
 			defer client.Close()
-			if err := client.DeleteJob(job.Pipeline.Name, job.ID); err != nil {
+			if err := client.DeleteProjectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID); err != nil {
 				return errors.Wrap(err, "error from DeleteJob")
 			}
 			return nil

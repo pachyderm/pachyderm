@@ -4132,7 +4132,7 @@ func TestJobDeletion(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commit.ID)
 	require.NoError(t, err)
 
-	err = c.DeleteJob(pipelineName, commit.ID)
+	err = c.DeleteProjectJob("", pipelineName, commit.ID)
 	require.NoError(t, err)
 }
 

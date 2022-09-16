@@ -599,11 +599,18 @@ func (c APIClient) SubscribeProjectJob(projectName, pipelineName string, details
 }
 
 // DeleteJob deletes a job.
-func (c APIClient) DeleteJob(pipelineName string, jobID string) error {
+//
+// Deprecated: use DeleteProjectJob instead.
+func (c APIClient) DeleteJob(pipelineName, jobID string) error {
+	return c.DeleteProjectJob("", pipelineName, jobID)
+}
+
+// DeleteProjectJob deletes a job.
+func (c APIClient) DeleteProjectJob(projectName, pipelineName, jobID string) error {
 	_, err := c.PpsAPIClient.DeleteJob(
 		c.Ctx(),
 		&pps.DeleteJobRequest{
-			Job: NewProjectJob("", pipelineName, jobID),
+			Job: NewProjectJob(projectName, pipelineName, jobID),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
