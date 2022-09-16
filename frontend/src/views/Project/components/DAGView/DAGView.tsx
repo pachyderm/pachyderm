@@ -11,6 +11,7 @@ import {
   OverflowSVG,
   DropdownItem,
   useBreakpoint,
+  DownloadSVG,
 } from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
@@ -21,6 +22,7 @@ import {
   LETS_START_TITLE,
 } from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import View from '@dash-frontend/components/View';
+import downloadSVG from '@dash-frontend/lib/downloadSVG';
 import {DagDirection, Dag} from '@dash-frontend/lib/types';
 import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
 import {LARGE} from 'constants/breakpoints';
@@ -56,6 +58,9 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
     zoomOut,
     skipCenterOnSelect,
     handleChangeCenterOnSelect,
+    graphExtents,
+    projectName,
+    viewState,
   } = useDAGView(NODE_WIDTH, NODE_HEIGHT, dags, loading);
   const isResponsive = useBreakpoint(LARGE);
 
@@ -71,6 +76,14 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
     );
   };
 
+  const downloadCanvas = () =>
+    downloadSVG(
+      graphExtents.xMax + 100,
+      graphExtents.yMax + 100,
+      projectName,
+      viewState.globalIdFilter,
+    );
+
   const onDropdownMenuSelect = (id: string) => {
     switch (id) {
       case 'flip-canvas':
@@ -79,6 +92,8 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
         return zoomOut();
       case 'center-selections':
         return handleChangeCenterOnSelect(!!skipCenterOnSelect);
+      case 'download-canvas':
+        return downloadCanvas();
       default:
         return null;
     }
@@ -102,6 +117,12 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
       content: 'Center Selections',
       disabled: noDags,
       IconSVG: !skipCenterOnSelect ? CheckboxCheckedSVG : CheckboxSVG,
+    },
+    {
+      id: 'download-canvas',
+      content: 'Download Canvas',
+      disabled: noDags,
+      IconSVG: DownloadSVG,
     },
   ];
 
@@ -190,6 +211,17 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
                   Center Selections
                 </Button>
               </Tooltip>
+              <Button
+                className={styles.controlButton}
+                buttonType="ghost"
+                color="black"
+                IconSVG={DownloadSVG}
+                disabled={noDags}
+                data-testid="DAGView__downloadCanvas"
+                onClick={downloadCanvas}
+              >
+                Download Canvas
+              </Button>
             </ButtonGroup>
           )}
         </div>

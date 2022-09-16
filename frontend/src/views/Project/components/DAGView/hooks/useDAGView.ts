@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react';
 
+import useCurrentProject from '@dash-frontend/hooks/useCurrentProject';
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useSidebarInfo from '@dash-frontend/hooks/useSidebarInfo';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
@@ -82,6 +83,7 @@ export const useDAGView = (
   const {selectedNode} = useRouteController();
   const {viewState, updateViewState} = useUrlQueryState();
   const {pipelineId, repoId, projectId} = useUrlState();
+  const {currentProject} = useCurrentProject();
   const [dagDirectionSetting, setDagDirectionSetting] = useLocalProjectSettings(
     {projectId, key: 'dag_direction'},
   );
@@ -374,5 +376,8 @@ export const useDAGView = (
     zoomOut,
     skipCenterOnSelect,
     handleChangeCenterOnSelect,
+    graphExtents,
+    projectName: currentProject?.name,
+    viewState,
   };
 };
