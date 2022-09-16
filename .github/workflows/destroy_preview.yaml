@@ -1,6 +1,6 @@
 on:
   pull_request:
-    types: [syncronize]
+    types: [synchronize]
 jobs:
   up:
     name: remove-preview
