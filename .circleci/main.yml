@@ -1160,6 +1160,7 @@ workflows:
   jupyter-extension:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
+      - build-docker-images
       - jupyter-extension-test:
           matrix:
             parameters:
@@ -1167,9 +1168,11 @@ workflows:
       - jupyter-extension-frontend-test
       - jupyter-extension-integration-test:
           requires:
+            - build-docker-images
             - build-pachctl-bin
       - jupyter-extension-e2e-test:
           requires:
+            - build-docker-images
             - jupyter-extension-build
             - build-pachctl-bin
       - jupyter-extension-build
