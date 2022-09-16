@@ -250,11 +250,21 @@ func NewProjectPipeline(projectName, pipelineName string) *pps.Pipeline {
 }
 
 // InspectJob returns info about a specific job.
+//
 // 'details' indicates that the JobInfo.Details field should be filled out.
+//
+// Deprecated: use InspectProjectJob instead.
 func (c APIClient) InspectJob(pipelineName string, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
+	return c.InspectProjectJob("", pipelineName, jobID, details)
+}
+
+// InspectProjectJob returns info about a specific job.
+//
+// 'details' indicates that the JobInfo.Details field should be filled out.
+func (c APIClient) InspectProjectJob(projectName, pipelineName, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	req := &pps.InspectJobRequest{
-		Job:     NewProjectJob("", pipelineName, jobID),
+		Job:     NewProjectJob(projectName, pipelineName, jobID),
 		Details: details,
 	}
 	jobInfo, err := c.PpsAPIClient.InspectJob(c.Ctx(), req)

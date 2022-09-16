@@ -1233,7 +1233,7 @@ func TestPPSEgressURLOnly(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		jobInfo, err := c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+		jobInfo, err := c.InspectProjectJob("", pipeline, commitInfo.Commit.ID, false)
 		if err != nil {
 			return err
 		}
@@ -1286,7 +1286,7 @@ func TestEgressFailure(t *testing.T) {
 		return nil
 	})
 	time.Sleep(10 * time.Second)
-	jobInfo, err := c.InspectJob(pipeline, jobInfos[0].Job.ID, false)
+	jobInfo, err := c.InspectProjectJob("", pipeline, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_EGRESSING, jobInfo.State)
 	fileInfos, err := c.ListFileAll(commit, "")
@@ -1424,7 +1424,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 
 		commitInfo, err := c.WaitCommit(pipeline, "master", "")
 		require.NoError(t, err)
-		jobInfo, err := c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+		jobInfo, err := c.InspectProjectJob("", pipeline, commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 
 		// We expect the job to fail, and have 1 datum processed, recovered, and failed each
@@ -1450,7 +1450,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 
 		commitInfo, err = c.WaitCommit(pipeline, "master", "")
 		require.NoError(t, err)
-		jobInfo, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+		jobInfo, err = c.InspectProjectJob("", pipeline, commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 
 		// so we expect the job to succeed, and to have recovered 2 datums
@@ -1485,7 +1485,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 
 		commitInfo, err := c.WaitCommit(pipeline, "master", "")
 		require.NoError(t, err)
-		jobInfo, err := c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+		jobInfo, err := c.InspectProjectJob("", pipeline, commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 
 		// We expect there to be one recovered datum
@@ -1510,7 +1510,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 
 		commitInfo, err = c.WaitCommit(pipeline, "master", "")
 		require.NoError(t, err)
-		jobInfo, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+		jobInfo, err = c.InspectProjectJob("", pipeline, commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 
 		// Now the recovered datum should have been processed
@@ -4188,7 +4188,7 @@ func TestStopJob(t *testing.T) {
 	require.Equal(t, commit1.ID, jobInfos[2].Job.ID)
 
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfo, err := c.InspectJob(pipelineName, commit1.ID, false)
+		jobInfo, err := c.InspectProjectJob("", pipelineName, commit1.ID, false)
 		require.NoError(t, err)
 		if jobInfo.State != pps.JobState_JOB_RUNNING {
 			return errors.Errorf("first job has the wrong state")
@@ -4655,7 +4655,7 @@ func TestDatumStatusRestart(t *testing.T) {
 	// (than the last time checkStatus was called)
 	checkStatus := func() {
 		require.NoErrorWithinTRetry(t, time.Minute, func() error {
-			jobInfo, err := c.InspectJob(pipeline, commit1.ID, true)
+			jobInfo, err := c.InspectProjectJob("", pipeline, commit1.ID, true)
 			require.NoError(t, err)
 			if len(jobInfo.Details.WorkerStatus) == 0 {
 				return errors.Errorf("no worker statuses")
@@ -7959,7 +7959,7 @@ func TestCancelJob(t *testing.T) {
 	// Wait until the job is cancelled
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
 		return backoff.Retry(func() error {
-			updatedJobInfo, err := c.InspectJob(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID, false)
+			updatedJobInfo, err := c.InspectProjectJob("", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID, false)
 			if err != nil {
 				return err
 			}
@@ -8060,7 +8060,7 @@ func TestCancelManyJobs(t *testing.T) {
 				// TODO(msteffen): once github.com/pachyderm/pachyderm/v2/pull/2642 is
 				// submitted, change ListJob here to filter on commit1 as the input commit,
 				// rather than inspecting the input in the test
-				updatedJobInfo, err := c.InspectJob(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID, false)
+				updatedJobInfo, err := c.InspectProjectJob("", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID, false)
 				if err != nil {
 					return err
 				}
@@ -8395,7 +8395,7 @@ func TestInspectJob(t *testing.T) {
 	ci, err := c.InspectCommit(repo, "master", "")
 	require.NoError(t, err)
 
-	_, err = c.InspectJob(repo, ci.Commit.ID, false)
+	_, err = c.InspectProjectJob("", repo, ci.Commit.ID, false)
 	require.YesError(t, err)
 	require.True(t, errutil.IsNotFoundError(err))
 }
@@ -8635,7 +8635,7 @@ func TestDeferredCross(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 1)
 
-	jobInfo, err := c.InspectJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, true)
+	jobInfo, err := c.InspectProjectJob("", jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, true)
 	require.NoError(t, err)
 
 	headCommit, err := c.InspectCommit(dataSet, "master", "")
@@ -10765,7 +10765,7 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
 	commitInfo, err := c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
-	_, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+	_, err = c.InspectProjectJob("", pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	// query db for results
 	var count, expected int
@@ -10777,7 +10777,7 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar\n3,ABC")))
 	commitInfo, err = c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
-	_, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+	_, err = c.InspectProjectJob("", pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	// query db for results
 	expected = 3

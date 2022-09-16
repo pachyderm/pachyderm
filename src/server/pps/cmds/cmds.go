@@ -96,7 +96,7 @@ If the job fails, the output commit will not be populated with data.`,
 				return err
 			}
 			defer client.Close()
-			jobInfo, err := client.InspectJob(job.Pipeline.Name, job.ID, true)
+			jobInfo, err := client.InspectProjectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, true)
 			if err != nil {
 				return errors.Wrap(err, "error from InspectJob")
 			}
