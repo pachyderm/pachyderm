@@ -140,11 +140,11 @@ func NewS3PFSInput(name, repo, branch string) *pps.Input {
 }
 
 // NewProjectS3PFSInput returns a new PFS input with 'S3' set.
-func NewProjectS3PFSInput(project, name, repo, branch string) *pps.Input {
+func NewProjectS3PFSInput(name, project, repo, branch string) *pps.Input {
 	return &pps.Input{
 		Pfs: &pps.PFSInput{
-			Project: project,
 			Name:    name,
+			Project: project,
 			Repo:    repo,
 			Branch:  branch,
 			S3:      true,
