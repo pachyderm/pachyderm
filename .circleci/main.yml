@@ -28,7 +28,7 @@ orbs:
 parameters:
   machine_image:
     type: string
-    default: ubuntu-2004:2022.04.2
+    default: ubuntu-2004:2022.07.1
   go-version:
     type: string
     default: "1.19"
