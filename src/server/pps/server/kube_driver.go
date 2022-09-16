@@ -64,7 +64,7 @@ func (kd *kubeDriver) CreatePipelineResources(ctx context.Context, pi *pps.Pipel
 func (kd *kubeDriver) DeletePipelineResources(ctx context.Context, pipeline *pps.Pipeline) (retErr error) {
 	projectName := pipeline.Project.GetName()
 	pipelineName := pipeline.Name
-	log.Infof("PPS master: deleting resources for pipeline %q/%q", projectName, pipelineName)
+	log.Infof("PPS master: deleting resources for pipeline %q", pipeline)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/DeletePipelineResources", "project", projectName, "pipeline", pipelineName)
 	defer func() {

@@ -87,7 +87,7 @@ func startMonitorThread(ctx context.Context, name string, f func(ctx context.Con
 
 func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
 	pipelineName := pipelineInfo.Pipeline.Name
-	log.Printf("PPS master: monitoring pipeline %q/%q", pipelineInfo.Pipeline.Project.GetName(), pipelineName)
+	log.Printf("PPS master: monitoring pipeline %q", pipelineInfo.Pipeline)
 	var eg errgroup.Group
 	pps.VisitInput(pipelineInfo.Details.Input, func(in *pps.Input) error { //nolint:errcheck
 		if in.Cron != nil {
