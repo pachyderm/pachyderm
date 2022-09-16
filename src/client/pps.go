@@ -561,14 +561,22 @@ func (c APIClient) ListProjectJobFilterF(projectName, pipelineName string, input
 }
 
 // SubscribeJob calls the given callback with each open job in the given
-// pipeline until canceled.
+// pipeline until cancelled.
+//
+// Deprecated: use SubscribeProjectJob instead.
 func (c APIClient) SubscribeJob(pipelineName string, details bool, cb func(*pps.JobInfo) error) error {
+	return c.SubscribeProjectJob("", pipelineName, details, cb)
+}
+
+// SubscribeProjectJob calls the given callback with each open job in the given
+// pipeline until cancelled.
+func (c APIClient) SubscribeProjectJob(projectName, pipelineName string, details bool, cb func(*pps.JobInfo) error) error {
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PpsAPIClient.SubscribeJob(
 		ctx,
 		&pps.SubscribeJobRequest{
-			Pipeline: NewProjectPipeline("", pipelineName),
+			Pipeline: NewProjectPipeline(projectName, pipelineName),
 			Details:  details,
 		})
 	if err != nil {
