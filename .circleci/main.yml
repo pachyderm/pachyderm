@@ -459,6 +459,13 @@ jobs:
             tar zxvf gcsupload_0.2.0_Linux_x86_64.tar.gz -C /home/circleci/bin gcsupload
             rm -rf gcsupload_0.2.0_Linux_x86_64.tar.gz
             echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
+      # The build cache will grow indefinitely, so we rotate the cache once a week.
+      # This ensures the time to restore the cache isn't longer than the speedup in compilation.
+      - run: "echo $(($(date +%s)/604800)) > current_week"
+      - restore_cache:
+          keys:
+            - pachctl-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
+            - pachctl-build-cache-v1-master-{{ checksum "current_week" }}
       - when:
           condition:
             and:
@@ -497,6 +504,10 @@ jobs:
                 root: ../
                 paths:
                   - dist-pach/*
+      - save_cache:
+          key: pachctl-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
+          paths:
+            - /home/circleci/.cache # Note, this is different from the cache location for the machine executors
   check-prettier:
     docker:
       - image: cimg/node:16.11.0
