@@ -1309,10 +1309,10 @@ workflows:
           filters: *only-release-tags
           requires:
             - sign-off
-      - push_redhat:
-          filters: *only-release-tags
-          requires:
-            - sign-off
+      #- push_redhat:
+      #    filters: *only-release-tags
+      #    requires:
+      #      - sign-off
       - release-github:
           filters: *only-release-tags
           requires:
