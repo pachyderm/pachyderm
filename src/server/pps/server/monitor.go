@@ -242,7 +242,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 					}
 				}
 			}, backoff.NewInfiniteBackOff(),
-				backoff.NotifyCtx(ctx, "monitorPipeline for "+pipelineName))
+				backoff.NotifyCtx(ctx, "monitorPipeline for "+pipelineInfo.Pipeline.String()))
 		})
 	}
 	if err := eg.Wait(); err != nil {
