@@ -220,6 +220,8 @@ func NewCronInputOpts(name string, repo string, spec string, overwrite bool, sta
 }
 
 // NewJobInput creates a pps.JobInput.
+//
+// Deprecated: use NewProjectJobInput instead.
 func NewJobInput(repoName, branchName, commitID, glob string) *pps.JobInput {
 	return NewProjectJobInput("", repoName, branchName, commitID, glob)
 }
