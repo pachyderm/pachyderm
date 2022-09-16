@@ -1,5 +1,5 @@
 <p align="center">
-	<img src='doc/docs/master/assets/images/Pachyderm_stacked--tagline--1200.png' height='225' title='Pachyderm'>
+	<img src='doc/docs/master/assets/images/Pachyderm_inline--1200w.png' height='225' title='Pachyderm'>
 </p>
 
 [![GitHub release](https://img.shields.io/github/release/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/releases)
