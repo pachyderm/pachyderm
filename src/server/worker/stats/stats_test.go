@@ -264,7 +264,7 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	require.NoError(t, err)
 
 	// Make sure the job succeeded as well
-	jobs, err := c.ListJob(pipeline, nil, -1, true)
+	jobs, err := c.ListProjectJob("", pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 	jobInfo, err := c.WaitProjectJob("", pipeline, jobs[0].Job.ID, false)

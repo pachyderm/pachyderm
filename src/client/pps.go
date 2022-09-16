@@ -351,21 +351,62 @@ func (c APIClient) WaitJobSet(id string, details bool, cb func(*pps.JobInfo) err
 }
 
 // ListJob returns info about all jobs.
-// If pipelineName is non empty then only jobs that were started by the named pipeline will be returned
-// If inputCommit is non-nil then only jobs which took the specific commits as inputs will be returned.
+//
+// If pipelineName is non empty then only jobs that were started by the named
+// pipeline will be returned.
+//
+// If inputCommit is non-nil then only jobs which took the specific commits as
+// inputs will be returned.
+//
 // The order of the inputCommits doesn't matter.
-// If outputCommit is non-nil then only the job which created that commit as output will be returned.
-// 'history' controls whether jobs from historical versions of pipelines are returned, it has the following semantics:
-// 0: Return jobs from the current version of the pipeline or pipelines.
-// 1: Return the above and jobs from the next most recent version
-// 2: etc.
-//-1: Return jobs from all historical versions.
+//
+// If outputCommit is non-nil then only the job which created that commit as
+// output will be returned.
+//
+// 'history' controls whether jobs from historical versions of pipelines are
+// returned, it has the following semantics:
+//
+//   - 0: Return jobs from the current version of the pipeline or pipelines.
+//   - 1: Return the above and jobs from the next most recent version
+//   - 2: etc.
+//   - -1: Return jobs from all historical versions.
+//
 // 'details' controls whether the JobInfo passed to 'f' includes details from
 // the pipeline spec (e.g. the transform). Leaving this 'false' can improve
 // performance.
+//
+// Deprecated: use ListProjectJob instead.
 func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, history int64, details bool) ([]*pps.JobInfo, error) {
+	return c.ListProjectJob("", pipelineName, inputCommit, history, details)
+}
+
+// ListProjectJob returns info about all jobs.
+//
+// If projectName & pipelineName are non empty then only jobs that were started
+// by the named pipeline will be returned.
+//
+// If inputCommit is non-nil then only jobs which took the specific commits as
+// inputs will be returned.
+//
+// The order of the inputCommits doesn't matter.
+//
+// If outputCommit is non-nil then only the job which created that commit as
+// output will be returned.
+//
+// 'history' controls whether jobs from historical versions of pipelines are
+// returned, it has the following semantics:
+//
+//   - 0: Return jobs from the current version of the pipeline or pipelines.
+//   - 1: Return the above and jobs from the next most recent version
+//   - 2: etc.
+//   - -1: Return jobs from all historical versions.
+//
+// 'details' controls whether the JobInfo passed to 'f' includes details from
+// the pipeline spec (e.g. the transform). Leaving this 'false' can improve
+// performance.
+func (c APIClient) ListProjectJob(projectName, pipelineName string, inputCommit []*pfs.Commit, history int64, details bool) ([]*pps.JobInfo, error) {
 	var result []*pps.JobInfo
-	if err := c.ListJobF(pipelineName, inputCommit, history, details,
+	if err := c.ListProjectJobF(projectName, pipelineName, inputCommit, history, details,
 		func(ji *pps.JobInfo) error {
 			result = append(result, ji)
 			return nil
@@ -380,30 +421,114 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, histo
 func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
 	history int64, details bool,
 	f func(*pps.JobInfo) error) error {
-	return c.ListJobFilterF(pipelineName, inputCommit, history, details, "", f)
+	return c.ListProjectJobF("", pipelineName, inputCommit, history, details, f)
+}
+
+// ListProjectJobF is a previous version of ListJobFilterF, returning info about all jobs
+// and calling f on each JobInfo
+func (c APIClient) ListProjectJobF(projectName, pipelineName string, inputCommit []*pfs.Commit,
+	history int64, details bool,
+	f func(*pps.JobInfo) error) error {
+	return c.ListProjectJobFilterF(projectName, pipelineName, inputCommit, history, details, "", f)
 }
 
 // ListJobFilterF returns info about all jobs, calling f with each JobInfo.
+//
 // If f returns an error iteration of jobs will stop and ListJobF will return
-// that error, unless the error is errutil.ErrBreak in which case it will
-// return nil.
-// If pipelineName is non empty then only jobs that were started by the named pipeline will be returned
-// If inputCommit is non-nil then only jobs which took the specific commits as inputs will be returned.
+// that error, unless the error is errutil.ErrBreak in which case it will return
+// nil.
+//
+// If pipelineName is non empty then only jobs that were started by the named
+// pipeline will be returned.
+//
+// If inputCommit is non-nil then only jobs which took the specific commits as
+// inputs will be returned.
+//
 // The order of the inputCommits doesn't matter.
-// If outputCommit is non-nil then only the job which created that commit as output will be returned.
-// 'history' controls whether jobs from historical versions of pipelines are returned, it has the following semantics:
-// 0: Return jobs from the current version of the pipeline or pipelines.
-// 1: Return the above and jobs from the next most recent version
-// 2: etc.
-//-1: Return jobs from all historical versions.
-// 'details' controls whether the JobInfo passed to 'f' includes details from the
-// pipeline spec--setting this to 'false' can improve performance.
+//
+// If outputCommit is non-nil then only the job which created that commit as
+// output will be returned.
+//
+// 'history' controls whether jobs from historical versions of pipelines are
+// returned, it has the following semantics:
+//
+//   - 0: Return jobs from the current version of the pipeline or pipelines.
+//   - 1: Return the above and jobs from the next most recent version
+//   - 2: etc.
+//   - -1: Return jobs from all historical versions.
+//
+// 'details' controls whether the JobInfo passed to 'f' includes details from
+// the pipeline spec--setting this to 'false' can improve performance.
 func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit,
 	history int64, details bool, jqFilter string,
 	f func(*pps.JobInfo) error) error {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
 		pipeline = NewProjectPipeline("", pipelineName)
+	}
+	ctx, cf := context.WithCancel(c.Ctx())
+	defer cf()
+	client, err := c.PpsAPIClient.ListJob(
+		ctx,
+		&pps.ListJobRequest{
+			Pipeline:    pipeline,
+			InputCommit: inputCommit,
+			History:     history,
+			Details:     details,
+			JqFilter:    jqFilter,
+		})
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		ji, err := client.Recv()
+		if errors.Is(err, io.EOF) {
+			return nil
+		} else if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(ji); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
+			return err
+		}
+	}
+}
+
+// ListProjectJobFilterF returns info about all jobs, calling f with each JobInfo.
+//
+// If f returns an error iteration of jobs will stop and ListJobF will return
+// that error, unless the error is errutil.ErrBreak in which case it will return
+// nil.
+//
+// If projectName & pipelineName are non empty then only jobs that were started
+// by the named pipeline will be returned.
+//
+// If inputCommit is non-nil then only jobs which took the specific commits as
+// inputs will be returned.
+//
+// The order of the inputCommits doesn't matter.
+//
+// If outputCommit is non-nil then only the job which created that commit as
+// output will be returned.
+//
+// 'history' controls whether jobs from historical versions of pipelines are
+// returned, it has the following semantics:
+//
+//   - 0: Return jobs from the current version of the pipeline or pipelines.
+//   - 1: Return the above and jobs from the next most recent version
+//   - 2: etc.
+//   - -1: Return jobs from all historical versions.
+//
+// 'details' controls whether the JobInfo passed to 'f' includes details from
+// the pipeline spec--setting this to 'false' can improve performance.
+func (c APIClient) ListProjectJobFilterF(projectName, pipelineName string, inputCommit []*pfs.Commit,
+	history int64, details bool, jqFilter string,
+	f func(*pps.JobInfo) error) error {
+	var pipeline *pps.Pipeline
+	if projectName != "" && pipelineName != "" {
+		pipeline = NewProjectPipeline(projectName, pipelineName)
 	}
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
