@@ -1,5 +1,5 @@
 <p align="center">
-	<img src='doc/docs/master/assets/images/Pachyderm_stacked--tagline--1200.png' height='225' title='Pachyderm'>
+	<img src='doc/docs/master/assets/images/Pachyderm_inline--1200w.png' height='225' title='Pachyderm'>
 </p>
 
 [![GitHub release](https://img.shields.io/github/release/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/releases)
@@ -9,7 +9,7 @@
 [![Slack Status](https://badge.slack.pachyderm.io/badge.svg)](https://slack.pachyderm.io)
 [![CLA assistant](https://cla-assistant.io/readme/badge/pachyderm/pachyderm)](https://cla-assistant.io/pachyderm/pachyderm)
 
-# Pachyderm – The Leader in Data Versioning and Pipelines for MLOps
+# Pachyderm – Automate data transformations with data versioning and lineage
 
 
 Pachyderm is cost-effective at scale, enabling data engineering teams to automate complex pipelines with sophisticated data transformations across any type of data. Our unique approach provides parallelized processing of multi-stage, language-agnostic pipelines with data versioning and data lineage tracking. Pachyderm delivers the ultimate CI/CD engine for data. 
