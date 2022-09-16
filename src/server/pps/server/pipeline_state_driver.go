@@ -124,7 +124,7 @@ func (sd *stateDriver) GetPipelineInfo(ctx context.Context, pipeline *pps.Pipeli
 	var pipelineInfo pps.PipelineInfo
 	if err := sd.pipelines.ReadOnly(ctx).GetUniqueByIndex(
 		ppsdb.PipelinesVersionIndex,
-		ppsdb.VersionKey(pipeline.Project.GetName(), pipeline.Name, uint64(version)),
+		ppsdb.VersionKey(pipeline, uint64(version)),
 		&pipelineInfo); err != nil {
 		return nil, errors.Wrapf(err, "couldn't retrieve pipeline information")
 	}
