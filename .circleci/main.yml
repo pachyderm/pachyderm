@@ -1171,6 +1171,7 @@ workflows:
   jupyter-extension:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
+      - build-docker-images
       - jupyter-extension-test:
           matrix:
             parameters:
@@ -1178,9 +1179,11 @@ workflows:
       - jupyter-extension-frontend-test
       - jupyter-extension-integration-test:
           requires:
+            - build-docker-images
             - build-pachctl-bin
       - jupyter-extension-e2e-test:
           requires:
+            - build-docker-images
             - jupyter-extension-build
             - build-pachctl-bin
       - jupyter-extension-build
@@ -1453,7 +1456,7 @@ commands:
           command: kind create cluster && kubectl config set current-context kind-kind
       - run:
           name: Install pach
-          command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.service.type=NodePort
+          command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.service.type=NodePort,pachd.image.tag=${CIRCLE_SHA1}
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |
