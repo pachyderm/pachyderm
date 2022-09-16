@@ -465,13 +465,7 @@ jobs:
       - restore_cache:
           keys:
             - pachctl-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
-            #-pachctl-build-cache-v1-master-{{ checksum "current_week" }}
-
-      # Only restore the module cache based on an exact match for go.sum.
-      # This also avoids accumulating old versions of modules over time.
-      #- restore_cache:
-      #    keys:
-      #      - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+            - pachctl-build-cache-v1-master-{{ checksum "current_week" }}
       - when:
           condition:
             and:
@@ -513,7 +507,7 @@ jobs:
       - save_cache:
           key: pachctl-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
-            - /home/circleci/.cache
+            - /home/circleci/.cache # Note, this is different from the cache location for the machine executors
   check-prettier:
     docker:
       - image: cimg/node:16.11.0
