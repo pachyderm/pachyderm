@@ -20,8 +20,8 @@ jobs:
           wget https://get.pulumi.com/releases/sdk/pulumi-v3.32.0-linux-x64.tar.gz
           tar xvf pulumi-v3.32.0-linux-x64.tar.gz
           echo "${PWD}/pulumi" >> $GITHUB_PATH
-          pulumi stack select $CURRENT_BRANCH --non-interactive
-          if [ $? -eq 1 ]
+          
+          if pulumi stack select $CURRENT_BRANCH --non-interactive
           then
             pulumi destroy --yes --skip-preview
             pulumi stack rm --yes
