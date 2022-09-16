@@ -26,7 +26,7 @@ jobs:
             pulumi destroy --yes --skip-preview
             pulumi stack rm --yes
           fi
-        working-directory: infra
+        working-directory: jupyter-extension/infra
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           CURRENT_BRANCH: ${{ github.head_ref }}
