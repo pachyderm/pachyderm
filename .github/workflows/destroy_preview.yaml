@@ -20,10 +20,13 @@ jobs:
           wget https://get.pulumi.com/releases/sdk/pulumi-v3.32.0-linux-x64.tar.gz
           tar xvf pulumi-v3.32.0-linux-x64.tar.gz
           echo "${PWD}/pulumi" >> $GITHUB_PATH
-          pulumi stack select $CURRENT_BRANCH --non-interactive 
-          pulumi destroy --yes --skip-preview
-          pulumi stack rm --yes
-        working-directory: infra
+          
+          if pulumi stack select $CURRENT_BRANCH --non-interactive
+          then
+            pulumi destroy --yes --skip-preview
+            pulumi stack rm --yes
+          fi
+        working-directory: jupyter-extension/infra
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           CURRENT_BRANCH: ${{ github.head_ref }}
