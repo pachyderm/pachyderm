@@ -162,7 +162,7 @@ If the job fails, the output commit will not be populated with data.`,
 				if err != nil {
 					return err
 				}
-				jobInfo, err := client.WaitJob(job.Pipeline.Name, job.ID, true)
+				jobInfo, err := client.WaitProjectJob("", job.Pipeline.Name, job.ID, true)
 				if err != nil {
 					return errors.Wrap(err, "error from InspectJob")
 				}

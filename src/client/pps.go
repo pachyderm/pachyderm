@@ -271,12 +271,20 @@ func (c APIClient) InspectProjectJob(projectName, pipelineName, jobID string, de
 	return jobInfo, grpcutil.ScrubGRPC(err)
 }
 
-// WaitJob is a blocking version on InspectJob that will wait
+// WaitJob is a blocking version of InspectJob that will wait
 // until the job has reached a terminal state.
+//
+// Deprecate: use WaitProjectJob instead.
 func (c APIClient) WaitJob(pipelineName string, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
+	return c.WaitProjectJob("", pipelineName, jobID, details)
+}
+
+// WaitProjectJob is a blocking version of InspectJob that will wait
+// until the job has reached a terminal state.
+func (c APIClient) WaitProjectJob(projectName, pipelineName, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	req := &pps.InspectJobRequest{
-		Job:     NewProjectJob("", pipelineName, jobID),
+		Job:     NewProjectJob(projectName, pipelineName, jobID),
 		Wait:    true,
 		Details: details,
 	}

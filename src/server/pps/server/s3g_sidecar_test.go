@@ -163,7 +163,7 @@ func TestS3Input(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitJob(pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitProjectJob("", pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -309,7 +309,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitJob(pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitProjectJob("", pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -363,7 +363,7 @@ func TestS3Output(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitJob(pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitProjectJob("", pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -448,7 +448,7 @@ func TestFullS3(t *testing.T) {
 	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitJob(pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitProjectJob("", pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
