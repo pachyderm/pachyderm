@@ -2,7 +2,10 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
-{{- if .Values.enterpriseServer.enabled }}
+{{- if .Values.enterpriseServer.enabled -}}
+{{- if .Values.pachd.enabled -}}
+{{- fail "pachd and enterpriseServer shall not be enabled at the same time in the same namespace" -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -261,4 +264,4 @@ spec:
         secret:
           secretName: {{ required "If enterpriseServer.tls.enabled, you must set enterpriseServer.tls.secretName" .Values.enterpriseServer.tls.secretName | quote }}
       {{- end }}
-{{- end }}
+{{- end -}}
