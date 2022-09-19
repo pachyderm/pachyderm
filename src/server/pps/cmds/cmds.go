@@ -494,7 +494,7 @@ each datum.`,
 				if err != nil {
 					return err
 				}
-				return client.ListDatum(job.Pipeline.Name, job.ID, printF)
+				return client.ListProjectDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, printF)
 			} else {
 				return errors.Errorf("must specify either a job or a pipeline spec")
 			}
