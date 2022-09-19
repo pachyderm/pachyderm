@@ -480,7 +480,7 @@ func TestCreatePipelineTransaction(t *testing.T) {
 	pipeline := testutil.UniqueString("pipeline")
 	_, err := c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
 		require.NoError(t, txnClient.CreateRepo(repo))
-		require.NoError(t, txnClient.CreatePipeline(
+		require.NoError(t, txnClient.CreateProjectPipeline("",
 			pipeline,
 			"",
 			[]string{"bash"},

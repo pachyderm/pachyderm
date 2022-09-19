@@ -252,7 +252,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 
 		// and make sure we can attach a downstream pipeline
 		downstreamPipeline := tu.UniqueString("pipelinespoutdownstream")
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			downstreamPipeline,
 			"",
 			[]string{"/bin/bash"},

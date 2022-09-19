@@ -408,7 +408,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		update     bool
 	}
 	createPipeline := func(args createArgs) error {
-		return args.client.CreatePipeline(
+		return args.client.CreateProjectPipeline("",
 			args.name,
 			"", // default image: DefaultUserImage
 			[]string{"bash"},
@@ -601,7 +601,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		update bool
 	}
 	createPipeline := func(args createArgs) error {
-		return args.client.CreatePipeline(
+		return args.client.CreateProjectPipeline("",
 			args.name,
 			"", // default image: DefaultUserImage
 			[]string{"bash"},
@@ -804,7 +804,7 @@ func TestPipelineRevoke(t *testing.T) {
 
 	// bob creates a pipeline
 	pipeline := tu.UniqueString("bob-pipeline")
-	require.NoError(t, bobClient.CreatePipeline(
+	require.NoError(t, bobClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -860,7 +860,7 @@ func TestPipelineRevoke(t *testing.T) {
 	}
 
 	// alice updates bob's pipline, but the pipeline still doesn't run
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -909,7 +909,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -949,7 +949,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 
 	// alice creates another pipeline
 	pipeline = tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1044,7 +1044,7 @@ func TestStopJob(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1401,7 +1401,7 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(pipeline))
 
 	// bob creates a pipeline, and should get an "access denied" error
-	err := bobClient.CreatePipeline(
+	err := bobClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1416,7 +1416,7 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 
 	// alice gives bob writer scope on pipeline output repo, but nothing changes
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoWriterRole}))
-	err = bobClient.CreatePipeline(
+	err = bobClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1583,7 +1583,7 @@ func TestListDatum(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1674,7 +1674,7 @@ func TestListJob(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1963,7 +1963,7 @@ func TestPipelineNewInput(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1994,7 +1994,7 @@ func TestPipelineNewInput(t *testing.T) {
 	})
 
 	// alice updates the pipeline to replace repo[0] with repo[2]
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -2294,7 +2294,7 @@ func TestGetJobsBugFix(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -2395,7 +2395,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 
 	// Create pipeline
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"does-not-exist", // nonexistant image
 		[]string{"true"}, nil,
@@ -2440,7 +2440,7 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 
 	// Create pipeline
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"does-not-exist", // nonexistant image
 		[]string{"true"}, nil,
@@ -2629,7 +2629,7 @@ func TestDebug(t *testing.T) {
 	expectedFiles, pipelines := tu.DebugFiles(t, dataRepo)
 
 	for _, p := range pipelines {
-		require.NoError(t, aliceClient.CreatePipeline(
+		require.NoError(t, aliceClient.CreateProjectPipeline("",
 			p,
 			"",
 			[]string{"bash"},
@@ -2841,7 +2841,7 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 
 	// create pipeline
 	alicePipeline := tu.UniqueString("pipeline_for_logs")
-	err = aliceClient.CreatePipeline(
+	err = aliceClient.CreateProjectPipeline("",
 		alicePipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},

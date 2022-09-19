@@ -456,7 +456,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	repo := tu.UniqueString("TestPreActivationPipelinesKeepRunningAfterActivation")
 	pipeline := tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -541,7 +541,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline1 := tu.UniqueString("cron1-")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline1,
 		"",
 		[]string{"/bin/bash"},
@@ -552,7 +552,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 		false,
 	))
 	pipeline2 := tu.UniqueString("cron2-")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline2,
 		"",
 		[]string{"/bin/bash"},
@@ -622,7 +622,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1106,7 +1106,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	repo := tu.UniqueString("TestDeleteAllAfterDeactivate")
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1243,7 +1243,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 
 	// Create pipeline
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
