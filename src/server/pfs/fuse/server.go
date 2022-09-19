@@ -204,7 +204,7 @@ func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 			rr.Authorization = "none"
 		}
 		if readAccess {
-			bs, err := mm.Client.ListBranch(repo.Repo.Name)
+			bs, err := mm.Client.ListProjectBranch(repo.Repo.Project.GetName(), repo.Repo.Name)
 			if err != nil {
 				return lr, err
 			}
@@ -274,7 +274,7 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 		return mr, err
 	}
 	for _, repo := range repos {
-		bs, err := mm.Client.ListBranch(repo.Repo.Name)
+		bs, err := mm.Client.ListProjectBranch(repo.Repo.Project.GetName(), repo.Repo.Name)
 		if err != nil {
 			return mr, err
 		}

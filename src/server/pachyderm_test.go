@@ -9690,7 +9690,7 @@ func TestTrigger(t *testing.T) {
 
 	// Make sure that updating the pipeline reuses the previous branch name
 	// rather than creating a new one.
-	bis, err := c.ListBranch(pipeline1)
+	bis, err := c.ListProjectBranch("", pipeline1)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(bis))
 

@@ -501,6 +501,8 @@ func (c APIClient) InspectProjectBranch(projectName, repoName string, branchName
 }
 
 // ListBranch lists the active branches on a Repo.
+//
+// Deprecated: use ListProjectBranch instead.
 func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 	return c.ListProjectBranch("", repoName)
 }

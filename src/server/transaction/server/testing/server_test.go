@@ -440,7 +440,7 @@ func TestTransactions(suite *testing.T) {
 		require.Equal(t, 2, len(info.Requests))
 		require.Equal(t, 2, len(info.Responses))
 
-		branchInfos, err = env.PachClient.ListBranch("repoA")
+		branchInfos, err = env.PachClient.ListProjectBranch("", "repoA")
 		require.NoError(t, err)
 
 		require.ElementsEqual(t, []string{"master", "branchA"}, getBranchNames(branchInfos))
@@ -461,7 +461,7 @@ func TestTransactions(suite *testing.T) {
 		require.Equal(t, 5, len(info.Requests))
 		require.Equal(t, 5, len(info.Responses))
 
-		branchInfos, err = env.PachClient.ListBranch("repoB")
+		branchInfos, err = env.PachClient.ListProjectBranch("", "repoB")
 		require.NoError(t, err)
 
 		require.ElementsEqual(t, []string{"master", "branchA", "branchB"}, getBranchNames(branchInfos))
