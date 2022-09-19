@@ -744,13 +744,14 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			err = client.RunCron(args[0])
+			err = client.RunProjectCron(project, args[0])
 			if err != nil {
 				return err
 			}
 			return nil
 		}),
 	}
+	runCron.Flags().StringVar(&project, "project", "", "Project containing pipeline.")
 	commands = append(commands, cmdutil.CreateAlias(runCron, "run cron"))
 
 	inspectPipeline := &cobra.Command{

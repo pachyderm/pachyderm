@@ -130,7 +130,7 @@ func TestSnowflakeReadWrite(t *testing.T) {
 	}
 
 	// run cron job and wait for both pipelines to succeed
-	require.NoError(t, c.RunCron(readPipeline))
+	require.NoError(t, c.RunProjectCron("", readPipeline))
 	commitInfo, err := c.WaitCommit(readPipeline, "master", "")
 	require.NoError(t, err)
 	jobInfo, err := c.InspectProjectJob("", readPipeline, commitInfo.Commit.ID, false)

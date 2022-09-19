@@ -1093,13 +1093,23 @@ func (c APIClient) RunProjectPipeline(projectName, pipelineName string, provenan
 	return grpcutil.ScrubGRPC(err)
 }
 
-// RunCron runs a pipeline. It can be passed a list of commit provenance.
-// This will trigger a new job provenant on those commits, effectively running the pipeline on the data in those commits.
-func (c APIClient) RunCron(name string) error {
+// RunCron runs a pipeline.  It can be passed a list of commit provenance.  This
+// will trigger a new job provenant on those commits, effectively running the
+// pipeline on the data in those commits.
+//
+// Deprecated: use RunProjectCron instead.
+func (c APIClient) RunCron(pipelineName string) error {
+	return c.RunProjectCron("", pipelineName)
+}
+
+// RunProjectCron runs a pipeline.  It can be passed a list of commit
+// provenance.  This will trigger a new job provenant on those commits,
+// effectively running the pipeline on the data in those commits.
+func (c APIClient) RunProjectCron(projectName, pipelineName string) error {
 	_, err := c.PpsAPIClient.RunCron(
 		c.Ctx(),
 		&pps.RunCronRequest{
-			Pipeline: NewProjectPipeline("", name),
+			Pipeline: NewProjectPipeline(projectName, pipelineName),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
