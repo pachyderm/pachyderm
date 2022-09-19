@@ -117,6 +117,8 @@ func (c APIClient) CreateProjectRepo(projectName, repoName string) error {
 }
 
 // UpdateRepo upserts a repo with the given name.
+//
+// Deprecated: use UpdateProjectRepo instead.
 func (c APIClient) UpdateRepo(repoName string) error {
 	return c.UpdateProjectRepo("", repoName)
 }
