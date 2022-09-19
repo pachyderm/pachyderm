@@ -189,9 +189,9 @@ func TestTransactions(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateBranch(repo, branchB, "", "", nil))
 
 		txnClient := env.PachClient.WithTransaction(txn)
-		commit, err := txnClient.StartCommit(repo, branchB)
+		commit, err := txnClient.StartProjectCommit("", repo, branchB)
 		require.NoError(t, err)
-		err = txnClient.FinishCommit(repo, branchB, "")
+		err = txnClient.FinishProjectCommit("", repo, branchB, "")
 		require.NoError(t, err)
 		require.NoError(t, txnClient.CreateBranch(repo, branchA, branchB, "", nil))
 
@@ -245,12 +245,12 @@ func TestTransactions(suite *testing.T) {
 		err = txnClient.CreateProjectRepo("", "foo")
 		require.NoError(t, err)
 
-		_, err = txnClient.StartCommit("foo", "master")
+		_, err = txnClient.StartProjectCommit("", "foo", "master")
 		require.NoError(t, err)
-		err = txnClient.FinishCommit("foo", "master", "")
+		err = txnClient.FinishProjectCommit("", "foo", "master", "")
 		require.NoError(t, err)
 
-		_, err = txnClient.StartCommit("foo", "master")
+		_, err = txnClient.StartProjectCommit("", "foo", "master")
 		require.YesError(t, err)
 		require.Matches(t, "already has a commit in this transaction", err.Error())
 	})
@@ -300,13 +300,13 @@ func TestTransactions(suite *testing.T) {
 
 		txnClient := env.PachClient.WithTransaction(txn)
 
-		commitA, err := txnClient.StartCommit("A", "master")
+		commitA, err := txnClient.StartProjectCommit("", "A", "master")
 		require.NoError(t, err)
-		require.NoError(t, txnClient.FinishCommit("A", "master", ""))
+		require.NoError(t, txnClient.FinishProjectCommit("", "A", "master", ""))
 		require.Equal(t, txn.ID, commitA.ID)
-		commitE, err := txnClient.StartCommit("E", "master")
+		commitE, err := txnClient.StartProjectCommit("", "E", "master")
 		require.NoError(t, err)
-		require.NoError(t, txnClient.FinishCommit("E", "master", ""))
+		require.NoError(t, txnClient.FinishProjectCommit("", "E", "master", ""))
 		require.Equal(t, txn.ID, commitE.ID)
 
 		info, err := txnClient.FinishTransaction(txn)
@@ -448,9 +448,9 @@ func TestTransactions(suite *testing.T) {
 		// Some dependent operations
 		info, err = env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
 			require.NoError(t, builder.CreateProjectRepo("", "repoB"))
-			_, err := builder.StartCommit("repoB", "master")
+			_, err := builder.StartProjectCommit("", "repoB", "master")
 			require.NoError(t, err)
-			err = builder.FinishCommit("repoB", "master", "")
+			err = builder.FinishProjectCommit("", "repoB", "master", "")
 			require.NoError(t, err)
 			require.NoError(t, builder.CreateBranch("repoB", "branchA", "master", "", []*pfs.Branch{}))
 			require.NoError(t, builder.CreateBranch("repoB", "branchB", "branchA", "", []*pfs.Branch{}))

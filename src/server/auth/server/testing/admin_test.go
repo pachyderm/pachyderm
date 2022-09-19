@@ -155,11 +155,11 @@ func TestSuperAdminRWO(t *testing.T) {
 	repo := tu.UniqueString("TestAdminRWO")
 	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
-	commit, err := aliceClient.StartCommit(repo, "master")
+	commit, err := aliceClient.StartProjectCommit("", repo, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
 
 	// bob cannot read from the repo
 	buf := &bytes.Buffer{}
@@ -168,7 +168,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// bob cannot write to the repo
-	_, err = bobClient.StartCommit(repo, "master")
+	_, err = bobClient.StartProjectCommit("", repo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// Note: we must pass aliceClient to CommitCnt, because it calls
@@ -196,9 +196,9 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Matches(t, "test data", buf.String())
 
 	// bob can write to the repo
-	commit, err = bobClient.StartCommit(repo, "master")
+	commit, err = bobClient.StartProjectCommit("", repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
 	require.Equal(t, 2, CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 
 	// bob can update the repo's ACL
@@ -222,7 +222,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// bob cannot write to the repo
-	_, err = bobClient.StartCommit(repo, "master")
+	_, err = bobClient.StartProjectCommit("", repo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 2, CommitCnt(t, aliceClient, repo)) // check that no commits were created
@@ -257,11 +257,11 @@ func TestFSAdminRWO(t *testing.T) {
 	repo := tu.UniqueString("TestAdminRWO")
 	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
-	commit, err := aliceClient.StartCommit(repo, "master")
+	commit, err := aliceClient.StartProjectCommit("", repo, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
 
 	// bob cannot read from the repo
 	buf := &bytes.Buffer{}
@@ -270,7 +270,7 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// bob cannot write to the repo
-	_, err = bobClient.StartCommit(repo, "master")
+	_, err = bobClient.StartProjectCommit("", repo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// Note: we must pass aliceClient to CommitCnt, because it calls
@@ -298,9 +298,9 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Matches(t, "test data", buf.String())
 
 	// bob can write to the repo
-	commit, err = bobClient.StartCommit(repo, "master")
+	commit, err = bobClient.StartProjectCommit("", repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
 	require.Equal(t, 2, CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 
 	// bob can update the repo's ACL
@@ -324,7 +324,7 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// bob cannot write to the repo
-	_, err = bobClient.StartCommit(repo, "master")
+	_, err = bobClient.StartProjectCommit("", repo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 2, CommitCnt(t, aliceClient, repo)) // check that no commits were created
@@ -370,7 +370,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	require.Nil(t, getRepoRoleBinding(t, rootClient, repo).Entries)
 
 	// alice cannot write to the repo
-	_, err = aliceClient.StartCommit(repo, "master")
+	_, err = aliceClient.StartProjectCommit("", repo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 0, CommitCnt(t, rootClient, repo)) // check that no commits were created
@@ -381,11 +381,11 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
 
 	// now alice can write to the repo
-	commit, err := aliceClient.StartCommit(repo, "master")
+	commit, err := aliceClient.StartProjectCommit("", repo, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
 	require.Equal(t, 1, CommitCnt(t, rootClient, repo)) // check that a new commit was created
 }
 
@@ -468,11 +468,11 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	))
 
 	// alice makes an input commit
-	commit, err := aliceClient.StartCommit(repo, "master")
+	commit, err := aliceClient.StartProjectCommit("", repo, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file1", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
@@ -504,11 +504,11 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// Admin creates an input commit
-	commit, err = rootClient.StartCommit(repo, "master")
+	commit, err = rootClient.StartProjectCommit("", repo, "master")
 	require.NoError(t, err)
 	err = rootClient.PutFile(commit, "/file2", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, rootClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, rootClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
 
 	// make sure the pipeline still runs (i.e. it's not running as alice)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
@@ -637,12 +637,12 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, pipeline))
 
 	// Make sure alice's pipeline runs successfully
-	commit, err := aliceClient.StartCommit(repo, "master")
+	commit, err := aliceClient.StartProjectCommit("", repo, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, tu.UniqueString("/file1"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := aliceClient.WaitProjectCommit("", pipeline, "master", commit.ID)
 		return err
@@ -677,12 +677,12 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// Make sure alice's pipeline still runs successfully
-	commit, err = rootClient.StartCommit(repo, "master")
+	commit, err = rootClient.StartProjectCommit("", repo, "master")
 	require.NoError(t, err)
 	err = rootClient.PutFile(commit, tu.UniqueString("/file2"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, rootClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, rootClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := rootClient.WaitProjectCommit("", pipeline, "master", commit.ID)
 		return err
@@ -845,9 +845,9 @@ func TestRobotUserACL(t *testing.T) {
 	require.Equal(t, buildBindings(alice, auth.RepoWriterRole, robot(robotUser), auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
 
 	// test that alice can commit to the robot user's repo
-	commit, err := aliceClient.StartCommit(repo, "master")
+	commit, err := aliceClient.StartProjectCommit("", repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
 
 	// Now alice creates a repo, and adds robotUser as a writer
 	repo2 := tu.UniqueString("TestRobotUserACL")
@@ -857,9 +857,9 @@ func TestRobotUserACL(t *testing.T) {
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole, robot(robotUser), auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, repo2))
 
 	// test that the robot can commit to alice's repo
-	commit, err = robotClient.StartCommit(repo2, "master")
+	commit, err = robotClient.StartProjectCommit("", repo2, "master")
 	require.NoError(t, err)
-	require.NoError(t, robotClient.FinishCommit(repo2, commit.Branch.Name, commit.ID))
+	require.NoError(t, robotClient.FinishProjectCommit("", repo2, commit.Branch.Name, commit.ID))
 }
 
 // TestGroupRoleBinding tests that a group can be added to a role binding
@@ -888,9 +888,9 @@ func TestGroupRoleBinding(t *testing.T) {
 	require.NoError(t, err)
 
 	// test that alice can commit to the repo
-	commit, err := aliceClient.StartCommit(repo, "master")
+	commit, err := aliceClient.StartProjectCommit("", repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
 }
 
 // TestRobotUserAdmin tests that robot users can
@@ -937,17 +937,17 @@ func TestRobotUserAdmin(t *testing.T) {
 	// robotUser2 creates a repo, and robotUser commits to it
 	repo := tu.UniqueString("TestRobotUserAdmin")
 	require.NoError(t, robotClient2.CreateProjectRepo("", repo))
-	commit, err := robotClient.StartCommit(repo, "master")
+	commit, err := robotClient.StartProjectCommit("", repo, "master")
 	require.NoError(t, err) // admin privs means robotUser can commit
-	require.NoError(t, robotClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, robotClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
 
 	// robotUser adds alice to the repo, and checks that the ACL is updated
 	require.Equal(t, buildBindings(robot(robotUser2), auth.RepoOwnerRole), getRepoRoleBinding(t, robotClient, repo))
 	require.NoError(t, robotClient.ModifyRepoRoleBinding(repo, alice, []string{auth.RepoWriterRole}))
 	require.Equal(t, buildBindings(robot(robotUser2), auth.RepoOwnerRole, alice, auth.RepoWriterRole), getRepoRoleBinding(t, robotClient, repo))
-	commit, err = aliceClient.StartCommit(repo, "master")
+	commit, err = aliceClient.StartProjectCommit("", repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
 
 	_, err = robotClient.Deactivate(robotClient.Ctx(), &auth.DeactivateRequest{})
 	require.NoError(t, err)
@@ -1118,11 +1118,11 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	))
 
 	// alice makes an input commit
-	commit, err := aliceClient.StartCommit(repo, "master")
+	commit, err := aliceClient.StartProjectCommit("", repo, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file1", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 60*time.Second, func() error {

@@ -345,8 +345,8 @@ func TestOpenCommit(t *testing.T) {
 	require.NoError(t, env.PachClient.CreateProjectRepo("", "in"))
 	require.NoError(t, env.PachClient.CreateProjectRepo("", "out"))
 	require.NoError(t, env.PachClient.CreateBranch("out", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "in", "master")}))
-	require.NoError(t, env.PachClient.FinishCommit("out", "master", ""))
-	_, err := env.PachClient.StartCommit("in", "master")
+	require.NoError(t, env.PachClient.FinishProjectCommit("", "out", "master", ""))
+	_, err := env.PachClient.StartProjectCommit("", "in", "master")
 	require.NoError(t, err)
 
 	withMount(t, env.PachClient, &Options{
@@ -375,9 +375,9 @@ func TestMountCommit(t *testing.T) {
 	txn, err := env.PachClient.StartTransaction()
 	require.NoError(t, err)
 	c := env.PachClient.WithTransaction(txn)
-	c1, err := c.StartCommit("repo", "b1")
+	c1, err := c.StartProjectCommit("", "repo", "b1")
 	require.NoError(t, err)
-	c2, err := c.StartCommit("repo", "b2")
+	c2, err := c.StartProjectCommit("", "repo", "b2")
 	require.NoError(t, err)
 	_, err = env.PachClient.FinishTransaction(txn)
 	require.NoError(t, err)

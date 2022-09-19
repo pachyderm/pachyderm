@@ -20,7 +20,7 @@ func BenchmarkDownload(b *testing.B) {
 	env := testpachd.NewRealEnv(b, dockertestenv.NewTestDBConfig(b))
 	repo := "repo"
 	require.NoError(b, env.PachClient.CreateProjectRepo("", repo))
-	commit, err := env.PachClient.StartCommit(repo, "master")
+	commit, err := env.PachClient.StartProjectCommit("", repo, "master")
 	require.NoError(b, err)
 	require.NoError(b, env.PachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
 		for i := 0; i < 100; i++ {
@@ -30,7 +30,7 @@ func BenchmarkDownload(b *testing.B) {
 		}
 		return nil
 	}))
-	require.NoError(b, env.PachClient.FinishCommit(repo, "master", commit.ID))
+	require.NoError(b, env.PachClient.FinishProjectCommit("", repo, "master", commit.ID))
 	fis, err := env.PachClient.ListFileAll(commit, "")
 	require.NoError(b, err)
 	require.NoError(b, env.PachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {

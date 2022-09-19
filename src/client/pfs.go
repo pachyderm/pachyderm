@@ -221,6 +221,8 @@ func (c APIClient) DeleteProjectRepo(projectName, repoName string, force bool) e
 // alias for the created Commit. This enables a more intuitive access pattern.
 // When the commit is started on a branch the previous head of the branch is
 // used as the parent of the commit.
+//
+// Deprecated: use StartProjectCommit instead.
 func (c APIClient) StartCommit(repoName string, branchName string) (_ *pfs.Commit, retErr error) {
 	return c.StartProjectCommit("", repoName, branchName)
 }
@@ -261,6 +263,8 @@ func (c APIClient) StartProjectCommit(projectName, repoName string, branchName s
 // commit without affecting the contents of the parent Commit. You may pass ""
 // as parentCommit in which case the new Commit will have no parent and will
 // initially appear empty.
+//
+// Deprecated: use StartProjectCommitParent instead.
 func (c APIClient) StartCommitParent(repoName, branchName, parentBranch, parentCommit string) (*pfs.Commit, error) {
 	return c.StartProjectCommitParent("", repoName, branchName, parentBranch, parentCommit)
 }
@@ -298,6 +302,8 @@ func (c APIClient) StartProjectCommitParent(projectName, repoName, branchName, p
 // FinishCommit ends the process of committing data to a Repo and persists the
 // Commit. Once a Commit is finished the data becomes immutable and future
 // attempts to write to it with PutFile will error.
+//
+// Deprecated: use FinishProjectCommit instead.
 func (c APIClient) FinishCommit(repoName string, branchName string, commitID string) (retErr error) {
 	return c.FinishProjectCommit("", repoName, branchName, commitID)
 }

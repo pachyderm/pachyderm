@@ -100,7 +100,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
-	_, err = bobClient.StartCommit(dataRepo, "master")
+	_, err = bobClient.StartProjectCommit("", dataRepo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
@@ -124,7 +124,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
-	_, err = bobClient.StartCommit(dataRepo, "master")
+	_, err = bobClient.StartProjectCommit("", dataRepo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
@@ -147,9 +147,9 @@ func TestGetSetBasic(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 2, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
-	commit, err := bobClient.StartCommit(dataRepo, "master")
+	commit, err := bobClient.StartProjectCommit("", dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishProjectCommit("", dataRepo, commit.Branch.Name, commit.ID))
 	require.Equal(t, 3, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	// bob can't update the ACL
 	err = bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole})
@@ -170,9 +170,9 @@ func TestGetSetBasic(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("3"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 4, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
-	commit, err = bobClient.StartCommit(dataRepo, "master")
+	commit, err = bobClient.StartProjectCommit("", dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishProjectCommit("", dataRepo, commit.Branch.Name, commit.ID))
 	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	// bob can update the ACL
 	require.NoError(t, bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole}))
@@ -202,11 +202,11 @@ func TestGetSetReverse(t *testing.T) {
 	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 
 	// Add data to repo (alice can write). Make sure alice can read also.
-	commit, err := aliceClient.StartCommit(dataRepo, "master")
+	commit, err := aliceClient.StartProjectCommit("", dataRepo, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("1"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID)) // # commits = 1
+	require.NoError(t, aliceClient.FinishProjectCommit("", dataRepo, commit.Branch.Name, commit.ID)) // # commits = 1
 	buf := &bytes.Buffer{}
 	require.NoError(t, aliceClient.GetFile(dataCommit, "/file", buf))
 	require.Equal(t, "1", buf.String())
@@ -222,9 +222,9 @@ func TestGetSetReverse(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 2, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
-	commit, err = bobClient.StartCommit(dataRepo, "master")
+	commit, err = bobClient.StartProjectCommit("", dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishProjectCommit("", dataRepo, commit.Branch.Name, commit.ID))
 	require.Equal(t, 3, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	// bob can update the ACL
 	require.NoError(t, bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole}))
@@ -249,9 +249,9 @@ func TestGetSetReverse(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("3"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 4, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
-	commit, err = bobClient.StartCommit(dataRepo, "master")
+	commit, err = bobClient.StartProjectCommit("", dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishProjectCommit("", dataRepo, commit.Branch.Name, commit.ID))
 	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	// bob can't update the ACL
 	err = bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole})
@@ -272,7 +272,7 @@ func TestGetSetReverse(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("4"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
-	_, err = bobClient.StartCommit(dataRepo, "master")
+	_, err = bobClient.StartProjectCommit("", dataRepo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
@@ -295,7 +295,7 @@ func TestGetSetReverse(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("4"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
-	_, err = bobClient.StartCommit(dataRepo, "master")
+	_, err = bobClient.StartProjectCommit("", dataRepo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
@@ -2646,11 +2646,11 @@ func TestDebug(t *testing.T) {
 		))
 	}
 
-	commit1, err := aliceClient.StartCommit(dataRepo, "master")
+	commit1, err := aliceClient.StartProjectCommit("", dataRepo, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit1, "file", strings.NewReader("foo"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
+	require.NoError(t, aliceClient.FinishProjectCommit("", dataRepo, commit1.Branch.Name, commit1.ID))
 
 	jobInfos, err := aliceClient.WaitJobSetAll(commit1.ID, false)
 	require.NoError(t, err)

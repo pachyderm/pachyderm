@@ -328,7 +328,7 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 	// so we need to be conservative with the length of the repo name here
 	repo := tu.UniqueString("testLOP")
 	require.NoError(t, pachClient.CreateProjectRepo("", repo))
-	commit, err := pachClient.StartCommit(repo, "master")
+	commit, err := pachClient.StartProjectCommit("", repo, "master")
 	require.NoError(t, err)
 
 	require.NoError(t, pachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
@@ -347,7 +347,7 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 		return nil
 	}))
 
-	require.NoError(t, pachClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, pachClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
 
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 

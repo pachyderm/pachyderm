@@ -565,11 +565,11 @@ func TestS3SkippedDatums(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			// Increment "/round" in 'background'
 			iS := fmt.Sprintf("%d", i)
-			bgc, err := c.StartCommit(background, "master")
+			bgc, err := c.StartProjectCommit("", background, "master")
 			require.NoError(t, err)
 			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
-			require.NoError(t, c.FinishCommit(background, bgc.Branch.Name, bgc.ID))
+			require.NoError(t, c.FinishProjectCommit("", background, bgc.Branch.Name, bgc.ID))
 
 			//  Put new file in 'pfsin' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(client.NewProjectCommit("", pfsin, "master", ""), iS, strings.NewReader(iS)))
@@ -602,18 +602,18 @@ func TestS3SkippedDatums(t *testing.T) {
 		// Part 2: change s3 input. All old datums should get reprocessed
 		// --------------------------------------------------------------
 		// Increment "/round" in 'background'
-		bgc, err := c.StartCommit(background, "master")
+		bgc, err := c.StartProjectCommit("", background, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(bgc, "/round"))
 		require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader("10")))
-		require.NoError(t, c.FinishCommit(background, bgc.Branch.Name, bgc.ID))
+		require.NoError(t, c.FinishProjectCommit("", background, bgc.Branch.Name, bgc.ID))
 
 		//  Put new file in 's3in' to create a new datum and trigger a job
-		s3c, err := c.StartCommit(s3in, "master")
+		s3c, err := c.StartProjectCommit("", s3in, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(s3Commit, "/file"))
 		require.NoError(t, c.PutFile(s3Commit, "/file", strings.NewReader("bar")))
-		require.NoError(t, c.FinishCommit(s3in, s3c.Branch.Name, s3c.ID))
+		require.NoError(t, c.FinishProjectCommit("", s3in, s3c.Branch.Name, s3c.ID))
 
 		_, err = c.WaitProjectCommit("", pipeline, "master", "")
 		require.NoError(t, err)
@@ -722,11 +722,11 @@ func TestS3SkippedDatums(t *testing.T) {
 		for i := 1; i <= 5; i++ {
 			// Increment "/round" in 'background'
 			iS := strconv.Itoa(i)
-			bgc, err := c.StartCommit(background, "master")
+			bgc, err := c.StartProjectCommit("", background, "master")
 			require.NoError(t, err)
 			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
-			require.NoError(t, c.FinishCommit(background, bgc.Branch.Name, bgc.ID))
+			require.NoError(t, c.FinishProjectCommit("", background, bgc.Branch.Name, bgc.ID))
 
 			// Put new file in 'repo' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(masterCommit, iS, strings.NewReader(iS)))
