@@ -78,8 +78,15 @@ const (
 )
 
 // NewJob creates a pps.Job.
-func NewJob(pipelineName string, jobID string) *pps.Job {
-	return &pps.Job{Pipeline: NewPipeline(pipelineName), ID: jobID}
+//
+// Deprecated: use NewProjectJob instead.
+func NewJob(pipelineName, jobID string) *pps.Job {
+	return NewProjectJob("", pipelineName, jobID)
+}
+
+// NewProjectJob creates a pps.Job.
+func NewProjectJob(projectName, pipelineName, jobID string) *pps.Job {
+	return &pps.Job{Pipeline: NewProjectPipeline(projectName, pipelineName), ID: jobID}
 }
 
 // NewJobSet creates a pps.JobSet.
@@ -88,20 +95,36 @@ func NewJobSet(id string) *pps.JobSet {
 }
 
 // NewPFSInput returns a new PFS input. It only includes required options.
-func NewPFSInput(repo string, glob string) *pps.Input {
+//
+// Deprecated: use NewProjectPFSInput instead.
+func NewPFSInput(repo, glob string) *pps.Input {
+	return NewProjectPFSInput("", repo, glob)
+}
+
+// NewProjectPFSInput returns a new PFS input.  It only includes required options.
+func NewProjectPFSInput(project, repo, glob string) *pps.Input {
 	return &pps.Input{
 		Pfs: &pps.PFSInput{
-			Repo: repo,
-			Glob: glob,
+			Project: project,
+			Repo:    repo,
+			Glob:    glob,
 		},
 	}
 }
 
 // NewPFSInputOpts returns a new PFS input. It includes all options.
-func NewPFSInputOpts(name string, repo string, branch string, glob string, joinOn string, groupBy string, outerJoin bool, lazy bool, trigger *pfs.Trigger) *pps.Input {
+//
+// Deprecated: use NewProjectPFSInputOpts instead.
+func NewPFSInputOpts(name, repo, branch, glob, joinOn, groupBy string, outerJoin, lazy bool, trigger *pfs.Trigger) *pps.Input {
+	return NewProjectPFSInputOpts(name, "", repo, branch, glob, joinOn, groupBy, outerJoin, lazy, trigger)
+}
+
+// NewProjectPFSInputOpts returns a new PFS input. It includes all options.
+func NewProjectPFSInputOpts(name, project, repo, branch, glob, joinOn, groupBy string, outerJoin, lazy bool, trigger *pfs.Trigger) *pps.Input {
 	return &pps.Input{
 		Pfs: &pps.PFSInput{
 			Name:      name,
+			Project:   project,
 			Repo:      repo,
 			Branch:    branch,
 			Glob:      glob,
@@ -115,13 +138,21 @@ func NewPFSInputOpts(name string, repo string, branch string, glob string, joinO
 }
 
 // NewS3PFSInput returns a new PFS input with 'S3' set.
-func NewS3PFSInput(name string, repo string, branch string) *pps.Input {
+//
+// Deprecated: use NewProjectS3PFSInput instead.
+func NewS3PFSInput(name, repo, branch string) *pps.Input {
+	return NewProjectS3PFSInput("", name, repo, branch)
+}
+
+// NewProjectS3PFSInput returns a new PFS input with 'S3' set.
+func NewProjectS3PFSInput(name, project, repo, branch string) *pps.Input {
 	return &pps.Input{
 		Pfs: &pps.PFSInput{
-			Name:   name,
-			Repo:   repo,
-			Branch: branch,
-			S3:     true,
+			Name:    name,
+			Project: project,
+			Repo:    repo,
+			Branch:  branch,
+			S3:      true,
 		},
 	}
 }
@@ -192,6 +223,8 @@ func NewCronInputOpts(name string, repo string, spec string, overwrite bool, sta
 }
 
 // NewJobInput creates a pps.JobInput.
+//
+// Deprecated: use NewProjectJobInput instead.
 func NewJobInput(repoName, branchName, commitID, glob string) *pps.JobInput {
 	return NewProjectJobInput("", repoName, branchName, commitID, glob)
 }
@@ -205,28 +238,56 @@ func NewProjectJobInput(projectName, repoName, branchName, commitID, glob string
 }
 
 // NewPipeline creates a pps.Pipeline.
+//
+// Deprecated: use NewProjectPipeline instead.
 func NewPipeline(pipelineName string) *pps.Pipeline {
-	return &pps.Pipeline{Name: pipelineName}
+	return NewProjectPipeline("", pipelineName)
+}
+
+// NewProjectPipeline creates a pps.Pipeline.
+func NewProjectPipeline(projectName, pipelineName string) *pps.Pipeline {
+	return &pps.Pipeline{
+		Project: NewProject(projectName),
+		Name:    pipelineName,
+	}
 }
 
 // InspectJob returns info about a specific job.
+//
 // 'details' indicates that the JobInfo.Details field should be filled out.
+//
+// Deprecated: use InspectProjectJob instead.
 func (c APIClient) InspectJob(pipelineName string, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
+	return c.InspectProjectJob("", pipelineName, jobID, details)
+}
+
+// InspectProjectJob returns info about a specific job.
+//
+// 'details' indicates that the JobInfo.Details field should be filled out.
+func (c APIClient) InspectProjectJob(projectName, pipelineName, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	req := &pps.InspectJobRequest{
-		Job:     NewJob(pipelineName, jobID),
+		Job:     NewProjectJob(projectName, pipelineName, jobID),
 		Details: details,
 	}
 	jobInfo, err := c.PpsAPIClient.InspectJob(c.Ctx(), req)
 	return jobInfo, grpcutil.ScrubGRPC(err)
 }
 
-// WaitJob is a blocking version on InspectJob that will wait
+// WaitJob is a blocking version of InspectJob that will wait
 // until the job has reached a terminal state.
+//
+// Deprecate: use WaitProjectJob instead.
 func (c APIClient) WaitJob(pipelineName string, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
+	return c.WaitProjectJob("", pipelineName, jobID, details)
+}
+
+// WaitProjectJob is a blocking version of InspectJob that will wait
+// until the job has reached a terminal state.
+func (c APIClient) WaitProjectJob(projectName, pipelineName, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	req := &pps.InspectJobRequest{
-		Job:     NewJob(pipelineName, jobID),
+		Job:     NewProjectJob(projectName, pipelineName, jobID),
 		Wait:    true,
 		Details: details,
 	}
@@ -293,21 +354,62 @@ func (c APIClient) WaitJobSet(id string, details bool, cb func(*pps.JobInfo) err
 }
 
 // ListJob returns info about all jobs.
-// If pipelineName is non empty then only jobs that were started by the named pipeline will be returned
-// If inputCommit is non-nil then only jobs which took the specific commits as inputs will be returned.
+//
+// If pipelineName is non empty then only jobs that were started by the named
+// pipeline will be returned.
+//
+// If inputCommit is non-nil then only jobs which took the specific commits as
+// inputs will be returned.
+//
 // The order of the inputCommits doesn't matter.
-// If outputCommit is non-nil then only the job which created that commit as output will be returned.
-// 'history' controls whether jobs from historical versions of pipelines are returned, it has the following semantics:
-// 0: Return jobs from the current version of the pipeline or pipelines.
-// 1: Return the above and jobs from the next most recent version
-// 2: etc.
-//-1: Return jobs from all historical versions.
+//
+// If outputCommit is non-nil then only the job which created that commit as
+// output will be returned.
+//
+// 'history' controls whether jobs from historical versions of pipelines are
+// returned, it has the following semantics:
+//
+//   - 0: Return jobs from the current version of the pipeline or pipelines.
+//   - 1: Return the above and jobs from the next most recent version
+//   - 2: etc.
+//   - -1: Return jobs from all historical versions.
+//
 // 'details' controls whether the JobInfo passed to 'f' includes details from
 // the pipeline spec (e.g. the transform). Leaving this 'false' can improve
 // performance.
+//
+// Deprecated: use ListProjectJob instead.
 func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, history int64, details bool) ([]*pps.JobInfo, error) {
+	return c.ListProjectJob("", pipelineName, inputCommit, history, details)
+}
+
+// ListProjectJob returns info about all jobs.
+//
+// If projectName & pipelineName are non empty then only jobs that were started
+// by the named pipeline will be returned.
+//
+// If inputCommit is non-nil then only jobs which took the specific commits as
+// inputs will be returned.
+//
+// The order of the inputCommits doesn't matter.
+//
+// If outputCommit is non-nil then only the job which created that commit as
+// output will be returned.
+//
+// 'history' controls whether jobs from historical versions of pipelines are
+// returned, it has the following semantics:
+//
+//   - 0: Return jobs from the current version of the pipeline or pipelines.
+//   - 1: Return the above and jobs from the next most recent version
+//   - 2: etc.
+//   - -1: Return jobs from all historical versions.
+//
+// 'details' controls whether the JobInfo passed to 'f' includes details from
+// the pipeline spec (e.g. the transform). Leaving this 'false' can improve
+// performance.
+func (c APIClient) ListProjectJob(projectName, pipelineName string, inputCommit []*pfs.Commit, history int64, details bool) ([]*pps.JobInfo, error) {
 	var result []*pps.JobInfo
-	if err := c.ListJobF(pipelineName, inputCommit, history, details,
+	if err := c.ListProjectJobF(projectName, pipelineName, inputCommit, history, details,
 		func(ji *pps.JobInfo) error {
 			result = append(result, ji)
 			return nil
@@ -322,30 +424,85 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, histo
 func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
 	history int64, details bool,
 	f func(*pps.JobInfo) error) error {
-	return c.ListJobFilterF(pipelineName, inputCommit, history, details, "", f)
+	return c.ListProjectJobF("", pipelineName, inputCommit, history, details, f)
+}
+
+// ListProjectJobF is a previous version of ListJobFilterF, returning info about all jobs
+// and calling f on each JobInfo
+func (c APIClient) ListProjectJobF(projectName, pipelineName string, inputCommit []*pfs.Commit,
+	history int64, details bool,
+	f func(*pps.JobInfo) error) error {
+	return c.ListProjectJobFilterF(projectName, pipelineName, inputCommit, history, details, "", f)
 }
 
 // ListJobFilterF returns info about all jobs, calling f with each JobInfo.
+//
 // If f returns an error iteration of jobs will stop and ListJobF will return
-// that error, unless the error is errutil.ErrBreak in which case it will
-// return nil.
-// If pipelineName is non empty then only jobs that were started by the named pipeline will be returned
-// If inputCommit is non-nil then only jobs which took the specific commits as inputs will be returned.
+// that error, unless the error is errutil.ErrBreak in which case it will return
+// nil.
+//
+// If pipelineName is non empty then only jobs that were started by the named
+// pipeline will be returned.
+//
+// If inputCommit is non-nil then only jobs which took the specific commits as
+// inputs will be returned.
+//
 // The order of the inputCommits doesn't matter.
-// If outputCommit is non-nil then only the job which created that commit as output will be returned.
-// 'history' controls whether jobs from historical versions of pipelines are returned, it has the following semantics:
-// 0: Return jobs from the current version of the pipeline or pipelines.
-// 1: Return the above and jobs from the next most recent version
-// 2: etc.
-//-1: Return jobs from all historical versions.
-// 'details' controls whether the JobInfo passed to 'f' includes details from the
-// pipeline spec--setting this to 'false' can improve performance.
+//
+// If outputCommit is non-nil then only the job which created that commit as
+// output will be returned.
+//
+// 'history' controls whether jobs from historical versions of pipelines are
+// returned, it has the following semantics:
+//
+//   - 0: Return jobs from the current version of the pipeline or pipelines.
+//   - 1: Return the above and jobs from the next most recent version
+//   - 2: etc.
+//   - -1: Return jobs from all historical versions.
+//
+// 'details' controls whether the JobInfo passed to 'f' includes details from
+// the pipeline spec--setting this to 'false' can improve performance.
 func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit,
 	history int64, details bool, jqFilter string,
 	f func(*pps.JobInfo) error) error {
+	return c.ListProjectJobFilterF("", pipelineName, inputCommit, history, details, jqFilter, f)
+}
+
+// ListProjectJobFilterF returns info about all jobs, calling f with each JobInfo.
+//
+// If f returns an error iteration of jobs will stop and ListJobF will return
+// that error, unless the error is errutil.ErrBreak in which case it will return
+// nil.
+//
+// If pipelineName is non empty then only jobs that were started by the named
+// pipeline will be returned.
+//
+// If inputCommit is non-nil then only jobs which took the specific commits as
+// inputs will be returned.
+//
+// The order of the inputCommits doesn't matter.
+//
+// If outputCommit is non-nil then only the job which created that commit as
+// output will be returned.
+//
+// 'history' controls whether jobs from historical versions of pipelines are
+// returned, it has the following semantics:
+//
+//   - 0: Return jobs from the current version of the pipeline or pipelines.
+//   - 1: Return the above and jobs from the next most recent version
+//   - 2: etc.
+//   - -1: Return jobs from all historical versions.
+//
+// 'details' controls whether the JobInfo passed to 'f' includes details from
+// the pipeline spec--setting this to 'false' can improve performance.
+func (c APIClient) ListProjectJobFilterF(projectName, pipelineName string, inputCommit []*pfs.Commit,
+	history int64, details bool, jqFilter string,
+	f func(*pps.JobInfo) error) error {
 	var pipeline *pps.Pipeline
+	// Does not check for projectName not being empty because the empty
+	// project name is currently valid, and will be until after CORE-93.
 	if pipelineName != "" {
-		pipeline = NewPipeline(pipelineName)
+		pipeline = NewProjectPipeline(projectName, pipelineName)
 	}
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
@@ -378,14 +535,22 @@ func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit
 }
 
 // SubscribeJob calls the given callback with each open job in the given
-// pipeline until canceled.
+// pipeline until cancelled.
+//
+// Deprecated: use SubscribeProjectJob instead.
 func (c APIClient) SubscribeJob(pipelineName string, details bool, cb func(*pps.JobInfo) error) error {
+	return c.SubscribeProjectJob("", pipelineName, details, cb)
+}
+
+// SubscribeProjectJob calls the given callback with each open job in the given
+// pipeline until cancelled.
+func (c APIClient) SubscribeProjectJob(projectName, pipelineName string, details bool, cb func(*pps.JobInfo) error) error {
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PpsAPIClient.SubscribeJob(
 		ctx,
 		&pps.SubscribeJobRequest{
-			Pipeline: NewPipeline(pipelineName),
+			Pipeline: NewProjectPipeline(projectName, pipelineName),
 			Details:  details,
 		})
 	if err != nil {
@@ -408,35 +573,60 @@ func (c APIClient) SubscribeJob(pipelineName string, details bool, cb func(*pps.
 }
 
 // DeleteJob deletes a job.
-func (c APIClient) DeleteJob(pipelineName string, jobID string) error {
+//
+// Deprecated: use DeleteProjectJob instead.
+func (c APIClient) DeleteJob(pipelineName, jobID string) error {
+	return c.DeleteProjectJob("", pipelineName, jobID)
+}
+
+// DeleteProjectJob deletes a job.
+func (c APIClient) DeleteProjectJob(projectName, pipelineName, jobID string) error {
 	_, err := c.PpsAPIClient.DeleteJob(
 		c.Ctx(),
 		&pps.DeleteJobRequest{
-			Job: NewJob(pipelineName, jobID),
+			Job: NewProjectJob(projectName, pipelineName, jobID),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
 }
 
 // StopJob stops a job.
+//
+// Deprecated: use StopProjectJob instead.
 func (c APIClient) StopJob(pipelineName string, jobID string) error {
+	return c.StopProjectJob("", pipelineName, jobID)
+}
+
+// StopProjectJob stops a job.
+func (c APIClient) StopProjectJob(projectName, pipelineName, jobID string) error {
 	_, err := c.PpsAPIClient.StopJob(
 		c.Ctx(),
 		&pps.StopJobRequest{
-			Job: NewJob(pipelineName, jobID),
+			Job: NewProjectJob(projectName, pipelineName, jobID),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
 }
 
 // RestartDatum restarts a datum that's being processed as part of a job.
+//
 // datumFilter is a slice of strings which are matched against either the Path
 // or Hash of the datum, the order of the strings in datumFilter is irrelevant.
+//
+// Deprecated: use RestartProjectDatum instead.
 func (c APIClient) RestartDatum(pipelineName string, jobID string, datumFilter []string) error {
+	return c.RestartProjectDatum("", pipelineName, jobID, datumFilter)
+}
+
+// RestartProjectDatum restarts a datum that's being processed as part of a job.
+//
+// datumFilter is a slice of strings which are matched against either the Path
+// or Hash of the datum, the order of the strings in datumFilter is irrelevant.
+func (c APIClient) RestartProjectDatum(projectName, pipelineName, jobID string, datumFilter []string) error {
 	_, err := c.PpsAPIClient.RestartDatum(
 		c.Ctx(),
 		&pps.RestartDatumRequest{
-			Job:         NewJob(pipelineName, jobID),
+			Job:         NewProjectJob(projectName, pipelineName, jobID),
 			DataFilters: datumFilter,
 		},
 	)
@@ -444,23 +634,37 @@ func (c APIClient) RestartDatum(pipelineName string, jobID string, datumFilter [
 }
 
 // ListDatum returns info about datums in a job.
-func (c APIClient) ListDatum(pipelineName string, jobID string, cb func(*pps.DatumInfo) error) (retErr error) {
+//
+// Deprecated: use ListProjectDatum instead.
+func (c APIClient) ListDatum(pipelineName, jobID string, cb func(*pps.DatumInfo) error) (retErr error) {
+	return c.ListProjectDatum("", pipelineName, jobID, cb)
+}
+
+// ListProjectDatum returns info about datums in a job.
+func (c APIClient) ListProjectDatum(projectName, pipelineName, jobID string, cb func(*pps.DatumInfo) error) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	req := &pps.ListDatumRequest{
-		Job: NewJob(pipelineName, jobID),
+		Job: NewProjectJob(projectName, pipelineName, jobID),
 	}
 	return c.listDatum(req, cb)
 }
 
 // ListDatumAll returns info about datums in a job.
-func (c APIClient) ListDatumAll(pipelineName string, jobID string) (_ []*pps.DatumInfo, retErr error) {
+//
+// Deprecated: use ListProjectDatumAll instead.
+func (c APIClient) ListDatumAll(pipelineName, jobID string) (_ []*pps.DatumInfo, retErr error) {
+	return c.ListProjectDatumAll("", pipelineName, jobID)
+}
+
+// ListProjectDatumAll returns info about datums in a job.
+func (c APIClient) ListProjectDatumAll(projectName, pipelineName, jobID string) (_ []*pps.DatumInfo, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	var dis []*pps.DatumInfo
-	if err := c.ListDatum(pipelineName, jobID, func(di *pps.DatumInfo) error {
+	if err := c.ListProjectDatum(projectName, pipelineName, jobID, func(di *pps.DatumInfo) error {
 		dis = append(dis, di)
 		return nil
 	}); err != nil {
@@ -469,7 +673,7 @@ func (c APIClient) ListDatumAll(pipelineName string, jobID string) (_ []*pps.Dat
 	return dis, nil
 }
 
-// ListDatumInput returns info about datums for a pipeline with input. The
+// ListDatumInput returns info about datums for a pipeline with input.  The
 // pipeline doesn't need to exist.
 func (c APIClient) ListDatumInput(input *pps.Input, cb func(*pps.DatumInfo) error) (retErr error) {
 	defer func() {
@@ -521,14 +725,21 @@ func (c APIClient) listDatum(req *pps.ListDatumRequest, cb func(*pps.DatumInfo) 
 	}
 }
 
-// InspectDatum returns info about a single datum
+// InspectDatum returns info about a single datum.
+//
+// Deprecated: use InspectProjectDatum instead.
 func (c APIClient) InspectDatum(pipelineName string, jobID string, datumID string) (*pps.DatumInfo, error) {
+	return c.InspectProjectDatum("", pipelineName, jobID, datumID)
+}
+
+// InspectProjectDatum returns info about a single datum.
+func (c APIClient) InspectProjectDatum(projectName, pipelineName, jobID, datumID string) (*pps.DatumInfo, error) {
 	datumInfo, err := c.PpsAPIClient.InspectDatum(
 		c.Ctx(),
 		&pps.InspectDatumRequest{
 			Datum: &pps.Datum{
 				ID:  datumID,
-				Job: NewJob(pipelineName, jobID),
+				Job: NewProjectJob(projectName, pipelineName, jobID),
 			},
 		},
 	)
@@ -571,26 +782,28 @@ func (l *LogsIter) Err() error {
 	return grpcutil.ScrubGRPC(l.err)
 }
 
-// GetLogs gets logs from a job (logs includes stdout and stderr). 'pipelineName',
-// 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
-// simply pass an empty value, though one of 'pipelineName' and 'jobID'
-// must be set. Responses are written to 'messages'
-func (c APIClient) GetLogs(
-	pipelineName string,
-	jobID string,
-	data []string,
-	datumID string,
-	master bool,
-	follow bool,
-	since time.Duration,
-) *LogsIter {
-	return c.getLogs(pipelineName, jobID, data, datumID, master, follow, since, false)
+// GetLogs gets logs from a job (logs includes stdout and stderr).
+// 'pipelineName', 'jobID', 'data', and 'datumID', are all filters.  To forego
+// any filter, simply pass an empty value, though one of 'pipelineName' and
+// 'jobID' must be set.  Responses are written to 'messages'.
+//
+// Deprecated: use GetProjectLogs instead.
+func (c APIClient) GetLogs(pipelineName, jobID string, data []string, datumID string, master, follow bool, since time.Duration) *LogsIter {
+	return c.GetProjectLogs("", pipelineName, jobID, data, datumID, master, follow, since)
 }
 
-// GetLogsLoki gets logs from a job (logs includes stdout and stderr). 'pipelineName',
-// 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
-// simply pass an empty value, though one of 'pipelineName' and 'jobID'
-// must be set. Responses are written to 'messages'
+// GetProjectLogs gets logs from a job (logs includes stdout and stderr).
+// 'pipelineName', 'jobID', 'data', and 'datumID', are all filters.  To forego
+// any filter, simply pass an empty value, though one of 'pipelineName' and
+// 'jobID' must be set.  Responses are written to 'messages'.
+func (c APIClient) GetProjectLogs(projectName, pipelineName, jobID string, data []string, datumID string, master, follow bool, since time.Duration) *LogsIter {
+	return c.getLogs(projectName, pipelineName, jobID, data, datumID, master, follow, since, false)
+}
+
+// GetLogsLoki gets logs from a job (logs includes stdout and stderr).
+// 'pipelineName', 'jobID', 'data', and 'datumID', are all filters.  To forego
+// any filter, simply pass an empty value, though one of 'pipelineName' and
+// 'jobID' must be set.  Responses are written to 'messages'.
 func (c APIClient) GetLogsLoki(
 	pipelineName string,
 	jobID string,
@@ -600,19 +813,18 @@ func (c APIClient) GetLogsLoki(
 	follow bool,
 	since time.Duration,
 ) *LogsIter {
-	return c.getLogs(pipelineName, jobID, data, datumID, master, follow, since, true)
+	return c.GetProjectLogsLoki("", pipelineName, jobID, data, datumID, master, follow, since)
 }
 
-func (c APIClient) getLogs(
-	pipelineName string,
-	jobID string,
-	data []string,
-	datumID string,
-	master bool,
-	follow bool,
-	since time.Duration,
-	useLoki bool,
-) *LogsIter {
+// GetProjectLogsLoki gets logs from a job (logs includes stdout and stderr).
+// 'pipelineName', 'jobID', 'data', and 'datumID', are all filters.  To forego
+// any filter, simply pass an empty value, though one of 'pipelineName' and
+// 'jobID' must be set.  Responses are written to 'messages'.
+func (c APIClient) GetProjectLogsLoki(projectName, pipelineName, jobID string, data []string, datumID string, master, follow bool, since time.Duration) *LogsIter {
+	return c.getLogs("", pipelineName, jobID, data, datumID, master, follow, since, true)
+}
+
+func (c APIClient) getLogs(projectName, pipelineName, jobID string, data []string, datumID string, master, follow bool, since time.Duration, useLoki bool) *LogsIter {
 	request := pps.GetLogsRequest{
 		Master:         master,
 		Follow:         follow,
@@ -620,15 +832,15 @@ func (c APIClient) getLogs(
 		Since:          types.DurationProto(since),
 	}
 	if pipelineName != "" {
-		request.Pipeline = NewPipeline(pipelineName)
+		request.Pipeline = NewProjectPipeline(projectName, pipelineName)
 	}
 	if jobID != "" {
-		request.Job = NewJob(pipelineName, jobID)
+		request.Job = NewProjectJob(projectName, pipelineName, jobID)
 	}
 	request.DataFilters = data
 	if datumID != "" {
 		request.Datum = &pps.Datum{
-			Job: NewJob(pipelineName, jobID),
+			Job: NewProjectJob(projectName, pipelineName, jobID),
 			ID:  datumID,
 		}
 	}
@@ -640,40 +852,68 @@ func (c APIClient) getLogs(
 
 // CreatePipeline creates a new pipeline, pipelines are the main computation
 // object in PPS they create a flow of data from a set of input Repos to an
-// output Repo (which has the same name as the pipeline). Whenever new data is
+// output Repo (which has the same name as the pipeline).  Whenever new data is
 // committed to one of the input repos the pipelines will create jobs to bring
 // the output Repo up to data.
+//
 // image is the Docker image to run the jobs in.
-// cmd is the command passed to the Docker run invocation.
-// NOTE as with Docker cmd is not run inside a shell that means that things
-// like wildcard globbing (*), pipes (|) and file redirects (> and >>) will not
-// work. To get that behavior you should have your command be a shell of your
-// choice and pass a shell script to stdin.
-// stdin is a slice of lines that are sent to your command on stdin. Lines need
+//
+// cmd is the command passed to the Docker run invocation.  NOTE as with Docker
+// cmd is not run inside a shell that means that things like wildcard globbing
+// (*), pipes (|) and file redirects (> and >>) will not work.  To get that
+// behavior you should have your command be a shell of your choice and pass a
+// shell script to stdin.
+//
+// stdin is a slice of lines that are sent to your command on stdin.  Lines need
 // not end in newline characters.
-// parallelism is how many copies of your container should run in parallel. You
+//
+// parallelism is how many copies of your container should run in parallel.  You
 // may pass 0 for parallelism in which case PPS will set the parallelism based
 // on available resources.
-// input specifies a set of Repos that will be visible to the jobs during runtime.
-// commits to these repos will cause the pipeline to create new jobs to process them.
-// update indicates that you want to update an existing pipeline
-func (c APIClient) CreatePipeline(
-	name string,
-	image string,
-	cmd []string,
-	stdin []string,
-	parallelismSpec *pps.ParallelismSpec,
-	input *pps.Input,
-	outputBranch string,
-	update bool,
-) error {
+//
+// input specifies a set of Repos that will be visible to the jobs during
+// runtime.  commits to these repos will cause the pipeline to create new jobs
+// to process them.  update indicates that you want to update an existing
+// pipeline.
+//
+// Deprecated: use CreateProjectPipeline instead.
+func (c APIClient) CreatePipeline(pipelineName, image string, cmd []string, stdin []string, parallelismSpec *pps.ParallelismSpec, input *pps.Input, outputBranch string, update bool) error {
+	return c.CreateProjectPipeline("", pipelineName, image, cmd, stdin, parallelismSpec, input, outputBranch, update)
+}
+
+// CreatePipeline creates a new pipeline, pipelines are the main computation
+// object in PPS they create a flow of data from a set of input Repos to an
+// output Repo (which has the same name as the pipeline).  Whenever new data is
+// committed to one of the input repos the pipelines will create jobs to bring
+// the output Repo up to data.
+//
+// image is the Docker image to run the jobs in.
+//
+// cmd is the command passed to the Docker run invocation.  NOTE as with Docker
+// cmd is not run inside a shell that means that things like wildcard globbing
+// (*), pipes (|) and file redirects (> and >>) will not work.  To get that
+// behavior you should have your command be a shell of your choice and pass a
+// shell script to stdin.
+//
+// stdin is a slice of lines that are sent to your command on stdin.  Lines need
+// not end in newline characters.
+//
+// parallelism is how many copies of your container should run in parallel.  You
+// may pass 0 for parallelism in which case PPS will set the parallelism based
+// on available resources.
+//
+// input specifies a set of Repos that will be visible to the jobs during
+// runtime.  commits to these repos will cause the pipeline to create new jobs
+// to process them.  update indicates that you want to update an existing
+// pipeline.
+func (c APIClient) CreateProjectPipeline(projectName, pipelineName, image string, cmd []string, stdin []string, parallelismSpec *pps.ParallelismSpec, input *pps.Input, outputBranch string, update bool) error {
 	if image == "" {
 		image = c.defaultTransformImage
 	}
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: NewPipeline(name),
+			Pipeline: NewProjectPipeline(projectName, pipelineName),
 			Transform: &pps.Transform{
 				Image: image,
 				Cmd:   cmd,
@@ -690,11 +930,19 @@ func (c APIClient) CreatePipeline(
 
 // InspectPipeline returns info about a specific pipeline.  The name may include
 // ancestry syntax or be a bare name.
+//
+// Deprecated: use InspecProjectPipeline instead.
 func (c APIClient) InspectPipeline(pipelineName string, details bool) (*pps.PipelineInfo, error) {
+	return c.InspectProjectPipeline("", pipelineName, details)
+}
+
+// InspectProjectPipeline returns info about a specific pipeline.  The name may
+// include ancestry syntax or be a bare name.
+func (c APIClient) InspectProjectPipeline(projectName, pipelineName string, details bool) (*pps.PipelineInfo, error) {
 	pipelineInfo, err := c.PpsAPIClient.InspectPipeline(
 		c.Ctx(),
 		&pps.InspectPipelineRequest{
-			Pipeline: NewPipeline(pipelineName),
+			Pipeline: NewProjectPipeline(projectName, pipelineName),
 			Details:  details,
 		},
 	)
@@ -716,25 +964,46 @@ func (c APIClient) ListPipeline(details bool) ([]*pps.PipelineInfo, error) {
 }
 
 // ListPipelineHistory returns historical information about pipelines.
-// `pipeline` specifies which pipeline to return history about, if it's equal
+//
+// `pipelineName` specifies which pipeline to return history about, if it's equal
 // to "" then ListPipelineHistory returns historical information about all
 // pipelines.
+//
 // `history` specifies how many historical revisions to return:
-// 0: Return the current version of the pipeline or pipelines.
-// 1: Return the above and the next most recent version
-// 2: etc.
-//-1: Return all historical versions.
-func (c APIClient) ListPipelineHistory(pipeline string, history int64, details bool) ([]*pps.PipelineInfo, error) {
-	var _pipeline *pps.Pipeline
-	if pipeline != "" {
-		_pipeline = NewPipeline(pipeline)
+
+//   - 0: Return the current version of the pipeline or pipelines.
+//   - 1: Return the above and the next most recent version
+//   - 2: etc.
+//   - -1: Return all historical versions.
+//
+// Deprecated: use ListProjectPipelineHistory instead.
+func (c APIClient) ListPipelineHistory(pipelineName string, history int64, details bool) ([]*pps.PipelineInfo, error) {
+	return c.ListProjectPipelineHistory("", pipelineName, history, details)
+}
+
+// ListProjectPipelineHistory returns historical information about pipelines.
+//
+// `pipelineName` specifies which pipeline to return history about, if it's equal
+// to "" then ListPipelineHistory returns historical information about all
+// pipelines.
+//
+// `history` specifies how many historical revisions to return:
+
+//   - 0: Return the current version of the pipeline or pipelines.
+//   - 1: Return the above and the next most recent version
+//   - 2: etc.
+//   - -1: Return all historical versions.
+func (c APIClient) ListProjectPipelineHistory(projectName, pipelineName string, history int64, details bool) ([]*pps.PipelineInfo, error) {
+	var pipeline *pps.Pipeline
+	if pipelineName != "" {
+		pipeline = NewProjectPipeline(projectName, pipelineName)
 	}
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PpsAPIClient.ListPipeline(
 		ctx,
 		&pps.ListPipelineRequest{
-			Pipeline: _pipeline,
+			Pipeline: pipeline,
 			History:  history,
 			Details:  details,
 		},
@@ -746,9 +1015,16 @@ func (c APIClient) ListPipelineHistory(pipeline string, history int64, details b
 }
 
 // DeletePipeline deletes a pipeline along with its output Repo.
-func (c APIClient) DeletePipeline(name string, force bool) error {
+//
+// Deprecated: use DeleteProjectPipeline instead.
+func (c APIClient) DeletePipeline(pipelineName string, force bool) error {
+	return c.DeleteProjectPipeline("", pipelineName, force)
+}
+
+// DeleteProjectPipeline deletes a pipeline along with its output Repo.
+func (c APIClient) DeleteProjectPipeline(projectName, pipelineName string, force bool) error {
 	req := &pps.DeletePipelineRequest{
-		Pipeline: NewPipeline(name),
+		Pipeline: NewProjectPipeline(projectName, pipelineName),
 		Force:    force,
 	}
 	_, err := c.PpsAPIClient.DeletePipeline(
@@ -759,35 +1035,60 @@ func (c APIClient) DeletePipeline(name string, force bool) error {
 }
 
 // StartPipeline restarts a stopped pipeline.
-func (c APIClient) StartPipeline(name string) error {
+//
+// Deprecated: use StartProjectPipeline instead.
+func (c APIClient) StartPipeline(pipelineName string) error {
+	return c.StartProjectPipeline("", pipelineName)
+}
+
+// StartProjectPipeline restarts a stopped pipeline.
+func (c APIClient) StartProjectPipeline(projectName, pipelineName string) error {
 	_, err := c.PpsAPIClient.StartPipeline(
 		c.Ctx(),
 		&pps.StartPipelineRequest{
-			Pipeline: NewPipeline(name),
+			Pipeline: NewProjectPipeline(projectName, pipelineName),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
 }
 
-// StopPipeline prevents a pipeline from processing things, it can be restarted
-// with StartPipeline.
-func (c APIClient) StopPipeline(name string) error {
+// StopPipeline prevents a pipeline from processing things; it can be restarted
+// with StartProjectPipeline.
+//
+// Deprecated: use StopProjectPipeline instead.
+func (c APIClient) StopPipeline(pipelineName string) error {
+	return c.StopProjectPipeline("", pipelineName)
+}
+
+// StopProjectPipeline prevents a pipeline from processing things; it can be
+// restarted with StartProjectPipeline.
+func (c APIClient) StopProjectPipeline(projectName, pipelineName string) error {
 	_, err := c.PpsAPIClient.StopPipeline(
 		c.Ctx(),
 		&pps.StopPipelineRequest{
-			Pipeline: NewPipeline(name),
+			Pipeline: NewProjectPipeline(projectName, pipelineName),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
 }
 
-// RunPipeline runs a pipeline. It can be passed a list of commit provenance.
-// This will trigger a new job provenant on those commits, effectively running the pipeline on the data in those commits.
-func (c APIClient) RunPipeline(name string, provenance []*pfs.Commit, jobID string) error {
+// RunPipeline runs a pipeline.  It can be passed a list of commit provenance.
+// This will trigger a new job provenant on those commits, effectively running
+// the pipeline on the data in those commits.
+//
+// Deprecated: use RunProjectPipeline instead.
+func (c APIClient) RunPipeline(pipelineName string, provenance []*pfs.Commit, jobID string) error {
+	return c.RunProjectPipeline("", pipelineName, provenance, jobID)
+}
+
+// RunProjectPipeline runs a pipeline.  It can be passed a list of commit
+// provenance.  This will trigger a new job provenant on those commits,
+// effectively running the pipeline on the data in those commits.
+func (c APIClient) RunProjectPipeline(projectName, pipelineName string, provenance []*pfs.Commit, jobID string) error {
 	_, err := c.PpsAPIClient.RunPipeline(
 		c.Ctx(),
 		&pps.RunPipelineRequest{
-			Pipeline:   NewPipeline(name),
+			Pipeline:   NewProjectPipeline(projectName, pipelineName),
 			Provenance: provenance,
 			JobID:      jobID,
 		},
@@ -795,13 +1096,23 @@ func (c APIClient) RunPipeline(name string, provenance []*pfs.Commit, jobID stri
 	return grpcutil.ScrubGRPC(err)
 }
 
-// RunCron runs a pipeline. It can be passed a list of commit provenance.
-// This will trigger a new job provenant on those commits, effectively running the pipeline on the data in those commits.
-func (c APIClient) RunCron(name string) error {
+// RunCron runs a pipeline.  It can be passed a list of commit provenance.  This
+// will trigger a new job provenant on those commits, effectively running the
+// pipeline on the data in those commits.
+//
+// Deprecated: use RunProjectCron instead.
+func (c APIClient) RunCron(pipelineName string) error {
+	return c.RunProjectCron("", pipelineName)
+}
+
+// RunProjectCron runs a pipeline.  It can be passed a list of commit
+// provenance.  This will trigger a new job provenant on those commits,
+// effectively running the pipeline on the data in those commits.
+func (c APIClient) RunProjectCron(projectName, pipelineName string) error {
 	_, err := c.PpsAPIClient.RunCron(
 		c.Ctx(),
 		&pps.RunCronRequest{
-			Pipeline: NewPipeline(name),
+			Pipeline: NewProjectPipeline(projectName, pipelineName),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
@@ -853,25 +1164,21 @@ func (c APIClient) ListSecret() ([]*pps.SecretInfo, error) {
 }
 
 // CreatePipelineService creates a new pipeline service.
-func (c APIClient) CreatePipelineService(
-	name string,
-	image string,
-	cmd []string,
-	stdin []string,
-	parallelismSpec *pps.ParallelismSpec,
-	input *pps.Input,
-	update bool,
-	internalPort int32,
-	externalPort int32,
-	annotations map[string]string,
-) error {
+//
+// Deprecated: use CreateProjectPipelineService instead.
+func (c APIClient) CreatePipelineService(pipelineName, image string, cmd, stdin []string, parallelismSpec *pps.ParallelismSpec, input *pps.Input, update bool, internalPort, externalPort int32, annotations map[string]string) error {
+	return c.CreateProjectPipelineService("", pipelineName, image, cmd, stdin, parallelismSpec, input, update, internalPort, externalPort, annotations)
+}
+
+// CreateProjectPipelineService creates a new pipeline service.
+func (c APIClient) CreateProjectPipelineService(projectName, pipelineName, image string, cmd, stdin []string, parallelismSpec *pps.ParallelismSpec, input *pps.Input, update bool, internalPort, externalPort int32, annotations map[string]string) error {
 	if image == "" {
 		image = c.defaultTransformImage
 	}
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: NewPipeline(name),
+			Pipeline: NewProjectPipeline(projectName, pipelineName),
 			Metadata: &pps.Metadata{
 				Annotations: annotations,
 			},

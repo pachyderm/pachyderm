@@ -456,13 +456,13 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	repo := tu.UniqueString("TestPreActivationPipelinesKeepRunningAfterActivation")
 	pipeline := tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -541,7 +541,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline1 := tu.UniqueString("cron1-")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline1,
 		"",
 		[]string{"/bin/bash"},
@@ -552,13 +552,13 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 		false,
 	))
 	pipeline2 := tu.UniqueString("cron2-")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline2,
 		"",
 		[]string{"/bin/bash"},
 		[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline1) + " /pfs/out/"},
 		nil,
-		client.NewPFSInput(pipeline1, "/*"),
+		client.NewProjectPFSInput("", pipeline1, "/*"),
 		"",
 		false,
 	))
@@ -622,13 +622,13 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"",    // default output branch: master
 		false, // no update
 	))
@@ -1106,13 +1106,13 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	repo := tu.UniqueString("TestDeleteAllAfterDeactivate")
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -1174,14 +1174,14 @@ func TestDeleteRCInStandby(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Image: "", // default image: DefaultUserImage
 				Cmd:   []string{"bash"},
 				Stdin: []string{"cp /pfs/*/* /pfs/out"},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
-			Input:           client.NewPFSInput(repo, "/*"),
+			Input:           client.NewProjectPFSInput("", repo, "/*"),
 			Autoscaling:     true,
 		})
 	require.NoError(t, err)
@@ -1192,7 +1192,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 		return err
 	})
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pi, err := c.InspectPipeline(pipeline, false)
+		pi, err := c.InspectProjectPipeline("", pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -1243,7 +1243,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 
 	// Create pipeline
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -1252,7 +1252,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 			"cp /pfs/*/* /pfs/out/",
 		},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -1268,7 +1268,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	})
 
 	// make sure the pipeline is failed
-	pi, err := rootClient.InspectPipeline(pipeline, false)
+	pi, err := rootClient.InspectProjectPipeline("", pipeline, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pi.State)
 }

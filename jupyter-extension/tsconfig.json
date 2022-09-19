@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "ES6",
+    "outDir": "./lib",
+    "baseUrl": "./src",
+    "noEmit": false
+  },
+  "extends": "@pachyderm/config/ts.config.json",
+  "include": ["src/**/*"]
+}

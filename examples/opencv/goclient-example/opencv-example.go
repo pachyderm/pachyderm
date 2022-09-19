@@ -67,7 +67,7 @@ func main() {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput("images", "/*"),
+		client.NewProjectPFSInput("", "images", "/*"),
 		"",
 		false,
 	); err != nil {
@@ -85,8 +85,8 @@ func main() {
 			Constant: 1,
 		},
 		client.NewCrossInput(
-			client.NewPFSInput("images", "/"),
-			client.NewPFSInput("edges", "/"),
+			client.NewProjectPFSInput("", "images", "/"),
+			client.NewProjectPFSInput("", "edges", "/"),
 		),
 		"",
 		false,

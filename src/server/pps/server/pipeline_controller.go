@@ -277,6 +277,7 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 		tracing.TagAnySpan(span, "pollpipelines-or-autoscaling-event", "true")
 	}
 	defer tracing.FinishAnySpan(span, "err", retErr)
+	// derive the latest pipelineInfo with a corresponding auth'd context
 	pi, ctx, err := pc.psDriver.FetchState(pc.ctx, pc.pipeline)
 	if err != nil {
 		// if we fail to create a new step, there was an error querying the pipeline info, and there's nothing we can do
@@ -526,7 +527,7 @@ func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context, p
 	}
 	pachClient.SetAuthToken(pi.AuthToken)
 	if err := pachClient.ListCommitF(client.NewProjectRepo(pi.Pipeline.Project.GetName(), pi.Pipeline.Name), client.NewProjectCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, ""), nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
-		return pachClient.StopJob(pi.Pipeline.Name, commitInfo.Commit.ID)
+		return pachClient.StopProjectJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commitInfo.Commit.ID)
 	}); err != nil {
 		if errutil.IsNotFoundError(err) {
 			return nil // already deleted

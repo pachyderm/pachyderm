@@ -73,7 +73,7 @@ func newCountBreakFunc(maxCount int) func(func() error) error {
 
 func basicPipelineReq(name, input string) *pps.CreatePipelineRequest {
 	return &pps.CreatePipelineRequest{
-		Pipeline: client.NewPipeline(name),
+		Pipeline: client.NewProjectPipeline("", name),
 		Transform: &pps.Transform{
 			Cmd: []string{"bash"},
 			Stdin: []string{
@@ -83,7 +83,7 @@ func basicPipelineReq(name, input string) *pps.CreatePipelineRequest {
 		ParallelismSpec: &pps.ParallelismSpec{
 			Constant: 1,
 		},
-		Input: client.NewPFSInput(input, "/*"),
+		Input: client.NewProjectPFSInput("", input, "/*"),
 	}
 }
 
@@ -120,7 +120,7 @@ func TestSimplePipeline(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
 
 	pipeline := tu.UniqueString("TestSimplePipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		tu.DefaultTransformImage,
 		[]string{"bash"},
@@ -130,7 +130,7 @@ func TestSimplePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -174,7 +174,7 @@ func TestRepoSize(t *testing.T) {
 
 	// create a pipeline
 	pipeline := tu.UniqueString("TestRepoSize")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -184,7 +184,7 @@ func TestRepoSize(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -237,7 +237,7 @@ func TestPFSPipeline(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipeline := tu.UniqueString("TestPFSPipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -247,7 +247,7 @@ func TestPFSPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -278,7 +278,7 @@ func TestPipelineWithParallelism(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -288,7 +288,7 @@ func TestPipelineWithParallelism(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 4,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -324,7 +324,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -332,7 +332,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 		},
 		nil,
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -385,7 +385,7 @@ func TestDatumDedup(t *testing.T) {
 
 	pipeline := tu.UniqueString("pipeline")
 	// This pipeline sleeps for 10 secs per datum
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -393,7 +393,7 @@ func TestDatumDedup(t *testing.T) {
 			"sleep 10",
 		},
 		nil,
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -430,7 +430,7 @@ func TestPipelineInputDataModification(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -438,7 +438,7 @@ func TestPipelineInputDataModification(t *testing.T) {
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 		},
 		nil,
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -506,7 +506,7 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -517,8 +517,8 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewPFSInputOpts("dirA", dataRepo, "", "/dirA/*", "", "", false, false, nil),
-			client.NewPFSInputOpts("dirB", dataRepo, "", "/dirB/*", "", "", false, false, nil),
+			client.NewProjectPFSInputOpts("dirA", "", dataRepo, "", "/dirA/*", "", "", false, false, nil),
+			client.NewProjectPFSInputOpts("dirB", "", dataRepo, "", "/dirB/*", "", "", false, false, nil),
 		),
 		"",
 		false,
@@ -588,7 +588,7 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	// Creating this pipeline should error, because the two inputs are
 	// from the same repo but they don't specify different names.
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -598,8 +598,8 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-			client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
+			client.NewProjectPFSInputOpts("branch-a", "", dataRepo, branchA, "/*", "", "", false, false, nil),
+			client.NewProjectPFSInputOpts("branch-b", "", dataRepo, branchB, "/*", "", "", false, false, nil),
 		),
 		"",
 		false,
@@ -646,7 +646,7 @@ func TestRunPipeline(t *testing.T) {
 	//	branchB := "branchB"
 
 	//	pipeline := tu.UniqueString("pipeline")
-	//	require.NoError(t, c.CreatePipeline(
+	//	require.NoError(t, c.CreateProjectPipeline("",
 	//		pipeline,
 	//		"",
 	//		[]string{"bash"},
@@ -657,8 +657,8 @@ func TestRunPipeline(t *testing.T) {
 	//		},
 	//		nil,
 	//		client.NewCrossInput(
-	//			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-	//			client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("branch-a","", dataRepo, branchA, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("branch-b","", dataRepo, branchB, "/*", "", "", false, false, nil),
 	//		),
 	//		"",
 	//		false,
@@ -686,14 +686,14 @@ func TestRunPipeline(t *testing.T) {
 	//	require.NoError(t, c.FinishCommit(dataRepo, commitM.Branch.Name, commitM.ID))
 
 	//	// we should have two jobs
-	//	ji, err := c.ListJob(pipeline, nil, nil, -1, true)
+	//	ji, err := c.ListProjectJob("",pipeline, nil, nil, -1, true)
 	//	require.NoError(t, err)
 	//	require.Equal(t, 2, len(ji))
 	//	// now run the pipeline
 	//	require.NoError(t, c.RunPipeline(pipeline, nil, ""))
 	//	// running the pipeline should create a new job
 	//	require.NoError(t, backoff.Retry(func() error {
-	//		jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+	//		jobInfos, err := c.ListProjectJob("",pipeline, nil, nil, -1, true)
 	//		require.NoError(t, err)
 	//		if len(jobInfos) != 3 {
 	//			return errors.Errorf("expected 3 jobs, got %d", len(jobInfos))
@@ -710,7 +710,7 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// running the pipeline should create a new job
 	//	require.NoError(t, backoff.Retry(func() error {
-	//		jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+	//		jobInfos, err := c.ListProjectJob("",pipeline, nil, nil, -1, true)
 	//		require.NoError(t, err)
 	//		if len(jobInfos) != 4 {
 	//			return errors.Errorf("expected 4 jobs, got %d", len(jobInfos))
@@ -763,7 +763,7 @@ func TestRunPipeline(t *testing.T) {
 	//	require.NoError(t, c.CreateRepo(dataRepo))
 
 	//	pipeline := tu.UniqueString("empty-pipeline")
-	//	require.NoError(t, c.CreatePipeline(
+	//	require.NoError(t, c.CreateProjectPipeline("",
 	//		pipeline,
 	//		"",
 	//		nil,
@@ -775,7 +775,7 @@ func TestRunPipeline(t *testing.T) {
 	//	))
 
 	//	// we should have two jobs
-	//	ji, err := c.ListJob(pipeline, nil, nil, -1, true)
+	//	ji, err := c.ListProjectJob("",pipeline, nil, nil, -1, true)
 	//	require.NoError(t, err)
 	//	require.Equal(t, 0, len(ji))
 	//	// now run the pipeline
@@ -791,7 +791,7 @@ func TestRunPipeline(t *testing.T) {
 	//	branchB := "branchB"
 
 	//	pipeline := tu.UniqueString("unrelated-pipeline")
-	//	require.NoError(t, c.CreatePipeline(
+	//	require.NoError(t, c.CreateProjectPipeline("",
 	//		pipeline,
 	//		"",
 	//		[]string{"bash"},
@@ -802,8 +802,8 @@ func TestRunPipeline(t *testing.T) {
 	//		},
 	//		nil,
 	//		client.NewCrossInput(
-	//			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-	//			client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("branch-a","", dataRepo, branchA, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("branch-b","", dataRepo, branchB, "/*", "", "", false, false, nil),
 	//		),
 	//		"",
 	//		false,
@@ -841,7 +841,7 @@ func TestRunPipeline(t *testing.T) {
 	//	branchB := "branchB"
 
 	//	pipeline := tu.UniqueString("original-pipeline")
-	//	require.NoError(t, c.CreatePipeline(
+	//	require.NoError(t, c.CreateProjectPipeline("",
 	//		pipeline,
 	//		"",
 	//		[]string{"bash"},
@@ -852,8 +852,8 @@ func TestRunPipeline(t *testing.T) {
 	//		},
 	//		nil,
 	//		client.NewCrossInput(
-	//			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-	//			client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("branch-a","", dataRepo, branchA, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("branch-b","", dataRepo, branchB, "/*", "", "", false, false, nil),
 	//		),
 	//		"",
 	//		false,
@@ -878,13 +878,13 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// and make sure we can attatch a downstream pipeline
 	//	downstreamPipeline := tu.UniqueString("downstream-pipeline")
-	//	require.NoError(t, c.CreatePipeline(
+	//	require.NoError(t, c.CreateProjectPipeline("",
 	//		downstreamPipeline,
 	//		"",
 	//		[]string{"/bin/bash"},
 	//		[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline) + " /pfs/out/"},
 	//		nil,
-	//		client.NewPFSInput(pipeline, "/*"),
+	//		client.NewProjectPFSInput("",pipeline, "/*"),
 	//		"",
 	//		false,
 	//	))
@@ -931,7 +931,7 @@ func TestRunPipeline(t *testing.T) {
 	//	branchB := "branchB"
 
 	//	pipeline := tu.UniqueString("pipeline-downstream")
-	//	require.NoError(t, c.CreatePipeline(
+	//	require.NoError(t, c.CreateProjectPipeline("",
 	//		pipeline,
 	//		"",
 	//		[]string{"bash"},
@@ -942,8 +942,8 @@ func TestRunPipeline(t *testing.T) {
 	//		},
 	//		nil,
 	//		client.NewCrossInput(
-	//			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-	//			client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("branch-a","", dataRepo, branchA, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("branch-b","", dataRepo, branchB, "/*", "", "", false, false, nil),
 	//		),
 	//		"",
 	//		false,
@@ -964,7 +964,7 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// and make sure we can attatch a downstream pipeline
 	//	downstreamPipeline := tu.UniqueString("pipelinedownstream")
-	//	require.NoError(t, c.CreatePipeline(
+	//	require.NoError(t, c.CreateProjectPipeline("",
 	//		downstreamPipeline,
 	//		"",
 	//		[]string{"/bin/bash"},
@@ -975,8 +975,8 @@ func TestRunPipeline(t *testing.T) {
 	//		},
 	//		nil,
 	//		client.NewUnionInput(
-	//			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-	//			client.NewPFSInput(pipeline, "/*"),
+	//			client.NewProjectPFSInputOpts("branch-a","", dataRepo, branchA, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInput("",pipeline, "/*"),
 	//		),
 	//		"",
 	//		false,
@@ -1032,7 +1032,7 @@ func TestRunPipeline(t *testing.T) {
 	//	branchB := "branchB"
 
 	//	pipeline := tu.UniqueString("sameBranch-pipeline")
-	//	require.NoError(t, c.CreatePipeline(
+	//	require.NoError(t, c.CreateProjectPipeline("",
 	//		pipeline,
 	//		"",
 	//		[]string{"bash"},
@@ -1043,8 +1043,8 @@ func TestRunPipeline(t *testing.T) {
 	//		},
 	//		nil,
 	//		client.NewCrossInput(
-	//			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
-	//			client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("branch-a","", dataRepo, branchA, "/*", "", "", false, false, nil),
+	//			client.NewProjectPFSInputOpts("branch-b","", dataRepo, branchB, "/*", "", "", false, false, nil),
 	//		),
 	//		"",
 	//		false,
@@ -1075,13 +1075,13 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// jobs on this pipeline should always fail
 	//	pipeline := tu.UniqueString("rerun-pipeline")
-	//	require.NoError(t, c.CreatePipeline(
+	//	require.NoError(t, c.CreateProjectPipeline("",
 	//		pipeline,
 	//		"",
 	//		[]string{"bash"},
 	//		[]string{"false"},
 	//		nil,
-	//		client.NewPFSInputOpts("branch-a", dataRepo, "branchA", "/*", "", "", false, false, nil),
+	//		client.NewProjectPFSInputOpts("branch-a","", dataRepo, "branchA", "/*", "", "", false, false, nil),
 	//		"",
 	//		false,
 	//	))
@@ -1099,7 +1099,7 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// running the pipeline should create a new job
 	//	require.NoError(t, backoff.Retry(func() error {
-	//		jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+	//		jobInfos, err := c.ListProjectJob("",pipeline, nil, nil, -1, true)
 	//		require.NoError(t, err)
 	//		if len(jobInfos) != 2 {
 	//			return errors.Errorf("expected 2 jobs, got %d", len(jobInfos))
@@ -1115,8 +1115,8 @@ func TestRunPipeline(t *testing.T) {
 	//	}, backoff.NewTestingBackOff()))
 
 	//	// Shouldn't error if you try to delete an already deleted pipeline
-	//	require.NoError(t, c.DeletePipeline(pipeline, false))
-	//	require.NoError(t, c.DeletePipeline(pipeline, false))
+	//	require.NoError(t, c.DeleteProjectPipeline("",pipeline, false))
+	//	require.NoError(t, c.DeleteProjectPipeline("",pipeline, false))
 	//})
 	//t.Run("RunPipelineStats", func(t *testing.T) {
 	//	dataRepo := tu.UniqueString("TestRunPipeline_data")
@@ -1128,7 +1128,7 @@ func TestRunPipeline(t *testing.T) {
 	//	_, err := c.PpsAPIClient.CreatePipeline(
 	//		context.Background(),
 	//		&pps.CreatePipelineRequest{
-	//			Pipeline: client.NewPipeline(pipeline),
+	//			Pipeline: client.NewProjectPipeline("",pipeline),
 	//			Transform: &pps.Transform{
 	//				Cmd: []string{"bash"},
 	//				Stdin: []string{
@@ -1137,7 +1137,7 @@ func TestRunPipeline(t *testing.T) {
 	//					"echo ran-pipeline",
 	//				},
 	//			},
-	//			Input:       client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", "", "", false, false, nil),
+	//			Input:       client.NewProjectPFSInputOpts("branch-a","", dataRepo, branchA, "/*", "", "", false, false, nil),
 	//		})
 	//	require.NoError(t, err)
 
@@ -1184,7 +1184,7 @@ func TestPipelineFailure(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"exit 1"},
@@ -1192,20 +1192,20 @@ func TestPipelineFailure(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
 	var jobInfos []*pps.JobInfo
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err = c.ListJob(pipeline, nil, -1, true)
+		jobInfos, err = c.ListProjectJob("", pipeline, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 1 {
 			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
-	jobInfo, err := c.WaitJob(pipeline, jobInfos[0].Job.ID, false)
+	jobInfo, err := c.WaitProjectJob("", pipeline, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 	require.True(t, strings.Contains(jobInfo.Reason, "datum"))
@@ -1233,7 +1233,7 @@ func TestPPSEgressURLOnly(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		jobInfo, err := c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+		jobInfo, err := c.InspectProjectJob("", pipeline, commitInfo.Commit.ID, false)
 		if err != nil {
 			return err
 		}
@@ -1260,7 +1260,7 @@ func TestEgressFailure(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Image: tu.DefaultTransformImage,
 				Cmd:   []string{"bash"},
@@ -1278,7 +1278,7 @@ func TestEgressFailure(t *testing.T) {
 	require.NoError(t, err)
 	var jobInfos []*pps.JobInfo
 	require.NoErrorWithinTRetry(t, time.Minute, func() error {
-		jobInfos, err = c.ListJob(pipeline, nil, -1, true)
+		jobInfos, err = c.ListProjectJob("", pipeline, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 1 {
 			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
@@ -1286,7 +1286,7 @@ func TestEgressFailure(t *testing.T) {
 		return nil
 	})
 	time.Sleep(10 * time.Second)
-	jobInfo, err := c.InspectJob(pipeline, jobInfos[0].Job.ID, false)
+	jobInfo, err := c.InspectProjectJob("", pipeline, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_EGRESSING, jobInfo.State)
 	fileInfos, err := c.ListFileAll(commit, "")
@@ -1310,7 +1310,7 @@ func TestInputFailure(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 
 	pipeline1 := tu.UniqueString("pipeline1")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline1,
 		"",
 		[]string{"exit 1"},
@@ -1318,25 +1318,25 @@ func TestInputFailure(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
 	var jobInfos []*pps.JobInfo
 	require.NoErrorWithinTRetry(t, time.Minute, func() error {
-		jobInfos, err = c.ListJob(pipeline1, nil, -1, true)
+		jobInfos, err = c.ListProjectJob("", pipeline1, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 1 {
 			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
 		}
 		return nil
 	})
-	jobInfo, err := c.WaitJob(pipeline1, jobInfos[0].Job.ID, false)
+	jobInfo, err := c.WaitProjectJob("", pipeline1, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 	require.True(t, strings.Contains(jobInfo.Reason, "datum"))
 	pipeline2 := tu.UniqueString("pipeline2")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline2,
 		"",
 		[]string{"exit 0"},
@@ -1344,25 +1344,25 @@ func TestInputFailure(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(pipeline1, "/*"),
+		client.NewProjectPFSInput("", pipeline1, "/*"),
 		"",
 		false,
 	))
 	require.NoErrorWithinTRetry(t, time.Minute, func() error {
-		jobInfos, err = c.ListJob(pipeline2, nil, -1, true)
+		jobInfos, err = c.ListProjectJob("", pipeline2, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 1 {
 			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
 		}
 		return nil
 	})
-	jobInfo, err = c.WaitJob(pipeline2, jobInfos[0].Job.ID, false)
+	jobInfo, err = c.WaitProjectJob("", pipeline2, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_UNRUNNABLE, jobInfo.State)
 	require.True(t, strings.Contains(jobInfo.Reason, "unrunnable because"))
 
 	pipeline3 := tu.UniqueString("pipeline3")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline3,
 		"",
 		[]string{"exit 0"},
@@ -1370,19 +1370,19 @@ func TestInputFailure(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(pipeline2, "/*"),
+		client.NewProjectPFSInput("", pipeline2, "/*"),
 		"",
 		false,
 	))
 	require.NoErrorWithinTRetry(t, time.Minute, func() error {
-		jobInfos, err = c.ListJob(pipeline3, nil, -1, true)
+		jobInfos, err = c.ListProjectJob("", pipeline3, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 1 {
 			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
 		}
 		return nil
 	})
-	jobInfo, err = c.WaitJob(pipeline3, jobInfos[0].Job.ID, false)
+	jobInfo, err = c.WaitProjectJob("", pipeline3, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_UNRUNNABLE, jobInfo.State)
 	// the fact that pipeline 2 failed should be noted in the message
@@ -1411,20 +1411,20 @@ func TestPipelineErrorHandling(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd:      []string{"bash"},
 					Stdin:    []string{"if", fmt.Sprintf("[ -a pfs/%v/file1 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
 					ErrCmd:   []string{"bash"},
 					ErrStdin: []string{"if", fmt.Sprintf("[ -a pfs/%v/file3 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
 				},
-				Input: client.NewPFSInput(dataRepo, "/*"),
+				Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 			})
 		require.NoError(t, err)
 
 		commitInfo, err := c.WaitCommit(pipeline, "master", "")
 		require.NoError(t, err)
-		jobInfo, err := c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+		jobInfo, err := c.InspectProjectJob("", pipeline, commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 
 		// We expect the job to fail, and have 1 datum processed, recovered, and failed each
@@ -1437,20 +1437,20 @@ func TestPipelineErrorHandling(t *testing.T) {
 		_, err = c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd:    []string{"bash"},
 					Stdin:  []string{"if", fmt.Sprintf("[ -a pfs/%v/file1 ]", dataRepo), "then", "exit 0", "fi", "exit 1"},
 					ErrCmd: []string{"true"},
 				},
-				Input:  client.NewPFSInput(dataRepo, "/*"),
+				Input:  client.NewProjectPFSInput("", dataRepo, "/*"),
 				Update: true,
 			})
 		require.NoError(t, err)
 
 		commitInfo, err = c.WaitCommit(pipeline, "master", "")
 		require.NoError(t, err)
-		jobInfo, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+		jobInfo, err = c.InspectProjectJob("", pipeline, commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 
 		// so we expect the job to succeed, and to have recovered 2 datums
@@ -1472,20 +1472,20 @@ func TestPipelineErrorHandling(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd:      []string{"bash"},
 					Stdin:    []string{"false"},
 					ErrCmd:   []string{"bash"},
 					ErrStdin: []string{"true"},
 				},
-				Input: client.NewPFSInput(dataRepo, "/*"),
+				Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 			})
 		require.NoError(t, err)
 
 		commitInfo, err := c.WaitCommit(pipeline, "master", "")
 		require.NoError(t, err)
-		jobInfo, err := c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+		jobInfo, err := c.InspectProjectJob("", pipeline, commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 
 		// We expect there to be one recovered datum
@@ -1498,19 +1498,19 @@ func TestPipelineErrorHandling(t *testing.T) {
 		_, err = c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd:   []string{"bash"},
 					Stdin: []string{"true"},
 				},
-				Input:  client.NewPFSInput(dataRepo, "/*"),
+				Input:  client.NewProjectPFSInput("", dataRepo, "/*"),
 				Update: true,
 			})
 		require.NoError(t, err)
 
 		commitInfo, err = c.WaitCommit(pipeline, "master", "")
 		require.NoError(t, err)
-		jobInfo, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+		jobInfo, err = c.InspectProjectJob("", pipeline, commitInfo.Commit.ID, false)
 		require.NoError(t, err)
 
 		// Now the recovered datum should have been processed
@@ -1532,7 +1532,7 @@ func TestLazyPipelinePropagation(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipelineA := tu.UniqueString("pipeline-A")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineA,
 		"",
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
@@ -1540,12 +1540,12 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts("", dataRepo, "", "/*", "", "", false, true, nil),
+		client.NewProjectPFSInputOpts("", "", dataRepo, "", "/*", "", "", false, true, nil),
 		"",
 		false,
 	))
 	pipelineB := tu.UniqueString("pipeline-B")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineB,
 		"",
 		[]string{"cp", path.Join("/pfs", pipelineA, "file"), "/pfs/out/file"},
@@ -1553,7 +1553,7 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts("", pipelineA, "", "/*", "", "", false, true, nil),
+		client.NewProjectPFSInputOpts("", "", pipelineA, "", "/*", "", "", false, true, nil),
 		"",
 		false,
 	))
@@ -1566,13 +1566,13 @@ func TestLazyPipelinePropagation(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commit1.ID)
 	require.NoError(t, err)
 
-	jobInfos, err := c.ListJob(pipelineA, nil, -1, true)
+	jobInfos, err := c.ListProjectJob("", pipelineA, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
 	require.NotNil(t, jobInfos[0].Details.Input.Pfs)
 	require.Equal(t, true, jobInfos[0].Details.Input.Pfs.Lazy)
 
-	jobInfos, err = c.ListJob(pipelineB, nil, -1, true)
+	jobInfos, err = c.ListProjectJob("", pipelineB, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
 	require.NotNil(t, jobInfos[0].Details.Input.Pfs)
@@ -1595,7 +1595,7 @@ func TestLazyPipeline(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
+			Pipeline: client.NewProjectPipeline("", pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
@@ -1649,7 +1649,7 @@ func TestEmptyFiles(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
+			Pipeline: client.NewProjectPipeline("", pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -1715,7 +1715,7 @@ func TestProvenance(t *testing.T) {
 	require.NoError(t, c.CreateRepo(aRepo))
 
 	bPipeline := tu.UniqueString("B")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		bPipeline,
 		"",
 		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
@@ -1723,13 +1723,13 @@ func TestProvenance(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(aRepo, "/*"),
+		client.NewProjectPFSInput("", aRepo, "/*"),
 		"",
 		false,
 	))
 
 	cPipeline := tu.UniqueString("C")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		cPipeline,
 		"",
 		[]string{"sh"},
@@ -1739,8 +1739,8 @@ func TestProvenance(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewCrossInput(
-			client.NewPFSInput(aRepo, "/*"),
-			client.NewPFSInput(bPipeline, "/*"),
+			client.NewProjectPFSInput("", aRepo, "/*"),
+			client.NewProjectPFSInput("", bPipeline, "/*"),
 		),
 		"",
 		false,
@@ -1800,7 +1800,7 @@ func TestProvenance2(t *testing.T) {
 	require.NoError(t, c.CreateRepo(aRepo))
 
 	bPipeline := tu.UniqueString("B")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		bPipeline,
 		"",
 		[]string{"cp", path.Join("/pfs", aRepo, "bfile"), "/pfs/out/bfile"},
@@ -1808,13 +1808,13 @@ func TestProvenance2(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(aRepo, "/b*"),
+		client.NewProjectPFSInput("", aRepo, "/b*"),
 		"",
 		false,
 	))
 
 	cPipeline := tu.UniqueString("C")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		cPipeline,
 		"",
 		[]string{"cp", path.Join("/pfs", aRepo, "cfile"), "/pfs/out/cfile"},
@@ -1822,13 +1822,13 @@ func TestProvenance2(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(aRepo, "/c*"),
+		client.NewProjectPFSInput("", aRepo, "/c*"),
 		"",
 		false,
 	))
 
 	dPipeline := tu.UniqueString("D")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		dPipeline,
 		"",
 		[]string{"sh"},
@@ -1839,8 +1839,8 @@ func TestProvenance2(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewCrossInput(
-			client.NewPFSInput(bPipeline, "/*"),
-			client.NewPFSInput(cPipeline, "/*"),
+			client.NewProjectPFSInput("", bPipeline, "/*"),
+			client.NewProjectPFSInput("", cPipeline, "/*"),
 		),
 		"",
 		false,
@@ -1907,7 +1907,7 @@ func TestStopPipelineExtraCommit(t *testing.T) {
 	require.NoError(t, c.CreateRepo(aRepo))
 
 	bPipeline := tu.UniqueString("B")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		bPipeline,
 		"",
 		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
@@ -1915,13 +1915,13 @@ func TestStopPipelineExtraCommit(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(aRepo, "/*"),
+		client.NewProjectPFSInput("", aRepo, "/*"),
 		"",
 		false,
 	))
 
 	cPipeline := tu.UniqueString("C")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		cPipeline,
 		"",
 		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
@@ -1929,7 +1929,7 @@ func TestStopPipelineExtraCommit(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(bPipeline, "/*"),
+		client.NewProjectPFSInput("", bPipeline, "/*"),
 		"",
 		false,
 	))
@@ -1959,7 +1959,7 @@ func TestStopPipelineExtraCommit(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
-	require.NoError(t, c.StopPipeline(bPipeline))
+	require.NoError(t, c.StopProjectPipeline("", bPipeline))
 	commitInfos, err = c.ListCommit(client.NewProjectRepo("", cPipeline), client.NewProjectCommit("", cPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
@@ -1984,7 +1984,7 @@ func TestWaitJobSet(t *testing.T) {
 	numStages := 4
 	for i := 0; i < numStages; i++ {
 		repo := makeRepoName(i)
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			makeRepoName(i+1),
 			"",
 			[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
@@ -1992,7 +1992,7 @@ func TestWaitJobSet(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewPFSInput(repo, "/*"),
+			client.NewProjectPFSInput("", repo, "/*"),
 			"",
 			false,
 		))
@@ -2025,7 +2025,7 @@ func TestWaitJobSetFailures(t *testing.T) {
 	prefix := tu.UniqueString("TestWaitJobSetFailures")
 	pipelineName := func(i int) string { return prefix + fmt.Sprintf("%d", i) }
 
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName(0),
 		"",
 		[]string{"sh"},
@@ -2033,11 +2033,11 @@ func TestWaitJobSetFailures(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName(1),
 		"",
 		[]string{"sh"},
@@ -2048,11 +2048,11 @@ func TestWaitJobSetFailures(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(pipelineName(0), "/*"),
+		client.NewProjectPFSInput("", pipelineName(0), "/*"),
 		"",
 		false,
 	))
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName(2),
 		"",
 		[]string{"sh"},
@@ -2060,7 +2060,7 @@ func TestWaitJobSetFailures(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(pipelineName(1), "/*"),
+		client.NewProjectPFSInput("", pipelineName(1), "/*"),
 		"",
 		false,
 	))
@@ -2111,7 +2111,7 @@ func TestWaitCommitSetAfterCreatePipeline(t *testing.T) {
 	require.NoError(t, c.CreateBranch(repo, "master", commit.Branch.Name, commit.ID, nil))
 
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
@@ -2119,7 +2119,7 @@ func TestWaitCommitSetAfterCreatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"",
 		false,
 	))
@@ -2145,7 +2145,7 @@ func TestRecreatePipeline(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	pipeline := tu.UniqueString("pipeline")
 	createPipeline := func() {
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline,
 			"",
 			[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
@@ -2153,7 +2153,7 @@ func TestRecreatePipeline(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewPFSInput(repo, "/*"),
+			client.NewProjectPFSInput("", repo, "/*"),
 			"",
 			false,
 		))
@@ -2164,7 +2164,7 @@ func TestRecreatePipeline(t *testing.T) {
 	// Do it twice.  We expect jobs to be created on both runs.
 	createPipeline()
 	time.Sleep(5 * time.Second)
-	require.NoError(t, c.DeletePipeline(pipeline, false))
+	require.NoError(t, c.DeleteProjectPipeline("", pipeline, false))
 	time.Sleep(5 * time.Second)
 	createPipeline()
 }
@@ -2185,7 +2185,7 @@ func TestDeletePipeline(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, commit.Branch.Name, commit.ID))
 	pipelines := []string{tu.UniqueString("TestDeletePipeline1"), tu.UniqueString("TestDeletePipeline2")}
 	createPipelines := func() {
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipelines[0],
 			"",
 			[]string{"sleep", "20"},
@@ -2193,11 +2193,11 @@ func TestDeletePipeline(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewPFSInput(repo, "/*"),
+			client.NewProjectPFSInput("", repo, "/*"),
 			"",
 			false,
 		))
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipelines[1],
 			"",
 			[]string{"sleep", "20"},
@@ -2205,7 +2205,7 @@ func TestDeletePipeline(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewPFSInput(pipelines[0], "/*"),
+			client.NewProjectPFSInput("", pipelines[0], "/*"),
 			"",
 			false,
 		))
@@ -2225,7 +2225,7 @@ func TestDeletePipeline(t *testing.T) {
 				return errors.Errorf("Expected two pipelines, but got: %+v", names)
 			}
 			// make sure second pipeline is running
-			pipelineInfo, err := c.InspectPipeline(pipelines[1], false)
+			pipelineInfo, err := c.InspectProjectPipeline("", pipelines[1], false)
 			if err != nil {
 				return err
 			}
@@ -2239,11 +2239,11 @@ func TestDeletePipeline(t *testing.T) {
 	createPipelines()
 
 	deletePipeline := func(pipeline string) {
-		require.NoError(t, c.DeletePipeline(pipeline, false))
+		require.NoError(t, c.DeleteProjectPipeline("", pipeline, false))
 		time.Sleep(5 * time.Second)
 		// Wait for the pipeline to disappear
 		require.NoError(t, backoff.Retry(func() error {
-			_, err := c.InspectPipeline(pipeline, false)
+			_, err := c.InspectProjectPipeline("", pipeline, false)
 			if err == nil {
 				return errors.Errorf("expected pipeline to be missing, but it's still present")
 			}
@@ -2252,24 +2252,24 @@ func TestDeletePipeline(t *testing.T) {
 
 	}
 	// Can't delete a pipeline from the middle of the dag
-	require.YesError(t, c.DeletePipeline(pipelines[0], false))
+	require.YesError(t, c.DeleteProjectPipeline("", pipelines[0], false))
 
 	deletePipeline(pipelines[1])
 	deletePipeline(pipelines[0])
 
 	// The jobs should be gone
-	jobs, err := c.ListJob("", nil, -1, true)
+	jobs, err := c.ListProjectJob("", "", nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 0)
 
 	// Listing jobs for a deleted pipeline should error
-	_, err = c.ListJob(pipelines[0], nil, -1, true)
+	_, err = c.ListProjectJob("", pipelines[0], nil, -1, true)
 	require.YesError(t, err)
 
 	createPipelines()
 
 	// Can force delete pipelines from the middle of the dag.
-	require.NoError(t, c.DeletePipeline(pipelines[0], true))
+	require.NoError(t, c.DeleteProjectPipeline("", pipelines[0], true))
 }
 
 func TestPipelineState(t *testing.T) {
@@ -2282,7 +2282,7 @@ func TestPipelineState(t *testing.T) {
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
@@ -2290,7 +2290,7 @@ func TestPipelineState(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"",
 		false,
 	))
@@ -2298,7 +2298,7 @@ func TestPipelineState(t *testing.T) {
 	// Wait for pipeline to get picked up
 	time.Sleep(15 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err := c.InspectPipeline(pipeline, false)
+		pipelineInfo, err := c.InspectProjectPipeline("", pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -2309,10 +2309,10 @@ func TestPipelineState(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// Stop pipeline and wait for the pipeline to pause
-	require.NoError(t, c.StopPipeline(pipeline))
+	require.NoError(t, c.StopProjectPipeline("", pipeline))
 	time.Sleep(5 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err := c.InspectPipeline(pipeline, false)
+		pipelineInfo, err := c.InspectProjectPipeline("", pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -2323,10 +2323,10 @@ func TestPipelineState(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// Restart pipeline and wait for the pipeline to resume
-	require.NoError(t, c.StartPipeline(pipeline))
+	require.NoError(t, c.StartProjectPipeline("", pipeline))
 	time.Sleep(15 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err := c.InspectPipeline(pipeline, false)
+		pipelineInfo, err := c.InspectProjectPipeline("", pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -2354,13 +2354,13 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"sh"},
 		[]string{"exit 1"},
 		nil,
-		client.NewPFSInput(dataRepo, "/"),
+		client.NewProjectPFSInput("", dataRepo, "/"),
 		"",
 		false,
 	))
@@ -2370,7 +2370,7 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 	time.Sleep(10 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
 		var err error
-		jobInfos, err = c.ListJob(pipeline, nil, -1, true)
+		jobInfos, err = c.ListProjectJob("", pipeline, nil, -1, true)
 		if err != nil {
 			return err
 		}
@@ -2380,18 +2380,18 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 		return nil
 	}, backoff.NewTestingBackOff()))
 
-	jobInfo, err := c.WaitJob(pipeline, jobInfos[0].Job.ID, false)
+	jobInfo, err := c.WaitProjectJob("", pipeline, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 
 	// Now we update the pipeline
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"sh"},
 		[]string{"exit 1"},
 		nil,
-		client.NewPFSInput(dataRepo, "/"),
+		client.NewProjectPFSInput("", dataRepo, "/"),
 		"",
 		true,
 	))
@@ -2412,13 +2412,13 @@ func TestAcceptReturnCode(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
+			Pipeline: client.NewProjectPipeline("", pipelineName),
 			Transform: &pps.Transform{
 				Cmd:              []string{"sh"},
 				Stdin:            []string{"exit 1"},
 				AcceptReturnCode: []int64{1},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		},
 	)
 	require.NoError(t, err)
@@ -2432,12 +2432,12 @@ func TestAcceptReturnCode(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
-	jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
+	jobInfos, err := c.ListProjectJob("", pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
 	require.Equal(t, commit.ID, jobInfos[0].Job.ID)
 
-	jobInfo, err := c.WaitJob(pipelineName, jobInfos[0].Job.ID, false)
+	jobInfo, err := c.WaitProjectJob("", pipelineName, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
@@ -2459,14 +2459,14 @@ func TestPrettyPrinting(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
+			Pipeline: client.NewProjectPipeline("", pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 
@@ -2490,10 +2490,10 @@ func TestPrettyPrinting(t *testing.T) {
 	fileInfo, err := c.InspectFile(commit, "file")
 	require.NoError(t, err)
 	require.NoError(t, pfspretty.PrintDetailedFileInfo(fileInfo))
-	pipelineInfo, err := c.InspectPipeline(pipelineName, true)
+	pipelineInfo, err := c.InspectProjectPipeline("", pipelineName, true)
 	require.NoError(t, err)
 	require.NoError(t, ppspretty.PrintDetailedPipelineInfo(os.Stdout, ppspretty.NewPrintablePipelineInfo(pipelineInfo)))
-	jobInfos, err := c.ListJob("", nil, -1, true)
+	jobInfos, err := c.ListProjectJob("", "", nil, -1, true)
 	require.NoError(t, err)
 	require.True(t, len(jobInfos) > 0)
 	require.NoError(t, ppspretty.PrintDetailedJobInfo(os.Stdout, ppspretty.NewPrintableJobInfo(jobInfos[0], false)))
@@ -2518,14 +2518,14 @@ func TestAuthPrettyPrinting(t *testing.T) {
 	_, err := rc.PpsAPIClient.CreatePipeline(
 		rc.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
+			Pipeline: client.NewProjectPipeline("", pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 
@@ -2549,10 +2549,10 @@ func TestAuthPrettyPrinting(t *testing.T) {
 	fileInfo, err := c.InspectFile(commit, "file")
 	require.NoError(t, err)
 	require.NoError(t, pfspretty.PrintDetailedFileInfo(fileInfo))
-	pipelineInfo, err := c.InspectPipeline(pipelineName, true)
+	pipelineInfo, err := c.InspectProjectPipeline("", pipelineName, true)
 	require.NoError(t, err)
 	require.NoError(t, ppspretty.PrintDetailedPipelineInfo(os.Stdout, ppspretty.NewPrintablePipelineInfo(pipelineInfo)))
-	jobInfos, err := c.ListJob("", nil, -1, true)
+	jobInfos, err := c.ListProjectJob("", "", nil, -1, true)
 	require.NoError(t, err)
 	require.True(t, len(jobInfos) > 0)
 	require.NoError(t, ppspretty.PrintDetailedJobInfo(os.Stdout, ppspretty.NewPrintableJobInfo(jobInfos[0], false)))
@@ -2570,7 +2570,7 @@ func TestDeleteAll(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
@@ -2578,7 +2578,7 @@ func TestDeleteAll(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/"),
+		client.NewProjectPFSInput("", dataRepo, "/"),
 		"",
 		false,
 	))
@@ -2596,7 +2596,7 @@ func TestDeleteAll(t *testing.T) {
 	pipelineInfos, err := c.ListPipeline(false)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(pipelineInfos))
-	jobInfos, err := c.ListJob("", nil, -1, true)
+	jobInfos, err := c.ListProjectJob("", "", nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(jobInfos))
 }
@@ -2613,7 +2613,7 @@ func TestRecursiveCp(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := tu.UniqueString("TestRecursiveCp")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"sh"},
@@ -2623,7 +2623,7 @@ func TestRecursiveCp(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -2653,7 +2653,7 @@ func TestPipelineUniqueness(t *testing.T) {
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
 	pipelineName := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -2661,11 +2661,11 @@ func TestPipelineUniqueness(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(repo, "/"),
+		client.NewProjectPFSInput("", repo, "/"),
 		"",
 		false,
 	))
-	err := c.CreatePipeline(
+	err := c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -2673,7 +2673,7 @@ func TestPipelineUniqueness(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(repo, "/"),
+		client.NewProjectPFSInput("", repo, "/"),
 		"",
 		false,
 	)
@@ -2693,7 +2693,7 @@ func TestUpdatePipeline(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 	pipelineName := tu.UniqueString("pipeline")
 	pipelineCommit := client.NewProjectCommit("", pipelineName, "master", "")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -2701,7 +2701,7 @@ func TestUpdatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
@@ -2719,7 +2719,7 @@ func TestUpdatePipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 
 	// Update the pipeline
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -2727,7 +2727,7 @@ func TestUpdatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
@@ -2779,7 +2779,7 @@ func TestUpdatePipeline(t *testing.T) {
 	require.Equal(t, "bar\n", buffer.String())
 
 	// Inspect the first job to make sure it hasn't changed
-	jis, err := c.ListJob(pipelineName, nil, -1, true)
+	jis, err := c.ListProjectJob("", pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(jis))
 	require.Equal(t, "echo bar >/pfs/out/file", jis[0].Details.Transform.Stdin[0])
@@ -2792,7 +2792,7 @@ func TestUpdatePipeline(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
+			Pipeline: client.NewProjectPipeline("", pipelineName),
 			Transform: &pps.Transform{
 				Cmd:   []string{"bash"},
 				Stdin: []string{"echo buzz >/pfs/out/file"},
@@ -2800,7 +2800,7 @@ func TestUpdatePipeline(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Input:     client.NewPFSInput(dataRepo, "/*"),
+			Input:     client.NewProjectPFSInput("", dataRepo, "/*"),
 			Update:    true,
 			Reprocess: true,
 		})
@@ -2862,12 +2862,12 @@ func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd:   []string{"bash"},
 					Stdin: []string{"sleep 1"},
 				},
-				Input:  client.NewPFSInput(dataRepo, "/*"),
+				Input:  client.NewProjectPFSInput("", dataRepo, "/*"),
 				Update: true,
 			})
 		require.NoError(t, err)
@@ -2912,7 +2912,7 @@ func TestUpdateFailedPipeline(t *testing.T) {
 	dataRepo := tu.UniqueString("TestUpdateFailedPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	pipelineName := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"imagethatdoesntexist",
 		[]string{"bash"},
@@ -2920,7 +2920,7 @@ func TestUpdateFailedPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -2931,7 +2931,7 @@ func TestUpdateFailedPipeline(t *testing.T) {
 
 	// Wait for pod to try and pull the bad image
 	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
-		pipelineInfo, err := c.InspectPipeline(pipelineName, false)
+		pipelineInfo, err := c.InspectProjectPipeline("", pipelineName, false)
 		require.NoError(t, err)
 		if pipelineInfo.State != pps.PipelineState_PIPELINE_CRASHING {
 			return errors.Errorf("expected pipeline to be in CRASHING state but got: %v\n", pipelineInfo.State)
@@ -2939,7 +2939,7 @@ func TestUpdateFailedPipeline(t *testing.T) {
 		return nil
 	})
 
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"bash:4",
 		[]string{"bash"},
@@ -2947,12 +2947,12 @@ func TestUpdateFailedPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
 	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
-		pipelineInfo, err := c.InspectPipeline(pipelineName, false)
+		pipelineInfo, err := c.InspectProjectPipeline("", pipelineName, false)
 		require.NoError(t, err)
 		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
 			return errors.Errorf("expected pipeline to be in RUNNING state but got: %v\n", pipelineInfo.State)
@@ -2986,7 +2986,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 	pipelineName := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -2994,7 +2994,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -3016,12 +3016,12 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 
 	// Stop the pipeline (and confirm that it's stopped)
-	require.NoError(t, c.StopPipeline(pipelineName))
-	pipelineInfo, err := c.InspectPipeline(pipelineName, false)
+	require.NoError(t, c.StopProjectPipeline("", pipelineName))
+	pipelineInfo, err := c.InspectProjectPipeline("", pipelineName, false)
 	require.NoError(t, err)
 	require.Equal(t, true, pipelineInfo.Stopped)
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err = c.InspectPipeline(pipelineName, false)
+		pipelineInfo, err = c.InspectProjectPipeline("", pipelineName, false)
 		if err != nil {
 			return err
 		}
@@ -3037,7 +3037,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	require.Equal(t, 2, len(commits))
 
 	// Update shouldn't restart it (wait for version to increment)
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -3045,13 +3045,13 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
 	time.Sleep(10 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err = c.InspectPipeline(pipelineName, false)
+		pipelineInfo, err = c.InspectProjectPipeline("", pipelineName, false)
 		if err != nil {
 			return err
 		}
@@ -3072,7 +3072,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 
 	// Create a commit (to give the pipeline pending work), then start the pipeline
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("bar"), client.WithAppendPutFile()))
-	require.NoError(t, c.StartPipeline(pipelineName))
+	require.NoError(t, c.StartProjectPipeline("", pipelineName))
 
 	// Pipeline should start and create a job should succeed -- fix
 	// https://github.com/pachyderm/pachyderm/v2/issues/3934)
@@ -3102,7 +3102,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	dataRepo := tu.UniqueString("TestUpdatePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	pipelineName := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -3110,7 +3110,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 2,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -3132,7 +3132,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 
 	b := backoff.NewTestingBackOff()
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
+		jobInfos, err := c.ListProjectJob("", pipelineName, nil, -1, true)
 		if err != nil {
 			return err
 		}
@@ -3154,7 +3154,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 
 	// Update the pipeline. This will not create a new pipeline as reprocess
 	// isn't set to true.
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -3162,7 +3162,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 2,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
@@ -3171,7 +3171,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 
-	jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
+	jobInfos, err := c.ListProjectJob("", pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(jobInfos))
 	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfos[0].State.String())
@@ -3220,12 +3220,12 @@ func TestManyFilesSingleOutputCommit(t *testing.T) {
 	pipelineName := tu.UniqueString("TestManyFilesSingleOutputCommit")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
+			Pipeline: client.NewProjectPipeline("", pipelineName),
 			Transform: &pps.Transform{
 				Cmd:   []string{"sh"},
 				Stdin: []string{"while read line; do echo $line > /pfs/out/$line; done < " + path.Join("/pfs", dataRepo, file)},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		},
 	)
 	require.NoError(t, err)
@@ -3262,7 +3262,7 @@ func TestStopPipeline(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
@@ -3270,7 +3270,7 @@ func TestStopPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -3281,7 +3281,7 @@ func TestStopPipeline(t *testing.T) {
 	require.Equal(t, len(commits), 1)
 
 	// Stop the pipeline, so it doesn't process incoming commits
-	require.NoError(t, c.StopPipeline(pipelineName))
+	require.NoError(t, c.StopProjectPipeline("", pipelineName))
 
 	// Do first commit to repo
 	commit1, err := c.StartCommit(dataRepo, "master")
@@ -3296,7 +3296,7 @@ func TestStopPipeline(t *testing.T) {
 	require.Equal(t, len(commits), 1)
 
 	// Restart pipeline, and make sure a new output commit is generated
-	require.NoError(t, c.StartPipeline(pipelineName))
+	require.NoError(t, c.StartProjectPipeline("", pipelineName))
 
 	commits, err = c.ListCommit(client.NewProjectRepo("", pipelineName), client.NewProjectCommit("", pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
@@ -3334,11 +3334,11 @@ func TestAutoscalingStandby(t *testing.T) {
 			}
 			_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 				&pps.CreatePipelineRequest{
-					Pipeline: client.NewPipeline(pipelines[i]),
+					Pipeline: client.NewProjectPipeline("", pipelines[i]),
 					Transform: &pps.Transform{
 						Cmd: []string{"cp", path.Join("/pfs", input, "file"), "/pfs/out/file"},
 					},
-					Input:       client.NewPFSInput(input, "/*"),
+					Input:       client.NewProjectPFSInput("", input, "/*"),
 					Autoscaling: true,
 				},
 			)
@@ -3404,12 +3404,12 @@ func TestAutoscalingStandby(t *testing.T) {
 		require.NoError(t, c.CreateRepo(dataRepo))
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd:   []string{"sh"},
 					Stdin: []string{"echo $PPS_POD_NAME >/pfs/out/pod"},
 				},
-				Input:       client.NewPFSInput(dataRepo, "/"),
+				Input:       client.NewProjectPFSInput("", dataRepo, "/"),
 				Autoscaling: true,
 			},
 		)
@@ -3446,7 +3446,7 @@ func TestAutoscalingStandby(t *testing.T) {
 				require.True(t, pod == buffer.String(), "multiple pods were used to process commits")
 			}
 		}
-		pi, err := c.InspectPipeline(pipeline, false)
+		pi, err := c.InspectProjectPipeline("", pipeline, false)
 		require.NoError(t, err)
 		require.Equal(t, pps.PipelineState_PIPELINE_STANDBY.String(), pi.State.String())
 	})
@@ -3467,21 +3467,21 @@ func TestStopStandbyPipeline(t *testing.T) {
 	pipeline := tu.UniqueString(t.Name())
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"/bin/bash"},
 				Stdin: []string{
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out", dataRepo),
 				},
 			},
-			Input:       client.NewPFSInput(dataRepo, "/*"),
+			Input:       client.NewProjectPFSInput("", dataRepo, "/*"),
 			Autoscaling: true,
 		},
 	)
 	require.NoError(t, err)
 
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pi, err := c.InspectPipeline(pipeline, false)
+		pi, err := c.InspectProjectPipeline("", pipeline, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
 			return errors.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
@@ -3499,7 +3499,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 		_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 		require.NoError(t, err)
 		// check ending state
-		pi, err := c.InspectPipeline(pipeline, false)
+		pi, err := c.InspectProjectPipeline("", pipeline, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
 			return errors.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
@@ -3508,9 +3508,9 @@ func TestStopStandbyPipeline(t *testing.T) {
 	})
 
 	// Stop the pipeline...
-	require.NoError(t, c.StopPipeline(pipeline))
+	require.NoError(t, c.StopProjectPipeline("", pipeline))
 	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
-		pi, err := c.InspectPipeline(pipeline, false)
+		pi, err := c.InspectProjectPipeline("", pipeline, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_PAUSED {
 			return errors.Errorf("expected %q to be in PAUSED, but was in %s", pipeline,
@@ -3525,14 +3525,14 @@ func TestStopStandbyPipeline(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	for ctx.Err() == nil {
-		pi, err := c.InspectPipeline(pipeline, false)
+		pi, err := c.InspectProjectPipeline("", pipeline, false)
 		require.NoError(t, err)
 		require.NotEqual(t, pps.PipelineState_PIPELINE_RUNNING, pi.State)
 	}
 	cancel()
 
 	// Start pipeline--it should run and then enter standby
-	require.NoError(t, c.StartPipeline(pipeline))
+	require.NoError(t, c.StartProjectPipeline("", pipeline))
 	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 		// Let pipeline run
 		commitInfo, err := c.InspectCommit(dataRepo, "master", "")
@@ -3540,7 +3540,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 		_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 		require.NoError(t, err)
 		// check ending state
-		pi, err := c.InspectPipeline(pipeline, false)
+		pi, err := c.InspectProjectPipeline("", pipeline, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
 			return errors.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
@@ -3585,11 +3585,11 @@ func TestPipelineEnv(t *testing.T) {
 
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
-	input := client.NewPFSInput(dataRepo, "/*")
+	input := client.NewProjectPFSInput("", dataRepo, "/*")
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
+			Pipeline: client.NewProjectPipeline("", pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"sh"},
 				Stdin: []string{
@@ -3671,7 +3671,7 @@ func TestPipelineWithFullObjects(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
@@ -3679,7 +3679,7 @@ func TestPipelineWithFullObjects(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -3738,7 +3738,7 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
@@ -3746,7 +3746,7 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -3786,7 +3786,7 @@ func TestPipelineThatSymlinks(t *testing.T) {
 
 	check := func(input *pps.Input) {
 		pipelineName := tu.UniqueString("pipeline")
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipelineName,
 			"",
 			[]string{"bash"},
@@ -3838,14 +3838,14 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	}
 
 	// Check normal pipeline.
-	input := client.NewPFSInput(dataRepo, "/")
+	input := client.NewProjectPFSInput("", dataRepo, "/")
 	check(input)
 	// Check pipeline with empty files.
-	input = client.NewPFSInput(dataRepo, "/")
+	input = client.NewProjectPFSInput("", dataRepo, "/")
 	input.Pfs.EmptyFiles = true
 	check(input)
 	// Check pipeline with lazy files.
-	input = client.NewPFSInput(dataRepo, "/")
+	input = client.NewProjectPFSInput("", dataRepo, "/")
 	input.Pfs.Lazy = true
 	check(input)
 }
@@ -3882,7 +3882,7 @@ func TestChainedPipelines(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dRepo, "master", ""))
 
 	bPipeline := tu.UniqueString("B")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		bPipeline,
 		"",
 		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
@@ -3890,13 +3890,13 @@ func TestChainedPipelines(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(aRepo, "/"),
+		client.NewProjectPFSInput("", aRepo, "/"),
 		"",
 		false,
 	))
 
 	cPipeline := tu.UniqueString("C")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		cPipeline,
 		"",
 		[]string{"sh"},
@@ -3906,8 +3906,8 @@ func TestChainedPipelines(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewCrossInput(
-			client.NewPFSInput(bPipeline, "/"),
-			client.NewPFSInput(dRepo, "/"),
+			client.NewProjectPFSInput("", bPipeline, "/"),
+			client.NewProjectPFSInput("", dRepo, "/"),
 		),
 		"",
 		false,
@@ -3962,7 +3962,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	require.NoError(t, c.FinishCommit(eRepo, "master", ""))
 
 	bPipeline := tu.UniqueString("B")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		bPipeline,
 		"",
 		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
@@ -3970,13 +3970,13 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(aRepo, "/"),
+		client.NewProjectPFSInput("", aRepo, "/"),
 		"",
 		false,
 	))
 
 	cPipeline := tu.UniqueString("C")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		cPipeline,
 		"",
 		[]string{"sh"},
@@ -3986,15 +3986,15 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewCrossInput(
-			client.NewPFSInput(bPipeline, "/"),
-			client.NewPFSInput(eRepo, "/"),
+			client.NewProjectPFSInput("", bPipeline, "/"),
+			client.NewProjectPFSInput("", eRepo, "/"),
 		),
 		"",
 		false,
 	))
 
 	dPipeline := tu.UniqueString("D")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		dPipeline,
 		"",
 		[]string{"sh"},
@@ -4003,7 +4003,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(cPipeline, "/"),
+		client.NewProjectPFSInput("", cPipeline, "/"),
 		"",
 		false,
 	))
@@ -4024,7 +4024,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	require.Equal(t, 11, len(commitInfos))
 
 	// Get number of jobs triggered in pipeline D
-	jobInfos, err := c.ListJob(dPipeline, nil, -1, true)
+	jobInfos, err := c.ListProjectJob("", dPipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
 }
@@ -4053,7 +4053,7 @@ func TestStartInternalPipeline(t *testing.T) {
 	require.NoError(t, c.PutFile(aCommit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(aRepo, "master", ""))
 	bPipeline := tu.UniqueString("B")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		bPipeline,
 		"",
 		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
@@ -4061,12 +4061,12 @@ func TestStartInternalPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(aRepo, "/"),
+		client.NewProjectPFSInput("", aRepo, "/"),
 		"",
 		false,
 	))
 	cPipeline := tu.UniqueString("C")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		cPipeline,
 		"",
 		[]string{"cp", path.Join("/pfs", bPipeline, "file"), "/pfs/out/file"},
@@ -4074,7 +4074,7 @@ func TestStartInternalPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(bPipeline, "/"),
+		client.NewProjectPFSInput("", bPipeline, "/"),
 		"",
 		false,
 	))
@@ -4084,8 +4084,8 @@ func TestStartInternalPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 7, len(commitInfos))
 	// Stop and Start a pipeline was orginal trigger of bug so "reproduce" it here.
-	require.NoError(t, c.StopPipeline(bPipeline))
-	require.NoError(t, c.StartPipeline(bPipeline))
+	require.NoError(t, c.StopProjectPipeline("", bPipeline))
+	require.NoError(t, c.StartProjectPipeline("", bPipeline))
 	// C's commit should be the same as b's meta commit
 	cCommits, err := c.ListCommit(client.NewProjectRepo("", cPipeline), nil, nil, 0)
 	require.NoError(t, err)
@@ -4111,7 +4111,7 @@ func TestJobDeletion(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
@@ -4119,7 +4119,7 @@ func TestJobDeletion(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/"),
+		client.NewProjectPFSInput("", dataRepo, "/"),
 		"",
 		false,
 	))
@@ -4132,7 +4132,7 @@ func TestJobDeletion(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commit.ID)
 	require.NoError(t, err)
 
-	err = c.DeleteJob(pipelineName, commit.ID)
+	err = c.DeleteProjectJob("", pipelineName, commit.ID)
 	require.NoError(t, err)
 }
 
@@ -4149,7 +4149,7 @@ func TestStopJob(t *testing.T) {
 
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline-stop-job")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"sleep", "10"},
@@ -4157,7 +4157,7 @@ func TestStopJob(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/"),
+		client.NewProjectPFSInput("", dataRepo, "/"),
 		"",
 		false,
 	))
@@ -4180,7 +4180,7 @@ func TestStopJob(t *testing.T) {
 	require.NoError(t, c.PutFile(commit3, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(dataRepo, commit3.Branch.Name, commit3.ID))
 
-	jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
+	jobInfos, err := c.ListProjectJob("", pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(jobInfos))
 	require.Equal(t, commit3.ID, jobInfos[0].Job.ID)
@@ -4188,7 +4188,7 @@ func TestStopJob(t *testing.T) {
 	require.Equal(t, commit1.ID, jobInfos[2].Job.ID)
 
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfo, err := c.InspectJob(pipelineName, commit1.ID, false)
+		jobInfo, err := c.InspectProjectJob("", pipelineName, commit1.ID, false)
 		require.NoError(t, err)
 		if jobInfo.State != pps.JobState_JOB_RUNNING {
 			return errors.Errorf("first job has the wrong state")
@@ -4197,14 +4197,14 @@ func TestStopJob(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// Now stop the second job
-	err = c.StopJob(pipelineName, commit2.ID)
+	err = c.StopProjectJob("", pipelineName, commit2.ID)
 	require.NoError(t, err)
-	jobInfo, err := c.WaitJob(pipelineName, commit2.ID, false)
+	jobInfo, err := c.WaitProjectJob("", pipelineName, commit2.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_KILLED, jobInfo.State)
 
 	// Check that the third job completes
-	jobInfo, err = c.WaitJob(pipelineName, commit3.ID, false)
+	jobInfo, err = c.WaitProjectJob("", pipelineName, commit3.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
@@ -4220,7 +4220,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 		opts = append(opts, minikubetestenv.SkipLokiOption)
 	}
 	c, _ := minikubetestenv.AcquireCluster(t, opts...)
-	iter := c.GetLogs("", "", nil, "", false, false, 0)
+	iter := c.GetProjectLogs("", "", "", nil, "", false, false, 0)
 	for iter.Next() {
 	}
 	require.NoError(t, iter.Err())
@@ -4232,7 +4232,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 	pipelineName := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
+			Pipeline: client.NewProjectPipeline("", pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"sh"},
 				Stdin: []string{
@@ -4241,7 +4241,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 					"echo %s", // %s tests a formatting bug we had (#2729)
 				},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 4,
 			},
@@ -4258,14 +4258,14 @@ func testGetLogs(t *testing.T, useLoki bool) {
 
 	// Get logs from pipeline, using a pipeline that doesn't exist. There should
 	// be an error
-	iter = c.GetLogs("__DOES_NOT_EXIST__", "", nil, "", false, false, 0)
+	iter = c.GetProjectLogs("", "__DOES_NOT_EXIST__", "", nil, "", false, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.Matches(t, "could not get", iter.Err().Error())
 
 	// Get logs from pipeline, using a job that doesn't exist. There should
 	// be an error
-	iter = c.GetLogs(pipelineName, "__DOES_NOT_EXIST__", nil, "", false, false, 0)
+	iter = c.GetProjectLogs("", pipelineName, "__DOES_NOT_EXIST__", nil, "", false, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.Matches(t, "could not get", iter.Err().Error())
@@ -4277,7 +4277,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 	// Loki hasn't scraped the logs yet so they don't show up.
 	require.NoError(t, backoff.Retry(func() error {
 		// Get logs from pipeline, using pipeline
-		iter = c.GetLogs(pipelineName, "", nil, "", false, false, 0)
+		iter = c.GetProjectLogs("", pipelineName, "", nil, "", false, false, 0)
 		var numLogs int
 		for iter.Next() {
 			if !iter.Message().User {
@@ -4296,7 +4296,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 
 		// Get logs from pipeline, using job
 		// (1) Get job ID, from pipeline that just ran
-		jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
+		jobInfos, err := c.ListProjectJob("", pipelineName, nil, -1, true)
 		if err != nil {
 			return err
 		}
@@ -4304,7 +4304,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 		// (2) Get logs using extracted job ID
 		// wait for logs to be collected
 		time.Sleep(10 * time.Second)
-		iter = c.GetLogs(pipelineName, jobInfos[0].Job.ID, nil, "", false, false, 0)
+		iter = c.GetProjectLogs("", pipelineName, jobInfos[0].Job.ID, nil, "", false, false, 0)
 		numLogs = 0
 		for iter.Next() {
 			numLogs++
@@ -4317,16 +4317,16 @@ func testGetLogs(t *testing.T, useLoki bool) {
 		require.True(t, numLogs > 0)
 
 		// Get logs for datums but don't specify pipeline or job. These should error
-		iter = c.GetLogs("", "", []string{"/foo"}, "", false, false, 0)
+		iter = c.GetProjectLogs("", "", "", []string{"/foo"}, "", false, false, 0)
 		require.False(t, iter.Next())
 		require.YesError(t, iter.Err())
 
-		dis, err := c.ListDatumAll(jobInfos[0].Job.Pipeline.Name, jobInfos[0].Job.ID)
+		dis, err := c.ListProjectDatumAll("", jobInfos[0].Job.Pipeline.Name, jobInfos[0].Job.ID)
 		if err != nil {
 			return err
 		}
 		require.True(t, len(dis) > 0)
-		iter = c.GetLogs("", "", nil, dis[0].Datum.ID, false, false, 0)
+		iter = c.GetProjectLogs("", "", "", nil, dis[0].Datum.ID, false, false, 0)
 		require.False(t, iter.Next())
 		require.YesError(t, iter.Err())
 
@@ -4337,11 +4337,11 @@ func testGetLogs(t *testing.T, useLoki bool) {
 			return err
 		}
 
-		pathLog := c.GetLogs(pipelineName, jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
+		pathLog := c.GetProjectLogs("", pipelineName, jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
 
 		base64Hash := "kstrTGrFE58QWlxEpCRBt3aT8NJPNY0rso6XK7a4+wM="
 		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
-		base64Log := c.GetLogs(pipelineName, jobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
+		base64Log := c.GetProjectLogs("", pipelineName, jobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
 
 		numLogs = 0
 		for {
@@ -4371,7 +4371,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 
 		// Filter logs based on input (using file that doesn't exist). There should
 		// be no logs
-		iter = c.GetLogs(pipelineName, jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false, false, 0)
+		iter = c.GetProjectLogs("", pipelineName, jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false, false, 0)
 		require.False(t, iter.Next())
 		if err = iter.Err(); err != nil {
 			return err
@@ -4379,7 +4379,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-		iter = c.WithCtx(ctx).GetLogs(pipelineName, "", nil, "", false, false, 0)
+		iter = c.WithCtx(ctx).GetProjectLogs("", pipelineName, "", nil, "", false, false, 0)
 		numLogs = 0
 		for iter.Next() {
 			numLogs++
@@ -4408,7 +4408,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 		time.Sleep(time.Second * 30)
 
 		numLogs = 0
-		iter = c.WithCtx(ctx).GetLogs(pipelineName, "", nil, "", false, false, 15*time.Second)
+		iter = c.WithCtx(ctx).GetProjectLogs("", pipelineName, "", nil, "", false, false, 15*time.Second)
 		for iter.Next() {
 			numLogs++
 		}
@@ -4446,7 +4446,7 @@ func TestManyLogs(t *testing.T) {
 	pipelineName := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
+			Pipeline: client.NewProjectPipeline("", pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"sh"},
 				Stdin: []string{
@@ -4458,7 +4458,7 @@ func TestManyLogs(t *testing.T) {
 					"done",
 				},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 
@@ -4470,7 +4470,7 @@ func TestManyLogs(t *testing.T) {
 	require.Equal(t, 1, len(jis))
 
 	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
-		iter := c.GetLogs(pipelineName, jis[0].Job.ID, nil, "", false, false, 0)
+		iter := c.GetProjectLogs("", pipelineName, jis[0].Job.ID, nil, "", false, false, 0)
 		logsReceived := 0
 		for iter.Next() {
 			if iter.Message().User {
@@ -4507,11 +4507,11 @@ func TestLokiLogs(t *testing.T) {
 	pipelineName := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
+			Pipeline: client.NewProjectPipeline("", pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"echo", "foo"},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 
@@ -4579,7 +4579,7 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo2, "master", ""))
 
 	pipeline := tu.UniqueString("TestAllDatumsAreProcessed_pipelines")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -4588,8 +4588,8 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput("", dataRepo1, "/*"),
+			client.NewProjectPFSInput("", dataRepo2, "/*"),
 		),
 		"",
 		false,
@@ -4626,7 +4626,7 @@ func TestDatumStatusRestart(t *testing.T) {
 
 	pipeline := tu.UniqueString("pipeline")
 	// This pipeline sleeps for 20 secs per datum
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -4634,7 +4634,7 @@ func TestDatumStatusRestart(t *testing.T) {
 			"sleep 20",
 		},
 		nil,
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -4645,7 +4645,7 @@ func TestDatumStatusRestart(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
 
 	// get the job status
-	jobs, err := c.ListJob(pipeline, nil, -1, true)
+	jobs, err := c.ListProjectJob("", pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 
@@ -4655,7 +4655,7 @@ func TestDatumStatusRestart(t *testing.T) {
 	// (than the last time checkStatus was called)
 	checkStatus := func() {
 		require.NoErrorWithinTRetry(t, time.Minute, func() error {
-			jobInfo, err := c.InspectJob(pipeline, commit1.ID, true)
+			jobInfo, err := c.InspectProjectJob("", pipeline, commit1.ID, true)
 			require.NoError(t, err)
 			if len(jobInfo.Details.WorkerStatus) == 0 {
 				return errors.Errorf("no worker statuses")
@@ -4681,7 +4681,7 @@ func TestDatumStatusRestart(t *testing.T) {
 		})
 	}
 	checkStatus()
-	require.NoError(t, c.RestartDatum(pipeline, commit1.ID, []string{"/file"}))
+	require.NoError(t, c.RestartProjectDatum("", pipeline, commit1.ID, []string{"/file"}))
 	checkStatus()
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.ID)
@@ -4769,7 +4769,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
+			Pipeline: client.NewProjectPipeline("", pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
@@ -4792,7 +4792,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get info about the pipeline pods from k8s & check for resources
-	pipelineInfo, err := c.InspectPipeline(pipelineName, false)
+	pipelineInfo, err := c.InspectProjectPipeline("", pipelineName, false)
 	require.NoError(t, err)
 
 	var container v1.Container
@@ -4845,7 +4845,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
+			Pipeline: client.NewProjectPipeline("", pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
@@ -4867,7 +4867,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get info about the pipeline pods from k8s & check for resources
-	pipelineInfo, err := c.InspectPipeline(pipelineName, false)
+	pipelineInfo, err := c.InspectProjectPipeline("", pipelineName, false)
 	require.NoError(t, err)
 
 	var container v1.Container
@@ -4918,7 +4918,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
+			Pipeline: client.NewProjectPipeline("", pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
@@ -4936,7 +4936,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get info about the pipeline pods from k8s & check for resources
-	pipelineInfo, err := c.InspectPipeline(pipelineName, false)
+	pipelineInfo, err := c.InspectProjectPipeline("", pipelineName, false)
 	require.NoError(t, err)
 
 	var container v1.Container
@@ -4981,7 +4981,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(fmt.Sprintf("%s-%d", pipelineName, 0)),
+			Pipeline: client.NewProjectPipeline("", fmt.Sprintf("%s-%d", pipelineName, 0)),
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
@@ -5001,7 +5001,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(fmt.Sprintf("%s-%d", pipelineName, 1)),
+			Pipeline: client.NewProjectPipeline("", fmt.Sprintf("%s-%d", pipelineName, 1)),
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
@@ -5020,7 +5020,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(fmt.Sprintf("%s-%d", pipelineName, 2)),
+			Pipeline: client.NewProjectPipeline("", fmt.Sprintf("%s-%d", pipelineName, 2)),
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
@@ -5036,7 +5036,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
 		for i := 0; i < 3; i++ {
-			pipelineInfo, err := c.InspectPipeline(fmt.Sprintf("%s-%d", pipelineName, i), false)
+			pipelineInfo, err := c.InspectProjectPipeline("", fmt.Sprintf("%s-%d", pipelineName, i), false)
 			require.NoError(t, err)
 			if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
 				return errors.Errorf("pipeline not in running state")
@@ -5060,7 +5060,7 @@ func TestPipelineCrashing(t *testing.T) {
 
 	create := func(gpu bool) error {
 		req := pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
+			Pipeline: client.NewProjectPipeline("", pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
@@ -5091,7 +5091,7 @@ func TestPipelineCrashing(t *testing.T) {
 	require.NoError(t, create(true))
 
 	require.NoError(t, backoff.Retry(func() error {
-		pi, err := c.InspectPipeline(pipelineName, false)
+		pi, err := c.InspectProjectPipeline("", pipelineName, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_CRASHING {
 			return errors.Errorf("pipeline in wrong state: %s", pi.State.String())
@@ -5104,7 +5104,7 @@ func TestPipelineCrashing(t *testing.T) {
 	require.NoError(t, create(false))
 	// wait for pipeline to restart and enter running
 	require.NoError(t, backoff.Retry(func() error {
-		pi, err := c.InspectPipeline(pipelineName, false)
+		pi, err := c.InspectProjectPipeline("", pipelineName, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_RUNNING {
 			return errors.Errorf("pipeline in wrong state: %s", pi.State.String())
@@ -5128,7 +5128,7 @@ func TestPodOpts(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipelineName),
+				Pipeline: client.NewProjectPipeline("", pipelineName),
 				Transform: &pps.Transform{
 					Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 				},
@@ -5145,7 +5145,7 @@ func TestPodOpts(t *testing.T) {
 		_, err = c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipelineName),
+				Pipeline: client.NewProjectPipeline("", pipelineName),
 				Transform: &pps.Transform{
 					Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 				},
@@ -5165,7 +5165,7 @@ func TestPodOpts(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipelineName),
+				Pipeline: client.NewProjectPipeline("", pipelineName),
 				Transform: &pps.Transform{
 					Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 				},
@@ -5194,7 +5194,7 @@ func TestPodOpts(t *testing.T) {
 		require.NoError(t, err)
 
 		// Get info about the pipeline pods from k8s & check for resources
-		pipelineInfo, err := c.InspectPipeline(pipelineName, false)
+		pipelineInfo, err := c.InspectProjectPipeline("", pipelineName, false)
 		require.NoError(t, err)
 
 		var pod v1.Pod
@@ -5230,7 +5230,7 @@ func TestPodOpts(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipelineName),
+				Pipeline: client.NewProjectPipeline("", pipelineName),
 				Transform: &pps.Transform{
 					Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 				},
@@ -5259,7 +5259,7 @@ func TestPodOpts(t *testing.T) {
 		require.NoError(t, err)
 
 		// Get info about the pipeline pods from k8s & check for resources
-		pipelineInfo, err := c.InspectPipeline(pipelineName, false)
+		pipelineInfo, err := c.InspectProjectPipeline("", pipelineName, false)
 		require.NoError(t, err)
 
 		var pod v1.Pod
@@ -5304,7 +5304,7 @@ func TestPipelineLargeOutput(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -5314,7 +5314,7 @@ func TestPipelineLargeOutput(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 4,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -5357,7 +5357,7 @@ func TestJoinInput(t *testing.T) {
 	}
 
 	pipeline := tu.UniqueString("join-pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -5368,8 +5368,8 @@ func TestJoinInput(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewJoinInput(
-			client.NewPFSInputOpts("", repos[0], "", "/file-?.(11*)", "$1", "", false, false, nil),
-			client.NewPFSInputOpts("", repos[1], "", "/file-?.(*0)", "$1", "", false, false, nil),
+			client.NewProjectPFSInputOpts("", "", repos[0], "", "/file-?.(11*)", "$1", "", false, false, nil),
+			client.NewProjectPFSInputOpts("", "", repos[1], "", "/file-?.(*0)", "$1", "", false, false, nil),
 		),
 		"",
 		false,
@@ -5396,7 +5396,7 @@ func TestJoinInput(t *testing.T) {
 	require.NoError(t, c.PutFile(masterCommit, "/dir-10/bar", strings.NewReader("bar")))
 
 	pipeline = tu.UniqueString("join-pipeline-directory")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -5408,8 +5408,8 @@ func TestJoinInput(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewJoinInput(
-			client.NewPFSInputOpts("", dataRepo0, "", "/dir-(?)(?)", "$2", "", false, false, nil),
-			client.NewPFSInputOpts("", dataRepo1, "", "/dir-(?)(?)", "$1", "", false, false, nil),
+			client.NewProjectPFSInputOpts("", "", dataRepo0, "", "/dir-(?)(?)", "$2", "", false, false, nil),
+			client.NewProjectPFSInputOpts("", "", dataRepo1, "", "/dir-(?)(?)", "$1", "", false, false, nil),
 		),
 		"",
 		false,
@@ -5444,7 +5444,7 @@ func TestGroupInput(t *testing.T) {
 		}
 
 		pipeline := "group-pipeline"
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline,
 			"",
 			[]string{"bash"},
@@ -5453,7 +5453,7 @@ func TestGroupInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewGroupInput(
-				client.NewPFSInputOpts("", repo, "", "/file.(?)(?)(?)(?)", "", "$3", false, false, nil),
+				client.NewProjectPFSInputOpts("", "", repo, "", "/file.(?)(?)(?)(?)", "", "$3", false, false, nil),
 			),
 			"",
 			false,
@@ -5489,7 +5489,7 @@ func TestGroupInput(t *testing.T) {
 				"/file.1100",
 				"/file.1101"}}
 		actual := make([][]string, 0, 3)
-		dis, err := c.ListDatumAll(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
+		dis, err := c.ListProjectDatumAll("", jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
 		require.NoError(t, err)
 		for _, di := range dis {
 			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
@@ -5520,7 +5520,7 @@ func TestGroupInput(t *testing.T) {
 		}
 
 		pipeline := "group-pipeline-multi-input"
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline,
 			"",
 			[]string{"bash"},
@@ -5529,8 +5529,8 @@ func TestGroupInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewGroupInput(
-				client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "", "$3", false, false, nil),
-				client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "", "$2", false, false, nil),
+				client.NewProjectPFSInputOpts("", "", repos[0], "", "/file-?.(?)(?)(?)(?)", "", "$3", false, false, nil),
+				client.NewProjectPFSInputOpts("", "", repos[1], "", "/file-?.(?)(?)(?)(?)", "", "$2", false, false, nil),
 			),
 			"",
 			false,
@@ -5584,7 +5584,7 @@ func TestGroupInput(t *testing.T) {
 				"/file-1.1010",
 				"/file-1.1011"}}
 		actual := make([][]string, 0, 3)
-		dis, err := c.ListDatumAll(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
+		dis, err := c.ListProjectDatumAll("", jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
 		require.NoError(t, err)
 		for _, di := range dis {
 			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
@@ -5615,7 +5615,7 @@ func TestGroupInput(t *testing.T) {
 		}
 
 		pipeline := "group-join-pipeline"
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline,
 			"",
 			[]string{"bash"},
@@ -5625,8 +5625,8 @@ func TestGroupInput(t *testing.T) {
 			},
 			client.NewGroupInput(
 				client.NewJoinInput(
-					client.NewPFSInputOpts("", repos[0], "", "/file-?.(?)(?)(?)(?)", "$1$2$3$4", "$3", false, false, nil),
-					client.NewPFSInputOpts("", repos[1], "", "/file-?.(?)(?)(?)(?)", "$4$3$2$1", "$2", false, false, nil),
+					client.NewProjectPFSInputOpts("", "", repos[0], "", "/file-?.(?)(?)(?)(?)", "$1$2$3$4", "$3", false, false, nil),
+					client.NewProjectPFSInputOpts("", "", repos[1], "", "/file-?.(?)(?)(?)(?)", "$4$3$2$1", "$2", false, false, nil),
 				),
 			),
 			"",
@@ -5654,7 +5654,7 @@ func TestGroupInput(t *testing.T) {
 				"/file-1.1101",
 				"/file-1.1111"}}
 		actual := make([][]string, 0, 2)
-		dis, err := c.ListDatumAll(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
+		dis, err := c.ListProjectDatumAll("", jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
 		require.NoError(t, err)
 		for _, di := range dis {
 			sort.Slice(di.Data, func(i, j int) bool { return di.Data[i].File.Path < di.Data[j].File.Path })
@@ -5686,7 +5686,7 @@ func TestGroupInput(t *testing.T) {
 		pipeline := "group-pipeline-symlink"
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"bash"},
 					Stdin: []string{"PATTERN=.*-PATID\\(.*\\)-.*.txt",
@@ -5699,7 +5699,7 @@ func TestGroupInput(t *testing.T) {
 						"done"},
 				},
 				Input: client.NewGroupInput(
-					client.NewPFSInputOpts("", repo, "master", "/*-PATID(*)-*.txt", "", "$1", false, false, nil),
+					client.NewProjectPFSInputOpts("", "", repo, "master", "/*-PATID(*)-*.txt", "", "$1", false, false, nil),
 				),
 				ParallelismSpec: &pps.ParallelismSpec{
 					Constant: 1,
@@ -5723,7 +5723,7 @@ func TestGroupInput(t *testing.T) {
 			{"/T1606707597-LIPID-PATID4-CLIA24D9871327.txt"},
 		}
 		actual := make([][]string, 0, 3)
-		dis, err := c.ListDatumAll(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
+		dis, err := c.ListProjectDatumAll("", jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
 		require.NoError(t, err)
 		// these don't come in a consistent order because group inputs use maps
 		for _, di := range dis {
@@ -5767,7 +5767,7 @@ func TestUnionInput(t *testing.T) {
 
 	t.Run("union all", func(t *testing.T) {
 		pipeline := tu.UniqueString("pipeline")
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline,
 			"",
 			[]string{"bash"},
@@ -5778,10 +5778,10 @@ func TestUnionInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewUnionInput(
-				client.NewPFSInput(repos[0], "/*"),
-				client.NewPFSInput(repos[1], "/*"),
-				client.NewPFSInput(repos[2], "/*"),
-				client.NewPFSInput(repos[3], "/*"),
+				client.NewProjectPFSInput("", repos[0], "/*"),
+				client.NewProjectPFSInput("", repos[1], "/*"),
+				client.NewProjectPFSInput("", repos[2], "/*"),
+				client.NewProjectPFSInput("", repos[3], "/*"),
 			),
 			"",
 			false,
@@ -5796,7 +5796,7 @@ func TestUnionInput(t *testing.T) {
 
 	t.Run("union crosses", func(t *testing.T) {
 		pipeline := tu.UniqueString("pipeline")
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline,
 			"",
 			[]string{"bash"},
@@ -5808,12 +5808,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewUnionInput(
 				client.NewCrossInput(
-					client.NewPFSInput(repos[0], "/*"),
-					client.NewPFSInput(repos[1], "/*"),
+					client.NewProjectPFSInput("", repos[0], "/*"),
+					client.NewProjectPFSInput("", repos[1], "/*"),
 				),
 				client.NewCrossInput(
-					client.NewPFSInput(repos[2], "/*"),
-					client.NewPFSInput(repos[3], "/*"),
+					client.NewProjectPFSInput("", repos[2], "/*"),
+					client.NewProjectPFSInput("", repos[3], "/*"),
 				),
 			),
 			"",
@@ -5831,7 +5831,7 @@ func TestUnionInput(t *testing.T) {
 
 	t.Run("cross unions", func(t *testing.T) {
 		pipeline := tu.UniqueString("pipeline")
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline,
 			"",
 			[]string{"bash"},
@@ -5843,12 +5843,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewCrossInput(
 				client.NewUnionInput(
-					client.NewPFSInput(repos[0], "/*"),
-					client.NewPFSInput(repos[1], "/*"),
+					client.NewProjectPFSInput("", repos[0], "/*"),
+					client.NewProjectPFSInput("", repos[1], "/*"),
 				),
 				client.NewUnionInput(
-					client.NewPFSInput(repos[2], "/*"),
-					client.NewPFSInput(repos[3], "/*"),
+					client.NewProjectPFSInput("", repos[2], "/*"),
+					client.NewProjectPFSInput("", repos[3], "/*"),
 				),
 			),
 			"",
@@ -5866,7 +5866,7 @@ func TestUnionInput(t *testing.T) {
 
 	t.Run("union alias", func(t *testing.T) {
 		pipeline := tu.UniqueString("pipeline")
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline,
 			"",
 			[]string{"bash"},
@@ -5877,10 +5877,10 @@ func TestUnionInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewUnionInput(
-				client.NewPFSInputOpts("in", repos[0], "", "/*", "", "", false, false, nil),
-				client.NewPFSInputOpts("in", repos[1], "", "/*", "", "", false, false, nil),
-				client.NewPFSInputOpts("in", repos[2], "", "/*", "", "", false, false, nil),
-				client.NewPFSInputOpts("in", repos[3], "", "/*", "", "", false, false, nil),
+				client.NewProjectPFSInputOpts("in", "", repos[0], "", "/*", "", "", false, false, nil),
+				client.NewProjectPFSInputOpts("in", "", repos[1], "", "/*", "", "", false, false, nil),
+				client.NewProjectPFSInputOpts("in", "", repos[2], "", "/*", "", "", false, false, nil),
+				client.NewProjectPFSInputOpts("in", "", repos[3], "", "/*", "", "", false, false, nil),
 			),
 			"",
 			false,
@@ -5891,7 +5891,7 @@ func TestUnionInput(t *testing.T) {
 		fileInfos, err := c.ListFileAll(commitInfo.Commit, "")
 		require.NoError(t, err)
 		require.Equal(t, 8, len(fileInfos))
-		dis, err := c.ListDatumAll(pipeline, commitInfo.Commit.ID)
+		dis, err := c.ListProjectDatumAll("", pipeline, commitInfo.Commit.ID)
 		require.NoError(t, err)
 		require.Equal(t, 8, len(dis))
 	})
@@ -5919,14 +5919,14 @@ func TestPipelineWithStats(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 4,
 			},
@@ -5943,11 +5943,11 @@ func TestPipelineWithStats(t *testing.T) {
 	// input (alias), output, spec, meta
 	require.Equal(t, 4, len(commitInfos))
 
-	jobs, err := c.ListJob(pipeline, nil, -1, true)
+	jobs, err := c.ListProjectJob("", pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
-	resp, err := c.ListDatumAll(pipeline, id)
+	resp, err := c.ListProjectDatumAll("", pipeline, id)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp))
 	require.Equal(t, 1, len(resp[0].Data))
@@ -5958,7 +5958,7 @@ func TestPipelineWithStats(t *testing.T) {
 	}
 
 	// Make sure 'inspect datum' works
-	datum, err := c.InspectDatum(pipeline, id, resp[0].Datum.ID)
+	datum, err := c.InspectProjectDatum("", pipeline, id, resp[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 }
@@ -5985,7 +5985,7 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -5993,7 +5993,7 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 4,
 			},
@@ -6009,11 +6009,11 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 	// input (alias), output, spec, meta
 	require.Equal(t, 4, len(commitInfos))
 
-	jobs, err := c.ListJob(pipeline, nil, -1, true)
+	jobs, err := c.ListProjectJob("", pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
-	resp, err := c.ListDatumAll(pipeline, id)
+	resp, err := c.ListProjectDatumAll("", pipeline, id)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp))
 
@@ -6030,7 +6030,7 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 	}
 
 	// Make sure 'inspect datum' works for failed state
-	datum, err := c.InspectDatum(pipeline, id, failedID)
+	datum, err := c.InspectProjectDatum("", pipeline, id, failedID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_FAILED, datum.State)
 }
@@ -6061,7 +6061,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -6069,7 +6069,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 4,
 			},
@@ -6087,7 +6087,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 
 	var jobs []*pps.JobInfo
 	require.NoError(t, backoff.Retry(func() error {
-		jobs, err = c.ListJob(pipeline, nil, -1, true)
+		jobs, err = c.ListProjectJob("", pipeline, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobs) != 1 {
 			return errors.Errorf("expected 1 jobs, got %d", len(jobs))
@@ -6096,10 +6096,10 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// Block on the job being complete before we call ListDatum
-	_, err = c.WaitJob(pipeline, jobs[0].Job.ID, false)
+	_, err = c.WaitProjectJob("", pipeline, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 
-	// resp, err := c.ListDatumAll(jobs[0].Job.ID, pageSize, 0)
+	// resp, err := c.ListProjectDatumAll("",jobs[0].Job.ID, pageSize, 0)
 	// require.NoError(t, err)
 	// require.Equal(t, pageSize, int64(len(resp.DatumInfos)))
 	// require.Equal(t, int64(numFiles)/pageSize, resp.TotalPages)
@@ -6107,7 +6107,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	// // First entry should be failed
 	// require.Equal(t, pps.DatumState_FAILED, resp.DatumInfos[0].State)
 
-	// resp, err = c.ListDatumAll(jobs[0].Job.ID, pageSize, int64(numPages-1))
+	// resp, err = c.ListProjectDatumAll("",jobs[0].Job.ID, pageSize, int64(numPages-1))
 	// require.NoError(t, err)
 	// require.Equal(t, pageSize, int64(len(resp.DatumInfos)))
 	// require.Equal(t, int64(int64(numFiles)/pageSize-1), resp.Page)
@@ -6116,7 +6116,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	// require.Equal(t, pps.DatumState_SUCCESS, resp.DatumInfos[len(resp.DatumInfos)-1].State)
 
 	// // Make sure we get error when requesting pages too high
-	// _, err = c.ListDatumAll(jobs[0].Job.ID, pageSize, int64(numPages))
+	// _, err = c.ListProjectDatumAll("",jobs[0].Job.ID, pageSize, int64(numPages))
 	// require.YesError(t, err)
 }
 
@@ -6142,14 +6142,14 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	pipeline := tu.UniqueString("StatsAcrossJobs")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
@@ -6165,15 +6165,15 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	// input (alias), output, spec, meta
 	require.Equal(t, 4, len(commitInfos))
 
-	jobs, err := c.ListJob(pipeline, nil, -1, true)
+	jobs, err := c.ListProjectJob("", pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
-	resp, err := c.ListDatumAll(pipeline, id)
+	resp, err := c.ListProjectDatumAll("", pipeline, id)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp))
 
-	datum, err := c.InspectDatum(pipeline, id, resp[0].Datum.ID)
+	datum, err := c.InspectProjectDatum("", pipeline, id, resp[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 
@@ -6193,11 +6193,11 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	// input (alias), output, spec, meta
 	require.Equal(t, 4, len(commitInfos))
 
-	jobs, err = c.ListJob(pipeline, nil, -1, true)
+	jobs, err = c.ListProjectJob("", pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 
-	resp, err = c.ListDatumAll(pipeline, id)
+	resp, err = c.ListProjectDatumAll("", pipeline, id)
 	require.NoError(t, err)
 	// we should see all the datums from the first job (which should be skipped)
 	// in addition to all the new datums processed in this job
@@ -6209,7 +6209,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 		if info.State == pps.DatumState_SKIPPED {
 			skippedCount++
 		}
-		inspectedInfo, err := c.InspectDatum(pipeline, id, info.Datum.ID)
+		inspectedInfo, err := c.InspectProjectDatum("", pipeline, id, info.Datum.ID)
 		require.NoError(t, err)
 		require.Equal(t, info.State, inspectedInfo.State)
 	}
@@ -6235,16 +6235,16 @@ func TestPipelineOnStatsBranch(t *testing.T) {
 	pipeline1, pipeline2 := tu.UniqueString("TestPipelineOnStatsBranch1"), tu.UniqueString("TestPipelineOnStatsBranch2")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline1),
+			Pipeline: client.NewProjectPipeline("", pipeline1),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash", "-c", "cp -r $(ls -d /pfs/*|grep -v /pfs/out) /pfs/out"},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline2),
+			Pipeline: client.NewProjectPipeline("", pipeline2),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash", "-c", "cp -r $(ls -d /pfs/*|grep -v /pfs/out) /pfs/out"},
 			},
@@ -6283,10 +6283,10 @@ func TestSkippedDatums(t *testing.T) {
 
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
-	//	require.NoError(t, c.CreatePipeline(
+	//	require.NoError(t, c.CreateProjectPipeline("",
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
+			Pipeline: client.NewProjectPipeline("", pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -6296,7 +6296,7 @@ func TestSkippedDatums(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 
@@ -6325,25 +6325,25 @@ func TestSkippedDatums(t *testing.T) {
 	ji = jis[0]
 	require.Equal(t, ji.State, pps.JobState_JOB_SUCCESS)
 
-	jobs, err := c.ListJob(pipelineName, nil, -1, true)
+	jobs, err := c.ListProjectJob("", pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jobs))
 
 	job1 := jobs[1]
-	datums, err := c.ListDatumAll(pipelineName, job1.Job.ID)
+	datums, err := c.ListProjectDatumAll("", pipelineName, job1.Job.ID)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(datums))
-	datum, err := c.InspectDatum(pipelineName, job1.Job.ID, datums[0].Datum.ID)
+	datum, err := c.InspectProjectDatum("", pipelineName, job1.Job.ID, datums[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 
 	job2 := jobs[0]
 	// check the successful datum from job1 is now skipped
-	datum, err = c.InspectDatum(pipelineName, job2.Job.ID, datums[0].Datum.ID)
+	datum, err = c.InspectProjectDatum("", pipelineName, job2.Job.ID, datums[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SKIPPED, datum.State)
 	// load datums for job2
-	datums, err = c.ListDatumAll(pipelineName, job2.Job.ID)
+	datums, err = c.ListProjectDatumAll("", pipelineName, job2.Job.ID)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(datums))
 	require.NoError(t, err)
@@ -6362,7 +6362,7 @@ func TestMetaRepoContents(t *testing.T) {
 	pipelineName := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
+			Pipeline: client.NewProjectPipeline("", pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -6372,12 +6372,12 @@ func TestMetaRepoContents(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 	assertMetaContents := func(commitID string, inputFile string) {
 		var datumID string
-		require.NoError(t, c.ListDatum(pipelineName, commitID, func(di *pps.DatumInfo) error {
+		require.NoError(t, c.ListProjectDatum("", pipelineName, commitID, func(di *pps.DatumInfo) error {
 			datumID = di.Datum.ID
 			return nil
 		}))
@@ -6446,7 +6446,7 @@ func TestCronPipeline(t *testing.T) {
 			require.NoError(t, c.DeleteAll())
 		}()
 		pipeline1 := tu.UniqueString("cron1-")
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline1,
 			"",
 			[]string{"/bin/bash"},
@@ -6457,13 +6457,13 @@ func TestCronPipeline(t *testing.T) {
 			false,
 		))
 		pipeline2 := tu.UniqueString("cron2-")
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline2,
 			"",
 			[]string{"/bin/bash"},
 			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline1) + " /pfs/out/"},
 			nil,
-			client.NewPFSInput(pipeline1, "/*"),
+			client.NewProjectPFSInput("", pipeline1, "/*"),
 			"",
 			false,
 		))
@@ -6499,7 +6499,7 @@ func TestCronPipeline(t *testing.T) {
 		pipeline3 := tu.UniqueString("cron3-")
 		overwriteInput := client.NewCronInput("time", "@every 10s")
 		overwriteInput.Cron.Overwrite = true
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline3,
 			"",
 			[]string{"/bin/bash"},
@@ -6542,7 +6542,7 @@ func TestCronPipeline(t *testing.T) {
 		dataRepo := tu.UniqueString("TestCronPipeline_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
 		pipeline4 := tu.UniqueString("cron4-")
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline4,
 			"",
 			[]string{"bash"},
@@ -6553,7 +6553,7 @@ func TestCronPipeline(t *testing.T) {
 			nil,
 			client.NewCrossInput(
 				client.NewCronInput("time", "@every 20s"),
-				client.NewPFSInput(dataRepo, "/"),
+				client.NewProjectPFSInput("", dataRepo, "/"),
 			),
 			"",
 			false,
@@ -6582,7 +6582,7 @@ func TestCronPipeline(t *testing.T) {
 			require.NoError(t, c.DeleteAll())
 		}()
 		pipeline5 := tu.UniqueString("cron5-")
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline5,
 			"",
 			[]string{"/bin/bash"},
@@ -6593,22 +6593,22 @@ func TestCronPipeline(t *testing.T) {
 			false,
 		))
 		pipeline6 := tu.UniqueString("cron6-")
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline6,
 			"",
 			[]string{"/bin/bash"},
 			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline5) + " /pfs/out/"},
 			nil,
-			client.NewPFSInput(pipeline5, "/*"),
+			client.NewProjectPFSInput("", pipeline5, "/*"),
 			"",
 			false,
 		))
 
-		_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline5)})
+		_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewProjectPipeline("", pipeline5)})
 		require.NoError(t, err)
-		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline5)})
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewProjectPipeline("", pipeline5)})
 		require.NoError(t, err)
-		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline5)})
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewProjectPipeline("", pipeline5)})
 		require.NoError(t, err)
 
 		// subscribe to the pipeline6 cron repo and wait for inputs
@@ -6630,7 +6630,7 @@ func TestCronPipeline(t *testing.T) {
 			require.NoError(t, c.DeleteAll())
 		}()
 		pipeline7 := tu.UniqueString("cron7-")
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline7,
 			"",
 			[]string{"/bin/bash"},
@@ -6641,13 +6641,13 @@ func TestCronPipeline(t *testing.T) {
 			false,
 		))
 		pipeline8 := tu.UniqueString("cron8-")
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline8,
 			"",
 			[]string{"/bin/bash"},
 			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline7) + " /pfs/out/"},
 			nil,
-			client.NewPFSInput(pipeline7, "/*"),
+			client.NewProjectPFSInput("", pipeline7, "/*"),
 			"",
 			false,
 		))
@@ -6659,7 +6659,7 @@ func TestCronPipeline(t *testing.T) {
 
 		nCronticks := 3
 		for i := 0; i < nCronticks; i++ {
-			_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
+			_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewProjectPipeline("", pipeline7)})
 			require.NoError(t, err)
 			_, err = c.WaitCommit(repo, "master", "")
 			require.NoError(t, err)
@@ -6697,7 +6697,7 @@ func TestCronPipeline(t *testing.T) {
 		pipeline9 := tu.UniqueString("cron9-")
 		// schedule cron ticks so they definitely won't occur
 		futureMonth := int(time.Now().AddDate(0, 2, 0).Month())
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline9,
 			"",
 			[]string{"/bin/bash"},
@@ -6711,11 +6711,11 @@ func TestCronPipeline(t *testing.T) {
 			false,
 		))
 
-		_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline9)})
+		_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewProjectPipeline("", pipeline9)})
 		require.NoError(t, err)
-		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline9)})
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewProjectPipeline("", pipeline9)})
 		require.NoError(t, err)
-		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline9)})
+		_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewProjectPipeline("", pipeline9)})
 		require.NoError(t, err)
 
 		// We should see an initial empty commit, exactly six from our RunCron calls (two each), and nothing else
@@ -6733,7 +6733,7 @@ func TestCronPipeline(t *testing.T) {
 		pipeline := tu.UniqueString("testCron-")
 		start, err := types.TimestampProto(time.Now().Add(-10 * time.Hour))
 		require.NoError(t, err)
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline,
 			"",
 			[]string{"/bin/bash"},
@@ -6774,13 +6774,13 @@ func TestSelfReferentialPipeline(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	pipeline := tu.UniqueString("pipeline")
-	require.YesError(t, c.CreatePipeline(
+	require.YesError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"true"},
 		nil,
 		nil,
-		client.NewPFSInput(pipeline, "/"),
+		client.NewProjectPFSInput("", pipeline, "/"),
 		"",
 		false,
 	))
@@ -6794,7 +6794,7 @@ func TestPipelineBadImage(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	pipeline1 := tu.UniqueString("bad_pipeline_1_")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline1,
 		"BadImage",
 		[]string{"true"},
@@ -6805,7 +6805,7 @@ func TestPipelineBadImage(t *testing.T) {
 		false,
 	))
 	pipeline2 := tu.UniqueString("bad_pipeline_2_")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline2,
 		"bs/badimage:vcrap",
 		[]string{"true"},
@@ -6817,7 +6817,7 @@ func TestPipelineBadImage(t *testing.T) {
 	))
 	require.NoError(t, backoff.Retry(func() error {
 		for _, pipeline := range []string{pipeline1, pipeline2} {
-			pipelineInfo, err := c.InspectPipeline(pipeline, false)
+			pipelineInfo, err := c.InspectProjectPipeline("", pipeline, false)
 			if err != nil {
 				return err
 			}
@@ -6845,7 +6845,7 @@ func TestFixPipeline(t *testing.T) {
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("1"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(dataRepo, "master", ""))
 	pipelineName := tu.UniqueString("TestFixPipeline_pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"exit 1"},
@@ -6853,18 +6853,18 @@ func TestFixPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
 
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
+		jobInfos, err := c.ListProjectJob("", pipelineName, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 1 {
 			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
 		}
-		jobInfo, err := c.WaitJob(jobInfos[0].Job.Pipeline.Name, jobInfos[0].Job.ID, false)
+		jobInfo, err := c.WaitProjectJob("", jobInfos[0].Job.Pipeline.Name, jobInfos[0].Job.ID, false)
 		require.NoError(t, err)
 		require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 		return nil
@@ -6872,7 +6872,7 @@ func TestFixPipeline(t *testing.T) {
 
 	// Update the pipeline, this will not create a new pipeline as reprocess
 	// isn't set to true.
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -6880,18 +6880,18 @@ func TestFixPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
 
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
+		jobInfos, err := c.ListProjectJob("", pipelineName, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 2 {
 			return errors.Errorf("expected 2 jobs, got %d", len(jobInfos))
 		}
-		jobInfo, err := c.WaitJob(jobInfos[0].Job.Pipeline.Name, jobInfos[0].Job.ID, false)
+		jobInfo, err := c.WaitProjectJob("", jobInfos[0].Job.Pipeline.Name, jobInfos[0].Job.ID, false)
 		require.NoError(t, err)
 		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 		return nil
@@ -6909,7 +6909,7 @@ func TestListJobTruncated(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -6917,7 +6917,7 @@ func TestListJobTruncated(t *testing.T) {
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 		},
 		nil,
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -6931,11 +6931,11 @@ func TestListJobTruncated(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
-	liteJobInfos, err := c.ListJob(pipeline, nil, 0, false)
+	liteJobInfos, err := c.ListProjectJob("", pipeline, nil, 0, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(liteJobInfos))
 	require.Equal(t, commit1.ID, liteJobInfos[0].Job.ID)
-	fullJobInfos, err := c.ListJob(pipeline, nil, 0, true)
+	fullJobInfos, err := c.ListProjectJob("", pipeline, nil, 0, true)
 	require.NoError(t, err)
 	require.Equal(t, commit1.ID, fullJobInfos[0].Job.ID)
 
@@ -6962,7 +6962,7 @@ func TestPipelineEnvVarAlias(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -6971,7 +6971,7 @@ func TestPipelineEnvVarAlias(t *testing.T) {
 			fmt.Sprintf("cp $%s /pfs/out/", dataRepo),
 		},
 		nil,
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -7011,8 +7011,8 @@ func TestPipelineEnvVarJoinOn(t *testing.T) {
 	require.NoError(t, c.CreateRepo(repo2))
 
 	input := client.NewJoinInput(
-		client.NewPFSInput(repo1, "/(*)"),
-		client.NewPFSInput(repo2, "/(*)"),
+		client.NewProjectPFSInput("", repo1, "/(*)"),
+		client.NewProjectPFSInput("", repo2, "/(*)"),
 	)
 	input.Join[0].Pfs.Name = "repo1"
 	input.Join[1].Pfs.Name = "repo2"
@@ -7027,7 +7027,7 @@ func TestPipelineEnvVarJoinOn(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -7042,10 +7042,10 @@ func TestPipelineEnvVarJoinOn(t *testing.T) {
 	require.NoError(t, err)
 
 	// wait for job and get its datums
-	jobs, err := c.ListJob(pipeline, nil, 0, false)
+	jobs, err := c.ListProjectJob("", pipeline, nil, 0, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-	jobInfo, err := c.WaitJob(pipeline, jobs[0].Job.ID, false)
+	jobInfo, err := c.WaitProjectJob("", pipeline, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 
@@ -7067,7 +7067,7 @@ func TestPipelineEnvVarGroupBy(t *testing.T) {
 	require.NoError(t, c.CreateRepo(repo))
 
 	input := client.NewGroupInput(
-		client.NewPFSInput(repo, "/(*)-*"),
+		client.NewProjectPFSInput("", repo, "/(*)-*"),
 	)
 	input.Group[0].Pfs.Name = "repo"
 	input.Group[0].Pfs.GroupBy = "$1"
@@ -7085,7 +7085,7 @@ func TestPipelineEnvVarGroupBy(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -7099,10 +7099,10 @@ func TestPipelineEnvVarGroupBy(t *testing.T) {
 	require.NoError(t, err)
 
 	// wait for job to finish
-	jobs, err := c.ListJob(pipeline, nil, 0, false)
+	jobs, err := c.ListProjectJob("", pipeline, nil, 0, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-	jobInfo, err := c.WaitJob(pipeline, jobs[0].Job.ID, false)
+	jobInfo, err := c.WaitProjectJob("", pipeline, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 
@@ -7130,7 +7130,7 @@ func TestService(t *testing.T) {
 
 	pipeline := tu.UniqueString("pipelineservice")
 	// This pipeline sleeps for 10 secs per datum
-	require.NoError(t, c.CreatePipelineService(
+	require.NoError(t, c.CreateProjectPipelineService("",
 		pipeline,
 		"trinitronx/python-simplehttpserver",
 		[]string{"sh"},
@@ -7141,7 +7141,7 @@ func TestService(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/"),
+		client.NewProjectPFSInput("", dataRepo, "/"),
 		false,
 		8000,
 		31800,
@@ -7243,7 +7243,7 @@ func TestServiceEnvVars(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Image: "trinitronx/python-simplehttpserver",
 				Cmd:   []string{"sh"},
@@ -7259,7 +7259,7 @@ func TestServiceEnvVars(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Input:  client.NewPFSInput(dataRepo, "/"),
+			Input:  client.NewProjectPFSInput("", dataRepo, "/"),
 			Update: false,
 			Service: &pps.Service{
 				InternalPort: 8000,
@@ -7350,14 +7350,14 @@ func TestDatumSetSpec(t *testing.T) {
 		pipeline := tu.UniqueString("TestDatumSetSpec")
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"bash"},
 					Stdin: []string{
 						fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 					},
 				},
-				Input:        client.NewPFSInput(dataRepo, "/*"),
+				Input:        client.NewProjectPFSInput("", dataRepo, "/*"),
 				DatumSetSpec: &pps.DatumSetSpec{Number: 1},
 			})
 		require.NoError(t, err)
@@ -7375,14 +7375,14 @@ func TestDatumSetSpec(t *testing.T) {
 		pipeline := tu.UniqueString("TestDatumSetSpec")
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"bash"},
 					Stdin: []string{
 						fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 					},
 				},
-				Input:        client.NewPFSInput(dataRepo, "/*"),
+				Input:        client.NewProjectPFSInput("", dataRepo, "/*"),
 				DatumSetSpec: &pps.DatumSetSpec{SizeBytes: 5},
 			})
 		require.NoError(t, err)
@@ -7410,7 +7410,7 @@ func TestLongDatums(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipeline := tu.UniqueString("TestLongDatums")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -7421,7 +7421,7 @@ func TestLongDatums(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 4,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -7469,7 +7469,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -7477,26 +7477,26 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input:        client.NewPFSInput(dataRepo, "/*"),
+			Input:        client.NewProjectPFSInput("", dataRepo, "/*"),
 			DatumTimeout: types.DurationProto(duration),
 		},
 	)
 	require.NoError(t, err)
 
-	jobs, err := c.ListJob(pipeline, nil, -1, true)
+	jobs, err := c.ListProjectJob("", pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 	// Block on the job being complete before we call ListDatum
-	jobInfo, err := c.WaitJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, false)
+	jobInfo, err := c.WaitProjectJob("", jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 
 	// Now validate the datum timed out properly
-	dis, err := c.ListDatumAll(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
+	dis, err := c.ListProjectDatumAll("", jobs[0].Job.Pipeline.Name, jobs[0].Job.ID)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(dis))
 
-	datum, err := c.InspectDatum(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, dis[0].Datum.ID)
+	datum, err := c.InspectProjectDatum("", jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, dis[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_FAILED, datum.State)
 	// ProcessTime looks like "20 seconds"
@@ -7535,7 +7535,7 @@ func TestListDatumDuringJob(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -7543,7 +7543,7 @@ func TestListDatumDuringJob(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input:        client.NewPFSInput(dataRepo, "/*"),
+			Input:        client.NewProjectPFSInput("", dataRepo, "/*"),
 			DatumTimeout: types.DurationProto(duration),
 			DatumSetSpec: &pps.DatumSetSpec{
 				Number: 2, // since we set the DatumSetSpec number to 2, we expect our datums to be processed in 5 datum sets (10 files / 2 files per set)
@@ -7555,7 +7555,7 @@ func TestListDatumDuringJob(t *testing.T) {
 	var jobInfo *pps.JobInfo
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
 		return backoff.Retry(func() error {
-			jobInfos, err := c.ListJob(pipeline, nil, -1, true)
+			jobInfos, err := c.ListProjectJob("", pipeline, nil, -1, true)
 			if err != nil {
 				return err
 			}
@@ -7568,14 +7568,14 @@ func TestListDatumDuringJob(t *testing.T) {
 	})
 
 	// initially since no datum chunks have been processed, we receive 0 datums
-	dis, err := c.ListDatumAll(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
+	dis, err := c.ListProjectDatumAll("", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(dis))
 
 	// test job progress by waiting until some datums are returned, and verify that it's not all of them
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		return backoff.Retry(func() error {
-			dis, err = c.ListDatumAll(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
+			dis, err = c.ListProjectDatumAll("", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
 			if err != nil {
 				return err
 			}
@@ -7593,7 +7593,7 @@ func TestListDatumDuringJob(t *testing.T) {
 	_, err = c.WaitCommitSetAll(jobInfo.Job.ID)
 	require.NoError(t, err)
 
-	dis, err = c.ListDatumAll(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
+	dis, err = c.ListProjectDatumAll("", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
 	require.NoError(t, err)
 	require.Equal(t, fileCount, len(dis))
 }
@@ -7621,7 +7621,7 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -7629,7 +7629,7 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input:        client.NewPFSInput(dataRepo, "/*"),
+			Input:        client.NewProjectPFSInput("", dataRepo, "/*"),
 			DatumTimeout: types.DurationProto(duration),
 		},
 	)
@@ -7641,12 +7641,12 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
-	jobs, err := c.ListJob(pipeline, nil, -1, true)
+	jobs, err := c.ListProjectJob("", pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
 	// Block on the job being complete before we call ListDatum
-	jobInfo, err := c.WaitJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, false)
+	jobInfo, err := c.WaitProjectJob("", jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
@@ -7676,7 +7676,7 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -7684,7 +7684,7 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input:      client.NewPFSInput(dataRepo, "/*"),
+			Input:      client.NewProjectPFSInput("", dataRepo, "/*"),
 			JobTimeout: types.DurationProto(duration),
 		},
 	)
@@ -7693,7 +7693,7 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	// Wait for the job to get scheduled / appear in listjob
 	var job *pps.JobInfo
 	require.NoErrorWithinTRetry(t, 90*time.Second, func() error {
-		jobs, err := c.ListJob(pipeline, nil, -1, true)
+		jobs, err := c.ListProjectJob("", pipeline, nil, -1, true)
 		if err != nil {
 			return fmt.Errorf("list job: %w", err) //nolint:wrapcheck
 
@@ -7706,7 +7706,7 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	}, "pipeline should appear in list jobs")
 
 	// Block on the job being complete before we call ListDatum
-	jobInfo, err := c.WaitJob(job.Job.Pipeline.Name, job.Job.ID, false)
+	jobInfo, err := c.WaitProjectJob("", job.Job.Pipeline.Name, job.Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfo.State.String())
 	started, err := types.TimestampFromProto(jobInfo.Started)
@@ -7787,13 +7787,13 @@ func TestPipelineDescription(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline:    client.NewPipeline(pipeline),
+			Pipeline:    client.NewProjectPipeline("", pipeline),
 			Transform:   &pps.Transform{Cmd: []string{"true"}},
 			Description: description,
-			Input:       client.NewPFSInput(dataRepo, "/"),
+			Input:       client.NewProjectPFSInput("", dataRepo, "/"),
 		})
 	require.NoError(t, err)
-	pi, err := c.InspectPipeline(pipeline, true)
+	pi, err := c.InspectProjectPipeline("", pipeline, true)
 	require.NoError(t, err)
 	require.Equal(t, description, pi.Details.Description)
 }
@@ -7814,7 +7814,7 @@ func TestListJobInputCommits(t *testing.T) {
 	require.NoError(t, c.CreateRepo(bRepo))
 
 	pipeline := tu.UniqueString("TestListJobInputCommits")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -7826,8 +7826,8 @@ func TestListJobInputCommits(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewCrossInput(
-			client.NewPFSInput(aRepo, "/*"),
-			client.NewPFSInput(bRepo, "/*"),
+			client.NewProjectPFSInput("", aRepo, "/*"),
+			client.NewProjectPFSInput("", bRepo, "/*"),
 		),
 		"",
 		false,
@@ -7865,35 +7865,35 @@ func TestListJobInputCommits(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 5, len(commitInfos))
 
-	jobInfos, err := c.ListJob("", []*pfs.Commit{commita1}, -1, true)
+	jobInfos, err := c.ListProjectJob("", "", []*pfs.Commit{commita1}, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos)) // a1 + nil and a1 + b1
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commitb1}, -1, true)
+	jobInfos, err = c.ListProjectJob("", "", []*pfs.Commit{commitb1}, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos)) // a1 + b1 and a2 + b1
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commita2}, -1, true)
+	jobInfos, err = c.ListProjectJob("", "", []*pfs.Commit{commita2}, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos)) // a2 + b1 and a2 + b2
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commitb2}, -1, true)
+	jobInfos, err = c.ListProjectJob("", "", []*pfs.Commit{commitb2}, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos)) // a2 + b2
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commita1, commitb1}, -1, true)
+	jobInfos, err = c.ListProjectJob("", "", []*pfs.Commit{commita1, commitb1}, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commita2, commitb1}, -1, true)
+	jobInfos, err = c.ListProjectJob("", "", []*pfs.Commit{commita2, commitb1}, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{commita2, commitb2}, -1, true)
+	jobInfos, err = c.ListProjectJob("", "", []*pfs.Commit{commita2, commitb2}, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{client.NewProjectCommit("", aRepo, "master", ""), client.NewProjectCommit("", bRepo, "master", "")}, -1, true)
+	jobInfos, err = c.ListProjectJob("", "", []*pfs.Commit{client.NewProjectCommit("", aRepo, "master", ""), client.NewProjectCommit("", bRepo, "master", "")}, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 }
@@ -7921,7 +7921,7 @@ func TestCancelJob(t *testing.T) {
 
 	// Create sleep + copy pipeline
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -7932,7 +7932,7 @@ func TestCancelJob(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(repo, "/"),
+		client.NewProjectPFSInput("", repo, "/"),
 		"",
 		false,
 	))
@@ -7941,7 +7941,7 @@ func TestCancelJob(t *testing.T) {
 	var jobInfo *pps.JobInfo
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
 		return backoff.Retry(func() error {
-			jobInfos, err := c.ListJob(pipeline, nil, -1, true)
+			jobInfos, err := c.ListProjectJob("", pipeline, nil, -1, true)
 			if err != nil {
 				return err
 			}
@@ -7954,12 +7954,12 @@ func TestCancelJob(t *testing.T) {
 	})
 
 	// stop the job
-	require.NoError(t, c.StopJob(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID))
+	require.NoError(t, c.StopProjectJob("", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID))
 
 	// Wait until the job is cancelled
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
 		return backoff.Retry(func() error {
-			updatedJobInfo, err := c.InspectJob(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID, false)
+			updatedJobInfo, err := c.InspectProjectJob("", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID, false)
 			if err != nil {
 				return err
 			}
@@ -8009,7 +8009,7 @@ func TestCancelManyJobs(t *testing.T) {
 
 	// Create sleep pipeline
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"sleep", "600"},
@@ -8017,7 +8017,7 @@ func TestCancelManyJobs(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput("", repo, "/*"),
 		"",
 		false,
 	))
@@ -8039,7 +8039,7 @@ func TestCancelManyJobs(t *testing.T) {
 		var jobInfo *pps.JobInfo
 		require.NoErrorWithinT(t, 30*time.Second, func() error {
 			return backoff.Retry(func() error {
-				jobInfos, err := c.ListJob(pipeline, []*pfs.Commit{commit}, -1, true)
+				jobInfos, err := c.ListProjectJob("", pipeline, []*pfs.Commit{commit}, -1, true)
 				if err != nil {
 					return err
 				}
@@ -8052,7 +8052,7 @@ func TestCancelManyJobs(t *testing.T) {
 		})
 
 		// Stop the job
-		require.NoError(t, c.StopJob(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID))
+		require.NoError(t, c.StopProjectJob("", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID))
 
 		// Check that the job is now killed
 		require.NoErrorWithinT(t, 30*time.Second, func() error {
@@ -8060,7 +8060,7 @@ func TestCancelManyJobs(t *testing.T) {
 				// TODO(msteffen): once github.com/pachyderm/pachyderm/v2/pull/2642 is
 				// submitted, change ListJob here to filter on commit1 as the input commit,
 				// rather than inspecting the input in the test
-				updatedJobInfo, err := c.InspectJob(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID, false)
+				updatedJobInfo, err := c.InspectProjectJob("", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID, false)
 				if err != nil {
 					return err
 				}
@@ -8095,7 +8095,7 @@ func TestSquashCommitSetPropagation(t *testing.T) {
 
 	// 	// Create a pipeline that roughly validates the header
 	// 	pipeline := tu.UniqueString("TestSplitFileReprocessPL")
-	// 	require.NoError(t, c.CreatePipeline(
+	// 	require.NoError(t, c.CreateProjectPipeline("",
 	// 		pipeline,
 	// 		"",
 	// 		[]string{"/bin/bash"},
@@ -8105,7 +8105,7 @@ func TestSquashCommitSetPropagation(t *testing.T) {
 	// 			`(( cars_tables == 1 )) && exit 0 || exit 1`,
 	// 		},
 	// 		&pps.ParallelismSpec{Constant: 1},
-	// 		client.NewPFSInput(repo, "/d/*"),
+	// 		client.NewProjectPFSInput("",repo, "/d/*"),
 	// 		"",
 	// 		false,
 	// 	))
@@ -8152,7 +8152,7 @@ func TestDeleteSpecRepo(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipeline := tu.UniqueString("TestSimplePipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"echo", "foo"},
@@ -8160,7 +8160,7 @@ func TestDeleteSpecRepo(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/"),
+		client.NewProjectPFSInput("", dataRepo, "/"),
 		"",
 		false,
 	))
@@ -8183,7 +8183,7 @@ func TestDontReadStdin(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipeline := tu.UniqueString("TestDontReadStdin")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"true"},
@@ -8191,7 +8191,7 @@ func TestDontReadStdin(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/"),
+		client.NewProjectPFSInput("", dataRepo, "/"),
 		"",
 		false,
 	))
@@ -8221,11 +8221,11 @@ func TestStatsDeleteAll(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", fmt.Sprintf("/pfs/%s/file", dataRepo), "/pfs/out"},
 			},
-			Input: client.NewPFSInput(dataRepo, "/"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/"),
 		})
 	require.NoError(t, err)
 
@@ -8244,11 +8244,11 @@ func TestStatsDeleteAll(t *testing.T) {
 
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", fmt.Sprintf("/pfs/%s/file", dataRepo), "/pfs/out"},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 
@@ -8274,7 +8274,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 	pipeline := tu.UniqueString(t.Name() + "-pipeline-")
 	cronInput := client.NewCronInput("time", "@every 20s")
 	cronInput.Cron.Overwrite = true
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"/bin/bash"},
@@ -8291,7 +8291,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd:   []string{"/bin/bash"},
 					Stdin: []string{"cp /pfs/time/* /pfs/out/"},
@@ -8304,7 +8304,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 	}
 	// TODO ideally this test would not take 5 minutes (or even 3 minutes)
 	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
-		jis, err := c.ListJob(pipeline, nil, -1, true)
+		jis, err := c.ListProjectJob("", pipeline, nil, -1, true)
 		if err != nil {
 			return err
 		}
@@ -8346,11 +8346,11 @@ func TestDatumTries(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"unknown"}, // Cmd fails because "unknown" isn't a known command.
 			},
-			Input:      client.NewPFSInput(dataRepo, "/"),
+			Input:      client.NewProjectPFSInput("", dataRepo, "/"),
 			DatumTries: tries,
 		})
 	require.NoError(t, err)
@@ -8363,7 +8363,7 @@ func TestDatumTries(t *testing.T) {
 	require.Equal(t, 1, len(jobInfos))
 
 	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
-		iter := c.GetLogs(pipeline, jobInfos[0].Job.ID, nil, "", false, false, 0)
+		iter := c.GetProjectLogs("", pipeline, jobInfos[0].Job.ID, nil, "", false, false, 0)
 		var observedTries int64
 		for iter.Next() {
 			if strings.Contains(iter.Message().Message, "errored running user code after") {
@@ -8395,7 +8395,7 @@ func TestInspectJob(t *testing.T) {
 	ci, err := c.InspectCommit(repo, "master", "")
 	require.NoError(t, err)
 
-	_, err = c.InspectJob(repo, ci.Commit.ID, false)
+	_, err = c.InspectProjectJob("", repo, ci.Commit.ID, false)
 	require.YesError(t, err)
 	require.True(t, errutil.IsNotFoundError(err))
 }
@@ -8414,7 +8414,7 @@ func TestPipelineVersions(t *testing.T) {
 	pipeline := tu.UniqueString("TestPipelineVersions")
 	nVersions := 5
 	for i := 0; i < nVersions; i++ {
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			pipeline,
 			"",
 			[]string{fmt.Sprintf("%d", i)}, // an obviously illegal command, but the pipeline will never run
@@ -8422,14 +8422,14 @@ func TestPipelineVersions(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewPFSInput(dataRepo, "/*"),
+			client.NewProjectPFSInput("", dataRepo, "/*"),
 			"",
 			i != 0,
 		))
 	}
 
 	for i := 0; i < nVersions; i++ {
-		pi, err := c.InspectPipeline(ancestry.Add(pipeline, nVersions-1-i), true)
+		pi, err := c.InspectProjectPipeline("", ancestry.Add(pipeline, nVersions-1-i), true)
 		require.NoError(t, err)
 		require.Equal(t, fmt.Sprintf("%d", i), pi.Details.Transform.Cmd[0])
 	}
@@ -8456,7 +8456,7 @@ func TestSplitFileHeader(t *testing.T) {
 	//
 	//	// Create a pipeline that roughly validates the header
 	//	pipeline := tu.UniqueString("TestSplitFileHeaderPipeline")
-	//	require.NoError(t, c.CreatePipeline(
+	//	require.NoError(t, c.CreateProjectPipeline("",
 	//		pipeline,
 	//		"",
 	//		[]string{"/bin/bash"},
@@ -8466,7 +8466,7 @@ func TestSplitFileHeader(t *testing.T) {
 	//			`(( cars_tables == 1 )) && exit 0 || exit 1`,
 	//		},
 	//		&pps.ParallelismSpec{Constant: 1},
-	//		client.NewPFSInput(repo, "/d/*"),
+	//		client.NewProjectPFSInput("",repo, "/d/*"),
 	//		"",
 	//		false,
 	//	))
@@ -8517,7 +8517,7 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 	//
 	//	// Create a pipeline that roughly validates the header
 	//	pipeline := tu.UniqueString("TestSplitFileReprocessPL")
-	//	require.NoError(t, c.CreatePipeline(
+	//	require.NoError(t, c.CreateProjectPipeline("",
 	//		pipeline,
 	//		"",
 	//		[]string{"/bin/bash"},
@@ -8527,7 +8527,7 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 	//			`(( cars_tables == 1 )) && exit 0 || exit 1`,
 	//		},
 	//		&pps.ParallelismSpec{Constant: 1},
-	//		client.NewPFSInput(repo, "/d/*"),
+	//		client.NewProjectPFSInput("",repo, "/d/*"),
 	//		"",
 	//		false,
 	//	))
@@ -8579,14 +8579,14 @@ func TestDeferredCross(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(downstreamPipeline),
+			Pipeline: client.NewProjectPipeline("", downstreamPipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
 					fmt.Sprintf("cp /pfs/%v/* /pfs/out", dataSet),
 				},
 			},
-			Input: client.NewPFSInput(dataSet, "master"),
+			Input: client.NewProjectPFSInput("", dataSet, "master"),
 
 			OutputBranch: "master",
 		})
@@ -8609,7 +8609,7 @@ func TestDeferredCross(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(impPipeline),
+			Pipeline: client.NewProjectPipeline("", impPipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -8618,10 +8618,10 @@ func TestDeferredCross(t *testing.T) {
 			},
 			Input: client.NewCrossInput(
 				client.NewUnionInput(
-					client.NewPFSInputOpts("a", downstreamPipeline, "master", "/", "", "", false, false, nil),
-					client.NewPFSInputOpts("b", downstreamPipeline, "other", "/", "", "", false, false, nil),
+					client.NewProjectPFSInputOpts("a", "", downstreamPipeline, "master", "/", "", "", false, false, nil),
+					client.NewProjectPFSInputOpts("b", "", downstreamPipeline, "other", "/", "", "", false, false, nil),
 				),
-				client.NewPFSInput(dataSet, "/"),
+				client.NewProjectPFSInput("", dataSet, "/"),
 			),
 			OutputBranch: "master",
 		})
@@ -8631,11 +8631,11 @@ func TestDeferredCross(t *testing.T) {
 	_, err = c.WaitCommit(impPipeline, "master", "")
 	require.NoError(t, err)
 
-	jobs, err := c.ListJob(impPipeline, nil, 0, true)
+	jobs, err := c.ListProjectJob("", impPipeline, nil, 0, true)
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 1)
 
-	jobInfo, err := c.InspectJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, true)
+	jobInfo, err := c.InspectProjectJob("", jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, true)
 	require.NoError(t, err)
 
 	headCommit, err := c.InspectCommit(dataSet, "master", "")
@@ -8664,18 +8664,18 @@ func TestDeferredProcessing(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline1),
+			Pipeline: client.NewProjectPipeline("", pipeline1),
 			Transform: &pps.Transform{
 				Cmd:   []string{"bash"},
 				Stdin: []string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo)},
 			},
-			Input:        client.NewPFSInput(dataRepo, "/*"),
+			Input:        client.NewProjectPFSInput("", dataRepo, "/*"),
 			OutputBranch: "staging",
 		})
 	require.NoError(t, err)
 
 	pipeline2 := tu.UniqueString("TestDeferredProcessing2")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline2,
 		"",
 		[]string{"bash"},
@@ -8685,7 +8685,7 @@ func TestDeferredProcessing(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(pipeline1, "/*"),
+		client.NewProjectPFSInput("", pipeline1, "/*"),
 		"",
 		false,
 	))
@@ -8725,7 +8725,7 @@ func TestPipelineHistory(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPipelineHistory_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	pipelineName := tu.UniqueString("TestPipelineHistory")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -8733,7 +8733,7 @@ func TestPipelineHistory(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
@@ -8744,12 +8744,12 @@ func TestPipelineHistory(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 
-	jis, err := c.ListJob(pipelineName, nil, 0, true)
+	jis, err := c.ListProjectJob("", pipelineName, nil, 0, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jis))
 
 	// Update the pipeline
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -8757,7 +8757,7 @@ func TestPipelineHistory(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
@@ -8772,18 +8772,18 @@ func TestPipelineHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
-	jis, err = c.ListJob(pipelineName, nil, 0, true)
+	jis, err = c.ListProjectJob("", pipelineName, nil, 0, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, 1, true)
+	jis, err = c.ListProjectJob("", pipelineName, nil, 1, true)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, -1, true)
+	jis, err = c.ListProjectJob("", pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(jis))
 
 	// Update the pipeline again
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -8791,7 +8791,7 @@ func TestPipelineHistory(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
@@ -8800,23 +8800,23 @@ func TestPipelineHistory(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 
-	jis, err = c.ListJob(pipelineName, nil, 0, true)
+	jis, err = c.ListProjectJob("", pipelineName, nil, 0, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, 1, true)
+	jis, err = c.ListProjectJob("", pipelineName, nil, 1, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, 2, true)
+	jis, err = c.ListProjectJob("", pipelineName, nil, 2, true)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, -1, true)
+	jis, err = c.ListProjectJob("", pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(jis))
 
 	// Add another pipeline, this shouldn't change the results of the above
 	// commands.
 	pipelineName2 := tu.UniqueString("TestPipelineHistory2")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName2,
 		"",
 		[]string{"bash"},
@@ -8824,7 +8824,7 @@ func TestPipelineHistory(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		true,
 	))
@@ -8833,16 +8833,16 @@ func TestPipelineHistory(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 
-	jis, err = c.ListJob(pipelineName, nil, 0, true)
+	jis, err = c.ListProjectJob("", pipelineName, nil, 0, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, 1, true)
+	jis, err = c.ListProjectJob("", pipelineName, nil, 1, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, 2, true)
+	jis, err = c.ListProjectJob("", pipelineName, nil, 2, true)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(jis))
-	jis, err = c.ListJob(pipelineName, nil, -1, true)
+	jis, err = c.ListProjectJob("", pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(jis))
 
@@ -8850,19 +8850,19 @@ func TestPipelineHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory("", -1, false)
+	pipelineInfos, err = c.ListProjectPipelineHistory("", "", -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory("", 1, false)
+	pipelineInfos, err = c.ListProjectPipelineHistory("", "", 1, false)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory(pipelineName, -1, false)
+	pipelineInfos, err = c.ListProjectPipelineHistory("", pipelineName, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory(pipelineName2, -1, false)
+	pipelineInfos, err = c.ListProjectPipelineHistory("", pipelineName2, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(pipelineInfos))
 }
@@ -8883,7 +8883,7 @@ func TestFileHistory(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo2))
 
 	pipeline := tu.UniqueString("TestFileHistory")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -8900,8 +8900,8 @@ func TestFileHistory(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewCrossInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput("", dataRepo1, "/*"),
+			client.NewProjectPFSInput("", dataRepo2, "/*"),
 		),
 		"",
 		false,
@@ -8950,7 +8950,7 @@ func TestCreatePipelineErrorNoPipeline(t *testing.T) {
 				Cmd:   []string{"/bin/bash"},
 				Stdin: []string{`cat foo >/pfs/out/file`},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.YesError(t, err)
 	require.Matches(t, "request.Pipeline", err.Error())
@@ -8976,9 +8976,9 @@ func TestCreatePipelineError(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline:  client.NewPipeline(pipeline),
+			Pipeline:  client.NewProjectPipeline("", pipeline),
 			Transform: nil,
-			Input:     client.NewPFSInput(dataRepo, "/*"),
+			Input:     client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.YesError(t, err)
 	require.Matches(t, "transform", err.Error())
@@ -9004,18 +9004,18 @@ func TestCreatePipelineErrorNoCmd(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd:   nil,
 				Stdin: []string{`cat foo >/pfs/out/file`},
 			},
-			Input: client.NewPFSInput(dataRepo, "/*"),
+			Input: client.NewProjectPFSInput("", dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 	time.Sleep(5 * time.Second) // give pipeline time to start
 
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pipelineInfo, err := c.InspectPipeline(pipeline, false)
+		pipelineInfo, err := c.InspectProjectPipeline("", pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -9040,7 +9040,7 @@ func TestExtractPipeline(t *testing.T) {
 	//
 	//	// Now set a bunch of fields explicitly so the server will accept the request.
 	//	// Override the input because otherwise the repo won't exist
-	//	request.Input = client.NewPFSInput(dataRepo, "/*")
+	//	request.Input = client.NewProjectPFSInput("",dataRepo, "/*")
 	//	// These must be set explicitly, because extract returns the default values
 	//	// and we want them to match.
 	//	request.Input.Pfs.Name = "input"
@@ -9124,7 +9124,7 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd:   []string{"bash"},
 				Stdin: []string{"cp /pfs/in/* /pfs/out"},
@@ -9151,7 +9151,7 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 	require.NoError(t, c.GetFile(commitInfo.Commit, "file", &buf))
 	require.Equal(t, "foo", buf.String())
 
-	pipelineInfo, err := c.InspectPipeline(pipeline, false)
+	pipelineInfo, err := c.InspectProjectPipeline("", pipeline, false)
 	require.NoError(t, err)
 
 	// make sure 'vol0' is correct in the pod spec
@@ -9292,7 +9292,7 @@ func TestCopyOutToIn(t *testing.T) {
 
 	pipeline := tu.UniqueString("TestCopyOutToIn")
 	pipelineCommit := client.NewProjectCommit("", pipeline, "master", "")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -9302,7 +9302,7 @@ func TestCopyOutToIn(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -9365,7 +9365,7 @@ func TestKeepRepo(t *testing.T) {
 
 	pipeline := tu.UniqueString("TestKeepRepo")
 	pipelineCommit := client.NewProjectCommit("", pipeline, "master", "")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -9375,7 +9375,7 @@ func TestKeepRepo(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -9386,7 +9386,7 @@ func TestKeepRepo(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = c.PpsAPIClient.DeletePipeline(c.Ctx(), &pps.DeletePipelineRequest{
-		Pipeline: client.NewPipeline(pipeline),
+		Pipeline: client.NewProjectPipeline("", pipeline),
 		KeepRepo: true,
 	})
 	require.NoError(t, err)
@@ -9409,7 +9409,7 @@ func TestKeepRepo(t *testing.T) {
 	require.NoError(t, c.GetFile(pipelineCommit, "file", &buf))
 	require.Equal(t, "foo", buf.String())
 
-	require.YesError(t, c.CreatePipeline(
+	require.YesError(t, c.CreateProjectPipeline("",
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -9419,7 +9419,7 @@ func TestKeepRepo(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput("", dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -9438,13 +9438,13 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "request.Pipeline cannot be nil", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline: client.NewPipeline(pipelineName)},
+		Pipeline: client.NewProjectPipeline("", pipelineName)},
 	)
 	require.YesError(t, err)
 	require.Matches(t, "must specify a transform", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewPipeline(pipelineName),
+		Pipeline:  client.NewProjectPipeline("", pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{},
 	})
@@ -9452,7 +9452,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "no input set", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:        client.NewPipeline(pipelineName),
+		Pipeline:        client.NewProjectPipeline("", pipelineName),
 		Transform:       &pps.Transform{},
 		Service:         &pps.Service{},
 		ParallelismSpec: &pps.ParallelismSpec{},
@@ -9461,7 +9461,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "services can only be run with a constant parallelism of 1", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:   client.NewPipeline(pipelineName),
+		Pipeline:   client.NewProjectPipeline("", pipelineName),
 		Transform:  &pps.Transform{},
 		SpecCommit: &pfs.Commit{},
 	})
@@ -9469,7 +9469,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "cannot resolve commit with no branch", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:   client.NewPipeline(pipelineName),
+		Pipeline:   client.NewProjectPipeline("", pipelineName),
 		Transform:  &pps.Transform{},
 		SpecCommit: &pfs.Commit{Branch: &pfs.Branch{}},
 	})
@@ -9483,7 +9483,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewPipeline(pipelineName),
+		Pipeline:  client.NewProjectPipeline("", pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Pfs: &pps.PFSInput{}},
 	})
@@ -9491,7 +9491,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "input must specify a name", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewPipeline(pipelineName),
+		Pipeline:  client.NewProjectPipeline("", pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Pfs: &pps.PFSInput{Name: "data"}},
 	})
@@ -9499,7 +9499,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "input must specify a repo", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewPipeline(pipelineName),
+		Pipeline:  client.NewProjectPipeline("", pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Pfs: &pps.PFSInput{Repo: dataRepo}},
 	})
@@ -9507,15 +9507,15 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "input must specify a glob", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewPipeline(pipelineName),
+		Pipeline:  client.NewProjectPipeline("", pipelineName),
 		Transform: &pps.Transform{},
-		Input:     client.NewPFSInput("out", "/*"),
+		Input:     client.NewProjectPFSInput("", "out", "/*"),
 	})
 	require.YesError(t, err)
 	require.Matches(t, "input cannot be named \"out\"", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewPipeline(pipelineName),
+		Pipeline:  client.NewProjectPipeline("", pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Pfs: &pps.PFSInput{Name: "out", Repo: dataRepo, Glob: "/*"}},
 	})
@@ -9523,7 +9523,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "input cannot be named \"out\"", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewPipeline(pipelineName),
+		Pipeline:  client.NewProjectPipeline("", pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Pfs: &pps.PFSInput{Name: "data", Repo: "dne", Glob: "/*"}},
 	})
@@ -9531,18 +9531,18 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "dne[^ ]* not found", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewPipeline(pipelineName),
+		Pipeline:  client.NewProjectPipeline("", pipelineName),
 		Transform: &pps.Transform{},
 		Input: client.NewCrossInput(
-			client.NewPFSInput("foo", "/*"),
-			client.NewPFSInput("foo", "/*"),
+			client.NewProjectPFSInput("", "foo", "/*"),
+			client.NewProjectPFSInput("", "foo", "/*"),
 		),
 	})
 	require.YesError(t, err)
 	require.Matches(t, "name \"foo\" was used more than once", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewPipeline(pipelineName),
+		Pipeline:  client.NewProjectPipeline("", pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Cron: &pps.CronInput{}},
 	})
@@ -9550,7 +9550,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "input must specify a name", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewPipeline(pipelineName),
+		Pipeline:  client.NewProjectPipeline("", pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Cron: &pps.CronInput{Name: "cron"}},
 	})
@@ -9558,7 +9558,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "Empty spec string", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewPipeline(pipelineName),
+		Pipeline:  client.NewProjectPipeline("", pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Cross: []*pps.Input{}},
 	})
@@ -9566,7 +9566,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "no input set", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewPipeline(pipelineName),
+		Pipeline:  client.NewProjectPipeline("", pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Union: []*pps.Input{}},
 	})
@@ -9574,7 +9574,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "no input set", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:  client.NewPipeline(pipelineName),
+		Pipeline:  client.NewProjectPipeline("", pipelineName),
 		Transform: &pps.Transform{},
 		Input:     &pps.Input{Join: []*pps.Input{}},
 	})
@@ -9593,7 +9593,7 @@ func TestTrigger(t *testing.T) {
 	pipelineCommit1 := client.NewProjectCommit("", pipeline1, "master", "")
 	pipeline2 := tu.UniqueString("TestTrigger2")
 	pipelineCommit2 := client.NewProjectCommit("", pipeline2, "master", "")
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline1,
 		"",
 		[]string{"bash"},
@@ -9603,14 +9603,14 @@ func TestTrigger(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts(dataRepo, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+		client.NewProjectPFSInputOpts(dataRepo, "", dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
 			Branch: "master",
 			Size_:  "1K",
 		}),
 		"",
 		false,
 	))
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline2,
 		"",
 		[]string{"bash"},
@@ -9620,7 +9620,7 @@ func TestTrigger(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts(pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
+		client.NewProjectPFSInputOpts(pipeline1, "", pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
 			Size_: "2K",
 		}),
 		"",
@@ -9671,7 +9671,7 @@ func TestTrigger(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		pipeline2,
 		"",
 		[]string{"bash"},
@@ -9681,7 +9681,7 @@ func TestTrigger(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts(pipeline1, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
+		client.NewProjectPFSInputOpts(pipeline1, "", pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
 			Size_: "3K",
 		}),
 		"",
@@ -9859,7 +9859,7 @@ func TestDebug(t *testing.T) {
 			// Fail a pipeline on purpose to see if we can still generate debug dump.
 			cmdStdin = append(cmdStdin, "exit -1")
 		}
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline("",
 			p,
 			"",
 			[]string{"bash"},
@@ -9867,7 +9867,7 @@ func TestDebug(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewPFSInput(dataRepo, "/*"),
+			client.NewProjectPFSInput("", dataRepo, "/*"),
 			"",
 			false,
 		))
@@ -9930,7 +9930,7 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 	repoB := client.NewProjectRepo("", pipelineB)
 
 	createPipeline := func(c *client.APIClient, input, pipeline string, update bool) error {
-		return c.CreatePipeline(
+		return c.CreateProjectPipeline("",
 			pipeline,
 			"",
 			[]string{"bash"},
@@ -9938,7 +9938,7 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewPFSInput(input, "/*"),
+			client.NewProjectPFSInput("", input, "/*"),
 			"",
 			update,
 		)
@@ -9970,7 +9970,7 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
 
-	jobInfos, err := c.ListJob(pipelineB, nil, -1, false)
+	jobInfos, err := c.ListProjectJob("", pipelineB, nil, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
 }
@@ -9988,7 +9988,7 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 
 	createPipeline := func(c *client.APIClient, input string, update bool) error {
-		return c.CreatePipeline(
+		return c.CreateProjectPipeline("",
 			pipeline,
 			"",
 			[]string{"bash"},
@@ -9996,7 +9996,7 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewPFSInput(input, "/*"),
+			client.NewProjectPFSInput("", input, "/*"),
 			"",
 			update,
 		)
@@ -10016,7 +10016,7 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 	_, err = c.FinishTransaction(txn)
 	require.NoError(t, err)
 	// make sure the final pipeline is the third version, with the input from in the transaction
-	pipelineInfo, err := c.InspectPipeline(pipeline, true)
+	pipelineInfo, err := c.InspectProjectPipeline("", pipeline, true)
 	require.NoError(t, err)
 	require.Equal(t, uint64(3), pipelineInfo.Version)
 	require.NotNil(t, pipelineInfo.Details.Input.Pfs)
@@ -10035,7 +10035,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -10043,7 +10043,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 					"sleep 30",
 				},
 			},
-			Input:           client.NewPFSInput(dataRepo, "/*"),
+			Input:           client.NewProjectPFSInput("", dataRepo, "/*"),
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 4},
 			Autoscaling:     true,
 		},
@@ -10088,8 +10088,8 @@ func TestListDeletedDatums(t *testing.T) {
 	require.NoError(t, c.CreateRepo(threeRepo))
 
 	input := client.NewJoinInput(
-		client.NewPFSInput(twoRepo, "/(*)"),
-		client.NewPFSInput(threeRepo, "/(*)"),
+		client.NewProjectPFSInput("", twoRepo, "/(*)"),
+		client.NewProjectPFSInput("", threeRepo, "/(*)"),
 	)
 	input.Join[0].Pfs.JoinOn = "$1"
 	input.Join[1].Pfs.JoinOn = "$1"
@@ -10118,7 +10118,7 @@ func TestListDeletedDatums(t *testing.T) {
 		input.Join[1].Pfs.OuterJoin = threeOuter
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd:   []string{"bash"},
 					Stdin: []string{"touch pfs/out/ignore"},
@@ -10129,14 +10129,14 @@ func TestListDeletedDatums(t *testing.T) {
 		)
 		require.NoError(t, err)
 		// wait for job and get its datums
-		jobs, err := c.ListJob(pipeline, nil, 0, false)
+		jobs, err := c.ListProjectJob("", pipeline, nil, 0, false)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobs))
 		id := jobs[0].Job.ID
-		info, err := c.WaitJob(pipeline, id, false)
+		info, err := c.WaitProjectJob("", pipeline, id, false)
 		require.NoError(t, err)
 		require.Equal(t, pps.JobState_JOB_SUCCESS, info.State)
-		datums, err := c.ListDatumAll(pipeline, id)
+		datums, err := c.ListProjectDatumAll("", pipeline, id)
 		require.NoError(t, err)
 
 		// find which file numbers are present in the datums
@@ -10194,7 +10194,7 @@ func TestNonrootPipeline(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd:   []string{"bash"},
 				Stdin: []string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo)},
@@ -10203,7 +10203,7 @@ func TestNonrootPipeline(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Input:        client.NewPFSInput(dataRepo, "/*"),
+			Input:        client.NewProjectPFSInput("", dataRepo, "/*"),
 			OutputBranch: "",
 			Update:       false,
 			PodPatch: `[
@@ -10259,7 +10259,7 @@ func TestRewindCrossPipeline(t *testing.T) {
 		var indivInputs []*pps.Input
 		var stdin []string
 		for _, r := range repos {
-			indivInputs = append(indivInputs, client.NewPFSInput(r, "/*"))
+			indivInputs = append(indivInputs, client.NewProjectPFSInput("", r, "/*"))
 			stdin = append(stdin, fmt.Sprintf("cp /pfs/%s/* /pfs/out/", r))
 		}
 		var input *pps.Input
@@ -10270,7 +10270,7 @@ func TestRewindCrossPipeline(t *testing.T) {
 		}
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd:   []string{"bash"},
 					Stdin: stdin,
@@ -10339,7 +10339,7 @@ func TestMoveBranchTrigger(t *testing.T) {
 	pipeline := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -10348,8 +10348,8 @@ func TestMoveBranchTrigger(t *testing.T) {
 				},
 			},
 			Input: client.NewCrossInput(
-				client.NewPFSInput(dataRepo, "/*"),
-				client.NewPFSInputOpts("trigger", dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+				client.NewProjectPFSInput("", dataRepo, "/*"),
+				client.NewProjectPFSInputOpts("trigger", "", dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
 					Branch:  "toMove",
 					Commits: 1,
 				}),
@@ -10397,7 +10397,7 @@ func TestPipelineAncestry(t *testing.T) {
 	}
 
 	for i := 1; i <= 3; i++ {
-		info, err := c.InspectPipeline(fmt.Sprintf("%s^%d", pipeline, 3-i), true)
+		info, err := c.InspectProjectPipeline("", fmt.Sprintf("%s^%d", pipeline, 3-i), true)
 		require.NoError(t, err)
 		require.Equal(t, fmt.Sprintf("user:%d", i), info.Details.Transform.User)
 	}
@@ -10417,19 +10417,19 @@ func TestPipelineAncestry(t *testing.T) {
 	}
 
 	// get all pipelines
-	infos, err = c.ListPipelineHistory(pipeline, -1, true)
+	infos, err = c.ListProjectPipelineHistory("", pipeline, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(infos))
 	checkInfos(infos)
 
 	// get all pipelines by asking for too many
-	infos, err = c.ListPipelineHistory(pipeline, 3, true)
+	infos, err = c.ListProjectPipelineHistory("", pipeline, 3, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(infos))
 	checkInfos(infos)
 
 	// get only the later two pipelines
-	infos, err = c.ListPipelineHistory(pipeline, 1, true)
+	infos, err = c.ListProjectPipelineHistory("", pipeline, 1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(infos))
 	checkInfos(infos)
@@ -10454,7 +10454,7 @@ func TestDatumSetCache(t *testing.T) {
 	pipeline := tu.UniqueString("TestDatumSetCache")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -10462,7 +10462,7 @@ func TestDatumSetCache(t *testing.T) {
 					"sleep 1",
 				},
 			},
-			Input:        client.NewPFSInput(dataRepo, "/*"),
+			Input:        client.NewProjectPFSInput("", dataRepo, "/*"),
 			DatumSetSpec: &pps.DatumSetSpec{Number: 1},
 		})
 	require.NoError(t, err)
@@ -10549,7 +10549,7 @@ func TestPutFileNoErrorOnErroredParentCommit(t *testing.T) {
 
 	require.NoError(t, c.CreateRepo("inA"))
 	require.NoError(t, c.CreateRepo("inB"))
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		"A",
 		"",
 		[]string{"bash"},
@@ -10557,11 +10557,11 @@ func TestPutFileNoErrorOnErroredParentCommit(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput("inA", "/*"),
+		client.NewProjectPFSInput("", "inA", "/*"),
 		"",
 		false,
 	))
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline("",
 		"B",
 		"",
 		[]string{"bash"},
@@ -10570,8 +10570,8 @@ func TestPutFileNoErrorOnErroredParentCommit(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewUnionInput(
-			client.NewPFSInput("inB", "/*"),
-			client.NewPFSInput("A", "/*"),
+			client.NewProjectPFSInput("", "inB", "/*"),
+			client.NewProjectPFSInput("", "A", "/*"),
 		),
 		"",
 		false,
@@ -10636,8 +10636,8 @@ func TestTemporaryDuplicatedPath(t *testing.T) {
 	// leading to either a validation error or a repeated path/datum pair
 	req.Update = true
 	req.Input = client.NewCrossInput(
-		client.NewPFSInput(repo, "/*"),
-		client.NewPFSInput(other, "/*"))
+		client.NewProjectPFSInput("", repo, "/*"),
+		client.NewProjectPFSInput("", other, "/*"))
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
 	require.NoError(t, err)
 
@@ -10731,7 +10731,7 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	if _, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline("", pipeline),
 			Transform: &pps.Transform{
 				Image: tu.DefaultTransformImage,
 				Cmd:   []string{"bash"},
@@ -10765,7 +10765,7 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
 	commitInfo, err := c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
-	_, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+	_, err = c.InspectProjectJob("", pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	// query db for results
 	var count, expected int
@@ -10777,7 +10777,7 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar\n3,ABC")))
 	commitInfo, err = c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
-	_, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+	_, err = c.InspectProjectJob("", pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	// query db for results
 	expected = 3
@@ -10818,7 +10818,7 @@ func TestMissingSecretFailure(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		info, err := c.InspectPipeline(pipeline, false)
+		info, err := c.InspectProjectPipeline("", pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -10833,7 +10833,7 @@ func TestMissingSecretFailure(t *testing.T) {
 	require.NoError(t, c.PutFile(
 		client.NewProjectCommit("", repo, "master", ""), "foo", strings.NewReader("bar")))
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		info, err := c.InspectPipeline(pipeline, false)
+		info, err := c.InspectProjectPipeline("", pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -11036,7 +11036,7 @@ func TestZombieCheck(t *testing.T) {
 	}, client.WithZombieCheckAll()))
 
 	// stop pipeline so we can modify
-	require.NoError(t, c.StopPipeline(pipeline))
+	require.NoError(t, c.StopProjectPipeline("", pipeline))
 	// create new commits on output and meta
 	_, err = c.ExecuteInTransaction(func(c *client.APIClient) error {
 		if _, err := c.StartCommit(pipeline, "master"); err != nil {
