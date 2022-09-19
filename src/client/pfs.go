@@ -745,6 +745,8 @@ func (c APIClient) SubscribeCommit(repo *pfs.Repo, branchName string, from strin
 }
 
 // ClearCommit clears the state of an open commit.
+//
+// Deprecated: use ClearProjectCommit instead.
 func (c APIClient) ClearCommit(repoName string, branchName string, commitID string) (retErr error) {
 	return c.ClearProjectCommit("", repoName, branchName, commitID)
 }
