@@ -142,7 +142,7 @@ func (c APIClient) InspectRepo(repoName string) (_ *pfs.RepoInfo, retErr error) 
 	return c.InspectProjectRepo("", repoName)
 }
 
-// InspectRepo returns info about a specific Repo.
+// InspectProjectRepo returns info about a specific Repo.
 func (c APIClient) InspectProjectRepo(projectName, repoName string) (_ *pfs.RepoInfo, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
@@ -185,6 +185,8 @@ func (c APIClient) ListRepoByType(repoType string) (_ []*pfs.RepoInfo, retErr er
 //
 // If "force" is set to true, the repo will be removed regardless of errors.
 // This argument should be used with care.
+//
+// Deprecated: use DeleteProjectRepo instead.
 func (c APIClient) DeleteRepo(repoName string, force bool) error {
 	return c.DeleteProjectRepo("", repoName, force)
 }
