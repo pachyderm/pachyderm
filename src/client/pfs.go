@@ -530,6 +530,8 @@ func (c APIClient) ListProjectBranch(projectName, repoName string) ([]*pfs.Branc
 // DeleteBranch deletes a branch, but leaves the commits themselves intact.
 // In other words, those commits can still be accessed via commit IDs and
 // other branches they happen to be on.
+//
+// Deprecated: use DeleteProjectBranch instead.
 func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) error {
 	return c.DeleteProjectBranch("", repoName, branchName, force)
 }

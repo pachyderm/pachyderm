@@ -347,7 +347,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 2, len(cis))
 		commit1 := cis[0].Commit
-		require.NoError(t, env.PachClient.DeleteBranch("out", "master", false))
+		require.NoError(t, env.PachClient.DeleteProjectBranch("", "out", "master", false))
 		require.NoError(t, finishCommit(env.PachClient, "out", "", commit1.ID))
 		require.NoError(t, env.PachClient.CreateProjectBranch("", "out", "master", "", commit1.ID, []*pfs.Branch{client.NewProjectBranch("", "in", "master")}))
 		cis, err = env.PachClient.ListCommit(outRepo, nil, nil, 0)
@@ -2430,7 +2430,7 @@ func TestPFS(suite *testing.T) {
 
 		// delete the last branch
 		lastBranch := expectedBranches[len(expectedBranches)-1]
-		require.NoError(t, env.PachClient.DeleteBranch(repo, lastBranch, false))
+		require.NoError(t, env.PachClient.DeleteProjectBranch("", repo, lastBranch, false))
 		branchInfos, err = env.PachClient.ListProjectBranch("", repo)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(branchInfos))
@@ -2446,7 +2446,7 @@ func TestPFS(suite *testing.T) {
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
-		require.NoError(t, env.PachClient.DeleteBranch(repo, "doesnt_exist", false))
+		require.NoError(t, env.PachClient.DeleteProjectBranch("", repo, "doesnt_exist", false))
 	})
 
 	suite.Run("SubscribeCommit", func(t *testing.T) {
@@ -5201,7 +5201,7 @@ func TestPFS(suite *testing.T) {
 				}
 				i := r.Intn(len(inputBranches))
 				branch := inputBranches[i]
-				err = env.PachClient.DeleteBranch(branch.Repo.Name, branch.Name, false)
+				err = env.PachClient.DeleteProjectBranch("", branch.Repo.Name, branch.Name, false)
 				// don't fail if the error was just that it couldn't delete the branch without breaking subvenance
 				inputBranches = append(inputBranches[:i], inputBranches[i+1:]...)
 				if err != nil && !strings.Contains(err.Error(), "break") {
@@ -5322,7 +5322,7 @@ func TestPFS(suite *testing.T) {
 				}
 				i := r.Intn(len(outputBranches))
 				branch := outputBranches[i]
-				err = env.PachClient.DeleteBranch(branch.Repo.Name, branch.Name, false)
+				err = env.PachClient.DeleteProjectBranch("", branch.Repo.Name, branch.Name, false)
 				// don't fail if the error was just that it couldn't delete the branch without breaking subvenance
 				outputBranches = append(outputBranches[:i], outputBranches[i+1:]...)
 				if err != nil && !strings.Contains(err.Error(), "break") {
