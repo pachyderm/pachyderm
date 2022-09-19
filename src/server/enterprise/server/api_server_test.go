@@ -9,13 +9,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestEnterpriseDeactivate(t *testing.T) {
 	ctx := context.Background()
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	resp, err := env.PachClient.Enterprise.GetState(ctx, &enterprise.GetStateRequest{})
 	require.NoError(t, err)
@@ -42,7 +42,7 @@ func TestEnterpriseDeactivate(t *testing.T) {
 
 func TestEnterpriseExpired(t *testing.T) {
 	ctx := context.Background()
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateLicense(t, env.PachClient, peerPort, time.Now().Add(2*time.Second))
 	_, err := env.PachClient.Enterprise.Activate(ctx,

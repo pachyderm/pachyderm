@@ -6,31 +6,15 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-	logrus "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-)
 
-func TestRenderTemplate(t *testing.T) {
-	ctx := context.Background()
-	client := newClient(t)
-	res, err := client.RenderTemplate(ctx, &pps.RenderTemplateRequest{
-		Args: map[string]string{
-			"arg1": "value1",
-		},
-		Template: `
-			function (arg1) {
-				pipeline: {name: arg1},
-			}
-		`,
-	})
-	require.NoError(t, err)
-	require.Len(t, res.Specs, 1)
-}
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+)
 
 func newClient(t testing.TB) pps.APIClient {
 	srv := newServer(t)
@@ -66,6 +50,23 @@ func newServer(t testing.TB) pps.APIServer {
 
 func newConfig(testing.TB) serviceenv.Configuration {
 	return *serviceenv.ConfigFromOptions()
+}
+
+func TestRenderTemplate(t *testing.T) {
+	ctx := context.Background()
+	client := newClient(t)
+	res, err := client.RenderTemplate(ctx, &pps.RenderTemplateRequest{
+		Args: map[string]string{
+			"arg1": "value1",
+		},
+		Template: `
+			function (arg1) {
+				pipeline: {name: arg1},
+			}
+		`,
+	})
+	require.NoError(t, err)
+	require.Len(t, res.Specs, 1)
 }
 
 func TestParseLokiLine(t *testing.T) {

@@ -26,7 +26,7 @@ type Env struct {
 	DB          *pachsql.DB
 	TxnEnv      *txnenv.TransactionEnv
 	Listener    collection.PostgresListener
-	KubeClient  *kubernetes.Clientset
+	KubeClient  kubernetes.Interface
 	EtcdClient  *etcd.Client
 	EtcdPrefix  string
 	TaskService task.Service
