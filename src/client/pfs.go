@@ -321,6 +321,8 @@ func (c APIClient) InspectProjectCommit(projectName, repoName, branchName, commi
 
 // WaitCommit returns info about a specific Commit, but blocks until that
 // commit has been finished.
+//
+// Deprecated: use WaitProjectCommit instead.
 func (c APIClient) WaitCommit(repoName, branchName, commitID string) (_ *pfs.CommitInfo, retErr error) {
 	return c.WaitProjectCommit("", repoName, branchName, commitID)
 }
