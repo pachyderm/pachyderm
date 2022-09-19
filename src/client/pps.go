@@ -588,11 +588,18 @@ func (c APIClient) DeleteProjectJob(projectName, pipelineName, jobID string) err
 }
 
 // StopJob stops a job.
+//
+// Deprecated: use StopProjectJob instead.
 func (c APIClient) StopJob(pipelineName string, jobID string) error {
+	return c.StopProjectJob("", pipelineName, jobID)
+}
+
+// StopProjectJob stops a job.
+func (c APIClient) StopProjectJob(projectName, pipelineName, jobID string) error {
 	_, err := c.PpsAPIClient.StopJob(
 		c.Ctx(),
 		&pps.StopJobRequest{
-			Job: NewProjectJob("", pipelineName, jobID),
+			Job: NewProjectJob(projectName, pipelineName, jobID),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)

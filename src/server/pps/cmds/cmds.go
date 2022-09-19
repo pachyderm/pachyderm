@@ -373,7 +373,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 				}
 				if _, err := client.RunBatchInTransaction(func(tb *pachdclient.TransactionBuilder) error {
 					for _, jobInfo := range jobInfos {
-						if err := tb.StopJob(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID); err != nil {
+						if err := tb.StopProjectJob("", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID); err != nil {
 							return err
 						}
 					}
@@ -386,8 +386,8 @@ $ {{alias}} -p foo -i bar@YYY`,
 				if err != nil {
 					return err
 				}
-				if err := client.StopJob(job.Pipeline.Name, job.ID); err != nil {
-					return errors.Wrap(err, "error from StopJob")
+				if err := client.StopProjectJob("", job.Pipeline.Name, job.ID); err != nil {
+					return errors.Wrap(err, "error from StopProjectJob")
 				}
 			}
 			return nil

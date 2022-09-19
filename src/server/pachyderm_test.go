@@ -4197,7 +4197,7 @@ func TestStopJob(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// Now stop the second job
-	err = c.StopJob(pipelineName, commit2.ID)
+	err = c.StopProjectJob("", pipelineName, commit2.ID)
 	require.NoError(t, err)
 	jobInfo, err := c.WaitProjectJob("", pipelineName, commit2.ID, false)
 	require.NoError(t, err)
@@ -7954,7 +7954,7 @@ func TestCancelJob(t *testing.T) {
 	})
 
 	// stop the job
-	require.NoError(t, c.StopJob(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID))
+	require.NoError(t, c.StopProjectJob("", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID))
 
 	// Wait until the job is cancelled
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
@@ -8052,7 +8052,7 @@ func TestCancelManyJobs(t *testing.T) {
 		})
 
 		// Stop the job
-		require.NoError(t, c.StopJob(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID))
+		require.NoError(t, c.StopProjectJob("", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID))
 
 		// Check that the job is now killed
 		require.NoErrorWithinT(t, 30*time.Second, func() error {

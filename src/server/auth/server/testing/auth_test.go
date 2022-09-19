@@ -1074,7 +1074,7 @@ func TestStopJob(t *testing.T) {
 		return nil
 	})
 
-	require.NoError(t, aliceClient.StopJob(pipeline, jobID))
+	require.NoError(t, aliceClient.StopProjectJob("", pipeline, jobID))
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
 		ji, err := aliceClient.InspectProjectJob("", pipeline, jobID, false)
 		if err != nil {
