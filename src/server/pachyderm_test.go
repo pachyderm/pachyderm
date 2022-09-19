@@ -135,7 +135,7 @@ func TestSimplePipeline(t *testing.T) {
 		false,
 	))
 
-	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -2123,7 +2123,7 @@ func TestWaitCommitSetAfterCreatePipeline(t *testing.T) {
 		"",
 		false,
 	))
-	commitInfo, err := c.InspectCommit(repo, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", repo, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -3076,7 +3076,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 
 	// Pipeline should start and create a job should succeed -- fix
 	// https://github.com/pachyderm/pachyderm/v2/issues/3934)
-	commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -3166,7 +3166,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		"",
 		true,
 	))
-	commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -3366,7 +3366,7 @@ func TestAutoscalingStandby(t *testing.T) {
 		})
 
 		require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo")))
-		commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+		commitInfo, err := c.InspectProjectCommit("", dataRepo, "master", "")
 		require.NoError(t, err)
 
 		var eg errgroup.Group
@@ -3418,7 +3418,7 @@ func TestAutoscalingStandby(t *testing.T) {
 		for i := 0; i < numCommits; i++ {
 			require.NoError(t, c.PutFile(dataCommit, fmt.Sprintf("file-%d", i), strings.NewReader("foo")))
 		}
-		commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+		commitInfo, err := c.InspectProjectCommit("", dataRepo, "master", "")
 		require.NoError(t, err)
 		commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 		require.NoError(t, err)
@@ -3494,7 +3494,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 	require.NoError(t, c.PutFile(dataCommit, "/foo", strings.NewReader("foo"), client.WithAppendPutFile()))
 	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 		// Let pipeline run
-		commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+		commitInfo, err := c.InspectProjectCommit("", dataRepo, "master", "")
 		require.NoError(t, err)
 		_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 		require.NoError(t, err)
@@ -3535,7 +3535,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 	require.NoError(t, c.StartPipeline(pipeline))
 	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 		// Let pipeline run
-		commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+		commitInfo, err := c.InspectProjectCommit("", dataRepo, "master", "")
 		require.NoError(t, err)
 		_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 		require.NoError(t, err)
@@ -3624,7 +3624,7 @@ func TestPipelineEnv(t *testing.T) {
 	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 
-	commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 
 	jis, err := c.WaitJobSetAll(commitInfo.Commit.ID, true)
@@ -3751,7 +3751,7 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 		false,
 	))
 
-	commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -3812,7 +3812,7 @@ func TestPipelineThatSymlinks(t *testing.T) {
 			false,
 		))
 
-		commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+		commitInfo, err := c.InspectProjectCommit("", dataRepo, "master", "")
 		require.NoError(t, err)
 		commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 		require.NoError(t, err)
@@ -3913,7 +3913,7 @@ func TestChainedPipelines(t *testing.T) {
 		false,
 	))
 
-	commitInfo, err := c.InspectCommit(cPipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", cPipeline, "master", "")
 	require.NoError(t, err)
 
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
@@ -4008,7 +4008,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 		false,
 	))
 
-	commitInfo, err := c.InspectCommit(dPipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", dPipeline, "master", "")
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -4078,7 +4078,7 @@ func TestStartInternalPipeline(t *testing.T) {
 		"",
 		false,
 	))
-	commitInfo, err := c.InspectCommit(cPipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", cPipeline, "master", "")
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -4462,7 +4462,7 @@ func TestManyLogs(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectCommit(pipelineName, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipelineName, "master", "")
 	require.NoError(t, err)
 
 	jis, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
@@ -4515,7 +4515,7 @@ func TestLokiLogs(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectCommit(pipelineName, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipelineName, "master", "")
 	require.NoError(t, err)
 
 	jis, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
@@ -4595,7 +4595,7 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 		false,
 	))
 
-	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -5459,7 +5459,7 @@ func TestGroupInput(t *testing.T) {
 			false,
 		))
 
-		commitInfo, err := c.InspectCommit(pipeline, "master", "")
+		commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 		require.NoError(t, err)
 
 		jobs, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
@@ -5536,7 +5536,7 @@ func TestGroupInput(t *testing.T) {
 			false,
 		))
 
-		commitInfo, err := c.InspectCommit(pipeline, "master", "")
+		commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 		require.NoError(t, err)
 
 		jobs, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
@@ -5633,7 +5633,7 @@ func TestGroupInput(t *testing.T) {
 			false,
 		))
 
-		commitInfo, err := c.InspectCommit(pipeline, "master", "")
+		commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 		require.NoError(t, err)
 
 		jobs, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
@@ -5707,7 +5707,7 @@ func TestGroupInput(t *testing.T) {
 			})
 		require.NoError(t, err)
 
-		commitInfo, err := c.InspectCommit(pipeline, "master", "")
+		commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 		require.NoError(t, err)
 
 		jobs, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
@@ -5933,7 +5933,7 @@ func TestPipelineWithStats(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	outputCommit, err := c.InspectCommit(pipeline, "master", "")
+	outputCommit, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 
 	id := outputCommit.Commit.ID
@@ -6000,7 +6000,7 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	outputCommit, err := c.InspectCommit(pipeline, "master", "")
+	outputCommit, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 	id := outputCommit.Commit.ID
 
@@ -6076,7 +6076,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	outputCommit, err := c.InspectCommit(pipeline, "master", "")
+	outputCommit, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 	id := outputCommit.Commit.ID
 
@@ -6156,7 +6156,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	outputCommit, err := c.InspectCommit(pipeline, "master", "")
+	outputCommit, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 	id := outputCommit.Commit.ID
 
@@ -6184,7 +6184,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	}
 	require.NoError(t, c.FinishProjectCommit("", dataRepo, "master", commit2.ID))
 
-	outputCommit, err = c.InspectCommit(pipeline, "master", "")
+	outputCommit, err = c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 	id = outputCommit.Commit.ID
 
@@ -6259,7 +6259,7 @@ func TestPipelineOnStatsBranch(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectCommit(pipeline2, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipeline2, "master", "")
 	require.NoError(t, err)
 
 	jobInfos, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
@@ -7635,7 +7635,7 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -7736,7 +7736,7 @@ func TestCommitDescription(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NoError(t, c.FinishProjectCommit("", dataRepo, commit.Branch.Name, commit.ID))
-	commitInfo, err := c.InspectCommit(dataRepo, commit.Branch.Name, commit.ID)
+	commitInfo, err := c.InspectProjectCommit("", dataRepo, commit.Branch.Name, commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, "test commit description in 'start commit'", commitInfo.Description)
 	require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(commitInfo)))
@@ -7749,7 +7749,7 @@ func TestCommitDescription(t *testing.T) {
 		Description: "test commit description in 'finish commit'",
 	})
 	require.NoError(t, err)
-	commitInfo, err = c.InspectCommit(dataRepo, commit.Branch.Name, commit.ID)
+	commitInfo, err = c.InspectProjectCommit("", dataRepo, commit.Branch.Name, commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, "test commit description in 'finish commit'", commitInfo.Description)
 	require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(commitInfo)))
@@ -7765,7 +7765,7 @@ func TestCommitDescription(t *testing.T) {
 		Description: "test commit description in 'finish commit' that overwrites",
 	})
 	require.NoError(t, err)
-	commitInfo, err = c.InspectCommit(dataRepo, commit.Branch.Name, commit.ID)
+	commitInfo, err = c.InspectProjectCommit("", dataRepo, commit.Branch.Name, commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, "test commit description in 'finish commit' that overwrites", commitInfo.Description)
 	require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(commitInfo)))
@@ -8355,7 +8355,7 @@ func TestDatumTries(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 
 	jobInfos, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
@@ -8392,7 +8392,7 @@ func TestInspectJob(t *testing.T) {
 	repo := tu.UniqueString("TestInspectJob")
 	require.NoError(t, c.CreateProjectRepo("", repo))
 	require.NoError(t, c.PutFile(client.NewProjectCommit("", repo, "master", ""), "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	ci, err := c.InspectCommit(repo, "master", "")
+	ci, err := c.InspectProjectCommit("", repo, "master", "")
 	require.NoError(t, err)
 
 	_, err = c.InspectJob(repo, ci.Commit.ID, false)
@@ -8596,7 +8596,7 @@ func TestDeferredCross(t *testing.T) {
 	require.NoError(t, c.PutFile(dataCommit, "file2", strings.NewReader("foo"), client.WithAppendPutFile()))
 	require.NoError(t, c.PutFile(dataCommit, "file3", strings.NewReader("foo"), client.WithAppendPutFile()))
 
-	commitInfo, err := c.InspectCommit(dataSet, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", dataSet, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -8638,7 +8638,7 @@ func TestDeferredCross(t *testing.T) {
 	jobInfo, err := c.InspectJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, true)
 	require.NoError(t, err)
 
-	headCommit, err := c.InspectCommit(dataSet, "master", "")
+	headCommit, err := c.InspectProjectCommit("", dataSet, "master", "")
 	require.NoError(t, err)
 
 	require.NoError(t, pps.VisitInput(jobInfo.Details.Input, func(i *pps.Input) error {
@@ -8693,7 +8693,7 @@ func TestDeferredProcessing(t *testing.T) {
 	commit := client.NewProjectCommit("", dataRepo, "staging", "")
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 
-	commitInfo, err := c.InspectCommit(dataRepo, "staging", "")
+	commitInfo, err := c.InspectProjectCommit("", dataRepo, "staging", "")
 	require.NoError(t, err)
 
 	// The same commitset should be extended after each branch head move
@@ -8739,7 +8739,7 @@ func TestPipelineHistory(t *testing.T) {
 	))
 
 	require.NoError(t, c.PutFile(client.NewProjectCommit("", dataRepo, "master", ""), "file", strings.NewReader("1"), client.WithAppendPutFile()))
-	commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -8763,7 +8763,7 @@ func TestPipelineHistory(t *testing.T) {
 	))
 
 	require.NoError(t, c.PutFile(client.NewProjectCommit("", dataRepo, "master", ""), "file", strings.NewReader("2"), client.WithAppendPutFile()))
-	commitInfo, err = c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err = c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -8795,7 +8795,7 @@ func TestPipelineHistory(t *testing.T) {
 		"",
 		true,
 	))
-	commitInfo, err = c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err = c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -8828,7 +8828,7 @@ func TestPipelineHistory(t *testing.T) {
 		"",
 		true,
 	))
-	commitInfo, err = c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err = c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -8918,7 +8918,7 @@ func TestFileHistory(t *testing.T) {
 	require.NoError(t, c.PutFile(commit2, "B2", strings.NewReader(""), client.WithAppendPutFile()))
 	require.NoError(t, c.PutFile(commit2, "B3", strings.NewReader(""), client.WithAppendPutFile()))
 
-	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -9307,12 +9307,12 @@ func TestCopyOutToIn(t *testing.T) {
 		false,
 	))
 
-	commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 	require.NoError(t, c.CopyFile(dataCommit, "file2", pipelineCommit, "file", client.WithAppendCopyFile()))
-	commitInfo, err = c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err = c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -9329,14 +9329,14 @@ func TestCopyOutToIn(t *testing.T) {
 	require.NoError(t, mfc.PutFile("dir/file4", strings.NewReader("bar"), client.WithAppendPutFile()))
 	require.NoError(t, mfc.Close())
 
-	commitInfo, err = c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err = c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 
 	require.NoError(t, c.CopyFile(dataCommit, "dir2", pipelineCommit, "dir", client.WithAppendCopyFile()))
 
-	commitInfo, err = c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err = c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -9380,7 +9380,7 @@ func TestKeepRepo(t *testing.T) {
 		false,
 	))
 
-	commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -9633,7 +9633,7 @@ func TestTrigger(t *testing.T) {
 	for i := 0; i < numFiles; i++ {
 		require.NoError(t, c.PutFile(dataCommit, fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes)), client.WithAppendPutFile()))
 	}
-	commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 	// This should have given us a job, flush to let it complete.
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
@@ -9651,7 +9651,7 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.PutFile(dataCommit, fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes)), client.WithAppendPutFile()))
 		require.NoError(t, err)
 	}
-	commitInfo, err = c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err = c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -9703,7 +9703,7 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.PutFile(dataCommit, fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes)), client.WithAppendPutFile()))
 	}
 
-	commitInfo, err = c.InspectCommit(dataRepo, "master", "")
+	commitInfo, err = c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -9730,11 +9730,11 @@ func TestListDatum(t *testing.T) {
 		require.NoError(t, c.PutFile(client.NewProjectCommit("", repo2, "master", ""), fmt.Sprintf("file-%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
 	}
 
-	commitInfo, err := c.InspectCommit(repo1, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", repo1, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	commitInfo, err = c.InspectCommit(repo2, "master", "")
+	commitInfo, err = c.InspectProjectCommit("", repo2, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -9774,11 +9774,11 @@ func TestListDatumFilter(t *testing.T) {
 		require.NoError(t, c.PutFile(client.NewProjectCommit("", repo2, "master", ""), fmt.Sprintf("file-%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
 	}
 
-	commitInfo, err := c.InspectCommit(repo1, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", repo1, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	commitInfo, err = c.InspectCommit(repo2, "master", "")
+	commitInfo, err = c.InspectProjectCommit("", repo2, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -10215,7 +10215,7 @@ func TestNonrootPipeline(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -10292,7 +10292,7 @@ func TestRewindCrossPipeline(t *testing.T) {
 	require.NoError(t, create(true, dataRepo, laterRepo))
 
 	// save the current commit set ID
-	oldCommit, err := c.InspectCommit(dataRepo, "master", "")
+	oldCommit, err := c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 
 	// add new files to both repos
@@ -10305,7 +10305,7 @@ func TestRewindCrossPipeline(t *testing.T) {
 	require.NoError(t, c.CreateBranch(dataRepo, "master", "master", oldCommit.Commit.ID, nil))
 	_, err = c.WaitProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
-	info, err := c.InspectCommit(dataRepo, "master", "")
+	info, err := c.InspectProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, err)
 
 	// the new commit cannot reuse the old ID
@@ -10480,7 +10480,7 @@ func TestDatumSetCache(t *testing.T) {
 			}
 		}
 	}()
-	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 		_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
@@ -10514,7 +10514,7 @@ func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline stri
 				}
 				tooManyReplicas = true
 			}
-			ci, err := c.InspectCommit(pipeline, "master", "")
+			ci, err := c.InspectProjectCommit("", pipeline, "master", "")
 			require.NoError(t, err)
 			if ci.Finished != nil {
 				return nil
@@ -10935,7 +10935,7 @@ func TestSimplePipelineNonRoot(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -10983,7 +10983,7 @@ func TestSimplePipelinePodPatchNonRoot(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)

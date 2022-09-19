@@ -160,7 +160,7 @@ func TestS3Input(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 
 	jobInfo, err := c.WaitJob(pipeline, commitInfo.Commit.ID, false)
@@ -259,7 +259,7 @@ func TestS3Chain(t *testing.T) {
 	}
 
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("")))
-	commitInfo, err := c.InspectCommit(dataCommit.Branch.Repo.Name, dataCommit.Branch.Name, "")
+	commitInfo, err := c.InspectProjectCommit("", dataCommit.Branch.Repo.Name, dataCommit.Branch.Name, "")
 	require.NoError(t, err)
 
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
@@ -306,7 +306,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 
 	jobInfo, err := c.WaitJob(pipeline, commitInfo.Commit.ID, false)
@@ -360,7 +360,7 @@ func TestS3Output(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 
 	jobInfo, err := c.WaitJob(pipeline, commitInfo.Commit.ID, false)
@@ -445,7 +445,7 @@ func TestFullS3(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 
 	jobInfo, err := c.WaitJob(pipeline, commitInfo.Commit.ID, false)

@@ -323,6 +323,8 @@ func (c APIClient) FinishProjectCommit(projectName, repoName, branchName, commit
 }
 
 // InspectCommit returns info about a specific Commit.
+//
+// Deprecated: use InspectProjectCommit instead.
 func (c APIClient) InspectCommit(repoName, branchName, commitID string) (_ *pfs.CommitInfo, retErr error) {
 	return c.InspectProjectCommit("", repoName, branchName, commitID)
 }

@@ -2408,7 +2408,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 
 	// Get the latest commit from the input repo (which should be an alias from
 	// when the pipeline was created)
-	commitInfo, err := aliceClient.InspectCommit(repo, "master", "")
+	commitInfo, err := aliceClient.InspectProjectCommit("", repo, "master", "")
 	require.NoError(t, err)
 
 	// make sure the pipeline failure doesn't cause waits to block indefinitely

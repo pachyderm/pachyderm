@@ -202,11 +202,11 @@ func TestTransactions(suite *testing.T) {
 		requireCommitResponse(t, info.Responses[0], commit)
 		requireEmptyResponse(t, info.Responses[1])
 
-		commitInfo, err := env.PachClient.InspectCommit(repo, branchA, "")
+		commitInfo, err := env.PachClient.InspectProjectCommit("", repo, branchA, "")
 		require.NoError(t, err)
 		require.Equal(t, commitInfo.Commit.ID, commit.ID)
 
-		commitInfo, err = env.PachClient.InspectCommit(repo, branchB, "")
+		commitInfo, err = env.PachClient.InspectProjectCommit("", repo, branchB, "")
 		require.NoError(t, err)
 		require.Equal(t, commitInfo.Commit.ID, commit.ID)
 	})
