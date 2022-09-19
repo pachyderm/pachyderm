@@ -22,9 +22,10 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
 	opts := &minikubetestenv.DeployOpts{
-		AuthUser:   auth.RootUser,
-		Enterprise: true,
-		PortOffset: portOffset,
+		AuthUser:    auth.RootUser,
+		Enterprise:  true,
+		PortOffset:  portOffset,
+		DisableLoki: true,
 	}
 
 	opts.ValueOverrides = map[string]string{
