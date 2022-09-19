@@ -1049,13 +1049,21 @@ func (c APIClient) StartProjectPipeline(projectName, pipelineName string) error 
 	return grpcutil.ScrubGRPC(err)
 }
 
-// StopPipeline prevents a pipeline from processing things, it can be restarted
-// with StartPipeline.
-func (c APIClient) StopPipeline(name string) error {
+// StopPipeline prevents a pipeline from processing things; it can be restarted
+// with StartProjectPipeline.
+//
+// Deprecated: use StopProjectPipeline instead.
+func (c APIClient) StopPipeline(pipelineName string) error {
+	return c.StopProjectPipeline("", pipelineName)
+}
+
+// StopProjectPipeline prevents a pipeline from processing things; it can be
+// restarted with StartProjectPipeline.
+func (c APIClient) StopProjectPipeline(projectName, pipelineName string) error {
 	_, err := c.PpsAPIClient.StopPipeline(
 		c.Ctx(),
 		&pps.StopPipelineRequest{
-			Pipeline: NewProjectPipeline("", name),
+			Pipeline: NewProjectPipeline(projectName, pipelineName),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)

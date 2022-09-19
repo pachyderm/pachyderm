@@ -926,7 +926,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, pipeline))
 
 	// alice stops the pipeline (owner of the input and output repos can stop)
-	require.NoError(t, aliceClient.StopPipeline(pipeline))
+	require.NoError(t, aliceClient.StopProjectPipeline("", pipeline))
 
 	// Make sure the remaining input and output repos *still* have non-empty ACLs
 	require.Equal(t,
@@ -961,7 +961,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	))
 
 	// bob can't stop or delete alice's pipeline
-	err := bobClient.StopPipeline(pipeline)
+	err := bobClient.StopProjectPipeline("", pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	err = bobClient.DeleteProjectPipeline("", pipeline, false)
@@ -975,7 +975,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		getRepoRoleBinding(t, aliceClient, repo))
 
 	// bob still can't stop or delete alice's pipeline
-	err = bobClient.StopPipeline(pipeline)
+	err = bobClient.StopProjectPipeline("", pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	err = bobClient.DeleteProjectPipeline("", pipeline, false)
@@ -994,7 +994,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		getRepoRoleBinding(t, aliceClient, pipeline))
 
 	// bob can now start and stop the pipeline, but can't delete it
-	require.NoError(t, bobClient.StopPipeline(pipeline))
+	require.NoError(t, bobClient.StopProjectPipeline("", pipeline))
 	require.NoError(t, bobClient.StartProjectPipeline("", pipeline))
 	err = bobClient.DeleteProjectPipeline("", pipeline, false)
 	require.YesError(t, err)
@@ -1006,7 +1006,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		getRepoRoleBinding(t, aliceClient, repo))
 
 	// no change to bob's capabilities
-	require.NoError(t, bobClient.StopPipeline(pipeline))
+	require.NoError(t, bobClient.StopProjectPipeline("", pipeline))
 	require.NoError(t, bobClient.StartProjectPipeline("", pipeline))
 	err = bobClient.DeleteProjectPipeline("", pipeline, false)
 	require.YesError(t, err)

@@ -1959,7 +1959,7 @@ func TestStopPipelineExtraCommit(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
-	require.NoError(t, c.StopPipeline(bPipeline))
+	require.NoError(t, c.StopProjectPipeline("", bPipeline))
 	commitInfos, err = c.ListCommit(client.NewProjectRepo("", cPipeline), client.NewProjectCommit("", cPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
@@ -2309,7 +2309,7 @@ func TestPipelineState(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// Stop pipeline and wait for the pipeline to pause
-	require.NoError(t, c.StopPipeline(pipeline))
+	require.NoError(t, c.StopProjectPipeline("", pipeline))
 	time.Sleep(5 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
 		pipelineInfo, err := c.InspectProjectPipeline("", pipeline, false)
@@ -3016,7 +3016,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 
 	// Stop the pipeline (and confirm that it's stopped)
-	require.NoError(t, c.StopPipeline(pipelineName))
+	require.NoError(t, c.StopProjectPipeline("", pipelineName))
 	pipelineInfo, err := c.InspectProjectPipeline("", pipelineName, false)
 	require.NoError(t, err)
 	require.Equal(t, true, pipelineInfo.Stopped)
@@ -3281,7 +3281,7 @@ func TestStopPipeline(t *testing.T) {
 	require.Equal(t, len(commits), 1)
 
 	// Stop the pipeline, so it doesn't process incoming commits
-	require.NoError(t, c.StopPipeline(pipelineName))
+	require.NoError(t, c.StopProjectPipeline("", pipelineName))
 
 	// Do first commit to repo
 	commit1, err := c.StartCommit(dataRepo, "master")
@@ -3508,7 +3508,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 	})
 
 	// Stop the pipeline...
-	require.NoError(t, c.StopPipeline(pipeline))
+	require.NoError(t, c.StopProjectPipeline("", pipeline))
 	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 		pi, err := c.InspectProjectPipeline("", pipeline, false)
 		require.NoError(t, err)
@@ -4084,7 +4084,7 @@ func TestStartInternalPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 7, len(commitInfos))
 	// Stop and Start a pipeline was orginal trigger of bug so "reproduce" it here.
-	require.NoError(t, c.StopPipeline(bPipeline))
+	require.NoError(t, c.StopProjectPipeline("", bPipeline))
 	require.NoError(t, c.StartProjectPipeline("", bPipeline))
 	// C's commit should be the same as b's meta commit
 	cCommits, err := c.ListCommit(client.NewProjectRepo("", cPipeline), nil, nil, 0)
@@ -11036,7 +11036,7 @@ func TestZombieCheck(t *testing.T) {
 	}, client.WithZombieCheckAll()))
 
 	// stop pipeline so we can modify
-	require.NoError(t, c.StopPipeline(pipeline))
+	require.NoError(t, c.StopProjectPipeline("", pipeline))
 	// create new commits on output and meta
 	_, err = c.ExecuteInTransaction(func(c *client.APIClient) error {
 		if _, err := c.StartCommit(pipeline, "master"); err != nil {

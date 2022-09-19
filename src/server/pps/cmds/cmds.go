@@ -998,7 +998,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 			defer client.Close()
 			if err := client.StartProjectPipeline("", args[0]); err != nil {
-				return errors.Wrap(err, "error from StartPipeline")
+				return errors.Wrap(err, "error from StartProjectPipeline")
 			}
 			return nil
 		}),
@@ -1016,12 +1016,13 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			if err := client.StopPipeline(args[0]); err != nil {
-				return errors.Wrap(err, "error from StopPipeline")
+			if err := client.StopProjectPipeline(project, args[0]); err != nil {
+				return errors.Wrap(err, "error from StopProjectPipeline")
 			}
 			return nil
 		}),
 	}
+	stopPipeline.Flags().StringVar(&project, "project", "", "Project containing pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(stopPipeline, "stop pipeline", pipelines))
 
 	var file string
