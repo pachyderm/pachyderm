@@ -21,7 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -64,7 +64,7 @@ Tests to write:
 */
 
 func TestBasicServerSameNames(t *testing.T) {
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	commit := client.NewCommit("repo", "master", "")
 	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
@@ -105,7 +105,7 @@ func TestBasicServerSameNames(t *testing.T) {
 }
 
 func TestBasicServerNonMasterBranch(t *testing.T) {
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	commit := client.NewCommit("repo", "dev", "")
 	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
@@ -140,7 +140,7 @@ func TestBasicServerNonMasterBranch(t *testing.T) {
 }
 
 func TestBasicServerDifferingNames(t *testing.T) {
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	commit := client.NewCommit("repo", "master", "")
 	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
@@ -208,7 +208,7 @@ func TestRepoAccess(t *testing.T) {
 }
 
 func TestUnmountAll(t *testing.T) {
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 	require.NoError(t, env.PachClient.CreateRepo("repo1"))
 	commit := client.NewCommit("repo1", "master", "")
@@ -350,7 +350,7 @@ func TestUnauthenticatedCode(t *testing.T) {
 }
 
 func TestMultipleMount(t *testing.T) {
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	commit := client.NewCommit("repo", "master", "")
 	err := env.PachClient.PutFile(commit, "dir/file", strings.NewReader("foo"))
@@ -397,7 +397,7 @@ func TestMultipleMount(t *testing.T) {
 }
 
 func TestMountNonexistentRepo(t *testing.T) {
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 		resp, _ := put("repos/repo1/master/_mount?name=repo1&mode=ro", nil)
@@ -444,7 +444,7 @@ func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f
 func TestRwUnmountCreatesCommit(t *testing.T) {
 	// Unmounting a mounted read-write filesystem which has had some data
 	// written to it results in a new commit with that data in it.
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	client.NewCommit("repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
@@ -479,7 +479,7 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 
 func TestRwCommitCreatesCommit(t *testing.T) {
 	// Commit operation creates a commit.
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	client.NewCommit("repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
@@ -515,7 +515,7 @@ func TestRwCommitCreatesCommit(t *testing.T) {
 func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 	// Two sequential commit operations create two commits (and they contain the
 	// correct files).
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	client.NewCommit("repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
@@ -567,7 +567,7 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 	// Commit and then unmount results in two commits, since unmounting creates
 	// one too.
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	client.NewCommit("repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
@@ -617,7 +617,7 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 }
 
 func TestHealth(t *testing.T) {
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	_, err := get("health")
 	require.YesError(t, err)
 

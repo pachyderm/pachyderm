@@ -1,12 +1,14 @@
-package testpachd
+package realenv
 
 import (
 	"net"
 	"net/url"
 	"path"
+	"reflect"
 	"testing"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
@@ -42,7 +44,7 @@ import (
 // These calls can still be mocked, but they default to calling into the real
 // server endpoints.
 type RealEnv struct {
-	MockEnv
+	testpachd.MockEnv
 
 	ServiceEnv               serviceenv.ServiceEnv
 	AuthServer               authapi.APIServer
@@ -53,7 +55,7 @@ type RealEnv struct {
 	TransactionServer        txnserver.APIServer
 	VersionServer            pb.APIServer
 	ProxyServer              proxy.APIServer
-	MockPPSTransactionServer *MockPPSTransactionServer
+	MockPPSTransactionServer *testpachd.MockPPSTransactionServer
 }
 
 // NewRealEnv constructs a MockEnv, then forwards all API calls to go to API
@@ -64,7 +66,7 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	return newRealEnv(t, false, customOpts...)
 }
 
-// NewRealEnv constructs a MockEnv, then forwards all API calls to go to API
+// NewRealEnvWithPPSTransactionMock constructs a MockEnv, then forwards all API calls to go to API
 // server instances for supported operations. PPS requires a kubernetes
 // environment in order to spin up pipelines, which is not yet supported by this
 // package, but the other API servers work.
@@ -73,7 +75,7 @@ func NewRealEnvWithPPSTransactionMock(t testing.TB, customOpts ...serviceenv.Con
 }
 
 func newRealEnv(t testing.TB, mockPPSTransactionServer bool, customOpts ...serviceenv.ConfigOption) *RealEnv {
-	mockEnv := NewMockEnv(t)
+	mockEnv := testpachd.NewMockEnv(t)
 
 	realEnv := &RealEnv{MockEnv: *mockEnv}
 	etcdClientURL, err := url.Parse(realEnv.EtcdClient.Endpoints()[0])
@@ -152,8 +154,8 @@ func newRealEnv(t testing.TB, mockPPSTransactionServer bool, customOpts ...servi
 
 	// PPS
 	if mockPPSTransactionServer {
-		realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
-		realEnv.ServiceEnv.SetPpsServer(&realEnv.MockPPSTransactionServer.api)
+		realEnv.MockPPSTransactionServer = testpachd.NewMockPPSTransactionServer()
+		realEnv.ServiceEnv.SetPpsServer(&realEnv.MockPPSTransactionServer.Api)
 		realEnv.MockPPSTransactionServer.InspectPipelineInTransaction.
 			Use(func(txnctx *txncontext.TransactionContext, pipeline string) (*pps.PipelineInfo, error) {
 				return nil, col.ErrNotFound{
@@ -189,4 +191,28 @@ func DefaultConfigOptions(config *serviceenv.Configuration) {
 	config.StorageLevelFactor = 10
 	config.StorageCompactionMaxFanIn = 10
 	config.StorageMemoryCacheSize = 20
+}
+
+// linkServers can be used to default a mock server to make calls to a real api
+// server. Due to some reflection shenanigans, mockServerPtr must explicitly be
+// a pointer to the mock server instance.
+func linkServers(mockServerPtr interface{}, realServer interface{}) {
+	mockValue := reflect.ValueOf(mockServerPtr).Elem()
+	realValue := reflect.ValueOf(realServer)
+	mockType := mockValue.Type()
+	for i := 0; i < mockType.NumField(); i++ {
+		field := mockType.Field(i)
+		if field.Name != "api" {
+			mock := mockValue.FieldByName(field.Name)
+			realMethod := realValue.MethodByName(field.Name)
+
+			// We need a pointer to the mock field to call the right method
+			mockPtr := reflect.New(reflect.PtrTo(mock.Type()))
+			mockPtrValue := mockPtr.Elem()
+			mockPtrValue.Set(mock.Addr())
+
+			useFn := mockPtrValue.MethodByName("Use")
+			useFn.Call([]reflect.Value{realMethod})
+		}
+	}
 }

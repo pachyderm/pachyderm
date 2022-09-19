@@ -3,20 +3,20 @@ package s3_test
 import (
 	"fmt"
 	"io"
-
-	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
-
 	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
+
 	minio "github.com/minio/minio-go/v6"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -520,20 +520,20 @@ func masterResolveSystemRepoBucket(t *testing.T, pachClient *client.APIClient, m
 
 // TODO: This should be readded as an integration test (probably in src/server/pachyderm_test.go).
 // Commenting out for now to enable the other tests to run against mock pachd.
-//func masterAuthV2(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+// func masterAuthV2(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 //	// The other tests use auth V4, versus this which checks auth V2
 //	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
 //	require.NoError(t, err)
 //	_, err = minioClientV2.ListBuckets()
 //	require.NoError(t, err)
-//}
+// }
 
 func TestMasterDriver(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	testRunner(t, env.PachClient, "master", s3.NewMasterDriver(), func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 		t.Run("ListBuckets", func(t *testing.T) {
 			masterListBuckets(t, pachClient, minioClient)
@@ -608,8 +608,8 @@ func TestMasterDriver(t *testing.T) {
 			masterResolveSystemRepoBucket(t, pachClient, minioClient)
 		})
 		// TODO: Refer to masterAuthV2 function definition.
-		//t.Run("AuthV2", func(t *testing.T) {
+		// t.Run("AuthV2", func(t *testing.T) {
 		//	masterAuthV2(t, pachClient, minioClient)
-		//})
+		// })
 	})
 }

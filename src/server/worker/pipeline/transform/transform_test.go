@@ -23,7 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -34,7 +34,7 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 	require.NotNil(t, pipelineInfo.Details.Input)
 	require.NotNil(t, pipelineInfo.Details.Input.Pfs)
 
-	env := testpachd.NewRealEnvWithPPSTransactionMock(t, dbConfig)
+	env := realenv.NewRealEnvWithPPSTransactionMock(t, dbConfig)
 	eg, ctx := errgroup.WithContext(env.PachClient.Ctx())
 
 	// Set env vars that the object storage layer expects in the env
@@ -124,7 +124,7 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 	return testEnv
 }
 
-func closeHeadCommit(ctx context.Context, env *testpachd.RealEnv, branch *pfs.Branch) error {
+func closeHeadCommit(ctx context.Context, env *realenv.RealEnv, branch *pfs.Branch) error {
 	branchInfo, err := env.PachClient.PfsAPIClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: branch})
 	if err != nil {
 		return errors.Wrap(err, "could not inspect branch")

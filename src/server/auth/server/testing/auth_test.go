@@ -11,6 +11,11 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+
+	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -21,15 +26,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/license"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
-func envWithAuth(t *testing.T) *testpachd.RealEnv {
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+func envWithAuth(t *testing.T) *realenv.RealEnv {
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateLicense(t, env.PachClient, peerPort)
 	_, err := env.PachClient.Enterprise.Activate(env.PachClient.Ctx(),
