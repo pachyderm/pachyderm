@@ -457,6 +457,8 @@ func (c APIClient) CreateProjectBranch(projectName, repoName, branchName, commit
 // CreateBranchTrigger Creates a branch with a trigger. Note: triggers and
 // provenance are mutually exclusive. See the docs on triggers to learn more
 // about why this is.
+//
+// Deprecated: use CreateProjectBranchTrigger instead.
 func (c APIClient) CreateBranchTrigger(repoName string, branchName string, commitBranch string, commitID string, trigger *pfs.Trigger) error {
 	return c.CreateProjectBranchTrigger("", repoName, branchName, commitBranch, commitID, trigger)
 }

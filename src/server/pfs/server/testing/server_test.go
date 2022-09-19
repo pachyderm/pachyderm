@@ -5406,7 +5406,7 @@ func TestPFS(suite *testing.T) {
 
 		t.Run("Simple", func(t *testing.T) {
 			require.NoError(t, c.CreateProjectRepo("", "test"))
-			require.NoError(t, c.CreateBranchTrigger("test", "master", "", "", &pfs.Trigger{
+			require.NoError(t, c.CreateProjectBranchTrigger("", "test", "master", "", "", &pfs.Trigger{
 				Branch: "staging",
 				Size_:  "1B",
 			}))
@@ -5415,7 +5415,7 @@ func TestPFS(suite *testing.T) {
 
 		t.Run("SizeWithProvenance", func(t *testing.T) {
 			require.NoError(t, c.CreateProjectRepo("", "in"))
-			require.NoError(t, c.CreateBranchTrigger("in", "trigger", "", "", &pfs.Trigger{
+			require.NoError(t, c.CreateProjectBranchTrigger("", "in", "trigger", "", "", &pfs.Trigger{
 				Branch: "master",
 				Size_:  "1K",
 			}))
@@ -5428,7 +5428,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, c.CreateProjectRepo("", "out"))
 			require.NoError(t, c.CreateProjectBranch("", "out", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "in", "trigger")}))
 			require.NoError(t, c.FinishProjectCommit("", "out", "master", ""))
-			require.NoError(t, c.CreateBranchTrigger("out", "trigger", "", "", &pfs.Trigger{
+			require.NoError(t, c.CreateProjectBranchTrigger("", "out", "trigger", "", "", &pfs.Trigger{
 				Branch: "master",
 				Size_:  "1K",
 			}))
@@ -5483,7 +5483,7 @@ func TestPFS(suite *testing.T) {
 
 		t.Run("Cron", func(t *testing.T) {
 			require.NoError(t, c.CreateProjectRepo("", "cron"))
-			require.NoError(t, c.CreateBranchTrigger("cron", "trigger", "", "", &pfs.Trigger{
+			require.NoError(t, c.CreateProjectBranchTrigger("", "cron", "trigger", "", "", &pfs.Trigger{
 				Branch:   "master",
 				CronSpec: "* * * * *", // every minute
 			}))
@@ -5518,7 +5518,7 @@ func TestPFS(suite *testing.T) {
 
 		t.Run("Count", func(t *testing.T) {
 			require.NoError(t, c.CreateProjectRepo("", "count"))
-			require.NoError(t, c.CreateBranchTrigger("count", "trigger", "", "", &pfs.Trigger{
+			require.NoError(t, c.CreateProjectBranchTrigger("", "count", "trigger", "", "", &pfs.Trigger{
 				Branch:  "master",
 				Commits: 2, // trigger every 2 commits
 			}))
@@ -5575,7 +5575,7 @@ func TestPFS(suite *testing.T) {
 
 		t.Run("Or", func(t *testing.T) {
 			require.NoError(t, c.CreateProjectRepo("", "or"))
-			require.NoError(t, c.CreateBranchTrigger("or", "trigger", "", "", &pfs.Trigger{
+			require.NoError(t, c.CreateProjectBranchTrigger("", "or", "trigger", "", "", &pfs.Trigger{
 				Branch:   "master",
 				CronSpec: "* * * * *",
 				Size_:    "100",
@@ -5649,7 +5649,7 @@ func TestPFS(suite *testing.T) {
 
 		t.Run("And", func(t *testing.T) {
 			require.NoError(t, c.CreateProjectRepo("", "and"))
-			require.NoError(t, c.CreateBranchTrigger("and", "trigger", "", "", &pfs.Trigger{
+			require.NoError(t, c.CreateProjectBranchTrigger("", "and", "trigger", "", "", &pfs.Trigger{
 				Branch:   "master",
 				All:      true,
 				CronSpec: "* * * * *",
@@ -5724,11 +5724,11 @@ func TestPFS(suite *testing.T) {
 		t.Run("Chain", func(t *testing.T) {
 			// a triggers b which triggers c
 			require.NoError(t, c.CreateProjectRepo("", "chain"))
-			require.NoError(t, c.CreateBranchTrigger("chain", "b", "", "", &pfs.Trigger{
+			require.NoError(t, c.CreateProjectBranchTrigger("", "chain", "b", "", "", &pfs.Trigger{
 				Branch: "a",
 				Size_:  "100",
 			}))
-			require.NoError(t, c.CreateBranchTrigger("chain", "c", "", "", &pfs.Trigger{
+			require.NoError(t, c.CreateProjectBranchTrigger("", "chain", "c", "", "", &pfs.Trigger{
 				Branch: "b",
 				Size_:  "200",
 			}))
@@ -5806,7 +5806,7 @@ func TestPFS(suite *testing.T) {
 
 		t.Run("BranchMovement", func(t *testing.T) {
 			require.NoError(t, c.CreateProjectRepo("", "branch-movement"))
-			require.NoError(t, c.CreateBranchTrigger("branch-movement", "c", "", "", &pfs.Trigger{
+			require.NoError(t, c.CreateProjectBranchTrigger("", "branch-movement", "c", "", "", &pfs.Trigger{
 				Branch: "b",
 				Size_:  "100",
 			}))
@@ -5851,38 +5851,38 @@ func TestPFS(suite *testing.T) {
 		c := env.PachClient
 		require.NoError(t, c.CreateProjectRepo("", "repo"))
 		// Must specify a branch
-		require.YesError(t, c.CreateBranchTrigger("repo", "master", "", "", &pfs.Trigger{
+		require.YesError(t, c.CreateProjectBranchTrigger("", "repo", "master", "", "", &pfs.Trigger{
 			Branch: "",
 			Size_:  "1K",
 		}))
 		// Can't trigger a branch on itself
-		require.YesError(t, c.CreateBranchTrigger("repo", "master", "", "", &pfs.Trigger{
+		require.YesError(t, c.CreateProjectBranchTrigger("", "repo", "master", "", "", &pfs.Trigger{
 			Branch: "master",
 			Size_:  "1K",
 		}))
 		// Size doesn't parse
-		require.YesError(t, c.CreateBranchTrigger("repo", "trigger", "", "", &pfs.Trigger{
+		require.YesError(t, c.CreateProjectBranchTrigger("", "repo", "trigger", "", "", &pfs.Trigger{
 			Branch: "master",
 			Size_:  "this is not a size",
 		}))
 		// Can't have negative commit count
-		require.YesError(t, c.CreateBranchTrigger("repo", "trigger", "", "", &pfs.Trigger{
+		require.YesError(t, c.CreateProjectBranchTrigger("", "repo", "trigger", "", "", &pfs.Trigger{
 			Branch:  "master",
 			Commits: -1,
 		}))
 
 		// a -> b (valid, sets up the next test)
-		require.NoError(t, c.CreateBranchTrigger("repo", "b", "", "", &pfs.Trigger{
+		require.NoError(t, c.CreateProjectBranchTrigger("", "repo", "b", "", "", &pfs.Trigger{
 			Branch: "a",
 			Size_:  "1K",
 		}))
 		// Can't have circular triggers
-		require.YesError(t, c.CreateBranchTrigger("repo", "a", "", "", &pfs.Trigger{
+		require.YesError(t, c.CreateProjectBranchTrigger("", "repo", "a", "", "", &pfs.Trigger{
 			Branch: "b",
 			Size_:  "1K",
 		}))
 		// CronSpec doesn't parse
-		require.YesError(t, c.CreateBranchTrigger("repo", "trigger", "", "", &pfs.Trigger{
+		require.YesError(t, c.CreateProjectBranchTrigger("", "repo", "trigger", "", "", &pfs.Trigger{
 			Branch:   "master",
 			CronSpec: "this is not a cron spec",
 		}))
