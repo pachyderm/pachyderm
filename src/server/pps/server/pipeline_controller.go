@@ -433,10 +433,10 @@ func (pc *pipelineController) apply(ctx context.Context, pi *pps.PipelineInfo, r
 	return nil
 }
 
-// rcIsFresh returns a boolean indicating whether rc has the right labels
+// RcIsFresh returns a boolean indicating whether rc has the right labels
 // corresponding to pipelineInfo. If this returns false, it likely means the
 // current RC is using e.g. an old spec commit or something.
-func rcIsFresh(pi *pps.PipelineInfo, rc *v1.ReplicationController) bool {
+func RcIsFresh(pi *pps.PipelineInfo, rc *v1.ReplicationController) bool {
 	if rc == nil {
 		log.Errorf("PPS master: RC for %q is nil", pi.Pipeline.Name)
 		return false
@@ -647,7 +647,7 @@ func (pc *pipelineController) scaleDownPipeline(ctx context.Context, pi *pps.Pip
 // loop deleting and recreating pc's RC if the cluster was busy and
 // the RC was taking too long to start.
 func (pc *pipelineController) restartPipeline(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationController) error {
-	if rc != nil && !rcIsFresh(pi, rc) {
+	if rc != nil && !RcIsFresh(pi, rc) {
 		// delete old RC, monitorPipeline goro, and worker service
 		if err := pc.deletePipelineResources(); err != nil {
 			return newRetriableError(err, "error deleting resources for restart")
@@ -701,12 +701,12 @@ func (pc *pipelineController) getRC(ctx context.Context, pi *pps.PipelineInfo) (
 			// select stale RC if possible, so that we delete it in restartPipeline
 			for i := range rcs.Items {
 				rc = &rcs.Items[i]
-				if !rcIsFresh(pi, rc) {
+				if !RcIsFresh(pi, rc) {
 					break
 				}
 			}
 			return errTooManyRCs
-		case !rcIsFresh(pi, rc):
+		case !RcIsFresh(pi, rc):
 			return errStaleRC
 		default:
 			return nil
