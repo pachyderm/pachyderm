@@ -1012,9 +1012,16 @@ func (c APIClient) ListProjectPipelineHistory(projectName, pipelineName string, 
 }
 
 // DeletePipeline deletes a pipeline along with its output Repo.
-func (c APIClient) DeletePipeline(name string, force bool) error {
+//
+// Deprecated: use DeleteProjectPipeline instead.
+func (c APIClient) DeletePipeline(pipelineName string, force bool) error {
+	return c.DeleteProjectPipeline("", pipelineName, force)
+}
+
+// DeleteProjectPipeline deletes a pipeline along with its output Repo.
+func (c APIClient) DeleteProjectPipeline(projectName, pipelineName string, force bool) error {
 	req := &pps.DeletePipelineRequest{
-		Pipeline: NewProjectPipeline("", name),
+		Pipeline: NewProjectPipeline(projectName, pipelineName),
 		Force:    force,
 	}
 	_, err := c.PpsAPIClient.DeletePipeline(

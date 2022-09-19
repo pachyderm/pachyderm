@@ -1,4 +1,4 @@
-//go:build k8s
+//Go:build k8s
 
 package server
 
@@ -935,7 +935,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, pipeline))
 
 	// alice deletes the pipeline (owner of the input and output repos can delete)
-	require.NoError(t, aliceClient.DeletePipeline(pipeline, false))
+	require.NoError(t, aliceClient.DeleteProjectPipeline("", pipeline, false))
 	require.Nil(t, getRepoRoleBinding(t, aliceClient, pipeline).Entries)
 
 	// alice deletes the input repo (make sure the input repo's ACL is gone)
@@ -964,7 +964,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	err := bobClient.StopPipeline(pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	err = bobClient.DeletePipeline(pipeline, false)
+	err = bobClient.DeleteProjectPipeline("", pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -978,7 +978,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	err = bobClient.StopPipeline(pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	err = bobClient.DeletePipeline(pipeline, false)
+	err = bobClient.DeleteProjectPipeline("", pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -996,7 +996,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	// bob can now start and stop the pipeline, but can't delete it
 	require.NoError(t, bobClient.StopPipeline(pipeline))
 	require.NoError(t, bobClient.StartPipeline(pipeline))
-	err = bobClient.DeletePipeline(pipeline, false)
+	err = bobClient.DeleteProjectPipeline("", pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// alice re-adds bob as a reader of the input repo
@@ -1008,7 +1008,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	// no change to bob's capabilities
 	require.NoError(t, bobClient.StopPipeline(pipeline))
 	require.NoError(t, bobClient.StartPipeline(pipeline))
-	err = bobClient.DeletePipeline(pipeline, false)
+	err = bobClient.DeleteProjectPipeline("", pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -1019,7 +1019,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		getRepoRoleBinding(t, aliceClient, pipeline))
 
 	// finally bob can delete alice's pipeline
-	err = bobClient.DeletePipeline(pipeline, false)
+	err = bobClient.DeleteProjectPipeline("", pipeline, false)
 	require.NoError(t, err)
 }
 
@@ -2404,7 +2404,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 		"", // default output branch: master
 		false,
 	))
-	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
+	require.NoError(t, aliceClient.DeleteProjectPipeline("", pipeline, true))
 
 	// Get the latest commit from the input repo (which should be an alias from
 	// when the pipeline was created)
@@ -2455,7 +2455,7 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 	require.NoError(t, aliceClient.DeleteRepo(pipeline, true))
 
 	// Attempt to delete the pipeline--must succeed
-	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
+	require.NoError(t, aliceClient.DeleteProjectPipeline("", pipeline, true))
 	pis, err := aliceClient.ListPipeline(false)
 	require.NoError(t, err)
 	for _, pi := range pis {

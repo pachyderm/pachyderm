@@ -1115,8 +1115,8 @@ func TestRunPipeline(t *testing.T) {
 	//	}, backoff.NewTestingBackOff()))
 
 	//	// Shouldn't error if you try to delete an already deleted pipeline
-	//	require.NoError(t, c.DeletePipeline(pipeline, false))
-	//	require.NoError(t, c.DeletePipeline(pipeline, false))
+	//	require.NoError(t, c.DeleteProjectPipeline("",pipeline, false))
+	//	require.NoError(t, c.DeleteProjectPipeline("",pipeline, false))
 	//})
 	//t.Run("RunPipelineStats", func(t *testing.T) {
 	//	dataRepo := tu.UniqueString("TestRunPipeline_data")
@@ -2164,7 +2164,7 @@ func TestRecreatePipeline(t *testing.T) {
 	// Do it twice.  We expect jobs to be created on both runs.
 	createPipeline()
 	time.Sleep(5 * time.Second)
-	require.NoError(t, c.DeletePipeline(pipeline, false))
+	require.NoError(t, c.DeleteProjectPipeline("", pipeline, false))
 	time.Sleep(5 * time.Second)
 	createPipeline()
 }
@@ -2239,7 +2239,7 @@ func TestDeletePipeline(t *testing.T) {
 	createPipelines()
 
 	deletePipeline := func(pipeline string) {
-		require.NoError(t, c.DeletePipeline(pipeline, false))
+		require.NoError(t, c.DeleteProjectPipeline("", pipeline, false))
 		time.Sleep(5 * time.Second)
 		// Wait for the pipeline to disappear
 		require.NoError(t, backoff.Retry(func() error {
@@ -2252,7 +2252,7 @@ func TestDeletePipeline(t *testing.T) {
 
 	}
 	// Can't delete a pipeline from the middle of the dag
-	require.YesError(t, c.DeletePipeline(pipelines[0], false))
+	require.YesError(t, c.DeleteProjectPipeline("", pipelines[0], false))
 
 	deletePipeline(pipelines[1])
 	deletePipeline(pipelines[0])
@@ -2269,7 +2269,7 @@ func TestDeletePipeline(t *testing.T) {
 	createPipelines()
 
 	// Can force delete pipelines from the middle of the dag.
-	require.NoError(t, c.DeletePipeline(pipelines[0], true))
+	require.NoError(t, c.DeleteProjectPipeline("", pipelines[0], true))
 }
 
 func TestPipelineState(t *testing.T) {
