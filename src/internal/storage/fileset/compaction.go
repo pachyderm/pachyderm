@@ -80,6 +80,7 @@ func (s *Storage) Compact(ctx context.Context, ids []ID, ttl time.Duration, opts
 	if err != nil {
 		return nil, err
 	}
+	// TODO: Consider adding prefetching here.
 	if err := CopyDeletedFiles(ctx, w, fs, opts...); err != nil {
 		return nil, err
 	}
