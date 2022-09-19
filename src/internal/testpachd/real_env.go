@@ -6,31 +6,35 @@ import (
 	"path"
 	"testing"
 
-	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/license"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	authapi "github.com/pachyderm/pachyderm/v2/src/server/auth"
+	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	enterpriseserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	pfsapi "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+	ppsapi "github.com/pachyderm/pachyderm/v2/src/server/pps"
+	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	txnserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	pb "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
+	testclient "k8s.io/client-go/kubernetes/fake"
 )
 
 // RealEnv contains a setup for running end-to-end pachyderm tests locally.  It
@@ -44,6 +48,7 @@ type RealEnv struct {
 	AuthServer               authapi.APIServer
 	EnterpriseServer         enterprise.APIServer
 	LicenseServer            license.APIServer
+	PPSServer                ppsapi.APIServer
 	PFSServer                pfsapi.APIServer
 	TransactionServer        txnserver.APIServer
 	VersionServer            pb.APIServer
@@ -56,6 +61,18 @@ type RealEnv struct {
 // environment in order to spin up pipelines, which is not yet supported by this
 // package, but the other API servers work.
 func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
+	return newRealEnv(t, false, customOpts...)
+}
+
+// NewRealEnv constructs a MockEnv, then forwards all API calls to go to API
+// server instances for supported operations. PPS requires a kubernetes
+// environment in order to spin up pipelines, which is not yet supported by this
+// package, but the other API servers work.
+func NewRealEnvWithPPSTransactionMock(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
+	return newRealEnv(t, true, customOpts...)
+}
+
+func newRealEnv(t testing.TB, mockPPSTransactionServer bool, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	mockEnv := NewMockEnv(t)
 
 	realEnv := &RealEnv{MockEnv: *mockEnv}
@@ -123,17 +140,6 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	require.NoError(t, err)
 	realEnv.ServiceEnv.SetPfsServer(realEnv.PFSServer)
 
-	// PPS
-	realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
-	realEnv.ServiceEnv.SetPpsServer(&realEnv.MockPPSTransactionServer.api)
-	realEnv.MockPPSTransactionServer.InspectPipelineInTransaction.
-		Use(func(txnctx *txncontext.TransactionContext, name string) (*pps.PipelineInfo, error) {
-			return nil, col.ErrNotFound{
-				Type: "pipelines",
-				Key:  name,
-			}
-		})
-
 	// TRANSACTION
 	realEnv.TransactionServer, err = txnserver.NewAPIServer(realEnv.ServiceEnv, txnEnv)
 	require.NoError(t, err)
@@ -143,6 +149,28 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	realEnv.VersionServer = version.NewAPIServer(version.Version, version.APIServerOptions{})
 
 	txnEnv.Initialize(realEnv.ServiceEnv, realEnv.TransactionServer)
+
+	// PPS
+	if mockPPSTransactionServer {
+		realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
+		realEnv.ServiceEnv.SetPpsServer(&realEnv.MockPPSTransactionServer.api)
+		realEnv.MockPPSTransactionServer.InspectPipelineInTransaction.
+			Use(func(txnctx *txncontext.TransactionContext, pipeline string) (*pps.PipelineInfo, error) {
+				return nil, col.ErrNotFound{
+					Type: "pipelines",
+					Key:  pipeline,
+				}
+			})
+	} else {
+		reporter := metrics.NewReporter(realEnv.ServiceEnv)
+		clientset := testclient.NewSimpleClientset()
+		realEnv.ServiceEnv.SetKubeClient(clientset)
+		ppsEnv := ppsserver.EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv, reporter)
+		realEnv.PPSServer, err = ppsserver.NewAPIServer(ppsEnv)
+		realEnv.ServiceEnv.SetPpsServer(realEnv.PPSServer)
+		require.NoError(t, err)
+		linkServers(&realEnv.MockPachd.PPS, realEnv.PPSServer)
+	}
 
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
 	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)

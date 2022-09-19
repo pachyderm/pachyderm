@@ -1,10 +1,12 @@
-package pfssync
+package pfssync_test
 
 import (
 	"context"
 	"fmt"
 	"math/rand"
 	"testing"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 
 	//
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -34,11 +36,11 @@ func BenchmarkDownload(b *testing.B) {
 	fis, err := env.PachClient.ListFileAll(commit, "")
 	require.NoError(b, err)
 	require.NoError(b, env.PachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-		cacheClient := NewCacheClient(env.PachClient, renewer)
+		cacheClient := pfssync.NewCacheClient(env.PachClient, renewer)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			dir := b.TempDir()
-			require.NoError(b, WithDownloader(cacheClient, func(d Downloader) error {
+			require.NoError(b, pfssync.WithDownloader(cacheClient, func(d pfssync.Downloader) error {
 				for _, fi := range fis {
 					if err := d.Download(dir, fi.File); err != nil {
 						return errors.EnsureStack(err)

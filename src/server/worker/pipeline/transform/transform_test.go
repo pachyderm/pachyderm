@@ -34,7 +34,7 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 	require.NotNil(t, pipelineInfo.Details.Input)
 	require.NotNil(t, pipelineInfo.Details.Input.Pfs)
 
-	env := testpachd.NewRealEnv(t, dbConfig)
+	env := testpachd.NewRealEnvWithPPSTransactionMock(t, dbConfig)
 	eg, ctx := errgroup.WithContext(env.PachClient.Ctx())
 
 	// Set env vars that the object storage layer expects in the env
