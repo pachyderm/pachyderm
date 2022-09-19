@@ -274,7 +274,7 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 	require.NoError(t, err)
 	require.NotNil(t, outputCommitInfo.Finished)
 
-	branchInfo, err := env.PachClient.InspectBranch(pi.Pipeline.Name, pi.Details.OutputBranch)
+	branchInfo, err := env.PachClient.InspectProjectBranch("", pi.Pipeline.Name, pi.Details.OutputBranch)
 	require.NoError(t, err)
 	require.NotNil(t, branchInfo)
 
@@ -392,7 +392,7 @@ func TestTransformPipeline(suite *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, outputCommitInfo.Finished)
 
-		branchInfo, err := env.PachClient.InspectBranch(pi.Pipeline.Name, pi.Details.OutputBranch)
+		branchInfo, err := env.PachClient.InspectProjectBranch("", pi.Pipeline.Name, pi.Details.OutputBranch)
 		require.NoError(t, err)
 		require.NotNil(t, branchInfo)
 
@@ -433,7 +433,7 @@ func TestTransformPipeline(suite *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, outputCommitInfo.Finished)
 
-		branchInfo, err := env.PachClient.InspectBranch(pi.Pipeline.Name, pi.Details.OutputBranch)
+		branchInfo, err := env.PachClient.InspectProjectBranch("", pi.Pipeline.Name, pi.Details.OutputBranch)
 		require.NoError(t, err)
 		require.NotNil(t, branchInfo)
 

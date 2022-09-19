@@ -483,6 +483,8 @@ func (c APIClient) CreateProjectBranchTrigger(projectName, repoName, branchName,
 }
 
 // InspectBranch returns information on a specific PFS branch.
+//
+// Deprecated: use InspectProjectBranch instead.
 func (c APIClient) InspectBranch(repoName string, branchName string) (*pfs.BranchInfo, error) {
 	return c.InspectProjectBranch("", repoName, branchName)
 }
