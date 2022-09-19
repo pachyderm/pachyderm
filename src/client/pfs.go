@@ -430,7 +430,9 @@ func (c APIClient) ListCommitByRepo(repo *pfs.Repo) ([]*pfs.CommitInfo, error) {
 	return c.ListCommit(repo, nil, nil, 0)
 }
 
-// CreateBranch creates a new branch
+// CreateBranch creates a new branch.
+//
+// Deprecated: use CreateProjectBranch instead.
 func (c APIClient) CreateBranch(repoName string, branchName string, commitBranch string, commitID string, provenance []*pfs.Branch) error {
 	return c.CreateProjectBranch("", repoName, branchName, commitBranch, commitID, provenance)
 }

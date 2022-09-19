@@ -133,7 +133,7 @@ func TestSeek(t *testing.T) {
 func TestHeadlessBranch(t *testing.T) {
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo("", "repo"))
-	require.NoError(t, env.PachClient.CreateBranch("repo", "master", "", "", nil))
+	require.NoError(t, env.PachClient.CreateProjectBranch("", "repo", "master", "", "", nil))
 	withMount(t, env.PachClient, nil, func(mountPoint string) {
 		fis, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
@@ -344,7 +344,7 @@ func TestOpenCommit(t *testing.T) {
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo("", "in"))
 	require.NoError(t, env.PachClient.CreateProjectRepo("", "out"))
-	require.NoError(t, env.PachClient.CreateBranch("out", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "in", "master")}))
+	require.NoError(t, env.PachClient.CreateProjectBranch("", "out", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "in", "master")}))
 	require.NoError(t, env.PachClient.FinishProjectCommit("", "out", "master", ""))
 	_, err := env.PachClient.StartProjectCommit("", "in", "master")
 	require.NoError(t, err)

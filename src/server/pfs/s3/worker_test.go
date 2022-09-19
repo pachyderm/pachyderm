@@ -32,7 +32,7 @@ func workerListBuckets(t *testing.T, s *workerTestState) {
 	// driver
 	repo := tu.UniqueString("testlistbuckets1")
 	require.NoError(t, s.pachClient.CreateProjectRepo("", repo))
-	require.NoError(t, s.pachClient.CreateBranch(repo, "master", "", "", nil))
+	require.NoError(t, s.pachClient.CreateProjectBranch("", repo, "master", "", "", nil))
 
 	buckets, err := s.minioClient.ListBuckets()
 	require.NoError(t, err)
@@ -266,7 +266,7 @@ func TestWorkerDriver(t *testing.T) {
 
 	// create the output branch
 	outputBranch := "master"
-	require.NoError(t, pachClient.CreateBranch(outputRepo, outputBranch, "", "", nil))
+	require.NoError(t, pachClient.CreateProjectBranch("", outputRepo, outputBranch, "", "", nil))
 
 	driver := NewWorkerDriver(
 		[]*Bucket{

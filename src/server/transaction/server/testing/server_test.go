@@ -185,15 +185,15 @@ func TestTransactions(suite *testing.T) {
 		branchB := "bar"
 
 		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
-		require.NoError(t, env.PachClient.CreateBranch(repo, branchA, "", "", nil))
-		require.NoError(t, env.PachClient.CreateBranch(repo, branchB, "", "", nil))
+		require.NoError(t, env.PachClient.CreateProjectBranch("", repo, branchA, "", "", nil))
+		require.NoError(t, env.PachClient.CreateProjectBranch("", repo, branchB, "", "", nil))
 
 		txnClient := env.PachClient.WithTransaction(txn)
 		commit, err := txnClient.StartProjectCommit("", repo, branchB)
 		require.NoError(t, err)
 		err = txnClient.FinishProjectCommit("", repo, branchB, "")
 		require.NoError(t, err)
-		require.NoError(t, txnClient.CreateBranch(repo, branchA, branchB, "", nil))
+		require.NoError(t, txnClient.CreateProjectBranch("", repo, branchA, branchB, "", nil))
 
 		info, err := txnClient.FinishTransaction(txn)
 		require.NoError(t, err)
@@ -271,9 +271,9 @@ func TestTransactions(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateProjectRepo("", "D"))
 		require.NoError(t, env.PachClient.CreateProjectRepo("", "E"))
 
-		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master")}))
-		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "B", "master"), client.NewProjectBranch("", "E", "master")}))
-		require.NoError(t, env.PachClient.CreateBranch("D", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "C", "master")}))
+		require.NoError(t, env.PachClient.CreateProjectBranch("", "B", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master")}))
+		require.NoError(t, env.PachClient.CreateProjectBranch("", "C", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "B", "master"), client.NewProjectBranch("", "E", "master")}))
+		require.NoError(t, env.PachClient.CreateProjectBranch("", "D", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "C", "master")}))
 
 		commitInfos, err := env.PachClient.ListCommitByRepo(client.NewProjectRepo("", "A"))
 		require.NoError(t, err)
@@ -361,9 +361,9 @@ func TestTransactions(suite *testing.T) {
 		require.NoError(t, txnClient.CreateProjectRepo("", "D"))
 		require.NoError(t, txnClient.CreateProjectRepo("", "E"))
 
-		require.NoError(t, txnClient.CreateBranch("B", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master")}))
-		require.NoError(t, txnClient.CreateBranch("C", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "B", "master"), client.NewProjectBranch("", "E", "master")}))
-		require.NoError(t, txnClient.CreateBranch("D", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "C", "master")}))
+		require.NoError(t, txnClient.CreateProjectBranch("", "B", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master")}))
+		require.NoError(t, txnClient.CreateProjectBranch("", "C", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "B", "master"), client.NewProjectBranch("", "E", "master")}))
+		require.NoError(t, txnClient.CreateProjectBranch("", "D", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "C", "master")}))
 
 		info, err := txnClient.FinishTransaction(txn)
 		require.NoError(t, err)
@@ -431,8 +431,8 @@ func TestTransactions(suite *testing.T) {
 
 		// Two independent operations
 		info, err = env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
-			require.NoError(t, builder.CreateBranch("repoA", "master", "", "", []*pfs.Branch{}))
-			require.NoError(t, builder.CreateBranch("repoA", "branchA", "master", "", []*pfs.Branch{}))
+			require.NoError(t, builder.CreateProjectBranch("", "repoA", "master", "", "", []*pfs.Branch{}))
+			require.NoError(t, builder.CreateProjectBranch("", "repoA", "branchA", "master", "", []*pfs.Branch{}))
 			return nil
 		})
 		require.NoError(t, err)
@@ -452,8 +452,8 @@ func TestTransactions(suite *testing.T) {
 			require.NoError(t, err)
 			err = builder.FinishProjectCommit("", "repoB", "master", "")
 			require.NoError(t, err)
-			require.NoError(t, builder.CreateBranch("repoB", "branchA", "master", "", []*pfs.Branch{}))
-			require.NoError(t, builder.CreateBranch("repoB", "branchB", "branchA", "", []*pfs.Branch{}))
+			require.NoError(t, builder.CreateProjectBranch("", "repoB", "branchA", "master", "", []*pfs.Branch{}))
+			require.NoError(t, builder.CreateProjectBranch("", "repoB", "branchB", "branchA", "", []*pfs.Branch{}))
 			return nil
 		})
 		require.NoError(t, err)

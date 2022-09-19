@@ -818,7 +818,7 @@ func TestRunPipeline(t *testing.T) {
 	//	err = c.FinishProjectCommit("",dataRepo, commitM.Branch.Name, commitM.ID)
 	//	require.NoError(t, err)
 
-	//	require.NoError(t, c.CreateBranch(dataRepo, "unrelated", "", nil))
+	//	require.NoError(t, c.CreateProjectBranch("",dataRepo, "unrelated", "", nil))
 	//	commitU, err := c.StartProjectCommit("",dataRepo, "unrelated")
 	//	require.NoError(t, err)
 	//	err = c.FinishProjectCommit("",dataRepo, commitU.Branch.Name, commitU.ID)
@@ -2108,7 +2108,7 @@ func TestWaitCommitSetAfterCreatePipeline(t *testing.T) {
 		require.NoError(t, c.PutFile(commit, "file", strings.NewReader(fmt.Sprintf("foo%d\n", i)), client.WithAppendPutFile()))
 		require.NoError(t, c.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
 	}
-	require.NoError(t, c.CreateBranch(repo, "master", commit.Branch.Name, commit.ID, nil))
+	require.NoError(t, c.CreateProjectBranch("", repo, "master", commit.Branch.Name, commit.ID, nil))
 
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(
@@ -8601,7 +8601,7 @@ func TestDeferredCross(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 
-	err = c.CreateBranch(downstreamPipeline, "other", "", "master^", nil)
+	err = c.CreateProjectBranch("", downstreamPipeline, "other", "", "master^", nil)
 	require.NoError(t, err)
 
 	// next, create an imputation pipeline which is a cross of the dataset with the union of two different freeze branches
@@ -8701,13 +8701,13 @@ func TestDeferredProcessing(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
-	require.NoError(t, c.CreateBranch(dataRepo, "master", "staging", "", nil))
+	require.NoError(t, c.CreateProjectBranch("", dataRepo, "master", "staging", "", nil))
 
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(commitInfos))
 
-	require.NoError(t, c.CreateBranch(pipeline1, "master", "staging", "", nil))
+	require.NoError(t, c.CreateProjectBranch("", pipeline1, "master", "staging", "", nil))
 
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -10302,7 +10302,7 @@ func TestRewindCrossPipeline(t *testing.T) {
 	require.NoError(t, err)
 
 	// now, move dataRepo back to the saved commit
-	require.NoError(t, c.CreateBranch(dataRepo, "master", "master", oldCommit.Commit.ID, nil))
+	require.NoError(t, c.CreateProjectBranch("", dataRepo, "master", "master", oldCommit.Commit.ID, nil))
 	_, err = c.WaitProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 	info, err := c.InspectProjectCommit("", dataRepo, "master", "")
@@ -10362,7 +10362,7 @@ func TestMoveBranchTrigger(t *testing.T) {
 	require.NoError(t, err)
 
 	// create the trigger source branch
-	require.NoError(t, c.CreateBranch(dataRepo, "toMove", "master", "", nil))
+	require.NoError(t, c.CreateProjectBranch("", dataRepo, "toMove", "master", "", nil))
 	_, err = c.WaitProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 
