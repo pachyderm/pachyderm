@@ -3,7 +3,6 @@ package chunk
 import (
 	"bytes"
 	"context"
-	"io"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -62,14 +61,13 @@ func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef, opts ...Re
 	return newReader(ctx, client, s.memCache, s.deduper, s.prefetchLimit, dataRefs, opts...)
 }
 
-func (s *Storage) NewDataReader(ctx context.Context, dataRef *DataRef) io.Reader {
+func (s *Storage) NewDataReader(ctx context.Context, dataRef *DataRef) *DataReader {
 	client := NewClient(s.store, s.db, s.tracker, nil)
 	return newDataReader(ctx, client, s.memCache, s.deduper, dataRef, 0)
 }
 
 func (s *Storage) PrefetchData(ctx context.Context, dataRef *DataRef) error {
-	client := NewClient(s.store, s.db, s.tracker, nil)
-	return newDataReader(ctx, client, s.memCache, s.deduper, dataRef, 0).fetchData()
+	return s.NewDataReader(ctx, dataRef).fetchData()
 }
 
 // List lists all of the chunks in object storage.

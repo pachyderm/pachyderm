@@ -89,15 +89,11 @@ func (p *prefetcher) Iterate(ctx context.Context, cb func(File) error, opts ...i
 			files = append(files, f)
 			return nil
 		}
-		// Handle first chunk.
-		if ref == nil {
-			ref = chunk.FullRef(dataRefs[0])
-		}
 		// Handle files that are fully contained within one chunk.
 		// Buffer the file if it is in the same chunk as the current chunk.
 		// Otherwise, fetch the current chunk, then set up the new current chunk and buffered files.
 		if len(dataRefs) == 1 {
-			if bytes.Equal(dataRefs[0].Ref.Id, ref.Ref.Id) {
+			if ref != nil && bytes.Equal(dataRefs[0].Ref.Id, ref.Ref.Id) {
 				files = append(files, f)
 				return nil
 			}
