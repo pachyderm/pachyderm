@@ -64,9 +64,9 @@ require (
 	github.com/vbauerster/mpb/v6 v6.0.2
 	github.com/wcharczuk/go-chart v2.0.1+incompatible
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
-	go.etcd.io/etcd/api/v3 v3.5.4
-	go.etcd.io/etcd/client/v3 v3.5.4
-	go.etcd.io/etcd/server/v3 v3.5.4
+	go.etcd.io/etcd/api/v3 v3.5.5
+	go.etcd.io/etcd/client/v3 v3.5.5
+	go.etcd.io/etcd/server/v3 v3.5.5
 	go.uber.org/automaxprocs v1.4.0
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
 	golang.org/x/oauth2 v0.0.0-20220622183110-fd043fe589d2
@@ -84,6 +84,12 @@ require (
 )
 
 require golang.org/x/net v0.0.0-20220906165146-f3363e06e74c
+
+require (
+	github.com/cenkalti/backoff/v4 v4.1.1 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.0.1 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.0.1 // indirect
+)
 
 require (
 	cloud.google.com/go v0.102.0 // indirect
@@ -245,21 +251,16 @@ require (
 	github.com/xlab/treeprint v0.0.0-20181112141820-a009c3971eca // indirect
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.5.4 // indirect
-	go.etcd.io/etcd/client/v2 v2.305.4 // indirect
-	go.etcd.io/etcd/pkg/v3 v3.5.4 // indirect
-	go.etcd.io/etcd/raft/v3 v3.5.4 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.5.5 // indirect
+	go.etcd.io/etcd/client/v2 v2.305.5 // indirect
+	go.etcd.io/etcd/pkg/v3 v3.5.5 // indirect
+	go.etcd.io/etcd/raft/v3 v3.5.5 // indirect
 	go.opencensus.io v0.23.0 // indirect
-	go.opentelemetry.io/contrib v0.20.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.20.0 // indirect
-	go.opentelemetry.io/otel v0.20.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp v0.20.0 // indirect
-	go.opentelemetry.io/otel/metric v0.20.0 // indirect
-	go.opentelemetry.io/otel/sdk v0.20.0 // indirect
-	go.opentelemetry.io/otel/sdk/export/metric v0.20.0 // indirect
-	go.opentelemetry.io/otel/sdk/metric v0.20.0 // indirect
-	go.opentelemetry.io/otel/trace v0.20.0 // indirect
-	go.opentelemetry.io/proto/otlp v0.7.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.25.0 // indirect
+	go.opentelemetry.io/otel v1.0.1 // indirect
+	go.opentelemetry.io/otel/sdk v1.0.1 // indirect
+	go.opentelemetry.io/otel/trace v1.0.1 // indirect
+	go.opentelemetry.io/proto/otlp v0.9.0 // indirect
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/goleak v1.1.12 // indirect
