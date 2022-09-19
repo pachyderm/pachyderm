@@ -95,7 +95,7 @@ type ppsTransactionAPI struct {
 // MockPPSTransactionServer provides a mocking interface for overriding PPS
 // behavior inside transactions.
 type MockPPSTransactionServer struct {
-	api                          ppsTransactionAPI
+	Api                          ppsTransactionAPI
 	NewPropagater                mockNewPropagater
 	NewJobStopper                mockNewJobStopper
 	NewJobFinisher               mockNewJobFinisher
@@ -180,6 +180,6 @@ func (api *ppsTransactionAPI) ActivateAuthInTransaction(txnCtx *txncontext.Trans
 // NewMockPPSTransactionServer instantiates a MockPPSTransactionServer
 func NewMockPPSTransactionServer() *MockPPSTransactionServer {
 	result := &MockPPSTransactionServer{}
-	result.api.mock = result
+	result.Api.mock = result
 	return result
 }

@@ -8,23 +8,24 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gogo/protobuf/types"
+
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 
-	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 func TestIterators(t *testing.T) {
 	t.Parallel()
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	taskDoer := createTaskDoer(t, env)
 	c := env.PachClient
 	dataRepo := tu.UniqueString(t.Name() + "_data")
@@ -290,7 +291,7 @@ func TestIterators(t *testing.T) {
 	})
 }
 
-func createTaskDoer(t *testing.T, env *testpachd.RealEnv) task.Doer {
+func createTaskDoer(t *testing.T, env *realenv.RealEnv) task.Doer {
 	ctx := env.ServiceEnv.Context()
 	prefix := "test"
 	taskService := env.ServiceEnv.GetTaskService(prefix)
@@ -319,7 +320,7 @@ func createTaskDoer(t *testing.T, env *testpachd.RealEnv) task.Doer {
 // the fix for https://github.com/pachyderm/pachyderm/issues/5365
 func TestJoinTrailingSlash(t *testing.T) {
 	t.Parallel()
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	taskDoer := createTaskDoer(t, env)
 
 	c := env.PachClient
