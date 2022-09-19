@@ -4220,7 +4220,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 		opts = append(opts, minikubetestenv.SkipLokiOption)
 	}
 	c, _ := minikubetestenv.AcquireCluster(t, opts...)
-	iter := c.GetLogs("", "", nil, "", false, false, 0)
+	iter := c.GetProjectLogs("", "", "", nil, "", false, false, 0)
 	for iter.Next() {
 	}
 	require.NoError(t, iter.Err())
@@ -4258,14 +4258,14 @@ func testGetLogs(t *testing.T, useLoki bool) {
 
 	// Get logs from pipeline, using a pipeline that doesn't exist. There should
 	// be an error
-	iter = c.GetLogs("__DOES_NOT_EXIST__", "", nil, "", false, false, 0)
+	iter = c.GetProjectLogs("", "__DOES_NOT_EXIST__", "", nil, "", false, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.Matches(t, "could not get", iter.Err().Error())
 
 	// Get logs from pipeline, using a job that doesn't exist. There should
 	// be an error
-	iter = c.GetLogs(pipelineName, "__DOES_NOT_EXIST__", nil, "", false, false, 0)
+	iter = c.GetProjectLogs("", pipelineName, "__DOES_NOT_EXIST__", nil, "", false, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.Matches(t, "could not get", iter.Err().Error())
@@ -4277,7 +4277,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 	// Loki hasn't scraped the logs yet so they don't show up.
 	require.NoError(t, backoff.Retry(func() error {
 		// Get logs from pipeline, using pipeline
-		iter = c.GetLogs(pipelineName, "", nil, "", false, false, 0)
+		iter = c.GetProjectLogs("", pipelineName, "", nil, "", false, false, 0)
 		var numLogs int
 		for iter.Next() {
 			if !iter.Message().User {
@@ -4304,7 +4304,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 		// (2) Get logs using extracted job ID
 		// wait for logs to be collected
 		time.Sleep(10 * time.Second)
-		iter = c.GetLogs(pipelineName, jobInfos[0].Job.ID, nil, "", false, false, 0)
+		iter = c.GetProjectLogs("", pipelineName, jobInfos[0].Job.ID, nil, "", false, false, 0)
 		numLogs = 0
 		for iter.Next() {
 			numLogs++
@@ -4317,7 +4317,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 		require.True(t, numLogs > 0)
 
 		// Get logs for datums but don't specify pipeline or job. These should error
-		iter = c.GetLogs("", "", []string{"/foo"}, "", false, false, 0)
+		iter = c.GetProjectLogs("", "", "", []string{"/foo"}, "", false, false, 0)
 		require.False(t, iter.Next())
 		require.YesError(t, iter.Err())
 
@@ -4326,7 +4326,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 			return err
 		}
 		require.True(t, len(dis) > 0)
-		iter = c.GetLogs("", "", nil, dis[0].Datum.ID, false, false, 0)
+		iter = c.GetProjectLogs("", "", "", nil, dis[0].Datum.ID, false, false, 0)
 		require.False(t, iter.Next())
 		require.YesError(t, iter.Err())
 
@@ -4337,11 +4337,11 @@ func testGetLogs(t *testing.T, useLoki bool) {
 			return err
 		}
 
-		pathLog := c.GetLogs(pipelineName, jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
+		pathLog := c.GetProjectLogs("", pipelineName, jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
 
 		base64Hash := "kstrTGrFE58QWlxEpCRBt3aT8NJPNY0rso6XK7a4+wM="
 		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
-		base64Log := c.GetLogs(pipelineName, jobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
+		base64Log := c.GetProjectLogs("", pipelineName, jobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
 
 		numLogs = 0
 		for {
@@ -4371,7 +4371,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 
 		// Filter logs based on input (using file that doesn't exist). There should
 		// be no logs
-		iter = c.GetLogs(pipelineName, jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false, false, 0)
+		iter = c.GetProjectLogs("", pipelineName, jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false, false, 0)
 		require.False(t, iter.Next())
 		if err = iter.Err(); err != nil {
 			return err
@@ -4379,7 +4379,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-		iter = c.WithCtx(ctx).GetLogs(pipelineName, "", nil, "", false, false, 0)
+		iter = c.WithCtx(ctx).GetProjectLogs("", pipelineName, "", nil, "", false, false, 0)
 		numLogs = 0
 		for iter.Next() {
 			numLogs++
@@ -4408,7 +4408,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 		time.Sleep(time.Second * 30)
 
 		numLogs = 0
-		iter = c.WithCtx(ctx).GetLogs(pipelineName, "", nil, "", false, false, 15*time.Second)
+		iter = c.WithCtx(ctx).GetProjectLogs("", pipelineName, "", nil, "", false, false, 15*time.Second)
 		for iter.Next() {
 			numLogs++
 		}
@@ -4470,7 +4470,7 @@ func TestManyLogs(t *testing.T) {
 	require.Equal(t, 1, len(jis))
 
 	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
-		iter := c.GetLogs(pipelineName, jis[0].Job.ID, nil, "", false, false, 0)
+		iter := c.GetProjectLogs("", pipelineName, jis[0].Job.ID, nil, "", false, false, 0)
 		logsReceived := 0
 		for iter.Next() {
 			if iter.Message().User {
@@ -5958,7 +5958,7 @@ func TestPipelineWithStats(t *testing.T) {
 	}
 
 	// Make sure 'inspect datum' works
-	datum, err := c.InspectDatum(pipeline, id, resp[0].Datum.ID)
+	datum, err := c.InspectProjectDatum("", pipeline, id, resp[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 }
@@ -6030,7 +6030,7 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 	}
 
 	// Make sure 'inspect datum' works for failed state
-	datum, err := c.InspectDatum(pipeline, id, failedID)
+	datum, err := c.InspectProjectDatum("", pipeline, id, failedID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_FAILED, datum.State)
 }
@@ -6173,7 +6173,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp))
 
-	datum, err := c.InspectDatum(pipeline, id, resp[0].Datum.ID)
+	datum, err := c.InspectProjectDatum("", pipeline, id, resp[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 
@@ -6209,7 +6209,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 		if info.State == pps.DatumState_SKIPPED {
 			skippedCount++
 		}
-		inspectedInfo, err := c.InspectDatum(pipeline, id, info.Datum.ID)
+		inspectedInfo, err := c.InspectProjectDatum("", pipeline, id, info.Datum.ID)
 		require.NoError(t, err)
 		require.Equal(t, info.State, inspectedInfo.State)
 	}
@@ -6333,13 +6333,13 @@ func TestSkippedDatums(t *testing.T) {
 	datums, err := c.ListProjectDatumAll("", pipelineName, job1.Job.ID)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(datums))
-	datum, err := c.InspectDatum(pipelineName, job1.Job.ID, datums[0].Datum.ID)
+	datum, err := c.InspectProjectDatum("", pipelineName, job1.Job.ID, datums[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 
 	job2 := jobs[0]
 	// check the successful datum from job1 is now skipped
-	datum, err = c.InspectDatum(pipelineName, job2.Job.ID, datums[0].Datum.ID)
+	datum, err = c.InspectProjectDatum("", pipelineName, job2.Job.ID, datums[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SKIPPED, datum.State)
 	// load datums for job2
@@ -7496,7 +7496,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(dis))
 
-	datum, err := c.InspectDatum(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, dis[0].Datum.ID)
+	datum, err := c.InspectProjectDatum("", jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, dis[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_FAILED, datum.State)
 	// ProcessTime looks like "20 seconds"
@@ -8363,7 +8363,7 @@ func TestDatumTries(t *testing.T) {
 	require.Equal(t, 1, len(jobInfos))
 
 	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
-		iter := c.GetLogs(pipeline, jobInfos[0].Job.ID, nil, "", false, false, 0)
+		iter := c.GetProjectLogs("", pipeline, jobInfos[0].Job.ID, nil, "", false, false, 0)
 		var observedTries int64
 		for iter.Next() {
 			if strings.Contains(iter.Message().Message, "errored running user code after") {

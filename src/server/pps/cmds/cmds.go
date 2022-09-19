@@ -520,7 +520,7 @@ each datum.`,
 				return err
 			}
 			defer client.Close()
-			datumInfo, err := client.InspectDatum(job.Pipeline.Name, job.ID, args[1])
+			datumInfo, err := client.InspectProjectDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, args[1])
 			if err != nil {
 				return err
 			}
@@ -628,7 +628,7 @@ each datum.`,
 			}
 
 			// Issue RPC
-			iter := client.GetLogs(pipelineName, jobID, data, datumID, master, follow, since)
+			iter := client.GetProjectLogs(project, pipelineName, jobID, data, datumID, master, follow, since)
 			var buf bytes.Buffer
 			encoder := json.NewEncoder(&buf)
 			for iter.Next() {

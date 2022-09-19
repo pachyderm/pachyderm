@@ -779,26 +779,28 @@ func (l *LogsIter) Err() error {
 	return grpcutil.ScrubGRPC(l.err)
 }
 
-// GetLogs gets logs from a job (logs includes stdout and stderr). 'pipelineName',
-// 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
-// simply pass an empty value, though one of 'pipelineName' and 'jobID'
-// must be set. Responses are written to 'messages'
-func (c APIClient) GetLogs(
-	pipelineName string,
-	jobID string,
-	data []string,
-	datumID string,
-	master bool,
-	follow bool,
-	since time.Duration,
-) *LogsIter {
-	return c.getLogs(pipelineName, jobID, data, datumID, master, follow, since, false)
+// GetLogs gets logs from a job (logs includes stdout and stderr).
+// 'pipelineName', 'jobID', 'data', and 'datumID', are all filters.  To forego
+// any filter, simply pass an empty value, though one of 'pipelineName' and
+// 'jobID' must be set.  Responses are written to 'messages'.
+//
+// Deprecated: use GetProjectLogs instead.
+func (c APIClient) GetLogs(pipelineName, jobID string, data []string, datumID string, master, follow bool, since time.Duration) *LogsIter {
+	return c.GetProjectLogs("", pipelineName, jobID, data, datumID, master, follow, since)
 }
 
-// GetLogsLoki gets logs from a job (logs includes stdout and stderr). 'pipelineName',
-// 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
-// simply pass an empty value, though one of 'pipelineName' and 'jobID'
-// must be set. Responses are written to 'messages'
+// GetProjectLogs gets logs from a job (logs includes stdout and stderr).
+// 'pipelineName', 'jobID', 'data', and 'datumID', are all filters.  To forego
+// any filter, simply pass an empty value, though one of 'pipelineName' and
+// 'jobID' must be set.  Responses are written to 'messages'.
+func (c APIClient) GetProjectLogs(projectName, pipelineName, jobID string, data []string, datumID string, master, follow bool, since time.Duration) *LogsIter {
+	return c.getLogs(projectName, pipelineName, jobID, data, datumID, master, follow, since, false)
+}
+
+// GetLogsLoki gets logs from a job (logs includes stdout and stderr).
+// 'pipelineName', 'jobID', 'data', and 'datumID', are all filters.  To forego
+// any filter, simply pass an empty value, though one of 'pipelineName' and
+// 'jobID' must be set.  Responses are written to 'messages'.
 func (c APIClient) GetLogsLoki(
 	pipelineName string,
 	jobID string,
@@ -808,19 +810,18 @@ func (c APIClient) GetLogsLoki(
 	follow bool,
 	since time.Duration,
 ) *LogsIter {
-	return c.getLogs(pipelineName, jobID, data, datumID, master, follow, since, true)
+	return c.GetProjectLogsLoki("", pipelineName, jobID, data, datumID, master, follow, since)
 }
 
-func (c APIClient) getLogs(
-	pipelineName string,
-	jobID string,
-	data []string,
-	datumID string,
-	master bool,
-	follow bool,
-	since time.Duration,
-	useLoki bool,
-) *LogsIter {
+// GetProjectLogsLoki gets logs from a job (logs includes stdout and stderr).
+// 'pipelineName', 'jobID', 'data', and 'datumID', are all filters.  To forego
+// any filter, simply pass an empty value, though one of 'pipelineName' and
+// 'jobID' must be set.  Responses are written to 'messages'.
+func (c APIClient) GetProjectLogsLoki(projectName, pipelineName, jobID string, data []string, datumID string, master, follow bool, since time.Duration) *LogsIter {
+	return c.getLogs("", pipelineName, jobID, data, datumID, master, follow, since, true)
+}
+
+func (c APIClient) getLogs(projectName, pipelineName, jobID string, data []string, datumID string, master, follow bool, since time.Duration, useLoki bool) *LogsIter {
 	request := pps.GetLogsRequest{
 		Master:         master,
 		Follow:         follow,
@@ -828,15 +829,15 @@ func (c APIClient) getLogs(
 		Since:          types.DurationProto(since),
 	}
 	if pipelineName != "" {
-		request.Pipeline = NewProjectPipeline("", pipelineName)
+		request.Pipeline = NewProjectPipeline(projectName, pipelineName)
 	}
 	if jobID != "" {
-		request.Job = NewProjectJob("", pipelineName, jobID)
+		request.Job = NewProjectJob(projectName, pipelineName, jobID)
 	}
 	request.DataFilters = data
 	if datumID != "" {
 		request.Datum = &pps.Datum{
-			Job: NewProjectJob("", pipelineName, jobID),
+			Job: NewProjectJob(projectName, pipelineName, jobID),
 			ID:  datumID,
 		}
 	}

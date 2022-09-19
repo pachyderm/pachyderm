@@ -1782,7 +1782,7 @@ func TestInspectDatum(t *testing.T) {
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		for _, di := range dis {
-			if _, err := aliceClient.InspectDatum(pipeline, jobID, di.Datum.ID); err != nil {
+			if _, err := aliceClient.InspectProjectDatum("", pipeline, jobID, di.Datum.ID); err != nil {
 				continue
 			}
 		}
@@ -2857,14 +2857,14 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 	time.Sleep(time.Second * 10)
 
 	// must be authorized to access pachd logs
-	pachdLogsIter := aliceClient.GetLogs("", "", nil, "", false, false, 0)
+	pachdLogsIter := aliceClient.GetProjectLogs("", "", "", nil, "", false, false, 0)
 	pachdLogsIter.Next()
 	require.YesError(t, pachdLogsIter.Err())
 	require.True(t, strings.Contains(pachdLogsIter.Err().Error(), "is not authorized to perform this operation"))
 
 	// alice can view the pipeline logs
 	require.NoErrorWithinTRetry(t, time.Minute, func() error {
-		pipelineLogsIter := aliceClient.GetLogs(alicePipeline, "", nil, "", false, false, 0)
+		pipelineLogsIter := aliceClient.GetProjectLogs("", alicePipeline, "", nil, "", false, false, 0)
 		pipelineLogsIter.Next()
 		return pipelineLogsIter.Err()
 	}, "alice can view the pipeline logs")
@@ -2877,7 +2877,7 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 			Resource:  &auth.Resource{Type: auth.ResourceType_CLUSTER},
 		})
 	require.NoError(t, err)
-	pachdLogsIter = aliceClient.GetLogs("", "", nil, "", false, false, 0)
+	pachdLogsIter = aliceClient.GetProjectLogs("", "", "", nil, "", false, false, 0)
 	pachdLogsIter.Next()
 	require.NoError(t, pachdLogsIter.Err())
 }
