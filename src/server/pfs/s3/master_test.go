@@ -226,7 +226,7 @@ func masterMakeBucket(t *testing.T, pachClient *client.APIClient, minioClient *m
 	repo := tu.UniqueString("testmakebucket")
 	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
 
-	repoInfo, err := pachClient.InspectRepo(repo)
+	repoInfo, err := pachClient.InspectProjectRepo("", repo)
 	require.NoError(t, err)
 	require.Equal(t, len(repoInfo.Branches), 1)
 	require.Equal(t, repoInfo.Branches[0].Name, "master")
@@ -236,7 +236,7 @@ func masterMakeBucketWithBranch(t *testing.T, pachClient *client.APIClient, mini
 	repo := tu.UniqueString("testmakebucketwithbranch")
 	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("branch.%s", repo), ""))
 
-	repoInfo, err := pachClient.InspectRepo(repo)
+	repoInfo, err := pachClient.InspectProjectRepo("", repo)
 	require.NoError(t, err)
 	require.Equal(t, len(repoInfo.Branches), 1)
 	require.Equal(t, repoInfo.Branches[0].Name, "branch")
@@ -245,7 +245,7 @@ func masterMakeBucketWithBranch(t *testing.T, pachClient *client.APIClient, mini
 func masterMakeBucketWithRegion(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testmakebucketwithregion")
 	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("master.%s", repo), "us-east-1"))
-	_, err := pachClient.InspectRepo(repo)
+	_, err := pachClient.InspectProjectRepo("", repo)
 	require.NoError(t, err)
 }
 

@@ -1201,7 +1201,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 			defer progress.Wait()
 
 			// check whether or not the repo exists before attempting to upload
-			if _, err = c.InspectRepo(file.Commit.Branch.Repo.Name); err != nil {
+			if _, err = c.InspectProjectRepo(file.Commit.Branch.Repo.Project.GetName(), file.Commit.Branch.Repo.Name); err != nil {
 				if errutil.IsNotFoundError(err) {
 					return err
 				}

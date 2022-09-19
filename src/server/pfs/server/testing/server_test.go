@@ -561,14 +561,14 @@ func TestPFS(suite *testing.T) {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
-		repoInfo, err := env.PachClient.InspectRepo(repo)
+		repoInfo, err := env.PachClient.InspectProjectRepo("", repo)
 		require.NoError(t, err)
 		require.Equal(t, repo, repoInfo.Repo.Name)
 		require.NotNil(t, repoInfo.Created)
 		require.Equal(t, 0, int(repoInfo.Details.SizeBytes))
 
 		require.YesError(t, env.PachClient.CreateProjectRepo("", repo))
-		_, err = env.PachClient.InspectRepo("nonexistent")
+		_, err = env.PachClient.InspectProjectRepo("", "nonexistent")
 		require.YesError(t, err)
 
 		_, err = env.PachClient.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
@@ -1038,7 +1038,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, int64(0), commitInfo.Details.SizeBytes)
 
 		// Check that repo size is back to 0
-		repoInfo, err := env.PachClient.InspectRepo(repo)
+		repoInfo, err := env.PachClient.InspectProjectRepo("", repo)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), repoInfo.Details.SizeBytes)
 	})
@@ -1075,7 +1075,7 @@ func TestPFS(suite *testing.T) {
 		require.NotEqual(t, commit, commitInfos[0].Commit)
 
 		// Check that repo size is back to 0
-		repoInfo, err := env.PachClient.InspectRepo(repo)
+		repoInfo, err := env.PachClient.InspectProjectRepo("", repo)
 		require.NoError(t, err)
 		require.Equal(t, 0, int(repoInfo.Details.SizeBytes))
 	})
@@ -2514,7 +2514,7 @@ func TestPFS(suite *testing.T) {
 
 		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
 
-		info, err := env.PachClient.InspectRepo(repo)
+		info, err := env.PachClient.InspectProjectRepo("", repo)
 		require.NoError(t, err)
 
 		// Size should be 0 because the files were not added to master
@@ -2548,7 +2548,7 @@ func TestPFS(suite *testing.T) {
 
 		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
 
-		info, err := env.PachClient.InspectRepo(repo)
+		info, err := env.PachClient.InspectProjectRepo("", repo)
 		require.NoError(t, err)
 
 		require.Equal(t, totalSize, int(info.Details.SizeBytes))
@@ -4833,7 +4833,7 @@ func TestPFS(suite *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		ri, err := env.PachClient.InspectRepo(repo)
+		ri, err := env.PachClient.InspectProjectRepo("", repo)
 		require.NoError(t, err)
 		created, err := types.TimestampFromProto(ri.Created)
 		require.NoError(t, err)
@@ -4847,7 +4847,7 @@ func TestPFS(suite *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		ri, err = env.PachClient.InspectRepo(repo)
+		ri, err = env.PachClient.InspectProjectRepo("", repo)
 		require.NoError(t, err)
 		newCreated, err := types.TimestampFromProto(ri.Created)
 		require.NoError(t, err)
@@ -6182,7 +6182,7 @@ func TestPFS(suite *testing.T) {
 	suite.Run("ErrorMessages", func(t *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 		// don't show user .user suffix
-		_, err := env.PachClient.InspectRepo("test")
+		_, err := env.PachClient.InspectProjectRepo("", "test")
 		require.YesError(t, err)
 		require.True(t, errutil.IsNotFoundError(err))
 		require.False(t, strings.Contains(err.Error(), pfs.UserRepoType))

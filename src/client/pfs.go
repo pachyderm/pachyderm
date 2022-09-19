@@ -136,6 +136,8 @@ func (c APIClient) UpdateProjectRepo(projectName, repoName string) error {
 }
 
 // InspectRepo returns info about a specific Repo.
+//
+// Deprecated: use InspectProjectRepo instead.
 func (c APIClient) InspectRepo(repoName string) (_ *pfs.RepoInfo, retErr error) {
 	return c.InspectProjectRepo("", repoName)
 }
