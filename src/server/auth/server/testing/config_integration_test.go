@@ -102,7 +102,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 
 	require.Equal(t, true, proto.Equal(&authserver.DefaultOIDCConfig, configResp.GetConfiguration()))
 
-	alice := robot(tu.UniqueString("alice"))
+	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// Alice tries to set the current configuration and fails

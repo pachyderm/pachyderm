@@ -39,7 +39,7 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	// Check that testClient authenticated as the right user
 	whoAmIResp, err := testClient.WhoAmI(testClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, user(tu.DexMockConnectorEmail), whoAmIResp.Username)
+	require.Equal(t, tu.User(tu.DexMockConnectorEmail), whoAmIResp.Username)
 }
 
 // TestOIDCTrustedApp tests using an ID token issued to another OIDC app to authenticate.
@@ -63,7 +63,7 @@ func TestOIDCTrustedApp(t *testing.T) {
 	// Check that testClient authenticated as the right user
 	whoAmIResp, err := testClient.WhoAmI(testClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, user(tu.DexMockConnectorEmail), whoAmIResp.Username)
+	require.Equal(t, tu.User(tu.DexMockConnectorEmail), whoAmIResp.Username)
 }
 
 // TestCannotAuthenticateWithExpiredLicense tests that we cannot login when the
@@ -109,7 +109,7 @@ func TestCannotAuthenticateWithExpiredLicense(t *testing.T) {
 	// admin grants alice cluster admin role
 	_, err = adminClient.AuthAPIClient.ModifyRoleBinding(adminClient.Ctx(),
 		&auth.ModifyRoleBindingRequest{
-			Principal: user(tu.DexMockConnectorEmail),
+			Principal: tu.User(tu.DexMockConnectorEmail),
 			Roles:     []string{auth.ClusterAdminRole},
 			Resource:  &auth.Resource{Type: auth.ResourceType_CLUSTER},
 		})
@@ -124,5 +124,5 @@ func TestCannotAuthenticateWithExpiredLicense(t *testing.T) {
 	// Check that testClient authenticated as the right user
 	whoAmIResp, err := testClient.WhoAmI(testClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, user(tu.DexMockConnectorEmail), whoAmIResp.Username)
+	require.Equal(t, tu.User(tu.DexMockConnectorEmail), whoAmIResp.Username)
 }

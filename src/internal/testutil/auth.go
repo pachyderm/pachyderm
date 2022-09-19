@@ -82,3 +82,70 @@ func UnauthenticatedPachClient(tb testing.TB, c *client.APIClient) *client.APICl
 	client.SetAuthToken("")
 	return client
 }
+
+func RepoInfoToName(repoInfo interface{}) interface{} {
+	return repoInfo.(*pfs.RepoInfo).Repo.Name
+}
+
+func User(email string) string {
+	return auth.UserPrefix + email
+}
+
+func Pl(pipeline string) string {
+	return auth.PipelinePrefix + pipeline
+}
+
+func Robot(robot string) string {
+	return auth.RobotPrefix + robot
+}
+
+func BuildClusterBindings(s ...string) *auth.RoleBinding {
+	return BuildBindings(append(s,
+		auth.RootUser, auth.ClusterAdminRole,
+		auth.InternalPrefix+"auth-server", auth.ClusterAdminRole,
+	)...)
+}
+
+func BuildBindings(s ...string) *auth.RoleBinding {
+	var b auth.RoleBinding
+	b.Entries = make(map[string]*auth.Roles)
+	for i := 0; i < len(s); i += 2 {
+		if _, ok := b.Entries[s[i]]; !ok {
+			b.Entries[s[i]] = &auth.Roles{Roles: make(map[string]bool)}
+		}
+		b.Entries[s[i]].Roles[s[i+1]] = true
+	}
+	return &b
+}
+
+func GetRepoRoleBinding(t *testing.T, c *client.APIClient, repo string) *auth.RoleBinding {
+	t.Helper()
+	resp, err := c.GetRepoRoleBinding(repo)
+	require.NoError(t, err)
+	return resp
+}
+
+// CommitCnt uses 'c' to get the number of commits made to the repo 'repo'
+func CommitCnt(t *testing.T, c *client.APIClient, repo string) int {
+	t.Helper()
+	commitList, err := c.ListCommitByRepo(client.NewRepo(repo))
+	require.NoError(t, err)
+	return len(commitList)
+}
+
+// PipelineNames returns the names of all pipelines that 'c' gets from
+// ListPipeline
+func PipelineNames(t *testing.T, c *client.APIClient) []string {
+	t.Helper()
+	ps, err := c.ListPipeline(false)
+	require.NoError(t, err)
+	result := make([]string, len(ps))
+	for i, p := range ps {
+		result[i] = p.Pipeline.Name
+	}
+	return result
+}
+
+func Group(group string) string {
+	return auth.GroupPrefix + group
+}

@@ -1,8 +1,10 @@
-package s3
+package s3_test
 
 import (
 	"fmt"
-	
+
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
+
 	"os"
 	"strings"
 	"testing"
@@ -268,8 +270,8 @@ func TestWorkerDriver(t *testing.T) {
 	outputBranch := "master"
 	require.NoError(t, pachClient.CreateBranch(outputRepo, outputBranch, "", "", nil))
 
-	driver := NewWorkerDriver(
-		[]*Bucket{
+	driver := s3.NewWorkerDriver(
+		[]*s3.Bucket{
 			{
 				Commit: inputMasterCommit,
 				Name:   "in1",
@@ -279,7 +281,7 @@ func TestWorkerDriver(t *testing.T) {
 				Name:   "in2",
 			},
 		},
-		&Bucket{
+		&s3.Bucket{
 			Commit: client.NewRepo(outputRepo).NewCommit(outputBranch, ""),
 			Name:   "out",
 		},

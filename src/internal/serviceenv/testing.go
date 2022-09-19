@@ -28,7 +28,7 @@ type TestServiceEnv struct {
 	Configuration            *Configuration
 	PachClient               *client.APIClient
 	EtcdClient               *etcd.Client
-	KubeClient               *kube.Clientset
+	KubeClient               kube.Interface
 	LokiClient               *loki.Client
 	DBClient, DirectDBClient *pachsql.DB
 	PostgresListener         col.PostgresListener
@@ -71,7 +71,7 @@ func (s *TestServiceEnv) GetEtcdClient() *etcd.Client {
 func (s *TestServiceEnv) GetTaskService(prefix string) task.Service {
 	return task.NewEtcdService(s.EtcdClient, prefix)
 }
-func (s *TestServiceEnv) GetKubeClient() *kube.Clientset {
+func (s *TestServiceEnv) GetKubeClient() kube.Interface {
 	return s.KubeClient
 }
 func (s *TestServiceEnv) GetLokiClient() (*loki.Client, error) {
@@ -171,6 +171,11 @@ func (env *TestServiceEnv) EnterpriseServer() enterprise_server.APIServer {
 // SetEnterpriseServer returns the registered Enterprise APIServer
 func (env *TestServiceEnv) SetEnterpriseServer(s enterprise_server.APIServer) {
 	env.Enterprise = s
+}
+
+// SetKubeClient can be used to override the kubeclient in testing.
+func (env *TestServiceEnv) SetKubeClient(s kube.Interface) {
+	env.KubeClient = s
 }
 
 // InitDexDB implements the ServiceEnv interface.
