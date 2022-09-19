@@ -1192,7 +1192,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 		return err
 	})
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pi, err := c.InspectPipeline(pipeline, false)
+		pi, err := c.InspectProjectPipeline("", pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -1268,7 +1268,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	})
 
 	// make sure the pipeline is failed
-	pi, err := rootClient.InspectPipeline(pipeline, false)
+	pi, err := rootClient.InspectProjectPipeline("", pipeline, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pi.State)
 }

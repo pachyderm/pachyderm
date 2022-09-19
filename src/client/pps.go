@@ -927,11 +927,19 @@ func (c APIClient) CreateProjectPipeline(projectName, pipelineName, image string
 
 // InspectPipeline returns info about a specific pipeline.  The name may include
 // ancestry syntax or be a bare name.
+//
+// Deprecated: use InspecProjectPipeline instead.
 func (c APIClient) InspectPipeline(pipelineName string, details bool) (*pps.PipelineInfo, error) {
+	return c.InspectProjectPipeline("", pipelineName, details)
+}
+
+// InspectProjectPipeline returns info about a specific pipeline.  The name may
+// include ancestry syntax or be a bare name.
+func (c APIClient) InspectProjectPipeline(projectName, pipelineName string, details bool) (*pps.PipelineInfo, error) {
 	pipelineInfo, err := c.PpsAPIClient.InspectPipeline(
 		c.Ctx(),
 		&pps.InspectPipelineRequest{
-			Pipeline: NewProjectPipeline("", pipelineName),
+			Pipeline: NewProjectPipeline(projectName, pipelineName),
 			Details:  details,
 		},
 	)

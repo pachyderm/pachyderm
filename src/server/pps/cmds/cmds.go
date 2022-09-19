@@ -763,7 +763,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			pipelineInfo, err := client.InspectPipeline(args[0], true)
+			pipelineInfo, err := client.InspectProjectPipeline(project, args[0], true)
 			if err != nil {
 				return err
 			}
@@ -781,6 +781,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	inspectPipeline.Flags().AddFlagSet(outputFlags)
 	inspectPipeline.Flags().AddFlagSet(timestampFlags)
+	inspectPipeline.Flags().StringVar(&project, "project", "", "Project of pipeline to inspect.")
 	commands = append(commands, cmdutil.CreateAliases(inspectPipeline, "inspect pipeline", pipelines))
 
 	var editor string
@@ -796,7 +797,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 			defer client.Close()
 
-			pipelineInfo, err := client.InspectPipeline(args[0], true)
+			pipelineInfo, err := client.InspectProjectPipeline(project, args[0], true)
 			if err != nil {
 				return err
 			}
@@ -859,6 +860,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	editPipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 	editPipeline.Flags().StringVar(&editor, "editor", "", "Editor to use for modifying the manifest.")
 	editPipeline.Flags().StringVarP(&output, "output", "o", "", "Output format: \"json\" or \"yaml\" (default \"json\")")
+	editPipeline.Flags().StringVar(&project, "project", "", "Project of pipeline to edit.")
 	commands = append(commands, cmdutil.CreateAliases(editPipeline, "edit pipeline", pipelines))
 
 	var spec bool

@@ -178,7 +178,7 @@ func TestSpoutPachctl(t *testing.T) {
 		}))
 
 		// Make sure the pipeline is still running
-		pipelineInfo, err := c.InspectPipeline(pipeline, false)
+		pipelineInfo, err := c.InspectProjectPipeline("", pipeline, false)
 		require.NoError(t, err)
 
 		require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
