@@ -385,6 +385,8 @@ func (ctfsc *CreateFileSetClient) Close() (*pfs.CreateFileSetResponse, error) {
 }
 
 // GetFileSet gets a file set for a commit.
+//
+// Deprecated: use GetProjectFileSet instead.
 func (c APIClient) GetFileSet(repo, branch, commit string) (_ string, retErr error) {
 	return c.GetProjectFileSet("", repo, branch, commit)
 }

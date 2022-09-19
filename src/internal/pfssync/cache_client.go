@@ -39,7 +39,7 @@ func (cc *CacheClient) GetFileTAR(commit *pfs.Commit, path string) (io.ReadClose
 	if c, ok := cc.get(key); ok {
 		return cc.APIClient.GetFileTAR(c, path)
 	}
-	id, err := cc.APIClient.GetFileSet(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+	id, err := cc.APIClient.GetProjectFileSet(commit.Branch.Repo.Project.GetName(), commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 	if err != nil {
 		return nil, err
 	}
