@@ -1161,25 +1161,21 @@ func (c APIClient) ListSecret() ([]*pps.SecretInfo, error) {
 }
 
 // CreatePipelineService creates a new pipeline service.
-func (c APIClient) CreatePipelineService(
-	name string,
-	image string,
-	cmd []string,
-	stdin []string,
-	parallelismSpec *pps.ParallelismSpec,
-	input *pps.Input,
-	update bool,
-	internalPort int32,
-	externalPort int32,
-	annotations map[string]string,
-) error {
+//
+// Deprecated: use CreateProjectPipelineService instead.
+func (c APIClient) CreatePipelineService(pipelineName, image string, cmd, stdin []string, parallelismSpec *pps.ParallelismSpec, input *pps.Input, update bool, internalPort, externalPort int32, annotations map[string]string) error {
+	return c.CreateProjectPipelineService("", pipelineName, image, cmd, stdin, parallelismSpec, input, update, internalPort, externalPort, annotations)
+}
+
+// CreateProjectPipelineService creates a new pipeline service.
+func (c APIClient) CreateProjectPipelineService(projectName, pipelineName, image string, cmd, stdin []string, parallelismSpec *pps.ParallelismSpec, input *pps.Input, update bool, internalPort, externalPort int32, annotations map[string]string) error {
 	if image == "" {
 		image = c.defaultTransformImage
 	}
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: NewProjectPipeline("", name),
+			Pipeline: NewProjectPipeline(projectName, pipelineName),
 			Metadata: &pps.Metadata{
 				Annotations: annotations,
 			},
