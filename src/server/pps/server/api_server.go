@@ -1066,7 +1066,7 @@ func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb fun
 	if visitErr := pps.VisitInput(input, func(input *pps.Input) error {
 		if input.Pfs != nil {
 			pachClient := a.env.GetPachClient(ctx)
-			ci, err := pachClient.InspectCommit(input.Pfs.Repo, input.Pfs.Branch, "")
+			ci, err := pachClient.InspectProjectCommit(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch, "")
 			if err != nil {
 				return err
 			}

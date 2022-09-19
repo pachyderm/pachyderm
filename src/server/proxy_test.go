@@ -94,7 +94,7 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 	// Test GRPC API.
 	t.Run("TestGRPC", func(t *testing.T) {
 		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
-			if err := c.CreateRepo("test"); err != nil {
+			if err := c.CreateProjectRepo("", "test"); err != nil {
 				return errors.Errorf("create repo: %w", err)
 			}
 			if err := c.PutFile(client.NewProjectRepo("", "test").NewCommit("master", ""), "test.txt", bytes.NewReader(testText)); err != nil {

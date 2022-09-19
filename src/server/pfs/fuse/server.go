@@ -151,12 +151,13 @@ type ConfigRequest struct {
 }
 
 type Request struct {
-	Action string // default empty, set to "commit" if we want to commit (verb) a mounted branch
-	Repo   string
-	Branch string
-	Commit string // "" for no commit (commit as noun)
-	Name   string
-	Mode   string // "ro", "rw"
+	Action  string // default empty, set to "commit" if we want to commit (verb) a mounted branch
+	Project string
+	Repo    string
+	Branch  string
+	Commit  string // "" for no commit (commit as noun)
+	Name    string
+	Mode    string // "ro", "rw"
 }
 
 type Response struct {
@@ -203,7 +204,7 @@ func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 			rr.Authorization = "none"
 		}
 		if readAccess {
-			bs, err := mm.Client.ListBranch(repo.Repo.Name)
+			bs, err := mm.Client.ListProjectBranch(repo.Repo.Project.GetName(), repo.Repo.Name)
 			if err != nil {
 				return lr, err
 			}
@@ -273,7 +274,7 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 		return mr, err
 	}
 	for _, repo := range repos {
-		bs, err := mm.Client.ListBranch(repo.Repo.Name)
+		bs, err := mm.Client.ListProjectBranch(repo.Repo.Project.GetName(), repo.Repo.Name)
 		if err != nil {
 			return mr, err
 		}
@@ -327,12 +328,13 @@ func (mm *MountManager) MountBranch(key MountKey, name, mode string) (Response, 
 	// filesystem the repo actually gets mounted. e.g. /pfs/{name}
 	mm.MaybeStartFsm(name)
 	mm.States[name].requests <- Request{
-		Action: "mount",
-		Repo:   key.Repo,
-		Branch: key.Branch,
-		Commit: key.Commit,
-		Name:   name,
-		Mode:   mode,
+		Action:  "mount",
+		Project: key.Project,
+		Repo:    key.Repo,
+		Branch:  key.Branch,
+		Commit:  key.Commit,
+		Name:    name,
+		Mode:    mode,
 	}
 	response := <-mm.States[name].responses
 	return response, response.Error
@@ -341,12 +343,13 @@ func (mm *MountManager) MountBranch(key MountKey, name, mode string) (Response, 
 func (mm *MountManager) UnmountBranch(key MountKey, name string) (Response, error) {
 	mm.MaybeStartFsm(name)
 	mm.States[name].requests <- Request{
-		Action: "unmount",
-		Repo:   key.Repo,
-		Branch: key.Branch,
-		Commit: key.Commit,
-		Name:   name,
-		Mode:   "",
+		Action:  "unmount",
+		Project: key.Project,
+		Repo:    key.Repo,
+		Branch:  key.Branch,
+		Commit:  key.Commit,
+		Name:    name,
+		Mode:    "",
 	}
 	response := <-mm.States[name].responses
 	return response, response.Error
@@ -355,12 +358,13 @@ func (mm *MountManager) UnmountBranch(key MountKey, name string) (Response, erro
 func (mm *MountManager) CommitBranch(key MountKey, name string) (Response, error) {
 	mm.MaybeStartFsm(name)
 	mm.States[name].requests <- Request{
-		Action: "commit",
-		Repo:   key.Repo,
-		Branch: key.Branch,
-		Commit: key.Commit,
-		Name:   name,
-		Mode:   "",
+		Action:  "commit",
+		Project: key.Project,
+		Repo:    key.Repo,
+		Branch:  key.Branch,
+		Commit:  key.Commit,
+		Name:    name,
+		Mode:    "",
 	}
 	response := <-mm.States[name].responses
 	return response, response.Error
@@ -1031,7 +1035,7 @@ func (m *MountStateMachine) RefreshMountState() error {
 	m.ActualMountedCommit = commit
 
 	// Get the latest commit on the branch
-	branchInfo, err := m.manager.Client.InspectBranch(m.MountKey.Repo, m.MountKey.Branch)
+	branchInfo, err := m.manager.Client.InspectProjectBranch(m.MountKey.Project, m.MountKey.Repo, m.MountKey.Branch)
 	if err != nil {
 		return err
 	}
@@ -1205,7 +1209,7 @@ func unmountedState(m *MountStateMachine) StateFn {
 		switch req.Action {
 		case "mount":
 			// check user permissions on repo
-			repoInfo, err := m.manager.Client.InspectRepo(req.Repo)
+			repoInfo, err := m.manager.Client.InspectProjectRepo(req.Project, req.Repo)
 			if err != nil {
 				m.responses <- Response{
 					Repo:       req.Repo,

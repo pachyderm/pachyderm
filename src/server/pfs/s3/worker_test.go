@@ -31,8 +31,8 @@ func workerListBuckets(t *testing.T, s *workerTestState) {
 	// create a repo - this should not show up list buckets with the worker
 	// driver
 	repo := tu.UniqueString("testlistbuckets1")
-	require.NoError(t, s.pachClient.CreateRepo(repo))
-	require.NoError(t, s.pachClient.CreateBranch(repo, "master", "", "", nil))
+	require.NoError(t, s.pachClient.CreateProjectRepo("", repo))
+	require.NoError(t, s.pachClient.CreateProjectBranch("", repo, "master", "", "", nil))
 
 	buckets, err := s.minioClient.ListBuckets()
 	require.NoError(t, err)
@@ -233,12 +233,12 @@ func TestWorkerDriver(t *testing.T) {
 	pachClient := env.PachClient
 
 	inputRepo := tu.UniqueString("testworkerdriverinput")
-	require.NoError(t, pachClient.CreateRepo(inputRepo))
+	require.NoError(t, pachClient.CreateProjectRepo("", inputRepo))
 	outputRepo := tu.UniqueString("testworkerdriveroutput")
-	require.NoError(t, pachClient.CreateRepo(outputRepo))
+	require.NoError(t, pachClient.CreateProjectRepo("", outputRepo))
 
 	// create a master branch on the input repo
-	inputMasterCommit, err := pachClient.StartCommit(inputRepo, "master")
+	inputMasterCommit, err := pachClient.StartProjectCommit("", inputRepo, "master")
 	require.NoError(t, err)
 
 	require.NoError(t, pachClient.WithModifyFileClient(inputMasterCommit, func(mf client.ModifyFile) error {
@@ -247,10 +247,10 @@ func TestWorkerDriver(t *testing.T) {
 		putListFileTestObject(t, mf, "rootdir/subdir/", 2)
 		return nil
 	}))
-	require.NoError(t, pachClient.FinishCommit(inputRepo, inputMasterCommit.Branch.Name, inputMasterCommit.ID))
+	require.NoError(t, pachClient.FinishProjectCommit("", inputRepo, inputMasterCommit.Branch.Name, inputMasterCommit.ID))
 
 	// create a develop branch on the input repo
-	inputDevelopCommit, err := pachClient.StartCommit(inputRepo, "develop")
+	inputDevelopCommit, err := pachClient.StartProjectCommit("", inputRepo, "develop")
 	require.NoError(t, err)
 
 	require.NoError(t, pachClient.WithModifyFileClient(inputDevelopCommit, func(mf client.ModifyFile) error {
@@ -262,11 +262,11 @@ func TestWorkerDriver(t *testing.T) {
 		}
 		return nil
 	}))
-	require.NoError(t, pachClient.FinishCommit(inputRepo, inputDevelopCommit.Branch.Name, inputDevelopCommit.ID))
+	require.NoError(t, pachClient.FinishProjectCommit("", inputRepo, inputDevelopCommit.Branch.Name, inputDevelopCommit.ID))
 
 	// create the output branch
 	outputBranch := "master"
-	require.NoError(t, pachClient.CreateBranch(outputRepo, outputBranch, "", "", nil))
+	require.NoError(t, pachClient.CreateProjectBranch("", outputRepo, outputBranch, "", "", nil))
 
 	driver := NewWorkerDriver(
 		[]*Bucket{

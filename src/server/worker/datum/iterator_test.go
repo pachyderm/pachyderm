@@ -26,14 +26,14 @@ func TestIterators(t *testing.T) {
 	taskDoer := createTaskDoer(t, env)
 	c := env.PachClient
 	dataRepo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
+	require.NoError(t, c.CreateProjectRepo("", dataRepo))
 	// Put files in structured in a way so that there are many ways to glob it.
-	commit, err := c.StartCommit(dataRepo, "master")
+	commit, err := c.StartProjectCommit("", dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < 50; i++ {
 		require.NoError(t, c.PutFile(commit, fmt.Sprintf("/foo%v", i), strings.NewReader("input")))
 	}
-	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
+	require.NoError(t, c.FinishProjectCommit("", dataRepo, commit.Branch.Name, commit.ID))
 	// Zero datums.
 	in0 := client.NewProjectPFSInput("", dataRepo, "!(**)")
 	in0.Pfs.Commit = commit.ID
@@ -331,17 +331,17 @@ func TestJoinTrailingSlash(t *testing.T) {
 		client.NewProjectPFSInputOpts("", "", repo[1],
 			/* commit--set below */ "", "/*", "$1", "", false, false, nil),
 	}
-	require.NoError(t, c.CreateRepo(repo[0]))
-	require.NoError(t, c.CreateRepo(repo[1]))
+	require.NoError(t, c.CreateProjectRepo("", repo[0]))
+	require.NoError(t, c.CreateProjectRepo("", repo[1]))
 
 	// put files in structured in a way so that there are many ways to glob it
 	for i := 0; i < 2; i++ {
-		commit, err := c.StartCommit(repo[i], "master")
+		commit, err := c.StartProjectCommit("", repo[i], "master")
 		require.NoError(t, err)
 		for j := 0; j < 10; j++ {
 			require.NoError(t, c.PutFile(commit, fmt.Sprintf("foo-%v", j), strings.NewReader("bar")))
 		}
-		require.NoError(t, c.FinishCommit(repo[i], "master", commit.ID))
+		require.NoError(t, c.FinishProjectCommit("", repo[i], "master", commit.ID))
 		input[i].Pfs.Commit = commit.ID
 	}
 
