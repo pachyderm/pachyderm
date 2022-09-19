@@ -995,7 +995,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 
 	// bob can now start and stop the pipeline, but can't delete it
 	require.NoError(t, bobClient.StopPipeline(pipeline))
-	require.NoError(t, bobClient.StartPipeline(pipeline))
+	require.NoError(t, bobClient.StartProjectPipeline("", pipeline))
 	err = bobClient.DeleteProjectPipeline("", pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
@@ -1007,7 +1007,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 
 	// no change to bob's capabilities
 	require.NoError(t, bobClient.StopPipeline(pipeline))
-	require.NoError(t, bobClient.StartPipeline(pipeline))
+	require.NoError(t, bobClient.StartProjectPipeline("", pipeline))
 	err = bobClient.DeleteProjectPipeline("", pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())

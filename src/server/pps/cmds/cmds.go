@@ -997,12 +997,13 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			if err := client.StartPipeline(args[0]); err != nil {
+			if err := client.StartProjectPipeline("", args[0]); err != nil {
 				return errors.Wrap(err, "error from StartPipeline")
 			}
 			return nil
 		}),
 	}
+	startPipeline.Flags().StringVar(&project, "project", "", "Project containing pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(startPipeline, "start pipeline", pipelines))
 
 	stopPipeline := &cobra.Command{

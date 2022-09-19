@@ -1032,11 +1032,18 @@ func (c APIClient) DeleteProjectPipeline(projectName, pipelineName string, force
 }
 
 // StartPipeline restarts a stopped pipeline.
-func (c APIClient) StartPipeline(name string) error {
+//
+// Deprecated: use StartProjectPipeline instead.
+func (c APIClient) StartPipeline(pipelineName string) error {
+	return c.StartProjectPipeline("", pipelineName)
+}
+
+// StartProjectPipeline restarts a stopped pipeline.
+func (c APIClient) StartProjectPipeline(projectName, pipelineName string) error {
 	_, err := c.PpsAPIClient.StartPipeline(
 		c.Ctx(),
 		&pps.StartPipelineRequest{
-			Pipeline: NewProjectPipeline("", name),
+			Pipeline: NewProjectPipeline(projectName, pipelineName),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)

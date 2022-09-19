@@ -2323,7 +2323,7 @@ func TestPipelineState(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// Restart pipeline and wait for the pipeline to resume
-	require.NoError(t, c.StartPipeline(pipeline))
+	require.NoError(t, c.StartProjectPipeline("", pipeline))
 	time.Sleep(15 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
 		pipelineInfo, err := c.InspectProjectPipeline("", pipeline, false)
@@ -3072,7 +3072,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 
 	// Create a commit (to give the pipeline pending work), then start the pipeline
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("bar"), client.WithAppendPutFile()))
-	require.NoError(t, c.StartPipeline(pipelineName))
+	require.NoError(t, c.StartProjectPipeline("", pipelineName))
 
 	// Pipeline should start and create a job should succeed -- fix
 	// https://github.com/pachyderm/pachyderm/v2/issues/3934)
@@ -3296,7 +3296,7 @@ func TestStopPipeline(t *testing.T) {
 	require.Equal(t, len(commits), 1)
 
 	// Restart pipeline, and make sure a new output commit is generated
-	require.NoError(t, c.StartPipeline(pipelineName))
+	require.NoError(t, c.StartProjectPipeline("", pipelineName))
 
 	commits, err = c.ListCommit(client.NewProjectRepo("", pipelineName), client.NewProjectCommit("", pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
@@ -3532,7 +3532,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 	cancel()
 
 	// Start pipeline--it should run and then enter standby
-	require.NoError(t, c.StartPipeline(pipeline))
+	require.NoError(t, c.StartProjectPipeline("", pipeline))
 	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 		// Let pipeline run
 		commitInfo, err := c.InspectCommit(dataRepo, "master", "")
@@ -4085,7 +4085,7 @@ func TestStartInternalPipeline(t *testing.T) {
 	require.Equal(t, 7, len(commitInfos))
 	// Stop and Start a pipeline was orginal trigger of bug so "reproduce" it here.
 	require.NoError(t, c.StopPipeline(bPipeline))
-	require.NoError(t, c.StartPipeline(bPipeline))
+	require.NoError(t, c.StartProjectPipeline("", bPipeline))
 	// C's commit should be the same as b's meta commit
 	cCommits, err := c.ListCommit(client.NewProjectRepo("", cPipeline), nil, nil, 0)
 	require.NoError(t, err)
