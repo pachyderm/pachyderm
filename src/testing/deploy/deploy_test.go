@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -27,6 +26,14 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 		Enterprise: true,
 		PortOffset: portOffset,
 	}
+
+	opts.ValueOverrides = map[string]string{
+		"pachd.lokiDeploy":            "false",
+		"pachd.lokiLogging":           "false",
+		"postgresql.image.repository": "pachyderm/postgresql",
+		"postgresql.image.tag":        "13.3.0",
+		"etcd.image.tag":              "v3.5.2",
+		"pgbouncer.image.tag":         "1.17.0"}
 	// Test Install
 	minikubetestenv.PutNamespace(t, ns)
 	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
@@ -63,37 +70,37 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestEnterpriseServerMember(t *testing.T) {
-	t.Parallel()
-	ns, portOffset := minikubetestenv.ClaimCluster(t)
-	k := testutil.GetKubeClient(t)
-	minikubetestenv.PutNamespace(t, "enterprise")
-	ec := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
-		AuthUser:         auth.RootUser,
-		EnterpriseServer: true,
-		CleanupAfter:     true,
-	})
-	whoami, err := ec.AuthAPIClient.WhoAmI(ec.Ctx(), &auth.WhoAmIRequest{})
-	require.NoError(t, err)
-	require.Equal(t, auth.RootUser, whoami.Username)
-	mockIDPLogin(t, ec)
-	minikubetestenv.PutNamespace(t, ns)
-	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, &minikubetestenv.DeployOpts{
-		AuthUser:         auth.RootUser,
-		EnterpriseMember: true,
-		Enterprise:       true,
-		PortOffset:       portOffset,
-		CleanupAfter:     true,
-	})
-	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-	require.NoError(t, err)
-	require.Equal(t, auth.RootUser, whoami.Username)
-	c.SetAuthToken("")
-	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
-	require.NoError(t, err)
-	require.True(t, strings.Contains(loginInfo.LoginURL, ":31658"))
-	mockIDPLogin(t, c)
-}
+// func TestEnterpriseServerMember(t *testing.T) {
+// 	t.Parallel()
+// 	ns, portOffset := minikubetestenv.ClaimCluster(t)
+// 	k := testutil.GetKubeClient(t)
+// 	minikubetestenv.PutNamespace(t, "enterprise")
+// 	ec := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
+// 		AuthUser:         auth.RootUser,
+// 		EnterpriseServer: true,
+// 		CleanupAfter:     true,
+// 	})
+// 	whoami, err := ec.AuthAPIClient.WhoAmI(ec.Ctx(), &auth.WhoAmIRequest{})
+// 	require.NoError(t, err)
+// 	require.Equal(t, auth.RootUser, whoami.Username)
+// 	mockIDPLogin(t, ec)
+// 	minikubetestenv.PutNamespace(t, ns)
+// 	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, &minikubetestenv.DeployOpts{
+// 		AuthUser:         auth.RootUser,
+// 		EnterpriseMember: true,
+// 		Enterprise:       true,
+// 		PortOffset:       portOffset,
+// 		CleanupAfter:     true,
+// 	})
+// 	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+// 	require.NoError(t, err)
+// 	require.Equal(t, auth.RootUser, whoami.Username)
+// 	c.SetAuthToken("")
+// 	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
+// 	require.NoError(t, err)
+// 	require.True(t, strings.Contains(loginInfo.LoginURL, ":31658"))
+// 	mockIDPLogin(t, c)
+// }
 
 func mockIDPLogin(t testing.TB, c *client.APIClient) {
 	// login using mock IDP admin
