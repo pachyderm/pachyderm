@@ -1614,13 +1614,13 @@ func TestListDatum(t *testing.T) {
 	jobID := jobs[0].Job.ID
 
 	// bob cannot call ListDatum
-	_, err = bobClient.ListDatumAll(pipeline, jobID)
+	_, err = bobClient.ListProjectDatumAll("", pipeline, jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// alice adds bob to repoA, but bob still can't call GetLogs
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListDatumAll(pipeline, jobID)
+	_, err = bobClient.ListProjectDatumAll("", pipeline, jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
@@ -1628,19 +1628,19 @@ func TestListDatum(t *testing.T) {
 	// call ListDatum
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, []string{}))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoB, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListDatumAll(pipeline, jobID)
+	_, err = bobClient.ListProjectDatumAll("", pipeline, jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// alice adds bob to repoA, and now bob can call ListDatum
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListDatumAll(pipeline, jobID)
+	_, err = bobClient.ListProjectDatumAll("", pipeline, jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// Finally, alice adds bob to the output repo, and now bob can call ListDatum
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoReaderRole}))
-	dis, err := bobClient.ListDatumAll(pipeline, jobID)
+	dis, err := bobClient.ListProjectDatumAll("", pipeline, jobID)
 	require.NoError(t, err)
 	files := make(map[string]struct{})
 	for _, di := range dis {
@@ -1778,7 +1778,7 @@ func TestInspectDatum(t *testing.T) {
 	// the /stats branch is written
 	// TODO(msteffen): verify if this is true, and if so, why
 	time.Sleep(5 * time.Second)
-	dis, err := aliceClient.ListDatumAll(pipeline, jobID)
+	dis, err := aliceClient.ListProjectDatumAll("", pipeline, jobID)
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		for _, di := range dis {
