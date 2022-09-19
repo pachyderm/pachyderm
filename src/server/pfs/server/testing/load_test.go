@@ -5,14 +5,15 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 )
 
 func TestLoad(t *testing.T) {
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	c := env.PachClient
 	resp, err := c.PfsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
 	require.NoError(t, err)

@@ -8,11 +8,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -32,7 +33,7 @@ func TestTransactions(suite *testing.T) {
 
 	suite.Run("TestEmptyTransaction", func(t *testing.T) {
 		t.Parallel()
-		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -58,7 +59,7 @@ func TestTransactions(suite *testing.T) {
 
 	suite.Run("TestInvalidatedTransaction", func(t *testing.T) {
 		t.Parallel()
-		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -88,7 +89,7 @@ func TestTransactions(suite *testing.T) {
 
 	suite.Run("TestFailedAppend", func(t *testing.T) {
 		t.Parallel()
-		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -121,7 +122,7 @@ func TestTransactions(suite *testing.T) {
 
 	suite.Run("TestDependency", func(t *testing.T) {
 		t.Parallel()
-		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -175,7 +176,7 @@ func TestTransactions(suite *testing.T) {
 	// inspect the new commit outside of the transaction STM and fail to find it.
 	suite.Run("TestCreateBranch", func(t *testing.T) {
 		t.Parallel()
-		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -213,7 +214,7 @@ func TestTransactions(suite *testing.T) {
 
 	suite.Run("TestDeleteAllTransactions", func(t *testing.T) {
 		t.Parallel()
-		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		_, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -235,7 +236,7 @@ func TestTransactions(suite *testing.T) {
 
 	suite.Run("TestMultiCommit", func(t *testing.T) {
 		t.Parallel()
-		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -263,7 +264,7 @@ func TestTransactions(suite *testing.T) {
 	//  E ────────╯
 	suite.Run("TestPropagateCommit", func(t *testing.T) {
 		t.Parallel()
-		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		require.NoError(t, env.PachClient.CreateRepo("B"))
@@ -348,7 +349,7 @@ func TestTransactions(suite *testing.T) {
 	// performed within the transaction.
 	suite.Run("TestPropagateCommitRedux", func(t *testing.T) {
 		t.Parallel()
-		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -397,7 +398,7 @@ func TestTransactions(suite *testing.T) {
 
 	suite.Run("TestBatchTransaction", func(t *testing.T) {
 		t.Parallel()
-		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		var branchInfos []*pfs.BranchInfo
 		var info *transaction.TransactionInfo
