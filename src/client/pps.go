@@ -670,7 +670,7 @@ func (c APIClient) ListProjectDatumAll(projectName, pipelineName, jobID string) 
 	return dis, nil
 }
 
-// ListDatumInput returns info about datums for a pipeline with input. The
+// ListDatumInput returns info about datums for a pipeline with input.  The
 // pipeline doesn't need to exist.
 func (c APIClient) ListDatumInput(input *pps.Input, cb func(*pps.DatumInfo) error) (retErr error) {
 	defer func() {
@@ -722,14 +722,21 @@ func (c APIClient) listDatum(req *pps.ListDatumRequest, cb func(*pps.DatumInfo) 
 	}
 }
 
-// InspectDatum returns info about a single datum
+// InspectDatum returns info about a single datum.
+//
+// Deprecated: use InspectProjectDatum instead.
 func (c APIClient) InspectDatum(pipelineName string, jobID string, datumID string) (*pps.DatumInfo, error) {
+	return c.InspectProjectDatum("", pipelineName, jobID, datumID)
+}
+
+// InspectProjectDatum returns info about a single datum.
+func (c APIClient) InspectProjectDatum(projectName, pipelineName, jobID, datumID string) (*pps.DatumInfo, error) {
 	datumInfo, err := c.PpsAPIClient.InspectDatum(
 		c.Ctx(),
 		&pps.InspectDatumRequest{
 			Datum: &pps.Datum{
 				ID:  datumID,
-				Job: NewProjectJob("", pipelineName, jobID),
+				Job: NewProjectJob(projectName, pipelineName, jobID),
 			},
 		},
 	)
