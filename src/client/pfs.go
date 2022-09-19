@@ -95,6 +95,8 @@ func NewProjectFile(projectName, repoName, branchName, commitID, path string) *p
 // the top level data object in pfs and should be used to store data of a
 // similar type. For example rather than having a single Repo for an entire
 // project you might have separate Repos for logs, metrics, database dumps etc.
+//
+// Deprecated: use CreateProjectRepo instead.
 func (c APIClient) CreateRepo(repoName string) error {
 	return c.CreateProjectRepo("", repoName)
 }

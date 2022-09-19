@@ -168,17 +168,17 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.YesError(t, env.PachClient.CreateRepo("/repo"))
+		require.YesError(t, env.PachClient.CreateProjectRepo("", "/repo"))
 
-		require.NoError(t, env.PachClient.CreateRepo("lenny"))
-		require.NoError(t, env.PachClient.CreateRepo("lenny123"))
-		require.NoError(t, env.PachClient.CreateRepo("lenny_123"))
-		require.NoError(t, env.PachClient.CreateRepo("lenny-123"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "lenny"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "lenny123"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "lenny_123"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "lenny-123"))
 
-		require.YesError(t, env.PachClient.CreateRepo("lenny.123"))
-		require.YesError(t, env.PachClient.CreateRepo("lenny:"))
-		require.YesError(t, env.PachClient.CreateRepo("lenny,"))
-		require.YesError(t, env.PachClient.CreateRepo("lenny#"))
+		require.YesError(t, env.PachClient.CreateProjectRepo("", "lenny.123"))
+		require.YesError(t, env.PachClient.CreateProjectRepo("", "lenny:"))
+		require.YesError(t, env.PachClient.CreateProjectRepo("", "lenny,"))
+		require.YesError(t, env.PachClient.CreateProjectRepo("", "lenny#"))
 	})
 
 	suite.Run("CreateSameRepoInParallel", func(t *testing.T) {
@@ -189,7 +189,7 @@ func TestPFS(suite *testing.T) {
 		errCh := make(chan error)
 		for i := 0; i < numGoros; i++ {
 			go func() {
-				errCh <- env.PachClient.CreateRepo("repo")
+				errCh <- env.PachClient.CreateProjectRepo("", "repo")
 			}()
 		}
 		successCount := 0
@@ -216,7 +216,7 @@ func TestPFS(suite *testing.T) {
 		for i := 0; i < numGoros; i++ {
 			i := i
 			go func() {
-				errCh <- env.PachClient.CreateRepo(fmt.Sprintf("repo%d", i))
+				errCh <- env.PachClient.CreateProjectRepo("", fmt.Sprintf("repo%d", i))
 			}()
 		}
 		successCount := 0
@@ -238,8 +238,8 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		for i := 0; i < 100; i++ {
-			require.NoError(t, env.PachClient.CreateRepo("foo"))
-			require.NoError(t, env.PachClient.CreateRepo("bar"))
+			require.NoError(t, env.PachClient.CreateProjectRepo("", "foo"))
+			require.NoError(t, env.PachClient.CreateProjectRepo("", "bar"))
 			errCh := make(chan error)
 			go func() {
 				errCh <- env.PachClient.DeleteRepo("foo", false)
@@ -263,7 +263,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		_, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, finishCommit(env.PachClient, repo, "master", ""))
@@ -283,8 +283,8 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("in"))
-		require.NoError(t, env.PachClient.CreateRepo("out"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "in"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "out"))
 		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "in", "master")}))
 		require.NoError(t, finishCommit(env.PachClient, "out", "master", ""))
 		outRepo := client.NewProjectRepo("", "out")
@@ -337,8 +337,8 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("in"))
-		require.NoError(t, env.PachClient.CreateRepo("out"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "in"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "out"))
 		require.NoError(t, env.PachClient.CreateBranch("out", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "in", "master")}))
 		require.NoError(t, finishCommit(env.PachClient, "out", "master", ""))
 		require.NoError(t, env.PachClient.PutFile(client.NewProjectCommit("", "in", "master", ""), "foo", strings.NewReader("foo")))
@@ -360,9 +360,9 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("a"))
-		require.NoError(t, env.PachClient.CreateRepo("b"))
-		require.NoError(t, env.PachClient.CreateRepo("c"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "a"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "b"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "c"))
 		provB := []*pfs.Branch{client.NewProjectBranch("", "a", "master")}
 		require.NoError(t, env.PachClient.CreateBranch("b", "master", "", "", provB))
 		provC := []*pfs.Branch{client.NewProjectBranch("", "b", "master")}
@@ -442,10 +442,10 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 		c := env.PachClient
 
-		require.NoError(t, c.CreateRepo("A"))
-		require.NoError(t, c.CreateRepo("B"))
-		require.NoError(t, c.CreateRepo("C"))
-		require.NoError(t, c.CreateRepo("Z"))
+		require.NoError(t, c.CreateProjectRepo("", "A"))
+		require.NoError(t, c.CreateProjectRepo("", "B"))
+		require.NoError(t, c.CreateProjectRepo("", "C"))
+		require.NoError(t, c.CreateProjectRepo("", "Z"))
 		repos := []string{"A", "B", "C", "Z"}
 
 		// A ─▶ B ─▶ Z
@@ -516,9 +516,9 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 		c := env.PachClient
 
-		require.NoError(t, c.CreateRepo("A"))
-		require.NoError(t, c.CreateRepo("B"))
-		require.NoError(t, c.CreateRepo("C"))
+		require.NoError(t, c.CreateProjectRepo("", "A"))
+		require.NoError(t, c.CreateProjectRepo("", "B"))
+		require.NoError(t, c.CreateProjectRepo("", "C"))
 		require.NoError(t, c.CreateBranch("A", "master", "", "", nil))
 		require.NoError(t, c.CreateBranch("B", "master", "", "", nil))
 		require.NoError(t, c.CreateBranch("C", "master", "", "", []*pfs.Branch{
@@ -559,7 +559,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		repoInfo, err := env.PachClient.InspectRepo(repo)
 		require.NoError(t, err)
@@ -567,7 +567,7 @@ func TestPFS(suite *testing.T) {
 		require.NotNil(t, repoInfo.Created)
 		require.Equal(t, 0, int(repoInfo.Details.SizeBytes))
 
-		require.YesError(t, env.PachClient.CreateRepo(repo))
+		require.YesError(t, env.PachClient.CreateProjectRepo("", repo))
 		_, err = env.PachClient.InspectRepo("nonexistent")
 		require.YesError(t, err)
 
@@ -585,7 +585,7 @@ func TestPFS(suite *testing.T) {
 		var repoNames []string
 		for i := 0; i < numRepos; i++ {
 			repo := fmt.Sprintf("repo%d", i)
-			require.NoError(t, env.PachClient.CreateRepo(repo))
+			require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 			repoNames = append(repoNames, repo)
 		}
 
@@ -600,7 +600,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		repoProto := client.NewProjectRepo("", repo)
 
 		systemRepo := client.NewSystemProjectRepo("", repo, pfs.MetaRepoType)
@@ -628,7 +628,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 1, len(commitInfos))
 
 		require.NoError(t, env.PachClient.DeleteRepo(repo, false))
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commitInfos, err = env.PachClient.ListCommit(repoProto, nil, nil, 0)
 		require.NoError(t, err)
@@ -651,7 +651,7 @@ func TestPFS(suite *testing.T) {
 
 		repo := "repo"
 		commit := client.NewProjectCommit("", repo, "master", "")
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		require.NoError(t, env.PachClient.PutFile(commit, "foo", strings.NewReader("foo")))
 		require.NoError(t, env.PachClient.PutFile(commit, "bar", strings.NewReader("bar")))
 		commitInfos, err := env.PachClient.ListCommit(commit.Branch.Repo, nil, nil, 1)
@@ -678,26 +678,26 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		prov1 := "prov1"
-		require.NoError(t, env.PachClient.CreateRepo(prov1))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", prov1))
 		prov2 := "prov2"
-		require.NoError(t, env.PachClient.CreateRepo(prov2))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", prov2))
 		prov3 := "prov3"
-		require.NoError(t, env.PachClient.CreateRepo(prov3))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", prov3))
 
 		repo := "repo"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", []*pfs.Branch{client.NewProjectBranch("", prov1, "master"), client.NewProjectBranch("", prov2, "master")}))
 
 		downstream1 := "downstream1"
-		require.NoError(t, env.PachClient.CreateRepo(downstream1))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", downstream1))
 		require.NoError(t, env.PachClient.CreateBranch(downstream1, "master", "", "", []*pfs.Branch{client.NewProjectBranch("", repo, "master")}))
 
 		downstream2 := "downstream2"
-		require.NoError(t, env.PachClient.CreateRepo(downstream2))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", downstream2))
 		require.NoError(t, env.PachClient.CreateBranch(downstream2, "master", "", "", []*pfs.Branch{client.NewProjectBranch("", repo, "master")}))
 
 		// Without the Update flag it should fail
-		require.YesError(t, env.PachClient.CreateRepo(repo))
+		require.YesError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		_, err := env.PachClient.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
 			Repo:   client.NewProjectRepo("", repo),
@@ -721,7 +721,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -742,7 +742,7 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("repo"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "repo"))
 
 		_, err := env.PachClient.StartCommit("repo", "master")
 		require.NoError(t, err)
@@ -777,7 +777,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		// Create a branch that's the same length as a commit ID
 		_, err := env.PachClient.StartCommit(repo, uuid.NewWithoutDashes())
@@ -790,13 +790,13 @@ func TestPFS(suite *testing.T) {
 
 		// create two repos, and create a branch on one that tries to point on another's existing branch
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		_, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		masterCommit := client.NewProjectCommit("", repo, "master", "")
 
 		otherRepo := "other"
-		require.NoError(t, env.PachClient.CreateRepo(otherRepo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", otherRepo))
 		_, err = env.PachClient.StartCommit(otherRepo, "master")
 		require.NoError(t, err)
 		otherMasterCommit := client.NewProjectCommit("", otherRepo, "master", "")
@@ -831,7 +831,7 @@ func TestPFS(suite *testing.T) {
 		repoNames := make(map[string]bool)
 		for i := 0; i < numRepos; i++ {
 			repo := fmt.Sprintf("repo%d", i)
-			require.NoError(t, env.PachClient.CreateRepo(repo))
+			require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 			repoNames[repo] = true
 		}
 
@@ -860,8 +860,8 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		// Create two repos, one as another's provenance
-		require.NoError(t, env.PachClient.CreateRepo("A"))
-		require.NoError(t, env.PachClient.CreateRepo("B"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "A"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "B"))
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master")}))
 
 		commit, err := env.PachClient.StartCommit("A", "master")
@@ -884,8 +884,8 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 0, len(repoInfos))
 
 		// Create two repos again
-		require.NoError(t, env.PachClient.CreateRepo("A"))
-		require.NoError(t, env.PachClient.CreateRepo("B"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "A"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "B"))
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master")}))
 
 		// Force delete should succeed
@@ -904,7 +904,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		started := time.Now()
 		commit, err := env.PachClient.StartCommit(repo, "master")
@@ -949,7 +949,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
@@ -971,7 +971,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -1010,7 +1010,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		repoProto := client.NewProjectRepo("", repo)
 
 		commit, err := env.PachClient.StartCommit(repo, "master")
@@ -1048,7 +1048,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		repoProto := client.NewProjectRepo("", repo)
 
 		commit, err := env.PachClient.StartCommit(repo, "master")
@@ -1085,7 +1085,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -1106,7 +1106,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -1136,7 +1136,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -1154,7 +1154,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		// TODO: implement in terms of branch provenance
 		// test: repo -> repo
@@ -1166,7 +1166,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -1290,11 +1290,11 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("A"))
-		require.NoError(t, env.PachClient.CreateRepo("B"))
-		require.NoError(t, env.PachClient.CreateRepo("C"))
-		require.NoError(t, env.PachClient.CreateRepo("D"))
-		require.NoError(t, env.PachClient.CreateRepo("E"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "A"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "B"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "C"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "D"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "E"))
 
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master")}))
 		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "B", "master"), client.NewProjectBranch("", "E", "master")}))
@@ -1347,8 +1347,8 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("input"))
-		require.NoError(t, env.PachClient.CreateRepo("output"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "input"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "output"))
 		// Make two branches provenant on the master branch
 		require.NoError(t, env.PachClient.CreateBranch("output", "A", "", "", []*pfs.Branch{client.NewProjectBranch("", "input", "master")}))
 		require.NoError(t, env.PachClient.CreateBranch("output", "B", "", "", []*pfs.Branch{client.NewProjectBranch("", "input", "master")}))
@@ -1375,8 +1375,8 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("input"))
-		require.NoError(t, env.PachClient.CreateRepo("output"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "input"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "output"))
 
 		parentCommit, err := env.PachClient.StartCommit("input", "master")
 		require.NoError(t, err)
@@ -1432,7 +1432,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		masterCommit := client.NewProjectCommit("", repo, "master", "")
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -1488,7 +1488,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		// Write a big blob that would normally not fit in a block
 		fileSize := int(pfs.ChunkSize + 5*1024*1024)
@@ -1514,7 +1514,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		masterCommit := client.NewProjectCommit("", repo, "master", "")
 		require.NoError(t, env.PachClient.PutFile(masterCommit, "file", strings.NewReader("foo")))
 		var buf bytes.Buffer
@@ -1536,7 +1536,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		masterCommit := client.NewProjectCommit("", repo, "master", "")
 		require.NoError(t, err)
@@ -1594,7 +1594,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		err := env.PachClient.PutFile(client.NewProjectCommit("", repo, "", "master"), "foo", strings.NewReader("foo\n"), client.WithAppendPutFile())
 		require.NoError(t, err)
@@ -1605,7 +1605,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -1628,7 +1628,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		fileContent1 := "foo\n"
 		commit1, err := env.PachClient.StartCommit(repo, "master")
@@ -1679,7 +1679,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit := client.NewProjectCommit("", repo, "master", "")
 
 		fileContent1 := "foo\n"
@@ -1722,7 +1722,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		fileContent1 := "foo\n"
 		commit1, err := env.PachClient.StartCommit(repo, "master")
@@ -1768,7 +1768,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -1799,7 +1799,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit := client.NewProjectCommit("", repo, "master", "")
 
 		fileContent := "foo\n"
@@ -1840,7 +1840,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		numFiles := 5
 
@@ -1884,7 +1884,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -1913,7 +1913,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit := client.NewProjectCommit("", repo, "master", "")
 
 		fileContent := "foo\n"
@@ -1955,7 +1955,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit := client.NewProjectCommit("", repo, "master", "")
 
 		fileContent := "foo\n"
@@ -2007,7 +2007,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -2039,7 +2039,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		fileContent := "foo\n"
 
@@ -2059,7 +2059,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		// Commit 1: Add two files; delete one file within the commit
 		commit1, err := env.PachClient.StartCommit(repo, "master")
@@ -2123,7 +2123,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -2161,7 +2161,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		fileContent := "bar\n"
@@ -2214,7 +2214,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		// Commit 1: Add two files into the same directory; delete the directory
 		commit1, err := env.PachClient.StartCommit(repo, "master")
@@ -2287,7 +2287,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		repoProto := client.NewProjectRepo("", repo)
 		masterCommit := repoProto.NewCommit("master", "")
 
@@ -2362,7 +2362,7 @@ func TestPFS(suite *testing.T) {
 		//env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		//repo := "test"
-		//require.NoError(t, env.PachClient.CreateRepo(repo))
+		//require.NoError(t, env.PachClient.CreateProjectRepo("",repo))
 		//commit, err := env.PachClient.StartCommit(repo, "")
 		//require.NoError(t, err)
 		//fileData := "foo\n"
@@ -2385,7 +2385,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit, err := env.PachClient.StartCommit(repo, "branch1")
 		require.NoError(t, err)
@@ -2445,7 +2445,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		require.NoError(t, env.PachClient.DeleteBranch(repo, "doesnt_exist", false))
 	})
 
@@ -2454,7 +2454,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		numCommits := 10
 
@@ -2501,7 +2501,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit, err := env.PachClient.StartCommit(repo, "branch")
 		require.NoError(t, err)
@@ -2526,7 +2526,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -2565,7 +2565,7 @@ func TestPFS(suite *testing.T) {
 		//env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		//repo := "test"
-		//require.NoError(t, env.PachClient.CreateRepo(repo))
+		//require.NoError(t, env.PachClient.CreateProjectRepo("",repo))
 		//commit, err := env.PachClient.StartCommit(repo, "")
 		//require.NoError(t, err)
 		//w, err := env.PachClient.PutFileSplitWriter(repo, commit.Branch.Name, commit.ID, "foo", pfs.Delimiter_NONE, 0, 0, 0, false)
@@ -2581,7 +2581,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := tu.UniqueString("test")
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit, "dir/file", strings.NewReader("foo\n")))
@@ -2605,7 +2605,7 @@ func TestPFS(suite *testing.T) {
 		})
 		t.Run("WithOffset", func(t *testing.T) {
 			repo := "repo"
-			require.NoError(t, env.PachClient.CreateRepo(repo))
+			require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 			commit, err := env.PachClient.StartCommit(repo, "master")
 			require.NoError(t, err)
@@ -2636,7 +2636,7 @@ func TestPFS(suite *testing.T) {
 			t.Skip("Skipping long tests in short mode")
 		}
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -2679,7 +2679,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -2706,7 +2706,7 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		// Duplicate paths, different tags.
 		branch := "branch-1"
 		require.NoError(t, env.PachClient.WithModifyFileClient(client.NewProjectCommit("", repo, branch, ""), func(mf client.ModifyFile) error {
@@ -2733,7 +2733,7 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		var eg errgroup.Group
@@ -2760,7 +2760,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -2785,7 +2785,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commit1, err := env.PachClient.StartCommit(repo, "foo")
 		require.NoError(t, err)
@@ -2812,8 +2812,8 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("A"))
-		require.NoError(t, env.PachClient.CreateRepo("B"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "A"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "B"))
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master")}))
 		require.NoError(t, finishCommit(env.PachClient, "B", "master", ""))
 
@@ -2836,10 +2836,10 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("A"))
-		require.NoError(t, env.PachClient.CreateRepo("B"))
-		require.NoError(t, env.PachClient.CreateRepo("C"))
-		require.NoError(t, env.PachClient.CreateRepo("D"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "A"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "B"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "C"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "D"))
 
 		// Create branches and finish the default head commits on the downstream branches
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master")}))
@@ -2887,9 +2887,9 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("A"))
-		require.NoError(t, env.PachClient.CreateRepo("B"))
-		require.NoError(t, env.PachClient.CreateRepo("C"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "A"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "B"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "C"))
 
 		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master"), client.NewProjectBranch("", "B", "master")}))
 		require.NoError(t, finishCommit(env.PachClient, "C", "master", ""))
@@ -2931,7 +2931,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
@@ -2945,8 +2945,8 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("A"))
-		require.NoError(t, env.PachClient.CreateRepo("B"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "A"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "B"))
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master")}))
 		require.NoError(t, finishCommit(env.PachClient, "B", "master", ""))
 		commit, err := env.PachClient.StartCommit("A", "master")
@@ -2978,8 +2978,8 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("A"))
-		require.NoError(t, env.PachClient.CreateRepo("B"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "A"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "B"))
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", nil))
 		commit, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
@@ -2993,7 +2993,7 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("A"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "A"))
 		commit, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
 
@@ -3033,7 +3033,7 @@ func TestPFS(suite *testing.T) {
 		//	}
 		//
 		//	repo := "test"
-		//	require.NoError(t, env.PachClient.CreateRepo(repo))
+		//	require.NoError(t, env.PachClient.CreateProjectRepo("",repo))
 		//	commit, err := env.PachClient.StartCommit(repo, "master")
 		//	require.NoError(t, err)
 		//	_, err = env.PachClient.PutFileSplit(repo, commit.ID, "none", pfs.Delimiter_NONE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
@@ -3143,7 +3143,7 @@ func TestPFS(suite *testing.T) {
 		//
 		//	// create repos
 		//	repo := "test"
-		//	require.NoError(t, env.PachClient.CreateRepo(repo))
+		//	require.NoError(t, env.PachClient.CreateProjectRepo("",repo))
 		//	commit, err := env.PachClient.StartCommit(repo, "master")
 		//	require.NoError(t, err)
 		//	w, err := env.PachClient.PutFileSplitWriter(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, 0, false)
@@ -3170,7 +3170,7 @@ func TestPFS(suite *testing.T) {
 		//
 		//	// create repos
 		//	repo := "test"
-		//	require.NoError(t, env.PachClient.CreateRepo(repo))
+		//	require.NoError(t, env.PachClient.CreateProjectRepo("",repo))
 		//	_, err := env.PachClient.PutFileSplit(repo, "master", "data", pfs.Delimiter_CSV, 0, 0, 0, false,
 		//		// Weird, but this is actually two lines ("is\na" is quoted, so one cell)
 		//		strings.NewReader("this,is,a,test\n"+
@@ -3195,7 +3195,7 @@ func TestPFS(suite *testing.T) {
 		//
 		//	// create repos
 		//	repo := "test"
-		//	require.NoError(t, env.PachClient.CreateRepo(repo))
+		//	require.NoError(t, env.PachClient.CreateProjectRepo("",repo))
 		//
 		//	_, err := env.PachClient.PutFileSplit(repo, "master", "/sql", pfs.Delimiter_SQL, 0, 0, 0,
 		//		false, strings.NewReader(tu.TestPGDump))
@@ -3258,7 +3258,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		// Write foo
 		c1, err := env.PachClient.StartCommit(repo, "master")
@@ -3363,7 +3363,7 @@ func TestPFS(suite *testing.T) {
 		}
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit := client.NewProjectCommit("", repo, "master", "")
 
 		// Write foo
@@ -3481,7 +3481,7 @@ func TestPFS(suite *testing.T) {
 		}
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit := client.NewProjectCommit("", repo, "master", "")
 
 		_, err := env.PachClient.StartCommit(repo, "master")
@@ -3513,7 +3513,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/file1.1", &bytes.Buffer{}))
@@ -3544,7 +3544,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		var expected bytes.Buffer
 		commit, err := env.PachClient.StartCommit(repo, "master")
@@ -3574,7 +3574,7 @@ func TestPFS(suite *testing.T) {
 		}
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit := client.NewProjectCommit("", repo, "master", "")
 
 		// Test that fails when records are applied in lexicographic order
@@ -3601,7 +3601,7 @@ func TestPFS(suite *testing.T) {
 		//	}
 		//
 		//	repo := "test"
-		//	require.NoError(t, env.PachClient.CreateRepo(repo))
+		//	require.NoError(t, env.PachClient.CreateProjectRepo("",repo))
 		//
 		//	// Write foo
 		//	_, err := env.PachClient.StartCommit(repo, "master")
@@ -3643,7 +3643,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		masterCommit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -3682,9 +3682,9 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo1 := "test1"
-		require.NoError(t, env.PachClient.CreateRepo(repo1))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo1))
 		repo2 := "test2"
-		require.NoError(t, env.PachClient.CreateRepo(repo2))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo2))
 		require.NoError(t, env.PachClient.CreateBranch(repo2, "master", "", "", []*pfs.Branch{client.NewProjectBranch("", repo1, "master")}))
 		commit, err := env.PachClient.StartCommit(repo1, "master")
 		require.NoError(t, err)
@@ -3707,10 +3707,10 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("A"))
-		require.NoError(t, env.PachClient.CreateRepo("B"))
-		require.NoError(t, env.PachClient.CreateRepo("C"))
-		require.NoError(t, env.PachClient.CreateRepo("D"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "A"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "B"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "C"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "D"))
 		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master"), client.NewProjectBranch("", "B", "master")}))
 		require.NoError(t, finishCommit(env.PachClient, "C", "master", ""))
 		_, err := env.PachClient.StartCommit("A", "master")
@@ -3746,10 +3746,10 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("A"))
-		require.NoError(t, env.PachClient.CreateRepo("B"))
-		require.NoError(t, env.PachClient.CreateRepo("C"))
-		require.NoError(t, env.PachClient.CreateRepo("D"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "A"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "B"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "C"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "D"))
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master")}))
 		require.NoError(t, finishCommit(env.PachClient, "B", "master", ""))
 		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "B", "master")}))
@@ -3842,7 +3842,7 @@ func TestPFS(suite *testing.T) {
 				env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 				for _, repo := range []string{"A", "B", "C", "D", "E"} {
-					require.NoError(t, env.PachClient.CreateRepo(repo))
+					require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 				}
 				for iStep, step := range test {
 					var provenance []*pfs.Branch
@@ -3885,10 +3885,10 @@ func TestPFS(suite *testing.T) {
 		}
 
 		// t.Run("1", func(t *testing.T) {
-		// 	require.NoError(t, env.PachClient.CreateRepo("A"))
-		// 	require.NoError(t, env.PachClient.CreateRepo("B"))
-		// 	require.NoError(t, env.PachClient.CreateRepo("C"))
-		// 	require.NoError(t, env.PachClient.CreateRepo("D"))
+		// 	require.NoError(t, env.PachClient.CreateProjectRepo("","A"))
+		// 	require.NoError(t, env.PachClient.CreateProjectRepo("","B"))
+		// 	require.NoError(t, env.PachClient.CreateProjectRepo("","C"))
+		// 	require.NoError(t, env.PachClient.CreateProjectRepo("","D"))
 
 		// 	require.NoError(t, env.PachClient.CreateBranch("B", "master", "", []*pfs.Branch{client.NewProjectBranch("","A", "master")}))
 		// 	require.NoError(t, env.PachClient.CreateBranch("C", "master", "", []*pfs.Branch{client.NewProjectBranch("","B", "master")}))
@@ -3921,10 +3921,10 @@ func TestPFS(suite *testing.T) {
 		// 	require.Equal(t, 3, len(dMaster.Provenance))
 		// })
 		// t.Run("2", func(t *testing.T) {
-		// 	require.NoError(t, env.PachClient.CreateRepo("A"))
-		// 	require.NoError(t, env.PachClient.CreateRepo("B"))
-		// 	require.NoError(t, env.PachClient.CreateRepo("C"))
-		// 	require.NoError(t, env.PachClient.CreateRepo("D"))
+		// 	require.NoError(t, env.PachClient.CreateProjectRepo("","A"))
+		// 	require.NoError(t, env.PachClient.CreateProjectRepo("","B"))
+		// 	require.NoError(t, env.PachClient.CreateProjectRepo("","C"))
+		// 	require.NoError(t, env.PachClient.CreateProjectRepo("","D"))
 
 		// 	require.NoError(t, env.PachClient.CreateBranch("B", "master", "", []*pfs.Branch{client.NewProjectBranch("","A", "master")}))
 		// 	require.NoError(t, env.PachClient.CreateBranch("C", "master", "", []*pfs.Branch{client.NewProjectBranch("","B", "master"), client.NewProjectBranch("","A", "master")}))
@@ -3936,7 +3936,7 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("A"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "A"))
 		require.NoError(t, env.PachClient.CreateBranch("A", "master", "", "", nil))
 		aRepo := client.NewProjectRepo("", "A")
 
@@ -3988,7 +3988,7 @@ func TestPFS(suite *testing.T) {
 		// Create a downstream branch in a different repo, then commit to "A" and
 		// make sure the new HEAD commit is in the parent's children (i.e. test
 		// propagateBranches)
-		require.NoError(t, env.PachClient.CreateRepo("B"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "B"))
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{
 			client.NewProjectBranch("", "A", "master"),
 		}))
@@ -4003,7 +4003,7 @@ func TestPFS(suite *testing.T) {
 
 		// create a new branch in a different repo, then update it so that two commits
 		// are generated. Make sure the second commit is in the parent's children
-		require.NoError(t, env.PachClient.CreateRepo("C"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "C"))
 		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", "", []*pfs.Branch{
 			client.NewProjectBranch("", "A", "master"),
 		}))
@@ -4022,7 +4022,7 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("A"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "A"))
 		commit, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
 		require.NoError(t, finishCommit(env.PachClient, "A", commit.Branch.Name, commit.ID))
@@ -4057,9 +4057,9 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("A"))
-		require.NoError(t, env.PachClient.CreateRepo("B"))
-		require.NoError(t, env.PachClient.CreateRepo("C"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "A"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "B"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "C"))
 		require.NoError(t, env.PachClient.CreateBranch("A", "master", "", "", nil))
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", nil))
 		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", "",
@@ -4104,7 +4104,7 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("repo"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "repo"))
 		require.NoError(t, env.PachClient.CreateBranch("repo", "master", "", "", nil))
 
 		// Create commits 'a' and 'b'
@@ -4196,8 +4196,8 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("upstream1"))
-		require.NoError(t, env.PachClient.CreateRepo("upstream2"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "upstream1"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "upstream2"))
 		// commit to both inputs
 		_, err := env.PachClient.StartCommit("upstream1", "master")
 		require.NoError(t, err)
@@ -4207,7 +4207,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, finishCommit(env.PachClient, "upstream2", "master", ""))
 
 		// Create main repo (will have the commit graphs above)
-		require.NoError(t, env.PachClient.CreateRepo("repo"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "repo"))
 		require.NoError(t, env.PachClient.CreateBranch("repo", "master", "", "", []*pfs.Branch{
 			client.NewProjectBranch("", "upstream1", "master"),
 			client.NewProjectBranch("", "upstream2", "master"),
@@ -4342,8 +4342,8 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		// two input repos, one with many commits (logs), and one with few (schema)
-		require.NoError(t, env.PachClient.CreateRepo("A"))
-		require.NoError(t, env.PachClient.CreateRepo("B"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "A"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "B"))
 
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master")}))
 
@@ -4371,7 +4371,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 
 		// Create a new branch C/master with A/master as provenance. It should start out ready.
-		require.NoError(t, env.PachClient.CreateRepo("C"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "C"))
 		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master")}))
 
 		ctx, cancel = context.WithTimeout(context.Background(), time.Second*10)
@@ -4387,9 +4387,9 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("A"))
-		require.NoError(t, env.PachClient.CreateRepo("B"))
-		require.NoError(t, env.PachClient.CreateRepo("C"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "A"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "B"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "C"))
 
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master")}))
 		require.NoError(t, finishCommit(env.PachClient, "B", "master", ""))
@@ -4440,7 +4440,7 @@ func TestPFS(suite *testing.T) {
 
 		numFiles := 25
 		repo := "repo"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit := client.NewProjectCommit("", repo, "master", "")
 
 		var eg errgroup.Group
@@ -4495,7 +4495,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", nil))
 		commit := client.NewProjectCommit("", repo, "master", "")
 
@@ -4508,7 +4508,7 @@ func TestPFS(suite *testing.T) {
 
 		numFiles := 5
 		repo := "repo"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit := client.NewProjectCommit("", repo, "master", "")
 
 		for i := 0; i < numFiles; i++ {
@@ -4525,7 +4525,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit, "dir/bar", strings.NewReader("bar")))
@@ -4552,7 +4552,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "WalkFile2"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/file1.1", &bytes.Buffer{}))
@@ -4600,7 +4600,7 @@ func TestPFS(suite *testing.T) {
 			checkNotFound("/foo/bar")
 		}
 
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", nil))
 		checks() // Test the default empty head commit
 
@@ -4618,7 +4618,7 @@ func TestPFS(suite *testing.T) {
 		//	t.Parallel()
 		//  env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 		//
-		//	require.NoError(t, env.PachClient.CreateRepo("test"))
+		//	require.NoError(t, env.PachClient.CreateProjectRepo("","test"))
 		//	require.NoError(t, env.PachClient.PutFile("test", "master", "", "file", strings.NewReader(strings.Repeat("a", 100*units.MB))))
 		//
 		//	var b bytes.Buffer
@@ -4639,7 +4639,7 @@ func TestPFS(suite *testing.T) {
 		}
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFileURL(commit, "readme", "https://raw.githubusercontent.com/pachyderm/pachyderm/master/README.md", false))
@@ -4659,7 +4659,7 @@ func TestPFS(suite *testing.T) {
 
 		repo := "repo"
 		repoProto := client.NewProjectRepo("", repo)
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		paths := []string{"README.md", "CHANGELOG.md", "CONTRIBUTING.md"}
@@ -4688,7 +4688,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		masterCommit := client.NewProjectCommit("", repo, "master", "")
 		require.NoError(t, err)
@@ -4728,7 +4728,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 		paths := []string{"files/foo", "files/bar", "files/fizz"}
@@ -4758,8 +4758,8 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		inputRepo, outputRepo := "input", "output"
-		require.NoError(t, env.PachClient.CreateRepo(inputRepo))
-		require.NoError(t, env.PachClient.CreateRepo(outputRepo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", inputRepo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", outputRepo))
 		inCommit := client.NewProjectCommit("", inputRepo, "master", "")
 		outCommit := client.NewProjectCommit("", outputRepo, "master", "")
 		require.NoError(t, env.PachClient.CreateBranch(outputRepo, "master", "", "", []*pfs.Branch{client.NewProjectBranch("", inputRepo, "master")}))
@@ -4785,7 +4785,7 @@ func TestPFS(suite *testing.T) {
 		//	var err error
 		//
 		//	repo := "test"
-		//	require.NoError(t, env.PachClient.CreateRepo(repo))
+		//	require.NoError(t, env.PachClient.CreateProjectRepo("",repo))
 		//	numCommits := 10
 		//	for i := 0; i < numCommits; i++ {
 		//		_, err = env.PachClient.PutFile(repo, "master", "file", strings.NewReader("foo\n"))
@@ -4859,9 +4859,9 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("input"))
-		require.NoError(t, env.PachClient.CreateRepo("output1"))
-		require.NoError(t, env.PachClient.CreateRepo("output2"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "input"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "output1"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "output2"))
 		require.NoError(t, env.PachClient.CreateBranch("output1", "staging", "", "", []*pfs.Branch{client.NewProjectBranch("", "input", "master")}))
 		require.NoError(t, finishCommit(env.PachClient, "output1", "staging", ""))
 		require.NoError(t, env.PachClient.CreateBranch("output2", "staging", "", "", []*pfs.Branch{client.NewProjectBranch("", "output1", "master")}))
@@ -4917,7 +4917,7 @@ func TestPFS(suite *testing.T) {
 
 		repo := "repo"
 		file := "foo"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 
 		commitA, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -4949,8 +4949,8 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("repo1"))
-		require.NoError(t, env.PachClient.CreateRepo("repo2"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "repo1"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "repo2"))
 		commit1 := client.NewProjectCommit("", "repo1", "master", "")
 		commit2 := client.NewProjectCommit("", "repo2", "master", "")
 		require.NoError(t, env.PachClient.PutFile(commit1, "file1", strings.NewReader("1")))
@@ -4987,7 +4987,7 @@ func TestPFS(suite *testing.T) {
 		obj.InitMonkeyTest(seed)
 		iterations := 25
 		repo := "input"
-		require.NoError(t, env.PachClient.CreateRepo(repo), seedStr(seed))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo), seedStr(seed))
 		filePrefix := "file"
 		dataPrefix := "data"
 		var commit *pfs.Commit
@@ -5049,9 +5049,9 @@ func TestPFS(suite *testing.T) {
 		input := "input"
 		output1 := "output1"
 		output2 := "output2"
-		require.NoError(t, env.PachClient.CreateRepo(input))
-		require.NoError(t, env.PachClient.CreateRepo(output1))
-		require.NoError(t, env.PachClient.CreateRepo(output2))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", input))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", output1))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", output2))
 		require.NoError(t, env.PachClient.CreateBranch(output1, "master", "", "", []*pfs.Branch{client.NewProjectBranch("", input, "master")}))
 		require.NoError(t, env.PachClient.CreateBranch(output2, "master", "", "", []*pfs.Branch{client.NewProjectBranch("", output1, "master")}))
 		numCommits := 10
@@ -5059,7 +5059,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.PutFile(client.NewProjectCommit("", input, "master", ""), "file", strings.NewReader("1")))
 		}
 		require.NoError(t, env.PachClient.DeleteRepo(input, true))
-		require.NoError(t, env.PachClient.CreateRepo(input))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", input))
 		require.NoError(t, env.PachClient.CreateBranch(input, "master", "", "", nil))
 
 		// Fsck should fail because ???
@@ -5079,7 +5079,7 @@ func TestPFS(suite *testing.T) {
 
 		c := env.PachClient
 		test := "test"
-		require.NoError(t, c.CreateRepo(test))
+		require.NoError(t, c.CreateProjectRepo("", test))
 		testRepo := client.NewProjectRepo("", test)
 		commit := testRepo.NewCommit("master", "")
 
@@ -5183,7 +5183,7 @@ func TestPFS(suite *testing.T) {
 			switch op {
 			case inputRepo:
 				repo := tu.UniqueString("repo")
-				require.NoError(t, env.PachClient.CreateRepo(repo))
+				require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 				inputRepos = append(inputRepos, repo)
 				require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", "", nil))
 				inputBranches = append(inputBranches, client.NewProjectBranch("", repo, "master"))
@@ -5262,7 +5262,7 @@ func TestPFS(suite *testing.T) {
 					continue OpLoop
 				}
 				repo := tu.UniqueString("out")
-				require.NoError(t, env.PachClient.CreateRepo(repo))
+				require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 				outputRepos = append(outputRepos, repo)
 				var provBranches []*pfs.Branch
 				for num, i := range r.Perm(len(inputBranches))[:r.Intn(len(inputBranches))] {
@@ -5348,7 +5348,7 @@ func TestPFS(suite *testing.T) {
 		//  env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 		//
 		//	repo := "test"
-		//	require.NoError(t, env.PachClient.CreateRepo(repo))
+		//	require.NoError(t, env.PachClient.CreateProjectRepo("",repo))
 		//	require.NoError(t, env.PachClient.CreateBranch(repo, "master", "", nil))
 		//	aSize := 1 * 1024 * 1024
 		//	bSize := aSize + 1024
@@ -5405,7 +5405,7 @@ func TestPFS(suite *testing.T) {
 		c := env.PachClient
 
 		t.Run("Simple", func(t *testing.T) {
-			require.NoError(t, c.CreateRepo("test"))
+			require.NoError(t, c.CreateProjectRepo("", "test"))
 			require.NoError(t, c.CreateBranchTrigger("test", "master", "", "", &pfs.Trigger{
 				Branch: "staging",
 				Size_:  "1B",
@@ -5414,7 +5414,7 @@ func TestPFS(suite *testing.T) {
 		})
 
 		t.Run("SizeWithProvenance", func(t *testing.T) {
-			require.NoError(t, c.CreateRepo("in"))
+			require.NoError(t, c.CreateProjectRepo("", "in"))
 			require.NoError(t, c.CreateBranchTrigger("in", "trigger", "", "", &pfs.Trigger{
 				Branch: "master",
 				Size_:  "1K",
@@ -5425,7 +5425,7 @@ func TestPFS(suite *testing.T) {
 			require.Equal(t, 1, len(bis))
 
 			// Create a downstream branch
-			require.NoError(t, c.CreateRepo("out"))
+			require.NoError(t, c.CreateProjectRepo("", "out"))
 			require.NoError(t, c.CreateBranch("out", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "in", "trigger")}))
 			require.NoError(t, c.FinishCommit("out", "master", ""))
 			require.NoError(t, c.CreateBranchTrigger("out", "trigger", "", "", &pfs.Trigger{
@@ -5482,7 +5482,7 @@ func TestPFS(suite *testing.T) {
 		})
 
 		t.Run("Cron", func(t *testing.T) {
-			require.NoError(t, c.CreateRepo("cron"))
+			require.NoError(t, c.CreateProjectRepo("", "cron"))
 			require.NoError(t, c.CreateBranchTrigger("cron", "trigger", "", "", &pfs.Trigger{
 				Branch:   "master",
 				CronSpec: "* * * * *", // every minute
@@ -5517,7 +5517,7 @@ func TestPFS(suite *testing.T) {
 		})
 
 		t.Run("Count", func(t *testing.T) {
-			require.NoError(t, c.CreateRepo("count"))
+			require.NoError(t, c.CreateProjectRepo("", "count"))
 			require.NoError(t, c.CreateBranchTrigger("count", "trigger", "", "", &pfs.Trigger{
 				Branch:  "master",
 				Commits: 2, // trigger every 2 commits
@@ -5574,7 +5574,7 @@ func TestPFS(suite *testing.T) {
 		})
 
 		t.Run("Or", func(t *testing.T) {
-			require.NoError(t, c.CreateRepo("or"))
+			require.NoError(t, c.CreateProjectRepo("", "or"))
 			require.NoError(t, c.CreateBranchTrigger("or", "trigger", "", "", &pfs.Trigger{
 				Branch:   "master",
 				CronSpec: "* * * * *",
@@ -5648,7 +5648,7 @@ func TestPFS(suite *testing.T) {
 		})
 
 		t.Run("And", func(t *testing.T) {
-			require.NoError(t, c.CreateRepo("and"))
+			require.NoError(t, c.CreateProjectRepo("", "and"))
 			require.NoError(t, c.CreateBranchTrigger("and", "trigger", "", "", &pfs.Trigger{
 				Branch:   "master",
 				All:      true,
@@ -5723,7 +5723,7 @@ func TestPFS(suite *testing.T) {
 
 		t.Run("Chain", func(t *testing.T) {
 			// a triggers b which triggers c
-			require.NoError(t, c.CreateRepo("chain"))
+			require.NoError(t, c.CreateProjectRepo("", "chain"))
 			require.NoError(t, c.CreateBranchTrigger("chain", "b", "", "", &pfs.Trigger{
 				Branch: "a",
 				Size_:  "100",
@@ -5805,7 +5805,7 @@ func TestPFS(suite *testing.T) {
 		})
 
 		t.Run("BranchMovement", func(t *testing.T) {
-			require.NoError(t, c.CreateRepo("branch-movement"))
+			require.NoError(t, c.CreateProjectRepo("", "branch-movement"))
 			require.NoError(t, c.CreateBranchTrigger("branch-movement", "c", "", "", &pfs.Trigger{
 				Branch: "b",
 				Size_:  "100",
@@ -5849,7 +5849,7 @@ func TestPFS(suite *testing.T) {
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		c := env.PachClient
-		require.NoError(t, c.CreateRepo("repo"))
+		require.NoError(t, c.CreateProjectRepo("", "repo"))
 		// Must specify a branch
 		require.YesError(t, c.CreateBranchTrigger("repo", "master", "", "", &pfs.Trigger{
 			Branch: "",
@@ -5887,7 +5887,7 @@ func TestPFS(suite *testing.T) {
 			CronSpec: "this is not a cron spec",
 		}))
 		// Can't use a trigger and provenance together
-		require.NoError(t, c.CreateRepo("in"))
+		require.NoError(t, c.CreateProjectRepo("", "in"))
 		_, err := c.PfsAPIClient.CreateBranch(c.Ctx(),
 			&pfs.CreateBranchRequest{
 				Branch: client.NewProjectBranch("", "repo", "master"),
@@ -5928,7 +5928,7 @@ func TestPFS(suite *testing.T) {
 		}, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
@@ -5961,7 +5961,7 @@ func TestPFS(suite *testing.T) {
 			t.Parallel()
 			env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 			repo := "test"
-			require.NoError(t, env.PachClient.CreateRepo(repo))
+			require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 			c, err := env.PachClient.PfsAPIClient.ModifyFile(context.Background())
 			require.NoError(t, err)
 			files := []string{"/empty-1", "/empty-2"}
@@ -5994,7 +5994,7 @@ func TestPFS(suite *testing.T) {
 			t.Parallel()
 			env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 			repo := "test"
-			require.NoError(t, env.PachClient.CreateRepo(repo))
+			require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 			filePath := "file"
 			fileContent := "foo"
 			c, err := env.PachClient.PfsAPIClient.ModifyFile(context.Background())
@@ -6084,7 +6084,7 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		checks := func(t *testing.T, branch string) {
 			// First commit should contain the first file.
 			branchCommit := client.NewProjectCommit("", repo, branch, "^2")
@@ -6163,7 +6163,7 @@ func TestPFS(suite *testing.T) {
 		})
 		require.YesError(t, err)
 
-		require.NoError(t, env.PachClient.CreateRepo("test"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "test"))
 		// but now we can
 		_, err = env.PachClient.PfsAPIClient.CreateRepo(env.Context, &pfs.CreateRepoRequest{
 			Repo: sysRepo,
@@ -6187,9 +6187,9 @@ func TestPFS(suite *testing.T) {
 		require.True(t, errutil.IsNotFoundError(err))
 		require.False(t, strings.Contains(err.Error(), pfs.UserRepoType))
 
-		require.NoError(t, env.PachClient.CreateRepo("test"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "test"))
 
-		err = env.PachClient.CreateRepo("test")
+		err = env.PachClient.CreateProjectRepo("", "test")
 		require.YesError(t, err)
 		require.True(t, errutil.IsAlreadyExistError(err))
 		require.False(t, strings.Contains(err.Error(), pfs.UserRepoType))
@@ -6313,7 +6313,7 @@ func TestPFS(suite *testing.T) {
 				}
 
 				// setup source repo based on target database, and generate fake data
-				require.NoError(t, env.PachClient.CreateRepo(dbName))
+				require.NoError(t, env.PachClient.CreateProjectRepo("", dbName))
 				commit := client.NewProjectCommit("", dbName, "master", "")
 				for _, f := range test.files {
 					require.NoError(t, env.PachClient.PutFile(

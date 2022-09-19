@@ -52,8 +52,8 @@ func TestS3PipelineErrors(t *testing.T) {
 	c, _, _ := initPachClient(t)
 
 	repo1, repo2 := tu.UniqueString(t.Name()+"_data"), tu.UniqueString(t.Name()+"_data")
-	require.NoError(t, c.CreateRepo(repo1))
-	require.NoError(t, c.CreateRepo(repo2))
+	require.NoError(t, c.CreateProjectRepo("", repo1))
+	require.NoError(t, c.CreateProjectRepo("", repo2))
 
 	pipeline := tu.UniqueString("Pipeline")
 	err := c.CreatePipeline(
@@ -125,7 +125,7 @@ func TestS3Input(t *testing.T) {
 	c, userToken, ns := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateRepo(repo))
+	require.NoError(t, c.CreateProjectRepo("", repo))
 	masterCommit := client.NewProjectCommit("", repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
@@ -215,7 +215,7 @@ func TestS3Chain(t *testing.T) {
 	c, userToken, _ := initPachClient(t)
 
 	dataRepo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
+	require.NoError(t, c.CreateProjectRepo("", dataRepo))
 	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 
 	numPipelines := 5
@@ -278,7 +278,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	c, _, ns := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateRepo(repo))
+	require.NoError(t, c.CreateProjectRepo("", repo))
 	masterCommit := client.NewProjectCommit("", repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
@@ -326,7 +326,7 @@ func TestS3Output(t *testing.T) {
 	c, userToken, ns := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateRepo(repo))
+	require.NoError(t, c.CreateProjectRepo("", repo))
 	masterCommit := client.NewProjectCommit("", repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
@@ -410,7 +410,7 @@ func TestFullS3(t *testing.T) {
 	c, userToken, ns := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateRepo(repo))
+	require.NoError(t, c.CreateProjectRepo("", repo))
 	masterCommit := client.NewProjectCommit("", repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
@@ -500,16 +500,16 @@ func TestS3SkippedDatums(t *testing.T) {
 		// TODO(2.0 optional): Duplicate file paths from different datums no longer allowed.
 		t.Skip("Duplicate file paths from different datums no longer allowed.")
 		s3in := tu.UniqueString(name + "_s3_data")
-		require.NoError(t, c.CreateRepo(s3in))
+		require.NoError(t, c.CreateProjectRepo("", s3in))
 		pfsin := tu.UniqueString(name + "_pfs_data")
-		require.NoError(t, c.CreateRepo(pfsin))
+		require.NoError(t, c.CreateProjectRepo("", pfsin))
 
 		s3Commit := client.NewProjectCommit("", s3in, "master", "")
 		// Pipelines with S3 inputs should still skip datums, as long as the S3 input
 		// hasn't changed. We'll check this by reading from a repo that isn't a
 		// pipeline input
 		background := tu.UniqueString(name + "_bg_data")
-		require.NoError(t, c.CreateRepo(background))
+		require.NoError(t, c.CreateProjectRepo("", background))
 
 		require.NoError(t, c.PutFile(s3Commit, "file", strings.NewReader("foo")))
 
@@ -665,12 +665,12 @@ func TestS3SkippedDatums(t *testing.T) {
 
 	t.Run("S3Output", func(t *testing.T) {
 		repo := tu.UniqueString(name + "_pfs_data")
-		require.NoError(t, c.CreateRepo(repo))
+		require.NoError(t, c.CreateProjectRepo("", repo))
 		// Pipelines with S3 output should not skip datums, as they have no way of
 		// tracking which output data should be associated with which input data.
 		// We'll check this by reading from a repo that isn't a pipeline input
 		background := tu.UniqueString(name + "_bg_data")
-		require.NoError(t, c.CreateRepo(background))
+		require.NoError(t, c.CreateProjectRepo("", background))
 
 		pipeline := tu.UniqueString("Pipeline")
 		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{

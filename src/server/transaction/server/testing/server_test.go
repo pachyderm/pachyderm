@@ -184,7 +184,7 @@ func TestTransactions(suite *testing.T) {
 		branchA := "master"
 		branchB := "bar"
 
-		require.NoError(t, env.PachClient.CreateRepo(repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", repo))
 		require.NoError(t, env.PachClient.CreateBranch(repo, branchA, "", "", nil))
 		require.NoError(t, env.PachClient.CreateBranch(repo, branchB, "", "", nil))
 
@@ -242,7 +242,7 @@ func TestTransactions(suite *testing.T) {
 
 		txnClient := env.PachClient.WithTransaction(txn)
 
-		err = txnClient.CreateRepo("foo")
+		err = txnClient.CreateProjectRepo("", "foo")
 		require.NoError(t, err)
 
 		_, err = txnClient.StartCommit("foo", "master")
@@ -265,11 +265,11 @@ func TestTransactions(suite *testing.T) {
 		t.Parallel()
 		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateRepo("A"))
-		require.NoError(t, env.PachClient.CreateRepo("B"))
-		require.NoError(t, env.PachClient.CreateRepo("C"))
-		require.NoError(t, env.PachClient.CreateRepo("D"))
-		require.NoError(t, env.PachClient.CreateRepo("E"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "A"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "B"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "C"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "D"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("", "E"))
 
 		require.NoError(t, env.PachClient.CreateBranch("B", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master")}))
 		require.NoError(t, env.PachClient.CreateBranch("C", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "B", "master"), client.NewProjectBranch("", "E", "master")}))
@@ -355,11 +355,11 @@ func TestTransactions(suite *testing.T) {
 
 		txnClient := env.PachClient.WithTransaction(txn)
 
-		require.NoError(t, txnClient.CreateRepo("A"))
-		require.NoError(t, txnClient.CreateRepo("B"))
-		require.NoError(t, txnClient.CreateRepo("C"))
-		require.NoError(t, txnClient.CreateRepo("D"))
-		require.NoError(t, txnClient.CreateRepo("E"))
+		require.NoError(t, txnClient.CreateProjectRepo("", "A"))
+		require.NoError(t, txnClient.CreateProjectRepo("", "B"))
+		require.NoError(t, txnClient.CreateProjectRepo("", "C"))
+		require.NoError(t, txnClient.CreateProjectRepo("", "D"))
+		require.NoError(t, txnClient.CreateProjectRepo("", "E"))
 
 		require.NoError(t, txnClient.CreateBranch("B", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "A", "master")}))
 		require.NoError(t, txnClient.CreateBranch("C", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "B", "master"), client.NewProjectBranch("", "E", "master")}))
@@ -421,7 +421,7 @@ func TestTransactions(suite *testing.T) {
 
 		// One operation
 		info, err = env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
-			require.NoError(t, builder.CreateRepo("repoA"))
+			require.NoError(t, builder.CreateProjectRepo("", "repoA"))
 			return nil
 		})
 		require.NoError(t, err)
@@ -447,7 +447,7 @@ func TestTransactions(suite *testing.T) {
 
 		// Some dependent operations
 		info, err = env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
-			require.NoError(t, builder.CreateRepo("repoB"))
+			require.NoError(t, builder.CreateProjectRepo("", "repoB"))
 			_, err := builder.StartCommit("repoB", "master")
 			require.NoError(t, err)
 			err = builder.FinishCommit("repoB", "master", "")
@@ -479,7 +479,7 @@ func TestCreatePipelineTransaction(t *testing.T) {
 	repo := testutil.UniqueString("in")
 	pipeline := testutil.UniqueString("pipeline")
 	_, err := c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
-		require.NoError(t, txnClient.CreateRepo(repo))
+		require.NoError(t, txnClient.CreateProjectRepo("", repo))
 		require.NoError(t, txnClient.CreatePipeline(
 			pipeline,
 			"",

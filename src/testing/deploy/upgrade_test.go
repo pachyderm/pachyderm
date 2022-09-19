@@ -80,7 +80,7 @@ func TestUpgradeSimple(t *testing.T) {
 	upgradeTest(t, context.Background(),
 		func(t *testing.T, c *client.APIClient) {
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
-			require.NoError(t, c.CreateRepo(inputRepo))
+			require.NoError(t, c.CreateProjectRepo("", inputRepo))
 			require.NoError(t,
 				c.CreatePipeline(outputRepo,
 					"busybox",

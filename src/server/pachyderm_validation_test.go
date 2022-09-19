@@ -25,7 +25,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 
 	// Set up repo
 	dataRepo := tu.UniqueString("TestDuplicatedJob_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
+	require.NoError(t, c.CreateProjectRepo("", dataRepo))
 
 	pipelineName := tu.UniqueString("pipeline")
 	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
@@ -94,7 +94,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 
 	dataRepo := tu.UniqueString("TestPipelineNamesThatContainUnderscoresAndHyphens")
-	require.NoError(t, c.CreateRepo(dataRepo))
+	require.NoError(t, c.CreateProjectRepo("", dataRepo))
 
 	require.NoError(t, c.CreatePipeline(
 		tu.UniqueString("pipeline-hyphen"),

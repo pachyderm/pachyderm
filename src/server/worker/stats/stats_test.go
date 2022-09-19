@@ -27,7 +27,7 @@ func TestPrometheusStats(t *testing.T) {
 	tu.ActivateEnterprise(t, c)
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
+	require.NoError(t, c.CreateProjectRepo("", dataRepo))
 
 	pipeline := tu.UniqueString("TestSimplePipeline")
 	// We want several commits (for multiple jobs) and several datums per job
@@ -236,7 +236,7 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	tu.ActivateEnterprise(t, c)
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
+	require.NoError(t, c.CreateProjectRepo("", dataRepo))
 
 	pipeline := tu.UniqueString("TestSimplePipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(
