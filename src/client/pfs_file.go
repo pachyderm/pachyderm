@@ -409,6 +409,8 @@ func (c APIClient) GetProjectFileSet(project, repo, branch, commit string) (_ st
 }
 
 // AddFileSet adds a fileset to a commit.
+//
+// Deprecated: use AddProjectFileSet instead.
 func (c APIClient) AddFileSet(repo, branch, commit, ID string) (retErr error) {
 	return c.AddProjectFileSet("", repo, branch, commit, ID)
 }
