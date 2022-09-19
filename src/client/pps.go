@@ -606,13 +606,24 @@ func (c APIClient) StopProjectJob(projectName, pipelineName, jobID string) error
 }
 
 // RestartDatum restarts a datum that's being processed as part of a job.
+//
 // datumFilter is a slice of strings which are matched against either the Path
 // or Hash of the datum, the order of the strings in datumFilter is irrelevant.
+//
+// Deprecated: use RestartProjectDatum instead.
 func (c APIClient) RestartDatum(pipelineName string, jobID string, datumFilter []string) error {
+	return c.RestartProjectDatum("", pipelineName, jobID, datumFilter)
+}
+
+// RestartProjectDatum restarts a datum that's being processed as part of a job.
+//
+// datumFilter is a slice of strings which are matched against either the Path
+// or Hash of the datum, the order of the strings in datumFilter is irrelevant.
+func (c APIClient) RestartProjectDatum(projectName, pipelineName, jobID string, datumFilter []string) error {
 	_, err := c.PpsAPIClient.RestartDatum(
 		c.Ctx(),
 		&pps.RestartDatumRequest{
-			Job:         NewProjectJob("", pipelineName, jobID),
+			Job:         NewProjectJob(projectName, pipelineName, jobID),
 			DataFilters: datumFilter,
 		},
 	)

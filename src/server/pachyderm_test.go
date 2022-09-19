@@ -4681,7 +4681,7 @@ func TestDatumStatusRestart(t *testing.T) {
 		})
 	}
 	checkStatus()
-	require.NoError(t, c.RestartDatum(pipeline, commit1.ID, []string{"/file"}))
+	require.NoError(t, c.RestartProjectDatum("", pipeline, commit1.ID, []string{"/file"}))
 	checkStatus()
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.ID)
