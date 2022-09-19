@@ -30,6 +30,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	opts.ValueOverrides = map[string]string{
 		"pachd.lokiDeploy":            "false",
 		"pachd.lokiLogging":           "false",
+		"kubeEventTail.enabled":       "false",
 		"postgresql.image.repository": "pachyderm/postgresql",
 		"postgresql.image.tag":        "13.3.0",
 		"etcd.image.tag":              "v3.5.2",
