@@ -71,7 +71,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
 	golang.org/x/oauth2 v0.0.0-20220622183110-fd043fe589d2
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
-	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8
+	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	google.golang.org/api v0.89.0
 	google.golang.org/grpc v1.48.0
@@ -83,7 +83,7 @@ require (
 	k8s.io/kubectl v0.23.1
 )
 
-require golang.org/x/net v0.0.0-20220708220712-1185a9018129
+require golang.org/x/net v0.0.0-20220906165146-f3363e06e74c
 
 require (
 	cloud.google.com/go v0.102.0 // indirect
