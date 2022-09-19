@@ -6,20 +6,19 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
-
-	//
 	"github.com/pachyderm/pachyderm/v2/src/client"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 )
 
 func BenchmarkDownload(b *testing.B) {
-	env := testpachd.NewRealEnv(b, dockertestenv.NewTestDBConfig(b))
+	env := realenv.NewRealEnv(b, dockertestenv.NewTestDBConfig(b))
 	repo := "repo"
 	require.NoError(b, env.PachClient.CreateRepo(repo))
 	commit, err := env.PachClient.StartCommit(repo, "master")

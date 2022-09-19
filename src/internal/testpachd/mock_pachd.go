@@ -3,7 +3,6 @@ package testpachd
 import (
 	"context"
 	"net"
-	"reflect"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/admin"
@@ -23,30 +22,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
-
-// linkServers can be used to default a mock server to make calls to a real api
-// server. Due to some reflection shenanigans, mockServerPtr must explicitly be
-// a pointer to the mock server instance.
-func linkServers(mockServerPtr interface{}, realServer interface{}) {
-	mockValue := reflect.ValueOf(mockServerPtr).Elem()
-	realValue := reflect.ValueOf(realServer)
-	mockType := mockValue.Type()
-	for i := 0; i < mockType.NumField(); i++ {
-		field := mockType.Field(i)
-		if field.Name != "api" {
-			mock := mockValue.FieldByName(field.Name)
-			realMethod := realValue.MethodByName(field.Name)
-
-			// We need a pointer to the mock field to call the right method
-			mockPtr := reflect.New(reflect.PtrTo(mock.Type()))
-			mockPtrValue := mockPtr.Elem()
-			mockPtrValue.Set(mock.Addr())
-
-			useFn := mockPtrValue.MethodByName("Use")
-			useFn.Call([]reflect.Value{realMethod})
-		}
-	}
-}
 
 /* Admin Server Mocks */
 

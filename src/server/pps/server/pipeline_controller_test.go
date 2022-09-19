@@ -1,12 +1,9 @@
-package server_test
+package server
 
 import (
 	"context"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"testing"
 	"time"
-
-	"github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -20,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/task"
 	logrus "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 )
 
 type pipelineTest struct {
@@ -27,18 +25,18 @@ type pipelineTest struct {
 	expectedStates []pps.PipelineState
 }
 
-func ppsMasterHandles(t *testing.T) (*server.MockStateDriver, *server.MockInfraDriver, *testpachd.MockPachd) {
-	sDriver := server.NewMockStateDriver()
-	iDriver := server.NewMockInfraDriver()
+func ppsMasterHandles(t *testing.T) (*mockStateDriver, *mockInfraDriver, *testpachd.MockPachd) {
+	sDriver := newMockStateDriver()
+	iDriver := newMockInfraDriver()
 	mockEnv := testpachd.NewMockEnv(t)
-	env := server.Env{
+	env := Env{
 		BackgroundContext: context.Background(),
 		Logger:            logrus.StandardLogger(),
 		EtcdClient:        mockEnv.EtcdClient,
 		GetPachClient: func(ctx context.Context) *client.APIClient {
 			return mockEnv.PachClient.WithCtx(ctx)
 		},
-		Config:      *serviceenv.ConfigFromOptions(),
+		Config:      newConfig(t),
 		TaskService: nil,
 		DB:          nil,
 		KubeClient:  nil,
@@ -48,14 +46,16 @@ func ppsMasterHandles(t *testing.T) (*server.MockStateDriver, *server.MockInfraD
 	}
 	ctx, cf := context.WithCancel(context.Background())
 	t.Cleanup(func() { cf() })
-	server.MockMaster(ctx, env, iDriver, sDriver)
+	master := newMaster(ctx, env, env.EtcdPrefix, iDriver, sDriver)
+	master.scaleUpInterval = 2 * time.Second
+	go master.run()
 	return sDriver, iDriver, mockEnv.MockPachd
 }
 
-func waitForPipelineState(t testing.TB, stateDriver *server.MockStateDriver, pipeline string, state pps.PipelineState) {
+func waitForPipelineState(t testing.TB, stateDriver *mockStateDriver, pipeline string, state pps.PipelineState) {
 	require.NoErrorWithinT(t, 10*time.Second, func() error {
 		return backoff.Retry(func() error {
-			actualStates := stateDriver.States[pipeline]
+			actualStates := stateDriver.states[pipeline]
 			for _, s := range actualStates {
 				if s == state {
 					return nil
@@ -91,24 +91,24 @@ func mockJobRunning(mockPachd *testpachd.MockPachd, taskCount, commitCount int) 
 	return testDone
 }
 
-func validate(t testing.TB, sDriver *server.MockStateDriver, iDriver *server.MockInfraDriver, tests []pipelineTest) {
+func validate(t testing.TB, sDriver *mockStateDriver, iDriver *mockInfraDriver, tests []pipelineTest) {
 	for _, test := range tests {
 		require.NoErrorWithinT(t, 10*time.Second, func() error {
 			return backoff.Retry(func() error {
-				return require.ElementsEqualOrErr(test.expectedStates, sDriver.States[test.pipeline])
+				return require.ElementsEqualOrErr(test.expectedStates, sDriver.states[test.pipeline])
 			}, backoff.NewTestingBackOff())
 		})
-		require.Equal(t, 1, len(iDriver.Rcs))
-		rc, err := iDriver.ReadReplicationController(context.Background(), sDriver.CurrentPipelineInfo(test.pipeline))
+		require.Equal(t, 1, len(iDriver.rcs))
+		rc, err := iDriver.ReadReplicationController(context.Background(), sDriver.currentPipelineInfo(test.pipeline))
 		require.NoError(t, err)
-		require.True(t, server.RcIsFresh(sDriver.CurrentPipelineInfo(test.pipeline), &rc.Items[0]))
+		require.True(t, rcIsFresh(sDriver.currentPipelineInfo(test.pipeline), &rc.Items[0]))
 	}
 }
 
 func TestBasic(t *testing.T) {
 	stateDriver, infraDriver, _ := ppsMasterHandles(t)
 	pipeline := tu.UniqueString(t.Name())
-	stateDriver.UpsertPipeline(&pps.PipelineInfo{
+	stateDriver.upsertPipeline(&pps.PipelineInfo{
 		Pipeline: client.NewPipeline(pipeline),
 		State:    pps.PipelineState_PIPELINE_STARTING,
 		Details:  &pps.PipelineInfo_Details{},
@@ -123,7 +123,7 @@ func TestBasic(t *testing.T) {
 			},
 		},
 	})
-	require.Equal(t, 1, infraDriver.Calls[pipeline][server.MockInfraOp_CREATE])
+	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
 }
 
 func TestDeletePipeline(t *testing.T) {
@@ -135,7 +135,7 @@ func TestDeletePipeline(t *testing.T) {
 		Details:  &pps.PipelineInfo_Details{},
 		Version:  1,
 	}
-	stateDriver.UpsertPipeline(pi)
+	stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
@@ -145,14 +145,14 @@ func TestDeletePipeline(t *testing.T) {
 			},
 		},
 	})
-	require.Equal(t, 1, infraDriver.Calls[pipeline][server.MockInfraOp_CREATE])
+	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
 	// clear state and trigger the delete event
-	stateDriver.Reset()
-	defer stateDriver.CancelWatch()
-	stateDriver.PushWatchEvent(pi, watch.EventDelete)
+	stateDriver.reset()
+	defer stateDriver.cancelWatch()
+	stateDriver.pushWatchEvent(pi, watch.EventDelete)
 	require.NoErrorWithinT(t, 5*time.Second, func() error {
 		return backoff.Retry(func() error {
-			if infraDriver.Calls[pipeline][server.MockInfraOp_DELETE] == 1 {
+			if infraDriver.calls[pipeline][mockInfraOp_DELETE] == 1 {
 				return nil
 			}
 			return errors.New("change hasn't reflected")
@@ -169,7 +169,7 @@ func TestDeleteRC(t *testing.T) {
 		Details:  &pps.PipelineInfo_Details{},
 		Version:  1,
 	}
-	stateDriver.UpsertPipeline(pi)
+	stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
@@ -179,14 +179,14 @@ func TestDeleteRC(t *testing.T) {
 			},
 		},
 	})
-	require.Equal(t, 1, infraDriver.Calls[pipeline][server.MockInfraOp_CREATE])
+	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
 	// remove RCs, and nudge with an event
-	infraDriver.ResetRCs()
-	stateDriver.PushWatchEvent(pi, watch.EventPut)
+	infraDriver.resetRCs()
+	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	// verify restart side effects were requested
 	require.NoErrorWithinT(t, 5*time.Second, func() error {
 		return backoff.Retry(func() error {
-			if infraDriver.Calls[pipeline][server.MockInfraOp_CREATE] == 2 {
+			if infraDriver.calls[pipeline][mockInfraOp_CREATE] == 2 {
 				return nil
 			}
 			return errors.New("change hasn't reflected")
@@ -200,7 +200,7 @@ func TestAutoscalingBasic(t *testing.T) {
 	pipeline := tu.UniqueString(t.Name())
 	done := mockJobRunning(mockPachd, 1, 1)
 	defer close(done)
-	stateDriver.UpsertPipeline(&pps.PipelineInfo{
+	stateDriver.upsertPipeline(&pps.PipelineInfo{
 		Pipeline: client.NewPipeline(pipeline),
 		State:    pps.PipelineState_PIPELINE_STARTING,
 		Details: &pps.PipelineInfo_Details{
@@ -222,7 +222,7 @@ func TestAutoscalingBasic(t *testing.T) {
 			},
 		},
 	})
-	require.Equal(t, 1, infraDriver.Calls[pipeline][server.MockInfraOp_CREATE])
+	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
 }
 
 func TestAutoscalingManyCommits(t *testing.T) {
@@ -235,7 +235,7 @@ func TestAutoscalingManyCommits(t *testing.T) {
 		inspectCount++
 		return &pfs.CommitInfo{}, nil
 	})
-	stateDriver.UpsertPipeline(&pps.PipelineInfo{
+	stateDriver.upsertPipeline(&pps.PipelineInfo{
 		Pipeline: client.NewPipeline(pipeline),
 		State:    pps.PipelineState_PIPELINE_STARTING,
 		Details: &pps.PipelineInfo_Details{
@@ -257,7 +257,7 @@ func TestAutoscalingManyCommits(t *testing.T) {
 			},
 		},
 	})
-	require.Equal(t, 1, infraDriver.Calls[pipeline][server.MockInfraOp_CREATE])
+	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
 	// 2 * number of commits, to capture the user + meta repos
 	require.Equal(t, 200, inspectCount)
 }
@@ -271,7 +271,7 @@ func TestAutoscalingManyTasks(t *testing.T) {
 		// wait for pipeline replica scale to update before closing the commit
 		// the first two elements should always be [0, 1]
 		require.NoError(t, backoff.Retry(func() error {
-			if len(infraDriver.ScaleHistory[pipeline]) > 2 {
+			if len(infraDriver.scaleHistory[pipeline]) > 2 {
 				return nil
 			}
 			return errors.New("waiting for scaleHistory to update")
@@ -289,7 +289,7 @@ func TestAutoscalingManyTasks(t *testing.T) {
 		},
 		Version: 1,
 	}
-	stateDriver.UpsertPipeline(pi)
+	stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
@@ -301,8 +301,8 @@ func TestAutoscalingManyTasks(t *testing.T) {
 			},
 		},
 	})
-	require.Equal(t, 1, infraDriver.Calls[pipeline][server.MockInfraOp_CREATE])
-	require.ElementsEqual(t, []int32{0, 1, 100, 0}, infraDriver.ScaleHistory[pi.Pipeline.Name])
+	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
+	require.ElementsEqual(t, []int32{0, 1, 100, 0}, infraDriver.scaleHistory[pi.Pipeline.Name])
 }
 
 func TestAutoscalingNoCommits(t *testing.T) {
@@ -310,7 +310,7 @@ func TestAutoscalingNoCommits(t *testing.T) {
 	pipeline := tu.UniqueString(t.Name())
 	done := mockJobRunning(mockPachd, 0, 0)
 	defer close(done)
-	stateDriver.UpsertPipeline(&pps.PipelineInfo{
+	stateDriver.upsertPipeline(&pps.PipelineInfo{
 		Pipeline: client.NewPipeline(pipeline),
 		State:    pps.PipelineState_PIPELINE_STARTING,
 		Details: &pps.PipelineInfo_Details{
@@ -330,7 +330,7 @@ func TestAutoscalingNoCommits(t *testing.T) {
 			},
 		},
 	})
-	require.Equal(t, 1, infraDriver.Calls[pipeline][server.MockInfraOp_CREATE])
+	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
 }
 
 func TestPause(t *testing.T) {
@@ -342,7 +342,7 @@ func TestPause(t *testing.T) {
 		Details:  &pps.PipelineInfo_Details{},
 		Version:  1,
 	}
-	spec := stateDriver.UpsertPipeline(pi)
+	spec := stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
@@ -353,12 +353,12 @@ func TestPause(t *testing.T) {
 		},
 	})
 	// pause pipeline
-	stateDriver.SpecCommits[spec.ID].Stopped = true
-	stateDriver.PushWatchEvent(pi, watch.EventPut)
+	stateDriver.specCommits[spec.ID].Stopped = true
+	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	waitForPipelineState(t, stateDriver, pi.Pipeline.Name, pps.PipelineState_PIPELINE_PAUSED)
 	// unpause pipeline
-	stateDriver.SpecCommits[spec.ID].Stopped = false
-	stateDriver.PushWatchEvent(pi, watch.EventPut)
+	stateDriver.specCommits[spec.ID].Stopped = false
+	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
@@ -388,7 +388,7 @@ func TestPauseAutoscaling(t *testing.T) {
 		},
 		Version: 1,
 	}
-	spec := stateDriver.UpsertPipeline(pi)
+	spec := stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
@@ -409,12 +409,12 @@ func TestPauseAutoscaling(t *testing.T) {
 		return nil
 	})
 	// pause pipeline
-	stateDriver.SpecCommits[spec.ID].Stopped = true
-	stateDriver.PushWatchEvent(pi, watch.EventPut)
+	stateDriver.specCommits[spec.ID].Stopped = true
+	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	waitForPipelineState(t, stateDriver, pi.Pipeline.Name, pps.PipelineState_PIPELINE_PAUSED)
 	// unpause pipeline
-	stateDriver.SpecCommits[spec.ID].Stopped = false
-	stateDriver.PushWatchEvent(pi, watch.EventPut)
+	stateDriver.specCommits[spec.ID].Stopped = false
+	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
@@ -439,7 +439,7 @@ func TestStaleRestart(t *testing.T) {
 		Details:  &pps.PipelineInfo_Details{},
 		Version:  1,
 	}
-	stateDriver.UpsertPipeline(pi)
+	stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
@@ -449,10 +449,10 @@ func TestStaleRestart(t *testing.T) {
 			},
 		},
 	})
-	require.Equal(t, 1, infraDriver.Calls[pipeline][server.MockInfraOp_CREATE])
+	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
 	pi.Version = 2
 	pi.State = pps.PipelineState_PIPELINE_RUNNING
-	stateDriver.UpsertPipeline(pi)
+	stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
@@ -465,6 +465,188 @@ func TestStaleRestart(t *testing.T) {
 			},
 		},
 	})
-	require.Equal(t, 2, infraDriver.Calls[pipeline][server.MockInfraOp_CREATE])
+	require.Equal(t, 2, infraDriver.calls[pipeline][mockInfraOp_CREATE])
 
+}
+
+type evalTest struct {
+	state       pps.PipelineState
+	sideEffects []sideEffect
+}
+
+// explicitly tests the logic of pipeline_controller.go#evaluate()
+func TestEvaluate(t *testing.T) {
+	// conceptual params: State (8 opts), Autoscaling (2 opts), Stopped (2 opts), rc=?nil (2 opts)
+	pi := &pps.PipelineInfo{
+		Details: &pps.PipelineInfo_Details{
+			Autoscaling: false,
+		},
+	}
+	rc := &v1.ReplicationController{}
+	test := func(startState pps.PipelineState, expectedState pps.PipelineState, expectedSideEffects []sideEffect) {
+		pi.State = startState
+		actualState, actualSideEffects, _, err := evaluate(pi, rc)
+		require.NoError(t, err)
+		require.Equal(t, expectedState, actualState)
+		require.Equal(t, len(expectedSideEffects), len(actualSideEffects))
+		for i := 0; i < len(expectedSideEffects); i++ {
+			require.True(t, expectedSideEffects[i].equals(actualSideEffects[i]))
+		}
+		require.Equal(t, expectedState, actualState)
+	}
+	stackMaps := func(maps ...map[pps.PipelineState]evalTest) map[pps.PipelineState]evalTest {
+		newMap := make(map[pps.PipelineState]evalTest)
+		for _, m := range maps {
+			for k, v := range m {
+				newMap[k] = v
+			}
+		}
+		return newMap
+	}
+	// Autoscaling = False, Stopped = False, With RC != nil
+	tests := map[pps.PipelineState]evalTest{
+		pps.PipelineState_PIPELINE_STARTING: {
+			state: pps.PipelineState_PIPELINE_RUNNING,
+			sideEffects: []sideEffect{
+				CrashingMonitorSideEffect(sideEffectToggle_DOWN),
+			},
+		},
+		pps.PipelineState_PIPELINE_RUNNING: {
+			state: pps.PipelineState_PIPELINE_RUNNING,
+			sideEffects: []sideEffect{
+				CrashingMonitorSideEffect(sideEffectToggle_DOWN),
+				PipelineMonitorSideEffect(sideEffectToggle_UP),
+				ScaleWorkersSideEffect(sideEffectToggle_UP),
+			},
+		},
+		pps.PipelineState_PIPELINE_RESTARTING: {
+			state: pps.PipelineState_PIPELINE_RUNNING,
+			sideEffects: []sideEffect{
+				CrashingMonitorSideEffect(sideEffectToggle_DOWN),
+			},
+		},
+		pps.PipelineState_PIPELINE_FAILURE: {
+			state: pps.PipelineState_PIPELINE_FAILURE,
+			sideEffects: []sideEffect{
+				FinishCommitsSideEffect(),
+				ResourcesSideEffect(sideEffectToggle_DOWN),
+			},
+		},
+		pps.PipelineState_PIPELINE_PAUSED: {
+			state:       pps.PipelineState_PIPELINE_RUNNING,
+			sideEffects: []sideEffect{},
+		},
+		pps.PipelineState_PIPELINE_STANDBY: {
+			state: pps.PipelineState_PIPELINE_STANDBY,
+			sideEffects: []sideEffect{
+				CrashingMonitorSideEffect(sideEffectToggle_DOWN),
+				PipelineMonitorSideEffect(sideEffectToggle_UP),
+				ScaleWorkersSideEffect(sideEffectToggle_DOWN),
+			},
+		},
+		pps.PipelineState_PIPELINE_CRASHING: {
+			state: pps.PipelineState_PIPELINE_CRASHING,
+			sideEffects: []sideEffect{
+				CrashingMonitorSideEffect(sideEffectToggle_UP),
+				PipelineMonitorSideEffect(sideEffectToggle_UP),
+				ScaleWorkersSideEffect(sideEffectToggle_UP),
+			},
+		},
+	}
+	for initState, expectedResult := range tests {
+		test(initState, expectedResult.state, expectedResult.sideEffects)
+	}
+
+	// Autoscaling == true, Stopped == false, RC != nil
+	pi.Details.Autoscaling = true
+	tests[pps.PipelineState_PIPELINE_STARTING] = evalTest{
+		state: pps.PipelineState_PIPELINE_STANDBY,
+		sideEffects: []sideEffect{
+			CrashingMonitorSideEffect(sideEffectToggle_DOWN),
+		},
+	}
+	tests[pps.PipelineState_PIPELINE_PAUSED] = evalTest{
+		state:       pps.PipelineState_PIPELINE_STANDBY,
+		sideEffects: []sideEffect{},
+	}
+	for initState, expectedResult := range tests {
+		test(initState, expectedResult.state, expectedResult.sideEffects)
+	}
+
+	// Autoscaling == true, Stopped == true, RC != nil
+	pi.Stopped = true
+	testsStop := stackMaps(tests, tests, map[pps.PipelineState]evalTest{
+		pps.PipelineState_PIPELINE_STARTING: {
+			state:       pps.PipelineState_PIPELINE_PAUSED,
+			sideEffects: []sideEffect{},
+		},
+		pps.PipelineState_PIPELINE_RESTARTING: {
+			state:       pps.PipelineState_PIPELINE_PAUSED,
+			sideEffects: []sideEffect{},
+		},
+		pps.PipelineState_PIPELINE_PAUSED: {
+			state: pps.PipelineState_PIPELINE_PAUSED,
+			sideEffects: []sideEffect{
+				// TODO: Could we just do this when we pause?
+				PipelineMonitorSideEffect(sideEffectToggle_DOWN),
+				CrashingMonitorSideEffect(sideEffectToggle_DOWN),
+				ScaleWorkersSideEffect(sideEffectToggle_DOWN),
+			},
+		},
+		pps.PipelineState_PIPELINE_RUNNING: {
+			state:       pps.PipelineState_PIPELINE_PAUSED,
+			sideEffects: []sideEffect{},
+		},
+		pps.PipelineState_PIPELINE_STANDBY: {
+			state:       pps.PipelineState_PIPELINE_PAUSED,
+			sideEffects: []sideEffect{},
+		},
+		pps.PipelineState_PIPELINE_CRASHING: {
+			state:       pps.PipelineState_PIPELINE_PAUSED,
+			sideEffects: []sideEffect{},
+		},
+	})
+
+	for initState, expectedResult := range testsStop {
+		test(initState, expectedResult.state, expectedResult.sideEffects)
+	}
+
+	// Stopped == false, Autoscaling == true, RC == nil
+	rc = nil
+	pi.Stopped = false
+	testsNoRC := stackMaps(tests, map[pps.PipelineState]evalTest{
+		pps.PipelineState_PIPELINE_STARTING: {
+			state: pps.PipelineState_PIPELINE_STANDBY,
+			sideEffects: []sideEffect{
+				ResourcesSideEffect(sideEffectToggle_UP),
+				CrashingMonitorSideEffect(sideEffectToggle_DOWN),
+			},
+		},
+		pps.PipelineState_PIPELINE_RESTARTING: {
+			state: pps.PipelineState_PIPELINE_RUNNING,
+			sideEffects: []sideEffect{
+				ResourcesSideEffect(sideEffectToggle_UP),
+				CrashingMonitorSideEffect(sideEffectToggle_DOWN),
+			},
+		},
+		pps.PipelineState_PIPELINE_PAUSED: {
+			state:       pps.PipelineState_PIPELINE_RESTARTING,
+			sideEffects: []sideEffect{RestartSideEffect()},
+		},
+		pps.PipelineState_PIPELINE_RUNNING: {
+			state:       pps.PipelineState_PIPELINE_RESTARTING,
+			sideEffects: []sideEffect{RestartSideEffect()},
+		},
+		pps.PipelineState_PIPELINE_STANDBY: {
+			state:       pps.PipelineState_PIPELINE_RESTARTING,
+			sideEffects: []sideEffect{RestartSideEffect()},
+		},
+		pps.PipelineState_PIPELINE_CRASHING: {
+			state:       pps.PipelineState_PIPELINE_RESTARTING,
+			sideEffects: []sideEffect{RestartSideEffect()},
+		},
+	})
+	for initState, expectedResult := range testsNoRC {
+		test(initState, expectedResult.state, expectedResult.sideEffects)
+	}
 }
