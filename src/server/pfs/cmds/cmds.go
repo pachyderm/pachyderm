@@ -660,7 +660,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 			}
 			defer c.Close()
 
-			commitInfo, err := c.WaitCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+			commitInfo, err := c.WaitProjectCommit(project, commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 			if err != nil {
 				return err
 			}
@@ -680,7 +680,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 	}
 	waitCommit.Flags().AddFlagSet(outputFlags)
 	waitCommit.Flags().AddFlagSet(timestampFlags)
-	waitCommit.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	waitCommit.Flags().StringVar(&project, "project", "", "Project containing commit.")
 	commands = append(commands, cmdutil.CreateAliases(waitCommit, "wait commit", commits))
 
 	var newCommits bool

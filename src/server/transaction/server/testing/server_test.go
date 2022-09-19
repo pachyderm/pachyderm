@@ -497,7 +497,7 @@ func TestCreatePipelineTransaction(t *testing.T) {
 	commit := client.NewProjectCommit("", repo, "master", "")
 	require.NoError(t, c.PutFile(commit, "foo", strings.NewReader("bar")))
 
-	commitInfo, err := c.WaitCommit(pipeline, "master", "")
+	commitInfo, err := c.WaitProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 
 	var buf bytes.Buffer
