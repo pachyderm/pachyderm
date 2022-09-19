@@ -8850,19 +8850,19 @@ func TestPipelineHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory("", -1, false)
+	pipelineInfos, err = c.ListProjectPipelineHistory("", "", -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory("", 1, false)
+	pipelineInfos, err = c.ListProjectPipelineHistory("", "", 1, false)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory(pipelineName, -1, false)
+	pipelineInfos, err = c.ListProjectPipelineHistory("", pipelineName, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory(pipelineName2, -1, false)
+	pipelineInfos, err = c.ListProjectPipelineHistory("", pipelineName2, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(pipelineInfos))
 }
@@ -10417,19 +10417,19 @@ func TestPipelineAncestry(t *testing.T) {
 	}
 
 	// get all pipelines
-	infos, err = c.ListPipelineHistory(pipeline, -1, true)
+	infos, err = c.ListProjectPipelineHistory("", pipeline, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(infos))
 	checkInfos(infos)
 
 	// get all pipelines by asking for too many
-	infos, err = c.ListPipelineHistory(pipeline, 3, true)
+	infos, err = c.ListProjectPipelineHistory("", pipeline, 3, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(infos))
 	checkInfos(infos)
 
 	// get only the later two pipelines
-	infos, err = c.ListPipelineHistory(pipeline, 1, true)
+	infos, err = c.ListProjectPipelineHistory("", pipeline, 1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(infos))
 	checkInfos(infos)
