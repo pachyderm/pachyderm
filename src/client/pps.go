@@ -462,38 +462,7 @@ func (c APIClient) ListProjectJobF(projectName, pipelineName string, inputCommit
 func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit,
 	history int64, details bool, jqFilter string,
 	f func(*pps.JobInfo) error) error {
-	var pipeline *pps.Pipeline
-	if pipelineName != "" {
-		pipeline = NewProjectPipeline("", pipelineName)
-	}
-	ctx, cf := context.WithCancel(c.Ctx())
-	defer cf()
-	client, err := c.PpsAPIClient.ListJob(
-		ctx,
-		&pps.ListJobRequest{
-			Pipeline:    pipeline,
-			InputCommit: inputCommit,
-			History:     history,
-			Details:     details,
-			JqFilter:    jqFilter,
-		})
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	for {
-		ji, err := client.Recv()
-		if errors.Is(err, io.EOF) {
-			return nil
-		} else if err != nil {
-			return grpcutil.ScrubGRPC(err)
-		}
-		if err := f(ji); err != nil {
-			if errors.Is(err, errutil.ErrBreak) {
-				return nil
-			}
-			return err
-		}
-	}
+	return c.ListProjectJobFilterF("", pipelineName, inputCommit, history, details, jqFilter, f)
 }
 
 // ListProjectJobFilterF returns info about all jobs, calling f with each JobInfo.
