@@ -593,13 +593,27 @@ func forEachCommitInJob(pachClient *client.APIClient, jobID string, wait bool, c
 	return nil
 }
 
-func stringListContains(l []string, q string) bool {
-	for _, s := range l {
-		if s == q {
-			return true
+// For backwards compatibility, we want users who have objects that are not associated with projects
+// to belong to the "default" project. This means that both client and server should essentially treat
+// "default" and "" project names to be equivalent.
+func keepJobBasedOnProjects(job *pps.Job, projectsFilter []string) bool {
+	contains := func(l []string, q string) bool {
+		for _, s := range l {
+			if s == q {
+				return true
+			}
 		}
+		return false
 	}
-	return false
+	if len(projectsFilter) == 0 {
+		// this means no filter, so return job indiscriminately
+		return true
+	}
+	project := job.GetPipeline().GetProject().GetName()
+	if (contains(projectsFilter, "") || contains(projectsFilter, "default")) && (project == "" || project == "default") {
+		return true
+	}
+	return contains(projectsFilter, project)
 }
 
 // ListJobSet implements the protobuf pps.ListJobSet RPC
@@ -627,7 +641,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		if len(request.GetProjects()) > 0 {
 			n := 0
 			for _, ji := range jobInfos {
-				if stringListContains(request.GetProjects(), ji.GetJob().GetPipeline().GetProject().Name) {
+				if keepJobBasedOnProjects(ji.GetJob(), request.GetProjects()) {
 					jobInfos[n] = ji
 					n++
 				}
@@ -880,11 +894,10 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 // ListJob implements the protobuf pps.ListJob RPC
 func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
 	return a.listJob(resp.Context(), request, func(ji *pps.JobInfo) error {
-		projects := request.GetProjects()
-		if len(projects) > 0 && !stringListContains(projects, ji.GetJob().GetPipeline().GetProject().GetName()) {
-			return nil
+		if keepJobBasedOnProjects(ji.GetJob(), request.GetProjects()) {
+			return errors.EnsureStack(resp.Send(ji))
 		}
-		return errors.EnsureStack(resp.Send(ji))
+		return nil
 	})
 }
 

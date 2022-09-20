@@ -30,7 +30,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
@@ -54,26 +53,11 @@ const (
 	secrets   = "secrets"
 )
 
-func listJobFilterF(client *client.APIClient, projects []string, pipelineName string, inputCommit []*pfs.Commit,
-	history int64, details bool, jqFilter string,
-	f func(*pps.JobInfo) error) error {
-	var pipeline *pps.Pipeline
-	if pipelineName != "" {
-		// todo error if projects[0] doesn't exist
-		pipeline = &pps.Pipeline{Project: &pfs.Project{Name: projects[0]}, Name: pipelineName}
-	}
+// copied from Client, because need to extend for projects without breaking user facing API.
+func listJobFilterF(client *client.APIClient, request *pps.ListJobRequest, f func(*pps.JobInfo) error) error {
 	ctx, cf := context.WithCancel(client.Ctx())
 	defer cf()
-	listJobClient, err := client.PpsAPIClient.ListJob(
-		ctx,
-		&pps.ListJobRequest{
-			Pipeline:    pipeline,
-			InputCommit: inputCommit,
-			History:     history,
-			Details:     details,
-			JqFilter:    jqFilter,
-			Projects:    projects,
-		})
+	listJobClient, err := client.PpsAPIClient.ListJob(ctx, request)
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
@@ -283,15 +267,11 @@ $ {{alias}} -p foo -i bar@YYY`,
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
+			// order and precendence matters
 			if allProjects {
 				projects = nil
 			} else if len(projects) == 0 {
-				if pachCtx.GetProject() != "" {
-					projects = []string{pachCtx.GetProject()}
-				} else {
-					// default project is literally named "default"
-					projects = []string{"default"}
-				}
+				projects = []string{pachCtx.GetProject()}
 			}
 			if len(args) == 0 {
 				if pipelineName == "" && !expand {
@@ -329,16 +309,29 @@ $ {{alias}} -p foo -i bar@YYY`,
 					})
 				} else {
 					// We are listing all sub-jobs, possibly restricted to a single pipeline
+					var pipeline *pps.Pipeline
+					if pipelineName != "" {
+						pipeline = &pps.Pipeline{Name: pipelineName}
+					}
+					req := &pps.ListJobRequest{
+						Projects:    projects,
+						Pipeline:    pipeline,
+						InputCommit: commits,
+						History:     historyCount,
+						Details:     true,
+						JqFilter:    filter,
+					}
+
 					if raw {
 						e := cmdutil.Encoder(output, os.Stdout)
-						return listJobFilterF(client, projects, pipelineName, commits, historyCount, true, filter, func(ji *ppsclient.JobInfo) error {
+						return listJobFilterF(client, req, func(ji *ppsclient.JobInfo) error {
 							return errors.EnsureStack(e.EncodeProto(ji))
 						})
 					}
 
 					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 						writer := tabwriter.NewWriter(w, pretty.JobHeader)
-						if err := listJobFilterF(client, projects, pipelineName, commits, historyCount, false, filter, func(ji *ppsclient.JobInfo) error {
+						if err := listJobFilterF(client, req, func(ji *ppsclient.JobInfo) error {
 							pretty.PrintJobInfo(writer, ji, fullTimestamps)
 							return nil
 						}); err != nil {

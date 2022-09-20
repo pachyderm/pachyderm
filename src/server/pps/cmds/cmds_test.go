@@ -955,6 +955,47 @@ pachctl list job -x | match ' / 2'
 	}, "expected to see two datums")
 }
 
+func TestListJobWithProject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	projectName := tu.UniqueString("project")
+	pipelineName := tu.UniqueString("pipeline")
+	require.NoError(t, tu.PachctlBashCmd(t, c, "yes | pachctl delete all").Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create repo data
+		pachctl put file data@master:/file <<<"This is a test"
+		pachctl create pipeline <<EOF
+		  {
+		    "pipeline": {
+				"name": "{{.pipeline}}",
+				"project": {
+					"name": "{{.project}}"
+				}
+			},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "data"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["cp /pfs/data/file /pfs/out"]
+		    }
+		  }
+		EOF
+		`,
+		"project", projectName, "pipeline", pipelineName).Run())
+	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+		return tu.PachctlBashCmd(t, c, `
+		pachctl list job --project {{.project}} -x | match {{.pipeline}}
+		pachctl list job -x | match -v {{.pipeline}}
+		`, "project", projectName, "pipeline", pipelineName).Run()
+	}, "expected to see job")
+}
+
 func TestPipelineWithoutSecrets(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
