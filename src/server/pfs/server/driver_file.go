@@ -197,9 +197,10 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, pathRange *pfs.Pat
 		return nil, err
 	}
 	opts = append(opts, WithFilter(func(fs fileset.FileSet) fileset.FileSet {
-		return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
+		fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 			return mf(idx.Path)
 		}, true)
+		return fileset.NewPrefetcher(d.storage, fs)
 	}))
 	s := NewSource(commitInfo, fs, opts...)
 	return NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file}), nil

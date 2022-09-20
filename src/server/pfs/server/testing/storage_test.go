@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 )
 
 // TestCheckStorage checks that the CheckStorage rpc is wired up correctly.
@@ -24,6 +25,6 @@ func TestCheckStorage(t *testing.T) {
 }
 
 func newClient(t testing.TB) pfs.APIClient {
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	return env.PachClient.PfsAPIClient
 }

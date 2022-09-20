@@ -49,7 +49,7 @@ withEnvoy=$(echo "$pachdIp" | sed 's/grpc:\/\//grpc:\/\/pachd-/g' | sed 's/30651
 echo "${withEnvoy}"
 pachctlCtx=$(echo "{\"pachd_address\": ${withEnvoy}, \"source\": 2}" | tr -d \\)
 echo "${pachctlCtx}"
-echo "${pachctlCtx}" | pachctl config set context "${WORKSPACE}" --overwrite && pachctl config set active-context "${HELIUM_WORKSPACE}"
+echo "${pachctlCtx}" | pachctl config set context "${WORKSPACE}" --overwrite && pachctl config set active-context "${WORKSPACE}"
 echo "${HELIUM_PACHCTL_AUTH_TOKEN}" | pachctl auth use-auth-token
 
 # Print client and server versions, for debugging.  (Also waits for proxy to discover pachd, etc.)
