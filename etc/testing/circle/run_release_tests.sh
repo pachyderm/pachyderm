@@ -19,6 +19,12 @@ sleep 300
 
 # provision a pulumi test env
 WORKSPACE=${CIRCLE_TAG//./-}
+if [ "${1-default}" = "aws" ]; then
+  WORKSPACE=aws-${CIRCLE_TAG//./-}
+else
+  # assume default gcp
+  WORKSPACE=gcp-${CIRCLE_TAG//./-}
+fi
 
 if [ "${1-default}" = "aws" ]; then
   curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \

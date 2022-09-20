@@ -12,7 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
@@ -54,7 +54,7 @@ func defaultPipelineInfo() *pps.PipelineInfo {
 }
 
 type testEnv struct {
-	*testpachd.RealEnv
+	*realenv.RealEnv
 	logger *logs.MockLogger
 	driver driver.Driver
 }
@@ -123,7 +123,7 @@ func (td *testDriver) GetContainerImageID(ctx context.Context, containerName str
 
 // newTestEnv provides a test env with etcd and pachd instances and connected
 // clients, plus a worker driver for performing worker operations.
-func newTestEnv(t *testing.T, pipelineInfo *pps.PipelineInfo, realEnv *testpachd.RealEnv) *testEnv {
+func newTestEnv(t *testing.T, pipelineInfo *pps.PipelineInfo, realEnv *realenv.RealEnv) *testEnv {
 	logger := logs.NewMockLogger()
 	if debug {
 		logger.Writer = os.Stdout

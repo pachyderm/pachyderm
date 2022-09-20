@@ -27,7 +27,7 @@ type Env struct {
 
 	AuthServer    auth.APIServer
 	GetPachClient func(context.Context) *client.APIClient
-	getKubeClient func() *kube.Clientset
+	getKubeClient func() kube.Interface
 
 	BackgroundContext context.Context
 	namespace         string

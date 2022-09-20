@@ -22,8 +22,8 @@ func NewTestStorage(t testing.TB, db *pachsql.DB, tr track.Tracker, opts ...Stor
 	return objC, NewStorage(objC, kv.NewMemCache(10), db, tr, opts...)
 }
 
-// Reference creates a data reference for the full chunk referenced by a data reference.
-func Reference(dataRef *DataRef) *DataRef {
+// FullRef creates a data reference for the full chunk referenced by a data reference.
+func FullRef(dataRef *DataRef) *DataRef {
 	chunkDataRef := &DataRef{}
 	chunkDataRef.Ref = dataRef.Ref
 	chunkDataRef.SizeBytes = dataRef.Ref.SizeBytes
