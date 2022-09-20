@@ -23,6 +23,9 @@ func TestParsePipelineKey(t *testing.T) {
 			id:           "0123456789ab40123456789abcdef012",
 		},
 		// old format
+		//
+		// TODO: this should be removed after migration is completed in
+		// CORE-93, perhaps as part of CORE-1046
 		"pipeline@0123456789ab40123456789abcdef012": {
 			isError:      false,
 			projectName:  "",
