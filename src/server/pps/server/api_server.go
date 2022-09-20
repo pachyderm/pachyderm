@@ -2843,7 +2843,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 
 		// Check if there is an existing job for the output commit
 		job := client.NewJob(pipelineInfo.Pipeline.Name, txnCtx.CommitSetID)
-		job.Pipeline.Project = pipelineInfo.Pipeline.Project
+		job.Pipeline.Project = pipelineInfo.Pipeline.Project // TODO remove this before merging
 		jobInfo := &pps.JobInfo{}
 		if err := a.jobs.ReadWrite(txnCtx.SqlTx).Get(ppsdb.JobKey(job), jobInfo); err == nil {
 			continue // Job already exists, skip it
