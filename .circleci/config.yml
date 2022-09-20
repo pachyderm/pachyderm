@@ -74,7 +74,7 @@ jobs:
       - run:
           name: update etcd image
           command: |
-            docker buildx build --build-arg ETCD_VERSION=<< pipeline.parameters.etcd-image-version >> --platform=linux/amd64,linux/arm64 . -t pachyderm/etcd:<< pipeline.parameters.etcd-image-version >> --push
+            docker buildx build --build-arg ETCD_VERSION=<< pipeline.parameters.etcd-image-version >> --platform=linux/amd64,linux/arm64 -f Dockerfile.etcd -t pachyderm/etcd:<< pipeline.parameters.etcd-image-version >> --push
 
 # our single workflow, that triggers the setup job defined above
 workflows:
