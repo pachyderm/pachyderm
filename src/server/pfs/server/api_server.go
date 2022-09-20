@@ -837,18 +837,20 @@ func (a *apiServer) ClearCache(ctx context.Context, req *pfs.ClearCacheRequest) 
 func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
 	taskService := a.env.TaskService
+	var project string
 	repo := "load_test"
 	if req.Branch != nil {
+		project = req.Branch.Repo.Project.GetName()
 		repo = req.Branch.Repo.Name
 	}
-	if err := pachClient.CreateRepo(repo); err != nil && !pfsserver.IsRepoExistsErr(err) {
+	if err := pachClient.CreateProjectRepo(project, repo); err != nil && !pfsserver.IsRepoExistsErr(err) {
 		return nil, err
 	}
 	branch := uuid.New()
 	if req.Branch != nil {
 		branch = req.Branch.Name
 	}
-	if err := pachClient.CreateBranch(repo, branch, "", "", nil); err != nil {
+	if err := pachClient.CreateProjectBranch(project, repo, branch, "", "", nil); err != nil {
 		return nil, err
 	}
 	seed := time.Now().UTC().UnixNano()
@@ -877,7 +879,7 @@ func (a *apiServer) runLoadTest(pachClient *client.APIClient, taskService task.S
 	if err := jsonpb.Unmarshal(bytes.NewReader(jsonBytes), spec); err != nil {
 		return errors.EnsureStack(err)
 	}
-	return pfsload.Commit(pachClient, taskService, branch.Repo.Name, branch.Name, spec, seed)
+	return pfsload.Commit(pachClient, taskService, branch.Repo.Project.GetName(), branch.Repo.Name, branch.Name, spec, seed)
 }
 
 func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (resp *pfs.RunLoadTestResponse, retErr error) {

@@ -80,7 +80,7 @@ func TestUpgradeSimple(t *testing.T) {
 	upgradeTest(t, context.Background(),
 		func(t *testing.T, c *client.APIClient) {
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
-			require.NoError(t, c.CreateRepo(inputRepo))
+			require.NoError(t, c.CreateProjectRepo("", inputRepo))
 			require.NoError(t,
 				c.CreateProjectPipeline("", outputRepo,
 					"busybox",
@@ -95,7 +95,7 @@ func TestUpgradeSimple(t *testing.T) {
 				return errors.EnsureStack(mf.PutFile("foo", strings.NewReader("foo")))
 			}))
 
-			commitInfo, err := c.InspectCommit(outputRepo, "master", "")
+			commitInfo, err := c.InspectProjectCommit("", outputRepo, "master", "")
 			require.NoError(t, err)
 			commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 			require.NoError(t, err)
@@ -118,7 +118,7 @@ func TestUpgradeSimple(t *testing.T) {
 				return errors.EnsureStack(mf.PutFile("bar", strings.NewReader("bar")))
 			}))
 
-			commitInfo, err := c.InspectCommit(outputRepo, "master", "")
+			commitInfo, err := c.InspectProjectCommit("", outputRepo, "master", "")
 			require.NoError(t, err)
 			commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 			require.NoError(t, err)

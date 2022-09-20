@@ -84,7 +84,7 @@ func TestSpoutPachctl(t *testing.T) {
 		}))
 
 		// make sure we can delete commits
-		commitInfo, err := c.InspectCommit(pipeline, "master", "")
+		commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 		require.NoError(t, err)
 		require.NoError(t, c.DropCommitSet(commitInfo.Commit.ID))
 
@@ -143,7 +143,7 @@ func TestSpoutPachctl(t *testing.T) {
 		// seeing the latest commit in commitInfo and dropping it, and we can't drop a
 		// commit other than the most recent.
 		require.NoErrorWithinTRetry(t, time.Minute, func() error {
-			commitInfo, err := c.InspectCommit(pipeline, "master", "")
+			commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 			if err != nil {
 				return fmt.Errorf("inspect commit: %w", err) //nolint:wrapcheck
 			}
@@ -246,7 +246,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		}))
 
 		// make sure we can delete commits
-		commitInfo, err := c.InspectCommit(pipeline, "master", "")
+		commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 		require.NoError(t, err)
 		require.NoError(t, c.DropCommitSet(commitInfo.Commit.ID))
 
@@ -527,7 +527,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 
 	t.Run("SpoutInputValidation", func(t *testing.T) {
 		dataRepo := tu.UniqueString("TestSpoutInputValidation_data")
-		require.NoError(t, c.CreateRepo(dataRepo))
+		require.NoError(t, c.CreateProjectRepo("", dataRepo))
 
 		pipeline := tu.UniqueString("pipelinespoutinputvalidation")
 		_, err := c.PpsAPIClient.CreatePipeline(

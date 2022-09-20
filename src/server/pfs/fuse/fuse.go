@@ -43,7 +43,7 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 			// which supports mounting different versions of the same repo at
 			// different named paths.
 			branch := "master"
-			bi, err := c.InspectBranch(ri.Repo.Name, branch)
+			bi, err := c.InspectProjectBranch(ri.Repo.Project.GetName(), ri.Repo.Name, branch)
 			if err != nil && !errutil.IsNotFoundError(err) {
 				return err
 			}

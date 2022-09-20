@@ -44,8 +44,8 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 
 	// Set up the input repo and branch
 	input := pipelineInfo.Details.Input.Pfs
-	require.NoError(t, env.PachClient.CreateRepo(input.Repo))
-	require.NoError(t, env.PachClient.CreateBranch(input.Repo, input.Branch, "", "", nil))
+	require.NoError(t, env.PachClient.CreateProjectRepo("", input.Repo))
+	require.NoError(t, env.PachClient.CreateProjectBranch(input.Project, input.Repo, input.Branch, "", "", nil))
 
 	// Create the output repo
 	projectName := pipelineInfo.Pipeline.Project.GetName()
@@ -234,7 +234,7 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 }
 
 func writeFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []tarutil.File) *pfs.Commit {
-	commit, err := env.PachClient.StartCommit(pi.Details.Input.Pfs.Repo, "master")
+	commit, err := env.PachClient.StartProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, "master")
 	require.NoError(t, err)
 	buf := &bytes.Buffer{}
 	require.NoError(t, tarutil.WithWriter(buf, func(tw *tar.Writer) error {
@@ -246,17 +246,17 @@ func writeFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taruti
 		return nil
 	}))
 	require.NoError(t, env.PachClient.PutFileTAR(commit, buf, client.WithAppendPutFile()))
-	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, env.PachClient.FinishProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
 	return commit
 }
 
 func deleteFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []string) *pfs.Commit {
-	commit, err := env.PachClient.StartCommit(pi.Details.Input.Pfs.Repo, "master")
+	commit, err := env.PachClient.StartProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, "master")
 	require.NoError(t, err)
 	for _, file := range files {
 		require.NoError(t, env.PachClient.DeleteFile(commit, file))
 	}
-	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, env.PachClient.FinishProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
 	return commit
 }
 
@@ -270,11 +270,11 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 
 	// Ensure the output commit is successful
 	outputCommitID := jobInfo.OutputCommit.ID
-	outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
+	outputCommitInfo, err := env.PachClient.InspectProjectCommit("", pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
 	require.NoError(t, err)
 	require.NotNil(t, outputCommitInfo.Finished)
 
-	branchInfo, err := env.PachClient.InspectBranch(pi.Pipeline.Name, pi.Details.OutputBranch)
+	branchInfo, err := env.PachClient.InspectProjectBranch("", pi.Pipeline.Name, pi.Details.OutputBranch)
 	require.NoError(t, err)
 	require.NotNil(t, branchInfo)
 
@@ -388,11 +388,11 @@ func TestTransformPipeline(suite *testing.T) {
 
 		// Ensure the output commit is successful
 		outputCommitID := jobInfo.OutputCommit.ID
-		outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
+		outputCommitInfo, err := env.PachClient.InspectProjectCommit("", pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
 		require.NoError(t, err)
 		require.NotNil(t, outputCommitInfo.Finished)
 
-		branchInfo, err := env.PachClient.InspectBranch(pi.Pipeline.Name, pi.Details.OutputBranch)
+		branchInfo, err := env.PachClient.InspectProjectBranch("", pi.Pipeline.Name, pi.Details.OutputBranch)
 		require.NoError(t, err)
 		require.NotNil(t, branchInfo)
 
@@ -429,11 +429,11 @@ func TestTransformPipeline(suite *testing.T) {
 
 		// Ensure the output commit is successful
 		outputCommitID := jobInfo.OutputCommit.ID
-		outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
+		outputCommitInfo, err := env.PachClient.InspectProjectCommit("", pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
 		require.NoError(t, err)
 		require.NotNil(t, outputCommitInfo.Finished)
 
-		branchInfo, err := env.PachClient.InspectBranch(pi.Pipeline.Name, pi.Details.OutputBranch)
+		branchInfo, err := env.PachClient.InspectProjectBranch("", pi.Pipeline.Name, pi.Details.OutputBranch)
 		require.NoError(t, err)
 		require.NotNil(t, branchInfo)
 

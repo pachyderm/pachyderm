@@ -64,7 +64,7 @@ func TestGetSetBasic(t *testing.T) {
 
 	// create repo, and check that alice is the owner of the new repo
 	dataRepo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(dataRepo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", dataRepo))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
@@ -87,7 +87,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that no commits were created
-	_, err = bobClient.StartCommit(dataRepo, "master")
+	_, err = bobClient.StartProjectCommit("", dataRepo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that no commits were created
@@ -111,7 +111,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that no commits were created
-	_, err = bobClient.StartCommit(dataRepo, "master")
+	_, err = bobClient.StartProjectCommit("", dataRepo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that no commits were created
@@ -134,9 +134,9 @@ func TestGetSetBasic(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that a new commit was created
-	commit, err := bobClient.StartCommit(dataRepo, "master")
+	commit, err := bobClient.StartProjectCommit("", dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishProjectCommit("", dataRepo, commit.Branch.Name, commit.ID))
 	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that a new commit was created
 	// bob can't update the ACL
 	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
@@ -157,9 +157,9 @@ func TestGetSetBasic(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("3"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that a new commit was created
-	commit, err = bobClient.StartCommit(dataRepo, "master")
+	commit, err = bobClient.StartProjectCommit("", dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishProjectCommit("", dataRepo, commit.Branch.Name, commit.ID))
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that a new commit was created
 	// bob can update the ACL
 	require.NoError(t, bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole}))
@@ -180,16 +180,16 @@ func TestGetSetReverse(t *testing.T) {
 
 	// create repo, and check that alice is the owner of the new repo
 	dataRepo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(dataRepo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", dataRepo))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 
 	// Add data to repo (alice can write). Make sure alice can read also.
-	commit, err := aliceClient.StartCommit(dataRepo, "master")
+	commit, err := aliceClient.StartProjectCommit("", dataRepo, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("1"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID)) // # commits = 1
+	require.NoError(t, aliceClient.FinishProjectCommit("", dataRepo, commit.Branch.Name, commit.ID)) // # commits = 1
 	buf := &bytes.Buffer{}
 	require.NoError(t, aliceClient.GetFile(dataCommit, "/file", buf))
 	require.Equal(t, "1", buf.String())
@@ -205,9 +205,9 @@ func TestGetSetReverse(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that a new commit was created
-	commit, err = bobClient.StartCommit(dataRepo, "master")
+	commit, err = bobClient.StartProjectCommit("", dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishProjectCommit("", dataRepo, commit.Branch.Name, commit.ID))
 	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that a new commit was created
 	// bob can update the ACL
 	require.NoError(t, bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole}))
@@ -232,9 +232,9 @@ func TestGetSetReverse(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("3"), client.WithAppendPutFile())
 	require.NoError(t, err)
 	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that a new commit was created
-	commit, err = bobClient.StartCommit(dataRepo, "master")
+	commit, err = bobClient.StartProjectCommit("", dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishProjectCommit("", dataRepo, commit.Branch.Name, commit.ID))
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that a new commit was created
 	// bob can't update the ACL
 	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
@@ -255,7 +255,7 @@ func TestGetSetReverse(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("4"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that a new commit was created
-	_, err = bobClient.StartCommit(dataRepo, "master")
+	_, err = bobClient.StartProjectCommit("", dataRepo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that no commits were created
@@ -278,7 +278,7 @@ func TestGetSetReverse(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("4"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that a new commit was created
-	_, err = bobClient.StartCommit(dataRepo, "master")
+	_, err = bobClient.StartProjectCommit("", dataRepo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that no commits were created
@@ -302,7 +302,7 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 
 	// create repo, and check that alice is the owner of the new repo
 	dataRepo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(dataRepo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", dataRepo))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 
@@ -330,7 +330,7 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 		Update:      true,
 	})
 	require.NoError(t, err)
-	repoInfo, err := aliceClient.InspectRepo(dataRepo)
+	repoInfo, err := aliceClient.InspectProjectRepo("", dataRepo)
 	require.NoError(t, err)
 	require.Equal(t, description, repoInfo.Description)
 	// buildBindings haven't changed
@@ -397,7 +397,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 
 	// create repo, and check that alice is the owner of the new repo
 	dataRepo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(dataRepo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", dataRepo))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
@@ -419,7 +419,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.WaitCommit(pipeline, "master", "")
+		_, err := aliceClient.WaitProjectCommit("", pipeline, "master", "")
 		return err
 	})
 
@@ -454,7 +454,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 4*time.Minute, func() error {
-		_, err := bobClient.WaitCommit(goodPipeline, "master", "")
+		_, err := bobClient.WaitProjectCommit("", goodPipeline, "master", "")
 		return err
 	})
 
@@ -557,7 +557,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := bobClient.WaitCommit(pipeline, "master", "")
+		_, err := bobClient.WaitProjectCommit("", pipeline, "master", "")
 		return err
 	})
 }
@@ -590,8 +590,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	// create two repos, and check that alice is the owner of the new repos
 	dataRepo1 := tu.UniqueString(t.Name())
 	dataRepo2 := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(dataRepo1))
-	require.NoError(t, aliceClient.CreateRepo(dataRepo2))
+	require.NoError(t, aliceClient.CreateProjectRepo("", dataRepo1))
+	require.NoError(t, aliceClient.CreateProjectRepo("", dataRepo2))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo1))
 	require.Equal(t,
@@ -748,7 +748,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 
 	// alice creates a pipeline
@@ -783,12 +783,12 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.Nil(t, tu.GetRepoRoleBinding(t, aliceClient, pipeline).Entries)
 
 	// alice deletes the input repo (make sure the input repo's ACL is gone)
-	require.NoError(t, aliceClient.DeleteRepo(repo, false))
+	require.NoError(t, aliceClient.DeleteProjectRepo("", repo, false))
 	require.Nil(t, tu.GetRepoRoleBinding(t, aliceClient, repo).Entries)
 
 	// alice creates another repo
 	repo = tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 
 	// alice creates another pipeline
@@ -878,7 +878,7 @@ func TestStopJob(t *testing.T) {
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
 	commit := client.NewProjectCommit("", repo, "master", "")
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 	err := aliceClient.PutFile(commit, "/file", strings.NewReader("test"))
 	require.NoError(t, err)
@@ -941,21 +941,21 @@ func TestListAndInspectRepo(t *testing.T) {
 
 	// alice creates a repo and makes Bob a writer
 	repoWriter := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repoWriter))
+	require.NoError(t, aliceClient.CreateProjectRepo("", repoWriter))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoWriter, bob, []string{auth.RepoWriterRole}))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, repoWriter))
 
 	// alice creates a repo and makes Bob a reader
 	repoReader := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repoReader))
+	require.NoError(t, aliceClient.CreateProjectRepo("", repoReader))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoReader, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repoReader))
 
 	// alice creates a repo and gives Bob no access privileges
 	repoNone := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repoNone))
+	require.NoError(t, aliceClient.CreateProjectRepo("", repoNone))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repoNone))
 
@@ -965,7 +965,7 @@ func TestListAndInspectRepo(t *testing.T) {
 
 	// bob creates a repo
 	repoOwner := tu.UniqueString(t.Name())
-	require.NoError(t, bobClient.CreateRepo(repoOwner))
+	require.NoError(t, bobClient.CreateProjectRepo("", repoOwner))
 	require.Equal(t, tu.BuildBindings(bob, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, bobClient, repoOwner))
 
 	// Bob calls ListRepo, and the response must indicate the correct access scope
@@ -1046,7 +1046,7 @@ func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 
@@ -1068,7 +1068,7 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 
@@ -1094,7 +1094,7 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
 
 	// bob calls ListRepo, but has NONE access to all repos
 	infos, err := bobClient.ListRepo()
@@ -1136,11 +1136,11 @@ func TestCreateRepoAlreadyExistsError(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
 
 	// bob creates the same repo, and should get an error to the effect that the
 	// repo already exists (rather than "access denied")
-	err := bobClient.CreateRepo(repo)
+	err := bobClient.CreateProjectRepo("", repo)
 	require.YesError(t, err)
 	require.Matches(t, "already exists", err.Error())
 }
@@ -1155,7 +1155,7 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 
 	// anonClient tries and fails to create a repo
 	repo := tu.UniqueString(t.Name())
-	err := anonClient.CreateRepo(repo)
+	err := anonClient.CreateProjectRepo("", repo)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
 }
@@ -1170,10 +1170,10 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 
 	// alice creates a repo
 	inputRepo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(inputRepo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", inputRepo))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(inputRepo, bob, []string{auth.RepoReaderRole}))
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreateRepo(pipeline))
+	require.NoError(t, aliceClient.CreateProjectRepo("", pipeline))
 
 	// bob creates a pipeline, and should get an "access denied" error
 	err := bobClient.CreateProjectPipeline("",
@@ -1216,7 +1216,7 @@ func TestAuthorizedEveryone(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
 
 	// alice is authorized as `OWNER`
 	resp, err := aliceClient.Authorize(aliceClient.Ctx(), &auth.AuthorizeRequest{
@@ -1278,11 +1278,11 @@ func TestDeleteAllRepos(t *testing.T) {
 
 	// admin creates a repo
 	adminRepo := tu.UniqueString(t.Name())
-	require.NoError(t, adminClient.CreateRepo(adminRepo))
+	require.NoError(t, adminClient.CreateProjectRepo("", adminRepo))
 
 	// alice creates a repo
 	aliceRepo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(aliceRepo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", aliceRepo))
 
 	// alice calls DeleteAll. It passes, but only deletes the repos she was authorized to delete
 	_, err := aliceClient.PfsAPIClient.DeleteAll(aliceClient.Ctx(), &types.Empty{})
@@ -1308,7 +1308,7 @@ func TestListJob(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
@@ -1328,7 +1328,7 @@ func TestListJob(t *testing.T) {
 	err = aliceClient.PutFile(client.NewProjectCommit("", repo, "master", ""), "/file", strings.NewReader("test"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 4*time.Minute, func() error {
-		_, err := aliceClient.WaitCommit(pipeline, "master", "")
+		_, err := aliceClient.WaitProjectCommit("", pipeline, "master", "")
 		return err
 	})
 	jobs, err := aliceClient.ListProjectJob("", pipeline, nil /*inputs*/, -1 /*history*/, true)
@@ -1380,7 +1380,7 @@ func TestInspectDatum(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
 
 	// alice creates a pipeline (we must enable stats for InspectDatum, which
 	// means calling the grpc client function directly)
@@ -1401,7 +1401,7 @@ func TestInspectDatum(t *testing.T) {
 	err = aliceClient.PutFile(client.NewProjectCommit("", repo, "master", ""), "/file", strings.NewReader("test"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 2*time.Minute, func() error {
-		_, err := aliceClient.WaitCommit(pipeline, "master", "")
+		_, err := aliceClient.WaitProjectCommit("", pipeline, "master", "")
 		return err
 	})
 	jobs, err := aliceClient.ListProjectJob("", pipeline, nil /*inputs*/, -1 /*history*/, true)
@@ -1436,7 +1436,7 @@ func TestPipelineNewInput(t *testing.T) {
 	var repo []string
 	for i := 0; i < 3; i++ {
 		repo = append(repo, tu.UniqueString(fmt.Sprint("TestPipelineNewInput-", i, "-")))
-		require.NoError(t, aliceClient.CreateRepo(repo[i]))
+		require.NoError(t, aliceClient.CreateProjectRepo("", repo[i]))
 		require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo[i]))
 
 		// Commit to repo
@@ -1473,7 +1473,7 @@ func TestPipelineNewInput(t *testing.T) {
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 4*time.Minute, func() error {
-		_, err := aliceClient.WaitCommit(pipeline, "master", "")
+		_, err := aliceClient.WaitProjectCommit("", pipeline, "master", "")
 		return err
 	})
 
@@ -1504,7 +1504,7 @@ func TestPipelineNewInput(t *testing.T) {
 
 	// make sure the pipeline still runs
 	require.NoErrorWithinT(t, 2*time.Minute, func() error {
-		_, err := aliceClient.WaitCommit(pipeline, "master", "")
+		_, err := aliceClient.WaitProjectCommit("", pipeline, "master", "")
 		return err
 	})
 }
@@ -1759,7 +1759,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
 	commit := client.NewProjectCommit("", repo, "master", "")
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 	err := aliceClient.PutFile(commit, "/file", strings.NewReader("lorem ipsum"))
 	require.NoError(t, err)
@@ -1778,7 +1778,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	))
 
 	// Wait for pipeline to finish
-	_, err = aliceClient.WaitCommit(pipeline, "master", commit.ID)
+	_, err = aliceClient.WaitProjectCommit("", pipeline, "master", commit.ID)
 	require.NoError(t, err)
 
 	// alice calls 'list job'
@@ -1810,7 +1810,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
 	commit := client.NewProjectCommit("", repo, "master", "")
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
 	err := aliceClient.PutFile(commit, "/file", strings.NewReader("1"))
 	require.NoError(t, err)
 
@@ -1829,7 +1829,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 
 	// Get the latest commit from the input repo (which should be an alias from
 	// when the pipeline was created)
-	commitInfo, err := aliceClient.InspectCommit(repo, "master", "")
+	commitInfo, err := aliceClient.InspectProjectCommit("", repo, "master", "")
 	require.NoError(t, err)
 
 	// make sure the pipeline failure doesn't cause waits to block indefinitely
@@ -1852,7 +1852,7 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
 	commit := client.NewProjectCommit("", repo, "master", "")
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
 	err := aliceClient.PutFile(commit, "/file", strings.NewReader("1"))
 	require.NoError(t, err)
 
@@ -1869,8 +1869,8 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 	))
 
 	// force-delete input and output repos
-	require.NoError(t, aliceClient.DeleteRepo(repo, true))
-	require.NoError(t, aliceClient.DeleteRepo(pipeline, true))
+	require.NoError(t, aliceClient.DeleteProjectRepo("", repo, true))
+	require.NoError(t, aliceClient.DeleteProjectRepo("", pipeline, true))
 
 	// Attempt to delete the pipeline--must succeed
 	require.NoError(t, aliceClient.DeleteProjectPipeline("", pipeline, true))
@@ -1955,7 +1955,7 @@ func TestExpiredClusterLocksOutUsers(t *testing.T) {
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	repo := tu.UniqueString("TestRotateAuthToken")
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
 
 	// Admin can list repos
 	repoInfo, err := adminClient.ListRepo()

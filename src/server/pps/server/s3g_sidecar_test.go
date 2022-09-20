@@ -52,8 +52,8 @@ func TestS3PipelineErrors(t *testing.T) {
 	c, _, _ := initPachClient(t)
 
 	repo1, repo2 := tu.UniqueString(t.Name()+"_data"), tu.UniqueString(t.Name()+"_data")
-	require.NoError(t, c.CreateRepo(repo1))
-	require.NoError(t, c.CreateRepo(repo2))
+	require.NoError(t, c.CreateProjectRepo("", repo1))
+	require.NoError(t, c.CreateProjectRepo("", repo2))
 
 	pipeline := tu.UniqueString("Pipeline")
 	err := c.CreateProjectPipeline("",
@@ -125,7 +125,7 @@ func TestS3Input(t *testing.T) {
 	c, userToken, ns := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateRepo(repo))
+	require.NoError(t, c.CreateProjectRepo("", repo))
 	masterCommit := client.NewProjectCommit("", repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
@@ -160,7 +160,7 @@ func TestS3Input(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 
 	jobInfo, err := c.WaitProjectJob("", pipeline, commitInfo.Commit.ID, false)
@@ -215,7 +215,7 @@ func TestS3Chain(t *testing.T) {
 	c, userToken, _ := initPachClient(t)
 
 	dataRepo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
+	require.NoError(t, c.CreateProjectRepo("", dataRepo))
 	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 
 	numPipelines := 5
@@ -259,7 +259,7 @@ func TestS3Chain(t *testing.T) {
 	}
 
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("")))
-	commitInfo, err := c.InspectCommit(dataCommit.Branch.Repo.Name, dataCommit.Branch.Name, "")
+	commitInfo, err := c.InspectProjectCommit("", dataCommit.Branch.Repo.Name, dataCommit.Branch.Name, "")
 	require.NoError(t, err)
 
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
@@ -278,7 +278,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	c, _, ns := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateRepo(repo))
+	require.NoError(t, c.CreateProjectRepo("", repo))
 	masterCommit := client.NewProjectCommit("", repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
@@ -306,7 +306,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 
 	jobInfo, err := c.WaitProjectJob("", pipeline, commitInfo.Commit.ID, false)
@@ -326,7 +326,7 @@ func TestS3Output(t *testing.T) {
 	c, userToken, ns := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateRepo(repo))
+	require.NoError(t, c.CreateProjectRepo("", repo))
 	masterCommit := client.NewProjectCommit("", repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
@@ -360,7 +360,7 @@ func TestS3Output(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 
 	jobInfo, err := c.WaitProjectJob("", pipeline, commitInfo.Commit.ID, false)
@@ -410,7 +410,7 @@ func TestFullS3(t *testing.T) {
 	c, userToken, ns := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateRepo(repo))
+	require.NoError(t, c.CreateProjectRepo("", repo))
 	masterCommit := client.NewProjectCommit("", repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
@@ -445,7 +445,7 @@ func TestFullS3(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit("", pipeline, "master", "")
 	require.NoError(t, err)
 
 	jobInfo, err := c.WaitProjectJob("", pipeline, commitInfo.Commit.ID, false)
@@ -500,16 +500,16 @@ func TestS3SkippedDatums(t *testing.T) {
 		// TODO(2.0 optional): Duplicate file paths from different datums no longer allowed.
 		t.Skip("Duplicate file paths from different datums no longer allowed.")
 		s3in := tu.UniqueString(name + "_s3_data")
-		require.NoError(t, c.CreateRepo(s3in))
+		require.NoError(t, c.CreateProjectRepo("", s3in))
 		pfsin := tu.UniqueString(name + "_pfs_data")
-		require.NoError(t, c.CreateRepo(pfsin))
+		require.NoError(t, c.CreateProjectRepo("", pfsin))
 
 		s3Commit := client.NewProjectCommit("", s3in, "master", "")
 		// Pipelines with S3 inputs should still skip datums, as long as the S3 input
 		// hasn't changed. We'll check this by reading from a repo that isn't a
 		// pipeline input
 		background := tu.UniqueString(name + "_bg_data")
-		require.NoError(t, c.CreateRepo(background))
+		require.NoError(t, c.CreateProjectRepo("", background))
 
 		require.NoError(t, c.PutFile(s3Commit, "file", strings.NewReader("foo")))
 
@@ -556,7 +556,7 @@ func TestS3SkippedDatums(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = c.WaitCommit(pipeline, "master", "")
+		_, err = c.WaitProjectCommit("", pipeline, "master", "")
 		require.NoError(t, err)
 
 		// Part 1: add files in pfs input w/o changing s3 input. Old files in
@@ -565,16 +565,16 @@ func TestS3SkippedDatums(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			// Increment "/round" in 'background'
 			iS := fmt.Sprintf("%d", i)
-			bgc, err := c.StartCommit(background, "master")
+			bgc, err := c.StartProjectCommit("", background, "master")
 			require.NoError(t, err)
 			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
-			require.NoError(t, c.FinishCommit(background, bgc.Branch.Name, bgc.ID))
+			require.NoError(t, c.FinishProjectCommit("", background, bgc.Branch.Name, bgc.ID))
 
 			//  Put new file in 'pfsin' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(client.NewProjectCommit("", pfsin, "master", ""), iS, strings.NewReader(iS)))
 
-			_, err = c.WaitCommit(pipeline, "master", "")
+			_, err = c.WaitProjectCommit("", pipeline, "master", "")
 			require.NoError(t, err)
 
 			jis, err := c.ListProjectJob("", pipeline, nil, 0, false)
@@ -602,20 +602,20 @@ func TestS3SkippedDatums(t *testing.T) {
 		// Part 2: change s3 input. All old datums should get reprocessed
 		// --------------------------------------------------------------
 		// Increment "/round" in 'background'
-		bgc, err := c.StartCommit(background, "master")
+		bgc, err := c.StartProjectCommit("", background, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(bgc, "/round"))
 		require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader("10")))
-		require.NoError(t, c.FinishCommit(background, bgc.Branch.Name, bgc.ID))
+		require.NoError(t, c.FinishProjectCommit("", background, bgc.Branch.Name, bgc.ID))
 
 		//  Put new file in 's3in' to create a new datum and trigger a job
-		s3c, err := c.StartCommit(s3in, "master")
+		s3c, err := c.StartProjectCommit("", s3in, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(s3Commit, "/file"))
 		require.NoError(t, c.PutFile(s3Commit, "/file", strings.NewReader("bar")))
-		require.NoError(t, c.FinishCommit(s3in, s3c.Branch.Name, s3c.ID))
+		require.NoError(t, c.FinishProjectCommit("", s3in, s3c.Branch.Name, s3c.ID))
 
-		_, err = c.WaitCommit(pipeline, "master", "")
+		_, err = c.WaitProjectCommit("", pipeline, "master", "")
 		require.NoError(t, err)
 
 		jis, err := c.ListProjectJob("", pipeline, nil, 0, false)
@@ -665,12 +665,12 @@ func TestS3SkippedDatums(t *testing.T) {
 
 	t.Run("S3Output", func(t *testing.T) {
 		repo := tu.UniqueString(name + "_pfs_data")
-		require.NoError(t, c.CreateRepo(repo))
+		require.NoError(t, c.CreateProjectRepo("", repo))
 		// Pipelines with S3 output should not skip datums, as they have no way of
 		// tracking which output data should be associated with which input data.
 		// We'll check this by reading from a repo that isn't a pipeline input
 		background := tu.UniqueString(name + "_bg_data")
-		require.NoError(t, c.CreateRepo(background))
+		require.NoError(t, c.CreateProjectRepo("", background))
 
 		pipeline := tu.UniqueString("Pipeline")
 		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
@@ -722,16 +722,16 @@ func TestS3SkippedDatums(t *testing.T) {
 		for i := 1; i <= 5; i++ {
 			// Increment "/round" in 'background'
 			iS := strconv.Itoa(i)
-			bgc, err := c.StartCommit(background, "master")
+			bgc, err := c.StartProjectCommit("", background, "master")
 			require.NoError(t, err)
 			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
-			require.NoError(t, c.FinishCommit(background, bgc.Branch.Name, bgc.ID))
+			require.NoError(t, c.FinishProjectCommit("", background, bgc.Branch.Name, bgc.ID))
 
 			// Put new file in 'repo' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(masterCommit, iS, strings.NewReader(iS)))
 
-			_, err = c.WaitCommit(pipeline, "master", "")
+			_, err = c.WaitProjectCommit("", pipeline, "master", "")
 			require.NoError(t, err)
 			jis, err := c.ListProjectJob("", pipeline, nil, 0, false)
 			require.NoError(t, err)

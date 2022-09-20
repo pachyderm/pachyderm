@@ -650,7 +650,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 			}
 			defer c.Close()
 
-			commitInfo, err := c.WaitCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+			commitInfo, err := c.WaitProjectCommit(commit.Branch.Repo.Project.GetName(), commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 			if err != nil {
 				return err
 			}
@@ -1201,7 +1201,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 			defer progress.Wait()
 
 			// check whether or not the repo exists before attempting to upload
-			if _, err = c.InspectRepo(file.Commit.Branch.Repo.Name); err != nil {
+			if _, err = c.InspectProjectRepo(file.Commit.Branch.Repo.Project.GetName(), file.Commit.Branch.Repo.Name); err != nil {
 				if errutil.IsNotFoundError(err) {
 					return err
 				}
