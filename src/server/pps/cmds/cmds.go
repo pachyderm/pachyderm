@@ -713,7 +713,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
-	createPipeline.Flags().StringVar(&project, "project", "", "The project in which to create the pipeline.")
+	createPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project in which to create the pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(createPipeline, "create pipeline", pipelines))
 
 	var reprocess bool
@@ -731,7 +731,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
-	updatePipeline.Flags().StringVar(&project, "project", "", "The project in which to update the pipeline.")
+	updatePipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project in which to update the pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(updatePipeline, "update pipeline", pipelines))
 
 	runCron := &cobra.Command{
@@ -754,7 +754,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	runCron.Flags().StringVar(&project, "project", "", "Project containing pipeline.")
+	runCron.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing pipeline.")
 	commands = append(commands, cmdutil.CreateAlias(runCron, "run cron"))
 
 	inspectPipeline := &cobra.Command{
@@ -785,7 +785,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	inspectPipeline.Flags().AddFlagSet(outputFlags)
 	inspectPipeline.Flags().AddFlagSet(timestampFlags)
-	inspectPipeline.Flags().StringVar(&project, "project", "", "Project of pipeline to inspect.")
+	inspectPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project of pipeline to inspect.")
 	commands = append(commands, cmdutil.CreateAliases(inspectPipeline, "inspect pipeline", pipelines))
 
 	var editor string
@@ -864,7 +864,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	editPipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 	editPipeline.Flags().StringVar(&editor, "editor", "", "Editor to use for modifying the manifest.")
 	editPipeline.Flags().StringVarP(&output, "output", "o", "", "Output format: \"json\" or \"yaml\" (default \"json\")")
-	editPipeline.Flags().StringVar(&project, "project", "", "Project of pipeline to edit.")
+	editPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project of pipeline to edit.")
 	commands = append(commands, cmdutil.CreateAliases(editPipeline, "edit pipeline", pipelines))
 
 	var spec bool
@@ -1007,7 +1007,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	startPipeline.Flags().StringVar(&project, "project", "", "Project containing pipeline.")
+	startPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(startPipeline, "start pipeline", pipelines))
 
 	stopPipeline := &cobra.Command{
@@ -1026,7 +1026,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	stopPipeline.Flags().StringVar(&project, "project", "", "Project containing pipeline.")
+	stopPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(stopPipeline, "stop pipeline", pipelines))
 
 	var file string

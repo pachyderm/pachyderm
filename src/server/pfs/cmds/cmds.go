@@ -680,7 +680,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 	}
 	waitCommit.Flags().AddFlagSet(outputFlags)
 	waitCommit.Flags().AddFlagSet(timestampFlags)
-	waitCommit.Flags().StringVar(&project, "project", "", "Project containing commit.")
+	waitCommit.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing commit.")
 	commands = append(commands, cmdutil.CreateAliases(waitCommit, "wait commit", commits))
 
 	var newCommits bool
