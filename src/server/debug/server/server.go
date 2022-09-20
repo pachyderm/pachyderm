@@ -755,7 +755,7 @@ func collectDump(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefi
 func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
 		if err := collectDebugFile(tw, "spec", "json", func(w io.Writer) error {
-			fullPipelineInfos, err := pachClient.ListProjectPipelineHistory("", pipelineInfo.Pipeline.Name, -1, true)
+			fullPipelineInfos, err := pachClient.ListProjectPipelineHistory(pfs.DefaultProjectName, pipelineInfo.Pipeline.Name, -1, true)
 			if err != nil {
 				return err
 			}

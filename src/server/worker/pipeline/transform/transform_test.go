@@ -44,7 +44,7 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 
 	// Set up the input repo and branch
 	input := pipelineInfo.Details.Input.Pfs
-	require.NoError(t, env.PachClient.CreateProjectRepo("", input.Repo))
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, input.Repo))
 	require.NoError(t, env.PachClient.CreateProjectBranch(input.Project, input.Repo, input.Branch, "", "", nil))
 
 	// Create the output repo
@@ -74,7 +74,7 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 	err = closeHeadCommit(ctx, env, pipelineRepo.NewBranch(pipelineInfo.Details.OutputBranch))
 	require.NoError(t, err)
 	// Create the meta system repo and set up the branch provenance
-	metaRepo := client.NewSystemProjectRepo("", pipelineInfo.Pipeline.Name, pfs.MetaRepoType)
+	metaRepo := client.NewSystemProjectRepo(pfs.DefaultProjectName, pipelineInfo.Pipeline.Name, pfs.MetaRepoType)
 	_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: metaRepo})
 	require.NoError(t, err)
 	branch := metaRepo.NewBranch("master")
@@ -270,11 +270,11 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 
 	// Ensure the output commit is successful
 	outputCommitID := jobInfo.OutputCommit.ID
-	outputCommitInfo, err := env.PachClient.InspectProjectCommit("", pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
+	outputCommitInfo, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
 	require.NoError(t, err)
 	require.NotNil(t, outputCommitInfo.Finished)
 
-	branchInfo, err := env.PachClient.InspectProjectBranch("", pi.Pipeline.Name, pi.Details.OutputBranch)
+	branchInfo, err := env.PachClient.InspectProjectBranch(pfs.DefaultProjectName, pi.Pipeline.Name, pi.Details.OutputBranch)
 	require.NoError(t, err)
 	require.NotNil(t, branchInfo)
 
@@ -388,11 +388,11 @@ func TestTransformPipeline(suite *testing.T) {
 
 		// Ensure the output commit is successful
 		outputCommitID := jobInfo.OutputCommit.ID
-		outputCommitInfo, err := env.PachClient.InspectProjectCommit("", pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
+		outputCommitInfo, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
 		require.NoError(t, err)
 		require.NotNil(t, outputCommitInfo.Finished)
 
-		branchInfo, err := env.PachClient.InspectProjectBranch("", pi.Pipeline.Name, pi.Details.OutputBranch)
+		branchInfo, err := env.PachClient.InspectProjectBranch(pfs.DefaultProjectName, pi.Pipeline.Name, pi.Details.OutputBranch)
 		require.NoError(t, err)
 		require.NotNil(t, branchInfo)
 
@@ -429,11 +429,11 @@ func TestTransformPipeline(suite *testing.T) {
 
 		// Ensure the output commit is successful
 		outputCommitID := jobInfo.OutputCommit.ID
-		outputCommitInfo, err := env.PachClient.InspectProjectCommit("", pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
+		outputCommitInfo, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
 		require.NoError(t, err)
 		require.NotNil(t, outputCommitInfo.Finished)
 
-		branchInfo, err := env.PachClient.InspectProjectBranch("", pi.Pipeline.Name, pi.Details.OutputBranch)
+		branchInfo, err := env.PachClient.InspectProjectBranch(pfs.DefaultProjectName, pi.Pipeline.Name, pi.Details.OutputBranch)
 		require.NoError(t, err)
 		require.NotNil(t, branchInfo)
 

@@ -103,7 +103,7 @@ func (ccfsc *cacheCreateFileSetClient) CopyFile(dst string, src *pfs.File, opts 
 	}
 	// This is explicitly in the default project.  Could be an internal
 	// project, had we one.
-	newSrc.Commit = client.NewProjectCommit("", client.FileSetsRepoName, "", id)
+	newSrc.Commit = client.NewProjectCommit(pfs.DefaultProjectName, client.FileSetsRepoName, "", id)
 	ccfsc.put(key, newSrc.Commit)
 	return errors.EnsureStack(ccfsc.ModifyFile.CopyFile(dst, newSrc, opts...))
 }

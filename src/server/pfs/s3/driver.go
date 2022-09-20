@@ -101,9 +101,9 @@ func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string
 		parts = parts[1:]
 	}
 	if len(parts) == 1 {
-		repo = client.NewProjectRepo("", parts[0])
+		repo = client.NewProjectRepo(pfs.DefaultProjectName, parts[0])
 	} else {
-		repo = client.NewSystemProjectRepo("", parts[1], parts[0])
+		repo = client.NewSystemProjectRepo(pfs.DefaultProjectName, parts[1], parts[0])
 	}
 
 	return &Bucket{

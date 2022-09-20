@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -25,7 +26,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 
 	// Set up repo
 	dataRepo := tu.UniqueString("TestDuplicatedJob_data")
-	require.NoError(t, c.CreateProjectRepo("", dataRepo))
+	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 
 	pipelineName := tu.UniqueString("pipeline")
 	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
@@ -39,7 +40,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInputOpts("out", "", dataRepo, "", "/*", "", "", false, false, nil),
+		client.NewProjectPFSInputOpts("out", pfs.DefaultProjectName, dataRepo, "", "/*", "", "", false, false, nil),
 		"master",
 		false,
 	)
@@ -55,7 +56,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInputOpts("input", "", dataRepo, "", "", "", "", false, false, nil),
+		client.NewProjectPFSInputOpts("input", pfs.DefaultProjectName, dataRepo, "", "", "", "", false, false, nil),
 		"master",
 		false,
 	)
@@ -79,7 +80,7 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInputOpts("whatever", "", "nonexistent", "", "/*", "", "", false, false, nil),
+		client.NewProjectPFSInputOpts("whatever", pfs.DefaultProjectName, "nonexistent", "", "/*", "", "", false, false, nil),
 		"master",
 		false,
 	))
@@ -94,7 +95,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 
 	dataRepo := tu.UniqueString("TestPipelineNamesThatContainUnderscoresAndHyphens")
-	require.NoError(t, c.CreateProjectRepo("", dataRepo))
+	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 
 	require.NoError(t, c.CreateProjectPipeline("",
 		tu.UniqueString("pipeline-hyphen"),
@@ -104,7 +105,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInput("", dataRepo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -117,7 +118,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInput("", dataRepo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
 		"",
 		false,
 	))

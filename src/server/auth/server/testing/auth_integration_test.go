@@ -47,7 +47,7 @@ func TestDeleteAll(t *testing.T) {
 
 	// admin creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, adminClient.CreateProjectRepo("", repo))
+	require.NoError(t, adminClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 
 	// alice calls DeleteAll, but it fails
 	err := aliceClient.DeleteAll()
@@ -84,7 +84,7 @@ func TestGetPermissions(t *testing.T) {
 
 	// alice creates a repo and makes Bob a writer
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoWriterRole}))
 
 	// alice can get her own permissions on the cluster (none) and on the repo (repoOwner)
@@ -129,9 +129,9 @@ func TestListDatum(t *testing.T) {
 
 	// alice creates a repo
 	repoA := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateProjectRepo("", repoA))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoA))
 	repoB := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateProjectRepo("", repoB))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoB))
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
@@ -142,8 +142,8 @@ func TestListDatum(t *testing.T) {
 		[]string{"ls /pfs/*/*; cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
 		client.NewCrossInput(
-			client.NewProjectPFSInput("", repoA, "/*"),
-			client.NewProjectPFSInput("", repoB, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, repoA, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, repoB, "/*"),
 		),
 		"", // default output branch: master
 		false,
@@ -153,26 +153,26 @@ func TestListDatum(t *testing.T) {
 	for i, repo := range []string{repoA, repoB} {
 		var err error
 		file := fmt.Sprintf("/file%d", i+1)
-		err = aliceClient.PutFile(client.NewProjectCommit("", repo, "master", ""), file, strings.NewReader("test"))
+		err = aliceClient.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", ""), file, strings.NewReader("test"))
 		require.NoError(t, err)
 	}
 	require.NoErrorWithinT(t, 90*time.Second, func() error {
-		_, err := aliceClient.WaitProjectCommit("", pipeline, "master", "")
+		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
-	jobs, err := aliceClient.ListProjectJob("", pipeline, nil /*inputs*/, -1 /*history*/, true /* full */)
+	jobs, err := aliceClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil /*inputs*/, -1 /*history*/, true /* full */)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jobs))
 	jobID := jobs[0].Job.ID
 
 	// bob cannot call ListDatum
-	_, err = bobClient.ListProjectDatumAll("", pipeline, jobID)
+	_, err = bobClient.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// alice adds bob to repoA, but bob still can't call GetLogs
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListProjectDatumAll("", pipeline, jobID)
+	_, err = bobClient.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
@@ -180,19 +180,19 @@ func TestListDatum(t *testing.T) {
 	// call ListDatum
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, []string{}))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoB, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListProjectDatumAll("", pipeline, jobID)
+	_, err = bobClient.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// alice adds bob to repoA, and now bob can call ListDatum
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListProjectDatumAll("", pipeline, jobID)
+	_, err = bobClient.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, jobID)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// Finally, alice adds bob to the output repo, and now bob can call ListDatum
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoReaderRole}))
-	dis, err := bobClient.ListProjectDatumAll("", pipeline, jobID)
+	dis, err := bobClient.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, jobID)
 	require.NoError(t, err)
 	files := make(map[string]struct{})
 	for _, di := range dis {
@@ -414,7 +414,7 @@ func TestDebug(t *testing.T) {
 	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	dataRepo := tu.UniqueString("TestDebug_data")
-	require.NoError(t, aliceClient.CreateProjectRepo("", dataRepo))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 
 	expectedFiles, pipelines := tu.DebugFiles(t, dataRepo)
 
@@ -430,17 +430,17 @@ func TestDebug(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewProjectPFSInput("", dataRepo, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
 			"",
 			false,
 		))
 	}
 
-	commit1, err := aliceClient.StartProjectCommit("", dataRepo, "master")
+	commit1, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit1, "file", strings.NewReader("foo"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishProjectCommit("", dataRepo, commit1.Branch.Name, commit1.ID))
+	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.ID))
 
 	jobInfos, err := aliceClient.WaitJobSetAll(commit1.ID, false)
 	require.NoError(t, err)
@@ -497,7 +497,7 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	aliceRepo := tu.UniqueString("alice_repo")
-	err := aliceClient.CreateProjectRepo("", aliceRepo)
+	err := aliceClient.CreateProjectRepo(pfs.DefaultProjectName, aliceRepo)
 	require.NoError(t, err)
 
 	// create pipeline
@@ -508,7 +508,7 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput("", aliceRepo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, aliceRepo, "/*"),
 		"", // default output branch: master
 		false,
 	)
@@ -518,14 +518,14 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 	time.Sleep(time.Second * 10)
 
 	// must be authorized to access pachd logs
-	pachdLogsIter := aliceClient.GetProjectLogs("", "", "", nil, "", false, false, 0)
+	pachdLogsIter := aliceClient.GetProjectLogs(pfs.DefaultProjectName, "", "", nil, "", false, false, 0)
 	pachdLogsIter.Next()
 	require.YesError(t, pachdLogsIter.Err())
 	require.True(t, strings.Contains(pachdLogsIter.Err().Error(), "is not authorized to perform this operation"))
 
 	// alice can view the pipeline logs
 	require.NoErrorWithinTRetry(t, time.Minute, func() error {
-		pipelineLogsIter := aliceClient.GetProjectLogs("", alicePipeline, "", nil, "", false, false, 0)
+		pipelineLogsIter := aliceClient.GetProjectLogs(pfs.DefaultProjectName, alicePipeline, "", nil, "", false, false, 0)
 		pipelineLogsIter.Next()
 		return pipelineLogsIter.Err()
 	}, "alice can view the pipeline logs")
@@ -538,7 +538,7 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 			Resource:  &auth.Resource{Type: auth.ResourceType_CLUSTER},
 		})
 	require.NoError(t, err)
-	pachdLogsIter = aliceClient.GetProjectLogs("", "", "", nil, "", false, false, 0)
+	pachdLogsIter = aliceClient.GetProjectLogs(pfs.DefaultProjectName, "", "", nil, "", false, false, 0)
 	pachdLogsIter.Next()
 	require.NoError(t, pachdLogsIter.Err())
 }
@@ -718,11 +718,11 @@ func TestPipelineRevoke(t *testing.T) {
 
 	// alice creates a repo, and adds bob as a reader
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
-	commit := client.NewProjectCommit("", repo, "master", "")
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
 
 	// bob creates a pipeline
 	pipeline := tu.UniqueString("bob-pipeline")
@@ -732,7 +732,7 @@ func TestPipelineRevoke(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput("", repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -749,7 +749,7 @@ func TestPipelineRevoke(t *testing.T) {
 	// alice commits to the input repo, and the pipeline runs successfully
 	require.NoError(t, aliceClient.PutFile(commit, "/file", strings.NewReader("test")))
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := bobClient.WaitProjectCommit("", pipeline, "master", commit.ID)
+		_, err := bobClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
 		return err
 	})
 
@@ -761,7 +761,7 @@ func TestPipelineRevoke(t *testing.T) {
 		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 	require.NoError(t, aliceClient.PutFile(commit, "/file", strings.NewReader("test")))
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := aliceClient.WaitProjectCommit("", pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
 		return err
 	})
 
@@ -772,7 +772,7 @@ func TestPipelineRevoke(t *testing.T) {
 	doneCh := make(chan struct{})
 	go func() {
 		defer close(doneCh)
-		_, err := aliceClient.WaitProjectCommit("", pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
 		require.NoError(t, err)
 	}()
 	select {
@@ -788,7 +788,7 @@ func TestPipelineRevoke(t *testing.T) {
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput("", repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		true,
 	))
@@ -796,7 +796,7 @@ func TestPipelineRevoke(t *testing.T) {
 	doneCh = make(chan struct{})
 	go func() {
 		defer close(doneCh)
-		_, err := aliceClient.WaitProjectCommit("", pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
 		require.NoError(t, err)
 	}()
 	select {
@@ -809,7 +809,7 @@ func TestPipelineRevoke(t *testing.T) {
 	// pipeline runs successfully
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, tu.Pl(pipeline), []string{auth.RepoReaderRole}))
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := aliceClient.WaitProjectCommit("", pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
 		return err
 	})
 }
@@ -833,33 +833,33 @@ func TestDeleteRCInStandby(t *testing.T) {
 
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, c.CreateProjectRepo("", repo))
-	err := c.PutFile(client.NewProjectCommit("", repo, "master", ""), "/file.1", strings.NewReader("1"))
+	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	err := c.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", ""), "/file.1", strings.NewReader("1"))
 	require.NoError(t, err)
 
 	// Create pipeline
 	pipeline := tu.UniqueString("pipeline")
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline("", pipeline),
+			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Image: "", // default image: DefaultUserImage
 				Cmd:   []string{"bash"},
 				Stdin: []string{"cp /pfs/*/* /pfs/out"},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
-			Input:           client.NewProjectPFSInput("", repo, "/*"),
+			Input:           client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 			Autoscaling:     true,
 		})
 	require.NoError(t, err)
 
 	// Wait for pipeline to process input commit & go into standby
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := c.WaitProjectCommit("", pipeline, "master", "")
+		_, err := c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		pi, err := c.InspectProjectPipeline("", pipeline, false)
+		pi, err := c.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
 		if err != nil {
 			return err
 		}
@@ -874,10 +874,10 @@ func TestDeleteRCInStandby(t *testing.T) {
 
 	// Create new input commit (to force pipeline out of standby) & make sure
 	// the pipeline either fails or restarts RC & finishes
-	err = c.PutFile(client.NewProjectCommit("", repo, "master", ""), "/file.2", strings.NewReader("1"))
+	err = c.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", ""), "/file.2", strings.NewReader("1"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := c.WaitProjectCommit("", pipeline, "master", "")
+		_, err := c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
 }
@@ -903,8 +903,8 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
-	commit := client.NewProjectCommit("", repo, "master", "")
-	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	err := aliceClient.PutFile(commit, "/file.1", strings.NewReader("1"))
 	require.NoError(t, err)
 
@@ -919,7 +919,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 			"cp /pfs/*/* /pfs/out/",
 		},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput("", repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -930,12 +930,12 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 
 	// make sure the pipeline either fails or restarts RC & finishes
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := aliceClient.WaitProjectCommit("", pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
 		return err
 	})
 
 	// make sure the pipeline is failed
-	pi, err := rootClient.InspectProjectPipeline("", pipeline, false)
+	pi, err := rootClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pi.State)
 }
@@ -981,13 +981,13 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 		[]string{"/bin/bash"},
 		[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline1) + " /pfs/out/"},
 		nil,
-		client.NewProjectPFSInput("", pipeline1, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, pipeline1, "/*"),
 		"",
 		false,
 	))
 
 	// subscribe to the pipeline2 cron repo and wait for inputs
-	repo := client.NewProjectRepo("", pipeline2)
+	repo := client.NewProjectRepo(pfs.DefaultProjectName, pipeline2)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel() //cleanup resources
 
@@ -1040,7 +1040,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString("TestPipelinesRunAfterExpiration")
-	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 
 	// alice creates a pipeline
@@ -1051,7 +1051,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput("", repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"",    // default output branch: master
 		false, // no update
 	))
@@ -1060,14 +1060,14 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pipeline))
 
 	// Make sure alice's pipeline runs successfully
-	commit, err := aliceClient.StartProjectCommit("", repo, "master")
+	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, tu.UniqueString("/file1"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.WaitProjectCommit("", pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
 		return err
 	})
 
@@ -1100,14 +1100,14 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// Make sure alice's pipeline still runs successfully
-	commit, err = rootClient.StartProjectCommit("", repo, "master")
+	commit, err = rootClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	err = rootClient.PutFile(commit, tu.UniqueString("/file2"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, rootClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, rootClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := rootClient.WaitProjectCommit("", pipeline, "master", commit.ID)
+		_, err := rootClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
 		return err
 	})
 }
@@ -1129,28 +1129,28 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	// alice creates a pipeline
 	repo := tu.UniqueString("TestDeleteAllAfterDeactivate")
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreateProjectRepo("", repo))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, aliceClient.CreateProjectPipeline("",
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput("", repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
 
 	// alice makes an input commit
-	commit, err := aliceClient.StartProjectCommit("", repo, "master")
+	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file1", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishProjectCommit("", repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.WaitProjectCommit("", pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
 		return err
 	})
 

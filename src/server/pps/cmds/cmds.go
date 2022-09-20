@@ -162,7 +162,7 @@ If the job fails, the output commit will not be populated with data.`,
 				if err != nil {
 					return err
 				}
-				jobInfo, err := client.WaitProjectJob("", job.Pipeline.Name, job.ID, true)
+				jobInfo, err := client.WaitProjectJob(pfs.DefaultProjectName, job.Pipeline.Name, job.ID, true)
 				if err != nil {
 					return errors.Wrap(err, "error from InspectJob")
 				}
@@ -374,7 +374,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 				}
 				if _, err := client.RunBatchInTransaction(func(tb *pachdclient.TransactionBuilder) error {
 					for _, jobInfo := range jobInfos {
-						if err := tb.StopProjectJob("", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID); err != nil {
+						if err := tb.StopProjectJob(pfs.DefaultProjectName, jobInfo.Job.Pipeline.Name, jobInfo.Job.ID); err != nil {
 							return err
 						}
 					}
@@ -387,7 +387,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 				if err != nil {
 					return err
 				}
-				if err := client.StopProjectJob("", job.Pipeline.Name, job.ID); err != nil {
+				if err := client.StopProjectJob(pfs.DefaultProjectName, job.Pipeline.Name, job.ID); err != nil {
 					return errors.Wrap(err, "error from StopProjectJob")
 				}
 			}
@@ -1001,7 +1001,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			if err := client.StartProjectPipeline("", args[0]); err != nil {
+			if err := client.StartProjectPipeline(pfs.DefaultProjectName, args[0]); err != nil {
 				return errors.Wrap(err, "error from StartProjectPipeline")
 			}
 			return nil
