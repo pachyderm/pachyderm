@@ -16,7 +16,7 @@ func Commit(pachClient *client.APIClient, taskService task.Service, project, rep
 			return err
 		}
 		for _, mod := range spec.Modifications {
-			if err := Modification(env, project, repo, branch, commit.ID, mod); err != nil {
+			if err := Modification(env, commit, mod); err != nil {
 				return err
 			}
 		}
