@@ -1,0 +1,4 @@
+ARG ETCD_VERSION
+
+# etcd uses gcr.io/etcd-development/etcd as a primary container registry, and quay.io/coreos/etcd as secondary.
+FROM gcr.io/etcd-development/etcd:$ETCD_VERSION
