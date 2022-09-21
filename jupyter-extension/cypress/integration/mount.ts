@@ -29,7 +29,7 @@ describe('mount', () => {
     cy.findByTestId('ListItem__select').select('branch');
     cy.findAllByText('Mount').first().click();
     cy.findAllByText('Unmount').should('have.length', 1);
-    cy.findAllByText('images').first().click();
+    cy.findAllByText('images_branch').first().click();
     cy.findAllByText('branch.png').should('have.length', 1);
   });
 
