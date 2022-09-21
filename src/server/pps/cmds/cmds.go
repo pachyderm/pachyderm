@@ -54,28 +54,6 @@ const (
 	secrets   = "secrets"
 )
 
-// copied from Client, because need to extend for projects without breaking user facing API.
-func listJobFilterF(ctx context.Context, client pps.APIClient, request *pps.ListJobRequest, f func(*pps.JobInfo) error) error {
-	listJobClient, err := client.ListJob(ctx, request)
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	for {
-		ji, err := listJobClient.Recv()
-		if errors.Is(err, io.EOF) {
-			return nil
-		} else if err != nil {
-			return grpcutil.ScrubGRPC(err)
-		}
-		if err := f(ji); err != nil {
-			if errors.Is(err, errutil.ErrBreak) {
-				return nil
-			}
-			return err
-		}
-	}
-}
-
 // Cmds returns a slice containing pps commands.
 func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
@@ -1551,4 +1529,26 @@ func ParsePipelineStates(stateStrs []string) (string, error) {
 		}
 	}
 	return validateJQConditionString(strings.Join(conditions, " or "))
+}
+
+// copied from Client, because need to extend for projects without breaking user facing API.
+func listJobFilterF(ctx context.Context, client pps.APIClient, request *pps.ListJobRequest, f func(*pps.JobInfo) error) error {
+	listJobClient, err := client.ListJob(ctx, request)
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		ji, err := listJobClient.Recv()
+		if errors.Is(err, io.EOF) {
+			return nil
+		} else if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(ji); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
+			return err
+		}
+	}
 }
