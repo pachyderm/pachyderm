@@ -71,8 +71,8 @@ const main = async () => {
     const commit = await client
       .pfs()
       .startCommit({branch: {name: 'master', repo: {name: 'images'}}});
-    await client
-      .modifyFile()
+    const file = await client.pfs().modifyFile();
+    await file
       .setCommit(commit)
       .putFileFromFilepath(join(__dirname, 'images/8MN9Kg0.jpg'), '8MN9Kg0.jpg')
       .putFileFromFilepath(join(__dirname, 'images/46Q8nDz.jpg'), '46Q8nDz.jpg')

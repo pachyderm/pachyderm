@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/node-pachyderm",
-  "version": "0.31.0",
+  "version": "0.32.0",
   "description": "node client for pachyderm",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -25,19 +25,29 @@
   },
   "homepage": "https://github.com/pachyderm/node-pachyderm#readme",
   "dependencies": {
-    "@grpc/grpc-js": "^1.2.2",
-    "@types/google-protobuf": "^3.7.4",
-    "google-protobuf": "^3.14.0"
+    "@grpc/grpc-js": "^1.7.0",
+    "@types/google-protobuf": "^3.15.6",
+    "google-protobuf": "^3.21.0"
   },
   "devDependencies": {
-    "@pachyderm/config": "^0.7.0",
-    "@types/jest": "^26.0.15",
+    "@typescript-eslint/eslint-plugin": ">=5.16.0",
+    "@typescript-eslint/parser": ">=5.16.0",
+    "@types/jest": "^27.5.2",
     "dotenv-flow": "3.2.0",
     "dotenv-flow-cli": "1.0.0",
-    "eslint": "^7.0.0",
+    "eslint": "^8.23.1",
+    "eslint-config-prettier": ">=8.5.0",
+    "eslint-import-resolver-typescript": ">=2.5.0",
+    "eslint-plugin-import": ">=2.25.4",
+    "eslint-plugin-jest": ">=26.1.2",
+    "eslint-plugin-jsx-a11y": ">=6.5.1",
+    "eslint-plugin-prefer-arrow": ">=1.2.3",
+    "eslint-plugin-prettier": ">=4.0.0",
+    "eslint-plugin-testing-library": ">=5.1.0",
     "grpc_tools_node_protoc_ts": "^5.0.1",
     "grpc-tools": "^1.10.0",
-    "jest": "^26.6.3",
+    "jest": "^27.1.5",
+    "ts-jest": "^27.1.5",
     "typescript": "^4.1.2"
   }
 }

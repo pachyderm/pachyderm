@@ -1,1 +1,6 @@
-module.exports = require('@pachyderm/config/prettier.config');
+module.exports = {
+  singleQuote: true,
+  trailingComma: 'all',
+  bracketSpacing: false,
+  arrowParens: 'always',
+};
