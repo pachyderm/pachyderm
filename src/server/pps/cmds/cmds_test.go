@@ -989,6 +989,7 @@ func TestListJobWithProject(t *testing.T) {
 		`,
 		"project", projectName, "pipeline", pipelineName).Run())
 	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+		//nolint:wrapcheck
 		return tu.PachctlBashCmd(t, c, `
 		pachctl list job --project {{.project}} -x | match {{.pipeline}}
 		pachctl list job -x | match -v {{.pipeline}}
