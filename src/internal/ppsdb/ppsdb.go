@@ -35,19 +35,13 @@ var PipelinesVersionIndex = &col.Index{
 // zero-padded in order to facilitate sorting.
 func VersionKey(p *pps.Pipeline, version uint64) string {
 	// zero pad in case we want to sort
-	if projectName := p.Project.GetName(); projectName != "" {
-		return fmt.Sprintf("%s/%s@%08d", projectName, p.Name, version) // projects style
-	}
-	return fmt.Sprintf("%s@%08d", p.Name, version) // pre-projects style
+	return fmt.Sprintf("%s@%08d", p, version)
 }
 
 // PipelinesNameKey returns the key used by PipelinesNameIndex to index a
 // PipelineInfo.
 func PipelinesNameKey(p *pps.Pipeline) string {
-	if projectName := p.Project.GetName(); projectName != "" {
-		return fmt.Sprintf("%s/%s", projectName, p.Name)
-	}
-	return p.Name
+	return p.String()
 }
 
 // PipelinesNameIndex records the name of pipelines
@@ -115,10 +109,7 @@ func Pipelines(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollec
 }
 
 func JobsPipelineKey(p *pps.Pipeline) string {
-	if projectName := p.Project.GetName(); projectName != "" {
-		return fmt.Sprintf("%s/%s", projectName, p.Name)
-	}
-	return p.Name
+	return p.String()
 }
 
 // JobsPipelineIndex maps pipeline to Jobs started by the pipeline
@@ -130,10 +121,7 @@ var JobsPipelineIndex = &col.Index{
 }
 
 func JobsTerminalKey(pipeline *pps.Pipeline, isTerminal bool) string {
-	if projectName := pipeline.Project.GetName(); projectName != "" {
-		return fmt.Sprintf("%s/%s_%v", projectName, pipeline.Name, isTerminal)
-	}
-	return fmt.Sprintf("%s_%v", pipeline.Name, isTerminal)
+	return fmt.Sprintf("%s_%v", pipeline, isTerminal)
 }
 
 var JobsTerminalIndex = &col.Index{
@@ -157,10 +145,7 @@ var jobsIndexes = []*col.Index{JobsPipelineIndex, JobsTerminalIndex, JobsJobSetI
 // key.  It will include the project if the project name is not the empty
 // string.
 func JobKey(j *pps.Job) string {
-	if projectName := j.Pipeline.Project.GetName(); projectName != "" {
-		return fmt.Sprintf("%s/%s@%s", projectName, j.Pipeline.Name, j.ID)
-	}
-	return fmt.Sprintf("%s@%s", j.Pipeline.Name, j.ID)
+	return fmt.Sprintf("%s@%s", j.Pipeline, j.ID)
 }
 
 // Jobs returns a PostgresCollection of Jobs
