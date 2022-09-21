@@ -842,7 +842,14 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 	// If the job is running, we fill in WorkerStatus field, otherwise
 	// we just return the jobInfo.
 	if jobInfo.State == pps.JobState_JOB_RUNNING {
-		workerStatus, err := workerserver.Status(ctx, projectName, pipelineName, jobInfo.PipelineVersion, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
+		var pi = &pps.PipelineInfo{
+			Pipeline: &pps.Pipeline{
+				Project: &pfs.Project{Name: projectName},
+				Name:    pipelineName,
+			},
+			Version: jobInfo.PipelineVersion,
+		}
+		workerStatus, err := workerserver.Status(ctx, pi, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
 		if err != nil {
 			logrus.Errorf("failed to get worker status with err: %s", err.Error())
 		} else {
@@ -1011,7 +1018,11 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	if err != nil {
 		return nil, err
 	}
-	if err := workerserver.Cancel(ctx, jobInfo.Job.Pipeline.Project.GetName(), jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
+	var pi = &pps.PipelineInfo{
+		Pipeline: jobInfo.Job.Pipeline,
+		Version:  jobInfo.PipelineVersion,
+	}
+	if err := workerserver.Cancel(ctx, pi, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -1201,8 +1212,8 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		}
 
 		// 3) Get pods for this pipeline
-		rcName = ppsutil.PipelineRcName(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-		pods, err = a.rcPods(apiGetLogsServer.Context(), pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		rcName = ppsutil.PipelineRcName(pipelineInfo)
+		pods, err = a.rcPods(apiGetLogsServer.Context(), pipelineInfo)
 		if err != nil {
 			return err
 		}
@@ -2295,7 +2306,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline,
 	} else {
 		kubeClient := a.env.KubeClient
 		if info.Details.Service != nil {
-			rcName := ppsutil.PipelineRcName(info.Pipeline.Project.GetName(), info.Pipeline.Name, info.Version)
+			rcName := ppsutil.PipelineRcName(info)
 			service, err := kubeClient.CoreV1().Services(a.namespace).Get(ctx, fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
 			if err != nil {
 				if !errutil.IsNotFoundError(err) {
@@ -2306,7 +2317,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline,
 			}
 		}
 
-		workerStatus, err := workerserver.Status(ctx, info.Pipeline.Project.GetName(), info.Pipeline.Name, info.Version, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
+		workerStatus, err := workerserver.Status(ctx, info, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
 		if err != nil {
 			logrus.Errorf("failed to get worker status with err: %s", err.Error())
 		} else {
@@ -3063,13 +3074,13 @@ func (a *apiServer) pachdPods(ctx context.Context) ([]v1.Pod, error) {
 	return a.listPods(ctx, map[string]string{appLabel: "pachd"})
 }
 
-func (a *apiServer) rcPods(ctx context.Context, projectName, pipelineName string, pipelineVersion uint64) ([]v1.Pod, error) {
+func (a *apiServer) rcPods(ctx context.Context, pi *pps.PipelineInfo) ([]v1.Pod, error) {
 	labels := map[string]string{
 		appLabel:             "pipeline",
-		pipelineNameLabel:    pipelineName,
-		pipelineVersionLabel: fmt.Sprint(pipelineVersion),
+		pipelineNameLabel:    pi.Pipeline.Name,
+		pipelineVersionLabel: fmt.Sprint(pi.Version),
 	}
-	if projectName != "" {
+	if projectName := pi.Pipeline.Project.GetName(); projectName != "" {
 		labels[pipelineProjectLabel] = projectName
 	}
 	pp, err := a.listPods(ctx, labels)
@@ -3081,7 +3092,7 @@ func (a *apiServer) rcPods(ctx context.Context, projectName, pipelineName string
 		// This long name could exceed 63 characters, which is why 2.4
 		// and later use separate labels for each component.
 		return a.listPods(ctx, map[string]string{
-			appLabel: ppsutil.PipelineRcName(projectName, pipelineName, pipelineVersion),
+			appLabel: ppsutil.PipelineRcName(pi),
 		})
 	}
 	return pp, nil

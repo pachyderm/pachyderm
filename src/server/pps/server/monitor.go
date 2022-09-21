@@ -260,8 +260,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 			return err
 		}
 		parallelism := int(*currRC.Spec.Replicas)
-		workerStatus, err := workerserver.Status(ctx, projectName, pipelineName, pipelineInfo.Version,
-			pc.env.EtcdClient, pc.etcdPrefix, pc.env.Config.PPSWorkerPort)
+		workerStatus, err := workerserver.Status(ctx, pipelineInfo, pc.env.EtcdClient, pc.etcdPrefix, pc.env.Config.PPSWorkerPort)
 		if err != nil {
 			return errors.Wrap(err, "could not check if all workers are up")
 		}

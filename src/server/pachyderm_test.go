@@ -2693,6 +2693,7 @@ func TestUpdatePipeline(t *testing.T) {
 	dataRepo := tu.UniqueString("TestUpdatePipeline_data")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	pipelineName := tu.UniqueString("pipeline")
+	pipeline := &pps.Pipeline{Project: &pfs.Project{Name: pfs.DefaultProjectName}, Name: pipelineName}
 	pipelineCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipelineName, "master", "")
 	require.NoError(t, c.CreateProjectPipeline("",
 		pipelineName,
@@ -2738,32 +2739,36 @@ func TestUpdatePipeline(t *testing.T) {
 		kc := tu.GetKubeClient(t)
 		svcs, err := kc.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
-		var newServiceSeen bool
+		var (
+			newServiceSeen bool
+			staleName      = ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 1})
+			newName        = ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 2})
+		)
 		for _, svc := range svcs.Items {
 			switch svc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName("", pipelineName, 1):
+			case staleName:
 				return errors.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName("", pipelineName, 2):
+			case newName:
 				newServiceSeen = true
 			}
 		}
 		if !newServiceSeen {
-			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName("", pipelineName, 2))
+			return errors.Errorf("did not find new service: %q", newName)
 		}
 		rcs, err := kc.CoreV1().ReplicationControllers(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		var newRCSeen bool
 		for _, rc := range rcs.Items {
 			switch rc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName("", pipelineName, 1):
+			case staleName:
 				return errors.Errorf("stale RC encountered: %q", rc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName("", pipelineName, 2):
+			case newName:
 				newRCSeen = true
 			}
 		}
 		require.True(t, newRCSeen)
 		if !newRCSeen {
-			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName("", pipelineName, 2))
+			return errors.Errorf("did not find new RC: %q", newName)
 		}
 		return nil
 	})
@@ -2812,32 +2817,36 @@ func TestUpdatePipeline(t *testing.T) {
 		kc := tu.GetKubeClient(t)
 		svcs, err := kc.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
-		var newServiceSeen bool
+		var (
+			newServiceSeen bool
+			staleName      = ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 1})
+			newName        = ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 2})
+		)
 		for _, svc := range svcs.Items {
 			switch svc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName("", pipelineName, 1):
+			case staleName:
 				return errors.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName("", pipelineName, 2):
+			case newName:
 				newServiceSeen = true
 			}
 		}
 		if !newServiceSeen {
-			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName("", pipelineName, 2))
+			return errors.Errorf("did not find new service: %q", newName)
 		}
 		rcs, err := kc.CoreV1().ReplicationControllers(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		var newRCSeen bool
 		for _, rc := range rcs.Items {
 			switch rc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName("", pipelineName, 1):
+			case staleName:
 				return errors.Errorf("stale RC encountered: %q", rc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName("", pipelineName, 2):
+			case newName:
 				newRCSeen = true
 			}
 		}
 		require.True(t, newRCSeen)
 		if !newRCSeen {
-			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName("", pipelineName, 2))
+			return errors.Errorf("did not find new RC: %q", newName)
 		}
 		return nil
 	})
@@ -10495,7 +10504,13 @@ func TestDatumSetCache(t *testing.T) {
 
 func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline string, n int) {
 	kc := tu.GetKubeClient(t)
-	rcName := ppsutil.PipelineRcName("", pipeline, 1)
+	rcName := ppsutil.PipelineRcName(&pps.PipelineInfo{
+		Pipeline: &pps.Pipeline{
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    pipeline,
+		},
+		Version: 1,
+	})
 	enoughReplicas := false
 	tooManyReplicas := false
 	var maxSeen int
