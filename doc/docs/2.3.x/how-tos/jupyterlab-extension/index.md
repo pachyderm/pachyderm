@@ -15,7 +15,7 @@ Use the [JupyterLab extension](https://pypi.org/project/jupyterlab-pachyderm/) t
 ## Before You Start 
 
 - You must have a Pachyderm cluster running.
-- You must install the Jupyterlab Helm chart
+- You must install the Jupyterlab Helm repository.
     ```sh
     helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
     helm repo update
@@ -24,7 +24,7 @@ Use the [JupyterLab extension](https://pypi.org/project/jupyterlab-pachyderm/) t
 
 ## Install The Extension 
 
-You can choose between Pachyderm's pre-built image (a GPU-enabled version of [`jupyter/base-notebook`](https://jupyter-docker-stacks.readthedocs.io/en/latest/using/selecting.html#jupyter-base-notebook)) or add the extension to your own image. Pachyderm's image includes:
+You can choose between Pachyderm's pre-built image (a custom version of [`jupyter/scipy-notebook`](https://jupyter-docker-stacks.readthedocs.io/en/latest/using/selecting.html#jupyter-scipy-notebook)) or add the extension to your own image. Pachyderm's image includes:
 
 - The extension jupyterlab-pachyderm.
 - FUSE
@@ -83,7 +83,11 @@ RUN chown $NB_USER /pfs
 # Fuse is a requirement for the mount extension 
 RUN apt-get clean && RUN apt-get update && apt-get -y install curl fuse 
 
-# Install Pachctl - Set the version of Pachctl that matches your cluster deployment. 
+# Install the mount-server binary
+RUN curl -f -o mount-server.deb -L https://github.com/pachyderm/pachyderm/releases/download/v${PACHCTL_VERSION}/mount-server_${PACHCTL_VERSION}_amd64.deb
+RUN dpkg -i mount-server.deb
+
+# Optionally Install Pachctl - Set the version of Pachctl that matches your cluster deployment. 
 RUN curl -f -o pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v${PACHCTL_VERSION}/pachctl_${PACHCTL_VERSION}_amd64.deb 
 RUN dpkg -i pachctl.deb
 
@@ -248,7 +252,7 @@ At the bottom of the **Mounted Repositories** tab, you'll find the file browser.
 
 - Mounted repositories are nested within the root `/pfs` (Pachyderm's File System)
 - These repositories are **read-only**
-- Mounted repositories have a `/` globby patterned applied to their directories and files.
+- Mounted repositories have a `/` glob pattern applied to their directories and files.
 - Files only downloaded locally when you access them (saving you time).
 
 Using the previous example, while the **Demo** repository is mounted, you can select the **demo** folder to reveal the example `myfile.txt`. 
