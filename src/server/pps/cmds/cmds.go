@@ -247,6 +247,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 			// To list jobs for all projects, user must be explicit about it.
 			// The --project filter takes precedence over the local config context's project
 			// if no project information is given, we use the "default" project.
+			// TODO default to pfs.DefaultProjectName after migration.
 			projectsFilter := map[string]bool{project: true}
 			if allProjects {
 				projectsFilter = nil
