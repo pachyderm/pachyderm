@@ -64,6 +64,9 @@ func TestCommitKey(t *testing.T) {
 		// new format
 		{false, "project", "repo", "0123456789ab40123456789abcdef012", "project/repo@0123456789ab40123456789abcdef012"},
 		// old format
+		//
+		// TODO: this should be removed after migration is completed in
+		// CORE-93, perhaps as part of CORE-1046
 		{false, "", "repo", "0123456789ab40123456789abcdef012", "repo@0123456789ab40123456789abcdef012"},
 	}
 	for i, c := range cases {
