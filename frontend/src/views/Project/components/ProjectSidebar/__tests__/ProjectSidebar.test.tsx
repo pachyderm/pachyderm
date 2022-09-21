@@ -372,6 +372,44 @@ describe('ProjectSidebar', () => {
       click(egress);
       expect(window.document.execCommand).toHaveBeenCalledWith('copy');
     });
+
+    it('should show a link to view files', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/project/2/repos/models/branch/master/commits',
+      );
+
+      const {queryByText, getByTestId} = render(<Project />);
+
+      await waitForElementToBeRemoved(() =>
+        getByTestId('RepoDetails__repoNameSkeleton'),
+      );
+      await waitForElementToBeRemoved(() =>
+        getByTestId('CommitBrowser__loadingdots'),
+      );
+      expect(queryByText('View Files')).toBeInTheDocument();
+      expect(queryByText('View Files')).not.toBeDisabled();
+    });
+
+    it('should show a link to view files while filtering for a global id', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/lineage/2/repos/likelihoods/branch/default?view=eyJnbG9iYWxJZEZpbHRlciI6IjIzYjlhZjdkNWQ0MzQzMjE5YmM4ZTAyZmY0YWNkMzNhIn0%3D',
+      );
+
+      const {queryByText, getByTestId} = render(<Project />);
+
+      await waitForElementToBeRemoved(() =>
+        getByTestId('RepoDetails__repoNameSkeleton'),
+      );
+      await waitForElementToBeRemoved(() =>
+        getByTestId('CommitDetails__loadingdots'),
+      );
+      expect(queryByText('View Files')).toBeInTheDocument();
+      expect(queryByText('View Files')).not.toBeDisabled();
+    });
   });
 
   it('should filter commits by auto origin', async () => {
