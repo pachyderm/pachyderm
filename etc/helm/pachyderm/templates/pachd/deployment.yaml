@@ -2,7 +2,10 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
-{{- if .Values.pachd.enabled }}
+{{- if .Values.pachd.enabled -}}
+{{- if .Values.enterpriseServer.enabled -}}
+{{- fail "pachd and enterpriseServer shall not be enabled at the same time in the same namespace" -}}
+{{- end -}}
 {{- $randHostPath := printf "/var/pachyderm-%s/" (randAlphaNum 5) -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -441,4 +444,4 @@ spec:
           defaultMode: 420
           secretName: {{ .Values.oidc.dexCredentialSecretName }}
       {{- end }}
-{{- end }}
+{{- end -}}
