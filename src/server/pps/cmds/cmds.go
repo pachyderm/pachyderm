@@ -30,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
@@ -54,10 +55,8 @@ const (
 )
 
 // copied from Client, because need to extend for projects without breaking user facing API.
-func listJobFilterF(client *client.APIClient, request *pps.ListJobRequest, f func(*pps.JobInfo) error) error {
-	ctx, cf := context.WithCancel(client.Ctx())
-	defer cf()
-	listJobClient, err := client.PpsAPIClient.ListJob(ctx, request)
+func listJobFilterF(ctx context.Context, client pps.APIClient, request *pps.ListJobRequest, f func(*pps.JobInfo) error) error {
+	listJobClient, err := client.ListJob(ctx, request)
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
@@ -201,7 +200,7 @@ If the job fails, the output commit will not be populated with data.`,
 	commands = append(commands, cmdutil.CreateAliases(waitJob, "wait job", jobs))
 
 	var pipelineName string
-	var projects []string
+	var project string
 	var allProjects bool
 	var inputCommitStrs []string
 	var history string
@@ -267,11 +266,14 @@ $ {{alias}} -p foo -i bar@YYY`,
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
-			// order and precendence matters
+			// To list jobs for all projects, user must be explicit about it.
+			// The --project filter takes precedence over the local config context's project
+			// if no project information is given, we use the "default" project.
+			projectsFilter := map[string]bool{project: true}
 			if allProjects {
-				projects = nil
-			} else if len(projects) == 0 {
-				projects = []string{pachCtx.GetProject()}
+				projectsFilter = nil
+			} else if project == "" {
+				projectsFilter = map[string]bool{pachCtx.GetProject(): true}
 			}
 			if len(args) == 0 {
 				if pipelineName == "" && !expand {
@@ -284,7 +286,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 						return errors.Errorf("cannot specify '--history' when listing all jobs")
 					}
 
-					req := &pps.ListJobSetRequest{Projects: projects}
+					req := &pps.ListJobSetRequest{Projects: projectsFilter}
 					listJobSetClient, err := client.PpsAPIClient.ListJobSet(client.Ctx(), req)
 					if err != nil {
 						return grpcutil.ScrubGRPC(err)
@@ -311,10 +313,10 @@ $ {{alias}} -p foo -i bar@YYY`,
 					// We are listing all sub-jobs, possibly restricted to a single pipeline
 					var pipeline *pps.Pipeline
 					if pipelineName != "" {
-						pipeline = &pps.Pipeline{Name: pipelineName}
+						pipeline = &pps.Pipeline{Name: pipelineName, Project: &pfs.Project{Name: project}}
 					}
 					req := &pps.ListJobRequest{
-						Projects:    projects,
+						Projects:    projectsFilter,
 						Pipeline:    pipeline,
 						InputCommit: commits,
 						History:     historyCount,
@@ -322,16 +324,18 @@ $ {{alias}} -p foo -i bar@YYY`,
 						JqFilter:    filter,
 					}
 
+					ctx, cf := context.WithCancel(client.Ctx())
+					defer cf()
 					if raw {
 						e := cmdutil.Encoder(output, os.Stdout)
-						return listJobFilterF(client, req, func(ji *ppsclient.JobInfo) error {
+						return listJobFilterF(ctx, client.PpsAPIClient, req, func(ji *ppsclient.JobInfo) error {
 							return errors.EnsureStack(e.EncodeProto(ji))
 						})
 					}
 
 					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 						writer := tabwriter.NewWriter(w, pretty.JobHeader)
-						if err := listJobFilterF(client, req, func(ji *ppsclient.JobInfo) error {
+						if err := listJobFilterF(ctx, client.PpsAPIClient, req, func(ji *ppsclient.JobInfo) error {
 							pretty.PrintJobInfo(writer, ji, fullTimestamps)
 							return nil
 						}); err != nil {
@@ -363,7 +367,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
-	listJob.Flags().StringSliceVar(&projects, "project", []string{}, "Limit to jobs in a project.")
+	listJob.Flags().StringVar(&project, "project", "", "Limit to jobs in a project.")
 	listJob.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Show jobs from all projects.")
 	listJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
 	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits. format: <repo>@<branch-or-commit>")

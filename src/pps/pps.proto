@@ -441,7 +441,7 @@ message InspectJobSetRequest {
 
 message ListJobSetRequest {
   bool details = 1;
-  repeated string projects = 2;
+  map<string, bool> projects = 2;
 }
 
 message InspectJobRequest {
@@ -452,7 +452,7 @@ message InspectJobRequest {
 }
 
 message ListJobRequest {
-  repeated string projects = 7;
+  map<string, bool> projects = 7;
   Pipeline pipeline = 1;                // nil means all pipelines
   repeated pfs_v2.Commit input_commit = 2; // nil means all inputs
 

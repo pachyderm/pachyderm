@@ -593,29 +593,6 @@ func forEachCommitInJob(pachClient *client.APIClient, jobID string, wait bool, c
 	return nil
 }
 
-// For backwards compatibility, we want users who have objects that are not associated with projects
-// to belong to the "default" project. This means that both client and server should essentially treat
-// "default" and "" project names to be equivalent.
-func keepJobBasedOnProjects(job *pps.Job, projectsFilter []string) bool {
-	contains := func(l []string, q string) bool {
-		for _, s := range l {
-			if s == q {
-				return true
-			}
-		}
-		return false
-	}
-	if len(projectsFilter) == 0 {
-		// this means no filter, so return job indiscriminately
-		return true
-	}
-	project := job.GetPipeline().GetProject().GetName()
-	if (contains(projectsFilter, "") || contains(projectsFilter, "default")) && (project == "" || project == "default") {
-		return true
-	}
-	return contains(projectsFilter, project)
-}
-
 // ListJobSet implements the protobuf pps.ListJobSet RPC
 func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_ListJobSetServer) (retErr error) {
 	pachClient := a.env.GetPachClient(serv.Context())
@@ -637,18 +614,21 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		if err != nil {
 			return err
 		}
-		// filter jobs based on projects
-		if len(request.GetProjects()) > 0 {
-			n := 0
+
+		// Filter jobs based on projects.
+		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.
+		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
+		keep := request.GetProjects()
+		if len(keep) > 0 {
+			i := 0
 			for _, ji := range jobInfos {
-				if keepJobBasedOnProjects(ji.GetJob(), request.GetProjects()) {
-					jobInfos[n] = ji
-					n++
+				if keep[ji.GetJob().GetPipeline().GetProject().GetName()] {
+					jobInfos[i] = ji
+					i++
 				}
 			}
-			jobInfos = jobInfos[:n]
+			jobInfos = jobInfos[:i]
 		}
-		// this JobSet doesn't belong to any projects requested
 		if len(jobInfos) == 0 {
 			return nil
 		}
@@ -894,7 +874,8 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 // ListJob implements the protobuf pps.ListJob RPC
 func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
 	return a.listJob(resp.Context(), request, func(ji *pps.JobInfo) error {
-		if keepJobBasedOnProjects(ji.GetJob(), request.GetProjects()) {
+		keep := request.GetProjects()
+		if len(keep) == 0 || keep[ji.GetJob().GetPipeline().GetProject().GetName()] {
 			return errors.EnsureStack(resp.Send(ji))
 		}
 		return nil
