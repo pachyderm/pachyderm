@@ -54,8 +54,8 @@ func createPipelines(pachClient *client.APIClient, spec string, parallelism int6
 		for i := range inputs {
 			inputs[i] = strings.TrimSpace(inputs[i]) + namespace
 		}
-		project := "" // TODO(CORE-1063): plumb through project somehow
-		if err := createPipeline(pachClient, project, repo, inputs, parallelism, podPatch); err != nil {
+		// TODO(CORE-1063): plumb through project somehow
+		if err := createPipeline(pachClient, pfs.DefaultProjectName, repo, inputs, parallelism, podPatch); err != nil {
 			return nil, err
 		}
 	}
