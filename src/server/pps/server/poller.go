@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -212,8 +213,12 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 					if versionErr != nil {
 						return errors.Wrapf(err, "couldn't find pipeline rc version")
 					}
+					pipeline := &pps.Pipeline{
+						Project: &pfs.Project{Name: projectName},
+						Name:    pipelineName,
+					}
 					var pipelineInfo *pps.PipelineInfo
-					if pipelineInfo, err = m.sd.GetPipelineInfo(ctx, projectName, pipelineName, pipelineVersion); err != nil {
+					if pipelineInfo, err = m.sd.GetPipelineInfo(ctx, pipeline, pipelineVersion); err != nil {
 						return errors.EnsureStack(err)
 					}
 					return m.setPipelineCrashing(ctx, pipelineInfo.SpecCommit, reason)

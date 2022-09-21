@@ -466,7 +466,7 @@ func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, 
 	for commitInfo.Origin.Kind != pfs.OriginKind_USER {
 		curr = commitInfo.ParentCommit
 		if curr == nil {
-			return nil, errors.Errorf("spec commit for pipeline %s/%s not found", pipeline.Project.GetName(), pipeline.Name)
+			return nil, errors.Errorf("spec commit for pipeline %s not found", pipeline)
 		}
 		if commitInfo, err = pfsServer.InspectCommitInTransaction(txnCtx,
 			&pfs.InspectCommitRequest{Commit: curr}); err != nil {
@@ -491,7 +491,7 @@ func ListPipelineInfo(ctx context.Context,
 		// won't use this function to get their auth token)
 		p.AuthToken = ""
 		// TODO: this is kind of silly - callers should just make a version range for each pipeline?
-		if last, ok := versionMap[p.Pipeline.Project.GetName()+"/"+p.Pipeline.Name]; ok {
+		if last, ok := versionMap[p.Pipeline.String()]; ok {
 			if p.Version < last {
 				// don't send, exit early
 				return nil
@@ -504,7 +504,7 @@ func ListPipelineInfo(ctx context.Context,
 			} else {
 				lastVersionToSend = p.Version - uint64(history)
 			}
-			versionMap[p.Pipeline.Project.GetName()+"/"+p.Pipeline.Name] = lastVersionToSend
+			versionMap[p.Pipeline.String()] = lastVersionToSend
 		}
 
 		return f(p)

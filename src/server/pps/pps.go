@@ -25,10 +25,7 @@ type ErrPipelineNotFound struct {
 }
 
 func (e ErrPipelineNotFound) Error() string {
-	if projectName := e.Pipeline.Project.GetName(); projectName != "" {
-		return fmt.Sprintf("pipeline %q/%q not found", projectName, e.Pipeline.Name)
-	}
-	return fmt.Sprintf("pipeline %q not found", e.Pipeline.Name)
+	return fmt.Sprintf("pipeline %q not found", e.Pipeline)
 }
 
 func (e ErrPipelineNotFound) GRPCStatus() *status.Status {
@@ -40,10 +37,7 @@ type ErrPipelineAlreadyExists struct {
 }
 
 func (e ErrPipelineAlreadyExists) Error() string {
-	if projectName := e.Pipeline.Project.GetName(); projectName != "" {
-		return fmt.Sprintf("pipeline %q/%q already exists", projectName, e.Pipeline.Name)
-	}
-	return fmt.Sprintf("pipeline %q already exists", e.Pipeline.Name)
+	return fmt.Sprintf("pipeline %q already exists", e.Pipeline)
 }
 
 func (e ErrPipelineAlreadyExists) GRPCStatus() *status.Status {

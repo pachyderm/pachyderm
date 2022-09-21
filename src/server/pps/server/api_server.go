@@ -519,7 +519,6 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 	pachClient := a.env.GetPachClient(ctx)
 
 	cb := func(projectName, pipelineName string) error {
-		//jobInfo, err := pachClient.InspectJob(pipeline, request.JobSet.ID, request.Details)
 		jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 			Job: &pps.Job{
 				Pipeline: &pps.Pipeline{
@@ -735,13 +734,10 @@ func (a *apiServer) listJob(
 	}
 
 	// pipelineVersions holds the versions of pipelines that we're interested in
-	versionKey := func(projectName, pipelineName string, version uint64) string {
-		return fmt.Sprintf("%s/%s-%v", projectName, pipelineName, version)
-	}
 	pipelineVersions := make(map[string]bool)
 	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, pipeline, history,
 		func(ptr *pps.PipelineInfo) error {
-			pipelineVersions[versionKey(ptr.Pipeline.Project.GetName(), ptr.Pipeline.Name, ptr.Version)] = true
+			pipelineVersions[ppsdb.VersionKey(ptr.Pipeline, ptr.Version)] = true
 			return nil
 		}); err != nil {
 		return err
@@ -766,7 +762,7 @@ func (a *apiServer) listJob(
 			}
 		}
 
-		if !pipelineVersions[versionKey(jobInfo.Job.Pipeline.Project.GetName(), jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion)] {
+		if !pipelineVersions[ppsdb.VersionKey(jobInfo.Job.Pipeline, jobInfo.PipelineVersion)] {
 			return nil
 		}
 
@@ -812,7 +808,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 	pipelineInfo := &pps.PipelineInfo{}
 	if err := a.pipelines.ReadOnly(ctx).GetUniqueByIndex(
 		ppsdb.PipelinesVersionIndex,
-		ppsdb.VersionKey(projectName, pipelineName, jobInfo.PipelineVersion),
+		ppsdb.VersionKey(jobInfo.Job.Pipeline, jobInfo.PipelineVersion),
 		pipelineInfo); err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -2350,7 +2346,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 		if targetVersion < 1 {
 			return nil, errors.Errorf("pipeline %q has only %d versions, not enough to find ancestor %d", pipeline, pipelineInfo.Version, ancestors)
 		}
-		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetUniqueByIndex(ppsdb.PipelinesVersionIndex, ppsdb.VersionKey(pipeline.Project.GetName(), pipelineName, uint64(targetVersion)), pipelineInfo); err != nil {
+		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetUniqueByIndex(ppsdb.PipelinesVersionIndex, ppsdb.VersionKey(pipeline, uint64(targetVersion)), pipelineInfo); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
 	}

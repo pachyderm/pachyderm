@@ -23,6 +23,9 @@ func TestParsePipelineKey(t *testing.T) {
 			id:           "0123456789ab40123456789abcdef012",
 		},
 		// old format
+		//
+		// TODO: this should be removed after migration is completed in
+		// CORE-93, perhaps as part of CORE-1046
 		"pipeline@0123456789ab40123456789abcdef012": {
 			isError:      false,
 			projectName:  "",
@@ -101,7 +104,11 @@ func TestVersionKey(t *testing.T) {
 		},
 	}
 	for expected, c := range cases {
-		if got := VersionKey(c.projectName, c.pipelineName, c.version); expected != got {
+		p := &pps.Pipeline{
+			Project: &pfs.Project{Name: c.projectName},
+			Name:    c.pipelineName,
+		}
+		if got := VersionKey(p, c.version); expected != got {
 			t.Errorf("expected %q but got %q (%v)", expected, got, c)
 		}
 	}
