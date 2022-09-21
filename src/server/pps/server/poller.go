@@ -213,11 +213,11 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 					if versionErr != nil {
 						return errors.Wrapf(err, "couldn't find pipeline rc version")
 					}
-					var pipelineInfo *pps.PipelineInfo
 					pipeline := &pps.Pipeline{
 						Project: &pfs.Project{Name: projectName},
 						Name:    pipelineName,
 					}
+					var pipelineInfo *pps.PipelineInfo
 					if pipelineInfo, err = m.sd.GetPipelineInfo(ctx, pipeline, pipelineVersion); err != nil {
 						return errors.EnsureStack(err)
 					}

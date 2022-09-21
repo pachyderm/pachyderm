@@ -49,8 +49,8 @@ func Status(ctx context.Context, pipelineInfo *pps.PipelineInfo, etcdClient *etc
 	return result, nil
 }
 
-// Cancel cancels a set of datums running on workers.  Pass empty strings and
-// zero version to cancel ALL workers.
+// Cancel cancels a set of datums running on workers.  Pass empty strings for
+// project & pipeline names and a zero version to cancel ALL workers.
 func Cancel(ctx context.Context, pipelineInfo *pps.PipelineInfo, etcdClient *etcd.Client,
 	etcdPrefix string, workerGrpcPort uint16, jobID string, dataFilter []string) (retErr error) {
 	success := false

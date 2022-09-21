@@ -522,7 +522,6 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 	pachClient := a.env.GetPachClient(ctx)
 
 	cb := func(projectName, pipelineName string) error {
-		//jobInfo, err := pachClient.InspectJob(pipeline, request.JobSet.ID, request.Details)
 		jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 			Job: &pps.Job{
 				Pipeline: &pps.Pipeline{
@@ -738,13 +737,10 @@ func (a *apiServer) listJob(
 	}
 
 	// pipelineVersions holds the versions of pipelines that we're interested in
-	versionKey := func(projectName, pipelineName string, version uint64) string {
-		return fmt.Sprintf("%s/%s-%v", projectName, pipelineName, version)
-	}
 	pipelineVersions := make(map[string]bool)
 	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, pipeline, history,
 		func(ptr *pps.PipelineInfo) error {
-			pipelineVersions[versionKey(ptr.Pipeline.Project.GetName(), ptr.Pipeline.Name, ptr.Version)] = true
+			pipelineVersions[ppsdb.VersionKey(ptr.Pipeline, ptr.Version)] = true
 			return nil
 		}); err != nil {
 		return err
@@ -769,7 +765,7 @@ func (a *apiServer) listJob(
 			}
 		}
 
-		if !pipelineVersions[versionKey(jobInfo.Job.Pipeline.Project.GetName(), jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion)] {
+		if !pipelineVersions[ppsdb.VersionKey(jobInfo.Job.Pipeline, jobInfo.PipelineVersion)] {
 			return nil
 		}
 

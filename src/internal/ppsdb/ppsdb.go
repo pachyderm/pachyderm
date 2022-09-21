@@ -87,7 +87,6 @@ func pipelineCommitKey(commit *pfs.Commit) (string, error) {
 	if commit.Branch.Repo.Type != pfs.SpecRepoType {
 		return "", errors.Errorf("commit %s is not from a spec repo", commit)
 	}
-	// FIXME: include project
 	if projectName := commit.Branch.Repo.Project.GetName(); projectName != "" {
 		return fmt.Sprintf("%s/%s@%s", projectName, commit.Branch.Repo.Name, commit.ID), nil
 	}
