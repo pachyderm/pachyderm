@@ -12,13 +12,20 @@ export default defineConfig(() => ({
   build: {
     lib: {
       entry: path.resolve(__dirname, 'src/index.ts'),
-      formats: ['es', 'cjs'],
+      name: "Components",
+      fileName: 'components'
     },
     rollupOptions: {
+      external: ['react', 'react-dom', 'react-router-dom'],
       output: {
         // Since we publish our ./src folder, there's no point
         // in bloating sourcemaps with another copy of it.
         sourcemapExcludeSources: true,
+        globals: {
+          react: 'React',
+          ['react-dom']: 'ReactDOM',
+          ['react-router-dom']: 'reactRouterDom'
+        }
       },
     },
     sourcemap: true,
