@@ -40,7 +40,7 @@ type PipelineStateDriver interface {
 	Watch(ctx context.Context) (<-chan *watch.Event, func(), error)
 	// list all PipelineInfos
 	ListPipelineInfo(ctx context.Context, f func(*pps.PipelineInfo) error) error
-	GetPipelineInfo(ctx context.Context, projectName, pipelineName string, version int) (*pps.PipelineInfo, error)
+	GetPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, version int) (*pps.PipelineInfo, error)
 }
 
 type stateDriver struct {
@@ -120,11 +120,11 @@ func (sd *stateDriver) ListPipelineInfo(ctx context.Context, f func(*pps.Pipelin
 	return ppsutil.ListPipelineInfo(ctx, sd.pipelines, nil, 0, f)
 }
 
-func (sd *stateDriver) GetPipelineInfo(ctx context.Context, projectName, pipelineName string, version int) (*pps.PipelineInfo, error) {
+func (sd *stateDriver) GetPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, version int) (*pps.PipelineInfo, error) {
 	var pipelineInfo pps.PipelineInfo
 	if err := sd.pipelines.ReadOnly(ctx).GetUniqueByIndex(
 		ppsdb.PipelinesVersionIndex,
-		ppsdb.VersionKey(projectName, pipelineName, uint64(version)),
+		ppsdb.VersionKey(pipeline, uint64(version)),
 		&pipelineInfo); err != nil {
 		return nil, errors.Wrapf(err, "couldn't retrieve pipeline information")
 	}
@@ -141,12 +141,12 @@ func (sd *stateDriver) tryLoadLatestPipelineInfo(ctx context.Context, pipeline *
 		// Don't put the pipeline in a failing state if we're in the middle
 		// of activating auth, retry in a bit
 		if (auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err)) && errCnt <= maxErrCount {
-			log.Warnf("PPS master: could not retrieve pipelineInfo for pipeline %q/%q: %v; retrying in %v",
-				pipeline.Project.GetName(), pipeline.Name, err, d)
+			log.Warnf("PPS master: could not retrieve pipelineInfo for pipeline %q: %v; retrying in %v",
+				pipeline, err, d)
 			return nil
 		}
 		return stepError{
-			error: errors.Wrapf(err, "could not load pipelineInfo for pipeline %q/%q", pipeline.Project.GetName(), pipeline.Name),
+			error: errors.Wrapf(err, "could not load pipelineInfo for pipeline %q", pipeline),
 			retry: false,
 		}
 	})
@@ -254,8 +254,8 @@ func (d *mockStateDriver) ListPipelineInfo(ctx context.Context, f func(*pps.Pipe
 	return nil
 }
 
-func (d *mockStateDriver) GetPipelineInfo(ctx context.Context, projectName, pipelineName string, version int) (*pps.PipelineInfo, error) {
-	if spec, ok := d.pipelines[toKey(newPipeline(projectName, pipelineName))]; ok {
+func (d *mockStateDriver) GetPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, version int) (*pps.PipelineInfo, error) {
+	if spec, ok := d.pipelines[toKey(pipeline)]; ok {
 		if pi, ok := d.specCommits[spec]; ok {
 			return pi, nil
 		}

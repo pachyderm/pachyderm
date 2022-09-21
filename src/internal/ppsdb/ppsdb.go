@@ -25,7 +25,7 @@ var PipelinesVersionIndex = &col.Index{
 	Name: "version",
 	Extract: func(val proto.Message) string {
 		info := val.(*pps.PipelineInfo)
-		return VersionKey(info.Pipeline.Project.GetName(), info.Pipeline.Name, info.Version)
+		return VersionKey(info.Pipeline, info.Version)
 	},
 }
 
@@ -33,7 +33,9 @@ var PipelinesVersionIndex = &col.Index{
 // the project is the empty string it will return an old-style key without a
 // project; otherwise the key will include the project.  The version is
 // zero-padded in order to facilitate sorting.
-func VersionKey(projectName, pipelineName string, version uint64) string {
+func VersionKey(p *pps.Pipeline, version uint64) string {
+	projectName := p.Project.GetName()
+	pipelineName := p.Name
 	// zero pad in case we want to sort
 	if projectName == "" {
 		return fmt.Sprintf("%s@%08d", pipelineName, version) // pre-projects style
@@ -87,7 +89,6 @@ func pipelineCommitKey(commit *pfs.Commit) (string, error) {
 	if commit.Branch.Repo.Type != pfs.SpecRepoType {
 		return "", errors.Errorf("commit %s is not from a spec repo", commit)
 	}
-	// FIXME: include project
 	if projectName := commit.Branch.Repo.Project.GetName(); projectName != "" {
 		return fmt.Sprintf("%s/%s@%s", projectName, commit.Branch.Repo.Name, commit.ID), nil
 	}

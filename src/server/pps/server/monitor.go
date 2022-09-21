@@ -87,7 +87,7 @@ func startMonitorThread(ctx context.Context, name string, f func(ctx context.Con
 
 func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
 	pipelineName := pipelineInfo.Pipeline.Name
-	log.Printf("PPS master: monitoring pipeline %q/%q", pipelineInfo.Pipeline.Project.GetName(), pipelineName)
+	log.Printf("PPS master: monitoring pipeline %q", pipelineInfo.Pipeline)
 	var eg errgroup.Group
 	pps.VisitInput(pipelineInfo.Details.Input, func(in *pps.Input) error { //nolint:errcheck
 		if in.Cron != nil {
@@ -242,7 +242,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 					}
 				}
 			}, backoff.NewInfiniteBackOff(),
-				backoff.NotifyCtx(ctx, "monitorPipeline for "+pipelineName))
+				backoff.NotifyCtx(ctx, "monitorPipeline for "+pipelineInfo.Pipeline.String()))
 		})
 	}
 	if err := eg.Wait(); err != nil {
@@ -276,7 +276,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 		}
 		return nil // loop again to check for new workers
 	}), backoff.NewConstantBackOff(pc.crashingBackoff),
-		backoff.NotifyContinue(fmt.Sprintf("monitorCrashingPipeline for %s/%s", projectName, pipelineName)),
+		backoff.NotifyContinue(fmt.Sprintf("monitorCrashingPipeline for %s", pipelineInfo.Pipeline)),
 	); err != nil && ctx.Err() == nil {
 		// retryUntilCancel should exit iff 'ctx' is cancelled, so this should be
 		// unreachable (restart master if not)

@@ -1098,9 +1098,9 @@ workflows:
       not: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - build-docker-images
-      - build-pachctl-bin:
-          version: $CIRCLE_SHA1
-          upload: true
+      #- build-pachctl-bin:
+      #    version: $CIRCLE_SHA1
+      #    upload: true
       - check-prettier
       - jsonnet-lint
       - test-go
