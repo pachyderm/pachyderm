@@ -1974,7 +1974,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		if input.Cron != nil {
 			if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
 				&pfs.CreateRepoRequest{
-					Repo:        client.NewProjectRepo(projectName, input.Cron.Repo),
+					Repo:        client.NewProjectRepo(request.Pipeline.Project.GetName(), input.Cron.Repo),
 					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline),
 				},
 			); err != nil && !errutil.IsAlreadyExistError(err) {
