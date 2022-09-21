@@ -40,7 +40,7 @@ type PipelineStateDriver interface {
 	Watch(ctx context.Context) (<-chan *watch.Event, func(), error)
 	// list all PipelineInfos
 	ListPipelineInfo(ctx context.Context, f func(*pps.PipelineInfo) error) error
-	GetPipelineInfo(ctx context.Context, name string, version int) (*pps.PipelineInfo, error)
+	GetPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, version int) (*pps.PipelineInfo, error)
 }
 
 type stateDriver struct {
@@ -120,11 +120,11 @@ func (sd *stateDriver) ListPipelineInfo(ctx context.Context, f func(*pps.Pipelin
 	return ppsutil.ListPipelineInfo(ctx, sd.pipelines, nil, 0, f)
 }
 
-func (sd *stateDriver) GetPipelineInfo(ctx context.Context, name string, version int) (*pps.PipelineInfo, error) {
+func (sd *stateDriver) GetPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, version int) (*pps.PipelineInfo, error) {
 	var pipelineInfo pps.PipelineInfo
 	if err := sd.pipelines.ReadOnly(ctx).GetUniqueByIndex(
 		ppsdb.PipelinesVersionIndex,
-		ppsdb.VersionKey(name, uint64(version)),
+		ppsdb.VersionKey(pipeline, uint64(version)),
 		&pipelineInfo); err != nil {
 		return nil, errors.Wrapf(err, "couldn't retrieve pipeline information")
 	}
@@ -165,9 +165,9 @@ func (sd *stateDriver) loadLatestPipelineInfo(ctx context.Context, pipeline *pps
 }
 
 type mockStateDriver struct {
-	pipelines   map[string]string              // maps pipeline names to their latest spec commit IDs
-	specCommits map[string]*pps.PipelineInfo   // maps spec commit IDs to their pipeline Infos
-	states      map[string][]pps.PipelineState // tracks all of the
+	pipelines   map[pipelineKey]string              // maps pipeline names to their latest spec commit IDs
+	specCommits map[string]*pps.PipelineInfo        // maps spec commit IDs to their pipeline Infos
+	states      map[pipelineKey][]pps.PipelineState // tracks all of the
 	eChan       chan *watch.Event
 	closeEChan  chan struct{} // supports closing eChan
 }
@@ -185,7 +185,7 @@ func (d *mockStateDriver) SetState(ctx context.Context, specCommit *pfs.Commit, 
 		pi = proto.Clone(pi).(*pps.PipelineInfo)
 		pi.State = state
 		d.specCommits[specCommit.ID] = pi
-		d.states[pi.Pipeline.Name] = append(d.states[pi.Pipeline.Name], state)
+		d.states[toKey(pi.Pipeline)] = append(d.states[toKey(pi.Pipeline)], state)
 		d.pushWatchEvent(pi, watch.EventPut)
 		return nil
 	}
@@ -216,7 +216,7 @@ func (d *mockStateDriver) TransitionState(ctx context.Context, specCommit *pfs.C
 }
 
 func (d *mockStateDriver) FetchState(ctx context.Context, pipeline *pps.Pipeline) (*pps.PipelineInfo, context.Context, error) {
-	if spec, ok := d.pipelines[pipeline.Name]; ok {
+	if spec, ok := d.pipelines[toKey(pipeline)]; ok {
 		if pi, ok := d.specCommits[spec]; ok {
 			return pi, ctx, nil
 		}
@@ -254,8 +254,8 @@ func (d *mockStateDriver) ListPipelineInfo(ctx context.Context, f func(*pps.Pipe
 	return nil
 }
 
-func (d *mockStateDriver) GetPipelineInfo(ctx context.Context, name string, version int) (*pps.PipelineInfo, error) {
-	if spec, ok := d.pipelines[name]; ok {
+func (d *mockStateDriver) GetPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, version int) (*pps.PipelineInfo, error) {
+	if spec, ok := d.pipelines[toKey(pipeline)]; ok {
 		if pi, ok := d.specCommits[spec]; ok {
 			return pi, nil
 		}
@@ -266,12 +266,12 @@ func (d *mockStateDriver) GetPipelineInfo(ctx context.Context, name string, vers
 func (d *mockStateDriver) upsertPipeline(pi *pps.PipelineInfo) *pfs.Commit {
 	mockSpecCommit := client.NewCommit(pi.Pipeline.Name, "master", uuid.NewWithoutDashes())
 	pi.SpecCommit = mockSpecCommit
-	d.pipelines[pi.Pipeline.Name] = pi.SpecCommit.ID
+	d.pipelines[toKey(pi.Pipeline)] = pi.SpecCommit.ID
 	d.specCommits[mockSpecCommit.ID] = pi
-	if ss, ok := d.states[pi.Pipeline.Name]; ok {
-		d.states[pi.Pipeline.Name] = append(ss, pi.State)
+	if ss, ok := d.states[toKey(pi.Pipeline)]; ok {
+		d.states[toKey(pi.Pipeline)] = append(ss, pi.State)
 	} else {
-		d.states[pi.Pipeline.Name] = []pps.PipelineState{pi.State}
+		d.states[toKey(pi.Pipeline)] = []pps.PipelineState{pi.State}
 	}
 	d.pushWatchEvent(pi, watch.EventPut)
 	return mockSpecCommit
@@ -289,11 +289,11 @@ func (d *mockStateDriver) cancelWatch() {
 }
 
 func (d *mockStateDriver) reset() {
-	d.pipelines = make(map[string]string)
+	d.pipelines = make(map[pipelineKey]string)
 	d.specCommits = make(map[string]*pps.PipelineInfo)
-	d.states = make(map[string][]pps.PipelineState)
+	d.states = make(map[pipelineKey][]pps.PipelineState)
 }
 
-func (d *mockStateDriver) currentPipelineInfo(pipeline string) *pps.PipelineInfo {
-	return d.specCommits[d.pipelines[pipeline]]
+func (d *mockStateDriver) currentPipelineInfo(key pipelineKey) *pps.PipelineInfo {
+	return d.specCommits[d.pipelines[key]]
 }

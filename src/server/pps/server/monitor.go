@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"path"
 	"time"
 
@@ -85,8 +86,8 @@ func startMonitorThread(ctx context.Context, name string, f func(ctx context.Con
 }
 
 func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
-	pipeline := pipelineInfo.Pipeline.Name
-	log.Printf("PPS master: monitoring pipeline %q", pipeline)
+	pipelineName := pipelineInfo.Pipeline.Name
+	log.Printf("PPS master: monitoring pipeline %q", pipelineInfo.Pipeline)
 	var eg errgroup.Group
 	pps.VisitInput(pipelineInfo.Details.Input, func(in *pps.Input) error { //nolint:errcheck
 		if in.Cron != nil {
@@ -107,12 +108,12 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 			defer close(ciChan)
 			return backoff.RetryUntilCancel(ctx, func() error {
 				pachClient := pc.env.GetPachClient(ctx)
-				return pachClient.SubscribeCommit(client.NewRepo(pipeline), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+				return pachClient.SubscribeCommit(client.NewRepo(pipelineName), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 					ciChan <- ci
 					return nil
 				})
 			}, backoff.NewInfiniteBackOff(),
-				backoff.NotifyCtx(ctx, "SubscribeCommit for "+pipeline))
+				backoff.NotifyCtx(ctx, "SubscribeCommit for "+pipelineName))
 		})
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
@@ -127,7 +128,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 				}()
 				// start span to capture & contextualize etcd state transition
 				childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-					pc.env.EtcdClient, pipeline,
+					pc.env.EtcdClient, pipelineInfo.Pipeline,
 					"/pps.Master/MonitorPipeline/Begin")
 				if err := pc.psDriver.TransitionState(ctx,
 					pipelineInfo.SpecCommit,
@@ -168,7 +169,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							continue
 						}
 						childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-							pc.env.EtcdClient, pipeline,
+							pc.env.EtcdClient, pipelineInfo.Pipeline,
 							"/pps.Master/MonitorPipeline/SpinUp",
 							"commit", ci.Commit.ID)
 
@@ -211,7 +212,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 									return nil // subscribeCommit exited, nothing left to do
 								}
 								childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-									pc.env.EtcdClient, pipeline,
+									pc.env.EtcdClient, pipelineInfo.Pipeline,
 									"/pps.Master/MonitorPipeline/WatchNext",
 									"commit", ci.Commit.ID)
 							default:
@@ -241,7 +242,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 					}
 				}
 			}, backoff.NewInfiniteBackOff(),
-				backoff.NotifyCtx(ctx, "monitorPipeline for "+pipeline))
+				backoff.NotifyCtx(ctx, "monitorPipeline for "+pipelineInfo.Pipeline.String()))
 		})
 	}
 	if err := eg.Wait(); err != nil {
@@ -250,7 +251,8 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 }
 
 func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
-	pipeline := pipelineInfo.Pipeline.Name
+	projectName := pipelineInfo.Pipeline.Project.GetName()
+	pipelineName := pipelineInfo.Pipeline.Name
 	ctx, cancelInner := context.WithCancel(ctx)
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		currRC, _, err := pc.getRC(ctx, pipelineInfo)
@@ -258,7 +260,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 			return err
 		}
 		parallelism := int(*currRC.Spec.Replicas)
-		workerStatus, err := workerserver.Status(ctx, pipeline, pipelineInfo.Version,
+		workerStatus, err := workerserver.Status(ctx, projectName, pipelineName, pipelineInfo.Version,
 			pc.env.EtcdClient, pc.etcdPrefix, pc.env.Config.PPSWorkerPort)
 		if err != nil {
 			return errors.Wrap(err, "could not check if all workers are up")
@@ -274,7 +276,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 		}
 		return nil // loop again to check for new workers
 	}), backoff.NewConstantBackOff(pc.crashingBackoff),
-		backoff.NotifyContinue("monitorCrashingPipeline for "+pipeline),
+		backoff.NotifyContinue(fmt.Sprintf("monitorCrashingPipeline for %s", pipelineInfo.Pipeline)),
 	); err != nil && ctx.Err() == nil {
 		// retryUntilCancel should exit iff 'ctx' is cancelled, so this should be
 		// unreachable (restart master if not)

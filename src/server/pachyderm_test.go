@@ -2740,29 +2740,29 @@ func TestUpdatePipeline(t *testing.T) {
 		var newServiceSeen bool
 		for _, svc := range svcs.Items {
 			switch svc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName(pipelineName, 1):
+			case ppsutil.PipelineRcName("", pipelineName, 1):
 				return errors.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName(pipelineName, 2):
+			case ppsutil.PipelineRcName("", pipelineName, 2):
 				newServiceSeen = true
 			}
 		}
 		if !newServiceSeen {
-			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName("", pipelineName, 2))
 		}
 		rcs, err := kc.CoreV1().ReplicationControllers(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		var newRCSeen bool
 		for _, rc := range rcs.Items {
 			switch rc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName(pipelineName, 1):
+			case ppsutil.PipelineRcName("", pipelineName, 1):
 				return errors.Errorf("stale RC encountered: %q", rc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName(pipelineName, 2):
+			case ppsutil.PipelineRcName("", pipelineName, 2):
 				newRCSeen = true
 			}
 		}
 		require.True(t, newRCSeen)
 		if !newRCSeen {
-			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName("", pipelineName, 2))
 		}
 		return nil
 	})
@@ -2814,29 +2814,29 @@ func TestUpdatePipeline(t *testing.T) {
 		var newServiceSeen bool
 		for _, svc := range svcs.Items {
 			switch svc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName(pipelineName, 1):
+			case ppsutil.PipelineRcName("", pipelineName, 1):
 				return errors.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName(pipelineName, 2):
+			case ppsutil.PipelineRcName("", pipelineName, 2):
 				newServiceSeen = true
 			}
 		}
 		if !newServiceSeen {
-			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName("", pipelineName, 2))
 		}
 		rcs, err := kc.CoreV1().ReplicationControllers(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		var newRCSeen bool
 		for _, rc := range rcs.Items {
 			switch rc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName(pipelineName, 1):
+			case ppsutil.PipelineRcName("", pipelineName, 1):
 				return errors.Errorf("stale RC encountered: %q", rc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName(pipelineName, 2):
+			case ppsutil.PipelineRcName("", pipelineName, 2):
 				newRCSeen = true
 			}
 		}
 		require.True(t, newRCSeen)
 		if !newRCSeen {
-			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName("", pipelineName, 2))
 		}
 		return nil
 	})
@@ -10492,7 +10492,7 @@ func TestDatumSetCache(t *testing.T) {
 
 func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline string, n int) {
 	kc := tu.GetKubeClient(t)
-	rcName := ppsutil.PipelineRcName(pipeline, 1)
+	rcName := ppsutil.PipelineRcName("", pipeline, 1)
 	enoughReplicas := false
 	tooManyReplicas := false
 	var maxSeen int

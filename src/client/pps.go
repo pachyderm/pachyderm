@@ -202,6 +202,7 @@ func NewPipeline(pipelineName string) *pps.Pipeline {
 }
 
 // InspectJob returns info about a specific job.
+//
 // 'details' indicates that the JobInfo.Details field should be filled out.
 func (c APIClient) InspectJob(pipelineName string, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()

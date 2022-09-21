@@ -29,8 +29,11 @@ import (
 
 const (
 	appLabel                     = "app"
+	pipelineProjectLabel         = "pipelineProject"
 	pipelineNameLabel            = "pipelineName"
 	pipelineVersionLabel         = "pipelineVersion"
+	pipelineProjectAnnotation    = "pipelineProject"
+	pipelineNameAnnotation       = "pipelineName"
 	pachVersionAnnotation        = "pachVersion"
 	pipelineVersionAnnotation    = "pipelineVersion"
 	pipelineSpecCommitAnnotation = "specCommit"
@@ -452,7 +455,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 			},
 		},
 		ServiceAccountName:            workerServiceAccountName,
-		AutomountServiceAccountToken: pointer.BoolPtr(true),
+		AutomountServiceAccountToken:  pointer.BoolPtr(true),
 		RestartPolicy:                 "Always",
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
@@ -566,6 +569,7 @@ func hashAuthToken(token string) string {
 }
 
 func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
+	projectName := pipelineInfo.Pipeline.Project.GetName()
 	pipelineName := pipelineInfo.Pipeline.Name
 	pipelineVersion := pipelineInfo.Version
 	var resourceRequests *v1.ResourceList
@@ -594,8 +598,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	}
 
 	transform := pipelineInfo.Details.Transform
-	labels := pipelineLabels(pipelineName, pipelineVersion)
-	labels[pipelineNameLabel] = pipelineName
+	labels := pipelineLabels(projectName, pipelineName, pipelineVersion)
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage
@@ -680,11 +683,14 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	}
 
 	annotations := map[string]string{
-		pipelineNameLabel:            pipelineName,
+		pipelineNameAnnotation:       pipelineName,
 		pachVersionAnnotation:        version.PrettyVersion(),
 		pipelineVersionAnnotation:    strconv.FormatUint(pipelineInfo.Version, 10),
 		pipelineSpecCommitAnnotation: pipelineInfo.SpecCommit.ID,
 		hashedAuthTokenAnnotation:    hashAuthToken(pipelineInfo.AuthToken),
+	}
+	if projectName != "" {
+		annotations[pipelineProjectAnnotation] = projectName
 	}
 
 	// add the user's custom metadata (annotations and labels).
@@ -738,7 +744,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 
 	// Generate options for new RC
 	return &workerOptions{
-		rcName:                ppsutil.PipelineRcName(pipelineName, pipelineVersion),
+		rcName:                ppsutil.PipelineRcName(projectName, pipelineName, pipelineVersion),
 		s3GatewayPort:         s3GatewayPort,
 		specCommit:            pipelineInfo.SpecCommit.ID,
 		labels:                labels,
@@ -791,7 +797,10 @@ func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInf
 		},
 	}
 	labels := s.GetLabels()
-	labels["pipelineName"] = pipelineInfo.Pipeline.Name
+	if projectName := pipelineInfo.Pipeline.Project.GetName(); projectName != "" {
+		labels[pipelineProjectLabel] = projectName
+	}
+	labels[pipelineNameLabel] = pipelineInfo.Pipeline.Name
 	s.SetLabels(labels)
 
 	// send RPC to k8s to create the secret there

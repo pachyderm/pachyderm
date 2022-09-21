@@ -544,6 +544,7 @@ message GetLogsRequest {
 message LogMessage {
   // The job and pipeline for which a PFS file is being processed (if the job
   // is an orphan job, pipeline name and ID will be unset)
+  string project_name = 10;
   string pipeline_name = 1;
   string job_id = 2 [(gogoproto.customname) = "JobID"];
   string worker_id = 3 [(gogoproto.customname) = "WorkerID"];

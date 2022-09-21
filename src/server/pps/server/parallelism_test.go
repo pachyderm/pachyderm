@@ -10,6 +10,7 @@ import (
 func wrap(t testing.TB, ps *pps.ParallelismSpec) *pps.PipelineInfo {
 	return &pps.PipelineInfo{
 		Pipeline: &pps.Pipeline{
+			// TODO: should this be project-aware?
 			Name: t.Name() + "-pipeline",
 		},
 		Details: &pps.PipelineInfo_Details{
