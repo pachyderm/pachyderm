@@ -101,7 +101,11 @@ func TestVersionKey(t *testing.T) {
 		},
 	}
 	for expected, c := range cases {
-		if got := VersionKey(c.projectName, c.pipelineName, c.version); expected != got {
+		p := &pps.Pipeline{
+			Project: &pfs.Project{Name: c.projectName},
+			Name:    c.pipelineName,
+		}
+		if got := VersionKey(p, c.version); expected != got {
 			t.Errorf("expected %q but got %q (%v)", expected, got, c)
 		}
 	}

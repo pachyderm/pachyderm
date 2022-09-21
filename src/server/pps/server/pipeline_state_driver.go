@@ -40,7 +40,7 @@ type PipelineStateDriver interface {
 	Watch(ctx context.Context) (<-chan *watch.Event, func(), error)
 	// list all PipelineInfos
 	ListPipelineInfo(ctx context.Context, f func(*pps.PipelineInfo) error) error
-	GetPipelineInfo(ctx context.Context, projectName, pipelineName string, version int) (*pps.PipelineInfo, error)
+	GetPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, version int) (*pps.PipelineInfo, error)
 }
 
 type stateDriver struct {
@@ -120,11 +120,11 @@ func (sd *stateDriver) ListPipelineInfo(ctx context.Context, f func(*pps.Pipelin
 	return ppsutil.ListPipelineInfo(ctx, sd.pipelines, nil, 0, f)
 }
 
-func (sd *stateDriver) GetPipelineInfo(ctx context.Context, projectName, pipelineName string, version int) (*pps.PipelineInfo, error) {
+func (sd *stateDriver) GetPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, version int) (*pps.PipelineInfo, error) {
 	var pipelineInfo pps.PipelineInfo
 	if err := sd.pipelines.ReadOnly(ctx).GetUniqueByIndex(
 		ppsdb.PipelinesVersionIndex,
-		ppsdb.VersionKey(projectName, pipelineName, uint64(version)),
+		ppsdb.VersionKey(pipeline, uint64(version)),
 		&pipelineInfo); err != nil {
 		return nil, errors.Wrapf(err, "couldn't retrieve pipeline information")
 	}
@@ -254,8 +254,8 @@ func (d *mockStateDriver) ListPipelineInfo(ctx context.Context, f func(*pps.Pipe
 	return nil
 }
 
-func (d *mockStateDriver) GetPipelineInfo(ctx context.Context, projectName, pipelineName string, version int) (*pps.PipelineInfo, error) {
-	if spec, ok := d.pipelines[toKey(newPipeline(projectName, pipelineName))]; ok {
+func (d *mockStateDriver) GetPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, version int) (*pps.PipelineInfo, error) {
+	if spec, ok := d.pipelines[toKey(pipeline)]; ok {
 		if pi, ok := d.specCommits[spec]; ok {
 			return pi, nil
 		}

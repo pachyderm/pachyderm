@@ -25,7 +25,7 @@ var PipelinesVersionIndex = &col.Index{
 	Name: "version",
 	Extract: func(val proto.Message) string {
 		info := val.(*pps.PipelineInfo)
-		return VersionKey(info.Pipeline.Project.GetName(), info.Pipeline.Name, info.Version)
+		return VersionKey(info.Pipeline, info.Version)
 	},
 }
 
@@ -33,12 +33,12 @@ var PipelinesVersionIndex = &col.Index{
 // the project is the empty string it will return an old-style key without a
 // project; otherwise the key will include the project.  The version is
 // zero-padded in order to facilitate sorting.
-func VersionKey(projectName, pipelineName string, version uint64) string {
+func VersionKey(p *pps.Pipeline, version uint64) string {
 	// zero pad in case we want to sort
-	if projectName == "" {
-		return fmt.Sprintf("%s@%08d", pipelineName, version) // pre-projects style
+	if projectName := p.Project.GetName(); projectName != "" {
+		return fmt.Sprintf("%s/%s@%08d", projectName, p.Name, version) // projects style
 	}
-	return fmt.Sprintf("%s/%s@%08d", projectName, pipelineName, version) // projects style
+	return fmt.Sprintf("%s@%08d", p.Name, version) // pre-projects style
 }
 
 // PipelinesNameKey returns the key used by PipelinesNameIndex to index a
