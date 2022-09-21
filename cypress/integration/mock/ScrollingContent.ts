@@ -77,7 +77,7 @@ describe('Console Scrolling Content', () => {
     cy.get(`[aria-labelledby="info"]`).children().first().children().last().should('be.visible');
     cy.isInViewport(() => cy.get(`[aria-labelledby="info"]`).children().first().children().last());
 
-    cy.findByText('View Lineage').click();
+    cy.findByText('View DAG').click();
     cy.get(`[aria-labelledby="info"]`).children().first().children().should('have.length', 6);
     cy.get(`[aria-labelledby="info"]`).children().first().children().first().should('be.visible');
     cy.get(`[aria-labelledby="info"]`).children().first().children().last().should('be.visible');
@@ -95,7 +95,7 @@ describe('Console Scrolling Content', () => {
     cy.get(`[aria-labelledby="info"]`).children().first().children().last().should('be.visible');
     cy.isInViewport(() => cy.get(`[aria-labelledby="info"]`).children().first().children().last());
 
-    cy.findByText('View Lineage').click();
+    cy.findByText('View DAG').click();
     cy.get(`[aria-labelledby="info"]`).children().first().children().should('have.length', 20);
     cy.get(`[aria-labelledby="info"]`).children().first().children().first().should('be.visible');
     cy.get(`[aria-labelledby="info"]`).children().first().children().last().should('not.be.visible');
@@ -109,7 +109,7 @@ describe('Console Scrolling Content', () => {
     cy.findByText('View List').click();
     inspectListItemScrolling('CommitBrowser__commit', 6)
 
-    cy.findByText('View Lineage').click();
+    cy.findByText('View DAG').click();
     inspectListItemScrolling('CommitBrowser__commit', 6)
   });
 
@@ -121,7 +121,7 @@ describe('Console Scrolling Content', () => {
     cy.findAllByText('Jobs').last().click();
     inspectListItemScrolling('JobListItem__job', 9)
 
-    cy.findByText('View Lineage').click();
+    cy.findByText('View DAG').click();
     inspectListItemScrolling('JobListItem__job', 9)
   });
 
@@ -135,7 +135,7 @@ describe('Console Scrolling Content', () => {
     cy.findByText('priorityClassName:').should('be.visible');
     cy.isInViewport(() => cy.findByText('priorityClassName:'));
 
-    cy.findByText('View Lineage').click();
+    cy.findByText('View DAG').click();
     cy.findByText('Spec').click();
     cy.findByText('v4tech/imagemagick').should('be.visible');
     cy.findByText('priorityClassName:').should('not.be.visible');

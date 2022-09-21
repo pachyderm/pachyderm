@@ -10,9 +10,9 @@ import React, {useEffect} from 'react';
 
 import styles from './DAGError.module.css';
 
-const LINEAGE_ERROR = 'Unable to construct lineage';
+const LINEAGE_ERROR = 'Unable to construct DAG';
 const CONSTRUCTION_ERROR_DETAILS =
-  'Unable to construct lineage from repos and pipelines. You may want to look into your pipline inputs.';
+  'Unable to construct DAG from repos and pipelines. You may want to look into your pipeline inputs.';
 const NETWORK_ERROR_DETAILS =
   'Repo and Pipeline data may not be up to date. You may want to refresh the page.';
 

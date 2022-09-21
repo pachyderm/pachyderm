@@ -248,7 +248,7 @@ const buildDags = async (
     return dags;
   } catch (e) {
     console.error(e);
-    setDagError(`Unable to construct lineage from repos and pipelines.`);
+    setDagError(`Unable to construct DAG from repos and pipelines.`);
   }
 };
 

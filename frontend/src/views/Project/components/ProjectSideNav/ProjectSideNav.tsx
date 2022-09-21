@@ -44,7 +44,7 @@ const ProjectSideNav: React.FC = () => {
               onClick={() => handleListDefaultView(false)}
               className={styles.buttonLink}
             >
-              View Lineage
+              View DAG
             </SideNav.SideNavButton>
           </Route>
           <Route path={LINEAGE_PATH}>

@@ -36,7 +36,7 @@ describe('Project List', () => {
     cy.findAllByTestId('ListItem__row').should('have.length', 3);
     cy.findByTestId('Title__name').should('have.text', 'montage');
     
-    cy.findByText('View Lineage').click();
+    cy.findByText('View DAG').click();
 
     cy.findByText('Jobs');
     cy.findAllByTestId('DropdownButton__button').eq(1).click();
