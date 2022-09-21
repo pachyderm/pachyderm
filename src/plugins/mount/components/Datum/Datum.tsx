@@ -1,4 +1,4 @@
-import React, {useEffect} from 'react';
+import React from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
 import {useDatum} from './hooks/useDatum';
 import {caretLeftIcon, caretRightIcon} from '@jupyterlab/ui-components';
@@ -43,6 +43,7 @@ const Datum: React.FC<DatumProps> = ({
     callMountDatums,
     callUnmountAll,
     errorMessage,
+    setDebug,
   } = useDatum(showDatum, keepMounted, refresh, pollRefresh, currentDatumInfo);
 
   return (
@@ -77,7 +78,8 @@ const Datum: React.FC<DatumProps> = ({
           style={{minHeight: '200px'}}
           name="inputSpec"
           value={inputSpec}
-          onInput={(e: any) => {
+          onChange={(e: any) => {
+            setDebug('========>>>> value is ' + e.target.value);
             setInputSpec(e.target.value);
           }}
           disabled={loading}
@@ -98,6 +100,7 @@ const Datum: React.FC<DatumProps> = ({
             <div style={{display: 'flex'}}>
               <button
                 className="pachyderm-button-link"
+                data-testid="Datum__cyclerLeft"
                 disabled={currentDatumIdx <= 0}
                 onClick={() => {
                   if (currentDatumIdx >= 1) {
@@ -113,6 +116,7 @@ const Datum: React.FC<DatumProps> = ({
               {'(' + (currentDatumIdx + 1) + '/' + numDatums + ')'}
               <button
                 className="pachyderm-button-link"
+                data-testid="Datum__cyclerRight"
                 disabled={currentDatumIdx >= numDatums - 1}
                 onClick={() => {
                   if (currentDatumIdx < numDatums - 1) {
