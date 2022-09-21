@@ -28,3 +28,21 @@ export const getSubscriptionsPrefix = () => {
 
   return subscriptionsPrefix;
 };
+
+export const getDisableTelemetry = () => {
+  let disableTelemetry = '';
+  if (
+    window.pachDashConfig &&
+    window.pachDashConfig.REACT_APP_RUNTIME_DISABLE_TELEMETRY
+  ) {
+    disableTelemetry =
+      window.pachDashConfig.REACT_APP_RUNTIME_DISABLE_TELEMETRY;
+  } else if (process.env.REACT_APP_RUNTIME_DISABLE_TELEMETRY) {
+    disableTelemetry = process.env.REACT_APP_RUNTIME_DISABLE_TELEMETRY;
+  } else {
+    disableTelemetry =
+      process.env.pachDashConfig.REACT_APP_RUNTIME_DISABLE_TELEMETRY || '';
+  }
+
+  return disableTelemetry === 'true';
+};

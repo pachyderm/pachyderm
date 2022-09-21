@@ -10,9 +10,9 @@ import 'styles/index.css';
 
 import DashUI from './DashUI';
 import load from './devtools/load';
+import {getDisableTelemetry} from './lib/runtimeVariables';
 
-const enableTelemetry =
-  process.env.REACT_APP_RUNTIME_DISABLE_TELEMETRY !== 'true';
+const enableTelemetry = !getDisableTelemetry();
 
 process.env.NODE_ENV === 'test' && load();
 

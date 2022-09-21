@@ -7,9 +7,9 @@ import {identify, page, track} from 'rudder-sdk-js';
 import useAccount from '@dash-frontend/hooks/useAccount';
 import useAdminInfo from '@dash-frontend/hooks/useAdminInfo';
 import useAuth from '@dash-frontend/hooks/useAuth';
+import {getDisableTelemetry} from '@dash-frontend/lib/runtimeVariables';
 
-const enableTelemetry =
-  process.env.REACT_APP_RUNTIME_DISABLE_TELEMETRY !== 'true';
+const enableTelemetry = !getDisableTelemetry();
 
 const AnalyticsProvider: React.FC = ({children}) => {
   const {loggedIn} = useAuth();

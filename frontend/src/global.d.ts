@@ -18,6 +18,7 @@ declare namespace NodeJS {
     pachDashConfig: {
       REACT_APP_RUNTIME_ISSUER_URI: string;
       REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX: string;
+      REACT_APP_RUNTIME_DISABLE_TELEMETRY?: string;
     };
     REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX?: string;
   }
@@ -47,5 +48,6 @@ declare interface Window {
   pachDashConfig?: {
     REACT_APP_RUNTIME_ISSUER_URI: string;
     REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX: string;
+    REACT_APP_RUNTIME_DISABLE_TELEMETRY?: string;
   };
 }
