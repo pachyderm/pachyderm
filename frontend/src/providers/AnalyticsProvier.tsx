@@ -1,6 +1,5 @@
 import {useAnalytics} from '@pachyderm/components';
 import * as Sentry from '@sentry/react';
-import LogRocket from 'logrocket';
 import React from 'react';
 import {identify, page, track} from 'rudder-sdk-js';
 
@@ -12,6 +11,14 @@ import {getDisableTelemetry} from '@dash-frontend/lib/runtimeVariables';
 const enableTelemetry = !getDisableTelemetry();
 
 const AnalyticsProvider: React.FC = ({children}) => {
+  return enableTelemetry ? (
+    <AnalyticsProviderEnabled>{children}</AnalyticsProviderEnabled>
+  ) : (
+    <>{children}</>
+  );
+};
+
+const AnalyticsProviderEnabled: React.FC = ({children}) => {
   const {loggedIn} = useAuth();
   const {account} = useAccount({skip: !loggedIn});
   const {clusterId} = useAdminInfo({skip: !loggedIn});
@@ -27,17 +34,12 @@ const AnalyticsProvider: React.FC = ({children}) => {
     },
   });
 
-  if (enableTelemetry) {
-    Sentry.setUser({
-      id: account?.id,
-      email: account?.email,
-    });
-    if (account?.email) {
-      LogRocket.identify(account.email);
-    }
+  Sentry.setUser({
+    id: account?.id,
+    email: account?.email,
+  });
 
-    analytics.init();
-  }
+  analytics.init();
 
   return <>{children}</>;
 };
