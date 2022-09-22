@@ -26,7 +26,12 @@ After verifying the workflow ran without issues, verify the new etcd image has b
 ### [pachyderm/pgbouncer](https://hub.docker.com/repository/docker/pachyderm/pgbouncer)
 ---
 
-TODO
+Our pgbouncer image is built by embedding the pgbouncer binary, an layering in tls support. 
+
+| name | type | value |
+| --| --| --|
+|release-pgbouncer | boolean | `true` |
+|pgbouncer-image-version | string | `1.17.0` |
 
 ### [pachyderm/postgresql](https://hub.docker.com/repository/docker/pachyderm/postgresql)
 ---
