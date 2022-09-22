@@ -6,7 +6,7 @@ ENV PG_VERSION=$VERSION
 
 RUN apt update && apt upgrade -y && apt install -y curl gcc pkg-config libudns-dev libevent-dev openssl libssl-dev make
 
-RUN curl -o  /tmp/pgbouncer-$PG_VERSION.tar.gz -L https://pgbouncer.github.io/downloads/files/$PG_VERSION/pgbouncer-$PG_VERSION.tar.gz && \
+RUN curl -o  /tmp/pgbouncer-$PG_VERSION.tar.gz -L http://www.pgbouncer.org/downloads/files/$PG_VERSION/pgbouncer-$PG_VERSION.tar.gz && \
     cd /tmp && \
     # Unpack, compile
     tar xvfz /tmp/pgbouncer-$PG_VERSION.tar.gz && \
