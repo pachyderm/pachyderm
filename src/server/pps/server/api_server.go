@@ -545,6 +545,8 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 		if ci.Commit.Branch.Repo.Type != pfs.UserRepoType || ci.Origin.Kind == pfs.OriginKind_ALIAS {
 			return nil
 		}
+		logrus.Info("qqq: Commit.Branch.Repo.Project.GetName() -> ", ci.Commit.Branch.Repo.Project.GetName())
+		logrus.Info("qqq: ci.Commit.Branch.Repo.Name -> ", ci.Commit.Branch.Repo.Name)
 		return cb(ci.Commit.Branch.Repo.Project.GetName(), ci.Commit.Branch.Repo.Name)
 	}); err != nil {
 		if pfsServer.IsCommitSetNotFoundErr(err) {
@@ -614,6 +616,8 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		if err != nil {
 			return err
 		}
+
+		logrus.Info("albscui len(jobInfos) given id ", id, len(jobInfos))
 
 		// Filter jobs based on projects.
 		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.

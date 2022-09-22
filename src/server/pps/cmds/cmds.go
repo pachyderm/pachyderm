@@ -251,8 +251,10 @@ $ {{alias}} -p foo -i bar@YYY`,
 			projectsFilter := map[string]bool{project: true}
 			if allProjects {
 				projectsFilter = nil
-			} else if project == "" {
+			} else if project == "" && pachCtx.GetProject() != "" {
 				projectsFilter = map[string]bool{pachCtx.GetProject(): true}
+			} else {
+				projectsFilter = map[string]bool{pfs.DefaultProjectName: true}
 			}
 			if len(args) == 0 {
 				if pipelineName == "" && !expand {
