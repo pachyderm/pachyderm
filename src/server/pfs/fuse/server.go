@@ -1142,9 +1142,9 @@ type MountKey struct {
 func (m *MountKey) String() string {
 	// m.Commit is optional
 	if m.Commit == "" {
-		return fmt.Sprintf("%s/%s", m.Repo, m.Branch)
+		return fmt.Sprintf("%s/%s/%s", m.Project, m.Repo, m.Branch)
 	} else {
-		return fmt.Sprintf("%s/%s/%s", m.Repo, m.Branch, m.Commit)
+		return fmt.Sprintf("%s/%s/%s/%s", m.Project, m.Repo, m.Branch, m.Commit)
 	}
 }
 
