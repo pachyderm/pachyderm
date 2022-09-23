@@ -26,7 +26,7 @@ func NewProject(name string) *pfs.Project {
 //
 // Deprecated: use NewProjectRepo instead.
 func NewRepo(repoName string) *pfs.Repo {
-	return NewProjectRepo("", repoName)
+	return NewProjectRepo(pfs.DefaultProjectName, repoName)
 }
 
 func NewProjectRepo(projectName, repoName string) *pfs.Repo {
@@ -37,7 +37,7 @@ func NewProjectRepo(projectName, repoName string) *pfs.Repo {
 //
 // Deprecated: use NewSystemProjectRepo instead.
 func NewSystemRepo(repoName string, repoType string) *pfs.Repo {
-	return NewSystemProjectRepo("", repoName, repoType)
+	return NewSystemProjectRepo(pfs.DefaultProjectName, repoName, repoType)
 }
 
 // NewSystemProjectRepo creates a pfs.Repo of the given type in the given
@@ -50,7 +50,7 @@ func NewSystemProjectRepo(projectName, repoName, repoType string) *pfs.Repo {
 //
 // Deprecated: use NewProjectBranch instead.
 func NewBranch(repoName string, branchName string) *pfs.Branch {
-	return NewProjectBranch("", repoName, branchName)
+	return NewProjectBranch(pfs.DefaultProjectName, repoName, branchName)
 }
 
 // NewProjectBranch creates a pfs.Branch in the given project & repo.
@@ -65,7 +65,7 @@ func NewProjectBranch(projectName, repoName, branchName string) *pfs.Branch {
 //
 // Deprecated: use NewProjectCommit instead.
 func NewCommit(repoName, branchName, commitID string) *pfs.Commit {
-	return NewProjectCommit("", repoName, branchName, commitID)
+	return NewProjectCommit(pfs.DefaultProjectName, repoName, branchName, commitID)
 }
 
 // NewProjectCommit creates a pfs.Commit in the given project, repo & branch.
@@ -80,7 +80,7 @@ func NewProjectCommit(projectName, repoName, branchName, commitID string) *pfs.C
 //
 // Deprecated: use NewProjectFile instead.
 func NewFile(repoName, branchName, commitID, path string) *pfs.File {
-	return NewProjectFile("", repoName, branchName, commitID, path)
+	return NewProjectFile(pfs.DefaultProjectName, repoName, branchName, commitID, path)
 }
 
 // NewProjectFile creates a pfs.File.
@@ -98,7 +98,7 @@ func NewProjectFile(projectName, repoName, branchName, commitID, path string) *p
 //
 // Deprecated: use CreateProjectRepo instead.
 func (c APIClient) CreateRepo(repoName string) error {
-	return c.CreateProjectRepo("", repoName)
+	return c.CreateProjectRepo(pfs.DefaultProjectName, repoName)
 }
 
 // CreateProjectRepo creates a new Repo object in pfs with the given name.
@@ -120,7 +120,7 @@ func (c APIClient) CreateProjectRepo(projectName, repoName string) error {
 //
 // Deprecated: use UpdateProjectRepo instead.
 func (c APIClient) UpdateRepo(repoName string) error {
-	return c.UpdateProjectRepo("", repoName)
+	return c.UpdateProjectRepo(pfs.DefaultProjectName, repoName)
 }
 
 // UpdateProjectRepo upserts a repo with the given name.
@@ -139,7 +139,7 @@ func (c APIClient) UpdateProjectRepo(projectName, repoName string) error {
 //
 // Deprecated: use InspectProjectRepo instead.
 func (c APIClient) InspectRepo(repoName string) (_ *pfs.RepoInfo, retErr error) {
-	return c.InspectProjectRepo("", repoName)
+	return c.InspectProjectRepo(pfs.DefaultProjectName, repoName)
 }
 
 // InspectProjectRepo returns info about a specific Repo.
@@ -188,7 +188,7 @@ func (c APIClient) ListRepoByType(repoType string) (_ []*pfs.RepoInfo, retErr er
 //
 // Deprecated: use DeleteProjectRepo instead.
 func (c APIClient) DeleteRepo(repoName string, force bool) error {
-	return c.DeleteProjectRepo("", repoName, force)
+	return c.DeleteProjectRepo(pfs.DefaultProjectName, repoName, force)
 }
 
 // DeleteProjectRepo deletes a repo and reclaims the storage space it was using.
@@ -224,7 +224,7 @@ func (c APIClient) DeleteProjectRepo(projectName, repoName string, force bool) e
 //
 // Deprecated: use StartProjectCommit instead.
 func (c APIClient) StartCommit(repoName string, branchName string) (_ *pfs.Commit, retErr error) {
-	return c.StartProjectCommit("", repoName, branchName)
+	return c.StartProjectCommit(pfs.DefaultProjectName, repoName, branchName)
 }
 
 // StartProjectCommit begins the process of committing data to a Repo. Once
@@ -266,7 +266,7 @@ func (c APIClient) StartProjectCommit(projectName, repoName string, branchName s
 //
 // Deprecated: use StartProjectCommitParent instead.
 func (c APIClient) StartCommitParent(repoName, branchName, parentBranch, parentCommit string) (*pfs.Commit, error) {
-	return c.StartProjectCommitParent("", repoName, branchName, parentBranch, parentCommit)
+	return c.StartProjectCommitParent(pfs.DefaultProjectName, repoName, branchName, parentBranch, parentCommit)
 }
 
 // StartProjectCommitParent begins the process of committing data to a
@@ -305,7 +305,7 @@ func (c APIClient) StartProjectCommitParent(projectName, repoName, branchName, p
 //
 // Deprecated: use FinishProjectCommit instead.
 func (c APIClient) FinishCommit(repoName string, branchName string, commitID string) (retErr error) {
-	return c.FinishProjectCommit("", repoName, branchName, commitID)
+	return c.FinishProjectCommit(pfs.DefaultProjectName, repoName, branchName, commitID)
 }
 
 // FinishProjectCommit ends the process of committing data to a Repo and
@@ -326,7 +326,7 @@ func (c APIClient) FinishProjectCommit(projectName, repoName, branchName, commit
 //
 // Deprecated: use InspectProjectCommit instead.
 func (c APIClient) InspectCommit(repoName, branchName, commitID string) (_ *pfs.CommitInfo, retErr error) {
-	return c.InspectProjectCommit("", repoName, branchName, commitID)
+	return c.InspectProjectCommit(pfs.DefaultProjectName, repoName, branchName, commitID)
 }
 
 // InspectProjectCommit returns info about a specific Commit.
@@ -340,7 +340,7 @@ func (c APIClient) InspectProjectCommit(projectName, repoName, branchName, commi
 //
 // Deprecated: use WaitProjectCommit instead.
 func (c APIClient) WaitCommit(repoName, branchName, commitID string) (_ *pfs.CommitInfo, retErr error) {
-	return c.WaitProjectCommit("", repoName, branchName, commitID)
+	return c.WaitProjectCommit(pfs.DefaultProjectName, repoName, branchName, commitID)
 }
 
 // WaitProjectCommit returns info about a specific Commit, but blocks until that
@@ -434,7 +434,7 @@ func (c APIClient) ListCommitByRepo(repo *pfs.Repo) ([]*pfs.CommitInfo, error) {
 //
 // Deprecated: use CreateProjectBranch instead.
 func (c APIClient) CreateBranch(repoName string, branchName string, commitBranch string, commitID string, provenance []*pfs.Branch) error {
-	return c.CreateProjectBranch("", repoName, branchName, commitBranch, commitID, provenance)
+	return c.CreateProjectBranch(pfs.DefaultProjectName, repoName, branchName, commitBranch, commitID, provenance)
 }
 
 // CreateProjectBranch creates a new branch
@@ -460,7 +460,7 @@ func (c APIClient) CreateProjectBranch(projectName, repoName, branchName, commit
 //
 // Deprecated: use CreateProjectBranchTrigger instead.
 func (c APIClient) CreateBranchTrigger(repoName string, branchName string, commitBranch string, commitID string, trigger *pfs.Trigger) error {
-	return c.CreateProjectBranchTrigger("", repoName, branchName, commitBranch, commitID, trigger)
+	return c.CreateProjectBranchTrigger(pfs.DefaultProjectName, repoName, branchName, commitBranch, commitID, trigger)
 }
 
 // CreateProjectBranchTrigger creates a branch with a trigger. Note: triggers
@@ -486,7 +486,7 @@ func (c APIClient) CreateProjectBranchTrigger(projectName, repoName, branchName,
 //
 // Deprecated: use InspectProjectBranch instead.
 func (c APIClient) InspectBranch(repoName string, branchName string) (*pfs.BranchInfo, error) {
-	return c.InspectProjectBranch("", repoName, branchName)
+	return c.InspectProjectBranch(pfs.DefaultProjectName, repoName, branchName)
 }
 
 // InspectProjectBranch returns information on a specific PFS branch.
@@ -504,7 +504,7 @@ func (c APIClient) InspectProjectBranch(projectName, repoName string, branchName
 //
 // Deprecated: use ListProjectBranch instead.
 func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
-	return c.ListProjectBranch("", repoName)
+	return c.ListProjectBranch(pfs.DefaultProjectName, repoName)
 }
 
 // ListProjectBranch lists the active branches on a Repo.
@@ -533,7 +533,7 @@ func (c APIClient) ListProjectBranch(projectName, repoName string) ([]*pfs.Branc
 //
 // Deprecated: use DeleteProjectBranch instead.
 func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) error {
-	return c.DeleteProjectBranch("", repoName, branchName, force)
+	return c.DeleteProjectBranch(pfs.DefaultProjectName, repoName, branchName, force)
 }
 
 // DeleteProjectBranch deletes a branch, but leaves the commits themselves
@@ -748,7 +748,7 @@ func (c APIClient) SubscribeCommit(repo *pfs.Repo, branchName string, from strin
 //
 // Deprecated: use ClearProjectCommit instead.
 func (c APIClient) ClearCommit(repoName string, branchName string, commitID string) (retErr error) {
-	return c.ClearProjectCommit("", repoName, branchName, commitID)
+	return c.ClearProjectCommit(pfs.DefaultProjectName, repoName, branchName, commitID)
 }
 
 // ClearProjectCommit clears the state of an open commit.

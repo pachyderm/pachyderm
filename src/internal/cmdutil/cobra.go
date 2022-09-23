@@ -242,7 +242,7 @@ func ParsePartialFile(arg string) *pfs.File {
 	if err == nil {
 		return file
 	}
-	return client.NewProjectFile("", arg, "", "", "")
+	return client.NewProjectFile(pfs.DefaultProjectName, arg, "", "", "")
 }
 
 // ParseHistory parses a --history flag argument. Permissable values are "all"
