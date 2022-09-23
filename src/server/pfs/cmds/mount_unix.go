@@ -96,7 +96,7 @@ func mountCmds() []*cobra.Command {
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
 	mount.Flags().VarP(&repoOpts, "repos", "r", "Repos and branches / commits to mount, arguments should be of the form \"repo[@branch=commit][+w]\", where the trailing flag \"+w\" indicates write. You can omit the branch when specifying a commit unless the same commit ID is on multiple branches in the repo.")
 	mount.MarkFlagCustom("repos", "__pachctl_get_repo_branch")
-	mount.Flags().StringVar(&project, "project", "", "Project to mount.")
+	mount.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project to mount.")
 	commands = append(commands, cmdutil.CreateAlias(mount, "mount"))
 
 	var all bool

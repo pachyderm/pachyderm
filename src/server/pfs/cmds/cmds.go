@@ -100,7 +100,7 @@ or type (e.g. csv, binary, images, etc).`,
 		}),
 	}
 	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
-	createRepo.Flags().StringVar(&project, "project", "", "The project in which to create the repo.")
+	createRepo.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project in which to create the repo.")
 	commands = append(commands, cmdutil.CreateAliases(createRepo, "create repo", repos))
 
 	updateRepo := &cobra.Command{
