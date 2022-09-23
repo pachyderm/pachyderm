@@ -669,8 +669,9 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 		return nil
 	}
 	filePath := pathpkg.Join(parts[1:]...)
+	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
 	repoName := ro.File.Commit.Branch.Repo.Name
-	if err := n.c().ListFile(client.NewCommit(repoName, branch, commit), filePath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
+	if err := n.c().ListFile(client.NewProjectCommit(projectName, repoName, branch, commit), filePath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
 		!pfsserver.IsOutputCommitNotFinishedErr(err) {
 		return err
 	}
@@ -711,9 +712,10 @@ func (n *loopbackNode) commit(name string) (string, error) {
 		// worth spamming the logs with this
 		return "", nil
 	}
+	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
 	repoName := ro.File.Commit.Branch.Repo.Name
 	branch := n.root().branch(name)
-	bi, err := n.root().c.InspectBranch(repoName, branch)
+	bi, err := n.root().c.InspectProjectBranch(projectName, repoName, branch)
 	if err != nil && !errutil.IsNotFoundError(err) {
 		return "", err
 	}

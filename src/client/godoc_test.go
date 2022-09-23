@@ -23,7 +23,7 @@ func ExampleAPIClient_CreateRepo() {
 	if _, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo:        NewRepo("test"),
+			Repo:        NewProjectRepo(pfs.DefaultProjectName, "test"),
 			Description: "A test repo",
 		},
 	); err != nil {
@@ -51,7 +51,7 @@ func ExampleAPIClient_DeleteRepo() {
 	if _, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo:        NewRepo("test"),
+			Repo:        NewProjectRepo(pfs.DefaultProjectName, "test"),
 			Description: "A test repo",
 			Update:      true,
 		},
@@ -75,7 +75,7 @@ func ExampleAPIClient_ListRepo() {
 	if _, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo:        NewRepo("test"),
+			Repo:        NewProjectRepo(pfs.DefaultProjectName, "test"),
 			Description: "A test repo",
 			Update:      true,
 		},
@@ -100,7 +100,7 @@ func ExampleAPIClient_NewModifyFileClient() {
 		panic(err)
 	}
 
-	testRepo := NewRepo("test")
+	testRepo := NewProjectRepo(pfs.DefaultProjectName, "test")
 	testCommit := testRepo.NewCommit("master", "")
 
 	if _, err := c.PfsAPIClient.CreateRepo(
@@ -144,7 +144,7 @@ func ExampleAPIClient_PutFile_string() {
 		panic(err)
 	}
 
-	testRepo := NewRepo("test")
+	testRepo := NewProjectRepo(pfs.DefaultProjectName, "test")
 	testCommit := testRepo.NewCommit("master", "")
 
 	if _, err := c.PfsAPIClient.CreateRepo(
@@ -183,7 +183,7 @@ func ExampleAPIClient_PutFile_file() {
 		panic(err)
 	}
 
-	testRepo := NewRepo("test")
+	testRepo := NewProjectRepo(pfs.DefaultProjectName, "test")
 	testCommit := testRepo.NewCommit("master", "")
 
 	if _, err := c.PfsAPIClient.CreateRepo(
@@ -226,7 +226,7 @@ func ExampleAPIClient_CreateBranch() {
 	if _, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo:        NewRepo("test"),
+			Repo:        NewProjectRepo(pfs.DefaultProjectName, "test"),
 			Description: "A test repo",
 			Update:      true,
 		},
@@ -262,7 +262,7 @@ func ExampleAPIClient_ListCommit() {
 		panic(err)
 	}
 
-	testRepo := NewRepo("test")
+	testRepo := NewProjectRepo(pfs.DefaultProjectName, "test")
 	testCommit := testRepo.NewCommit("master", "")
 
 	if _, err := c.PfsAPIClient.CreateRepo(
@@ -316,7 +316,7 @@ func ExampleAPIClient_CreateBranch_fromcommit() {
 		panic(err)
 	}
 
-	testRepo := NewRepo("test")
+	testRepo := NewProjectRepo(pfs.DefaultProjectName, "test")
 	testCommit := testRepo.NewCommit("master", "")
 
 	if _, err := c.PfsAPIClient.CreateRepo(
@@ -374,7 +374,7 @@ func ExampleAPIClient_ListCommitF() {
 		panic(err)
 	}
 
-	testRepo := NewRepo("test")
+	testRepo := NewProjectRepo(pfs.DefaultProjectName, "test")
 	testCommit := testRepo.NewCommit("master", "")
 
 	if _, err := c.PfsAPIClient.CreateRepo(
@@ -428,7 +428,7 @@ func ExampleAPIClient_CreatePipeline() {
 		panic(err)
 	}
 
-	testRepo := NewRepo("test")
+	testRepo := NewProjectRepo(pfs.DefaultProjectName, "test")
 	testCommit := testRepo.NewCommit("master", "")
 
 	if _, err := c.PfsAPIClient.CreateRepo(

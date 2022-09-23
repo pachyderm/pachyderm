@@ -65,8 +65,8 @@ Tests to write:
 
 func TestBasicServerSameNames(t *testing.T) {
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	commit := client.NewCommit("repo", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
@@ -106,8 +106,8 @@ func TestBasicServerSameNames(t *testing.T) {
 
 func TestBasicServerNonMasterBranch(t *testing.T) {
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	commit := client.NewCommit("repo", "dev", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "dev", "")
 	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
@@ -141,8 +141,8 @@ func TestBasicServerNonMasterBranch(t *testing.T) {
 
 func TestBasicServerDifferingNames(t *testing.T) {
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	commit := client.NewCommit("repo", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
@@ -180,8 +180,8 @@ func TestRepoAccess(t *testing.T) {
 	alice, bob := "robot"+tu.UniqueString("alice"), "robot"+tu.UniqueString("bob")
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
-	require.NoError(t, aliceClient.CreateRepo("repo1"))
-	commit := client.NewCommit("repo1", "master", "")
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, "repo1"))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo1", "master", "")
 	err := aliceClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 
@@ -210,13 +210,13 @@ func TestRepoAccess(t *testing.T) {
 func TestUnmountAll(t *testing.T) {
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-	require.NoError(t, env.PachClient.CreateRepo("repo1"))
-	commit := client.NewCommit("repo1", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo1"))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo1", "master", "")
 	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 
-	require.NoError(t, env.PachClient.CreateRepo("repo2"))
-	commit = client.NewCommit("repo2", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo2"))
+	commit = client.NewProjectCommit(pfs.DefaultProjectName, "repo2", "master", "")
 	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
 	require.NoError(t, err)
 
@@ -351,12 +351,12 @@ func TestUnauthenticatedCode(t *testing.T) {
 
 func TestMultipleMount(t *testing.T) {
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	commit := client.NewCommit("repo", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	err := env.PachClient.PutFile(commit, "dir/file", strings.NewReader("foo"))
 	require.NoError(t, err)
-	require.NoError(t, env.PachClient.CreateRepo("repo2"))
-	commit = client.NewCommit("repo2", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo2"))
+	commit = client.NewProjectCommit(pfs.DefaultProjectName, "repo2", "master", "")
 	err = env.PachClient.PutFile(commit, "dir/file", strings.NewReader("foo"))
 	require.NoError(t, err)
 
@@ -445,8 +445,8 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 	// Unmounting a mounted read-write filesystem which has had some data
 	// written to it results in a new commit with that data in it.
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	client.NewCommit("repo", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 		resp, err := put("repos/repo/master/_mount?name=repo&mode=rw", nil)
 		require.NoError(t, err)
@@ -480,8 +480,8 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 func TestRwCommitCreatesCommit(t *testing.T) {
 	// Commit operation creates a commit.
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	client.NewCommit("repo", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 		resp, err := put("repos/repo/master/_mount?name=repo&mode=rw", nil)
 		require.NoError(t, err)
@@ -516,8 +516,8 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 	// Two sequential commit operations create two commits (and they contain the
 	// correct files).
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	client.NewCommit("repo", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 		resp, err := put("repos/repo/master/_mount?name=repo&mode=rw", nil)
 		require.NoError(t, err)
@@ -568,8 +568,8 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 	// Commit and then unmount results in two commits, since unmounting creates
 	// one too.
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	client.NewCommit("repo", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 		resp, err := put("repos/repo/master/_mount?name=repo&mode=rw", nil)
 		require.NoError(t, err)

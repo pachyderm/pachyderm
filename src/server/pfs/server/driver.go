@@ -199,7 +199,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	} else {
 		// if this is a system repo, make sure the corresponding user repo already exists
 		if repo.Type != pfs.UserRepoType {
-			baseRepo := client.NewRepo(repo.Name)
+			baseRepo := client.NewProjectRepo(repo.Project.GetName(), repo.Name)
 			err = repos.Get(baseRepo, &existingRepoInfo)
 			if err != nil && col.IsErrNotFound(err) {
 				return errors.Errorf("cannot create a system repo without a corresponding 'user' repo")
@@ -425,7 +425,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 }
 
 func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectRequest) error {
-	if err := ancestry.ValidateName(req.Project.Name); err != nil {
+	if err := pfs.ValidateProjectName(req.Project.Name); err != nil {
 		return errors.Wrapf(err, "invalid project name")
 	}
 	return d.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
@@ -542,7 +542,7 @@ func (d *driver) startCommit(
 	spoutName, ok1 := os.LookupEnv(client.PPSPipelineNameEnv)
 	spoutCommit, ok2 := os.LookupEnv("PPS_SPEC_COMMIT")
 	if ok1 && ok2 {
-		specBranch := client.NewSystemRepo(spoutName, pfs.SpecRepoType).NewBranch("master")
+		specBranch := client.NewSystemProjectRepo(branch.Repo.Project.GetName(), spoutName, pfs.SpecRepoType).NewBranch("master")
 		specCommit := specBranch.NewCommit(spoutCommit)
 		log.Infof("Adding spout spec commit to current commitset: %s", specCommit)
 		if _, err := d.aliasCommit(txnCtx, specCommit, specBranch); err != nil {
@@ -865,7 +865,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			// if this is a pipeline output branch, we need to also create an alias commit on the meta branch
 			// to maintain pipeline system invariants.
 			if provOfSubvBI.Branch.Repo.Type == pfs.UserRepoType {
-				metaBranch := client.NewSystemRepo(provOfSubvBI.Branch.Repo.Name, pfs.MetaRepoType).
+				metaBranch := client.NewSystemProjectRepo(provOfSubvBI.Branch.Repo.Project.GetName(), provOfSubvBI.Branch.Repo.Name, pfs.MetaRepoType).
 					NewBranch(provOfSubvBI.Branch.Name)
 				metaBI, err := getBranchInfo(metaBranch)
 				if err != nil {

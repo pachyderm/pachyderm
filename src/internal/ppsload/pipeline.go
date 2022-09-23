@@ -40,12 +40,12 @@ func createPipelines(pachClient *client.APIClient, spec string, parallelism int6
 		repo := strings.TrimSpace(split[0]) + namespace
 		// Create source repos.
 		if strings.TrimSpace(split[1]) == "" {
-			if err := pachClient.CreateRepo(repo); err != nil {
+			if err := pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo); err != nil {
 				return nil, err
 			}
 			// First source repo will be the target of the PFS load test.
 			if retBranch == nil {
-				retBranch = client.NewBranch(repo, "master")
+				retBranch = client.NewProjectBranch(pfs.DefaultProjectName, repo, "master")
 			}
 			continue
 		}

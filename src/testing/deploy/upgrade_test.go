@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -80,7 +81,7 @@ func TestUpgradeSimple(t *testing.T) {
 	upgradeTest(t, context.Background(),
 		func(t *testing.T, c *client.APIClient) {
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
-			require.NoError(t, c.CreateRepo(inputRepo))
+			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, inputRepo))
 			require.NoError(t,
 				c.CreatePipeline(outputRepo,
 					"busybox",
@@ -91,18 +92,18 @@ func TestUpgradeSimple(t *testing.T) {
 					"master",
 					false,
 				))
-			require.NoError(t, c.WithModifyFileClient(client.NewCommit(inputRepo, "master", ""), func(mf client.ModifyFile) error {
+			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, inputRepo, "master", ""), func(mf client.ModifyFile) error {
 				return errors.EnsureStack(mf.PutFile("foo", strings.NewReader("foo")))
 			}))
 
-			commitInfo, err := c.InspectCommit(outputRepo, "master", "")
+			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, outputRepo, "master", "")
 			require.NoError(t, err)
 			commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 			require.NoError(t, err)
 
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(outputRepo)) {
+				if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(pfs.DefaultProjectName, outputRepo)) {
 					require.NoError(t, c.GetFile(info.Commit, "foo", &buf))
 					require.Equal(t, "foo", buf.String())
 				}
@@ -114,18 +115,18 @@ func TestUpgradeSimple(t *testing.T) {
 			state, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 			require.NoError(t, err)
 			require.Equal(t, enterprise.State_ACTIVE, state.State)
-			require.NoError(t, c.WithModifyFileClient(client.NewCommit(inputRepo, "master", ""), func(mf client.ModifyFile) error {
+			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, inputRepo, "master", ""), func(mf client.ModifyFile) error {
 				return errors.EnsureStack(mf.PutFile("bar", strings.NewReader("bar")))
 			}))
 
-			commitInfo, err := c.InspectCommit(outputRepo, "master", "")
+			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, outputRepo, "master", "")
 			require.NoError(t, err)
 			commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 			require.NoError(t, err)
 
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(outputRepo)) {
+				if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(pfs.DefaultProjectName, outputRepo)) {
 					require.NoError(t, c.GetFile(info.Commit, "foo", &buf))
 					require.Equal(t, "foo", buf.String())
 

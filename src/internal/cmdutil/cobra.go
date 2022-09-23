@@ -107,6 +107,7 @@ func ParseRepo(name string) *pfs.Repo {
 		repo.Name = name
 		repo.Type = pfs.UserRepoType
 	}
+	repo.Project = new(pfs.Project) // ensure that Project is not nil
 	return &repo
 }
 
@@ -241,7 +242,7 @@ func ParsePartialFile(arg string) *pfs.File {
 	if err == nil {
 		return file
 	}
-	return client.NewFile(arg, "", "", "")
+	return client.NewProjectFile(pfs.DefaultProjectName, arg, "", "", "")
 }
 
 // ParseHistory parses a --history flag argument. Permissable values are "all"

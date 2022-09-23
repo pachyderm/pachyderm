@@ -21,7 +21,7 @@ func main() {
 		panic(err)
 	}
 
-	imageRepo := client.NewRepo("images")
+	imageRepo := client.NewProjectRepo("", "images")
 	imageCommit := imageRepo.NewCommit("master", "")
 
 	if _, err := c.PfsAPIClient.CreateRepo(

@@ -189,9 +189,14 @@ func NewCronInputOpts(name string, repo string, spec string, overwrite bool, sta
 }
 
 // NewJobInput creates a pps.JobInput.
-func NewJobInput(repoName string, branchName string, commitID string, glob string) *pps.JobInput {
+func NewJobInput(repoName, branchName, commitID, glob string) *pps.JobInput {
+	return NewProjectJobInput(pfs.DefaultProjectName, repoName, branchName, commitID, glob)
+}
+
+// NewProjectJobInput creates a pps.JobInput.
+func NewProjectJobInput(projectName, repoName, branchName, commitID, glob string) *pps.JobInput {
 	return &pps.JobInput{
-		Commit: NewCommit(repoName, branchName, commitID),
+		Commit: NewProjectCommit(projectName, repoName, branchName, commitID),
 		Glob:   glob,
 	}
 }

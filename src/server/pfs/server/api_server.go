@@ -682,7 +682,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 		// list meta repos as a proxy for finding pipelines
 		return a.driver.listRepo(ctx, false, pfs.MetaRepoType, func(info *pfs.RepoInfo) error {
 			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
-			output := client.NewCommit(info.Repo.Name, "master", "")
+			output := client.NewProjectCommit(info.Repo.Project.GetName(), info.Repo.Name, "master", "")
 			for output != nil {
 				info, err := a.driver.inspectCommit(ctx, output, pfs.CommitState_STARTED)
 				if err != nil {
@@ -837,18 +837,20 @@ func (a *apiServer) ClearCache(ctx context.Context, req *pfs.ClearCacheRequest) 
 func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
 	taskService := a.env.TaskService
+	var project string
 	repo := "load_test"
 	if req.Branch != nil {
+		project = req.Branch.Repo.Project.GetName()
 		repo = req.Branch.Repo.Name
 	}
-	if err := pachClient.CreateRepo(repo); err != nil && !pfsserver.IsRepoExistsErr(err) {
+	if err := pachClient.CreateProjectRepo(project, repo); err != nil && !pfsserver.IsRepoExistsErr(err) {
 		return nil, err
 	}
 	branch := uuid.New()
 	if req.Branch != nil {
 		branch = req.Branch.Name
 	}
-	if err := pachClient.CreateBranch(repo, branch, "", "", nil); err != nil {
+	if err := pachClient.CreateProjectBranch(project, repo, branch, "", "", nil); err != nil {
 		return nil, err
 	}
 	seed := time.Now().UTC().UnixNano()
@@ -857,7 +859,7 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 	}
 	resp := &pfs.RunLoadTestResponse{
 		Spec:   req.Spec,
-		Branch: client.NewBranch(repo, branch),
+		Branch: client.NewProjectBranch(req.Branch.GetRepo().GetProject().GetName(), repo, branch),
 		Seed:   seed,
 	}
 	start := time.Now()
@@ -877,7 +879,7 @@ func (a *apiServer) runLoadTest(pachClient *client.APIClient, taskService task.S
 	if err := jsonpb.Unmarshal(bytes.NewReader(jsonBytes), spec); err != nil {
 		return errors.EnsureStack(err)
 	}
-	return pfsload.Commit(pachClient, taskService, branch.Repo.Name, branch.Name, spec, seed)
+	return pfsload.Commit(pachClient, taskService, branch.Repo.Project.GetName(), branch.Repo.Name, branch.Name, spec, seed)
 }
 
 func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (resp *pfs.RunLoadTestResponse, retErr error) {

@@ -377,7 +377,7 @@ func WriteJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
 }
 
 func MetaCommit(commit *pfs.Commit) *pfs.Commit {
-	return client.NewSystemRepo(commit.Branch.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.ID)
+	return client.NewSystemProjectRepo(commit.Branch.Repo.Project.GetName(), commit.Branch.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.ID)
 }
 
 // ContainsS3Inputs returns 'true' if 'in' is or contains any PFS inputs with
@@ -420,7 +420,7 @@ func ErrorState(s pps.PipelineState) bool {
 // GetWorkerPipelineInfo gets the PipelineInfo proto describing the pipeline that this
 // worker is part of.
 // getPipelineInfo has the side effect of adding auth to the passed pachClient
-func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l collection.PostgresListener, pipelineName, specCommitID string) (*pps.PipelineInfo, error) {
+func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l collection.PostgresListener, pipeline *pps.Pipeline, specCommitID string) (*pps.PipelineInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	pipelines := ppsdb.Pipelines(db, l)
@@ -429,7 +429,7 @@ func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l colle
 	// because the value in postgres might get updated while the worker pod is
 	// being created and we don't want to run the transform of one version of
 	// the pipeline in the image of a different verison.
-	specCommit := client.NewSystemRepo(pipelineName, pfs.SpecRepoType).
+	specCommit := client.NewSystemProjectRepo(pipeline.Project.GetName(), pipeline.Name, pfs.SpecRepoType).
 		NewCommit("master", specCommitID)
 	if err := pipelines.ReadOnly(ctx).Get(specCommit, pipelineInfo); err != nil {
 		return nil, errors.EnsureStack(err)

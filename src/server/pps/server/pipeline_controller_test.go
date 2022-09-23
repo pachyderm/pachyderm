@@ -81,7 +81,7 @@ func mockJobRunning(mockPachd *testpachd.MockPachd, taskCount, commitCount int) 
 	testDone := make(chan struct{})
 	mockPachd.PFS.SubscribeCommit.Use(func(req *pfs.SubscribeCommitRequest, server pfs.API_SubscribeCommitServer) error {
 		for i := 0; i < commitCount; i++ {
-			if err := server.Send(&pfs.CommitInfo{Commit: client.NewCommit(req.Repo.Name, "", uuid.NewWithoutDashes())}); err != nil {
+			if err := server.Send(&pfs.CommitInfo{Commit: client.NewProjectCommit(req.Repo.Project.GetName(), req.Repo.Name, "", uuid.NewWithoutDashes())}); err != nil {
 				return errors.EnsureStack(err)
 			}
 		}
