@@ -2389,16 +2389,6 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		// ensure field names and enum values match with --raw output
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
-	// get all pipelines at once to avoid holding the list query open
-	// this should be fine with numbers of pipelines pachyderm can actually run
-	var infos []*pps.PipelineInfo
-	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(ptr *pps.PipelineInfo) error {
-		infos = append(infos, proto.Clone(ptr).(*pps.PipelineInfo))
-		return nil
-	}); err != nil {
-		return err
-	}
-
 	filterPipeline := func(pipelineInfo *pps.PipelineInfo) bool {
 		if jqCode != nil {
 			jsonBuffer.Reset()
@@ -2418,18 +2408,41 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		}
 		return true
 	}
-
-	for i := range infos {
-		if filterPipeline(infos[i]) {
-			if err := a.getLatestJobState(ctx, infos[i]); err != nil {
+	loadPipelineAtCommit := func(pi *pps.PipelineInfo, commitSetID string) error { // mutates pi
+		if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+			key, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, pi.Pipeline, commitSetID)
+			if err != nil {
+				return errors.Wrapf(err, "couldn't find up to date spec for pipeline %q", pi.Pipeline)
+			}
+			if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(key, pi); err != nil {
+				return errors.EnsureStack(err)
+			}
+			var ji pps.JobInfo
+			if err := a.jobs.ReadWrite(txnCtx.SqlTx).Get(ppsdb.JobKey(client.NewJob(pi.Pipeline.Name, request.CommitSet.ID)), &ji); err != nil {
+				return errors.EnsureStack(err)
+			}
+			pi.LastJobState = ji.State
+			return nil
+		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !ppsServer.IsPipelineNotFoundErr(err) && col.IsErrNotFound(err) {
+			return err
+		}
+		return nil
+	}
+	return ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(pi *pps.PipelineInfo) error {
+		if !filterPipeline(pi) {
+			return nil
+		}
+		if request.GetCommitSet().GetID() != "" {
+			if err := loadPipelineAtCommit(pi, request.GetCommitSet().GetID()); err != nil {
 				return err
 			}
-			if err := f(infos[i]); err != nil {
+		} else if pi.LastJobState == pps.JobState_JOB_STATE_UNKNOWN {
+			if err := a.getLatestJobState(ctx, pi); err != nil {
 				return err
 			}
 		}
-	}
-	return nil
+		return f(pi)
+	})
 }
 
 // DeletePipeline implements the protobuf pps.DeletePipeline RPC
