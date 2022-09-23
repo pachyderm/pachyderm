@@ -48,6 +48,7 @@ func do(ctx context.Context, config interface{}) error {
 		pachClient,
 		env.GetDBClient(),
 		env.GetPostgresListener(),
+		// TODO: this will get the project name in CORE-1024
 		client.NewProjectPipeline("", env.Config().PPSPipelineName),
 		env.Config().PPSSpecCommitID,
 	) // get pipeline creds for pachClient

@@ -58,6 +58,7 @@ func (a *apiServer) ServeSidecarS3G() {
 			s.pachClient,
 			a.env.DB,
 			a.env.Listener,
+			// TODO: this will get the project in CORE-1024
 			client.NewProjectPipeline("", a.env.Config.PPSPipelineName),
 			a.env.Config.PPSSpecCommitID,
 		)
