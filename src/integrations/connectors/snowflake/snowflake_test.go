@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	sdataTU "github.com/pachyderm/pachyderm/v2/src/internal/sdata/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -130,8 +131,8 @@ func TestSnowflakeReadWrite(t *testing.T) {
 	}
 
 	// run cron job and wait for both pipelines to succeed
-	require.NoError(t, c.RunProjectCron("", readPipeline))
-	commitInfo, err := c.WaitProjectCommit("", readPipeline, "master", "")
+	require.NoError(t, c.RunProjectCron(pfs.DefaultProjectName, readPipeline))
+	commitInfo, err := c.WaitProjectCommit(pfs.DefaultProjectName, readPipeline, "master", "")
 	require.NoError(t, err)
 	jobInfo, err := c.InspectProjectJob("", readPipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
@@ -141,7 +142,7 @@ func TestSnowflakeReadWrite(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, files, nRows)
 
-	commitInfo, err = c.WaitProjectCommit("", writePipeline, "master", "")
+	commitInfo, err = c.WaitProjectCommit(pfs.DefaultProjectName, writePipeline, "master", "")
 	require.NoError(t, err)
 	jobInfo, err = c.InspectProjectJob("", writePipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)

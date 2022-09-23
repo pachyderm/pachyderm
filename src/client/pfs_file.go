@@ -388,7 +388,7 @@ func (ctfsc *CreateFileSetClient) Close() (*pfs.CreateFileSetResponse, error) {
 //
 // Deprecated: use GetProjectFileSet instead.
 func (c APIClient) GetFileSet(repo, branch, commit string) (_ string, retErr error) {
-	return c.GetProjectFileSet("", repo, branch, commit)
+	return c.GetProjectFileSet(pfs.DefaultProjectName, repo, branch, commit)
 }
 
 // GetProjectFileSet gets a file set for a commit in a project.
@@ -412,7 +412,7 @@ func (c APIClient) GetProjectFileSet(project, repo, branch, commit string) (_ st
 //
 // Deprecated: use AddProjectFileSet instead.
 func (c APIClient) AddFileSet(repo, branch, commit, ID string) (retErr error) {
-	return c.AddProjectFileSet("", repo, branch, commit, ID)
+	return c.AddProjectFileSet(pfs.DefaultProjectName, repo, branch, commit, ID)
 }
 
 // AddProjectFileSet adds a fileset to a commit in a project.
