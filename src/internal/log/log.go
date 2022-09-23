@@ -26,7 +26,7 @@ func (f FormatterFunc) Format(entry *logrus.Entry) ([]byte, error) {
 func formatServiceAndDuration(entry *logrus.Entry) {
 	if entry.Data["service"] != nil && entry.Data["method"] != nil {
 		// TODO: seems like a bad idea to modify the log statement data
-		entry.Data["method"] = fmt.Sprintf("%v.%v ", entry.Data["service"], entry.Data["method"])
+		entry.Data["method"] = fmt.Sprintf("%v.%v", entry.Data["service"], entry.Data["method"])
 		delete(entry.Data, "service")
 	}
 	if entry.Data["duration"] != nil {
