@@ -112,7 +112,7 @@ func makeLogFields(ctx context.Context, request interface{}, fullMethod string, 
 	}
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		if rids := md.Get("x-request-id"); rids != nil {
-			// There shouldn't be mulitple copies of the x-request-id header, but if
+			// There shouldn't be multiple copies of the x-request-id header, but if
 			// there are, log all of them.
 			fields["x-request-id"] = strings.Join(rids, ";")
 		}
