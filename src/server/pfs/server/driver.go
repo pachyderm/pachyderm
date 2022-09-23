@@ -425,7 +425,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 }
 
 func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectRequest) error {
-	if err := ancestry.ValidateName(req.Project.Name); err != nil {
+	if err := pfs.ValidateProjectName(req.Project.Name); err != nil {
 		return errors.Wrapf(err, "invalid project name")
 	}
 	return d.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {

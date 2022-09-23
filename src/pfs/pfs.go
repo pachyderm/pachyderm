@@ -6,6 +6,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 )
@@ -79,4 +80,14 @@ func (b *Branch) NewCommit(id string) *Commit {
 
 func (b *Branch) String() string {
 	return b.Repo.String() + "@" + b.Name
+}
+
+// ValidateProjectName returns true if projectName is a valid project name.
+// DefaultProjectName is always valid; otherwise the ancestry package is used to
+// validate the name.
+func ValidateProjectName(projectName string) error {
+	if projectName == DefaultProjectName {
+		return nil
+	}
+	return ancestry.ValidateName(projectName)
 }
