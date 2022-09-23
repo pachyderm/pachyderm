@@ -797,6 +797,7 @@ func (c APIClient) DiffFileAll(newCommit *pfs.Commit, newPath string, oldCommit 
 	return newFis, oldFis, nil
 }
 
+//
 // WalkFile walks the files under path.
 func (c APIClient) WalkFile(commit *pfs.Commit, path string, cb func(*pfs.FileInfo) error) (retErr error) {
 	client, err := c.PfsAPIClient.WalkFile(
