@@ -643,7 +643,7 @@ func TestRunPipeline(t *testing.T) {
 	//// Test on cross pipeline
 	//t.Run("RunPipelineCross", func(t *testing.T) {
 	//	dataRepo := tu.UniqueString("TestRunPipeline_data")
-	//	require.NoError(t, c.CreateProjectRepo("",dataRepo))
+	//	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName,dataRepo))
 
 	//	branchA := "branchA"
 	//	branchB := "branchB"
@@ -667,15 +667,15 @@ func TestRunPipeline(t *testing.T) {
 	//		false,
 	//	))
 
-	//	commitA, err := c.StartProjectCommit("",dataRepo, branchA)
+	//	commitA, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, branchA)
 	//	require.NoError(t, err)
 	//	require.NoError(t, c.PutFile(dataRepo, commitA.Branch.Name, commitA.ID, "/file", strings.NewReader("data A\n"), client.WithAppendPutFile()))
-	//	require.NoError(t, c.FinishProjectCommit("",dataRepo, commitA.Branch.Name, commitA.ID))
+	//	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitA.Branch.Name, commitA.ID))
 
-	//	commitB, err := c.StartProjectCommit("",dataRepo, branchB)
+	//	commitB, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, branchB)
 	//	require.NoError(t, err)
 	//	require.NoError(t, c.PutFile(dataRepo, commitB.Branch.Name, commitB.ID, "/file", strings.NewReader("data B\n"), client.WithAppendPutFile()))
-	//	require.NoError(t, c.FinishProjectCommit("",dataRepo, commitB.Branch.Name, commitB.ID))
+	//	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitB.Branch.Name, commitB.ID))
 
 	//	iter, err := c.FlushJob([]*pfs.Commit{commitA, commitB}, nil)
 	//	require.NoError(t, err)
@@ -684,19 +684,19 @@ func TestRunPipeline(t *testing.T) {
 	//	require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.Branch.Name, commits[0].Commit.ID, "file", &buffer))
 	//	require.Equal(t, "data A\ndata B\n", buffer.String())
 
-	//	commitM, err := c.StartProjectCommit("",dataRepo, "master")
+	//	commitM, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, "master")
 	//	require.NoError(t, err)
-	//	require.NoError(t, c.FinishProjectCommit("",dataRepo, commitM.Branch.Name, commitM.ID))
+	//	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitM.Branch.Name, commitM.ID))
 
 	//	// we should have two jobs
-	//	ji, err := c.ListProjectJob("",pipeline, nil, nil, -1, true)
+	//	ji, err := c.ListProjectJob(pfs.DefaultProjectName,pipeline, nil, nil, -1, true)
 	//	require.NoError(t, err)
 	//	require.Equal(t, 2, len(ji))
 	//	// now run the pipeline
 	//	require.NoError(t, c.RunPipeline(pipeline, nil, ""))
 	//	// running the pipeline should create a new job
 	//	require.NoError(t, backoff.Retry(func() error {
-	//		jobInfos, err := c.ListProjectJob("",pipeline, nil, nil, -1, true)
+	//		jobInfos, err := c.ListProjectJob(pfs.DefaultProjectName,pipeline, nil, nil, -1, true)
 	//		require.NoError(t, err)
 	//		if len(jobInfos) != 3 {
 	//			return errors.Errorf("expected 3 jobs, got %d", len(jobInfos))
@@ -707,13 +707,13 @@ func TestRunPipeline(t *testing.T) {
 	//	// now run the pipeline with non-empty provenance
 	//	require.NoError(t, backoff.Retry(func() error {
 	//		return c.RunPipeline(pipeline, []*pfs.Commit{
-	//			client.NewProjectCommit("",dataRepo, "branchA", commitA.ID),
+	//			client.NewProjectCommit(pfs.DefaultProjectName,dataRepo, "branchA", commitA.ID),
 	//		}, "")
 	//	}, backoff.NewTestingBackOff()))
 
 	//	// running the pipeline should create a new job
 	//	require.NoError(t, backoff.Retry(func() error {
-	//		jobInfos, err := c.ListProjectJob("",pipeline, nil, nil, -1, true)
+	//		jobInfos, err := c.ListProjectJob(pfs.DefaultProjectName,pipeline, nil, nil, -1, true)
 	//		require.NoError(t, err)
 	//		if len(jobInfos) != 4 {
 	//			return errors.Errorf("expected 4 jobs, got %d", len(jobInfos))
@@ -722,15 +722,15 @@ func TestRunPipeline(t *testing.T) {
 	//	}, backoff.NewTestingBackOff()))
 
 	//	// add some new commits with some new info
-	//	commitA2, err := c.StartProjectCommit("",dataRepo, branchA)
+	//	commitA2, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, branchA)
 	//	require.NoError(t, err)
 	//	require.NoError(t, c.PutFile(dataRepo, commitA2.Branch.Name, commitA2.ID, "/file", strings.NewReader("data A2\n"), client.WithAppendPutFile()))
-	//	require.NoError(t, c.FinishProjectCommit("",dataRepo, commitA2.Branch.Name, commitA2.ID))
+	//	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitA2.Branch.Name, commitA2.ID))
 
-	//	commitB2, err := c.StartProjectCommit("",dataRepo, branchB)
+	//	commitB2, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, branchB)
 	//	require.NoError(t, err)
 	//	require.NoError(t, c.PutFile(dataRepo, commitB2.Branch.Name, commitB2.ID, "/file", strings.NewReader("data B2\n"), client.WithAppendPutFile()))
-	//	require.NoError(t, c.FinishProjectCommit("",dataRepo, commitB2.Branch.Name, commitB2.ID))
+	//	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitB2.Branch.Name, commitB2.ID))
 
 	//	// and make sure the output file is updated appropriately
 	//	iter, err = c.FlushJob([]*pfs.Commit{commitA2, commitB2}, nil)
@@ -742,8 +742,8 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// now run the pipeline provenant on the old commits
 	//	require.NoError(t, c.RunPipeline(pipeline, []*pfs.Commit{
-	//		client.NewProjectCommit("",dataRepo, "branchA", commitA.ID),
-	//		client.NewProjectCommit("",dataRepo, "branchB", commitB2.ID),
+	//		client.NewProjectCommit(pfs.DefaultProjectName,dataRepo, "branchA", commitA.ID),
+	//		client.NewProjectCommit(pfs.DefaultProjectName,dataRepo, "branchB", commitB2.ID),
 	//	}, ""))
 
 	//	// and ensure that the file now has the info from the correct versions of the commits
@@ -763,7 +763,7 @@ func TestRunPipeline(t *testing.T) {
 	//// Test on pipeline with no commits
 	//t.Run("RunPipelineEmpty", func(t *testing.T) {
 	//	dataRepo := tu.UniqueString("TestRunPipeline_data")
-	//	require.NoError(t, c.CreateProjectRepo("",dataRepo))
+	//	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName,dataRepo))
 
 	//	pipeline := tu.UniqueString("empty-pipeline")
 	//	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
@@ -778,7 +778,7 @@ func TestRunPipeline(t *testing.T) {
 	//	))
 
 	//	// we should have two jobs
-	//	ji, err := c.ListProjectJob("",pipeline, nil, nil, -1, true)
+	//	ji, err := c.ListProjectJob(pfs.DefaultProjectName,pipeline, nil, nil, -1, true)
 	//	require.NoError(t, err)
 	//	require.Equal(t, 0, len(ji))
 	//	// now run the pipeline
@@ -788,7 +788,7 @@ func TestRunPipeline(t *testing.T) {
 	//// Test on unrelated branch
 	//t.Run("RunPipelineUnrelated", func(t *testing.T) {
 	//	dataRepo := tu.UniqueString("TestRunPipeline_data")
-	//	require.NoError(t, c.CreateProjectRepo("",dataRepo))
+	//	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName,dataRepo))
 
 	//	branchA := "branchA"
 	//	branchB := "branchB"
@@ -811,20 +811,20 @@ func TestRunPipeline(t *testing.T) {
 	//		"",
 	//		false,
 	//	))
-	//	commitA, err := c.StartProjectCommit("",dataRepo, branchA)
+	//	commitA, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, branchA)
 	//	require.NoError(t, err)
 	//	c.PutFile(dataRepo, commitA.Branch.Name, commitA.ID, "/file", strings.NewReader("data A\n", client.WithAppendPutFile()))
-	//	c.FinishProjectCommit("",dataRepo, commitA.Branch.Name, commitA.ID)
+	//	c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitA.Branch.Name, commitA.ID)
 
-	//	commitM, err := c.StartProjectCommit("",dataRepo, "master")
+	//	commitM, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, "master")
 	//	require.NoError(t, err)
-	//	err = c.FinishProjectCommit("",dataRepo, commitM.Branch.Name, commitM.ID)
+	//	err = c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitM.Branch.Name, commitM.ID)
 	//	require.NoError(t, err)
 
-	//	require.NoError(t, c.CreateProjectBranch("",dataRepo, "unrelated", "", nil))
-	//	commitU, err := c.StartProjectCommit("",dataRepo, "unrelated")
+	//	require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName,dataRepo, "unrelated", "", nil))
+	//	commitU, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, "unrelated")
 	//	require.NoError(t, err)
-	//	err = c.FinishProjectCommit("",dataRepo, commitU.Branch.Name, commitU.ID)
+	//	err = c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitU.Branch.Name, commitU.ID)
 	//	require.NoError(t, err)
 
 	//	_, err = c.FlushJob([]*pfs.Commit{commitA, commitM, commitU}, nil)
@@ -832,13 +832,13 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// now run the pipeline with unrelated provenance
 	//	require.YesError(t, c.RunPipeline(pipeline, []*pfs.Commit{
-	//		client.NewProjectCommit("",dataRepo, "unrelated", commitU.ID)}, ""))
+	//		client.NewProjectCommit(pfs.DefaultProjectName,dataRepo, "unrelated", commitU.ID)}, ""))
 	//})
 
 	//// Test with downstream pipeline
 	//t.Run("RunPipelineDownstream", func(t *testing.T) {
 	//	dataRepo := tu.UniqueString("TestRunPipeline_data")
-	//	require.NoError(t, c.CreateProjectRepo("",dataRepo))
+	//	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName,dataRepo))
 
 	//	branchA := "branchA"
 	//	branchB := "branchB"
@@ -862,15 +862,15 @@ func TestRunPipeline(t *testing.T) {
 	//		false,
 	//	))
 
-	//	commitA, err := c.StartProjectCommit("",dataRepo, branchA)
+	//	commitA, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, branchA)
 	//	require.NoError(t, err)
 	//	c.PutFile(dataRepo, commitA.Branch.Name, commitA.ID, "/file", strings.NewReader("data A\n", client.WithAppendPutFile()))
-	//	c.FinishProjectCommit("",dataRepo, commitA.Branch.Name, commitA.ID)
+	//	c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitA.Branch.Name, commitA.ID)
 
-	//	commitB, err := c.StartProjectCommit("",dataRepo, branchB)
+	//	commitB, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, branchB)
 	//	require.NoError(t, err)
 	//	c.PutFile(dataRepo, commitB.Branch.Name, commitB.ID, "/file", strings.NewReader("data B\n", client.WithAppendPutFile()))
-	//	c.FinishProjectCommit("",dataRepo, commitB.Branch.Name, commitB.ID)
+	//	c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitB.Branch.Name, commitB.ID)
 
 	//	iter, err := c.FlushJob([]*pfs.Commit{commitA, commitB}, nil)
 	//	require.NoError(t, err)
@@ -887,14 +887,14 @@ func TestRunPipeline(t *testing.T) {
 	//		[]string{"/bin/bash"},
 	//		[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline) + " /pfs/out/"},
 	//		nil,
-	//		client.NewProjectPFSInput("",pipeline, "/*"),
+	//		client.NewProjectPFSInput(pfs.DefaultProjectName,pipeline, "/*"),
 	//		"",
 	//		false,
 	//	))
 
-	//	commitA2, err := c.StartProjectCommit("",dataRepo, branchA)
+	//	commitA2, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, branchA)
 	//	require.NoError(t, err)
-	//	err = c.FinishProjectCommit("",dataRepo, commitA2.Branch.Name, commitA2.ID)
+	//	err = c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitA2.Branch.Name, commitA2.ID)
 	//	require.NoError(t, err)
 
 	//	// there should be one job on the old commit for downstreamPipeline
@@ -905,7 +905,7 @@ func TestRunPipeline(t *testing.T) {
 	//	// now run the pipeline
 	//	require.NoError(t, backoff.Retry(func() error {
 	//		return c.RunPipeline(pipeline, []*pfs.Commit{
-	//			client.NewProjectCommit("",dataRepo, branchA, commitA.ID),
+	//			client.NewProjectCommit(pfs.DefaultProjectName,dataRepo, branchA, commitA.ID),
 	//		}, "")
 	//	}, backoff.NewTestingBackOff()))
 
@@ -928,7 +928,7 @@ func TestRunPipeline(t *testing.T) {
 	//// Test with a downstream pipeline who's upstream has no datum, but where the downstream still needs to succeed
 	//t.Run("RunPipelineEmptyUpstream", func(t *testing.T) {
 	//	dataRepo := tu.UniqueString("TestRunPipeline_data")
-	//	require.NoError(t, c.CreateProjectRepo("",dataRepo))
+	//	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName,dataRepo))
 
 	//	branchA := "branchA"
 	//	branchB := "branchB"
@@ -952,10 +952,10 @@ func TestRunPipeline(t *testing.T) {
 	//		false,
 	//	))
 
-	//	commitA, err := c.StartProjectCommit("",dataRepo, branchA)
+	//	commitA, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, branchA)
 	//	require.NoError(t, err)
 	//	c.PutFile(dataRepo, commitA.Branch.Name, commitA.ID, "/file", strings.NewReader("data A\n", client.WithAppendPutFile()))
-	//	c.FinishProjectCommit("",dataRepo, commitA.Branch.Name, commitA.ID)
+	//	c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitA.Branch.Name, commitA.ID)
 
 	//	iter, err := c.FlushJob([]*pfs.Commit{commitA}, nil)
 	//	require.NoError(t, err)
@@ -979,15 +979,15 @@ func TestRunPipeline(t *testing.T) {
 	//		nil,
 	//		client.NewUnionInput(
 	//			client.NewProjectPFSInputOpts("branch-a","", dataRepo, branchA, "/*", "", "", false, false, nil),
-	//			client.NewProjectPFSInput("",pipeline, "/*"),
+	//			client.NewProjectPFSInput(pfs.DefaultProjectName,pipeline, "/*"),
 	//		),
 	//		"",
 	//		false,
 	//	))
 
-	//	commitA2, err := c.StartProjectCommit("",dataRepo, branchA)
+	//	commitA2, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, branchA)
 	//	require.NoError(t, err)
-	//	err = c.FinishProjectCommit("",dataRepo, commitA2.Branch.Name, commitA2.ID)
+	//	err = c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitA2.Branch.Name, commitA2.ID)
 	//	require.NoError(t, err)
 
 	//	// there should be one job on the old commit for downstreamPipeline
@@ -998,7 +998,7 @@ func TestRunPipeline(t *testing.T) {
 	//	// now run the pipeline
 	//	require.NoError(t, backoff.Retry(func() error {
 	//		return c.RunPipeline(pipeline, []*pfs.Commit{
-	//			client.NewProjectCommit("",dataRepo, branchA, commitA.ID),
+	//			client.NewProjectCommit(pfs.DefaultProjectName,dataRepo, branchA, commitA.ID),
 	//		}, "")
 	//	}, backoff.NewTestingBackOff()))
 
@@ -1008,10 +1008,10 @@ func TestRunPipeline(t *testing.T) {
 	//	require.Equal(t, "data A\n", buffer2.String())
 
 	//	// add another commit to see that we can successfully do the cross and union together
-	//	commitB, err := c.StartProjectCommit("",dataRepo, branchB)
+	//	commitB, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, branchB)
 	//	require.NoError(t, err)
 	//	c.PutFile(dataRepo, commitB.Branch.Name, commitB.ID, "/file", strings.NewReader("data B\n", client.WithAppendPutFile()))
-	//	c.FinishProjectCommit("",dataRepo, commitB.Branch.Name, commitB.ID)
+	//	c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitB.Branch.Name, commitB.ID)
 
 	//	_, err = c.FlushJob([]*pfs.Commit{commitA, commitB}, nil)
 	//	require.NoError(t, err)
@@ -1029,7 +1029,7 @@ func TestRunPipeline(t *testing.T) {
 	//// Test on commits from the same branch
 	//t.Run("RunPipelineSameBranch", func(t *testing.T) {
 	//	dataRepo := tu.UniqueString("TestRunPipeline_data")
-	//	require.NoError(t, c.CreateProjectRepo("",dataRepo))
+	//	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName,dataRepo))
 
 	//	branchA := "branchA"
 	//	branchB := "branchB"
@@ -1052,29 +1052,29 @@ func TestRunPipeline(t *testing.T) {
 	//		"",
 	//		false,
 	//	))
-	//	commitA1, err := c.StartProjectCommit("",dataRepo, branchA)
+	//	commitA1, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, branchA)
 	//	require.NoError(t, err)
 	//	c.PutFile(dataRepo, commitA1.Branch.Name, commitA1.ID, "/file", strings.NewReader("data A1\n", client.WithAppendPutFile()))
-	//	c.FinishProjectCommit("",dataRepo, commitA1.Branch.Name, commitA1.ID)
+	//	c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitA1.Branch.Name, commitA1.ID)
 
-	//	commitA2, err := c.StartProjectCommit("",dataRepo, branchA)
+	//	commitA2, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, branchA)
 	//	require.NoError(t, err)
 	//	c.PutFile(dataRepo, commitA2.Branch.Name, commitA2.ID, "/file", strings.NewReader("data A2\n", client.WithAppendPutFile()))
-	//	c.FinishProjectCommit("",dataRepo, commitA2.Branch.Name, commitA2.ID)
+	//	c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitA2.Branch.Name, commitA2.ID)
 
 	//	_, err = c.FlushJob([]*pfs.Commit{commitA1, commitA2}, nil)
 	//	require.NoError(t, err)
 
 	//	// now run the pipeline with provenance from the same branch
 	//	require.YesError(t, c.RunPipeline(pipeline, []*pfs.Commit{
-	//		client.NewProjectCommit("",dataRepo, branchA, commitA1.ID),
-	//		client.NewProjectCommit("",dataRepo, branchA, commitA2.ID),
+	//		client.NewProjectCommit(pfs.DefaultProjectName,dataRepo, branchA, commitA1.ID),
+	//		client.NewProjectCommit(pfs.DefaultProjectName,dataRepo, branchA, commitA2.ID),
 	//	}, ""))
 	//})
 	//// Test on pipeline that should always fail
 	//t.Run("RerunPipeline", func(t *testing.T) {
 	//	dataRepo := tu.UniqueString("TestRerunPipeline_data")
-	//	require.NoError(t, c.CreateProjectRepo("",dataRepo))
+	//	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName,dataRepo))
 
 	//	// jobs on this pipeline should always fail
 	//	pipeline := tu.UniqueString("rerun-pipeline")
@@ -1089,10 +1089,10 @@ func TestRunPipeline(t *testing.T) {
 	//		false,
 	//	))
 
-	//	commitA1, err := c.StartProjectCommit("",dataRepo, "branchA")
+	//	commitA1, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, "branchA")
 	//	require.NoError(t, err)
 	//	require.NoError(t, c.PutFile(dataRepo, commitA1.Branch.Name, commitA1.ID, "/file", strings.NewReader("data A1\n"), client.WithAppendPutFile()))
-	//	require.NoError(t, c.FinishProjectCommit("",dataRepo, commitA1.Branch.Name, commitA1.ID))
+	//	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitA1.Branch.Name, commitA1.ID))
 
 	//	iter, err := c.FlushJob([]*pfs.Commit{commitA1}, nil)
 	//	require.NoError(t, err)
@@ -1102,7 +1102,7 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// running the pipeline should create a new job
 	//	require.NoError(t, backoff.Retry(func() error {
-	//		jobInfos, err := c.ListProjectJob("",pipeline, nil, nil, -1, true)
+	//		jobInfos, err := c.ListProjectJob(pfs.DefaultProjectName,pipeline, nil, nil, -1, true)
 	//		require.NoError(t, err)
 	//		if len(jobInfos) != 2 {
 	//			return errors.Errorf("expected 2 jobs, got %d", len(jobInfos))
@@ -1118,12 +1118,12 @@ func TestRunPipeline(t *testing.T) {
 	//	}, backoff.NewTestingBackOff()))
 
 	//	// Shouldn't error if you try to delete an already deleted pipeline
-	//	require.NoError(t, c.DeleteProjectPipeline("",pipeline, false))
-	//	require.NoError(t, c.DeleteProjectPipeline("",pipeline, false))
+	//	require.NoError(t, c.DeleteProjectPipeline(pfs.DefaultProjectName,pipeline, false))
+	//	require.NoError(t, c.DeleteProjectPipeline(pfs.DefaultProjectName,pipeline, false))
 	//})
 	//t.Run("RunPipelineStats", func(t *testing.T) {
 	//	dataRepo := tu.UniqueString("TestRunPipeline_data")
-	//	require.NoError(t, c.CreateProjectRepo("",dataRepo))
+	//	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName,dataRepo))
 
 	//	branchA := "branchA"
 
@@ -1131,7 +1131,7 @@ func TestRunPipeline(t *testing.T) {
 	//	_, err := c.PpsAPIClient.CreatePipeline(
 	//		context.Background(),
 	//		&pps.CreatePipelineRequest{
-	//			Pipeline: client.NewProjectPipeline("",pipeline),
+	//			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName,pipeline),
 	//			Transform: &pps.Transform{
 	//				Cmd: []string{"bash"},
 	//				Stdin: []string{
@@ -1144,24 +1144,24 @@ func TestRunPipeline(t *testing.T) {
 	//		})
 	//	require.NoError(t, err)
 
-	//	commitA, err := c.StartProjectCommit("",dataRepo, branchA)
+	//	commitA, err := c.StartProjectCommit(pfs.DefaultProjectName,dataRepo, branchA)
 	//	require.NoError(t, err)
 	//	c.PutFile(dataRepo, commitA.Branch.Name, commitA.ID, "/file", strings.NewReader("data A\n", client.WithAppendPutFile()))
-	//	c.FinishProjectCommit("",dataRepo, commitA.Branch.Name, commitA.ID)
+	//	c.FinishProjectCommit(pfs.DefaultProjectName,dataRepo, commitA.Branch.Name, commitA.ID)
 
 	//	// wait for the commit to finish before calling RunPipeline
-	//	_, err = c.WaitCommitSetAll([]*pfs.Commit{client.NewProjectCommit("",dataRepo, commitA.ID)}, nil)
+	//	_, err = c.WaitCommitSetAll([]*pfs.Commit{client.NewProjectCommit(pfs.DefaultProjectName,dataRepo, commitA.ID)}, nil)
 	//	require.NoError(t, err)
 
 	//	// now run the pipeline
 	//	require.NoError(t, backoff.Retry(func() error {
 	//		return c.RunPipeline(pipeline, []*pfs.Commit{
-	//			client.NewProjectCommit("",dataRepo, branchA, commitA.ID),
+	//			client.NewProjectCommit(pfs.DefaultProjectName,dataRepo, branchA, commitA.ID),
 	//		}, "")
 	//	}, backoff.NewTestingBackOff()))
 
 	//	// make sure the pipeline didn't crash
-	//	commitInfos, err := c.WaitCommitSetAll([]*pfs.Commit{client.NewProjectCommit("",dataRepo, commitA.ID)}, nil)
+	//	commitInfos, err := c.WaitCommitSetAll([]*pfs.Commit{client.NewProjectCommit(pfs.DefaultProjectName,dataRepo, commitA.ID)}, nil)
 	//	require.NoError(t, err)
 
 	//	// we'll know it crashed if this causes it to hang
@@ -6111,7 +6111,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	_, err = c.WaitProjectJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.ID, false)
 	require.NoError(t, err)
 
-	// resp, err := c.ListProjectDatumAll("",jobs[0].Job.ID, pageSize, 0)
+	// resp, err := c.ListProjectDatumAll(pfs.DefaultProjectName,jobs[0].Job.ID, pageSize, 0)
 	// require.NoError(t, err)
 	// require.Equal(t, pageSize, int64(len(resp.DatumInfos)))
 	// require.Equal(t, int64(numFiles)/pageSize, resp.TotalPages)
@@ -6119,7 +6119,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	// // First entry should be failed
 	// require.Equal(t, pps.DatumState_FAILED, resp.DatumInfos[0].State)
 
-	// resp, err = c.ListProjectDatumAll("",jobs[0].Job.ID, pageSize, int64(numPages-1))
+	// resp, err = c.ListProjectDatumAll(pfs.DefaultProjectName,jobs[0].Job.ID, pageSize, int64(numPages-1))
 	// require.NoError(t, err)
 	// require.Equal(t, pageSize, int64(len(resp.DatumInfos)))
 	// require.Equal(t, int64(int64(numFiles)/pageSize-1), resp.Page)
@@ -6128,7 +6128,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	// require.Equal(t, pps.DatumState_SUCCESS, resp.DatumInfos[len(resp.DatumInfos)-1].State)
 
 	// // Make sure we get error when requesting pages too high
-	// _, err = c.ListProjectDatumAll("",jobs[0].Job.ID, pageSize, int64(numPages))
+	// _, err = c.ListProjectDatumAll(pfs.DefaultProjectName,jobs[0].Job.ID, pageSize, int64(numPages))
 	// require.YesError(t, err)
 }
 
@@ -7142,7 +7142,7 @@ func TestService(t *testing.T) {
 
 	pipeline := tu.UniqueString("pipelineservice")
 	// This pipeline sleeps for 10 secs per datum
-	require.NoError(t, c.CreateProjectPipelineService("",
+	require.NoError(t, c.CreateProjectPipelineService(pfs.DefaultProjectName,
 		pipeline,
 		"trinitronx/python-simplehttpserver",
 		[]string{"sh"},
@@ -8100,7 +8100,7 @@ func TestSquashCommitSetPropagation(t *testing.T) {
 
 	// 	// Create an input repo
 	// 	repo := tu.UniqueString("TestSquashCommitSetPropagation")
-	// 	require.NoError(t, c.CreateProjectRepo("",repo))
+	// 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName,repo))
 	// 	_, err := c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, 0, false,
 	// 		strings.NewReader(tu.TestPGDump))
 	// 	require.NoError(t, err)
@@ -8117,14 +8117,14 @@ func TestSquashCommitSetPropagation(t *testing.T) {
 	// 			`(( cars_tables == 1 )) && exit 0 || exit 1`,
 	// 		},
 	// 		&pps.ParallelismSpec{Constant: 1},
-	// 		client.NewProjectPFSInput("",repo, "/d/*"),
+	// 		client.NewProjectPFSInput(pfs.DefaultProjectName,repo, "/d/*"),
 	// 		"",
 	// 		false,
 	// 	))
 
 	// 	// wait for job to run & check that all rows were processed
 	// 	var jobCount int
-	// 	c.FlushJob([]*pfs.Commit{client.NewProjectCommit("",repo, "master")}, nil,
+	// 	c.FlushJob([]*pfs.Commit{client.NewProjectCommit(pfs.DefaultProjectName,repo, "master")}, nil,
 	// 		func(jobInfo *pps.JobInfo) error {
 	// 			jobCount++
 	// 			require.Equal(t, 1, jobCount)
@@ -8142,7 +8142,7 @@ func TestSquashCommitSetPropagation(t *testing.T) {
 	// 	// everything gets reprocessed (hashes all change even though the files
 	// 	// themselves weren't altered)
 	// 	jobCount = 0
-	// 	c.FlushJob([]*pfs.Commit{client.NewProjectCommit("",repo, "master")}, nil,
+	// 	c.FlushJob([]*pfs.Commit{client.NewProjectCommit(pfs.DefaultProjectName,repo, "master")}, nil,
 	// 		func(jobInfo *pps.JobInfo) error {
 	// 			jobCount++
 	// 			require.Equal(t, 1, jobCount)
@@ -8463,7 +8463,7 @@ func TestSplitFileHeader(t *testing.T) {
 	//
 	//	// put a SQL file w/ header
 	//	repo := tu.UniqueString("TestSplitFileHeader")
-	//	require.NoError(t, c.CreateProjectRepo("",repo))
+	//	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName,repo))
 	//	require.NoError(t, c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, 0, false, strings.NewReader(tu.TestPGDump), client.WithAppendPutFile()))
 	//
 	//	// Create a pipeline that roughly validates the header
@@ -8478,14 +8478,14 @@ func TestSplitFileHeader(t *testing.T) {
 	//			`(( cars_tables == 1 )) && exit 0 || exit 1`,
 	//		},
 	//		&pps.ParallelismSpec{Constant: 1},
-	//		client.NewProjectPFSInput("",repo, "/d/*"),
+	//		client.NewProjectPFSInput(pfs.DefaultProjectName,repo, "/d/*"),
 	//		"",
 	//		false,
 	//	))
 	//
 	//	// wait for job to run & check that all rows were processed
 	//	var jobCount int
-	//	c.FlushJob([]*pfs.Commit{client.NewProjectCommit("",repo, "master")}, nil,
+	//	c.FlushJob([]*pfs.Commit{client.NewProjectCommit(pfs.DefaultProjectName,repo, "master")}, nil,
 	//		func(jobInfo *pps.JobInfo) error {
 	//			jobCount++
 	//			require.Equal(t, 1, jobCount)
@@ -8501,7 +8501,7 @@ func TestSplitFileHeader(t *testing.T) {
 	//	// old data should be skipped, even though header was uploaded twice (new
 	//	// header shouldn't append or change the hash or anything)
 	//	jobCount = 0
-	//	c.FlushJob([]*pfs.Commit{client.NewProjectCommit("",repo, "master")}, nil,
+	//	c.FlushJob([]*pfs.Commit{client.NewProjectCommit(pfs.DefaultProjectName,repo, "master")}, nil,
 	//		func(jobInfo *pps.JobInfo) error {
 	//			jobCount++
 	//			require.Equal(t, 1, jobCount)
@@ -8524,7 +8524,7 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 	//
 	//	// put a SQL file w/ header
 	//	repo := tu.UniqueString("TestSplitFileHeader")
-	//	require.NoError(t, c.CreateProjectRepo("",repo))
+	//	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName,repo))
 	//	require.NoError(t, c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, 0, false, strings.NewReader(tu.TestPGDump), client.WithAppendPutFile()))
 	//
 	//	// Create a pipeline that roughly validates the header
@@ -8539,14 +8539,14 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 	//			`(( cars_tables == 1 )) && exit 0 || exit 1`,
 	//		},
 	//		&pps.ParallelismSpec{Constant: 1},
-	//		client.NewProjectPFSInput("",repo, "/d/*"),
+	//		client.NewProjectPFSInput(pfs.DefaultProjectName,repo, "/d/*"),
 	//		"",
 	//		false,
 	//	))
 	//
 	//	// wait for job to run & check that all rows were processed
 	//	var jobCount int
-	//	c.FlushJob([]*pfs.Commit{client.NewProjectCommit("",repo, "master")}, nil,
+	//	c.FlushJob([]*pfs.Commit{client.NewProjectCommit(pfs.DefaultProjectName,repo, "master")}, nil,
 	//		func(jobInfo *pps.JobInfo) error {
 	//			jobCount++
 	//			require.Equal(t, 1, jobCount)
@@ -8562,7 +8562,7 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 	//	// everything gets reprocessed (hashes all change even though the files
 	//	// themselves weren't altered)
 	//	jobCount = 0
-	//	c.FlushJob([]*pfs.Commit{client.NewProjectCommit("",repo, "master")}, nil,
+	//	c.FlushJob([]*pfs.Commit{client.NewProjectCommit(pfs.DefaultProjectName,repo, "master")}, nil,
 	//		func(jobInfo *pps.JobInfo) error {
 	//			jobCount++
 	//			require.Equal(t, 1, jobCount)
@@ -9045,14 +9045,14 @@ func TestExtractPipeline(t *testing.T) {
 	//	require.NoError(t, c.DeleteAll())
 	//
 	//	dataRepo := tu.UniqueString("TestExtractPipeline_data")
-	//	require.NoError(t, c.CreateProjectRepo("",dataRepo))
+	//	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName,dataRepo))
 	//	request := &pps.CreatePipelineRequest{}
 	//	// Generate fake data
 	//	gofakeit.Struct(&request)
 	//
 	//	// Now set a bunch of fields explicitly so the server will accept the request.
 	//	// Override the input because otherwise the repo won't exist
-	//	request.Input = client.NewProjectPFSInput("",dataRepo, "/*")
+	//	request.Input = client.NewProjectPFSInput(pfs.DefaultProjectName,dataRepo, "/*")
 	//	// These must be set explicitly, because extract returns the default values
 	//	// and we want them to match.
 	//	request.Input.Pfs.Name = "input"

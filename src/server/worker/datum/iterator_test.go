@@ -257,7 +257,7 @@ func TestIterators(t *testing.T) {
 	})
 
 	// in27 is an S3 input
-	in27 := client.NewProjectS3PFSInput(pfs.DefaultProjectName, "", dataRepo, "")
+	in27 := client.NewProjectS3PFSInput("", pfs.DefaultProjectName, dataRepo, "")
 	in27.Pfs.Commit = commit.ID
 	t.Run("PlainS3", func(t *testing.T) {
 		di, err := datum.NewIterator(c, taskDoer, in27)

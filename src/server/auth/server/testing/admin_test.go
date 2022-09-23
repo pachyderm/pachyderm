@@ -393,7 +393,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	repo := tu.UniqueString("TestPreActivationPipelinesKeepRunningAfterActivation")
 	pipeline := tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, aliceClient.CreateProjectPipeline("",
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},

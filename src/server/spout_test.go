@@ -252,7 +252,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 
 		// and make sure we can attach a downstream pipeline
 		downstreamPipeline := tu.UniqueString("pipelinespoutdownstream")
-		require.NoError(t, c.CreateProjectPipeline("",
+		require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 			downstreamPipeline,
 			"",
 			[]string{"/bin/bash"},
@@ -275,7 +275,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// commitInfo, err := c.PfsAPIClient.InspectCommit(
 		// 	c.Ctx(),
 		// 	&pfs.InspectCommitRequest{
-		// 		Commit: client.NewSystemProjectRepo("",pipeline, pfs.SpecRepoType).NewCommit("master", ""),
+		// 		Commit: client.NewSystemProjectRepo(pfs.DefaultProjectName,pipeline, pfs.SpecRepoType).NewCommit("master", ""),
 		// 		Wait:   pfs.CommitState_STARTED,
 		// 	})
 		// require.NoError(t, err)
