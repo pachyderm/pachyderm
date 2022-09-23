@@ -78,7 +78,7 @@ const (
 //
 // Deprecated: use NewProjectJob instead.
 func NewJob(pipelineName, jobID string) *pps.Job {
-	return NewProjectJob("", pipelineName, jobID)
+	return NewProjectJob(pfs.DefaultProjectName, pipelineName, jobID)
 }
 
 // NewProjectJob creates a pps.Job.
@@ -95,7 +95,7 @@ func NewJobSet(id string) *pps.JobSet {
 //
 // Deprecated: use NewProjectPFSInput instead.
 func NewPFSInput(repo, glob string) *pps.Input {
-	return NewProjectPFSInput("", repo, glob)
+	return NewProjectPFSInput(pfs.DefaultProjectName, repo, glob)
 }
 
 // NewProjectPFSInput returns a new PFS input.  It only includes required options.
@@ -138,7 +138,7 @@ func NewProjectPFSInputOpts(name, project, repo, branch, glob, joinOn, groupBy s
 //
 // Deprecated: use NewProjectS3PFSInput instead.
 func NewS3PFSInput(name, repo, branch string) *pps.Input {
-	return NewProjectS3PFSInput("", name, repo, branch)
+	return NewProjectS3PFSInput(pfs.DefaultProjectName, name, repo, branch)
 }
 
 // NewProjectS3PFSInput returns a new PFS input with 'S3' set.
@@ -238,7 +238,7 @@ func NewProjectJobInput(projectName, repoName, branchName, commitID, glob string
 //
 // Deprecated: use NewProjectPipeline instead.
 func NewPipeline(pipelineName string) *pps.Pipeline {
-	return NewProjectPipeline("", pipelineName)
+	return NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
 }
 
 // NewProjectPipeline creates a pps.Pipeline.
@@ -255,7 +255,7 @@ func NewProjectPipeline(projectName, pipelineName string) *pps.Pipeline {
 //
 // Deprecated: use InspectProjectJob instead.
 func (c APIClient) InspectJob(pipelineName string, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
-	return c.InspectProjectJob("", pipelineName, jobID, details)
+	return c.InspectProjectJob(pfs.DefaultProjectName, pipelineName, jobID, details)
 }
 
 // InspectProjectJob returns info about a specific job.
@@ -276,7 +276,7 @@ func (c APIClient) InspectProjectJob(projectName, pipelineName, jobID string, de
 //
 // Deprecate: use WaitProjectJob instead.
 func (c APIClient) WaitJob(pipelineName string, jobID string, details bool) (_ *pps.JobInfo, retErr error) {
-	return c.WaitProjectJob("", pipelineName, jobID, details)
+	return c.WaitProjectJob(pfs.DefaultProjectName, pipelineName, jobID, details)
 }
 
 // WaitProjectJob is a blocking version of InspectJob that will wait
@@ -377,7 +377,7 @@ func (c APIClient) WaitJobSet(id string, details bool, cb func(*pps.JobInfo) err
 //
 // Deprecated: use ListProjectJob instead.
 func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, history int64, details bool) ([]*pps.JobInfo, error) {
-	return c.ListProjectJob("", pipelineName, inputCommit, history, details)
+	return c.ListProjectJob(pfs.DefaultProjectName, pipelineName, inputCommit, history, details)
 }
 
 // ListProjectJob returns info about all jobs.
@@ -421,7 +421,7 @@ func (c APIClient) ListProjectJob(projectName, pipelineName string, inputCommit 
 func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
 	history int64, details bool,
 	f func(*pps.JobInfo) error) error {
-	return c.ListProjectJobF("", pipelineName, inputCommit, history, details, f)
+	return c.ListProjectJobF(pfs.DefaultProjectName, pipelineName, inputCommit, history, details, f)
 }
 
 // ListProjectJobF is a previous version of ListJobFilterF, returning info about all jobs
@@ -462,7 +462,7 @@ func (c APIClient) ListProjectJobF(projectName, pipelineName string, inputCommit
 func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit,
 	history int64, details bool, jqFilter string,
 	f func(*pps.JobInfo) error) error {
-	return c.ListProjectJobFilterF("", pipelineName, inputCommit, history, details, jqFilter, f)
+	return c.ListProjectJobFilterF(pfs.DefaultProjectName, pipelineName, inputCommit, history, details, jqFilter, f)
 }
 
 // ListProjectJobFilterF returns info about all jobs, calling f with each JobInfo.
@@ -536,7 +536,7 @@ func (c APIClient) ListProjectJobFilterF(projectName, pipelineName string, input
 //
 // Deprecated: use SubscribeProjectJob instead.
 func (c APIClient) SubscribeJob(pipelineName string, details bool, cb func(*pps.JobInfo) error) error {
-	return c.SubscribeProjectJob("", pipelineName, details, cb)
+	return c.SubscribeProjectJob(pfs.DefaultProjectName, pipelineName, details, cb)
 }
 
 // SubscribeProjectJob calls the given callback with each open job in the given
@@ -573,7 +573,7 @@ func (c APIClient) SubscribeProjectJob(projectName, pipelineName string, details
 //
 // Deprecated: use DeleteProjectJob instead.
 func (c APIClient) DeleteJob(pipelineName, jobID string) error {
-	return c.DeleteProjectJob("", pipelineName, jobID)
+	return c.DeleteProjectJob(pfs.DefaultProjectName, pipelineName, jobID)
 }
 
 // DeleteProjectJob deletes a job.
@@ -591,7 +591,7 @@ func (c APIClient) DeleteProjectJob(projectName, pipelineName, jobID string) err
 //
 // Deprecated: use StopProjectJob instead.
 func (c APIClient) StopJob(pipelineName string, jobID string) error {
-	return c.StopProjectJob("", pipelineName, jobID)
+	return c.StopProjectJob(pfs.DefaultProjectName, pipelineName, jobID)
 }
 
 // StopProjectJob stops a job.
@@ -612,7 +612,7 @@ func (c APIClient) StopProjectJob(projectName, pipelineName, jobID string) error
 //
 // Deprecated: use RestartProjectDatum instead.
 func (c APIClient) RestartDatum(pipelineName string, jobID string, datumFilter []string) error {
-	return c.RestartProjectDatum("", pipelineName, jobID, datumFilter)
+	return c.RestartProjectDatum(pfs.DefaultProjectName, pipelineName, jobID, datumFilter)
 }
 
 // RestartProjectDatum restarts a datum that's being processed as part of a job.
@@ -634,7 +634,7 @@ func (c APIClient) RestartProjectDatum(projectName, pipelineName, jobID string, 
 //
 // Deprecated: use ListProjectDatum instead.
 func (c APIClient) ListDatum(pipelineName, jobID string, cb func(*pps.DatumInfo) error) (retErr error) {
-	return c.ListProjectDatum("", pipelineName, jobID, cb)
+	return c.ListProjectDatum(pfs.DefaultProjectName, pipelineName, jobID, cb)
 }
 
 // ListProjectDatum returns info about datums in a job.
@@ -652,7 +652,7 @@ func (c APIClient) ListProjectDatum(projectName, pipelineName, jobID string, cb 
 //
 // Deprecated: use ListProjectDatumAll instead.
 func (c APIClient) ListDatumAll(pipelineName, jobID string) (_ []*pps.DatumInfo, retErr error) {
-	return c.ListProjectDatumAll("", pipelineName, jobID)
+	return c.ListProjectDatumAll(pfs.DefaultProjectName, pipelineName, jobID)
 }
 
 // ListProjectDatumAll returns info about datums in a job.
@@ -726,7 +726,7 @@ func (c APIClient) listDatum(req *pps.ListDatumRequest, cb func(*pps.DatumInfo) 
 //
 // Deprecated: use InspectProjectDatum instead.
 func (c APIClient) InspectDatum(pipelineName string, jobID string, datumID string) (*pps.DatumInfo, error) {
-	return c.InspectProjectDatum("", pipelineName, jobID, datumID)
+	return c.InspectProjectDatum(pfs.DefaultProjectName, pipelineName, jobID, datumID)
 }
 
 // InspectProjectDatum returns info about a single datum.
@@ -786,7 +786,7 @@ func (l *LogsIter) Err() error {
 //
 // Deprecated: use GetProjectLogs instead.
 func (c APIClient) GetLogs(pipelineName, jobID string, data []string, datumID string, master, follow bool, since time.Duration) *LogsIter {
-	return c.GetProjectLogs("", pipelineName, jobID, data, datumID, master, follow, since)
+	return c.GetProjectLogs(pfs.DefaultProjectName, pipelineName, jobID, data, datumID, master, follow, since)
 }
 
 // GetProjectLogs gets logs from a job (logs includes stdout and stderr).
@@ -810,7 +810,7 @@ func (c APIClient) GetLogsLoki(
 	follow bool,
 	since time.Duration,
 ) *LogsIter {
-	return c.GetProjectLogsLoki("", pipelineName, jobID, data, datumID, master, follow, since)
+	return c.GetProjectLogsLoki(pfs.DefaultProjectName, pipelineName, jobID, data, datumID, master, follow, since)
 }
 
 // GetProjectLogsLoki gets logs from a job (logs includes stdout and stderr).
@@ -875,7 +875,7 @@ func (c APIClient) getLogs(projectName, pipelineName, jobID string, data []strin
 //
 // Deprecated: use CreateProjectPipeline instead.
 func (c APIClient) CreatePipeline(pipelineName, image string, cmd []string, stdin []string, parallelismSpec *pps.ParallelismSpec, input *pps.Input, outputBranch string, update bool) error {
-	return c.CreateProjectPipeline("", pipelineName, image, cmd, stdin, parallelismSpec, input, outputBranch, update)
+	return c.CreateProjectPipeline(pfs.DefaultProjectName, pipelineName, image, cmd, stdin, parallelismSpec, input, outputBranch, update)
 }
 
 // CreatePipeline creates a new pipeline, pipelines are the main computation
@@ -930,7 +930,7 @@ func (c APIClient) CreateProjectPipeline(projectName, pipelineName, image string
 //
 // Deprecated: use InspecProjectPipeline instead.
 func (c APIClient) InspectPipeline(pipelineName string, details bool) (*pps.PipelineInfo, error) {
-	return c.InspectProjectPipeline("", pipelineName, details)
+	return c.InspectProjectPipeline(pfs.DefaultProjectName, pipelineName, details)
 }
 
 // InspectProjectPipeline returns info about a specific pipeline.  The name may
@@ -975,7 +975,7 @@ func (c APIClient) ListPipeline(details bool) ([]*pps.PipelineInfo, error) {
 //
 // Deprecated: use ListProjectPipelineHistory instead.
 func (c APIClient) ListPipelineHistory(pipelineName string, history int64, details bool) ([]*pps.PipelineInfo, error) {
-	return c.ListProjectPipelineHistory("", pipelineName, history, details)
+	return c.ListProjectPipelineHistory(pfs.DefaultProjectName, pipelineName, history, details)
 }
 
 // ListProjectPipelineHistory returns historical information about pipelines.
@@ -1015,7 +1015,7 @@ func (c APIClient) ListProjectPipelineHistory(projectName, pipelineName string, 
 //
 // Deprecated: use DeleteProjectPipeline instead.
 func (c APIClient) DeletePipeline(pipelineName string, force bool) error {
-	return c.DeleteProjectPipeline("", pipelineName, force)
+	return c.DeleteProjectPipeline(pfs.DefaultProjectName, pipelineName, force)
 }
 
 // DeleteProjectPipeline deletes a pipeline along with its output Repo.
@@ -1035,7 +1035,7 @@ func (c APIClient) DeleteProjectPipeline(projectName, pipelineName string, force
 //
 // Deprecated: use StartProjectPipeline instead.
 func (c APIClient) StartPipeline(pipelineName string) error {
-	return c.StartProjectPipeline("", pipelineName)
+	return c.StartProjectPipeline(pfs.DefaultProjectName, pipelineName)
 }
 
 // StartProjectPipeline restarts a stopped pipeline.
@@ -1054,7 +1054,7 @@ func (c APIClient) StartProjectPipeline(projectName, pipelineName string) error 
 //
 // Deprecated: use StopProjectPipeline instead.
 func (c APIClient) StopPipeline(pipelineName string) error {
-	return c.StopProjectPipeline("", pipelineName)
+	return c.StopProjectPipeline(pfs.DefaultProjectName, pipelineName)
 }
 
 // StopProjectPipeline prevents a pipeline from processing things; it can be
@@ -1075,7 +1075,7 @@ func (c APIClient) StopProjectPipeline(projectName, pipelineName string) error {
 //
 // Deprecated: use RunProjectPipeline instead.
 func (c APIClient) RunPipeline(pipelineName string, provenance []*pfs.Commit, jobID string) error {
-	return c.RunProjectPipeline("", pipelineName, provenance, jobID)
+	return c.RunProjectPipeline(pfs.DefaultProjectName, pipelineName, provenance, jobID)
 }
 
 // RunProjectPipeline runs a pipeline.  It can be passed a list of commit
@@ -1099,7 +1099,7 @@ func (c APIClient) RunProjectPipeline(projectName, pipelineName string, provenan
 //
 // Deprecated: use RunProjectCron instead.
 func (c APIClient) RunCron(pipelineName string) error {
-	return c.RunProjectCron("", pipelineName)
+	return c.RunProjectCron(pfs.DefaultProjectName, pipelineName)
 }
 
 // RunProjectCron runs a pipeline.  It can be passed a list of commit
@@ -1164,7 +1164,7 @@ func (c APIClient) ListSecret() ([]*pps.SecretInfo, error) {
 //
 // Deprecated: use CreateProjectPipelineService instead.
 func (c APIClient) CreatePipelineService(pipelineName, image string, cmd, stdin []string, parallelismSpec *pps.ParallelismSpec, input *pps.Input, update bool, internalPort, externalPort int32, annotations map[string]string) error {
-	return c.CreateProjectPipelineService("", pipelineName, image, cmd, stdin, parallelismSpec, input, update, internalPort, externalPort, annotations)
+	return c.CreateProjectPipelineService(pfs.DefaultProjectName, pipelineName, image, cmd, stdin, parallelismSpec, input, update, internalPort, externalPort, annotations)
 }
 
 // CreateProjectPipelineService creates a new pipeline service.

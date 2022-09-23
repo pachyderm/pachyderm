@@ -381,13 +381,13 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		update     bool
 	}
 	createPipeline := func(args createArgs) error {
-		return args.client.CreateProjectPipeline("",
+		return args.client.CreateProjectPipeline(pfs.DefaultProjectName,
 			args.name,
 			"", // default image: DefaultUserImage
 			[]string{"bash"},
 			[]string{"cp /pfs/*/* /pfs/out/"},
 			&pps.ParallelismSpec{Constant: 1},
-			client.NewProjectPFSInput("", args.repo, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, args.repo, "/*"),
 			"", // default output branch: master
 			args.update,
 		)
@@ -459,7 +459,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 
 	// bob can't update alice's pipeline
-	infoBefore, err := aliceClient.InspectProjectPipeline("", pipeline, true)
+	infoBefore, err := aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	err = createPipeline(createArgs{
 		client: bobClient,
@@ -469,7 +469,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	infoAfter, err := aliceClient.InspectProjectPipeline("", pipeline, true)
+	infoAfter, err := aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	require.Equal(t, infoBefore.Version, infoAfter.Version)
 
@@ -486,7 +486,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 
 	// bob still can't update alice's pipeline
-	infoBefore, err = aliceClient.InspectProjectPipeline("", pipeline, true)
+	infoBefore, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	err = createPipeline(createArgs{
 		client: bobClient,
@@ -496,7 +496,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	infoAfter, err = aliceClient.InspectProjectPipeline("", pipeline, true)
+	infoAfter, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	require.Equal(t, infoBefore.Version, infoAfter.Version)
 
@@ -507,7 +507,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 
 	// now bob can update alice's pipeline
-	infoBefore, err = aliceClient.InspectProjectPipeline("", pipeline, true)
+	infoBefore, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	err = createPipeline(createArgs{
 		client: bobClient,
@@ -516,13 +516,13 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		update: true,
 	})
 	require.NoError(t, err)
-	infoAfter, err = aliceClient.InspectProjectPipeline("", pipeline, true)
+	infoAfter, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	require.NotEqual(t, infoBefore.Version, infoAfter.Version)
 
 	// Make sure that we don't get an auth token returned by the inspect
 	require.Equal(t, "", infoAfter.AuthToken)
-	infoAfter, err = aliceClient.InspectProjectPipeline("", pipeline, false)
+	infoAfter, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
 	require.NoError(t, err)
 	require.Equal(t, "", infoAfter.AuthToken)
 
@@ -573,7 +573,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		update bool
 	}
 	createPipeline := func(args createArgs) error {
-		return args.client.CreateProjectPipeline("",
+		return args.client.CreateProjectPipeline(pfs.DefaultProjectName,
 			args.name,
 			"", // default image: DefaultUserImage
 			[]string{"bash"},
@@ -603,8 +603,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: aliceClient,
 		name:   aliceCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewProjectPFSInput("", dataRepo1, "/*"),
-			client.NewProjectPFSInput("", dataRepo2, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	}))
 	require.OneOfEquals(t, aliceCrossPipeline, tu.PipelineNames(t, aliceClient))
@@ -618,8 +618,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: aliceClient,
 		name:   aliceUnionPipeline,
 		input: client.NewUnionInput(
-			client.NewProjectPFSInput("", dataRepo1, "/*"),
-			client.NewProjectPFSInput("", dataRepo2, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	}))
 	require.OneOfEquals(t, aliceUnionPipeline, tu.PipelineNames(t, aliceClient))
@@ -636,8 +636,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   bobCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewProjectPFSInput("", dataRepo1, "/*"),
-			client.NewProjectPFSInput("", dataRepo2, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	})
 	require.YesError(t, err)
@@ -650,8 +650,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   bobUnionPipeline,
 		input: client.NewUnionInput(
-			client.NewProjectPFSInput("", dataRepo1, "/*"),
-			client.NewProjectPFSInput("", dataRepo2, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	})
 	require.YesError(t, err)
@@ -662,7 +662,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(aliceCrossPipeline, bob, []string{auth.RepoWriterRole}))
 
 	// bob can update alice's pipeline if he removes one of the inputs
-	infoBefore, err := aliceClient.InspectProjectPipeline("", aliceCrossPipeline, true)
+	infoBefore, err := aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.NoError(t, createPipeline(createArgs{
 		client: bobClient,
@@ -670,29 +670,29 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		input: client.NewCrossInput(
 			// This cross input deliberately only has one element, to make sure it's
 			// not simply rejected for having a cross input
-			client.NewProjectPFSInput("", dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
 		),
 		update: true,
 	}))
-	infoAfter, err := aliceClient.InspectProjectPipeline("", aliceCrossPipeline, true)
+	infoAfter, err := aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.NotEqual(t, infoBefore.Version, infoAfter.Version)
 
 	// bob cannot update alice's to put the second input back
-	infoBefore, err = aliceClient.InspectProjectPipeline("", aliceCrossPipeline, true)
+	infoBefore, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	err = createPipeline(createArgs{
 		client: bobClient,
 		name:   aliceCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewProjectPFSInput("", dataRepo1, "/*"),
-			client.NewProjectPFSInput("", dataRepo2, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 		update: true,
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	infoAfter, err = aliceClient.InspectProjectPipeline("", aliceCrossPipeline, true)
+	infoAfter, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.Equal(t, infoBefore.Version, infoAfter.Version)
 
@@ -700,18 +700,18 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo2, bob, []string{auth.RepoReaderRole}))
 
 	// bob can now update alice's to put the second input back
-	infoBefore, err = aliceClient.InspectProjectPipeline("", aliceCrossPipeline, true)
+	infoBefore, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.NoError(t, createPipeline(createArgs{
 		client: bobClient,
 		name:   aliceCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewProjectPFSInput("", dataRepo1, "/*"),
-			client.NewProjectPFSInput("", dataRepo2, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 		update: true,
 	}))
-	infoAfter, err = aliceClient.InspectProjectPipeline("", aliceCrossPipeline, true)
+	infoAfter, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.NotEqual(t, infoBefore.Version, infoAfter.Version)
 
@@ -720,8 +720,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   bobCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewProjectPFSInput("", dataRepo1, "/*"),
-			client.NewProjectPFSInput("", dataRepo2, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	}))
 	require.OneOfEquals(t, bobCrossPipeline, tu.PipelineNames(t, aliceClient))
@@ -731,8 +731,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   bobUnionPipeline,
 		input: client.NewUnionInput(
-			client.NewProjectPFSInput("", dataRepo1, "/*"),
-			client.NewProjectPFSInput("", dataRepo2, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	}))
 	require.OneOfEquals(t, bobUnionPipeline, tu.PipelineNames(t, aliceClient))
@@ -753,13 +753,13 @@ func TestStopAndDeletePipeline(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline("",
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput("", repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -770,7 +770,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pipeline))
 
 	// alice stops the pipeline (owner of the input and output repos can stop)
-	require.NoError(t, aliceClient.StopProjectPipeline("", pipeline))
+	require.NoError(t, aliceClient.StopProjectPipeline(pfs.DefaultProjectName, pipeline))
 
 	// Make sure the remaining input and output repos *still* have non-empty ACLs
 	require.Equal(t,
@@ -779,7 +779,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pipeline))
 
 	// alice deletes the pipeline (owner of the input and output repos can delete)
-	require.NoError(t, aliceClient.DeleteProjectPipeline("", pipeline, false))
+	require.NoError(t, aliceClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false))
 	require.Nil(t, tu.GetRepoRoleBinding(t, aliceClient, pipeline).Entries)
 
 	// alice deletes the input repo (make sure the input repo's ACL is gone)
@@ -793,22 +793,22 @@ func TestStopAndDeletePipeline(t *testing.T) {
 
 	// alice creates another pipeline
 	pipeline = tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline("",
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput("", repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
 
 	// bob can't stop or delete alice's pipeline
-	err := bobClient.StopProjectPipeline("", pipeline)
+	err := bobClient.StopProjectPipeline(pfs.DefaultProjectName, pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	err = bobClient.DeleteProjectPipeline("", pipeline, false)
+	err = bobClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -819,10 +819,10 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		tu.GetRepoRoleBinding(t, aliceClient, repo))
 
 	// bob still can't stop or delete alice's pipeline
-	err = bobClient.StopProjectPipeline("", pipeline)
+	err = bobClient.StopProjectPipeline(pfs.DefaultProjectName, pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	err = bobClient.DeleteProjectPipeline("", pipeline, false)
+	err = bobClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -838,9 +838,9 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		tu.GetRepoRoleBinding(t, aliceClient, pipeline))
 
 	// bob can now start and stop the pipeline, but can't delete it
-	require.NoError(t, bobClient.StopProjectPipeline("", pipeline))
-	require.NoError(t, bobClient.StartProjectPipeline("", pipeline))
-	err = bobClient.DeleteProjectPipeline("", pipeline, false)
+	require.NoError(t, bobClient.StopProjectPipeline(pfs.DefaultProjectName, pipeline))
+	require.NoError(t, bobClient.StartProjectPipeline(pfs.DefaultProjectName, pipeline))
+	err = bobClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// alice re-adds bob as a reader of the input repo
@@ -850,9 +850,9 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		tu.GetRepoRoleBinding(t, aliceClient, repo))
 
 	// no change to bob's capabilities
-	require.NoError(t, bobClient.StopProjectPipeline("", pipeline))
-	require.NoError(t, bobClient.StartProjectPipeline("", pipeline))
-	err = bobClient.DeleteProjectPipeline("", pipeline, false)
+	require.NoError(t, bobClient.StopProjectPipeline(pfs.DefaultProjectName, pipeline))
+	require.NoError(t, bobClient.StartProjectPipeline(pfs.DefaultProjectName, pipeline))
+	err = bobClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -863,7 +863,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		tu.GetRepoRoleBinding(t, aliceClient, pipeline))
 
 	// finally bob can delete alice's pipeline
-	err = bobClient.DeleteProjectPipeline("", pipeline, false)
+	err = bobClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false)
 	require.NoError(t, err)
 }
 
@@ -885,13 +885,13 @@ func TestStopJob(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline("",
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"sleep 600"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput("", repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -904,7 +904,7 @@ func TestStopJob(t *testing.T) {
 	// Stop the first job in 'pipeline'
 	var jobID string
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		jobs, err := aliceClient.ListProjectJob("", pipeline, nil /*inputs*/, -1 /*history*/, true /* full */)
+		jobs, err := aliceClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil /*inputs*/, -1 /*history*/, true /* full */)
 		if err != nil {
 			return err
 		}
@@ -915,9 +915,9 @@ func TestStopJob(t *testing.T) {
 		return nil
 	})
 
-	require.NoError(t, aliceClient.StopProjectJob("", pipeline, jobID))
+	require.NoError(t, aliceClient.StopProjectJob(pfs.DefaultProjectName, pipeline, jobID))
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		ji, err := aliceClient.InspectProjectJob("", pipeline, jobID, false)
+		ji, err := aliceClient.InspectProjectJob(pfs.DefaultProjectName, pipeline, jobID, false)
 		if err != nil {
 			return errors.Wrapf(err, "could not inspect job %q", jobID)
 		}
@@ -1176,13 +1176,13 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, pipeline))
 
 	// bob creates a pipeline, and should get an "access denied" error
-	err := bobClient.CreateProjectPipeline("",
+	err := bobClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput("", inputRepo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, inputRepo, "/*"),
 		"",    // default output branch: master
 		false, // Don't update -- we want an error
 	)
@@ -1191,13 +1191,13 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 
 	// alice gives bob writer scope on pipeline output repo, but nothing changes
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoWriterRole}))
-	err = bobClient.CreateProjectPipeline("",
+	err = bobClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput("", inputRepo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, inputRepo, "/*"),
 		"",    // default output branch: master
 		false, // Don't update -- we want an error
 	)
@@ -1312,13 +1312,13 @@ func TestListJob(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline("",
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"ls /pfs/*/*; cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput("", repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -1331,27 +1331,27 @@ func TestListJob(t *testing.T) {
 		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
-	jobs, err := aliceClient.ListProjectJob("", pipeline, nil /*inputs*/, -1 /*history*/, true)
+	jobs, err := aliceClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil /*inputs*/, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 	jobID := jobs[0].Job.ID
 
 	// bob cannot call ListJob on 'pipeline'
-	_, err = bobClient.ListProjectJob("", pipeline, nil, -1 /*history*/, true)
+	_, err = bobClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1 /*history*/, true)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 	// bob can call blank ListJob, but gets no results
-	jobs, err = bobClient.ListProjectJob("", "", nil, -1 /*history*/, true)
+	jobs, err = bobClient.ListProjectJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(jobs))
 
 	// alice adds bob to repo, but bob still can't call ListJob on 'pipeline' or
 	// get any output
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListProjectJob("", pipeline, nil, -1 /*history*/, true)
+	_, err = bobClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1 /*history*/, true)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
-	jobs, err = bobClient.ListProjectJob("", "", nil, -1 /*history*/, true)
+	jobs, err = bobClient.ListProjectJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(jobs))
 
@@ -1360,11 +1360,11 @@ func TestListJob(t *testing.T) {
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{}))
 	err = aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoReaderRole})
 	require.NoError(t, err)
-	jobs, err = bobClient.ListProjectJob("", pipeline, nil, -1 /*history*/, true)
+	jobs, err = bobClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 	require.Equal(t, jobID, jobs[0].Job.ID)
-	jobs, err = bobClient.ListProjectJob("", "", nil, -1 /*history*/, true)
+	jobs, err = bobClient.ListProjectJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 	require.Equal(t, jobID, jobs[0].Job.ID)
@@ -1393,7 +1393,7 @@ func TestInspectDatum(t *testing.T) {
 				Stdin: []string{"cp /pfs/*/* /pfs/out/"},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
-			Input:           client.NewProjectPFSInput("", repo, "/*"),
+			Input:           client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		})
 	require.NoError(t, err)
 
@@ -1404,7 +1404,7 @@ func TestInspectDatum(t *testing.T) {
 		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
-	jobs, err := aliceClient.ListProjectJob("", pipeline, nil /*inputs*/, -1 /*history*/, true)
+	jobs, err := aliceClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil /*inputs*/, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 	jobID := jobs[0].Job.ID
@@ -1413,11 +1413,11 @@ func TestInspectDatum(t *testing.T) {
 	// the /stats branch is written
 	// TODO(msteffen): verify if this is true, and if so, why
 	time.Sleep(5 * time.Second)
-	dis, err := aliceClient.ListProjectDatumAll("", pipeline, jobID)
+	dis, err := aliceClient.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, jobID)
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		for _, di := range dis {
-			if _, err := aliceClient.InspectProjectDatum("", pipeline, jobID, di.Datum.ID); err != nil {
+			if _, err := aliceClient.InspectProjectDatum(pfs.DefaultProjectName, pipeline, jobID, di.Datum.ID); err != nil {
 				continue
 			}
 		}
@@ -1447,15 +1447,15 @@ func TestPipelineNewInput(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline("",
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
 		client.NewUnionInput(
-			client.NewProjectPFSInput("", repo[0], "/*"),
-			client.NewProjectPFSInput("", repo[1], "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, repo[0], "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, repo[1], "/*"),
 		),
 		"", // default output branch: master
 		false,
@@ -1478,15 +1478,15 @@ func TestPipelineNewInput(t *testing.T) {
 	})
 
 	// alice updates the pipeline to replace repo[0] with repo[2]
-	require.NoError(t, aliceClient.CreateProjectPipeline("",
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
 		client.NewUnionInput(
-			client.NewProjectPFSInput("", repo[1], "/*"),
-			client.NewProjectPFSInput("", repo[2], "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, repo[1], "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, repo[2], "/*"),
 		),
 		"", // default output branch: master
 		true,
@@ -1766,13 +1766,13 @@ func TestGetJobsBugFix(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline("",
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput("", repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -1782,17 +1782,17 @@ func TestGetJobsBugFix(t *testing.T) {
 	require.NoError(t, err)
 
 	// alice calls 'list job'
-	jobs, err := aliceClient.ListProjectJob("", "", nil, -1 /*history*/, true)
+	jobs, err := aliceClient.ListProjectJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
 	// anonClient calls 'list job'
-	_, err = anonClient.ListProjectJob("", "", nil, -1 /*history*/, true)
+	_, err = anonClient.ListProjectJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
 
 	// alice calls 'list job' again, and the existing job must still be present
-	jobs2, err := aliceClient.ListProjectJob("", "", nil, -1 /*history*/, true)
+	jobs2, err := aliceClient.ListProjectJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs2))
 	require.Equal(t, jobs[0].Job.ID, jobs2[0].Job.ID)
@@ -1816,16 +1816,16 @@ func TestDeleteFailedPipeline(t *testing.T) {
 
 	// Create pipeline
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline("",
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"does-not-exist", // nonexistant image
 		[]string{"true"}, nil,
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput("", repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
-	require.NoError(t, aliceClient.DeleteProjectPipeline("", pipeline, true))
+	require.NoError(t, aliceClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, true))
 
 	// Get the latest commit from the input repo (which should be an alias from
 	// when the pipeline was created)
@@ -1858,12 +1858,12 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 
 	// Create pipeline
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline("",
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"does-not-exist", // nonexistant image
 		[]string{"true"}, nil,
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput("", repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -1873,7 +1873,7 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 	require.NoError(t, aliceClient.DeleteProjectRepo(pfs.DefaultProjectName, pipeline, true))
 
 	// Attempt to delete the pipeline--must succeed
-	require.NoError(t, aliceClient.DeleteProjectPipeline("", pipeline, true))
+	require.NoError(t, aliceClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, true))
 	pis, err := aliceClient.ListPipeline(false)
 	require.NoError(t, err)
 	for _, pi := range pis {
