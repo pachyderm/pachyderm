@@ -101,7 +101,7 @@ func (ccfsc *cacheCreateFileSetClient) CopyFile(dst string, src *pfs.File, opts 
 	if err := ccfsc.CacheClient.renewer.Add(ccfsc.APIClient.Ctx(), id); err != nil {
 		return err
 	}
-	newSrc.Commit = client.NewProjectCommit(pfs.DefaultProjectName, client.FileSetsRepoName, "", id)
+	newSrc.Commit = client.NewProjectCommit(src.Commit.Branch.Repo.Project.GetName(), client.FileSetsRepoName, "", id)
 	ccfsc.put(key, newSrc.Commit)
 	return errors.EnsureStack(ccfsc.ModifyFile.CopyFile(dst, newSrc, opts...))
 }
