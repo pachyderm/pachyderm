@@ -1538,7 +1538,7 @@ func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 	opts, ok := mm.root.repoOpts[name]
 	if !ok {
 		// assume that the project is the default project
-		projectName = ""
+		projectName = pfs.DefaultProjectName
 		// assume the repo name is the same as the mount name, e.g in the
 		// pachctl mount (with no -r args) case where they all get mounted based
 		// on their name
