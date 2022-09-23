@@ -43,7 +43,6 @@ const Datum: React.FC<DatumProps> = ({
     callMountDatums,
     callUnmountAll,
     errorMessage,
-    setDebug,
   } = useDatum(showDatum, keepMounted, refresh, pollRefresh, currentDatumInfo);
 
   return (
@@ -79,13 +78,17 @@ const Datum: React.FC<DatumProps> = ({
           name="inputSpec"
           value={inputSpec}
           onChange={(e: any) => {
-            setDebug('========>>>> value is ' + e.target.value);
             setInputSpec(e.target.value);
           }}
           disabled={loading}
           placeholder={placeholderText}
         ></textarea>
-        <span className="pachyderm-mount-datum-error">{errorMessage}</span>
+        <span
+          className="pachyderm-mount-datum-error"
+          data-testid="Datum__errorMessage"
+        >
+          {errorMessage}
+        </span>
         <button
           data-testid="Datum__mountDatums"
           className="pachyderm-button-link"
@@ -95,7 +98,10 @@ const Datum: React.FC<DatumProps> = ({
           Mount Datums
         </button>
         {shouldShowCycler && (
-          <div className="pachyderm-mount-datum-cycler">
+          <div
+            className="pachyderm-mount-datum-cycler"
+            data-testid="Datum__cycler"
+          >
             Datum
             <div style={{display: 'flex'}}>
               <button

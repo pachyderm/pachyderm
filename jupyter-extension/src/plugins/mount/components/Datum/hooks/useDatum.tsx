@@ -15,7 +15,6 @@ export type useDatumResponse = {
   callMountDatums: () => Promise<void>;
   callUnmountAll: () => Promise<void>;
   errorMessage: string;
-  setDebug: (text: string) => void;
 };
 
 export const useDatum = (
@@ -32,7 +31,6 @@ export const useDatum = (
   const [numDatums, setNumDatums] = useState(-1);
   const [inputSpec, setInputSpec] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [debug, setDebug] = useState('');
 
   useEffect(() => {
     if (showDatum && currentDatumIdx !== -1) {
@@ -55,9 +53,6 @@ export const useDatum = (
   const callMountDatums = async () => {
     setLoading(true);
     setErrorMessage('');
-    console.log('==========>> DeBUG ', debug);
-    console.log('==========>>> YOOOOO ', inputSpec);
-    console.log('==========>>> len is ', inputSpec.length);
 
     try {
       const res = await requestAPI<any>('_mount_datums', 'PUT', {
@@ -131,6 +126,5 @@ export const useDatum = (
     callMountDatums,
     callUnmountAll,
     errorMessage,
-    setDebug,
   };
 };
