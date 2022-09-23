@@ -70,7 +70,12 @@ def dev_server():
 
     print("killing development server...")
 
-    subprocess.run(["bash", "-c", f"umount {PFS_MOUNT_DIR}"])
+    subprocess.run(["pkill", "-f", "mount-server"])
+    subprocess.run(
+        ["bash", "-c", f"umount {PFS_MOUNT_DIR}"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
     p.terminate()
     p.wait()
     time.sleep(1)
