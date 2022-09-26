@@ -14,13 +14,12 @@ type DatumProps = {
   currentDatumInfo?: DatumsResponse;
 };
 
-const placeholderText = `{
-  "pfs": {
-    "repo": "images",
-    "branch": "dev",
-    "glob": "/*",
-  }
-}`;
+const placeholderText =
+`pfs:
+  repo: images
+  branch: dev
+  glob: /*
+`;
 
 const Datum: React.FC<DatumProps> = ({
   showDatum,

@@ -119,7 +119,7 @@ describe('datum screen', () => {
   });
 
   describe('errors with input spec', () => {
-    it('error if poorly formatted json input spec', async () => {
+    it('error if bad syntax in input spec', async () => {
       const {getByTestId} = render(
         <Datum
           showDatum={true}
@@ -141,7 +141,7 @@ describe('datum screen', () => {
       submit.click();
 
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent(
-        'Poorly formatted json input spec',
+        'Poorly formatted input spec',
       );
     });
 

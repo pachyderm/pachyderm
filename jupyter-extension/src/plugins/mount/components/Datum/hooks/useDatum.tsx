@@ -1,3 +1,5 @@
+import YAML from 'yaml'
+
 import {requestAPI} from '../../../../../handler';
 import {useEffect, useState} from 'react';
 import {ServerConnection} from '@jupyterlab/services';
@@ -46,7 +48,7 @@ export const useDatum = (
       setShouldShowCycler(true);
       setCurrentDatumIdx(currentDatumInfo.curr_idx);
       setNumDatums(currentDatumInfo.num_datums);
-      setInputSpec(JSON.stringify(currentDatumInfo.input, null, 2));
+      setInputSpec(YAML.stringify(currentDatumInfo.input, null, 2));
     }
   }, [showDatum]);
 
@@ -55,21 +57,32 @@ export const useDatum = (
     setErrorMessage('');
 
     try {
+      let input;
+      try {
+        input = YAML.parse(inputSpec)
+      } catch (e) {
+        if (e instanceof YAML.YAMLParseError) {
+          input = JSON.parse(inputSpec)
+        } else {
+          throw e
+        }
+      }
+
       const res = await requestAPI<any>('_mount_datums', 'PUT', {
-        input: JSON.parse(inputSpec),
+        input: input,
       });
       refresh();
       setCurrentDatumId(res.id);
       setCurrentDatumIdx(res.idx);
       setNumDatums(res.num_datums);
       setShouldShowCycler(true);
-      setInputSpec(JSON.stringify(JSON.parse(inputSpec), null, 2));
+      setInputSpec(YAML.stringify(input, null, 2));
     } catch (e) {
       console.log(e);
-      if (e instanceof ServerConnection.ResponseError) {
+      if (e instanceof SyntaxError) {
+        setErrorMessage('Poorly formatted input spec- must be either YAML or JSON');
+      } else if (e instanceof ServerConnection.ResponseError) {
         setErrorMessage('Bad data in input spec');
-      } else if (e instanceof SyntaxError) {
-        setErrorMessage('Poorly formatted json input spec');
       } else {
         setErrorMessage('Error mounting datums');
       }
