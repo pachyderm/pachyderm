@@ -81,7 +81,7 @@ func makeGraph(pis []*pps.PipelineInfo) ([]*vertex, error) {
 			vMap[name] = v
 			vs = append(vs, v)
 		}
-		if lastState == pps.JobState_JOB_FAILURE {
+		if lastState == pps.JobState_JOB_FAILURE || lastState == pps.JobState_JOB_KILLED {
 			vMap[name].red = true
 		}
 		return vMap[name]
