@@ -8714,6 +8714,56 @@ func TestDeferredProcessing(t *testing.T) {
 	require.Equal(t, 9, len(commitInfos))
 }
 
+func TestListPipelineAtCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	// create two pipelines and update 1 of them to represent several DAG states
+	dataRepo := tu.UniqueString("TestListPipelineAtCommit_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	pipeline1 := tu.UniqueString("TestListPipelineAtCommit_pipeline1")
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), basicPipelineReq(pipeline1, dataRepo))
+	require.NoError(t, err)
+	pipeline2 := tu.UniqueString("TestListPipelineAtCommit_pipeline2")
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), basicPipelineReq(pipeline2, pipeline1))
+	require.NoError(t, err)
+	updateReq := basicPipelineReq(pipeline1, dataRepo)
+	updateReq.Update = true
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), updateReq)
+	require.NoError(t, err)
+	// assert correct pipeline versions are returned for each commit set ID
+	ci, err := c.InspectCommit(pipeline2, "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(ci.Commit.ID)
+	require.NoError(t, err)
+	commitSets, err := c.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{})
+	require.NoError(t, err)
+	expected := []map[string]uint64{
+		{pipeline1: 2, pipeline2: 1},
+		{pipeline1: 1, pipeline2: 1},
+		{pipeline1: 1},
+	}
+	i := 0
+	require.NoError(t, clientsdk.ForEachCommitSet(commitSets, func(csi *pfs.CommitSetInfo) error {
+		pipelines, err := c.PpsAPIClient.ListPipeline(c.Ctx(), &pps.ListPipelineRequest{
+			CommitSet: &pfs.CommitSet{ID: csi.CommitSet.ID},
+		})
+		require.NoError(t, err)
+		count := 0
+		require.NoError(t, clientsdk.ForEachPipelineInfo(pipelines, func(pi *pps.PipelineInfo) error {
+			count++
+			require.Equal(t, expected[i][pi.Pipeline.Name], pi.Version)
+			return nil
+		}))
+		require.Equal(t, len(expected[i]), count)
+		i++
+		return nil
+	}))
+
+}
+
 func TestPipelineHistory(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
