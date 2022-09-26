@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	
+
 	"net/http"
 	"net/url"
 	"os"
@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
@@ -852,6 +853,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAliases(editPipeline, "edit pipeline", pipelines))
 
 	var spec bool
+	var commit string
 	listPipeline := &cobra.Command{
 		Use:   "{{alias}} [<pipeline>]",
 		Short: "Return info about all pipelines.",
@@ -884,7 +886,12 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) > 0 {
 				pipeline = args[0]
 			}
-			request := &ppsclient.ListPipelineRequest{History: history, JqFilter: filter, Details: true}
+			request := &ppsclient.ListPipelineRequest{
+				History:   history,
+				CommitSet: &pfs.CommitSet{ID: commit},
+				JqFilter:  filter,
+				Details:   true,
+			}
 			if pipeline != "" {
 				request.Pipeline = pachdclient.NewPipeline(pipeline)
 			}
@@ -930,6 +937,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().AddFlagSet(outputFlags)
 	listPipeline.Flags().AddFlagSet(timestampFlags)
 	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
+	listPipeline.Flags().StringVarP(&commit, "commit", "c", "", "List the pipelines as they existed at this commit.")
 	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
 	commands = append(commands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
 

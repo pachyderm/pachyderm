@@ -674,6 +674,9 @@ message ListPipelineRequest {
 
   // A jq program string for additional result filtering
   string jqFilter = 4;
+
+  // If non-nil, will return all the pipeline infos at this commit set
+  pfs_v2.CommitSet commit_set = 5;
 }
 
 message DeletePipelineRequest {
