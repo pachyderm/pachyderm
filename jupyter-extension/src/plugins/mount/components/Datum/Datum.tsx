@@ -14,8 +14,7 @@ type DatumProps = {
   currentDatumInfo?: DatumsResponse;
 };
 
-const placeholderText =
-`pfs:
+const placeholderText = `pfs:
   repo: images
   branch: dev
   glob: /*

@@ -1,4 +1,4 @@
-import YAML from 'yaml'
+import YAML from 'yaml';
 
 import {requestAPI} from '../../../../../handler';
 import {useEffect, useState} from 'react';
@@ -59,12 +59,12 @@ export const useDatum = (
     try {
       let input;
       try {
-        input = YAML.parse(inputSpec)
+        input = YAML.parse(inputSpec);
       } catch (e) {
         if (e instanceof YAML.YAMLParseError) {
-          input = JSON.parse(inputSpec)
+          input = JSON.parse(inputSpec);
         } else {
-          throw e
+          throw e;
         }
       }
 
@@ -80,7 +80,9 @@ export const useDatum = (
     } catch (e) {
       console.log(e);
       if (e instanceof SyntaxError) {
-        setErrorMessage('Poorly formatted input spec- must be either YAML or JSON');
+        setErrorMessage(
+          'Poorly formatted input spec- must be either YAML or JSON',
+        );
       } else if (e instanceof ServerConnection.ResponseError) {
         setErrorMessage('Bad data in input spec');
       } else {
