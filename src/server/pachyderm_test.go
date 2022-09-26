@@ -8722,7 +8722,7 @@ func TestListPipelineAtCommit(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	// create two pipelines and update 1 of them to represent several DAG states
 	dataRepo := tu.UniqueString("TestListPipelineAtCommit_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
+	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	pipeline1 := tu.UniqueString("TestListPipelineAtCommit_pipeline1")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), basicPipelineReq(pipeline1, dataRepo))
 	require.NoError(t, err)
@@ -8734,7 +8734,7 @@ func TestListPipelineAtCommit(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), updateReq)
 	require.NoError(t, err)
 	// assert correct pipeline versions are returned for each commit set ID
-	ci, err := c.InspectCommit(pipeline2, "master", "")
+	ci, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline2, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(ci.Commit.ID)
 	require.NoError(t, err)
