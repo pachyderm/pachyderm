@@ -8739,11 +8739,11 @@ func TestListPipelineAtCommit(t *testing.T) {
 	_, err = c.WaitCommitSetAll(ci.Commit.ID)
 	require.NoError(t, err)
 	commitSets, err := c.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{})
+	require.NoError(t, err)
 	expected := []map[string]uint64{
 		{pipeline1: 2, pipeline2: 1},
 		{pipeline1: 1, pipeline2: 1},
 		{pipeline1: 1},
-		{},
 	}
 	i := 0
 	require.NoError(t, clientsdk.ForEachCommitSet(commitSets, func(csi *pfs.CommitSetInfo) error {
