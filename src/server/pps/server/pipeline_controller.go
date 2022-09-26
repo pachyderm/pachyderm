@@ -441,7 +441,7 @@ func rcIsFresh(pi *pps.PipelineInfo, rc *v1.ReplicationController) bool {
 		log.Errorf("PPS master: RC for %q is nil", pi.Pipeline.Name)
 		return false
 	}
-	expectedName := ppsutil.PipelineRcName(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Version)
+	expectedName := ppsutil.PipelineRcName(pi)
 	// establish current RC properties
 	rcName := rc.ObjectMeta.Name
 	rcPachVersion := rc.ObjectMeta.Annotations[pachVersionAnnotation]
@@ -527,7 +527,7 @@ func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context, p
 	}
 	pachClient.SetAuthToken(pi.AuthToken)
 	if err := pachClient.ListCommitF(client.NewProjectRepo(pi.Pipeline.Project.GetName(), pi.Pipeline.Name), client.NewProjectCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, ""), nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
-		return pachClient.StopJob(pi.Pipeline.Name, commitInfo.Commit.ID)
+		return pachClient.StopProjectJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commitInfo.Commit.ID)
 	}); err != nil {
 		if errutil.IsNotFoundError(err) {
 			return nil // already deleted

@@ -39,7 +39,7 @@ func TestIterators(t *testing.T) {
 	}
 	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
 	// Zero datums.
-	in0 := client.NewPFSInput(dataRepo, "!(**)")
+	in0 := client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "!(**)")
 	in0.Pfs.Commit = commit.ID
 	t.Run("ZeroDatums", func(t *testing.T) {
 		pfs0, err := datum.NewIterator(c, taskDoer, in0)
@@ -47,9 +47,9 @@ func TestIterators(t *testing.T) {
 		validateDI(t, pfs0)
 	})
 	// Basic PFS inputs
-	in1 := client.NewPFSInput(dataRepo, "/foo?1")
+	in1 := client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/foo?1")
 	in1.Pfs.Commit = commit.ID
-	in2 := client.NewPFSInput(dataRepo, "/foo*2")
+	in2 := client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/foo*2")
 	in2.Pfs.Commit = commit.ID
 	t.Run("Basic", func(t *testing.T) {
 		pfs1, err := datum.NewIterator(c, taskDoer, in1)
@@ -93,9 +93,9 @@ func TestIterators(t *testing.T) {
 		validateDI(t, cross4)
 	})
 	// in[8-9] are elements of in10, which is a join input
-	in8 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "$1$2", "", false, false, nil)
+	in8 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "$1$2", "", false, false, nil)
 	in8.Pfs.Commit = commit.ID
-	in9 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "$2$1", "", false, false, nil)
+	in9 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "$2$1", "", false, false, nil)
 	in9.Pfs.Commit = commit.ID
 	in10 := client.NewJoinInput(in8, in9)
 	t.Run("Join", func(t *testing.T) {
@@ -120,9 +120,9 @@ func TestIterators(t *testing.T) {
 			"/foo44/foo44")
 	})
 
-	in11 := client.NewPFSInputOpts("", dataRepo, "", "/foo1(?)", "$1", "", true, false, nil)
+	in11 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo1(?)", "$1", "", true, false, nil)
 	in11.Pfs.Commit = commit.ID
-	in12 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)1", "$1", "", true, false, nil)
+	in12 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)1", "$1", "", true, false, nil)
 	in12.Pfs.Commit = commit.ID
 	in13 := client.NewJoinInput(in11, in12)
 	t.Run("OuterJoin", func(t *testing.T) {
@@ -141,7 +141,7 @@ func TestIterators(t *testing.T) {
 			"/foo19")
 	})
 
-	in14 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "", "$1", false, false, nil)
+	in14 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "", "$1", false, false, nil)
 	in14.Pfs.Commit = commit.ID
 	in15 := client.NewGroupInput(in14)
 	t.Run("GroupSingle", func(t *testing.T) {
@@ -154,9 +154,9 @@ func TestIterators(t *testing.T) {
 			"/foo40/foo41/foo42/foo43/foo44/foo45/foo46/foo47/foo48/foo49")
 	})
 
-	in16 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "", "$1", false, false, nil)
+	in16 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "", "$1", false, false, nil)
 	in16.Pfs.Commit = commit.ID
-	in17 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "", "$2", false, false, nil)
+	in17 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "", "$2", false, false, nil)
 	in17.Pfs.Commit = commit.ID
 	in18 := client.NewGroupInput(in16, in17)
 	t.Run("GroupDoubles", func(t *testing.T) {
@@ -175,9 +175,9 @@ func TestIterators(t *testing.T) {
 			"/foo19/foo29/foo39/foo49")
 	})
 
-	in19 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "$1$2", "$1", false, false, nil)
+	in19 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "$1$2", "$1", false, false, nil)
 	in19.Pfs.Commit = commit.ID
-	in20 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "$2$1", "$2", false, false, nil)
+	in20 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "$2$1", "$2", false, false, nil)
 	in20.Pfs.Commit = commit.ID
 
 	in21 := client.NewJoinInput(in19, in20)
@@ -192,9 +192,9 @@ func TestIterators(t *testing.T) {
 			"/foo41/foo14/foo42/foo24/foo43/foo34/foo44/foo44")
 	})
 
-	in23 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "", "", false, false, nil)
+	in23 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "", "", false, false, nil)
 	in23.Pfs.Commit = commit.ID
-	in24 := client.NewPFSInputOpts("", dataRepo, "", "/foo(?)(?)", "", "$2", false, false, nil)
+	in24 := client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, dataRepo, "", "/foo(?)(?)", "", "$2", false, false, nil)
 	in24.Pfs.Commit = commit.ID
 
 	in25 := client.NewGroupInput(in24)
@@ -257,7 +257,7 @@ func TestIterators(t *testing.T) {
 	})
 
 	// in27 is an S3 input
-	in27 := client.NewS3PFSInput("", dataRepo, "")
+	in27 := client.NewProjectS3PFSInput("", pfs.DefaultProjectName, dataRepo, "")
 	in27.Pfs.Commit = commit.ID
 	t.Run("PlainS3", func(t *testing.T) {
 		di, err := datum.NewIterator(c, taskDoer, in27)
@@ -330,9 +330,9 @@ func TestJoinTrailingSlash(t *testing.T) {
 		tu.UniqueString(t.Name() + "_1"),
 	}
 	input := []*pps.Input{ // singular name b/c only use individual elements
-		client.NewPFSInputOpts("", repo[0],
+		client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, repo[0],
 			/* commit--set below */ "", "/*", "$1", "", false, false, nil),
-		client.NewPFSInputOpts("", repo[1],
+		client.NewProjectPFSInputOpts("", pfs.DefaultProjectName, repo[1],
 			/* commit--set below */ "", "/*", "$1", "", false, false, nil),
 	}
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo[0]))

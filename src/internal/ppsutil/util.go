@@ -48,16 +48,16 @@ import (
 
 // PipelineRcName generates the name of the k8s replication controller that
 // manages a pipeline's workers
-func PipelineRcName(projectName, pipelineName string, version uint64) string {
+func PipelineRcName(pi *pps.PipelineInfo) string {
 	// k8s won't allow RC names that contain upper-case letters
 	// or underscores
 	// TODO: deal with name collision
-	pipelineName = strings.ReplaceAll(pipelineName, "_", "-")
-	if projectName == "" {
-		return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(pipelineName), version)
+	pipelineName := strings.ReplaceAll(pi.Pipeline.Name, "_", "-")
+	if projectName := pi.Pipeline.Project.GetName(); projectName != "" {
+		projectName = strings.ReplaceAll(projectName, "_", "-")
+		return fmt.Sprintf("pipeline-%s-%s-v%d", strings.ToLower(projectName), strings.ToLower(pipelineName), pi.Version)
 	}
-	projectName = strings.ReplaceAll(projectName, "_", "-")
-	return fmt.Sprintf("pipeline-%s-%s-v%d", strings.ToLower(projectName), strings.ToLower(pipelineName), version)
+	return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(pipelineName), pi.Version)
 }
 
 // GetRequestsResourceListFromPipeline returns a list of resources that the pipeline,

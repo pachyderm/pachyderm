@@ -56,7 +56,7 @@ func TestS3PipelineErrors(t *testing.T) {
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo2))
 
 	pipeline := tu.UniqueString("Pipeline")
-	err := c.CreatePipeline(
+	err := c.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -86,7 +86,7 @@ func TestS3PipelineErrors(t *testing.T) {
 	)
 	require.YesError(t, err)
 	require.Matches(t, "union", err.Error())
-	err = c.CreatePipeline(
+	err = c.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -133,7 +133,7 @@ func TestS3Input(t *testing.T) {
 	pipeline := tu.UniqueString("Pipeline")
 	pipelineCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline: client.NewPipeline(pipeline),
+		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 		Transform: &pps.Transform{
 			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 			Cmd:   []string{"bash", "-x"},
@@ -163,7 +163,7 @@ func TestS3Input(t *testing.T) {
 	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitJob(pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -228,7 +228,7 @@ func TestS3Chain(t *testing.T) {
 		}
 		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipelines[i]),
+				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelines[i]),
 				Transform: &pps.Transform{
 					Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 					Cmd:   []string{"bash", "-x"},
@@ -286,7 +286,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	pipeline := tu.UniqueString("Pipeline")
 	pipelineCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline: client.NewPipeline(pipeline),
+		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 		Transform: &pps.Transform{
 			Cmd: []string{"bash", "-x"},
 			Stdin: []string{
@@ -309,7 +309,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitJob(pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -334,7 +334,7 @@ func TestS3Output(t *testing.T) {
 	pipeline := tu.UniqueString("Pipeline")
 	pipelineCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline: client.NewPipeline(pipeline),
+		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 		Transform: &pps.Transform{
 			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 			Cmd:   []string{"bash", "-x"},
@@ -363,7 +363,7 @@ func TestS3Output(t *testing.T) {
 	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitJob(pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -418,7 +418,7 @@ func TestFullS3(t *testing.T) {
 	pipeline := tu.UniqueString("Pipeline")
 	pipelineCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline: client.NewPipeline(pipeline),
+		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 		Transform: &pps.Transform{
 			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 			Cmd:   []string{"bash", "-x"},
@@ -448,7 +448,7 @@ func TestFullS3(t *testing.T) {
 	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitJob(pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -516,7 +516,7 @@ func TestS3SkippedDatums(t *testing.T) {
 		pipeline := tu.UniqueString("Pipeline")
 		pipelineCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 				Cmd:   []string{"bash", "-x"},
@@ -577,7 +577,7 @@ func TestS3SkippedDatums(t *testing.T) {
 			_, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 			require.NoError(t, err)
 
-			jis, err := c.ListJob(pipeline, nil, 0, false)
+			jis, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, 0, false)
 			require.NoError(t, err)
 			require.Equal(t, i+2, len(jis)) // one empty job w/ initial s3in commit
 			for j := 0; j < len(jis); j++ {
@@ -618,7 +618,7 @@ func TestS3SkippedDatums(t *testing.T) {
 		_, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		require.NoError(t, err)
 
-		jis, err := c.ListJob(pipeline, nil, 0, false)
+		jis, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, 0, false)
 		require.NoError(t, err)
 		require.Equal(t, 12, len(jis))
 		for j := 0; j < len(jis); j++ {
@@ -674,7 +674,7 @@ func TestS3SkippedDatums(t *testing.T) {
 
 		pipeline := tu.UniqueString("Pipeline")
 		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
+			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 				Cmd:   []string{"bash", "-x"},
@@ -733,7 +733,7 @@ func TestS3SkippedDatums(t *testing.T) {
 
 			_, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 			require.NoError(t, err)
-			jis, err := c.ListJob(pipeline, nil, 0, false)
+			jis, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, 0, false)
 			require.NoError(t, err)
 			require.Equal(t, i+1, len(jis))
 			for j := 0; j < len(jis); j++ {

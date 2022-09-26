@@ -114,7 +114,7 @@ func (pj *pendingJob) load() error {
 		pj.baseMetaCommit = metaCI.ParentCommit
 	}
 	// Load the job info.
-	pj.ji, err = pachClient.InspectJob(pj.ji.Job.Pipeline.Name, pj.ji.Job.ID, true)
+	pj.ji, err = pachClient.InspectProjectJob(pj.ji.Job.Pipeline.Project.GetName(), pj.ji.Job.Pipeline.Name, pj.ji.Job.ID, true)
 	if err != nil {
 		return err
 	}
@@ -160,7 +160,7 @@ func (pj *pendingJob) createParallelDatums(ctx context.Context, taskDoer task.Do
 		if pj.baseMetaCommit != nil {
 			// Upload the datums from the base job into the datum file set format.
 			if err := pj.logger.LogStep("creating full base job datum file set", func() error {
-				baseFileSetID, err = createDatums(pachClient, taskDoer, client.NewJob(pj.ji.Job.Pipeline.Name, pj.baseMetaCommit.ID))
+				baseFileSetID, err = createDatums(pachClient, taskDoer, client.NewProjectJob(pj.ji.Job.Pipeline.Project.GetName(), pj.ji.Job.Pipeline.Name, pj.baseMetaCommit.ID))
 				if err != nil {
 					return err
 				}
@@ -179,7 +179,7 @@ func (pj *pendingJob) createParallelDatums(ctx context.Context, taskDoer task.Do
 }
 
 func createDatums(pachClient *client.APIClient, taskDoer task.Doer, job *pps.Job) (string, error) {
-	jobInfo, err := pachClient.InspectJob(job.Pipeline.Name, job.ID, true)
+	jobInfo, err := pachClient.InspectProjectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, true)
 	if err != nil {
 		return "", err
 	}

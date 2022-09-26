@@ -32,7 +32,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
 
 	// Create pipeline with input named "out"
-	err := c.CreatePipeline(
+	err := c.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipelineName,
 		"",
 		cmd,
@@ -40,7 +40,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts("out", dataRepo, "", "/*", "", "", false, false, nil),
+		client.NewProjectPFSInputOpts("out", pfs.DefaultProjectName, dataRepo, "", "/*", "", "", false, false, nil),
 		"master",
 		false,
 	)
@@ -48,7 +48,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	require.Matches(t, "out", err.Error())
 
 	// Create pipeline with no glob
-	err = c.CreatePipeline(
+	err = c.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipelineName,
 		"",
 		cmd,
@@ -56,7 +56,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts("input", dataRepo, "", "", "", "", false, false, nil),
+		client.NewProjectPFSInputOpts("input", pfs.DefaultProjectName, dataRepo, "", "", "", "", false, false, nil),
 		"master",
 		false,
 	)
@@ -72,7 +72,7 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	pipelineName := tu.UniqueString("pipeline")
-	require.YesError(t, c.CreatePipeline(
+	require.YesError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -80,7 +80,7 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInputOpts("whatever", "nonexistent", "", "/*", "", "", false, false, nil),
+		client.NewProjectPFSInputOpts("whatever", pfs.DefaultProjectName, "nonexistent", "", "/*", "", "", false, false, nil),
 		"master",
 		false,
 	))
@@ -97,7 +97,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPipelineNamesThatContainUnderscoresAndHyphens")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 		tu.UniqueString("pipeline-hyphen"),
 		"",
 		[]string{"bash"},
@@ -105,12 +105,12 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
 		"",
 		false,
 	))
 
-	require.NoError(t, c.CreatePipeline(
+	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 		tu.UniqueString("pipeline_underscore"),
 		"",
 		[]string{"bash"},
@@ -118,7 +118,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
 		"",
 		false,
 	))

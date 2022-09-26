@@ -12,7 +12,7 @@ import (
 // takes a context as the first parameter for each method.
 type Client interface {
 	WithCreateFileSetClient(ctx context.Context, cb func(client.ModifyFile) error) (*pfs.CreateFileSetResponse, error)
-	AddFileSet(ctx context.Context, project, repo, branch, commit, ID string) error
+	AddFileSet(ctx context.Context, commit *pfs.Commit, ID string) error
 	GlobFile(ctx context.Context, commit *pfs.Commit, pattern string, cb func(*pfs.FileInfo) error) error
 	WaitCommitSet(id string, cb func(*pfs.CommitInfo) error) error
 	Ctx() context.Context
@@ -31,8 +31,11 @@ func (pc *pachClient) WithCreateFileSetClient(ctx context.Context, cb func(clien
 	return pc.client.WithCtx(ctx).WithCreateFileSetClient(cb)
 }
 
-func (pc *pachClient) AddFileSet(ctx context.Context, project, repo, branch, commit, ID string) error {
-	return pc.client.WithCtx(ctx).AddProjectFileSet(project, repo, branch, commit, ID)
+func (pc *pachClient) AddFileSet(ctx context.Context, commit *pfs.Commit, filesetID string) error {
+	project := commit.Branch.Repo.Project.GetName()
+	repo := commit.Branch.Repo.Name
+	branch := commit.Branch.Name
+	return pc.client.WithCtx(ctx).AddProjectFileSet(project, repo, branch, commit.ID, filesetID)
 }
 
 func (pc *pachClient) GlobFile(ctx context.Context, commit *pfs.Commit, pattern string, cb func(*pfs.FileInfo) error) error {

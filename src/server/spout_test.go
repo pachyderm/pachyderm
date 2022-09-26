@@ -44,7 +44,7 @@ func TestSpoutPachctl(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -104,7 +104,7 @@ func TestSpoutPachctl(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -178,7 +178,7 @@ func TestSpoutPachctl(t *testing.T) {
 		}))
 
 		// Make sure the pipeline is still running
-		pipelineInfo, err := c.InspectPipeline(pipeline, false)
+		pipelineInfo, err := c.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
 		require.NoError(t, err)
 
 		require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
@@ -207,7 +207,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -252,19 +252,19 @@ func testSpout(t *testing.T, usePachctl bool) {
 
 		// and make sure we can attach a downstream pipeline
 		downstreamPipeline := tu.UniqueString("pipelinespoutdownstream")
-		require.NoError(t, c.CreatePipeline(
+		require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 			downstreamPipeline,
 			"",
 			[]string{"/bin/bash"},
 			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline) + " /pfs/out/"},
 			nil,
-			client.NewPFSInput(pipeline, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, pipeline, "/*"),
 			"",
 			false,
 		))
 
 		// we should have one job on the downstream pipeline
-		jobInfos, err := c.ListJob(downstreamPipeline, nil, -1, false)
+		jobInfos, err := c.ListProjectJob(pfs.DefaultProjectName, downstreamPipeline, nil, -1, false)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobInfos))
 
@@ -296,7 +296,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -353,7 +353,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -383,7 +383,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		_, err = c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -436,7 +436,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 				Metadata: &pps.Metadata{
 					Annotations: annotations,
 				},
@@ -533,7 +533,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -544,7 +544,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 						basicPutFile("./date*"),
 						"done"},
 				},
-				Input: client.NewPFSInput(dataRepo, "/*"),
+				Input: client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
 				Spout: &pps.Spout{},
 			})
 		require.YesError(t, err)

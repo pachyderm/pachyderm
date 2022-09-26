@@ -83,7 +83,7 @@ func TestUpgradeSimple(t *testing.T) {
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, inputRepo))
 			require.NoError(t,
-				c.CreatePipeline(outputRepo,
+				c.CreateProjectPipeline(pfs.DefaultProjectName, outputRepo,
 					"busybox",
 					[]string{"sh"},
 					[]string{"cp /pfs/input/* /pfs/out/;"},

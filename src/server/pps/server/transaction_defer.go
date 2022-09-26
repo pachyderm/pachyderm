@@ -106,7 +106,7 @@ func (jf *JobFinisher) Run() error {
 			if commitInfo.Commit.Branch.Repo.Type != pfs.UserRepoType {
 				continue
 			}
-			jobKey := ppsdb.JobKey(client.NewJob(commitInfo.Commit.Branch.Repo.Name, commitInfo.Commit.ID))
+			jobKey := ppsdb.JobKey(client.NewProjectJob(commitInfo.Commit.Branch.Repo.Project.GetName(), commitInfo.Commit.Branch.Repo.Name, commitInfo.Commit.ID))
 			jobInfo := &pps.JobInfo{}
 			if err := jobs.Get(jobKey, jobInfo); err != nil {
 				// Commits in source repos will not have a job associated with them.

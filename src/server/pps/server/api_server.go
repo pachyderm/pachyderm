@@ -162,13 +162,16 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 	return nil
 }
 
-func (a *apiServer) validateInput(pipelineName string, input *pps.Input) error {
+func (a *apiServer) validateInput(pipeline *pps.Pipeline, input *pps.Input) error {
 	if err := validateNames(make(map[string]bool), input); err != nil {
 		return err
 	}
 	return pps.VisitInput(input, func(input *pps.Input) error {
 		set := false
 		if input.Pfs != nil {
+			if input.Pfs.Project == "" {
+				input.Pfs.Project = pipeline.Project.GetName()
+			}
 			set = true
 			switch {
 			case len(input.Pfs.Name) == 0:
@@ -835,7 +838,14 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 	// If the job is running, we fill in WorkerStatus field, otherwise
 	// we just return the jobInfo.
 	if jobInfo.State == pps.JobState_JOB_RUNNING {
-		workerStatus, err := workerserver.Status(ctx, projectName, pipelineName, jobInfo.PipelineVersion, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
+		var pi = &pps.PipelineInfo{
+			Pipeline: &pps.Pipeline{
+				Project: &pfs.Project{Name: projectName},
+				Name:    pipelineName,
+			},
+			Version: jobInfo.PipelineVersion,
+		}
+		workerStatus, err := workerserver.Status(ctx, pi, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
 		if err != nil {
 			logrus.Errorf("failed to get worker status with err: %s", err.Error())
 		} else {
@@ -1004,7 +1014,11 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	if err != nil {
 		return nil, err
 	}
-	if err := workerserver.Cancel(ctx, jobInfo.Job.Pipeline.Project.GetName(), jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
+	var pi = &pps.PipelineInfo{
+		Pipeline: jobInfo.Job.Pipeline,
+		Version:  jobInfo.PipelineVersion,
+	}
+	if err := workerserver.Cancel(ctx, pi, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -1194,8 +1208,8 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		}
 
 		// 3) Get pods for this pipeline
-		rcName = ppsutil.PipelineRcName(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-		pods, err = a.rcPods(apiGetLogsServer.Context(), pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		rcName = ppsutil.PipelineRcName(pipelineInfo)
+		pods, err = a.rcPods(apiGetLogsServer.Context(), pipelineInfo)
 		if err != nil {
 			return err
 		}
@@ -1619,7 +1633,7 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	if err := validateTransform(pipelineInfo.Details.Transform); err != nil {
 		return errors.Wrapf(err, "invalid transform")
 	}
-	if err := a.validateInput(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Input); err != nil {
+	if err := a.validateInput(pipelineInfo.Pipeline, pipelineInfo.Details.Input); err != nil {
 		return err
 	}
 	if err := a.validateEgress(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Egress); err != nil {
@@ -1928,6 +1942,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 }
 
 func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionContext, request *pps.CreatePipelineRequest) error {
+	projectName := request.Pipeline.Project.GetName()
 	pipelineName := request.Pipeline.Name
 	oldPipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
 	if err != nil && !errutil.IsNotFoundError(err) {
@@ -1982,7 +1997,6 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	}
 
 	var (
-		projectName = request.Pipeline.Project.GetName()
 		// provenance for the pipeline's output branch (includes the spec branch)
 		provenance = append(branchProvenance(newPipelineInfo.Pipeline.Project, newPipelineInfo.Details.Input),
 			client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType).NewBranch("master"))
@@ -2288,7 +2302,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline,
 	} else {
 		kubeClient := a.env.KubeClient
 		if info.Details.Service != nil {
-			rcName := ppsutil.PipelineRcName(info.Pipeline.Project.GetName(), info.Pipeline.Name, info.Version)
+			rcName := ppsutil.PipelineRcName(info)
 			service, err := kubeClient.CoreV1().Services(a.namespace).Get(ctx, fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
 			if err != nil {
 				if !errutil.IsNotFoundError(err) {
@@ -2299,7 +2313,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline,
 			}
 		}
 
-		workerStatus, err := workerserver.Status(ctx, info.Pipeline.Project.GetName(), info.Pipeline.Name, info.Version, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
+		workerStatus, err := workerserver.Status(ctx, info, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
 		if err != nil {
 			logrus.Errorf("failed to get worker status with err: %s", err.Error())
 		} else {
@@ -2807,7 +2821,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 		}
 
 		// Check if there is an existing job for the output commit
-		job := client.NewJob(pipelineInfo.Pipeline.Name, txnCtx.CommitSetID)
+		job := client.NewProjectJob(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, txnCtx.CommitSetID)
 		jobInfo := &pps.JobInfo{}
 		if err := a.jobs.ReadWrite(txnCtx.SqlTx).Get(ppsdb.JobKey(job), jobInfo); err == nil {
 			continue // Job already exists, skip it
@@ -3056,13 +3070,13 @@ func (a *apiServer) pachdPods(ctx context.Context) ([]v1.Pod, error) {
 	return a.listPods(ctx, map[string]string{appLabel: "pachd"})
 }
 
-func (a *apiServer) rcPods(ctx context.Context, projectName, pipelineName string, pipelineVersion uint64) ([]v1.Pod, error) {
+func (a *apiServer) rcPods(ctx context.Context, pi *pps.PipelineInfo) ([]v1.Pod, error) {
 	labels := map[string]string{
 		appLabel:             "pipeline",
-		pipelineNameLabel:    pipelineName,
-		pipelineVersionLabel: fmt.Sprint(pipelineVersion),
+		pipelineNameLabel:    pi.Pipeline.Name,
+		pipelineVersionLabel: fmt.Sprint(pi.Version),
 	}
-	if projectName != "" {
+	if projectName := pi.Pipeline.Project.GetName(); projectName != "" {
 		labels[pipelineProjectLabel] = projectName
 	}
 	pp, err := a.listPods(ctx, labels)
@@ -3074,7 +3088,7 @@ func (a *apiServer) rcPods(ctx context.Context, projectName, pipelineName string
 		// This long name could exceed 63 characters, which is why 2.4
 		// and later use separate labels for each component.
 		return a.listPods(ctx, map[string]string{
-			appLabel: ppsutil.PipelineRcName(projectName, pipelineName, pipelineVersion),
+			appLabel: ppsutil.PipelineRcName(pi),
 		})
 	}
 	return pp, nil

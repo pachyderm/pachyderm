@@ -150,6 +150,9 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 		Name:  client.PPSSpecCommitEnv,
 		Value: options.specCommit,
 	}, {
+		Name:  client.PPSProjectNameEnv,
+		Value: pipelineInfo.Pipeline.Project.GetName(),
+	}, {
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
 	}, {
@@ -534,6 +537,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 func (kd *kubeDriver) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
 	vars := []v1.EnvVar{
 		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(kd.config.StorageUploadConcurrencyLimit)},
+		{Name: client.PPSProjectNameEnv, Value: pipelineInfo.Pipeline.Project.GetName()},
 		{Name: client.PPSPipelineNameEnv, Value: pipelineInfo.Pipeline.Name},
 	}
 	return vars
@@ -605,6 +609,9 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	}
 
 	workerEnv := []v1.EnvVar{{
+		Name:  client.PPSProjectNameEnv,
+		Value: pipelineInfo.Pipeline.Project.GetName(),
+	}, {
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
 	}}
@@ -744,7 +751,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 
 	// Generate options for new RC
 	return &workerOptions{
-		rcName:                ppsutil.PipelineRcName(projectName, pipelineName, pipelineVersion),
+		rcName:                ppsutil.PipelineRcName(pipelineInfo),
 		s3GatewayPort:         s3GatewayPort,
 		specCommit:            pipelineInfo.SpecCommit.ID,
 		labels:                labels,
