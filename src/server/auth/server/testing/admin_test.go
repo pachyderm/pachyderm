@@ -120,7 +120,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	// Note: we must pass aliceClient to tu.CommitCnt, because it calls
 	// ListCommit(repo), which requires the caller to have READER access to
 	// 'repo', which bob does not have (but alice does)
-	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, "", repo)) // check that no commits were created
+	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, pfs.DefaultProjectName, repo)) // check that no commits were created
 
 	// bob can't update the ACL
 	err = bobClient.ModifyRepoRoleBinding(repo, tu.Robot("carol"), []string{auth.RepoReaderRole})
