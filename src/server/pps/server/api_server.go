@@ -2409,7 +2409,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		return true
 	}
 	loadPipelineAtCommit := func(pi *pps.PipelineInfo, commitSetID string) error { // mutates pi
-		if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 			key, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, pi.Pipeline, commitSetID)
 			if err != nil {
 				return errors.Wrapf(err, "couldn't find up to date spec for pipeline %q", pi.Pipeline)
@@ -2418,25 +2418,28 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 				return errors.EnsureStack(err)
 			}
 			var ji pps.JobInfo
-			if err := a.jobs.ReadWrite(txnCtx.SqlTx).Get(ppsdb.JobKey(client.NewJob(pi.Pipeline.Name, request.CommitSet.ID)), &ji); err != nil {
-				return errors.EnsureStack(err)
-			}
-			pi.LastJobState = ji.State
-			return nil
-		}); err != nil && !pfsServer.IsCommitNotFoundErr(err) && !ppsServer.IsPipelineNotFoundErr(err) && col.IsErrNotFound(err) {
-			return err
-		}
-		return nil
+			return a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsPipelineIndex, pi.Pipeline.String(), &ji, col.DefaultOptions(), func(string) error {
+				if ji.PipelineVersion > pi.Version {
+					return nil
+				}
+				pi.LastJobState = ji.State
+				return errutil.ErrBreak
+			})
+		})
 	}
 	return ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(pi *pps.PipelineInfo) error {
 		if !filterPipeline(pi) {
 			return nil
 		}
 		if request.GetCommitSet().GetID() != "" {
+			// load pipeline as it was at the commit set along with its associated job state
 			if err := loadPipelineAtCommit(pi, request.GetCommitSet().GetID()); err != nil {
+				if pfsServer.IsCommitNotFoundErr(err) || ppsServer.IsPipelineNotFoundErr(err) || col.IsErrNotFound(err) {
+					return nil
+				}
 				return err
 			}
-		} else if pi.LastJobState == pps.JobState_JOB_STATE_UNKNOWN {
+		} else {
 			if err := a.getLatestJobState(ctx, pi); err != nil {
 				return err
 			}
