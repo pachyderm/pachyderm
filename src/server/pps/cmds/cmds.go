@@ -1004,7 +1004,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	startPipeline.Flags().StringVar(&project, "project", "", "Project containing pipeline.")
+	startPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(startPipeline, "start pipeline", pipelines))
 
 	stopPipeline := &cobra.Command{
@@ -1023,7 +1023,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	stopPipeline.Flags().StringVar(&project, "project", "", "Project containing pipeline.")
+	stopPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(stopPipeline, "stop pipeline", pipelines))
 
 	var file string
