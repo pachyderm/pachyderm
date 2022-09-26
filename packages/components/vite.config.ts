@@ -12,8 +12,8 @@ export default defineConfig(() => ({
   build: {
     lib: {
       entry: path.resolve(__dirname, 'src/index.ts'),
-      name: "Components",
-      fileName: 'components'
+      name: 'Components',
+      fileName: 'components',
     },
     rollupOptions: {
       external: ['react', 'react-dom', 'react-router-dom'],
@@ -24,8 +24,8 @@ export default defineConfig(() => ({
         globals: {
           react: 'React',
           ['react-dom']: 'ReactDOM',
-          ['react-router-dom']: 'reactRouterDom'
-        }
+          ['react-router-dom']: 'reactRouterDom',
+        },
       },
     },
     sourcemap: true,

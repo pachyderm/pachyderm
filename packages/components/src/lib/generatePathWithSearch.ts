@@ -1,8 +1,10 @@
-import {ExtractRouteParams, generatePath as rrGeneratePath} from 'react-router';
+import {generatePath as rrGeneratePath} from 'react-router-dom';
 
-const generatePathWithSearch = <S extends string>(
+const generatePathWithSearch = (
   pathTemplate: string,
-  params?: ExtractRouteParams<S>,
+  params?: {
+    [x: string]: string | number | boolean | undefined;
+  },
 ) => {
   const path = encodeURI(rrGeneratePath(pathTemplate, {...params}));
   return `${path}${window.location.search}`;
