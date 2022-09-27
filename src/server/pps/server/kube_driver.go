@@ -77,6 +77,8 @@ func (kd *kubeDriver) DeletePipelineResources(ctx context.Context, pipeline *pps
 	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pipelineName)
 	if projectName != "" {
 		selector = fmt.Sprintf("%s,%s=%s", selector, pipelineProjectLabel, projectName)
+	} else {
+		selector = fmt.Sprintf("%s,!%s", selector, pipelineProjectLabel)
 	}
 	opts := metav1.DeleteOptions{
 		OrphanDependents: &falseVal,
@@ -124,9 +126,15 @@ func (kd *kubeDriver) ReadReplicationController(ctx context.Context, pi *pps.Pip
 	kd.limiter.Acquire()
 	defer kd.limiter.Release()
 	// List all RCs, so stale RCs from old pipelines are noticed and deleted
+	labelSelector := fmt.Sprintf("%s=%s", pipelineNameLabel, pi.Pipeline.Name)
+	if projectName := pi.Pipeline.Project.GetName(); projectName != "" {
+		labelSelector = fmt.Sprintf("%s,%s=%s", labelSelector, pipelineProjectLabel, projectName)
+	} else {
+		labelSelector = fmt.Sprintf("%s,!%s", labelSelector, pipelineProjectLabel)
+	}
 	rc, err := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).List(
 		ctx,
-		metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", pipelineNameLabel, pi.Pipeline.Name)})
+		metav1.ListOptions{LabelSelector: labelSelector})
 	return rc, errors.Wrapf(err, "failed to read rc for pipeline %s", pi.Pipeline.Name)
 }
 
