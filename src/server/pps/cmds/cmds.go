@@ -941,6 +941,46 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
 	commands = append(commands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
 
+	var commitSet string
+	var boxWidth int
+	var edgeHeight int
+	draw := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Draw a DAG",
+		Long:  "Draw a DAG",
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "error connecting to pachd")
+			}
+			defer client.Close()
+			request := &ppsclient.ListPipelineRequest{
+				History:   0,
+				JqFilter:  "",
+				Details:   true,
+				CommitSet: &pfs.CommitSet{ID: commitSet},
+			}
+			lpClient, err := client.PpsAPIClient.ListPipeline(client.Ctx(), request)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			pipelineInfos, err := clientsdk.ListPipelineInfo(lpClient)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if picture, err := pretty.Draw(pipelineInfos, pretty.BoxWidthOption(boxWidth), pretty.EdgeHeightOption(edgeHeight)); err != nil {
+				return err
+			} else {
+				fmt.Print(picture)
+			}
+			return nil
+		}),
+	}
+	draw.Flags().StringVarP(&commitSet, "commit", "c", "", "Commit at which you would to draw the DAG")
+	draw.Flags().IntVar(&boxWidth, "box-width", 11, "Character width of each box in the DAG")
+	draw.Flags().IntVar(&edgeHeight, "edge-height", 5, "Number of vertical lines spanned by each edge")
+	commands = append(commands, cmdutil.CreateAlias(draw, "draw"))
+
 	var (
 		all      bool
 		force    bool

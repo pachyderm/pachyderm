@@ -463,7 +463,7 @@ func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, 
 	for commitInfo.Origin.Kind != pfs.OriginKind_USER {
 		curr = commitInfo.ParentCommit
 		if curr == nil {
-			return nil, errors.Errorf("spec commit for pipeline %s not found", pipeline)
+			return nil, errors.Wrapf(ppsServer.ErrPipelineNotFound{}, "spec commit for pipeline %s not found", pipeline)
 		}
 		if commitInfo, err = pfsServer.InspectCommitInTransaction(txnCtx,
 			&pfs.InspectCommitRequest{Commit: curr}); err != nil {
