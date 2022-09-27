@@ -164,6 +164,70 @@ func TestSimplePipeline(t *testing.T) {
 	}
 }
 
+func TestCrossProjectPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	c = c.WithDefaultTransformUser("1000")
+
+	inputProjectName := tu.UniqueString("input")
+	require.NoError(t, c.CreateProject(inputProjectName))
+	dataRepoName := tu.UniqueString("TestSimplePipeline_data")
+	require.NoError(t, c.CreateProjectRepo(inputProjectName, dataRepoName))
+
+	commit1, err := c.StartProjectCommit(inputProjectName, dataRepoName, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishProjectCommit(inputProjectName, dataRepoName, commit1.Branch.Name, commit1.ID))
+
+	pipelineProjectName := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreateProject(pipelineProjectName))
+
+	pipeline := tu.UniqueString("TestPipeline")
+	require.NoError(t, c.CreateProjectPipeline(pipelineProjectName,
+		pipeline,
+		tu.DefaultTransformImage,
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepoName),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewProjectPFSInput(inputProjectName, dataRepoName, "/*"),
+		"",
+		false,
+	))
+
+	commitInfo, err := c.InspectProjectCommit(pipelineProjectName, pipeline, "master", "")
+	require.NoError(t, err)
+	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	// The commitset should have a commit in: data, spec, pipeline, meta
+	// the last two are dependent upon the first two, so should come later
+	// in topological ordering
+	require.Equal(t, 4, len(commitInfos))
+	var commitRepos []*pfs.Repo
+	for _, info := range commitInfos {
+		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
+	}
+	require.EqualOneOf(t, commitRepos[:2], client.NewProjectRepo(inputProjectName, dataRepoName))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemProjectRepo(pipelineProjectName, pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewProjectRepo(pipelineProjectName, pipeline))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemProjectRepo(pipelineProjectName, pipeline, pfs.MetaRepoType))
+
+	var buf bytes.Buffer
+	for _, info := range commitInfos {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(pipelineProjectName, pipeline)) {
+			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
+			require.Equal(t, "foo", buf.String())
+		}
+	}
+}
+
 func TestRepoSize(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
