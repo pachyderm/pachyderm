@@ -65,11 +65,11 @@ func Draw(pis []*pps.PipelineInfo, opts ...RenderOption) (string, error) {
 	for _, o := range opts {
 		o(ro)
 	}
-	if g, err := makeGraph(pis); err != nil {
+	g, err := makeGraph(pis)
+	if err != nil {
 		return "", err
-	} else {
-		return draw(g, layerLongestPath, orderGreedy, ro), nil
 	}
+	return draw(g, layerLongestPath, orderGreedy, ro), nil
 }
 
 func makeGraph(pis []*pps.PipelineInfo) ([]*vertex, error) {
@@ -287,8 +287,7 @@ func (re renderEdge) render(row string, vertIdx, vertDist int) string {
 	setEdgeChar := func(s string, i int, r rune) string {
 		if s[i] == byte(r) {
 			return s
-		}
-		if s[i] == ' ' {
+		} else if s[i] == ' ' {
 			return s[:i] + string(r) + s[i+1:]
 		}
 		return s[:i] + "+" + s[i+1:] // set the coordinate to "+" if there's an edge crossing
@@ -323,11 +322,9 @@ func (re renderEdge) render(row string, vertIdx, vertDist int) string {
 		offset = adjustedXDist - (vertDist - offset)
 	}
 	if re.src > re.dest {
-		i := re.src - offset
-		return setEdgeChar(row, i, '/')
+		return setEdgeChar(row, re.src-offset, '/')
 	} else {
-		i := re.src + offset
-		return setEdgeChar(row, i, '\\')
+		return setEdgeChar(row, re.src+offset, '\\')
 	}
 }
 
