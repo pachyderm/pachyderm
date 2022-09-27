@@ -245,20 +245,6 @@ func ParsePartialFile(project, arg string) *pfs.File {
 	return client.NewProjectFile(project, arg, "", "", "")
 }
 
-// ParseFiles converts all arguments to *pfs.Commit structs using the
-// semantics of ParseFile
-func ParseFiles(project string, args []string) ([]*pfs.File, error) {
-	var results []*pfs.File
-	for _, arg := range args {
-		commit, err := ParseFile(project, arg)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, commit)
-	}
-	return results, nil
-}
-
 // ParseHistory parses a --history flag argument. Permissable values are "all"
 // "none", and integers greater than or equal to -1 (as strings).
 func ParseHistory(history string) (int64, error) {
