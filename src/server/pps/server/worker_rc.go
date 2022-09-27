@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -329,7 +330,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 
 	// mount secret for spouts using pachctl
 	if pipelineInfo.Details.Spout != nil {
-		pachctlSecretVolume, pachctlSecretMount := getPachctlSecretVolumeAndMount("spout-pachctl-secret-" + pipelineInfo.Pipeline.Name)
+		pachctlSecretVolume, pachctlSecretMount := getPachctlSecretVolumeAndMount(secretName(pipelineInfo.Pipeline))
 		options.volumes = append(options.volumes, pachctlSecretVolume)
 		sidecarVolumeMounts = append(sidecarVolumeMounts, pachctlSecretMount)
 		userVolumeMounts = append(userVolumeMounts, pachctlSecretMount)
@@ -796,7 +797,7 @@ func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInf
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   "spout-pachctl-secret-" + pipelineInfo.Pipeline.Name,
+			Name:   secretName(pipelineInfo.Pipeline),
 			Labels: spoutLabels(pipelineInfo.Pipeline),
 		},
 		Data: map[string][]byte{
@@ -817,6 +818,13 @@ func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInf
 		}
 	}
 	return nil
+}
+
+func secretName(p *pps.Pipeline) string {
+	if projectName := p.Project.GetName(); projectName != "" {
+		return fmt.Sprintf("spout-pachctl-secret-%s-%s", projectName, p.Name)
+	}
+	return fmt.Sprintf("spout-pachctl-secret-%s", p.Name)
 }
 
 // noValidOptions error may be returned by createWorkerSvcAndRc to indicate that
