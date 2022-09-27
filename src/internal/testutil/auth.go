@@ -126,9 +126,9 @@ func GetRepoRoleBinding(t *testing.T, c *client.APIClient, repo string) *auth.Ro
 }
 
 // CommitCnt uses 'c' to get the number of commits made to the repo 'repo'
-func CommitCnt(t *testing.T, c *client.APIClient, repo string) int {
+func CommitCnt(t *testing.T, c *client.APIClient, projectName, repoName string) int {
 	t.Helper()
-	commitList, err := c.ListCommitByRepo(client.NewProjectRepo(pfs.DefaultProjectName, repo))
+	commitList, err := c.ListCommitByRepo(client.NewProjectRepo(projectName, repoName))
 	require.NoError(t, err)
 	return len(commitList)
 }

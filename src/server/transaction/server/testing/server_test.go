@@ -481,13 +481,13 @@ func TestCreatePipelineTransaction(t *testing.T) {
 	pipeline := testutil.UniqueString("pipeline")
 	_, err := c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
 		require.NoError(t, txnClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-		require.NoError(t, txnClient.CreatePipeline(
+		require.NoError(t, txnClient.CreateProjectPipeline(pfs.DefaultProjectName,
 			pipeline,
 			"",
 			[]string{"bash"},
 			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out", repo)},
 			&pps.ParallelismSpec{Constant: 1},
-			client.NewPFSInput(repo, "/"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/"),
 			"master",
 			false,
 		))

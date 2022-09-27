@@ -120,7 +120,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	// Note: we must pass aliceClient to tu.CommitCnt, because it calls
 	// ListCommit(repo), which requires the caller to have READER access to
 	// 'repo', which bob does not have (but alice does)
-	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
+	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, pfs.DefaultProjectName, repo)) // check that no commits were created
 
 	// bob can't update the ACL
 	err = bobClient.ModifyRepoRoleBinding(repo, tu.Robot("carol"), []string{auth.RepoReaderRole})
@@ -145,7 +145,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
-	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
+	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, pfs.DefaultProjectName, repo)) // check that a new commit was created
 
 	// bob can update the repo's ACL
 	err = bobClient.ModifyRepoRoleBinding(repo, tu.Robot("carol"), []string{auth.RepoReaderRole})
@@ -171,7 +171,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
+	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, "", repo)) // check that no commits were created
 
 	// bob can't update the ACL
 	err = bobClient.ModifyRepoRoleBinding(repo, tu.Robot("carol"), []string{auth.RepoWriterRole})
@@ -219,7 +219,7 @@ func TestFSAdminRWO(t *testing.T) {
 	// Note: we must pass aliceClient to tu.CommitCnt, because it calls
 	// ListCommit(repo), which requires the caller to have READER access to
 	// 'repo', which bob does not have (but alice does)
-	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
+	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, "", repo)) // check that no commits were created
 
 	// bob can't update the ACL
 	err = bobClient.ModifyRepoRoleBinding(repo, tu.Robot("carol"), []string{auth.RepoReaderRole})
@@ -244,7 +244,7 @@ func TestFSAdminRWO(t *testing.T) {
 	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
-	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
+	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, pfs.DefaultProjectName, repo)) // check that a new commit was created
 
 	// bob can update the repo's ACL
 	err = bobClient.ModifyRepoRoleBinding(repo, tu.Robot("carol"), []string{auth.RepoReaderRole})
@@ -270,7 +270,7 @@ func TestFSAdminRWO(t *testing.T) {
 	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
+	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, "", repo)) // check that no commits were created
 
 	// bob can't update the ACL
 	err = bobClient.ModifyRepoRoleBinding(repo, tu.Robot("carol"), []string{auth.RepoWriterRole})
@@ -313,7 +313,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	_, err = aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 0, tu.CommitCnt(t, rootClient, repo)) // check that no commits were created
+	require.Equal(t, 0, tu.CommitCnt(t, rootClient, "", repo)) // check that no commits were created
 
 	// bob, an FS admin, can update the ACL to put Alice back, even though reading the ACL
 	// will fail
@@ -326,7 +326,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
-	require.Equal(t, 1, tu.CommitCnt(t, rootClient, repo)) // check that a new commit was created
+	require.Equal(t, 1, tu.CommitCnt(t, rootClient, pfs.DefaultProjectName, repo)) // check that a new commit was created
 }
 
 // TestCannotRemoveRootAdmin tests that trying to remove the root user as an admin returns an error.
@@ -390,13 +390,13 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	repo := tu.UniqueString("TestPreActivationPipelinesKeepRunningAfterActivation")
 	pipeline := tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))

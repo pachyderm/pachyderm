@@ -21,7 +21,7 @@ func main() {
 		panic(err)
 	}
 
-	imageRepo := client.NewProjectRepo("", "images")
+	imageRepo := client.NewProjectRepo(pfs.DefaultProjectName, "images")
 	imageCommit := imageRepo.NewCommit("master", "")
 
 	if _, err := c.PfsAPIClient.CreateRepo(
@@ -67,7 +67,7 @@ func main() {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput("images", "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, "images", "/*"),
 		"",
 		false,
 	); err != nil {
@@ -85,8 +85,8 @@ func main() {
 			Constant: 1,
 		},
 		client.NewCrossInput(
-			client.NewPFSInput("images", "/"),
-			client.NewPFSInput("edges", "/"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, "images", "/"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, "edges", "/"),
 		),
 		"",
 		false,

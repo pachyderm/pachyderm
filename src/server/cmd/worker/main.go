@@ -6,8 +6,18 @@ import (
 	"path"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/client/v3"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker"
+	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	"github.com/pachyderm/pachyderm/v2/src/version"
+	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -16,14 +26,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
-	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker"
-	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
-	"github.com/pachyderm/pachyderm/v2/src/version"
-	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-
-	log "github.com/sirupsen/logrus"
-	etcd "go.etcd.io/etcd/client/v3"
 )
 
 func main() {
@@ -48,7 +50,8 @@ func do(ctx context.Context, config interface{}) error {
 		pachClient,
 		env.GetDBClient(),
 		env.GetPostgresListener(),
-		client.NewPipeline(env.Config().PPSPipelineName),
+		// TODO: this will get the project name in CORE-1024
+		client.NewProjectPipeline(pfs.DefaultProjectName, env.Config().PPSPipelineName),
 		env.Config().PPSSpecCommitID,
 	) // get pipeline creds for pachClient
 	if err != nil {

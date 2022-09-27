@@ -98,7 +98,7 @@ func (s *debugServer) handleRedirect(
 						return s.collectDatabaseDump(ctx, tw, databasePrefix)
 					}
 				case *debug.Filter_Pipeline:
-					pipelineInfo, err := pachClient.InspectPipeline(f.Pipeline.Name, true)
+					pipelineInfo, err := pachClient.InspectProjectPipeline(f.Pipeline.Project.GetName(), f.Pipeline.Name, true)
 					if err != nil {
 						return err
 					}
@@ -507,7 +507,7 @@ func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pac
 		return err
 	}
 	for _, repoInfo := range repoInfos {
-		if _, err := pachClient.InspectPipeline(repoInfo.Repo.Name, true); err != nil {
+		if _, err := pachClient.InspectProjectPipeline(repoInfo.Repo.Project.GetName(), repoInfo.Repo.Name, true); err != nil {
 			if errutil.IsNotFoundError(err) {
 				repoPrefix := join("source-repos", repoInfo.Repo.Name)
 				return s.collectCommits(ctx, tw, pachClient, repoInfo.Repo, limit, repoPrefix)
@@ -755,7 +755,7 @@ func collectDump(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefi
 func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
 		if err := collectDebugFile(tw, "spec", "json", func(w io.Writer) error {
-			fullPipelineInfos, err := pachClient.ListPipelineHistory(pipelineInfo.Pipeline.Name, -1, true)
+			fullPipelineInfos, err := pachClient.ListProjectPipelineHistory(pfs.DefaultProjectName, pipelineInfo.Pipeline.Name, -1, true)
 			if err != nil {
 				return err
 			}

@@ -8,7 +8,15 @@ import (
 	"strings"
 	"time"
 
+	logrus "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
@@ -17,12 +25,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
-	logrus "github.com/sirupsen/logrus"
-
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -58,7 +60,8 @@ func (a *apiServer) ServeSidecarS3G() {
 			s.pachClient,
 			a.env.DB,
 			a.env.Listener,
-			client.NewPipeline(a.env.Config.PPSPipelineName),
+			// TODO: this will get the project in CORE-1024
+			client.NewProjectPipeline(pfs.DefaultProjectName, a.env.Config.PPSPipelineName),
 			a.env.Config.PPSSpecCommitID,
 		)
 		return errors.Wrapf(err, "sidecar s3 gateway: could not find pipeline")
@@ -334,7 +337,7 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 	var jobInfo *pps.JobInfo
 	if err := backoff.RetryNotify(func() error {
 		var err error
-		jobInfo, err = pachClient.InspectJob(h.s.pipelineInfo.Pipeline.Name, job.ID, true)
+		jobInfo, err = pachClient.InspectProjectJob(h.s.pipelineInfo.Pipeline.Project.GetName(), h.s.pipelineInfo.Pipeline.Name, job.ID, true)
 		if err != nil {
 			if col.IsErrNotFound(err) {
 				// TODO(msteffen): I'm not sure what this means--maybe that the service

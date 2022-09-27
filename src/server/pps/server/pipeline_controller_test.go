@@ -108,7 +108,7 @@ func validate(t testing.TB, sDriver *mockStateDriver, iDriver *mockInfraDriver, 
 func TestBasic(t *testing.T) {
 	stateDriver, infraDriver, _ := ppsMasterHandles(t)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewPipeline(pipelineName)
+	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
 		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
@@ -130,7 +130,7 @@ func TestBasic(t *testing.T) {
 func TestDeletePipeline(t *testing.T) {
 	stateDriver, infraDriver, _ := ppsMasterHandles(t)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewPipeline(pipelineName)
+	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
 	pi := &pps.PipelineInfo{
 		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
@@ -165,7 +165,7 @@ func TestDeletePipeline(t *testing.T) {
 func TestDeleteRC(t *testing.T) {
 	stateDriver, infraDriver, _ := ppsMasterHandles(t)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewPipeline(pipelineName)
+	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
 	pi := &pps.PipelineInfo{
 		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
@@ -201,7 +201,7 @@ func TestDeleteRC(t *testing.T) {
 func TestAutoscalingBasic(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewPipeline(pipelineName)
+	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
 	done := mockJobRunning(mockPachd, 1, 1)
 	defer close(done)
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
@@ -232,7 +232,7 @@ func TestAutoscalingBasic(t *testing.T) {
 func TestAutoscalingManyCommits(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewPipeline(pipelineName)
+	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
 	done := mockJobRunning(mockPachd, 1, 100)
 	defer close(done)
 	inspectCount := 0
@@ -270,7 +270,7 @@ func TestAutoscalingManyCommits(t *testing.T) {
 func TestAutoscalingManyTasks(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewPipeline(pipelineName)
+	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
 	done := mockJobRunning(mockPachd, 100, 1)
 	defer close(done)
 	mockPachd.PFS.InspectCommit.Use(func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
@@ -314,7 +314,7 @@ func TestAutoscalingManyTasks(t *testing.T) {
 func TestAutoscalingNoCommits(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewPipeline(pipelineName)
+	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
 	done := mockJobRunning(mockPachd, 0, 0)
 	defer close(done)
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
@@ -343,7 +343,7 @@ func TestAutoscalingNoCommits(t *testing.T) {
 func TestPause(t *testing.T) {
 	stateDriver, infraDriver, _ := ppsMasterHandles(t)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewPipeline(pipelineName)
+	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
 	pi := &pps.PipelineInfo{
 		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
@@ -383,7 +383,7 @@ func TestPause(t *testing.T) {
 func TestPauseAutoscaling(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewPipeline(pipelineName)
+	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
 	done := mockJobRunning(mockPachd, 1, 1)
 	defer close(done)
 	pi := &pps.PipelineInfo{
@@ -442,7 +442,7 @@ func TestPauseAutoscaling(t *testing.T) {
 func TestStaleRestart(t *testing.T) {
 	stateDriver, infraDriver, _ := ppsMasterHandles(t)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewPipeline(pipelineName)
+	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
 	pi := &pps.PipelineInfo{
 		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,

@@ -131,10 +131,10 @@ func TestSnowflakeReadWrite(t *testing.T) {
 	}
 
 	// run cron job and wait for both pipelines to succeed
-	require.NoError(t, c.RunCron(readPipeline))
+	require.NoError(t, c.RunProjectCron(pfs.DefaultProjectName, readPipeline))
 	commitInfo, err := c.WaitProjectCommit(pfs.DefaultProjectName, readPipeline, "master", "")
 	require.NoError(t, err)
-	jobInfo, err := c.InspectJob(readPipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.InspectProjectJob(pfs.DefaultProjectName, readPipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.GetState())
 
@@ -144,7 +144,7 @@ func TestSnowflakeReadWrite(t *testing.T) {
 
 	commitInfo, err = c.WaitProjectCommit(pfs.DefaultProjectName, writePipeline, "master", "")
 	require.NoError(t, err)
-	jobInfo, err = c.InspectJob(writePipeline, commitInfo.Commit.ID, false)
+	jobInfo, err = c.InspectProjectJob(pfs.DefaultProjectName, writePipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.GetState())
 
