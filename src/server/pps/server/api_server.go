@@ -3138,13 +3138,17 @@ func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) ma
 	return labels
 }
 
-func spoutLabels(pipelineName string) map[string]string {
-	return map[string]string{
+func spoutLabels(pipeline *pps.Pipeline) map[string]string {
+	m := map[string]string{
 		appLabel:          "spout",
-		pipelineNameLabel: pipelineName,
+		pipelineNameLabel: pipeline.Name,
 		"suite":           suite,
 		"component":       "worker",
 	}
+	if projectName := pipeline.Project.GetName(); projectName != "" {
+		m[pipelineProjectLabel] = projectName
+	}
+	return m
 }
 
 func (a *apiServer) RenderTemplate(ctx context.Context, req *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error) {

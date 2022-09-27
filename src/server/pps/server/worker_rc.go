@@ -797,7 +797,7 @@ func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInf
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "spout-pachctl-secret-" + pipelineInfo.Pipeline.Name,
-			Labels: spoutLabels(pipelineInfo.Pipeline.Name),
+			Labels: spoutLabels(pipelineInfo.Pipeline),
 		},
 		Data: map[string][]byte{
 			"config.json": rawConfig,
