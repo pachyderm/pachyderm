@@ -865,6 +865,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAliases(editPipeline, "edit pipeline", pipelines))
 
 	var spec bool
+	var commit string
 	listPipeline := &cobra.Command{
 		Use:   "{{alias}} [<pipeline>]",
 		Short: "Return info about all pipelines.",
@@ -897,7 +898,12 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) > 0 {
 				pipeline = args[0]
 			}
-			request := &ppsclient.ListPipelineRequest{History: history, JqFilter: filter, Details: true}
+			request := &ppsclient.ListPipelineRequest{
+				History:   history,
+				CommitSet: &pfs.CommitSet{ID: commit},
+				JqFilter:  filter,
+				Details:   true,
+			}
 			if pipeline != "" {
 				request.Pipeline = pachdclient.NewProjectPipeline(project, pipeline)
 			}
@@ -943,6 +949,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().AddFlagSet(outputFlags)
 	listPipeline.Flags().AddFlagSet(timestampFlags)
 	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
+	listPipeline.Flags().StringVarP(&commit, "commit", "c", "", "List the pipelines as they existed at this commit.")
 	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
 	listPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing projects.")
 	commands = append(commands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
