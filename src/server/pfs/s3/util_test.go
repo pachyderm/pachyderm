@@ -1,3 +1,5 @@
+//go:build !k8s
+
 package s3_test
 
 import (
@@ -5,9 +7,6 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
-
-	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
-
 	"net"
 	"os"
 	"path/filepath"
@@ -16,7 +15,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
+
 	minio "github.com/minio/minio-go/v6"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
