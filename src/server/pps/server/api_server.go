@@ -2517,7 +2517,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	}); err != nil {
 		return err
 	}
-	// FIXME: make project-aware
+	// FIXME(1101): make project-aware
 	clearJobCache(a.env.GetPachClient(ctx), pipelineName)
 	return deleteErr
 }
