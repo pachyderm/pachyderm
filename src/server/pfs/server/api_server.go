@@ -210,7 +210,7 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommi
 
 // ListCommit implements the protobuf pfs.ListCommit RPC
 func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.API_ListCommitServer) (retErr error) {
-	return a.driver.listCommit(respServer.Context(), request.Repo, request.To, request.From, request.Number, request.Reverse, request.All, request.OriginKind, func(ci *pfs.CommitInfo) error {
+	return a.driver.listCommit(respServer.Context(), request.Repo, request.To, request.From, request.StartedTime, request.Number, request.Reverse, request.All, request.OriginKind, func(ci *pfs.CommitInfo) error {
 		return errors.EnsureStack(respServer.Send(ci))
 	})
 }
@@ -343,6 +343,34 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.DeleteBranch(request))
 	}, nil); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+// CreateProject implements the protobuf pfs.CreateProject RPC
+func (a *apiServer) CreateProject(ctx context.Context, request *pfs.CreateProjectRequest) (*types.Empty, error) {
+	if err := a.driver.createProject(ctx, request); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+// InspectProject implements the protobuf pfs.InspectProject RPC
+func (a *apiServer) InspectProject(ctx context.Context, request *pfs.InspectProjectRequest) (*pfs.ProjectInfo, error) {
+	return a.driver.inspectProject(ctx, request.Project)
+}
+
+// ListProject implements the protobuf pfs.ListProject RPC
+func (a *apiServer) ListProject(request *pfs.ListProjectRequest, srv pfs.API_ListProjectServer) error {
+	return a.driver.listProject(srv.Context(), srv.Send)
+}
+
+// DeleteProject implements the protobuf pfs.DeleteProject RPC
+func (a *apiServer) DeleteProject(ctx context.Context, request *pfs.DeleteProjectRequest) (*types.Empty, error) {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return a.driver.deleteProject(txnCtx, request.Project, request.Force)
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -486,7 +514,7 @@ func deleteFile(ctx context.Context, uw *fileset.UnorderedWriter, request *pfs.D
 func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFileTARServer) (retErr error) {
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
-		src, err := a.driver.getFile(ctx, request.File)
+		src, err := a.driver.getFile(ctx, request.File, request.PathRange)
 		if err != nil {
 			return 0, err
 		}
@@ -509,7 +537,7 @@ func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFi
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileServer) (retErr error) {
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
-		src, err := a.driver.getFile(ctx, request.File)
+		src, err := a.driver.getFile(ctx, request.File, request.PathRange)
 		if err != nil {
 			return 0, err
 		}
@@ -615,7 +643,7 @@ func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFi
 
 // GlobFile implements the protobuf pfs.GlobFile RPC
 func (a *apiServer) GlobFile(request *pfs.GlobFileRequest, respServer pfs.API_GlobFileServer) (retErr error) {
-	return a.driver.globFile(respServer.Context(), request.Commit, request.Pattern, func(fi *pfs.FileInfo) error {
+	return a.driver.globFile(respServer.Context(), request.Commit, request.Pattern, request.PathRange, func(fi *pfs.FileInfo) error {
 		return errors.EnsureStack(respServer.Send(fi))
 	})
 }
@@ -654,7 +682,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 		// list meta repos as a proxy for finding pipelines
 		return a.driver.listRepo(ctx, false, pfs.MetaRepoType, func(info *pfs.RepoInfo) error {
 			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
-			output := client.NewCommit(info.Repo.Name, "master", "")
+			output := client.NewProjectCommit(info.Repo.Project.GetName(), info.Repo.Name, "master", "")
 			for output != nil {
 				info, err := a.driver.inspectCommit(ctx, output, pfs.CommitState_STARTED)
 				if err != nil {
@@ -696,6 +724,20 @@ func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) 
 	}
 	return &pfs.CreateFileSetResponse{
 		FileSetId: filesetID.HexString(),
+	}, nil
+}
+
+func (a *apiServer) ShardFileSet(ctx context.Context, req *pfs.ShardFileSetRequest) (*pfs.ShardFileSetResponse, error) {
+	fsid, err := fileset.ParseID(req.FileSetId)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.driver.shardFileSet(ctx, *fsid)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.ShardFileSetResponse{
+		Shards: shards,
 	}, nil
 }
 
@@ -741,7 +783,7 @@ func (a *apiServer) ComposeFileSet(ctx context.Context, req *pfs.ComposeFileSetR
 		}
 		fsids = append(fsids, *fsid)
 	}
-	filesetID, err := a.driver.composeFileSet(ctx, fsids, time.Duration(req.TtlSeconds)*time.Second)
+	filesetID, err := a.driver.composeFileSet(ctx, fsids, time.Duration(req.TtlSeconds)*time.Second, req.Compact)
 	if err != nil {
 		return nil, err
 	}
@@ -795,18 +837,20 @@ func (a *apiServer) ClearCache(ctx context.Context, req *pfs.ClearCacheRequest) 
 func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
 	taskService := a.env.TaskService
+	var project string
 	repo := "load_test"
 	if req.Branch != nil {
+		project = req.Branch.Repo.Project.GetName()
 		repo = req.Branch.Repo.Name
 	}
-	if err := pachClient.CreateRepo(repo); err != nil && !pfsserver.IsRepoExistsErr(err) {
+	if err := pachClient.CreateProjectRepo(project, repo); err != nil && !pfsserver.IsRepoExistsErr(err) {
 		return nil, err
 	}
 	branch := uuid.New()
 	if req.Branch != nil {
 		branch = req.Branch.Name
 	}
-	if err := pachClient.CreateBranch(repo, branch, "", "", nil); err != nil {
+	if err := pachClient.CreateProjectBranch(project, repo, branch, "", "", nil); err != nil {
 		return nil, err
 	}
 	seed := time.Now().UTC().UnixNano()
@@ -815,7 +859,7 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 	}
 	resp := &pfs.RunLoadTestResponse{
 		Spec:   req.Spec,
-		Branch: client.NewBranch(repo, branch),
+		Branch: client.NewProjectBranch(req.Branch.GetRepo().GetProject().GetName(), repo, branch),
 		Seed:   seed,
 	}
 	start := time.Now()
@@ -835,7 +879,7 @@ func (a *apiServer) runLoadTest(pachClient *client.APIClient, taskService task.S
 	if err := jsonpb.Unmarshal(bytes.NewReader(jsonBytes), spec); err != nil {
 		return errors.EnsureStack(err)
 	}
-	return pfsload.Commit(pachClient, taskService, branch.Repo.Name, branch.Name, spec, seed)
+	return pfsload.Commit(pachClient, taskService, branch.Repo.Project.GetName(), branch.Repo.Name, branch.Name, spec, seed)
 }
 
 func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (resp *pfs.RunLoadTestResponse, retErr error) {
@@ -933,7 +977,7 @@ func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
 }
 
 func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.EgressResponse, error) {
-	src, err := a.driver.getFile(ctx, req.Commit.NewFile("/"))
+	src, err := a.driver.getFile(ctx, req.Commit.NewFile("/"), nil)
 	if err != nil {
 		return nil, err
 	}

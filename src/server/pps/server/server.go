@@ -26,7 +26,7 @@ type Env struct {
 	DB          *pachsql.DB
 	TxnEnv      *txnenv.TransactionEnv
 	Listener    collection.PostgresListener
-	KubeClient  *kubernetes.Clientset
+	KubeClient  kubernetes.Interface
 	EtcdClient  *etcd.Client
 	EtcdPrefix  string
 	TaskService task.Service
@@ -82,6 +82,7 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 		logrus.Warning("Preflight checks are disabled. This is not recommended.")
 	}
 	go apiServer.master()
+	go apiServer.worker()
 	return apiServer, nil
 }
 

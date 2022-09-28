@@ -17,7 +17,7 @@ You can inject database content, collected by your data warehouse, by pulling th
 
 ### 1. Create & Upload a Secret
 
-You must generate a secret that contains the password granting user access to the database; you will pass the username details through the database connection string in [step 2](#2-create-a-database-connection).
+You must generate a secret that contains the password granting user access to the database; you will pass the username details through the database connection string in [step 2](#2-create-a-database-connection-string).
 
 1. Copy the following:
     ```shell
@@ -148,7 +148,7 @@ pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pa
 | `hasHeader`   | Adds a header to your CSV file if set to `true`. Ignored if `format="json"` (JSON files always display (header,value) pairs for each returned row). Defaults to `false`. <br><br>Pachyderm creates the header after each element of the comma separated list of your SELECT clause or their aliases (if any). <br>For example `country.country_name_eng` will have `country.country_name_eng` as header while `country.country_name_eng as country_name` will have `country_name`. |
 | `cronSpec`    | How often to run the query. For example `"@every 60s"`.|
 | `format`      | The type of your output file containing the results of your query (either `json` or `csv`).|
-| `secretName`  | The Kubernetes secret name that contains the [password to the database](#database-secret).|
+| `secretName`  | The Kubernetes secret name that contains the password to the database.|
 |`outputFile` | The name of the file created by your pipeline and stored in your output repo; default `0000`|
 
 #### URL Parameter Details

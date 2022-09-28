@@ -9,57 +9,55 @@ import "pfs/pfs.proto";
 import "pps/pps.proto";
 import "server/worker/datum/datum.proto";
 
-message DatumSet {
-  // Inputs
-  string job_id = 1 [(gogoproto.customname) = "JobID"];
-  string file_set_id = 2;
-  pfs_v2.Commit output_commit = 3;
-
-  // Outputs
-  string output_file_set_id = 4;
-  string meta_file_set_id = 5;
-  datum.Stats stats = 6;
-}
-
-message UploadDatumsTask {
+message CreateParallelDatumsTask {
   pps_v2.Job job = 1;
+  string salt = 2;
+  string file_set_id = 3;
+  string base_file_set_id = 4;
+  pfs_v2.PathRange path_range = 5;
 } 
 
-message UploadDatumsTaskResult {
+message CreateParallelDatumsTaskResult {
   string file_set_id = 1;
-  int64 count = 2;
-} 
-
-message ComputeParallelDatumsTask {
-  pps_v2.Job job = 1;
-  string file_set_id = 2;
-  string base_file_set_id = 3;
-} 
-
-message ComputeParallelDatumsTaskResult {
-  string file_set_id = 1;
+  datum.Stats stats = 2;
 }
 
-message ComputeSerialDatumsTask {
+message CreateSerialDatumsTask {
   pps_v2.Job job = 1;
-  string file_set_id = 2;
-  pfs_v2.Commit base_meta_commit = 3;
-  bool no_skip = 4;
+  string salt = 2;
+  string file_set_id = 3;
+  pfs_v2.Commit base_meta_commit = 4;
+  bool no_skip = 5;
+  pfs_v2.PathRange path_range = 6;
 }
 
-message ComputeSerialDatumsTaskResult {
+message CreateSerialDatumsTaskResult {
   string file_set_id = 1;
-  string delete_file_set_id = 2;
-  int64 skipped = 3;
+  string output_delete_file_set_id = 2;
+  string meta_delete_file_set_id = 3;
+  datum.Stats stats = 4;
 } 
 
 message CreateDatumSetsTask {
-  pps_v2.Job job = 1;
-  pfs_v2.Commit output_commit = 2;
-  string file_set_id = 3;
+  string file_set_id = 1;
+  pfs_v2.PathRange path_range = 2;
+  datum.SetSpec set_spec = 3;
 } 
 
 message CreateDatumSetsTaskResult {
-  string file_set_id = 1;
-  string input_file_sets_id = 2;
+  repeated pfs_v2.PathRange datum_sets = 1;
 } 
+
+message DatumSetTask {
+  pps_v2.Job job = 1;
+  string file_set_id = 2;
+  pfs_v2.PathRange path_range = 3;
+  pfs_v2.Commit output_commit = 4;
+}
+
+message DatumSetTaskResult {
+  string output_file_set_id = 1;
+  string meta_file_set_id = 2;
+  datum.Stats stats = 3;
+}
+

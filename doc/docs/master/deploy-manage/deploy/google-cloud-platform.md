@@ -338,7 +338,7 @@ Check out Google documentation for more information on how to [Create and Manage
 
 After your instance is created, you will need to create Pachyderm's database(s).
       
-If you plan to deploy a standalone cluster (i.e., if you do not plan to register your cluster with a separate [enterprise server](../../../enterprise/auth/enterprise-server/setup)), you will need to create a second database named "dex" in your Cloud SQL instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. This second database is not needed when your cluster is managed by an enterprise server.
+If you plan to deploy a standalone cluster (i.e., if you do not plan to register your cluster with a separate [enterprise server](../../enterprise/auth/enterprise-server/setup.md)), you will need to create a second database named "dex" in your Cloud SQL instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. This second database is not needed when your cluster is managed by an enterprise server.
 
 !!! Note
     Read more about [dex on PostgreSQL in Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}.
@@ -594,7 +594,7 @@ pachd               {{ config.pach_latest_version }}
 
 Once your cluster is up and running, you can helm install JupyterHub on your Pachyderm cluster and experiment with your data in Pachyderm from your Notebook cells. 
 
-Check out our [JupyterHub and Pachyderm Mount Extension](../../../how-tos/jupyterlab-extension/#pachyderm-jupyterlab-mount-extension){target=_blank} page for installation instructions. 
+Check out our [JupyterHub and Pachyderm Mount Extension](../../how-tos/jupyterlab-extension/index.md){target=_blank} page for installation instructions. 
 
 Use Pachyderm's default image and values.yaml [`jupyterhub-ext-values.yaml`](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/examples/jupyterhub-ext-values.yaml){target=_blank} or follow the instructions to update your own.
 

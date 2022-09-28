@@ -98,6 +98,14 @@ func (w *Writer) callback(level int) chunk.ChunkFunc {
 			ChunkRef: chunkRef,
 		}
 		idx.File = nil
+		idx.NumFiles = 0
+		for _, meta := range metas {
+			idx.NumFiles += meta.(*Index).NumFiles
+		}
+		idx.SizeBytes = 0
+		for _, meta := range metas {
+			idx.SizeBytes += meta.(*Index).SizeBytes
+		}
 		// Write index entry in next index level.
 		return w.writeIndex(idx, level+1)
 	}

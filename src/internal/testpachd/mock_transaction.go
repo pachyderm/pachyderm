@@ -67,7 +67,7 @@ func (mock *mockCreatePipelineInTransaction) Use(cb createPipelineInTransactionF
 	mock.handler = cb
 }
 
-type inspectPipelineInTransactionFunc func(*txncontext.TransactionContext, string) (*pps.PipelineInfo, error)
+type inspectPipelineInTransactionFunc func(*txncontext.TransactionContext, *pps.Pipeline) (*pps.PipelineInfo, error)
 
 type mockInspectPipelineInTransaction struct {
 	handler inspectPipelineInTransactionFunc
@@ -95,7 +95,7 @@ type ppsTransactionAPI struct {
 // MockPPSTransactionServer provides a mocking interface for overriding PPS
 // behavior inside transactions.
 type MockPPSTransactionServer struct {
-	api                          ppsTransactionAPI
+	Api                          ppsTransactionAPI
 	NewPropagater                mockNewPropagater
 	NewJobStopper                mockNewJobStopper
 	NewJobFinisher               mockNewJobFinisher
@@ -163,7 +163,7 @@ func (api *ppsTransactionAPI) CreatePipelineInTransaction(txnCtx *txncontext.Tra
 	return errors.Errorf("unhandled pachd mock: pps.CreatePipelineInTransaction")
 }
 
-func (api *ppsTransactionAPI) InspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, pipeline string) (*pps.PipelineInfo, error) {
+func (api *ppsTransactionAPI) InspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
 	if api.mock.InspectPipelineInTransaction.handler != nil {
 		return api.mock.InspectPipelineInTransaction.handler(txnCtx, pipeline)
 	}
@@ -180,6 +180,6 @@ func (api *ppsTransactionAPI) ActivateAuthInTransaction(txnCtx *txncontext.Trans
 // NewMockPPSTransactionServer instantiates a MockPPSTransactionServer
 func NewMockPPSTransactionServer() *MockPPSTransactionServer {
 	result := &MockPPSTransactionServer{}
-	result.api.mock = result
+	result.Api.mock = result
 	return result
 }

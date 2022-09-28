@@ -14,7 +14,7 @@ When you delete a pipeline:
 
 
 !!! Note
-     If you are using [Pachyderm authorization features](../../../enterprise/auth/authorization/), only authorized users will be able to delete a given pipeline. In particular, they will have to be `repoOwner` of the output repo of the pipeline (i.e., have created the pipeline) or `clusterAdmin`. 
+     If you are using [Pachyderm authorization features](../../enterprise/auth/authorization/index.md), only authorized users will be able to delete a given pipeline. In particular, they will have to be `repoOwner` of the output repo of the pipeline (i.e., have created the pipeline) or `clusterAdmin`. 
 
 You can **use the `--keep-repo` flag to preserve the output repo** with all its branches. However, important job metadata will still be deleted (including all historical versions of the pipeline specification file).
 As a result, **you will not be able to recreate the deleted pipeline** with the same name unless that repo is deleted first. 

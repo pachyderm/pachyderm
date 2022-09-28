@@ -143,6 +143,10 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/InspectBranch":    authDisabledOr(authenticated),
 	"/pfs_v2.API/ListBranch":       authDisabledOr(authenticated),
 	"/pfs_v2.API/DeleteBranch":     authDisabledOr(authenticated),
+	"/pfs_v2.API/CreateProject":    authDisabledOr(authenticated),
+	"/pfs_v2.API/InspectProject":   authDisabledOr(authenticated),
+	"/pfs_v2.API/ListProject":      authDisabledOr(authenticated),
+	"/pfs_v2.API/DeleteProject":    authDisabledOr(authenticated),
 	"/pfs_v2.API/ModifyFile":       authDisabledOr(authenticated),
 	"/pfs_v2.API/GetFile":          authDisabledOr(authenticated),
 	// TODO: GetFileTAR is unauthenticated for performance reasons. Normal authentication
@@ -161,6 +165,7 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/AddFileSet":         authDisabledOr(authenticated),
 	"/pfs_v2.API/RenewFileSet":       authDisabledOr(authenticated),
 	"/pfs_v2.API/ComposeFileSet":     authDisabledOr(authenticated),
+	"/pfs_v2.API/ShardFileSet":       authDisabledOr(authenticated),
 	"/pfs_v2.API/CheckStorage":       authDisabledOr(authenticated),
 	"/pfs_v2.API/PutCache":           authDisabledOr(authenticated),
 	"/pfs_v2.API/GetCache":           authDisabledOr(authenticated),

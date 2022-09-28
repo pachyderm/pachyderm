@@ -31,10 +31,6 @@ func init() {
 	errInvalidPipelineStateName = fmt.Sprintf("state %%s must be one of %s, or %s, etc", strings.Join(states, ", "), PipelineState_name[0])
 }
 
-func (j *Job) String() string {
-	return fmt.Sprintf("%s@%s", j.Pipeline.Name, j.ID)
-}
-
 // VisitInput visits each input recursively in ascending order (root last)
 func VisitInput(input *Input, f func(*Input) error) error {
 	err := visitInput(input, f)
@@ -172,5 +168,13 @@ func IsTerminal(state JobState) bool {
 		return false
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
+	}
+}
+
+// RepoPipeline returns a Pipeline with the same project and name as the repo.
+func RepoPipeline(r *pfs.Repo) *Pipeline {
+	return &Pipeline{
+		Project: r.Project,
+		Name:    r.Name,
 	}
 }

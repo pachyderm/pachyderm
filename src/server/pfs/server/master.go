@@ -2,9 +2,12 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"path"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/consistenthashing"
+
+	"github.com/hashicorp/go-multierror"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -31,20 +34,24 @@ const (
 
 func (d *driver) master(ctx context.Context) {
 	ctx = auth.AsInternalUser(ctx, "pfs-master")
-	masterLock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath))
 	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
-		masterCtx, err := masterLock.Lock(ctx)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		defer masterLock.Unlock(masterCtx) //nolint:errcheck
-		eg, ctx := errgroup.WithContext(masterCtx)
+		eg, ctx := errgroup.WithContext(ctx)
 		trackerPeriod := time.Second * time.Duration(d.env.StorageConfig.StorageGCPeriod)
 		if trackerPeriod <= 0 {
 			d.log.Info("Skipping Storage GC")
 		} else {
-			d.log.Infof("Starting Storage GC with period=%v", trackerPeriod)
 			eg.Go(func() error {
+				lock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath, "storage-gc"))
+				d.log.Infof("Starting Storage GC with period=%v", trackerPeriod)
+				ctx, err := lock.Lock(ctx)
+				if err != nil {
+					return errors.EnsureStack(err)
+				}
+				defer func() {
+					if err := lock.Unlock(ctx); err != nil {
+						d.log.Errorf("error unlocking in pfs master: %v", err)
+					}
+				}()
 				gc := d.storage.NewGC(trackerPeriod)
 				return gc.RunForever(ctx)
 			})
@@ -53,8 +60,18 @@ func (d *driver) master(ctx context.Context) {
 		if chunkPeriod <= 0 {
 			d.log.Info("Skipping Chunk Storage GC")
 		} else {
-			d.log.Infof("Starting Chunk Storage GC with period=%v", chunkPeriod)
 			eg.Go(func() error {
+				lock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath, "chunk-gc"))
+				d.log.Infof("Starting Chunk Storage GC with period=%v", chunkPeriod)
+				ctx, err := lock.Lock(ctx)
+				if err != nil {
+					return errors.EnsureStack(err)
+				}
+				defer func() {
+					if err := lock.Unlock(ctx); err != nil {
+						d.log.Errorf("error unlocking in pfs master: %v", err)
+					}
+				}()
 				gc := chunk.NewGC(d.storage.ChunkStorage(), chunkPeriod, d.log)
 				return gc.RunForever(ctx)
 			})
@@ -69,45 +86,65 @@ func (d *driver) master(ctx context.Context) {
 	})
 }
 
-func (d *driver) finishCommits(ctx context.Context) error {
+func (d *driver) finishCommits(ctx context.Context) (retErr error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	repos := make(map[string]context.CancelFunc)
 	defer func() {
 		for _, cancel := range repos {
 			cancel()
 		}
 	}()
-	compactor := newCompactor(d.storage, d.env.StorageConfig.StorageCompactionMaxFanIn)
-	err := d.repos.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
-		if ev.Type == watch.EventError {
-			return ev.Err
-		}
-		key := string(ev.Key)
-		if ev.Type == watch.EventDelete {
-			if cancel, ok := repos[key]; ok {
-				cancel()
-			}
-			delete(repos, key)
-			return nil
-		}
-		if _, ok := repos[key]; ok {
-			return nil
-		}
-		ctx, cancel := context.WithCancel(ctx)
-		repos[key] = cancel
-		go func() {
-			backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
-				return d.finishRepoCommits(ctx, compactor, key)
-			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-				log.Errorf("error finishing commits for repo %v: %v, retrying in %v", key, err, d)
+	return consistenthashing.WithRing(ctx, d.etcdClient, d.log, path.Join(d.prefix, masterLockPath, "ring"),
+		func(ctx context.Context, ring *consistenthashing.Ring) error {
+			err := d.repos.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
+				if ev.Type == watch.EventError {
+					return ev.Err
+				}
+				key := string(ev.Key)
+				lockPrefix := path.Join("repos", key)
+				if ev.Type == watch.EventDelete {
+					if cancel, ok := repos[key]; ok {
+						if err := ring.Unlock(lockPrefix); err != nil {
+							return err
+						}
+						cancel()
+					}
+					delete(repos, key)
+					return nil
+				}
+				if _, ok := repos[key]; ok {
+					return nil
+				}
+				ctx, cancel := context.WithCancel(ctx)
+				repos[key] = cancel
+				go func() {
+					backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+						ctx, cancel := context.WithCancel(ctx)
+						defer cancel()
+						lockCtx, err := ring.Lock(ctx, lockPrefix)
+						if err != nil {
+							return errors.Wrap(err, "error locking repo lock")
+						}
+						defer func() {
+							if err := ring.Unlock(lockPrefix); err != nil {
+								retErr = multierror.Append(retErr, errors.Wrap(err, "error unlocking"))
+							}
+						}()
+						return d.finishRepoCommits(lockCtx, key)
+					}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+						log.Errorf("error finishing commits for repo %v: %v, retrying in %v", key, err, d)
+						return nil
+					})
+				}()
 				return nil
 			})
-		}()
-		return nil
-	})
-	return errors.EnsureStack(err)
+			return errors.EnsureStack(err)
+		},
+	)
 }
 
-func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, repoKey string) error {
+func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 	err := d.commits.ReadOnly(ctx).WatchByIndexF(pfsdb.CommitsRepoIndex, repoKey, func(ev *watch.Event) error {
 		if ev.Type == watch.EventError {
 			return ev.Err
@@ -121,18 +158,22 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 			return nil
 		}
 		commit := commitInfo.Commit
+		logger := d.log.WithFields(log.Fields{
+			"finishing": true,
+			"commit":    commit,
+		})
 		cache := d.newCache(pfsdb.CommitKey(commit))
 		defer func() {
 			if err := cache.clear(ctx); err != nil {
 				log.Errorf("errored clearing compaction cache: %s", err)
 			}
 		}()
-		return miscutil.LogStep(ctx, fmt.Sprintf("finishing commit %v", commit), func() error {
+		return miscutil.LogStep(ctx, logger, "finishing commit", func() error {
 			// TODO: This retry might not be getting us much if the outer watch still errors due to a transient error.
 			return backoff.RetryUntilCancel(ctx, func() error {
 				// Skip compaction / validation for errored commits.
 				if commitInfo.Error != "" {
-					return d.finalizeCommit(ctx, commit, "", nil, nil)
+					return d.finalizeCommit(ctx, logger, commit, "", nil, nil)
 				}
 				id, err := d.getFileSet(ctx, commit)
 				if err != nil {
@@ -141,37 +182,44 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 					}
 					return err
 				}
-				details := &pfs.CommitInfo_Details{}
-				// Compact the commit.
+				compactor := newCompactor(d.storage, logger, d.env.StorageConfig.StorageCompactionMaxFanIn)
 				taskDoer := d.env.TaskService.NewDoer(storageTaskNamespace, commit.ID, cache)
 				var totalId *fileset.ID
 				start := time.Now()
-				if err := miscutil.LogStep(ctx, fmt.Sprintf("compacting commit %v", commit), func() error {
-					var err error
-					totalId, err = compactor.Compact(ctx, taskDoer, []fileset.ID{*id}, defaultTTL)
-					if err != nil {
+				if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+					if err := renewer.Add(ctx, *id); err != nil {
 						return err
 					}
-					return errors.EnsureStack(d.commitStore.SetTotalFileSet(ctx, commit, *totalId))
+					// Compact the commit.
+					return miscutil.LogStep(ctx, logger, "compacting commit", func() error {
+						var err error
+						totalId, err = compactor.Compact(ctx, taskDoer, []fileset.ID{*id}, defaultTTL)
+						if err != nil {
+							return err
+						}
+						return errors.EnsureStack(d.commitStore.SetTotalFileSet(ctx, commit, *totalId))
+					})
 				}); err != nil {
 					return err
 				}
-				details.CompactingTime = types.DurationProto(time.Since(start))
+				details := &pfs.CommitInfo_Details{
+					CompactingTime: types.DurationProto(time.Since(start)),
+				}
 				// Validate the commit.
 				start = time.Now()
 				var validationError string
-				if err := miscutil.LogStep(ctx, fmt.Sprintf("validating commit %v", commit), func() error {
+				if err := miscutil.LogStep(ctx, logger, "validating commit", func() error {
 					var err error
-					details.SizeBytes, validationError, err = compactor.Validate(ctx, taskDoer, *totalId)
+					validationError, details.SizeBytes, err = compactor.Validate(ctx, taskDoer, *totalId)
 					return err
 				}); err != nil {
 					return err
 				}
 				details.ValidatingTime = types.DurationProto(time.Since(start))
 				// Finish the commit.
-				return d.finalizeCommit(ctx, commit, validationError, details, totalId)
+				return d.finalizeCommit(ctx, logger, commit, validationError, details, totalId)
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-				log.Errorf("error finishing commit %v: %v, retrying in %v", commit, err, d)
+				logger.Errorf("error finishing commit: %v, retrying in %v", err, d)
 				return nil
 			})
 		})
@@ -179,8 +227,8 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 	return errors.EnsureStack(err)
 }
 
-func (d *driver) finalizeCommit(ctx context.Context, commit *pfs.Commit, validationError string, details *pfs.CommitInfo_Details, totalId *fileset.ID) error {
-	return miscutil.LogStep(ctx, fmt.Sprintf("finalizing commit %v", commit), func() error {
+func (d *driver) finalizeCommit(ctx context.Context, logger *log.Entry, commit *pfs.Commit, validationError string, details *pfs.CommitInfo_Details, totalId *fileset.ID) error {
+	return miscutil.LogStep(ctx, logger, "finalizing commit", func() error {
 		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 			commitInfo := &pfs.CommitInfo{}
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(pfsdb.CommitKey(commit), commitInfo, func() error {

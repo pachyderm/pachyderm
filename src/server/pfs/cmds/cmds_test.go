@@ -3,14 +3,21 @@
 package cmds
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/fsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
 )
 
@@ -109,6 +116,59 @@ func TestPutFileSplit(t *testing.T) {
 	).Run())
 }
 
+func TestPutFileTAR(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	// Test .tar file.
+	require.NoError(t, fsutil.WithTmpFile("pachyderm_test_put_file_tar", func(f *os.File) error {
+		require.NoError(t, tarutil.WithWriter(f, func(tw *tar.Writer) error {
+			for i := 0; i < 3; i++ {
+				name := strconv.Itoa(i)
+				require.NoError(t, tarutil.WriteFile(tw, tarutil.NewMemFile(name, []byte(name))))
+			}
+			return nil
+		}))
+		name := f.Name()
+		require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create repo {{.repo}}
+		pachctl put file {{.repo}}@master -f {{.name}} --untar
+		pachctl get file "{{.repo}}@master:/0" \
+		  | match "0"
+		pachctl get file "{{.repo}}@master:/1" \
+		  | match "1"
+		pachctl get file "{{.repo}}@master:/2" \
+		  | match "2"
+		`, "repo", tu.UniqueString("TestPutFileTAR"), "name", name).Run())
+		return nil
+	}, "tar"))
+	// Test .tar.gz. file.
+	require.NoError(t, fsutil.WithTmpFile("pachyderm_test_put_file_tar", func(f *os.File) error {
+		gw := gzip.NewWriter(f)
+		require.NoError(t, tarutil.WithWriter(gw, func(tw *tar.Writer) error {
+			for i := 0; i < 3; i++ {
+				name := strconv.Itoa(i)
+				require.NoError(t, tarutil.WriteFile(tw, tarutil.NewMemFile(name, []byte(name))))
+			}
+			return nil
+		}))
+		require.NoError(t, gw.Close())
+		name := f.Name()
+		require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create repo {{.repo}}
+		pachctl put file {{.repo}}@master -f {{.name}} --untar
+		pachctl get file "{{.repo}}@master:/0" \
+		  | match "0"
+		pachctl get file "{{.repo}}@master:/1" \
+		  | match "1"
+		pachctl get file "{{.repo}}@master:/2" \
+		  | match "2"
+		`, "repo", tu.UniqueString("TestPutFileTAR"), "name", name).Run())
+		return nil
+	}, "tar", "gz"))
+}
+
 func TestPutFileNonexistentRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -133,27 +193,25 @@ func TestMountParsing(t *testing.T) {
 	expected := map[string]*fuse.RepoOptions{
 		"repo1": {
 			Name:  "repo1", // name of mount, i.e. where to mount it
-			File:  client.NewFile("repo1", "branch", "", ""),
+			File:  client.NewProjectFile(pfs.DefaultProjectName, "repo1", "branch", "", ""),
 			Write: true,
 		},
 		"repo2": {
 			Name:  "repo2",
-			File:  client.NewFile("repo2", "master", "", ""),
+			File:  client.NewProjectFile(pfs.DefaultProjectName, "repo2", "master", "", ""),
 			Write: true,
 		},
 		"repo3": {
 			Name: "repo3",
-			File: client.NewFile("repo3", "master", "", ""),
+			File: client.NewProjectFile(pfs.DefaultProjectName, "repo3", "master", "", ""),
 		},
 		"repo4": {
 			Name: "repo4",
-			File: client.NewFile("repo4", "master", "dee0c3904d6f44beb4fa10fc0db12d02", ""),
+			File: client.NewProjectFile(pfs.DefaultProjectName, "repo4", "master", "dee0c3904d6f44beb4fa10fc0db12d02", ""),
 		},
 	}
 	opts, err := parseRepoOpts([]string{"repo1@branch+w", "repo2+w", "repo3", "repo4@master=dee0c3904d6f44beb4fa10fc0db12d02"})
 	require.NoError(t, err)
-	require.Equal(t, 4, len(opts))
-	fmt.Printf("%+v\n", opts)
 	for repo, ro := range expected {
 		require.Equal(t, ro, opts[repo])
 	}
@@ -266,6 +324,39 @@ func TestSynonymsDocs(t *testing.T) {
 		t.Logf("Testing %s -h\n", resource)
 		require.NoError(t, tu.BashCmd(synonymCommand).Run())
 	}
+}
+
+func TestProject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	// using xargs to trim newlines
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+                pachctl list project | xargs | match '^PROJECT DESCRIPTION$'
+                pachctl create project foo 
+                pachctl list project | match "foo     -"
+		`,
+	).Run())
+	require.YesError(t, tu.PachctlBashCmd(t, c, `
+                pachctl create project foo
+                `,
+	).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+                pachctl update project foo -d "bar"
+                pachctl inspect project foo | xargs | match "Name: foo Description: bar"
+                pachctl delete project foo
+                `,
+	).Run())
+	require.YesError(t, tu.PachctlBashCmd(t, c, `
+                pachctl inspect project foo
+                `,
+	).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+                pachctl list project | xargs | match '^PROJECT DESCRIPTION$'
+                pachctl create project foo
+                `,
+	).Run())
 }
 
 func resourcesMap() map[string][]string {

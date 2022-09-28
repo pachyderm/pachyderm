@@ -38,22 +38,6 @@ func RunFixedArgs(numArgs int, run func([]string) error) func(*cobra.Command, []
 	}
 }
 
-// RunCmdFixedArgs wraps a function in a function that checks its exact
-// argument count. The only difference between this and RunFixedArgs is that
-// this passes in the cobra command.
-func RunCmdFixedArgs(numArgs int, run func(*cobra.Command, []string) error) func(*cobra.Command, []string) {
-	return func(cmd *cobra.Command, args []string) {
-		if len(args) != numArgs {
-			fmt.Printf("expected %d arguments, got %d\n\n", numArgs, len(args))
-			cmd.Usage()
-		} else {
-			if err := run(cmd, args); err != nil {
-				ErrorAndExit("%v", err)
-			}
-		}
-	}
-}
-
 // RunBoundedArgs wraps a function in a function
 // that checks its argument count is within a range.
 func RunBoundedArgs(min int, max int, run func([]string) error) func(*cobra.Command, []string) {
@@ -123,6 +107,7 @@ func ParseRepo(name string) *pfs.Repo {
 		repo.Name = name
 		repo.Type = pfs.UserRepoType
 	}
+	repo.Project = new(pfs.Project) // ensure that Project is not nil
 	return &repo
 }
 
@@ -212,7 +197,7 @@ func ParseBranch(arg string) (*pfs.Branch, error) {
 
 // ParseJob takes an argument of the form "pipeline@job-id" and returns
 // the corresponding *pps.Job.
-func ParseJob(arg string) (*pps.Job, error) {
+func ParseJob(project, arg string) (*pps.Job, error) {
 	parts := strings.SplitN(arg, "@", 2)
 	if parts[0] == "" {
 		return nil, errors.Errorf("invalid format \"%s\": pipeline must be specified", arg)
@@ -220,7 +205,7 @@ func ParseJob(arg string) (*pps.Job, error) {
 	if len(parts) != 2 {
 		return nil, errors.Errorf("invalid format \"%s\": expected pipeline@job-id", arg)
 	}
-	return client.NewJob(parts[0], parts[1]), nil
+	return client.NewProjectJob(project, parts[0], parts[1]), nil
 }
 
 // ParseBranches converts all arguments to *pfs.Commit structs using the
@@ -257,21 +242,7 @@ func ParsePartialFile(arg string) *pfs.File {
 	if err == nil {
 		return file
 	}
-	return client.NewFile(arg, "", "", "")
-}
-
-// ParseFiles converts all arguments to *pfs.Commit structs using the
-// semantics of ParseFile
-func ParseFiles(args []string) ([]*pfs.File, error) {
-	var results []*pfs.File
-	for _, arg := range args {
-		commit, err := ParseFile(arg)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, commit)
-	}
-	return results, nil
+	return client.NewProjectFile(pfs.DefaultProjectName, arg, "", "", "")
 }
 
 // ParseHistory parses a --history flag argument. Permissable values are "all"

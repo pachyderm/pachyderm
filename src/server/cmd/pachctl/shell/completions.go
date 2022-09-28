@@ -131,6 +131,22 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 	return result, samePart(part)
 }
 
+func ProjectCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
+	c := getPachClient()
+	pis, err := c.ListProject()
+	if err != nil {
+		return nil, CacheNone
+	}
+	var result []prompt.Suggest
+	for _, pi := range pis {
+		result = append(result, prompt.Suggest{
+			Text:        pi.Project.Name,
+			Description: pi.Description,
+		})
+	}
+	return result, CacheNone
+}
+
 const (
 	// filePathCacheLength is how many new characters must be typed in a file
 	// path before we go to the server for new results.

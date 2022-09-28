@@ -79,6 +79,7 @@ type driver struct {
 	repos    col.PostgresCollection
 	commits  col.PostgresCollection
 	branches col.PostgresCollection
+	projects col.PostgresCollection
 
 	storage     *fileset.Storage
 	commitStore commitStore
@@ -100,6 +101,7 @@ func newDriver(env Env) (*driver, error) {
 	repos := pfsdb.Repos(env.DB, env.Listener)
 	commits := pfsdb.Commits(env.DB, env.Listener)
 	branches := pfsdb.Branches(env.DB, env.Listener)
+	projects := pfsdb.Projects(env.DB, env.Listener)
 
 	// Setup driver struct.
 	d := &driver{
@@ -110,6 +112,7 @@ func newDriver(env Env) (*driver, error) {
 		repos:      repos,
 		commits:    commits,
 		branches:   branches,
+		projects:   projects,
 		log:        env.Logger,
 	}
 	// Setup tracker and chunk / fileset storage.
@@ -196,7 +199,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	} else {
 		// if this is a system repo, make sure the corresponding user repo already exists
 		if repo.Type != pfs.UserRepoType {
-			baseRepo := client.NewRepo(repo.Name)
+			baseRepo := client.NewProjectRepo(repo.Project.GetName(), repo.Name)
 			err = repos.Get(baseRepo, &existingRepoInfo)
 			if err != nil && col.IsErrNotFound(err) {
 				return errors.Errorf("cannot create a system repo without a corresponding 'user' repo")
@@ -343,7 +346,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	}
 
 	if !force {
-		if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, repo.Name); err == nil {
+		if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(repo)); err == nil {
 			return errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
 		} else if err != nil && !errutil.IsNotFoundError(err) {
 			return errors.EnsureStack(err)
@@ -417,6 +420,50 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		if err := d.env.AuthServer.DeleteRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name}); err != nil && !auth.IsErrNotActivated(err) {
 			return grpcutil.ScrubGRPC(err)
 		}
+	}
+	return nil
+}
+
+func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectRequest) error {
+	if err := pfs.ValidateProjectName(req.Project.Name); err != nil {
+		return errors.Wrapf(err, "invalid project name")
+	}
+	return d.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		projects := d.projects.ReadWrite(txnCtx.SqlTx)
+		projectInfo := &pfs.ProjectInfo{}
+		if req.Update {
+			return errors.EnsureStack(projects.Update(pfsdb.ProjectKey(req.Project), projectInfo, func() error {
+				projectInfo.Description = req.Description
+				return nil
+			}))
+		}
+		return errors.EnsureStack(projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
+			Project:     req.Project,
+			Description: req.Description,
+		}))
+	})
+}
+
+func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs.ProjectInfo, error) {
+	pi := &pfs.ProjectInfo{}
+	if err := d.projects.ReadOnly(ctx).Get(pfsdb.ProjectKey(project), pi); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return pi, nil
+}
+
+// The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
+func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
+	projectInfo := &pfs.ProjectInfo{}
+	return errors.EnsureStack(d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
+		return cb(projectInfo)
+	}))
+}
+
+// TODO: delete all repos and pipelines within project
+func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *pfs.Project, force bool) error {
+	if err := d.projects.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.ProjectKey(project)); err != nil {
+		return errors.Wrapf(err, "delete project %q", project.Name)
 	}
 	return nil
 }
@@ -495,7 +542,7 @@ func (d *driver) startCommit(
 	spoutName, ok1 := os.LookupEnv(client.PPSPipelineNameEnv)
 	spoutCommit, ok2 := os.LookupEnv("PPS_SPEC_COMMIT")
 	if ok1 && ok2 {
-		specBranch := client.NewSystemRepo(spoutName, pfs.SpecRepoType).NewBranch("master")
+		specBranch := client.NewSystemProjectRepo(branch.Repo.Project.GetName(), spoutName, pfs.SpecRepoType).NewBranch("master")
 		specCommit := specBranch.NewCommit(spoutCommit)
 		log.Infof("Adding spout spec commit to current commitset: %s", specCommit)
 		if _, err := d.aliasCommit(txnCtx, specCommit, specBranch); err != nil {
@@ -562,9 +609,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 		return errors.Errorf("cannot finish an alias commit: %s", commitInfo.Commit)
 	}
 	if !force && len(commitInfo.DirectProvenance) > 0 {
-		if info, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx,
-			commit.Branch.Repo.Name,
-		); err != nil && !errutil.IsNotFoundError(err) {
+		if info, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commit.Branch.Repo)); err != nil && !errutil.IsNotFoundError(err) {
 			return errors.EnsureStack(err)
 		} else if err == nil && info.Type == pps.PipelineInfo_PIPELINE_TYPE_TRANSFORM {
 			return errors.Errorf("cannot finish a pipeline output or meta commit, use 'stop job' instead")
@@ -747,12 +792,30 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 	}
 
 	// subvBIMap = ( ⋃{b.subvenance | b ∈ branches} ) ∪ branches
+	// (after branches has been pruned of no-op members, which don't actually need propagation)
 	subvBIMap := map[string]*pfs.BranchInfo{}
 	for _, branch := range branches {
 		branchInfo, err := getBranchInfo(branch)
 		if err != nil {
 			return err
 		}
+
+		// We need to create new commits or aliases if any of this branch and its
+		// provenances disagree on their commit set.
+		ids := []string{branchInfo.Head.ID}
+		for _, provBranch := range branchInfo.Provenance {
+			provInfo, err := getBranchInfo(provBranch)
+			if err != nil {
+				return err
+			}
+			ids = append(ids, provInfo.Head.ID)
+		}
+		if allSameString(ids) && ids[0] != txnCtx.CommitSetID {
+			// this branch hasn't changed during the transaction, and is still consistent with its provenance,
+			// so we don't need to include it or its subvenance
+			continue
+		}
+
 		subvBIMap[pfsdb.BranchKey(branch)] = branchInfo
 		for _, subvBranch := range branchInfo.Subvenance {
 			subvInfo, err := getBranchInfo(subvBranch)
@@ -763,7 +826,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		}
 	}
 
-	// 'subvBIs' is the collection of downstream branches that may get a new
+	// 'subvBIs' is the collection of downstream branches that will get a new
 	// commit. Populate subvBIs and sort it so that upstream branches are
 	// processed before their descendants (this guarantees that if branch B is
 	// provenant on branch A, we create a new commit in A before creating a new
@@ -776,30 +839,12 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		return len(subvBIs[i].Provenance) < len(subvBIs[j].Provenance)
 	})
 
-	// Iterate through downstream branches and determine which need a new commit.
+	// Iterate through downstream branches and add new commits.
 	hasNewCommits := false
 	for _, subvBI := range subvBIs {
 		// Do not propagate an open commit onto spout output branches (which should
 		// only have a single provenance on a spec commit)
 		if len(subvBI.Provenance) == 1 && subvBI.Provenance[0].Repo.Type == pfs.SpecRepoType {
-			continue
-		}
-
-		// We need to create new commits or aliases if any of this branch and its
-		// provenances disagree on their commitset.
-		ids := []string{subvBI.Head.ID}
-		for _, provOfSubvB := range subvBI.Provenance {
-			provOfSubvBI, err := getBranchInfo(provOfSubvB)
-			if err != nil {
-				return err
-			}
-			ids = append(ids, provOfSubvBI.Head.ID)
-		}
-
-		if allSameString(ids) {
-			if ids[0] == txnCtx.CommitSetID {
-				hasNewCommits = true
-			}
 			continue
 		}
 		hasNewCommits = true
@@ -816,6 +861,27 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 				}
 				// Update the cached branch head
 				provOfSubvBI.Head.ID = txnCtx.CommitSetID
+			}
+			// if this is a pipeline output branch, we need to also create an alias commit on the meta branch
+			// to maintain pipeline system invariants.
+			if provOfSubvBI.Branch.Repo.Type == pfs.UserRepoType {
+				metaBranch := client.NewSystemProjectRepo(provOfSubvBI.Branch.Repo.Project.GetName(), provOfSubvBI.Branch.Repo.Name, pfs.MetaRepoType).
+					NewBranch(provOfSubvBI.Branch.Name)
+				metaBI, err := getBranchInfo(metaBranch)
+				if err != nil {
+					if col.IsErrNotFound(err) {
+						// no corresponding meta branch, so not a pipeline. Ignore
+						continue
+					}
+					return err
+				}
+				// create the alias if necessary, just like above
+				if metaBI.Head.ID != txnCtx.CommitSetID {
+					if _, err := d.aliasCommit(txnCtx, metaBI.Head, metaBI.Head.Branch); err != nil {
+						return err
+					}
+					metaBI.Head.ID = txnCtx.CommitSetID
+				}
 			}
 		}
 
@@ -1113,6 +1179,7 @@ func (d *driver) listCommit(
 	repo *pfs.Repo,
 	to *pfs.Commit,
 	from *pfs.Commit,
+	startTime *types.Timestamp,
 	number int64,
 	reverse bool,
 	all bool,
@@ -1201,6 +1268,14 @@ func (d *driver) listCommit(
 				lastRev = createRev
 			}
 			if passesCommitOriginFilter(ci, all, originKind) {
+				if startTime != nil {
+					createdAt := time.Unix(int64(ci.Started.GetSeconds()), int64(ci.Started.GetNanos())).UTC()
+					fromTime := time.Unix(int64(startTime.GetSeconds()), int64(startTime.GetNanos())).UTC()
+					if !reverse && createdAt.Before(fromTime) || reverse && createdAt.After(fromTime) {
+						cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
+					}
+					return nil
+				}
 				cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
 			}
 			return nil
@@ -2029,10 +2104,22 @@ func (d *driver) deleteAll(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
+	var projectInfos []*pfs.ProjectInfo
+	if err := d.listProject(ctx, func(pi *pfs.ProjectInfo) error {
+		projectInfos = append(projectInfos, proto.Clone(pi).(*pfs.ProjectInfo))
+		return nil
+	}); err != nil {
+		return err
+	}
 	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// the list does not use the transaction
 		for _, repoInfo := range repoInfos {
 			if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
+				return err
+			}
+		}
+		for _, projectInfo := range projectInfos {
+			if err := d.deleteProject(txnCtx, projectInfo.Project, true); err != nil {
 				return err
 			}
 		}

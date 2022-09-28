@@ -11,6 +11,9 @@
                 "enabled": {
                     "type": "boolean"
                 },
+                "iamLogin": {
+                    "type": "boolean"
+                },
                 "image": {
                     "type": "object",
                     "properties": {
@@ -1197,6 +1200,9 @@
                 },
                 "enabled": {
                     "type": "boolean"
+                },
+                "host": {
+                    "type": "string"
                 },
                 "image": {
                     "type": "object",

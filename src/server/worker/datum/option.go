@@ -59,6 +59,6 @@ func WithTimeout(timeout time.Duration) Option {
 // WithPrefixIndex prefixes the datum directory name (both locally and in PFS) with its index value.
 func WithPrefixIndex() Option {
 	return func(d *Datum) {
-		d.IDPrefix = fmt.Sprintf("%016d", d.meta.Index) + "-"
+		d.IDPrefix = fmt.Sprintf("%032d", d.meta.Index) + "-"
 	}
 }

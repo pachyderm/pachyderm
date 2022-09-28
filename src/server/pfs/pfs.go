@@ -37,6 +37,16 @@ type ErrBranchExists struct {
 	Branch *pfs.Branch
 }
 
+// ErrProjectNotFound represents a project-not-found error.
+type ErrProjectNotFound struct {
+	Project *pfs.Project
+}
+
+// ErrProjectExists represents a project-exists error.
+type ErrProjectExists struct {
+	Project *pfs.Project
+}
+
 // ErrCommitNotFound represents a commit-not-found error.
 type ErrCommitNotFound struct {
 	Commit *pfs.Commit
@@ -180,6 +190,22 @@ func (e ErrBranchExists) Error() string {
 }
 
 func (e ErrBranchExists) GRPCStatus() *status.Status {
+	return status.New(codes.AlreadyExists, e.Error())
+}
+
+func (e ErrProjectNotFound) Error() string {
+	return fmt.Sprintf("project %q not found", e.Project.Name)
+}
+
+func (e ErrProjectNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, e.Error())
+}
+
+func (e ErrProjectExists) Error() string {
+	return fmt.Sprintf("project %q already exists", e.Project.Name)
+}
+
+func (e ErrProjectExists) GRPCStatus() *status.Status {
 	return status.New(codes.AlreadyExists, e.Error())
 }
 

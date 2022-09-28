@@ -18,12 +18,12 @@ To see how to use a helm values files to customize your deployment, refer to our
     Take a look at our deployment instructions [locally](../../getting-started/local-installation/) or [in the cloud](../../deploy-manage/deploy/quickstart/) to identify which of those are required for your deployment target.
 
 ## Values.yaml
-The following section displays the complete list of fields available in the [values.yaml](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml). 
+The following section displays the complete list of fields available in the [values.yaml](https://github.com/pachyderm/pachyderm/blob/2.3.x/etc/helm/pachyderm/values.yaml). 
 Each section is further detailed in its own sub-chapter. 
 
 
 ```yaml
-{{ gitsnippet('pachyderm/pachyderm', 'etc/helm/pachyderm/values.yaml', 'master') }}
+{{ gitsnippet('pachyderm/pachyderm', 'etc/helm/pachyderm/values.yaml', '2.3.x') }}
 ```
 ### deployTarget
 

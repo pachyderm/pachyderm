@@ -21,6 +21,7 @@ message Repo {
   option (gogoproto.goproto_stringer) = false;
   string name = 1;
   string type = 2;
+  Project project = 3;
 }
 
 message Branch {
@@ -164,6 +165,15 @@ message FileInfo {
   bytes hash = 5;
 }
 
+message Project {
+  string name = 1;
+}
+
+message ProjectInfo {
+  Project project = 1;
+  string description = 2;
+}
+
 // PFS API
 
 message CreateRepoRequest {
@@ -229,6 +239,7 @@ message ListCommitRequest {
   bool reverse = 5;  // Return commits oldest to newest
   bool all = 6; // Return commits of all kinds (without this, aliases are excluded)
   OriginKind origin_kind = 7; // Return only commits of this kind (mutually exclusive with all)
+  google.protobuf.Timestamp started_time = 8; // Return commits started before this time
 }
 
 message InspectCommitSetRequest {
@@ -284,6 +295,23 @@ message DeleteBranchRequest {
   bool force = 2;
 }
 
+message CreateProjectRequest {
+  Project project = 1;
+  string description = 2;
+  bool update = 3;
+}
+
+message InspectProjectRequest {
+  Project project = 1;
+}
+
+message ListProjectRequest {}
+
+message DeleteProjectRequest {
+  Project project = 1;
+  bool force = 2;
+}
+
 enum Delimiter {
   NONE = 0;
   JSON = 1;
@@ -331,6 +359,7 @@ message GetFileRequest {
   File file = 1;
   string URL = 2;
   int64 offset = 3;
+  PathRange path_range = 4;
 // TODO:
 //  int64 size_bytes = 3;
 }
@@ -369,6 +398,7 @@ message WalkFileRequest {
 message GlobFileRequest {
   Commit commit = 1;
   string pattern = 2;
+  PathRange path_range = 3;
 }
 
 message DiffFileRequest {
@@ -419,6 +449,20 @@ message RenewFileSetRequest {
 message ComposeFileSetRequest {
   repeated string file_set_ids = 1;
   int64 ttl_seconds = 2;
+  bool compact = 3;
+}
+
+message ShardFileSetRequest {
+  string file_set_id = 1;
+}
+
+message PathRange {
+  string lower = 1;
+  string upper = 2;
+}
+
+message ShardFileSetResponse {
+  repeated PathRange shards = 1;
 }
 
 message CheckStorageRequest {
@@ -588,6 +632,7 @@ service API {
   rpc RenewFileSet(RenewFileSetRequest) returns (google.protobuf.Empty) {}
   // ComposeFileSet composes a file set from a list of file sets.
   rpc ComposeFileSet(ComposeFileSetRequest) returns (CreateFileSetResponse) {}
+  rpc ShardFileSet(ShardFileSetRequest) returns (ShardFileSetResponse) {}
   // CheckStorage runs integrity checks for the storage layer.
   rpc CheckStorage(CheckStorageRequest) returns (CheckStorageResponse) {}
   rpc PutCache(PutCacheRequest) returns (google.protobuf.Empty) {}
@@ -604,4 +649,14 @@ service API {
 
   // Egress writes data from a commit to an external system
   rpc Egress(EgressRequest) returns (EgressResponse) {}
+
+  // Project API
+  // CreateProject creates a new project.
+  rpc CreateProject(CreateProjectRequest) returns (google.protobuf.Empty) {}
+  // InspectProject returns info about a project.
+  rpc InspectProject(InspectProjectRequest) returns (ProjectInfo) {}
+  // ListProject returns info about all projects.
+  rpc ListProject(ListProjectRequest) returns (stream ProjectInfo) {}
+  // DeleteProject deletes a project.
+  rpc DeleteProject(DeleteProjectRequest) returns (google.protobuf.Empty) {}
 }

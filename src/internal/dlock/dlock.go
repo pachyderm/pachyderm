@@ -17,6 +17,8 @@ type DLock interface {
 	// in any subsequent blocking requests, so that if you lose the lock,
 	// the requests get cancelled correctly.
 	Lock(context.Context) (context.Context, error)
+	// TryLock is like Lock, but returns an error if the lock is already locked.
+	TryLock(context.Context) (context.Context, error)
 	// Unlock releases the distributed lock.
 	Unlock(context.Context) error
 }
@@ -48,6 +50,31 @@ func (d *etcdImpl) Lock(ctx context.Context) (context.Context, error) {
 
 	mutex := concurrency.NewMutex(session, d.prefix)
 	if err := mutex.Lock(ctx); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	go func() {
+		select {
+		case <-ctx.Done():
+		case <-session.Done():
+			cancel()
+		}
+	}()
+
+	d.session = session
+	d.mutex = mutex
+	return ctx, nil
+}
+
+func (d *etcdImpl) TryLock(ctx context.Context) (context.Context, error) {
+	session, err := concurrency.NewSession(d.client, concurrency.WithContext(ctx), concurrency.WithTTL(15))
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+
+	mutex := concurrency.NewMutex(session, d.prefix)
+	if err := mutex.TryLock(ctx); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 

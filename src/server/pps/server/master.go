@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -42,8 +44,31 @@ var (
 	falseVal bool  // used to delete RCs in deletePipelineResources and restartPipeline()
 )
 
+type pipelineKey string
+
+func toKey(p *pps.Pipeline) pipelineKey {
+	return pipelineKey(fmt.Sprintf("%s/%s", p.GetProject().GetName(), p.GetName()))
+}
+
+func fromKey(k pipelineKey) (*pps.Pipeline, error) {
+	parts := strings.Split(string(k), "/")
+	// TODO: this will need to change when hierarchical projects are
+	// enabled; then keys with longer parts will be permissible
+	if len(parts) != 2 {
+		return nil, errors.Errorf("invalid pipeline key %s", k)
+	}
+	return newPipeline(parts[0], parts[1]), nil
+}
+
+func newPipeline(projectName, pipelineName string) *pps.Pipeline {
+	return &pps.Pipeline{
+		Project: &pfs.Project{Name: projectName},
+		Name:    pipelineName,
+	}
+}
+
 type pipelineEvent struct {
-	pipeline  string
+	pipeline  *pps.Pipeline
 	timestamp time.Time
 }
 
@@ -169,13 +194,14 @@ eventLoop:
 			func(e *pipelineEvent) {
 				m.pcMgr.Lock()
 				defer m.pcMgr.Unlock()
-				if pc, ok := m.pcMgr.pcs[e.pipeline]; ok {
+				key := toKey(e.pipeline)
+				if pc, ok := m.pcMgr.pcs[key]; ok {
 					pc.Bump(e.timestamp) // raises flag in pipelineController to run again whenever it finishes
 				} else {
 					// pc's ctx is cancelled in pipelineController.tryFinish(), to avoid leaking resources
 					pcCtx, pcCancel := context.WithCancel(m.masterCtx)
 					pc = m.newPipelineController(pcCtx, pcCancel, e.pipeline)
-					m.pcMgr.pcs[e.pipeline] = pc
+					m.pcMgr.pcs[key] = pc
 					go pc.Start(e.timestamp)
 				}
 			}(e)

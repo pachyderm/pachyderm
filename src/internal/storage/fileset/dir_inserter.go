@@ -12,21 +12,25 @@ import (
 )
 
 type dirInserter struct {
-	x FileSet
+	x     FileSet
+	lower string
 }
 
 // NewDirInserter creates a file set that inserts directory entries.
-func NewDirInserter(x FileSet) FileSet {
-	return &dirInserter{x: x}
+func NewDirInserter(x FileSet, lower string) FileSet {
+	return &dirInserter{
+		x:     x,
+		lower: lower,
+	}
 }
 
 // Iterate calls cb once for every file in lexicographical order by path
-func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error, _ ...bool) error {
+func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
 	lastPath := ""
 	var emit func(p string, f File) error
 	emit = func(p string, f File) error {
 		parent := Clean(parentOf(p), true)
-		if p == "/" || lastPath >= parent {
+		if lastPath >= parent || p == "/" || parent < s.lower {
 			if err := cb(f); err != nil {
 				return err
 			}
@@ -42,9 +46,13 @@ func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error, _ ...boo
 		}
 		return emit(p, f)
 	}
-	return errors.EnsureStack(s.x.Iterate(ctx, func(f File) error {
+	return s.x.Iterate(ctx, func(f File) error {
 		return emit(f.Index().Path, f)
-	}))
+	}, opts...)
+}
+
+func (s *dirInserter) IterateDeletes(_ context.Context, _ func(File) error, _ ...index.Option) error {
+	return errors.Errorf("iterating deletes in a directory inserter file set")
 }
 
 func parentOf(x string) string {
@@ -57,6 +65,10 @@ func parentOf(x string) string {
 		y += "/"
 	}
 	return y
+}
+
+func (s *dirInserter) Shards(_ context.Context) ([]*index.PathRange, error) {
+	return nil, errors.Errorf("sharding a directory inserter file set")
 }
 
 type dirFile struct {

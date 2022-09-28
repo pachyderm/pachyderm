@@ -30,7 +30,7 @@ func NewIndexFilter(fs FileSet, predicate func(idx *index.Index) bool, full ...b
 	return idxf
 }
 
-func (idxf *indexFilter) Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error {
+func (idxf *indexFilter) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
 	var dir string
 	err := idxf.fs.Iterate(ctx, func(f File) error {
 		idx := f.Index()
@@ -47,8 +47,16 @@ func (idxf *indexFilter) Iterate(ctx context.Context, cb func(File) error, delet
 			return cb(f)
 		}
 		return nil
-	}, deletive...)
+	}, opts...)
 	return errors.EnsureStack(err)
+}
+
+func (idxf *indexFilter) IterateDeletes(_ context.Context, _ func(File) error, opts ...index.Option) error {
+	return errors.Errorf("iterating deletes in an index filter file set")
+}
+
+func (idxf *indexFilter) Shards(_ context.Context) ([]*index.PathRange, error) {
+	return nil, errors.Errorf("sharding an index filter file set")
 }
 
 var _ FileSet = &indexMapper{}
@@ -63,15 +71,23 @@ func NewIndexMapper(x FileSet, fn func(*index.Index) *index.Index) FileSet {
 	return &indexMapper{x: x, fn: fn}
 }
 
-func (im *indexMapper) Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error {
+func (im *indexMapper) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
 	err := im.x.Iterate(ctx, func(fr File) error {
 		y := im.fn(fr.Index())
 		return cb(&indexMap{
 			idx:   y,
 			inner: fr,
 		})
-	}, deletive...)
+	}, opts...)
 	return errors.EnsureStack(err)
+}
+
+func (im *indexMapper) IterateDeletes(_ context.Context, _ func(File) error, opts ...index.Option) error {
+	return errors.Errorf("iterating deletes in an index mapper file set")
+}
+
+func (im *indexMapper) Shards(_ context.Context) ([]*index.PathRange, error) {
+	return nil, errors.Errorf("sharding an index mapper file set")
 }
 
 var _ File = &indexMap{}
@@ -86,10 +102,9 @@ func (im *indexMap) Index() *index.Index {
 }
 
 func (im *indexMap) Content(ctx context.Context, w io.Writer, opts ...chunk.ReaderOption) error {
-	return errors.EnsureStack(im.inner.Content(ctx, w))
+	return im.inner.Content(ctx, w)
 }
 
 func (im *indexMap) Hash(ctx context.Context) ([]byte, error) {
-	res, err := im.inner.Hash(ctx)
-	return res, errors.EnsureStack(err)
+	return im.inner.Hash(ctx)
 }

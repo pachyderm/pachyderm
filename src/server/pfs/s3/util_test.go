@@ -1,11 +1,12 @@
-package s3
+//go:build !k8s
+
+package s3_test
 
 import (
 	"context"
 	"crypto/md5"
 	"fmt"
 	"io"
-	
 	"net"
 	"os"
 	"path/filepath"
@@ -14,7 +15,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
+
 	minio "github.com/minio/minio-go/v6"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -129,11 +133,11 @@ func fileHash(t *testing.T, name string) (int64, []byte) {
 	return fi.Size(), hashSum
 }
 
-func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver Driver, runner func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client)) {
-	router := Router(driver, func(_ctx context.Context) *client.APIClient {
+func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver s3.Driver, runner func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client)) {
+	router := s3.Router(driver, func(_ctx context.Context) *client.APIClient {
 		return pachClient.WithCtx(context.Background())
 	})
-	server := Server(0, router)
+	server := s3.Server(0, router)
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
 

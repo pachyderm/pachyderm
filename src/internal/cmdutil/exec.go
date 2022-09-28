@@ -22,11 +22,6 @@ func RunIO(ioObj IO, args ...string) error {
 	return RunIODirPath(ioObj, "", args...)
 }
 
-// RunStdin runs the command with the given stdin and arguments.
-func RunStdin(stdin io.Reader, args ...string) error {
-	return RunIO(IO{Stdin: stdin}, args...)
-}
-
 // RunIODirPath runs the command with the given IO and arguments in the given directory specified by dirPath.
 func RunIODirPath(ioObj IO, dirPath string, args ...string) error {
 	var debugStderr io.ReadWriter = bytes.NewBuffer(nil)

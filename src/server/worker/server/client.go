@@ -29,11 +29,11 @@ const (
 )
 
 // Status returns the statuses of workers referenced by pipelineRcName.  Pass ""
-// for pipelineName and zero for pipelineVersion to get all clients for all
-// workers.
-func Status(ctx context.Context, pipelineName string, pipelineVersion uint64, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16) ([]*pps.WorkerStatus, error) {
+// for projectName & pipelineName and zero for pipelineVersion to get all clients
+// for all workers.
+func Status(ctx context.Context, projectName, pipelineName string, pipelineVersion uint64, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16) ([]*pps.WorkerStatus, error) {
 	var result []*pps.WorkerStatus
-	if err := forEachWorker(ctx, pipelineName, pipelineVersion, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
+	if err := forEachWorker(ctx, projectName, pipelineName, pipelineVersion, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
 		ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 		defer cancel()
 		status, err := c.Status(ctx, &types.Empty{})
@@ -49,12 +49,12 @@ func Status(ctx context.Context, pipelineName string, pipelineVersion uint64, et
 	return result, nil
 }
 
-// Cancel cancels a set of datums running on workers.  Pass an empty string and
-// zero version to cancel ALL workers.
-func Cancel(ctx context.Context, pipelineName string, pipelineVersion uint64, etcdClient *etcd.Client,
+// Cancel cancels a set of datums running on workers.  Pass empty strings for
+// project & pipeline names and a zero version to cancel ALL workers.
+func Cancel(ctx context.Context, projectName, pipelineName string, pipelineVersion uint64, etcdClient *etcd.Client,
 	etcdPrefix string, workerGrpcPort uint16, jobID string, dataFilter []string) (retErr error) {
 	success := false
-	if err := forEachWorker(ctx, pipelineName, pipelineVersion, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
+	if err := forEachWorker(ctx, projectName, pipelineName, pipelineVersion, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
 		resp, err := c.Cancel(ctx, &CancelRequest{
 			JobID:       jobID,
 			DataFilters: dataFilter,
@@ -117,11 +117,11 @@ func NewClient(address string) (Client, error) {
 // TODO: It may make sense to parallelize this, but we have to consider that
 // this operation can have multiple instances running in parallel.
 //
-// TODO: Consider switching to more-idiomatic Go iterator pattern.
-func forEachWorker(ctx context.Context, pipelineName string, pipelineVersion uint64, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16, cb func(Client) error) error {
+// TODO: Consider switching from filepath.Walk style to buf.Scanner style.
+func forEachWorker(ctx context.Context, projectName, pipelineName string, pipelineVersion uint64, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16, cb func(Client) error) error {
 	var pipelineRcName string
 	if pipelineName != "" && pipelineVersion != 0 {
-		pipelineRcName = ppsutil.PipelineRcName(pipelineName, pipelineVersion)
+		pipelineRcName = ppsutil.PipelineRcName(projectName, pipelineName, pipelineVersion)
 	}
 	resp, err := etcdClient.Get(ctx, path.Join(etcdPrefix, WorkerEtcdPrefix, pipelineRcName), etcd.WithPrefix())
 	if err != nil {

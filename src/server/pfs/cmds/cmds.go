@@ -3,6 +3,7 @@ package cmds
 import (
 	"archive/tar"
 	"bufio"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"net/http"
@@ -47,6 +48,7 @@ const (
 	commits  = "commits"
 	files    = "files"
 	repos    = "repos"
+	projects = "projects"
 )
 
 // Cmds returns a slice containing pfs commands.
@@ -72,7 +74,7 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(repoDocs, "repo", " repo$", repos))
 
-	var description string
+	var description, project string
 	createRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Create a new repo.",
@@ -88,7 +90,7 @@ or type (e.g. csv, binary, images, etc).`,
 				_, err = c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
 					&pfs.CreateRepoRequest{
-						Repo:        client.NewRepo(args[0]),
+						Repo:        client.NewProjectRepo(project, args[0]),
 						Description: description,
 					},
 				)
@@ -98,6 +100,7 @@ or type (e.g. csv, binary, images, etc).`,
 		}),
 	}
 	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
+	createRepo.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project in which to create the repo.")
 	commands = append(commands, cmdutil.CreateAliases(createRepo, "create repo", repos))
 
 	updateRepo := &cobra.Command{
@@ -647,7 +650,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 			}
 			defer c.Close()
 
-			commitInfo, err := c.WaitCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+			commitInfo, err := c.WaitProjectCommit(commit.Branch.Repo.Project.GetName(), commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 			if err != nil {
 				return err
 			}
@@ -978,6 +981,150 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	shell.RegisterCompletionFunc(deleteBranch, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteBranch, "delete branch", branches))
 
+	projectDocs := &cobra.Command{
+		Short: "Docs for projects.",
+		Long: `Projects are the top level organizational objects in Pachyderm.
+
+Projects contain pachyderm objects such as Repos and Pipelines.`,
+	}
+	commands = append(commands, cmdutil.CreateDocsAliases(projectDocs, "project", " project", projects))
+
+	createProject := &cobra.Command{
+		Use:   "{{alias}} <project>",
+		Short: "Create a new project.",
+		Long:  "Create a new project.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			_, err = c.PfsAPIClient.CreateProject(
+				c.Ctx(),
+				&pfs.CreateProjectRequest{
+					Project:     &pfs.Project{Name: args[0]},
+					Description: description,
+				})
+			return grpcutil.ScrubGRPC(err)
+
+		}),
+	}
+	createProject.Flags().StringVarP(&description, "description", "d", "", "The description of the newly-created project.")
+	commands = append(commands, cmdutil.CreateAliases(createProject, "create project", projects))
+
+	updateProject := &cobra.Command{
+		Use:   "{{alias}} <project>",
+		Short: "Update a project.",
+		Long:  "Update a project.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			_, err = c.PfsAPIClient.CreateProject(
+				c.Ctx(),
+				&pfs.CreateProjectRequest{
+					Project:     &pfs.Project{Name: args[0]},
+					Description: description,
+					Update:      true,
+				})
+			return grpcutil.ScrubGRPC(err)
+
+		}),
+	}
+	updateProject.Flags().StringVarP(&description, "description", "d", "", "The description of the updated project.")
+	shell.RegisterCompletionFunc(updateProject, shell.ProjectCompletion)
+	commands = append(commands, cmdutil.CreateAliases(updateProject, "update project", projects))
+
+	inspectProject := &cobra.Command{
+		Use:   "{{alias}} <project>",
+		Short: "Inspect a project.",
+		Long:  "Inspect a project.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			pi, err := c.PfsAPIClient.InspectProject(
+				c.Ctx(),
+				&pfs.InspectProjectRequest{
+					Project: &pfs.Project{Name: args[0]},
+				})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if raw {
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(pi))
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
+			}
+			return pretty.PrintDetailedProjectInfo(pi)
+		}),
+	}
+	inspectProject.Flags().AddFlagSet(outputFlags)
+	shell.RegisterCompletionFunc(inspectProject, shell.ProjectCompletion)
+	commands = append(commands, cmdutil.CreateAliases(inspectProject, "inspect project", projects))
+
+	listProject := &cobra.Command{
+		Use:   "{{alias}} <repo>",
+		Short: "Return all projects.",
+		Long:  "Return all projects.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			pis, err := c.ListProject()
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if raw {
+				encoder := cmdutil.Encoder(output, os.Stdout)
+				for _, pi := range pis {
+					if err := encoder.EncodeProto(pi); err != nil {
+						return errors.EnsureStack(err)
+					}
+				}
+				return grpcutil.ScrubGRPC(err)
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
+			}
+			writer := tabwriter.NewWriter(os.Stdout, pretty.ProjectHeader)
+			for _, pi := range pis {
+				pretty.PrintProjectInfo(writer, pi)
+			}
+			return writer.Flush()
+		}),
+	}
+	listProject.Flags().AddFlagSet(outputFlags)
+	commands = append(commands, cmdutil.CreateAliases(listProject, "list project", projects))
+
+	deleteProject := &cobra.Command{
+		Use:   "{{alias}} <project>",
+		Short: "Delete a project.",
+		Long:  "Delete a project.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			_, err = c.PfsAPIClient.DeleteProject(
+				c.Ctx(),
+				&pfs.DeleteProjectRequest{
+					Project: &pfs.Project{Name: args[0]},
+					Force:   force,
+				})
+			return grpcutil.ScrubGRPC(err)
+		}),
+	}
+	shell.RegisterCompletionFunc(deleteProject, shell.ProjectCompletion)
+	deleteProject.Flags().BoolVarP(&force, "force", "f", false, "remove the project regardless of errors; use with care")
+	commands = append(commands, cmdutil.CreateAliases(deleteProject, "delete project", projects))
+
 	fileDocs := &cobra.Command{
 		Short: "Docs for files.",
 		Long: `Files are the lowest level data objects in Pachyderm.
@@ -996,6 +1143,7 @@ from commits with 'get file'.`,
 	var compress bool
 	var enableProgress bool
 	var fullPath bool
+	var untar bool
 	putFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/to/file>]",
 		Short: "Put a file into the filesystem.",
@@ -1053,7 +1201,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 			defer progress.Wait()
 
 			// check whether or not the repo exists before attempting to upload
-			if _, err = c.InspectRepo(file.Commit.Branch.Repo.Name); err != nil {
+			if _, err = c.InspectProjectRepo(file.Commit.Branch.Repo.Project.GetName(), file.Commit.Branch.Repo.Name); err != nil {
 				if errutil.IsNotFoundError(err) {
 					return err
 				}
@@ -1116,13 +1264,13 @@ $ {{alias}} repo@branch -i http://host/path`,
 						if !fullPath {
 							target = filepath.Base(source)
 						}
-						if err := putFileHelper(mf, joinPaths("", target), source, recursive, appendFile); err != nil {
+						if err := putFileHelper(mf, joinPaths("", target), source, recursive, appendFile, untar); err != nil {
 							return err
 						}
 					} else if len(sources) == 1 {
 						// We have a single source and the user has specified a path,
 						// we use the path and ignore source (in terms of naming the file).
-						if err := putFileHelper(mf, file.Path, source, recursive, appendFile); err != nil {
+						if err := putFileHelper(mf, file.Path, source, recursive, appendFile, untar); err != nil {
 							return err
 						}
 					} else {
@@ -1132,7 +1280,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 						if !fullPath {
 							target = filepath.Base(source)
 						}
-						if err := putFileHelper(mf, joinPaths(file.Path, target), source, recursive, appendFile); err != nil {
+						if err := putFileHelper(mf, joinPaths(file.Path, target), source, recursive, appendFile, untar); err != nil {
 							return err
 						}
 					}
@@ -1149,6 +1297,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
 	putFile.Flags().BoolVar(&fullPath, "full-path", false, "If true, use the entire path provided to -f as the target filename in PFS. By default only the base of the path is used.")
+	putFile.Flags().BoolVar(&untar, "untar", false, "If true, file(s) with the extension .tar are untarred and put as a separate file for each file within the tar stream(s). gzipped (.tar.gz) tar file(s) are handled as well")
 	shell.RegisterCompletionFunc(putFile,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {
@@ -1711,7 +1860,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 	return commands
 }
 
-func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendFile bool) (retErr error) {
+func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendFile, untar bool) (retErr error) {
 	// Resolve the path and convert to unix path in case we're on windows.
 	path = filepath.ToSlash(filepath.Clean(path))
 	var opts []client.PutFileOption
@@ -1745,7 +1894,7 @@ func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendF
 			// don't do a second recursive 'put file', just put the one file at
 			// filePath into childDest, and then this walk loop will go on to the
 			// next one
-			return putFileHelper(mf, childDest, filePath, false, appendFile)
+			return putFileHelper(mf, childDest, filePath, false, appendFile, untar)
 		})
 		return errors.EnsureStack(err)
 	}
@@ -1758,6 +1907,23 @@ func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendF
 			retErr = err
 		}
 	}()
+	if untar {
+		switch {
+		case strings.HasSuffix(source, ".tar"):
+			return errors.EnsureStack(mf.PutFileTAR(f, opts...))
+		case strings.HasSuffix(source, ".tar.gz"):
+			r, err := gzip.NewReader(f)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			defer func() {
+				if err := r.Close(); retErr == nil {
+					retErr = err
+				}
+			}()
+			return errors.EnsureStack(mf.PutFileTAR(r, opts...))
+		}
+	}
 	return errors.EnsureStack(mf.PutFile(path, f, opts...))
 }
 

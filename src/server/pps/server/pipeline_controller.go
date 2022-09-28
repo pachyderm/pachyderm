@@ -40,12 +40,12 @@ func max(is ...int) int {
 
 type pcManager struct {
 	sync.Mutex
-	pcs map[string]*pipelineController
+	pcs map[pipelineKey]*pipelineController
 }
 
 func newPcManager() *pcManager {
 	return &pcManager{
-		pcs: make(map[string]*pipelineController),
+		pcs: make(map[pipelineKey]*pipelineController),
 	}
 }
 
@@ -170,7 +170,7 @@ type pipelineController struct {
 	// master's context, and cancelled at the end of Start())
 	ctx                   context.Context
 	cancel                context.CancelFunc
-	pipeline              string
+	pipeline              *pps.Pipeline
 	env                   Env
 	etcdPrefix            string
 	monitorCancel         func()
@@ -190,7 +190,7 @@ var (
 	errStaleRC      = errors.New("RC doesn't match pipeline version (likely stale)")
 )
 
-func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.CancelFunc, pipeline string) *pipelineController {
+func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.CancelFunc, pipeline *pps.Pipeline) *pipelineController {
 	pc := &pipelineController{
 		ctx:    ctx,
 		cancel: cancel,
@@ -257,7 +257,7 @@ func (pc *pipelineController) tryFinish() {
 		pc.Bump(ts)
 	default:
 		pc.cancel()
-		delete(pc.pcMgr.pcs, pc.pipeline)
+		delete(pc.pcMgr.pcs, toKey(pc.pipeline))
 	}
 }
 
@@ -441,7 +441,7 @@ func rcIsFresh(pi *pps.PipelineInfo, rc *v1.ReplicationController) bool {
 		log.Errorf("PPS master: RC for %q is nil", pi.Pipeline.Name)
 		return false
 	}
-	expectedName := ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)
+	expectedName := ppsutil.PipelineRcName(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Version)
 	// establish current RC properties
 	rcName := rc.ObjectMeta.Name
 	rcPachVersion := rc.ObjectMeta.Annotations[pachVersionAnnotation]
@@ -526,8 +526,8 @@ func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context, p
 		}()
 	}
 	pachClient.SetAuthToken(pi.AuthToken)
-	if err := pachClient.ListCommitF(client.NewRepo(pi.Pipeline.Name), client.NewCommit(pi.Pipeline.Name, pi.Details.OutputBranch, ""), nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
-		return pachClient.StopJob(pi.Pipeline.Name, commitInfo.Commit.ID)
+	if err := pachClient.ListCommitF(client.NewProjectRepo(pi.Pipeline.Project.GetName(), pi.Pipeline.Name), client.NewProjectCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, ""), nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
+		return pachClient.StopProjectJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commitInfo.Commit.ID)
 	}); err != nil {
 		if errutil.IsNotFoundError(err) {
 			return nil // already deleted

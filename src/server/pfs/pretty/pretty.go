@@ -26,6 +26,8 @@ const (
 	CommitSetHeader = "ID\tSUBCOMMITS\tPROGRESS\tCREATED\tMODIFIED\n"
 	// BranchHeader is the header for branches.
 	BranchHeader = "BRANCH\tHEAD\tTRIGGER\t\n"
+	// ProjectHeader is the header for the projects.
+	ProjectHeader = "PROJECT\tDESCRIPTION\t\n"
 	// FileHeader is the header for files.
 	FileHeader = "NAME\tTYPE\tSIZE\t\n"
 	// FileHeaderWithCommit is the header for files that includes a commit field.
@@ -121,6 +123,17 @@ func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
 	fmt.Fprintln(w)
 }
 
+// PrintProjectInfo pretty-prints a project.
+func PrintProjectInfo(w io.Writer, projectInfo *pfs.ProjectInfo) {
+	fmt.Fprintf(w, "%s\t", projectInfo.Project.Name)
+	if projectInfo.Description != "" {
+		fmt.Fprintf(w, "%s", projectInfo.Description)
+	} else {
+		fmt.Fprintf(w, "-\t")
+	}
+	fmt.Fprintln(w)
+}
+
 // PrintDetailedBranchInfo pretty-prints detailed branch info.
 func PrintDetailedBranchInfo(branchInfo *pfs.BranchInfo) error {
 	template, err := template.New("BranchInfo").Funcs(funcMap).Parse(
@@ -133,6 +146,18 @@ Trigger: {{printTrigger .Trigger}} {{end}}
 		return errors.EnsureStack(err)
 	}
 	return errors.EnsureStack(template.Execute(os.Stdout, branchInfo))
+}
+
+// PrintDetailedProjectInfo pretty-prints detailed project info.
+func PrintDetailedProjectInfo(projectInfo *pfs.ProjectInfo) error {
+	template, err := template.New("ProjectInfo").Funcs(funcMap).Parse(
+		`Name: {{.Project.Name}}{{if .Description}}
+Description: {{ .Description}} {{end}}
+`)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	return errors.EnsureStack(template.Execute(os.Stdout, projectInfo))
 }
 
 // PrintCommitInfo pretty-prints commit info.
