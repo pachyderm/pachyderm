@@ -46,6 +46,7 @@ var (
 			Help:      "Number of datums processed by pipeline ID and state (started|errored|finished)",
 		},
 		[]string{
+			"project",
 			"pipeline",
 			"job",
 			"state",
@@ -62,6 +63,7 @@ var (
 			Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
 		},
 		[]string{
+			"project",
 			"pipeline",
 			"job",
 			"state", // Since both finished and errored datums can have proc times
@@ -77,6 +79,7 @@ var (
 			Help:      "Cumulative number of seconds spent processing",
 		},
 		[]string{
+			"project",
 			"pipeline",
 			"job",
 			"state",
@@ -93,6 +96,7 @@ var (
 			Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
 		},
 		[]string{
+			"project",
 			"pipeline",
 			"job",
 		},
@@ -107,6 +111,7 @@ var (
 			Help:      "Cumulative number of seconds spent downloading",
 		},
 		[]string{
+			"project",
 			"pipeline",
 			"job",
 		},
@@ -122,6 +127,7 @@ var (
 			Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
 		},
 		[]string{
+			"project",
 			"pipeline",
 			"job",
 		},
@@ -136,6 +142,7 @@ var (
 			Help:      "Cumulative number of seconds spent uploading",
 		},
 		[]string{
+			"project",
 			"pipeline",
 			"job",
 		},
@@ -151,6 +158,7 @@ var (
 			Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
 		},
 		[]string{
+			"project",
 			"pipeline",
 			"job",
 		},
@@ -165,6 +173,7 @@ var (
 			Help:      "Cumulative number of bytes downloaded",
 		},
 		[]string{
+			"project",
 			"pipeline",
 			"job",
 		},
@@ -180,6 +189,7 @@ var (
 			Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
 		},
 		[]string{
+			"project",
 			"pipeline",
 			"job",
 		},
@@ -194,6 +204,7 @@ var (
 			Help:      "Cumulative number of bytes uploaded",
 		},
 		[]string{
+			"project",
 			"pipeline",
 			"job",
 		},
