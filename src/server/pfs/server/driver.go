@@ -1134,6 +1134,7 @@ func (d *driver) listCommit(
 	repo *pfs.Repo,
 	to *pfs.Commit,
 	from *pfs.Commit,
+	startTime *types.Timestamp,
 	number int64,
 	reverse bool,
 	all bool,
@@ -1222,6 +1223,14 @@ func (d *driver) listCommit(
 				lastRev = createRev
 			}
 			if passesCommitOriginFilter(ci, all, originKind) {
+				if startTime != nil {
+					createdAt := time.Unix(int64(ci.Started.GetSeconds()), int64(ci.Started.GetNanos())).UTC()
+					fromTime := time.Unix(int64(startTime.GetSeconds()), int64(startTime.GetNanos())).UTC()
+					if !reverse && createdAt.Before(fromTime) || reverse && createdAt.After(fromTime) {
+						cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
+					}
+					return nil
+				}
 				cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
 			}
 			return nil

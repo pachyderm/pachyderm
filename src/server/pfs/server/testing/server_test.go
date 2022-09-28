@@ -104,6 +104,55 @@ func finfosToPaths(finfos []*pfs.FileInfo) (paths []string) {
 func TestPFS(suite *testing.T) {
 	suite.Parallel()
 
+	suite.Run("ListCommitStartedTime", func(t *testing.T) {
+		t.Parallel()
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		err := env.PachClient.CreateRepo("foo")
+		require.NoError(t, err)
+		// create three sequential commits
+		commits := make([]*pfs.Commit, 3)
+		for i := 0; i < 3; i++ {
+			newCommit, err := env.PachClient.StartCommit("foo", "master")
+			require.NoError(t, err)
+			err = env.PachClient.FinishCommit("foo", "master", newCommit.ID)
+			require.NoError(t, err)
+			commits[i] = newCommit
+		}
+		listCommitsAndCheck := func(request *pfs.ListCommitRequest, expectedIDs []string) []*pfs.CommitInfo {
+			listCommitClient, err := env.PachClient.PfsAPIClient.ListCommit(env.PachClient.Ctx(), request)
+			require.NoError(t, err)
+			cis, err := clientsdk.ListCommit(listCommitClient)
+			require.NoError(t, err)
+			require.Equal(t, len(expectedIDs), len(cis))
+			for i, ci := range cis {
+				require.Equal(t, expectedIDs[i], ci.Commit.ID)
+			}
+			return cis
+		}
+		// we should get the latest commit first
+		cis := listCommitsAndCheck(&pfs.ListCommitRequest{
+			Repo:   client.NewRepo("foo"),
+			Number: 1,
+		}, []string{commits[2].ID})
+		cis = listCommitsAndCheck(&pfs.ListCommitRequest{
+			Repo:        client.NewRepo("foo"),
+			Number:      2,
+			StartedTime: cis[0].Started,
+		}, []string{commits[1].ID, commits[0].ID})
+		// no commits should be returned if we set the started time to be the time of the oldest commit
+		_ = listCommitsAndCheck(&pfs.ListCommitRequest{
+			Repo:        client.NewRepo("foo"),
+			Number:      1,
+			StartedTime: cis[1].Started,
+		}, []string{})
+		// we should get the oldest commit first if reverse is set to true
+		_ = listCommitsAndCheck(&pfs.ListCommitRequest{
+			Repo:    client.NewRepo("foo"),
+			Number:  1,
+			Reverse: true,
+		}, []string{commits[0].ID})
+	})
+
 	suite.Run("InvalidRepo", func(t *testing.T) {
 		t.Parallel()
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
