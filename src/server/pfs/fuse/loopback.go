@@ -632,6 +632,19 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 		if !strings.HasPrefix(fi.File.Path, ro.File.Path) && !strings.HasPrefix(ro.File.Path, fi.File.Path) {
 			return nil
 		}
+		if skip := func() bool {
+			if len(ro.Subpaths) == 0 {
+				return false
+			}
+			for _, sp := range ro.Subpaths {
+				if strings.HasPrefix(fi.File.Path, sp) || strings.HasPrefix(sp, fi.File.Path) {
+					return false
+				}
+			}
+			return true
+		}(); skip {
+			return nil
+		}
 		if fi.FileType == pfs.FileType_DIR {
 			return errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777))
 		}

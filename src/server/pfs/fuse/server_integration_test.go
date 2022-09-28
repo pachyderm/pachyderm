@@ -5,6 +5,9 @@ package fuse
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -74,9 +77,6 @@ func TestConfig(t *testing.T) {
 }
 
 func TestRepoAccess(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := "robot"+tu.UniqueString("alice"), "robot"+tu.UniqueString("bob")
@@ -93,7 +93,7 @@ func TestRepoAccess(t *testing.T) {
 
 		reposResp := &ListRepoResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
-		require.Equal(t, (*reposResp)["repo1"].Authorization, "write")
+		require.Equal(t, "write", (*reposResp)["repo1"].Authorization)
 	})
 
 	withServerMount(t, bobClient, nil, func(mountPoint string) {
@@ -102,10 +102,21 @@ func TestRepoAccess(t *testing.T) {
 
 		reposResp := &ListRepoResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
-		require.Equal(t, (*reposResp)["repo1"].Authorization, "none")
+		require.Equal(t, "none", (*reposResp)["repo1"].Authorization)
 
-		resp, _ = put("repos/repo1/master/_mount?name=repo1&mode=ro", nil)
-		require.Equal(t, resp.StatusCode, 500)
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo1",
+					Repo:   "repo1",
+					Branch: "master",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		resp, _ = put("_mount", b)
+		require.Equal(t, 500, resp.StatusCode)
 	})
 }
 
@@ -166,5 +177,284 @@ func TestAuthLoginLogout(t *testing.T) {
 
 		_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 		require.ErrorIs(t, err, auth.ErrNotSignedIn)
+	})
+}
+
+func TestMountDatum(t *testing.T) {
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	commit := client.NewCommit("repo", "master", "")
+	err := c.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	withServerMount(t, c, nil, func(mountPoint string) {
+		input := []byte("{'input': {'pfs': {'repo': 'repo', 'glob': '/'}}}")
+		resp, err := put("_mount_datums", bytes.NewReader(input))
+		require.NoError(t, err)
+
+		mdr := &MountDatumResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 0, mdr.Idx)
+		require.NotEqual(t, "", mdr.Id)
+		require.Equal(t, 1, mdr.NumDatums)
+
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(files))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+
+		_, err = put("_unmount_all", nil)
+		require.NoError(t, err)
+
+		input = []byte("{'input': {'pfs': {'repo': 'repo', 'glob': '/*'}}}")
+		resp, err = put("_mount_datums", bytes.NewReader(input))
+		require.NoError(t, err)
+
+		mdr = &MountDatumResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 0, mdr.Idx)
+		require.NotEqual(t, "", mdr.Id)
+		require.Equal(t, 2, mdr.NumDatums)
+
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+	})
+}
+
+func TestCrossDatum(t *testing.T) {
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	require.NoError(t, c.CreateRepo("repo1"))
+	commit := client.NewCommit("repo1", "master", "")
+	err := c.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	require.NoError(t, c.CreateRepo("repo2"))
+	commit = client.NewCommit("repo2", "dev", "")
+	err = c.PutFile(commit, "dir/file3", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = c.PutFile(commit, "file4", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, c, nil, func(mountPoint string) {
+		input := []byte("{'input': {'cross': [{'pfs': {'glob': '/', 'repo': 'repo1'}}, {'pfs': {'glob': '/*', 'repo': 'repo2', 'branch': 'dev'}}]}}}")
+		resp, err := put("_mount_datums", bytes.NewReader(input))
+		require.NoError(t, err)
+
+		mdr := &MountDatumResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 0, mdr.Idx)
+		require.NotEqual(t, "", mdr.Id)
+		require.Equal(t, 2, mdr.NumDatums)
+
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo1"))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(files))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo2_dev"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+	})
+}
+
+func TestUnionDatum(t *testing.T) {
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	require.NoError(t, c.CreateRepo("repo1"))
+	commit := client.NewCommit("repo1", "master", "")
+	err := c.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	require.NoError(t, c.CreateRepo("repo2"))
+	commit = client.NewCommit("repo2", "dev", "")
+	err = c.PutFile(commit, "dir/file3", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = c.PutFile(commit, "file4", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, c, nil, func(mountPoint string) {
+		input := []byte("{'input': {'union': [{'pfs': {'glob': '/', 'repo': 'repo1'}}, {'pfs': {'glob': '/*', 'repo': 'repo2', 'branch': 'dev'}}]}}}")
+		resp, err := put("_mount_datums", bytes.NewReader(input))
+		require.NoError(t, err)
+
+		mdr := &MountDatumResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 0, mdr.Idx)
+		require.NotEqual(t, "", mdr.Id)
+		require.Equal(t, 3, mdr.NumDatums)
+	})
+}
+
+func TestRepeatedBranchesDatum(t *testing.T) {
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, c.CreateRepo("repo1"))
+	commit := client.NewCommit("repo1", "master", "")
+	err := c.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commit = client.NewCommit("repo1", "dev", "")
+	err = c.PutFile(commit, "dir/file3", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = c.PutFile(commit, "file4", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, c, nil, func(mountPoint string) {
+		input := []byte("{'input': {'cross': [{'pfs': {'glob': '/*', 'repo': 'repo1'}}, {'pfs': {'glob': '/*', 'repo': 'repo1'}}]}}")
+		resp, err := put("_mount_datums", bytes.NewReader(input))
+		require.NoError(t, err)
+
+		mdr := &MountDatumResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 0, mdr.Idx)
+		require.NotEqual(t, "", mdr.Id)
+		require.Equal(t, 4, mdr.NumDatums)
+
+		files, err := os.ReadDir(filepath.Join(mountPoint))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo1"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+
+		_, err = put("_unmount_all", nil)
+		require.NoError(t, err)
+
+		input = []byte("{'input': {'cross': [{'pfs': {'glob': '/*', 'repo': 'repo1'}}, {'pfs': {'glob': '/*', 'repo': 'repo1'}}, {'pfs': {'glob': '/*', 'repo': 'repo1', 'branch': 'dev'}}]}}")
+		resp, err = put("_mount_datums", bytes.NewReader(input))
+		require.NoError(t, err)
+
+		mdr = &MountDatumResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 0, mdr.Idx)
+		require.NotEqual(t, "", mdr.Id)
+		require.Equal(t, 8, mdr.NumDatums)
+
+		_, err = os.ReadDir(filepath.Join(mountPoint, "out")) // Loads "out" folder
+		require.NoError(t, err)
+		files, err = os.ReadDir(filepath.Join(mountPoint))
+		require.NoError(t, err)
+		require.Equal(t, 3, len(files)) // Need to account for "out" rw mount
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo1_dev"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+	})
+}
+
+func TestShowDatum(t *testing.T) {
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	commit := client.NewCommit("repo", "dev", "")
+	err := c.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, c, nil, func(mountPoint string) {
+		input := []byte("{'input': {'pfs': {'repo': 'repo', 'glob': '/*', 'branch': 'dev'}}}")
+		resp, err := put("_mount_datums", bytes.NewReader(input))
+		require.NoError(t, err)
+
+		mdr := &MountDatumResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 0, mdr.Idx)
+		require.NotEqual(t, "", mdr.Id)
+		datum1Id := mdr.Id
+		require.Equal(t, 2, mdr.NumDatums)
+
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo_dev"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+
+		resp, err = put("_show_datum?idx=1", nil)
+		require.NoError(t, err)
+
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 1, mdr.Idx)
+		require.NotEqual(t, "", mdr.Id)
+		require.Equal(t, 2, mdr.NumDatums)
+
+		resp, err = put(fmt.Sprintf("_show_datum?idx=1&id=%s", datum1Id), nil)
+		require.NoError(t, err)
+
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 0, mdr.Idx)
+		require.Equal(t, datum1Id, mdr.Id)
+		require.Equal(t, 2, mdr.NumDatums)
+	})
+}
+
+func TestGetDatums(t *testing.T) {
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	commit := client.NewCommit("repo", "dev", "")
+	err := c.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, c, nil, func(mountPoint string) {
+		resp, err := get("datums")
+		require.NoError(t, err)
+
+		dr := &DatumsResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(dr))
+		require.Equal(t, 0, dr.NumDatums)
+
+		input := []byte("{'input': {'pfs': {'repo': 'repo', 'glob': '/*', 'branch': 'dev'}}}")
+		resp, err = put("_mount_datums", bytes.NewReader(input))
+		require.NoError(t, err)
+
+		mdr := &MountDatumResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 0, mdr.Idx)
+		require.NotEqual(t, "", mdr.Id)
+		datum1Id := mdr.Id
+		require.Equal(t, 2, mdr.NumDatums)
+
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo_dev"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+
+		resp, err = get("datums")
+		require.NoError(t, err)
+
+		dr = &DatumsResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(dr))
+		require.Equal(t, 2, dr.NumDatums)
+		require.Equal(t, "repo", dr.Input.Pfs.Repo)
+		require.Equal(t, "dev", dr.Input.Pfs.Branch)
+		require.Equal(t, "/*", dr.Input.Pfs.Glob)
+		require.Equal(t, 0, dr.CurrIdx)
+
+		resp, err = put("_show_datum?idx=1", nil)
+		require.NoError(t, err)
+
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 1, mdr.Idx)
+		require.NotEqual(t, "", mdr.Id)
+		require.Equal(t, 2, mdr.NumDatums)
+
+		resp, err = get("datums")
+		require.NoError(t, err)
+
+		dr = &DatumsResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(dr))
+		require.Equal(t, 1, dr.CurrIdx)
+
+		resp, err = put(fmt.Sprintf("_show_datum?idx=1&id=%s", datum1Id), nil)
+		require.NoError(t, err)
+
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 0, mdr.Idx)
+		require.Equal(t, datum1Id, mdr.Id)
+		require.Equal(t, 2, mdr.NumDatums)
 	})
 }
