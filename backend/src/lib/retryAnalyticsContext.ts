@@ -10,7 +10,7 @@ interface retryAnalyticsContextResponse {
   enterpriseState?: EnterpriseState;
 }
 
-const MAX_RETRY = 30;
+const MAX_RETRY = 10;
 
 async function retryAnalyticsContext() {
   const retryObj = operation({

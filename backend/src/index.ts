@@ -22,6 +22,9 @@ const FE_BUILD_DIRECTORY =
   process.env.FE_BUILD_DIRECTORY ||
   path.join(__dirname, '../../frontend/build');
 
+const ENABLE_TELEMETRY =
+  process.env.REACT_APP_RUNTIME_DISABLE_TELEMETRY !== 'true';
+
 const attachWebServer = (app: Express) => {
   // Attach all environment variables prefixed with REACT_APP
   const env = Object.keys(process.env)
@@ -121,21 +124,19 @@ const createServer = () => {
   app.use(json());
   app.use(urlencoded({extended: true}));
 
-  const enableTelemetry =
-    process.env.REACT_APP_RUNTIME_DISABLE_TELEMETRY !== 'true';
-
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    enabled: enableTelemetry,
-    tracesSampleRate: 0.5,
-  });
-
   attachFileHandlers(app);
 
   if (process.env.NODE_ENV !== 'development') {
     attachWebServer(app);
   }
-  if (enableTelemetry) {
+
+  if (ENABLE_TELEMETRY) {
+    if (process.env.SENTRY_DSN) {
+      Sentry.init({
+        dsn: process.env.SENTRY_DSN,
+        tracesSampleRate: 0.5,
+      });
+    }
     attachAnalytics();
   }
 
