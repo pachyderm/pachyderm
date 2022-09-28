@@ -2,7 +2,7 @@ import React from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
 import {useDatum} from './hooks/useDatum';
 import {caretLeftIcon, caretRightIcon} from '@jupyterlab/ui-components';
-import {DatumsResponse} from 'plugins/mount/types';
+import {CurrentDatumResponse, MountDatumResponse} from 'plugins/mount/types';
 
 type DatumProps = {
   showDatum: boolean;
@@ -11,7 +11,7 @@ type DatumProps = {
   setKeepMounted: (keep: boolean) => void;
   refresh: () => void;
   pollRefresh: () => Promise<void>;
-  currentDatumInfo?: DatumsResponse;
+  currentDatumInfo?: CurrentDatumResponse;
 };
 
 const placeholderText = `{
@@ -34,10 +34,9 @@ const Datum: React.FC<DatumProps> = ({
   const {
     loading,
     shouldShowCycler,
-    currentDatumId,
-    currentDatumIdx,
-    setCurrentDatumIdx,
-    numDatums,
+    currDatum,
+    currIdx,
+    setCurrIdx,
     inputSpec,
     setInputSpec,
     callMountDatums,
@@ -107,10 +106,10 @@ const Datum: React.FC<DatumProps> = ({
               <button
                 className="pachyderm-button-link"
                 data-testid="Datum__cyclerLeft"
-                disabled={currentDatumIdx <= 0}
+                disabled={currIdx <= 0}
                 onClick={() => {
-                  if (currentDatumIdx >= 1) {
-                    setCurrentDatumIdx(currentDatumIdx - 1);
+                  if (currIdx >= 1) {
+                    setCurrIdx(currIdx-1);
                   }
                 }}
               >
@@ -119,14 +118,14 @@ const Datum: React.FC<DatumProps> = ({
                   className="pachyderm-mount-datum-left"
                 />
               </button>
-              {'(' + (currentDatumIdx + 1) + '/' + numDatums + ')'}
+              {'(' + (currIdx + 1) + '/' + currDatum.num_datums + ')'}
               <button
                 className="pachyderm-button-link"
                 data-testid="Datum__cyclerRight"
-                disabled={currentDatumIdx >= numDatums - 1}
+                disabled={currIdx >= currDatum.num_datums - 1}
                 onClick={() => {
-                  if (currentDatumIdx < numDatums - 1) {
-                    setCurrentDatumIdx(currentDatumIdx + 1);
+                  if (currIdx < currDatum.num_datums - 1) {
+                    setCurrIdx(currIdx+1);
                   }
                 }}
               >

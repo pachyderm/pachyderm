@@ -10,7 +10,7 @@ import {Signal} from '@lumino/signaling';
 import {mountLogoIcon} from '../../utils/icons';
 import {PollMounts} from './pollMounts';
 import createCustomFileBrowser from './customFileBrowser';
-import {AuthConfig, IMountPlugin, Repo, Mount, DatumsResponse} from './types';
+import {AuthConfig, IMountPlugin, Repo, Mount, CurrentDatumResponse} from './types';
 import Config from './components/Config/Config';
 import Datum from './components/Datum/Datum';
 import SortableList from './components/SortableList/SortableList';
@@ -36,7 +36,7 @@ export class MountPlugin implements IMountPlugin {
   private _showConfigSignal = new Signal<this, boolean>(this);
   private _showDatum = false;
   private _keepMounted = false;
-  private _currentDatumInfo: DatumsResponse | undefined;
+  private _currentDatumInfo: CurrentDatumResponse | undefined;
   private _showDatumSignal = new Signal<this, boolean>(this);
   private _readyPromise: Promise<void> = Promise.resolve();
 
@@ -212,10 +212,6 @@ export class MountPlugin implements IMountPlugin {
     this._panel.addWidget(this._unmountedList);
     this._panel.addWidget(this._datum);
     this._panel.addWidget(this._mountBrowser);
-    // SplitPanel.setStretch(this._mountedList, 1);
-    // SplitPanel.setStretch(this._unmountedList, 1);
-    // SplitPanel.setStretch(this._datum, 5);
-    // SplitPanel.setStretch(this._mountBrowser, 3);
     this._panel.setRelativeSizes([1, 1, 3, 3]);
 
     this._panel.addWidget(this._loader);
@@ -324,7 +320,7 @@ export class MountPlugin implements IMountPlugin {
       );
 
       try {
-        const res = await requestAPI<any>('datums', 'GET');
+        const res = await requestAPI<CurrentDatumResponse>('datums', 'GET');
         if (res['num_datums'] > 0) {
           this._keepMounted = true;
           this._currentDatumInfo = res;

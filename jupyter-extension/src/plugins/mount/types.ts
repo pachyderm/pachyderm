@@ -35,11 +35,17 @@ export type Repo = {
   branches: string[];
 };
 
-export type DatumsResponse = {
+export type CurrentDatumResponse = {
   num_datums: number;
   input: {[key: string]: any};
   curr_idx: number;
 };
+
+export type MountDatumResponse = {
+  id: string;
+  idx: number;
+  num_datums: number;
+}
 
 export type ListMountsResponse = {
   mounted: {[key: string]: Mount};

@@ -31,10 +31,6 @@ const ListMount: React.FC<ListMountProps> = ({item, open, updateData}) => {
     open(item.name);
   };
 
-  const onClickHandler = () => {
-    unmount();
-  };
-
   const unmount = async () => {
     setDisabled(true);
     try {
@@ -79,7 +75,7 @@ const ListMount: React.FC<ListMountProps> = ({item, open, updateData}) => {
       <span className="pachyderm-mount-list-item-action">
         <button
           disabled={disabled}
-          onClick={onClickHandler}
+          onClick={unmount}
           className="pachyderm-button-link"
           data-testid={`ListItem__${buttonText.toLowerCase()}`}
         >
