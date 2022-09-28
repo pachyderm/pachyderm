@@ -178,7 +178,7 @@ export class MountPlugin implements IMountPlugin {
               setShowDatum={this.setShowDatum}
               keepMounted={this._keepMounted}
               setKeepMounted={this.setKeepMounted}
-              refresh={this.refresh}
+              refresh={this.open}
               pollRefresh={this._poller.refresh}
               currentDatumInfo={this._currentDatumInfo}
             />
@@ -243,13 +243,6 @@ export class MountPlugin implements IMountPlugin {
   open = (path: string): void => {
     this._app.commands.execute('filebrowser:open-path', {
       path: MOUNT_BROWSER_NAME + path,
-    });
-  };
-
-  refresh = (): void => {
-    this._app.commands.execute('filebrowser:refresh');
-    this._app.commands.execute('filebrowser:open-path', {
-      path: MOUNT_BROWSER_NAME,
     });
   };
 

@@ -9,7 +9,7 @@ type DatumProps = {
   setShowDatum: (shouldShow: boolean) => void;
   keepMounted: boolean;
   setKeepMounted: (keep: boolean) => void;
-  refresh: () => void;
+  refresh: (path: string) => void;
   pollRefresh: () => Promise<void>;
   currentDatumInfo?: CurrentDatumResponse;
 };
@@ -18,7 +18,7 @@ const placeholderText = `{
   "pfs": {
     "repo": "images",
     "branch": "dev",
-    "glob": "/*",
+    "glob": "/*"
   }
 }`;
 
