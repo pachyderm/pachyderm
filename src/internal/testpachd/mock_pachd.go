@@ -5,22 +5,27 @@ import (
 	"net"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
-	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	"github.com/pachyderm/pachyderm/v2/src/task"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
+	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	version "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 )
 
 /* Admin Server Mocks */
@@ -77,6 +82,23 @@ type restoreAuthTokenFunc func(context.Context, *auth.RestoreAuthTokenRequest) (
 type deleteExpiredAuthTokensFunc func(context.Context, *auth.DeleteExpiredAuthTokensRequest) (*auth.DeleteExpiredAuthTokensResponse, error)
 type RotateRootTokenFunc func(context.Context, *auth.RotateRootTokenRequest) (*auth.RotateRootTokenResponse, error)
 
+type checkRepoIsAuthorizedFunc func(context.Context, *pfs.Repo, ...auth.Permission) error
+type checkClusterIsAuthorizedFunc func(context.Context, ...auth.Permission) error
+type checkClusterIsAuthorizedInTransactionFunc func(*txncontext.TransactionContext, ...auth.Permission) error
+type checkRepoIsAuthorizedInTransactionFunc func(*txncontext.TransactionContext, *pfs.Repo, ...auth.Permission) error
+type authorizeInTransactionFunc func(*txncontext.TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
+type modifyRoleBindingInTransactionFunc func(*txncontext.TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
+type getRoleBindingInTransactionFunc func(*txncontext.TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error)
+type addPipelineReaderToRepoInTransactionFunc func(*txncontext.TransactionContext, string, string) error
+type addPipelineWriterToRepoInTransactionFunc func(*txncontext.TransactionContext, string) error
+type addPipelineWriterToSourceRepoInTransactionFunc func(*txncontext.TransactionContext, string, string) error
+type removePipelineReaderFromRepoInTransactionFunc func(*txncontext.TransactionContext, string, string) error
+type createRoleBindingInTransactionFunc func(*txncontext.TransactionContext, string, []string, *auth.Resource) error
+type deleteRoleBindingInTransactionFunc func(*txncontext.TransactionContext, *auth.Resource) error
+type getPipelineAuthTokenInTransactionFunc func(*txncontext.TransactionContext, string) (string, error)
+type revokeAuthTokenInTransactionFunc func(*txncontext.TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
+type getPermissionsInTransactionFunc func(*txncontext.TransactionContext, *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
+
 type mockActivateAuth struct{ handler activateAuthFunc }
 type mockDeactivateAuth struct{ handler deactivateAuthFunc }
 type mockGetConfiguration struct{ handler getConfigurationFunc }
@@ -106,6 +128,55 @@ type mockRestoreAuthToken struct{ handler restoreAuthTokenFunc }
 type mockDeleteExpiredAuthTokens struct{ handler deleteExpiredAuthTokensFunc }
 type mockRotateRootToken struct{ handler RotateRootTokenFunc }
 
+type mockCheckRepoIsAuthorized struct {
+	handler checkRepoIsAuthorizedFunc
+}
+type mockCheckClusterIsAuthorized struct {
+	handler checkClusterIsAuthorizedFunc
+}
+type mockCheckClusterIsAuthorizedInTransaction struct {
+	handler checkClusterIsAuthorizedInTransactionFunc
+}
+type mockCheckRepoIsAuthorizedInTransaction struct {
+	handler checkRepoIsAuthorizedInTransactionFunc
+}
+type mockAuthorizeInTransaction struct {
+	handler authorizeInTransactionFunc
+}
+type mockModifyRoleBindingInTransaction struct {
+	handler modifyRoleBindingInTransactionFunc
+}
+type mockGetRoleBindingInTransaction struct {
+	handler getRoleBindingInTransactionFunc
+}
+type mockAddPipelineReaderToRepoInTransaction struct {
+	handler addPipelineReaderToRepoInTransactionFunc
+}
+type mockAddPipelineWriterToRepoInTransaction struct {
+	handler addPipelineWriterToRepoInTransactionFunc
+}
+type mockAddPipelineWriterToSourceRepoInTransaction struct {
+	handler addPipelineWriterToSourceRepoInTransactionFunc
+}
+type mockRemovePipelineReaderFromRepoInTransaction struct {
+	handler removePipelineReaderFromRepoInTransactionFunc
+}
+type mockCreateRoleBindingInTransaction struct {
+	handler createRoleBindingInTransactionFunc
+}
+type mockDeleteRoleBindingInTransaction struct {
+	handler deleteRoleBindingInTransactionFunc
+}
+type mockGetPipelineAuthTokenInTransaction struct {
+	handler getPipelineAuthTokenInTransactionFunc
+}
+type mockRevokeAuthTokenInTransaction struct {
+	handler revokeAuthTokenInTransactionFunc
+}
+type mockGetPermissionsInTransaction struct {
+	handler getPermissionsInTransactionFunc
+}
+
 func (mock *mockActivateAuth) Use(cb activateAuthFunc)                             { mock.handler = cb }
 func (mock *mockDeactivateAuth) Use(cb deactivateAuthFunc)                         { mock.handler = cb }
 func (mock *mockGetConfiguration) Use(cb getConfigurationFunc)                     { mock.handler = cb }
@@ -132,37 +203,102 @@ func (mock *mockRestoreAuthToken) Use(cb restoreAuthTokenFunc)                  
 func (mock *mockDeleteExpiredAuthTokens) Use(cb deleteExpiredAuthTokensFunc)       { mock.handler = cb }
 func (mock *mockRotateRootToken) Use(cb RotateRootTokenFunc)                       { mock.handler = cb }
 
+func (mock *mockCheckRepoIsAuthorized) Use(cb checkRepoIsAuthorizedFunc) {
+	mock.handler = cb
+}
+func (mock *mockCheckClusterIsAuthorized) Use(cb checkClusterIsAuthorizedFunc) {
+	mock.handler = cb
+}
+func (mock *mockCheckClusterIsAuthorizedInTransaction) Use(cb checkClusterIsAuthorizedInTransactionFunc) {
+	mock.handler = cb
+}
+func (mock *mockCheckRepoIsAuthorizedInTransaction) Use(cb checkRepoIsAuthorizedInTransactionFunc) {
+	mock.handler = cb
+}
+func (mock *mockAuthorizeInTransaction) Use(cb authorizeInTransactionFunc) {
+	mock.handler = cb
+}
+func (mock *mockModifyRoleBindingInTransaction) Use(cb modifyRoleBindingInTransactionFunc) {
+	mock.handler = cb
+}
+func (mock *mockGetRoleBindingInTransaction) Use(cb getRoleBindingInTransactionFunc) {
+	mock.handler = cb
+}
+func (mock *mockAddPipelineReaderToRepoInTransaction) Use(cb addPipelineReaderToRepoInTransactionFunc) {
+	mock.handler = cb
+}
+func (mock *mockAddPipelineWriterToRepoInTransaction) Use(cb addPipelineWriterToRepoInTransactionFunc) {
+	mock.handler = cb
+}
+func (mock *mockAddPipelineWriterToSourceRepoInTransaction) Use(cb addPipelineWriterToSourceRepoInTransactionFunc) {
+	mock.handler = cb
+}
+func (mock *mockRemovePipelineReaderFromRepoInTransaction) Use(cb removePipelineReaderFromRepoInTransactionFunc) {
+	mock.handler = cb
+}
+func (mock *mockCreateRoleBindingInTransaction) Use(cb createRoleBindingInTransactionFunc) {
+	mock.handler = cb
+}
+func (mock *mockDeleteRoleBindingInTransaction) Use(cb deleteRoleBindingInTransactionFunc) {
+	mock.handler = cb
+}
+func (mock *mockGetPipelineAuthTokenInTransaction) Use(cb getPipelineAuthTokenInTransactionFunc) {
+	mock.handler = cb
+}
+func (mock *mockRevokeAuthTokenInTransaction) Use(cb revokeAuthTokenInTransactionFunc) {
+	mock.handler = cb
+}
+func (mock *mockGetPermissionsInTransaction) Use(cb getPermissionsInTransactionFunc) {
+	mock.handler = cb
+}
+
 type authServerAPI struct {
 	mock *mockAuthServer
 }
 
 type mockAuthServer struct {
-	api                        authServerAPI
-	Activate                   mockActivateAuth
-	Deactivate                 mockDeactivateAuth
-	GetConfiguration           mockGetConfiguration
-	SetConfiguration           mockSetConfiguration
-	ModifyRoleBinding          mockModifyRoleBinding
-	GetRoleBinding             mockGetRoleBinding
-	Authenticate               mockAuthenticate
-	Authorize                  mockAuthorize
-	GetPermissions             mockGetPermissions
-	GetPermissionsForPrincipal mockGetPermissionsForPrincipal
-	WhoAmI                     mockWhoAmI
-	GetRolesForPermission      mockGetRolesForPermission
-	GetOIDCLogin               mockGetOIDCLogin
-	GetRobotToken              mockGetRobotToken
-	RevokeAuthToken            mockRevokeAuthToken
-	RevokeAuthTokensForUser    mockRevokeAuthTokensForUser
-	SetGroupsForUser           mockSetGroupsForUser
-	ModifyMembers              mockModifyMembers
-	GetGroups                  mockGetGroups
-	GetGroupsForPrincipal      mockGetGroupsForPrincipal
-	GetUsers                   mockGetUsers
-	ExtractAuthTokens          mockExtractAuthTokens
-	RestoreAuthToken           mockRestoreAuthToken
-	DeleteExpiredAuthTokens    mockDeleteExpiredAuthTokens
-	RotateRootToken            mockRotateRootToken
+	api                                        authServerAPI
+	Activate                                   mockActivateAuth
+	Deactivate                                 mockDeactivateAuth
+	GetConfiguration                           mockGetConfiguration
+	SetConfiguration                           mockSetConfiguration
+	ModifyRoleBinding                          mockModifyRoleBinding
+	GetRoleBinding                             mockGetRoleBinding
+	Authenticate                               mockAuthenticate
+	Authorize                                  mockAuthorize
+	GetPermissions                             mockGetPermissions
+	GetPermissionsForPrincipal                 mockGetPermissionsForPrincipal
+	WhoAmI                                     mockWhoAmI
+	GetRolesForPermission                      mockGetRolesForPermission
+	GetOIDCLogin                               mockGetOIDCLogin
+	GetRobotToken                              mockGetRobotToken
+	RevokeAuthToken                            mockRevokeAuthToken
+	RevokeAuthTokensForUser                    mockRevokeAuthTokensForUser
+	SetGroupsForUser                           mockSetGroupsForUser
+	ModifyMembers                              mockModifyMembers
+	GetGroups                                  mockGetGroups
+	GetGroupsForPrincipal                      mockGetGroupsForPrincipal
+	GetUsers                                   mockGetUsers
+	ExtractAuthTokens                          mockExtractAuthTokens
+	RestoreAuthToken                           mockRestoreAuthToken
+	DeleteExpiredAuthTokens                    mockDeleteExpiredAuthTokens
+	RotateRootToken                            mockRotateRootToken
+	CheckRepoIsAuthorized                      mockCheckRepoIsAuthorized
+	CheckClusterIsAuthorized                   mockCheckClusterIsAuthorized
+	CheckClusterIsAuthorizedInTransaction      mockCheckClusterIsAuthorizedInTransaction
+	CheckRepoIsAuthorizedInTransaction         mockCheckRepoIsAuthorizedInTransaction
+	AuthorizeInTransaction                     mockAuthorizeInTransaction
+	ModifyRoleBindingInTransaction             mockModifyRoleBindingInTransaction
+	GetRoleBindingInTransaction                mockGetRoleBindingInTransaction
+	AddPipelineReaderToRepoInTransaction       mockAddPipelineReaderToRepoInTransaction
+	AddPipelineWriterToRepoInTransaction       mockAddPipelineWriterToRepoInTransaction
+	AddPipelineWriterToSourceRepoInTransaction mockAddPipelineWriterToSourceRepoInTransaction
+	RemovePipelineReaderFromRepoInTransaction  mockRemovePipelineReaderFromRepoInTransaction
+	CreateRoleBindingInTransaction             mockCreateRoleBindingInTransaction
+	DeleteRoleBindingInTransaction             mockDeleteRoleBindingInTransaction
+	GetPipelineAuthTokenInTransaction          mockGetPipelineAuthTokenInTransaction
+	RevokeAuthTokenInTransaction               mockRevokeAuthTokenInTransaction
+	GetPermissionsInTransaction                mockGetPermissionsInTransaction
 }
 
 func (api *authServerAPI) Activate(ctx context.Context, req *auth.ActivateRequest) (*auth.ActivateResponse, error) {
@@ -318,6 +454,118 @@ func (api *authServerAPI) RotateRootToken(ctx context.Context, req *auth.RotateR
 		return api.mock.RotateRootToken.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.RotateRootToken")
+}
+
+func (api *authServerAPI) CheckRepoIsAuthorized(ctx context.Context, repo *pfs.Repo, permission ...auth.Permission) error {
+	if api.mock.CheckRepoIsAuthorized.handler != nil {
+		return api.mock.CheckRepoIsAuthorized.handler(ctx, repo, permission...)
+	}
+	return errors.Errorf("unhandled pachd mock auth.CheckRepoIsAuthorized")
+}
+
+func (api *authServerAPI) CheckClusterIsAuthorized(ctx context.Context, p ...auth.Permission) error {
+	if api.mock.CheckClusterIsAuthorized.handler != nil {
+		return api.mock.CheckClusterIsAuthorized.handler(ctx, p...)
+	}
+	return errors.Errorf("unhandled pachd mock auth.CheckClusterIsAuthorized")
+}
+
+func (api *authServerAPI) CheckClusterIsAuthorizedInTransaction(transactionContext *txncontext.TransactionContext, permission ...auth.Permission) error {
+	if api.mock.CheckClusterIsAuthorizedInTransaction.handler != nil {
+		return api.mock.CheckClusterIsAuthorizedInTransaction.handler(transactionContext, permission...)
+	}
+	return errors.Errorf("unhandled pachd mock auth.CheckClusterIsAuthorizedInTranscation")
+}
+
+func (api *authServerAPI) CheckRepoIsAuthorizedInTransaction(transactionContext *txncontext.TransactionContext, repo *pfs.Repo, permission ...auth.Permission) error {
+	if api.mock.CheckRepoIsAuthorizedInTransaction.handler != nil {
+		return api.mock.CheckRepoIsAuthorizedInTransaction.handler(transactionContext, repo, permission...)
+	}
+	return errors.Errorf("unhandled pachd mock auth.CheckRepoIsAuthorizedInTranscation")
+}
+
+func (api *authServerAPI) AuthorizeInTransaction(transactionContext *txncontext.TransactionContext, request *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error) {
+	if api.mock.AuthorizeInTransaction.handler != nil {
+		return api.mock.AuthorizeInTransaction.handler(transactionContext, request)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.AuthorizeInTransaction")
+}
+
+func (api *authServerAPI) ModifyRoleBindingInTransaction(transactionContext *txncontext.TransactionContext, request *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
+	if api.mock.ModifyRoleBindingInTransaction.handler != nil {
+		return api.mock.ModifyRoleBindingInTransaction.handler(transactionContext, request)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.ModifyRoleBindingInTransaction")
+}
+
+func (api *authServerAPI) GetRoleBindingInTransaction(transactionContext *txncontext.TransactionContext, request *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error) {
+	if api.mock.GetRoleBindingInTransaction.handler != nil {
+		return api.mock.GetRoleBindingInTransaction.handler(transactionContext, request)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.GetRoleBindingInTransaction")
+}
+
+func (api *authServerAPI) AddPipelineReaderToRepoInTransaction(transactionContext *txncontext.TransactionContext, s string, s2 string) error {
+	if api.mock.AddPipelineReaderToRepoInTransaction.handler != nil {
+		return api.mock.AddPipelineReaderToRepoInTransaction.handler(transactionContext, s, s2)
+	}
+	return errors.Errorf("unhandled pachd mock auth.AddPipelineReaderToRepoInTransaction")
+}
+
+func (api *authServerAPI) AddPipelineWriterToRepoInTransaction(transactionContext *txncontext.TransactionContext, s string) error {
+	if api.mock.AddPipelineWriterToRepoInTransaction.handler != nil {
+		return api.mock.AddPipelineWriterToRepoInTransaction.handler(transactionContext, s)
+	}
+	return errors.Errorf("unhandled pachd mock auth.AddPipelineWriterToRepoInTransaction")
+}
+
+func (api *authServerAPI) AddPipelineWriterToSourceRepoInTransaction(transactionContext *txncontext.TransactionContext, s string, s2 string) error {
+	if api.mock.AddPipelineWriterToSourceRepoInTransaction.handler != nil {
+		return api.mock.AddPipelineWriterToSourceRepoInTransaction.handler(transactionContext, s, s2)
+	}
+	return errors.Errorf("unhandled pachd mock auth.AddPipelineWriterToSourceRepoInTransaction")
+}
+
+func (api *authServerAPI) RemovePipelineReaderFromRepoInTransaction(transactionContext *txncontext.TransactionContext, s string, s2 string) error {
+	if api.mock.RemovePipelineReaderFromRepoInTransaction.handler != nil {
+		return api.mock.RemovePipelineReaderFromRepoInTransaction.handler(transactionContext, s, s2)
+	}
+	return errors.Errorf("unhandled pachd mock auth.RemovePipelineReaderFromRepoInTransaction")
+}
+
+func (api *authServerAPI) CreateRoleBindingInTransaction(transactionContext *txncontext.TransactionContext, s string, strings []string, resource *auth.Resource) error {
+	if api.mock.CreateRoleBindingInTransaction.handler != nil {
+		return api.mock.CreateRoleBindingInTransaction.handler(transactionContext, s, strings, resource)
+	}
+	return errors.Errorf("unhandled pachd mock auth.CreateRoleBindingInTransaction")
+}
+
+func (api *authServerAPI) DeleteRoleBindingInTransaction(transactionContext *txncontext.TransactionContext, resource *auth.Resource) error {
+	if api.mock.DeleteRoleBindingInTransaction.handler != nil {
+		return api.mock.DeleteRoleBindingInTransaction.handler(transactionContext, resource)
+	}
+	return errors.Errorf("unhandled pachd mock auth.DeleteRoleBindingInTransaction")
+}
+
+func (api *authServerAPI) GetPipelineAuthTokenInTransaction(transactionContext *txncontext.TransactionContext, s string) (string, error) {
+	if api.mock.GetPipelineAuthTokenInTransaction.handler != nil {
+		return api.mock.GetPipelineAuthTokenInTransaction.handler(transactionContext, s)
+	}
+	return "", errors.Errorf("unhandled pachd mock auth.GetPipelineAuthTokenInTransaction")
+}
+
+func (api *authServerAPI) RevokeAuthTokenInTransaction(transactionContext *txncontext.TransactionContext, request *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error) {
+	if api.mock.RevokeAuthTokenInTransaction.handler != nil {
+		return api.mock.RevokeAuthTokenInTransaction.handler(transactionContext, request)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.RevokeAuthTokenInTransaction")
+}
+
+func (api *authServerAPI) GetPermissionsInTransaction(transactionContext *txncontext.TransactionContext, request *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error) {
+	if api.mock.GetPermissionsInTransaction.handler != nil {
+		return api.mock.GetPermissionsInTransaction.handler(transactionContext, request)
+	}
+	return nil, errors.Errorf("unhandled pachd mock auth.GetPermissionsInTransaction")
 }
 
 /* License Server Mocks */
@@ -1425,22 +1673,33 @@ type MockPachd struct {
 
 	Addr net.Addr
 
-	PFS         mockPFSServer
-	PPS         mockPPSServer
-	Auth        mockAuthServer
-	Transaction mockTransactionServer
-	Enterprise  mockEnterpriseServer
-	License     mockLicenseServer
-	Version     mockVersionServer
-	Admin       mockAdminServer
-	Proxy       mockProxyServer
+	PFS           mockPFSServer
+	PPS           mockPPSServer
+	Auth          mockAuthServer
+	GetAuthServer func() authserver.APIServer
+	Transaction   mockTransactionServer
+	Enterprise    mockEnterpriseServer
+	License       mockLicenseServer
+	Version       mockVersionServer
+	Admin         mockAdminServer
+	Proxy         mockProxyServer
+}
+
+type InterceptorOption func(mock *MockPachd) grpcutil.Interceptor
+
+func AuthMiddlewareInterceptor(mock *MockPachd) grpcutil.Interceptor {
+	return grpcutil.Interceptor{
+		UnaryServerInterceptor:  authmw.NewInterceptor(mock.GetAuthServer).InterceptUnary,
+		StreamServerInterceptor: authmw.NewInterceptor(mock.GetAuthServer).InterceptStream,
+	}
 }
 
 // NewMockPachd constructs a mock Pachd API server whose behavior can be
 // controlled through the MockPachd instance. By default, all API calls will
 // error, unless a handler is specified.
 // A port value of 0 will choose a free port automatically
-func NewMockPachd(ctx context.Context, port uint16) (*MockPachd, error) {
+// options can be supplied to configure the grpcutil.Server's interceptors.
+func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption) (*MockPachd, error) {
 	mock := &MockPachd{
 		errchan: make(chan error),
 	}
@@ -1456,16 +1715,34 @@ func NewMockPachd(ctx context.Context, port uint16) (*MockPachd, error) {
 	mock.Version.api.mock = &mock.Version
 	mock.Admin.api.mock = &mock.Admin
 	mock.Proxy.api.mock = &mock.Proxy
+	mock.GetAuthServer = func() authserver.APIServer {
+		return &mock.Auth.api
+	}
 
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(logrus.StandardLogger())
+	unaryOpts := []grpc.UnaryServerInterceptor{
+		errorsmw.UnaryServerInterceptor,
+		loggingInterceptor.UnaryServerInterceptor,
+	}
+	streamOpts := []grpc.StreamServerInterceptor{
+		errorsmw.StreamServerInterceptor,
+		loggingInterceptor.StreamServerInterceptor,
+	}
+	for _, opt := range options {
+		interceptor := opt(mock)
+		if interceptor.UnaryServerInterceptor != nil {
+			unaryOpts = append(unaryOpts, interceptor.UnaryServerInterceptor)
+		}
+		if interceptor.StreamServerInterceptor != nil {
+			streamOpts = append(streamOpts, interceptor.StreamServerInterceptor)
+		}
+	}
 	server, err := grpcutil.NewServer(ctx, false,
 		grpc.ChainUnaryInterceptor(
-			errorsmw.UnaryServerInterceptor,
-			loggingInterceptor.UnaryServerInterceptor,
+			unaryOpts...,
 		),
 		grpc.ChainStreamInterceptor(
-			errorsmw.StreamServerInterceptor,
-			loggingInterceptor.StreamServerInterceptor,
+			streamOpts...,
 		),
 	)
 	if err != nil {
