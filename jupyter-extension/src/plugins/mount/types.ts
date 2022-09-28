@@ -45,7 +45,7 @@ export type MountDatumResponse = {
   id: string;
   idx: number;
   num_datums: number;
-}
+};
 
 export type ListMountsResponse = {
   mounted: {[key: string]: Mount};

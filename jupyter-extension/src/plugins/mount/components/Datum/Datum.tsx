@@ -2,7 +2,7 @@ import React from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
 import {useDatum} from './hooks/useDatum';
 import {caretLeftIcon, caretRightIcon} from '@jupyterlab/ui-components';
-import {CurrentDatumResponse, MountDatumResponse} from 'plugins/mount/types';
+import {CurrentDatumResponse} from 'plugins/mount/types';
 
 type DatumProps = {
   showDatum: boolean;
@@ -109,7 +109,7 @@ const Datum: React.FC<DatumProps> = ({
                 disabled={currIdx <= 0}
                 onClick={() => {
                   if (currIdx >= 1) {
-                    setCurrIdx(currIdx-1);
+                    setCurrIdx(currIdx - 1);
                   }
                 }}
               >
@@ -125,7 +125,7 @@ const Datum: React.FC<DatumProps> = ({
                 disabled={currIdx >= currDatum.num_datums - 1}
                 onClick={() => {
                   if (currIdx < currDatum.num_datums - 1) {
-                    setCurrIdx(currIdx+1);
+                    setCurrIdx(currIdx + 1);
                   }
                 }}
               >

@@ -10,7 +10,13 @@ import {Signal} from '@lumino/signaling';
 import {mountLogoIcon} from '../../utils/icons';
 import {PollMounts} from './pollMounts';
 import createCustomFileBrowser from './customFileBrowser';
-import {AuthConfig, IMountPlugin, Repo, Mount, CurrentDatumResponse} from './types';
+import {
+  AuthConfig,
+  IMountPlugin,
+  Repo,
+  Mount,
+  CurrentDatumResponse,
+} from './types';
 import Config from './components/Config/Config';
 import Datum from './components/Datum/Datum';
 import SortableList from './components/SortableList/SortableList';
