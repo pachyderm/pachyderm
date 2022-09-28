@@ -1853,7 +1853,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	// Annotate current span with pipeline & persist any extended trace to etcd
 	span := opentracing.SpanFromContext(ctx)
-	tracing.TagAnySpan(span, "pipeline", request.Pipeline.Name)
+	tracing.TagAnySpan(span, "project", request.Pipeline.Project.GetName(), "pipeline", request.Pipeline.Name)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 	}()
@@ -2474,15 +2474,15 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 		pipelineInfo := &pps.PipelineInfo{}
 		deleted := make(map[string]struct{})
 		if err := a.pipelines.ReadOnly(ctx).List(pipelineInfo, col.DefaultOptions(), func(string) error {
-			if _, ok := deleted[pipelineInfo.Pipeline.Name]; ok {
+			if _, ok := deleted[pipelineInfo.Pipeline.String()]; ok {
 				// while the delete pipeline call will delete historical versions,
 				// they could still show up in the list. Ignore them
 				return nil
 			}
-			request.Pipeline.Name = pipelineInfo.Pipeline.Name
+			request.Pipeline = pipelineInfo.Pipeline
 			err := a.deletePipeline(ctx, request)
 			if err == nil {
-				deleted[pipelineInfo.Pipeline.Name] = struct{}{}
+				deleted[pipelineInfo.Pipeline.String()] = struct{}{}
 			}
 			return err
 		}); err != nil {
@@ -2503,7 +2503,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		&pps.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil && errutil.IsNotFoundError(err) {
 		logrus.Errorf("failed to stop pipeline, continuing with delete: %v", err)
 	} else if err != nil {
-		return errors.Wrapf(err, "error stopping pipeline %s", pipelineName)
+		return errors.Wrapf(err, "error stopping pipeline %s", request.Pipeline)
 	}
 	// perform the rest of the deletion in a transaction
 	var deleteErr error
@@ -2517,6 +2517,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	}); err != nil {
 		return err
 	}
+	// FIXME: make project-aware
 	clearJobCache(a.env.GetPachClient(ctx), pipelineName)
 	return deleteErr
 }

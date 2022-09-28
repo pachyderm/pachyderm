@@ -838,6 +838,7 @@ type noValidOptionsErr struct {
 func (kd *kubeDriver) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
 	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC", // ctx never used, but we want the right one in scope for future uses
+		"project", pipelineInfo.Pipeline.Project.GetName(),
 		"pipeline", pipelineInfo.Pipeline.Name)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)

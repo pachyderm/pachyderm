@@ -18,6 +18,7 @@ const (
 
 func JobLabels(job *pps.Job) prometheus.Labels {
 	return prometheus.Labels{
+		"project":  job.Pipeline.Project.GetName(),
 		"pipeline": job.Pipeline.Name,
 		"job":      job.ID,
 	}
@@ -25,6 +26,7 @@ func JobLabels(job *pps.Job) prometheus.Labels {
 
 func DatumLabels(job *pps.Job, state string) prometheus.Labels {
 	return prometheus.Labels{
+		"project":  job.Pipeline.Project.GetName(),
 		"pipeline": job.Pipeline.Name,
 		"job":      job.ID,
 		"state":    state,

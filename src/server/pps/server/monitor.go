@@ -34,7 +34,7 @@ import (
 // pipeline's output repo.
 // returns a cancel()
 func (pc *pipelineController) startMonitor(ctx context.Context, pipelineInfo *pps.PipelineInfo) func() {
-	pipeline := pipelineInfo.Pipeline.Name
+	pipeline := pipelineInfo.Pipeline.String()
 	return startMonitorThread(ctx,
 		"monitorPipeline for "+pipeline, func(ctx context.Context) {
 			// monitorPipeline needs auth privileges to call subscribeCommit and
@@ -53,7 +53,7 @@ func (pc *pipelineController) startMonitor(ctx context.Context, pipelineInfo *pp
 // themselves and moves the pipeline out of crashing if they have.
 // returns a cancel for the crashing monitor
 func (pc *pipelineController) startCrashingMonitor(ctx context.Context, pipelineInfo *pps.PipelineInfo) func() {
-	pipeline := pipelineInfo.Pipeline.Name
+	pipeline := pipelineInfo.Pipeline.String()
 	return startMonitorThread(ctx,
 		"monitorCrashingPipeline for "+pipeline,
 		func(ctx context.Context) {
@@ -113,7 +113,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 					return nil
 				})
 			}, backoff.NewInfiniteBackOff(),
-				backoff.NotifyCtx(ctx, "SubscribeCommit for "+pipelineName))
+				backoff.NotifyCtx(ctx, "SubscribeCommit for "+pipelineInfo.Pipeline.String()))
 		})
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {

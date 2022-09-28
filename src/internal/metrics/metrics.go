@@ -274,7 +274,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 			// count total jobs
 			var cnt int64
 			// just ignore error
-			_ = pachClient.ListJobF(pi.Pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
+			_ = pachClient.ListProjectJobF(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
 				cnt++
 				return nil
 			})

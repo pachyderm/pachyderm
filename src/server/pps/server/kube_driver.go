@@ -43,7 +43,7 @@ func newKubeDriver(kubeClient kubernetes.Interface, config serviceenv.Configurat
 
 // Creates a pipeline's services, secrets, and replication controllers.
 func (kd *kubeDriver) CreatePipelineResources(ctx context.Context, pi *pps.PipelineInfo) error {
-	log.Infof("PPS master: creating resources for pipeline %q", pi.Pipeline.Name)
+	log.Infof("PPS master: creating resources for pipeline %q", pi.Pipeline)
 	kd.limiter.Acquire()
 	defer kd.limiter.Release()
 	if err := kd.createWorkerSvcAndRc(ctx, pi); err != nil {
@@ -135,7 +135,7 @@ func (kd *kubeDriver) ReadReplicationController(ctx context.Context, pi *pps.Pip
 	rc, err := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).List(
 		ctx,
 		metav1.ListOptions{LabelSelector: labelSelector})
-	return rc, errors.Wrapf(err, "failed to read rc for pipeline %s", pi.Pipeline.Name)
+	return rc, errors.Wrapf(err, "failed to read rc for pipeline %s", pi.Pipeline)
 }
 
 // UpdateReplicationController intends to server {scaleUp,scaleDown}Pipeline.
