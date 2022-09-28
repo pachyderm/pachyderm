@@ -1,50 +1,20 @@
-//go:build k8s
+//go:build !k8s
 
 package fuse
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
-
-func put(path string, body io.Reader) (*http.Response, error) {
-	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://localhost:9002/%s", path), body)
-	if err != nil {
-		panic(err)
-	}
-	x, err := client.Do(req)
-	return x, errors.EnsureStack(err)
-}
-
-func get(path string) (*http.Response, error) {
-	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:9002/%s", path), nil)
-	if err != nil {
-		panic(err)
-	}
-	x, err := client.Do(req)
-	return x, errors.EnsureStack(err)
-}
 
 /*
 
@@ -174,39 +144,6 @@ func TestBasicServerDifferingNames(t *testing.T) {
 	})
 }
 
-func TestRepoAccess(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := "robot"+tu.UniqueString("alice"), "robot"+tu.UniqueString("bob")
-	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
-
-	require.NoError(t, aliceClient.CreateRepo("repo1"))
-	commit := client.NewCommit("repo1", "master", "")
-	err := aliceClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
-	require.NoError(t, err)
-
-	withServerMount(t, aliceClient, nil, func(mountPoint string) {
-		resp, err := get("repos")
-		require.NoError(t, err)
-
-		reposResp := &ListRepoResponse{}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
-		require.Equal(t, (*reposResp)["repo1"].Authorization, "write")
-	})
-
-	withServerMount(t, bobClient, nil, func(mountPoint string) {
-		resp, err := get("repos")
-		require.NoError(t, err)
-
-		reposResp := &ListRepoResponse{}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
-		require.Equal(t, (*reposResp)["repo1"].Authorization, "none")
-
-		resp, _ = put("repos/repo1/master/_mount?name=repo1&mode=ro", nil)
-		require.Equal(t, resp.StatusCode, 500)
-	})
-}
-
 func TestUnmountAll(t *testing.T) {
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
@@ -241,111 +178,6 @@ func TestUnmountAll(t *testing.T) {
 		repos, err = os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(repos))
-	})
-}
-
-func TestConfig(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	c = tu.AuthenticateClient(t, c, auth.RootUser)
-
-	withServerMount(t, c, nil, func(mountPoint string) {
-		type Config struct {
-			ClusterStatus string `json:"cluster_status"`
-			PachdAddress  string `json:"pachd_address"`
-		}
-
-		// PUT
-		invalidCfg := &Config{ClusterStatus: "INVALID", PachdAddress: "bad_address"}
-		m := map[string]string{"pachd_address": invalidCfg.PachdAddress}
-		b := new(bytes.Buffer)
-		require.NoError(t, json.NewEncoder(b).Encode(m))
-
-		putResp, err := put("config", b)
-		require.NoError(t, err)
-		require.Equal(t, 500, putResp.StatusCode)
-
-		cfg := &Config{ClusterStatus: "AUTH_ENABLED", PachdAddress: c.GetAddress().Qualified()}
-		m = map[string]string{"pachd_address": cfg.PachdAddress}
-		b = new(bytes.Buffer)
-		require.NoError(t, json.NewEncoder(b).Encode(m))
-
-		putResp, err = put("config", b)
-		require.NoError(t, err)
-		defer putResp.Body.Close()
-
-		putConfig := &Config{}
-		require.NoError(t, json.NewDecoder(putResp.Body).Decode(putConfig))
-
-		cfgParsedPachdAddress, err := grpcutil.ParsePachdAddress(cfg.PachdAddress)
-		require.NoError(t, err)
-
-		require.Equal(t, cfg.ClusterStatus, putConfig.ClusterStatus)
-		require.Equal(t, cfgParsedPachdAddress.Qualified(), putConfig.PachdAddress)
-		require.Equal(t, cfgParsedPachdAddress.Qualified(), c.GetAddress().Qualified())
-
-		// GET
-		getResp, err := get("config")
-		require.NoError(t, err)
-		defer getResp.Body.Close()
-
-		getConfig := &Config{}
-		require.NoError(t, json.NewDecoder(getResp.Body).Decode(getConfig))
-
-		require.Equal(t, cfg.ClusterStatus, getConfig.ClusterStatus)
-		require.Equal(t, cfg.PachdAddress, getConfig.PachdAddress)
-	})
-}
-
-func TestAuthLoginLogout(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
-	c = tu.UnauthenticatedPachClient(t, c)
-
-	withServerMount(t, c, nil, func(mountPoint string) {
-		authResp, err := put("auth/_login", nil)
-		require.NoError(t, err)
-		defer authResp.Body.Close()
-
-		type AuthLoginResp struct {
-			AuthUrl string `json:"auth_url"`
-		}
-		getAuthLogin := &AuthLoginResp{}
-		require.NoError(t, json.NewDecoder(authResp.Body).Decode(getAuthLogin))
-
-		tu.DoOAuthExchange(t, c, c, getAuthLogin.AuthUrl)
-		time.Sleep(1 * time.Second)
-
-		_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-		require.NoError(t, err)
-
-		_, err = put("auth/_logout", nil)
-		require.NoError(t, err)
-
-		_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-		require.ErrorIs(t, err, auth.ErrNotSignedIn)
-	})
-}
-
-func TestUnauthenticatedCode(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	withServerMount(t, c, nil, func(mountPoint string) {
-		resp, _ := get("repos")
-		require.Equal(t, 200, resp.StatusCode)
-	})
-
-	c = tu.UnauthenticatedPachClient(t, c)
-	withServerMount(t, c, nil, func(mountPoint string) {
-		resp, _ := get("repos")
-		require.Equal(t, 401, resp.StatusCode)
-	})
-
-	c = tu.AuthenticateClient(t, c, "test")
-	withServerMount(t, c, nil, func(mountPoint string) {
-		resp, _ := get("repos")
-		require.Equal(t, 200, resp.StatusCode)
 	})
 }
 
@@ -403,42 +235,6 @@ func TestMountNonexistentRepo(t *testing.T) {
 		resp, _ := put("repos/repo1/master/_mount?name=repo1&mode=ro", nil)
 		require.Equal(t, 400, resp.StatusCode)
 	})
-}
-
-// TODO: pass reference to the MountManager object to the test func, so that the
-// test can call MountBranch, UnmountBranch etc directly for convenience
-func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f func(mountPoint string)) {
-	dir := tb.TempDir()
-	if sopts == nil {
-		sopts = &ServerOptions{
-			MountDir: dir,
-		}
-	}
-	if sopts.Unmount == nil {
-		sopts.Unmount = make(chan struct{})
-	}
-	unmounted := make(chan struct{})
-	var mountErr error
-	defer func() {
-		close(sopts.Unmount)
-		<-unmounted
-		require.ErrorIs(tb, mountErr, http.ErrServerClosed)
-	}()
-	defer func() {
-		// recover because panics leave the mount in a weird state that makes
-		// it hard to rerun the tests, mostly relevent when you're iterating on
-		// these tests, or the code they test.
-		if r := recover(); r != nil {
-			tb.Fatal(r)
-		}
-	}()
-	go func() {
-		mountErr = Server(sopts, c)
-		close(unmounted)
-	}()
-	// Gotta give the fuse mount time to come up.
-	time.Sleep(2 * time.Second)
-	f(dir)
 }
 
 func TestRwUnmountCreatesCommit(t *testing.T) {

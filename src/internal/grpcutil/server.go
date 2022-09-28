@@ -17,10 +17,17 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
-	log "github.com/sirupsen/logrus"
 )
+
+// Interceptor can be used to configure Unary and Stream interceptors
+type Interceptor struct {
+	UnaryServerInterceptor  grpc.UnaryServerInterceptor
+	StreamServerInterceptor grpc.StreamServerInterceptor
+}
 
 // Server is a convenience wrapper to gRPC servers that simplifies their
 // setup and execution

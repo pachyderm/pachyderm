@@ -1,9 +1,10 @@
-//go:build k8s
+//go:build !k8s
 
-package server
+package server_test
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
@@ -11,8 +12,9 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 )
@@ -22,13 +24,13 @@ import (
 // in a bunch of other tests, but in the interest of being explicit
 // this test only focuses on activation.
 func TestActivate(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	client := env.PachClient
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 
 	// Activate Enterprise
-	tu.ActivateEnterprise(t, client)
+	tu.ActivateEnterprise(t, client, peerPort)
 
 	// Confirm we can get the activation code back
 	resp, err := client.License.GetActivationCode(client.Ctx(), &license.GetActivationCodeRequest{})
@@ -40,11 +42,11 @@ func TestActivate(t *testing.T) {
 // TestExpired tests that the license server returns the expired state
 // if the expiration of the license is in the past.
 func TestExpired(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateEnterprise(t, client)
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	client := env.PachClient
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	tu.ActivateEnterprise(t, client, peerPort)
 
 	expires := time.Now().Add(-30 * time.Second)
 	expiresProto, err := types.TimestampProto(expires)
@@ -68,11 +70,11 @@ func TestExpired(t *testing.T) {
 // TestGetActivationCodeNotAdmin tests that non-admin users cannot retrieve
 // the enterprise activation code
 func TestGetActivationCodeNotAdmin(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, client)
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	client := env.PachClient
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	tu.ActivateAuthClient(t, client, peerPort)
 	aliceClient := tu.AuthenticateClient(t, client, "robot:alice")
 	_, err := aliceClient.License.GetActivationCode(aliceClient.Ctx(), &license.GetActivationCodeRequest{})
 	require.YesError(t, err)
@@ -82,13 +84,11 @@ func TestGetActivationCodeNotAdmin(t *testing.T) {
 // TestDeleteAll tests that DeleteAll removes all registered clusters and
 // puts the license server in the NONE state.
 func TestDeleteAll(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
-
-	// Activate Enterprise, which activates a license and adds a "localhost" cluster
-	tu.ActivateEnterprise(t, client)
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	client := env.PachClient
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	tu.ActivateEnterprise(t, client, peerPort)
 
 	// Confirm one cluster is registered
 	clusters, err := client.License.ListClusters(client.Ctx(), &license.ListClustersRequest{})
@@ -119,11 +119,11 @@ func TestDeleteAll(t *testing.T) {
 
 // TestDeleteAllNotAdmin confirms only admins can call DeleteAll when auth is enabled
 func TestDeleteAllNotAdmin(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	c := env.PachClient
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	tu.ActivateAuthClient(t, c, peerPort)
 	aliceClient := tu.AuthenticateClient(t, c, "robot:alice")
 	_, err := aliceClient.License.DeleteAll(aliceClient.Ctx(), &license.DeleteAllRequest{})
 	require.YesError(t, err)
@@ -132,11 +132,11 @@ func TestDeleteAllNotAdmin(t *testing.T) {
 
 // TestClusterCRUD tests that clusters can be added, listed, updated and deleted
 func TestClusterCRUD(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, client)
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	client := env.PachClient
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	tu.ActivateAuthClient(t, client, peerPort)
 
 	clusters, err := client.License.ListClusters(client.Ctx(), &license.ListClustersRequest{})
 	require.NoError(t, err)
@@ -145,7 +145,7 @@ func TestClusterCRUD(t *testing.T) {
 	// Add a new cluster
 	newCluster, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
 		Id:                  "new",
-		Address:             "grpc://localhost:1650",
+		Address:             "grpc://localhost:" + peerPort,
 		UserAddress:         "grpc://localhost:999",
 		ClusterDeploymentId: "some-deployment-id",
 		EnterpriseServer:    false,
@@ -157,11 +157,11 @@ func TestClusterCRUD(t *testing.T) {
 	expectedStatuses := map[string]*license.ClusterStatus{
 		"localhost": {
 			Id:      "localhost",
-			Address: "grpc://localhost:1650",
+			Address: "grpc://localhost:" + peerPort,
 		},
 		"new": {
 			Id:      "new",
-			Address: "grpc://localhost:1650",
+			Address: "grpc://localhost:" + peerPort,
 		},
 	}
 
@@ -247,11 +247,11 @@ func TestClusterCRUD(t *testing.T) {
 // TestAddClusterUnreachable tries to add a cluster with a misconfigured address
 // and confirms there's an error
 func TestAddClusterAddressValidation(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateEnterprise(t, client)
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	client := env.PachClient
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	tu.ActivateEnterprise(t, client, peerPort)
 
 	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
 		Id:      "new",
@@ -264,11 +264,11 @@ func TestAddClusterAddressValidation(t *testing.T) {
 // TestUpdateClusterUnreachable tries to update an existing cluster with a misconfigured address
 // and confirms there's an error
 func TestUpdateClusterAddressValidation(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateEnterprise(t, client)
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	client := env.PachClient
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	tu.ActivateEnterprise(t, client, peerPort)
 
 	_, err := client.License.UpdateCluster(client.Ctx(), &license.UpdateClusterRequest{
 		Id:      "localhost",
@@ -281,13 +281,13 @@ func TestUpdateClusterAddressValidation(t *testing.T) {
 // TestAddClusterNoLicense tries to add a cluster with no license configured and
 // confirms there's an error
 func TestAddClusterNoLicense(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	client := env.PachClient
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
 		Id:      "new",
-		Address: "grpc://localhost:1650",
+		Address: "grpc://localhost:" + peerPort,
 	})
 	require.YesError(t, err)
 	require.Matches(t, "enterprise license is not valid", err.Error())
@@ -296,14 +296,16 @@ func TestAddClusterNoLicense(t *testing.T) {
 // TestClusterCRUDNotAdmin confirms that AddCluster, ListClusters, DeleteCluster and
 // UpdateCluster require admin access when auth is enabled
 func TestClusterCRUDNotAdmin(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, client)
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	client := env.PachClient
+	tu.ActivateAuthClient(t, client, peerPort)
 	aliceClient := tu.AuthenticateClient(t, client, "robot:alice")
 
-	_, err := aliceClient.License.AddCluster(aliceClient.Ctx(), &license.AddClusterRequest{})
+	_, err := aliceClient.License.AddCluster(aliceClient.Ctx(), &license.AddClusterRequest{
+		Id: "localhost",
+	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -327,13 +329,11 @@ func TestClusterCRUDNotAdmin(t *testing.T) {
 // TestHeartbeat adds a new cluster and confirms that the cluster metadata is updated when that cluster
 // heartbeats.
 func TestHeartbeat(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	// Reset the cluster and enable auth, to make sure heartbeat works with auth enabled
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Confirm the localhost cluster is configured as expected
@@ -364,11 +364,9 @@ func TestHeartbeat(t *testing.T) {
 
 // TestHeartbeatWrongSecret tests that Heartbeat doesn't update the record if the shared secret is incorrect
 func TestHeartbeatWrongSecret(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	// Heartbeat using the wrong shared secret
-	pachClient, _ := minikubetestenv.AcquireCluster(t)
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	pachClient := env.PachClient
 	_, err := pachClient.License.Heartbeat(pachClient.Ctx(), &license.HeartbeatRequest{
 		Id:          "localhost",
 		Secret:      "wrong secret",
@@ -379,11 +377,11 @@ func TestHeartbeatWrongSecret(t *testing.T) {
 }
 
 func TestListUserClusters(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, client)
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	client := env.PachClient
+	tu.ActivateAuthClient(t, client, peerPort)
 
 	resp, err := client.Enterprise.GetState(client.Ctx(), &enterprise.GetStateRequest{})
 	require.NoError(t, err)

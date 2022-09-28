@@ -1,8 +1,11 @@
+//go:build !k8s
+
 package server_test
 
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"sort"
 	"strconv"
@@ -2041,4 +2044,259 @@ func TestLoad(t *testing.T) {
 	buf := &bytes.Buffer{}
 	require.NoError(t, cmdutil.Encoder("", buf).EncodeProto(resp))
 	require.Equal(t, "", resp.Error, buf.String())
+}
+
+// TestGetPermissions tests that GetPermissions and GetPermissionsForPrincipal work for repos and the cluster itself
+func TestGetPermissions(t *testing.T) {
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
+
+	// alice creates a repo and makes Bob a writer
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoWriterRole}))
+
+	// alice can get her own permissions on the cluster (none) and on the repo (repoOwner)
+	permissions, err := aliceClient.GetPermissions(aliceClient.Ctx(), &auth.GetPermissionsRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}})
+	require.NoError(t, err)
+	require.Nil(t, permissions.Roles)
+
+	permissions, err = aliceClient.GetPermissions(aliceClient.Ctx(), &auth.GetPermissionsRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo}})
+	require.NoError(t, err)
+	require.Equal(t, []string{"repoOwner"}, permissions.Roles)
+
+	// the root user can get bob's permissions
+	permissions, err = rootClient.GetPermissionsForPrincipal(rootClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}, Principal: bob})
+	require.NoError(t, err)
+	require.Nil(t, permissions.Roles)
+
+	permissions, err = rootClient.GetPermissionsForPrincipal(rootClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo}, Principal: bob})
+	require.NoError(t, err)
+	require.Equal(t, []string{"repoWriter"}, permissions.Roles)
+
+	// alice cannot get bob's permissions
+	_, err = aliceClient.GetPermissionsForPrincipal(aliceClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}, Principal: bob})
+	require.YesError(t, err)
+	require.Matches(t, "is not authorized to perform this operation - needs permissions", err.Error())
+
+	_, err = aliceClient.GetPermissionsForPrincipal(aliceClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo}, Principal: bob})
+	require.YesError(t, err)
+	require.Matches(t, "is not authorized to perform this operation - needs permissions", err.Error())
+}
+
+// TestDeactivateFSAdmin tests that users with the FS admin role can't call Deactivate
+func TestDeactivateFSAdmin(t *testing.T) {
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	alice := tu.Robot(tu.UniqueString("alice"))
+	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
+
+	// admin makes alice an fs admin
+	require.NoError(t, adminClient.ModifyClusterRoleBinding(alice, []string{auth.RepoOwnerRole}))
+
+	// wait until alice shows up in admin list
+	resp, err := aliceClient.GetClusterRoleBinding()
+	require.NoError(t, err)
+	require.Equal(t, tu.BuildClusterBindings(alice, auth.RepoOwnerRole), resp)
+
+	// alice tries to deactivate, but doesn't have permission as an FS admin
+	_, err = aliceClient.Deactivate(aliceClient.Ctx(), &auth.DeactivateRequest{})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+}
+
+// TestExtractAuthToken tests that admins can extract hashed robot auth tokens
+func TestExtractAuthToken(t *testing.T) {
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	alice := tu.Robot(tu.UniqueString("alice"))
+	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
+
+	// alice can't extract auth tokens because she's not an admin
+	_, err := aliceClient.ExtractAuthTokens(aliceClient.Ctx(), &auth.ExtractAuthTokensRequest{})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// Create a token with a TTL and confirm it is extracted with an expiration
+	tokenResp, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "other", TTL: 1000})
+	require.NoError(t, err)
+
+	// Create a token without a TTL and confirm it is extracted
+	tokenRespTwo, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "otherTwo"})
+	require.NoError(t, err)
+
+	// admins can extract auth tokens
+	resp, err := adminClient.ExtractAuthTokens(adminClient.Ctx(), &auth.ExtractAuthTokensRequest{})
+	require.NoError(t, err)
+
+	// only robot tokens are extracted, so only the admin token (not the alice one) should be included
+	containsToken := func(plaintext, subject string, expires bool) error {
+		hash := auth.HashToken(plaintext)
+		for _, token := range resp.Tokens {
+			if token.HashedToken == hash {
+				require.Equal(t, subject, token.Subject)
+				if expires {
+					require.True(t, token.Expiration.After(time.Now()))
+				} else {
+					require.Nil(t, token.Expiration)
+				}
+				return nil
+			}
+		}
+		return errors.Errorf("didn't find a token with hash %q", hash)
+	}
+
+	require.NoError(t, containsToken(tokenResp.Token, "robot:other", true))
+	require.NoError(t, containsToken(tokenRespTwo.Token, "robot:otherTwo", false))
+}
+
+// TestRestoreAuthToken tests that admins can restore hashed auth tokens that have been extracted
+func TestRestoreAuthToken(t *testing.T) {
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	// Create a request to restore a token with known plaintext
+	req := &auth.RestoreAuthTokenRequest{
+		Token: &auth.TokenInfo{
+			HashedToken: fmt.Sprintf("%x", sha256.Sum256([]byte("an-auth-token"))),
+			Subject:     "robot:restored",
+		},
+	}
+
+	alice := tu.Robot(tu.UniqueString("alice"))
+	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
+
+	// alice can't restore auth tokens because she's not an admin
+	_, err := aliceClient.RestoreAuthToken(aliceClient.Ctx(), req)
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// admins can restore auth tokens
+	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
+	require.NoError(t, err)
+
+	req.Token.Subject = "robot:overwritten"
+	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
+	require.YesError(t, err)
+	require.Equal(t, "rpc error: code = Unknown desc = error restoring auth token: cannot overwrite existing token with same hash", err.Error())
+
+	// now we can authenticate with the restored token
+	aliceClient.SetAuthToken("an-auth-token")
+	whoAmIResp, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, "robot:restored", whoAmIResp.Username)
+	require.Nil(t, whoAmIResp.Expiration)
+
+	// restore a token with an expiration date in the past
+	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expired-token")))
+	pastExpiration := time.Now().Add(-1 * time.Minute)
+	req.Token.Expiration = &pastExpiration
+
+	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
+	require.YesError(t, err)
+	require.True(t, auth.IsErrExpiredToken(err))
+
+	// restore a token with an expiration date in the future
+	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expiring-token")))
+	futureExpiration := time.Now().Add(10 * time.Minute)
+	req.Token.Expiration = &futureExpiration
+
+	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
+	require.NoError(t, err)
+
+	aliceClient.SetAuthToken("expiring-token")
+	whoAmIResp, err = aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+
+	// Relying on time.Now is gross but the token should have a TTL in the
+	// next 10 minutes
+	require.True(t, whoAmIResp.Expiration.After(time.Now()))
+	require.True(t, whoAmIResp.Expiration.Before(time.Now().Add(time.Duration(600)*time.Second)))
+}
+
+// TestPipelineFailingWithOpenCommit creates a pipeline, then revokes its access
+// to its output repo while it's running, causing it to fail. Then it makes sure
+// that FlushJob still works and that the pipeline's output commit was
+// successfully finished (though as an empty commit)
+//
+// Note: This test actually doesn't use the admin client or admin privileges
+// anywhere. However, it restarts pachd, so it shouldn't be run in parallel with
+// any other test
+func TestPipelineFailingWithOpenCommit(t *testing.T) {
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	alice := tu.Robot(tu.UniqueString("alice"))
+	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
+
+	// Create input repo w/ initial commit
+	repo := tu.UniqueString(t.Name())
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	err := aliceClient.PutFile(commit, "/file.1", strings.NewReader("1"))
+	require.NoError(t, err)
+
+	// Create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+		pipeline,
+		"", // default image: DefaultUserImage
+		[]string{"bash"},
+		[]string{
+			"sleep 10",
+			"cp /pfs/*/* /pfs/out/",
+		},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+
+	// Revoke pipeline's access to output repo while 'sleep 10' is running (so
+	// that it fails)
+	require.NoError(t, rootClient.ModifyRepoRoleBinding(repo, fmt.Sprintf("pipeline:%s", pipeline), []string{}))
+
+	// make sure the pipeline either fails or restarts RC & finishes
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		return err
+	})
+
+	// make sure the pipeline is failed
+	pi, err := rootClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pi.State)
+}
+
+// TestGetRobotTokenErrorNonAdminUser tests that non-admin users can't call
+// GetRobotToken
+func TestGetRobotTokenErrorNonAdminUser(t *testing.T) {
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	alice := tu.Robot(tu.UniqueString("alice"))
+	aliceClient := tu.AuthenticateClient(t, c, alice)
+	resp, err := aliceClient.GetRobotToken(aliceClient.Ctx(), &auth.GetRobotTokenRequest{
+		Robot: tu.UniqueString("t-1000"),
+	})
+	require.Nil(t, resp)
+	require.YesError(t, err)
+	require.Matches(t, "needs permissions \\[CLUSTER_AUTH_GET_ROBOT_TOKEN\\] on CLUSTER", err.Error())
 }

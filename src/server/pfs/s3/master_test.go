@@ -1,3 +1,5 @@
+//go:build !k8s
+
 package s3_test
 
 import (

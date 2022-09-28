@@ -1,13 +1,16 @@
-//go:build k8s
+//go:build !k8s
 
-package server
+package server_test
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/gogo/protobuf/types"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -17,27 +20,40 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 )
 
 const year = 365 * 24 * time.Hour
 
+func realEnvWithLicense(t *testing.T, expireTime ...time.Time) (*realenv.RealEnv, string) {
+	ctx := context.Background()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	testutil.ActivateLicense(t, env.PachClient, peerPort, expireTime...)
+	_, err := env.PachClient.Enterprise.Activate(ctx,
+		&enterprise.ActivateRequest{
+			LicenseServer: "grpc://localhost:" + peerPort,
+			Id:            "localhost",
+			Secret:        "localhost",
+		})
+	require.NoError(t, err, "should be able to activate")
+	return env, peerPort
+}
+
 func TestValidateActivationCode(t *testing.T) {
+	t.Parallel()
 	_, err := license.Validate(testutil.GetTestEnterpriseCode(t))
 	require.NoError(t, err)
 }
 
 func TestGetState(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
-
-	testutil.ActivateEnterprise(t, client)
+	t.Parallel()
+	env, peerPort := realEnvWithLicense(t, time.Now().Add(year+time.Hour*24))
+	client := env.PachClient
 
 	resp, err := client.Enterprise.GetState(client.Ctx(), &enterprise.GetStateRequest{})
 	require.NoError(t, err)
@@ -45,7 +61,8 @@ func TestGetState(t *testing.T) {
 
 	expires, err := types.TimestampFromProto(resp.Info.Expires)
 	require.NoError(t, err)
-	require.True(t, time.Until(expires) >= year)
+	untilExpires := time.Until(expires)
+	require.True(t, untilExpires >= year)
 
 	activationCode, err := license.Unmarshal(resp.ActivationCode)
 	require.NoError(t, err)
@@ -68,7 +85,7 @@ func TestGetState(t *testing.T) {
 		&enterprise.ActivateRequest{
 			Id:            "localhost",
 			Secret:        "localhost",
-			LicenseServer: "grpc://localhost:1650",
+			LicenseServer: "grpc://localhost:" + peerPort,
 		})
 	require.NoError(t, err)
 
@@ -83,12 +100,9 @@ func TestGetState(t *testing.T) {
 }
 
 func TestGetActivationCode(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
-
-	testutil.ActivateEnterprise(t, client)
+	t.Parallel()
+	env, peerPort := realEnvWithLicense(t, time.Now().Add(year+time.Hour*24))
+	client := env.PachClient
 
 	resp, err := client.Enterprise.GetActivationCode(client.Ctx(), &enterprise.GetActivationCodeRequest{})
 	require.NoError(t, err)
@@ -109,7 +123,7 @@ func TestGetActivationCode(t *testing.T) {
 		&enterprise.ActivateRequest{
 			Id:            "localhost",
 			Secret:        "localhost",
-			LicenseServer: "grpc://localhost:1650",
+			LicenseServer: "grpc://localhost:" + peerPort,
 		})
 	require.NoError(t, err)
 
@@ -119,25 +133,12 @@ func TestGetActivationCode(t *testing.T) {
 	require.Equal(t, testutil.GetTestEnterpriseCode(t), resp.ActivationCode)
 }
 
-func TestGetActivationCodeNotAdmin(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	aliceClient := testutil.AuthenticatedPachClient(t, c, "robot:alice")
-	_, err := aliceClient.Enterprise.GetActivationCode(aliceClient.Ctx(), &enterprise.GetActivationCodeRequest{})
-	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
-}
-
 func TestDeactivate(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
+	t.Parallel()
+	env, _ := realEnvWithLicense(t)
+	client := env.PachClient
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
-	testutil.ActivateEnterprise(t, client)
 	resp, err := client.Enterprise.GetState(client.Ctx(), &enterprise.GetStateRequest{})
 	require.NoError(t, err)
 	require.Equal(t, resp.State, enterprise.State_ACTIVE)
@@ -156,10 +157,9 @@ func TestDeactivate(t *testing.T) {
 // enterprise token works. Fixes
 // https://github.com/pachyderm/pachyderm/v2/issues/3013
 func TestDoubleDeactivate(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
+	t.Parallel()
+	env, _ := realEnvWithLicense(t, time.Now().Add(year+time.Hour*24))
+	client := env.PachClient
 
 	// Deactivate cluster and make sure its state is NONE (enterprise might be
 	// active at the start of this test?)
@@ -181,16 +181,23 @@ func TestDoubleDeactivate(t *testing.T) {
 	require.Equal(t, enterprise.State_NONE, resp.State)
 }
 
+func TestGetActivationCodeNotAdmin(t *testing.T) {
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	aliceClient := testutil.AuthenticatedPachClient(t, c, "robot:alice", peerPort)
+	_, err := aliceClient.Enterprise.GetActivationCode(aliceClient.Ctx(), &enterprise.GetActivationCodeRequest{})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+}
+
 // TestHeartbeatDeleted tests that heartbeating fails if the pachd has been
 // deleted from the license server
 func TestHeartbeatDeleted(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
-
-	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
-	testutil.ActivateEnterprise(t, client)
+	t.Parallel()
+	env, peerPort := realEnvWithLicense(t, time.Now().Add(year+time.Hour*24))
+	client := env.PachClient
 
 	resp, err := client.Enterprise.GetState(client.Ctx(), &enterprise.GetStateRequest{})
 	require.NoError(t, err)
@@ -220,7 +227,7 @@ func TestHeartbeatDeleted(t *testing.T) {
 		&lc.AddClusterRequest{
 			Id:      "localhost",
 			Secret:  "localhost",
-			Address: "grpc://localhost:1650",
+			Address: "grpc://localhost:" + peerPort,
 		})
 	require.NoError(t, err)
 
@@ -241,6 +248,7 @@ func TestHeartbeatDeleted(t *testing.T) {
 }
 
 func TestEnterpriseConfigMigration(t *testing.T) {
+	t.Parallel()
 	db := dockertestenv.NewTestDB(t)
 	etcd := testetcd.NewEnv(t).EtcdClient
 
@@ -268,10 +276,10 @@ func TestEnterpriseConfigMigration(t *testing.T) {
 		}).
 		// the following two state changes are shipped in v2.1.0 to migrate EnterpriseConfig from etcd -> postgres
 		Apply("Move EnterpriseConfig from etcd -> postgres", func(ctx context.Context, env migrations.Env) error {
-			return EnterpriseConfigPostgresMigration(ctx, env.Tx, env.EtcdClient)
+			return server.EnterpriseConfigPostgresMigration(ctx, env.Tx, env.EtcdClient)
 		}).
 		Apply("Remove old EnterpriseConfig record from etcd", func(ctx context.Context, env migrations.Env) error {
-			return DeleteEnterpriseConfigFromEtcd(ctx, env.EtcdClient)
+			return server.DeleteEnterpriseConfigFromEtcd(ctx, env.EtcdClient)
 		})
 	// run the migration
 	err = migrations.ApplyMigrations(context.Background(), db, env, state)
@@ -279,7 +287,7 @@ func TestEnterpriseConfigMigration(t *testing.T) {
 	err = migrations.BlockUntil(context.Background(), db, state)
 	require.NoError(t, err)
 
-	pgCol := EnterpriseConfigCollection(db, nil)
+	pgCol := server.EnterpriseConfigCollection(db, nil)
 	result := &enterprise.EnterpriseConfig{}
 	require.NoError(t, pgCol.ReadOnly(context.Background()).Get("config", result))
 	require.Equal(t, config.Id, result.Id)
@@ -289,128 +297,4 @@ func TestEnterpriseConfigMigration(t *testing.T) {
 	err = etcdConfigCol.ReadOnly(context.Background()).Get("config", &enterprise.EnterpriseConfig{})
 	require.YesError(t, err)
 	require.True(t, collection.IsErrNotFound(err))
-}
-
-/*
-   N.b.: for these tests to run successfully on Linux I needed to upgrade to the
-   latest kubectl and run port forwards in a _loop_.  I.e.:
-
-     while :; do  kubectl port-forward svc/pachd 30650:1650; done
-*/
-func TestPauseUnpause(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
-
-	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
-	testutil.ActivateEnterprise(t, client)
-	testutil.ActivateAuthClient(t, client)
-
-	_, err := client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
-	require.NoError(t, err)
-	bo := backoff.NewExponentialBackOff()
-	backoff.Retry(func() error { //nolint:errcheck
-		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
-		if err != nil {
-			return errors.Errorf("could not get pause status %w", err)
-		}
-		if resp.Status == enterprise.PauseStatusResponse_PAUSED {
-			return nil
-		}
-		return errors.Errorf("status: %v", resp.Status)
-	}, bo)
-
-	// ListRepo should return an error since the cluster is paused now
-	_, err = client.ListRepo()
-	require.YesError(t, err)
-
-	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
-	require.NoError(t, err)
-	bo.Reset()
-	backoff.Retry(func() error { //nolint:errcheck
-		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
-		if err != nil {
-			return errors.Errorf("could not get pause status %v", err)
-		}
-		if resp.Status == enterprise.PauseStatusResponse_UNPAUSED {
-			return nil
-		}
-		return errors.Errorf("status: %v", resp.Status)
-	}, bo)
-}
-
-func TestPauseUnpauseNoWait(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
-
-	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
-	testutil.ActivateEnterprise(t, client)
-	testutil.ActivateAuthClient(t, client)
-
-	_, err := client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
-	require.NoError(t, err)
-
-	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
-	require.NoError(t, err)
-	bo := backoff.NewExponentialBackOff()
-	backoff.Retry(func() error { //nolint:errcheck
-		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
-		if err != nil {
-			return errors.Errorf("could not get pause status %v", err)
-		}
-		if resp.Status == enterprise.PauseStatusResponse_UNPAUSED {
-			return nil
-		}
-		return errors.Errorf("status: %v", resp.Status)
-	}, bo)
-	// ListRepo should not return an error since the cluster is unpaused now
-	_, err = client.ListRepo()
-	require.Nil(t, err)
-}
-
-func TestDoublePauseUnpause(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
-
-	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
-	testutil.ActivateEnterprise(t, client)
-	testutil.ActivateAuthClient(t, client)
-
-	_, err := client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
-	require.NoError(t, err)
-	time.Sleep(time.Second)
-	_, err = client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
-	require.NoError(t, err)
-	bo := backoff.NewExponentialBackOff()
-	backoff.Retry(func() error { //nolint:errcheck
-		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
-		if err != nil {
-			return errors.Errorf("could not get pause status %v", err)
-		}
-		if resp.Status == enterprise.PauseStatusResponse_PAUSED {
-			return nil
-		}
-		return errors.Errorf("status: %v", resp.Status)
-	}, bo)
-	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
-	require.NoError(t, err)
-	time.Sleep(time.Second)
-	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
-	require.NoError(t, err)
-	bo = backoff.NewExponentialBackOff()
-	backoff.Retry(func() error { //nolint:errcheck
-		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
-		if err != nil {
-			return errors.Errorf("could not get pause status %v", err)
-		}
-		if resp.Status == enterprise.PauseStatusResponse_UNPAUSED {
-			return nil
-		}
-		return errors.Errorf("status: %v", resp.Status)
-	}, bo)
 }
