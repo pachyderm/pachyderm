@@ -301,7 +301,7 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 	require.NoError(t, err)
 	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
 	require.NoError(t, err)
-	commit = client.NewCommit("repo1", "dev", "")
+	commit = client.NewProjectCommit(pfs.DefaultProjectName, "repo1", "dev", "")
 	err = c.PutFile(commit, "dir/file3", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = c.PutFile(commit, "file4", strings.NewReader("foo"))
