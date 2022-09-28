@@ -82,7 +82,8 @@ type MountInfo struct {
 
 type Request struct {
 	*MountInfo
-	Action string // default empty, set to "commit" if we want to commit (verb) a mounted branch
+	Action  string // default empty, set to "commit" if we want to commit (verb) a mounted branch
+	Project string
 }
 
 type Response struct {
@@ -134,7 +135,7 @@ func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 			rr.Authorization = "none"
 		}
 		if readAccess {
-			bis, err := mm.Client.ListBranch(repo.Repo.Name)
+			bis, err := mm.Client.ListProjectBranch(repo.Repo.Project.GetName(), repo.Repo.Name)
 			if err != nil {
 				return lr, err
 			}
@@ -182,7 +183,7 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 			rr.Authorization = "none"
 		}
 		if readAccess {
-			bis, err := mm.Client.ListBranch(repo.Repo.Name)
+			bis, err := mm.Client.ListProjectBranch(repo.Repo.Project.GetName(), repo.Repo.Name)
 			if err != nil {
 				return mr, err
 			}
@@ -1159,7 +1160,8 @@ func (m *MountStateMachine) RefreshMountState() error {
 	m.ActualMountedCommit = commit
 
 	// Get the latest commit on the branch
-	branchInfo, err := m.manager.Client.InspectBranch(m.Repo, m.Branch)
+	// TODO: Update when supporting projects in notebooks
+	branchInfo, err := m.manager.Client.InspectProjectBranch(pfs.DefaultProjectName, m.Repo, m.Branch)
 	if err != nil {
 		return err
 	}
@@ -1292,7 +1294,7 @@ func unmountedState(m *MountStateMachine) StateFn {
 		switch req.Action {
 		case "mount":
 			// check user permissions on repo
-			repoInfo, err := m.manager.Client.InspectRepo(req.Repo)
+			repoInfo, err := m.manager.Client.InspectProjectRepo(pfs.DefaultProjectName, req.Repo)
 			if err != nil {
 				m.responses <- Response{
 					Repo:       req.Repo,
@@ -1372,7 +1374,7 @@ func mountingState(m *MountStateMachine) StateFn {
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.Name] = &RepoOptions{
 			Name:     m.Name,
-			File:     client.NewFile(m.Repo, m.Branch, "", ""),
+			File:     client.NewProjectFile(pfs.DefaultProjectName, m.Repo, m.Branch, "", ""),
 			Subpaths: m.Files,
 			Write:    m.Mode == "rw",
 		}
@@ -1581,17 +1583,20 @@ func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 	if mfc, ok := mm.mfcs[name]; ok {
 		return mfc, nil
 	}
-	var repoName string
+	var repoName, projectName string
 	opts, ok := mm.root.repoOpts[name]
 	if !ok {
+		// assume that the project is the default project
+		projectName = pfs.DefaultProjectName
 		// assume the repo name is the same as the mount name, e.g in the
 		// pachctl mount (with no -r args) case where they all get mounted based
 		// on their name
 		repoName = name
 	} else {
+		projectName = opts.File.Commit.Branch.Repo.Project.GetName()
 		repoName = opts.File.Commit.Branch.Repo.Name
 	}
-	mfc, err := mm.Client.NewModifyFileClient(client.NewCommit(repoName, mm.root.branch(name), ""))
+	mfc, err := mm.Client.NewModifyFileClient(client.NewProjectCommit(projectName, repoName, mm.root.branch(name), ""))
 	if err != nil {
 		return nil, err
 	}

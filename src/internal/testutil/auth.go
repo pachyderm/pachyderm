@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
@@ -26,10 +27,10 @@ func TSProtoOrDie(t testing.TB, ts time.Time) *types.Timestamp {
 	return proto
 }
 
-func activateAuthHelper(tb testing.TB, client *client.APIClient) {
+func activateAuthHelper(tb testing.TB, client *client.APIClient, port ...string) {
 	client.SetAuthToken(RootToken)
 
-	ActivateEnterprise(tb, client)
+	ActivateEnterprise(tb, client, port...)
 
 	_, err := client.Activate(client.Ctx(),
 		&auth.ActivateRequest{RootToken: RootToken},
@@ -49,9 +50,9 @@ func activateAuthHelper(tb testing.TB, client *client.APIClient) {
 }
 
 // ActivateAuthClient activates the auth service in the test cluster, if it isn't already enabled
-func ActivateAuthClient(tb testing.TB, c *client.APIClient) {
+func ActivateAuthClient(tb testing.TB, c *client.APIClient, port ...string) {
 	tb.Helper()
-	activateAuthHelper(tb, c)
+	activateAuthHelper(tb, c, port...)
 }
 
 // creates a new authenticated pach client, without re-activating
@@ -69,9 +70,9 @@ func AuthenticateClient(tb testing.TB, c *client.APIClient, subject string) *cli
 	return client
 }
 
-func AuthenticatedPachClient(tb testing.TB, c *client.APIClient, subject string) *client.APIClient {
+func AuthenticatedPachClient(tb testing.TB, c *client.APIClient, subject string, port ...string) *client.APIClient {
 	tb.Helper()
-	activateAuthHelper(tb, c)
+	activateAuthHelper(tb, c, port...)
 	return AuthenticateClient(tb, c, subject)
 }
 
@@ -126,9 +127,9 @@ func GetRepoRoleBinding(t *testing.T, c *client.APIClient, repo string) *auth.Ro
 }
 
 // CommitCnt uses 'c' to get the number of commits made to the repo 'repo'
-func CommitCnt(t *testing.T, c *client.APIClient, repo string) int {
+func CommitCnt(t *testing.T, c *client.APIClient, projectName, repoName string) int {
 	t.Helper()
-	commitList, err := c.ListCommitByRepo(client.NewRepo(repo))
+	commitList, err := c.ListCommitByRepo(client.NewProjectRepo(projectName, repoName))
 	require.NoError(t, err)
 	return len(commitList)
 }

@@ -2,7 +2,10 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
-{{- if .Values.enterpriseServer.enabled }}
+{{- if .Values.enterpriseServer.enabled -}}
+{{- if .Values.pachd.enabled -}}
+{{- fail "pachd and enterpriseServer shall not be enabled at the same time in the same namespace" -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -58,11 +61,20 @@ spec:
           value: {{ required "postgresql database name required" .Values.global.postgresql.postgresqlDatabase | quote }}
         - name: POSTGRES_USER
           value: {{ required "postgresql username required" .Values.global.postgresql.postgresqlUsername | quote }}
+        {{- if .Values.global.postgresql.ssl }}
+        - name: POSTGRES_SSL
+          value: "require"
+        {{- end }}
+        {{- if .Values.cloudsqlAuthProxy.iamLogin }}
+        - name: POSTGRES_PASSWORD
+          value: "Using-iamLogin"
+        {{- else }}
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: postgres # Must match secret setup by postgres subchart or postgres-secret.yaml if using external postgres
-              key: postgresql-password
+              name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }}
+              key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
+        {{- end }}
         {{- if and .Values.enterpriseServer.tls.enabled .Values.global.customCaCerts }}
         - name: SSL_CERT_DIR
           value:  /pachd-tls-cert
@@ -252,4 +264,4 @@ spec:
         secret:
           secretName: {{ required "If enterpriseServer.tls.enabled, you must set enterpriseServer.tls.secretName" .Values.enterpriseServer.tls.secretName | quote }}
       {{- end }}
-{{- end }}
+{{- end -}}

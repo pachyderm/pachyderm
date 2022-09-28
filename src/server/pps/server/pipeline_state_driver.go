@@ -264,7 +264,7 @@ func (d *mockStateDriver) GetPipelineInfo(ctx context.Context, pipeline *pps.Pip
 }
 
 func (d *mockStateDriver) upsertPipeline(pi *pps.PipelineInfo) *pfs.Commit {
-	mockSpecCommit := client.NewCommit(pi.Pipeline.Name, "master", uuid.NewWithoutDashes())
+	mockSpecCommit := client.NewProjectCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, "master", uuid.NewWithoutDashes())
 	pi.SpecCommit = mockSpecCommit
 	d.pipelines[toKey(pi.Pipeline)] = pi.SpecCommit.ID
 	d.specCommits[mockSpecCommit.ID] = pi

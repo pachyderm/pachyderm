@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -94,10 +95,10 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 	// Test GRPC API.
 	t.Run("TestGRPC", func(t *testing.T) {
 		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
-			if err := c.CreateRepo("test"); err != nil {
+			if err := c.CreateProjectRepo(pfs.DefaultProjectName, "test"); err != nil {
 				return errors.Errorf("create repo: %w", err)
 			}
-			if err := c.PutFile(client.NewRepo("test").NewCommit("master", ""), "test.txt", bytes.NewReader(testText)); err != nil {
+			if err := c.PutFile(client.NewProjectRepo(pfs.DefaultProjectName, "test").NewCommit("master", ""), "test.txt", bytes.NewReader(testText)); err != nil {
 				return errors.Errorf("put file: %w", err)
 			}
 			return nil
