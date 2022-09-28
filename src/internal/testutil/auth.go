@@ -136,7 +136,7 @@ func CommitCnt(t *testing.T, c *client.APIClient, repo *pfs.Repo) int {
 // PipelineNames returns the names of all pipelines that 'c' gets from
 // ListPipeline.
 //
-// TODO: replace with version which knows about projects.
+// TODO(CORE-1100): replace with version which knows about projects.
 func PipelineNames(t *testing.T, c *client.APIClient) []string {
 	t.Helper()
 	ps, err := c.ListPipeline(false)

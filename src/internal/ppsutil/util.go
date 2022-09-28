@@ -52,9 +52,7 @@ func PipelineRcName(pi *pps.PipelineInfo) string {
 	// k8s won't allow RC names that contain upper-case letters
 	// or underscores
 	//
-	// TODO: deal with name collision
-	//
-	// TODO: handle too-long names
+	// TODO(CORE-1099): deal with name collision & too-long names
 	pipelineName := strings.ReplaceAll(pi.Pipeline.Name, "_", "-")
 	if projectName := pi.Pipeline.Project.GetName(); projectName != "" {
 		projectName = strings.ReplaceAll(projectName, "_", "-")
