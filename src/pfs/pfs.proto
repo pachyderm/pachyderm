@@ -229,6 +229,7 @@ message ListCommitRequest {
   bool reverse = 5;  // Return commits oldest to newest
   bool all = 6; // Return commits of all kinds (without this, aliases are excluded)
   OriginKind origin_kind = 7; // Return only commits of this kind (mutually exclusive with all)
+  google.protobuf.Timestamp started_time = 8; // Return commits started before this time
 }
 
 message InspectCommitSetRequest {
