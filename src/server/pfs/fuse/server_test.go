@@ -1,4 +1,4 @@
-//go:build !k8s
+//go:build unit_test
 
 package fuse
 
