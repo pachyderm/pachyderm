@@ -108,6 +108,38 @@ func finfosToPaths(finfos []*pfs.FileInfo) (paths []string) {
 func TestPFS(suite *testing.T) {
 	suite.Parallel()
 
+	suite.Run("ListFileTest", func(t *testing.T) {
+		t.Parallel()
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+
+		commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+
+		require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/file1.1", &bytes.Buffer{}))
+		require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/file1.2", &bytes.Buffer{}))
+		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.1", &bytes.Buffer{}))
+		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.2", &bytes.Buffer{}))
+
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		// should list a directory but not siblings
+		var fis []*pfs.FileInfo
+		require.NoError(t, env.PachClient.ListFile(commit1, "/dir1", func(fi *pfs.FileInfo) error {
+			fis = append(fis, fi)
+			return nil
+		}))
+		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(fis))
+		// should list the root
+		fis = nil
+		require.NoError(t, env.PachClient.ListFile(commit1, "/", func(fi *pfs.FileInfo) error {
+			fis = append(fis, fi)
+			return nil
+		}))
+		require.ElementsEqual(t, []string{"/dir1/", "/dir2/"}, finfosToPaths(fis))
+	})
+
 	suite.Run("ListCommitStartedTime", func(t *testing.T) {
 		t.Parallel()
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
