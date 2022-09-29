@@ -239,15 +239,15 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	return ret, nil
 }
 
-func (d *driver) listFile(ctx context.Context, file *pfs.File, cb func(*pfs.FileInfo) error) error {
-	commitInfo, fs, err := d.openCommit(ctx, file.Commit)
+func (d *driver) listFile(ctx context.Context, parentDir *pfs.File, from *pfs.File, cb func(*pfs.FileInfo) error) error {
+	commitInfo, fs, err := d.openCommit(ctx, parentDir.Commit)
 	if err != nil {
 		return err
 	}
-	name := pfsfile.CleanPath(file.Path)
+	name := pfsfile.CleanPath(parentDir.Path)
 	opts := []SourceOption{
 		WithPrefix(name),
-		WithDatum(file.Datum),
+		WithDatum(parentDir.Datum),
 		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
 			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 				// Check for directory match (don't return directory in list)
@@ -262,6 +262,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, cb func(*pfs.File
 				return strings.HasPrefix(idx.Path, fileset.Clean(name, true))
 			})
 		}),
+		WithPathRange(&pfs.PathRange{Lower: from.Path}),
 	}
 	s := NewSource(commitInfo, fs, opts...)
 	err = s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {

@@ -654,7 +654,7 @@ func (c APIClient) ListFile(commit *pfs.Commit, path string, cb func(fi *pfs.Fil
 	client, err := c.PfsAPIClient.ListFile(
 		c.Ctx(),
 		&pfs.ListFileRequest{
-			File: commit.NewFile(path),
+			ParentDirectory: commit.NewFile(path),
 		},
 	)
 	if err != nil {
