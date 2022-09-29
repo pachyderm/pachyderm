@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"math"
 	"path"
 	"path/filepath"
 	"strings"
@@ -239,12 +240,16 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	return ret, nil
 }
 
-func (d *driver) listFile(ctx context.Context, parentDir *pfs.File, from *pfs.File, cb func(*pfs.FileInfo) error) error {
+func (d *driver) listFile(ctx context.Context, parentDir *pfs.File, from *pfs.File, number int64, cb func(*pfs.FileInfo) error) error {
 	commitInfo, fs, err := d.openCommit(ctx, parentDir.Commit)
 	if err != nil {
 		return err
 	}
 	name := pfsfile.CleanPath(parentDir.Path)
+	// if number is 0, we return all files that match the criteria
+	if number == 0 {
+		number = math.MaxInt64
+	}
 	opts := []SourceOption{
 		WithPrefix(name),
 		WithDatum(parentDir.Datum),
@@ -269,6 +274,10 @@ func (d *driver) listFile(ctx context.Context, parentDir *pfs.File, from *pfs.Fi
 	s := NewSource(commitInfo, fs, opts...)
 	err = s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 		if pathIsChild(name, pfsfile.CleanPath(fi.File.Path)) {
+			if number == 0 {
+				return errutil.ErrBreak
+			}
+			number--
 			return cb(fi)
 		}
 		return nil

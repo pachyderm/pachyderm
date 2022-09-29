@@ -379,6 +379,8 @@ message ListFileRequest {
   File parentDirectory = 1;
   // Marker for pagination - Armaan TODO - detail
   File startMarker = 3;
+  // Number of files to return
+  int64 number = 4;
 
 // TODO:
 //  // History indicates how many historical versions you want returned. Its

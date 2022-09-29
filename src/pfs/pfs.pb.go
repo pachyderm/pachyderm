@@ -3148,7 +3148,9 @@ type ListFileRequest struct {
 	// is returned
 	ParentDirectory *File `protobuf:"bytes,1,opt,name=parentDirectory,proto3" json:"parentDirectory,omitempty"`
 	// Marker for pagination - Armaan TODO - detail
-	StartMarker          *File    `protobuf:"bytes,3,opt,name=startMarker,proto3" json:"startMarker,omitempty"`
+	StartMarker *File `protobuf:"bytes,3,opt,name=startMarker,proto3" json:"startMarker,omitempty"`
+	// Number of files to return
+	Number               int64    `protobuf:"varint,4,opt,name=number,proto3" json:"number,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -3199,6 +3201,13 @@ func (m *ListFileRequest) GetStartMarker() *File {
 		return m.StartMarker
 	}
 	return nil
+}
+
+func (m *ListFileRequest) GetNumber() int64 {
+	if m != nil {
+		return m.Number
+	}
+	return 0
 }
 
 type WalkFileRequest struct {
@@ -10323,6 +10332,11 @@ func (m *ListFileRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
+	if m.Number != 0 {
+		i = encodeVarintPfs(dAtA, i, uint64(m.Number))
+		i--
+		dAtA[i] = 0x20
+	}
 	if m.StartMarker != nil {
 		{
 			size, err := m.StartMarker.MarshalToSizedBuffer(dAtA[:i])
@@ -13010,6 +13024,9 @@ func (m *ListFileRequest) Size() (n int) {
 	if m.StartMarker != nil {
 		l = m.StartMarker.Size()
 		n += 1 + l + sovPfs(uint64(l))
+	}
+	if m.Number != 0 {
+		n += 1 + sovPfs(uint64(m.Number))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -20248,6 +20265,25 @@ func (m *ListFileRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Number", wireType)
+			}
+			m.Number = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPfs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Number |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipPfs(dAtA[iNdEx:])

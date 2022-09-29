@@ -146,6 +146,14 @@ func TestPFS(suite *testing.T) {
 		fis, err = clientsdk.ListFile(listFileClient)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
+
+		request = &pfs.ListFileRequest{ParentDirectory: commit1.NewFile("/dir1"), StartMarker: commit1.NewFile("/dir1/file1.1"), Number: 2}
+		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
+		require.NoError(t, err)
+		fis, err = clientsdk.ListFile(listFileClient)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(fis))
+		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(fis))
 	})
 
 	suite.Run("ListCommitStartedTime", func(t *testing.T) {
