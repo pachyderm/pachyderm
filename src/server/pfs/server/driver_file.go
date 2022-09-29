@@ -262,7 +262,9 @@ func (d *driver) listFile(ctx context.Context, parentDir *pfs.File, from *pfs.Fi
 				return strings.HasPrefix(idx.Path, fileset.Clean(name, true))
 			})
 		}),
-		WithPathRange(&pfs.PathRange{Lower: from.Path}),
+	}
+	if from != nil {
+		opts = append(opts, WithPathRange(&pfs.PathRange{Lower: from.Path}))
 	}
 	s := NewSource(commitInfo, fs, opts...)
 	err = s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
