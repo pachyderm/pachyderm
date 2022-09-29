@@ -3146,7 +3146,9 @@ type ListFileRequest struct {
 	// repo, the commit/branch, and path prefix of files we're interested in
 	// If the "path" field is omitted, a list of files at the top level of the repo
 	// is returned
-	File                 *File    `protobuf:"bytes,1,opt,name=file,proto3" json:"file,omitempty"`
+	ParentDirectory *File `protobuf:"bytes,1,opt,name=parentDirectory,proto3" json:"parentDirectory,omitempty"`
+	// Marker for pagination - Armaan TODO - detail
+	StartMarker          *File    `protobuf:"bytes,3,opt,name=startMarker,proto3" json:"startMarker,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -3185,9 +3187,16 @@ func (m *ListFileRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ListFileRequest proto.InternalMessageInfo
 
-func (m *ListFileRequest) GetFile() *File {
+func (m *ListFileRequest) GetParentDirectory() *File {
 	if m != nil {
-		return m.File
+		return m.ParentDirectory
+	}
+	return nil
+}
+
+func (m *ListFileRequest) GetStartMarker() *File {
+	if m != nil {
+		return m.StartMarker
 	}
 	return nil
 }
@@ -10314,9 +10323,21 @@ func (m *ListFileRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.File != nil {
+	if m.StartMarker != nil {
 		{
-			size, err := m.File.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.StartMarker.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPfs(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.ParentDirectory != nil {
+		{
+			size, err := m.ParentDirectory.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -12982,8 +13003,12 @@ func (m *ListFileRequest) Size() (n int) {
 	}
 	var l int
 	_ = l
-	if m.File != nil {
-		l = m.File.Size()
+	if m.ParentDirectory != nil {
+		l = m.ParentDirectory.Size()
+		n += 1 + l + sovPfs(uint64(l))
+	}
+	if m.StartMarker != nil {
+		l = m.StartMarker.Size()
 		n += 1 + l + sovPfs(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -20153,7 +20178,7 @@ func (m *ListFileRequest) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field File", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field ParentDirectory", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -20180,10 +20205,46 @@ func (m *ListFileRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.File == nil {
-				m.File = &File{}
+			if m.ParentDirectory == nil {
+				m.ParentDirectory = &File{}
 			}
-			if err := m.File.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.ParentDirectory.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StartMarker", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPfs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthPfs
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthPfs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.StartMarker == nil {
+				m.StartMarker = &File{}
+			}
+			if err := m.StartMarker.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
