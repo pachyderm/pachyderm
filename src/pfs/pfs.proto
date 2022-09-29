@@ -376,7 +376,10 @@ message ListFileRequest {
   // repo, the commit/branch, and path prefix of files we're interested in
   // If the "path" field is omitted, a list of files at the top level of the repo
   // is returned
-  File file = 1;
+  File parentDirectory = 1;
+  // Marker for pagination - Armaan TODO - detail
+  File startMarker = 3;
+
 // TODO:
 //  // History indicates how many historical versions you want returned. Its
 //  // semantics are:
