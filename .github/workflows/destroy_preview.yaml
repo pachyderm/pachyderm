@@ -7,28 +7,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
-        with:
-          node-version: '16'
-      - uses: google-github-actions/setup-gcloud@v0
-        with:
-          service_account_key: ${{ secrets.GCP_KEY }}
-          project_id: ${{ env.PROJECT_ID }}
-          export_default_credentials: true
-      - name: Pulumi Destroy # The pulumi action was not used here, as it does not download plugins when just using destroy
+      - name: Helium Delete
         run: |
-          wget https://get.pulumi.com/releases/sdk/pulumi-v3.22.1-linux-x64.tar.gz
-          tar xvf pulumi-v3.22.1-linux-x64.tar.gz
-          echo "${PWD}/pulumi" >> $GITHUB_PATH
-          npm i
-          pulumi stack select $CURRENT_BRANCH --non-interactive 
-          pulumi config set gcp:zone us-east1-b
-          pulumi config set gcp:project pulumi-ci-334619
-          pulumi config set branch ${CURRENT_BRANCH,,}
-          pulumi config set sha $GITHUB_SHA
-          pulumi destroy --yes
-        working-directory: infra
+          curl -X DELETE -H "Authorization: Bearer ${HELIUM_API_TOKEN}" https://helium.pachyderm.io/v1/api/workspace/${CURRENT_BRANCH}
         env:
-          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          HELIUM_API_TOKEN: ${{ secrets.HELIUM_API_TOKEN }}
           CURRENT_BRANCH: ${{ github.head_ref }}
-
