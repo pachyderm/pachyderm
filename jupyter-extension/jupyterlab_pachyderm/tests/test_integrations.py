@@ -151,19 +151,19 @@ def test_mount(pachyderm_resources, dev_server):
                 "name": repos[0],
                 "repo": repos[0],
                 "branch": "master",
-                "mode": "rw",
+                "mode": "ro",
             },
             {
                 "name": repos[0]+"_dev",
                 "repo": repos[0],
                 "branch": "dev",
-                "mode": "rw",
+                "mode": "ro",
             },
             {
                 "name": repos[1],
                 "repo": repos[1],
                 "branch": "master",
-                "mode": "rw",
+                "mode": "ro",
             },
         ]
     }
@@ -197,13 +197,13 @@ def test_unmount(pachyderm_resources, dev_server):
                 "name": repos[0],
                 "repo": repos[0],
                 "branch": "master",
-                "mode": "rw",
+                "mode": "ro",
             },
             {
                 "name": repos[0]+"_dev",
                 "repo": repos[0],
                 "branch": "dev",
-                "mode": "rw",
+                "mode": "ro",
             },
         ]
     }
