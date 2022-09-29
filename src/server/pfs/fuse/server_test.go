@@ -1,50 +1,21 @@
-//go:build k8s
+//go:build !k8s
 
 package fuse
 
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
-
-func put(path string, body io.Reader) (*http.Response, error) {
-	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://localhost:9002/%s", path), body)
-	if err != nil {
-		panic(err)
-	}
-	x, err := client.Do(req)
-	return x, errors.EnsureStack(err)
-}
-
-func get(path string) (*http.Response, error) {
-	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:9002/%s", path), nil)
-	if err != nil {
-		panic(err)
-	}
-	x, err := client.Do(req)
-	return x, errors.EnsureStack(err)
-}
 
 /*
 
@@ -72,15 +43,25 @@ func TestBasicServerSameNames(t *testing.T) {
 	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
 	require.NoError(t, err)
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
-
-		resp, err := put("repos/repo/master/_mount?name=repo&mode=ro", nil)
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo",
+					Repo:   "repo",
+					Branch: "master",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		resp, err := put("_mount", b)
 		require.NoError(t, err)
 
 		defer resp.Body.Close()
-		repoResp := &ListRepoResponse{}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(repoResp))
-		require.Equal(t, "repo", (*repoResp)["repo"].Name)
-		require.Equal(t, "master", (*repoResp)["repo"].Branches["master"].Name)
+		mountResp := &ListMountResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mountResp))
+		require.Equal(t, "repo", (*mountResp).Mounted["repo"].Repo)
+		require.Equal(t, "master", (*mountResp).Mounted["repo"].Branch)
 
 		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
@@ -113,8 +94,18 @@ func TestBasicServerNonMasterBranch(t *testing.T) {
 	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
 	require.NoError(t, err)
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
-
-		_, err := put("repos/repo/dev/_mount?name=repo&mode=ro", nil)
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo",
+					Repo:   "repo",
+					Branch: "dev",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		_, err := put("_mount", b)
 		require.NoError(t, err)
 
 		repos, err := os.ReadDir(mountPoint)
@@ -148,8 +139,18 @@ func TestBasicServerDifferingNames(t *testing.T) {
 	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
 	require.NoError(t, err)
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
-
-		_, err := put("repos/repo/master/_mount?name=newname&mode=ro", nil)
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "newname",
+					Repo:   "repo",
+					Branch: "master",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		_, err := put("_mount", b)
 		require.NoError(t, err)
 
 		repos, err := os.ReadDir(mountPoint)
@@ -174,39 +175,6 @@ func TestBasicServerDifferingNames(t *testing.T) {
 	})
 }
 
-func TestRepoAccess(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := "robot"+tu.UniqueString("alice"), "robot"+tu.UniqueString("bob")
-	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
-
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, "repo1"))
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo1", "master", "")
-	err := aliceClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
-	require.NoError(t, err)
-
-	withServerMount(t, aliceClient, nil, func(mountPoint string) {
-		resp, err := get("repos")
-		require.NoError(t, err)
-
-		reposResp := &ListRepoResponse{}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
-		require.Equal(t, (*reposResp)["repo1"].Authorization, "write")
-	})
-
-	withServerMount(t, bobClient, nil, func(mountPoint string) {
-		resp, err := get("repos")
-		require.NoError(t, err)
-
-		reposResp := &ListRepoResponse{}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
-		require.Equal(t, (*reposResp)["repo1"].Authorization, "none")
-
-		resp, _ = put("repos/repo1/master/_mount?name=repo1&mode=ro", nil)
-		require.Equal(t, resp.StatusCode, 500)
-	})
-}
-
 func TestUnmountAll(t *testing.T) {
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
@@ -221,16 +189,30 @@ func TestUnmountAll(t *testing.T) {
 	require.NoError(t, err)
 
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
-		_, err := put("repos/repo1/master/_mount?name=repo1&mode=ro", nil)
-		require.NoError(t, err)
-		_, err = put("repos/repo2/master/_mount?name=repo2&mode=ro", nil)
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo1",
+					Repo:   "repo1",
+					Branch: "master",
+				},
+				{
+					Name:   "repo2",
+					Repo:   "repo2",
+					Branch: "master",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		_, err := put("_mount", b)
 		require.NoError(t, err)
 
 		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(repos))
 
-		resp, err := put("repos/_unmount", nil)
+		resp, err := put("_unmount_all", nil)
 		require.NoError(t, err)
 
 		defer resp.Body.Close()
@@ -241,111 +223,6 @@ func TestUnmountAll(t *testing.T) {
 		repos, err = os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(repos))
-	})
-}
-
-func TestConfig(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	c = tu.AuthenticateClient(t, c, auth.RootUser)
-
-	withServerMount(t, c, nil, func(mountPoint string) {
-		type Config struct {
-			ClusterStatus string `json:"cluster_status"`
-			PachdAddress  string `json:"pachd_address"`
-		}
-
-		// PUT
-		invalidCfg := &Config{ClusterStatus: "INVALID", PachdAddress: "bad_address"}
-		m := map[string]string{"pachd_address": invalidCfg.PachdAddress}
-		b := new(bytes.Buffer)
-		require.NoError(t, json.NewEncoder(b).Encode(m))
-
-		putResp, err := put("config", b)
-		require.NoError(t, err)
-		require.Equal(t, 500, putResp.StatusCode)
-
-		cfg := &Config{ClusterStatus: "AUTH_ENABLED", PachdAddress: c.GetAddress().Qualified()}
-		m = map[string]string{"pachd_address": cfg.PachdAddress}
-		b = new(bytes.Buffer)
-		require.NoError(t, json.NewEncoder(b).Encode(m))
-
-		putResp, err = put("config", b)
-		require.NoError(t, err)
-		defer putResp.Body.Close()
-
-		putConfig := &Config{}
-		require.NoError(t, json.NewDecoder(putResp.Body).Decode(putConfig))
-
-		cfgParsedPachdAddress, err := grpcutil.ParsePachdAddress(cfg.PachdAddress)
-		require.NoError(t, err)
-
-		require.Equal(t, cfg.ClusterStatus, putConfig.ClusterStatus)
-		require.Equal(t, cfgParsedPachdAddress.Qualified(), putConfig.PachdAddress)
-		require.Equal(t, cfgParsedPachdAddress.Qualified(), c.GetAddress().Qualified())
-
-		// GET
-		getResp, err := get("config")
-		require.NoError(t, err)
-		defer getResp.Body.Close()
-
-		getConfig := &Config{}
-		require.NoError(t, json.NewDecoder(getResp.Body).Decode(getConfig))
-
-		require.Equal(t, cfg.ClusterStatus, getConfig.ClusterStatus)
-		require.Equal(t, cfg.PachdAddress, getConfig.PachdAddress)
-	})
-}
-
-func TestAuthLoginLogout(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
-	c = tu.UnauthenticatedPachClient(t, c)
-
-	withServerMount(t, c, nil, func(mountPoint string) {
-		authResp, err := put("auth/_login", nil)
-		require.NoError(t, err)
-		defer authResp.Body.Close()
-
-		type AuthLoginResp struct {
-			AuthUrl string `json:"auth_url"`
-		}
-		getAuthLogin := &AuthLoginResp{}
-		require.NoError(t, json.NewDecoder(authResp.Body).Decode(getAuthLogin))
-
-		tu.DoOAuthExchange(t, c, c, getAuthLogin.AuthUrl)
-		time.Sleep(1 * time.Second)
-
-		_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-		require.NoError(t, err)
-
-		_, err = put("auth/_logout", nil)
-		require.NoError(t, err)
-
-		_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-		require.ErrorIs(t, err, auth.ErrNotSignedIn)
-	})
-}
-
-func TestUnauthenticatedCode(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	withServerMount(t, c, nil, func(mountPoint string) {
-		resp, _ := get("repos")
-		require.Equal(t, 200, resp.StatusCode)
-	})
-
-	c = tu.UnauthenticatedPachClient(t, c)
-	withServerMount(t, c, nil, func(mountPoint string) {
-		resp, _ := get("repos")
-		require.Equal(t, 401, resp.StatusCode)
-	})
-
-	c = tu.AuthenticateClient(t, c, "test")
-	withServerMount(t, c, nil, func(mountPoint string) {
-		resp, _ := get("repos")
-		require.Equal(t, 200, resp.StatusCode)
 	})
 }
 
@@ -361,9 +238,23 @@ func TestMultipleMount(t *testing.T) {
 	require.NoError(t, err)
 
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
-		_, err := put("repos/repo/master/_mount?name=mount1&mode=ro", nil)
-		require.NoError(t, err)
-		_, err = put("repos/repo/master/_mount?name=mount2&mode=ro", nil)
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "mount1",
+					Repo:   "repo",
+					Branch: "master",
+				},
+				{
+					Name:   "mount2",
+					Repo:   "repo",
+					Branch: "master",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		_, err := put("_mount", b)
 		require.NoError(t, err)
 
 		repos, err := os.ReadDir(mountPoint)
@@ -379,7 +270,12 @@ func TestMultipleMount(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "foo", string(data))
 
-		_, err = put("repos/repo/master/_unmount?name=mount2", nil)
+		ur := UnmountRequest{
+			Mounts: []string{"mount2"},
+		}
+		b = new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(ur))
+		_, err = put("_unmount", b)
 		require.NoError(t, err)
 
 		repos, err = os.ReadDir(mountPoint)
@@ -391,7 +287,18 @@ func TestMultipleMount(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "foo", string(data))
 
-		resp, _ := put("repos/repo2/master/_mount?name=mount1&mode=ro", nil)
+		mr = MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "mount1",
+					Repo:   "repo2",
+					Branch: "master",
+				},
+			},
+		}
+		b = new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		resp, _ := put("_mount", b)
 		require.Equal(t, 500, resp.StatusCode)
 	})
 }
@@ -400,45 +307,20 @@ func TestMountNonexistentRepo(t *testing.T) {
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
-		resp, _ := put("repos/repo1/master/_mount?name=repo1&mode=ro", nil)
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo1",
+					Repo:   "repo1",
+					Branch: "master",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		resp, _ := put("_mount", b)
 		require.Equal(t, 400, resp.StatusCode)
 	})
-}
-
-// TODO: pass reference to the MountManager object to the test func, so that the
-// test can call MountBranch, UnmountBranch etc directly for convenience
-func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f func(mountPoint string)) {
-	dir := tb.TempDir()
-	if sopts == nil {
-		sopts = &ServerOptions{
-			MountDir: dir,
-		}
-	}
-	if sopts.Unmount == nil {
-		sopts.Unmount = make(chan struct{})
-	}
-	unmounted := make(chan struct{})
-	var mountErr error
-	defer func() {
-		close(sopts.Unmount)
-		<-unmounted
-		require.ErrorIs(tb, mountErr, http.ErrServerClosed)
-	}()
-	defer func() {
-		// recover because panics leave the mount in a weird state that makes
-		// it hard to rerun the tests, mostly relevent when you're iterating on
-		// these tests, or the code they test.
-		if r := recover(); r != nil {
-			tb.Fatal(r)
-		}
-	}()
-	go func() {
-		mountErr = Server(sopts, c)
-		close(unmounted)
-	}()
-	// Gotta give the fuse mount time to come up.
-	time.Sleep(2 * time.Second)
-	f(dir)
 }
 
 func TestRwUnmountCreatesCommit(t *testing.T) {
@@ -448,7 +330,19 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
-		resp, err := put("repos/repo/master/_mount?name=repo&mode=rw", nil)
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo",
+					Repo:   "repo",
+					Branch: "master",
+					Mode:   "rw",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		resp, err := put("_mount", b)
 		require.NoError(t, err)
 
 		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
@@ -458,13 +352,18 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 		require.NoError(t, err)
 		// the commit created above isn't actually written until we unmount, so
 		// we currently have 0 commits
-		require.Equal(t, len(commits), 0)
+		require.Equal(t, 0, len(commits))
 		defer resp.Body.Close()
 		err = os.WriteFile(
 			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
 		)
 		require.NoError(t, err)
-		_, err = put("repos/repo/master/_unmount?name=repo", nil)
+		ur := UnmountRequest{
+			Mounts: []string{"repo"},
+		}
+		b = new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(ur))
+		_, err = put("_unmount", b)
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
@@ -473,7 +372,7 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
-		require.Equal(t, len(commits), 1)
+		require.Equal(t, 1, len(commits))
 	})
 }
 
@@ -483,7 +382,19 @@ func TestRwCommitCreatesCommit(t *testing.T) {
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
-		resp, err := put("repos/repo/master/_mount?name=repo&mode=rw", nil)
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo",
+					Repo:   "repo",
+					Branch: "master",
+					Mode:   "rw",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		resp, err := put("_mount", b)
 		require.NoError(t, err)
 
 		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
@@ -493,13 +404,19 @@ func TestRwCommitCreatesCommit(t *testing.T) {
 		require.NoError(t, err)
 		// the commit created above isn't actually written until we unmount, so
 		// we currently have 0 commits
-		require.Equal(t, len(commits), 0)
+		require.Equal(t, 0, len(commits))
 		defer resp.Body.Close()
 		err = os.WriteFile(
 			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
 		)
 		require.NoError(t, err)
-		_, err = put("repos/repo/master/_commit?name=repo", nil)
+
+		cr := CommitRequest{
+			Mount: "repo",
+		}
+		b = new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(cr))
+		_, err = put("_commit", b)
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
@@ -508,7 +425,7 @@ func TestRwCommitCreatesCommit(t *testing.T) {
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
-		require.Equal(t, len(commits), 1)
+		require.Equal(t, 1, len(commits))
 	})
 }
 
@@ -519,7 +436,19 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
-		resp, err := put("repos/repo/master/_mount?name=repo&mode=rw", nil)
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo",
+					Repo:   "repo",
+					Branch: "master",
+					Mode:   "rw",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		resp, err := put("_mount", b)
 		require.NoError(t, err)
 
 		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
@@ -529,13 +458,19 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 		require.NoError(t, err)
 		// the commit created above isn't actually written until we unmount, so
 		// we currently have 0 commits
-		require.Equal(t, len(commits), 0)
+		require.Equal(t, 0, len(commits))
 		defer resp.Body.Close()
 		err = os.WriteFile(
 			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
 		)
 		require.NoError(t, err)
-		_, err = put("repos/repo/master/_commit?name=repo", nil)
+
+		cr := CommitRequest{
+			Mount: "repo",
+		}
+		b = new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(cr))
+		_, err = put("_commit", b)
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
@@ -544,14 +479,17 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
-		require.Equal(t, len(commits), 1)
+		require.Equal(t, 1, len(commits))
 
 		// another file!
 		err = os.WriteFile(
 			filepath.Join(mountPoint, "repo", "file2"), []byte("hello"), 0644,
 		)
 		require.NoError(t, err)
-		_, err = put("repos/repo/master/_commit?name=repo", nil)
+
+		b = new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(cr))
+		_, err = put("_commit", b)
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
@@ -560,7 +498,7 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
-		require.Equal(t, len(commits), 2)
+		require.Equal(t, 2, len(commits))
 	})
 }
 
@@ -571,7 +509,19 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
-		resp, err := put("repos/repo/master/_mount?name=repo&mode=rw", nil)
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo",
+					Repo:   "repo",
+					Branch: "master",
+					Mode:   "rw",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		resp, err := put("_mount", b)
 		require.NoError(t, err)
 
 		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
@@ -581,13 +531,19 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 		require.NoError(t, err)
 		// the commit created above isn't actually written until we unmount, so
 		// we currently have 0 commits
-		require.Equal(t, len(commits), 0)
+		require.Equal(t, 0, len(commits))
 		defer resp.Body.Close()
 		err = os.WriteFile(
 			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
 		)
 		require.NoError(t, err)
-		_, err = put("repos/repo/master/_commit?name=repo", nil)
+
+		cr := CommitRequest{
+			Mount: "repo",
+		}
+		b = new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(cr))
+		_, err = put("_commit", b)
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
@@ -596,14 +552,19 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
-		require.Equal(t, len(commits), 1)
+		require.Equal(t, 1, len(commits))
 
 		// another file!
 		err = os.WriteFile(
 			filepath.Join(mountPoint, "repo", "file2"), []byte("hello"), 0644,
 		)
 		require.NoError(t, err)
-		_, err = put("repos/repo/master/_unmount?name=repo", nil)
+		ur := UnmountRequest{
+			Mounts: []string{"repo"},
+		}
+		b = new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(ur))
+		_, err = put("_unmount", b)
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
@@ -612,7 +573,7 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
-		require.Equal(t, len(commits), 2)
+		require.Equal(t, 2, len(commits))
 	})
 }
 
