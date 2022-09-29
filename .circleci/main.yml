@@ -73,6 +73,7 @@ jobs:
             --rerun-fails \
             --packages="./..." \
             -- \
+            -tags=unit_test \
             -count=1 \
             -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
       - store_artifacts: # upload test summary for display in Artifacts
