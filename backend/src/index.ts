@@ -76,7 +76,6 @@ const attachFileHandlers = (app: Express) => {
 
 const attachAnalytics = async () => {
   if (!process.env.NODE_RUDDERSTACK_ID) {
-    log.warn('No rudderstck ID provided for telemetry');
     return;
   }
   const analyticsClient = new Analytics(
@@ -97,25 +96,9 @@ const attachAnalytics = async () => {
           enterpriseState,
         },
       });
-
-      log.addStream({
-        level: 'info',
-        stream: {
-          write: (log: unknown) => {
-            analyticsClient.track({
-              event: 'log',
-              anonymousId,
-              properties: {data: JSON.stringify(log)},
-            });
-          },
-        },
-        type: 'raw',
-      });
-      log.info('Telemetry stream to rudderstack started');
     }
-  } catch (e) {
-    log.error('Error starting telemetry stream');
-    log.error(e);
+  } catch {
+    return;
   }
 };
 

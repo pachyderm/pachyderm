@@ -37,7 +37,7 @@ async function retryAnalyticsContext() {
         });
       } catch (err) {
         if (!retryObj.retry(new Error())) {
-          return reject('Maximum retries reached');
+          return reject();
         }
       }
     });
