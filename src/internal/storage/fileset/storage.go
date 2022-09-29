@@ -23,7 +23,7 @@ const (
 	DefaultMemoryThreshold = units.GB
 	// DefaultShardThreshold is the default for the size threshold that must
 	// be met before a shard is created by the shard function.
-	DefaultShardSizeThreshold  = units.GB
+	DefaultShardSizeThreshold  = 10 * units.GB
 	DefaultShardCountThreshold = 1000000
 	// DefaultCompactionFixedDelay is the default fixed delay for compaction.
 	// This is expressed as the number of primitive filesets.
