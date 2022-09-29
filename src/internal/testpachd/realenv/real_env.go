@@ -5,32 +5,33 @@ import (
 	"net/url"
 	"path"
 	"reflect"
+	"strconv"
 	"testing"
 
 	units "github.com/docker/go-units"
 	testclient "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	authapi "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	enterpriseserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	identityserver "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	pfsapi "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
@@ -78,6 +79,16 @@ func NewRealEnvWithPPSTransactionMock(t testing.TB, customOpts ...serviceenv.Con
 	return newRealEnv(t, true, noInterceptor, customOpts...)
 }
 
+func (realEnv *RealEnv) ActivateIdentity(pathToDexAssets string) {
+	identityserver.WebDir(pathToDexAssets)
+	realEnv.ServiceEnv.InitDexDB()
+	identityEnv := identityserver.EnvFromServiceEnv(realEnv.ServiceEnv)
+	identityAddr := realEnv.PachClient.GetAddress().Host + ":" + strconv.Itoa(int(realEnv.PachClient.GetAddress().Port+8))
+	realEnv.IdentityServer = identityserver.NewIdentityServer(identityEnv, true, identityAddr)
+	realEnv.ServiceEnv.SetIdentityServer(realEnv.IdentityServer)
+	linkServers(&realEnv.MockPachd.Identity, realEnv.IdentityServer)
+}
+
 func newRealEnv(t testing.TB, mockPPSTransactionServer bool, interceptor testpachd.InterceptorOption, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	mockEnv := testpachd.NewMockEnv(t, interceptor)
 
@@ -94,6 +105,7 @@ func newRealEnv(t testing.TB, mockPPSTransactionServer bool, interceptor testpac
 		DefaultConfigOptions,
 		serviceenv.WithEtcdHostPort(etcdClientURL.Hostname(), etcdClientURL.Port()),
 		serviceenv.WithPachdPeerPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)),
+		serviceenv.WithOidcPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port + 7)),
 	}
 	opts = append(opts, customOpts...) // Overwrite with any custom options
 	realEnv.ServiceEnv = serviceenv.InitServiceEnv(serviceenv.ConfigFromOptions(opts...))

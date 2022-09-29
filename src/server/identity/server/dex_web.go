@@ -9,13 +9,14 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	dex_server "github.com/dexidp/dex/server"
 	dex_storage "github.com/dexidp/dex/storage"
@@ -59,6 +60,10 @@ var (
 // webDir is the path to find the static assets for the web server.
 // This is always /dex-assets in the docker image, but it can be overriden for testing
 var webDir = "/dex-assets"
+
+func WebDir(dir string) {
+	webDir = dir
+}
 
 // dexWeb wraps a Dex web server and hot reloads it when the
 // issuer is reconfigured.

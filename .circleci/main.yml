@@ -67,7 +67,7 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: |-
-            GOMAXPROCS=8 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
+            GOMAXPROCS=8 CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             gotestsum \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --rerun-fails \
