@@ -611,7 +611,7 @@ jobs:
             npm run eslint:check
             python -m pip install -e '.[dev]'
 
-            tail -F /tmp/pachctl-mount-server.log &
+            tail -F /tmp/mount-server.log &
 
             # Run Python unit tests
             pytest -v --ignore jupyterlab_pachyderm/tests/test_integrations.py jupyterlab_pachyderm
@@ -638,10 +638,14 @@ jobs:
 
             nohup pachctl port-forward &
 
-            tail -F /tmp/pachctl-mount-server.log &
+            tail -F /tmp/mount-server.log &
 
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
+
+            # Revert repo setup back to fixture in test_integrations.py
+            # once python-pachyderm has Projects support
+            scripts/integration_tests_setup.sh
 
             # Run integration tests
             pytest -v jupyterlab_pachyderm/tests/test_integrations.py
