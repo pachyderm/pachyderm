@@ -118,8 +118,9 @@ func TestPFS(suite *testing.T) {
 		commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 
-		require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/file1.1", &bytes.Buffer{}))
+		require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/file1.5", &bytes.Buffer{}))
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/file1.2", &bytes.Buffer{}))
+		require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/file1.1", &bytes.Buffer{}))
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.1", &bytes.Buffer{}))
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.2", &bytes.Buffer{}))
 
@@ -130,7 +131,7 @@ func TestPFS(suite *testing.T) {
 			fis = append(fis, fi)
 			return nil
 		}))
-		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(fis))
+		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2", "/dir1/file1.5"}, finfosToPaths(fis))
 		// should list the root
 		fis = nil
 		require.NoError(t, env.PachClient.ListFile(commit1, "/", func(fi *pfs.FileInfo) error {
@@ -138,6 +139,13 @@ func TestPFS(suite *testing.T) {
 			return nil
 		}))
 		require.ElementsEqual(t, []string{"/dir1/", "/dir2/"}, finfosToPaths(fis))
+
+		request := &pfs.ListFileRequest{ParentDirectory: commit1.NewFile("/dir1"), StartMarker: commit1.NewFile("/dir1/file1.2")}
+		listFileClient, err := env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
+		require.NoError(t, err)
+		fis, err = clientsdk.ListFile(listFileClient)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(fis))
 	})
 
 	suite.Run("ListCommitStartedTime", func(t *testing.T) {
