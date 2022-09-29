@@ -164,6 +164,70 @@ func TestSimplePipeline(t *testing.T) {
 	}
 }
 
+func TestCrossProjectPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	c = c.WithDefaultTransformUser("1000")
+
+	inputProjectName := tu.UniqueString("input")
+	require.NoError(t, c.CreateProject(inputProjectName))
+	dataRepoName := tu.UniqueString("TestSimplePipeline_data")
+	require.NoError(t, c.CreateProjectRepo(inputProjectName, dataRepoName))
+
+	commit1, err := c.StartProjectCommit(inputProjectName, dataRepoName, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishProjectCommit(inputProjectName, dataRepoName, commit1.Branch.Name, commit1.ID))
+
+	pipelineProjectName := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreateProject(pipelineProjectName))
+
+	pipeline := tu.UniqueString("TestPipeline")
+	require.NoError(t, c.CreateProjectPipeline(pipelineProjectName,
+		pipeline,
+		tu.DefaultTransformImage,
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepoName),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewProjectPFSInput(inputProjectName, dataRepoName, "/*"),
+		"",
+		false,
+	))
+
+	commitInfo, err := c.InspectProjectCommit(pipelineProjectName, pipeline, "master", "")
+	require.NoError(t, err)
+	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	// The commitset should have a commit in: data, spec, pipeline, meta
+	// the last two are dependent upon the first two, so should come later
+	// in topological ordering
+	require.Equal(t, 4, len(commitInfos))
+	var commitRepos []*pfs.Repo
+	for _, info := range commitInfos {
+		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
+	}
+	require.EqualOneOf(t, commitRepos[:2], client.NewProjectRepo(inputProjectName, dataRepoName))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemProjectRepo(pipelineProjectName, pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewProjectRepo(pipelineProjectName, pipeline))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemProjectRepo(pipelineProjectName, pipeline, pfs.MetaRepoType))
+
+	var buf bytes.Buffer
+	for _, info := range commitInfos {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(pipelineProjectName, pipeline)) {
+			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
+			require.Equal(t, "foo", buf.String())
+		}
+	}
+}
+
 func TestRepoSize(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -8724,6 +8788,56 @@ func TestDeferredProcessing(t *testing.T) {
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, 9, len(commitInfos))
+}
+
+func TestListPipelineAtCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	// create two pipelines and update 1 of them to represent several DAG states
+	dataRepo := tu.UniqueString("TestListPipelineAtCommit_data")
+	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	pipeline1 := tu.UniqueString("TestListPipelineAtCommit_pipeline1")
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), basicPipelineReq(pipeline1, dataRepo))
+	require.NoError(t, err)
+	pipeline2 := tu.UniqueString("TestListPipelineAtCommit_pipeline2")
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), basicPipelineReq(pipeline2, pipeline1))
+	require.NoError(t, err)
+	updateReq := basicPipelineReq(pipeline1, dataRepo)
+	updateReq.Update = true
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), updateReq)
+	require.NoError(t, err)
+	// assert correct pipeline versions are returned for each commit set ID
+	ci, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline2, "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(ci.Commit.ID)
+	require.NoError(t, err)
+	commitSets, err := c.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{})
+	require.NoError(t, err)
+	expected := []map[string]uint64{
+		{pipeline1: 2, pipeline2: 1},
+		{pipeline1: 1, pipeline2: 1},
+		{pipeline1: 1},
+	}
+	i := 0
+	require.NoError(t, clientsdk.ForEachCommitSet(commitSets, func(csi *pfs.CommitSetInfo) error {
+		pipelines, err := c.PpsAPIClient.ListPipeline(c.Ctx(), &pps.ListPipelineRequest{
+			CommitSet: &pfs.CommitSet{ID: csi.CommitSet.ID},
+		})
+		require.NoError(t, err)
+		count := 0
+		require.NoError(t, clientsdk.ForEachPipelineInfo(pipelines, func(pi *pps.PipelineInfo) error {
+			count++
+			require.Equal(t, expected[i][pi.Pipeline.Name], pi.Version)
+			return nil
+		}))
+		require.Equal(t, len(expected[i]), count)
+		i++
+		return nil
+	}))
+
 }
 
 func TestPipelineHistory(t *testing.T) {

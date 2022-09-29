@@ -868,6 +868,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAliases(editPipeline, "edit pipeline", pipelines))
 
 	var spec bool
+	var commit string
 	listPipeline := &cobra.Command{
 		Use:   "{{alias}} [<pipeline>]",
 		Short: "Return info about all pipelines.",
@@ -900,7 +901,12 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) > 0 {
 				pipeline = args[0]
 			}
-			request := &ppsclient.ListPipelineRequest{History: history, JqFilter: filter, Details: true}
+			request := &ppsclient.ListPipelineRequest{
+				History:   history,
+				CommitSet: &pfs.CommitSet{ID: commit},
+				JqFilter:  filter,
+				Details:   true,
+			}
 			if pipeline != "" {
 				request.Pipeline = pachdclient.NewProjectPipeline(project, pipeline)
 			}
@@ -946,9 +952,50 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().AddFlagSet(outputFlags)
 	listPipeline.Flags().AddFlagSet(timestampFlags)
 	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
+	listPipeline.Flags().StringVarP(&commit, "commit", "c", "", "List the pipelines as they existed at this commit.")
 	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
 	listPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing projects.")
 	commands = append(commands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
+
+	var commitSet string
+	var boxWidth int
+	var edgeHeight int
+	draw := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Draw a DAG",
+		Long:  "Draw a DAG",
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "error connecting to pachd")
+			}
+			defer client.Close()
+			request := &ppsclient.ListPipelineRequest{
+				History:   0,
+				JqFilter:  "",
+				Details:   true,
+				CommitSet: &pfs.CommitSet{ID: commitSet},
+			}
+			lpClient, err := client.PpsAPIClient.ListPipeline(client.Ctx(), request)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			pipelineInfos, err := clientsdk.ListPipelineInfo(lpClient)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if picture, err := pretty.Draw(pipelineInfos, pretty.BoxWidthOption(boxWidth), pretty.EdgeHeightOption(edgeHeight)); err != nil {
+				return err
+			} else {
+				fmt.Print(picture)
+			}
+			return nil
+		}),
+	}
+	draw.Flags().StringVarP(&commitSet, "commit", "c", "", "Commit at which you would to draw the DAG")
+	draw.Flags().IntVar(&boxWidth, "box-width", 11, "Character width of each box in the DAG")
+	draw.Flags().IntVar(&edgeHeight, "edge-height", 5, "Number of vertical lines spanned by each edge")
+	commands = append(commands, cmdutil.CreateAlias(draw, "draw"))
 
 	var (
 		all      bool
@@ -1001,7 +1048,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			if err := client.StartProjectPipeline(pfs.DefaultProjectName, args[0]); err != nil {
+			if err := client.StartProjectPipeline(project, args[0]); err != nil {
 				return errors.Wrap(err, "error from StartProjectPipeline")
 			}
 			return nil

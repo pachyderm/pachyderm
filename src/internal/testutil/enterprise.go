@@ -21,13 +21,17 @@ func GetTestEnterpriseCode(t testing.TB) string {
 }
 
 // ActivateEnterprise activates enterprise in Pachyderm (if it's not on already.)
-func ActivateEnterprise(t testing.TB, c *client.APIClient) {
-	ActivateLicense(t, c, "1650")
+func ActivateEnterprise(t testing.TB, c *client.APIClient, port ...string) {
+	licensePort := "1650"
+	if len(port) != 0 {
+		licensePort = port[0]
+	}
+	ActivateLicense(t, c, licensePort)
 	_, err := c.Enterprise.Activate(c.Ctx(),
 		&enterprise.ActivateRequest{
 			Id:            "localhost",
 			Secret:        "localhost",
-			LicenseServer: "grpc://localhost:1650",
+			LicenseServer: "grpc://localhost:" + licensePort,
 		})
 	require.NoError(t, err)
 }

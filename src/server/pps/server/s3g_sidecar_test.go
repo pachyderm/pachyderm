@@ -200,7 +200,7 @@ func TestS3Input(t *testing.T) {
 		svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -395,7 +395,7 @@ func TestS3Output(t *testing.T) {
 		svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -480,7 +480,7 @@ func TestFullS3(t *testing.T) {
 		svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -630,7 +630,7 @@ func TestS3SkippedDatums(t *testing.T) {
 				svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 				require.NoError(t, err)
 				for _, s := range svcs.Items {
-					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jis[j].Job.Pipeline.Name, jis[j].Job.ID) {
+					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jis[j].Job.Pipeline, jis[j].Job.ID) {
 						return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 					}
 				}

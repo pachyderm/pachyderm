@@ -1853,7 +1853,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	// Annotate current span with pipeline & persist any extended trace to etcd
 	span := opentracing.SpanFromContext(ctx)
-	tracing.TagAnySpan(span, "pipeline", request.Pipeline.Name)
+	tracing.TagAnySpan(span, "project", request.Pipeline.Project.GetName(), "pipeline", request.Pipeline.Name)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 	}()
@@ -2408,16 +2408,6 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		// ensure field names and enum values match with --raw output
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
-	// get all pipelines at once to avoid holding the list query open
-	// this should be fine with numbers of pipelines pachyderm can actually run
-	var infos []*pps.PipelineInfo
-	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(ptr *pps.PipelineInfo) error {
-		infos = append(infos, proto.Clone(ptr).(*pps.PipelineInfo))
-		return nil
-	}); err != nil {
-		return err
-	}
-
 	filterPipeline := func(pipelineInfo *pps.PipelineInfo) bool {
 		if jqCode != nil {
 			jsonBuffer.Reset()
@@ -2437,18 +2427,44 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		}
 		return true
 	}
-
-	for i := range infos {
-		if filterPipeline(infos[i]) {
-			if err := a.getLatestJobState(ctx, infos[i]); err != nil {
+	loadPipelineAtCommit := func(pi *pps.PipelineInfo, commitSetID string) error { // mutates pi
+		return a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+			key, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, pi.Pipeline, commitSetID)
+			if err != nil {
+				return errors.Wrapf(err, "couldn't find up to date spec for pipeline %q", pi.Pipeline)
+			}
+			if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(key, pi); err != nil {
+				return errors.EnsureStack(err)
+			}
+			var ji pps.JobInfo
+			return a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsPipelineIndex, pi.Pipeline.String(), &ji, col.DefaultOptions(), func(string) error {
+				if ji.PipelineVersion > pi.Version {
+					return nil
+				}
+				pi.LastJobState = ji.State
+				return errutil.ErrBreak
+			})
+		})
+	}
+	return ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(pi *pps.PipelineInfo) error {
+		if !filterPipeline(pi) {
+			return nil
+		}
+		if request.GetCommitSet().GetID() != "" {
+			// load pipeline as it was at the commit set along with its associated job state
+			if err := loadPipelineAtCommit(pi, request.GetCommitSet().GetID()); err != nil {
+				if pfsServer.IsCommitNotFoundErr(err) || ppsServer.IsPipelineNotFoundErr(err) || col.IsErrNotFound(err) {
+					return nil
+				}
 				return err
 			}
-			if err := f(infos[i]); err != nil {
+		} else {
+			if err := a.getLatestJobState(ctx, pi); err != nil {
 				return err
 			}
 		}
-	}
-	return nil
+		return f(pi)
+	})
 }
 
 // DeletePipeline implements the protobuf pps.DeletePipeline RPC
@@ -2458,15 +2474,15 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 		pipelineInfo := &pps.PipelineInfo{}
 		deleted := make(map[string]struct{})
 		if err := a.pipelines.ReadOnly(ctx).List(pipelineInfo, col.DefaultOptions(), func(string) error {
-			if _, ok := deleted[pipelineInfo.Pipeline.Name]; ok {
+			if _, ok := deleted[pipelineInfo.Pipeline.String()]; ok {
 				// while the delete pipeline call will delete historical versions,
 				// they could still show up in the list. Ignore them
 				return nil
 			}
-			request.Pipeline.Name = pipelineInfo.Pipeline.Name
+			request.Pipeline = pipelineInfo.Pipeline
 			err := a.deletePipeline(ctx, request)
 			if err == nil {
-				deleted[pipelineInfo.Pipeline.Name] = struct{}{}
+				deleted[pipelineInfo.Pipeline.String()] = struct{}{}
 			}
 			return err
 		}); err != nil {
@@ -2487,7 +2503,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		&pps.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil && errutil.IsNotFoundError(err) {
 		logrus.Errorf("failed to stop pipeline, continuing with delete: %v", err)
 	} else if err != nil {
-		return errors.Wrapf(err, "error stopping pipeline %s", pipelineName)
+		return errors.Wrapf(err, "error stopping pipeline %s", request.Pipeline)
 	}
 	// perform the rest of the deletion in a transaction
 	var deleteErr error
@@ -2501,6 +2517,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	}); err != nil {
 		return err
 	}
+	// FIXME(1101): make project-aware
 	clearJobCache(a.env.GetPachClient(ctx), pipelineName)
 	return deleteErr
 }
@@ -3122,13 +3139,17 @@ func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) ma
 	return labels
 }
 
-func spoutLabels(pipelineName string) map[string]string {
-	return map[string]string{
+func spoutLabels(pipeline *pps.Pipeline) map[string]string {
+	m := map[string]string{
 		appLabel:          "spout",
-		pipelineNameLabel: pipelineName,
+		pipelineNameLabel: pipeline.Name,
 		"suite":           suite,
 		"component":       "worker",
 	}
+	if projectName := pipeline.Project.GetName(); projectName != "" {
+		m[pipelineProjectLabel] = projectName
+	}
+	return m
 }
 
 func (a *apiServer) RenderTemplate(ctx context.Context, req *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error) {

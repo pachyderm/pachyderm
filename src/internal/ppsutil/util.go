@@ -51,7 +51,8 @@ import (
 func PipelineRcName(pi *pps.PipelineInfo) string {
 	// k8s won't allow RC names that contain upper-case letters
 	// or underscores
-	// TODO: deal with name collision
+	//
+	// TODO(CORE-1099): deal with name collision & too-long names
 	pipelineName := strings.ReplaceAll(pi.Pipeline.Name, "_", "-")
 	if projectName := pi.Pipeline.Project.GetName(); projectName != "" {
 		projectName = strings.ReplaceAll(projectName, "_", "-")
@@ -131,7 +132,7 @@ func CrashingPipeline(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 // PipelineTransitionError represents an error transitioning a pipeline from
 // one state to another.
 type PipelineTransitionError struct {
-	Pipeline        string
+	Pipeline        *pps.Pipeline
 	Expected        []pps.PipelineState
 	Target, Current pps.PipelineState
 }
@@ -151,11 +152,11 @@ func (p PipelineTransitionError) Error() string {
 // SetPipelineState does a lot of conditional logging, and converts 'from' and
 // 'to' to strings, so the construction of its log message is factored into this
 // helper.
-func logSetPipelineState(pipeline string, from []pps.PipelineState, to pps.PipelineState, reason string) {
+func logSetPipelineState(pipeline *pps.Pipeline, from []pps.PipelineState, to pps.PipelineState, reason string) {
 	var logMsg strings.Builder
 	logMsg.Grow(300) // approx. max length of this log msg if len(from) <= ~2
 	logMsg.WriteString("SetPipelineState attempting to move \"")
-	logMsg.WriteString(pipeline)
+	logMsg.WriteString(pipeline.String())
 	logMsg.WriteString("\" ")
 	if len(from) > 0 {
 		logMsg.WriteString("from one of {")
@@ -183,7 +184,10 @@ func logSetPipelineState(pipeline string, from []pps.PipelineState, to pps.Pipel
 // This function logs a lot for a library function, but it's mostly (maybe
 // exclusively?) called by the PPS master
 func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection col.PostgresCollection, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
-	pipeline := specCommit.Branch.Repo.Name
+	pipeline := &pps.Pipeline{
+		Project: specCommit.Branch.Repo.Project,
+		Name:    specCommit.Branch.Repo.Name,
+	}
 	logSetPipelineState(pipeline, from, to, reason)
 	var resultMessage string
 	var warn bool
@@ -399,9 +403,9 @@ func ContainsS3Inputs(in *pps.Input) bool {
 // is in ppsutil because both PPS (which creates the service, in the s3 gateway
 // sidecar server) and the worker (which passes the endpoint to the user code)
 // need to know it.
-func SidecarS3GatewayService(pipeline, commitSetId string) string {
+func SidecarS3GatewayService(pipeline *pps.Pipeline, commitSetId string) string {
 	hash := md5.New()
-	hash.Write([]byte(pipeline))
+	hash.Write([]byte(pipeline.String()))
 	hash.Write([]byte(commitSetId))
 	return "s3-" + pfs.EncodeHash(hash.Sum(nil))
 }
@@ -466,7 +470,7 @@ func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, 
 	for commitInfo.Origin.Kind != pfs.OriginKind_USER {
 		curr = commitInfo.ParentCommit
 		if curr == nil {
-			return nil, errors.Errorf("spec commit for pipeline %s not found", pipeline)
+			return nil, errors.Wrapf(ppsServer.ErrPipelineNotFound{}, "spec commit for pipeline %s not found", pipeline)
 		}
 		if commitInfo, err = pfsServer.InspectCommitInTransaction(txnCtx,
 			&pfs.InspectCommitRequest{Commit: curr}); err != nil {

@@ -54,14 +54,16 @@ type taggedLogger struct {
 }
 
 func newLogger(pipelineInfo *pps.PipelineInfo) *taggedLogger {
-	name := ""
+	var projectName, pipelineName string
 	if pipelineInfo != nil {
-		name = pipelineInfo.Pipeline.Name
+		projectName = pipelineInfo.Pipeline.Project.GetName()
+		pipelineName = pipelineInfo.Pipeline.Name
 	}
 
 	return &taggedLogger{
 		template: pps.LogMessage{
-			PipelineName: name,
+			ProjectName:  projectName,
+			PipelineName: pipelineName,
 			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
 		stderrLog: log.New(os.Stderr, "", log.LstdFlags|log.Llongfile),
