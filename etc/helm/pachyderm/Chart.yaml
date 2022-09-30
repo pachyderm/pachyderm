@@ -21,14 +21,14 @@ type: application
 # each time you make changes to the chart and its templates, including
 # the app version.  Versions are expected to follow Semantic
 # Versioning (https://semver.org/)
-version: 2.4.0-alpha.2
+version: 2.4.0-alpha.3
 
 # This is the version number of the application being deployed. This
 # version number should be incremented each time you make changes to
 # the application. Versions are not expected to follow Semantic
 # Versioning. They should reflect the version the application is
 # using.
-appVersion: 2.4.0-alpha.2
+appVersion: 2.4.0-alpha.3
 
 kubeVersion: ">= 1.16.0-0"
 
