@@ -1,8 +1,8 @@
 import YAML from 'yaml';
 
-import { requestAPI } from '../../../../../handler';
-import { useEffect, useState } from 'react';
-import { ServerConnection } from '@jupyterlab/services';
+import {requestAPI} from '../../../../../handler';
+import {useEffect, useState} from 'react';
+import {ServerConnection} from '@jupyterlab/services';
 import {
   CurrentDatumResponse,
   ListMountsResponse,
@@ -128,7 +128,7 @@ export const useDatum = (
       refresh('');
       await pollRefresh();
       setCurrIdx(-1);
-      setCurrDatum({ id: '', idx: -1, num_datums: 0 });
+      setCurrDatum({id: '', idx: -1, num_datums: 0});
       setShouldShowCycler(false);
     } catch (e) {
       console.log(e);

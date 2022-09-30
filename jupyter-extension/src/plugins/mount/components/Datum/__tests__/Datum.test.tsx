@@ -1,10 +1,10 @@
 import React from 'react';
-import { render, waitFor } from '@testing-library/react';
-import { ServerConnection } from '@jupyterlab/services';
+import {render, waitFor} from '@testing-library/react';
+import {ServerConnection} from '@jupyterlab/services';
 import userEvent from '@testing-library/user-event';
 
 import * as requestAPI from '../../../../../handler';
-import { mockedRequestAPI } from 'utils/testUtils';
+import {mockedRequestAPI} from 'utils/testUtils';
 import Datum from '../Datum';
 jest.mock('../../../../../handler');
 
@@ -29,7 +29,7 @@ describe('datum screen', () => {
         }),
       );
 
-      const { getByTestId, queryByTestId } = render(
+      const {getByTestId, queryByTestId} = render(
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
@@ -55,7 +55,7 @@ describe('datum screen', () => {
           2,
           '_mount_datums',
           'PUT',
-          { input: { pfs: 'a' } },
+          {input: {pfs: 'a'}},
         );
       });
 
@@ -75,7 +75,7 @@ describe('datum screen', () => {
         }),
       );
 
-      const { getByTestId } = render(
+      const {getByTestId} = render(
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
@@ -120,7 +120,7 @@ describe('datum screen', () => {
 
   describe('errors with input spec', () => {
     it('error if bad syntax in input spec', async () => {
-      const { getByTestId } = render(
+      const {getByTestId} = render(
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
@@ -150,7 +150,7 @@ describe('datum screen', () => {
         throw new ServerConnection.ResponseError(new Response());
       });
 
-      const { getByTestId } = render(
+      const {getByTestId} = render(
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}

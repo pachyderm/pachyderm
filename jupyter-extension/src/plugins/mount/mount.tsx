@@ -1,14 +1,14 @@
 import React from 'react';
-import { ILayoutRestorer, JupyterFrontEnd } from '@jupyterlab/application';
-import { IDocumentManager } from '@jupyterlab/docmanager';
-import { SplitPanel } from '@lumino/widgets';
-import { ReactWidget, UseSignal } from '@jupyterlab/apputils';
-import { FileBrowser, IFileBrowserFactory } from '@jupyterlab/filebrowser';
-import { settingsIcon, spreadsheetIcon } from '@jupyterlab/ui-components';
-import { Signal } from '@lumino/signaling';
+import {ILayoutRestorer, JupyterFrontEnd} from '@jupyterlab/application';
+import {IDocumentManager} from '@jupyterlab/docmanager';
+import {SplitPanel} from '@lumino/widgets';
+import {ReactWidget, UseSignal} from '@jupyterlab/apputils';
+import {FileBrowser, IFileBrowserFactory} from '@jupyterlab/filebrowser';
+import {settingsIcon, spreadsheetIcon} from '@jupyterlab/ui-components';
+import {Signal} from '@lumino/signaling';
 
-import { mountLogoIcon } from '../../utils/icons';
-import { PollMounts } from './pollMounts';
+import {mountLogoIcon} from '../../utils/icons';
+import {PollMounts} from './pollMounts';
 import createCustomFileBrowser from './customFileBrowser';
 import {
   AuthConfig,
@@ -22,7 +22,7 @@ import Datum from './components/Datum/Datum';
 import SortableList from './components/SortableList/SortableList';
 import LoadingDots from '../../utils/components/LoadingDots/LoadingDots';
 import FullPageError from './components/FullPageError/FullPageError';
-import { requestAPI } from '../../handler';
+import {requestAPI} from '../../handler';
 
 export const MOUNT_BROWSER_NAME = 'mount-browser:';
 
@@ -237,7 +237,7 @@ export class MountPlugin implements IMountPlugin {
     });
 
     restorer.add(this._panel, 'jupyterlab-pachyderm');
-    app.shell.add(this._panel, 'left', { rank: 100 });
+    app.shell.add(this._panel, 'left', {rank: 100});
   }
 
   open = (path: string): void => {
@@ -315,7 +315,7 @@ export class MountPlugin implements IMountPlugin {
     } else {
       this.setShowConfig(
         this._poller.config.cluster_status === 'INVALID' ||
-        this._poller.status.code !== 200,
+          this._poller.status.code !== 200,
       );
 
       try {

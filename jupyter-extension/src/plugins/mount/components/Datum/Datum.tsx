@@ -1,8 +1,8 @@
 import React from 'react';
-import { closeIcon } from '@jupyterlab/ui-components';
-import { useDatum } from './hooks/useDatum';
-import { caretLeftIcon, caretRightIcon } from '@jupyterlab/ui-components';
-import { CurrentDatumResponse } from 'plugins/mount/types';
+import {closeIcon} from '@jupyterlab/ui-components';
+import {useDatum} from './hooks/useDatum';
+import {caretLeftIcon, caretRightIcon} from '@jupyterlab/ui-components';
+import {CurrentDatumResponse} from 'plugins/mount/types';
 
 type DatumProps = {
   showDatum: boolean;
@@ -71,7 +71,7 @@ const Datum: React.FC<DatumProps> = ({
         <textarea
           className="pachyderm-input"
           data-testid="Datum__inputSpecInput"
-          style={{ minHeight: '200px' }}
+          style={{minHeight: '200px'}}
           name="inputSpec"
           value={inputSpec}
           onChange={(e: any) => {
@@ -90,7 +90,7 @@ const Datum: React.FC<DatumProps> = ({
           data-testid="Datum__mountDatums"
           className="pachyderm-button-link"
           onClick={callMountDatums}
-          style={{ padding: '0.5rem' }}
+          style={{padding: '0.5rem'}}
         >
           Mount Datums
         </button>
@@ -100,7 +100,7 @@ const Datum: React.FC<DatumProps> = ({
             data-testid="Datum__cycler"
           >
             Datum
-            <div style={{ display: 'flex' }}>
+            <div style={{display: 'flex'}}>
               <button
                 className="pachyderm-button-link"
                 data-testid="Datum__cyclerLeft"
