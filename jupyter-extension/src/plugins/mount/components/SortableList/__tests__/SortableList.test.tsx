@@ -2,7 +2,7 @@ import React from 'react';
 import {render, fireEvent, waitFor} from '@testing-library/react';
 
 import SortableList from '../SortableList';
-import {Repo} from 'plugins/mount/types';
+import {Repo, Mount} from 'plugins/mount/types';
 import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
 jest.mock('../../../../../handler');
@@ -18,8 +18,8 @@ describe('sortable list components', () => {
     mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI([]));
   });
 
-  it('should disable mount for repo with no branches', async () => {
-    const repos: Repo[] = [
+  it('should disable mount for repo with no unmounted branches', async () => {
+    const items: Repo[] = [
       {
         repo: 'images',
         authorization: 'off',
@@ -28,19 +28,19 @@ describe('sortable list components', () => {
     ];
 
     const {getByTestId} = render(
-      <SortableList open={open} repos={repos} updateData={updateData} />,
+      <SortableList open={open} items={items} updateData={updateData} />,
     );
     const listItem = getByTestId('ListItem__noBranches');
     expect(listItem).toHaveTextContent('images');
-    expect(listItem).toHaveTextContent('No Branches');
+    expect(listItem).toHaveTextContent('No branches');
     expect(listItem).toHaveAttribute(
       'title',
-      'A repository must have a branch in order to mount it',
+      "Either all branches are mounted or the repo doesn't have a branch",
     );
   });
 
   it('should disable mount for repo with no access', async () => {
-    const repos: Repo[] = [
+    const items: Repo[] = [
       {
         repo: 'images',
         authorization: 'none',
@@ -49,7 +49,7 @@ describe('sortable list components', () => {
     ];
 
     const {getByTestId} = render(
-      <SortableList open={open} repos={repos} updateData={updateData} />,
+      <SortableList open={open} items={items} updateData={updateData} />,
     );
     const listItem = getByTestId('ListItem__unauthorized');
     expect(listItem).toHaveTextContent('images');
@@ -61,7 +61,7 @@ describe('sortable list components', () => {
   });
 
   it('should sort repos by name', async () => {
-    const repos: Repo[] = [
+    const items: Repo[] = [
       {
         repo: 'images',
         authorization: 'off',
@@ -75,7 +75,7 @@ describe('sortable list components', () => {
     ];
 
     const {getByText, getAllByTestId} = render(
-      <SortableList open={open} repos={repos} updateData={updateData} />,
+      <SortableList open={open} items={items} updateData={updateData} />,
     );
     let listItems = getAllByTestId('ListItem__noBranches');
     expect(listItems.length).toEqual(2);
@@ -91,33 +91,16 @@ describe('sortable list components', () => {
   });
 
   it('should allow user to mount unmounted repo', async () => {
-    const repos: Repo[] = [
+    const items: Repo[] = [
       {
         repo: 'images',
         authorization: 'off',
-        branches: [
-          {
-            branch: 'master',
-            mount: [
-              {
-                name: '',
-                state: 'unmounted',
-                status: '',
-                mode: null,
-                mountpoint: null,
-                mount_key: null,
-                how_many_commits_behind: 0,
-                actual_mounted_commit: 'a1b2c3',
-                latest_commit: 'a1b2c3',
-              },
-            ],
-          },
-        ],
+        branches: ['master'],
       },
     ];
 
     const {getByTestId} = render(
-      <SortableList open={open} repos={repos} updateData={updateData} />,
+      <SortableList open={open} items={items} updateData={updateData} />,
     );
     const listItem = getByTestId('ListItem__branches');
     const mountButton = getByTestId('ListItem__mount');
@@ -127,43 +110,41 @@ describe('sortable list components', () => {
     mountButton.click();
 
     await waitFor(() => {
-      expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith(
-        'repos/images/master/_mount?name=images&mode=ro',
-        'PUT',
-      );
+      expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith('_mount', 'PUT', {
+        mounts: [
+          {
+            name: 'images',
+            repo: 'images',
+            branch: 'master',
+            mode: 'ro',
+          },
+        ],
+      });
     });
     expect(mountButton).toBeDisabled();
     expect(updateData).toBeCalledWith([]);
   });
 
   it('should allow user to unmount mounted repo', async () => {
-    const repos: Repo[] = [
+    const items: Mount[] = [
       {
+        name: 'images',
         repo: 'images',
-        authorization: 'off',
-        branches: [
-          {
-            branch: 'master',
-            mount: [
-              {
-                name: '',
-                state: 'mounted',
-                status: '',
-                mode: null,
-                mountpoint: null,
-                mount_key: null,
-                how_many_commits_behind: 0,
-                actual_mounted_commit: 'a1b2c3',
-                latest_commit: 'a1b2c3',
-              },
-            ],
-          },
-        ],
+        branch: 'master',
+        commit: null,
+        glob: null,
+        mode: null,
+        state: 'mounted',
+        status: '',
+        mountpoint: null,
+        how_many_commits_behind: 0,
+        actual_mounted_commit: 'a1b2c3',
+        latest_commit: 'a1b2c3',
       },
     ];
 
     const {getByTestId} = render(
-      <SortableList open={open} repos={repos} updateData={updateData} />,
+      <SortableList open={open} items={items} updateData={updateData} />,
     );
     const listItem = getByTestId('ListItem__branches');
     const unmountButton = getByTestId('ListItem__unmount');
@@ -175,8 +156,11 @@ describe('sortable list components', () => {
 
     await waitFor(() => {
       expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith(
-        'repos/images/master/_unmount?name=images',
+        '_unmount',
         'PUT',
+        {
+          mounts: ['images'],
+        },
       );
     });
     expect(unmountButton).toBeDisabled();
@@ -184,82 +168,41 @@ describe('sortable list components', () => {
   });
 
   it('should open mounted repo on click', async () => {
-    const repos: Repo[] = [
+    const items: Mount[] = [
       {
+        name: 'images',
         repo: 'images',
-        authorization: 'off',
-        branches: [
-          {
-            branch: 'master',
-            mount: [
-              {
-                name: '',
-                state: 'mounted',
-                status: '',
-                mode: null,
-                mountpoint: null,
-                mount_key: null,
-                how_many_commits_behind: 0,
-                actual_mounted_commit: 'a1b2c3',
-                latest_commit: 'a1b2c3',
-              },
-            ],
-          },
-        ],
+        branch: 'master',
+        commit: null,
+        glob: null,
+        mode: null,
+        state: 'mounted',
+        status: '',
+        mountpoint: null,
+        how_many_commits_behind: 0,
+        actual_mounted_commit: 'a1b2c3',
+        latest_commit: 'a1b2c3',
       },
     ];
 
     const {getByText} = render(
-      <SortableList open={open} repos={repos} updateData={updateData} />,
+      <SortableList open={open} items={items} updateData={updateData} />,
     );
     getByText('images').click();
     expect(open).toHaveBeenCalledWith('images');
   });
 
   it('should allow user to select a branch to mount', async () => {
-    const repos: Repo[] = [
+    const items: Repo[] = [
       {
         repo: 'images',
         authorization: 'off',
-        branches: [
-          {
-            branch: 'master',
-            mount: [
-              {
-                name: '',
-                state: 'unmounted',
-                status: '',
-                mode: null,
-                mountpoint: null,
-                mount_key: null,
-                how_many_commits_behind: 0,
-                actual_mounted_commit: 'a1b2c3',
-                latest_commit: 'a1b2c3',
-              },
-            ],
-          },
-          {
-            branch: 'develop',
-            mount: [
-              {
-                name: '',
-                state: 'unmounted',
-                status: '',
-                mode: null,
-                mountpoint: null,
-                mount_key: null,
-                how_many_commits_behind: 0,
-                actual_mounted_commit: 'a1b2c3',
-                latest_commit: 'a1b2c3',
-              },
-            ],
-          },
-        ],
+        branches: ['master', 'develop'],
       },
     ];
 
     const {getByText, getByTestId} = render(
-      <SortableList open={open} repos={repos} updateData={updateData} />,
+      <SortableList open={open} items={items} updateData={updateData} />,
     );
     const select = getByTestId('ListItem__select') as HTMLSelectElement;
 
@@ -267,40 +210,38 @@ describe('sortable list components', () => {
     fireEvent.change(select, {target: {value: 'develop'}});
 
     getByText('Mount').click();
-    expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith(
-      'repos/images/develop/_mount?name=images&mode=ro',
-      'PUT',
-    );
+    expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith('_mount', 'PUT', {
+      mounts: [
+        {
+          name: 'images_develop',
+          repo: 'images',
+          branch: 'develop',
+          mode: 'ro',
+        },
+      ],
+    });
   });
 
   it('should display state and status of mounted brach', async () => {
-    const repos: Repo[] = [
+    const items: Mount[] = [
       {
+        name: 'edges',
         repo: 'edges',
-        authorization: 'off',
-        branches: [
-          {
-            branch: 'master',
-            mount: [
-              {
-                name: '',
-                state: 'error',
-                status: 'error mounting branch',
-                mode: null,
-                mountpoint: null,
-                mount_key: null,
-                how_many_commits_behind: 0,
-                actual_mounted_commit: 'a1b2c3',
-                latest_commit: 'a1b2c3',
-              },
-            ],
-          },
-        ],
+        branch: 'master',
+        commit: null,
+        glob: null,
+        mode: null,
+        state: 'error',
+        status: 'error mounting branch',
+        mountpoint: null,
+        how_many_commits_behind: 0,
+        actual_mounted_commit: 'a1b2c3',
+        latest_commit: 'a1b2c3',
       },
     ];
 
     const {getByTestId} = render(
-      <SortableList open={open} repos={repos} updateData={updateData} />,
+      <SortableList open={open} items={items} updateData={updateData} />,
     );
 
     const statusIcon = getByTestId('ListItem__statusIcon');
@@ -310,176 +251,131 @@ describe('sortable list components', () => {
   });
 
   it('should disable item when it is in a loading state', async () => {
-    const repos: Repo[] = [
+    const items: Mount[] = [
       {
+        name: '1',
         repo: '1',
-        authorization: 'off',
-        branches: [
-          {
-            branch: 'master',
-            mount: [
-              {
-                name: '',
-                state: 'error',
-                status: 'error mounting branch',
-                mode: null,
-                mountpoint: null,
-                mount_key: null,
-                how_many_commits_behind: 0,
-                actual_mounted_commit: 'a1b2c3',
-                latest_commit: 'a1b2c3',
-              },
-            ],
-          },
-        ],
+        branch: 'master',
+        commit: null,
+        glob: null,
+        mode: null,
+        state: 'error',
+        status: 'error mounting branch',
+        mountpoint: null,
+        how_many_commits_behind: 0,
+        actual_mounted_commit: 'a1b2c3',
+        latest_commit: 'a1b2c3',
       },
       {
+        name: '2',
         repo: '2',
-        authorization: 'off',
-        branches: [
-          {
-            branch: 'master',
-            mount: [
-              {
-                name: '',
-                state: 'unmounting',
-                status: '',
-                mode: null,
-                mountpoint: null,
-                mount_key: null,
-                how_many_commits_behind: 0,
-                actual_mounted_commit: 'a1b2c3',
-                latest_commit: 'a1b2c3',
-              },
-            ],
-          },
-        ],
+        branch: 'master',
+        commit: null,
+        glob: null,
+        mode: null,
+        state: 'unmounting',
+        status: '',
+        mountpoint: null,
+        how_many_commits_behind: 0,
+        actual_mounted_commit: 'a1b2c3',
+        latest_commit: 'a1b2c3',
       },
       {
+        name: '3',
         repo: '3',
-        authorization: 'off',
-        branches: [
-          {
-            branch: 'master',
-            mount: [
-              {
-                name: '',
-                state: 'mounting',
-                status: '',
-                mode: null,
-                mountpoint: null,
-                mount_key: null,
-                how_many_commits_behind: 0,
-                actual_mounted_commit: 'a1b2c3',
-                latest_commit: 'a1b2c3',
-              },
-            ],
-          },
-        ],
+        branch: 'master',
+        commit: null,
+        glob: null,
+        mode: null,
+        state: 'mounting',
+        status: '',
+        mountpoint: null,
+        how_many_commits_behind: 0,
+        actual_mounted_commit: 'a1b2c3',
+        latest_commit: 'a1b2c3',
       },
     ];
     const {getAllByTestId} = render(
-      <SortableList open={open} repos={repos} updateData={updateData} />,
+      <SortableList open={open} items={items} updateData={updateData} />,
     );
     const unmountButtons = getAllByTestId('ListItem__unmount');
     expect(unmountButtons[0]).toBeDisabled();
     expect(unmountButtons[1]).toBeDisabled();
     expect(unmountButtons[2]).toBeDisabled();
   });
+
   it('should show up to date when behindness is zero', async () => {
-    const repos: Repo[] = [
+    const items: Mount[] = [
       {
+        name: 'edges',
         repo: 'edges',
-        authorization: 'off',
-        branches: [
-          {
-            branch: 'master',
-            mount: [
-              {
-                name: '',
-                state: 'mounted',
-                status: 'all is well, la la la',
-                mode: null,
-                mountpoint: null,
-                mount_key: null,
-                how_many_commits_behind: 0,
-                actual_mounted_commit: 'a1b2c3',
-                latest_commit: 'a1b2c3',
-              },
-            ],
-          },
-        ],
+        branch: 'master',
+        commit: null,
+        glob: null,
+        mode: null,
+        state: 'mounted',
+        status: 'all is well, la la la',
+        mountpoint: null,
+        how_many_commits_behind: 0,
+        actual_mounted_commit: 'a1b2c3',
+        latest_commit: 'a1b2c3',
       },
     ];
 
     const {getByTestId} = render(
-      <SortableList open={open} repos={repos} updateData={updateData} />,
+      <SortableList open={open} items={items} updateData={updateData} />,
     );
 
     const commitBehindnessText = getByTestId('ListItem__commitBehindness');
     expect(commitBehindnessText.textContent).toContain('up to date');
   });
+
   it('should show behind when one commit behind', async () => {
-    const repos: Repo[] = [
+    const items: Mount[] = [
       {
+        name: 'edges',
         repo: 'edges',
-        authorization: 'off',
-        branches: [
-          {
-            branch: 'master',
-            mount: [
-              {
-                name: '',
-                state: 'mounted',
-                status: 'all is well, la la la',
-                mode: null,
-                mountpoint: null,
-                mount_key: null,
-                how_many_commits_behind: 1,
-                actual_mounted_commit: 'a1b2c3',
-                latest_commit: 'a1b2c3',
-              },
-            ],
-          },
-        ],
+        branch: 'master',
+        commit: null,
+        glob: null,
+        mode: null,
+        state: 'mounted',
+        status: 'all is well, la la la',
+        mountpoint: null,
+        how_many_commits_behind: 1,
+        actual_mounted_commit: 'a1b2c3',
+        latest_commit: 'a1b2c3',
       },
     ];
 
     const {getByTestId} = render(
-      <SortableList open={open} repos={repos} updateData={updateData} />,
+      <SortableList open={open} items={items} updateData={updateData} />,
     );
 
     const commitBehindnessText = getByTestId('ListItem__commitBehindness');
     expect(commitBehindnessText.textContent).toContain('1 commit behind');
   });
+
   it('should show behind when two commits behind', async () => {
-    const repos: Repo[] = [
+    const items: Mount[] = [
       {
+        name: 'edges',
         repo: 'edges',
-        authorization: 'off',
-        branches: [
-          {
-            branch: 'master',
-            mount: [
-              {
-                name: '',
-                state: 'mounted',
-                status: 'all is well, la la la',
-                mode: null,
-                mountpoint: null,
-                mount_key: null,
-                how_many_commits_behind: 2,
-                actual_mounted_commit: 'a1b2c3',
-                latest_commit: 'a1b2c3',
-              },
-            ],
-          },
-        ],
+        branch: 'master',
+        commit: null,
+        glob: null,
+        mode: null,
+        state: 'mounted',
+        status: 'all is well, la la la',
+        mountpoint: null,
+        how_many_commits_behind: 2,
+        actual_mounted_commit: 'a1b2c3',
+        latest_commit: 'a1b2c3',
       },
     ];
 
     const {getByTestId} = render(
-      <SortableList open={open} repos={repos} updateData={updateData} />,
+      <SortableList open={open} items={items} updateData={updateData} />,
     );
 
     const commitBehindnessText = getByTestId('ListItem__commitBehindness');
