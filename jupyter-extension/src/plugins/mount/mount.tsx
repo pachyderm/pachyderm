@@ -1,22 +1,28 @@
 import React from 'react';
-import {ILayoutRestorer, JupyterFrontEnd} from '@jupyterlab/application';
-import {IDocumentManager} from '@jupyterlab/docmanager';
-import {SplitPanel} from '@lumino/widgets';
-import {ReactWidget, UseSignal} from '@jupyterlab/apputils';
-import {FileBrowser, IFileBrowserFactory} from '@jupyterlab/filebrowser';
-import {settingsIcon, spreadsheetIcon} from '@jupyterlab/ui-components';
-import {Signal} from '@lumino/signaling';
+import { ILayoutRestorer, JupyterFrontEnd } from '@jupyterlab/application';
+import { IDocumentManager } from '@jupyterlab/docmanager';
+import { SplitPanel } from '@lumino/widgets';
+import { ReactWidget, UseSignal } from '@jupyterlab/apputils';
+import { FileBrowser, IFileBrowserFactory } from '@jupyterlab/filebrowser';
+import { settingsIcon, spreadsheetIcon } from '@jupyterlab/ui-components';
+import { Signal } from '@lumino/signaling';
 
-import {mountLogoIcon} from '../../utils/icons';
-import {PollMounts} from './pollMounts';
+import { mountLogoIcon } from '../../utils/icons';
+import { PollMounts } from './pollMounts';
 import createCustomFileBrowser from './customFileBrowser';
-import {AuthConfig, IMountPlugin, Repo, Mount, DatumsResponse} from './types';
+import {
+  AuthConfig,
+  IMountPlugin,
+  Repo,
+  Mount,
+  CurrentDatumResponse,
+} from './types';
 import Config from './components/Config/Config';
 import Datum from './components/Datum/Datum';
 import SortableList from './components/SortableList/SortableList';
 import LoadingDots from '../../utils/components/LoadingDots/LoadingDots';
 import FullPageError from './components/FullPageError/FullPageError';
-import {requestAPI} from '../../handler';
+import { requestAPI } from '../../handler';
 
 export const MOUNT_BROWSER_NAME = 'mount-browser:';
 
@@ -36,7 +42,7 @@ export class MountPlugin implements IMountPlugin {
   private _showConfigSignal = new Signal<this, boolean>(this);
   private _showDatum = false;
   private _keepMounted = false;
-  private _currentDatumInfo: DatumsResponse | undefined;
+  private _currentDatumInfo: CurrentDatumResponse | undefined;
   private _showDatumSignal = new Signal<this, boolean>(this);
   private _readyPromise: Promise<void> = Promise.resolve();
 
@@ -172,7 +178,7 @@ export class MountPlugin implements IMountPlugin {
               setShowDatum={this.setShowDatum}
               keepMounted={this._keepMounted}
               setKeepMounted={this.setKeepMounted}
-              refresh={this.refresh}
+              refresh={this.open}
               pollRefresh={this._poller.refresh}
               currentDatumInfo={this._currentDatumInfo}
             />
@@ -212,10 +218,6 @@ export class MountPlugin implements IMountPlugin {
     this._panel.addWidget(this._unmountedList);
     this._panel.addWidget(this._datum);
     this._panel.addWidget(this._mountBrowser);
-    // SplitPanel.setStretch(this._mountedList, 1);
-    // SplitPanel.setStretch(this._unmountedList, 1);
-    // SplitPanel.setStretch(this._datum, 5);
-    // SplitPanel.setStretch(this._mountBrowser, 3);
     this._panel.setRelativeSizes([1, 1, 3, 3]);
 
     this._panel.addWidget(this._loader);
@@ -235,19 +237,12 @@ export class MountPlugin implements IMountPlugin {
     });
 
     restorer.add(this._panel, 'jupyterlab-pachyderm');
-    app.shell.add(this._panel, 'left', {rank: 100});
+    app.shell.add(this._panel, 'left', { rank: 100 });
   }
 
   open = (path: string): void => {
     this._app.commands.execute('filebrowser:open-path', {
       path: MOUNT_BROWSER_NAME + path,
-    });
-  };
-
-  refresh = (): void => {
-    this._app.commands.execute('filebrowser:refresh');
-    this._app.commands.execute('filebrowser:open-path', {
-      path: MOUNT_BROWSER_NAME,
     });
   };
 
@@ -320,11 +315,11 @@ export class MountPlugin implements IMountPlugin {
     } else {
       this.setShowConfig(
         this._poller.config.cluster_status === 'INVALID' ||
-          this._poller.status.code !== 200,
+        this._poller.status.code !== 200,
       );
 
       try {
-        const res = await requestAPI<any>('datums', 'GET');
+        const res = await requestAPI<CurrentDatumResponse>('datums', 'GET');
         if (res['num_datums'] > 0) {
           this._keepMounted = true;
           this._currentDatumInfo = res;

@@ -74,7 +74,7 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(repoDocs, "repo", " repo$", repos))
 
-	var description string
+	var description, project string
 	createRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Create a new repo.",
@@ -90,7 +90,7 @@ or type (e.g. csv, binary, images, etc).`,
 				_, err = c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
 					&pfs.CreateRepoRequest{
-						Repo:        client.NewRepo(args[0]),
+						Repo:        client.NewProjectRepo(project, args[0]),
 						Description: description,
 					},
 				)
@@ -100,6 +100,7 @@ or type (e.g. csv, binary, images, etc).`,
 		}),
 	}
 	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
+	createRepo.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project in which to create the repo.")
 	commands = append(commands, cmdutil.CreateAliases(createRepo, "create repo", repos))
 
 	updateRepo := &cobra.Command{
@@ -649,7 +650,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 			}
 			defer c.Close()
 
-			commitInfo, err := c.WaitCommit(commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+			commitInfo, err := c.WaitProjectCommit(commit.Branch.Repo.Project.GetName(), commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
 			if err != nil {
 				return err
 			}
@@ -1200,7 +1201,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 			defer progress.Wait()
 
 			// check whether or not the repo exists before attempting to upload
-			if _, err = c.InspectRepo(file.Commit.Branch.Repo.Name); err != nil {
+			if _, err = c.InspectProjectRepo(file.Commit.Branch.Repo.Project.GetName(), file.Commit.Branch.Repo.Name); err != nil {
 				if errutil.IsNotFoundError(err) {
 					return err
 				}

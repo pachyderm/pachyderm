@@ -1,9 +1,9 @@
-import {Circle, CircleColor} from '../../../../utils/components/Circle/Circle';
-import {capitalize} from 'lodash';
-import React, {useEffect, useState} from 'react';
-import {requestAPI} from '../../../../handler';
-import {mountState, Mount, ListMountsResponse} from '../../types';
-import {infoIcon} from '../../../../utils/icons';
+import { Circle, CircleColor } from '../../../../utils/components/Circle/Circle';
+import { capitalize } from 'lodash';
+import React, { useEffect, useState } from 'react';
+import { requestAPI } from '../../../../handler';
+import { mountState, Mount, ListMountsResponse } from '../../types';
+import { infoIcon } from '../../../../utils/icons';
 
 export const DISABLED_STATES: mountState[] = [
   'unmounting',
@@ -17,7 +17,7 @@ type ListMountProps = {
   updateData: (data: ListMountsResponse) => void;
 };
 
-const ListMount: React.FC<ListMountProps> = ({item, open, updateData}) => {
+const ListMount: React.FC<ListMountProps> = ({ item, open, updateData }) => {
   const [disabled, setDisabled] = useState<boolean>(false);
   const branch = item.branch;
   const buttonText = 'Unmount';
@@ -29,10 +29,6 @@ const ListMount: React.FC<ListMountProps> = ({item, open, updateData}) => {
 
   const openFolder = () => {
     open(item.name);
-  };
-
-  const onClickHandler = () => {
-    unmount();
   };
 
   const unmount = async () => {
@@ -54,9 +50,8 @@ const ListMount: React.FC<ListMountProps> = ({item, open, updateData}) => {
       data-testid="ListItem__branches"
     >
       <span
-        className={`pachyderm-mount-list-item-name-branch-wrapper ${
-          disabled ? 'pachyderm-mount-sortableList-disabled' : ''
-        }`}
+        className={`pachyderm-mount-list-item-name-branch-wrapper ${disabled ? 'pachyderm-mount-sortableList-disabled' : ''
+          }`}
         onClick={openFolder}
       >
         <span className="pachyderm-mount-list-item-name" title={item.name}>
@@ -67,7 +62,7 @@ const ListMount: React.FC<ListMountProps> = ({item, open, updateData}) => {
             <div>
               <span title={branch}>@ {branch}</span>
               <span
-                style={{marginLeft: '7px'}}
+                style={{ marginLeft: '7px' }}
                 data-testid="ListItem__commitBehindness"
               >
                 {renderCommitBehindness(behind)}
@@ -79,7 +74,7 @@ const ListMount: React.FC<ListMountProps> = ({item, open, updateData}) => {
       <span className="pachyderm-mount-list-item-action">
         <button
           disabled={disabled}
-          onClick={onClickHandler}
+          onClick={unmount}
           className="pachyderm-button-link"
           data-testid={`ListItem__${buttonText.toLowerCase()}`}
         >

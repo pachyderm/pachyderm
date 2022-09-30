@@ -1,17 +1,17 @@
 import React from 'react';
-import {closeIcon} from '@jupyterlab/ui-components';
-import {useDatum} from './hooks/useDatum';
-import {caretLeftIcon, caretRightIcon} from '@jupyterlab/ui-components';
-import {DatumsResponse} from 'plugins/mount/types';
+import { closeIcon } from '@jupyterlab/ui-components';
+import { useDatum } from './hooks/useDatum';
+import { caretLeftIcon, caretRightIcon } from '@jupyterlab/ui-components';
+import { CurrentDatumResponse } from 'plugins/mount/types';
 
 type DatumProps = {
   showDatum: boolean;
   setShowDatum: (shouldShow: boolean) => void;
   keepMounted: boolean;
   setKeepMounted: (keep: boolean) => void;
-  refresh: () => void;
+  refresh: (path: string) => void;
   pollRefresh: () => Promise<void>;
-  currentDatumInfo?: DatumsResponse;
+  currentDatumInfo?: CurrentDatumResponse;
 };
 
 const placeholderText = `pfs:
@@ -32,10 +32,9 @@ const Datum: React.FC<DatumProps> = ({
   const {
     loading,
     shouldShowCycler,
-    currentDatumId,
-    currentDatumIdx,
-    setCurrentDatumIdx,
-    numDatums,
+    currDatum,
+    currIdx,
+    setCurrIdx,
     inputSpec,
     setInputSpec,
     callMountDatums,
@@ -72,7 +71,7 @@ const Datum: React.FC<DatumProps> = ({
         <textarea
           className="pachyderm-input"
           data-testid="Datum__inputSpecInput"
-          style={{minHeight: '200px'}}
+          style={{ minHeight: '200px' }}
           name="inputSpec"
           value={inputSpec}
           onChange={(e: any) => {
@@ -91,7 +90,7 @@ const Datum: React.FC<DatumProps> = ({
           data-testid="Datum__mountDatums"
           className="pachyderm-button-link"
           onClick={callMountDatums}
-          style={{padding: '0.5rem'}}
+          style={{ padding: '0.5rem' }}
         >
           Mount Datums
         </button>
@@ -101,14 +100,14 @@ const Datum: React.FC<DatumProps> = ({
             data-testid="Datum__cycler"
           >
             Datum
-            <div style={{display: 'flex'}}>
+            <div style={{ display: 'flex' }}>
               <button
                 className="pachyderm-button-link"
                 data-testid="Datum__cyclerLeft"
-                disabled={currentDatumIdx <= 0}
+                disabled={currIdx <= 0}
                 onClick={() => {
-                  if (currentDatumIdx >= 1) {
-                    setCurrentDatumIdx(currentDatumIdx - 1);
+                  if (currIdx >= 1) {
+                    setCurrIdx(currIdx - 1);
                   }
                 }}
               >
@@ -117,14 +116,14 @@ const Datum: React.FC<DatumProps> = ({
                   className="pachyderm-mount-datum-left"
                 />
               </button>
-              {'(' + (currentDatumIdx + 1) + '/' + numDatums + ')'}
+              {'(' + (currIdx + 1) + '/' + currDatum.num_datums + ')'}
               <button
                 className="pachyderm-button-link"
                 data-testid="Datum__cyclerRight"
-                disabled={currentDatumIdx >= numDatums - 1}
+                disabled={currIdx >= currDatum.num_datums - 1}
                 onClick={() => {
-                  if (currentDatumIdx < numDatums - 1) {
-                    setCurrentDatumIdx(currentDatumIdx + 1);
+                  if (currIdx < currDatum.num_datums - 1) {
+                    setCurrIdx(currIdx + 1);
                   }
                 }}
               >

@@ -1,17 +1,20 @@
 import YAML from 'yaml';
 
-import {requestAPI} from '../../../../../handler';
-import {useEffect, useState} from 'react';
-import {ServerConnection} from '@jupyterlab/services';
-import {DatumsResponse} from 'plugins/mount/types';
+import { requestAPI } from '../../../../../handler';
+import { useEffect, useState } from 'react';
+import { ServerConnection } from '@jupyterlab/services';
+import {
+  CurrentDatumResponse,
+  ListMountsResponse,
+  MountDatumResponse,
+} from 'plugins/mount/types';
 
 export type useDatumResponse = {
   loading: boolean;
   shouldShowCycler: boolean;
-  currentDatumId: string;
-  currentDatumIdx: number;
-  setCurrentDatumIdx: (idx: number) => void;
-  numDatums: number;
+  currDatum: MountDatumResponse;
+  currIdx: number;
+  setCurrIdx: (idx: number) => void;
   inputSpec: string;
   setInputSpec: (input: string) => void;
   callMountDatums: () => Promise<void>;
@@ -22,23 +25,26 @@ export type useDatumResponse = {
 export const useDatum = (
   showDatum: boolean,
   keepMounted: boolean,
-  refresh: () => void,
+  refresh: (path: string) => void,
   pollRefresh: () => Promise<void>,
-  currentDatumInfo?: DatumsResponse,
+  currentDatumInfo?: CurrentDatumResponse,
 ): useDatumResponse => {
   const [loading, setLoading] = useState(false);
   const [shouldShowCycler, setShouldShowCycler] = useState(false);
-  const [currentDatumId, setCurrentDatumId] = useState('');
-  const [currentDatumIdx, setCurrentDatumIdx] = useState(-1);
-  const [numDatums, setNumDatums] = useState(-1);
+  const [currIdx, setCurrIdx] = useState(-1);
+  const [currDatum, setCurrDatum] = useState<MountDatumResponse>({
+    id: '',
+    idx: -1,
+    num_datums: 0,
+  });
   const [inputSpec, setInputSpec] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    if (showDatum && currentDatumIdx !== -1) {
+    if (showDatum && currIdx !== -1) {
       callShowDatum();
     }
-  }, [currentDatumIdx, showDatum]);
+  }, [currIdx, showDatum]);
 
   useEffect(() => {
     if (showDatum && !keepMounted) {
@@ -46,8 +52,12 @@ export const useDatum = (
     }
     if (keepMounted && currentDatumInfo) {
       setShouldShowCycler(true);
-      setCurrentDatumIdx(currentDatumInfo.curr_idx);
-      setNumDatums(currentDatumInfo.num_datums);
+      setCurrIdx(currentDatumInfo.curr_idx);
+      setCurrDatum({
+        id: '',
+        idx: currentDatumInfo.curr_idx,
+        num_datums: currentDatumInfo.num_datums,
+      });
       setInputSpec(YAML.stringify(currentDatumInfo.input, null, 2));
     }
   }, [showDatum]);
@@ -68,13 +78,12 @@ export const useDatum = (
         }
       }
 
-      const res = await requestAPI<any>('_mount_datums', 'PUT', {
+      const res = await requestAPI<MountDatumResponse>('_mount_datums', 'PUT', {
         input: input,
       });
-      refresh();
-      setCurrentDatumId(res.id);
-      setCurrentDatumIdx(res.idx);
-      setNumDatums(res.num_datums);
+      refresh('');
+      setCurrIdx(0);
+      setCurrDatum(res);
       setShouldShowCycler(true);
       setInputSpec(YAML.stringify(input, null, 2));
     } catch (e) {
@@ -97,12 +106,12 @@ export const useDatum = (
     setLoading(true);
 
     try {
-      const res = await requestAPI<any>(
-        `_show_datum?idx=${currentDatumIdx}`,
+      const res = await requestAPI<MountDatumResponse>(
+        `_show_datum?idx=${currIdx}`,
         'PUT',
       );
-      refresh();
-      setCurrentDatumId(res.id);
+      refresh('');
+      setCurrDatum(res);
     } catch (e) {
       console.log(e);
     }
@@ -114,13 +123,12 @@ export const useDatum = (
     setLoading(true);
 
     try {
-      refresh();
-      await requestAPI<any>('_unmount_all', 'PUT');
-      refresh();
+      refresh('');
+      await requestAPI<ListMountsResponse>('_unmount_all', 'PUT');
+      refresh('');
       await pollRefresh();
-      setCurrentDatumId('');
-      setCurrentDatumIdx(-1);
-      setNumDatums(0);
+      setCurrIdx(-1);
+      setCurrDatum({ id: '', idx: -1, num_datums: 0 });
       setShouldShowCycler(false);
     } catch (e) {
       console.log(e);
@@ -132,10 +140,9 @@ export const useDatum = (
   return {
     loading,
     shouldShowCycler,
-    currentDatumId,
-    currentDatumIdx,
-    setCurrentDatumIdx,
-    numDatums,
+    currDatum,
+    currIdx,
+    setCurrIdx,
     inputSpec,
     setInputSpec,
     callMountDatums,

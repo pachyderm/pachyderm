@@ -1,50 +1,21 @@
-//go:build k8s
+//go:build unit_test
 
 package fuse
 
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
-
-func put(path string, body io.Reader) (*http.Response, error) {
-	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://localhost:9002/%s", path), body)
-	if err != nil {
-		panic(err)
-	}
-	x, err := client.Do(req)
-	return x, errors.EnsureStack(err)
-}
-
-func get(path string) (*http.Response, error) {
-	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:9002/%s", path), nil)
-	if err != nil {
-		panic(err)
-	}
-	x, err := client.Do(req)
-	return x, errors.EnsureStack(err)
-}
 
 /*
 
@@ -65,8 +36,8 @@ Tests to write:
 
 func TestBasicServerSameNames(t *testing.T) {
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	commit := client.NewCommit("repo", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
@@ -116,8 +87,8 @@ func TestBasicServerSameNames(t *testing.T) {
 
 func TestBasicServerNonMasterBranch(t *testing.T) {
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	commit := client.NewCommit("repo", "dev", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "dev", "")
 	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
@@ -161,8 +132,8 @@ func TestBasicServerNonMasterBranch(t *testing.T) {
 
 func TestBasicServerDifferingNames(t *testing.T) {
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	commit := client.NewCommit("repo", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
@@ -204,60 +175,16 @@ func TestBasicServerDifferingNames(t *testing.T) {
 	})
 }
 
-func TestRepoAccess(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := "robot"+tu.UniqueString("alice"), "robot"+tu.UniqueString("bob")
-	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
-
-	require.NoError(t, aliceClient.CreateRepo("repo1"))
-	commit := client.NewCommit("repo1", "master", "")
-	err := aliceClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
-	require.NoError(t, err)
-
-	withServerMount(t, aliceClient, nil, func(mountPoint string) {
-		resp, err := get("repos")
-		require.NoError(t, err)
-
-		reposResp := &ListRepoResponse{}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
-		require.Equal(t, "write", (*reposResp)["repo1"].Authorization)
-	})
-
-	withServerMount(t, bobClient, nil, func(mountPoint string) {
-		resp, err := get("repos")
-		require.NoError(t, err)
-
-		reposResp := &ListRepoResponse{}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
-		require.Equal(t, "none", (*reposResp)["repo1"].Authorization)
-
-		mr := MountRequest{
-			Mounts: []*MountInfo{
-				{
-					Name:   "repo1",
-					Repo:   "repo1",
-					Branch: "master",
-				},
-			},
-		}
-		b := new(bytes.Buffer)
-		require.NoError(t, json.NewEncoder(b).Encode(mr))
-		resp, _ = put("_mount", b)
-		require.Equal(t, 500, resp.StatusCode)
-	})
-}
-
 func TestUnmountAll(t *testing.T) {
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
-	require.NoError(t, env.PachClient.CreateRepo("repo1"))
-	commit := client.NewCommit("repo1", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo1"))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo1", "master", "")
 	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 
-	require.NoError(t, env.PachClient.CreateRepo("repo2"))
-	commit = client.NewCommit("repo2", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo2"))
+	commit = client.NewProjectCommit(pfs.DefaultProjectName, "repo2", "master", "")
 	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
 	require.NoError(t, err)
 
@@ -299,119 +226,14 @@ func TestUnmountAll(t *testing.T) {
 	})
 }
 
-func TestConfig(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	c = tu.AuthenticateClient(t, c, auth.RootUser)
-
-	withServerMount(t, c, nil, func(mountPoint string) {
-		type Config struct {
-			ClusterStatus string `json:"cluster_status"`
-			PachdAddress  string `json:"pachd_address"`
-		}
-
-		// PUT
-		invalidCfg := &Config{ClusterStatus: "INVALID", PachdAddress: "bad_address"}
-		m := map[string]string{"pachd_address": invalidCfg.PachdAddress}
-		b := new(bytes.Buffer)
-		require.NoError(t, json.NewEncoder(b).Encode(m))
-
-		putResp, err := put("config", b)
-		require.NoError(t, err)
-		require.Equal(t, 500, putResp.StatusCode)
-
-		cfg := &Config{ClusterStatus: "AUTH_ENABLED", PachdAddress: c.GetAddress().Qualified()}
-		m = map[string]string{"pachd_address": cfg.PachdAddress}
-		b = new(bytes.Buffer)
-		require.NoError(t, json.NewEncoder(b).Encode(m))
-
-		putResp, err = put("config", b)
-		require.NoError(t, err)
-		defer putResp.Body.Close()
-
-		putConfig := &Config{}
-		require.NoError(t, json.NewDecoder(putResp.Body).Decode(putConfig))
-
-		cfgParsedPachdAddress, err := grpcutil.ParsePachdAddress(cfg.PachdAddress)
-		require.NoError(t, err)
-
-		require.Equal(t, cfg.ClusterStatus, putConfig.ClusterStatus)
-		require.Equal(t, cfgParsedPachdAddress.Qualified(), putConfig.PachdAddress)
-		require.Equal(t, cfgParsedPachdAddress.Qualified(), c.GetAddress().Qualified())
-
-		// GET
-		getResp, err := get("config")
-		require.NoError(t, err)
-		defer getResp.Body.Close()
-
-		getConfig := &Config{}
-		require.NoError(t, json.NewDecoder(getResp.Body).Decode(getConfig))
-
-		require.Equal(t, cfg.ClusterStatus, getConfig.ClusterStatus)
-		require.Equal(t, cfg.PachdAddress, getConfig.PachdAddress)
-	})
-}
-
-func TestAuthLoginLogout(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
-	c = tu.UnauthenticatedPachClient(t, c)
-
-	withServerMount(t, c, nil, func(mountPoint string) {
-		authResp, err := put("auth/_login", nil)
-		require.NoError(t, err)
-		defer authResp.Body.Close()
-
-		type AuthLoginResp struct {
-			AuthUrl string `json:"auth_url"`
-		}
-		getAuthLogin := &AuthLoginResp{}
-		require.NoError(t, json.NewDecoder(authResp.Body).Decode(getAuthLogin))
-
-		tu.DoOAuthExchange(t, c, c, getAuthLogin.AuthUrl)
-		time.Sleep(1 * time.Second)
-
-		_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-		require.NoError(t, err)
-
-		_, err = put("auth/_logout", nil)
-		require.NoError(t, err)
-
-		_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-		require.ErrorIs(t, err, auth.ErrNotSignedIn)
-	})
-}
-
-func TestUnauthenticatedCode(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	withServerMount(t, c, nil, func(mountPoint string) {
-		resp, _ := get("repos")
-		require.Equal(t, 200, resp.StatusCode)
-	})
-
-	c = tu.UnauthenticatedPachClient(t, c)
-	withServerMount(t, c, nil, func(mountPoint string) {
-		resp, _ := get("repos")
-		require.Equal(t, 401, resp.StatusCode)
-	})
-
-	c = tu.AuthenticateClient(t, c, "test")
-	withServerMount(t, c, nil, func(mountPoint string) {
-		resp, _ := get("repos")
-		require.Equal(t, 200, resp.StatusCode)
-	})
-}
-
 func TestMultipleMount(t *testing.T) {
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	commit := client.NewCommit("repo", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	err := env.PachClient.PutFile(commit, "dir/file", strings.NewReader("foo"))
 	require.NoError(t, err)
-	require.NoError(t, env.PachClient.CreateRepo("repo2"))
-	commit = client.NewCommit("repo2", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo2"))
+	commit = client.NewProjectCommit(pfs.DefaultProjectName, "repo2", "master", "")
 	err = env.PachClient.PutFile(commit, "dir/file", strings.NewReader("foo"))
 	require.NoError(t, err)
 
@@ -501,48 +323,12 @@ func TestMountNonexistentRepo(t *testing.T) {
 	})
 }
 
-// TODO: pass reference to the MountManager object to the test func, so that the
-// test can call MountBranch, UnmountBranch etc directly for convenience
-func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f func(mountPoint string)) {
-	dir := tb.TempDir()
-	if sopts == nil {
-		sopts = &ServerOptions{
-			MountDir: dir,
-		}
-	}
-	if sopts.Unmount == nil {
-		sopts.Unmount = make(chan struct{})
-	}
-	unmounted := make(chan struct{})
-	var mountErr error
-	defer func() {
-		close(sopts.Unmount)
-		<-unmounted
-		require.ErrorIs(tb, mountErr, http.ErrServerClosed)
-	}()
-	defer func() {
-		// recover because panics leave the mount in a weird state that makes
-		// it hard to rerun the tests, mostly relevent when you're iterating on
-		// these tests, or the code they test.
-		if r := recover(); r != nil {
-			tb.Fatal(r)
-		}
-	}()
-	go func() {
-		mountErr = Server(sopts, c)
-		close(unmounted)
-	}()
-	// Gotta give the fuse mount time to come up.
-	time.Sleep(2 * time.Second)
-	f(dir)
-}
-
 func TestRwUnmountCreatesCommit(t *testing.T) {
 	// Unmounting a mounted read-write filesystem which has had some data
 	// written to it results in a new commit with that data in it.
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	client.NewCommit("repo", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
@@ -593,8 +379,8 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 func TestRwCommitCreatesCommit(t *testing.T) {
 	// Commit operation creates a commit.
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	client.NewCommit("repo", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
@@ -647,8 +433,8 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 	// Two sequential commit operations create two commits (and they contain the
 	// correct files).
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	client.NewCommit("repo", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
@@ -720,8 +506,8 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 	// Commit and then unmount results in two commits, since unmounting creates
 	// one too.
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	client.NewCommit("repo", "master", "")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{

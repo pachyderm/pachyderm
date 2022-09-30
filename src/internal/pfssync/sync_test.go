@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -20,8 +21,8 @@ import (
 func BenchmarkDownload(b *testing.B) {
 	env := realenv.NewRealEnv(b, dockertestenv.NewTestDBConfig(b))
 	repo := "repo"
-	require.NoError(b, env.PachClient.CreateRepo(repo))
-	commit, err := env.PachClient.StartCommit(repo, "master")
+	require.NoError(b, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	commit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(b, err)
 	require.NoError(b, env.PachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
 		for i := 0; i < 100; i++ {
@@ -31,7 +32,7 @@ func BenchmarkDownload(b *testing.B) {
 		}
 		return nil
 	}))
-	require.NoError(b, env.PachClient.FinishCommit(repo, "master", commit.ID))
+	require.NoError(b, env.PachClient.FinishProjectCommit(pfs.DefaultProjectName, repo, "master", commit.ID))
 	fis, err := env.PachClient.ListFileAll(commit, "")
 	require.NoError(b, err)
 	require.NoError(b, env.PachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
@@ -58,7 +59,7 @@ func BenchmarkDownload(b *testing.B) {
 //  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 //
 //	repo1 := "repo1"
-//	require.NoError(t, env.PachClient.CreateRepo(repo1))
+//	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName,repo1))
 //
 //	commit1, err := env.PachClient.StartCommit(repo1, "master")
 //	require.NoError(t, err)
@@ -75,7 +76,7 @@ func BenchmarkDownload(b *testing.B) {
 //	require.NoError(t, err)
 //
 //	repo2 := "repo2"
-//	require.NoError(t, env.PachClient.CreateRepo(repo2))
+//	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName,repo2))
 //
 //	commit2, err := env.PachClient.StartCommit(repo2, "master")
 //	require.NoError(t, err)
@@ -132,7 +133,7 @@ func BenchmarkDownload(b *testing.B) {
 //  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 //
 //	repo := "repo"
-//	require.NoError(t, env.PachClient.CreateRepo(repo))
+//	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName,repo))
 //
 //	content1 := random.String(int(pfs.ChunkSize))
 //
@@ -182,7 +183,7 @@ func BenchmarkDownload(b *testing.B) {
 //  env := testpachd.NewRealEnv(t, tu.NewTestDBConfig(t))
 //
 //	repo := "repo"
-//	require.NoError(t, env.PachClient.CreateRepo(repo))
+//	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName,repo))
 //
 //	commit, err := env.PachClient.StartCommit(repo, "master")
 //	require.NoError(t, err)

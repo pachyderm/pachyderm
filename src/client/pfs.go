@@ -23,35 +23,70 @@ func NewProject(name string) *pfs.Project {
 }
 
 // NewRepo creates a pfs.Repo.
+//
+// Deprecated: use NewProjectRepo instead.
 func NewRepo(repoName string) *pfs.Repo {
-	return &pfs.Repo{Name: repoName, Type: pfs.UserRepoType}
+	return NewProjectRepo(pfs.DefaultProjectName, repoName)
 }
 
-// NewSystemRepo creates a pfs.Repo of the given type
+func NewProjectRepo(projectName, repoName string) *pfs.Repo {
+	return &pfs.Repo{Project: NewProject(projectName), Name: repoName, Type: pfs.UserRepoType}
+}
+
+// NewSystemRepo creates a pfs.Repo of the given type.
+//
+// Deprecated: use NewSystemProjectRepo instead.
 func NewSystemRepo(repoName string, repoType string) *pfs.Repo {
-	return &pfs.Repo{Name: repoName, Type: repoType}
+	return NewSystemProjectRepo(pfs.DefaultProjectName, repoName, repoType)
+}
+
+// NewSystemProjectRepo creates a pfs.Repo of the given type in the given
+// project.
+func NewSystemProjectRepo(projectName, repoName, repoType string) *pfs.Repo {
+	return &pfs.Repo{Project: NewProject(projectName), Name: repoName, Type: repoType}
 }
 
 // NewBranch creates a pfs.Branch
+//
+// Deprecated: use NewProjectBranch instead.
 func NewBranch(repoName string, branchName string) *pfs.Branch {
+	return NewProjectBranch(pfs.DefaultProjectName, repoName, branchName)
+}
+
+// NewProjectBranch creates a pfs.Branch in the given project & repo.
+func NewProjectBranch(projectName, repoName, branchName string) *pfs.Branch {
 	return &pfs.Branch{
-		Repo: NewRepo(repoName),
+		Repo: NewProjectRepo(projectName, repoName),
 		Name: branchName,
 	}
 }
 
 // NewCommit creates a pfs.Commit.
-func NewCommit(repoName string, branchName string, commitID string) *pfs.Commit {
+//
+// Deprecated: use NewProjectCommit instead.
+func NewCommit(repoName, branchName, commitID string) *pfs.Commit {
+	return NewProjectCommit(pfs.DefaultProjectName, repoName, branchName, commitID)
+}
+
+// NewProjectCommit creates a pfs.Commit in the given project, repo & branch.
+func NewProjectCommit(projectName, repoName, branchName, commitID string) *pfs.Commit {
 	return &pfs.Commit{
-		Branch: NewBranch(repoName, branchName),
+		Branch: NewProjectBranch(projectName, repoName, branchName),
 		ID:     commitID,
 	}
 }
 
 // NewFile creates a pfs.File.
-func NewFile(repoName string, branchName string, commitID string, path string) *pfs.File {
+//
+// Deprecated: use NewProjectFile instead.
+func NewFile(repoName, branchName, commitID, path string) *pfs.File {
+	return NewProjectFile(pfs.DefaultProjectName, repoName, branchName, commitID, path)
+}
+
+// NewProjectFile creates a pfs.File.
+func NewProjectFile(projectName, repoName, branchName, commitID, path string) *pfs.File {
 	return &pfs.File{
-		Commit: NewCommit(repoName, branchName, commitID),
+		Commit: NewProjectCommit(projectName, repoName, branchName, commitID),
 		Path:   path,
 	}
 }
@@ -60,22 +95,40 @@ func NewFile(repoName string, branchName string, commitID string, path string) *
 // the top level data object in pfs and should be used to store data of a
 // similar type. For example rather than having a single Repo for an entire
 // project you might have separate Repos for logs, metrics, database dumps etc.
+//
+// Deprecated: use CreateProjectRepo instead.
 func (c APIClient) CreateRepo(repoName string) error {
+	return c.CreateProjectRepo(pfs.DefaultProjectName, repoName)
+}
+
+// CreateProjectRepo creates a new Repo object in pfs with the given name.
+// Repos are the top level data object in pfs and should be used to store data
+// of a similar type.  For example rather than having a single Repo for an
+// entire project you might have separate Repos for logs, metrics, database
+// dumps etc.
+func (c APIClient) CreateProjectRepo(projectName, repoName string) error {
 	_, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo: NewRepo(repoName),
+			Repo: NewProjectRepo(projectName, repoName),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
 }
 
 // UpdateRepo upserts a repo with the given name.
+//
+// Deprecated: use UpdateProjectRepo instead.
 func (c APIClient) UpdateRepo(repoName string) error {
+	return c.UpdateProjectRepo(pfs.DefaultProjectName, repoName)
+}
+
+// UpdateProjectRepo upserts a repo with the given name.
+func (c APIClient) UpdateProjectRepo(projectName, repoName string) error {
 	_, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo:   NewRepo(repoName),
+			Repo:   NewProjectRepo(projectName, repoName),
 			Update: true,
 		},
 	)
@@ -83,14 +136,21 @@ func (c APIClient) UpdateRepo(repoName string) error {
 }
 
 // InspectRepo returns info about a specific Repo.
+//
+// Deprecated: use InspectProjectRepo instead.
 func (c APIClient) InspectRepo(repoName string) (_ *pfs.RepoInfo, retErr error) {
+	return c.InspectProjectRepo(pfs.DefaultProjectName, repoName)
+}
+
+// InspectProjectRepo returns info about a specific Repo.
+func (c APIClient) InspectProjectRepo(projectName, repoName string) (_ *pfs.RepoInfo, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	return c.PfsAPIClient.InspectRepo(
 		c.Ctx(),
 		&pfs.InspectRepoRequest{
-			Repo: NewRepo(repoName),
+			Repo: NewProjectRepo(projectName, repoName),
 		},
 	)
 }
@@ -100,7 +160,8 @@ func (c APIClient) ListRepo() ([]*pfs.RepoInfo, error) {
 	return c.ListRepoByType(pfs.UserRepoType)
 }
 
-// ListRepoByType returns info about Repos of the given type
+// ListRepoByType returns info about Repos of the given type.
+//
 // The if repoType is empty, all Repos will be included
 func (c APIClient) ListRepoByType(repoType string) (_ []*pfs.RepoInfo, retErr error) {
 	ctx, cf := context.WithCancel(c.Ctx())
@@ -116,16 +177,31 @@ func (c APIClient) ListRepoByType(repoType string) (_ []*pfs.RepoInfo, retErr er
 	return clientsdk.ListRepoInfo(client)
 }
 
-// DeleteRepo deletes a repo and reclaims the storage space it was using. Note
+// DeleteRepo deletes a repo and reclaims the storage space it was using.  Note
 // that as of 1.0 we do not reclaim the blocks that the Repo was referencing,
 // this is because they may also be referenced by other Repos and deleting them
-// would make those Repos inaccessible. This will be resolved in later
+// would make those Repos inaccessible.  This will be resolved in later
 // versions.
+//
 // If "force" is set to true, the repo will be removed regardless of errors.
 // This argument should be used with care.
+//
+// Deprecated: use DeleteProjectRepo instead.
 func (c APIClient) DeleteRepo(repoName string, force bool) error {
+	return c.DeleteProjectRepo(pfs.DefaultProjectName, repoName, force)
+}
+
+// DeleteProjectRepo deletes a repo and reclaims the storage space it was using.
+// Note that as of 1.0 we do not reclaim the blocks that the Repo was
+// referencing, this is because they may also be referenced by other Repos and
+// deleting them would make those Repos inaccessible.  This will be resolved in
+// later versions.
+//
+// If "force" is set to true, the repo will be removed regardless of errors.
+// This argument should be used with care.
+func (c APIClient) DeleteProjectRepo(projectName, repoName string, force bool) error {
 	request := &pfs.DeleteRepoRequest{
-		Repo:  NewRepo(repoName),
+		Repo:  NewProjectRepo(projectName, repoName),
 		Force: force,
 	}
 	_, err := c.PfsAPIClient.DeleteRepo(
@@ -137,21 +213,38 @@ func (c APIClient) DeleteRepo(repoName string, force bool) error {
 
 // StartCommit begins the process of committing data to a Repo. Once started
 // you can write to the Commit with PutFile and when all the data has been
-// written you must finish the Commit with FinishCommit. NOTE, data is not
+// written you must finish the Commit with FinishCommit.  NOTE, data is not
 // persisted until FinishCommit is called.
+//
 // branch is a more convenient way to build linear chains of commits. When a
 // commit is started with a non empty branch the value of branch becomes an
 // alias for the created Commit. This enables a more intuitive access pattern.
 // When the commit is started on a branch the previous head of the branch is
 // used as the parent of the commit.
+//
+// Deprecated: use StartProjectCommit instead.
 func (c APIClient) StartCommit(repoName string, branchName string) (_ *pfs.Commit, retErr error) {
+	return c.StartProjectCommit(pfs.DefaultProjectName, repoName, branchName)
+}
+
+// StartProjectCommit begins the process of committing data to a Repo. Once
+// started you can write to the Commit with PutFile and when all the data has
+// been written you must finish the Commit with FinishCommit.  NOTE, data is not
+// persisted until FinishCommit is called.
+//
+// branch is a more convenient way to build linear chains of commits. When a
+// commit is started with a non empty branch the value of branch becomes an
+// alias for the created Commit. This enables a more intuitive access pattern.
+// When the commit is started on a branch the previous head of the branch is
+// used as the parent of the commit.
+func (c APIClient) StartProjectCommit(projectName, repoName string, branchName string) (_ *pfs.Commit, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	return c.PfsAPIClient.StartCommit(
 		c.Ctx(),
 		&pfs.StartCommitRequest{
-			Branch: NewBranch(repoName, branchName),
+			Branch: NewProjectBranch(projectName, repoName, branchName),
 		},
 	)
 }
@@ -170,12 +263,34 @@ func (c APIClient) StartCommit(repoName string, branchName string) (_ *pfs.Commi
 // commit without affecting the contents of the parent Commit. You may pass ""
 // as parentCommit in which case the new Commit will have no parent and will
 // initially appear empty.
-func (c APIClient) StartCommitParent(repoName string, branchName string, parentBranch string, parentCommit string) (*pfs.Commit, error) {
+//
+// Deprecated: use StartProjectCommitParent instead.
+func (c APIClient) StartCommitParent(repoName, branchName, parentBranch, parentCommit string) (*pfs.Commit, error) {
+	return c.StartProjectCommitParent(pfs.DefaultProjectName, repoName, branchName, parentBranch, parentCommit)
+}
+
+// StartProjectCommitParent begins the process of committing data to a
+// Repo.  Once started you can write to the Commit with PutFile and when all the
+// data has been written you must finish the Commit with FinishCommit.  NOTE,
+// data is not persisted until FinishCommit is called.
+//
+// branch is a more convenient way to build linear chains of commits. When a
+// commit is started with a non empty branch the value of branch becomes an
+// alias for the created Commit. This enables a more intuitive access pattern.
+// When the commit is started on a branch the previous head of the branch is
+// used as the parent of the commit.
+//
+// parentCommit specifies the parent Commit, upon creation the new Commit will
+// appear identical to the parent Commit, data can safely be added to the new
+// commit without affecting the contents of the parent Commit. You may pass ""
+// as parentCommit in which case the new Commit will have no parent and will
+// initially appear empty.
+func (c APIClient) StartProjectCommitParent(projectName, repoName, branchName, parentBranch, parentCommit string) (*pfs.Commit, error) {
 	commit, err := c.PfsAPIClient.StartCommit(
 		c.Ctx(),
 		&pfs.StartCommitRequest{
-			Parent: NewCommit(repoName, parentBranch, parentCommit),
-			Branch: NewBranch(repoName, branchName),
+			Parent: NewProjectCommit(projectName, repoName, parentBranch, parentCommit),
+			Branch: NewProjectBranch(projectName, repoName, branchName),
 		},
 	)
 	if err != nil {
@@ -187,35 +302,59 @@ func (c APIClient) StartCommitParent(repoName string, branchName string, parentB
 // FinishCommit ends the process of committing data to a Repo and persists the
 // Commit. Once a Commit is finished the data becomes immutable and future
 // attempts to write to it with PutFile will error.
+//
+// Deprecated: use FinishProjectCommit instead.
 func (c APIClient) FinishCommit(repoName string, branchName string, commitID string) (retErr error) {
+	return c.FinishProjectCommit(pfs.DefaultProjectName, repoName, branchName, commitID)
+}
+
+// FinishProjectCommit ends the process of committing data to a Repo and
+// persists the Commit.  Once a Commit is finished the data becomes immutable and
+// future attempts to write to it with PutFile will error.
+func (c APIClient) FinishProjectCommit(projectName, repoName, branchName, commitID string) (retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	_, err := c.PfsAPIClient.FinishCommit(
 		c.Ctx(),
 		&pfs.FinishCommitRequest{
-			Commit: NewCommit(repoName, branchName, commitID),
+			Commit: NewProjectCommit(projectName, repoName, branchName, commitID),
 		},
 	)
 	return err
 }
 
 // InspectCommit returns info about a specific Commit.
-func (c APIClient) InspectCommit(repoName string, branchName string, commitID string) (_ *pfs.CommitInfo, retErr error) {
+//
+// Deprecated: use InspectProjectCommit instead.
+func (c APIClient) InspectCommit(repoName, branchName, commitID string) (_ *pfs.CommitInfo, retErr error) {
+	return c.InspectProjectCommit(pfs.DefaultProjectName, repoName, branchName, commitID)
+}
+
+// InspectProjectCommit returns info about a specific Commit.
+func (c APIClient) InspectProjectCommit(projectName, repoName, branchName, commitID string) (_ *pfs.CommitInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
-	return c.inspectCommit(repoName, branchName, commitID, pfs.CommitState_STARTED)
+	return c.inspectCommit(projectName, repoName, branchName, commitID, pfs.CommitState_STARTED)
 }
 
 // WaitCommit returns info about a specific Commit, but blocks until that
 // commit has been finished.
-func (c APIClient) WaitCommit(repoName string, branchName string, commitID string) (_ *pfs.CommitInfo, retErr error) {
-	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
-	return c.inspectCommit(repoName, branchName, commitID, pfs.CommitState_FINISHED)
+//
+// Deprecated: use WaitProjectCommit instead.
+func (c APIClient) WaitCommit(repoName, branchName, commitID string) (_ *pfs.CommitInfo, retErr error) {
+	return c.WaitProjectCommit(pfs.DefaultProjectName, repoName, branchName, commitID)
 }
 
-func (c APIClient) inspectCommit(repoName string, branchName string, commitID string, wait pfs.CommitState) (*pfs.CommitInfo, error) {
+// WaitProjectCommit returns info about a specific Commit, but blocks until that
+// commit has been finished.
+func (c APIClient) WaitProjectCommit(projectName, repoName, branchName, commitID string) (_ *pfs.CommitInfo, retErr error) {
+	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
+	return c.inspectCommit(projectName, repoName, branchName, commitID, pfs.CommitState_FINISHED)
+}
+
+func (c APIClient) inspectCommit(projectName, repoName, branchName, commitID string, wait pfs.CommitState) (*pfs.CommitInfo, error) {
 	commitInfo, err := c.PfsAPIClient.InspectCommit(
 		c.Ctx(),
 		&pfs.InspectCommitRequest{
-			Commit: NewCommit(repoName, branchName, commitID),
+			Commit: NewProjectCommit(projectName, repoName, branchName, commitID),
 			Wait:   wait,
 		},
 	)
@@ -291,16 +430,23 @@ func (c APIClient) ListCommitByRepo(repo *pfs.Repo) ([]*pfs.CommitInfo, error) {
 	return c.ListCommit(repo, nil, nil, 0)
 }
 
-// CreateBranch creates a new branch
+// CreateBranch creates a new branch.
+//
+// Deprecated: use CreateProjectBranch instead.
 func (c APIClient) CreateBranch(repoName string, branchName string, commitBranch string, commitID string, provenance []*pfs.Branch) error {
+	return c.CreateProjectBranch(pfs.DefaultProjectName, repoName, branchName, commitBranch, commitID, provenance)
+}
+
+// CreateProjectBranch creates a new branch
+func (c APIClient) CreateProjectBranch(projectName, repoName, branchName, commitBranch, commitID string, provenance []*pfs.Branch) error {
 	var head *pfs.Commit
 	if commitBranch != "" || commitID != "" {
-		head = NewCommit(repoName, commitBranch, commitID)
+		head = NewProjectCommit(projectName, repoName, commitBranch, commitID)
 	}
 	_, err := c.PfsAPIClient.CreateBranch(
 		c.Ctx(),
 		&pfs.CreateBranchRequest{
-			Branch:     NewBranch(repoName, branchName),
+			Branch:     NewProjectBranch(projectName, repoName, branchName),
 			Head:       head,
 			Provenance: provenance,
 		},
@@ -311,15 +457,24 @@ func (c APIClient) CreateBranch(repoName string, branchName string, commitBranch
 // CreateBranchTrigger Creates a branch with a trigger. Note: triggers and
 // provenance are mutually exclusive. See the docs on triggers to learn more
 // about why this is.
+//
+// Deprecated: use CreateProjectBranchTrigger instead.
 func (c APIClient) CreateBranchTrigger(repoName string, branchName string, commitBranch string, commitID string, trigger *pfs.Trigger) error {
+	return c.CreateProjectBranchTrigger(pfs.DefaultProjectName, repoName, branchName, commitBranch, commitID, trigger)
+}
+
+// CreateProjectBranchTrigger creates a branch with a trigger. Note: triggers
+// and provenance are mutually exclusive.  See the docs on triggers to learn more
+// about why this is.
+func (c APIClient) CreateProjectBranchTrigger(projectName, repoName, branchName, commitBranch, commitID string, trigger *pfs.Trigger) error {
 	var head *pfs.Commit
 	if commitBranch != "" || commitID != "" {
-		head = NewCommit(repoName, commitBranch, commitID)
+		head = NewProjectCommit(projectName, repoName, commitBranch, commitID)
 	}
 	_, err := c.PfsAPIClient.CreateBranch(
 		c.Ctx(),
 		&pfs.CreateBranchRequest{
-			Branch:  NewBranch(repoName, branchName),
+			Branch:  NewProjectBranch(projectName, repoName, branchName),
 			Head:    head,
 			Trigger: trigger,
 		},
@@ -327,24 +482,38 @@ func (c APIClient) CreateBranchTrigger(repoName string, branchName string, commi
 	return grpcutil.ScrubGRPC(err)
 }
 
-// InspectBranch returns information on a specific PFS branch
+// InspectBranch returns information on a specific PFS branch.
+//
+// Deprecated: use InspectProjectBranch instead.
 func (c APIClient) InspectBranch(repoName string, branchName string) (*pfs.BranchInfo, error) {
+	return c.InspectProjectBranch(pfs.DefaultProjectName, repoName, branchName)
+}
+
+// InspectProjectBranch returns information on a specific PFS branch.
+func (c APIClient) InspectProjectBranch(projectName, repoName string, branchName string) (*pfs.BranchInfo, error) {
 	branchInfo, err := c.PfsAPIClient.InspectBranch(
 		c.Ctx(),
 		&pfs.InspectBranchRequest{
-			Branch: NewBranch(repoName, branchName),
+			Branch: NewProjectBranch(projectName, repoName, branchName),
 		},
 	)
 	return branchInfo, grpcutil.ScrubGRPC(err)
 }
 
 // ListBranch lists the active branches on a Repo.
+//
+// Deprecated: use ListProjectBranch instead.
 func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
+	return c.ListProjectBranch(pfs.DefaultProjectName, repoName)
+}
+
+// ListProjectBranch lists the active branches on a Repo.
+func (c APIClient) ListProjectBranch(projectName, repoName string) ([]*pfs.BranchInfo, error) {
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
 	var repo *pfs.Repo
 	if repoName != "" {
-		repo = NewRepo(repoName)
+		repo = NewProjectRepo(projectName, repoName)
 	}
 	client, err := c.PfsAPIClient.ListBranch(
 		ctx,
@@ -361,11 +530,20 @@ func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 // DeleteBranch deletes a branch, but leaves the commits themselves intact.
 // In other words, those commits can still be accessed via commit IDs and
 // other branches they happen to be on.
+//
+// Deprecated: use DeleteProjectBranch instead.
 func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) error {
+	return c.DeleteProjectBranch(pfs.DefaultProjectName, repoName, branchName, force)
+}
+
+// DeleteProjectBranch deletes a branch, but leaves the commits themselves
+// intact.  In other words, those commits can still be accessed via commit IDs
+// and other branches they happen to be on.
+func (c APIClient) DeleteProjectBranch(projectName, repoName, branchName string, force bool) error {
 	_, err := c.PfsAPIClient.DeleteBranch(
 		c.Ctx(),
 		&pfs.DeleteBranchRequest{
-			Branch: NewBranch(repoName, branchName),
+			Branch: NewProjectBranch(projectName, repoName, branchName),
 			Force:  force,
 		},
 	)
@@ -567,14 +745,21 @@ func (c APIClient) SubscribeCommit(repo *pfs.Repo, branchName string, from strin
 }
 
 // ClearCommit clears the state of an open commit.
+//
+// Deprecated: use ClearProjectCommit instead.
 func (c APIClient) ClearCommit(repoName string, branchName string, commitID string) (retErr error) {
+	return c.ClearProjectCommit(pfs.DefaultProjectName, repoName, branchName, commitID)
+}
+
+// ClearProjectCommit clears the state of an open commit.
+func (c APIClient) ClearProjectCommit(projectName, repoName, branchName, commitID string) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	_, err := c.PfsAPIClient.ClearCommit(
 		c.Ctx(),
 		&pfs.ClearCommitRequest{
-			Commit: NewCommit(repoName, branchName, commitID),
+			Commit: NewProjectCommit(projectName, repoName, branchName, commitID),
 		},
 	)
 	return err

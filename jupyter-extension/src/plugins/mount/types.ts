@@ -1,4 +1,4 @@
-import {SplitPanel} from '@lumino/widgets';
+import { SplitPanel } from '@lumino/widgets';
 
 export type mountState =
   | 'unmounting'
@@ -35,15 +35,21 @@ export type Repo = {
   branches: string[];
 };
 
-export type DatumsResponse = {
+export type CurrentDatumResponse = {
   num_datums: number;
-  input: {[key: string]: any};
+  input: { [key: string]: any };
   curr_idx: number;
 };
 
+export type MountDatumResponse = {
+  id: string;
+  idx: number;
+  num_datums: number;
+};
+
 export type ListMountsResponse = {
-  mounted: {[key: string]: Mount};
-  unmounted: {[key: string]: Repo};
+  mounted: { [key: string]: Mount };
+  unmounted: { [key: string]: Repo };
 };
 
 export type AuthConfig = {
