@@ -845,7 +845,7 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
-      - setup_remote_docker:
+      - setup_remote_docker
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
@@ -864,7 +864,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - setup_remote_docker:
+      - setup_remote_docker
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
