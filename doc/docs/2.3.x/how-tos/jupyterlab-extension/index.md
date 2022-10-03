@@ -1,76 +1,117 @@
 
 # Pachyderm JupyterLab Mount Extension
 
-!!! Warning "Experimental"
-    The JupyterLab Mount Extension is an [experimental feature](https://docs.pachyderm.com/latest/reference/supported-releases/#experimental){target=_blank}. We hope you'll try it out (and work with us to improve it! [Get in touch](https://www.pachyderm.com/slack/)), but it's not ready for self-service usage in production, as it may make sudden, breaking changes
-
-![Mount extension in action](../images/mount-extension.gif)
-
 Use the [JupyterLab extension](https://pypi.org/project/jupyterlab-pachyderm/) to:
 
-- Connect your Notebook to a Pachyderm cluster.
-- Browse, explore, analyze data stored in Pachyderm directly from your Notebook.
-- Run and test out your pipeline code before creating a Docker image. 
+- Connect your Notebook to a Pachyderm cluster
+- Browse, explore, and analyze data stored in Pachyderm directly from your Notebook
+- Run and test out your pipeline code before creating a Docker image
+
+!!! Warning 
+  The JupyterLab Mount Extension is an [experimental feature](../../reference/supported-releases/#experimental). We hope you'll try it out (and work with us to improve it! [Get in touch](https://www.pachyderm.com/slack/)), but it's not ready for self-service usage in production, as it may make sudden, breaking changes.
+
+
+![Mount extension in action](../images/mount-extension.gif)
 
 ## Before You Start 
 
 - You must have a Pachyderm cluster running.
-- You must install the Jupyterlab Helm repository.
-    ```sh
-    helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
-    helm repo update
-    ```
---- 
 
-## Install The Extension 
+## Install the Extension 
+
+There are three main ways to install the Jupyter Lab extension:
+
+- 🧪 [Locally](#local-installation): Great for development and testing
+- ⭐ [Via Docker](#install-to-existing-docker-image): Fastest implementation!
+- 🚀 [Via JupyterHub + Helm](#install-to-jupyterhub-with-helm): Best for production requirements with highest security requirements
+
+### Local Installation 
+
+#### Pre-requisites 
+
+- Install [Jupyter Lab](https://jupyterlab.readthedocs.io/en/stable/getting_started/installation.html) (`pip install jupyterlab`)
+- Install [FUSE](https://osxfuse.github.io/)
+  !!! Warning
+    Local installation of FUSE requires a reboot to access your [Startup Security Utility](https://support.apple.com/en-us/HT208198) and [enable kernel extensions (kexts)](https://support.apple.com/guide/security/kernel-extensions-sec8e454101b) after you have downloaded all of the necessary pre-requisites.
+
+- Install [jupyterlab pachyderm](https://pypi.org/search/?q=jupyterlab+pachyderm) (`pip install jupyterlab-pachyderm`)
+- Download [mount-server binary](https://github.com/pachyderm/pachyderm/releases/tag/v2.3.5) 
+
+#### Local Installation Steps
+
+1. Open your terminal
+2. Navigate to your downloads folder. 
+3. Copy the `mount-server` binary you downloaded from the pre-requisites into a folder included within your `$PATH` so that your `jupyterlab-pachyderm` extension can find it:
+   ```s 
+   sudo cp mount-server /usr/local/bin
+   ```
+4. Open your `zshrc` profile:
+   ```s
+   vim ~/.zshrc
+   ```
+5. Define an empty output folder that PFS should mount to:
+   ```s
+   export PFS_MOUNT_DIR=/Users/<you>/Documents/pfs
+   ```
+5. Update the source by restarting your computer or executing the following command:
+   ```s
+   source ~/.zshrc
+   ```
+6. Run `jupyter lab`. 
+
+If you have an existing pachyderm config file at `~/.pachyderm/config.json`, the extension automatically connects to the active context. Otherwise, you must enter the cluster address manually in the extension UI.
+
+
+### Install to Existing Docker Image 
 
 You can choose between Pachyderm's pre-built image (a custom version of [`jupyter/scipy-notebook`](https://jupyter-docker-stacks.readthedocs.io/en/latest/using/selecting.html#jupyter-scipy-notebook)) or add the extension to your own image. Pachyderm's image includes:
 
-- The extension jupyterlab-pachyderm.
-- FUSE
+- The extension jupyterlab-pachyderm
+- [FUSE](https://osxfuse.github.io/)
 - A pre-created `/pfs` directory that mounts to and grants ownership to the JupyterLab User
-- A `mount-server` binary. 
+- A `mount-server` binary 
 
-### Local Installation (Using Provided Image)
+#### Option 1: Pre-Built Image
 
 1. Open your terminal.
 2. Run the following:
-    ```sh
-    docker run -it -p 8888:8888 -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged --entrypoint /opt/conda/bin/jupyter pachyderm/notebooks-user:{{ config.jupyterlab_extension_image_tag }}  lab --allow-root
-    ```
+ ```s
+ docker run -it -p 8888:8888 -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged --entrypoint /opt/conda/bin/jupyter pachyderm/notebooks-user:0.6.0  lab --allow-root
+ ```
 3. Open the UI using the link provided in the terminal following:
-    ```sh 
-    Jupyter Server [...] is running at:
-    ```
+ ```s
+ Jupyter Server [...] is running at:
+ ```
 4. Navigate to the connection tab. You will need to provide a link formatted like the following:
-    ```sh
-    grpc://<cluster-ip>:<port>
-    ```
+ ```s
+ grpc://<cluster-ip>:<port>
+ ```
 5. Open another terminal and run the following to get the IP address and port number:
-     ```sh 
-     kubectl get services | grep -w "pachd "
-     ```
+  ```s
+  kubectl get services | grep -w "pachd "
+  ```
 6. Find the `servic/pachd` line item and copy the **IP address** and first **port number**.
     
-    ```sh
-       NAME                          TYPE           CLUSTER-IP       EXTERNAL-IP   PORT
-       pachd                         ClusterIP      10.106.225.116   <none>        30650/TCP,30657/TCP,30658/TCP,30600/TCP,30656/TCP
-    ```
+ ```s
+    NAME                          TYPE           CLUSTER-IP       EXTERNAL-IP   PORT
+    pachd                         ClusterIP      10.106.225.116   <none>        30650/TCP,30657/TCP,30658/TCP,30600/TCP,30656/TCP
+ ```
 7. Input the full connection URL (`grpc://10.106.225.116:30650`).
 8. Navigate to the **Launcher** view in Jupyter and select **Terminal**.
 9. Input the following command:
-    ```sh
-    pachctl version
-    ```
+ ```s
+ pachctl version
+ ```
 10. If you see a `pachctl` and `pachd` version, you are good to go.
 
-### Install to Existing Docker Image 
+
+#### Option 2: Custom Dockerfile 
 
 Replace the following `${PACHCTL_VERSION}` with the version of `pachctl` that matches your cluster's, and update `<version>` with the release number of the extension.
 
 You can find the latest available version of our Pachyderm Mount Extension in [PyPi](https://pypi.org/project/jupyterlab-pachyderm/). 
 
-```sh
+```s
 # This runs the following section as root; if adding to an existing Dockerfile, set the user back to whatever you need. 
 USER root
 
@@ -102,69 +143,109 @@ Then, [build, tag, and push your image](../developer-workflow/working-with-pipel
 
 ### Install to JupyterHub With Helm
 
-#### Option 1: Pachyderm Defaults
+!!! Info
+    **Connecting to your cluster**
+
+    For each option in this section, you can connect to your cluster using the following steps:
+
+    1. Find the **IP address** you used to access the JupyterHub as described in these [Helm installation instructions](https://zero-to-jupyterhub.readthedocs.io/en/latest/jupyterhub#setup-jupyterhub) (Step 5 and 6) and open Jupyterlab.
+    2. Click on the link provided in the `stdout` of your terminal to run JupyterLab in a browser.
+    3. Connect to your cluster using the `grpc://<cluster-ip>:<port>` format.
+
+
+#### Pre-requisites 
+
+- You must install the Jupyterlab Helm repository:
+  ```s
+  helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/ 
+  helm repo update
+  ```
+
+#### Option 1: Notebooks in Privileged Context
+
+##### With Pachyderm's Default Chart
 
 1. Open a terminal.
 2. Run the following:
-   ```sh
+   ```s
    helm upgrade --cleanup-on-fail \
    --install jupyter jupyterhub/jupyterhub \
-   --values https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.pach_branch }}/etc/helm/examples/jupyterhub-ext-values.yaml
+   --values https://raw.githubusercontent.com/pachyderm/pachyderm/2.3.x/etc/helm/examples/jupyterhub-ext-values.yaml
    ```
-#### Option 2: Custom
 
-1. Add the following to your Jupyterhub helm chart `values.YAML` file:
-    ```yaml
-    singleuser:
-        defaultUrl: "/lab"
-        cmd:   "start-singleuser.sh"
-        image:
-            name: pachyderm/notebooks-user
-            tag: {{ config.jupyterlab_extension_image_tag }}
-        uid:   0
-        fsGid: 0
-        extraEnv:
-            "GRANT_SUDO": "yes"
-            "NOTEBOOK_ARGS": "--allow-root"
-            "JUPYTER_ENABLE_LAB": "yes"
-            "CHOWN_HOME": "yes"
-            "CHOWN_HOME_OPTS": "-R"
-    hub:
-        extraConfig:
-            enableRoot: |
-                from kubernetes import client
-                def modify_pod_hook(spawner, pod):
-                    pod.spec.containers[0].security_context = client.V1SecurityContext(
-                        allow_privilege_escalation=True,
-                        run_as_user=0,
-                        privileged=True,
-                        capabilities=client.V1Capabilities(
-                            add=['SYS_ADMIN']
-                        )
-                    )
-                    return pod
-                c.KubeSpawner.modify_pod_hook = modify_pod_hook
-    ```
-2. Update the fields `singleuser.image.name` and `singleuser.image.tag` to match your user image.
-3. Run the following commands to install JupyterHub:
-    ```sh
-    helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
-    helm repo update
+##### With a Custom Chart
 
-    helm upgrade --cleanup-on-fail \
-    --install jupyter jupyterhub/jupyterhub \
-    --values <your-jupyterhub-values.yaml>
-    ```
-4. Find the **IP address** you used to access the JupyterHub as described in these [Helm installation instructions](https://zero-to-jupyterhub.readthedocs.io/en/latest/jupyterhub#setup-jupyterhub) (Step 5 and 6) and open Jupyterlab.
-5. Click on the link provided in the `stdout` of your terminal to run JupyterLab in a browser.
-6. Connect to your cluster using the `grpc://<cluster-ip>:<port>` format.
-7. Run the following command to refresh the mount server:
+Add the following to your Jupyterhub helm chart `values.YAML` file:
+```yaml
+ singleuser:
+     defaultUrl: "/lab"
+     cmd:   "start-singleuser.sh"
+     image:
+         name: pachyderm/notebooks-user
+         tag: 0.6.0
+     uid:   0
+     fsGid: 0
+     extraEnv:
+         "GRANT_SUDO": "yes"
+         "NOTEBOOK_ARGS": "--allow-root"
+         "JUPYTER_ENABLE_LAB": "yes"
+         "CHOWN_HOME": "yes"
+         "CHOWN_HOME_OPTS": "-R"
+ hub:
+     extraConfig:
+         enableRoot: |
+             from kubernetes import client
+             def modify_pod_hook(spawner, pod):
+                 pod.spec.containers[0].security_context = client.V1SecurityContext(
+                     allow_privilege_escalation=True,
+                     run_as_user=0,
+                     privileged=True,
+                     capabilities=client.V1Capabilities(
+                         add=['SYS_ADMIN']
+                     )
+                 )
+                 return pod
+             c.KubeSpawner.modify_pod_hook = modify_pod_hook
+```
+ 
 
-    ``` shell
-    umount /pfs
-    ```
 
-##### Automate Cluster Details
+#### Option 2: Notebooks in Unprivileged Context & Mount Server in Privileged Context
+
+With this option, you will run a sidecar Docker image called `pachyderm/mount-server` to work in tandem with the `pachyderm/notebooks-user` image. This option is good for those who have security restrictions and can't run notebooks in a privileged manner. 
+
+###### Helm Chart 
+
+```yaml
+singleuser:
+    defaultUrl: "/lab"
+    image:
+        name: pachyderm/notebooks-user
+        tag: <latest-release>
+    extraEnv:
+        "SIDECAR_MODE": "True"
+    extraContainers:
+        - name: mount-server-manager
+          image: pachyderm/mount-server:<latest-release>
+          command: ["/bin/bash"]
+          args: ["-c", "mount-server"]
+          volumeMounts:
+              - name: shared-pfs
+                mountPath: /pfs
+                mountPropagation: Bidirectional
+          securityContext:
+              privileged: true
+              runAsUser: 0
+    storage:
+        extraVolumeMounts:
+            - name: shared-pfs
+              mountPath: /pfs
+              mountPropagation: HostToContainer
+        extraVolumes:
+            - name: shared-pfs
+              emptyDir: {}
+```
+###### Automate Cluster Details
 
 You can specify your `pachd` cluster details in your Helm chart via `extraFiles` to avoid having to provide them every time Jupyter Hub starts. The `mountPath` input is required, however the location does not matter.
 
@@ -213,14 +294,6 @@ singleuser:
             metrics: true
 ```
 
-
-<!--
-// the following can be used if you do not know your cluster IP address (production)
-```
-docker run -it -v ~/.pachyderm/config.json:/home/jovyan/.pachyderm/config.json -p 8888:8888 -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged --entrypoint /opt/conda/bin/jupyter pachyderm/notebooks-user:v0.6.0 lab --allow-root
-``` 
--->
-
 --- 
 
 ## How to Use 
@@ -231,20 +304,21 @@ docker run -it -v ~/.pachyderm/config.json:/home/jovyan/.pachyderm/config.json -
 2. Open a **Terminal** from the launcher.
 3. Navigate to the **Mounted Repositories** tab.
 4. Input the following to see a demo repo appear:
-    ```sh 
-    pachctl create repo demo
-    pachctl create branch demo@master
-    ```
+ ```s
+ pachctl create repo demo
+ pachctl create branch demo@master
+ ```
 5. Scroll to the **Unmounted Repositories** section.
 6. Select **Mount** next to the **Demo** repository. 
 7. Input the following to create a simple text file:
-    ```sh 
-    echo "Version 1 of file!" | pachctl put file demo@master:/myfile.txt
-    ```
-8. You can read the file using the following:
-    ```sh 
-    cat /pfs/demo/myfile.txt
-    ```
+ ```s
+ echo "Version 1 of file" | pachctl put file demo@master:/myfile.txt
+ ```
+8. Unmount and re-mount your repo to attach to the latest commit containing the new file.
+9. Read the file using the following:
+ ```s
+ cat /pfs/demo/myfile.txt
+ ```
 
 ### Explore Directories & Files
 
@@ -252,14 +326,14 @@ At the bottom of the **Mounted Repositories** tab, you'll find the file browser.
 
 - Mounted repositories are nested within the root `/pfs` (Pachyderm's File System)
 - These repositories are **read-only**
-- Mounted repositories have a `/` glob pattern applied to their directories and files.
-- Files only downloaded locally when you access them (saving you time).
+- Mounted repositories have a `/` glob pattern applied to their directories and files
+- Files only downloaded locally when you access them (saving you time)
 
 Using the previous example, while the **Demo** repository is mounted, you can select the **demo** folder to reveal the example `myfile.txt`. 
 
 ### Examples 
 
-Make sure to check our [data science notebook examples](https://github.com/pachyderm/examples){target=_blank} running on Pachyderm, from a market sentiment NLP implementation using a FinBERT model to pipelines training a regression model on the Boston Housing Dataset. You will also find integration examples with open-source products, such as labeling or model serving applications. 
+Make sure to check our [data science notebook examples](https://github.com/pachyderm/examples) running on Pachyderm, from a market sentiment NLP implementation using a FinBERT model to pipelines training a regression model on the Boston Housing Dataset. You will also find integration examples with open-source products, such as labeling or model serving applications. 
 
 --- 
 
@@ -267,18 +341,18 @@ Make sure to check our [data science notebook examples](https://github.com/pachy
 
  Restarting your server should resolve most issues. To restart your server, run the following command from the terminal window in Jupyterlab:
 
-```shell
+```s
 pkill -f "mount-server"
 ```
 The server restarts by itself.
 
-### M1 users with Docker Desktop < `4.6`
+### M1 Users With Docker Desktop < `4.6`
 
-A [documented issue between qemu and Docker Desktop](https://gitlab.com/qemu-project/qemu/-/issues/340){target=_blank} prevents you from running our pre-built Mount Extension Image in Docker Desktop.
+A [documented issue between qemu and Docker Desktop](https://gitlab.com/qemu-project/qemu/-/issues/340) prevents you from running our pre-built Mount Extension Image in Docker Desktop.
 
 We recommend the following:
 
-  - Use [Podman](https://podman.io){target=_blank} (See installation instructions)
+  - Use [Podman](https://podman.io) (See installation instructions)
   ```shell
   brew install podman
   podman machine init --disk-size 50
@@ -286,6 +360,5 @@ We recommend the following:
   podman machine ssh
   sudo rpm-ostree install qemu-user-static && sudo systemctl reboot THEN
   ```
-  then replace the keyword `docker` with `podman` in all the commands above. 
-  - Or make sure that your qemu version is > `6.2`.
-
+   then replace the keyword `docker` with `podman` in all the commands above. 
+  - Or make sure that your qemu version is > `6.2`
