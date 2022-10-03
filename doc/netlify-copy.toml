@@ -4,6 +4,30 @@
   publish = "site/"
   ignore = "git diff --quiet HEAD^ HEAD -- ."
 
+[[plugins]]
+  package = "netlify-plugin-checklinks"
+
+  [plugins.inputs]
+
+  entryPoints = [
+    "latest/index.html",
+  ]
+ 
+  recursive = true
+  pretty = true
+ 
+  # You can mark some check as skipped, which will block checklinks
+  # from ever attempting to execute them.
+  # skipPatterns is an array of strings you can match against failing reports
+  skipPatterns = ["404.html",".svg","/blob/", "linkedin", "file", "127.0.0.1", "localhost", "portal.azure.com", "reference/pachctl/", "fonts.googleapis.com"]
+ 
+  # You can mark some check as todo, which will execute the check, but allow failures.
+  # todoPatterns is an array of strings you can match against failing reports
+  todoPatterns = []
+
+  checkExternal = false
+  followSourceMaps = false 
+
 [[redirects]]
   from = "/:version/contributing/supported-releases"
   to = "/:version/reference/supported-releases"
