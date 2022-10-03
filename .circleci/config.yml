@@ -88,6 +88,9 @@ jobs:
             - run: etc/testing/circle/install.sh
             - run: etc/testing/circle/start-kind.sh
             - run: etc/testing/circle/deploy-pachyderm.sh
+            - run: echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
+            - run: touch .env.development.local
+            - run: make setup-ci-auth
             - run: npm run load-setup
             - run: pachctl port-forward & npm run load-test:ci
     build:
