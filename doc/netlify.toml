@@ -4,8 +4,8 @@
   publish = "site/"
   ignore = "git diff --quiet HEAD^ HEAD -- ."
 
-[[plugins]]
-  ## package = "netlify-plugin-checklinks" ## 
+## [[plugins]]
+  package = "netlify-plugin-checklinks"
 
   [plugins.inputs]
 
@@ -26,7 +26,7 @@
   todoPatterns = []
 
   checkExternal = false
-  followSourceMaps = false
+  followSourceMaps = false ## 
 
 [[redirects]]
   from = "/:version/contributing/supported-releases"
