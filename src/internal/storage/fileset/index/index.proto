@@ -5,11 +5,14 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/storage/file
 
 import "internal/storage/chunk/chunk.proto";
 
-// Index stores an index to and metadata about a file.
+// Index stores an index to and metadata about a range of files or a file.
 message Index {
   string path = 1;
+  // NOTE: range and file are mutually exclusive.
   Range range = 2;
   File file = 3;
+  // NOTE: num_files and size_bytes did not exist in older versions of 2.x, so
+  // they will not be set.
   int64 num_files = 4;
   int64 size_bytes = 5;
 }
