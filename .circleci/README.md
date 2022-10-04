@@ -39,3 +39,10 @@ After verifying the workflow ran without issues, verify the new pgbouncer image 
 ---
 
 TODO
+
+### [pachyderm/kube-event-tail](https://hub.docker.com/repository/docker/pachyderm/kube-event-tail)
+---
+
+Our kube-event-tail image is built from an [kube-event-tail internal repo](https://github.com/pachyderm/kube-event-tail) with the kube-event-tail as a submodule.
+
+In order to update this image, simple go to the [kube-event-tail internal repo](https://github.com/pachyderm/kube-event-tail) and create a tag in the format `v0.0.8`, circle ci will trigger, build and release the new image. Once it is published you can bump the image in the core repo and test before merging for the next release. 
