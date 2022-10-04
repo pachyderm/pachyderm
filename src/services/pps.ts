@@ -420,15 +420,18 @@ const pps = ({
       });
     },
 
-    listDatums: ({jobId, pipelineName}: ListDatumsRequestArgs) => {
-      const stream = client.listDatum(
-        new ListDatumRequest().setJob(
-          new Job()
-            .setId(jobId)
-            .setPipeline(new Pipeline().setName(pipelineName)),
-        ),
-        credentialMetadata,
+    listDatums: ({jobId, pipelineName, filter}: ListDatumsRequestArgs) => {
+      const request = new ListDatumRequest().setJob(
+        new Job()
+          .setId(jobId)
+          .setPipeline(new Pipeline().setName(pipelineName)),
       );
+
+      if (filter) {
+        request.setFilter(new ListDatumRequest.Filter().setStateList(filter));
+      }
+
+      const stream = client.listDatum(request, credentialMetadata);
 
       return streamToObjectArray<DatumInfo, DatumInfo.AsObject>(stream);
     },

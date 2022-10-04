@@ -21,6 +21,7 @@ import {
   StartCommitRequest,
   SubscribeCommitRequest,
 } from '../proto/pfs/pfs_pb';
+import {DatumState} from '../proto/pps/pps_pb';
 
 export interface GRPCPlugin {
   onCall?: (args: {requestName: string}) => void;
@@ -138,6 +139,7 @@ export type InspectDatumRequestArgs = {
 export type ListDatumsRequestArgs = {
   jobId: string;
   pipelineName: string;
+  filter?: DatumState[];
 };
 
 export type RenewFileSetRequestArgs = {

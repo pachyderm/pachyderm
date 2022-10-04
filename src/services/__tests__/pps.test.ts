@@ -165,6 +165,52 @@ describe('services/pps', () => {
   describe('listDatums + inspectDatum', () => {
     jest.setTimeout(60000);
 
+    it('should inspect a datum for a pipeline job', async () => {
+      const {pachClient, inputRepoName} = await createSandBox('listDatums');
+      const commit = await pachClient.pfs().startCommit({
+        branch: {name: 'master', repo: {name: inputRepoName}},
+      });
+
+      const fileClient = await pachClient.pfs().modifyFile();
+
+      await fileClient
+        .setCommit(commit)
+        .putFileFromBytes('dummyData.csv', Buffer.from('a,b,c'))
+        .end();
+
+      await pachClient.pfs().finishCommit({commit});
+      const jobs = await pachClient.pps().listJobs();
+
+      const jobId = jobs[0]?.job?.id;
+      expect(jobId).toBeDefined();
+
+      await pachClient.pps().inspectJob({
+        id: jobId || '',
+        pipelineName: 'listDatums',
+        wait: true,
+        projectId: 'default',
+      });
+
+      const datums = await pachClient.pps().listDatums({
+        jobId: jobId || '',
+        pipelineName: 'listDatums',
+      });
+
+      expect(datums).toHaveLength(1);
+
+      const datum = await pachClient.pps().inspectDatum({
+        id: datums[0]?.datum?.id || '',
+        jobId: jobId || '',
+        pipelineName: 'listDatums',
+      });
+
+      const datumObject = datum.toObject();
+
+      expect(datumObject.state).toEqual(DatumState.SUCCESS);
+      expect(datumObject.dataList[0]?.file?.path).toEqual('/dummyData.csv');
+      expect(datumObject.dataList[0]?.sizeBytes).toEqual(5);
+    });
+
     it('should list datums for a pipeline job', async () => {
       const {pachClient, inputRepoName} = await createSandBox('listDatums');
       const commit = await pachClient.pfs().startCommit({
@@ -200,18 +246,49 @@ describe('services/pps', () => {
       expect(datums[0].state).toEqual(DatumState.SUCCESS);
       expect(datums[0].dataList[0]?.file?.path).toEqual('/dummyData.csv');
       expect(datums[0].dataList[0]?.sizeBytes).toEqual(5);
+    });
 
-      const datum = await pachClient.pps().inspectDatum({
-        id: datums[0]?.datum?.id || '',
-        jobId: jobId || '',
-        pipelineName: 'listDatums',
+    it('should filter datum list', async () => {
+      const {pachClient, inputRepoName} = await createSandBox('listDatums');
+      const commit = await pachClient.pfs().startCommit({
+        branch: {name: 'master', repo: {name: inputRepoName}},
       });
 
-      const datumObject = datum.toObject();
+      const fileClient = await pachClient.pfs().modifyFile();
 
-      expect(datumObject.state).toEqual(DatumState.SUCCESS);
-      expect(datumObject.dataList[0]?.file?.path).toEqual('/dummyData.csv');
-      expect(datumObject.dataList[0]?.sizeBytes).toEqual(5);
+      await fileClient
+        .setCommit(commit)
+        .putFileFromBytes('dummyData.csv', Buffer.from('a,b,c'))
+        .end();
+
+      await pachClient.pfs().finishCommit({commit});
+      const jobs = await pachClient.pps().listJobs();
+
+      const jobId = jobs[0]?.job?.id;
+      expect(jobId).toBeDefined();
+
+      await pachClient.pps().inspectJob({
+        id: jobId || '',
+        pipelineName: 'listDatums',
+        wait: true,
+        projectId: 'default',
+      });
+
+      let datums = await pachClient.pps().listDatums({
+        jobId: jobId || '',
+        pipelineName: 'listDatums',
+        filter: [DatumState.FAILED],
+      });
+
+      expect(datums).toHaveLength(0);
+
+      datums = await pachClient.pps().listDatums({
+        jobId: jobId || '',
+        pipelineName: 'listDatums',
+        filter: [DatumState.FAILED, DatumState.SUCCESS],
+      });
+
+      expect(datums).toHaveLength(1);
     });
   });
 });
