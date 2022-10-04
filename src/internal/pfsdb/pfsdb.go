@@ -28,10 +28,17 @@ var ReposTypeIndex = &col.Index{
 	},
 }
 
+func RepoNameKey(repo *pfs.Repo) string {
+	if repo.Project == nil || repo.Project.Name == "" {
+		return repo.Name
+	}
+	return repo.Project.Name + "/" + repo.Name
+}
+
 var ReposNameIndex = &col.Index{
 	Name: "name",
 	Extract: func(val proto.Message) string {
-		return val.(*pfs.RepoInfo).Repo.Name
+		return RepoNameKey(val.(*pfs.RepoInfo).Repo)
 	},
 }
 
