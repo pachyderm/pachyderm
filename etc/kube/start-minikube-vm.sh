@@ -79,7 +79,7 @@ set -x
 
 # Push pachyderm images to minikube VM
 # (extract correct dash image from pachctl deploy)
-etcd_image="pachyderm/etcd:v3.5.1"
+etcd_image="pachyderm/etcd:v3.5.5"
 postgres_image="postgres:11.3"
 docker pull "${etcd_image}"
 docker pull "${postgres_image}"

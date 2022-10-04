@@ -10,7 +10,7 @@ import collections
 import http.client
 from pathlib import Path
 
-ETCD_IMAGE = "pachyderm/etcd:v3.5.1"
+ETCD_IMAGE = "pachyderm/etcd:v3.5.5"
 
 NEWLINE_SEPARATE_OBJECTS_PATTERN = re.compile(r"\}\n+\{", re.MULTILINE)
 
@@ -148,7 +148,7 @@ async def run(cmd, *args, raise_on_error=True, stdin=None, capture_output=False,
         stderr=asyncio.subprocess.PIPE if capture_output else None,
         cwd=cwd,
     )
-    
+
     future = proc.communicate(input=stdin.encode("utf8") if stdin is not None else None)
     result = await (future if timeout is None else asyncio.wait_for(future, timeout=timeout))
 

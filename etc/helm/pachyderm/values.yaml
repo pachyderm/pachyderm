@@ -112,7 +112,7 @@ etcd:
   dynamicNodes: 1
   image:
     repository: "pachyderm/etcd"
-    tag: "v3.5.1"
+    tag: "v3.5.5"
     pullPolicy: "IfNotPresent"
   # maxTxnOps sets the --max-txn-ops in the container args
   maxTxnOps: 10000
