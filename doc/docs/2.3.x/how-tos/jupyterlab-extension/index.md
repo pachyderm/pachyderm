@@ -221,12 +221,12 @@ singleuser:
     defaultUrl: "/lab"
     image:
         name: pachyderm/notebooks-user
-        tag: <latest-release>
+        tag: 0.6.3
     extraEnv:
         "SIDECAR_MODE": "True"
     extraContainers:
         - name: mount-server-manager
-          image: pachyderm/mount-server:<latest-release>
+          image: pachyderm/mount-server:0.6.3
           command: ["/bin/bash"]
           args: ["-c", "mount-server"]
           volumeMounts:
@@ -254,12 +254,12 @@ singleuser:
     defaultUrl: "/lab"
     image:
         name: pachyderm/notebooks-user
-        tag: <latest-release>
+        tag: 0.6.3
     extraEnv:
         "SIDECAR_MODE": "True"
     extraContainers:
         - name: mount-server-manager
-          image: pachyderm/mount-server:<latest-release> 
+          image: pachyderm/mount-server:0.6.3
           command: ["/bin/bash"]
           args: ["-c", "mkdir -p ~/.pachyderm && cp /config/config.json ~/.pachyderm && mount-server"]
           volumeMounts:

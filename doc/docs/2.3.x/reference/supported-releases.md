@@ -93,8 +93,8 @@ A release under development may undergo several pre-release stages before becomi
 
 | Feature              | Version | Date       |
 | -------------------- | --------| ---------- |
-| JupyterLab Extension | 1.9.9   | 2019-11-06 |
-| Service Pipelines    | 0.6.0   | 2022-06-15 |
+| Service Pipelines | 1.9.9   | 2019-11-06 |
+| JupyterLab Extension    | 0.6.3   | 2022-09-21 |
 
 ## Deprecated Features
 
