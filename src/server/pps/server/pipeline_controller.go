@@ -471,7 +471,7 @@ func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineS
 func (pc *pipelineController) apply(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationController, target pps.PipelineState, sideEffects []sideEffect, reason string) error {
 	for _, s := range sideEffects {
 		if err := s.apply(ctx, pc, pi, rc); err != nil {
-			return err
+			return errors.Wrapf(err, "apply side effect %s", s.String())
 		}
 	}
 	if target != pi.State {
