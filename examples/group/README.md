@@ -106,23 +106,6 @@ Following the 2 steps pattern described in our [datum processing documentation](
     make setup-lab
     ```
     Optionally, you can run a `ls labresults/` to check what the data look like.
-1. Before creating our first pipelines, let's preview what our datums will look like by running the following command in the `examples/group` directory:
-
-    ```shell
-    pachctl list datum -f pipelines/lab/lab_group_by_hospital.json 
-    ```
-    or
-    ```shell
-    pachctl list datum -f pipelines/lab/lab_group_by_patient.json 
-    ```
-    For example, in the case of a "group by patient", note that one datum is created for each patient ID. Each datum containing all the lab results for this patient:
-        
-    | PATIENT ID| FILES IN DATUM |
-    |-----------|----------------|                                    
-    |PATID1| /T1606707557-LIPID-PATID1-CLIA24D9871327.txt <br> /T1606707613-LIPID-PATID1-CLIA24D9871328.txt |
-    |PATID2|/T1606331395-LIPID-PATID2-CLIA24D9871327.txt |
-    |PATID3|/T1606707579-LIPID-PATID3-CLIA24D9871327.txt <br> /T1606707635-LIPID-PATID3-CLIA24D9871328.txt |
-    |PATID4|/T1606707597-LIPID-PATID4-CLIA24D9871327.txt|
 
 1. Populate Pachyderm's repository and create your pipelines:
 
@@ -157,7 +140,25 @@ Following the 2 steps pattern described in our [datum processing documentation](
     pachctl list pipeline
     ```    
 
-1. Check the output repository of the first pipeline in both use cases. Our code has created one txt file per datum. Each datum has been placed in a directory named after its capture group:
+2. Let's preview what our datums will look like by running the following command in the `examples/group` directory:
+
+    ```shell
+    pachctl list datum -f pipelines/lab/lab_group_by_hospital.json 
+    ```
+    or
+    ```shell
+    pachctl list datum -f pipelines/lab/lab_group_by_patient.json 
+    ```
+    For example, in the case of a "group by patient", note that one datum is created for each patient ID. Each datum containing all the lab results for this patient:
+        
+    | PATIENT ID| FILES IN DATUM |
+    |-----------|----------------|                                    
+    |PATID1| /T1606707557-LIPID-PATID1-CLIA24D9871327.txt <br> /T1606707613-LIPID-PATID1-CLIA24D9871328.txt |
+    |PATID2|/T1606331395-LIPID-PATID2-CLIA24D9871327.txt |
+    |PATID3|/T1606707579-LIPID-PATID3-CLIA24D9871327.txt <br> /T1606707635-LIPID-PATID3-CLIA24D9871328.txt |
+    |PATID4|/T1606707597-LIPID-PATID4-CLIA24D9871327.txt|
+
+3. Check the output repository of the first pipeline in both use cases. Our code has created one txt file per datum. Each datum has been placed in a directory named after its capture group:
 
     ```shell
     pachctl list file group_by_hospital@master
@@ -171,7 +172,7 @@ Following the 2 steps pattern described in our [datum processing documentation](
     pachctl list file group_by_patient@master:/1/
     ```
 
-1. Now check the output repo of the second pipeline:
+4. Now check the output repo of the second pipeline:
     ```shell
     pachctl list file reduce_group_by_hospital@master
     ```
@@ -232,22 +233,6 @@ The following table lists the expected result (the "net amount") for each store.
     ```shell
     ls ./purchases
     ```
-1. Before creating our pipeline, let's preview what our datums will look like by running the following command in the `examples/group` directory:
-
-    ```shell
-    pachctl list datum -f retail_group.json 
-    ```
-    Note that one datum is created for each store ID. Each datum contains all the purchases and returns made at a given store:
-
-    |STORE ID| DATUM | 
-    |---------|---------|
-    |0|ORDERW261452_STOREID0.txt|
-    |1|STOREID1.txt <br> ORDERW080520_STOREID1.txt<br> ORDERW080521_STOREID1.txt<br> ORDERW080520_STOREID1.txt | 
-    |2| STOREID2.txt <br> ORDERW078929_STOREID2.txt |
-    |3| STOREID3.txt <br> ORDERW598471_STOREID3.txt|
-    |4| STOREID4.txt|
-    |5| STOREID4.txt<br> ORDERW080231_STOREID5.txt<br> ORDERW080528_STOREID5.txt<br> ORDERW080231_STOREID5.txt <br>ORDERW080528_STOREID5.txt|
-
 1. Populate Pachyderm’s repository and create your pipeline:
 
     In the `examples/group` directory, run:
@@ -283,7 +268,21 @@ The following table lists the expected result (the "net amount") for each store.
     ```shell
     pachctl list pipeline
     ```
- 
+2. Let's preview what our datums will look like by running the following command in the `examples/group` directory:
+
+    ```shell
+    pachctl list datum -f retail_group.json 
+    ```
+    Note that one datum is created for each store ID. Each datum contains all the purchases and returns made at a given store:
+
+    |STORE ID| DATUM | 
+    |---------|---------|
+    |0|ORDERW261452_STOREID0.txt|
+    |1|STOREID1.txt <br> ORDERW080520_STOREID1.txt<br> ORDERW080521_STOREID1.txt<br> ORDERW080520_STOREID1.txt | 
+    |2| STOREID2.txt <br> ORDERW078929_STOREID2.txt |
+    |3| STOREID3.txt <br> ORDERW598471_STOREID3.txt|
+    |4| STOREID4.txt|
+    |5| STOREID4.txt<br> ORDERW080231_STOREID5.txt<br> ORDERW080528_STOREID5.txt<br> ORDERW080231_STOREID5.txt <br>ORDERW080528_STOREID5.txt|
 1. Take a look at your final product:
 
     Once it has fully and successfully run, have a look at your output repository to confirm that it looks like what we expect.
