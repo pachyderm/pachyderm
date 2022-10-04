@@ -29,13 +29,11 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 		DisableLoki: true,
 	}
 	opts.ValueOverrides = map[string]string{
-		"pachd.lokiDeploy":            "false",
-		"pachd.lokiLogging":           "false",
-		"kubeEventTail.enabled":       "false",
 		"postgresql.image.repository": "pachyderm/postgresql",
 		"postgresql.image.tag":        "13.3.0",
 		"etcd.image.tag":              "v3.5.2",
-		"pgbouncer.image.tag":         "1.17.0"}
+		"pgbouncer.image.tag":         "1.17.0",
+		"kubeEventTail.image.tag":     "d25b3e7eda99d8ad2ba3743ba45c0a7a1f59f958"}
 	// Test Install
 	minikubetestenv.PutNamespace(t, ns)
 	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
@@ -83,13 +81,11 @@ func TestEnterpriseServerMember(t *testing.T) {
 		CleanupAfter:     true,
 		DisableLoki:      true,
 		ValueOverrides: map[string]string{
-			"pachd.lokiDeploy":            "false",
-			"pachd.lokiLogging":           "false",
-			"kubeEventTail.enabled":       "false",
 			"postgresql.image.repository": "pachyderm/postgresql",
 			"postgresql.image.tag":        "13.3.0",
 			"etcd.image.tag":              "v3.5.2",
 			"pgbouncer.image.tag":         "1.17.0",
+			"kubeEventTail.image.tag":     "d25b3e7eda99d8ad2ba3743ba45c0a7a1f59f958",
 		},
 	})
 	whoami, err := ec.AuthAPIClient.WhoAmI(ec.Ctx(), &auth.WhoAmIRequest{})
@@ -105,13 +101,11 @@ func TestEnterpriseServerMember(t *testing.T) {
 		CleanupAfter:     true,
 		DisableLoki:      true,
 		ValueOverrides: map[string]string{
-			"pachd.lokiDeploy":            "false",
-			"pachd.lokiLogging":           "false",
-			"kubeEventTail.enabled":       "false",
 			"postgresql.image.repository": "pachyderm/postgresql",
 			"postgresql.image.tag":        "13.3.0",
 			"etcd.image.tag":              "v3.5.2",
 			"pgbouncer.image.tag":         "1.17.0",
+			"kubeEventTail.image.tag":     "d25b3e7eda99d8ad2ba3743ba45c0a7a1f59f958",
 		},
 	})
 	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
