@@ -1960,9 +1960,12 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	if err != nil {
 		return err
 	}
-	// Verify that all input repos exist (create cron and git repos if necessary)
+	// Verify that all input repos exist (create cron repos if necessary).
 	if visitErr := pps.VisitInput(newPipelineInfo.Details.Input, func(input *pps.Input) error {
 		if input.Pfs != nil {
+			if input.Pfs.Project == "" {
+				input.Pfs.Project = projectName
+			}
 			if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx,
 				&pfs.InspectRepoRequest{
 					Repo: client.NewSystemProjectRepo(input.Pfs.Project, input.Pfs.Repo, input.Pfs.RepoType),
@@ -1974,7 +1977,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		if input.Cron != nil {
 			if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
 				&pfs.CreateRepoRequest{
-					Repo:        client.NewProjectRepo(request.Pipeline.Project.GetName(), input.Cron.Repo),
+					Repo:        client.NewProjectRepo(projectName, input.Cron.Repo),
 					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline),
 				},
 			); err != nil && !errutil.IsAlreadyExistError(err) {
