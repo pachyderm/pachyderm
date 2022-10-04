@@ -626,12 +626,16 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 				return nil
 			})
 			// Set parallelism
-			log.Debugf("Beginning scale-up check for %q, which has %d tasks",
+			log.Debugf("PPS master: beginning scale-up check for %q, which has %d tasks",
 				pi.Pipeline.Name, nTasks)
 			switch {
 			case err != nil || nTasks == 0:
-				log.Errorf("tasks remaining for %q not known (possibly still being calculated): %v",
-					pi.Pipeline.Name, err)
+				if err != nil {
+					log.Infof("PPS master: tasks remaining for %q not known (possibly still being calculated)",
+						pi.Pipeline.Name)
+				} else {
+					log.Errorf("PPS master: tasks remaining for %q not known (possibly still being calculated): %v", pi.Pipeline.Name, err)
+				}
 				return curScale // leave pipeline alone until until nTasks is available
 			case nTasks <= curScale:
 				return curScale // can't scale down w/o dropping work
@@ -661,6 +665,7 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 			return false // no changes necessary
 		}
 		// Update the # of replicas
+		log.Debugf("PPS master: scale up pipeline %q from %d to %d replicas", pi.GetPipeline().GetName(), curScale, targetScale)
 		rc.Spec.Replicas = &targetScale
 		return true
 	}))
@@ -683,6 +688,7 @@ func (pc *pipelineController) scaleDownPipeline(ctx context.Context, pi *pps.Pip
 		if rc.Spec.Replicas != nil && *rc.Spec.Replicas == 0 {
 			return false // prior attempt succeeded
 		}
+		log.Debugf("PPS master: scale down pipline %q to 0 replicas", pi.GetPipeline().GetName())
 		rc.Spec.Replicas = &zero
 		return true
 	}))
