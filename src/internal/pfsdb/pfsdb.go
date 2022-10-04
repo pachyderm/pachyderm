@@ -215,12 +215,3 @@ func CollectionsV0() []col.PostgresCollection {
 		col.NewPostgresCollection(branchesCollectionName, nil, nil, nil, branchesIndexes),
 	}
 }
-
-// returns collections released in v2.4.0 - specifically the projects collection
-// DO NOT MODIFY THIS FUNCTION
-// IT HAS BEEN USED IN A RELEASED MIGRATION
-func CollectionsV2_4_0() []col.PostgresCollection {
-	return []col.PostgresCollection{
-		col.NewPostgresCollection(projectsCollectionName, nil, nil, nil, nil),
-	}
-}
