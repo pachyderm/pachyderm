@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -56,7 +57,7 @@ func (rt *loggingRT) RoundTrip(req *http.Request) (*http.Response, error) {
 	res, err := rt.underlying.RoundTrip(req)
 	if err != nil {
 		log.WithError(err).Info("outgoing http request completed with error")
-		return res, err
+		return res, errors.EnsureStack(err)
 	}
 	if res != nil {
 		log.WithFields(logrus.Fields{
@@ -64,7 +65,7 @@ func (rt *loggingRT) RoundTrip(req *http.Request) (*http.Response, error) {
 			"status":   res.Status,
 		}).Debugf("outgoing http request complete")
 	}
-	return res, err
+	return res, errors.EnsureStack(err)
 }
 
 // InstrumentRoundTripper returns an http.RoundTripper that collects Prometheus metrics; delegating
