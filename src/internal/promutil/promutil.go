@@ -62,7 +62,7 @@ func (rt *loggingRT) RoundTrip(req *http.Request) (*http.Response, error) {
 		log.WithFields(logrus.Fields{
 			"duration": time.Since(start),
 			"status":   res.Status,
-		}).Infof("outgoing http request complete")
+		}).Debugf("outgoing http request complete")
 	}
 	return res, err
 }
