@@ -33,7 +33,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 		"postgresql.image.tag":        "13.3.0",
 		"etcd.image.tag":              "v3.5.2",
 		"pgbouncer.image.tag":         "1.17.0",
-		"kubeEventTail.image.tag":     "d25b3e7eda99d8ad2ba3743ba45c0a7a1f59f958"}
+		"kubeEventTail.image.tag":     "0.0.0-dc32b3762ef4c6894b576bb4ac2f3f3c706a38fc"}
 	// Test Install
 	minikubetestenv.PutNamespace(t, ns)
 	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
@@ -85,7 +85,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 			"postgresql.image.tag":        "13.3.0",
 			"etcd.image.tag":              "v3.5.2",
 			"pgbouncer.image.tag":         "1.17.0",
-			"kubeEventTail.image.tag":     "d25b3e7eda99d8ad2ba3743ba45c0a7a1f59f958",
+			"kubeEventTail.image.tag":     "0.0.0-dc32b3762ef4c6894b576bb4ac2f3f3c706a38fc",
 		},
 	})
 	whoami, err := ec.AuthAPIClient.WhoAmI(ec.Ctx(), &auth.WhoAmIRequest{})
@@ -105,7 +105,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 			"postgresql.image.tag":        "13.3.0",
 			"etcd.image.tag":              "v3.5.2",
 			"pgbouncer.image.tag":         "1.17.0",
-			"kubeEventTail.image.tag":     "d25b3e7eda99d8ad2ba3743ba45c0a7a1f59f958",
+			"kubeEventTail.image.tag":     "0.0.0-dc32b3762ef4c6894b576bb4ac2f3f3c706a38fc",
 		},
 	})
 	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
