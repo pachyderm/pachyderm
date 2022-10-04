@@ -357,7 +357,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	if repo.Type == pfs.UserRepoType {
 		var dependentRepos []pfs.RepoInfo
 		var otherRepo pfs.RepoInfo
-		if err := repos.GetByIndex(pfsdb.ReposNameIndex, repo.Name, &otherRepo, col.DefaultOptions(), func(key string) error {
+		if err := repos.GetByIndex(pfsdb.ReposNameIndex, pfsdb.ReposNameKey(repo), &otherRepo, col.DefaultOptions(), func(key string) error {
 			if otherRepo.Repo.Type != repo.Type {
 				dependentRepos = append(dependentRepos, otherRepo)
 			}
