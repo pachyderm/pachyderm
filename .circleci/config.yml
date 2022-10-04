@@ -23,7 +23,7 @@ parameters:
     default: false
   pgbouncer-image-version:
     type: string
-    default: "1.17.0"
+    default: "1.16.1"
 
 # our defined job, and its steps
 jobs:
@@ -62,9 +62,13 @@ jobs:
       - image: cimg/base:stable
     steps:
       - checkout
+      - run:
+          name: Download utilities
+          command: |
+            sudo apt update
+            sudo apt install qemu binfmt-support qemu-user-static
       - setup_remote_docker:
           docker_layer_caching: true
-          version: "20.10.12"
       - run:
           name: pachydermbuildbot docker login
           command: |
@@ -72,7 +76,8 @@ jobs:
       - run:
           name: update pgbouncer image
           command: |
-            docker buildx build --build-arg VERSION=<< pipeline.parameters.pgbouncer-image-version >> --platform=linux/amd64,linux/arm64 -f Dockerfile.pgbouncer -t pachyderm/pgbouncer:<< pipeline.parameters.pgbouncer-image-version >> --push
+            docker buildx create --name pgb --driver docker-container
+            docker buildx build --builder pgb --build-arg VERSION=<< pipeline.parameters.pgbouncer-image-version >> --platform=linux/amd64,linux/arm64 -f Dockerfile.pgbouncer -t pachyderm/pgbouncer:<< pipeline.parameters.pgbouncer-image-version >> --push
 
 # our single workflow, that triggers the setup job defined above
 workflows:
