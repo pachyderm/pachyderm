@@ -2,6 +2,7 @@ import React from 'react';
 import {render, waitFor} from '@testing-library/react';
 import {ServerConnection} from '@jupyterlab/services';
 import userEvent from '@testing-library/user-event';
+import YAML from 'yaml';
 
 import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
@@ -119,7 +120,7 @@ describe('datum screen', () => {
   });
 
   describe('errors with input spec', () => {
-    it('error if poorly formatted json input spec', async () => {
+    it('error if bad syntax in input spec', async () => {
       const {getByTestId} = render(
         <Datum
           showDatum={true}
@@ -141,7 +142,7 @@ describe('datum screen', () => {
       submit.click();
 
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent(
-        'Poorly formatted json input spec',
+        'Poorly formatted input spec',
       );
     });
 
@@ -173,6 +174,56 @@ describe('datum screen', () => {
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent(
         'Bad data in input spec',
       );
+    });
+  });
+
+  describe('test valid input spec formats', () => {
+    it('valid json input spec', async () => {
+      const {getByTestId} = render(
+        <Datum
+          showDatum={true}
+          setShowDatum={setShowDatum}
+          keepMounted={false}
+          setKeepMounted={setKeepMounted}
+          refresh={jest.fn()}
+          pollRefresh={jest.fn()}
+        />,
+      );
+
+      expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
+
+      const input = await getByTestId('Datum__inputSpecInput');
+      const submit = await getByTestId('Datum__mountDatums');
+
+      userEvent.type(input, '{"pfs": "repo"}'.replace(/[{[]/g, '$&$&'));
+      expect(input).toHaveValue('{"pfs": "repo"}');
+      submit.click();
+
+      expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
+    });
+
+    it('valid yaml input spec', async () => {
+      const {getByTestId} = render(
+        <Datum
+          showDatum={true}
+          setShowDatum={setShowDatum}
+          keepMounted={false}
+          setKeepMounted={setKeepMounted}
+          refresh={jest.fn()}
+          pollRefresh={jest.fn()}
+        />,
+      );
+
+      expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
+
+      const input = await getByTestId('Datum__inputSpecInput');
+      const submit = await getByTestId('Datum__mountDatums');
+
+      userEvent.type(input, YAML.stringify({pfs: 'repo'}));
+      expect(input).toHaveValue(YAML.stringify({pfs: 'repo'}));
+      submit.click();
+
+      expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
     });
   });
 });
