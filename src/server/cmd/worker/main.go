@@ -89,7 +89,7 @@ func do(ctx context.Context, config interface{}) error {
 	}
 
 	// keepalive forever
-	keepAliveChan, err := env.GetEtcdClient().KeepAlive(ctx, resp.ID)
+	keepAliveChan, err := env.GetEtcdClient().KeepAlive(pachClient.Ctx(), resp.ID)
 	if err != nil {
 		return errors.Wrapf(err, "error with KeepAlive")
 	}
@@ -104,7 +104,7 @@ func do(ctx context.Context, config interface{}) error {
 	}()
 
 	// Actually write "key" into etcd
-	ctx, cancel = context.WithTimeout(ctx, 10*time.Second) // new ctx
+	ctx, cancel = context.WithTimeout(pachClient.Ctx(), 10*time.Second) // new ctx
 	defer cancel()
 	if _, err := env.GetEtcdClient().Put(ctx, key, "", etcd.WithLease(resp.ID)); err != nil {
 		return errors.Wrapf(err, "error putting IP address")
