@@ -610,6 +610,12 @@ func TestDeletingMountedRepo(t *testing.T) {
 					Mode:   "ro",
 				},
 				{
+					Name:   "repo_b1_dup",
+					Repo:   "repo",
+					Branch: "b1",
+					Mode:   "ro",
+				},
+				{
 					Name:   "repo_b2",
 					Repo:   "repo",
 					Branch: "b2",
