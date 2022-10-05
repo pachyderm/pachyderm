@@ -55,7 +55,7 @@ func do(ctx context.Context, config interface{}) error {
 		env.Config().PPSSpecCommitID,
 	) // get pipeline creds for pachClient
 	if err != nil {
-		return errors.Wrapf(err, "error getting pipelineInfo")
+		return errors.Wrapf(err, "worker: get pipelineInfo")
 	}
 
 	// Construct worker API server.
@@ -82,26 +82,26 @@ func do(ctx context.Context, config interface{}) error {
 	// IP will be removed from etcd
 	leaseID, err := getETCDLease(ctx, env.GetEtcdClient(), 10*time.Second)
 	if err != nil {
-		return errors.Wrapf(err, "could not get etcd lease")
+		return errors.Wrapf(err, "worker: get etcd lease")
 	}
 
 	// keepalive forever
 	keepAliveChan, err := env.GetEtcdClient().KeepAlive(ctx, leaseID)
 	if err != nil {
-		return errors.Wrapf(err, "error with KeepAlive")
+		return errors.Wrapf(err, "worker: etcd KeepAlive")
 	}
 	go func() {
 		for {
 			_, more := <-keepAliveChan
 			if !more {
-				log.Errorf("failed to renew worker ip etcd lease")
+				log.Errorf("failed to renew worker IP address etcd lease")
 				return
 			}
 		}
 	}()
 
 	if err := writeKey(ctx, env.GetEtcdClient(), key, leaseID, 10*time.Second); err != nil {
-		return errors.Wrapf(err, "Could not write %s to etcd", key)
+		return errors.Wrapf(err, "worker: etcd key %s", key)
 	}
 
 	// If server ever exits, return error
@@ -121,7 +121,7 @@ func getETCDLease(ctx context.Context, client *etcd.Client, duration time.Durati
 	}
 	resp, err := client.Grant(ctx, sec)
 	if err != nil {
-		return 0, errors.Wrapf(err, "error granting lease")
+		return 0, errors.Wrapf(err, "getETCDLease: etcd grant")
 	}
 	return resp.ID, nil
 }
@@ -130,7 +130,7 @@ func writeKey(ctx context.Context, client *etcd.Client, key string, id etcd.Leas
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	if _, err := client.Put(ctx, key, "", etcd.WithLease(id)); err != nil {
-		return errors.Wrapf(err, "error putting IP address")
+		return errors.Wrapf(err, "writeKey: etcd put")
 	}
 	return nil
 }
