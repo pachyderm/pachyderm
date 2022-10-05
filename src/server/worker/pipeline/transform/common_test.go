@@ -26,7 +26,7 @@ const debug = false
 func defaultPipelineInfo() *pps.PipelineInfo {
 	name := "testPipeline"
 	return &pps.PipelineInfo{
-		Pipeline: client.NewPipeline(name),
+		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, name),
 		Details: &pps.PipelineInfo_Details{
 			OutputBranch: "master",
 			Transform: &pps.Transform{

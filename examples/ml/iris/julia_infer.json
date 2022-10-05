@@ -14,7 +14,7 @@
     ]
   },
   "parallelism_spec": {
-    "constant": "5"
+    "constant": "1"
   },
   "input": {
     "cross": [

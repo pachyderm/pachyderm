@@ -108,7 +108,7 @@ func ProcessTask(pachClient *client.APIClient, input *types.Any) (*types.Any, er
 
 func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*types.Any, error) {
 	fileSetID, err := WithCreateFileSet(pachClient, "pachyderm-datums-pfs", func(s *Set) error {
-		commit := client.NewCommit(task.Input.Repo, task.Input.Branch, task.Input.Commit)
+		commit := client.NewProjectCommit(task.Input.Project, task.Input.Repo, task.Input.Branch, task.Input.Commit)
 		client, err := pachClient.PfsAPIClient.GlobFile(
 			pachClient.Ctx(),
 			&pfs.GlobFileRequest{

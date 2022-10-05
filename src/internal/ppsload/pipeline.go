@@ -40,12 +40,12 @@ func createPipelines(pachClient *client.APIClient, spec string, parallelism int6
 		repo := strings.TrimSpace(split[0]) + namespace
 		// Create source repos.
 		if strings.TrimSpace(split[1]) == "" {
-			if err := pachClient.CreateRepo(repo); err != nil {
+			if err := pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo); err != nil {
 				return nil, err
 			}
 			// First source repo will be the target of the PFS load test.
 			if retBranch == nil {
-				retBranch = client.NewBranch(repo, "master")
+				retBranch = client.NewProjectBranch(pfs.DefaultProjectName, repo, "master")
 			}
 			continue
 		}
@@ -54,14 +54,15 @@ func createPipelines(pachClient *client.APIClient, spec string, parallelism int6
 		for i := range inputs {
 			inputs[i] = strings.TrimSpace(inputs[i]) + namespace
 		}
-		if err := createPipeline(pachClient, repo, inputs, parallelism, podPatch); err != nil {
+		project := "" // TODO(CORE-1063): plumb through project somehow
+		if err := createPipeline(pachClient, project, repo, inputs, parallelism, podPatch); err != nil {
 			return nil, err
 		}
 	}
 	return retBranch, nil
 }
 
-func createPipeline(pachClient *client.APIClient, repo string, inputRepos []string, parallelism int64, podPatch string) error {
+func createPipeline(pachClient *client.APIClient, project, repo string, inputRepos []string, parallelism int64, podPatch string) error {
 	var inputs []*pps.Input
 	for i, inputRepo := range inputRepos {
 		inputs = append(inputs, &pps.Input{
@@ -78,7 +79,7 @@ func createPipeline(pachClient *client.APIClient, repo string, inputRepos []stri
 	_, err := pachClient.PpsAPIClient.CreatePipeline(
 		pachClient.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(repo),
+			Pipeline: client.NewProjectPipeline(project, repo),
 			Transform: &pps.Transform{
 				Cmd:   []string{"bash"},
 				Stdin: []string{"cp -r /pfs/input-*/* /pfs/out/"},

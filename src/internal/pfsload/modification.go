@@ -10,7 +10,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func Modification(env *Env, repo, branch, commit string, spec *ModificationSpec) error {
+func Modification(env *Env, project, repo, branch, commit string, spec *ModificationSpec) error {
 	taskDoer := env.TaskDoer()
 	client := env.Client()
 	eg, ctx := errgroup.WithContext(client.Ctx())
@@ -47,7 +47,7 @@ func Modification(env *Env, repo, branch, commit string, spec *ModificationSpec)
 				if err != nil {
 					return err
 				}
-				if err := client.AddFileSet(ctx, repo, branch, commit, data.FileSetId); err != nil {
+				if err := client.AddFileSet(ctx, project, repo, branch, commit, data.FileSetId); err != nil {
 					return errors.EnsureStack(err)
 				}
 				if data.Hash != nil {

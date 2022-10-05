@@ -1,8 +1,7 @@
 import {ISignal, Signal} from '@lumino/signaling';
 import {Poll} from '@lumino/polling';
-import partition from 'lodash/partition';
 import {requestAPI} from '../../handler';
-import {AuthConfig, Branch, mountState, Repo} from './types';
+import {AuthConfig, Mount, ListMountsResponse, mountState, Repo} from './types';
 import {ServerConnection} from '@jupyterlab/services';
 
 export const MOUNTED_STATES: mountState[] = [
@@ -22,15 +21,15 @@ export type ServerStatus = {
   message?: string;
 };
 
-export class PollRepos {
+export class PollMounts {
   constructor(name: string) {
     this.name = name;
   }
   readonly name: string;
 
-  private _rawData: Repo[] = [];
+  private _rawData: ListMountsResponse = <ListMountsResponse>{};
 
-  private _mounted: Repo[] = [];
+  private _mounted: Mount[] = [];
   private _unmounted: Repo[] = [];
   private _status: ServerStatus = {code: 999, message: ''};
   private _config: AuthConfig = {
@@ -38,7 +37,7 @@ export class PollRepos {
     cluster_status: 'INVALID',
   };
 
-  private _mountedSignal = new Signal<this, Repo[]>(this);
+  private _mountedSignal = new Signal<this, Mount[]>(this);
   private _unmountedSignal = new Signal<this, Repo[]>(this);
   private _statusSignal = new Signal<this, ServerStatus>(this);
   private _configSignal = new Signal<this, AuthConfig>(this);
@@ -53,11 +52,11 @@ export class PollRepos {
     },
   });
 
-  get mounted(): Repo[] {
+  get mounted(): Mount[] {
     return this._mounted;
   }
 
-  set mounted(data: Repo[]) {
+  set mounted(data: Mount[]) {
     if (data === this._mounted) {
       return;
     }
@@ -102,7 +101,7 @@ export class PollRepos {
     this._configSignal.emit(config);
   }
 
-  get mountedSignal(): ISignal<this, Repo[]> {
+  get mountedSignal(): ISignal<this, Mount[]> {
     return this._mountedSignal;
   }
   get unmountedSignal(): ISignal<this, Repo[]> {
@@ -126,15 +125,11 @@ export class PollRepos {
     await this._dataPoll.tick;
   };
 
-  updateData = (data: Repo[]): void => {
+  updateData = (data: ListMountsResponse): void => {
     if (JSON.stringify(data) !== JSON.stringify(this._rawData)) {
       this._rawData = data;
-      const [mountedPartition, unmountedPartition] = partition(
-        data,
-        (rep: Repo) => findMountedBranch(rep),
-      );
-      this.mounted = mountedPartition;
-      this.unmounted = unmountedPartition;
+      this.mounted = Array.from(Object.values(data.mounted));
+      this.unmounted = Array.from(Object.values(data.unmounted));
     }
   };
 
@@ -143,7 +138,7 @@ export class PollRepos {
       const config = await requestAPI<AuthConfig>('config', 'GET');
       this.config = config;
       if (config.cluster_status !== 'INVALID') {
-        const data = await requestAPI<Repo[]>('repos', 'GET');
+        const data = await requestAPI<ListMountsResponse>('mounts', 'GET');
         this.status = {code: 200};
         this.updateData(data);
       }
@@ -156,15 +151,4 @@ export class PollRepos {
       }
     }
   }
-}
-
-export function findMountedBranch(repo: Repo): Branch | undefined {
-  //NOTE: Using find will cause issues if we allow multiple branches to be mounted at the same time.
-  return repo.branches.find(
-    (branch) => branch.mount[0].state && isMounted(branch.mount[0].state),
-  );
-}
-
-export function isMounted(state: mountState): boolean {
-  return MOUNTED_STATES.includes(state);
 }

@@ -385,14 +385,21 @@ func (ctfsc *CreateFileSetClient) Close() (*pfs.CreateFileSetResponse, error) {
 }
 
 // GetFileSet gets a file set for a commit.
+//
+// Deprecated: use GetProjectFileSet instead.
 func (c APIClient) GetFileSet(repo, branch, commit string) (_ string, retErr error) {
+	return c.GetProjectFileSet(pfs.DefaultProjectName, repo, branch, commit)
+}
+
+// GetProjectFileSet gets a file set for a commit in a project.
+func (c APIClient) GetProjectFileSet(project, repo, branch, commit string) (_ string, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	resp, err := c.PfsAPIClient.GetFileSet(
 		c.Ctx(),
 		&pfs.GetFileSetRequest{
-			Commit: NewCommit(repo, branch, commit),
+			Commit: NewProjectCommit(project, repo, branch, commit),
 		},
 	)
 	if err != nil {
@@ -402,14 +409,21 @@ func (c APIClient) GetFileSet(repo, branch, commit string) (_ string, retErr err
 }
 
 // AddFileSet adds a fileset to a commit.
+//
+// Deprecated: use AddProjectFileSet instead.
 func (c APIClient) AddFileSet(repo, branch, commit, ID string) (retErr error) {
+	return c.AddProjectFileSet(pfs.DefaultProjectName, repo, branch, commit, ID)
+}
+
+// AddProjectFileSet adds a fileset to a commit in a project.
+func (c APIClient) AddProjectFileSet(project, repo, branch, commit, ID string) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	_, err := c.PfsAPIClient.AddFileSet(
 		c.Ctx(),
 		&pfs.AddFileSetRequest{
-			Commit:    NewCommit(repo, branch, commit),
+			Commit:    NewProjectCommit(project, repo, branch, commit),
 			FileSetId: ID,
 		},
 	)

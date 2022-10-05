@@ -357,7 +357,7 @@ See the example below:
     
 - Point your browser to **`http://localhost:8888`**, and authenticate using any mock User (username: `admin`, password: `password` will do).
 
-- Now that you are in, [click on Pachyderm's Mount Extension icon on the left of your JupyterLab](../../how-tos/jupyterlab-extension/#connect-the-extension-to-your-pachyderm-cluster){target=_blank} to connect your JupyterLab to your Pachyderm cluster.
+- Now that you are in, [click on Pachyderm's Mount Extension icon on the left of your JupyterLab](../../how-tos/jupyterlab-extension) to connect your JupyterLab to your Pachyderm cluster.
 
       Enter `grpc://<your-pachd-cluster-ip-from-the-previous-step>:30650` to login. 
 
