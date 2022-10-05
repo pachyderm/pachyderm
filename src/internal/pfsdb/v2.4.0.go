@@ -28,10 +28,10 @@ func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
 	if _, err := tx.ExecContext(ctx, `UPDATE collections.branches SET key = 'default/' || key, idx_repo = 'default/' || idx_repo`); err != nil {
 		return errors.Wrap(err, "could not update branches")
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE collections.commit SET key = 'default/' || key, idx_repo = 'default/' || idx_repo, idx_branchless = 'default/' || idx_branchless`); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE collections.commits SET key = 'default/' || key, idx_repo = 'default/' || idx_repo, idx_branchless = 'default/' || idx_branchless`); err != nil {
 		return errors.Wrap(err, "could not update commits")
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE collections.projects SET key = 'default' where key == ''`); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE collections.projects SET key = 'default' where key = ''`); err != nil {
 		return errors.Wrap(err, "could not update projects")
 	}
 	return nil
