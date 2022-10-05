@@ -74,12 +74,10 @@ Add the data to the parameters repository by splitting each line into a separate
    cd gamma_parameters
    split -l 1 ../gamma_parameters.txt
    cd ..
-   pachctl put file -r parameters@master -f c_parameters
-   pachctl put file -r parameters@master -f gamma_parameters
    ```
 
    ```shell
-   $ pachctl list file parameters@master
+   pachctl list file parameters@master
    NAME                  TYPE SIZE
    /c_parameters/        dir  81B  
    /gamma_parameters/    dir  42B 
@@ -90,38 +88,56 @@ Add the data to the parameters repository by splitting each line into a separate
 1. Create the `raw_data` repository:
 
    ```shell
-   $ pachctl create repo raw_data
+   pachctl create repo raw_data
    ```
 
 2. Create the `parameters` repository:
 
    ```shell
-   $ pachctl create repo parameters
+   pachctl create repo parameters
    ```
 
 3. Verify that the repositories were successfully created:
 
    ```shell
-   $ pachctl list repo
+   pachctl list repo
    NAME       CREATED        SIZE (MASTER)
    parameters 44 minutes ago 123B
    raw_data   44 minutes ago 6.858KiB
    ```
+4. Put the data from the inputs files:
 
+      ```
+      pachctl put file -r parameters@master -f c_parameters
+      pachctl put file -r parameters@master -f gamma_parameters
+      ```
+
+Optionally, you can use the **Glboal ID** to track provenance and inspect commits.
+
+   ```
+   pachctl inspect commits parameters@master
+
+   Commit: parameters@bf082449b6c1445198aab768261739b1
+   Original Branch: master
+   Parent: 2d1555a61d024c2aa9a1e5e5f53f3b37
+   Started: 2 minutes ago
+   Finished: 2 minutes ago
+   Size: 123B
+   ```
 
 ### 4. Run the Transaction
 
 1. Start a Transaction:
 
    ```shell
-   $ pachctl start transaction
+   pachctl start transaction
    Started new transaction: 854e8503-6e5d-4542-805c-a73a39200bf8
    ```
 2. Start Two Commits:
    - Commit to the `raw_data` repository:
 
    ```shell
-   $ pachctl start commit raw_data@master
+   pachctl start commit raw_data@master
    Added to transaction: 854e8503-6e5d-4542-805c-a73a39200bf8
    42b893e48e7d40f1bb5ed770526a9a07
    ```
@@ -129,14 +145,14 @@ Add the data to the parameters repository by splitting each line into a separate
    - Commit to the `parameters` repository:
 
    ```shell
-   $ pachctl start commit parameters@master
+   pachctl start commit parameters@master
    Added to transaction: 854e8503-6e5d-4542-805c-a73a39200bf8
    c4dc446b25e54a938a67a5e913b3f9a4
    ```
 3. Finish the Transaction:
 
    ```shell
-   $ pachctl finish transaction
+   pachctl finish transaction
    Completed transaction with 2 requests: 854e8503-6e5d-4542-805c-a73a39200bf8
    ```
 
@@ -145,7 +161,7 @@ Add the data to the parameters repository by splitting each line into a separate
    -  The transaction's job (in a `starting` state) that's waiting until you close both commits to update to a `running` state
 
    ```shell
-   $ pachctl list job --pipeline=model --no-pager
+   pachctl list job --pipeline=model --no-pager
    PIPELINE ID                               STARTED       DURATION RESTART PROGRESS  DL UL STATE
    model    ae5097e3777947d9905125e91c666b1f -             -        0       0 + 0 / 0 0B 0B starting
    model    dec07fe84d7b44dc9e609bd5b4b43b02 3 minutes ago 1 second 0       0 + 0 / 0 0B 0B successs
@@ -154,25 +170,25 @@ Add the data to the parameters repository by splitting each line into a separate
 4. Add the data to the `raw_data` repository:
 
    ```shell
-   $ pachctl put file raw_data@master:iris.csv -f iris.csv
+   pachctl put file raw_data@master:iris.csv -f iris.csv
    ```
 
 5. Close the commit to the `raw_data` repository:
 
    ```shell
-   $ pachctl finish commit raw_data@master
+   pachctl finish commit raw_data@master
    ```
 
 6. Close the commit to the `parameters` repository:
 
    ```shell
-   $ pachctl finish commit parameters@master
+   pachctl finish commit parameters@master
    ```
 
    After finishing both commits, the transaction job is permitted to start and enter a `running` state:
 
    ```shell
-   $ pachctl list job --pipeline=model --no-pager
+   pachctl list job --pipeline=model --no-pager
    PIPELINE ID                               STARTED                DURATION RESTART PROGRESS  DL UL STATE
    model    ae5097e3777947d9905125e91c666b1f Less than a second ago -        0       0 + 0 / 0 0B 0B running
    model    dec07fe84d7b44dc9e609bd5b4b43b02 3 minutes ago          1 second 0       0 + 0 / 0 0B 0B success
@@ -181,7 +197,7 @@ Add the data to the parameters repository by splitting each line into a separate
 7. View the contents of the model output repo:
 
    ```shell
-   $ pachctl list file model@master
+   pachctl list file model@master
    NAME                      TYPE SIZE
    /model_C0.031_G0.001.pkl  file 5.713KiB
    /model_C0.031_G0.004.pkl  file 5.713KiB
