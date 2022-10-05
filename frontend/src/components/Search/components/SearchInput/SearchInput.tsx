@@ -1,7 +1,7 @@
 import {CloseSVG, SearchSVG, Icon} from '@pachyderm/components';
 import classNames from 'classnames';
 import React, {useMemo} from 'react';
-import {useFormContext} from 'react-hook-form';
+import {UseFormReturn} from 'react-hook-form';
 
 import {useSearch} from '../../hooks/useSearch';
 
@@ -9,10 +9,12 @@ import styles from './SearchInput.module.css';
 
 const placeholderText = 'Search for repos, pipelines and jobs';
 
-const SearchInput: React.FC = () => {
-  const {isOpen, openDropdown, searchValue, clearSearch} = useSearch();
+type SearchInputProps = {
+  formContext: UseFormReturn;
+};
 
-  const {register} = useFormContext();
+const SearchInput: React.FC<SearchInputProps> = ({formContext}) => {
+  const {isOpen, openDropdown, searchValue, clearSearch} = useSearch();
 
   const showButton = useMemo(
     () => isOpen && searchValue,
@@ -30,7 +32,7 @@ const SearchInput: React.FC = () => {
         placeholder={placeholderText}
         className={classNames(styles.input, {[styles.open]: isOpen})}
         onFocus={openDropdown}
-        {...register('project_search')}
+        {...formContext.register('project_search')}
       />
       {showButton && (
         <button

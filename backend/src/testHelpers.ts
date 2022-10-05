@@ -60,7 +60,10 @@ const createServiceError = (statusArgs: {
     .build();
 
   // callErrorFromStatus expects a StatusObject but StatusBuilder returns Partial<StatusObject>
-  return callErrorFromStatus({...defaultStatusArgs, ...statusObj});
+  return callErrorFromStatus(
+    {...defaultStatusArgs, ...statusObj},
+    'service-error',
+  );
 };
 
 const createSubscriptionClients = <T>(

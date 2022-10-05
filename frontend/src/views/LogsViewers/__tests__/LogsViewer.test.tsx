@@ -1,9 +1,7 @@
 import {pipelineAndJobLogs} from '@dash-backend/mock/fixtures/logs';
 import {render, waitFor} from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import {format, fromUnixTime} from 'date-fns';
 import React from 'react';
-import {Size} from 'react-virtualized-auto-sizer';
 
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
@@ -21,7 +19,8 @@ const JobLogsViewer = withContextProviders(() => {
 jest.mock(
   'react-virtualized-auto-sizer',
   () =>
-    ({children}: {children: (size: Size) => React.ReactNode}) =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ({children}: {children: (size: {height: number; width: number}) => any}) =>
       children({height: 50, width: 50}),
 );
 
@@ -44,9 +43,9 @@ describe('Logs Viewer', () => {
     const defaultOption = await findByRole('button', {
       name: 'Last Pipeline Job',
     });
-    userEvent.click(defaultOption);
+    await click(defaultOption);
     const otherOption = getByText('Last 30 Minutes');
-    userEvent.click(otherOption);
+    await click(otherOption);
     expect(
       await findByText('No logs found for this time range.'),
     ).toBeInTheDocument();
@@ -71,7 +70,7 @@ describe('Logs Viewer', () => {
     expect(copyButton).toBeDisabled();
     expect(downloadButton).toBeDisabled();
 
-    click(selectAll);
+    await click(selectAll);
 
     expect(copyButton).not.toBeDisabled();
     expect(downloadButton).not.toBeDisabled();
@@ -102,7 +101,7 @@ describe('Logs Viewer', () => {
     );
     expect(await queryAllByTestId('LogRow__user_log')).toHaveLength(0);
 
-    click(await findByRole('switch', {name: 'Highlight User Logs'}));
+    await click(await findByRole('switch', {name: 'Highlight User Logs'}));
 
     expect(await findAllByTestId('LogRow__user_log')).toHaveLength(1);
   });
@@ -110,7 +109,7 @@ describe('Logs Viewer', () => {
   it('should display raw logs', async () => {
     const {findAllByTestId, findByRole} = render(<PipelineLogsViewer />);
 
-    click(await findByRole('switch', {name: 'Raw Logs'}));
+    await click(await findByRole('switch', {name: 'Raw Logs'}));
 
     const rows = await findAllByTestId('RawLogRow__base');
     expect(rows).toHaveLength(2);
@@ -123,11 +122,11 @@ describe('Logs Viewer', () => {
       <PipelineLogsViewer />,
     );
 
-    click(await findByRole('switch', {name: 'Raw Logs'}));
+    await click(await findByRole('switch', {name: 'Raw Logs'}));
 
     expect(await queryAllByTestId('RawLogRow__user_log')).toHaveLength(0);
 
-    click(await findByRole('switch', {name: 'Highlight User Logs'}));
+    await click(await findByRole('switch', {name: 'Highlight User Logs'}));
 
     expect(await findAllByTestId('RawLogRow__user_log')).toHaveLength(1);
   });
@@ -139,7 +138,7 @@ describe('Logs Viewer', () => {
 
     expect(await findAllByTestId('LogRow__base')).toHaveLength(2);
     expect(await queryAllByTestId('RawLogRow__base')).toHaveLength(0);
-    click(await findByRole('switch', {name: 'Raw Logs'}));
+    await click(await findByRole('switch', {name: 'Raw Logs'}));
     expect(await queryAllByTestId('LogRow__base')).toHaveLength(0);
     expect(await findAllByTestId('RawLogRow__base')).toHaveLength(2);
 
@@ -177,7 +176,7 @@ describe('Logs Viewer', () => {
 
     it('should route to pipeline view when modal is closed', async () => {
       const {findByTestId} = render(<PipelineLogsViewer />);
-      click(await findByTestId('FullPageModal__close'));
+      await click(await findByTestId('FullPageModal__close'));
 
       await waitFor(() =>
         expect(window.location.pathname).toBe('/project/1/pipelines/edges'),
@@ -217,7 +216,7 @@ describe('Logs Viewer', () => {
     it('should route to job view when modal is closed', async () => {
       const {findByTestId} = render(<JobLogsViewer />);
 
-      click(await findByTestId('FullPageModal__close'));
+      await click(await findByTestId('FullPageModal__close'));
       await waitFor(() =>
         expect(window.location.pathname).toBe(
           '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/montage',

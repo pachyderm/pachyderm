@@ -22,7 +22,7 @@ describe('CommitIdCopy', () => {
     const {findByTestId} = render(Commit);
 
     const copyAction = await findByTestId('CommitIdCopy_copy');
-    click(copyAction);
+    await click(copyAction);
 
     expect(window.document.execCommand).toHaveBeenCalledWith('copy');
   });

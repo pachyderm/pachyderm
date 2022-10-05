@@ -95,7 +95,7 @@ describe('AuthenticatedRoute', () => {
       render(<TestBed />);
 
       await waitFor(() =>
-        expect(window.location.assign).toBeCalledWith(
+        expect(window.location.assign).toHaveBeenCalledWith(
           [
             `http://localhost:${mockServer.state.authPort}/auth`,
             `?client_id=${process.env.OAUTH_CLIENT_ID}`,

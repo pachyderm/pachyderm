@@ -19,8 +19,8 @@ describe('IntroductionModal', () => {
     const {findByTestId} = render(<IntroductionModal projectId="6" />);
     expect(localStorage.getItem('pachyderm-console-6')).toBe(null);
 
-    click(await findByTestId('ModalFooter__confirm'));
-    click(await findByTestId('ModalFooter__confirm'));
+    await click(await findByTestId('ModalFooter__confirm'));
+    await click(await findByTestId('ModalFooter__confirm'));
 
     const settings = localStorage.getItem('pachyderm-console-6');
     expect(settings).not.toBeNull();

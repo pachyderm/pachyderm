@@ -14,7 +14,7 @@ module.exports = {
   testTimeout: 20000,
   timers: 'modern',
   transform: {
-    '^.+\\.tsx?$': 'ts-jest',
+    '^.+\\.tsx?$': '@swc/jest',
   },
   transformIgnorePatterns: [
     "node_modules/(?!(@pachyderm/components)/)"

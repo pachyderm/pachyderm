@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 import * as Sentry from '@sentry/node';
+import {ApolloServerPluginUsageReportingDisabled} from 'apollo-server-core';
 import {ApolloServer, gql} from 'apollo-server-express';
 
 import loggingPlugin from '@dash-backend/apollo/plugins/loggingPlugin';
@@ -31,7 +32,11 @@ const gqlServer = new ApolloServer({
   typeDefs: gql(
     fs.readFileSync(path.join(__dirname, '../src/schema.graphqls'), 'utf8'),
   ),
-  plugins: [loggingPlugin, httpPlugin],
+  plugins: [
+    loggingPlugin,
+    httpPlugin,
+    ApolloServerPluginUsageReportingDisabled(),
+  ],
 });
 
 export default gqlServer;

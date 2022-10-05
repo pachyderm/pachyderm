@@ -36,7 +36,7 @@ describe('project sidenav', () => {
     const {findByLabelText, getByText} = render(<ProjectSideNav />);
 
     const createButton = getByText('Create Repo');
-    click(createButton);
+    await click(createButton);
 
     const nameInput = await findByLabelText('Repo Name', {exact: false});
     const descriptionInput = await findByLabelText('Description (optional)', {
@@ -49,7 +49,7 @@ describe('project sidenav', () => {
 
     expect(mockServer.getState().repos['6']).toHaveLength(0);
 
-    click(submitButton);
+    await click(submitButton);
 
     await waitFor(() =>
       expect(mockServer.getState().repos['6']).toHaveLength(1),

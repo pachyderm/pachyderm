@@ -1,12 +1,12 @@
 import {JobState} from '@graphqlTypes';
 import {render} from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import React from 'react';
 
 import {
   click,
   getUrlState,
   withContextProviders,
+  type,
 } from '@dash-frontend/testHelpers';
 
 import Search from '../Search';
@@ -51,7 +51,7 @@ describe('Search', () => {
     assertDropdown().toBeShown();
     expect(getByText('There are no recent searches.')).toBeInTheDocument();
     expect(getByText('There are no jobs on this project.')).toBeInTheDocument();
-    userEvent.type(searchBar, 'anything');
+    await type(searchBar, 'anything');
     expect(
       await findByText('No matching pipelines, jobs or global ID found.'),
     ).toBeInTheDocument();
@@ -64,7 +64,7 @@ describe('Search', () => {
     const searchBar = await findByRole('searchbox');
     assertDropdown().toBeHidden();
 
-    userEvent.type(searchBar, 'im');
+    await type(searchBar, 'im');
     assertDropdown().toBeShown();
     expect(await findByText('im')).toHaveClass('underline');
     expect(await findByText('ages')).not.toHaveClass('underline');
@@ -76,16 +76,16 @@ describe('Search', () => {
     const searchBar = await findByRole('searchbox');
     assertDropdown().toBeHidden();
 
-    userEvent.type(searchBar, 'images');
+    await type(searchBar, 'images');
     assertDropdown().toBeShown();
     const searchResult = await findByRole('button', {name: 'See Commits'});
-    click(searchResult);
+    await click(searchResult);
     assertDropdown().toBeHidden();
 
     searchBar.focus();
     assertDropdown().toBeShown();
     const savedSearch = await findByRole('button', {name: 'images'});
-    click(savedSearch);
+    await click(savedSearch);
     expect(searchBar).toHaveValue('images');
     assertDropdown().toBeShown();
   });
@@ -98,9 +98,9 @@ describe('Search', () => {
     const searchBar = await findByRole('searchbox');
     assertDropdown().toBeHidden();
 
-    userEvent.type(searchBar, 'edges');
+    await type(searchBar, 'edges');
     assertDropdown().toBeShown();
-    click(await findByRole('button', {name: 'See Jobs'}));
+    await click(await findByRole('button', {name: 'See Jobs'}));
     assertDropdown().toBeHidden();
 
     searchBar.focus();
@@ -108,7 +108,7 @@ describe('Search', () => {
     expect(
       queryByText('There are no recent searches.'),
     ).not.toBeInTheDocument();
-    click(await findByRole('button', {name: 'Clear'}));
+    await click(await findByRole('button', {name: 'Clear'}));
     expect(getByText('There are no recent searches.')).toBeInTheDocument();
     assertDropdown().toBeShown();
   });
@@ -119,10 +119,10 @@ describe('Search', () => {
     const searchBar = await findByRole('searchbox');
     assertDropdown().toBeHidden();
 
-    userEvent.type(searchBar, 'images');
+    await type(searchBar, 'images');
     assertDropdown().toBeShown();
     const searchResult = await findByRole('button', {name: 'See Commits'});
-    click(searchResult);
+    await click(searchResult);
 
     assertDropdown().toBeHidden();
     expect(window.location.pathname).toBe(
@@ -135,16 +135,16 @@ describe('Search', () => {
     const searchBar = await findByRole('searchbox');
     assertDropdown().toBeHidden();
 
-    userEvent.type(searchBar, 'edges');
+    await type(searchBar, 'edges');
     assertDropdown().toBeShown();
-    click(await findByRole('button', {name: 'See Jobs'}));
+    await click(await findByRole('button', {name: 'See Jobs'}));
     expect(window.location.pathname).toBe('/project/1/pipelines/edges/jobs');
     assertDropdown().toBeHidden();
 
     searchBar.focus();
     assertDropdown().toBeShown();
-    click(await findByRole('button', {name: 'edges'}));
-    click(await queryAllByText('edges')[1]);
+    await click(await findByRole('button', {name: 'edges'}));
+    await click(await queryAllByText('edges')[1]);
 
     assertDropdown().toBeHidden();
     expect(window.location.pathname).toBe('/project/1/pipelines/edges');
@@ -156,9 +156,9 @@ describe('Search', () => {
     const searchBar = await findByRole('searchbox');
     assertDropdown().toBeHidden();
 
-    userEvent.type(searchBar, '23b9af7d5d4343219bc8e02ff44cd55a');
+    await type(searchBar, '23b9af7d5d4343219bc8e02ff44cd55a');
     assertDropdown().toBeShown();
-    click(await findByText('23b9af7d5d4343219bc8e02ff44cd55a'));
+    await click(await findByText('23b9af7d5d4343219bc8e02ff44cd55a'));
 
     assertDropdown().toBeHidden();
     expect(window.location.pathname).toBe(
@@ -174,7 +174,7 @@ describe('Search', () => {
 
     searchBar.focus();
     assertDropdown().toBeShown();
-    click(await findByRole('button', {name: 'All (2)'}));
+    await click(await findByRole('button', {name: 'All (2)'}));
     expect(window.location.pathname).toBe('/project/1/jobs');
     expect(getUrlState().jobFilters).toEqual([
       JobState.JOB_CREATED,

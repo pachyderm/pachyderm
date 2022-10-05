@@ -1,3 +1,4 @@
+/* eslint-disable import/no-named-as-default */
 import {NodeType, Vertex, NodeState} from '@graphqlTypes';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import flatten from 'lodash/flatten';

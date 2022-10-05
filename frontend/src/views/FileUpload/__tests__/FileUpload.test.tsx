@@ -1,8 +1,12 @@
 import {render, waitFor} from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import React from 'react';
 
-import {type, withContextProviders} from '@dash-frontend/testHelpers';
+import {
+  type,
+  withContextProviders,
+  clear,
+  upload,
+} from '@dash-frontend/testHelpers';
 
 import FileUploadComponent from '..';
 import {GLOB_CHARACTERS} from '../lib/constants';
@@ -27,7 +31,7 @@ describe('File Upload', () => {
 
     const pathInput = await findByLabelText('File Path');
     await waitFor(() => expect(pathInput).not.toBeDisabled());
-    userEvent.clear(pathInput);
+    await clear(pathInput);
 
     expect(await findByText('A path is required')).toBeInTheDocument();
   });
@@ -51,7 +55,7 @@ describe('File Upload', () => {
       ),
     ).not.toBeNull();
 
-    userEvent.clear(pathInput);
+    await clear(pathInput);
     expect(await findByText('A path is required')).toBeInTheDocument();
 
     expect(
@@ -69,7 +73,7 @@ describe('File Upload', () => {
       ),
     ).not.toBeNull();
 
-    userEvent.clear(pathInput);
+    await clear(pathInput);
     expect(await findByText('A path is required')).toBeInTheDocument();
 
     await type(pathInput, '/test123');
@@ -93,7 +97,7 @@ describe('File Upload', () => {
     const pathInput = await findByLabelText('File Path');
     await waitFor(() => expect(pathInput).not.toBeDisabled());
 
-    userEvent.clear(pathInput);
+    await clear(pathInput);
 
     await type(pathInput, 't');
 
@@ -103,7 +107,7 @@ describe('File Upload', () => {
       ),
     ).not.toBeNull();
 
-    userEvent.clear(pathInput);
+    await clear(pathInput);
     expect(await findByText('A path is required')).toBeInTheDocument();
 
     await type(pathInput, '/test');
@@ -130,7 +134,7 @@ describe('File Upload', () => {
 
     await waitFor(() => expect(fileInput).not.toBeDisabled());
 
-    userEvent.upload(fileInput, [
+    await upload(fileInput, [
       new File(['hello'], 'hello.png', {type: 'image/png'}),
     ]);
 
@@ -151,7 +155,7 @@ describe('File Upload', () => {
       'Attach Files',
     )) as HTMLInputElement;
 
-    userEvent.upload(fileInput, [
+    await upload(fileInput, [
       new File(['hello'], 'hel^lo.png', {type: 'image/png'}),
     ]);
 

@@ -60,19 +60,19 @@ describe('Image Processing', () => {
     const minimize = async () => {
       const minimizeButton = await findByTestId('TutorialModalBody__minimize');
 
-      click(minimizeButton);
+      await click(minimizeButton);
     };
 
     const maximize = async () => {
       const maximizeButton = await findByTestId('TutorialModalBody__maximize');
-      click(maximizeButton);
+      await click(maximizeButton);
     };
 
     const nextStory = async () => {
       const nextStoryButton = await findByRole('button', {name: 'Next Story'});
 
       await waitFor(() => expect(nextStoryButton).not.toBeDisabled());
-      click(nextStoryButton);
+      await click(nextStoryButton);
     };
 
     const addTheseImages = async () => {
@@ -80,7 +80,7 @@ describe('Image Processing', () => {
         name: 'Add these images',
       });
 
-      click(imageUploadButton);
+      await click(imageUploadButton);
 
       return waitFor(() => expect(imageUploadButton).not.toBeInTheDocument());
     };
@@ -93,7 +93,7 @@ describe('Image Processing', () => {
     });
 
     await waitFor(() => expect(repoCreationButton).not.toBeDisabled());
-    click(repoCreationButton);
+    await click(repoCreationButton);
 
     expect(await findByText('Task Completed!')).toBeInTheDocument();
 
@@ -105,7 +105,7 @@ describe('Image Processing', () => {
       })
     )[1];
 
-    click(pipelineCreationButton);
+    await click(pipelineCreationButton);
     const nextStoryButton = await findByRole('button', {name: 'Next Story'});
 
     await waitFor(() => expect(nextStoryButton).not.toBeDisabled());
@@ -121,7 +121,7 @@ describe('Image Processing', () => {
 
     expect(mockServer.getState().files['6']).toBeUndefined();
     const checkbox1 = await findByLabelText('birthday-cake.jpg');
-    click(checkbox1);
+    await click(checkbox1);
 
     await addTheseImages();
 
@@ -145,7 +145,7 @@ describe('Image Processing', () => {
       })
     )[0];
 
-    click(montagePipelineCreationButton);
+    await click(montagePipelineCreationButton);
     expect(await findByText('Task Completed!')).toBeInTheDocument();
     expect(mockServer.getState().pipelines['6']).toHaveLength(2);
 
@@ -171,7 +171,7 @@ describe('Image Processing', () => {
     // await maximize();
 
     // const kitten = await findByLabelText('kitten.jpg');
-    // click(kitten);
+    //await click(kitten);
 
     // await addTheseImages();
 
@@ -184,7 +184,7 @@ describe('Image Processing', () => {
     //   name: 'Move images branch',
     // });
 
-    // click(moveBranchButton);
+    //await click(moveBranchButton);
 
     // await waitFor(() => expect(moveBranchButton).not.toBeInTheDocument());
 
@@ -204,7 +204,7 @@ describe('Image Processing', () => {
     ).toBeInTheDocument();
 
     const checkbox2 = await findByLabelText('pooh.jpg');
-    click(checkbox2);
+    await click(checkbox2);
 
     await addTheseImages();
 
@@ -220,7 +220,7 @@ describe('Image Processing', () => {
       name: 'Close Tutorial',
     });
 
-    click(completeStoryButton);
+    await click(completeStoryButton);
 
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });

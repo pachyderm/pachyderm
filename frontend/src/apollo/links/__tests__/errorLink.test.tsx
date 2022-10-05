@@ -54,7 +54,7 @@ describe('errorLink', () => {
       await waitFor(() =>
         expect(window.localStorage.getItem('auth-token')).toBeFalsy(),
       );
-      expect(hrefSpy).toBeCalledWith('/');
+      expect(hrefSpy).toHaveBeenCalledWith('/');
       expect(Cookies.get('dashAuthToken')).toBeUndefined();
       expect(Cookies.get('dashAddress')).toBeUndefined();
     });

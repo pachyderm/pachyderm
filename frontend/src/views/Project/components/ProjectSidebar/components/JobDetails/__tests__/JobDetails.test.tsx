@@ -87,7 +87,7 @@ describe('Job Details', () => {
       jobRoute({projectId, jobId, pipelineId: 'test'}, false),
     );
 
-    click(testLink);
+    await click(testLink);
 
     await waitFor(() =>
       expect(
@@ -174,7 +174,7 @@ describe('Job Details', () => {
         queryByTestId('Description__InputsSkeleton'),
       ).not.toBeInTheDocument(),
     );
-    click(await findByTestId('InfoPanel__duration'));
+    await click(await findByTestId('InfoPanel__duration'));
 
     expect(queryByTestId('InfoPanel__durationDetails')).toMatchSnapshot();
   });
@@ -272,7 +272,7 @@ describe('Job Details', () => {
 
     const outputCommitLink = getByTestId('InfoPanel__commitLink');
 
-    click(outputCommitLink);
+    await click(outputCommitLink);
 
     expect(window.location.pathname).toBe(
       fileBrowserRoute(

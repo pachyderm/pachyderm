@@ -3,11 +3,10 @@ import {
   mockServer,
   status,
 } from '@dash-backend/testHelpers';
-import {render, waitFor} from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import {render, waitFor, within} from '@testing-library/react';
 import React from 'react';
 
-import {withContextProviders} from '@dash-frontend/testHelpers';
+import {withContextProviders, click, type} from '@dash-frontend/testHelpers';
 
 import LandingComponent from '../Landing';
 
@@ -52,7 +51,7 @@ describe('Landing', () => {
 
     const searchBox = await findByRole('searchbox');
 
-    await userEvent.type(searchBox, 'Data Cleaning Process');
+    await type(searchBox, 'Data Cleaning Process');
 
     await waitFor(() =>
       expect(
@@ -107,7 +106,7 @@ describe('Landing', () => {
     const viewProjectButtons = await findAllByRole('button', {
       name: 'View Project',
     });
-    userEvent.click(viewProjectButtons[0]);
+    await click(viewProjectButtons[0]);
     expect(window.location.pathname).toEqual('/lineage/2');
   });
 
@@ -123,7 +122,7 @@ describe('Landing', () => {
     const viewProjectButtons = await findAllByRole('button', {
       name: 'View Project',
     });
-    userEvent.click(viewProjectButtons[0]);
+    await click(viewProjectButtons[0]);
     expect(window.location.pathname).toEqual('/project/2/repos');
 
     localStorage.removeItem('pachyderm-console-2');
@@ -162,9 +161,9 @@ describe('Landing', () => {
     const sortDropdown = await findByRole('button', {
       name: 'Sort by: Newest',
     });
-    userEvent.click(sortDropdown);
+    await click(sortDropdown);
     const nameSort = await findByRole('menuitem', {name: 'Name A-Z'});
-    userEvent.click(nameSort);
+    await click(nameSort);
 
     const nameSortedProjectNames = await findAllByRole('heading', {level: 5});
 
@@ -186,43 +185,57 @@ describe('Landing', () => {
   });
 
   it('should allow the user to filter projects by status', async () => {
-    const {findByRole, findByLabelText, findAllByTestId, queryByTestId} =
-      render(<Landing />);
-
-    expect(await findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(5);
-    expect(await findAllByTestId('ProjectStatus__UNHEALTHY')).toHaveLength(2);
+    const {findByRole, findByTestId, findByLabelText} = render(<Landing />);
+    const projects = await findByTestId('Landing__view');
+    expect(
+      await within(projects).findAllByTestId('ProjectStatus__HEALTHY'),
+    ).toHaveLength(5);
+    expect(
+      await within(projects).findAllByTestId('ProjectStatus__UNHEALTHY'),
+    ).toHaveLength(2);
 
     const filterDropdown = await findByRole('button', {name: 'Show: All'});
-    userEvent.click(filterDropdown);
+    await click(filterDropdown);
     const healthyButton = await findByLabelText('Healthy');
-    userEvent.click(healthyButton);
+    await click(healthyButton);
 
     expect(
       await findByRole('button', {name: 'Show: Unhealthy'}),
     ).toBeInTheDocument();
 
-    expect(await findAllByTestId('ProjectStatus__UNHEALTHY')).toHaveLength(2);
-    expect(queryByTestId('ProjectStatus__HEALTHY')).not.toBeInTheDocument();
+    expect(
+      await within(projects).findAllByTestId('ProjectStatus__UNHEALTHY'),
+    ).toHaveLength(2);
+    expect(
+      within(projects).queryByTestId('ProjectStatus__HEALTHY'),
+    ).not.toBeInTheDocument();
 
     const unHealthyButton = await findByLabelText('Unhealthy');
-
-    userEvent.click(unHealthyButton);
+    await click(unHealthyButton);
 
     expect(
       await findByRole('button', {name: 'Show: None'}),
     ).toBeInTheDocument();
 
-    expect(queryByTestId('ProjectStatus__HEALTHY')).not.toBeInTheDocument();
-    expect(queryByTestId('ProjectStatus__UNHEALTHY')).not.toBeInTheDocument();
+    expect(
+      within(projects).queryByTestId('ProjectStatus__HEALTHY'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(projects).queryByTestId('ProjectStatus__UNHEALTHY'),
+    ).not.toBeInTheDocument();
 
-    userEvent.click(healthyButton);
+    await click(healthyButton);
 
     expect(
       await findByRole('button', {name: 'Show: Healthy'}),
     ).toBeInTheDocument();
 
-    expect(await findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(5);
-    expect(queryByTestId('ProjectStatus__UNHEALTHY')).not.toBeInTheDocument();
+    expect(
+      await within(projects).findAllByTestId('ProjectStatus__HEALTHY'),
+    ).toHaveLength(5);
+    expect(
+      within(projects).queryByTestId('ProjectStatus__UNHEALTHY'),
+    ).not.toBeInTheDocument();
   });
 
   it('should display an all tab when viewing just the default project', async () => {
@@ -246,7 +259,7 @@ describe('Landing', () => {
 
   it('should not display the project details when the project is empty', async () => {
     const {findByText} = render(<Landing />);
-    userEvent.click(await findByText('Empty Project'));
+    await click(await findByText('Empty Project'));
 
     expect(
       await findByText('Create your first repo/pipeline!'),

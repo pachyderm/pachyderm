@@ -1,10 +1,10 @@
 import {render, waitFor, act} from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import React from 'react';
 
 import {
   withContextProviders,
   click,
+  type,
   mockServer,
 } from '@dash-frontend/testHelpers';
 
@@ -49,7 +49,7 @@ describe('File Browser', () => {
       expect(await findByText('cats')).toBeInTheDocument();
       expect(await findAllByRole('row')).toHaveLength(TOTAL_FILES + 1);
 
-      userEvent.type(searchBar, 'lib');
+      await type(searchBar, 'lib');
 
       await waitFor(() => {
         expect(queryByText('AT-AT.png')).not.toBeInTheDocument();
@@ -70,11 +70,11 @@ describe('File Browser', () => {
 
       expect(await findAllByRole('row')).toHaveLength(TOTAL_FILES + 1);
 
-      click(diffToggle);
+      await click(diffToggle);
 
       expect(await findAllByRole('row')).toHaveLength(2);
 
-      click(diffToggle);
+      await click(diffToggle);
 
       expect(await findAllByRole('row')).toHaveLength(TOTAL_FILES + 1);
     });
@@ -83,7 +83,7 @@ describe('File Browser', () => {
       const {queryByText, findByRole} = render(<FileBrowser />);
 
       const searchBar = await findByRole('searchbox', {}, {timeout: 10000});
-      userEvent.type(searchBar, 'notafile');
+      await type(searchBar, 'notafile');
 
       await waitFor(() =>
         expect(queryByText('No Matching Results Found.')).toBeInTheDocument(),
@@ -102,15 +102,13 @@ describe('File Browser', () => {
       expect(queryByTestId('FileBrowser__iconView')).not.toBeInTheDocument();
 
       await act(async () => {
-        click(iconViewIcon);
+        await click(iconViewIcon);
       });
 
       expect(queryByTestId('ListViewTable__view')).not.toBeInTheDocument();
       expect(queryByTestId('FileBrowser__iconView')).toBeInTheDocument();
 
-      await act(async () => {
-        click(listViewIcon);
-      });
+      await click(listViewIcon);
 
       expect(queryByTestId('ListViewTable__view')).toBeInTheDocument();
       expect(queryByTestId('FileBrowser__iconView')).not.toBeInTheDocument();
@@ -131,9 +129,7 @@ describe('File Browser', () => {
       const nameHeader = await findByLabelText(
         'sort by name in descending order',
       );
-      await act(async () => {
-        userEvent.click(nameHeader);
-      });
+      await click(nameHeader);
 
       let rows = await findAllByRole('row');
       expect(rows[1].textContent).toContain('yml_spec.yml');
@@ -143,9 +139,7 @@ describe('File Browser', () => {
       const sizeHeader = await findByLabelText(
         'sort by size in descending order',
       );
-      await act(async () => {
-        userEvent.click(sizeHeader);
-      });
+      await click(sizeHeader);
 
       rows = await findAllByRole('row');
       expect(rows[1].textContent).toContain('json_single_field.json');
@@ -155,9 +149,7 @@ describe('File Browser', () => {
       const typeHeader = await findByLabelText(
         'sort by type in descending order',
       );
-      await act(async () => {
-        userEvent.click(typeHeader);
-      });
+      await click(typeHeader);
 
       rows = await findAllByRole('row');
       expect(rows[1].textContent).toContain('cats');
@@ -169,7 +161,7 @@ describe('File Browser', () => {
       const {findAllByText, findByText} = render(<FileBrowser />);
 
       const seeFilesAction = await findAllByText('See Files');
-      click(seeFilesAction[0]);
+      await click(seeFilesAction[0]);
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
@@ -184,7 +176,7 @@ describe('File Browser', () => {
       const {findAllByText} = render(<FileBrowser />);
 
       const previewAction = await findAllByText('Preview');
-      click(previewAction[0]);
+      await click(previewAction[0]);
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
@@ -197,7 +189,7 @@ describe('File Browser', () => {
       const {findAllByText} = render(<FileBrowser />);
 
       const copyAction = await findAllByText('Copy Path');
-      await act(async () => click(copyAction[0]));
+      await click(copyAction[0]);
 
       expect(window.document.execCommand).toHaveBeenCalledWith('copy');
     });
@@ -208,11 +200,11 @@ describe('File Browser', () => {
       const deleteButton = await findAllByTestId('DeleteFileButton__link');
       expect(mockServer.getState().files['3']['/']).toHaveLength(TOTAL_FILES);
 
-      click(deleteButton[0]);
+      await click(deleteButton[0]);
 
       const deleteConfirm = await findByTestId('ModalFooter__confirm');
 
-      click(deleteConfirm);
+      await click(deleteConfirm);
 
       await waitFor(() =>
         expect(mockServer.getState().files['3']['/']).toHaveLength(
@@ -238,7 +230,7 @@ describe('File Browser', () => {
       const {findByText, findByLabelText} = render(<FileBrowser />);
 
       const iconViewIcon = await findByLabelText('switch to icon view');
-      click(iconViewIcon);
+      await click(iconViewIcon);
 
       expect(await findByText('liberty.png')).toBeInTheDocument();
       expect(await findByText('Size: 58.65 kB')).toBeInTheDocument();
@@ -248,10 +240,10 @@ describe('File Browser', () => {
       const {findAllByText, findByLabelText} = render(<FileBrowser />);
 
       const iconViewIcon = await findByLabelText('switch to icon view');
-      click(iconViewIcon);
+      await click(iconViewIcon);
 
       const seeFilesAction = await findAllByText('See Files');
-      click(seeFilesAction[0]);
+      await click(seeFilesAction[0]);
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
@@ -264,10 +256,10 @@ describe('File Browser', () => {
       const {findAllByText, findByLabelText} = render(<FileBrowser />);
 
       const iconViewIcon = await findByLabelText('switch to icon view');
-      click(iconViewIcon);
+      await click(iconViewIcon);
 
       const previewAction = await findAllByText('Preview');
-      click(previewAction[0]);
+      await click(previewAction[0]);
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
@@ -281,10 +273,10 @@ describe('File Browser', () => {
 
       const iconViewIcon = await findByLabelText('switch to icon view');
 
-      click(iconViewIcon);
+      await click(iconViewIcon);
 
       const copyAction = await findAllByLabelText('Copy');
-      await act(async () => userEvent.click(copyAction[0]));
+      await click(copyAction[0]);
 
       expect(window.document.execCommand).toHaveBeenCalledWith('copy');
     });
@@ -295,11 +287,11 @@ describe('File Browser', () => {
       const deleteButton = await findAllByTestId('DeleteFileButton__link');
       expect(mockServer.getState().files['3']['/']).toHaveLength(TOTAL_FILES);
 
-      click(deleteButton[0]);
+      await click(deleteButton[0]);
 
       const deleteConfirm = await findByTestId('ModalFooter__confirm');
 
-      click(deleteConfirm);
+      await click(deleteConfirm);
 
       await waitFor(() =>
         expect(mockServer.getState().files['3']['/']).toHaveLength(
@@ -345,7 +337,7 @@ describe('File Browser', () => {
       const {queryByLabelText, findByTestId} = render(<FileBrowser />);
 
       const topButton = await findByTestId('Breadcrumb__home');
-      click(topButton);
+      await click(topButton);
 
       await waitFor(() =>
         expect(queryByLabelText('switch to list view')).toBeInTheDocument(),
@@ -356,7 +348,7 @@ describe('File Browser', () => {
       const {findByText} = render(<FileBrowser />);
 
       const copyAction = await findByText('Copy Path');
-      await act(async () => click(copyAction));
+      await click(copyAction);
 
       expect(window.document.execCommand).toHaveBeenCalledWith('copy');
     });
@@ -367,11 +359,11 @@ describe('File Browser', () => {
       const deleteButton = await findByTestId('DeleteFileButton__link');
       expect(mockServer.getState().files['3']['/']).toHaveLength(TOTAL_FILES);
 
-      click(deleteButton);
+      await click(deleteButton);
 
       const deleteConfirm = await findByTestId('ModalFooter__confirm');
 
-      click(deleteConfirm);
+      await click(deleteConfirm);
 
       await waitFor(() =>
         expect(mockServer.getState().files['3']['/']).toHaveLength(

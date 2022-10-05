@@ -3,7 +3,6 @@ import {
   waitFor,
   waitForElementToBeRemoved,
 } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import React from 'react';
 
 import {
@@ -91,9 +90,9 @@ describe('ProjectSidebar', () => {
       expect(mockServer.getState().pipelines['8']).toHaveLength(1);
       const deleteButton = await findByTestId('DeletePipelineButton__link');
       await waitFor(() => expect(deleteButton).not.toBeDisabled());
-      click(deleteButton);
+      await click(deleteButton);
       const confirmButton = await findByTestId('ModalFooter__confirm');
-      click(confirmButton);
+      await click(confirmButton);
 
       await waitFor(() =>
         expect(mockServer.getState().pipelines['8']).toHaveLength(0),
@@ -341,9 +340,9 @@ describe('ProjectSidebar', () => {
       expect(mockServer.getState().repos['8']).toHaveLength(3);
       const deleteButton = await findByTestId('DeleteRepoButton__link');
       await waitFor(() => expect(deleteButton).not.toBeDisabled());
-      click(deleteButton);
+      await click(deleteButton);
       const confirmButton = await findByTestId('ModalFooter__confirm');
-      click(confirmButton);
+      await click(confirmButton);
 
       await waitFor(() =>
         expect(mockServer.getState().repos['8']).toHaveLength(2),
@@ -369,7 +368,7 @@ describe('ProjectSidebar', () => {
       const egress = await findByText(
         'snowflake://pachyderm@WHMUWUD-CJ80657/PACH_DB/PUBLIC?warehouse=COMPUTE_WH',
       );
-      click(egress);
+      await click(egress);
       expect(window.document.execCommand).toHaveBeenCalledWith('copy');
     });
 
@@ -419,7 +418,7 @@ describe('ProjectSidebar', () => {
 
     const hideAutoCommits = await findByLabelText('Auto Commits');
     expect(queryAllByText('View Files').length).toBe(6);
-    userEvent.click(hideAutoCommits);
+    await click(hideAutoCommits);
     await waitFor(() => expect(queryAllByText('View Files').length).toBe(2));
   });
 });

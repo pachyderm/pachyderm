@@ -1,19 +1,18 @@
-"use strict";
+'use strict';
 
-const jsdom = require('jsdom');
 const DefaultJsdomEnvironment = require('jest-environment-jsdom');
 
 class DashJsdomEnvironment extends DefaultJsdomEnvironment {
-    constructor(config, options) {
-        super({
-            ...config,
-            globals: {
-                ...config.globals,
-                Uint8Array: Uint8Array
-            },
-            options
-        })
-    };
+  constructor(config, options) {
+    super({
+      ...config,
+      globals: {
+        ...config.globals,
+        Uint8Array: Uint8Array,
+      },
+      options,
+    });
+  }
 }
 
 module.exports = DashJsdomEnvironment;

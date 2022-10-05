@@ -5,7 +5,6 @@ import {generateIdTokenForAccount} from '@dash-backend/testHelpers';
 import {Account} from '@graphqlTypes';
 import {act} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {typeOptions} from '@testing-library/user-event/dist/type/typeImplementation';
 import React, {ReactElement} from 'react';
 import {BrowserRouter} from 'react-router-dom';
 
@@ -42,20 +41,28 @@ export const setIdTokenForAccount = (account: Account) => {
   window.localStorage.setItem('id-token', generateIdTokenForAccount(account));
 };
 
-export const click: typeof userEvent.click = (...args) => {
-  act(() => userEvent.click(...args));
+export const click: typeof userEvent.click = async (...args) => {
+  await act(() => userEvent.click(...args));
 };
 
-export const hover: typeof userEvent.hover = (...args) => {
-  act(() => userEvent.hover(...args));
+export const hover: typeof userEvent.hover = async (...args) => {
+  await act(() => userEvent.hover(...args));
 };
 
-export const paste: typeof userEvent.paste = (...args) => {
-  act(() => userEvent.paste(...args));
+export const paste: typeof userEvent.paste = async (...args) => {
+  await act(() => userEvent.paste(...args));
 };
 
-export const tab: typeof userEvent.tab = (...args) => {
-  act(() => userEvent.tab(...args));
+export const tab: typeof userEvent.tab = async (...args) => {
+  await act(() => userEvent.tab(...args));
+};
+
+export const clear: typeof userEvent.clear = async (...args) => {
+  await act(() => userEvent.clear(...args));
+};
+
+export const upload: typeof userEvent.upload = async (...args) => {
+  await act(() => userEvent.upload(...args));
 };
 
 // NOTE: The return type doesn't match userEvent.type,
@@ -63,13 +70,9 @@ export const tab: typeof userEvent.tab = (...args) => {
 // theirs only returns a promise if the input arguments contain a
 // "delay". This has caused problems for us in the past,
 // which is why we have a custom return type here.
-export const type = async (
-  element: Element,
-  text: string,
-  userOpts?: typeOptions & {delay?: 0 | undefined},
-) => {
+export const type = async (element: Element, text: string) => {
   await act(async () => {
-    await userEvent.type(element, text, userOpts);
+    await userEvent.type(element, text);
   });
 };
 

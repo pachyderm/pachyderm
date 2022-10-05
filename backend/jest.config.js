@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
-const {pathsToModuleNameMapper} = require('ts-jest/utils');
+const {pathsToModuleNameMapper} = require('ts-jest');
 
 const baseConfig = require('../jest.config.js');
 

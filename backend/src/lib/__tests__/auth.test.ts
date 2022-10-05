@@ -17,7 +17,7 @@ describe('auth', () => {
     });
 
     it('should throw an error for a malformed jwt', async () => {
-      await expect(getAccountFromIdToken('fake')).rejects.toThrowError(
+      await expect(getAccountFromIdToken('fake')).rejects.toThrow(
         'jwt malformed',
       );
     });
@@ -36,7 +36,7 @@ describe('auth', () => {
         },
       );
 
-      await expect(getAccountFromIdToken(idToken)).rejects.toThrowError(
+      await expect(getAccountFromIdToken(idToken)).rejects.toThrow(
         'error in secret or public key callback: Could not find matching key',
       );
     });
@@ -44,7 +44,7 @@ describe('auth', () => {
     it('should throw an error if there is an issue verifying the jwt', async () => {
       const idToken = sign({email: 'test@test.com'}, 'shhh');
 
-      await expect(getAccountFromIdToken(idToken)).rejects.toThrowError();
+      await expect(getAccountFromIdToken(idToken)).rejects.toThrow();
     });
   });
 });

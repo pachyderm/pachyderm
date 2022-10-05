@@ -71,7 +71,7 @@ const Search: React.FC = () => {
     <SearchContext.Provider value={ctxValue}>
       <div className={styles.base} ref={containerRef}>
         <Form formContext={formCtx}>
-          <SearchBar />
+          <SearchBar formContext={formCtx} />
         </Form>
         <div
           data-testid="Search__dropdown"

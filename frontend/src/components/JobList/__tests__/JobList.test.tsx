@@ -138,25 +138,25 @@ describe('JobList', () => {
 
     const {queryByText: queryByTextWithinList} = within(getByRole('list'));
 
-    click(startingButton);
+    await click(startingButton);
     expect(queryByTextWithinList('Starting')).not.toBeInTheDocument();
 
-    click(runningButton);
+    await click(runningButton);
     expect(queryByTextWithinList('Starting')).not.toBeInTheDocument();
     expect(queryByTextWithinList('Running')).not.toBeInTheDocument();
 
-    click(failureButton);
+    await click(failureButton);
     expect(queryByTextWithinList('Starting')).not.toBeInTheDocument();
     expect(queryByTextWithinList('Running')).not.toBeInTheDocument();
     expect(queryByTextWithinList('Failure')).not.toBeInTheDocument();
 
-    click(killedButton);
+    await click(killedButton);
     expect(queryByTextWithinList('Starting')).not.toBeInTheDocument();
     expect(queryByTextWithinList('Running')).not.toBeInTheDocument();
     expect(queryByTextWithinList('Failure')).not.toBeInTheDocument();
     expect(queryByTextWithinList('Killed')).not.toBeInTheDocument();
 
-    click(egressingButton);
+    await click(egressingButton);
     expect(queryByTextWithinList('Starting')).not.toBeInTheDocument();
     expect(queryByTextWithinList('Running')).not.toBeInTheDocument();
     expect(queryByTextWithinList('Failure')).not.toBeInTheDocument();
@@ -179,13 +179,13 @@ describe('JobList', () => {
     ).toBeInTheDocument();
 
     const successButton = getByText(/Success \(\d\)/);
-    click(successButton);
+    await click(successButton);
 
     const failureButton = getByText(/Failure \(\d\)/);
-    click(failureButton);
+    await click(failureButton);
 
     const killedButton = getByText(/Killed \(\d\)/);
-    click(killedButton);
+    await click(killedButton);
 
     expect(await findByText('Select Job Filters Above :)')).toBeInTheDocument();
   });
