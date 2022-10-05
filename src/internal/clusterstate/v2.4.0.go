@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -27,6 +28,9 @@ var state_2_4_0 migrations.State = state_2_3_0.
 	}).
 	Apply("Rename default project to “default”", func(ctx context.Context, env migrations.Env) error {
 		if err := pfsdb.MigrateV2_4_0(ctx, env.Tx); err != nil {
+			return err
+		}
+		if err := ppsdb.MigrateV2_4_0(ctx, env.Tx); err != nil {
 			return err
 		}
 		return nil
