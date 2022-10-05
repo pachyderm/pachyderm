@@ -80,16 +80,13 @@ func do(ctx context.Context, config interface{}) error {
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
 	// IP will be removed from etcd
-	ctx, cancel := context.WithTimeout(pachClient.Ctx(), 10*time.Second)
-	defer cancel()
-
-	resp, err := env.GetEtcdClient().Grant(ctx, 10 /* seconds */)
+	leaseID, err := getETCDLease(ctx, env.GetEtcdClient(), 10*time.Second)
 	if err != nil {
-		return errors.Wrapf(err, "error granting lease")
+		return errors.Wrapf(err, "could not get etcd lease")
 	}
 
 	// keepalive forever
-	keepAliveChan, err := env.GetEtcdClient().KeepAlive(pachClient.Ctx(), resp.ID)
+	keepAliveChan, err := env.GetEtcdClient().KeepAlive(ctx, leaseID)
 	if err != nil {
 		return errors.Wrapf(err, "error with KeepAlive")
 	}
@@ -103,11 +100,8 @@ func do(ctx context.Context, config interface{}) error {
 		}
 	}()
 
-	// Actually write "key" into etcd
-	ctx, cancel = context.WithTimeout(pachClient.Ctx(), 10*time.Second) // new ctx
-	defer cancel()
-	if _, err := env.GetEtcdClient().Put(ctx, key, "", etcd.WithLease(resp.ID)); err != nil {
-		return errors.Wrapf(err, "error putting IP address")
+	if err := writeKey(ctx, env.GetEtcdClient(), key, leaseID, 10*time.Second); err != nil {
+		return errors.Wrapf(err, "Could not write %s to etcd", key)
 	}
 
 	// If server ever exits, return error
@@ -115,4 +109,28 @@ func do(ctx context.Context, config interface{}) error {
 		return err
 	}
 	return server.Wait()
+}
+
+func getETCDLease(ctx context.Context, client *etcd.Client, duration time.Duration) (etcd.LeaseID, error) {
+	ctx, cancel := context.WithTimeout(ctx, duration)
+	defer cancel()
+
+	sec := int64(duration / time.Second)
+	if sec == 0 { // do not aallow durations < 1 second to round down to 0 seconds
+		sec = 1
+	}
+	resp, err := client.Grant(ctx, sec)
+	if err != nil {
+		return 0, errors.Wrapf(err, "error granting lease")
+	}
+	return resp.ID, nil
+}
+
+func writeKey(ctx context.Context, client *etcd.Client, key string, id etcd.LeaseID, duration time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if _, err := client.Put(ctx, key, "", etcd.WithLease(id)); err != nil {
+		return errors.Wrapf(err, "error putting IP address")
+	}
+	return nil
 }
