@@ -201,21 +201,25 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 		mr.Unmounted[repo.Repo.Name] = rr
 	}
 
-	// Go through mounts and populate data to show in Mounted section
+	// Unmount mounted repos that were deleted
 	for name, msm := range mm.States {
 		if msm.State == "mounted" {
-			// Check if mount that was deleted still exists in mm.States
 			_, ok := repoBranches[msm.Repo]
 			if !ok {
 				mm.unmountDeletedRepos(name)
 				continue
 			}
 			_, ok = repoBranches[msm.Repo][msm.Branch]
-			if !ok {
+			if !ok && msm.Mode == "ro" {
 				mm.unmountDeletedRepos(name)
 				continue
 			}
+		}
+	}
 
+	// Go through mounts and populate data to show in Mounted section
+	for name, msm := range mm.States {
+		if msm.State == "mounted" {
 			if err := msm.RefreshMountState(); err != nil {
 				return mr, err
 			}
