@@ -4,10 +4,13 @@ package promutil
 import (
 	"io"
 	"net/http"
+	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -28,6 +31,43 @@ var (
 	}, []string{"client", "method"})
 )
 
+type loggingRT struct {
+	name       string
+	underlying http.RoundTripper
+}
+
+func (rt *loggingRT) RoundTrip(req *http.Request) (*http.Response, error) {
+	start := time.Now()
+	log := logrus.WithFields(logrus.Fields{
+		"name":   rt.name,
+		"method": req.Method,
+		"uri":    req.URL.String(),
+	})
+
+	// Log the start of long HTTP requests.
+	timer := time.AfterFunc(10*time.Second, func() {
+		l := log
+		if dl, ok := req.Context().Deadline(); ok {
+			l = l.WithField("deadline", time.Until(dl))
+		}
+		l.WithField("duration", time.Since(start)).Info("ongoing long http request")
+	})
+	defer timer.Stop()
+
+	res, err := rt.underlying.RoundTrip(req)
+	if err != nil {
+		log.WithError(err).Info("outgoing http request completed with error")
+		return res, errors.EnsureStack(err)
+	}
+	if res != nil {
+		log.WithFields(logrus.Fields{
+			"duration": time.Since(start),
+			"status":   res.Status,
+		}).Debugf("outgoing http request complete")
+	}
+	return res, errors.EnsureStack(err)
+}
+
 // InstrumentRoundTripper returns an http.RoundTripper that collects Prometheus metrics; delegating
 // to the underlying RoundTripper to actually make requests.
 func InstrumentRoundTripper(name string, rt http.RoundTripper) http.RoundTripper {
@@ -41,7 +81,7 @@ func InstrumentRoundTripper(name string, rt http.RoundTripper) http.RoundTripper
 			requestTimeMetric.MustCurryWith(ls),
 			promhttp.InstrumentRoundTripperCounter(
 				requestCountMetric.MustCurryWith(ls),
-				rt)))
+				&loggingRT{name: name, underlying: rt})))
 }
 
 // Adder is something that can be added to.
