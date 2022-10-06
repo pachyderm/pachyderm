@@ -182,23 +182,29 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 					}
 					return err
 				}
-				details := &pfs.CommitInfo_Details{}
-				// Compact the commit.
 				compactor := newCompactor(d.storage, logger, d.env.StorageConfig.StorageCompactionMaxFanIn)
 				taskDoer := d.env.TaskService.NewDoer(storageTaskNamespace, commit.ID, cache)
 				var totalId *fileset.ID
 				start := time.Now()
-				if err := miscutil.LogStep(ctx, logger, "compacting commit", func() error {
-					var err error
-					totalId, err = compactor.Compact(ctx, taskDoer, []fileset.ID{*id}, defaultTTL)
-					if err != nil {
+				if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+					if err := renewer.Add(ctx, *id); err != nil {
 						return err
 					}
-					return errors.EnsureStack(d.commitStore.SetTotalFileSet(ctx, commit, *totalId))
+					// Compact the commit.
+					return miscutil.LogStep(ctx, logger, "compacting commit", func() error {
+						var err error
+						totalId, err = compactor.Compact(ctx, taskDoer, []fileset.ID{*id}, defaultTTL)
+						if err != nil {
+							return err
+						}
+						return errors.EnsureStack(d.commitStore.SetTotalFileSet(ctx, commit, *totalId))
+					})
 				}); err != nil {
 					return err
 				}
-				details.CompactingTime = types.DurationProto(time.Since(start))
+				details := &pfs.CommitInfo_Details{
+					CompactingTime: types.DurationProto(time.Since(start)),
+				}
 				// Validate the commit.
 				start = time.Now()
 				var validationError string

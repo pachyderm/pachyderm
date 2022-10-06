@@ -132,7 +132,7 @@ func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pf
 
 // NewFileSetIterator creates a new fileset iterator.
 func NewFileSetIterator(pachClient *client.APIClient, fsID string, pathRange *pfs.PathRange) Iterator {
-	return NewCommitIterator(pachClient, client.NewRepo(client.FileSetsRepoName).NewCommit("", fsID), pathRange)
+	return NewCommitIterator(pachClient, client.NewProjectRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit(pfs.DefaultProjectName, fsID), pathRange)
 }
 
 type fileSetMultiIterator struct {
@@ -144,7 +144,7 @@ type fileSetMultiIterator struct {
 func newFileSetMultiIterator(pachClient *client.APIClient, fsID string, pathRange *pfs.PathRange) Iterator {
 	return &fileSetMultiIterator{
 		pachClient: pachClient,
-		commit:     client.NewRepo(client.FileSetsRepoName).NewCommit("", fsID),
+		commit:     client.NewProjectRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit(pfs.DefaultProjectName, fsID),
 		pathRange:  pathRange,
 	}
 }
