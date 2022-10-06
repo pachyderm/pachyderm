@@ -46,13 +46,13 @@ After verifying the workflow ran without issues, verify the new pgbouncer image 
 ## [pachyderm/postgresql](https://hub.docker.com/repository/docker/pachyderm/postgresql)
 ---
 
-Our postgresql is a fork repo from [bitnami](https://github.com/bitnami/bitnami-docker-postgresql) which has since been archieved. NOTE: this is for the built in postgres that is bundled in, This setup is not recommended in production environments.
+Our postgresql is a fork repo from [bitnami](https://github.com/bitnami/bitnami-docker-postgresql) which has since been archieved. NOTE: this is for the built in postgres that is bundled in, This setup is not recommended in production environments. 
 
 Releases are maintain in the internal [pachyderm/postgresql repo](https://github.com/pachyderm/postgresql)
 
 ## [pachyderm/kube-event-tail](https://hub.docker.com/repository/docker/pachyderm/kube-event-tail)
 ---
 
-Our kube-event-tail image is built from an [kube-event-tail internal repo](https://github.com/pachyderm/kube-event-tail) with the kube-event-tail as a submodule.
+Our kube-event-tail image is built from the source [kube-event-tail internal repo](https://github.com/pachyderm/kube-event-tail) with the kube-event-tail as a submodule.
 
 In order to update this image, simply go to the [kube-event-tail internal repo](https://github.com/pachyderm/kube-event-tail) and create a tag in the format `v0.0.8`, circle ci will trigger, build and release the new image. Once it is published you can bump the image in the core repo and test before merging for the next release. 
