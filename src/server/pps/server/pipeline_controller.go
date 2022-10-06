@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -60,6 +61,26 @@ const (
 	sideEffectName_CRASH_MONITOR        sideEffectName = 5
 )
 
+// String implements fmt.Stringer.
+func (s sideEffectName) String() string {
+	switch s {
+	case sideEffectName_KUBERNETES_RESOURCES:
+		return "KUBERNETES_RESOURCES"
+	case sideEffectName_FINISH_COMMITS:
+		return "FINISH_COMMITS"
+	case sideEffectName_RESTART:
+		return "RESTART"
+	case sideEffectName_SCALE_WORKERS:
+		return "SCALE_WORKERS"
+	case sideEffectName_PIPELINE_MONITOR:
+		return "PIPELINE_MONITOR"
+	case sideEffectName_CRASH_MONITOR:
+		return "CRASH_MONITOR"
+	default:
+		return "UNKNOWN"
+	}
+}
+
 type sideEffectToggle int32
 
 const (
@@ -67,6 +88,20 @@ const (
 	sideEffectToggle_UP   sideEffectToggle = 1
 	sideEffectToggle_DOWN sideEffectToggle = 2
 )
+
+// String implements fmt.Stringer.
+func (s sideEffectToggle) String() string {
+	switch s {
+	case sideEffectToggle_NONE:
+		return "NONE"
+	case sideEffectToggle_UP:
+		return "UP"
+	case sideEffectToggle_DOWN:
+		return "DOWN"
+	default:
+		return "UNKNOWN"
+	}
+}
 
 // sideEffect intends to capture a state changing operation that the pipeline controller may apply
 // NOTE: the PipelineInfo & ReplicationController arguments supplied to apply should be treated as read only copies
@@ -78,6 +113,18 @@ type sideEffect struct {
 
 func (se sideEffect) equals(o sideEffect) bool {
 	return se.name == o.name && se.toggle == o.toggle
+}
+
+// String implements fmt.Stringer.
+func (se sideEffect) String() string {
+	b := new(strings.Builder)
+	b.WriteString(se.name.String())
+	if t := se.toggle; t != sideEffectToggle_NONE {
+		b.WriteString(" (")
+		b.WriteString(t.String())
+		b.WriteString(")")
+	}
+	return b.String()
 }
 
 func ResourcesSideEffect(toggle sideEffectToggle) sideEffect {
@@ -424,7 +471,7 @@ func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineS
 func (pc *pipelineController) apply(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationController, target pps.PipelineState, sideEffects []sideEffect, reason string) error {
 	for _, s := range sideEffects {
 		if err := s.apply(ctx, pc, pi, rc); err != nil {
-			return err
+			return errors.Wrapf(err, "apply side effect %s", s.String())
 		}
 	}
 	if target != pi.State {
@@ -579,12 +626,16 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 				return nil
 			})
 			// Set parallelism
-			log.Debugf("Beginning scale-up check for %q, which has %d tasks",
-				pi.Pipeline.Name, nTasks)
+			log.Debugf("PPS master: beginning scale-up check for %q, which has %d tasks and %d workers",
+				pi.Pipeline.Name, nTasks, curScale)
 			switch {
 			case err != nil || nTasks == 0:
-				log.Errorf("tasks remaining for %q not known (possibly still being calculated): %v",
-					pi.Pipeline.Name, err)
+				if err == nil {
+					log.Infof("PPS master: tasks remaining for %q not known (possibly still being calculated)",
+						pi.Pipeline.Name)
+				} else {
+					log.Errorf("PPS master: tasks remaining for %q not known (possibly still being calculated): %v", pi.Pipeline.Name, err)
+				}
 				return curScale // leave pipeline alone until until nTasks is available
 			case nTasks <= curScale:
 				return curScale // can't scale down w/o dropping work
@@ -611,9 +662,11 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 			}()
 		}
 		if curScale == targetScale {
+			log.Debugf("PPS master: pipeline %q is at desired scale", pi.GetPipeline().GetName())
 			return false // no changes necessary
 		}
 		// Update the # of replicas
+		log.Debugf("PPS master: scale pipeline %q from %d to %d replicas", pi.GetPipeline().GetName(), curScale, targetScale)
 		rc.Spec.Replicas = &targetScale
 		return true
 	}))
@@ -636,6 +689,7 @@ func (pc *pipelineController) scaleDownPipeline(ctx context.Context, pi *pps.Pip
 		if rc.Spec.Replicas != nil && *rc.Spec.Replicas == 0 {
 			return false // prior attempt succeeded
 		}
+		log.Debugf("PPS master: scale down pipline %q to 0 replicas", pi.GetPipeline().GetName())
 		rc.Spec.Replicas = &zero
 		return true
 	}))
