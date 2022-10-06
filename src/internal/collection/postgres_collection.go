@@ -767,13 +767,13 @@ func (c *postgresReadWriteCollection) Update(key interface{}, val proto.Message,
 func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upsert bool) error {
 	if c.keyCheck != nil {
 		if err := c.keyCheck(key); err != nil {
-			return err
+			return errors.Wrap(err, "bad key")
 		}
 	}
 
 	paramMap, err := c.getWriteParams(key, val)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not get write params")
 	}
 
 	columns := []string{}
@@ -804,7 +804,7 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 	if !upsert {
 		count, err := result.RowsAffected()
 		if err != nil {
-			return c.mapSQLError(err, key)
+			return errors.Wrap(c.mapSQLError(err, key), "insert failed")
 		}
 
 		if count != int64(1) {
@@ -864,4 +864,77 @@ func (c *postgresReadWriteCollection) DeleteByIndex(index *Index, indexVal strin
 	query := fmt.Sprintf("delete from collections.%s where %s = $1", c.table, indexFieldName(index))
 	_, err := c.tx.Exec(query, indexVal)
 	return c.mapSQLError(err, "")
+}
+
+// MigratePostgreSQLCollections is used to migrate a PostgreSQL collection.
+// Given a collection named name, with the given indices and options, it will
+// fetch each row and call f on it, then update the current row with the new
+// key, value and indices, all in one transaction which caller is responsible
+// for committing.
+func MigratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name string, indices []*Index, oldVal proto.Message, f func(oldKey string) (newKey string, newVal proto.Message, err error), opts ...Option) error {
+	var col = postgresReadWriteCollection{
+		postgresCollection: &postgresCollection{
+			table:   name,
+			indexes: indices,
+		},
+		tx: tx,
+	}
+	for _, o := range opts {
+		o(col.postgresCollection)
+	}
+	rr, err := tx.Query(fmt.Sprintf(`SELECT key, proto FROM collections.%s`, name))
+	if err != nil {
+		return errors.Wrap(err, "could not read table")
+	}
+	type pair struct {
+		key string
+		val proto.Message
+	}
+	var vals = make(map[string]pair)
+	for rr.Next() {
+		var (
+			oldKey string
+			pb     []byte
+		)
+		if err := rr.Err(); err != nil {
+			return errors.Wrap(err, "row error")
+		}
+		if err := rr.Scan(&oldKey, &pb); err != nil {
+			return errors.Wrap(err, "could not scan row")
+		}
+		if err := proto.Unmarshal(pb, oldVal); err != nil {
+			return errors.Wrapf(err, "could not unmarshal proto")
+		}
+		newKey, newVal, err := f(oldKey)
+		if err != nil {
+			return errors.Wrapf(err, "could not convert %q", oldKey)
+		}
+		vals[oldKey] = pair{newKey, proto.Clone(newVal)}
+
+	}
+	rr.Close()
+	for oldKey, pair := range vals {
+		if err := col.withKey(oldKey, func(oldKey string) error {
+			return col.withKey(pair.key, func(newKey string) error {
+				params, err := col.getWriteParams(newKey, pair.val)
+				if err != nil {
+					return err
+				}
+
+				updateFields := []string{}
+				for k := range params {
+					updateFields = append(updateFields, fmt.Sprintf("%s = :%s", k, k))
+				}
+				params["oldKey"] = oldKey
+
+				query := fmt.Sprintf("update collections.%s set %s where key = :oldKey", col.table, strings.Join(updateFields, ", "))
+
+				_, err = col.tx.NamedExec(query, params)
+				return col.mapSQLError(err, oldKey)
+			})
+		}); err != nil {
+			return errors.Wrapf(err, "could not update %q to %q", oldKey, pair.key)
+		}
+	}
+	return nil
 }
