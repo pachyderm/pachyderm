@@ -1,7 +1,5 @@
 # jupyterlab-pachyderm
 
-Blah
-
 [![CircleCI](https://circleci.com/gh/pachyderm/jupyterlab-pachyderm/tree/main.svg?style=shield&circle-token=23e1645bde6312d903e50be2dec7073bf0bcfbd0)](https://circleci.com/gh/pachyderm/jupyterlab-pachyderm/tree/main)
 [![PyPI version](https://badge.fury.io/py/jupyterlab-pachyderm.svg)](https://pypi.org/project/jupyterlab-pachyderm)
 
@@ -196,15 +194,19 @@ jupyter server extension list 2>&1 | grep -ie "jupyterlab_pachyderm.*OK"
 
 ### API endpoints
 
+Single
+
 ```
-GET /repos # returns a list of all repos/branches
-GET /mounts # returns a list of all active mounts and unmounted repos/branches
-PUT /_mount # mounts a single repo
-PUT /_unmount # unmounts a single repo
-PUT /_commit # commits any changes to the repo
-PUT /_unmount_all # unmounts all repos
-PUT /_mount_datums # mounts first datum of given input spec
-PUT /_show_datum # cycles through mounted datums
+GET /repos/:repo # returns the state of a single repo
+PUT /repos/:repo/_mount?name=foo&mode=w # mounts a single repo
+PUT /repos/:repo/_unmount?name=foo # unmounts a single repo
+PUT /repos/:repo/_commit # commits any changes to the repo
+```
+
+Batch
+
+```
+GET /repos # returns a list of all repos and their mount_state
 ```
 
 The servers-side extension extends jupyter server, so it automatically starts as part of `jupyter lab`.
@@ -273,3 +275,10 @@ the frontend extension, check the frontend extension is installed:
 ```bash
 jupyter labextension list
 ```
+
+## Contributing
+
+
+### Packaging the extension
+
+See [RELEASE](RELEASE.md)
