@@ -28,7 +28,7 @@ const ListUnmount: React.FC<ListUnmountProps> = ({item, open, updateData}) => {
   useEffect(() => {
     if (hasBranches) {
       const found = item.branches.find((branch) => branch === 'master');
-      setSelectedBranch(found ? found : item.branches[0]);
+      setSelectedBranch(found ? found : item.branches.sort()[0]);
       setDisabled(false);
     }
   }, [item]);
@@ -125,7 +125,7 @@ const ListUnmount: React.FC<ListUnmountProps> = ({item, open, updateData}) => {
                 onChange={onChange}
                 data-testid="ListItem__select"
               >
-                {item.branches.map((branch) => {
+                {item.branches.sort().map((branch) => {
                   return (
                     <option key={branch} value={branch}>
                       {branch}
