@@ -23,15 +23,69 @@ func CollectionsV2_4_0() []col.PostgresCollection {
 	}
 }
 
+func MigrateProjectV2_4_0(p *pfs.Project) *pfs.Project {
+	if p == nil || p.Name == "" {
+		return &pfs.Project{Name: "default"}
+	}
+	return p
+}
+
+func MigrateRepoV2_4_0(r *pfs.Repo) *pfs.Repo {
+	r.Project = MigrateProjectV2_4_0(r.Project)
+	return r
+}
+
+func migrateRepoInvoV2_4_0(r *pfs.RepoInfo) *pfs.RepoInfo {
+	r.Repo = MigrateRepoV2_4_0(r.Repo)
+	for i, b := range r.Branches {
+		r.Branches[i] = MigrateBranchV2_4_0(b)
+	}
+	return r
+}
+
+func MigrateBranchV2_4_0(b *pfs.Branch) *pfs.Branch {
+	b.Repo = MigrateRepoV2_4_0(b.Repo)
+	return b
+}
+
+func migrateBranchInfoV2_4_0(b *pfs.BranchInfo) *pfs.BranchInfo {
+	b.Branch = MigrateBranchV2_4_0(b.Branch)
+	for i, bb := range b.Provenance {
+		b.Provenance[i] = MigrateBranchV2_4_0(bb)
+	}
+	for i, bb := range b.DirectProvenance {
+		b.DirectProvenance[i] = MigrateBranchV2_4_0(bb)
+	}
+	for i, bb := range b.Subvenance {
+		b.Subvenance[i] = MigrateBranchV2_4_0(bb)
+	}
+	return b
+}
+
+func MigrateCommitV2_4_0(c *pfs.Commit) *pfs.Commit {
+	c.Branch = MigrateBranchV2_4_0(c.Branch)
+	return c
+}
+
+func migrateCommitInfoV2_4_0(c *pfs.CommitInfo) *pfs.CommitInfo {
+	c.Commit = MigrateCommitV2_4_0(c.Commit)
+	c.ParentCommit = MigrateCommitV2_4_0(c.ParentCommit)
+	for i, cc := range c.ChildCommits {
+		c.ChildCommits[i] = MigrateCommitV2_4_0(cc)
+	}
+	for i, bb := range c.DirectProvenance {
+		c.DirectProvenance[i] = MigrateBranchV2_4_0(bb)
+	}
+	return c
+}
+
 // MigrateV2_4_0 migrates PFS to be fully project-aware with a default project.
 // It uses some internal knowledge about how cols.PostgresCollection works to do
 // so.
 func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
 	var oldRepo = new(pfs.RepoInfo)
 	if err := col.MigratePostgreSQLCollection(ctx, tx, "repos", reposIndexes, oldRepo, func(oldKey string) (newKey string, newVal proto.Message, err error) {
-		if oldRepo.Repo.Project.GetName() == "" {
-			oldRepo.Repo.Project = &pfs.Project{Name: "default"}
-		}
+		oldRepo = migrateRepoInvoV2_4_0(oldRepo)
 		return RepoKey(oldRepo.Repo), oldRepo, nil
 
 	},
@@ -48,9 +102,7 @@ func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	var oldBranch = new(pfs.BranchInfo)
 	if err := col.MigratePostgreSQLCollection(ctx, tx, "branches", branchesIndexes, oldBranch, func(oldKey string) (newKey string, newVal proto.Message, err error) {
-		if oldBranch.Branch.Repo.Project.GetName() == "" {
-			oldBranch.Branch.Repo.Project = &pfs.Project{Name: "default"}
-		}
+		oldBranch = migrateBranchInfoV2_4_0(oldBranch)
 		return BranchKey(oldBranch.Branch), oldBranch, nil
 
 	},
@@ -75,13 +127,7 @@ func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	var oldCommit = new(pfs.CommitInfo)
 	if err := col.MigratePostgreSQLCollection(ctx, tx, "commits", commitsIndexes, oldCommit, func(oldKey string) (newKey string, newVal proto.Message, err error) {
-		if b := oldCommit.Commit.Branch; b != nil {
-			if r := b.Repo; r != nil {
-				if r.Project.GetName() == "" {
-					r.Project = &pfs.Project{Name: "default"}
-				}
-			}
-		}
+		oldCommit = migrateCommitInfoV2_4_0(oldCommit)
 		return CommitKey(oldCommit.Commit), oldCommit, nil
 
 	}, col.WithKeyGen(func(key interface{}) (string, error) {
