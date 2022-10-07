@@ -125,7 +125,7 @@ const ListUnmount: React.FC<ListUnmountProps> = ({item, open, updateData}) => {
                 onChange={onChange}
                 data-testid="ListItem__select"
               >
-                {item.branches.map((branch) => {
+                {item.branches.sort().map((branch) => {
                   return (
                     <option key={branch} value={branch}>
                       {branch}
