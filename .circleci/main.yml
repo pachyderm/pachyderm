@@ -1177,20 +1177,20 @@ workflows:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - build-docker-images
-      - jupyter-extension-test:
-          matrix:
-            parameters:
-              python-version: ["3.7", "3.8", "3.9", "3.10"]
-      - jupyter-extension-frontend-test
-      - jupyter-extension-integration-test:
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-      - jupyter-extension-e2e-test:
-          requires:
-            - build-docker-images
-            - jupyter-extension-build
-            - build-pachctl-bin
+      # - jupyter-extension-test:
+      #     matrix:
+      #       parameters:
+      #         python-version: ["3.7", "3.8", "3.9", "3.10"]
+      # - jupyter-extension-frontend-test
+      # - jupyter-extension-integration-test:
+      #     requires:
+      #       - build-docker-images
+      #       - build-pachctl-bin
+      # - jupyter-extension-e2e-test:
+      #     requires:
+      #       - build-docker-images
+      #       - jupyter-extension-build
+      #       - build-pachctl-bin
       - jupyter-extension-build
       - jupyter-extension-docker-build:
           requires:
