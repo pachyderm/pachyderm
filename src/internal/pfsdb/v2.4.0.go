@@ -5,11 +5,13 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
+
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // returns collections released in v2.4.0 - specifically the projects collection
@@ -25,12 +27,12 @@ func CollectionsV2_4_0() []col.PostgresCollection {
 // It uses some internal knowledge about how cols.PostgresCollection works to do
 // so.
 func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
-	var oldRepo = new(pfs.Repo)
+	var oldRepo = new(pfs.RepoInfo)
 	if err := col.MigratePostgreSQLCollection(ctx, tx, "repos", reposIndexes, oldRepo, func(oldKey string) (newKey string, newVal proto.Message, err error) {
-		if oldRepo.Project.GetName() == "" {
-			oldRepo.Project = &pfs.Project{Name: "default"}
+		if oldRepo.Repo.Project.GetName() == "" {
+			oldRepo.Repo.Project = &pfs.Project{Name: "default"}
 		}
-		return RepoKey(oldRepo), oldRepo, nil
+		return RepoKey(oldRepo.Repo), oldRepo, nil
 
 	},
 		col.WithKeyCheck(repoKeyCheck),
@@ -44,12 +46,12 @@ func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
 	); err != nil {
 		return errors.Wrap(err, "could not migrate repos")
 	}
-	var oldBranch = new(pfs.Branch)
+	var oldBranch = new(pfs.BranchInfo)
 	if err := col.MigratePostgreSQLCollection(ctx, tx, "branches", branchesIndexes, oldBranch, func(oldKey string) (newKey string, newVal proto.Message, err error) {
-		if oldBranch.Repo.Project.GetName() == "" {
-			oldBranch.Repo.Project = &pfs.Project{Name: "default"}
+		if oldBranch.Branch.Repo.Project.GetName() == "" {
+			oldBranch.Branch.Repo.Project = &pfs.Project{Name: "default"}
 		}
-		return BranchKey(oldBranch), oldBranch, nil
+		return BranchKey(oldBranch.Branch), oldBranch, nil
 
 	},
 		col.WithKeyGen(func(key interface{}) (string, error) {
@@ -71,16 +73,16 @@ func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
 		})); err != nil {
 		return errors.Wrap(err, "could not migrate branches")
 	}
-	var oldCommit = new(pfs.Commit)
+	var oldCommit = new(pfs.CommitInfo)
 	if err := col.MigratePostgreSQLCollection(ctx, tx, "commits", commitsIndexes, oldCommit, func(oldKey string) (newKey string, newVal proto.Message, err error) {
-		if b := oldCommit.Branch; b != nil {
+		if b := oldCommit.Commit.Branch; b != nil {
 			if r := b.Repo; r != nil {
 				if r.Project.GetName() == "" {
 					r.Project = &pfs.Project{Name: "default"}
 				}
 			}
 		}
-		return CommitKey(oldCommit), oldCommit, nil
+		return CommitKey(oldCommit.Commit), oldCommit, nil
 
 	}, col.WithKeyGen(func(key interface{}) (string, error) {
 		if commit, ok := key.(*pfs.Commit); !ok {
@@ -91,13 +93,13 @@ func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
 	})); err != nil {
 		return errors.Wrap(err, "could not migrate commits")
 	}
-	var oldProject = new(pfs.Project)
+	var oldProject = new(pfs.ProjectInfo)
 	if err := col.MigratePostgreSQLCollection(ctx, tx, "projects", nil, oldProject, func(oldKey string) (newKey string, newVal proto.Message, err error) {
-		if oldProject.Name == "" {
-			oldProject.Name = "default"
+		if oldProject.Project.Name == "" {
+			oldProject.Project.Name = "default"
 			return "default", oldProject, nil
 		}
-		return ProjectKey(oldProject), oldProject, nil
+		return ProjectKey(oldProject.Project), oldProject, nil
 	}, col.WithKeyGen(func(key interface{}) (string, error) {
 		if project, ok := key.(*pfs.Project); !ok {
 			return "", errors.New("key must be a project")
