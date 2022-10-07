@@ -1,6 +1,6 @@
-import React, {useEffect, useState} from 'react';
-import {requestAPI} from '../../../../handler';
-import {ListMountsResponse, mountState, Repo} from '../../types';
+import React, { useEffect, useState } from 'react';
+import { requestAPI } from '../../../../handler';
+import { ListMountsResponse, mountState, Repo } from '../../types';
 
 export const DISABLED_STATES: mountState[] = [
   'unmounting',
@@ -14,7 +14,7 @@ type ListUnmountProps = {
   updateData: (data: ListMountsResponse) => void;
 };
 
-const ListUnmount: React.FC<ListUnmountProps> = ({item, open, updateData}) => {
+const ListUnmount: React.FC<ListUnmountProps> = ({ item, open, updateData }) => {
   const [selectedBranch, setSelectedBranch] = useState<string>();
   const [disabled, setDisabled] = useState<boolean>(false);
   const [authorized, setAuthorized] = useState<boolean>(false);
@@ -67,7 +67,7 @@ const ListUnmount: React.FC<ListUnmountProps> = ({item, open, updateData}) => {
       <li
         className="pachyderm-mount-sortableList-item"
         data-testid="ListItem__unauthorized"
-        style={{cursor: 'not-allowed'}}
+        style={{ cursor: 'not-allowed' }}
         title="You don't have the correct permissions to access this repository"
       >
         <span className="pachyderm-mount-list-item-name-branch-wrapper pachyderm-mount-sortableList-disabled">
@@ -106,9 +106,8 @@ const ListUnmount: React.FC<ListUnmountProps> = ({item, open, updateData}) => {
       data-testid="ListItem__branches"
     >
       <span
-        className={`pachyderm-mount-list-item-name-branch-wrapper ${
-          disabled ? 'pachyderm-mount-sortableList-disabled' : ''
-        }`}
+        className={`pachyderm-mount-list-item-name-branch-wrapper ${disabled ? 'pachyderm-mount-sortableList-disabled' : ''
+          }`}
       >
         <span className="pachyderm-mount-list-item-name" title={item.repo}>
           {item.repo}
@@ -125,7 +124,7 @@ const ListUnmount: React.FC<ListUnmountProps> = ({item, open, updateData}) => {
                 onChange={onChange}
                 data-testid="ListItem__select"
               >
-                {item.branches.map((branch) => {
+                {item.branches.sort().map((branch) => {
                   return (
                     <option key={branch} value={branch}>
                       {branch}
