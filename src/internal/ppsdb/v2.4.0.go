@@ -19,6 +19,9 @@ func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
 		if oldJob.Job.Pipeline.Project.GetName() == "" {
 			oldJob.Job.Pipeline.Project = &pfs.Project{Name: "default"}
 		}
+		if oldJob.OutputCommit.Branch.Repo.Project.GetName() == "" {
+			oldJob.OutputCommit.Branch.Repo.Project = &pfs.Project{Name: "default"}
+		}
 		return JobKey(oldJob.Job), oldJob, nil
 
 	}); err != nil {
@@ -29,6 +32,15 @@ func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
 		if oldPipeline.Pipeline.Project.GetName() == "" {
 			oldPipeline.Pipeline.Project = &pfs.Project{Name: "default"}
 		}
+		if oldPipeline.SpecCommit.Branch.Repo.Project.GetName() == "" {
+			oldPipeline.SpecCommit.Branch.Repo.Project = &pfs.Project{Name: "default"}
+		}
+		pps.VisitInput(oldPipeline.Details.Input, func(i *pps.Input) error {
+			if i.Pfs != nil && i.Pfs.Project == "" {
+				i.Pfs.Project = "default"
+			}
+			return nil
+		})
 		if newKey, err = pipelineCommitKey(oldPipeline.SpecCommit); err != nil {
 			return
 		}
