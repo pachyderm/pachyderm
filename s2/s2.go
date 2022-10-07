@@ -96,6 +96,9 @@ func attachBucketRoutes(logger *logrus.Entry, router *mux.Router, handler *bucke
 
 // attachBucketRoutes adds object-related routes to a router
 func attachObjectRoutes(logger *logrus.Entry, router *mux.Router, handler *objectHandler, multipartHandler *multipartHandler) {
+
+	logger.Infof("HI I AM LOGRUS THE INFO WALRUS")
+
 	router.Methods("GET", "PUT").Queries("acl", "").HandlerFunc(NotImplementedEndpoint(logger))
 	router.Methods("GET", "PUT").Queries("legal-hold", "").HandlerFunc(NotImplementedEndpoint(logger))
 	router.Methods("GET", "PUT").Queries("retention", "").HandlerFunc(NotImplementedEndpoint(logger))
@@ -107,10 +110,14 @@ func attachObjectRoutes(logger *logrus.Entry, router *mux.Router, handler *objec
 	router.Methods("GET").Queries("uploadId", "").HandlerFunc(multipartHandler.listChunks)
 	router.Methods("POST").Queries("uploads", "").HandlerFunc(multipartHandler.init)
 	router.Methods("POST").Queries("uploadId", "").HandlerFunc(multipartHandler.complete)
+
+	// PUT with x-amz-copy-source AND uploadId is a copy, not a put, so it has
+	// to go higher in this list to get precedence.
+	router.Methods("PUT").Headers("x-amz-copy-source", "").HandlerFunc(handler.copy)
+
 	router.Methods("PUT").Queries("uploadId", "").HandlerFunc(multipartHandler.put)
 	router.Methods("DELETE").Queries("uploadId", "").HandlerFunc(multipartHandler.del)
 	router.Methods("GET", "HEAD").HandlerFunc(handler.get)
-	router.Methods("PUT").Headers("x-amz-copy-source", "").HandlerFunc(handler.copy)
 	router.Methods("PUT").HandlerFunc(handler.put)
 	router.Methods("DELETE").HandlerFunc(handler.del)
 }

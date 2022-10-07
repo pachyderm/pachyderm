@@ -115,17 +115,21 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *objectHandler) copy(w http.ResponseWriter, r *http.Request) {
+	h.logger.Infof("HI I AM COPY, x-amz-copy-source=%+v", r.Header.Values("x-amz-copy-source"))
+	h.logger.Infof("COPY 1")
 	vars := mux.Vars(r)
 	destBucket := vars["bucket"]
 	destKey := vars["key"]
 
 	var srcBucket string
 	var srcKey string
+	h.logger.Infof("COPY 2")
 	srcURL, err := url.Parse(r.Header.Get("x-amz-copy-source"))
 	if err != nil {
 		WriteError(h.logger, w, r, InvalidArgumentError(r))
 		return
 	}
+	h.logger.Infof("COPY 3 %s", srcURL)
 	srcPath := strings.SplitN(srcURL.Path, "/", 3)
 	if len(srcPath) == 2 {
 		srcBucket = srcPath[0]
@@ -142,15 +146,18 @@ func (h *objectHandler) copy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	srcVersionID := srcURL.Query().Get("versionId")
+	h.logger.Infof("COPY 4 %s %s", srcPath, srcVersionID)
 
 	if srcBucket == "" {
 		WriteError(h.logger, w, r, InvalidBucketNameError(r))
 		return
 	}
+	h.logger.Infof("COPY 5")
 	if srcKey == "" {
 		WriteError(h.logger, w, r, NoSuchKeyError(r))
 		return
 	}
+	h.logger.Infof("COPY 6")
 	if srcBucket == destBucket && srcKey == destKey && srcVersionID == "" {
 		// If we ever add support for object metadata, this error should not
 		// trigger in the case where metadata is changed, since it is a valid
@@ -158,6 +165,7 @@ func (h *objectHandler) copy(w http.ResponseWriter, r *http.Request) {
 		WriteError(h.logger, w, r, InvalidRequestError(r, "source and destination are the same"))
 		return
 	}
+	h.logger.Infof("COPY 7")
 
 	ifMatch := r.Header.Get("x-amz-copy-source-if-match")
 	ifNoneMatch := r.Header.Get("x-amz-copy-source-if-none-match")
@@ -169,45 +177,54 @@ func (h *objectHandler) copy(w http.ResponseWriter, r *http.Request) {
 		WriteError(h.logger, w, r, err)
 		return
 	}
+	h.logger.Infof("COPY 8")
 	if getResult.DeleteMarker {
 		WriteError(h.logger, w, r, NoSuchKeyError(r))
 		return
 	}
 
+	h.logger.Infof("COPY 9")
 	if !checkIfMatch(ifMatch, getResult.ETag) {
 		WriteError(h.logger, w, r, PreconditionFailedError(r))
 		return
 	}
 
+	h.logger.Infof("COPY 10")
 	if !checkIfNoneMatch(ifNoneMatch, getResult.ETag) {
 		WriteError(h.logger, w, r, PreconditionFailedError(r))
 		return
 	}
 
+	h.logger.Infof("COPY 11")
 	if !checkIfUnmodifiedSince(ifUnmodifiedSince, getResult.ModTime) {
 		WriteError(h.logger, w, r, PreconditionFailedError(r))
 		return
 	}
 
+	h.logger.Infof("COPY 12")
 	if !checkIfModifiedSince(ifModifiedSince, getResult.ModTime) {
 		WriteError(h.logger, w, r, PreconditionFailedError(r))
 		return
 	}
 
+	h.logger.Infof("COPY 13")
 	destVersionID, err := h.controller.CopyObject(r, srcBucket, srcKey, getResult, destBucket, destKey)
 	if err != nil {
 		WriteError(h.logger, w, r, err)
 		return
 	}
 
+	h.logger.Infof("COPY 14")
 	if getResult.Version != "" {
 		w.Header().Set("x-amz-copy-source-version-id", getResult.Version)
 	}
 
+	h.logger.Infof("COPY 15")
 	if destVersionID != "" {
 		w.Header().Set("x-amz-version-id", srcVersionID)
 	}
 
+	h.logger.Infof("COPY 16")
 	marshallable := struct {
 		XMLName      xml.Name  `xml:"http://s3.amazonaws.com/doc/2006-03-01/ CopyObjectResult"`
 		LastModified time.Time `xml:"LastModified"`
@@ -217,10 +234,17 @@ func (h *objectHandler) copy(w http.ResponseWriter, r *http.Request) {
 		ETag:         getResult.ETag,
 	}
 
+	h.logger.Infof("COPY 17")
 	writeXML(h.logger, w, r, http.StatusOK, marshallable)
+	h.logger.Infof("COPY 18 %+v", marshallable)
 }
 
 func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
+
+	// http headers from r.Header
+
+	h.logger.Infof("HI I AM PUT, x-amz-copy-source=%+v", r.Header.Values("x-amz-copy-source"))
+
 	transferEncoding := r.Header["Transfer-Encoding"]
 	identity := false
 	for _, headerValue := range transferEncoding {

@@ -16,7 +16,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 // ClientFactory is a function called by s3g to create request-scoped
