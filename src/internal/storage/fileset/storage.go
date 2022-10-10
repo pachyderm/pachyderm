@@ -49,7 +49,13 @@ var (
 	ErrNoFileSetFound = errors.Errorf("no fileset found")
 )
 
-// Storage is the abstraction that manages fileset storage.
+// Storage is an abstraction for interfacing with file sets.
+// A storage instance:
+// - Provides methods for writing file sets, opening file sets for reading, and managing file sets.
+// - Manages tracker state to keep internal file sets alive while writing file sets.
+// - Manages an internal index cache that supports logarithmic lookup in the multilevel indexes.
+// - Provides methods for processing file set compaction tasks.
+// - Provides a method for creating a garbage collector.
 type Storage struct {
 	tracker                                               track.Tracker
 	store                                                 MetadataStore
