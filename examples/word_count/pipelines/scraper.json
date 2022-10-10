@@ -1,5 +1,6 @@
 {
   "pipeline": {
+    "project": {"name": "default"},
     "name": "scraper"
   },
   "description": "A pipeline that pulls content from a specified Internet source.",
@@ -17,6 +18,7 @@
   },
   "input": {
       "pfs": {
+        "project": "default",
         "repo": "urls",
         "glob": "/*"
       }

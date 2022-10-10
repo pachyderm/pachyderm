@@ -4,6 +4,7 @@
       {
         "pfs": {
           "glob": "/*.jpeg",
+          "project": "default",
           "repo": "fruits",
           "empty_files": true
         }
@@ -11,6 +12,7 @@
       {
         "pfs": {
           "glob": "/*.json",
+          "project": "default",
           "repo": "pricing",
           "empty_files": true
         }
@@ -18,6 +20,7 @@
     ]
   },
   "pipeline": {
+    "project": {"name": "default"},
     "name": "shuffle"
   },
   "description": "A pipeline that places files with a matching name pattern and stored in separate repositories to a corresponding folder in the output repository.",
