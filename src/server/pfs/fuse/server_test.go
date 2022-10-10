@@ -594,8 +594,7 @@ func TestHealth(t *testing.T) {
 
 // Requires 'use_allow_other' to be enabled in /etc/fuse.conf
 func TestAuthLoginLogout(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	env.ActivateIdentity("../../../../dex-assets")
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -628,8 +627,7 @@ func TestAuthLoginLogout(t *testing.T) {
 }
 
 func TestRepoAccess(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	env.ActivateIdentity("../../../../dex-assets")
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -675,8 +673,7 @@ func TestRepoAccess(t *testing.T) {
 }
 
 func TestUnauthenticatedCode(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	env.ActivateIdentity("../../../../dex-assets")
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)

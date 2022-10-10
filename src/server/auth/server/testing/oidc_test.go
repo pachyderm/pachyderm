@@ -22,8 +22,7 @@ import (
 // auth code flow
 func TestOIDCAuthCodeFlow(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	env.ActivateIdentity("../../../../../dex-assets")
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -49,8 +48,7 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 // TestOIDCTrustedApp tests using an ID token issued to another OIDC app to authenticate.
 func TestOIDCTrustedApp(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	env.ActivateIdentity("../../../../../dex-assets")
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -76,8 +74,7 @@ func TestOIDCTrustedApp(t *testing.T) {
 // and do the auth code flow.
 func TestCannotAuthenticateWithExpiredLicense(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	env.ActivateIdentity("../../../../../dex-assets")
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)

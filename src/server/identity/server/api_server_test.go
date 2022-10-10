@@ -23,8 +23,7 @@ import (
 
 // TestAuthNotActivated checks that no RPCs can be made when the auth service is disabled
 func TestAuthNotActivated(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	env.ActivateIdentity("../../../../dex-assets")
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
 	client := env.PachClient
 	_, err := client.SetIdentityServerConfig(client.Ctx(), &identity.SetIdentityServerConfigRequest{})
 	require.YesError(t, err)
@@ -82,8 +81,7 @@ func TestAuthNotActivated(t *testing.T) {
 // TestUserNotAdmin checks that no RPCs can be made by non-admin users
 func TestUserNotAdmin(t *testing.T) {
 	alice := tu.UniqueString("robot:alice")
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	env.ActivateIdentity("../../../../dex-assets")
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	aliceClient := tu.AuthenticatedPachClient(t, c, alice, peerPort)
@@ -142,8 +140,7 @@ func TestUserNotAdmin(t *testing.T) {
 
 // TestSetConfiguration tests that the web server configuration reloads when the etcd config value is updated
 func TestSetConfiguration(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	env.ActivateIdentity("../../../../dex-assets")
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	adminClient := tu.AuthenticatedPachClient(t, c, auth.RootUser, peerPort)
@@ -184,8 +181,7 @@ func TestSetConfiguration(t *testing.T) {
 }
 
 func TestOIDCClientCRUD(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	env.ActivateIdentity("../../../../dex-assets")
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	adminClient := tu.AuthenticatedPachClient(t, c, auth.RootUser, peerPort)
@@ -229,8 +225,7 @@ func TestOIDCClientCRUD(t *testing.T) {
 }
 
 func TestIDPConnectorCRUD(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	env.ActivateIdentity("../../../../dex-assets")
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	adminClient := tu.AuthenticatedPachClient(t, c, auth.RootUser, peerPort)
@@ -278,8 +273,7 @@ func TestIDPConnectorCRUD(t *testing.T) {
 // TestShortenIDTokenExpiry tests that we can configure Dex to issue ID tokens with a
 // expiration shorter than the default of 6 hours
 func TestShortenIDTokenExpiry(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	env.ActivateIdentity("../../../../dex-assets")
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)

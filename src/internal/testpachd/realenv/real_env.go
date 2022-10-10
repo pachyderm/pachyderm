@@ -3,9 +3,11 @@ package realenv
 import (
 	"net"
 	"net/url"
+	"os"
 	"path"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 
 	units "github.com/docker/go-units"
@@ -70,6 +72,13 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	return newRealEnv(t, false, testpachd.AuthMiddlewareInterceptor, customOpts...)
 }
 
+// NewRealEnvWithIdentity creates a new real Env and then activates an identity server with dex.
+func NewRealEnvWithIdentity(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
+	env := newRealEnv(t, false, testpachd.AuthMiddlewareInterceptor, customOpts...)
+	env.ActivateIdentity(t)
+	return env
+}
+
 // NewRealEnvWithPPSTransactionMock constructs a MockEnv, then forwards all API calls to go to API
 // server instances for supported operations. A mock implementation of PPS Transactions are used.
 func NewRealEnvWithPPSTransactionMock(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
@@ -79,12 +88,16 @@ func NewRealEnvWithPPSTransactionMock(t testing.TB, customOpts ...serviceenv.Con
 	return newRealEnv(t, true, noInterceptor, customOpts...)
 }
 
-func (realEnv *RealEnv) ActivateIdentity(pathToDexAssets string) {
-	identityserver.WebDir(pathToDexAssets)
+func (realEnv *RealEnv) ActivateIdentity(t testing.TB) {
+	dir, err := os.Getwd()
+	require.NoError(t, err)
+	dexDir := strings.Split(dir, "src")[0] + "dex-assets"
+	_, err = os.Stat(dexDir)
+	require.NoError(t, err)
 	realEnv.ServiceEnv.InitDexDB()
 	identityEnv := identityserver.EnvFromServiceEnv(realEnv.ServiceEnv)
 	identityAddr := realEnv.PachClient.GetAddress().Host + ":" + strconv.Itoa(int(realEnv.PachClient.GetAddress().Port+8))
-	realEnv.IdentityServer = identityserver.NewIdentityServer(identityEnv, true, identityAddr)
+	realEnv.IdentityServer = identityserver.NewIdentityServer(identityEnv, true, identityserver.UnitTestOption(identityAddr, dexDir))
 	realEnv.ServiceEnv.SetIdentityServer(realEnv.IdentityServer)
 	linkServers(&realEnv.MockPachd.Identity, realEnv.IdentityServer)
 }

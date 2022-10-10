@@ -26,22 +26,26 @@ type apiServer struct {
 	api *dexAPI
 }
 
+type IdentityServerOption func(web *dexWeb)
+
+func UnitTestOption(addr, assetsDir string) IdentityServerOption {
+	return func(web *dexWeb) {
+		web.addr = addr
+		web.assetsDir = assetsDir
+	}
+}
+
 // NewIdentityServer returns an implementation of identity.APIServer.
-func NewIdentityServer(env Env, public bool, portOverride ...string) *apiServer {
+func NewIdentityServer(env Env, public bool, options ...IdentityServerOption) *apiServer {
 	server := &apiServer{
 		env: env,
 		api: newDexAPI(env.DexStorage),
 	}
 
-	port := dexHTTPPort
-	if len(portOverride) > 0 {
-		port = portOverride[0]
-	}
-
 	if public {
-		web := newDexWeb(env, server)
+		web := newDexWeb(env, server, options...)
 		go func() {
-			if err := http.ListenAndServe(port, web); err != nil {
+			if err := http.ListenAndServe(web.addr, web); err != nil {
 				logrus.WithError(err).Fatalf("error setting up and/or running the identity server")
 			}
 		}()

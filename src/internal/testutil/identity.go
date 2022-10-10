@@ -37,22 +37,26 @@ func OIDCOIDCConfig(host, issuerPort, redirectPort string, local bool) *auth.OID
 
 // ConfigureOIDCProvider configures the identity service and the auth service to
 // use a mock connector.
-func ConfigureOIDCProvider(t *testing.T, c *client.APIClient, realEnv bool) error {
+func ConfigureOIDCProvider(t *testing.T, c *client.APIClient, unitTest bool) error {
 	adminClient := AuthenticateClient(t, c, auth.RootUser)
 
 	_, err := adminClient.IdentityAPIClient.DeleteAll(adminClient.Ctx(), &identity.DeleteAllRequest{})
 	require.NoError(t, err)
 
+	// In the case of integration tests, the following defaults are used to due to routing constraints
+	// imposed by minikube in integration tests. The address won't be reachable because the service external IP
+	// is not reachable without a tunnel on minikube's IP.
+	local := true
 	issuerHost := "pachd"
 	issuerPort := "1658"
 	redirectPort := "1657"
-	local := true
 
-	if realEnv {
+	if unitTest {
+		// In unit tests, all grpc servers listen on the peerPort which is randomly generated.
+		local = false
 		issuerHost = c.GetAddress().Host
 		issuerPort = strconv.Itoa(int(c.GetAddress().Port + 8))
 		redirectPort = strconv.Itoa(int(c.GetAddress().Port + 7))
-		local = false
 	}
 
 	_, err = adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
@@ -147,7 +151,7 @@ func DoOAuthExchange(t testing.TB, pachClient, enterpriseClient *client.APIClien
 	require.NoError(t, err)
 }
 
-func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient, realEnv bool) string {
+func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient, unitTest bool) string {
 	// Create an HTTP client that doesn't follow redirects.
 	// We rewrite the host names for each redirect to avoid issues because
 	// pachd is configured to reach dex with kube dns, but the tests might be
@@ -158,8 +162,7 @@ func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient, realE
 	}
 
 	redirectPort := "1657"
-
-	if realEnv {
+	if unitTest {
 		redirectPort = strconv.Itoa(int(testClient.GetAddress().Port + 7))
 	}
 
