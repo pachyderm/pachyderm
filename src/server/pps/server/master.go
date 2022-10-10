@@ -54,10 +54,19 @@ type stepError struct {
 }
 
 func newRetriableError(err error, message string) error {
+	retry, failPipeline := true, true
+	if errors.Is(err, context.Canceled) {
+		retry = false
+		failPipeline = false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		retry = true
+		failPipeline = false
+	}
 	return stepError{
 		error:        errors.Wrap(err, message),
-		retry:        true,
-		failPipeline: true,
+		retry:        retry,
+		failPipeline: failPipeline,
 	}
 }
 
