@@ -21,6 +21,7 @@
     }
   }
 }
+---
 {
   "pipeline": {
     "name": "model"
