@@ -2460,15 +2460,15 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 		pipelineInfo := &pps.PipelineInfo{}
 		deleted := make(map[string]struct{})
 		if err := a.pipelines.ReadOnly(ctx).List(pipelineInfo, col.DefaultOptions(), func(string) error {
-			if _, ok := deleted[pipelineInfo.Pipeline.Name]; ok {
+			if _, ok := deleted[pipelineInfo.Pipeline.String()]; ok {
 				// while the delete pipeline call will delete historical versions,
 				// they could still show up in the list. Ignore them
 				return nil
 			}
-			request.Pipeline.Name = pipelineInfo.Pipeline.Name
+			request.Pipeline = pipelineInfo.Pipeline
 			err := a.deletePipeline(ctx, request)
 			if err == nil {
-				deleted[pipelineInfo.Pipeline.Name] = struct{}{}
+				deleted[pipelineInfo.Pipeline.String()] = struct{}{}
 			}
 			return err
 		}); err != nil {
@@ -2504,6 +2504,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		return err
 	}
 	clearJobCache(a.env.GetPachClient(ctx), pipelineName)
+	clearJobCache(a.env.GetPachClient(ctx), request.Pipeline.String())
 	return deleteErr
 }
 
