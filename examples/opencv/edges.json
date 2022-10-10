@@ -1,6 +1,6 @@
 {
   "pipeline": {
-      "project": "default",
+      "project": {"name": "default"},
       "name": "edges"
   },
   "description": "A pipeline that performs image edge detection by using the OpenCV library.",
