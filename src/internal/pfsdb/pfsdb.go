@@ -2,6 +2,7 @@
 package pfsdb
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -38,6 +39,9 @@ var ReposNameIndex = &col.Index{
 var reposIndexes = []*col.Index{ReposNameIndex, ReposTypeIndex}
 
 func RepoKey(repo *pfs.Repo) string {
+	if projectName := repo.Project.GetName(); projectName != "" {
+		return fmt.Sprintf("%s/%s.%s", projectName, repo.Name, repo.Type)
+	}
 	return repo.Name + "." + repo.Type
 }
 
