@@ -87,9 +87,6 @@ or type (e.g. csv, binary, images, etc).`,
 			defer c.Close()
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				if project == "" {
-					project = pfs.DefaultProjectName
-				}
 				_, err = c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
 					&pfs.CreateRepoRequest{
