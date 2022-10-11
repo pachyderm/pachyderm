@@ -10722,9 +10722,9 @@ func TestTemporaryDuplicatedPath(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
-	repo := tu.UniqueString(t.Name())
-	other := tu.UniqueString("other-" + t.Name())
-	pipeline := tu.UniqueString("pipeline-" + t.Name())
+	repo := tu.UniqueString("repo")
+	other := tu.UniqueString("other")
+	pipeline := tu.UniqueString("pipeline")
 
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, other))
