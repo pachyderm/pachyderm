@@ -238,7 +238,7 @@ func processDatumSetTask(driver driver.Driver, logger logs.TaggedLogger, task *D
 
 func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
 	return backoff.RetryNotify(func() error {
-		jobDomain := ppsutil.SidecarS3GatewayService(driver.PipelineInfo().Pipeline.Name, logger.JobID())
+		jobDomain := ppsutil.SidecarS3GatewayService(driver.PipelineInfo().Pipeline, logger.JobID())
 		endpoint := fmt.Sprintf("http://%s:%s/", jobDomain, os.Getenv("S3GATEWAY_PORT"))
 		_, err := (&http.Client{Timeout: 5 * time.Second}).Get(endpoint)
 		logger.Logf("checking s3 gateway service for job %q: %v", logger.JobID(), err)
