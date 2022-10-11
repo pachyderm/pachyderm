@@ -1,6 +1,5 @@
 //go:build k8s
 
-// TODO(Fahad): make these tests work with realEnv if possible.
 package server
 
 import (
@@ -33,43 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
-// TODO(Fahad): requires realEnv integration with identity API.
-// TestDeleteAll tests that you must be a cluster admin to call DeleteAll
-func TestDeleteAll(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice := tu.Robot(tu.UniqueString("alice"))
-	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
-
-	// admin creates a repo
-	repo := tu.UniqueString(t.Name())
-	require.NoError(t, adminClient.CreateRepo(repo))
-
-	// alice calls DeleteAll, but it fails
-	err := aliceClient.DeleteAll()
-	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
-
-	// admin makes alice an fs admin
-	require.NoError(t, adminClient.ModifyClusterRoleBinding(alice, []string{auth.RepoOwnerRole}))
-
-	// wait until alice shows up in admin list
-	resp, err := aliceClient.GetClusterRoleBinding()
-	require.NoError(t, err)
-	require.Equal(t, tu.BuildClusterBindings(alice, auth.RepoOwnerRole), resp)
-
-	// alice calls DeleteAll but it fails because she's only an fs admin
-	err = aliceClient.DeleteAll()
-	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
-
-	// admin calls DeleteAll and succeeds
-	require.NoError(t, adminClient.DeleteAll())
-}
+// TODO(Fahad): Potentially convert these to unit tests by using Jon's fake kube apiserver
 
 // TestListDatum tests that you must have READER access to all of job's
 // input repos to call ListDatum on that job
@@ -210,8 +173,6 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TODO(Fahad): think we need to register the debug server api functions.
-// TODO: This test mirrors TestDebug in src/server/pachyderm_test.go.
 // Need to restructure testing such that we have the implementation of this
 // test in one place while still being able to test auth enabled and disabled clusters.
 func TestDebug(t *testing.T) {
