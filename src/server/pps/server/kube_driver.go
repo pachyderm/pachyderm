@@ -59,6 +59,16 @@ func (kd *kubeDriver) CreatePipelineResources(ctx context.Context, pi *pps.Pipel
 	return nil
 }
 
+func pipelineLabelSelector(p *pps.Pipeline) string {
+	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, p.Name)
+	if projectName := p.Project.GetName(); projectName != "" {
+		selector = fmt.Sprintf("%s,%s=%s", selector, pipelineProjectLabel, projectName)
+	} else {
+		selector = fmt.Sprintf("%s,!%s", selector, pipelineProjectLabel)
+	}
+	return selector
+}
+
 // Deletes a pipeline's services, secrets, and replication controllers.
 // NOTE: It doesn't return a stepError, leaving retry behavior to the caller
 func (kd *kubeDriver) DeletePipelineResources(ctx context.Context, pipeline *pps.Pipeline) (retErr error) {
@@ -74,12 +84,7 @@ func (kd *kubeDriver) DeletePipelineResources(ctx context.Context, pipeline *pps
 	kd.limiter.Acquire()
 	defer kd.limiter.Release()
 	// Delete any services associated with pc.pipeline
-	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pipelineName)
-	if projectName != "" {
-		selector = fmt.Sprintf("%s,%s=%s", selector, pipelineProjectLabel, projectName)
-	} else {
-		selector = fmt.Sprintf("%s,!%s", selector, pipelineProjectLabel)
-	}
+	selector := pipelineLabelSelector(pipeline)
 	opts := metav1.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
@@ -126,12 +131,7 @@ func (kd *kubeDriver) ReadReplicationController(ctx context.Context, pi *pps.Pip
 	kd.limiter.Acquire()
 	defer kd.limiter.Release()
 	// List all RCs, so stale RCs from old pipelines are noticed and deleted
-	labelSelector := fmt.Sprintf("%s=%s", pipelineNameLabel, pi.Pipeline.Name)
-	if projectName := pi.Pipeline.Project.GetName(); projectName != "" {
-		labelSelector = fmt.Sprintf("%s,%s=%s", labelSelector, pipelineProjectLabel, projectName)
-	} else {
-		labelSelector = fmt.Sprintf("%s,!%s", labelSelector, pipelineProjectLabel)
-	}
+	labelSelector := pipelineLabelSelector(pi.Pipeline)
 	rc, err := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).List(
 		ctx,
 		metav1.ListOptions{LabelSelector: labelSelector})
