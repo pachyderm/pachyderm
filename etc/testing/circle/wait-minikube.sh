@@ -5,7 +5,7 @@ set -Eex
 # Try to connect for three minutes
 for _ in $(seq 36); do
     if kubectl version &>/dev/null; then
-        echo 'minikube ready' | ts
+        echo 'minikube ready'
         exit 0
     fi
     echo 'sleeping' | ts
