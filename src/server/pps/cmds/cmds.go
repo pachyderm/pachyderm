@@ -407,8 +407,8 @@ each datum.`,
 
 	restartDatum := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job> <datum-path1>,<datum-path2>,...",
-		Short: "Restart a datum.",
-		Long:  "Restart a datum.",
+		Short: "Restart a stuck datum during a currently running job.",
+		Long:  "Restart a stuck datum during a currently running job; does not solve failed datums. Optionally, you can configure a job to skip failed datums via the transform.err_cmd setting of your pipeline spec.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			job, err := cmdutil.ParseJob(args[0])
 			if err != nil {
