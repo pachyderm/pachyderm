@@ -2,13 +2,11 @@ package main
 
 import (
 	"context"
-	"os"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl-doc/docgen"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/cmd"
-
-	"github.com/spf13/cobra/doc"
+	"os"
 )
 
 type appEnv struct{}
@@ -25,8 +23,6 @@ func do(ctx context.Context, appEnvObj interface{}) error {
 	if len(os.Args) == 2 {
 		path = os.Args[1]
 	}
-
 	rootCmd := cmd.PachctlCmd()
-	rootCmd.DisableAutoGenTag = true
-	return errors.EnsureStack(doc.GenMarkdownTree(rootCmd, path))
+	return errors.EnsureStack(docgen.GenMarkdownTree(rootCmd, path))
 }

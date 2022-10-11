@@ -290,3 +290,4 @@ require (
 
 // until the changes in github.com/pachyderm/dex are upstreamed to github.com/dexidp/dex, we swap in our repo
 replace github.com/dexidp/dex => github.com/pachyderm/dex v0.0.0-20220913162337-97a077e960b3
+replace github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl-doc/docgen => ../src/server/cmd/pachctl-doc/docgen
