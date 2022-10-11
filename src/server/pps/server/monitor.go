@@ -34,9 +34,9 @@ import (
 // pipeline's output repo.
 // returns a cancel()
 func (pc *pipelineController) startMonitor(ctx context.Context, pipelineInfo *pps.PipelineInfo) func() {
-	pipeline := pipelineInfo.Pipeline.String()
 	return startMonitorThread(ctx,
-		"monitorPipeline for "+pipeline, func(ctx context.Context) {
+		fmt.Sprintf("monitorPipeline for %s", pipelineInfo.Pipeline),
+		func(ctx context.Context) {
 			// monitorPipeline needs auth privileges to call subscribeCommit and
 			// inspectCommit
 			pachClient := pc.env.GetPachClient(ctx)
@@ -53,9 +53,8 @@ func (pc *pipelineController) startMonitor(ctx context.Context, pipelineInfo *pp
 // themselves and moves the pipeline out of crashing if they have.
 // returns a cancel for the crashing monitor
 func (pc *pipelineController) startCrashingMonitor(ctx context.Context, pipelineInfo *pps.PipelineInfo) func() {
-	pipeline := pipelineInfo.Pipeline.String()
 	return startMonitorThread(ctx,
-		"monitorCrashingPipeline for "+pipeline,
+		fmt.Sprintf("monitorCrashingPipeline for %s", pipelineInfo.Pipeline),
 		func(ctx context.Context) {
 			pc.monitorCrashingPipeline(ctx, pipelineInfo)
 		})
