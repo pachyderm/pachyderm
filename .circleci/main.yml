@@ -104,6 +104,7 @@ jobs:
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
             echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+      - run: go install gotest.tools/gotestsum@latest
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
