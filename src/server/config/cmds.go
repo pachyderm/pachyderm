@@ -321,6 +321,7 @@ func Cmds() []*cobra.Command {
 	var clusterName string
 	var authInfo string
 	var serverCAs string
+	var project string
 	var removeClusterDeploymentID bool
 	var updateContext *cobra.Command // standalone declaration so Run() can refer
 	updateContext = &cobra.Command{
@@ -379,6 +380,9 @@ func Cmds() []*cobra.Command {
 			if updateContext.Flags().Changed("namespace") {
 				context.Namespace = namespace
 			}
+			if updateContext.Flags().Changed("project") {
+				context.Project = project
+			}
 			if removeClusterDeploymentID {
 				context.ClusterDeploymentID = ""
 			}
@@ -391,6 +395,7 @@ func Cmds() []*cobra.Command {
 	updateContext.Flags().StringVar(&authInfo, "auth-info", "", "Set a new k8s auth info.")
 	updateContext.Flags().StringVar(&serverCAs, "server-cas", "", "Set new trusted CA certs.")
 	updateContext.Flags().StringVar(&namespace, "namespace", "", "Set a new namespace.")
+	updateContext.Flags().StringVar(&project, "project", "", "Set a new project.")
 	updateContext.Flags().BoolVar(&removeClusterDeploymentID, "remove-cluster-deployment-id", false, "Remove the cluster deployment ID field, which will be repopulated on the next 'pachctl' call using this context.")
 	shell.RegisterCompletionFunc(updateContext, contextCompletion)
 	commands = append(commands, cmdutil.CreateAlias(updateContext, "config update context"))

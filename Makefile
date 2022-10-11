@@ -112,6 +112,9 @@ docker-build-kafka:
 docker-build-spout-test:
 	docker build --build-arg GOVERSION=golang:$(GOVERSION) -t spout-test etc/testing/spout
 
+docker-build-connectors:
+	docker build -t pachyderm/snowflake:local -f src/integrations/connectors/snowflake/Dockerfile .
+
 docker-push-gpu:
 	$(SKIP) docker push pachyderm/nvidia_driver_install
 
@@ -214,13 +217,13 @@ clean-launch: check-kubectl
 	kubectl delete pvc -l app=minio -n default
 
 test-proto-static:
-	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run 'DOCKER_BUILD_FLAGS=--no-cache make proto'."
+	./etc/proto/test_no_changes.sh
 
 proto: docker-build-proto
 	./etc/proto/build.sh
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
-test: clean-launch launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-auth test-identity test-license test-enterprise test-worker test-admin test-pps
+test: clean-launch launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-auth test-license test-enterprise test-worker test-admin test-pps
 
 enterprise-code-checkin-test:
 	@which ag || { printf "'ag' not found. Run:\n  sudo apt-get install -y silversearcher-ag\n  brew install the_silver_searcher\nto install it\n\n"; exit 1; }
@@ -309,6 +312,9 @@ test-worker: launch-stats test-worker-helper
 test-worker-helper:
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v -count=1 -tags=k8s ./src/server/worker/ -timeout $(TIMEOUT) $(TESTFLAGS)
+
+test-connectors: docker-build-connectors
+	go test -v -count=1 -tags=k8s ./src/integrations/connectors/... -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 
 clean: clean-launch clean-launch-kube
 

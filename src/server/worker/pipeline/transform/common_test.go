@@ -11,9 +11,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
@@ -27,7 +26,7 @@ const debug = false
 func defaultPipelineInfo() *pps.PipelineInfo {
 	name := "testPipeline"
 	return &pps.PipelineInfo{
-		Pipeline: client.NewPipeline(name),
+		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, name),
 		Details: &pps.PipelineInfo_Details{
 			OutputBranch: "master",
 			Transform: &pps.Transform{
@@ -55,7 +54,7 @@ func defaultPipelineInfo() *pps.PipelineInfo {
 }
 
 type testEnv struct {
-	*testpachd.RealEnv
+	*realenv.RealEnv
 	logger *logs.MockLogger
 	driver driver.Driver
 }
@@ -119,14 +118,12 @@ func (td *testDriver) NewSQLTx(cb func(*pachsql.Tx) error) error {
 	return errors.EnsureStack(td.inner.NewSQLTx(cb))
 }
 func (td *testDriver) GetContainerImageID(ctx context.Context, containerName string) (string, error) {
-	imageID, err := td.inner.GetContainerImageID(ctx, containerName)
-	return imageID, errors.EnsureStack(err)
+	return "mockImage", nil
 }
 
 // newTestEnv provides a test env with etcd and pachd instances and connected
 // clients, plus a worker driver for performing worker operations.
-func newTestEnv(t *testing.T, dbConfig serviceenv.ConfigOption, pipelineInfo *pps.PipelineInfo) *testEnv {
-	realEnv := testpachd.NewRealEnv(t, dbConfig)
+func newTestEnv(t *testing.T, pipelineInfo *pps.PipelineInfo, realEnv *realenv.RealEnv) *testEnv {
 	logger := logs.NewMockLogger()
 	if debug {
 		logger.Writer = os.Stdout

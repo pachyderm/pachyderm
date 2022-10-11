@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -78,7 +79,7 @@ func (m *ppsMaster) cancelPipelineWatcher() {
 // regularly and generating events for them, it prevents pipelines from getting
 // orphaned.
 func (m *ppsMaster) pollPipelines(ctx context.Context) {
-	dbPipelines := map[string]bool{}
+	dbPipelines := map[pipelineKey]bool{}
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		if len(dbPipelines) == 0 {
 			// 1. Get the current set of pipeline RCs, as a base set for stale RCs.
@@ -103,23 +104,25 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 			// pipelines in the database, and dbPipelines may be empty.
 			if err := m.sd.ListPipelineInfo(ctx,
 				func(ptr *pps.PipelineInfo) error {
-					dbPipelines[ptr.Pipeline.Name] = true
+					dbPipelines[toKey(ptr.Pipeline)] = true
 					return nil
 				}); err != nil {
 				// ListPipelineInfo results (dbPipelines) are used by all remaining
 				// steps, so if that didn't work, start over and try again
-				dbPipelines = map[string]bool{}
+				dbPipelines = map[pipelineKey]bool{}
 				return errors.Wrap(err, "error polling pipelines")
 			}
 
 			// 3. Generate a delete event for orphaned RCs
 			if rcs != nil {
 				for _, rc := range rcs.Items {
-					pipeline, ok := rc.Labels["pipelineName"]
+					projectName := rc.Labels[pipelineProjectLabel]
+					pipelineName, ok := rc.Labels[pipelineNameLabel]
 					if !ok {
 						return errors.New("'pipelineName' label missing from rc " + rc.Name)
 					}
-					if !dbPipelines[pipeline] {
+					pipeline := newPipeline(projectName, pipelineName)
+					if !dbPipelines[toKey(pipeline)] {
 						m.eventCh <- &pipelineEvent{pipeline: pipeline}
 					}
 				}
@@ -131,23 +134,27 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 			}
 		}
 
-		// Generate one event for a pipeline (to trigger the pipeline controller)
-		// and remove this pipeline from dbPipelines. Always choose the
-		// lexicographically smallest pipeline so that pipelines are always
+		// Generate one event for a pKey (to trigger the pKey controller)
+		// and remove this pKey from dbPipelines. Always choose the
+		// lexicographically smallest pKey so that pipelines are always
 		// traversed in the same order and the period between polls is stable across
 		// all pipelines.
-		var pipeline string
+		var pKey pipelineKey
 		for p := range dbPipelines {
-			if pipeline == "" || p < pipeline {
-				pipeline = p
+			if pKey == "" || p < pKey {
+				pKey = p
 			}
 		}
 
 		// always rm 'pipeline', to advance loop
-		delete(dbPipelines, pipeline)
+		delete(dbPipelines, pKey)
 
 		// generate a pipeline event for 'pipeline'
-		log.Debugf("PPS master: polling pipeline %q", pipeline)
+		log.Debugf("PPS master: polling pipeline %q", pKey)
+		pipeline, err := fromKey(pKey)
+		if err != nil {
+			return errors.Wrapf(err, "invalid pipeline key %q in dbPipelines", pKey)
+		}
 		select {
 		case m.eventCh <- &pipelineEvent{pipeline: pipeline}:
 			break
@@ -199,13 +206,19 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 					log.Errorf("pod failed because: %s", pod.Status.Message)
 				}
 				crashPipeline := func(reason string) error {
-					pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
+					// FIXME: should these use the labels rather than the annotations?
+					projectName := pod.ObjectMeta.Annotations[pipelineProjectAnnotation]
+					pipelineName := pod.ObjectMeta.Annotations[pipelineNameAnnotation]
 					pipelineVersion, versionErr := strconv.Atoi(pod.ObjectMeta.Annotations["pipelineVersion"])
 					if versionErr != nil {
 						return errors.Wrapf(err, "couldn't find pipeline rc version")
 					}
+					pipeline := &pps.Pipeline{
+						Project: &pfs.Project{Name: projectName},
+						Name:    pipelineName,
+					}
 					var pipelineInfo *pps.PipelineInfo
-					if pipelineInfo, err = m.sd.GetPipelineInfo(ctx, pipelineName, pipelineVersion); err != nil {
+					if pipelineInfo, err = m.sd.GetPipelineInfo(ctx, pipeline, pipelineVersion); err != nil {
 						return errors.EnsureStack(err)
 					}
 					return m.setPipelineCrashing(ctx, pipelineInfo.SpecCommit, reason)
@@ -263,14 +276,14 @@ func (m *ppsMaster) watchPipelines(ctx context.Context) {
 			if event.Err != nil {
 				return errors.Wrapf(event.Err, "event err")
 			}
-			pipelineName, _, err := ppsdb.ParsePipelineKey(string(event.Key))
+			projectName, pipelineName, _, err := ppsdb.ParsePipelineKey(string(event.Key))
 			if err != nil {
 				return errors.Wrap(err, "bad watch event key")
 			}
 			switch event.Type {
 			case watch.EventPut, watch.EventDelete:
 				e := &pipelineEvent{
-					pipeline:  pipelineName,
+					pipeline:  newPipeline(projectName, pipelineName),
 					timestamp: time.Unix(event.Rev, 0),
 				}
 				select {

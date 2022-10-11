@@ -29,8 +29,10 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		if err := driver.UpdateJobState(jobInfo.Job, pps.JobState_JOB_RUNNING, ""); err != nil {
 			return errors.EnsureStack(err)
 		}
+		// TODO: Add cache?
+		taskDoer := driver.NewTaskDoer(jobInfo.Job.ID, nil)
 		jobInput := ppsutil.JobInput(pipelineInfo, jobInfo.OutputCommit)
-		di, err := datum.NewIterator(pachClient, jobInput)
+		di, err := datum.NewIterator(pachClient, taskDoer, jobInput)
 		if err != nil {
 			return err
 		}
@@ -87,7 +89,7 @@ func forEachJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 	// These are used to cancel the existing service and wait for it to finish
 	var cancel func()
 	var eg *errgroup.Group
-	return pachClient.SubscribeJob(pipelineInfo.Pipeline.Name, true, func(ji *pps.JobInfo) error {
+	return pachClient.SubscribeProjectJob(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, true, func(ji *pps.JobInfo) error {
 		if ji.State == pps.JobState_JOB_FINISHING {
 			return nil // don't pick up a "finishing" job
 		}

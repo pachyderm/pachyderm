@@ -46,3 +46,9 @@ func WithPachdPeerPort(port uint16) ConfigOption {
 		config.PeerPort = port
 	}
 }
+
+func WithOidcPort(port uint16) ConfigOption {
+	return func(config *Configuration) {
+		config.OidcPort = port
+	}
+}

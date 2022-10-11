@@ -42,6 +42,8 @@ var defaultUser = s2.User{ID: "00000000000000000000000000000000", DisplayName: "
 type controller struct {
 	logger *logrus.Entry
 
+	// Project of the PFS repo holding the multipart content
+	project string
 	// Name of the PFS repo holding multipart content
 	repo string
 

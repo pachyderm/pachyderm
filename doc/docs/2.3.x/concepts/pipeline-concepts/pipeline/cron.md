@@ -32,7 +32,9 @@ At minimum, a Cron pipeline must include all of the following parameters:
 
 ### Callouts
 
-- Avoid using intervals faster than 1-5 minutes
+!!! Warning 
+    Avoid using intervals faster than 1-5 minutes
+
 - You can use `never` during development and manually trigger the pipeline
 - If using jsonnet, you can pass arguments like:  `--arg cronSpec="@every 5m"`
 

@@ -313,6 +313,7 @@ message Worker {
 }
 
 message Pipeline {
+  option (gogoproto.goproto_stringer) = false;
   pfs_v2.Project project = 2;
   string name = 1;
 }
@@ -543,6 +544,7 @@ message GetLogsRequest {
 message LogMessage {
   // The job and pipeline for which a PFS file is being processed (if the job
   // is an orphan job, pipeline name and ID will be unset)
+  string project_name = 10;
   string pipeline_name = 1;
   string job_id = 2 [(gogoproto.customname) = "JobID"];
   string worker_id = 3 [(gogoproto.customname) = "WorkerID"];
@@ -676,6 +678,9 @@ message ListPipelineRequest {
 
   // A jq program string for additional result filtering
   string jqFilter = 4;
+
+  // If non-nil, will return all the pipeline infos at this commit set
+  pfs_v2.CommitSet commit_set = 5;
 }
 
 message DeletePipelineRequest {

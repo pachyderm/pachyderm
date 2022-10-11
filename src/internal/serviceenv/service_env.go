@@ -12,8 +12,6 @@ import (
 	dex_storage "github.com/dexidp/dex/storage"
 	"github.com/dlmiddlecote/sqlstats"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/pachyderm/pachyderm/v2/src/identity"
-	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
@@ -23,6 +21,9 @@ import (
 	"google.golang.org/grpc"
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	"github.com/pachyderm/pachyderm/v2/src/identity"
+	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -57,12 +58,13 @@ type ServiceEnv interface {
 	SetPfsServer(pfs_server.APIServer)
 	SetPpsServer(pps_server.APIServer)
 	SetEnterpriseServer(enterprise_server.APIServer)
+	SetKubeClient(kube.Interface)
 
 	Config() *Configuration
 	GetPachClient(ctx context.Context) *client.APIClient
 	GetEtcdClient() *etcd.Client
 	GetTaskService(string) task.Service
-	GetKubeClient() *kube.Clientset
+	GetKubeClient() kube.Interface
 	GetLokiClient() (*loki.Client, error)
 	GetDBClient() *pachsql.DB
 	GetDirectDBClient() *pachsql.DB
@@ -103,7 +105,7 @@ type NonblockingServiceEnv struct {
 
 	// kubeClient is a kubernetes client that, if initialized, is shared by all
 	// users of this environment
-	kubeClient *kube.Clientset
+	kubeClient kube.Interface
 	// kubeEg coordinates the initialization of kubeClient (see pachdEg)
 	kubeEg errgroup.Group
 
@@ -433,7 +435,7 @@ func (env *NonblockingServiceEnv) GetTaskService(prefix string) task.Service {
 
 // GetKubeClient returns the already connected Kubernetes API client without
 // modification.
-func (env *NonblockingServiceEnv) GetKubeClient() *kube.Clientset {
+func (env *NonblockingServiceEnv) GetKubeClient() kube.Interface {
 	if err := env.kubeEg.Wait(); err != nil {
 		panic(err) // If env can't connect, there's no sensible way to recover
 	}
@@ -574,4 +576,9 @@ func (env *NonblockingServiceEnv) EnterpriseServer() enterprise_server.APIServer
 // SetEnterpriseServer registers a Enterprise APIServer with this service env
 func (env *NonblockingServiceEnv) SetEnterpriseServer(s enterprise_server.APIServer) {
 	env.enterpriseServer = s
+}
+
+// SetKubeClient can be used to override the kubeclient in testing.
+func (env *NonblockingServiceEnv) SetKubeClient(s kube.Interface) {
+	env.kubeClient = s
 }

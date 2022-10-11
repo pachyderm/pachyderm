@@ -46,19 +46,18 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
-// PipelineRepo creates a pfs repo for a given pipeline.
-func PipelineRepo(pipeline *pps.Pipeline) *pfs.Repo {
-	return client.NewRepo(pipeline.Name)
-}
-
 // PipelineRcName generates the name of the k8s replication controller that
 // manages a pipeline's workers
-func PipelineRcName(name string, version uint64) string {
+func PipelineRcName(projectName, pipelineName string, version uint64) string {
 	// k8s won't allow RC names that contain upper-case letters
 	// or underscores
 	// TODO: deal with name collision
-	name = strings.ReplaceAll(name, "_", "-")
-	return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(name), version)
+	pipelineName = strings.ReplaceAll(pipelineName, "_", "-")
+	if projectName == "" {
+		return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(pipelineName), version)
+	}
+	projectName = strings.ReplaceAll(projectName, "_", "-")
+	return fmt.Sprintf("pipeline-%s-%s-v%d", strings.ToLower(projectName), strings.ToLower(pipelineName), version)
 }
 
 // GetRequestsResourceListFromPipeline returns a list of resources that the pipeline,
@@ -378,7 +377,7 @@ func WriteJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
 }
 
 func MetaCommit(commit *pfs.Commit) *pfs.Commit {
-	return client.NewSystemRepo(commit.Branch.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.ID)
+	return client.NewSystemProjectRepo(commit.Branch.Repo.Project.GetName(), commit.Branch.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.ID)
 }
 
 // ContainsS3Inputs returns 'true' if 'in' is or contains any PFS inputs with
@@ -421,7 +420,7 @@ func ErrorState(s pps.PipelineState) bool {
 // GetWorkerPipelineInfo gets the PipelineInfo proto describing the pipeline that this
 // worker is part of.
 // getPipelineInfo has the side effect of adding auth to the passed pachClient
-func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l collection.PostgresListener, pipelineName, specCommitID string) (*pps.PipelineInfo, error) {
+func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l collection.PostgresListener, pipeline *pps.Pipeline, specCommitID string) (*pps.PipelineInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	pipelines := ppsdb.Pipelines(db, l)
@@ -430,7 +429,7 @@ func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l colle
 	// because the value in postgres might get updated while the worker pod is
 	// being created and we don't want to run the transform of one version of
 	// the pipeline in the image of a different verison.
-	specCommit := client.NewSystemRepo(pipelineName, pfs.SpecRepoType).
+	specCommit := client.NewSystemProjectRepo(pipeline.Project.GetName(), pipeline.Name, pfs.SpecRepoType).
 		NewCommit("master", specCommitID)
 	if err := pipelines.ReadOnly(ctx).Get(specCommit, pipelineInfo); err != nil {
 		return nil, errors.EnsureStack(err)
@@ -440,7 +439,7 @@ func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l colle
 	return pipelineInfo, nil
 }
 
-func FindPipelineSpecCommit(ctx context.Context, pfsServer pfsServer.APIServer, txnEnv transactionenv.TransactionEnv, pipeline string) (*pfs.Commit, error) {
+func FindPipelineSpecCommit(ctx context.Context, pfsServer pfsServer.APIServer, txnEnv transactionenv.TransactionEnv, pipeline *pps.Pipeline) (*pfs.Commit, error) {
 	var commit *pfs.Commit
 	if err := txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) (err error) {
 		commit, err = FindPipelineSpecCommitInTransaction(txnCtx, pfsServer, pipeline, "")
@@ -453,8 +452,12 @@ func FindPipelineSpecCommit(ctx context.Context, pfsServer pfsServer.APIServer, 
 
 // FindPipelineSpecCommitInTransaction finds the spec commit corresponding to the pipeline version present in the commit given
 // by startID. If startID is blank, find the current pipeline version
-func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, pfsServer pfsServer.APIServer, pipeline, startID string) (*pfs.Commit, error) {
-	curr := client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewCommit("master", startID)
+func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, pfsServer pfsServer.APIServer, pipeline *pps.Pipeline, startID string) (*pfs.Commit, error) {
+	curr := (&pfs.Repo{
+		Project: pipeline.Project,
+		Name:    pipeline.Name,
+		Type:    pfs.SpecRepoType,
+	}).NewCommit("master", startID)
 	commitInfo, err := pfsServer.InspectCommitInTransaction(txnCtx,
 		&pfs.InspectCommitRequest{Commit: curr})
 	if err != nil {
@@ -463,7 +466,7 @@ func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, 
 	for commitInfo.Origin.Kind != pfs.OriginKind_USER {
 		curr = commitInfo.ParentCommit
 		if curr == nil {
-			return nil, errors.Errorf("spec commit for pipeline %s not found", pipeline)
+			return nil, errors.Wrapf(ppsServer.ErrPipelineNotFound{}, "spec commit for pipeline %s not found", pipeline)
 		}
 		if commitInfo, err = pfsServer.InspectCommitInTransaction(txnCtx,
 			&pfs.InspectCommitRequest{Commit: curr}); err != nil {
@@ -474,11 +477,11 @@ func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, 
 	return curr, nil
 }
 
-// ListPipelineInfo enumerates all PPS pipelines in the database, filters them
-// based on 'request', and then calls 'f' on each value
+// ListPipelineInfo calls f on each pipeline in the database matching filter (on
+// all pipelines, if filter is nil).
 func ListPipelineInfo(ctx context.Context,
 	pipelines collection.PostgresCollection,
-	pipeline *pps.Pipeline,
+	filter *pps.Pipeline,
 	history int64,
 	f func(*pps.PipelineInfo) error) error {
 	p := &pps.PipelineInfo{}
@@ -488,7 +491,7 @@ func ListPipelineInfo(ctx context.Context,
 		// won't use this function to get their auth token)
 		p.AuthToken = ""
 		// TODO: this is kind of silly - callers should just make a version range for each pipeline?
-		if last, ok := versionMap[p.Pipeline.Name]; ok {
+		if last, ok := versionMap[p.Pipeline.String()]; ok {
 			if p.Version < last {
 				// don't send, exit early
 				return nil
@@ -501,15 +504,15 @@ func ListPipelineInfo(ctx context.Context,
 			} else {
 				lastVersionToSend = p.Version - uint64(history)
 			}
-			versionMap[p.Pipeline.Name] = lastVersionToSend
+			versionMap[p.Pipeline.String()] = lastVersionToSend
 		}
 
 		return f(p)
 	}
-	if pipeline != nil {
+	if filter != nil {
 		if err := pipelines.ReadOnly(ctx).GetByIndex(
 			ppsdb.PipelinesNameIndex,
-			pipeline.Name,
+			ppsdb.PipelinesNameKey(filter),
 			p,
 			col.DefaultOptions(),
 			checkPipelineVersion); err != nil {
@@ -517,7 +520,7 @@ func ListPipelineInfo(ctx context.Context,
 		}
 		if len(versionMap) == 0 {
 			// pipeline didn't exist after all
-			return ppsServer.ErrPipelineNotFound{Pipeline: pipeline}
+			return ppsServer.ErrPipelineNotFound{Pipeline: filter}
 		}
 		return nil
 	}
@@ -537,10 +540,10 @@ func FilterLogLines(request *pps.GetLogsRequest, r io.Reader, plainText bool, se
 			}
 
 			// Filter out log lines that don't match on pipeline or job
-			if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+			if request.Pipeline != nil && (request.Pipeline.Project.GetName() != msg.ProjectName || request.Pipeline.Name != msg.PipelineName) {
 				continue
 			}
-			if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Name != msg.PipelineName) {
+			if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Project.GetName() != msg.ProjectName || request.Job.Pipeline.Name != msg.PipelineName) {
 				continue
 			}
 			if request.Datum != nil && request.Datum.ID != msg.DatumID {

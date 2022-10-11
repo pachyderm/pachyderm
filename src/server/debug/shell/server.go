@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -184,9 +185,9 @@ func (d *debugDump) globTarProtos(glob string, template proto.Message, onProto f
 	return found, err
 }
 
-const commitPatternFormatString = `{{source,input}-repos,pipelines}/%s/commits{,\.json}`
-const jobPatternFormatString = `pipelines/%s/jobs{,\.json}`
-const pipelineSpecPatternFormatString = `pipelines/%s/spec{,\.json}`
+const commitPatternFormatString = `{{source,input}-repos,pipelines}/+(%s/)commits{,\.json}`
+const jobPatternFormatString = `pipelines/+(%s/)jobs{,\.json}`
+const pipelineSpecPatternFormatString = `pipelines/+(%s/)spec{,\.json}`
 
 func (d *debugDump) listCommit(req *pfs.ListCommitRequest, srv pfs.API_ListCommitServer) error {
 	glob := fmt.Sprintf(commitPatternFormatString, req.Repo.Name)
@@ -252,12 +253,33 @@ func (d *debugDump) inspectCommit(_ context.Context, req *pfs.InspectCommitReque
 	return &info, nil
 }
 
+func pathnameToRepo(pathname string) *pfs.Repo {
+	var (
+		part                       string
+		reversedProjects, projects []string
+	)
+	dir, _ := filepath.Split(pathname)
+	dir = filepath.Dir(dir)
+	dir, repoName := filepath.Split(dir)
+	dir = filepath.Dir(dir)
+	for dir != "." {
+		dir, part = filepath.Split(dir)
+		dir = filepath.Dir(dir)
+		reversedProjects = append(reversedProjects, part)
+	}
+	reversedProjects = reversedProjects[:len(reversedProjects)-1]
+	projects = make([]string, len(reversedProjects))
+	for i := 0; i < len(reversedProjects); i++ {
+		projects[len(projects)-1-i] = reversedProjects[i]
+	}
+	return client.NewProjectRepo(path.Join(projects...), repoName)
+}
+
 func (d *debugDump) listRepo(req *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) error {
 	glob := fmt.Sprintf(commitPatternFormatString, "*")
-	return d.globTar(glob, func(path string, _ io.Reader) error {
-		parts := strings.Split(path, "/")
+	return d.globTar(glob, func(pathname string, _ io.Reader) error {
 		return srv.Send(&pfs.RepoInfo{
-			Repo: client.NewRepo(parts[1]),
+			Repo: pathnameToRepo(pathname),
 		})
 	})
 }

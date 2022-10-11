@@ -22,17 +22,21 @@ func NewTestStorage(t testing.TB, db *pachsql.DB, tr track.Tracker, opts ...Stor
 	return objC, NewStorage(objC, kv.NewMemCache(10), db, tr, opts...)
 }
 
-// Reference creates a data reference for the full chunk referenced by a data reference.
-func Reference(dataRef *DataRef) *DataRef {
+// FullRef creates a data reference for the full chunk referenced by a data reference.
+func FullRef(dataRef *DataRef) *DataRef {
 	chunkDataRef := &DataRef{}
 	chunkDataRef.Ref = dataRef.Ref
 	chunkDataRef.SizeBytes = dataRef.Ref.SizeBytes
 	return chunkDataRef
 }
 
+// StableDataRefs checks whether the provided data references would be stable
+// if the referenced data was run through the content-defined chunking
+// algorithm. This check lets the above layers know if they can copy this data
+// by reference.
 func StableDataRefs(dataRefs []*DataRef) bool {
 	for i, dataRef := range dataRefs {
-		// Edge chunks in the middle are not stable since they were not created by content defined chunking.
+		// Edge chunks in the middle are not stable since they were not created by content-defined chunking.
 		if i != 0 && i != len(dataRefs)-1 && dataRef.Ref.Edge {
 			return false
 		}

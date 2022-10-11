@@ -3,7 +3,6 @@ package chunk
 import (
 	"bytes"
 	"context"
-	"io"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -19,10 +18,14 @@ const (
 	TrackerPrefix        = "chunk/"
 	prefix               = "chunk"
 	defaultChunkTTL      = 30 * time.Minute
-	defaultPrefetchLimit = 10
+	DefaultPrefetchLimit = 10
 )
 
-// Storage is the abstraction that manages chunk storage.
+// Storage is an abstraction for interfacing with chunk storage.
+// A storage instance:
+// - Provides methods for uploading data to chunks and downloading data from chunks.
+// - Manages tracker state to keep chunks alive while uploading.
+// - Manages an internal chunk cache and work deduplicator (parallel downloads of the same chunk will be deduplicated).
 type Storage struct {
 	objClient     obj.Client
 	db            *pachsql.DB
@@ -43,7 +46,7 @@ func NewStorage(objC obj.Client, memCache kv.GetPut, db *pachsql.DB, tracker tra
 		tracker:       tracker,
 		memCache:      memCache,
 		deduper:       &miscutil.WorkDeduper{},
-		prefetchLimit: defaultPrefetchLimit,
+		prefetchLimit: DefaultPrefetchLimit,
 		createOpts: CreateOptions{
 			Compression: CompressionAlgo_GZIP_BEST_SPEED,
 		},
@@ -62,9 +65,13 @@ func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef, opts ...Re
 	return newReader(ctx, client, s.memCache, s.deduper, s.prefetchLimit, dataRefs, opts...)
 }
 
-func (s *Storage) NewDataReader(ctx context.Context, dataRef *DataRef) io.Reader {
+func (s *Storage) NewDataReader(ctx context.Context, dataRef *DataRef) *DataReader {
 	client := NewClient(s.store, s.db, s.tracker, nil)
 	return newDataReader(ctx, client, s.memCache, s.deduper, dataRef, 0)
+}
+
+func (s *Storage) PrefetchData(ctx context.Context, dataRef *DataRef) error {
+	return s.NewDataReader(ctx, dataRef).fetchData()
 }
 
 // List lists all of the chunks in object storage.

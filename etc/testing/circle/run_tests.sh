@@ -91,7 +91,6 @@ case "${BUCKET}" in
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
     ;;
   AUTH)
-    make test-identity
     make test-auth
     make test-admin
     ;;
@@ -103,6 +102,9 @@ case "${BUCKET}" in
     echo "{\"pachd_address\": \"grpc://${VM_IP}:${ENTERPRISE_PORT}\", \"source\": 2}" | pachctl config set context "enterprise" --overwrite
     pachctl config set active-enterprise-context enterprise
     make test-enterprise-integration
+    ;;
+  CONNECTORS)
+    make test-connectors
     ;;
   *)
     echo "Unknown bucket"

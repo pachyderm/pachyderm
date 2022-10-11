@@ -20,7 +20,7 @@ import (
 )
 
 type kubeDriver struct {
-	kubeClient *kubernetes.Clientset
+	kubeClient kubernetes.Interface
 	namespace  string
 	// the limiter intends to guard the k8s API server from being overwhelmed by many concurrent requests
 	// that could arise from many concurrent pipelineController goros.
@@ -30,7 +30,7 @@ type kubeDriver struct {
 	logger     *logrus.Logger
 }
 
-func newKubeDriver(kubeClient *kubernetes.Clientset, config serviceenv.Configuration, logger *logrus.Logger) InfraDriver {
+func newKubeDriver(kubeClient kubernetes.Interface, config serviceenv.Configuration, logger *logrus.Logger) InfraDriver {
 	return &kubeDriver{
 		kubeClient: kubeClient,
 		namespace:  config.Namespace,
@@ -61,10 +61,12 @@ func (kd *kubeDriver) CreatePipelineResources(ctx context.Context, pi *pps.Pipel
 
 // Deletes a pipeline's services, secrets, and replication controllers.
 // NOTE: It doesn't return a stepError, leaving retry behavior to the caller
-func (kd *kubeDriver) DeletePipelineResources(ctx context.Context, pipeline string) (retErr error) {
+func (kd *kubeDriver) DeletePipelineResources(ctx context.Context, pipeline *pps.Pipeline) (retErr error) {
+	projectName := pipeline.Project.GetName()
+	pipelineName := pipeline.Name
 	log.Infof("PPS master: deleting resources for pipeline %q", pipeline)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/DeletePipelineResources", "pipeline", pipeline)
+		"/pps.Master/DeletePipelineResources", "project", projectName, "pipeline", pipelineName)
 	defer func() {
 		tracing.TagAnySpan(ctx, "err", retErr)
 		tracing.FinishAnySpan(span)
@@ -72,7 +74,10 @@ func (kd *kubeDriver) DeletePipelineResources(ctx context.Context, pipeline stri
 	kd.limiter.Acquire()
 	defer kd.limiter.Release()
 	// Delete any services associated with pc.pipeline
-	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pipeline)
+	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pipelineName)
+	if projectName != "" {
+		selector = fmt.Sprintf("%s,%s=%s", selector, pipelineProjectLabel, projectName)
+	}
 	opts := metav1.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
