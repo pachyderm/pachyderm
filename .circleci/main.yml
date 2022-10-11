@@ -87,6 +87,74 @@ jobs:
           key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
           paths:
             - /home/circleci/go/pkg/mod
+  test-pps:
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    environment:
+      TEST_RESULTS: /tmp/test-results
+    steps:
+      - checkout
+      - run:
+          name: setup env vars
+          command: |
+            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
+            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+
+            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+      - restore_cache:
+          keys:
+            - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+      - run:
+          name: Start minikube
+          command: etc/testing/circle/start-minikube.sh
+          background: true
+      # The build cache will grow indefinitely, so we rotate the cache once a week.
+      # This ensures the time to restore the cache isn't longer than the speedup in compilation.
+      - run: "echo $(($(date +%s)/604800)) > current_week"
+      - restore_cache:
+          keys:
+            - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
+
+      # Only restore the module cache based on an exact match for go.sum.
+      # This also avoids accumulating old versions of modules over time.
+      - restore_cache:
+          keys:
+            - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+      - run: etc/testing/circle/wait-minikube.sh
+      - run:
+          name: run tests
+          command: |
+            VM_IP="$(minikube ip)"
+            export VM_IP
+
+            PACH_PORT="30650"
+            export PACH_PORT
+
+            ENTERPRISE_PORT="31650"
+            export ENTEPRRISE_PORT
+
+            TESTFLAGS="-v | stdbuf -i0 tee -a /tmp/results"
+            export TESTFLAGS
+
+            # Make Launch stats
+            kubectl apply --filename etc/kubernetes-prometheus -R
+
+            PROM_PORT=$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort)
+            export PROM_PORT
+
+            gotestsum \
+              --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
+              --rerun-fails \
+              --packages="./src/server" \
+              -- \
+              -run TestSimplePipeline
+              -tags=k8s \
+              -count=1 \
+              -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
+
   integration-tests:
     parameters:
       bucket:
@@ -1098,45 +1166,51 @@ jobs:
             additional=${v:index}
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
 workflows:
-  integration-tests:
+  test-pps:
     when:
       not: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - build-docker-images
-      #- build-pachctl-bin:
-      #    version: $CIRCLE_SHA1
-      #    upload: true
-      - check-prettier
-      - jsonnet-lint
-      - test-go
-      - govulncheck
-      - test-envoy
-      - integration-tests:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                # If you want to update the number of PPS buckets, you'll need to
-                # update the value of PPS_BUCKETS above
-                - AUTH
-                - ENTERPRISE
-                - PFS
-                - PPS1
-                - PPS2
-                - PPS3
-                - PPS4
-                - PPS5
-                - PPS6
-                - PPS7
-                - PPS8
-                - S3_AUTH
-                - EXAMPLES
-                - CONNECTORS
-  helm-tests:
-    when:
-      not: << pipeline.parameters.run-jupyter-jobs >>
-    jobs:
-      - helm-tests
+      - test-pps
+  #integration-tests:
+  #  when:
+  #    not: << pipeline.parameters.run-jupyter-jobs >>
+  #  jobs:
+  #    - build-docker-images
+  #    #- build-pachctl-bin:
+  #    #    version: $CIRCLE_SHA1
+  #    #    upload: true
+  #    - check-prettier
+  #    - jsonnet-lint
+  #    - test-go
+  #    - govulncheck
+  #    - test-envoy
+  #    - integration-tests:
+  #        matrix:
+  #          parameters:
+  #            bucket:
+  #              - MISC
+  #              # If you want to update the number of PPS buckets, you'll need to
+  #              # update the value of PPS_BUCKETS above
+  #              - AUTH
+  #              - ENTERPRISE
+  #              - PFS
+  #              - PPS1
+  #              - PPS2
+  #              - PPS3
+  #              - PPS4
+  #              - PPS5
+  #              - PPS6
+  #              - PPS7
+  #              - PPS8
+  #              - S3_AUTH
+  #              - EXAMPLES
+  #              - CONNECTORS
+  #helm-tests:
+  #  when:
+  #    not: << pipeline.parameters.run-jupyter-jobs >>
+  #  jobs:
+  #    - helm-tests
   nightly_load_tests:
     when: << pipeline.parameters.run_load_tests >>
     jobs:
@@ -1168,11 +1242,11 @@ workflows:
       not: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - rootless
-  deploy-tests:
-    when:
-      not: << pipeline.parameters.run-jupyter-jobs >>
-    jobs:
-      - deploy-tests
+  #deploy-tests:
+  #  when:
+  #    not: << pipeline.parameters.run-jupyter-jobs >>
+  #  jobs:
+  #    - deploy-tests
   jupyter-extension:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
