@@ -223,7 +223,7 @@ proto: docker-build-proto
 	./etc/proto/build.sh
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
-test: clean-launch launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-auth test-identity test-license test-enterprise test-worker test-admin test-pps
+test: clean-launch launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-auth test-license test-enterprise test-worker test-admin test-pps
 
 enterprise-code-checkin-test:
 	@which ag || { printf "'ag' not found. Run:\n  sudo apt-get install -y silversearcher-ag\n  brew install the_silver_searcher\nto install it\n\n"; exit 1; }

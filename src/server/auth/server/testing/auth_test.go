@@ -15,10 +15,6 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"github.com/pachyderm/pachyderm/v2/src/license"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -31,6 +27,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 func envWithAuth(t *testing.T) *realenv.RealEnv {
@@ -2297,4 +2296,40 @@ func TestGetRobotTokenErrorNonAdminUser(t *testing.T) {
 	require.Nil(t, resp)
 	require.YesError(t, err)
 	require.Matches(t, "needs permissions \\[CLUSTER_AUTH_GET_ROBOT_TOKEN\\] on CLUSTER", err.Error())
+}
+
+// TestDeleteAll tests that you must be a cluster admin to call DeleteAll
+func TestDeleteAll(t *testing.T) {
+	t.Parallel()
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	alice := tu.Robot(tu.UniqueString("alice"))
+	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
+
+	// admin creates a repo
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, adminClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+
+	// alice calls DeleteAll, but it fails
+	err := aliceClient.DeleteAll()
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// admin makes alice an fs admin
+	require.NoError(t, adminClient.ModifyClusterRoleBinding(alice, []string{auth.RepoOwnerRole}))
+
+	// wait until alice shows up in admin list
+	resp, err := aliceClient.GetClusterRoleBinding()
+	require.NoError(t, err)
+	require.Equal(t, tu.BuildClusterBindings(alice, auth.RepoOwnerRole), resp)
+
+	// alice calls DeleteAll but it fails because she's only an fs admin
+	err = aliceClient.DeleteAll()
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// admin calls DeleteAll and succeeds
+	require.NoError(t, adminClient.DeleteAll())
 }
