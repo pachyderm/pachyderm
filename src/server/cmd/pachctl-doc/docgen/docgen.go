@@ -74,6 +74,30 @@ func GenMarkdownCustom(cmd *cobra.Command, w io.Writer, linkHandler func(string)
 	buf.WriteString("title:  " + name + "\n")
 	buf.WriteString("description: " + strconv.Quote(cmd.Long) + "\n")
 	buf.WriteString("date:  " + time.Now().Format(time.RFC3339) + "\n")
+	if hasSeeAlso(cmd) {
+		parentname := ""
+		buf.WriteString("tags:\n")
+		if cmd.HasParent() && cmd.Parent().Name() != "pachctl" {
+			parent := cmd.Parent()
+			parentname = parent.Name()
+			parentname = strings.ReplaceAll(parentname, " ", "-")
+			buf.WriteString(fmt.Sprintf("  - %s\n", parentname))
+		}
+		if parentname != "" {
+			parentname = parentname + " "
+		}
+		children := cmd.Commands()
+		sort.Sort(byName(children))
+		for _, child := range children {
+			if !child.IsAvailableCommand() || child.IsAdditionalHelpTopicCommand() {
+				continue
+			}
+			cname := parentname + cmd.Name() + " " + child.Name()
+			cname = strings.ReplaceAll(cname, " ", "-")
+			print(cname)
+			buf.WriteString(fmt.Sprintf("  - %s\n", cname))
+		}
+	}
 	buf.WriteString("---" + "\n\n")
 	if len(cmd.Long) > 0 {
 		buf.WriteString("### Synopsis\n\n")
@@ -92,35 +116,7 @@ func GenMarkdownCustom(cmd *cobra.Command, w io.Writer, linkHandler func(string)
 	if err := printOptions(buf, cmd, name); err != nil {
 		return err
 	}
-	if hasSeeAlso(cmd) {
-		buf.WriteString("### SEE ALSO\n\n")
-		if cmd.HasParent() {
-			parent := cmd.Parent()
-			pname := parent.CommandPath()
-			link := pname + ".md"
-			link = strings.ReplaceAll(link, " ", "_")
-			buf.WriteString(fmt.Sprintf("* [%s](%s)\t - %s\n", pname, linkHandler(link), parent.Short))
-			cmd.VisitParents(func(c *cobra.Command) {
-				if c.DisableAutoGenTag {
-					cmd.DisableAutoGenTag = c.DisableAutoGenTag
-				}
-			})
-		}
 
-		children := cmd.Commands()
-		sort.Sort(byName(children))
-
-		for _, child := range children {
-			if !child.IsAvailableCommand() || child.IsAdditionalHelpTopicCommand() {
-				continue
-			}
-			cname := name + " " + child.Name()
-			link := cname + ".md"
-			link = strings.ReplaceAll(link, " ", "_")
-			buf.WriteString(fmt.Sprintf("* [%s](%s)\t - %s\n", cname, linkHandler(link), child.Short))
-		}
-		buf.WriteString("\n")
-	}
 
 	_, err := buf.WriteTo(w)
 	return err
