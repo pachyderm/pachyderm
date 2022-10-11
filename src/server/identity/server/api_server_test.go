@@ -1,11 +1,12 @@
-//go:build k8s
+//go:build unit_test
 
-package server
+package server_test
 
 import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
 
@@ -14,17 +15,16 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 // TestAuthNotActivated checks that no RPCs can be made when the auth service is disabled
 func TestAuthNotActivated(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	client, _ := minikubetestenv.AcquireCluster(t)
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	client := env.PachClient
 	_, err := client.SetIdentityServerConfig(client.Ctx(), &identity.SetIdentityServerConfigRequest{})
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
@@ -80,12 +80,11 @@ func TestAuthNotActivated(t *testing.T) {
 
 // TestUserNotAdmin checks that no RPCs can be made by non-admin users
 func TestUserNotAdmin(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	alice := tu.UniqueString("robot:alice")
-	c, _ := minikubetestenv.AcquireCluster(t)
-	aliceClient := tu.AuthenticatedPachClient(t, c, alice)
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	aliceClient := tu.AuthenticatedPachClient(t, c, alice, peerPort)
 	_, err := aliceClient.SetIdentityServerConfig(aliceClient.Ctx(), &identity.SetIdentityServerConfigRequest{})
 	require.YesError(t, err)
 	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
@@ -141,11 +140,10 @@ func TestUserNotAdmin(t *testing.T) {
 
 // TestSetConfiguration tests that the web server configuration reloads when the etcd config value is updated
 func TestSetConfiguration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	adminClient := tu.AuthenticatedPachClient(t, c, auth.RootUser)
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	adminClient := tu.AuthenticatedPachClient(t, c, auth.RootUser, peerPort)
 
 	// Configure an IDP connector, so the web server will start
 	_, err := adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
@@ -183,11 +181,10 @@ func TestSetConfiguration(t *testing.T) {
 }
 
 func TestOIDCClientCRUD(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	adminClient := tu.AuthenticatedPachClient(t, c, auth.RootUser)
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	adminClient := tu.AuthenticatedPachClient(t, c, auth.RootUser, peerPort)
 
 	client := &identity.OIDCClient{
 		Id:           "id",
@@ -228,11 +225,10 @@ func TestOIDCClientCRUD(t *testing.T) {
 }
 
 func TestIDPConnectorCRUD(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	adminClient := tu.AuthenticatedPachClient(t, c, auth.RootUser)
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	adminClient := tu.AuthenticatedPachClient(t, c, auth.RootUser, peerPort)
 
 	conn := &identity.IDPConnector{
 		Id:   "id",
@@ -277,23 +273,24 @@ func TestIDPConnectorCRUD(t *testing.T) {
 // TestShortenIDTokenExpiry tests that we can configure Dex to issue ID tokens with a
 // expiration shorter than the default of 6 hours
 func TestShortenIDTokenExpiry(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c, true))
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
+	issuerHost := c.GetAddress().Host
+	issuerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort + 8))
 	_, err := adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{
-			Issuer:              "http://pachd:1658/dex",
+			Issuer:              "http://" + issuerHost + ":" + issuerPort + "/dex",
 			IdTokenExpiry:       "1h",
 			RotationTokenExpiry: "5h",
 		},
 	})
 	require.NoError(t, err)
 
-	token := tu.GetOIDCTokenForTrustedApp(t, c)
+	token := tu.GetOIDCTokenForTrustedApp(t, c, true)
 
 	// Exchange the ID token for a pach token and confirm the expiration is < 1h
 	testClient := tu.UnauthenticatedPachClient(t, c)

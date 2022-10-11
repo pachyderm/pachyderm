@@ -133,8 +133,10 @@ var endpoints = map[string]logConfig{
 	"/identity_v2.API/CreateIDPConnector": {
 		transformRequest: func(r interface{}) interface{} {
 			copyReq := proto.Clone(r.(*identity.CreateIDPConnectorRequest)).(*identity.CreateIDPConnectorRequest)
-			copyReq.Connector.Config = &types.Struct{}
-			copyReq.Connector.JsonConfig = ""
+			if copyReq.Connector != nil {
+				copyReq.Connector.Config = &types.Struct{}
+				copyReq.Connector.JsonConfig = ""
+			}
 			return copyReq
 		},
 	},
@@ -151,8 +153,10 @@ var endpoints = map[string]logConfig{
 	"/identity_v2.API/UpdateIDPConnector": {
 		transformRequest: func(r interface{}) interface{} {
 			copyReq := proto.Clone(r.(*identity.UpdateIDPConnectorRequest)).(*identity.UpdateIDPConnectorRequest)
-			copyReq.Connector.Config = &types.Struct{}
-			copyReq.Connector.JsonConfig = ""
+			if copyReq.Connector != nil {
+				copyReq.Connector.Config = &types.Struct{}
+				copyReq.Connector.JsonConfig = ""
+			}
 			return copyReq
 		},
 	},
@@ -171,7 +175,9 @@ var endpoints = map[string]logConfig{
 	"/identity_v2.API/CreateOIDCClient": {
 		transformRequest: func(r interface{}) interface{} {
 			copyReq := proto.Clone(r.(*identity.CreateOIDCClientRequest)).(*identity.CreateOIDCClientRequest)
-			copyReq.Client.Secret = ""
+			if copyReq.Client != nil {
+				copyReq.Client.Secret = ""
+			}
 			return copyReq
 		},
 	},
@@ -179,7 +185,9 @@ var endpoints = map[string]logConfig{
 	"/identity_v2.API/UpdateOIDCClient": {
 		transformRequest: func(r interface{}) interface{} {
 			copyReq := proto.Clone(r.(*identity.UpdateOIDCClientRequest)).(*identity.UpdateOIDCClientRequest)
-			copyReq.Client.Secret = ""
+			if copyReq.Client != nil {
+				copyReq.Client.Secret = ""
+			}
 			return copyReq
 		},
 	},

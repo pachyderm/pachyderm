@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -73,110 +72,6 @@ func TestConfig(t *testing.T) {
 
 		require.Equal(t, cfg.ClusterStatus, getConfig.ClusterStatus)
 		require.Equal(t, cfg.PachdAddress, getConfig.PachdAddress)
-	})
-}
-
-func TestRepoAccess(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := "robot"+tu.UniqueString("alice"), "robot"+tu.UniqueString("bob")
-	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
-
-	require.NoError(t, aliceClient.CreateRepo("repo1"))
-	commit := client.NewCommit("repo1", "master", "")
-	err := aliceClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
-	require.NoError(t, err)
-
-	withServerMount(t, aliceClient, nil, func(mountPoint string) {
-		resp, err := get("repos")
-		require.NoError(t, err)
-
-		reposResp := &ListRepoResponse{}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
-		require.Equal(t, "write", (*reposResp)["repo1"].Authorization)
-	})
-
-	withServerMount(t, bobClient, nil, func(mountPoint string) {
-		resp, err := get("repos")
-		require.NoError(t, err)
-
-		reposResp := &ListRepoResponse{}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
-		require.Equal(t, "none", (*reposResp)["repo1"].Authorization)
-
-		mr := MountRequest{
-			Mounts: []*MountInfo{
-				{
-					Name:   "repo1",
-					Repo:   "repo1",
-					Branch: "master",
-				},
-			},
-		}
-		b := new(bytes.Buffer)
-		require.NoError(t, json.NewEncoder(b).Encode(mr))
-		resp, _ = put("_mount", b)
-		require.Equal(t, 500, resp.StatusCode)
-	})
-}
-
-//TODO(fahad): requires identity server to work with realEnv.
-func TestUnauthenticatedCode(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	withServerMount(t, c, nil, func(mountPoint string) {
-		resp, _ := get("repos")
-		require.Equal(t, 200, resp.StatusCode)
-	})
-
-	c = tu.UnauthenticatedPachClient(t, c)
-	withServerMount(t, c, nil, func(mountPoint string) {
-		resp, _ := get("repos")
-		require.Equal(t, 401, resp.StatusCode)
-	})
-
-	c = tu.AuthenticateClient(t, c, "test")
-	withServerMount(t, c, nil, func(mountPoint string) {
-		resp, _ := get("repos")
-		require.Equal(t, 200, resp.StatusCode)
-	})
-}
-
-//TODO(fahad): requires identity server to work with realEnv.
-func TestAuthLoginLogout(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
-	c = tu.UnauthenticatedPachClient(t, c)
-
-	withServerMount(t, c, nil, func(mountPoint string) {
-		authResp, err := put("auth/_login", nil)
-		require.NoError(t, err)
-		defer authResp.Body.Close()
-
-		type AuthLoginResp struct {
-			AuthUrl string `json:"auth_url"`
-		}
-		getAuthLogin := &AuthLoginResp{}
-		require.NoError(t, json.NewDecoder(authResp.Body).Decode(getAuthLogin))
-
-		tu.DoOAuthExchange(t, c, c, getAuthLogin.AuthUrl)
-		time.Sleep(1 * time.Second)
-
-		_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-		require.NoError(t, err)
-
-		_, err = put("auth/_logout", nil)
-		require.NoError(t, err)
-
-		_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-		require.ErrorIs(t, err, auth.ErrNotSignedIn)
 	})
 }
 

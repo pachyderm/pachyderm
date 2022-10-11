@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -677,6 +678,150 @@ func (api *licenseServerAPI) ListUserClusters(ctx context.Context, req *license.
 		return api.mock.ListUserClusters.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock license.ListUserClusters")
+}
+
+/* Identity Server Mocks */
+type setIdentityServerConfigFunc func(context.Context, *identity.SetIdentityServerConfigRequest) (*identity.SetIdentityServerConfigResponse, error)
+type getIdentityServerConfigFunc func(context.Context, *identity.GetIdentityServerConfigRequest) (*identity.GetIdentityServerConfigResponse, error)
+type createIDPConnectorFunc func(context.Context, *identity.CreateIDPConnectorRequest) (*identity.CreateIDPConnectorResponse, error)
+type updateIDPConnectorFunc func(context.Context, *identity.UpdateIDPConnectorRequest) (*identity.UpdateIDPConnectorResponse, error)
+type listIDPConnectorsFunc func(context.Context, *identity.ListIDPConnectorsRequest) (*identity.ListIDPConnectorsResponse, error)
+type getIDPConnectorFunc func(context.Context, *identity.GetIDPConnectorRequest) (*identity.GetIDPConnectorResponse, error)
+type deleteIDPConnectorFunc func(context.Context, *identity.DeleteIDPConnectorRequest) (*identity.DeleteIDPConnectorResponse, error)
+type createOIDCClientFunc func(context.Context, *identity.CreateOIDCClientRequest) (*identity.CreateOIDCClientResponse, error)
+type updateOIDCClientFunc func(context.Context, *identity.UpdateOIDCClientRequest) (*identity.UpdateOIDCClientResponse, error)
+type getOIDCClientFunc func(context.Context, *identity.GetOIDCClientRequest) (*identity.GetOIDCClientResponse, error)
+type listOIDCClientsFunc func(context.Context, *identity.ListOIDCClientsRequest) (*identity.ListOIDCClientsResponse, error)
+type deleteOIDCClientFunc func(context.Context, *identity.DeleteOIDCClientRequest) (*identity.DeleteOIDCClientResponse, error)
+type deleteAllFunc func(context.Context, *identity.DeleteAllRequest) (*identity.DeleteAllResponse, error)
+
+type mockSetIdentityServerConfig struct{ handler setIdentityServerConfigFunc }
+type mockGetIdentityServerConfig struct{ handler getIdentityServerConfigFunc }
+type mockCreateIDPConnector struct{ handler createIDPConnectorFunc }
+type mockUpdateIDPConnector struct{ handler updateIDPConnectorFunc }
+type mockListIDPConnectors struct{ handler listIDPConnectorsFunc }
+type mockGetIDPConnector struct{ handler getIDPConnectorFunc }
+type mockDeleteIDPConnector struct{ handler deleteIDPConnectorFunc }
+type mockCreateOIDCClient struct{ handler createOIDCClientFunc }
+type mockUpdateOIDCClient struct{ handler updateOIDCClientFunc }
+type mockGetOIDCClient struct{ handler getOIDCClientFunc }
+type mockListOIDCClients struct{ handler listOIDCClientsFunc }
+type mockDeleteOIDCClient struct{ handler deleteOIDCClientFunc }
+type mockDeleteAll struct{ handler deleteAllFunc }
+
+func (mock *mockSetIdentityServerConfig) Use(cb setIdentityServerConfigFunc) { mock.handler = cb }
+func (mock *mockGetIdentityServerConfig) Use(cb getIdentityServerConfigFunc) { mock.handler = cb }
+func (mock *mockCreateIDPConnector) Use(cb createIDPConnectorFunc)           { mock.handler = cb }
+func (mock *mockUpdateIDPConnector) Use(cb updateIDPConnectorFunc)           { mock.handler = cb }
+func (mock *mockListIDPConnectors) Use(cb listIDPConnectorsFunc)             { mock.handler = cb }
+func (mock *mockGetIDPConnector) Use(cb getIDPConnectorFunc)                 { mock.handler = cb }
+func (mock *mockDeleteIDPConnector) Use(cb deleteIDPConnectorFunc)           { mock.handler = cb }
+func (mock *mockCreateOIDCClient) Use(cb createOIDCClientFunc)               { mock.handler = cb }
+func (mock *mockUpdateOIDCClient) Use(cb updateOIDCClientFunc)               { mock.handler = cb }
+func (mock *mockGetOIDCClient) Use(cb getOIDCClientFunc)                     { mock.handler = cb }
+func (mock *mockListOIDCClients) Use(cb listOIDCClientsFunc)                 { mock.handler = cb }
+func (mock *mockDeleteOIDCClient) Use(cb deleteOIDCClientFunc)               { mock.handler = cb }
+func (mock *mockDeleteAll) Use(cb deleteAllFunc)                             { mock.handler = cb }
+
+type identityServerAPI struct {
+	mock *mockIdentityServer
+}
+
+type mockIdentityServer struct {
+	api                     identityServerAPI
+	SetIdentityServerConfig mockSetIdentityServerConfig
+	GetIdentityServerConfig mockGetIdentityServerConfig
+	CreateIDPConnector      mockCreateIDPConnector
+	UpdateIDPConnector      mockUpdateIDPConnector
+	ListIDPConnectors       mockListIDPConnectors
+	GetIDPConnector         mockGetIDPConnector
+	DeleteIDPConnector      mockDeleteIDPConnector
+	CreateOIDCClient        mockCreateOIDCClient
+	UpdateOIDCClient        mockUpdateOIDCClient
+	GetOIDCClient           mockGetOIDCClient
+	ListOIDCClients         mockListOIDCClients
+	DeleteOIDCClient        mockDeleteOIDCClient
+	DeleteAll               mockDeleteAll
+}
+
+func (api *identityServerAPI) SetIdentityServerConfig(ctx context.Context, req *identity.SetIdentityServerConfigRequest) (*identity.SetIdentityServerConfigResponse, error) {
+	if api.mock.SetIdentityServerConfig.handler != nil {
+		return api.mock.SetIdentityServerConfig.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock identity.SetIdentityServerConfig")
+}
+
+func (api *identityServerAPI) GetIdentityServerConfig(ctx context.Context, req *identity.GetIdentityServerConfigRequest) (*identity.GetIdentityServerConfigResponse, error) {
+	if api.mock.GetIdentityServerConfig.handler != nil {
+		return api.mock.GetIdentityServerConfig.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock identity.GetIdentityServerConfig")
+}
+func (api *identityServerAPI) CreateIDPConnector(ctx context.Context, req *identity.CreateIDPConnectorRequest) (*identity.CreateIDPConnectorResponse, error) {
+	if api.mock.CreateIDPConnector.handler != nil {
+		return api.mock.CreateIDPConnector.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock identity.CreateIDPConnector")
+}
+func (api *identityServerAPI) UpdateIDPConnector(ctx context.Context, req *identity.UpdateIDPConnectorRequest) (*identity.UpdateIDPConnectorResponse, error) {
+	if api.mock.UpdateIDPConnector.handler != nil {
+		return api.mock.UpdateIDPConnector.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock identity.UpdateIDPConnector")
+}
+func (api *identityServerAPI) ListIDPConnectors(ctx context.Context, req *identity.ListIDPConnectorsRequest) (*identity.ListIDPConnectorsResponse, error) {
+	if api.mock.ListIDPConnectors.handler != nil {
+		return api.mock.ListIDPConnectors.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock identity.ListIDPConnectors")
+}
+func (api *identityServerAPI) GetIDPConnector(ctx context.Context, req *identity.GetIDPConnectorRequest) (*identity.GetIDPConnectorResponse, error) {
+	if api.mock.GetIDPConnector.handler != nil {
+		return api.mock.GetIDPConnector.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock identity.GetIDPConnector")
+}
+func (api *identityServerAPI) DeleteIDPConnector(ctx context.Context, req *identity.DeleteIDPConnectorRequest) (*identity.DeleteIDPConnectorResponse, error) {
+	if api.mock.DeleteIDPConnector.handler != nil {
+		return api.mock.DeleteIDPConnector.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock identity.DeleteIDPConnector")
+}
+func (api *identityServerAPI) CreateOIDCClient(ctx context.Context, req *identity.CreateOIDCClientRequest) (*identity.CreateOIDCClientResponse, error) {
+	if api.mock.CreateOIDCClient.handler != nil {
+		return api.mock.CreateOIDCClient.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock identity.CreateOIDCClient")
+}
+func (api *identityServerAPI) UpdateOIDCClient(ctx context.Context, req *identity.UpdateOIDCClientRequest) (*identity.UpdateOIDCClientResponse, error) {
+	if api.mock.UpdateOIDCClient.handler != nil {
+		return api.mock.UpdateOIDCClient.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock identity.UpdateOIDCClient")
+}
+func (api *identityServerAPI) GetOIDCClient(ctx context.Context, req *identity.GetOIDCClientRequest) (*identity.GetOIDCClientResponse, error) {
+	if api.mock.GetOIDCClient.handler != nil {
+		return api.mock.GetOIDCClient.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock identity.identityServerAPI")
+}
+func (api *identityServerAPI) ListOIDCClients(ctx context.Context, req *identity.ListOIDCClientsRequest) (*identity.ListOIDCClientsResponse, error) {
+	if api.mock.ListOIDCClients.handler != nil {
+		return api.mock.ListOIDCClients.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock identity.ListOIDCClients")
+}
+func (api *identityServerAPI) DeleteOIDCClient(ctx context.Context, req *identity.DeleteOIDCClientRequest) (*identity.DeleteOIDCClientResponse, error) {
+	if api.mock.DeleteOIDCClient.handler != nil {
+		return api.mock.DeleteOIDCClient.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock identity.DeleteOIDCClient")
+}
+func (api *identityServerAPI) DeleteAll(ctx context.Context, req *identity.DeleteAllRequest) (*identity.DeleteAllResponse, error) {
+	if api.mock.DeleteAll.handler != nil {
+		return api.mock.DeleteAll.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock identity.DeleteAll")
 }
 
 /* Enterprise Server Mocks */
@@ -1678,6 +1823,7 @@ type MockPachd struct {
 	Auth          mockAuthServer
 	GetAuthServer func() authserver.APIServer
 	Transaction   mockTransactionServer
+	Identity      mockIdentityServer
 	Enterprise    mockEnterpriseServer
 	License       mockLicenseServer
 	Version       mockVersionServer
@@ -1715,6 +1861,7 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 	mock.Version.api.mock = &mock.Version
 	mock.Admin.api.mock = &mock.Admin
 	mock.Proxy.api.mock = &mock.Proxy
+	mock.Identity.api.mock = &mock.Identity
 	mock.GetAuthServer = func() authserver.APIServer {
 		return &mock.Auth.api
 	}
@@ -1758,6 +1905,7 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 	version.RegisterAPIServer(server.Server, &mock.Version.api)
 	proxy.RegisterAPIServer(server.Server, &mock.Proxy.api)
 	license.RegisterAPIServer(server.Server, &mock.License.api)
+	identity.RegisterAPIServer(server.Server, &mock.Identity.api)
 
 	listener, err := server.ListenTCP("localhost", port)
 	if err != nil {
