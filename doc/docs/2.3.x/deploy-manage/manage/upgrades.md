@@ -22,8 +22,8 @@ In the case of a simple upgrade of version on a cluster, and provided that you d
 
 ## 3- Upgrade `pachctl` Version
 
- !!!Warning 
-      Migrating from a **pachd** version older than 2.3.0? Do not skip upgrading **pachctl**.
+!!!Warning 
+       Migrating from a **pachd** version older than 2.3.0? Do not skip upgrading **pachctl**.
 
  
  - To update to the latest version of Pachyderm, run the steps below depending on your operating system:
