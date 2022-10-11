@@ -170,6 +170,7 @@ message Project {
 }
 
 message ProjectInfo {
+  option (gogoproto.goproto_stringer) = false;
   Project project = 1;
   string description = 2;
 }
