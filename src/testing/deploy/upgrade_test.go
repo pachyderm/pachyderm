@@ -1,4 +1,6 @@
 //go:build k8s
+//go:build linux
+//go:build amd64
 
 package main
 
