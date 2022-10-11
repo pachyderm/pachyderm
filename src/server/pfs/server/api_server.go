@@ -101,7 +101,7 @@ func (a *apiServer) CreateRepoInTransaction(txnCtx *txncontext.TransactionContex
 
 // CreateRepo implements the protobuf pfs.CreateRepo RPC
 func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *types.Empty, retErr error) {
-	request.Repo.Project = pfs.EnsureProject(request.Repo.Project)
+	pfs.EnsureRepoProject(request.Repo)
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreateRepo(request))
 	}, nil); err != nil {
@@ -119,7 +119,7 @@ func (a *apiServer) InspectRepoInTransaction(txnCtx *txncontext.TransactionConte
 
 // InspectRepo implements the protobuf pfs.InspectRepo RPC
 func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
-	request.Repo.Project = pfs.EnsureProject(request.Repo.Project)
+	pfs.EnsureRepoProject(request.Repo)
 	var repoInfo *pfs.RepoInfo
 	err := a.env.TxnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
@@ -153,7 +153,7 @@ func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContex
 
 // DeleteRepo implements the protobuf pfs.DeleteRepo RPC
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
-	request.Repo.Project = pfs.EnsureProject(request.Repo.Project)
+	pfs.EnsureRepoProject(request.GetRepo())
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.DeleteRepo(request))
 	}, nil); err != nil {
@@ -171,8 +171,8 @@ func (a *apiServer) StartCommitInTransaction(txnCtx *txncontext.TransactionConte
 // StartCommit implements the protobuf pfs.StartCommit RPC
 func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
 	var err error
-	request.Parent.Branch.Repo.Project = pfs.EnsureProject(request.Parent.Branch.Repo.Project)
-	request.Branch.Repo.Project = pfs.EnsureProject(request.Branch.Repo.Project)
+	pfs.EnsureRepoProject(request.GetParent().GetBranch().GetRepo())
+	pfs.EnsureRepoProject(request.GetBranch().GetRepo())
 	commit := &pfs.Commit{}
 	if err = a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		commit, err = txn.StartCommit(request)
@@ -193,7 +193,7 @@ func (a *apiServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionCont
 
 // FinishCommit implements the protobuf pfs.FinishCommit RPC
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
-	request.Commit.Branch.Repo.Project = pfs.EnsureProject(request.Commit.Branch.Repo.Project)
+	pfs.EnsureRepoProject(request.GetCommit().GetBranch().GetRepo())
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.FinishCommit(request))
 	}, nil); err != nil {
@@ -211,15 +211,15 @@ func (a *apiServer) InspectCommitInTransaction(txnCtx *txncontext.TransactionCon
 
 // InspectCommit implements the protobuf pfs.InspectCommit RPC
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
-	request.Commit.Branch.Repo.Project = pfs.EnsureProject(request.Commit.Branch.Repo.Project)
+	pfs.EnsureRepoProject(request.GetCommit().GetBranch().GetRepo())
 	return a.driver.inspectCommit(ctx, request.Commit, request.Wait)
 }
 
 // ListCommit implements the protobuf pfs.ListCommit RPC
 func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.API_ListCommitServer) (retErr error) {
-	request.Repo.Project = pfs.EnsureProject(request.Repo.Project)
-	request.From.Branch.Repo.Project = pfs.EnsureProject(request.From.Branch.Repo.Project)
-	request.To.Branch.Repo.Project = pfs.EnsureProject(request.To.Branch.Repo.Project)
+	pfs.EnsureRepoProject(request.GetRepo())
+	pfs.EnsureRepoProject(request.GetFrom().GetBranch().GetRepo())
+	pfs.EnsureRepoProject(request.GetTo().GetBranch().GetRepo())
 	return a.driver.listCommit(respServer.Context(), request.Repo, request.To, request.From, request.StartedTime, request.Number, request.Reverse, request.All, request.OriginKind, func(ci *pfs.CommitInfo) error {
 		return errors.EnsureStack(respServer.Send(ci))
 	})
@@ -272,15 +272,14 @@ func (a *apiServer) DropCommitSet(ctx context.Context, request *pfs.DropCommitSe
 
 // SubscribeCommit implements the protobuf pfs.SubscribeCommit RPC
 func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
-
-	request.Repo.Project = pfs.EnsureProject(request.Repo.Project)
-	request.From.Branch.Repo.Project = pfs.EnsureProject(request.From.Branch.Repo.Project)
+	pfs.EnsureRepoProject(request.GetRepo())
+	pfs.EnsureRepoProject(request.GetFrom().GetBranch().GetRepo())
 	return a.driver.subscribeCommit(stream.Context(), request.Repo, request.Branch, request.From, request.State, request.All, request.OriginKind, stream.Send)
 }
 
 // ClearCommit deletes all data in the commit.
 func (a *apiServer) ClearCommit(ctx context.Context, request *pfs.ClearCommitRequest) (_ *types.Empty, retErr error) {
-	request.Commit.Branch.Repo.Project = pfs.EnsureProject(request.Commit.Branch.Repo.Project)
+	pfs.EnsureRepoProject(request.GetCommit().GetBranch().GetRepo())
 	return &types.Empty{}, a.driver.clearCommit(ctx, request.Commit)
 }
 
@@ -292,10 +291,10 @@ func (a *apiServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionCont
 
 // CreateBranch implements the protobuf pfs.CreateBranch RPC
 func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
-	request.Head.Branch.Repo.Project = pfs.EnsureProject(request.Head.Branch.Repo.Project)
-	request.Branch.Repo.Project = pfs.EnsureProject(request.Branch.Repo.Project)
+	pfs.EnsureRepoProject(request.GetHead().GetBranch().GetRepo())
+	pfs.EnsureRepoProject(request.GetBranch().GetRepo())
 	for _, b := range request.Provenance {
-		b.Repo.Project = pfs.EnsureProject(b.Repo.Project)
+		pfs.EnsureRepoProject(b.GetRepo())
 	}
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreateBranch(request))
@@ -326,7 +325,7 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 
 // InspectBranch implements the protobuf pfs.InspectBranch RPC
 func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranchRequest) (response *pfs.BranchInfo, retErr error) {
-	request.Branch.Repo.Project = pfs.EnsureProject(request.Branch.Repo.Project)
+	pfs.EnsureRepoProject(request.GetBranch().GetRepo())
 	branchInfo := &pfs.BranchInfo{}
 	if err := a.env.TxnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
@@ -339,13 +338,13 @@ func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranc
 }
 
 func (a *apiServer) InspectBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.InspectBranchRequest) (*pfs.BranchInfo, error) {
-	request.Branch.Repo.Project = pfs.EnsureProject(request.Branch.Repo.Project)
+	pfs.EnsureRepoProject(request.GetBranch().GetRepo())
 	return a.driver.inspectBranch(txnCtx, request.Branch)
 }
 
 // ListBranch implements the protobuf pfs.ListBranch RPC
 func (a *apiServer) ListBranch(request *pfs.ListBranchRequest, srv pfs.API_ListBranchServer) (retErr error) {
-	request.Repo.Project = pfs.EnsureProject(request.Repo.Project)
+	pfs.EnsureRepoProject(request.GetRepo())
 	if request.Repo == nil {
 		return a.driver.listBranch(srv.Context(), request.Reverse, srv.Send)
 	}
@@ -362,7 +361,7 @@ func (a *apiServer) DeleteBranchInTransaction(txnCtx *txncontext.TransactionCont
 
 // DeleteBranch implements the protobuf pfs.DeleteBranch RPC
 func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchRequest) (response *types.Empty, retErr error) {
-	request.Branch.Repo.Project = pfs.EnsureProject(request.Branch.Repo.Project)
+	pfs.EnsureRepoProject(request.GetBranch().GetRepo())
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.DeleteBranch(request))
 	}, nil); err != nil {
@@ -535,7 +534,7 @@ func deleteFile(ctx context.Context, uw *fileset.UnorderedWriter, request *pfs.D
 
 // GetFileTAR implements the protobuf pfs.GetFileTAR RPC
 func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFileTARServer) (retErr error) {
-	request.File.Commit.Branch.Repo.Project = pfs.EnsureProject(request.File.Commit.Branch.Repo.Project)
+	pfs.EnsureRepoProject(request.GetFile().GetCommit().GetBranch().Repo)
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
 		src, err := a.driver.getFile(ctx, request.File, request.PathRange)
@@ -559,7 +558,7 @@ func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFi
 
 // GetFile implements the protobuf pfs.GetFile RPC
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileServer) (retErr error) {
-	request.File.Commit.Branch.Repo.Project = pfs.EnsureProject(request.File.Commit.Branch.Repo.Project)
+	pfs.EnsureRepoProject(request.GetFile().GetCommit().GetBranch().GetRepo())
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
 		src, err := a.driver.getFile(ctx, request.File, request.PathRange)
@@ -649,13 +648,13 @@ func getFileTar(ctx context.Context, w io.Writer, src Source) error {
 
 // InspectFile implements the protobuf pfs.InspectFile RPC
 func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
-	request.File.Commit.Branch.Repo.Project = pfs.EnsureProject(request.File.Commit.Branch.Repo.Project)
+	pfs.EnsureRepoProject(request.GetFile().GetCommit().GetBranch().GetRepo())
 	return a.driver.inspectFile(ctx, request.File)
 }
 
 // ListFile implements the protobuf pfs.ListFile RPC
 func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFileServer) (retErr error) {
-	request.File.Commit.Branch.Repo.Project = pfs.EnsureProject(request.File.Commit.Branch.Repo.Project)
+	pfs.EnsureRepoProject(request.GetFile().GetCommit().GetBranch().GetRepo())
 	return a.driver.listFile(server.Context(), request.File, func(fi *pfs.FileInfo) error {
 		return errors.EnsureStack(server.Send(fi))
 	})
@@ -663,7 +662,7 @@ func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFi
 
 // WalkFile implements the protobuf pfs.WalkFile RPC
 func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFileServer) (retErr error) {
-	request.File.Commit.Branch.Repo.Project = pfs.EnsureProject(request.File.Commit.Branch.Repo.Project)
+	pfs.EnsureRepoProject(request.GetFile().GetCommit().GetBranch().GetRepo())
 	return a.driver.walkFile(server.Context(), request.File, func(fi *pfs.FileInfo) error {
 		return errors.EnsureStack(server.Send(fi))
 	})
@@ -671,7 +670,7 @@ func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFi
 
 // GlobFile implements the protobuf pfs.GlobFile RPC
 func (a *apiServer) GlobFile(request *pfs.GlobFileRequest, respServer pfs.API_GlobFileServer) (retErr error) {
-	request.Commit.Branch.Repo.Project = pfs.EnsureProject(request.Commit.Branch.Repo.Project)
+	pfs.EnsureRepoProject(request.GetCommit().GetBranch().GetRepo())
 	return a.driver.globFile(respServer.Context(), request.Commit, request.Pattern, request.PathRange, func(fi *pfs.FileInfo) error {
 		return errors.EnsureStack(respServer.Send(fi))
 	})
@@ -679,8 +678,8 @@ func (a *apiServer) GlobFile(request *pfs.GlobFileRequest, respServer pfs.API_Gl
 
 // DiffFile implements the protobuf pfs.DiffFile RPC
 func (a *apiServer) DiffFile(request *pfs.DiffFileRequest, server pfs.API_DiffFileServer) (retErr error) {
-	request.NewFile.Commit.Branch.Repo.Project = pfs.EnsureProject(request.NewFile.Commit.Branch.Repo.Project)
-	request.OldFile.Commit.Branch.Repo.Project = pfs.EnsureProject(request.OldFile.Commit.Branch.Repo.Project)
+	pfs.EnsureRepoProject(request.GetNewFile().GetCommit().GetBranch().GetRepo())
+	pfs.EnsureRepoProject(request.GetOldFile().GetCommit().GetBranch().GetRepo())
 	return a.driver.diffFile(server.Context(), request.OldFile, request.NewFile, func(oldFi, newFi *pfs.FileInfo) error {
 		return errors.EnsureStack(server.Send(&pfs.DiffFileResponse{
 			OldFile: oldFi,
@@ -707,7 +706,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	}
 
 	if target := request.GetZombieTarget(); target != nil {
-		target.Branch.Repo.Project = pfs.EnsureProject(target.Branch.Repo.Project)
+		pfs.EnsureRepoProject(target.GetBranch().GetRepo())
 		return a.driver.detectZombie(ctx, target, fsckServer.Send)
 	}
 	if request.GetZombieAll() {
@@ -750,7 +749,7 @@ func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr er
 }
 
 func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) (resp *pfs.CreateFileSetResponse, retErr error) {
-	req.Commit.Branch.Repo.Project = pfs.EnsureProject(req.Commit.Branch.Repo.Project)
+	pfs.EnsureRepoProject(req.GetCommit().GetBranch().GetRepo())
 	filesetID, err := a.driver.getFileSet(ctx, req.Commit)
 	if err != nil {
 		return nil, err
@@ -775,7 +774,7 @@ func (a *apiServer) ShardFileSet(ctx context.Context, req *pfs.ShardFileSetReque
 }
 
 func (a *apiServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (_ *types.Empty, retErr error) {
-	req.Commit.Branch.Repo.Project = pfs.EnsureProject(req.Commit.Branch.Repo.Project)
+	pfs.EnsureRepoProject(req.GetCommit().GetBranch().GetRepo())
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.AddFileSetInTransaction(txnCtx, req)
 	}); err != nil {

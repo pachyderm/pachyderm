@@ -467,7 +467,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if request.Job == nil {
 		return nil, errors.Errorf("must specify a job")
 	}
-	request.Job.Pipeline.Project = pfs.EnsureProject(request.Job.Pipeline.Project)
+	pps.EnsurePipelineProject(request.Job.Pipeline)
 	jobs := a.jobs.ReadOnly(ctx)
 	// Make sure the job exists
 	// TODO: there's a race condition between this check and the watch below where
@@ -699,7 +699,7 @@ func (a *apiServer) listJob(
 	f func(*pps.JobInfo) error,
 ) error {
 	if pipeline != nil {
-		pipeline.Project = pfs.EnsureProject(pipeline.Project)
+		pps.EnsurePipelineProject(pipeline)
 		// If 'pipeline is set, check that caller has access to the pipeline's
 		// output repo; currently, that's all that's required for ListJob.
 		//
@@ -865,7 +865,7 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 
 // SubscribeJob implements the protobuf pps.SubscribeJob RPC
 func (a *apiServer) SubscribeJob(request *pps.SubscribeJobRequest, stream pps.API_SubscribeJobServer) (retErr error) {
-	request.Pipeline.Project = pfs.EnsureProject(request.Pipeline.Project)
+	pps.EnsurePipelineProject(request.GetPipeline())
 	ctx := stream.Context()
 
 	// Validate arguments
@@ -904,10 +904,10 @@ func (a *apiServer) SubscribeJob(request *pps.SubscribeJobRequest, stream pps.AP
 
 // DeleteJob implements the protobuf pps.DeleteJob RPC
 func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest) (response *types.Empty, retErr error) {
-	request.Job.Pipeline.Project = pfs.EnsureProject(request.Job.Pipeline.Project)
-	if request.Job == nil {
+	if request.GetJob() == nil {
 		return nil, errors.New("job cannot be nil")
 	}
+	pps.EnsurePipelineProject(request.Job.Pipeline)
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.deleteJobInTransaction(txnCtx, request)
 	}); err != nil {
@@ -926,7 +926,7 @@ func (a *apiServer) deleteJobInTransaction(txnCtx *txncontext.TransactionContext
 
 // StopJob implements the protobuf pps.StopJob RPC
 func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *types.Empty, retErr error) {
-	request.Job.Pipeline.Project = pfs.EnsureProject(request.Job.Pipeline.Project)
+	pps.EnsurePipelineProject(request.GetJob().GetPipeline())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.StopJob(request))
 	}, nil); err != nil {
@@ -1003,7 +1003,7 @@ func (a *apiServer) stopJob(txnCtx *txncontext.TransactionContext, job *pps.Job,
 
 // RestartDatum implements the protobuf pps.RestartDatum RPC
 func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumRequest) (response *types.Empty, retErr error) {
-	request.Job.Pipeline.Project = pfs.EnsureProject(request.Job.Pipeline.Project)
+	pps.EnsurePipelineProject(request.GetJob().GetPipeline())
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: request.Job,
 	})
@@ -1023,7 +1023,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	if request.Datum.Job == nil {
 		return nil, errors.New("must specify a job")
 	}
-	request.Datum.Job.Pipeline.Project = pfs.EnsureProject(request.Datum.Job.Pipeline.Project)
+	pps.EnsurePipelineProject(request.Datum.Job.Pipeline)
 	// TODO: Auth?
 	if err := a.collectDatums(ctx, request.Datum.Job, func(meta *datum.Meta, pfsState *pfs.File) error {
 		if common.DatumID(meta.Inputs) == request.Datum.ID {
@@ -1042,9 +1042,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 
 func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_ListDatumServer) (retErr error) {
 	// TODO: Auth?
-	if request.Job.GetPipeline() != nil {
-		request.Job.Pipeline.Project = pfs.EnsureProject(request.Job.Pipeline.Project)
-	}
+	pps.EnsurePipelineProject(request.GetJob().GetPipeline())
 	if request.Input != nil {
 		return a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
 			di := convertDatumMetaToInfo(meta, nil)
@@ -1154,15 +1152,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	if a.env.Config.LokiLogging || request.UseLokiBackend {
 		return a.getLogsLoki(request, apiGetLogsServer)
 	}
-	if request.GetPipeline() != nil {
-		request.Pipeline.Project = pfs.EnsureProject(request.Pipeline.Project)
-	}
-	if request.GetJob().GetPipeline() != nil {
-		request.Job.Pipeline.Project = pfs.EnsureProject(request.Job.Pipeline.Project)
-	}
-	if request.GetDatum().GetJob().GetPipeline() != nil {
-		request.Datum.Job.Pipeline.Project = pfs.EnsureProject(request.Datum.Job.Pipeline.Project)
-	}
+	pps.EnsurePipelineProject(request.GetPipeline())
+	pps.EnsurePipelineProject(request.GetJob().GetPipeline())
+	pps.EnsurePipelineProject(request.GetDatum().GetJob().GetPipeline())
 
 	// Authorize request and get list of pods containing logs we're interested in
 	// (based on pipeline and job filters)
@@ -1855,7 +1847,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if request.Pipeline == nil {
 		return nil, errors.New("request.Pipeline cannot be nil")
 	}
-	request.Pipeline.Project = pfs.EnsureProject(request.Pipeline.Project)
+	pps.EnsurePipelineProject(request.GetPipeline())
 
 	// Annotate current span with pipeline & persist any extended trace to etcd
 	span := opentracing.SpanFromContext(ctx)
@@ -2284,7 +2276,7 @@ func (a *apiServer) updatePipeline(
 
 // InspectPipeline implements the protobuf pps.InspectPipeline RPC
 func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPipelineRequest) (response *pps.PipelineInfo, retErr error) {
-	request.GetPipeline().Project = pfs.EnsureProject(request.GetPipeline().GetProject())
+	pps.EnsurePipelineProject(request.GetPipeline())
 	return a.inspectPipeline(ctx, request.Pipeline, request.Details)
 }
 
@@ -2380,7 +2372,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 
 // ListPipeline implements the protobuf pps.ListPipeline RPC
 func (a *apiServer) ListPipeline(request *pps.ListPipelineRequest, srv pps.API_ListPipelineServer) (retErr error) {
-	request.GetPipeline().Project = pfs.EnsureProject(request.GetPipeline().GetProject())
+	pps.EnsurePipelineProject(request.GetPipeline())
 	return a.listPipeline(srv.Context(), request, srv.Send)
 }
 
@@ -2478,7 +2470,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 // DeletePipeline implements the protobuf pps.DeletePipeline RPC
 func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
 	if request != nil && request.Pipeline != nil {
-		request.Pipeline.Project = pfs.EnsureProject(request.Pipeline.Project)
+		pps.EnsurePipelineProject(request.GetPipeline())
 	}
 	if request.All {
 		request.Pipeline = &pps.Pipeline{}
@@ -2682,7 +2674,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	if request.Pipeline == nil {
 		return nil, errors.New("request.Pipeline cannot be nil")
 	}
-	request.Pipeline.Project = pfs.EnsureProject(request.Pipeline.Project)
+	pps.EnsurePipelineProject(request.Pipeline)
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		pipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
@@ -2728,7 +2720,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	if request.Pipeline == nil {
 		return nil, errors.New("request.Pipeline cannot be nil")
 	}
-	request.Pipeline.Project = pfs.EnsureProject(request.Pipeline.Project)
+	pps.EnsurePipelineProject(request.Pipeline)
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		pipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
@@ -2782,7 +2774,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 }
 
 func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (response *types.Empty, retErr error) {
-	request.Pipeline.Project = pfs.EnsureProject(request.Pipeline.Project)
+	pps.EnsurePipelineProject(request.GetPipeline())
 	pipelineInfo, err := a.inspectPipeline(ctx, request.Pipeline, true)
 	if err != nil {
 		return nil, err

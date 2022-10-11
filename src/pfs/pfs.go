@@ -92,11 +92,13 @@ func ValidateProjectName(projectName string) error {
 	return ancestry.ValidateName(projectName)
 }
 
-// EnsureProject always returns a valid Project; if the passed-in Project is nil
-// or has an empty name then it returns the default project.
-func EnsureProject(p *Project) *Project {
-	if p == nil || p.Name == "" {
-		return &Project{Name: DefaultProjectName}
+// EnsureRepoProject ensures that repo.Project is valid.  It does nothing if
+// repo is nil.
+func EnsureRepoProject(r *Repo) {
+	if r == nil {
+		return
 	}
-	return p
+	if r.Project.GetName() == "" {
+		r.Project = &Project{Name: DefaultProjectName}
+	}
 }
