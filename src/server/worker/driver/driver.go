@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"net/url"
 
 	"os"
 	"os/exec"
@@ -41,7 +42,7 @@ import (
 // TaskNamespace returns the namespace used by the task package for this
 // pipeline.
 func TaskNamespace(pipelineInfo *pps.PipelineInfo) string {
-	return fmt.Sprintf("/pipeline-%s", ppsdb.VersionKey(pipelineInfo.Pipeline, pipelineInfo.Version))
+	return fmt.Sprintf("/pipeline-%s", url.QueryEscape(ppsdb.VersionKey(pipelineInfo.Pipeline, pipelineInfo.Version)))
 }
 
 // Driver provides an interface for common functions needed by worker code, and
