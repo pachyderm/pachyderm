@@ -166,11 +166,11 @@ message FileInfo {
 }
 
 message Project {
+  option (gogoproto.goproto_stringer) = false;
   string name = 1;
 }
 
 message ProjectInfo {
-  option (gogoproto.goproto_stringer) = false;
   Project project = 1;
   string description = 2;
 }
