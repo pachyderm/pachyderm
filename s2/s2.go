@@ -542,19 +542,29 @@ func joinURLPath(a, b *url.URL) (path, rawpath string) {
 // Router creates a new mux router.
 func (h *S2) Router(proxyToRealBackend bool) *mux.Router {
 
-	h.logger.Infof("In Router() of S2. Env vars are! %+v", os.Environ())
+	h.logger.Infof("In Router() of S2. proxy=%t. Env vars are! %+v", proxyToRealBackend, os.Environ())
+
 	// os.GetEnv("STORAGE_BACKEND") ==> "MINIO" or, presumably, "AWS"...
 	// MINIO_SECRET, MINIO_ID, MINIO_ENDPOINT (e.g.
 	// minio.default.svc.cluster.local:9000), MINIO_SECURE, MINIO_BUCKET also
 	// set.
 
 	if proxyToRealBackend {
+
+		// TODO!!! Need to mutate the bucket name in the proxied requests from
+		// "out" to whatever the real backend bucket is called in the backend...
+		// Before we do this, we'll just modify the user code to use the real
+		// minio bucket name, just to prove the concept.
+
 		if os.Getenv("STORAGE_BACKEND") != "MINIO" {
 			panic("only minio supported by proxy to real backend s3_out feature right now - TODO: add real AWS!")
 		}
 		proxyRouter := mux.NewRouter()
 		proxyRouter.Path("/").HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
+
+				h.logger.Infof("===> IN PROXY ROUTER, w=%+v, r=%+v", w, r)
+
 				proxy := &httputil.ReverseProxy{
 					Director: func(req *http.Request) {
 						u := os.Getenv("MINIO_ENDPOINT")
@@ -620,6 +630,8 @@ func (h *S2) Router(proxyToRealBackend bool) *mux.Router {
 	router := mux.NewRouter()
 	router.Use(h.requestIDMiddleware)
 	if h.Auth != nil {
+		// NB: this might be useful (in reverse, sorta, but they both calculate
+		// the same)
 		router.Use(h.authMiddleware)
 	}
 	router.Use(h.etagMiddleware)
