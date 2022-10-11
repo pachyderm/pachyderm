@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"strconv"
 	"time"
 )
 
@@ -71,7 +72,7 @@ func GenMarkdownCustom(cmd *cobra.Command, w io.Writer, linkHandler func(string)
 	name := cmd.CommandPath()
 	buf.WriteString("---" + "\n" + "# metadata # " + "\n")
 	buf.WriteString("title:  " + name + "\n")
-	buf.WriteString("description: " + cmd.Long + "\n")
+	buf.WriteString("description: " + strconv.Quote(cmd.Long) + "\n")
 	buf.WriteString("date:  " + time.Now().Format(time.RFC3339) + "\n")
 	buf.WriteString("---" + "\n\n")
 	if len(cmd.Long) > 0 {
