@@ -88,6 +88,7 @@ jobs:
           paths:
             - /home/circleci/go/pkg/mod
   test-pps:
+    resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -1237,11 +1238,11 @@ workflows:
                   #- LOAD13
                   #- LOAD14
                   #- LOAD15
-  rootless-tests:
-    when:
-      not: << pipeline.parameters.run-jupyter-jobs >>
-    jobs:
-      - rootless
+  #rootless-tests:
+  #  when:
+  #    not: << pipeline.parameters.run-jupyter-jobs >>
+  #  jobs:
+  #    - rootless
   #deploy-tests:
   #  when:
   #    not: << pipeline.parameters.run-jupyter-jobs >>
