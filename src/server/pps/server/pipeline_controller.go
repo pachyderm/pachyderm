@@ -589,7 +589,7 @@ func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context, p
 func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.PipelineInfo, oldRC *v1.ReplicationController) (retErr error) {
 	log.Debugf("PPS master: ensuring correct k8s resources for %q", pi.Pipeline.Name)
 	span, _ := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/ScaleUpPipeline", "project", pi.Pipeline.Project.GetName(), "pipeline", pi.Pipeline.Name)
+		"/pps.Master/ScaleUpPipeline", "project", pi.Pipeline.Project, "pipeline", pi.Pipeline.Name)
 	defer func() {
 		if retErr != nil {
 			log.Errorf("PPS master: error scaling up: %v", retErr)
@@ -677,7 +677,7 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 func (pc *pipelineController) scaleDownPipeline(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationController) (retErr error) {
 	log.Debugf("PPS master: scaling down workers for %q", pi.Pipeline)
 	span, _ := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/ScaleDownPipeline", "project", pi.Pipeline.Project.GetName(), "pipeline", pi.Pipeline)
+		"/pps.Master/ScaleDownPipeline", "project", pi.Pipeline.Project, "pipeline", pi.Pipeline.Name)
 	defer func() {
 		if retErr != nil {
 			log.Errorf("PPS master: error scaling down: %v", retErr)
