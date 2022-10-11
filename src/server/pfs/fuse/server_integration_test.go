@@ -190,7 +190,7 @@ func TestMountDatum(t *testing.T) {
 	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
 	require.NoError(t, err)
 	withServerMount(t, c, nil, func(mountPoint string) {
-		input := []byte("{'input': {'pfs': {'project': 'default', `repo': 'repo', 'glob': '/'}}}")
+		input := []byte("{'input': {'pfs': {'project': 'default', 'repo': 'repo', 'glob': '/'}}}")
 		resp, err := put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
 
@@ -210,7 +210,7 @@ func TestMountDatum(t *testing.T) {
 		_, err = put("_unmount_all", nil)
 		require.NoError(t, err)
 
-		input = []byte("{'input': {'pfs': {'repo': 'repo', 'glob': '/*'}}}")
+		input = []byte("{'input': {'pfs': {'project': 'default', 'repo': 'repo', 'glob': '/*'}}}")
 		resp, err = put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
 
