@@ -1942,9 +1942,11 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 }
 
 func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionContext, request *pps.CreatePipelineRequest) error {
-	projectName := request.Pipeline.Project.GetName()
-	pipelineName := request.Pipeline.Name
-	oldPipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
+	var (
+		projectName          = request.Pipeline.Project.GetName()
+		pipelineName         = request.Pipeline.Name
+		oldPipelineInfo, err = a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
+	)
 	if err != nil && !errutil.IsNotFoundError(err) {
 		// silently ignore pipeline not found, old info will be nil
 		return err
@@ -1974,7 +1976,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		if input.Cron != nil {
 			if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
 				&pfs.CreateRepoRequest{
-					Repo:        client.NewProjectRepo(request.Pipeline.Project.GetName(), input.Cron.Repo),
+					Repo:        client.NewProjectRepo(projectName, input.Cron.Repo),
 					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline),
 				},
 			); err != nil && !errutil.IsAlreadyExistError(err) {
