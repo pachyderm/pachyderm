@@ -8,7 +8,7 @@ for _ in $(seq 36); do
         echo 'minikube ready'
         exit 0
     fi
-    echo 'sleeping' | ts
+    echo 'sleeping'
     sleep 5
 done
 
