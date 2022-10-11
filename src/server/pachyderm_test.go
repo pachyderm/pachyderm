@@ -4839,7 +4839,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	c, ns := minikubetestenv.AcquireCluster(t)
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineResourceRequest")
-	pipelineName := tu.UniqueString("TestPipelineResourceRequest_Pipeline")
+	pipelineName := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	// Resources are not yet in client.CreatePipeline() (we may add them later)
 	_, err := c.PpsAPIClient.CreatePipeline(
@@ -4915,7 +4915,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 	c, ns := minikubetestenv.AcquireCluster(t)
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineResourceLimit")
-	pipelineName := tu.UniqueString("TestPipelineResourceLimit_Pipeline")
+	pipelineName := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	// Resources are not yet in client.CreatePipeline() (we may add them later)
 	_, err := c.PpsAPIClient.CreatePipeline(
@@ -4988,7 +4988,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 	c, ns := minikubetestenv.AcquireCluster(t)
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineResourceLimit")
-	pipelineName := tu.UniqueString("TestPipelineResourceLimit_Pipeline")
+	pipelineName := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	// Resources are not yet in client.CreatePipeline() (we may add them later)
 	_, err := c.PpsAPIClient.CreatePipeline(
