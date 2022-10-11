@@ -4654,7 +4654,7 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 	require.NoError(t, c.PutFile(commit2, "file2", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo2, "master", ""))
 
-	pipeline := tu.UniqueString("TestAllDatumsAreProcessed_pipelines")
+	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"",
