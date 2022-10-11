@@ -17,6 +17,7 @@
     }
   }
 }
+---
 {
   "pipeline": {
     "name": "generate_images"
