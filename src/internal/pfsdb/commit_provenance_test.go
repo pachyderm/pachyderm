@@ -23,16 +23,16 @@ func TestCommitSetProvenance(t *testing.T) {
 	// setup basic commit graph of
 	//                -- C@y
 	//               /
-	// A@x <- B@x <--
+	// A@v <- B@x <--
 	//               \
 	//                -- D@z
 	//               /
 	// E@w <---------
 	tx, err = db.Beginx()
 	require.NoError(t, err)
-	require.NoError(t, AddCommit(ctx, tx, "A@x", "x"))
+	require.NoError(t, AddCommit(ctx, tx, "A@v", "v"))
 	require.NoError(t, AddCommit(ctx, tx, "B@x", "x"))
-	require.NoError(t, AddCommitProvenance(ctx, tx, "B@x", "A@x"))
+	require.NoError(t, AddCommitProvenance(ctx, tx, "B@x", "A@v"))
 	require.NoError(t, AddCommit(ctx, tx, "C@y", "y"))
 	require.NoError(t, AddCommitProvenance(ctx, tx, "C@y", "B@x"))
 	require.NoError(t, AddCommit(ctx, tx, "E@w", "w"))
@@ -48,12 +48,26 @@ func TestCommitSetProvenance(t *testing.T) {
 	require.NoError(t, err)
 	sort.Strings(yProv)
 	require.ElementsEqual(t,
-		[]string{"A@x", "B@x", "C@y"},
+		[]string{"A@v", "B@x"},
 		yProv)
+	ySubv, err := CommitSetSubvenance(ctx, tx, "y")
+	require.NoError(t, err)
+	sort.Strings(ySubv)
+	require.ElementsEqual(t,
+		[]string{},
+		ySubv)
+
 	zProv, err := CommitSetProvenance(ctx, tx, "z")
 	require.NoError(t, err)
 	sort.Strings(zProv)
 	require.ElementsEqual(t,
-		[]string{"A@x", "B@x", "D@z", "E@w"},
+		[]string{"A@v", "B@x", "E@w"},
 		zProv)
+
+	xSubv, err := CommitSetSubvenance(ctx, tx, "x")
+	require.NoError(t, err)
+	sort.Strings(xSubv)
+	require.ElementsEqual(t,
+		[]string{"C@y", "D@z"},
+		xSubv)
 }

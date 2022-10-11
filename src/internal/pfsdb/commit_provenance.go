@@ -7,6 +7,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
+// CommitSetProvenance returns all the commit IDs that are in the provenance
+// of all the commits in this commit set.
 func CommitSetProvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]string, error) {
 	q := `
           WITH RECURSIVE prov(from_id, to_id) AS (
@@ -18,8 +20,10 @@ func CommitSetProvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]stri
             FROM prov p, pfs.commit_provenance cp
             WHERE cp.from_id = p.to_id
           )
-          SELECT DISTINCT commit_id FROM pfs.commits, prov WHERE int_id = prov.to_id OR int_id = prov.from_id;`
-	rows, err := tx.QueryxContext(ctx, q, id)
+          SELECT DISTINCT commit_id 
+          FROM pfs.commits, prov 
+          WHERE int_id = prov.to_id AND commit_set_id != $2;`
+	rows, err := tx.QueryxContext(ctx, q, id, id)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -35,9 +39,36 @@ func CommitSetProvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]stri
 	return cs, nil
 }
 
-func CommitSetSubvenance(ctx context.Context, tx *pachsql.Tx, id string) error {
-	_, err := tx.ExecContext(ctx, schema)
-	return errors.EnsureStack(err)
+// CommitSetSubvenance returns all the commit IDs that contain commits in this commit set in their
+// full provenance
+func CommitSetSubvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]string, error) {
+	q := `
+          WITH RECURSIVE prov(from_id, to_id) AS (
+            SELECT from_id, to_id 
+            FROM pfs.commit_provenance JOIN pfs.commits ON int_id = to_id 
+            WHERE commit_set_id = $1
+           UNION ALL
+            SELECT cp.from_id, cp.to_id
+            FROM prov p, pfs.commit_provenance cp
+            WHERE cp.to_id = p.from_id
+          )
+          SELECT DISTINCT commit_id 
+          FROM pfs.commits, prov 
+          WHERE int_id = prov.from_id AND commit_set_id != $2;`
+	rows, err := tx.QueryxContext(ctx, q, id, id)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	defer rows.Close()
+	cs := make([]string, 0)
+	for rows.Next() {
+		var commit string
+		if err := rows.Scan(&commit); err != nil {
+			return nil, err
+		}
+		cs = append(cs, commit)
+	}
+	return cs, nil
 }
 
 func AddCommit(ctx context.Context, tx *pachsql.Tx, commit, commitSet string) error {
