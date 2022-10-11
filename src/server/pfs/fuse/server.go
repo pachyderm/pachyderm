@@ -168,7 +168,7 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 		Mounted:   map[string]MountState{},
 		Unmounted: map[string]RepoResponse{},
 	}
-	// Go through repos and populate data to show in Unmounted section
+	// Keep track of existing repos and branches to see if mm.States contains deleted repos/branches
 	repoBranches := map[string]map[string]bool{}
 	repos, err := mm.Client.ListRepo()
 	if err != nil {
@@ -189,6 +189,7 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 			}
 			for _, bi := range bis {
 				repoBranches[repo.Repo.Name][bi.Branch.Name] = true
+				rr.Branches = append(rr.Branches, bi.Branch.Name)
 			}
 			if repo.AuthInfo == nil {
 				rr.Authorization = "off"
@@ -201,7 +202,7 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 		mr.Unmounted[repo.Repo.Name] = rr
 	}
 
-	// Unmount mounted repos that were deleted
+	// Unmount mounted repos/branches that were deleted
 	for name, msm := range mm.States {
 		if msm.State == "mounted" {
 			_, ok := repoBranches[msm.Repo]
@@ -217,7 +218,7 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 		}
 	}
 
-	// Go through mounts and populate data to show in Mounted section
+	// Get data on mounted commits
 	for name, msm := range mm.States {
 		if msm.State == "mounted" {
 			if err := msm.RefreshMountState(); err != nil {
@@ -226,19 +227,6 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 			ms := msm.MountState
 			ms.Files = nil
 			mr.Mounted[name] = ms
-			delete(repoBranches[msm.Repo], msm.Branch)
-		}
-	}
-
-	// Populate list of unmounted branches for each repo in Unmounted section.
-	for repo, umbranches := range repoBranches {
-		if rr, ok := mr.Unmounted[repo]; ok {
-			for branch := range umbranches {
-				rr.Branches = append(rr.Branches, branch)
-			}
-			if len(rr.Branches) != 0 {
-				mr.Unmounted[repo] = rr
-			}
 		}
 	}
 
