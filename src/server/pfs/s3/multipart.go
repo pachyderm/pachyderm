@@ -248,7 +248,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 		fileInfo, err := pc.InspectFile(client.NewCommit(c.repo, "master", ""), srcPath)
 		if err != nil {
 			if pfsServer.IsFileNotFoundErr(err) {
-				return nil, s2.InvalidPartError(r)
+				return nil, s2.InvalidPartError(r) // <--
 			}
 			return nil, err
 		}
@@ -258,7 +258,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 		// ETags, and would otherwise fail.
 		expectedETag := fmt.Sprintf("%x", fileInfo.Hash)
 		if len(part.ETag) == len(expectedETag) && part.ETag != expectedETag {
-			return nil, s2.InvalidPartError(r)
+			return nil, s2.InvalidPartError(r) // <--
 		}
 
 		if i < len(parts)-1 && fileInfo.SizeBytes < 5*1024*1024 {

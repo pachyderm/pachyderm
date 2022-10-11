@@ -7,7 +7,11 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -110,14 +114,10 @@ func attachObjectRoutes(logger *logrus.Entry, router *mux.Router, handler *objec
 	router.Methods("GET").Queries("uploadId", "").HandlerFunc(multipartHandler.listChunks)
 	router.Methods("POST").Queries("uploads", "").HandlerFunc(multipartHandler.init)
 	router.Methods("POST").Queries("uploadId", "").HandlerFunc(multipartHandler.complete)
-
-	// PUT with x-amz-copy-source AND uploadId is a copy, not a put, so it has
-	// to go higher in this list to get precedence.
-	router.Methods("PUT").Headers("x-amz-copy-source", "").HandlerFunc(handler.copy)
-
 	router.Methods("PUT").Queries("uploadId", "").HandlerFunc(multipartHandler.put)
 	router.Methods("DELETE").Queries("uploadId", "").HandlerFunc(multipartHandler.del)
 	router.Methods("GET", "HEAD").HandlerFunc(handler.get)
+	router.Methods("PUT").Headers("x-amz-copy-source", "").HandlerFunc(handler.copy)
 	router.Methods("PUT").HandlerFunc(handler.put)
 	router.Methods("DELETE").HandlerFunc(handler.del)
 }
@@ -491,8 +491,115 @@ func (h *S2) readBody(r *http.Request, length uint32) (*bytes.Buffer, error) {
 	}
 }
 
+// TODO: factor this out into a separate file, at least...
+// from https://gist.github.com/thezelus/d5ac9ec563b061c514dc ...
+// func handler(target string, p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		r.URL.Host = url.Host
+// 		r.URL.Scheme = url.Scheme
+// 		r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
+// 		r.Host = url.Host
+
+// 		r.URL.Path = mux.Vars(r)["rest"]
+// 		p.ServeHTTP(w, r)
+// 	}
+// }
+
+// tf we need all this cruft
+func singleJoiningSlash(a, b string) string {
+	aslash := strings.HasSuffix(a, "/")
+	bslash := strings.HasPrefix(b, "/")
+	switch {
+	case aslash && bslash:
+		return a + b[1:]
+	case !aslash && !bslash:
+		return a + "/" + b
+	}
+	return a + b
+}
+
+func joinURLPath(a, b *url.URL) (path, rawpath string) {
+	if a.RawPath == "" && b.RawPath == "" {
+		return singleJoiningSlash(a.Path, b.Path), ""
+	}
+	// Same as singleJoiningSlash, but uses EscapedPath to determine
+	// whether a slash should be added
+	apath := a.EscapedPath()
+	bpath := b.EscapedPath()
+
+	aslash := strings.HasSuffix(apath, "/")
+	bslash := strings.HasPrefix(bpath, "/")
+
+	switch {
+	case aslash && bslash:
+		return a.Path + b.Path[1:], apath + bpath[1:]
+	case !aslash && !bslash:
+		return a.Path + "/" + b.Path, apath + "/" + bpath
+	}
+	return a.Path + b.Path, apath + bpath
+}
+
 // Router creates a new mux router.
-func (h *S2) Router() *mux.Router {
+func (h *S2) Router(proxyToRealBackend bool) *mux.Router {
+
+	h.logger.Infof("In Router() of S2. Env vars are! %+v", os.Environ())
+	// os.GetEnv("STORAGE_BACKEND") ==> "MINIO" or, presumably, "AWS"...
+	// MINIO_SECRET, MINIO_ID, MINIO_ENDPOINT (e.g.
+	// minio.default.svc.cluster.local:9000), MINIO_SECURE, MINIO_BUCKET also
+	// set.
+
+	if proxyToRealBackend {
+		if os.Getenv("STORAGE_BACKEND") != "MINIO" {
+			panic("only minio supported by proxy to real backend s3_out feature right now - TODO: add real AWS!")
+		}
+		proxyRouter := mux.NewRouter()
+		proxyRouter.Path("/").HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				proxy := &httputil.ReverseProxy{
+					Director: func(req *http.Request) {
+						u := os.Getenv("MINIO_ENDPOINT")
+						// TODO: check MINIO_SECURE
+						// TODO: use MINIO_SECRET, MINIO_ID, ... need to sign
+						// (after unwrapping??) the request before we send it
+						// onwards: see https://github.com/smarty-archives/go-aws-auth (deprecated!) etc
+						// TODO: need to add r.URL.Path?
+						h.logger.Infof("proxy: r.URL.Path=%s", r.URL.Path)
+						target, err := url.Parse(fmt.Sprintf("http://%s", u))
+						if err != nil {
+							log.Fatal(err)
+						}
+						targetQuery := target.RawQuery
+						req.URL.Scheme = target.Scheme
+						req.URL.Host = target.Host
+						req.URL.Path, req.URL.RawPath = joinURLPath(target, req.URL)
+						if targetQuery == "" || req.URL.RawQuery == "" {
+							req.URL.RawQuery = targetQuery + req.URL.RawQuery
+						} else {
+							req.URL.RawQuery = targetQuery + "&" + req.URL.RawQuery
+						}
+						if _, ok := req.Header["User-Agent"]; !ok {
+							// explicitly disable User-Agent so it's not set to default value ???
+							req.Header.Set("User-Agent", "")
+						}
+						// // If calling the istio ingress, we need to set the endpoint host in the header
+						// if coords.Host != "" {
+						// 	// req.Header.Set("Host", coords.Host)
+						// 	req.Host = coords.Host
+						// }
+					},
+					ErrorHandler: func(rw http.ResponseWriter, r *http.Request, err error) {
+						log.Printf("Error from proxy connection for %s %s: %s", r.Host, r.URL.Path, err)
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+					},
+				}
+
+				proxy.ServeHTTP(w, r)
+			},
+		)
+
+		return proxyRouter
+	}
+
 	serviceHandler := &serviceHandler{
 		controller: h.Service,
 		logger:     h.logger,

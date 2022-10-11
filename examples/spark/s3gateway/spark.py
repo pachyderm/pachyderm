@@ -6,7 +6,7 @@ import os
 import python_pachyderm
 
 conf = SparkConf()
-minio = True
+minio = False
 if minio:
     conf.set('spark.hadoop.fs.s3a.endpoint', "http://localhost:9000")
 else:
@@ -59,11 +59,16 @@ client = python_pachyderm.Client()
 
 with client.commit(repo, branch) as commit:
     print(f"Opening commit {commit} for spark job")
-    path = "example-data-21"
+    path = "example-data-24"
     if minio:
         url = f"s3a://foo/{path}"
     else:
         url = f"s3a://{branch}.{repo}/{path}"
-    df.coalesce(1).write.format("parquet").mode("overwrite").save(url)
+    (df.coalesce(1)
+       .write
+    #    .option("fs.s3a.committer.name", "magic")
+       .format("parquet")
+       .mode("overwrite")
+       .save(url))
     df.explain()
     print(f"Closing {commit}")

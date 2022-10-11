@@ -185,13 +185,20 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 			Name:   "out",
 		}
 	}
+	var proxyToRealBackend bool
+	if len(inputBuckets) == 0 && outputBucket != nil {
+		// TODO: support proxying to the real backend for the output bucket AND
+		// reading from s3 buckets
+		proxyToRealBackend = true
+		logrus.Infof("ENABLING PROXY TO REAL BACKEND MODE (SPARK COMPATIBLE) FOR S3_OUT BUCKET")
+	}
 	driver := s3.NewWorkerDriver(inputBuckets, outputBucket)
-	router := s3.Router(driver, s.s.apiServer.env.GetPachClient)
-	s.s.server.AddRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID), router)
+	router := s3.Router(driver, s.s.apiServer.env.GetPachClient, proxyToRealBackend)
+	s.s.server.AddRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID), router) // <-- set up proxy to real s3 here?
 }
 
 func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, job *pps.Job) {
-	s.s.server.RemoveRouter(ppsutil.SidecarS3GatewayService(job.Pipeline.Name, job.ID))
+	s.s.server.RemoveRouter(ppsutil.SidecarS3GatewayService(job.Pipeline.Name, job.ID)) // <-- shut down proxy to real s3 here? AND UPLOAD/COPY THE DATA
 }
 
 type k8sServiceCreatingJobHandler struct {
@@ -262,6 +269,8 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 }
 
 func (s *k8sServiceCreatingJobHandler) OnTerminate(ctx context.Context, job *pps.Job) {
+	// TODO cleanup data we wrote in the s3 pipeline
+
 	if !ppsutil.ContainsS3Inputs(s.s.pipelineInfo.Details.Input) && !s.s.pipelineInfo.Details.S3Out {
 		return // Nothing to delete; this isn't an s3 pipeline (shouldn't happen)
 	}

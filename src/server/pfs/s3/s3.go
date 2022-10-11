@@ -91,7 +91,7 @@ func (c *controller) requestClient(r *http.Request) *client.APIClient {
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
-func Router(driver Driver, clientFactory ClientFactory) *mux.Router {
+func Router(driver Driver, clientFactory ClientFactory, proxyToRealBackend bool) *mux.Router {
 	logger := logrus.WithFields(logrus.Fields{
 		"source": "s3gateway",
 	})
@@ -110,7 +110,7 @@ func Router(driver Driver, clientFactory ClientFactory) *mux.Router {
 	s3Server.Bucket = c
 	s3Server.Object = c
 	s3Server.Multipart = c
-	return s3Server.Router()
+	return s3Server.Router(proxyToRealBackend)
 }
 
 // S3Server wraps an HTTP server with an S3-like API for PFS. This allows you to

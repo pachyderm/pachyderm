@@ -706,7 +706,7 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 		return internalServer.Wait()
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		router := s3.Router(s3.NewMasterDriver(), env.GetPachClient)
+		router := s3.Router(s3.NewMasterDriver(), env.GetPachClient, false)
 		server := s3.Server(env.Config().S3GatewayPort, router)
 		certPath, keyPath, err := tls.GetCertPaths()
 		if err != nil {
@@ -898,7 +898,7 @@ func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
 		return internalServer.Wait()
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		router := s3.Router(s3.NewMasterDriver(), env.GetPachClient)
+		router := s3.Router(s3.NewMasterDriver(), env.GetPachClient, false)
 		server := s3.Server(env.Config().S3GatewayPort, router)
 		certPath, keyPath, err := tls.GetCertPaths()
 		if err != nil {
