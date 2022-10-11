@@ -1163,12 +1163,13 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	if request.Since == nil || (request.Since.Seconds == 0 && request.Since.Nanos == 0) {
 		request.Since = types.DurationProto(DefaultLogsFrom)
 	}
-	if a.env.Config.LokiLogging || request.UseLokiBackend {
-		return a.getLogsLoki(request, apiGetLogsServer)
-	}
 	pps.EnsurePipelineProject(request.GetPipeline())
 	pps.EnsurePipelineProject(request.GetJob().GetPipeline())
 	pps.EnsurePipelineProject(request.GetDatum().GetJob().GetPipeline())
+
+	if a.env.Config.LokiLogging || request.UseLokiBackend {
+		return a.getLogsLoki(request, apiGetLogsServer)
+	}
 
 	// Authorize request and get list of pods containing logs we're interested in
 	// (based on pipeline and job filters)
