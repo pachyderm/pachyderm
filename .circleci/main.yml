@@ -152,7 +152,7 @@ jobs:
               --rerun-fails \
               --packages="./src/server" \
               -- \
-              -run TestSimplePipeline
+              -run TestSimplePipeline \
               -tags=k8s \
               -count=1 \
               -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
