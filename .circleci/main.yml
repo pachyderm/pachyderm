@@ -195,10 +195,11 @@ jobs:
       - run:
           name: test split
           command: |
-            # TESTS=$(go test -v -tags=k8s ./src/server -list ".*" | grep -v '^ok')
+            TESTS=$(go test -v -tags=k8s ./src/server -list ".*" | grep -v '^ok')
             # echo $TESTS
-            # echo $TESTS | circleci tests split
-            go list ./... | circleci tests split
+            echo Tests to run
+            echo $TESTS | circleci tests split --timings-type=classname
+            #go list ./... | circleci tests split
 
   integration-tests:
     parameters:
