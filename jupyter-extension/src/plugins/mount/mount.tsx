@@ -62,6 +62,8 @@ export class MountPlugin implements IMountPlugin {
       }
     });
 
+    // TODO: If unmounted list changes, check file browser path if it exists in unmounted repos list
+
     // This is used to detect if the user becomes unauthenticated of there are errors on the server
     this._poller.statusSignal.connect((_, status) => {
       if (status.code === 500) {
@@ -144,6 +146,7 @@ export class MountPlugin implements IMountPlugin {
               open={this.open}
               items={mounted ? mounted : this._poller.mounted}
               updateData={this._poller.updateData}
+              mountedItems={[]}
             />
           </div>
         )}
@@ -162,6 +165,7 @@ export class MountPlugin implements IMountPlugin {
               open={this.open}
               items={unmounted ? unmounted : this._poller.unmounted}
               updateData={this._poller.updateData}
+              mountedItems={this._poller.mounted}
             />
           </div>
         )}
