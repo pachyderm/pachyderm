@@ -134,11 +134,14 @@ true
 
 {{- define "pachyderm.userAccessibleOauthIssuerHost" -}}
 {{- if .Values.oidc.userAccessibleOauthIssuerHost -}}
+  {{- if not (hasPrefix "http" .Values.oidc.userAccessibleOauthIssuerHost) -}}
+    {{ fail (printf "oidc.userAccessibleOauthIssuerHost must begin with http:// or https://, not %s" .Values.oidc.userAccessibleOauthIssuerHost) }}
+  {{- end -}}
 {{ .Values.oidc.userAccessibleOauthIssuerHost }}
 {{- else if (include "pachyderm.host" .) -}}
-{{- (include "pachyderm.host" .) -}}
+{{- printf "%s://%s" (include "pachyderm.hostproto" .) (include "pachyderm.host" .) -}}
 {{- else  -}}
-localhost:30658
+http://localhost:30658
 {{- end -}}
 {{- end }}
 
