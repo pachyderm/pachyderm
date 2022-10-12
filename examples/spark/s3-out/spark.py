@@ -33,8 +33,8 @@ conf.set("spark.hadoop.fs.s3a.change.detection.mode", 'none')
 conf.set("spark.hadoop.fs.s3a.change.detection.version.required", 'false')
 
 sc = SparkContext(conf=conf)
-sc.setLogLevel("ERROR")
-# sc.setLogLevel("DEBUG")
+# sc.setLogLevel("ERROR")
+sc.setLogLevel("DEBUG")
 sc.setSystemProperty("com.amazonaws.services.s3.disablePutObjectMD5Validation", "true")
 
 # confirm config is applied to this session
@@ -69,12 +69,16 @@ if minio:
 else:
     # url = f"s3a://{branch}.{repo}/{path}"
     url = f"s3a://pachyderm-test/{path}"
+
+
+print("Starting write...")
 (df.coalesce(1)
     .write
 #    .option("fs.s3a.committer.name", "magic")
     .format("parquet")
     .mode("overwrite")
     .save(url))
+print("Finished write!")
 
 df.explain()
 

@@ -15,12 +15,19 @@
     }
   },
   "transform": {
-    "cmd": ["spark-submit", "--executor-memory=15g", "--driver-memory=15g", "/home/jovyan/spark.py"],
-    "image": "quay.io/lukemarsden/spark_s3_demo:v0.0.1",
+    "cmd": [
+      "spark-submit",
+      "--executor-memory=15g",
+      "--driver-memory=15g",
+      "--jars", "hadoop-aws-3.3.3.jar,aws-java-sdk-bundle-1.12.264.jar",
+      "spark.py"
+    ],
+    "image": "quay.io/lukemarsden/spark_s3_demo:v0.0.4",
     "env": {
         "AWS_ACCESS_KEY_ID": "minioadmin",
         "AWS_SECRET_ACCESS_KEY": "minioadmin"
-    }
+    },
+    "working_dir": "/home/jovyan"
   },
   "s3_out": true
 }
