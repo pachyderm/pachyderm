@@ -91,7 +91,6 @@ case "${BUCKET}" in
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
     ;;
   AUTH)
-    make test-identity
     make test-auth
     make test-admin
     ;;
