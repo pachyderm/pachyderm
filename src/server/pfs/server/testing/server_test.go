@@ -313,7 +313,7 @@ func TestPFS(suite *testing.T) {
 		}
 	})
 
-	suite.Run("CreateRepoWithSameNameInDifferentProjects", func(t *testing.T) {
+	suite.Run("CreateRepoWithSameNameAndAuthInDifferentProjects", func(t *testing.T) {
 		t.Parallel()
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 		// activate auth
