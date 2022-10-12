@@ -136,8 +136,9 @@ true
 {{- if .Values.oidc.userAccessibleOauthIssuerHost -}}
   {{- if not (hasPrefix "http" .Values.oidc.userAccessibleOauthIssuerHost) -}}
     {{- printf "%s://%s" (include "pachyderm.hostproto" .) .Values.oidc.userAccessibleOauthIssuerHost -}}
+  {{- else -}}
+  {{ .Values.oidc.userAccessibleOauthIssuerHost }}
   {{- end -}}
-{{ .Values.oidc.userAccessibleOauthIssuerHost }}
 {{- else if (include "pachyderm.host" .) -}}
 {{- printf "%s://%s" (include "pachyderm.hostproto" .) (include "pachyderm.host" .) -}}
 {{- else  -}}
