@@ -128,6 +128,15 @@ jobs:
             - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
       - run: etc/testing/circle/wait-minikube.sh
       - run:
+          name: Install minio
+          command: kubectl apply -f etc/testing/minio.yaml
+      - run:
+          name: Install prom # Make Launch stats
+          command: kubectl apply --filename etc/kubernetes-prometheus -R
+      - run:
+          name: Wait for docker images to be built
+          command: etc/testing/circle/wait_for_docker_images.sh
+      - run:
           name: run tests
           command: |
             VM_IP="$(minikube ip)"
@@ -138,12 +147,6 @@ jobs:
 
             ENTERPRISE_PORT="31650"
             export ENTEPRRISE_PORT
-
-            TESTFLAGS="-v | stdbuf -i0 tee -a /tmp/results"
-            export TESTFLAGS
-
-            # Make Launch stats
-            kubectl apply --filename etc/kubernetes-prometheus -R
 
             PROM_PORT=$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort)
             export PROM_PORT
