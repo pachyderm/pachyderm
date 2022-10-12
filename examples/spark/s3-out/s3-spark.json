@@ -1,0 +1,26 @@
+{
+  "pipeline": {
+    "name": "spark_s3_demo"
+  },
+  "metadata": {
+    "annotations": {
+      "raw_s3_out": "true"
+    }
+  },
+  "input": {
+    "pfs": {
+      "glob": "/",
+      "repo": "poke_s3",
+      "name": "poke_s3"
+    }
+  },
+  "transform": {
+    "cmd": ["spark-submit", "--executor-memory=15g", "--driver-memory=15g", "/home/jovyan/spark.py"],
+    "image": "quay.io/lukemarsden/spark_s3_demo:v0.0.1",
+    "env": {
+        "AWS_ACCESS_KEY_ID": "minioadmin",
+        "AWS_SECRET_ACCESS_KEY": "minioadmin"
+    }
+  },
+  "s3_out": true
+}
