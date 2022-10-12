@@ -95,6 +95,7 @@ jobs:
       TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
+      - run: mkdir -p ${TEST_RESULTS}
       - run:
           name: setup env vars
           command: |
@@ -156,7 +157,8 @@ jobs:
               -tags=k8s \
               -count=1 \
               -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
-
+      - store_test_results: # upload test results for display in Test Summary
+          path: /tmp/test-results
   integration-tests:
     parameters:
       bucket:
