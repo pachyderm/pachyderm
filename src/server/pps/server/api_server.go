@@ -244,6 +244,9 @@ func (a *apiServer) validateInput(pipeline *pps.Pipeline, input *pps.Input) erro
 			}
 		}
 		if input.Cron != nil {
+			if input.Cron.Project == "" {
+				input.Cron.Project = pipeline.Project.GetName()
+			}
 			if set {
 				return errors.Errorf("multiple input types set")
 			}
@@ -1707,7 +1710,11 @@ func branchProvenance(project *pfs.Project, input *pps.Input) []*pfs.Branch {
 			result = append(result, client.NewProjectBranch(projectName, input.Pfs.Repo, input.Pfs.Branch))
 		}
 		if input.Cron != nil {
-			result = append(result, client.NewProjectBranch(project.GetName(), input.Cron.Repo, "master"))
+			var projectName = input.Cron.Project
+			if projectName == "" {
+				projectName = project.GetName()
+			}
+			result = append(result, client.NewProjectBranch(projectName, input.Cron.Repo, "master"))
 		}
 		return nil
 	})
@@ -1955,9 +1962,11 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 }
 
 func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionContext, request *pps.CreatePipelineRequest) error {
-	projectName := request.Pipeline.Project.GetName()
-	pipelineName := request.Pipeline.Name
-	oldPipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
+	var (
+		projectName          = request.Pipeline.Project.GetName()
+		pipelineName         = request.Pipeline.Name
+		oldPipelineInfo, err = a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
+	)
 	if err != nil && !errutil.IsNotFoundError(err) {
 		// silently ignore pipeline not found, old info will be nil
 		return err
@@ -2823,7 +2832,7 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 
 	// add all the ticks. These will be in separate transactions if there are more than one
 	for _, c := range crons {
-		if err := cronTick(a.env.GetPachClient(ctx), now, pipelineInfo.Pipeline.Project, c); err != nil {
+		if err := cronTick(a.env.GetPachClient(ctx), now, c); err != nil {
 			return nil, err
 		}
 	}

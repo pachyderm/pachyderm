@@ -279,7 +279,7 @@ func (d *mockStateDriver) upsertPipeline(pi *pps.PipelineInfo) *pfs.Commit {
 
 func (d *mockStateDriver) pushWatchEvent(pi *pps.PipelineInfo, et watch.EventType) {
 	d.eChan <- &watch.Event{
-		Key:  []byte(fmt.Sprintf("%s@%s", pi.Pipeline.String(), pi.SpecCommit.ID)),
+		Key:  []byte(fmt.Sprintf("%s@%s", pi.Pipeline, pi.SpecCommit.ID)),
 		Type: et,
 	}
 }

@@ -39,9 +39,19 @@ func DecodeHash(hash string) ([]byte, error) {
 	return res, errors.EnsureStack(err)
 }
 
+func (p *Project) String() string {
+	return p.GetName()
+}
+
 func (r *Repo) String() string {
 	if r.Type == UserRepoType {
+		if projectName := r.Project.String(); projectName != "" {
+			return projectName + "/" + r.Name
+		}
 		return r.Name
+	}
+	if projectName := r.Project.String(); projectName != "" {
+		return projectName + "/" + r.Name + "." + r.Type
 	}
 	return r.Name + "." + r.Type
 }

@@ -1,8 +1,9 @@
-//go:build k8s
+//go:build unit_test
 
-package server
+package server_test
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
@@ -10,9 +11,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 )
@@ -20,21 +22,24 @@ import (
 // TestSetGetConfigBasic sets an auth config and then retrieves it, to make
 // sure it's stored propertly
 func TestSetGetConfigBasic(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
+	t.Parallel()
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
 	// Configure OIDC login
-	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c, true))
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
+	issuerHost := c.GetAddress().Host
+	issuerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort + 8))
+	redirectPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort + 7))
 	// Set a configuration
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://pachd:1658/dex",
+		Issuer:          "http://" + issuerHost + ":" + issuerPort + "/dex",
 		ClientID:        "configtest",
 		ClientSecret:    "newsecret",
-		RedirectURI:     "http://pachd:1657/authorization-code/test",
-		LocalhostIssuer: true,
+		RedirectURI:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
+		LocalhostIssuer: false,
 	}
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: conf})
@@ -49,29 +54,32 @@ func TestSetGetConfigBasic(t *testing.T) {
 
 // TestIssuerNotLocalhost sets an auth config with LocalhostIssuer = false
 func TestIssuerNotLocalhost(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
+	t.Parallel()
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c, true))
+	issuerHost := c.GetAddress().Host
+	issuerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort + 8))
+	redirectPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort + 7))
 
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// set the issuer to locahost:1658 so we don't need to set LocalhostIssuer = true
 	_, err := adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{
-			Issuer: "http://localhost:1658/dex",
+			Issuer: "http://" + issuerHost + ":" + issuerPort + "/dex",
 		},
 	})
 	require.NoError(t, err)
 
 	// Set a configuration
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://localhost:1658/dex",
+		Issuer:          "http://" + issuerHost + ":" + issuerPort + "/dex",
 		ClientID:        "configtest",
 		ClientSecret:    "newsecret",
-		RedirectURI:     "http://localhost:1657/authorization-code/test",
+		RedirectURI:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
 		LocalhostIssuer: false,
 	}
 	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
@@ -88,11 +96,14 @@ func TestIssuerNotLocalhost(t *testing.T) {
 // TestGetSetConfigAdminOnly confirms that only cluster admins can get/set the
 // auth config
 func TestGetSetConfigAdminOnly(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
+	t.Parallel()
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	issuerHost := c.GetAddress().Host
+	issuerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort + 8))
+	redirectPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort + 7))
 
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 	// Confirm that the auth config starts out default
@@ -107,11 +118,11 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 
 	// Alice tries to set the current configuration and fails
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://pachd:1658/dex",
+		Issuer:          "http://" + issuerHost + ":" + issuerPort + "/dex",
 		ClientID:        "configtest",
 		ClientSecret:    "newsecret",
-		RedirectURI:     "http://pachd:1657/authorization-code/test",
-		LocalhostIssuer: true,
+		RedirectURI:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
+		LocalhostIssuer: false,
 	}
 	_, err = aliceClient.SetConfiguration(aliceClient.Ctx(),
 		&auth.SetConfigurationRequest{
@@ -128,7 +139,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, true, proto.Equal(&authserver.DefaultOIDCConfig, configResp.Configuration))
 
-	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c, true))
 
 	// Modify the configuration and make sure alice can't read it, but admin can
 	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
@@ -154,22 +165,25 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 // TestConfigRestartAuth sets a config, then Deactivates+Reactivates auth, then
 // calls GetConfig on an empty cluster to be sure the config was cleared
 func TestConfigRestartAuth(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
+	t.Parallel()
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c, true))
+	issuerHost := c.GetAddress().Host
+	issuerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort + 8))
+	redirectPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort + 7))
 
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Set a configuration
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://pachd:1658/dex",
+		Issuer:          "http://" + issuerHost + ":" + issuerPort + "/dex",
 		ClientID:        "configtest",
 		ClientSecret:    "newsecret",
-		RedirectURI:     "http://pachd:1657/authorization-code/test",
-		LocalhostIssuer: true,
+		RedirectURI:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
+		LocalhostIssuer: false,
 	}
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: conf})
@@ -238,22 +252,25 @@ func TestConfigRestartAuth(t *testing.T) {
 // TestSetGetNilConfig tests that setting an empty config and setting a nil
 // config are treated & persisted differently
 func TestSetGetNilConfig(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
+	t.Parallel()
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c, true))
+	issuerHost := c.GetAddress().Host
+	issuerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort + 8))
+	redirectPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort + 7))
 
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Set a configuration
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://pachd:1658/dex",
+		Issuer:          "http://" + issuerHost + ":" + issuerPort + "/dex",
 		ClientID:        "configtest",
 		ClientSecret:    "newsecret",
-		RedirectURI:     "http://pachd:1657/authorization-code/test",
-		LocalhostIssuer: true,
+		RedirectURI:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
+		LocalhostIssuer: false,
 	}
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: conf})

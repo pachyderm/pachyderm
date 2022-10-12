@@ -69,6 +69,7 @@ func createPipeline(pachClient *client.APIClient, repo *pfs.Repo, inputRepos []s
 		inputs = append(inputs, &pps.Input{
 			Pfs: &pps.PFSInput{
 				Name:      fmt.Sprint("input-", i),
+				Project:   pfs.DefaultProjectName,
 				Repo:      inputRepo,
 				Branch:    "master",
 				Glob:      "/(*)",

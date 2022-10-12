@@ -330,7 +330,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 
 	// mount secret for spouts using pachctl
 	if pipelineInfo.Details.Spout != nil {
-		pachctlSecretVolume, pachctlSecretMount := getPachctlSecretVolumeAndMount(secretName(pipelineInfo.Pipeline))
+		pachctlSecretVolume, pachctlSecretMount := getPachctlSecretVolumeAndMount(spoutSecretName(pipelineInfo.Pipeline))
 		options.volumes = append(options.volumes, pachctlSecretVolume)
 		sidecarVolumeMounts = append(sidecarVolumeMounts, pachctlSecretMount)
 		userVolumeMounts = append(userVolumeMounts, pachctlSecretMount)
@@ -797,7 +797,7 @@ func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInf
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   secretName(pipelineInfo.Pipeline),
+			Name:   spoutSecretName(pipelineInfo.Pipeline),
 			Labels: spoutLabels(pipelineInfo.Pipeline),
 		},
 		Data: map[string][]byte{
@@ -820,7 +820,7 @@ func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInf
 	return nil
 }
 
-func secretName(p *pps.Pipeline) string {
+func spoutSecretName(p *pps.Pipeline) string {
 	if projectName := p.Project.GetName(); projectName != "" {
 		return fmt.Sprintf("spout-pachctl-secret-%s-%s", projectName, p.Name)
 	}

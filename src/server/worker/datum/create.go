@@ -368,11 +368,12 @@ func createGroup(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 
 func createCron(pachClient *client.APIClient, taskDoer task.Doer, input *pps.CronInput) (string, error) {
 	return createPFS(pachClient, taskDoer, &pps.PFSInput{
-		Name:   input.Name,
-		Repo:   input.Repo,
-		Branch: "master",
-		Commit: input.Commit,
-		Glob:   "/*",
+		Name:    input.Name,
+		Project: input.Project,
+		Repo:    input.Repo,
+		Branch:  "master",
+		Commit:  input.Commit,
+		Glob:    "/*",
 	})
 }
 
