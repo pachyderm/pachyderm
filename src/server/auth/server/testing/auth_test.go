@@ -65,11 +65,12 @@ func TestGetSetBasic(t *testing.T) {
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create repo, and check that alice is the owner of the new repo
-	dataRepo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	repoName := tu.UniqueString(t.Name())
+	repo := client.NewProjectRepo(pfs.DefaultProjectName, repoName)
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoName))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
-	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repoName))
+	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, repoName, "master", "")
 
 	// Add data to repo (alice can write). Make sure alice can read also.
 	err := aliceClient.PutFile(dataCommit, "/file", strings.NewReader("1"), client.WithAppendPutFile())
@@ -88,22 +89,22 @@ func TestGetSetBasic(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("lorem ipsum"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, pfs.DefaultProjectName, dataRepo)) // check that no commits were created
-	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
+	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that no commits were created
+	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repoName))
 
 	//////////
 	/// alice adds bob to the ACL as a reader (alice can modify ACL)
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoReaderRole}))
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoName, bob, []string{auth.RepoReaderRole}))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataCommit, "/file", buf))
@@ -112,22 +113,22 @@ func TestGetSetBasic(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, pfs.DefaultProjectName, dataRepo)) // check that no commits were created
-	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
+	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that no commits were created
+	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repoName))
 
 	//////////
 	/// alice adds bob to the ACL as a writer
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoWriterRole}))
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoName, bob, []string{auth.RepoWriterRole}))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataCommit, "/file", buf))
@@ -135,22 +136,22 @@ func TestGetSetBasic(t *testing.T) {
 	// bob can write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, pfs.DefaultProjectName, dataRepo)) // check that a new commit was created
-	commit, err := bobClient.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
+	commit, err := bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
-	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, pfs.DefaultProjectName, dataRepo)) // check that a new commit was created
+	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, repoName))
 
 	//////////
 	/// alice adds bob to the ACL as an owner
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoOwnerRole}))
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoName, bob, []string{auth.RepoOwnerRole}))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataCommit, "/file", buf))
@@ -158,17 +159,17 @@ func TestGetSetBasic(t *testing.T) {
 	// bob can write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("3"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, pfs.DefaultProjectName, dataRepo)) // check that a new commit was created
-	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
+	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
-	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, pfs.DefaultProjectName, dataRepo)) // check that a new commit was created
+	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can update the ACL
-	require.NoError(t, bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole}))
+	require.NoError(t, bobClient.ModifyRepoRoleBinding(repoName, tu.Robot("carol"), []string{auth.RepoReaderRole}))
 	// check that ACL was updated)
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, tu.Robot("carol"), auth.RepoReaderRole),
-		tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.GetRepoRoleBinding(t, aliceClient, repoName))
 }
 
 // TestGetSetReverse creates two users, alice and bob, and gives bob gradually
@@ -181,24 +182,25 @@ func TestGetSetReverse(t *testing.T) {
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create repo, and check that alice is the owner of the new repo
-	dataRepo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
-	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	repoName := tu.UniqueString(t.Name())
+	repo := client.NewProjectRepo(pfs.DefaultProjectName, repoName)
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoName))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repoName))
+	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, repoName, "master", "")
 
 	// Add data to repo (alice can write). Make sure alice can read also.
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("1"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID)) // # commits = 1
+	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID)) // # commits = 1
 	buf := &bytes.Buffer{}
 	require.NoError(t, aliceClient.GetFile(dataCommit, "/file", buf))
 	require.Equal(t, "1", buf.String())
 
 	//////////
 	/// alice adds bob to the ACL as an owner
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoOwnerRole}))
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoName, bob, []string{auth.RepoOwnerRole}))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataCommit, "/file", buf))
@@ -206,26 +208,26 @@ func TestGetSetReverse(t *testing.T) {
 	// bob can write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, pfs.DefaultProjectName, dataRepo)) // check that a new commit was created
-	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
+	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
-	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, pfs.DefaultProjectName, dataRepo)) // check that a new commit was created
+	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can update the ACL
-	require.NoError(t, bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole}))
+	require.NoError(t, bobClient.ModifyRepoRoleBinding(repoName, tu.Robot("carol"), []string{auth.RepoReaderRole}))
 	// check that ACL was updated)
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, tu.Robot("carol"), auth.RepoReaderRole),
-		tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.GetRepoRoleBinding(t, aliceClient, repoName))
 
 	// clear carol
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{}))
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoName, tu.Robot("carol"), []string{}))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repoName))
 
 	//////////
 	/// alice adds bob to the ACL as a writer
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoWriterRole}))
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoName, bob, []string{auth.RepoWriterRole}))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataCommit, "/file", buf))
@@ -233,22 +235,22 @@ func TestGetSetReverse(t *testing.T) {
 	// bob can write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("3"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, pfs.DefaultProjectName, dataRepo)) // check that a new commit was created
-	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
+	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
-	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, pfs.DefaultProjectName, dataRepo)) // check that a new commit was created
+	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, repoName))
 
 	//////////
 	/// alice adds bob to the ACL as a reader (alice can modify ACL)
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoReaderRole}))
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoName, bob, []string{auth.RepoReaderRole}))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataCommit, "/file", buf))
@@ -256,22 +258,22 @@ func TestGetSetReverse(t *testing.T) {
 	// bob can't write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("4"), client.WithAppendPutFile())
 	require.YesError(t, err)
-	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, pfs.DefaultProjectName, dataRepo)) // check that a new commit was created
-	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
+	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that no commits were created
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repoName))
 
 	//////////
 	/// alice revokes all of bob's privileges
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{}))
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoName, bob, []string{}))
 	// bob can't read
 	err = bobClient.GetFile(dataCommit, "/file", buf)
 	require.YesError(t, err)
@@ -279,18 +281,18 @@ func TestGetSetReverse(t *testing.T) {
 	// bob can't write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("4"), client.WithAppendPutFile())
 	require.YesError(t, err)
-	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, pfs.DefaultProjectName, dataRepo)) // check that a new commit was created
-	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
+	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, "", dataRepo)) // check that no commits were created
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repoName))
 }
 
 // TestCreateAndUpdateRepo tests that if CreateRepo(foo, update=true) is

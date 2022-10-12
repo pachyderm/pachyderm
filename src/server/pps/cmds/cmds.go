@@ -209,7 +209,7 @@ $ {{alias}} -i foo@XXX -i bar@YYY
 # Return all sub-jobs in pipeline foo and whose input commits include bar@YYY
 $ {{alias}} -p foo -i bar@YYY`,
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			commits, err := cmdutil.ParseCommits(inputCommitStrs)
+			commits, err := cmdutil.ParseCommits(project, inputCommitStrs)
 			if err != nil {
 				return err
 			}
@@ -320,6 +320,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.Flags().AddFlagSet(pagerFlags)
 	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
 	listJob.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only sub-jobs with the specified state. Can be repeated to include multiple states")
+	listJob.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(listJob,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-p" || flag == "--pipeline" {
@@ -703,7 +704,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Create a new pipeline.",
 		Long:  "Create a new pipeline from a pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline_spec/.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(false, pushImages, registry, username, pipelinePath, jsonnetPath, jsonnetArgs, false)
+			return pipelineHelper(false, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, false)
 		}),
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
@@ -712,6 +713,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
+	createPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project in which to create the pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(createPipeline, "create pipeline", pipelines))
 
 	var reprocess bool
@@ -719,7 +721,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Update an existing Pachyderm pipeline.",
 		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline-spec/.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(reprocess, pushImages, registry, username, pipelinePath, jsonnetPath, jsonnetArgs, true)
+			return pipelineHelper(reprocess, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, true)
 		}),
 	}
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
@@ -729,6 +731,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
+	updatePipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project in which to update the pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(updatePipeline, "update pipeline", pipelines))
 
 	runCron := &cobra.Command{
@@ -751,7 +754,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	runCron.Flags().StringVar(&project, "project", "", "Project containing pipeline.")
+	runCron.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing pipeline.")
 	commands = append(commands, cmdutil.CreateAlias(runCron, "run cron"))
 
 	inspectPipeline := &cobra.Command{
@@ -782,7 +785,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	inspectPipeline.Flags().AddFlagSet(outputFlags)
 	inspectPipeline.Flags().AddFlagSet(timestampFlags)
-	inspectPipeline.Flags().StringVar(&project, "project", "", "Project of pipeline to inspect.")
+	inspectPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project of pipeline to inspect.")
 	commands = append(commands, cmdutil.CreateAliases(inspectPipeline, "inspect pipeline", pipelines))
 
 	var editor string
@@ -861,7 +864,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	editPipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 	editPipeline.Flags().StringVar(&editor, "editor", "", "Editor to use for modifying the manifest.")
 	editPipeline.Flags().StringVarP(&output, "output", "o", "", "Output format: \"json\" or \"yaml\" (default \"json\")")
-	editPipeline.Flags().StringVar(&project, "project", "", "Project of pipeline to edit.")
+	editPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project of pipeline to edit.")
 	commands = append(commands, cmdutil.CreateAliases(editPipeline, "edit pipeline", pipelines))
 
 	var spec bool
@@ -1325,7 +1328,7 @@ func evaluateJsonnetTemplate(client *client.APIClient, jsonnetPath string, jsonn
 	return []byte(res.Json), nil
 }
 
-func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelinePath, jsonnetPath string, jsonnetArgs []string, update bool) error {
+func pipelineHelper(reprocess bool, pushImages bool, registry, username, project, pipelinePath, jsonnetPath string, jsonnetArgs []string, update bool) error {
 	// validate arguments
 	if pipelinePath != "" && jsonnetPath != "" {
 		return errors.New("cannot set both --file and --jsonnet; exactly one must be set")
@@ -1400,6 +1403,9 @@ func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelin
 						"transform.image spec. For example, change 'python:latest' to 'python:3' or\n"+
 						"'bash:latest' to 'bash:5'. This improves reproducibility of your pipelines.\n\n")
 			}
+		}
+		if request.Pipeline.Project.GetName() == "" {
+			request.Pipeline.Project = &pfs.Project{Name: project}
 		}
 		if err = txncmds.WithActiveTransaction(pc, func(txClient *pachdclient.APIClient) error {
 			_, err := txClient.PpsAPIClient.CreatePipeline(

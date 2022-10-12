@@ -285,7 +285,7 @@ func (s *debugServer) getLegacyWorkerPods(ctx context.Context, pipelineInfo *pps
 			LabelSelector: metav1.FormatLabelSelector(
 				metav1.SetAsLabelSelector(
 					map[string]string{
-						"app": ppsutil.PipelineRcName(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+						"app": ppsutil.PipelineRcName(pipelineInfo),
 					},
 				),
 			),

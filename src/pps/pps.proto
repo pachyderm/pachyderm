@@ -117,6 +117,7 @@ message PFSInput {
 
 message CronInput {
   string name = 1;
+  string project = 7;
   string repo = 2;
   string commit = 3;
   string spec = 4;

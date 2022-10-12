@@ -879,7 +879,7 @@ func (a *apiServer) runLoadTest(pachClient *client.APIClient, taskService task.S
 	if err := jsonpb.Unmarshal(bytes.NewReader(jsonBytes), spec); err != nil {
 		return errors.EnsureStack(err)
 	}
-	return pfsload.Commit(pachClient, taskService, branch.Repo.Project.GetName(), branch.Repo.Name, branch.Name, spec, seed)
+	return pfsload.Commit(pachClient, taskService, branch, spec, seed)
 }
 
 func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (resp *pfs.RunLoadTestResponse, retErr error) {

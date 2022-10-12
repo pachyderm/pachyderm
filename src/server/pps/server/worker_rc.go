@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -149,6 +150,9 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 	}, {
 		Name:  client.PPSSpecCommitEnv,
 		Value: options.specCommit,
+	}, {
+		Name:  client.PPSProjectNameEnv,
+		Value: pipelineInfo.Pipeline.Project.GetName(),
 	}, {
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
@@ -326,7 +330,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 
 	// mount secret for spouts using pachctl
 	if pipelineInfo.Details.Spout != nil {
-		pachctlSecretVolume, pachctlSecretMount := getPachctlSecretVolumeAndMount("spout-pachctl-secret-" + pipelineInfo.Pipeline.Name)
+		pachctlSecretVolume, pachctlSecretMount := getPachctlSecretVolumeAndMount(spoutSecretName(pipelineInfo.Pipeline))
 		options.volumes = append(options.volumes, pachctlSecretVolume)
 		sidecarVolumeMounts = append(sidecarVolumeMounts, pachctlSecretMount)
 		userVolumeMounts = append(userVolumeMounts, pachctlSecretMount)
@@ -534,6 +538,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 func (kd *kubeDriver) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
 	vars := []v1.EnvVar{
 		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(kd.config.StorageUploadConcurrencyLimit)},
+		{Name: client.PPSProjectNameEnv, Value: pipelineInfo.Pipeline.Project.GetName()},
 		{Name: client.PPSPipelineNameEnv, Value: pipelineInfo.Pipeline.Name},
 	}
 	return vars
@@ -605,6 +610,9 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	}
 
 	workerEnv := []v1.EnvVar{{
+		Name:  client.PPSProjectNameEnv,
+		Value: pipelineInfo.Pipeline.Project.GetName(),
+	}, {
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
 	}}
@@ -744,7 +752,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 
 	// Generate options for new RC
 	return &workerOptions{
-		rcName:                ppsutil.PipelineRcName(projectName, pipelineName, pipelineVersion),
+		rcName:                ppsutil.PipelineRcName(pipelineInfo),
 		s3GatewayPort:         s3GatewayPort,
 		specCommit:            pipelineInfo.SpecCommit.ID,
 		labels:                labels,
@@ -789,8 +797,8 @@ func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInf
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   "spout-pachctl-secret-" + pipelineInfo.Pipeline.Name,
-			Labels: spoutLabels(pipelineInfo.Pipeline.Name),
+			Name:   spoutSecretName(pipelineInfo.Pipeline),
+			Labels: spoutLabels(pipelineInfo.Pipeline),
 		},
 		Data: map[string][]byte{
 			"config.json": rawConfig,
@@ -812,6 +820,13 @@ func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInf
 	return nil
 }
 
+func spoutSecretName(p *pps.Pipeline) string {
+	if projectName := p.Project.GetName(); projectName != "" {
+		return fmt.Sprintf("spout-pachctl-secret-%s-%s", projectName, p.Name)
+	}
+	return fmt.Sprintf("spout-pachctl-secret-%s", p.Name)
+}
+
 // noValidOptions error may be returned by createWorkerSvcAndRc to indicate that
 // getWorkerOptions returned an error to it (getWorkerOptions does not return
 // noValidOptions). This is a mechanism for createWorkerSvcAndRc to signal to
@@ -823,6 +838,7 @@ type noValidOptionsErr struct {
 func (kd *kubeDriver) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
 	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC", // ctx never used, but we want the right one in scope for future uses
+		"project", pipelineInfo.Pipeline.Project.GetName(),
 		"pipeline", pipelineInfo.Pipeline.Name)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)

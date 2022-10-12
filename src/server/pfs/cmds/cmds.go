@@ -100,7 +100,7 @@ or type (e.g. csv, binary, images, etc).`,
 		}),
 	}
 	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
-	createRepo.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project in which to create the repo.")
+	createRepo.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project to create the repo in.")
 	commands = append(commands, cmdutil.CreateAliases(createRepo, "create repo", repos))
 
 	updateRepo := &cobra.Command{
@@ -118,7 +118,7 @@ or type (e.g. csv, binary, images, etc).`,
 				_, err = c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
 					&pfs.CreateRepoRequest{
-						Repo:        cmdutil.ParseRepo(args[0]),
+						Repo:        cmdutil.ParseRepo(project, args[0]),
 						Description: description,
 						Update:      true,
 					},
@@ -129,6 +129,7 @@ or type (e.g. csv, binary, images, etc).`,
 		}),
 	}
 	updateRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
+	updateRepo.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(updateRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(updateRepo, "update repo", repos))
 
@@ -142,7 +143,7 @@ or type (e.g. csv, binary, images, etc).`,
 				return err
 			}
 			defer c.Close()
-			repoInfo, err := c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{Repo: cmdutil.ParseRepo(args[0])})
+			repoInfo, err := c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{Repo: cmdutil.ParseRepo(project, args[0])})
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -163,6 +164,7 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	inspectRepo.Flags().AddFlagSet(outputFlags)
 	inspectRepo.Flags().AddFlagSet(timestampFlags)
+	inspectRepo.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(inspectRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectRepo, "inspect repo", repos))
 
@@ -236,7 +238,7 @@ or type (e.g. csv, binary, images, etc).`,
 				if all {
 					return errors.Errorf("cannot use the --all flag with an argument")
 				}
-				request.Repo = cmdutil.ParseRepo(args[0])
+				request.Repo = cmdutil.ParseRepo(project, args[0])
 			} else if !all {
 				return errors.Errorf("either a repo name or the --all flag needs to be provided")
 			}
@@ -254,6 +256,7 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
+	deleteRepo.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(deleteRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteRepo, "delete repo", repos))
 
@@ -288,7 +291,7 @@ $ {{alias}} test@patch -p master
 # Start a commit with XXX as the parent in repo "test" on the branch "fork"
 $ {{alias}} test@fork -p XXX`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			branch, err := cmdutil.ParseBranch(args[0])
+			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
 				return err
 			}
@@ -302,7 +305,7 @@ $ {{alias}} test@fork -p XXX`,
 			if parent != "" {
 				// We don't know if the parent is a commit ID, branch, or ancestry, so
 				// construct a string to parse.
-				parentCommit, err = cmdutil.ParseCommit(fmt.Sprintf("%s@%s", branch.Repo, parent))
+				parentCommit, err = cmdutil.ParseCommit(project, fmt.Sprintf("%s@%s", branch.Repo, parent))
 				if err != nil {
 					return err
 				}
@@ -331,6 +334,7 @@ $ {{alias}} test@fork -p XXX`,
 	startCommit.MarkFlagCustom("parent", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	startCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents")
 	startCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
+	startCommit.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(startCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(startCommit, "start commit", commits))
 
@@ -339,7 +343,7 @@ $ {{alias}} test@fork -p XXX`,
 		Short: "Finish a started commit.",
 		Long:  "Finish a started commit. Commit-id must be a writeable commit.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			commit, err := cmdutil.ParseCommit(args[0])
+			commit, err := cmdutil.ParseCommit(project, args[0])
 			if err != nil {
 				return err
 			}
@@ -366,6 +370,7 @@ $ {{alias}} test@fork -p XXX`,
 	finishCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (overwrites any existing commit description)")
 	finishCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
 	finishCommit.Flags().BoolVarP(&force, "force", "f", false, "finish the commit even if it has provenance, which could break jobs; prefer 'stop job'")
+	finishCommit.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(finishCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(finishCommit, "finish commit", commits))
 
@@ -374,7 +379,7 @@ $ {{alias}} test@fork -p XXX`,
 		Short: "Return info about a commit.",
 		Long:  "Return info about a commit.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			commit, err := cmdutil.ParseCommit(args[0])
+			commit, err := cmdutil.ParseCommit(project, args[0])
 			if err != nil && uuid.IsUUIDWithoutDashes(args[0]) {
 				return errors.New(`Use "list commit <id>" to see commits with a given ID across different repos`)
 			} else if err != nil {
@@ -412,6 +417,7 @@ $ {{alias}} test@fork -p XXX`,
 	}
 	inspectCommit.Flags().AddFlagSet(outputFlags)
 	inspectCommit.Flags().AddFlagSet(timestampFlags)
+	inspectCommit.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(inspectCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectCommit, "inspect commit", commits))
 
@@ -569,7 +575,7 @@ $ {{alias}} foo@master --from XXX`,
 				})
 			} else {
 				// Outputting filtered commits
-				toCommit, err := cmdutil.ParseCommit(args[0])
+				toCommit, err := cmdutil.ParseCommit(project, args[0])
 				if err != nil {
 					return err
 				}
@@ -628,6 +634,7 @@ $ {{alias}} foo@master --from XXX`,
 	listCommit.Flags().StringVar(&originStr, "origin", "", "only return commits of a specific type")
 	listCommit.Flags().AddFlagSet(outputFlags)
 	listCommit.Flags().AddFlagSet(timestampFlags)
+	listCommit.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listCommit, "list commit", commits))
 
@@ -639,7 +646,7 @@ $ {{alias}} foo@master --from XXX`,
 # wait for the commit foo@XXX to finish and return it
 $ {{alias}} foo@XXX -b bar@baz`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			commit, err := cmdutil.ParseCommit(args[0])
+			commit, err := cmdutil.ParseCommit(project, args[0])
 			if err != nil {
 				return err
 			}
@@ -670,6 +677,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 	}
 	waitCommit.Flags().AddFlagSet(outputFlags)
 	waitCommit.Flags().AddFlagSet(timestampFlags)
+	waitCommit.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing commit.")
 	commands = append(commands, cmdutil.CreateAliases(waitCommit, "wait commit", commits))
 
 	var newCommits bool
@@ -687,7 +695,7 @@ $ {{alias}} test@master --from XXX
 # subscribe to commits in repo "test" on branch "master", but only for new commits created from now on.
 $ {{alias}} test@master --new`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			branch, err := cmdutil.ParseBranch(args[0])
+			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
 				return err
 			}
@@ -756,6 +764,7 @@ $ {{alias}} test@master --new`,
 	subscribeCommit.Flags().StringVar(&originStr, "origin", "", "only return commits of a specific type")
 	subscribeCommit.Flags().AddFlagSet(outputFlags)
 	subscribeCommit.Flags().AddFlagSet(timestampFlags)
+	subscribeCommit.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(subscribeCommit, "subscribe commit", commits))
 
@@ -821,11 +830,11 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 		Short: "Create a new branch, or update an existing branch, on a repo.",
 		Long:  "Create a new branch, or update an existing branch, on a repo, starting a commit on the branch will also create it, so there's often no need to call this.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			branch, err := cmdutil.ParseBranch(args[0])
+			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
 				return err
 			}
-			provenance, err := cmdutil.ParseBranches(branchProvenance)
+			provenance, err := cmdutil.ParseBranches(project, branchProvenance)
 			if err != nil {
 				return err
 			}
@@ -841,7 +850,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 			var headCommit *pfs.Commit
 			if head != "" {
 				if strings.Contains(head, "@") {
-					headCommit, err = cmdutil.ParseCommit(head)
+					headCommit, err = cmdutil.ParseCommit(project, head)
 					if err != nil {
 						return err
 					}
@@ -879,6 +888,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	createBranch.Flags().StringVar(&trigger.Size_, "trigger-size", "", "The data size to use in triggering.")
 	createBranch.Flags().Int64Var(&trigger.Commits, "trigger-commits", 0, "The number of commits to use in triggering.")
 	createBranch.Flags().BoolVar(&trigger.All, "trigger-all", false, "Only trigger when all conditions are met, rather than when any are met.")
+	createBranch.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	commands = append(commands, cmdutil.CreateAliases(createBranch, "create branch", branches))
 
 	inspectBranch := &cobra.Command{
@@ -891,7 +901,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 				return err
 			}
 			defer c.Close()
-			branch, err := cmdutil.ParseBranch(args[0])
+			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
 				return err
 			}
@@ -914,6 +924,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	}
 	inspectBranch.Flags().AddFlagSet(outputFlags)
 	inspectBranch.Flags().AddFlagSet(timestampFlags)
+	inspectBranch.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(inspectBranch, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectBranch, "inspect branch", branches))
 
@@ -927,7 +938,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 				return err
 			}
 			defer c.Close()
-			branchClient, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(args[0])})
+			branchClient, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(project, args[0])})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -953,6 +964,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 		}),
 	}
 	listBranch.Flags().AddFlagSet(outputFlags)
+	listBranch.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(listBranch, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listBranch, "list branch", branches))
 
@@ -961,7 +973,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 		Short: "Delete a branch",
 		Long:  "Delete a branch, while leaving the commits intact",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			branch, err := cmdutil.ParseBranch(args[0])
+			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
 				return err
 			}
@@ -978,6 +990,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 		}),
 	}
 	deleteBranch.Flags().BoolVarP(&force, "force", "f", false, "remove the branch regardless of errors; use with care")
+	deleteBranch.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(deleteBranch, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteBranch, "delete branch", branches))
 
@@ -1185,7 +1198,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 			if !enableProgress {
 				progress.Disable()
 			}
-			file, err := cmdutil.ParseFile(args[0])
+			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
 			}
@@ -1298,6 +1311,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
 	putFile.Flags().BoolVar(&fullPath, "full-path", false, "If true, use the entire path provided to -f as the target filename in PFS. By default only the base of the path is used.")
 	putFile.Flags().BoolVar(&untar, "untar", false, "If true, file(s) with the extension .tar are untarred and put as a separate file for each file within the tar stream(s). gzipped (.tar.gz) tar file(s) are handled as well")
+	putFile.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(putFile,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {
@@ -1316,11 +1330,11 @@ $ {{alias}} repo@branch -i http://host/path`,
 		Short: "Copy files between pfs paths.",
 		Long:  "Copy files between pfs paths.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
-			srcFile, err := cmdutil.ParseFile(args[0])
+			srcFile, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
 			}
-			destFile, err := cmdutil.ParseFile(args[1])
+			destFile, err := cmdutil.ParseFile(project, args[1])
 			if err != nil {
 				return err
 			}
@@ -1342,6 +1356,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 		}),
 	}
 	copyFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
+	copyFile.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(copyFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(copyFile, "copy file", files))
 
@@ -1375,7 +1390,7 @@ $ {{alias}} foo@master:XXX -r
 			if !enableProgress {
 				progress.Disable()
 			}
-			file, err := cmdutil.ParseFile(args[0])
+			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
 			}
@@ -1450,6 +1465,7 @@ $ {{alias}} foo@master:XXX -r
 	getFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "{true|false} Whether or not to print the progress bars.")
 	getFile.Flags().Int64Var(&offsetBytes, "offset", 0, "The number of bytes in the file to skip ahead when reading.")
 	getFile.Flags().BoolVar(&retry, "retry", false, "{true|false} Whether to append the missing bytes to an existing file. No-op if the file doesn't exist.")
+	getFile.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(getFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(getFile, "get file", files))
 
@@ -1458,7 +1474,7 @@ $ {{alias}} foo@master:XXX -r
 		Short: "Return info about a file.",
 		Long:  "Return info about a file.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			file, err := cmdutil.ParseFile(args[0])
+			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
 			}
@@ -1483,6 +1499,7 @@ $ {{alias}} foo@master:XXX -r
 		}),
 	}
 	inspectFile.Flags().AddFlagSet(outputFlags)
+	inspectFile.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(inspectFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectFile, "inspect file", files))
 
@@ -1509,7 +1526,7 @@ $ {{alias}} foo@master^2
 # : quote and protect regex characters
 $ {{alias}} 'foo@master:dir\[1\]'`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			file, err := cmdutil.ParseFile(args[0])
+			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
 			}
@@ -1539,6 +1556,7 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 	}
 	listFile.Flags().AddFlagSet(outputFlags)
 	listFile.Flags().AddFlagSet(timestampFlags)
+	listFile.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(listFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listFile, "list file", files))
 
@@ -1557,7 +1575,7 @@ $ {{alias}} "foo@master:data/*"
 
 # If you only want to view all files on a given repo branch, use "list file -f <repo>@<branch>" instead.`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			file, err := cmdutil.ParseFile(args[0])
+			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
 			}
@@ -1590,6 +1608,7 @@ $ {{alias}} "foo@master:data/*"
 	}
 	globFile.Flags().AddFlagSet(outputFlags)
 	globFile.Flags().AddFlagSet(timestampFlags)
+	globFile.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(globFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(globFile, "glob file", files))
 
@@ -1609,13 +1628,13 @@ $ {{alias}} foo@master:path
 # path1 and path2, respectively.
 $ {{alias}} foo@master:path1 bar@master:path2`,
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
-			newFile, err := cmdutil.ParseFile(args[0])
+			newFile, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
 			}
 			oldFile := &pfs.File{}
 			if len(args) == 2 {
-				oldFile, err = cmdutil.ParseFile(args[1])
+				oldFile, err = cmdutil.ParseFile(project, args[1])
 				if err != nil {
 					return err
 				}
@@ -1694,6 +1713,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 	diffFile.Flags().StringVar(&diffCmdArg, "diff-command", "", "Use a program other than git to diff files.")
 	diffFile.Flags().AddFlagSet(timestampFlags)
 	diffFile.Flags().AddFlagSet(pagerFlags)
+	diffFile.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(diffFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(diffFile, "diff file", files))
 
@@ -1702,7 +1722,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 		Short: "Delete a file.",
 		Long:  "Delete a file.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			file, err := cmdutil.ParseFile(args[0])
+			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
 			}
@@ -1720,6 +1740,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 		}),
 	}
 	deleteFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively delete the files in a directory.")
+	deleteFile.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(deleteFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteFile, "delete file", files))
 
@@ -1752,7 +1773,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 				}
 				opts = append(opts, client.WithZombieCheckAll())
 			} else if zombie != "" {
-				commit, err := cmdutil.ParseCommit(zombie)
+				commit, err := cmdutil.ParseCommit(project, zombie)
 				if err != nil {
 					return err
 				}
@@ -1782,6 +1803,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 	fsck.Flags().BoolVarP(&fix, "fix", "f", false, "Attempt to fix as many issues as possible.")
 	fsck.Flags().BoolVar(&zombieAll, "zombie-all", false, "Check all pipelines for zombie files: files corresponding to old inputs that were not properly deleted")
 	fsck.Flags().StringVar(&zombie, "zombie", "", "A single commit to check for zombie files")
+	fsck.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
 
 	var branchStr string
@@ -1826,7 +1848,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 				}
 				var branch *pfs.Branch
 				if branchStr != "" {
-					branch, err = cmdutil.ParseBranch(branchStr)
+					branch, err = cmdutil.ParseBranch(project, branchStr)
 					if err != nil {
 						return err
 					}
@@ -1851,6 +1873,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 	}
 	runLoadTest.Flags().StringVarP(&branchStr, "branch", "b", "", "The branch to use for generating the load.")
 	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
+	runLoadTest.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pfs-load-test"))
 
 	// Add the mount commands (which aren't available on Windows, so they're in
