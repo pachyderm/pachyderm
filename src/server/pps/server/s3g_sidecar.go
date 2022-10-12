@@ -34,7 +34,8 @@ type sidecarS3G struct {
 	pipelineInfo *pps.PipelineInfo
 	pachClient   *client.APIClient
 
-	server *s3.S3Server
+	server     *s3.S3Server
+	rawS3Proxy *RawS3Proxy
 }
 
 func (a *apiServer) ServeSidecarS3G() {
@@ -77,7 +78,26 @@ func (a *apiServer) ServeSidecarS3G() {
 
 	go func() {
 		for i := 0; i < 2; i++ { // If too many errors, the worker will fail the job
-			err := s.server.ListenAndServe()
+
+			var err error
+			var useRawS3Out bool
+			logrus.Infof("PIPELINEINFO: %+v", s.pipelineInfo.Details)
+			if s.pipelineInfo != nil && s.pipelineInfo.Details != nil && s.pipelineInfo.Details.Metadata != nil {
+				v, ok := s.pipelineInfo.Details.Metadata.Annotations["raw_s3_out"]
+				if ok && !(v == "" || strings.ToLower(v) == "false" || strings.ToLower(v) == "off" || strings.ToLower(v) == "no") {
+					useRawS3Out = true
+				}
+			}
+			if useRawS3Out {
+				// TODO: ooh, we could just run this on a separate port _as
+				// well_ like Nitin suggested then existing s3 inputs will carry
+				// on working too, and expose via a separate env var
+				// but for now this is ok
+				logrus.Infof("ENABLING PROXY TO REAL BACKEND MODE (SPARK COMPATIBLE) FOR S3_OUT BUCKET")
+				err = s.rawS3Proxy.ListenAndServe(port)
+			} else {
+				err = s.server.ListenAndServe()
+			}
 			if err == nil || errors.Is(err, http.ErrServerClosed) {
 				break // server was shutdown/closed
 			}
