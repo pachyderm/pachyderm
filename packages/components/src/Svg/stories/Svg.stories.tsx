@@ -181,6 +181,9 @@ export const UIIcons = () => {
         <SVGWrapper title="BillingSVG">
           <IconsSVG.BillingSVG />
         </SVGWrapper>
+        <SVGWrapper title="BookmarkSVG">
+          <IconsSVG.BookmarkSVG />
+        </SVGWrapper>
         <SVGWrapper title="CheckboxCheckedSVG">
           <IconsSVG.CheckboxCheckedSVG />
         </SVGWrapper>
@@ -244,6 +247,9 @@ export const UIIcons = () => {
         <SVGWrapper title="ExternalLinkSVG">
           <IconsSVG.ExternalLinkSVG />
         </SVGWrapper>
+        <SVGWrapper title="FilterSVG">
+          <IconsSVG.FilterSVG />
+        </SVGWrapper>
         <SVGWrapper title="FlipSVG">
           <IconsSVG.FlipSVG />
         </SVGWrapper>
@@ -276,6 +282,12 @@ export const UIIcons = () => {
         </SVGWrapper>
         <SVGWrapper title="OverflowSVG">
           <IconsSVG.OverflowSVG />
+        </SVGWrapper>
+        <SVGWrapper title="PanelLeftSVG">
+          <IconsSVG.PanelLeftSVG />
+        </SVGWrapper>
+        <SVGWrapper title="PanelRightSVG">
+          <IconsSVG.PanelRightSVG />
         </SVGWrapper>
         <SVGWrapper title="RotateSVG">
           <IconsSVG.RotateSVG />

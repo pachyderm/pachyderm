@@ -160,13 +160,18 @@ export const FullPage = () => {
 
 export const FullPagePanel = () => {
   const {isOpen, openModal, closeModal} = useModal();
-
+  const [isExpanded, setIsExpanded] = useState(false);
   return (
     <>
       <Button onClick={openModal}>Open Modal</Button>
       <FullPagePanelModal show={isOpen} onHide={closeModal} hideType="exit">
-        <FullPagePanelModal.LeftPanel>
-          This is the LeftPanel
+        <FullPagePanelModal.LeftPanel
+          isExpanded={isExpanded}
+          setIsExpanded={setIsExpanded}
+        >
+          <>
+            <Button onClick={() => setIsExpanded(!isExpanded)}>Expand</Button>
+          </>
         </FullPagePanelModal.LeftPanel>
         <FullPagePanelModal.Body>
           Here is the body of the modal

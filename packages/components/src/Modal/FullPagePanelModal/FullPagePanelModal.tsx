@@ -1,5 +1,5 @@
 import classNames from 'classnames';
-import React, {useMemo} from 'react';
+import React, {useMemo, useState} from 'react';
 import BootstrapModal, {
   ModalProps as BootstrapModalProps,
 } from 'react-bootstrap/Modal';
@@ -27,14 +27,18 @@ const FullPagePanelModal: React.FC<FullPageModalProps> = ({
 }) => {
   const {animation, showing} = usePopUp(show);
 
+  const [leftOpen, setLeftOpen] = useState(false);
+
   const modalContext = useMemo(
     () => ({
       show,
+      leftOpen,
+      setLeftOpen,
       hideType,
       onHide,
       onShow,
     }),
-    [hideType, onHide, onShow, show],
+    [hideType, leftOpen, onHide, onShow, show],
   );
   return (
     <ModalContext.Provider value={modalContext}>
