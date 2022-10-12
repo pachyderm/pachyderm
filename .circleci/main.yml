@@ -171,11 +171,34 @@ jobs:
     steps:
       - checkout
       - run:
+          name: setup env vars
+          command: |
+            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
+            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+
+            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+      # The build cache will grow indefinitely, so we rotate the cache once a week.
+      # This ensures the time to restore the cache isn't longer than the speedup in compilation.
+      - run: "echo $(($(date +%s)/604800)) > current_week"
+      - restore_cache:
+          keys:
+            - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
+
+      # Only restore the module cache based on an exact match for go.sum.
+      # This also avoids accumulating old versions of modules over time.
+      - restore_cache:
+          keys:
+            - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+      - run:
           name: test split
           command: |
-            TESTS=$(go test -v -tags=k8s ./src/server -list ".*" | grep -v '^ok')
-            echo $TESTS
-            echo $TESTS | circleci tests split
+            # TESTS=$(go test -v -tags=k8s ./src/server -list ".*" | grep -v '^ok')
+            # echo $TESTS
+            # echo $TESTS | circleci tests split
+            go list ./... | circleci tests split
 
   integration-tests:
     parameters:
