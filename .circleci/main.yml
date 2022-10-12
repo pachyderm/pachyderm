@@ -162,6 +162,8 @@ jobs:
               -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
       - store_test_results: # upload test results for display in Test Summary
           path: /tmp/test-results
+      - store_artifacts:
+          path: /tmp/test-results
   integration-tests:
     parameters:
       bucket:
