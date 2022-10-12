@@ -25,7 +25,7 @@ const createCustomFileBrowser = (
   const browser = factory.createFileBrowser('jupyterlab-pachyderm-browser', {
     driveName: drive.name,
     state: null,
-    refreshInterval: 10000,
+    refreshInterval: 3000,
   });
 
   try {
