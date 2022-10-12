@@ -11,7 +11,9 @@ if minio:
     conf.set('spark.hadoop.fs.s3a.endpoint', "http://localhost:9000")
 else:
     # conf.set('spark.hadoop.fs.s3a.endpoint', "http://192.168.49.2:30600")
-    conf.set('spark.hadoop.fs.s3a.endpoint', f"http://{os.getenv('S3_ENDPOINT')}")
+    endpoint = os.getenv('S3_ENDPOINT')
+    conf.set('spark.hadoop.fs.s3a.endpoint', endpoint)
+    print(f"endpoint is {endpoint}")
     # conf.set('spark.hadoop.fs.s3a.endpoint', "http://localhost:30600")
 
 conf.set('spark.hadoop.fs.s3a.impl', "org.apache.hadoop.fs.s3a.S3AFileSystem")
@@ -33,8 +35,8 @@ conf.set("spark.hadoop.fs.s3a.change.detection.mode", 'none')
 conf.set("spark.hadoop.fs.s3a.change.detection.version.required", 'false')
 
 sc = SparkContext(conf=conf)
-# sc.setLogLevel("ERROR")
-sc.setLogLevel("DEBUG")
+sc.setLogLevel("ERROR")
+# sc.setLogLevel("DEBUG")
 sc.setSystemProperty("com.amazonaws.services.s3.disablePutObjectMD5Validation", "true")
 
 # confirm config is applied to this session
