@@ -164,6 +164,19 @@ jobs:
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
+  test-split:
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    parallelism: 4
+    steps:
+      - checkout
+      - run:
+          name: test split
+          command: |
+            TESTS=$(go test -v -tags=k8s ./src/server -list ".*" | grep -v '^ok')
+            echo $TESTS
+            echo $TESTS | circleci tests split
+
   integration-tests:
     parameters:
       bucket:
@@ -1179,8 +1192,9 @@ workflows:
     when:
       not: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
-      - build-docker-images
-      - test-pps
+      #- build-docker-images
+      #- test-pps
+      - test-split
   #integration-tests:
   #  when:
   #    not: << pipeline.parameters.run-jupyter-jobs >>
