@@ -147,7 +147,6 @@ jobs:
       - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
-      # Note: Need to manually build and push pachyderm/ubuntuplusnetcat:latest if changes are required
       - run:
           name: run tests
           no_output_timeout: 20m
