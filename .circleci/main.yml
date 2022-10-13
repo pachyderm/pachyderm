@@ -93,6 +93,7 @@ jobs:
       image: << pipeline.parameters.machine_image >>
     environment:
       TEST_RESULTS: /tmp/test-results
+    parallelism: 4
     steps:
       - checkout
       - run: mkdir -p ${TEST_RESULTS}
