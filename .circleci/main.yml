@@ -127,6 +127,8 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+      # Try running go mod download to pull the rest of the deps
+      - run: go mod download
       - run: etc/testing/circle/wait-minikube.sh
       - run:
           name: Install minio
@@ -233,7 +235,6 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
-      PPS_BUCKETS: "8"
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
     steps:
@@ -1236,47 +1237,38 @@ jobs:
             additional=${v:index}
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
 workflows:
-  test-pps:
-    when:
-      not: << pipeline.parameters.run-jupyter-jobs >>
-    jobs:
-      - build-docker-images
-      - test-pps
-      #- test-split
-  #integration-tests:
+  #test-pps:
   #  when:
   #    not: << pipeline.parameters.run-jupyter-jobs >>
   #  jobs:
   #    - build-docker-images
-  #    #- build-pachctl-bin:
-  #    #    version: $CIRCLE_SHA1
-  #    #    upload: true
-  #    - check-prettier
-  #    - jsonnet-lint
-  #    - test-go
-  #    - govulncheck
-  #    - test-envoy
-  #    - integration-tests:
-  #        matrix:
-  #          parameters:
-  #            bucket:
-  #              - MISC
-  #              # If you want to update the number of PPS buckets, you'll need to
-  #              # update the value of PPS_BUCKETS above
-  #              - AUTH
-  #              - ENTERPRISE
-  #              - PFS
-  #              - PPS1
-  #              - PPS2
-  #              - PPS3
-  #              - PPS4
-  #              - PPS5
-  #              - PPS6
-  #              - PPS7
-  #              - PPS8
-  #              - S3_AUTH
-  #              - EXAMPLES
-  #              - CONNECTORS
+  #    - test-pps
+  #    #- test-split
+  integration-tests:
+    when:
+      not: << pipeline.parameters.run-jupyter-jobs >>
+    jobs:
+      - build-docker-images
+      #- build-pachctl-bin:
+      #    version: $CIRCLE_SHA1
+      #    upload: true
+      #- check-prettier
+      #- jsonnet-lint
+      #- test-go
+      #- govulncheck
+      #- test-envoy
+      - test-pps
+      - integration-tests:
+          matrix:
+            parameters:
+              bucket:
+                - MISC
+                - AUTH
+                - ENTERPRISE
+                - PFS
+                - S3_AUTH
+                - EXAMPLES
+                - CONNECTORS
   #helm-tests:
   #  when:
   #    not: << pipeline.parameters.run-jupyter-jobs >>
@@ -1358,24 +1350,15 @@ workflows:
     jobs:
       - helm-tests:
           filters: *only-release-tags
+      - test-pps
       - integration-tests:
           matrix:
             parameters:
               bucket:
                 - MISC
-                # If you want to update the number of PPS buckets, you'll need to
-                # update the value of PPS_BUCKETS above
                 - AUTH
                 - ENTERPRISE
                 - PFS
-                - PPS1
-                - PPS2
-                - PPS3
-                - PPS4
-                - PPS5
-                - PPS6
-                - PPS7
-                - PPS8
                 - S3_AUTH
                 - EXAMPLES
           filters: *only-release-tags
@@ -1498,24 +1481,15 @@ workflows:
     jobs:
       - helm-tests:
           filters: *only-nightly-tags
+      - test-pps
       - integration-tests:
           matrix:
             parameters:
               bucket:
                 - MISC
-                # If you want to update the number of PPS buckets, you'll need to
-                # update the value of PPS_BUCKETS above
                 - AUTH
                 - ENTERPRISE
                 - PFS
-                - PPS1
-                - PPS2
-                - PPS3
-                - PPS4
-                - PPS5
-                - PPS6
-                - PPS7
-                - PPS8
                 - S3_AUTH
                 - EXAMPLES
           filters: *only-nightly-tags
