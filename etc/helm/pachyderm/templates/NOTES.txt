@@ -10,10 +10,6 @@ pachctl config set active-context local
 pachctl port-forward
 {{- end -}}
 
-{{ if and .Values.pachd.lokiDeploy (or .Values.pachd.lokiHost .Values.pachd.lokiPort) }}
-WARNING: lokiDeploy and lokiHost should not be used at the same time
-{{- end -}}
-
 {{ if and (.Values.oidc.mockIDP) (.Values.pachd.enterpriseLicenseKey) (.Values.pachd.activateAuth) }}
 WARNING: Your cluster is configured with a default login of admin:password
 {{- end -}}
