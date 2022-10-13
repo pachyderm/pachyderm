@@ -93,7 +93,7 @@ jobs:
       image: << pipeline.parameters.machine_image >>
     environment:
       TEST_RESULTS: /tmp/test-results
-    parallelism: 4
+    parallelism: 8
     steps:
       - checkout
       - run: mkdir -p ${TEST_RESULTS}
@@ -139,6 +139,7 @@ jobs:
           command: etc/testing/circle/wait_for_docker_images.sh
       - run:
           name: run tests
+          no_output_timeout: 20m
           command: |
             VM_IP="$(minikube ip)"
             export VM_IP
@@ -176,6 +177,7 @@ jobs:
             gotestsum \
               --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
               --rerun-fails \
+              --format testname \
               --packages="${package}" \
               -- \
               -run ${test_regex} \
