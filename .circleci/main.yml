@@ -246,6 +246,7 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+      - run: make install # Install pachctl
       #Save cache in only one bucket, after build and before running tests,
       #this ensures build cache is saved even when tests fail
       - when:
