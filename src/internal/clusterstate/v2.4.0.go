@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	auth "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 )
 
 var state_2_4_0 migrations.State = state_2_3_0.
@@ -31,6 +32,9 @@ var state_2_4_0 migrations.State = state_2_3_0.
 			return err
 		}
 		if err := ppsdb.MigrateV2_4_0(ctx, env.Tx); err != nil {
+			return err
+		}
+		if err := auth.MigrateV2_4_0(ctx, env.Tx); err != nil {
 			return err
 		}
 		return nil
