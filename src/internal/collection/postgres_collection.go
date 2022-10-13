@@ -882,7 +882,7 @@ func MigratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 	for _, o := range opts {
 		o(col.postgresCollection)
 	}
-	rr, err := tx.Query(fmt.Sprintf(`SELECT key, proto FROM collections.%s`, name))
+	rr, err := tx.QueryContext(ctx, fmt.Sprintf(`SELECT key, proto FROM collections.%s`, name))
 	if err != nil {
 		return errors.Wrap(err, "could not read table")
 	}
@@ -929,7 +929,7 @@ func MigratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 
 				query := fmt.Sprintf("update collections.%s set %s where key = :oldKey", col.table, strings.Join(updateFields, ", "))
 
-				_, err = col.tx.NamedExec(query, params)
+				_, err = col.tx.NamedExecContext(ctx, query, params)
 				return col.mapSQLError(err, oldKey)
 			})
 		}); err != nil {

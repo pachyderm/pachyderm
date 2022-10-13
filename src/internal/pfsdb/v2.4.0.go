@@ -50,6 +50,9 @@ func MigrateBranchV2_4_0(b *pfs.Branch) *pfs.Branch {
 
 func migrateBranchInfoV2_4_0(b *pfs.BranchInfo) *pfs.BranchInfo {
 	b.Branch = MigrateBranchV2_4_0(b.Branch)
+	if b.Head != nil {
+		b.Head = MigrateCommitV2_4_0(b.Head)
+	}
 	for i, bb := range b.Provenance {
 		b.Provenance[i] = MigrateBranchV2_4_0(bb)
 	}
@@ -69,7 +72,9 @@ func MigrateCommitV2_4_0(c *pfs.Commit) *pfs.Commit {
 
 func migrateCommitInfoV2_4_0(c *pfs.CommitInfo) *pfs.CommitInfo {
 	c.Commit = MigrateCommitV2_4_0(c.Commit)
-	c.ParentCommit = MigrateCommitV2_4_0(c.ParentCommit)
+	if c.ParentCommit != nil {
+		c.ParentCommit = MigrateCommitV2_4_0(c.ParentCommit)
+	}
 	for i, cc := range c.ChildCommits {
 		c.ChildCommits[i] = MigrateCommitV2_4_0(cc)
 	}
@@ -83,6 +88,12 @@ func migrateCommitInfoV2_4_0(c *pfs.CommitInfo) *pfs.CommitInfo {
 // It uses some internal knowledge about how cols.PostgresCollection works to do
 // so.
 func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
+	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_diffs SET commit_id = regexp_replace(commit_id, '^([-a-zA-Z0-9_]+)', 'default/\1') WHERE commit_id ~ '^[-a-zA-Z0-9_]+\.';`); err != nil {
+		return errors.Wrap(err, "could not update")
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_totals SET commit_id = regexp_replace(commit_id, '^([-a-zA-Z0-9_]+)', 'default/\1') WHERE commit_id ~ '^[-a-zA-Z0-9_]+\.';`); err != nil {
+		return errors.Wrap(err, "could not update")
+	}
 	var oldRepo = new(pfs.RepoInfo)
 	if err := col.MigratePostgreSQLCollection(ctx, tx, "repos", reposIndexes, oldRepo, func(oldKey string) (newKey string, newVal proto.Message, err error) {
 		oldRepo = migrateRepoInvoV2_4_0(oldRepo)

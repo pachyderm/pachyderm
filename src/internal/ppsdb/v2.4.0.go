@@ -17,6 +17,9 @@ import (
 func migrateJobInfoV2_4_0(j *pps.JobInfo) (*pps.JobInfo, error) {
 	j.Job.Pipeline.Project = pfsdb.MigrateProjectV2_4_0(j.Job.Pipeline.Project)
 	j.OutputCommit = pfsdb.MigrateCommitV2_4_0(j.OutputCommit)
+	if j.Details == nil {
+		return j, nil
+	}
 	if err := pps.VisitInput(j.Details.Input, func(i *pps.Input) error {
 		if i.Pfs != nil && i.Pfs.Project == "" {
 			i.Pfs.Project = "default"

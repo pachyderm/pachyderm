@@ -293,7 +293,7 @@ var (
 	commitErrorRe             = regexp.MustCompile("commit [^ ]+ finished with an error")
 	repoNotFoundRe            = regexp.MustCompile(`repos ([a-zA-Z0-9.\-_]{1,255}/)?[a-zA-Z0-9.\-_]{1,255} not found`)
 	repoExistsRe              = regexp.MustCompile(`repo ?([a-zA-Z0-9.\-_]{1,255}/)?[a-zA-Z0-9.\-_]{1,255} already exists`)
-	branchNotFoundRe          = regexp.MustCompile(`branch [^ ]+ not found in repo [^ ]+/[^ ]+`)
+	branchNotFoundRe          = regexp.MustCompile(`branch [^ ]+ not found in repo [^ ]*/[^ ]+`)
 	fileNotFoundRe            = regexp.MustCompile(`file .+ not found`)
 	outputCommitNotFinishedRe = regexp.MustCompile("output commit .+ not finished")
 	commitNotFinishedRe       = regexp.MustCompile("commit .+ not finished")
