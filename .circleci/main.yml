@@ -1350,7 +1350,8 @@ workflows:
     jobs:
       - helm-tests:
           filters: *only-release-tags
-      - test-pps
+      - test-pps:
+          filters: *only-release-tags
       - integration-tests:
           matrix:
             parameters:
@@ -1481,7 +1482,8 @@ workflows:
     jobs:
       - helm-tests:
           filters: *only-nightly-tags
-      - test-pps
+      - test-pps:
+          filters: *only-nightly-tags
       - integration-tests:
           matrix:
             parameters:
