@@ -157,8 +157,9 @@ jobs:
             bucket_num=$CIRCLE_NODE_INDEX
             num_buckets=$CIRCLE_NODE_TOTAL
             package="./src/server"
+            test_tags="k8s"
 
-            tests=( $(go test -v -tags=k8s  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
+            tests=( $(go test -v -tags="${test_tags}"  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
             # Add anchors for the regex so we don't run collateral tests
             tests=( "${tests[@]/#/^}" )
             tests=( "${tests[@]/%/\$\$}" )
@@ -182,7 +183,7 @@ jobs:
               --packages="${package}" \
               -- \
               -run ${test_regex} \
-              -tags=k8s \
+              -tags="${test_tags}" \
               -count=1 \
               -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
       - run:
