@@ -29,8 +29,15 @@ spec:
         {{- toYaml .Values.proxy.labels | nindent 8 }}
         {{- end }}
     spec:
+      automountServiceAccountToken: false
       {{- if .Values.proxy.priorityClassName }}
       priorityClassName: {{ .Values.proxy.priorityClassName }}
+      {{- end }}
+      {{-  if .Values.proxy.nodeSelector }}
+      nodeSelector: {{ toYaml .Values.proxy.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{-  if .Values.proxy.tolerations }}
+      tolerations: {{ toYaml .Values.proxy.tolerations | nindent 8 }}
       {{- end }}
       affinity:
         podAffinity:
