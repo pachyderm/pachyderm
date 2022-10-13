@@ -6,6 +6,7 @@ import {ReactWidget, UseSignal} from '@jupyterlab/apputils';
 import {FileBrowser, IFileBrowserFactory} from '@jupyterlab/filebrowser';
 import {settingsIcon, spreadsheetIcon} from '@jupyterlab/ui-components';
 import {Signal} from '@lumino/signaling';
+import {JSONObject} from '@lumino/coreutils';
 
 import {mountLogoIcon} from '../../utils/icons';
 import {PollMounts} from './pollMounts';
@@ -16,6 +17,9 @@ import {
   Repo,
   Mount,
   CurrentDatumResponse,
+  PfsInput,
+  ListMountsResponse,
+  CrossInputSpec,
 } from './types';
 import Config from './components/Config/Config';
 import Datum from './components/Datum/Datum';
@@ -40,11 +44,16 @@ export class MountPlugin implements IMountPlugin {
 
   private _showConfig = false;
   private _showConfigSignal = new Signal<this, boolean>(this);
+  private _readyPromise: Promise<void> = Promise.resolve();
+
   private _showDatum = false;
   private _keepMounted = false;
   private _currentDatumInfo: CurrentDatumResponse | undefined;
   private _showDatumSignal = new Signal<this, boolean>(this);
-  private _readyPromise: Promise<void> = Promise.resolve();
+  private _repoViewInputSpec: CrossInputSpec | PfsInput = {};
+  private _saveInputSpecSignal = new Signal<this, CrossInputSpec | PfsInput>(
+    this,
+  );
 
   constructor(
     app: JupyterFrontEnd,
@@ -173,20 +182,32 @@ export class MountPlugin implements IMountPlugin {
       <UseSignal signal={this._showDatumSignal}>
         {(_, showDatum) => (
           <>
-            <Datum
-              showDatum={showDatum ? showDatum : this._showDatum}
-              setShowDatum={this.setShowDatum}
-              keepMounted={this._keepMounted}
-              setKeepMounted={this.setKeepMounted}
-              refresh={this.open}
-              pollRefresh={this._poller.refresh}
-              currentDatumInfo={this._currentDatumInfo}
-            />
+            <UseSignal signal={this._saveInputSpecSignal}>
+              {(_, repoViewInputSpec) => (
+                <>
+                  <Datum
+                    showDatum={showDatum ? showDatum : this._showDatum}
+                    setShowDatum={this.setShowDatum}
+                    keepMounted={this._keepMounted}
+                    setKeepMounted={this.setKeepMounted}
+                    refresh={this.open}
+                    pollRefresh={this._poller.refresh}
+                    currentDatumInfo={this._currentDatumInfo}
+                    repoViewInputSpec={
+                      repoViewInputSpec
+                        ? repoViewInputSpec
+                        : this._repoViewInputSpec
+                    }
+                  />
+                </>
+              )}
+            </UseSignal>
           </>
         )}
       </UseSignal>,
     );
     this._datum.addClass('pachyderm-mount-datum-wrapper');
+    this._repoViewInputSpec = {};
 
     this._loader = ReactWidget.create(
       <>
@@ -246,21 +267,100 @@ export class MountPlugin implements IMountPlugin {
     });
   };
 
-  setShowDatum = (shouldShow: boolean): void => {
+  setShowDatum = async (shouldShow: boolean): Promise<void> => {
     if (shouldShow) {
       this._datum.setHidden(false);
       this._mountedList.setHidden(true);
       this._unmountedList.setHidden(true);
+      this.saveMountedReposList();
     } else {
       this._datum.setHidden(true);
       this._mountedList.setHidden(false);
       this._unmountedList.setHidden(false);
+      await this.restoreMountedReposList();
     }
     this._mountBrowser.setHidden(false);
     this._config.setHidden(true);
     this._fullPageError.setHidden(true);
     this._showDatum = shouldShow;
     this._showDatumSignal.emit(shouldShow);
+  };
+
+  saveMountedReposList = (): void => {
+    const mounted = this._poller.mounted;
+    if (mounted.length === 0) {
+      this._repoViewInputSpec = {};
+    } else if (mounted.length === 1) {
+      const pfsInput: PfsInput = {
+        pfs: {
+          repo: mounted[0].repo,
+          ...(mounted[0].branch !== 'master' && {branch: mounted[0].branch}),
+          glob: '/',
+        },
+      };
+      this._repoViewInputSpec = pfsInput;
+    } else {
+      const cross: PfsInput[] = [];
+      for (let i = 0; i < mounted.length; i++) {
+        const pfsInput: PfsInput = {
+          pfs: {
+            repo: mounted[i].repo,
+            ...(mounted[i].branch !== 'master' && {branch: mounted[i].branch}),
+            glob: '/',
+          },
+        };
+        cross.push(pfsInput);
+      }
+
+      this._repoViewInputSpec = {
+        cross: cross,
+      };
+    }
+    this._saveInputSpecSignal.emit(this._repoViewInputSpec);
+  };
+
+  restoreMountedReposList = async (): Promise<void> => {
+    const mounts: JSONObject[] = [];
+    if (
+      Object.prototype.hasOwnProperty.call(this._repoViewInputSpec, 'cross') &&
+      Array.isArray(this._repoViewInputSpec.cross)
+    ) {
+      for (let i = 0; i < this._repoViewInputSpec.cross.length; i++) {
+        const pfsInput = (this._repoViewInputSpec.cross[i] as PfsInput).pfs;
+        const mountName =
+          pfsInput.branch !== undefined && pfsInput.branch !== 'master'
+            ? `${pfsInput.repo}_${pfsInput.branch}`
+            : pfsInput.repo;
+        mounts.push({
+          name: mountName,
+          repo: pfsInput.repo,
+          branch: pfsInput.branch ? pfsInput.branch : 'master',
+          mode: 'ro',
+        });
+      }
+    } else if (
+      Object.prototype.hasOwnProperty.call(this._repoViewInputSpec, 'pfs')
+    ) {
+      const pfsInput = (this._repoViewInputSpec as PfsInput).pfs;
+      const mountName =
+        pfsInput.branch !== undefined && pfsInput.branch !== 'master'
+          ? `${pfsInput.repo}_${pfsInput.branch}`
+          : pfsInput.repo;
+      mounts.push({
+        name: mountName,
+        repo: pfsInput.repo,
+        branch: pfsInput.branch ? pfsInput.branch : 'master',
+        mode: 'ro',
+      });
+    }
+
+    if (mounts.length > 0) {
+      const res = await requestAPI<ListMountsResponse>('_mount', 'PUT', {
+        mounts: mounts,
+      });
+      this._poller.updateData(res);
+    }
+    this.open('');
   };
 
   setKeepMounted = (keep: boolean): void => {
@@ -323,7 +423,7 @@ export class MountPlugin implements IMountPlugin {
         if (res['num_datums'] > 0) {
           this._keepMounted = true;
           this._currentDatumInfo = res;
-          this.setShowDatum(true);
+          await this.setShowDatum(true);
         }
       } catch (e) {
         console.log(e);

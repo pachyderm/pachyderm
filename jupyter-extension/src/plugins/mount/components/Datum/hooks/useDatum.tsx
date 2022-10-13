@@ -1,12 +1,16 @@
 import YAML from 'yaml';
-
-import {requestAPI} from '../../../../../handler';
+import {JSONObject} from '@lumino/coreutils';
 import {useEffect, useState} from 'react';
 import {ServerConnection} from '@jupyterlab/services';
+import {isEqual} from 'lodash';
+
+import {requestAPI} from '../../../../../handler';
 import {
+  CrossInputSpec,
   CurrentDatumResponse,
   ListMountsResponse,
   MountDatumResponse,
+  PfsInput,
 } from 'plugins/mount/types';
 
 export type useDatumResponse = {
@@ -20,6 +24,8 @@ export type useDatumResponse = {
   callMountDatums: () => Promise<void>;
   callUnmountAll: () => Promise<void>;
   errorMessage: string;
+  saveInputSpec: () => void;
+  initialInputSpec: JSONObject;
 };
 
 export const useDatum = (
@@ -27,6 +33,7 @@ export const useDatum = (
   keepMounted: boolean,
   refresh: (path: string) => void,
   pollRefresh: () => Promise<void>,
+  repoViewInputSpec: CrossInputSpec | PfsInput,
   currentDatumInfo?: CurrentDatumResponse,
 ): useDatumResponse => {
   const [loading, setLoading] = useState(false);
@@ -38,7 +45,10 @@ export const useDatum = (
     num_datums: 0,
   });
   const [inputSpec, setInputSpec] = useState('');
+  const [initialInputSpec, setInitialInputSpec] = useState({});
   const [errorMessage, setErrorMessage] = useState('');
+  const [datumViewInputSpec, setDatumViewInputSpec] = useState<any>({});
+  const [isYaml, setIsYaml] = useState(true);
 
   useEffect(() => {
     if (showDatum && currIdx !== -1) {
@@ -58,34 +68,89 @@ export const useDatum = (
         idx: currentDatumInfo.curr_idx,
         num_datums: currentDatumInfo.num_datums,
       });
-      setInputSpec(YAML.stringify(currentDatumInfo.input, null, 2));
+      setInputSpec(inputSpecObjToText(currentDatumInfo.input));
     }
   }, [showDatum]);
+
+  useEffect(() => {
+    if (typeof datumViewInputSpec === 'string') {
+      setInputSpec(datumViewInputSpec);
+    } else {
+      let specToShow = {};
+      if (Object.keys(datumViewInputSpec).length === 0) {
+        specToShow = repoViewInputSpec;
+      } else {
+        specToShow = datumViewInputSpec;
+      }
+      setInputSpec(inputSpecObjToText(specToShow));
+      setInitialInputSpec(specToShow);
+    }
+  }, [showDatum, repoViewInputSpec]);
+
+  const saveInputSpec = (): void => {
+    try {
+      const inputSpecObj = inputSpecTextToObj();
+      if (isEqual(repoViewInputSpec, inputSpecObj)) {
+        setDatumViewInputSpec({});
+      } else {
+        setDatumViewInputSpec(inputSpecObj ? inputSpecObj : {});
+      }
+    } catch (e) {
+      if (e instanceof YAML.YAMLParseError) {
+        setDatumViewInputSpec(inputSpec);
+      } else {
+        throw e;
+      }
+    }
+  };
+
+  let useYaml = isYaml;
+  const inputSpecTextToObj = (): JSONObject => {
+    let spec = {};
+    try {
+      spec = JSON.parse(inputSpec);
+      useYaml = false;
+      setIsYaml(false);
+    } catch (e) {
+      if (e instanceof SyntaxError) {
+        spec = YAML.parse(inputSpec);
+        useYaml = true;
+        setIsYaml(true);
+      } else {
+        throw e;
+      }
+    }
+    return spec;
+  };
+
+  useEffect(() => {
+    useYaml = isYaml;
+  }, [isYaml]);
+
+  const inputSpecObjToText = (specObj: JSONObject): string => {
+    if (Object.keys(specObj).length === 0) {
+      return '';
+    }
+    if (useYaml) {
+      return YAML.stringify(specObj, null, 2);
+    }
+    return JSON.stringify(specObj, null, 2);
+  };
 
   const callMountDatums = async () => {
     setLoading(true);
     setErrorMessage('');
 
     try {
-      let input;
-      try {
-        input = YAML.parse(inputSpec);
-      } catch (e) {
-        if (e instanceof YAML.YAMLParseError) {
-          input = JSON.parse(inputSpec);
-        } else {
-          throw e;
-        }
-      }
-
+      const spec = inputSpecTextToObj();
       const res = await requestAPI<MountDatumResponse>('_mount_datums', 'PUT', {
-        input: input,
+        input: spec,
       });
       refresh('');
       setCurrIdx(0);
       setCurrDatum(res);
       setShouldShowCycler(true);
-      setInputSpec(YAML.stringify(input, null, 2));
+      setInputSpec(inputSpecObjToText(spec));
     } catch (e) {
       console.log(e);
       if (e instanceof SyntaxError) {
@@ -148,5 +213,7 @@ export const useDatum = (
     callMountDatums,
     callUnmountAll,
     errorMessage,
+    saveInputSpec,
+    initialInputSpec,
   };
 };
