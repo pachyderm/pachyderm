@@ -93,9 +93,14 @@ jobs:
       image: << pipeline.parameters.machine_image >>
     environment:
       TEST_RESULTS: /tmp/test-results
+      GOPROXY: https://proxy.golang.org
     parallelism: 8
     steps:
       - checkout
+      - run:
+          name: Collect node stats
+          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
+          background: true
       - run: mkdir -p ${TEST_RESULTS}
       - run:
           name: setup env vars
@@ -110,6 +115,9 @@ jobs:
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+      - run: etc/testing/circle/install.sh
+      - go/install:
+          version: << pipeline.parameters.go-version >>
       - run:
           name: Start minikube
           command: etc/testing/circle/start-minikube.sh
@@ -139,6 +147,7 @@ jobs:
       - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
+      # Note: Need to manually build and push pachyderm/ubuntuplusnetcat:latest if changes are required
       - run:
           name: run tests
           no_output_timeout: 20m
@@ -177,47 +186,14 @@ jobs:
               -tags=k8s \
               -count=1 \
               -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
+      - run:
+          name: Dump debugging info in case of failure
+          when: on_fail
+          command: etc/testing/circle/kube_debug.sh
       - store_test_results: # upload test results for display in Test Summary
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
-  test-split:
-    machine:
-      image: << pipeline.parameters.machine_image >>
-    parallelism: 4
-    steps:
-      - checkout
-      - run:
-          name: setup env vars
-          command: |
-            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
-            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
-
-            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
-            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
-      # The build cache will grow indefinitely, so we rotate the cache once a week.
-      # This ensures the time to restore the cache isn't longer than the speedup in compilation.
-      - run: "echo $(($(date +%s)/604800)) > current_week"
-      - restore_cache:
-          keys:
-            - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
-            - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
-
-      # Only restore the module cache based on an exact match for go.sum.
-      # This also avoids accumulating old versions of modules over time.
-      - restore_cache:
-          keys:
-            - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
-      - run:
-          name: test split
-          command: |
-            TESTS=$(go test -v -tags=k8s ./src/server -list ".*" | grep -v '^ok')
-            # echo $TESTS
-            echo Tests to run
-            echo $TESTS | circleci tests split --split-by=timings
-            #go list ./... | circleci tests split
-
   integration-tests:
     parameters:
       bucket:
@@ -270,7 +246,6 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
-      - run: etc/testing/circle/build.sh
       #Save cache in only one bucket, after build and before running tests,
       #this ensures build cache is saved even when tests fail
       - when:
@@ -510,7 +485,6 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
-      - run: etc/testing/circle/build.sh
       - save_cache:
           key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
@@ -1228,13 +1202,6 @@ jobs:
             additional=${v:index}
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
 workflows:
-  #test-pps:
-  #  when:
-  #    not: << pipeline.parameters.run-jupyter-jobs >>
-  #  jobs:
-  #    - build-docker-images
-  #    - test-pps
-  #    #- test-split
   integration-tests:
     when:
       not: << pipeline.parameters.run-jupyter-jobs >>
@@ -1243,11 +1210,11 @@ workflows:
       #- build-pachctl-bin:
       #    version: $CIRCLE_SHA1
       #    upload: true
-      #- check-prettier
-      #- jsonnet-lint
-      #- test-go
-      #- govulncheck
-      #- test-envoy
+      - check-prettier
+      - jsonnet-lint
+      - test-go
+      - govulncheck
+      - test-envoy
       - test-pps
       - integration-tests:
           matrix:
@@ -1260,11 +1227,11 @@ workflows:
                 - S3_AUTH
                 - EXAMPLES
                 - CONNECTORS
-  #helm-tests:
-  #  when:
-  #    not: << pipeline.parameters.run-jupyter-jobs >>
-  #  jobs:
-  #    - helm-tests
+  helm-tests:
+    when:
+      not: << pipeline.parameters.run-jupyter-jobs >>
+    jobs:
+      - helm-tests
   nightly_load_tests:
     when: << pipeline.parameters.run_load_tests >>
     jobs:
@@ -1291,16 +1258,16 @@ workflows:
                   #- LOAD13
                   #- LOAD14
                   #- LOAD15
-  #rootless-tests:
-  #  when:
-  #    not: << pipeline.parameters.run-jupyter-jobs >>
-  #  jobs:
-  #    - rootless
-  #deploy-tests:
-  #  when:
-  #    not: << pipeline.parameters.run-jupyter-jobs >>
-  #  jobs:
-  #    - deploy-tests
+  rootless-tests:
+    when:
+      not: << pipeline.parameters.run-jupyter-jobs >>
+    jobs:
+      - rootless
+  deploy-tests:
+    when:
+      not: << pipeline.parameters.run-jupyter-jobs >>
+    jobs:
+      - deploy-tests
   jupyter-extension:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
