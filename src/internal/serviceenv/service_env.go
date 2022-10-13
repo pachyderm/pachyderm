@@ -177,11 +177,6 @@ func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 		env.lokiClient = &loki.Client{
 			Address: fmt.Sprintf("http://%s", net.JoinHostPort(lokiHost, lokiPort)),
 		}
-	} else if lokiHost, lokiPort := os.Getenv(env.config.LokiHostVar), os.Getenv(env.config.LokiPortVar); lokiHost != "" && lokiPort != "" {
-		env.config.LokiHost, env.config.LokiPort = lokiHost, lokiPort
-		env.lokiClient = &loki.Client{
-			Address: fmt.Sprintf("http://%s", net.JoinHostPort(lokiHost, lokiPort)),
-		}
 	}
 	return env // env is not ready yet
 }

@@ -21,7 +21,7 @@ type GlobalConfiguration struct {
 	PPSEtcdPrefix                  string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
 	Namespace                      string `env:"PACH_NAMESPACE,default=default"`
 	StorageRoot                    string `env:"PACH_ROOT,default=/pach"`
-	GCPercent                      int    `env:"GC_PERCENT,default=50"`
+	GCPercent                      int    `env:"GC_PERCENT,default=100"`
 	LokiHostVar                    string `env:"LOKI_SERVICE_HOST_VAR,default=LOKI_SERVICE_HOST"`
 	LokiPortVar                    string `env:"LOKI_SERVICE_PORT_VAR,default=LOKI_SERVICE_PORT"`
 	LokiHost                       string `env:"LOKI_SERVICE_HOST"`
