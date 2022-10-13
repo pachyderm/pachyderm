@@ -111,6 +111,7 @@ func TestSimplePipeline(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	c = c.WithDefaultTransformUser("1000")
+	tu.ActivateAuthClient(t, c)
 
 	projectName := tu.UniqueString("project")
 	require.NoError(t, c.CreateProject(projectName))
@@ -1851,11 +1852,14 @@ func TestProvenance(t *testing.T) {
 }
 
 // TestProvenance2 tests the following DAG:
-//   A
-//  / \
+//
+//	 A
+//	/ \
+//
 // B   C
-//  \ /
-//   D
+//
+//	\ /
+//	 D
 func TestProvenance2(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

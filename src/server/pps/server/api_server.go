@@ -883,7 +883,7 @@ func (a *apiServer) SubscribeJob(request *pps.SubscribeJobRequest, stream pps.AP
 		return errors.New("pipeline must be specified")
 	}
 
-	if err := a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Name: request.Pipeline.Name}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
+	if err := a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Project: request.Pipeline.Project, Name: request.Pipeline.Name}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
 		return errors.EnsureStack(err)
 	}
 
@@ -1154,6 +1154,7 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 }
 
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
+	fmt.Println("qqq pipeline-project:", request.GetPipeline().GetProject().GetName(), "pipeline-name:", request.GetPipeline().GetName())
 	// Set the default for the `Since` field.
 	if request.Since == nil || (request.Since.Seconds == 0 && request.Since.Nanos == 0) {
 		request.Since = types.DurationProto(DefaultLogsFrom)
@@ -1710,20 +1711,26 @@ func branchProvenance(project *pfs.Project, input *pps.Input) []*pfs.Branch {
 }
 
 func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.TransactionContext, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) (retErr error) {
+	repoKey := func(project, repo string) string {
+		if project == "" {
+			return repo
+		}
+		return project + "/" + repo
+	}
 	addRead := make(map[string]struct{})
 	addWrite := make(map[string]struct{})
 	remove := make(map[string]struct{})
 	var pipelineName string
 	// Figure out which repos 'pipeline' might no longer be using
 	if prevPipelineInfo != nil {
-		pipelineName = prevPipelineInfo.Pipeline.Name
+		pipelineName = prevPipelineInfo.Pipeline.String()
 		if err := pps.VisitInput(prevPipelineInfo.Details.Input, func(input *pps.Input) error {
 			var repo string
 			switch {
 			case input.Pfs != nil:
-				repo = input.Pfs.Repo
+				repo = repoKey(input.Pfs.Project, input.Pfs.Repo)
 			case input.Cron != nil:
-				repo = input.Cron.Repo
+				repo = repoKey(input.Cron.Project, input.Cron.Repo)
 			default:
 				return nil // no scope to set: input is not a repo
 			}
@@ -1738,7 +1745,7 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 	if pipelineInfo != nil {
 		// also check that pipeline name is consistent
 		if pipelineName == "" {
-			pipelineName = pipelineInfo.Pipeline.Name
+			pipelineName = pipelineInfo.Pipeline.String()
 		} else if pipelineInfo.Pipeline.Name != pipelineName {
 			return errors.Errorf("pipelineInfo (%s) and prevPipelineInfo (%s) do not "+
 				"belong to matching pipelines; this is a bug",
@@ -1751,9 +1758,9 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 			var repo string
 			switch {
 			case input.Pfs != nil:
-				repo = input.Pfs.Repo
+				repo = repoKey(input.Pfs.Project, input.Pfs.Repo)
 			case input.Cron != nil:
-				repo = input.Cron.Repo
+				repo = repoKey(input.Cron.Project, input.Cron.Repo)
 			default:
 				return nil // no scope to set: input is not a repo
 			}
@@ -1832,24 +1839,24 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 // CreatePipeline implements the protobuf pps.CreatePipeline RPC
 //
 // Implementation note:
-// - CreatePipeline always creates pipeline output branches such that the
-//   pipeline's spec branch is in the pipeline output branch's provenance
-// - CreatePipeline will always create a new output commit, but that's done
-//   by CreateBranch at the bottom of the function, which sets the new output
-//   branch provenance, rather than commitPipelineInfoFromFileSet higher up.
-// - This is because CreatePipeline calls hardStopPipeline towards the top,
-// 	 breaking the provenance connection from the spec branch to the output branch
-// - For straightforward pipeline updates (e.g. new pipeline image)
-//   stopping + updating + starting the pipeline isn't necessary
-// - However it is necessary in many slightly atypical cases  (e.g. the
-//   pipeline input changed: if the spec commit is created while the
-//   output branch has its old provenance, or the output branch gets new
-//   provenance while the old spec commit is the HEAD of the spec branch,
-//   then an output commit will be created with provenance that doesn't
-//   match its spec's PipelineInfo.Details.Input. Another example is when
-//   request.Reprocess == true).
-// - Rather than try to enumerate every case where we can't create a spec
-//   commit without stopping the pipeline, we just always stop the pipeline
+//   - CreatePipeline always creates pipeline output branches such that the
+//     pipeline's spec branch is in the pipeline output branch's provenance
+//   - CreatePipeline will always create a new output commit, but that's done
+//     by CreateBranch at the bottom of the function, which sets the new output
+//     branch provenance, rather than commitPipelineInfoFromFileSet higher up.
+//   - This is because CreatePipeline calls hardStopPipeline towards the top,
+//     breaking the provenance connection from the spec branch to the output branch
+//   - For straightforward pipeline updates (e.g. new pipeline image)
+//     stopping + updating + starting the pipeline isn't necessary
+//   - However it is necessary in many slightly atypical cases  (e.g. the
+//     pipeline input changed: if the spec commit is created while the
+//     output branch has its old provenance, or the output branch gets new
+//     provenance while the old spec commit is the HEAD of the spec branch,
+//     then an output commit will be created with provenance that doesn't
+//     match its spec's PipelineInfo.Details.Input. Another example is when
+//     request.Reprocess == true).
+//   - Rather than try to enumerate every case where we can't create a spec
+//     commit without stopping the pipeline, we just always stop the pipeline
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *types.Empty, retErr error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -2028,7 +2035,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
 			&pfs.CreateRepoRequest{
 				Repo:        client.NewProjectRepo(projectName, pipelineName),
-				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline),
+				Description: fmt.Sprintf("Output repo for pipeline %s", request.Pipeline),
 			}); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(err, "error creating output repo for %s", pipelineName)
 		} else if errutil.IsAlreadyExistError(err) {
@@ -2037,7 +2044,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
 			&pfs.CreateRepoRequest{
 				Repo:        client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType),
-				Description: fmt.Sprintf("Spec repo for pipeline %s.", request.Pipeline),
+				Description: fmt.Sprintf("Spec repo for pipeline %s", request.Pipeline),
 				Update:      true,
 			}); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(err, "error creating spec repo for %s", request.Pipeline)
@@ -2165,7 +2172,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	if request.Service == nil && request.Spout == nil {
 		if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx, &pfs.CreateRepoRequest{
 			Repo:        metaBranch.Repo,
-			Description: fmt.Sprint("Meta repo for pipeline ", pipelineName),
+			Description: fmt.Sprint("Meta repo for pipeline ", request.Pipeline),
 		}); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrap(err, "could not create meta repo")
 		}

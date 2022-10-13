@@ -78,7 +78,7 @@ func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionCont
 	if err := a.driver.repos.ReadWrite(txnCtx.SqlTx).List(&repoInfo, col.DefaultOptions(), func(string) error {
 		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
 			Type: auth.ResourceType_REPO,
-			Name: repoInfo.Repo.Name,
+			Name: repoInfo.Repo.String(),
 		})
 		if err != nil && !col.IsErrExists(err) {
 			return errors.EnsureStack(err)

@@ -19,7 +19,7 @@ const (
 	// RepoHeader is the header for repos.
 	RepoHeader = "PROJECT\tNAME\tCREATED\tSIZE (MASTER)\tDESCRIPTION\t\n"
 	// RepoAuthHeader is the header for repos with auth information attached.
-	RepoAuthHeader = "NAME\tCREATED\tSIZE (MASTER)\tACCESS LEVEL\t\n"
+	RepoAuthHeader = "PROJECT\tNAME\tCREATED\tSIZE (MASTER)\tACCESS LEVEL\t\n"
 	// CommitHeader is the header for commits.
 	CommitHeader = "REPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tORIGIN\tDESCRIPTION\n"
 	// CommitSetHeader is the header for commitsets.
