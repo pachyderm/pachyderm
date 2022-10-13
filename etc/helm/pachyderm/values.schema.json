@@ -773,6 +773,12 @@
                 "goMaxProcs": {
                     "type": "integer"
                 },
+                "goMemLimit": {
+                    "type": "integer"
+                },
+                "gcPercent": {
+                    "type": "integer"
+                },
                 "image": {
                     "type": "object",
                     "properties": {
