@@ -151,12 +151,33 @@ jobs:
             PROM_PORT=$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort)
             export PROM_PORT
 
+            bucket_num=$CIRCLE_NODE_INDEX
+            num_buckets=$CIRCLE_NODE_TOTAL
+            package="./src/server"
+
+            tests=( $(go test -v -tags=k8s  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
+            # Add anchors for the regex so we don't run collateral tests
+            tests=( "${tests[@]/#/^}" )
+            tests=( "${tests[@]/%/\$\$}" )
+            total_tests="${#tests[@]}"
+
+            # Determine the offset and length of the sub-array of tests we want to run
+            # The last bucket may have a few extra tests, to accommodate rounding
+            # errors from bucketing:
+            let "bucket_size=total_tests/num_buckets" \
+              "start=bucket_size * (bucket_num-1)" \
+              "bucket_size+=bucket_num < num_buckets ? 0 : total_tests%num_buckets"
+
+            test_regex="$(IFS=\|; echo "${tests[*]:start:bucket_size}")"
+
+            echo $test_regex
+
             gotestsum \
               --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
               --rerun-fails \
-              --packages="./src/server" \
+              --packages="${package}" \
               -- \
-              -run TestSimplePipeline \
+              -run ${test_regex} \
               -tags=k8s \
               -count=1 \
               -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
@@ -198,7 +219,7 @@ jobs:
             TESTS=$(go test -v -tags=k8s ./src/server -list ".*" | grep -v '^ok')
             # echo $TESTS
             echo Tests to run
-            echo $TESTS | circleci tests split --timings-type=classname
+            echo $TESTS | circleci tests split --split-by=timings
             #go list ./... | circleci tests split
 
   integration-tests:
@@ -1216,9 +1237,9 @@ workflows:
     when:
       not: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
-      #- build-docker-images
-      #- test-pps
-      - test-split
+      - build-docker-images
+      - test-pps
+      #- test-split
   #integration-tests:
   #  when:
   #    not: << pipeline.parameters.run-jupyter-jobs >>
