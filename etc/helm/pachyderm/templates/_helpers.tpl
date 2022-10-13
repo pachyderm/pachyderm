@@ -62,6 +62,8 @@ http
 {{ .Values.oidc.issuerURI }}
 {{- else if and .Values.ingress.host .Values.ingress.enabled -}}
 {{- printf "%s://%s/dex" (include "pachyderm.hostproto" .) .Values.ingress.host -}}
+{{- else if and .Values.proxy.host .Values.proxy.enabled -}}
+{{- printf "%s://%s/dex" (include "pachyderm.hostproto" .) .Values.proxy.host -}}
 {{- else if .Values.proxy.enabled -}}
 http://pachd:30658/dex
 {{- else -}}
