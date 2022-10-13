@@ -143,15 +143,6 @@ jobs:
           name: run tests
           no_output_timeout: 20m
           command: |
-            VM_IP="$(minikube ip)"
-            export VM_IP
-
-            PACH_PORT="30650"
-            export PACH_PORT
-
-            ENTERPRISE_PORT="31650"
-            export ENTEPRRISE_PORT
-
             PROM_PORT=$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort)
             export PROM_PORT
 

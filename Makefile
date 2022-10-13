@@ -396,9 +396,6 @@ lint:
 spellcheck:
 	@mdspell doc/*.md doc/**/*.md *.md --en-us --ignore-numbers --ignore-acronyms --report --no-suggestions
 
-check-buckets:
-	./etc/testing/circle/check_buckets.sh
-
 validate-circle:
 	circleci config validate .circleci/main.yml
 	circleci config validate .circleci/config.yml
@@ -428,7 +425,6 @@ validate-circle:
 	docker-build-test-entrypoint \
 	docker-push \
 	docker-push-release \
-	check-buckets \
 	check-kubectl \
 	check-kubectl-connection \
 	launch-dev-vm \

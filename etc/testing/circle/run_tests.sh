@@ -5,9 +5,6 @@ set -exo pipefail
 VM_IP="$(minikube ip)"
 export VM_IP
 
-PACH_PORT="30650"
-export PACH_PORT
-
 ENTERPRISE_PORT="31650"
 export ENTEPRRISE_PORT
 
@@ -29,7 +26,6 @@ go clean -testcache
 case "${BUCKET}" in
  MISC)
     make lint
-    # make check-buckets
     make enterprise-code-checkin-test
     go install -v ./src/testing/match
     make test-cmds
