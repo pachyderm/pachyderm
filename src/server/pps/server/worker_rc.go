@@ -10,6 +10,13 @@ import (
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
+
 	client "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -19,12 +26,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	workerstats "github.com/pachyderm/pachyderm/v2/src/server/worker/stats"
 	"github.com/pachyderm/pachyderm/v2/src/version"
-	log "github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
 )
 
 const (
@@ -116,6 +117,29 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 		pullPolicy = "IfNotPresent"
 	}
 
+	// Only include one set of loki host configuration environment variables to make debugging easier.
+	lokiHostEnvVars := []v1.EnvVar{
+		{
+			Name:  "LOKI_SERVICE_HOST_VAR",
+			Value: kd.config.LokiHostVar,
+		}, {
+			Name:  "LOKI_SERVICE_PORT_VAR",
+			Value: kd.config.LokiPortVar,
+		},
+	}
+
+	if os.Getenv(kd.config.LokiHostVar) == "" {
+		lokiHostEnvVars = []v1.EnvVar{
+			{
+				Name:  "LOKI_SERVICE_HOST",
+				Value: kd.config.LokiHost,
+			}, {
+				Name:  "LOKI_SERVICE_PORT",
+				Value: kd.config.LokiPort,
+			},
+		}
+	}
+
 	// Environment variables that are shared between both containers
 	commonEnv := []v1.EnvVar{{
 		Name:  "PACH_ROOT",
@@ -153,11 +177,11 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
 	}, {
-		Name:  "LOKI_SERVICE_HOST_VAR",
-		Value: kd.config.LokiHostVar,
+		Name:  "LOKI_SERVICE_HOST",
+		Value: kd.config.LokiHost,
 	}, {
-		Name:  "LOKI_SERVICE_PORT_VAR",
-		Value: kd.config.LokiPortVar,
+		Name:  "LOKI_SERVICE_PORT",
+		Value: kd.config.LokiPort,
 	},
 		// These are set explicitly below to prevent kubernetes from setting them to the service host and port.
 		{
@@ -168,6 +192,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 			Value: "",
 		},
 	}
+	commonEnv = append(commonEnv, lokiHostEnvVars...)
 
 	// Set up sidecar env vars
 	sidecarEnv := []v1.EnvVar{{

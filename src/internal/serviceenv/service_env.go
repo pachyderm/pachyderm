@@ -12,8 +12,6 @@ import (
 	dex_storage "github.com/dexidp/dex/storage"
 	"github.com/dlmiddlecote/sqlstats"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/pachyderm/pachyderm/v2/src/identity"
-	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
@@ -23,6 +21,9 @@ import (
 	"google.golang.org/grpc"
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	"github.com/pachyderm/pachyderm/v2/src/identity"
+	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -172,7 +173,12 @@ func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 		env.dbEg.Go(env.initDirectDBClient)
 	}
 	env.listener = env.newListener()
-	if lokiHost, lokiPort := os.Getenv(env.config.LokiHostVar), os.Getenv(env.config.LokiPortVar); lokiHost != "" && lokiPort != "" {
+	if lokiHost, lokiPort := env.config.LokiHost, env.config.LokiPort; lokiHost != "" && lokiPort != "" {
+		env.lokiClient = &loki.Client{
+			Address: fmt.Sprintf("http://%s", net.JoinHostPort(lokiHost, lokiPort)),
+		}
+	} else if lokiHost, lokiPort := os.Getenv(env.config.LokiHostVar), os.Getenv(env.config.LokiPortVar); lokiHost != "" && lokiPort != "" {
+		env.config.LokiHost, env.config.LokiPort = lokiHost, lokiPort
 		env.lokiClient = &loki.Client{
 			Address: fmt.Sprintf("http://%s", net.JoinHostPort(lokiHost, lokiPort)),
 		}
