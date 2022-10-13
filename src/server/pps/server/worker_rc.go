@@ -116,6 +116,29 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 		pullPolicy = "IfNotPresent"
 	}
 
+	// Only include one set of loki host configuration environment variables to make debugging easier.
+	lokiHostEnvVars := []v1.EnvVar{
+		{
+			Name:  "LOKI_SERVICE_HOST_VAR",
+			Value: kd.config.LokiHostVar,
+		}, {
+			Name:  "LOKI_SERVICE_PORT_VAR",
+			Value: kd.config.LokiPortVar,
+		},
+	}
+
+	if os.Getenv(kd.config.LokiHostVar) == "" {
+		lokiHostEnvVars = []v1.EnvVar{
+			{
+				Name:  "LOKI_SERVICE_HOST",
+				Value: kd.config.LokiHost,
+			}, {
+				Name:  "LOKI_SERVICE_PORT",
+				Value: kd.config.LokiPort,
+			},
+		}
+	}
+
 	// Environment variables that are shared between both containers
 	commonEnv := []v1.EnvVar{{
 		Name:  "PACH_ROOT",
@@ -168,6 +191,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 			Value: "",
 		},
 	}
+	commonEnv = append(commonEnv, lokiHostEnvVars...)
 
 	// Set up sidecar env vars
 	sidecarEnv := []v1.EnvVar{{

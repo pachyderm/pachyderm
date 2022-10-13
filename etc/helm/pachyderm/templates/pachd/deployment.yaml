@@ -93,6 +93,10 @@ spec:
         {{ else }}
           value: "$({{ snakecase .Release.Name | upper }}_LOKI_SERVICE_PORT)"
         {{- end }}
+        - name: LOKI_SERVICE_HOST
+          value: {{ .Values.pachd.lokiHost }}
+        - name: LOKI_SERVICE_PORT
+          value: {{ .Values.pachd.lokiPort | quote}}
         - name: PACH_ROOT
           value: "/pach"
         - name: ETCD_PREFIX
