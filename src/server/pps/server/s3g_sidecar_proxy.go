@@ -47,7 +47,9 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 
 			mashup := func(s string) string {
 				// danger danger, this will probably mash too much in some cases
-				return strings.Replace(s, "/out", "/"+CurrentBucketPath, -1)
+				ret := strings.Replace(s, "/out", "/"+CurrentBucketPath, -1)
+				logrus.Infof("MASHUP '%s' ==> '%s'", s, ret)
+				return ret
 			}
 
 			logrus.Infof("===> IN PROXY ROUTER, w=%+v, r=%+v", w, r)
@@ -95,14 +97,16 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					// 	req.Host = coords.Host
 					// }
 
-					bodyBytes, err := ioutil.ReadAll(req.Body)
-					if err != nil {
-						logrus.Fatal(err)
+					if req.Body != nil {
+						bodyBytes, err := ioutil.ReadAll(req.Body)
+						if err != nil {
+							logrus.Fatal(err)
+						}
+						// TODO find and replace
+						modifiedBodyBytes := new(bytes.Buffer)
+						modifiedBodyBytes.WriteString(mashup(string(bodyBytes)))
+						req.Body = ioutil.NopCloser(modifiedBodyBytes)
 					}
-					// TODO find and replace
-					modifiedBodyBytes := new(bytes.Buffer)
-					modifiedBodyBytes.WriteString(mashup(string(bodyBytes)))
-					req.Body = ioutil.NopCloser(modifiedBodyBytes)
 				},
 				ModifyResponse: func(resp *http.Response) error {
 					// TODO: skip loading the response body into memory if we're
@@ -124,9 +128,11 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					}
 
 					// find and replace
-					modifiedBodyBytes := new(bytes.Buffer)
-					modifiedBodyBytes.WriteString(mashup(string(bodyBytes)))
-					resp.Body = ioutil.NopCloser(modifiedBodyBytes)
+					if resp.Body != nil {
+						modifiedBodyBytes := new(bytes.Buffer)
+						modifiedBodyBytes.WriteString(mashup(string(bodyBytes)))
+						resp.Body = ioutil.NopCloser(modifiedBodyBytes)
+					}
 					return nil
 				},
 				ErrorHandler: func(resp http.ResponseWriter, r *http.Request, err error) {
