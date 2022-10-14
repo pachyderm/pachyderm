@@ -41,13 +41,13 @@ func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.Transa
 		t = auth.ResourceType_SPEC_REPO
 	}
 
-	req := &auth.AuthorizeRequest{Resource: &auth.Resource{Type: t, Name: r.Name}, Permissions: p}
+	req := &auth.AuthorizeRequest{Resource: &auth.Resource{Type: t, Name: r.String()}, Permissions: p}
 	resp, err := a.AuthorizeInTransaction(txnCtx, req)
 	if err != nil {
 		return err
 	}
 	if !resp.Authorized {
-		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: auth.Resource{Type: auth.ResourceType_REPO, Name: r.Name}, Required: p}
+		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: auth.Resource{Type: auth.ResourceType_REPO, Name: r.String()}, Required: p}
 	}
 	return nil
 }
@@ -66,13 +66,13 @@ func (a *apiServer) CheckRepoIsAuthorized(ctx context.Context, r *pfs.Repo, p ..
 		t = auth.ResourceType_SPEC_REPO
 	}
 
-	req := &auth.AuthorizeRequest{Resource: &auth.Resource{Type: t, Name: r.Name}, Permissions: p}
+	req := &auth.AuthorizeRequest{Resource: &auth.Resource{Type: t, Name: r.String()}, Permissions: p}
 	resp, err := a.Authorize(ctx, req)
 	if err != nil {
 		return err
 	}
 	if !resp.Authorized {
-		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: auth.Resource{Type: auth.ResourceType_REPO, Name: r.Name}, Required: p}
+		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: auth.Resource{Type: auth.ResourceType_REPO, Name: r.String()}, Required: p}
 	}
 	return nil
 }
