@@ -38,7 +38,7 @@ const (
 
 // PrintRepoInfo pretty-prints repo info.
 func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t%s\t", repoInfo.Repo.Project.GetName(), repoInfo.Repo.Name)
+	fmt.Fprintf(w, "%s\t%s\t", repoInfo.Repo.Project.GetName(), repoInfo.Repo.String())
 	if fullTimestamps {
 		fmt.Fprintf(w, "%s\t", repoInfo.Created.String())
 	} else {
