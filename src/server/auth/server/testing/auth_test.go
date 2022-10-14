@@ -1466,11 +1466,11 @@ func TestPipelineNewInput(t *testing.T) {
 	))
 	// Make sure the input and output repos have appropriate ACLs
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo[0]))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName+"/"+pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo[0]))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo[1]))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName+"/"+pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo[1]))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName+"/"+pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
 	// repo[2] is not on pipeline -- doesn't include 'pipeline'
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo[2]))
@@ -1497,11 +1497,11 @@ func TestPipelineNewInput(t *testing.T) {
 	))
 	// Make sure the input and output repos have appropriate ACLs
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo[1]))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName+"/"+pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo[1]))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo[2]))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName+"/"+pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo[2]))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName+"/"+pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
 	// repo[0] is not on pipeline -- doesn't include 'pipeline'
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo[0]))
