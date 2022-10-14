@@ -389,8 +389,13 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 		// behalf)
 		done := make(map[string]struct{}) // don't double-authorize repos
 		if err := pps.VisitInput(input, func(in *pps.Input) error {
-			var repo string
+			var project, repo string
 			if in.Pfs != nil {
+				if in.Pfs.Project == "" {
+					project = projectName
+				} else {
+					project = in.Pfs.Project
+				}
 				repo = in.Pfs.Repo
 			} else {
 				return nil
@@ -400,7 +405,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 				return nil
 			}
 			done[repo] = struct{}{}
-			err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: repo}, auth.Permission_REPO_READ)
+			err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: project + "/" + repo}, auth.Permission_REPO_READ)
 			return errors.EnsureStack(err)
 		}); err != nil {
 			return err
