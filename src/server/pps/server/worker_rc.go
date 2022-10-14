@@ -658,13 +658,16 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 		Name:      "pach-bin",
 		MountPath: "/pach-bin",
 	})
-
-	volumes = append(volumes, v1.Volume{
+	workerVolume := v1.Volume{
 		Name: client.PPSWorkerVolume,
 		VolumeSource: v1.VolumeSource{
 			EmptyDir: &v1.EmptyDirVolumeSource{},
 		},
-	})
+	}
+	if transform.MemoryVolume {
+		workerVolume.VolumeSource.EmptyDir.Medium = v1.StorageMediumMemory
+	}
+	volumes = append(volumes, workerVolume)
 	volumeMounts = append(volumeMounts, v1.VolumeMount{
 		Name:      client.PPSWorkerVolume,
 		MountPath: client.PPSInputPrefix,
