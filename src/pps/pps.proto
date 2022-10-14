@@ -36,6 +36,7 @@ message Transform {
   string user = 11;
   string working_dir = 12;
   string dockerfile = 13;
+  bool memory_volume = 14;
 }
 
 message TFJob {
