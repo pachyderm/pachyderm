@@ -993,7 +993,12 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 			return nil, err
 		}
 	case auth.ResourceType_REPO:
-		if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: req.Resource.Name}, auth.Permission_REPO_MODIFY_BINDINGS); err != nil {
+		// FIXME: seems kind of broken to destructure here
+		parts := strings.Split(req.Resource.Name, "/")
+		if len(parts) != 2 {
+			return nil, errors.Errorf("invalid resource name %s", req.Resource.Name)
+		}
+		if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: parts[0]}, Name: parts[1]}, auth.Permission_REPO_MODIFY_BINDINGS); err != nil {
 			return nil, err
 		}
 	default:

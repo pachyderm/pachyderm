@@ -350,8 +350,9 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// the commit created above isn't actually written until we unmount, so
@@ -371,8 +372,9 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
@@ -402,8 +404,9 @@ func TestRwCommitCreatesCommit(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// the commit created above isn't actually written until we unmount, so
@@ -424,8 +427,9 @@ func TestRwCommitCreatesCommit(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
@@ -456,8 +460,9 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// the commit created above isn't actually written until we unmount, so
@@ -478,8 +483,9 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
@@ -497,8 +503,9 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
@@ -529,8 +536,9 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// the commit created above isn't actually written until we unmount, so
@@ -551,8 +559,9 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
@@ -572,8 +581,9 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
