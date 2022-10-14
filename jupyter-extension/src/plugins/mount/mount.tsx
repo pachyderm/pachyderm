@@ -130,6 +130,7 @@ export class MountPlugin implements IMountPlugin {
               </div>
               <button
                 className="pachyderm-button-link"
+                data-testid="Datum__mode"
                 onClick={() => this.setShowDatum(true)}
               >
                 Datum{' '}
