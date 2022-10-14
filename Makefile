@@ -94,8 +94,10 @@ release-mount-server:
 	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/mount-server.yml
 
 docker-build:
-	docker build --network=host -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
+
+docker-build-netcat:
+	docker build --network=host -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
 
 # You can build a multi-arch container here by specifying --platform=linux/amd64,linux/arm64, but
 # it's very slow and this is only going to run on your local machine anyway.
@@ -396,9 +398,6 @@ lint:
 spellcheck:
 	@mdspell doc/*.md doc/**/*.md *.md --en-us --ignore-numbers --ignore-acronyms --report --no-suggestions
 
-check-buckets:
-	./etc/testing/circle/check_buckets.sh
-
 validate-circle:
 	circleci config validate .circleci/main.yml
 	circleci config validate .circleci/config.yml
@@ -421,6 +420,7 @@ validate-circle:
 	docker-build-gpu \
 	docker-build-kafka \
 	docker-build-spout-test \
+	docker-build-netcat \
 	docker-push-gpu \
 	docker-push-gpu-dev \
 	docker-gpu \
@@ -428,7 +428,6 @@ validate-circle:
 	docker-build-test-entrypoint \
 	docker-push \
 	docker-push-release \
-	check-buckets \
 	check-kubectl \
 	check-kubectl-connection \
 	launch-dev-vm \

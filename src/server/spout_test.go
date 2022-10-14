@@ -440,6 +440,8 @@ func testSpout(t *testing.T, usePachctl bool) {
 				Metadata: &pps.Metadata{
 					Annotations: annotations,
 				},
+				// Note: If this image needs to be changed, change the tag to "local" and run make docker-build-netcat
+				// You will need to manually update the image on dockerhub
 				Transform: &pps.Transform{
 					Image: "pachyderm/ubuntuplusnetcat:latest",
 					Cmd:   []string{"sh"},
