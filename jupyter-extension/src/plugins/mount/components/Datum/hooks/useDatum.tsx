@@ -153,7 +153,7 @@ export const useDatum = (
       setInputSpec(inputSpecObjToText(spec));
     } catch (e) {
       console.log(e);
-      if (e instanceof SyntaxError) {
+      if (e instanceof YAML.YAMLParseError) {
         setErrorMessage(
           'Poorly formatted input spec- must be either YAML or JSON',
         );
