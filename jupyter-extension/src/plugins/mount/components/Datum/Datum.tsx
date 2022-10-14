@@ -21,7 +21,6 @@ type DatumProps = {
 
 const placeholderText = `pfs:
   repo: images
-  branch: dev
   glob: /*
 `;
 

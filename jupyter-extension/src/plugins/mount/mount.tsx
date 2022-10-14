@@ -288,22 +288,33 @@ export class MountPlugin implements IMountPlugin {
 
   saveMountedReposList = (): void => {
     const mounted = this._poller.mounted;
+    // No mounted repos to save
     if (mounted.length === 0) {
       this._repoViewInputSpec = {};
-    } else if (mounted.length === 1) {
+    }
+    // Single mounted repo to save
+    else if (mounted.length === 1) {
       const pfsInput: PfsInput = {
         pfs: {
+          ...(mounted[0].branch !== 'master' && {
+            name: `${mounted[0].repo}_${mounted[0].branch}`,
+          }),
           repo: mounted[0].repo,
           ...(mounted[0].branch !== 'master' && {branch: mounted[0].branch}),
           glob: '/',
         },
       };
       this._repoViewInputSpec = pfsInput;
-    } else {
+    }
+    // Multiple mounted repos to save; use cross
+    else {
       const cross: PfsInput[] = [];
       for (let i = 0; i < mounted.length; i++) {
         const pfsInput: PfsInput = {
           pfs: {
+            ...(mounted[i].branch !== 'master' && {
+              name: `${mounted[i].repo}_${mounted[i].branch}`,
+            }),
             repo: mounted[i].repo,
             ...(mounted[i].branch !== 'master' && {branch: mounted[i].branch}),
             glob: '/',
@@ -321,33 +332,28 @@ export class MountPlugin implements IMountPlugin {
 
   restoreMountedReposList = async (): Promise<void> => {
     const mounts: JSONObject[] = [];
+    // Restoring from cross of multiple mounts
     if (
       Object.prototype.hasOwnProperty.call(this._repoViewInputSpec, 'cross') &&
       Array.isArray(this._repoViewInputSpec.cross)
     ) {
       for (let i = 0; i < this._repoViewInputSpec.cross.length; i++) {
         const pfsInput = (this._repoViewInputSpec.cross[i] as PfsInput).pfs;
-        const mountName =
-          pfsInput.branch !== undefined && pfsInput.branch !== 'master'
-            ? `${pfsInput.repo}_${pfsInput.branch}`
-            : pfsInput.repo;
         mounts.push({
-          name: mountName,
+          name: pfsInput.name ? pfsInput.name : pfsInput.repo,
           repo: pfsInput.repo,
           branch: pfsInput.branch ? pfsInput.branch : 'master',
           mode: 'ro',
         });
       }
-    } else if (
+    }
+    // Restoring from single mount
+    else if (
       Object.prototype.hasOwnProperty.call(this._repoViewInputSpec, 'pfs')
     ) {
       const pfsInput = (this._repoViewInputSpec as PfsInput).pfs;
-      const mountName =
-        pfsInput.branch !== undefined && pfsInput.branch !== 'master'
-          ? `${pfsInput.repo}_${pfsInput.branch}`
-          : pfsInput.repo;
       mounts.push({
-        name: mountName,
+        name: pfsInput.name ? pfsInput.name : pfsInput.repo,
         repo: pfsInput.repo,
         branch: pfsInput.branch ? pfsInput.branch : 'master',
         mode: 'ro',
