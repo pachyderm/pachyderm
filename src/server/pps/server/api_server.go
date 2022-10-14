@@ -1722,24 +1722,36 @@ func branchProvenance(project *pfs.Project, input *pps.Input) []*pfs.Branch {
 }
 
 func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.TransactionContext, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) (retErr error) {
-	addRead := make(map[string]struct{})
-	addWrite := make(map[string]struct{})
-	remove := make(map[string]struct{})
+	addRead := make(map[string]*pfs.Repo)
+	addWrite := make(map[string]*pfs.Repo)
+	remove := make(map[string]*pfs.Repo)
 	var pipelineName string
 	// Figure out which repos 'pipeline' might no longer be using
 	if prevPipelineInfo != nil {
 		pipelineName = prevPipelineInfo.Pipeline.Name
 		if err := pps.VisitInput(prevPipelineInfo.Details.Input, func(input *pps.Input) error {
-			var repo string
+			var repo *pfs.Repo
 			switch {
 			case input.Pfs != nil:
-				repo = input.Pfs.Repo
+				repo = new(pfs.Repo)
+				if input.Pfs.Project == "" {
+					repo.Project = pipelineInfo.Pipeline.Project
+				} else {
+					repo.Project = &pfs.Project{Name: input.Pfs.Project}
+				}
+				repo.Name = input.Pfs.Repo
 			case input.Cron != nil:
-				repo = input.Cron.Repo
+				repo = new(pfs.Repo)
+				repo.Name = input.Cron.Repo
+				if input.Cron.Project == "" {
+					repo.Project = pipelineInfo.Pipeline.Project
+				} else {
+					repo.Project = &pfs.Project{Name: input.Cron.Project}
+				}
 			default:
 				return nil // no scope to set: input is not a repo
 			}
-			remove[repo] = struct{}{}
+			remove[repo.String()] = repo
 			return nil
 		}); err != nil {
 			return errors.EnsureStack(err)
@@ -1760,21 +1772,33 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 		// collect inputs (remove redundant inputs from 'remove', but don't
 		// bother authorizing 'pipeline' twice)
 		if err := pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
-			var repo string
+			var repo *pfs.Repo
 			switch {
 			case input.Pfs != nil:
-				repo = input.Pfs.Repo
+				repo = new(pfs.Repo)
+				if input.Pfs.Project == "" {
+					repo.Project = pipelineInfo.Pipeline.Project
+				} else {
+					repo.Project = &pfs.Project{Name: input.Pfs.Project}
+				}
+				repo.Name = input.Pfs.Repo
 			case input.Cron != nil:
-				repo = input.Cron.Repo
+				repo = new(pfs.Repo)
+				if input.Cron.Project == "" {
+					repo.Project = pipelineInfo.Pipeline.Project
+				} else {
+					repo.Project = &pfs.Project{Name: input.Cron.Project}
+				}
+				repo.Name = input.Cron.Repo
 			default:
 				return nil // no scope to set: input is not a repo
 			}
-			if _, ok := remove[repo]; ok {
-				delete(remove, repo)
+			if _, ok := remove[repo.String()]; ok {
+				delete(remove, repo.String())
 			} else {
-				addRead[repo] = struct{}{}
+				addRead[repo.String()] = repo
 				if input.Cron != nil {
-					addWrite[repo] = struct{}{}
+					addWrite[repo.String()] = repo
 				}
 			}
 			return nil
@@ -1797,30 +1821,30 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 	}()
 
 	// Remove pipeline from old, unused inputs
-	for repo := range remove {
+	for _, repo := range remove {
 		// If we get an `ErrNoRoleBinding` that means the input repo no longer exists - we're removing it anyways, so we don't care.
-		if err := a.env.AuthServer.RemovePipelineReaderFromRepoInTransaction(txnCtx, repo, pipelineName); err != nil && !auth.IsErrNoRoleBinding(err) {
+		if err := a.env.AuthServer.RemovePipelineReaderFromRepoInTransaction(txnCtx, repo, pipelineInfo.Pipeline); err != nil && !auth.IsErrNoRoleBinding(err) {
 			return errors.EnsureStack(err)
 		}
 	}
 	// Add pipeline to every new input's ACL as a READER
-	for repo := range addRead {
+	for _, repo := range addRead {
 		// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a reader on the input repo
-		if err := a.env.AuthServer.AddPipelineReaderToRepoInTransaction(txnCtx, repo, pipelineName); err != nil {
+		if err := a.env.AuthServer.AddPipelineReaderToRepoInTransaction(txnCtx, repo, pipelineInfo.Pipeline); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
 
-	for repo := range addWrite {
+	for _, repo := range addWrite {
 		// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a writer on the input repo
-		if err := a.env.AuthServer.AddPipelineWriterToSourceRepoInTransaction(txnCtx, repo, pipelineName); err != nil {
+		if err := a.env.AuthServer.AddPipelineWriterToSourceRepoInTransaction(txnCtx, repo, pipelineInfo.Pipeline); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
 
 	// Add pipeline to its output repo's ACL as a WRITER if it's new
 	if prevPipelineInfo == nil {
-		if err := a.env.AuthServer.AddPipelineWriterToRepoInTransaction(txnCtx, pipelineName); err != nil {
+		if err := a.env.AuthServer.AddPipelineWriterToRepoInTransaction(txnCtx, pipelineInfo.Pipeline); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -2092,7 +2116,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 
 	// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output repos
 	if err := func() error {
-		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline.Name)
+		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline)
 		if err != nil {
 			if auth.IsErrNotActivated(err) {
 				return nil // no auth work to do
@@ -3022,7 +3046,7 @@ func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionCont
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).List(pi, col.DefaultOptions(), func(string) error {
 		// 1) Create a new auth token for 'pipeline' and attach it, so that the
 		// pipeline can authenticate as itself when it needs to read input data
-		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pi.Pipeline.Name)
+		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pi.Pipeline)
 		if err != nil {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
 		}
