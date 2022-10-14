@@ -405,7 +405,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 				return nil
 			}
 			done[repo] = struct{}{}
-			err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: project + "/" + repo}, auth.Permission_REPO_READ)
+			err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: project}, Name: repo}, auth.Permission_REPO_READ)
 			return errors.EnsureStack(err)
 		}); err != nil {
 			return err
@@ -435,7 +435,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 		default:
 			return errors.Errorf("internal error, unrecognized operation %v", operation)
 		}
-		if err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: outputName}, required); err != nil {
+		if err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: projectName}, Name: outputName}, required); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -1730,10 +1730,10 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 	addRead := make(map[string]*pfs.Repo)
 	addWrite := make(map[string]*pfs.Repo)
 	remove := make(map[string]*pfs.Repo)
-	var pipelineName string
+	var pipeline *pps.Pipeline
 	// Figure out which repos 'pipeline' might no longer be using
 	if prevPipelineInfo != nil {
-		pipelineName = prevPipelineInfo.Pipeline.Name
+		pipeline = prevPipelineInfo.Pipeline
 		if err := pps.VisitInput(prevPipelineInfo.Details.Input, func(input *pps.Input) error {
 			var repo *pfs.Repo
 			switch {
@@ -1766,9 +1766,9 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 	// Figure out which repos 'pipeline' is using
 	if pipelineInfo != nil {
 		// also check that pipeline name is consistent
-		if pipelineName == "" {
-			pipelineName = pipelineInfo.Pipeline.Name
-		} else if pipelineInfo.Pipeline.Name != pipelineName {
+		if pipeline == nil {
+			pipeline = pipelineInfo.Pipeline
+		} else if !(pipelineInfo.Pipeline.Project.GetName() == pipeline.Project.GetName() && pipelineInfo.Pipeline.Name == pipeline.Name) {
 			return errors.Errorf("pipelineInfo (%s) and prevPipelineInfo (%s) do not "+
 				"belong to matching pipelines; this is a bug",
 				pipelineInfo.Pipeline.Name, prevPipelineInfo.Pipeline.Name)
@@ -1811,45 +1811,45 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 			return errors.EnsureStack(err)
 		}
 	}
-	if pipelineName == "" {
+	if pipeline == nil {
 		return errors.Errorf("fixPipelineInputRepoACLs called with both current and " +
 			"previous pipelineInfos == to nil; this is a bug")
 	}
 
 	// make sure we don't touch the pipeline's permissions on its output repo
-	delete(remove, pipelineName)
-	delete(addRead, pipelineName)
-	delete(addWrite, pipelineName)
+	delete(remove, pipeline.String())
+	delete(addRead, pipeline.String())
+	delete(addWrite, pipeline.String())
 
 	defer func() {
-		retErr = errors.Wrapf(retErr, "error fixing ACLs on \"%s\"'s input repos", pipelineName)
+		retErr = errors.Wrapf(retErr, "error fixing ACLs on \"%s\"'s input repos", pipeline)
 	}()
 
 	// Remove pipeline from old, unused inputs
 	for _, repo := range remove {
 		// If we get an `ErrNoRoleBinding` that means the input repo no longer exists - we're removing it anyways, so we don't care.
-		if err := a.env.AuthServer.RemovePipelineReaderFromRepoInTransaction(txnCtx, repo, pipelineInfo.Pipeline); err != nil && !auth.IsErrNoRoleBinding(err) {
+		if err := a.env.AuthServer.RemovePipelineReaderFromRepoInTransaction(txnCtx, repo, pipeline); err != nil && !auth.IsErrNoRoleBinding(err) {
 			return errors.EnsureStack(err)
 		}
 	}
 	// Add pipeline to every new input's ACL as a READER
 	for _, repo := range addRead {
 		// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a reader on the input repo
-		if err := a.env.AuthServer.AddPipelineReaderToRepoInTransaction(txnCtx, repo, pipelineInfo.Pipeline); err != nil {
+		if err := a.env.AuthServer.AddPipelineReaderToRepoInTransaction(txnCtx, repo, pipeline); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
 
 	for _, repo := range addWrite {
 		// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a writer on the input repo
-		if err := a.env.AuthServer.AddPipelineWriterToSourceRepoInTransaction(txnCtx, repo, pipelineInfo.Pipeline); err != nil {
+		if err := a.env.AuthServer.AddPipelineWriterToSourceRepoInTransaction(txnCtx, repo, pipeline); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
 
 	// Add pipeline to its output repo's ACL as a WRITER if it's new
 	if prevPipelineInfo == nil {
-		if err := a.env.AuthServer.AddPipelineWriterToRepoInTransaction(txnCtx, pipelineInfo.Pipeline); err != nil {
+		if err := a.env.AuthServer.AddPipelineWriterToRepoInTransaction(txnCtx, pipeline); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
