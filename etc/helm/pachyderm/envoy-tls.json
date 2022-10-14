@@ -404,7 +404,7 @@
                               ]
                            },
                            "stat_prefix": "https-redirect",
-                           "stream_idle_timeout": "600s",
+                           "stream_idle_timeout": "3600s",
                            "use_remote_address": true
                         }
                      }
@@ -578,7 +578,7 @@
                               ]
                            },
                            "stat_prefix": "proxy-https",
-                           "stream_idle_timeout": "600s",
+                           "stream_idle_timeout": "3600s",
                            "use_remote_address": true
                         }
                      }
@@ -684,7 +684,7 @@
                               ]
                            },
                            "stat_prefix": "proxy-https-cleartext",
-                           "stream_idle_timeout": "600s",
+                           "stream_idle_timeout": "3600s",
                            "use_remote_address": true
                         }
                      }
