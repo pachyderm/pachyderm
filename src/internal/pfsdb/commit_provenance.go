@@ -2,10 +2,27 @@ package pfsdb
 
 import (
 	"context"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
+
+func ResolveCommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commitSet string) (string, error) {
+	cs, err := CommitSetProvenance(ctx, tx, commitSet)
+	if err != nil {
+		return "", err
+	}
+	for _, c := range cs {
+		if strings.HasPrefix(c, repo.String()+"@") {
+			return c, nil
+		}
+	}
+	// TODO: Commit proto is FUBAR
+	return "", pfsserver.ErrCommitNotFound{Commit: &pfs.Commit{ID: repo.String() + "@" + commitSet}}
+}
 
 // CommitSetProvenance returns all the commit IDs that are in the provenance
 // of all the commits in this commit set.

@@ -1008,11 +1008,21 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 			return nil, errors.EnsureStack(err)
 		}
 	}
-
-	// Traverse commits' parents until you've reached the right ancestor
 	commitInfo := &pfs.CommitInfo{}
+	if err := d.commits.ReadWrite(sqlTx).Get(commit, commitInfo); err != nil {
+		if col.IsErrNotFound(err) {
+			// try to resolve to alias if not found
+			id, err := pfsdb.ResolveCommitProvenance(context.TODO(), sqlTx, userCommit.Branch.Repo, commit.ID)
+			if err != nil {
+				return nil, err
+			}
+			commit.ID = id
+		}
+		return nil, errors.EnsureStack(err)
+	}
+	// Traverse commits' parents until you've reached the right ancestor
 	if ancestryLength >= 0 {
-		for i := 0; i <= ancestryLength; i++ {
+		for i := 1; i <= ancestryLength; i++ {
 			if commit == nil {
 				return nil, pfsserver.ErrCommitNotFound{Commit: userCommit}
 			}
@@ -1027,7 +1037,7 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 			}
 			commit = commitInfo.ParentCommit
 		}
-	} else {
+	} else { // HOW TO HANDLE THIS GUY?
 		cis := make([]pfs.CommitInfo, ancestryLength*-1)
 		for i := 0; ; i++ {
 			if commit == nil {
@@ -1371,6 +1381,7 @@ func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) 
 	return errors.EnsureStack(err)
 }
 
+// TODO(acohen4): rewrite for new commit provenance scheme
 func (d *driver) squashCommitSetInternal(txnCtx *txncontext.TransactionContext, commitInfos []*pfs.CommitInfo) error {
 	deleted := make(map[string]*pfs.CommitInfo) // deleted commits
 
@@ -1675,6 +1686,15 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		return err
 	}
 
+	// resolve the given commit
+	var ci *pfs.CommitInfo
+	if commit != nil {
+		ci, err = d.resolveCommit(txnCtx.SqlTx, commit)
+		if err != nil {
+			return errors.Wrapf(err, "unable to inspect %s", commit)
+		}
+		commit = ci.Commit
+	}
 	// Retrieve (and create, if necessary) the current version of this branch
 	branchInfo := &pfs.BranchInfo{}
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Upsert(branch, branchInfo, func() error {
@@ -1686,6 +1706,9 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 			}
 			add(&branchInfo.DirectProvenance, provBranch)
 		}
+		if commit != nil {
+			branchInfo.Head = commit
+		}
 		if trigger != nil && trigger.Branch != "" {
 			branchInfo.Trigger = trigger
 		}
@@ -1693,40 +1716,6 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}); err != nil {
 		return errors.EnsureStack(err)
 	}
-
-	var ci *pfs.CommitInfo
-	if commit != nil {
-		// resolve the given commit
-		ci, err = d.resolveCommit(txnCtx.SqlTx, commit)
-		if err != nil {
-			return errors.Wrapf(err, "unable to inspect %s", commit)
-		}
-
-		// Verify the provenance of the new branch head and lock in its upstream commits
-		for _, provBranch := range provenance {
-			// Check that the CommitSet for the given commit has values for every branch in provenance and alias them
-			if _, err := d.aliasCommit(txnCtx, provBranch.NewCommit(ci.Commit.ID), provBranch); err != nil {
-				if pfsserver.IsCommitNotFoundErr(err) {
-					return errors.Errorf("cannot create branch %s with commit %s as head because it does not have provenance in the %s branch", branch, ci.Commit, provBranch)
-				}
-			}
-		}
-
-		if commit.ID == txnCtx.CommitSetID && proto.Equal(commit.Branch, branchInfo.Branch) {
-			// We can reuse the existing commit only if it is already on this branch
-			branchInfo.Head = commit
-		} else if branchInfo.Head == nil || branchInfo.Head.ID != commit.ID {
-			// Create an alias of the head commit onto this branch - this will move the
-			// head of the branch and update the repo size if necessary
-			aliasCommitInfo, err := d.aliasCommit(txnCtx, commit, branch)
-			if err != nil {
-				return err
-			}
-			// Update the local branchInfo.Head
-			branchInfo.Head = aliasCommitInfo.Commit
-		}
-	}
-
 	// If the branch still has no head, create an empty commit on it so that we
 	// can maintain an invariant that branches always have a head commit.
 	if branchInfo.Head == nil {
@@ -1735,7 +1724,6 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 			return err
 		}
 	}
-
 	// Update (or create)
 	// 1) 'branch's Provenance
 	// 2) the Provenance of all branches in 'branch's Subvenance (in the case of an update), and

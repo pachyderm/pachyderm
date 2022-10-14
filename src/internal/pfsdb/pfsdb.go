@@ -102,7 +102,7 @@ var CommitsCommitSetIndex = &col.Index{
 var commitsIndexes = []*col.Index{CommitsRepoIndex, CommitsBranchlessIndex, CommitsCommitSetIndex}
 
 func CommitKey(commit *pfs.Commit) string {
-	return BranchKey(commit.Branch) + "=" + commit.ID
+	return CommitBranchlessKey(commit)
 }
 
 func CommitBranchlessKey(commit *pfs.Commit) string {

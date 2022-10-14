@@ -63,11 +63,7 @@ func (d *driver) triggerCommit(
 				}
 
 				if triggered {
-					aliasCommit, err := d.aliasCommit(txnCtx, newHead.Commit, bi.Branch)
-					if err != nil {
-						return nil, err
-					}
-					triggeredBranches[branch.Name] = aliasCommit
+					triggeredBranches[branch.Name] = commitInfo
 					if err := txnCtx.PropagateBranch(bi.Branch); err != nil {
 						return nil, err
 					}
