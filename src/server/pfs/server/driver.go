@@ -205,7 +205,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 			if err != nil && col.IsErrNotFound(err) {
 				return errors.Errorf("cannot create a system repo without a corresponding 'user' repo")
 			} else if err != nil {
-				return errors.Wrapf(err, "error checking whether user repo for %q exists", repo.Name)
+				return errors.Wrapf(err, "error checking whether user repo for %q exists", repo)
 			}
 		}
 

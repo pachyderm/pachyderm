@@ -648,7 +648,7 @@ func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txncontext.Transact
 	if resource.Type == auth.ResourceType_SPEC_REPO {
 		if err := request.evaluateRoleBinding(txnCtx, &auth.RoleBinding{
 			Entries: map[string]*auth.Roles{
-				auth.AllClusterUsersSubject: &auth.Roles{
+				auth.AllClusterUsersSubject: {
 					Roles: map[string]bool{
 						auth.RepoReaderRole: true,
 					},
@@ -899,7 +899,7 @@ func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txncontext.Transactio
 // that is included in the repoReader role, versus being able to modify all role bindings which is
 // part of repoOwner. This method is for internal use and is not exposed as an RPC.
 func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo *pfs.Repo, pipeline *pps.Pipeline) error {
-	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: sourceRepo.String()}, auth.Permission_REPO_ADD_PIPELINE_READER); err != nil {
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, sourceRepo, auth.Permission_REPO_ADD_PIPELINE_READER); err != nil {
 		return err
 	}
 

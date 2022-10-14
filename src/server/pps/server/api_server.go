@@ -804,7 +804,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 	projectName := jobInfo.Job.Pipeline.Project.GetName()
 	pipelineName := jobInfo.Job.Pipeline.Name
 
-	if err := a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Name: pipelineName}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
+	if err := a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Project: jobInfo.Job.Pipeline.Project, Name: pipelineName}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
 		return errors.EnsureStack(err)
 	}
 
@@ -1154,7 +1154,6 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 }
 
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
-	fmt.Println("qqq pipeline-project:", request.GetPipeline().GetProject().GetName(), "pipeline-name:", request.GetPipeline().GetName())
 	// Set the default for the `Since` field.
 	if request.Since == nil || (request.Since.Seconds == 0 && request.Since.Nanos == 0) {
 		request.Since = types.DurationProto(DefaultLogsFrom)
@@ -1717,7 +1716,7 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 	var pipelineName string
 	// Figure out which repos 'pipeline' might no longer be using
 	if prevPipelineInfo != nil {
-		pipelineName = prevPipelineInfo.Pipeline.String()
+		pipelineName = prevPipelineInfo.Pipeline.Name
 		if err := pps.VisitInput(prevPipelineInfo.Details.Input, func(input *pps.Input) error {
 			var repo *pfs.Repo
 			switch {
@@ -1751,7 +1750,7 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 	if pipelineInfo != nil {
 		// also check that pipeline name is consistent
 		if pipelineName == "" {
-			pipelineName = pipelineInfo.Pipeline.String()
+			pipelineName = pipelineInfo.Pipeline.Name
 		} else if pipelineInfo.Pipeline.Name != pipelineName {
 			return errors.Errorf("pipelineInfo (%s) and prevPipelineInfo (%s) do not "+
 				"belong to matching pipelines; this is a bug",
