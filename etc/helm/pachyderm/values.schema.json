@@ -774,7 +774,7 @@
                     "type": "integer"
                 },
                 "goMemLimit": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "gcPercent": {
                     "type": "integer"

@@ -334,7 +334,7 @@ spec:
             resourceFieldRef:
               containerName: pachd
               resource: limits.memory
-        {{- if and .Values.pachd.goMemLimit (gt .Values.pachd.goMemLimit 0.0)}}
+        {{- if .Values.pachd.goMemLimit }}
         - name: GOMEMLIMIT
           value: {{ .Values.pachd.goMemLimit | quote }}
         {{- end }}
