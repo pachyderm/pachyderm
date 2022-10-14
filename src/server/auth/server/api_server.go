@@ -903,7 +903,7 @@ func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txncontext.Tran
 		return err
 	}
 
-	return a.setUserRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: sourceRepo.String()}, auth.PipelinePrefix+pipeline.String(), []string{auth.RepoReaderRole})
+	return a.setUserRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repoResourceName(sourceRepo)}, auth.PipelinePrefix+pipeline.String(), []string{auth.RepoReaderRole})
 }
 
 // AddPipelineWriterToSourceRepoInTransaction gives a pipeline access to write data to the specified source repo.
@@ -913,10 +913,10 @@ func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txncontext.Tran
 // part of repoOwner. This method is for internal use and is not exposed as an RPC.
 func (a *apiServer) AddPipelineWriterToSourceRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo *pfs.Repo, pipeline *pps.Pipeline) error {
 	// Check that the user is allowed to add a pipeline to write to the output repo.
-	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: sourceRepo.String()}, auth.Permission_REPO_ADD_PIPELINE_WRITER); err != nil {
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: repoResourceName(sourceRepo)}, auth.Permission_REPO_ADD_PIPELINE_WRITER); err != nil {
 		return err
 	}
-	return a.setUserRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: sourceRepo.String()}, auth.PipelinePrefix+pipeline.String(), []string{auth.RepoWriterRole})
+	return a.setUserRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repoResourceName(sourceRepo)}, auth.PipelinePrefix+pipeline.String(), []string{auth.RepoWriterRole})
 }
 
 // AddPipelineWriterToRepoInTransaction gives a pipeline access to write to it's own output repo.
@@ -944,7 +944,7 @@ func (a *apiServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txncontext
 		return err
 	}
 
-	return a.setUserRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: sourceRepo.String()}, auth.PipelinePrefix+pipeline.String(), []string{})
+	return a.setUserRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repoResourceName(sourceRepo)}, auth.PipelinePrefix+pipeline.String(), []string{})
 }
 
 // ModifyRoleBindingInTransaction is identical to ModifyRoleBinding except that it can run inside

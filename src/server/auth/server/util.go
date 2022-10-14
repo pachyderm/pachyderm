@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -27,6 +28,13 @@ func (a *apiServer) CheckClusterIsAuthorizedInTransaction(txnCtx *txncontext.Tra
 	return nil
 }
 
+func repoResourceName(r *pfs.Repo) string {
+	if r.Project == nil {
+		return r.Name
+	}
+	return fmt.Sprintf("%s/%s", r.Project.Name, r.Name)
+}
+
 // CheckRepoIsAuthorizedInTransaction is identical to CheckRepoIsAuthorized except that
 // it performs reads consistent with the latest state of the STM transaction.
 func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, r *pfs.Repo, p ...auth.Permission) error {
@@ -40,14 +48,15 @@ func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.Transa
 	if r.Type == pfs.SpecRepoType {
 		t = auth.ResourceType_SPEC_REPO
 	}
+	resource := &auth.Resource{Type: t, Name: repoResourceName(r)}
 
-	req := &auth.AuthorizeRequest{Resource: &auth.Resource{Type: t, Name: r.String()}, Permissions: p}
+	req := &auth.AuthorizeRequest{Resource: resource, Permissions: p}
 	resp, err := a.AuthorizeInTransaction(txnCtx, req)
 	if err != nil {
 		return err
 	}
 	if !resp.Authorized {
-		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: auth.Resource{Type: auth.ResourceType_REPO, Name: r.String()}, Required: p}
+		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: *resource, Required: p}
 	}
 	return nil
 }
@@ -65,14 +74,15 @@ func (a *apiServer) CheckRepoIsAuthorized(ctx context.Context, r *pfs.Repo, p ..
 	if r.Type == pfs.SpecRepoType {
 		t = auth.ResourceType_SPEC_REPO
 	}
+	resource := &auth.Resource{Type: t, Name: repoResourceName(r)}
 
-	req := &auth.AuthorizeRequest{Resource: &auth.Resource{Type: t, Name: r.String()}, Permissions: p}
+	req := &auth.AuthorizeRequest{Resource: resource, Permissions: p}
 	resp, err := a.Authorize(ctx, req)
 	if err != nil {
 		return err
 	}
 	if !resp.Authorized {
-		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: auth.Resource{Type: auth.ResourceType_REPO, Name: r.String()}, Required: p}
+		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: *resource, Required: p}
 	}
 	return nil
 }
