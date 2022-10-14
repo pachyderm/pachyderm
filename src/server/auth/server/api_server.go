@@ -899,7 +899,12 @@ func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txncontext.Transactio
 // that is included in the repoReader role, versus being able to modify all role bindings which is
 // part of repoOwner. This method is for internal use and is not exposed as an RPC.
 func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo *pfs.Repo, pipeline *pps.Pipeline) error {
-	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: sourceRepo.String()}, auth.Permission_REPO_ADD_PIPELINE_READER); err != nil {
+	r := &pfs.Repo{
+		Project: sourceRepo.Project,
+		Name:    sourceRepo.Name,
+		Type:    pfs.UserRepoType,
+	}
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, r, auth.Permission_REPO_ADD_PIPELINE_READER); err != nil {
 		return err
 	}
 
@@ -913,7 +918,12 @@ func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txncontext.Tran
 // part of repoOwner. This method is for internal use and is not exposed as an RPC.
 func (a *apiServer) AddPipelineWriterToSourceRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo *pfs.Repo, pipeline *pps.Pipeline) error {
 	// Check that the user is allowed to add a pipeline to write to the output repo.
-	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: repoResourceName(sourceRepo)}, auth.Permission_REPO_ADD_PIPELINE_WRITER); err != nil {
+	r := &pfs.Repo{
+		Project: sourceRepo.Project,
+		Name:    sourceRepo.Name,
+		Type:    pfs.UserRepoType,
+	}
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, r, auth.Permission_REPO_ADD_PIPELINE_WRITER); err != nil {
 		return err
 	}
 	return a.setUserRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repoResourceName(sourceRepo)}, auth.PipelinePrefix+pipeline.String(), []string{auth.RepoWriterRole})
@@ -925,7 +935,12 @@ func (a *apiServer) AddPipelineWriterToSourceRepoInTransaction(txnCtx *txncontex
 // part of repoOwner. This method is for internal use and is not exposed as an RPC.
 func (a *apiServer) AddPipelineWriterToRepoInTransaction(txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline) error {
 	// Check that the user is allowed to add a pipeline to write to the output repo.
-	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: pipeline.String()}, auth.Permission_REPO_ADD_PIPELINE_WRITER); err != nil {
+	r := &pfs.Repo{
+		Project: pipeline.Project,
+		Name:    pipeline.Name,
+		Type:    pfs.UserRepoType,
+	}
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, r, auth.Permission_REPO_ADD_PIPELINE_WRITER); err != nil {
 		return err
 	}
 
@@ -940,7 +955,12 @@ func (a *apiServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txncontext
 	// Check that the user is allowed to remove input repos from the pipeline repo - this check is on the pipeline itself
 	// and not sourceRepo because otherwise users could break piplines they don't have access to by revoking them from the
 	// input repo.
-	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: pipeline.String()}, auth.Permission_REPO_REMOVE_PIPELINE_READER); err != nil && !auth.IsErrNoRoleBinding(err) {
+	r := &pfs.Repo{
+		Project: pipeline.Project,
+		Name:    pipeline.Name,
+		Type:    pfs.UserRepoType,
+	}
+	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, r, auth.Permission_REPO_REMOVE_PIPELINE_READER); err != nil && !auth.IsErrNoRoleBinding(err) {
 		return err
 	}
 
