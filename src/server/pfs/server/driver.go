@@ -261,7 +261,7 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 
 func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Permission, []string, error) {
 	resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{
-		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
+		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.String()},
 	})
 	if err != nil {
 		return nil, nil, errors.EnsureStack(err)
