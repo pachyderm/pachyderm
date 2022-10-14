@@ -19,7 +19,6 @@ describe('switching between repo and datum mode', () => {
     cy.findAllByText('Mount').first().click();
     cy.findByTestId('ListItem__select').select('branch');
     cy.findAllByText('Mount').first().click();
-    // cy.wait(2000)
     cy.findAllByText('Unmount').should('have.length', 2);
 
     cy.findByTestId('Datum__mode').click();
