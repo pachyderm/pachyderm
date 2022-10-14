@@ -59,6 +59,8 @@ jobs:
       TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
+      - go/install:
+          version: << pipeline.parameters.go-version >>
       - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
