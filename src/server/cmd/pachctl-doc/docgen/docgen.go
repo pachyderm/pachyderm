@@ -22,8 +22,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -70,6 +70,7 @@ func GenMarkdownCustom(cmd *cobra.Command, w io.Writer, linkHandler func(string)
 
 	buf := new(bytes.Buffer)
 	name := cmd.CommandPath()
+	cliglossary := ""
 	buf.WriteString("---" + "\n" + "# metadata # " + "\n")
 	buf.WriteString("title:  " + name + "\n")
 	buf.WriteString("description: " + strconv.Quote(cmd.Long) + "\n")
@@ -77,14 +78,18 @@ func GenMarkdownCustom(cmd *cobra.Command, w io.Writer, linkHandler func(string)
 	if hasSeeAlso(cmd) {
 		parentname := ""
 		buf.WriteString("tags:\n")
-		if cmd.HasParent() && cmd.Parent().Name() != "pachctl" {
+		if cmd.HasParent()&& cmd.Parent().Name() != "pachctl" {
 			parent := cmd.Parent()
-			parentname = parent.Name()
+			parentname = parent.CommandPath()
+			parentname = strings.ReplaceAll(parentname, "pachctl ", "")
+			cliglossary = parentname[0:1]
 			parentname = strings.ReplaceAll(parentname, " ", "-")
 			buf.WriteString(fmt.Sprintf("  - %s\n", parentname))
 		}
 		if parentname != "" {
 			parentname = parentname + " "
+		} else {
+			cliglossary = cmd.Name()[0:1]
 		}
 		children := cmd.Commands()
 		sort.Sort(byName(children))
@@ -94,10 +99,10 @@ func GenMarkdownCustom(cmd *cobra.Command, w io.Writer, linkHandler func(string)
 			}
 			cname := parentname + cmd.Name() + " " + child.Name()
 			cname = strings.ReplaceAll(cname, " ", "-")
-			print(cname)
 			buf.WriteString(fmt.Sprintf("  - %s\n", cname))
 		}
 	}
+	buf.WriteString("cliGlossary:  " + cliglossary + "\n")
 	buf.WriteString("---" + "\n\n")
 	if len(cmd.Long) > 0 {
 		buf.WriteString("### Synopsis\n\n")
@@ -116,7 +121,6 @@ func GenMarkdownCustom(cmd *cobra.Command, w io.Writer, linkHandler func(string)
 	if err := printOptions(buf, cmd, name); err != nil {
 		return err
 	}
-
 
 	_, err := buf.WriteTo(w)
 	return err
