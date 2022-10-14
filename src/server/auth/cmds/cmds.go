@@ -557,6 +557,10 @@ func UseAuthTokenCmd() *cobra.Command {
 	return cmdutil.CreateAlias(useAuthToken, "auth use-auth-token")
 }
 
+func repoResourceName(r *pfs.Repo) string {
+	return fmt.Sprintf("%s/%s", r.Project.Name, r.Name)
+}
+
 // CheckRepoCmd returns a cobra command that sends a GetPermissions request to
 // pachd to determine what permissions a user has on the repo.
 func CheckRepoCmd() *cobra.Command {
@@ -566,7 +570,7 @@ func CheckRepoCmd() *cobra.Command {
 		Short: "Check the permissions a user has on 'repo'",
 		Long:  "Check the permissions a user has on 'repo'",
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
-			repo := client.NewProjectRepo(project, args[0]).String()
+			repo := repoResourceName(client.NewProjectRepo(project, args[0]))
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")

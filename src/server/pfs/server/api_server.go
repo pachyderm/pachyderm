@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -73,12 +74,16 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 	return resp, nil
 }
 
+func repoResourceName(r *pfs.Repo) string {
+	return fmt.Sprintf("%s/%s", r.Project.Name, r.Name)
+}
+
 func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
 	var repoInfo pfs.RepoInfo
 	if err := a.driver.repos.ReadWrite(txnCtx.SqlTx).List(&repoInfo, col.DefaultOptions(), func(string) error {
 		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
 			Type: auth.ResourceType_REPO,
-			Name: repoInfo.Repo.Name,
+			Name: repoResourceName(repoInfo.Repo),
 		})
 		if err != nil && !col.IsErrExists(err) {
 			return errors.EnsureStack(err)
