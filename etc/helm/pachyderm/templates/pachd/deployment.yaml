@@ -81,11 +81,17 @@ spec:
           value: "5432" # Must match pbouncer service port
         - name: LOKI_LOGGING
           value: {{ .Values.pachd.lokiLogging | quote}}
-        {{- if .Values.pachd.lokiDeploy }}
-        - name: LOKI_SERVICE_HOST_VAR
-          value: "{{ snakecase .Release.Name | upper }}_LOKI_SERVICE_HOST"
-        - name: LOKI_SERVICE_PORT_VAR
-          value: "{{ snakecase .Release.Name | upper }}_LOKI_SERVICE_PORT"
+        - name: LOKI_SERVICE_HOST
+        {{- if .Values.pachd.lokiHost }}
+          value:  {{ .Values.pachd.lokiHost }}
+        {{ else }}
+          value: "$({{ snakecase .Release.Name | upper }}_LOKI_SERVICE_HOST)"
+        {{- end }}
+        - name: LOKI_SERVICE_PORT
+        {{- if .Values.pachd.lokiPort }}
+          value:  {{ .Values.pachd.lokiPort | quote}}
+        {{ else }}
+          value: "$({{ snakecase .Release.Name | upper }}_LOKI_SERVICE_PORT)"
         {{- end }}
         - name: PACH_ROOT
           value: "/pach"
