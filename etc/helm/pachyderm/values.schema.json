@@ -763,6 +763,12 @@
                 "lokiLogging": {
                     "type": "boolean"
                 },
+                "lokiPort": {
+                    "type": "integer"
+                },
+                "lokiHost": {
+                    "type": "string"
+                },
                 "metrics": {
                     "type": "object",
                     "properties": {

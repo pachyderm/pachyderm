@@ -87,6 +87,113 @@ jobs:
           key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
           paths:
             - /home/circleci/go/pkg/mod
+  test-pps:
+    resource_class: xlarge
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    environment:
+      TEST_RESULTS: /tmp/test-results
+      GOPROXY: https://proxy.golang.org
+    parallelism: 8
+    steps:
+      - checkout
+      - run:
+          name: Collect node stats
+          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
+          background: true
+      - run: mkdir -p ${TEST_RESULTS}
+      - run:
+          name: setup env vars
+          command: |
+            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
+            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+
+            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+      - run: go install gotest.tools/gotestsum@latest
+      - restore_cache:
+          keys:
+            - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+      - run: etc/testing/circle/install.sh
+      - go/install:
+          version: << pipeline.parameters.go-version >>
+      - run:
+          name: Start minikube
+          command: etc/testing/circle/start-minikube.sh
+          background: true
+      # The build cache will grow indefinitely, so we rotate the cache once a week.
+      # This ensures the time to restore the cache isn't longer than the speedup in compilation.
+      - run: "echo $(($(date +%s)/604800)) > current_week"
+      - restore_cache:
+          keys:
+            - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
+
+      # Only restore the module cache based on an exact match for go.sum.
+      # This also avoids accumulating old versions of modules over time.
+      - restore_cache:
+          keys:
+            - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+      # Try running go mod download to pull the rest of the deps
+      - run: go mod download
+      - run: etc/testing/circle/wait-minikube.sh
+      - run:
+          name: Install minio
+          command: kubectl apply -f etc/testing/minio.yaml
+      - run:
+          name: Install prom # Make Launch stats
+          command: kubectl apply --filename etc/kubernetes-prometheus -R
+      - run:
+          name: Wait for docker images to be built
+          command: etc/testing/circle/wait_for_docker_images.sh
+      - run:
+          name: run tests
+          no_output_timeout: 20m
+          command: |
+            PROM_PORT=$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort)
+            export PROM_PORT
+
+            bucket_num=$CIRCLE_NODE_INDEX
+            num_buckets=$CIRCLE_NODE_TOTAL
+            package="./src/server"
+            test_tags="k8s"
+
+            tests=( $(go test -v -tags="${test_tags}"  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
+            # Add anchors for the regex so we don't run collateral tests
+            tests=( "${tests[@]/#/^}" )
+            tests=( "${tests[@]/%/\$\$}" )
+            total_tests="${#tests[@]}"
+
+            # Determine the offset and length of the sub-array of tests we want to run
+            # The last bucket may have a few extra tests, to accommodate rounding
+            # errors from bucketing:
+            let "bucket_size=total_tests/num_buckets" \
+              "start=bucket_size * (bucket_num-1)" \
+              "bucket_size+=bucket_num < num_buckets ? 0 : total_tests%num_buckets"
+
+            test_regex="$(IFS=\|; echo "${tests[*]:start:bucket_size}")"
+
+            echo $test_regex
+
+            gotestsum \
+              --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
+              --rerun-fails \
+              --format testname \
+              --packages="${package}" \
+              -- \
+              -run ${test_regex} \
+              -tags="${test_tags}" \
+              -count=1 \
+              -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
+      - run:
+          name: Dump debugging info in case of failure
+          when: on_fail
+          command: etc/testing/circle/kube_debug.sh
+      - store_test_results: # upload test results for display in Test Summary
+          path: /tmp/test-results
+      - store_artifacts:
+          path: /tmp/test-results
   integration-tests:
     parameters:
       bucket:
@@ -95,7 +202,6 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
-      PPS_BUCKETS: "8"
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
     steps:
@@ -140,7 +246,7 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
-      - run: etc/testing/circle/build.sh
+      - run: make install # Install pachctl
       #Save cache in only one bucket, after build and before running tests,
       #this ensures build cache is saved even when tests fail
       - when:
@@ -380,7 +486,7 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
-      - run: etc/testing/circle/build.sh
+      - run: make install # Install pachctl
       - save_cache:
           key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
@@ -1111,24 +1217,15 @@ workflows:
       - test-go
       - govulncheck
       - test-envoy
+      - test-pps
       - integration-tests:
           matrix:
             parameters:
               bucket:
                 - MISC
-                # If you want to update the number of PPS buckets, you'll need to
-                # update the value of PPS_BUCKETS above
                 - AUTH
                 - ENTERPRISE
                 - PFS
-                - PPS1
-                - PPS2
-                - PPS3
-                - PPS4
-                - PPS5
-                - PPS6
-                - PPS7
-                - PPS8
                 - S3_AUTH
                 - EXAMPLES
                 - CONNECTORS
@@ -1213,24 +1310,16 @@ workflows:
     jobs:
       - helm-tests:
           filters: *only-release-tags
+      - test-pps:
+          filters: *only-release-tags
       - integration-tests:
           matrix:
             parameters:
               bucket:
                 - MISC
-                # If you want to update the number of PPS buckets, you'll need to
-                # update the value of PPS_BUCKETS above
                 - AUTH
                 - ENTERPRISE
                 - PFS
-                - PPS1
-                - PPS2
-                - PPS3
-                - PPS4
-                - PPS5
-                - PPS6
-                - PPS7
-                - PPS8
                 - S3_AUTH
                 - EXAMPLES
           filters: *only-release-tags
@@ -1353,24 +1442,16 @@ workflows:
     jobs:
       - helm-tests:
           filters: *only-nightly-tags
+      - test-pps:
+          filters: *only-nightly-tags
       - integration-tests:
           matrix:
             parameters:
               bucket:
                 - MISC
-                # If you want to update the number of PPS buckets, you'll need to
-                # update the value of PPS_BUCKETS above
                 - AUTH
                 - ENTERPRISE
                 - PFS
-                - PPS1
-                - PPS2
-                - PPS3
-                - PPS4
-                - PPS5
-                - PPS6
-                - PPS7
-                - PPS8
                 - S3_AUTH
                 - EXAMPLES
           filters: *only-nightly-tags
