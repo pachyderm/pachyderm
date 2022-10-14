@@ -4,7 +4,9 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -19,6 +21,10 @@ import (
 
 type RawS3Proxy struct {
 }
+
+// XXX this shouldn't be a global variable, it's just convenient for this PoC..
+// e.g. "bucketname/prefix"
+var CurrentBucketPath string = "out"
 
 func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 	// os.GetEnv("STORAGE_BACKEND") ==> "MINIO" or, presumably, "AWS"...
@@ -38,6 +44,11 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 	proxyRouter := mux.NewRouter()
 	proxyRouter.PathPrefix("/").HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
+
+			mashup := func(s string) string {
+				// danger danger, this will probably mash too much in some cases
+				return strings.Replace(s, "/out", "/"+CurrentBucketPath, -1)
+			}
 
 			logrus.Infof("===> IN PROXY ROUTER, w=%+v, r=%+v", w, r)
 
@@ -63,6 +74,17 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					} else {
 						req.URL.RawQuery = targetQuery + "&" + req.URL.RawQuery
 					}
+					req.URL.Path = mashup(req.URL.Path)
+					req.URL.RawPath = mashup(req.URL.RawPath)
+
+					// mashup each of the request headers
+					for k, v := range req.Header {
+						for i, vv := range v {
+							v[i] = mashup(vv)
+						}
+						req.Header[k] = v
+					}
+
 					if _, ok := req.Header["User-Agent"]; !ok {
 						// explicitly disable User-Agent so it's not set to default value ???
 						req.Header.Set("User-Agent", "")
@@ -72,8 +94,42 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					// 	// req.Header.Set("Host", coords.Host)
 					// 	req.Host = coords.Host
 					// }
+
+					bodyBytes, err := ioutil.ReadAll(req.Body)
+					if err != nil {
+						logrus.Fatal(err)
+					}
+					// TODO find and replace
+					modifiedBodyBytes := new(bytes.Buffer)
+					modifiedBodyBytes.WriteString(mashup(string(bodyBytes)))
+					req.Body = ioutil.NopCloser(modifiedBodyBytes)
 				},
-				ErrorHandler: func(rw http.ResponseWriter, r *http.Request, err error) {
+				ModifyResponse: func(resp *http.Response) error {
+					// TODO: skip loading the response body into memory if we're
+					// streaming data! i.e. anything other than xml... maybe we
+					// can use the Content-Type to distinguish..? Or only
+					// PUT/GETs with certain headers and certain patterns?
+					bodyBytes, err := ioutil.ReadAll(resp.Body)
+					if err != nil {
+						logrus.Info(err)
+						return err
+					}
+
+					// mashup each of the response headers
+					for k, v := range resp.Header {
+						for i, vv := range v {
+							v[i] = mashup(vv)
+						}
+						resp.Header[k] = v
+					}
+
+					// find and replace
+					modifiedBodyBytes := new(bytes.Buffer)
+					modifiedBodyBytes.WriteString(mashup(string(bodyBytes)))
+					resp.Body = ioutil.NopCloser(modifiedBodyBytes)
+					return nil
+				},
+				ErrorHandler: func(resp http.ResponseWriter, r *http.Request, err error) {
 					log.Printf("Error from proxy connection for %s %s: %s", r.Host, r.URL.Path, err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 				},

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -181,6 +182,12 @@ type s3InstanceCreatingJobHandler struct {
 }
 
 func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pps.JobInfo) {
+
+	if os.Getenv("STORAGE_BACKEND") == "MINIO" {
+		CurrentBucketPath = fmt.Sprintf("%s/%s-%s", os.Getenv("MINIO_BUCKET"), jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
+	}
+	// TODO: add support for real AWS/S3
+
 	// serve new S3 gateway & add to s.server routers
 	if ok := s.s.server.ContainsRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)); ok {
 		return // s3g handler already created
