@@ -2065,7 +2065,7 @@ func TestGetPermissions(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, permissions.Roles)
 
-	permissions, err = aliceClient.GetPermissions(aliceClient.Ctx(), &auth.GetPermissionsRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo}})
+	permissions, err = aliceClient.GetPermissions(aliceClient.Ctx(), &auth.GetPermissionsRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo}})
 	require.NoError(t, err)
 	require.Equal(t, []string{"repoOwner"}, permissions.Roles)
 
@@ -2074,7 +2074,7 @@ func TestGetPermissions(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, permissions.Roles)
 
-	permissions, err = rootClient.GetPermissionsForPrincipal(rootClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo}, Principal: bob})
+	permissions, err = rootClient.GetPermissionsForPrincipal(rootClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo}, Principal: bob})
 	require.NoError(t, err)
 	require.Equal(t, []string{"repoWriter"}, permissions.Roles)
 
@@ -2083,7 +2083,7 @@ func TestGetPermissions(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "is not authorized to perform this operation - needs permissions", err.Error())
 
-	_, err = aliceClient.GetPermissionsForPrincipal(aliceClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo}, Principal: bob})
+	_, err = aliceClient.GetPermissionsForPrincipal(aliceClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo}, Principal: bob})
 	require.YesError(t, err)
 	require.Matches(t, "is not authorized to perform this operation - needs permissions", err.Error())
 }
