@@ -75,6 +75,9 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 }
 
 func repoResourceName(r *pfs.Repo) string {
+	if r.Project.GetName() == "" {
+		return r.Name
+	}
 	return fmt.Sprintf("%s/%s", r.Project.Name, r.Name)
 }
 

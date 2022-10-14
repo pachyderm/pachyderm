@@ -405,7 +405,11 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 				return nil
 			}
 			done[repo] = struct{}{}
-			err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: project + "/" + repo}, auth.Permission_REPO_READ)
+
+			if project != "" {
+				repo = project + "/" + repo
+			}
+			err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: repo}, auth.Permission_REPO_READ)
 			return errors.EnsureStack(err)
 		}); err != nil {
 			return err

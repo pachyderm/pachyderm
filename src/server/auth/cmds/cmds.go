@@ -558,6 +558,9 @@ func UseAuthTokenCmd() *cobra.Command {
 }
 
 func repoResourceName(r *pfs.Repo) string {
+	if r.GetProject().GetName() == "" {
+		return r.Name
+	}
 	return fmt.Sprintf("%s/%s", r.Project.Name, r.Name)
 }
 
