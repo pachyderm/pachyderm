@@ -56,52 +56,6 @@ describe('telemetry plugin', () => {
     );
   });
 
-  it('should track app commands', async () => {
-    await telemetry.activate(app);
-    app.commands.addCommand('fake:command', {execute: jest.fn()});
-    await app.commands.execute('fake:command', {fake: 'args'});
-
-    expect(track).toHaveBeenCalledWith('command', {
-      id: 'fake:command',
-      args: {fake: 'args'},
-    });
-  });
-
-  it('should track notebook commands with a prompt', async () => {
-    await telemetry.activate(app);
-
-    expect(track).toHaveBeenCalledWith('command', {
-      id: 'notebook:action:executed',
-      args: {
-        action: 'pachctl version',
-      },
-    });
-  });
-
-  it('should track notebook commands without a prompt', async () => {
-    getNotebookAction.mockImplementation(() => ({
-      cell: {
-        inputArea: {
-          node: {
-            innerText: 'Hello Telemetry',
-          },
-        },
-        promptNode: {
-          innerText: '',
-        },
-      },
-    }));
-
-    await telemetry.activate(app);
-
-    expect(track).toHaveBeenCalledWith('command', {
-      id: 'notebook:action:executed',
-      args: {
-        action: 'Hello Telemetry',
-      },
-    });
-  });
-
   it('should track clicks', () => {
     const {getByTestId, getByText} = render(
       <>

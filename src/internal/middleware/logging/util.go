@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/metadata"
 )
 
 // This needs to be a global var, not a field on the logger, because multiple servers
@@ -109,6 +110,14 @@ func makeLogFields(ctx context.Context, request interface{}, fullMethod string, 
 	if user := auth.GetWhoAmI(ctx); user != "" {
 		fields["user"] = user
 	}
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		if rids := md.Get("x-request-id"); rids != nil {
+			// There shouldn't be multiple copies of the x-request-id header, but if
+			// there are, log all of them.
+			fields["x-request-id"] = strings.Join(rids, ";")
+		}
+	}
+
 	return fields
 }
 

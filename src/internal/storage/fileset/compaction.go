@@ -106,15 +106,24 @@ func (s *Storage) CompactLevelBased(ctx context.Context, logger *log.Entry, ids 
 	if isCompacted(s.compactionConfig, prims) {
 		return s.Compose(ctx, ids, ttl)
 	}
-	i := indexOfCompacted(s.compactionConfig.LevelFactor, prims)
 	var id *ID
-	if err := miscutil.LogStep(ctx, logger, fmt.Sprintf("compacting %v levels out of %v", len(ids)-i, len(ids)), func() error {
-		id, err = s.compactLevels(ctx, logger, ids[i:], maxFanIn, ttl, compact)
+	if err := s.WithRenewer(ctx, ttl, func(ctx context.Context, renewer *Renewer) error {
+		i := indexOfCompacted(s.compactionConfig.LevelFactor, prims)
+		if err := miscutil.LogStep(ctx, logger, fmt.Sprintf("compacting %v levels out of %v", len(ids)-i, len(ids)), func() error {
+			id, err = s.compactLevels(ctx, logger, ids[i:], maxFanIn, ttl, compact)
+			if err != nil {
+				return err
+			}
+			return renewer.Add(ctx, *id)
+		}); err != nil {
+			return err
+		}
+		id, err = s.CompactLevelBased(ctx, logger, append(ids[:i], *id), maxFanIn, ttl, compact)
 		return err
 	}); err != nil {
 		return nil, err
 	}
-	return s.CompactLevelBased(ctx, logger, append(ids[:i], *id), maxFanIn, ttl, compact)
+	return id, nil
 }
 
 // compactLevels compacts a list of levels.
@@ -125,65 +134,77 @@ func (s *Storage) CompactLevelBased(ctx context.Context, logger *log.Entry, ids 
 // The file sets being compacted must be contiguous because the file operation order matters.
 // This algorithm ensures that we compact file sets with lower scores together first before compacting higher score file sets.
 func (s *Storage) compactLevels(ctx context.Context, logger *log.Entry, ids []ID, maxFanIn int, ttl time.Duration, compact CompactCallback) (*ID, error) {
-	for step := 0; len(ids) > maxFanIn; step++ {
-		if err := miscutil.LogStep(ctx, logger, fmt.Sprintf("processing step %v", step), func() error {
-			stepScore := s.stepScore(step)
-			var emptyStep bool
-			for !emptyStep {
-				emptyStep = true
-				nextIds := make([]ID, 0, len(ids))
-				var compactIds []ID
-				eg, ctx := errgroup.WithContext(ctx)
-				for _, id := range ids {
-					prim, err := s.getPrimitive(ctx, id)
-					if err != nil {
-						return err
-					}
-					compactIds = append(compactIds, id)
-					if compactionScore(prim) > stepScore {
-						nextIds = append(nextIds, compactIds...)
-						compactIds = nil
-						continue
-					}
-					if len(compactIds) == maxFanIn {
-						emptyStep = false
-						ids := compactIds
-						i := len(nextIds)
-						nextIds = append(nextIds, ID{})
-						eg.Go(func() error {
-							logger := logger.WithFields(log.Fields{
-								"batch": uuid.NewWithoutDashes(),
+	var id *ID
+	if err := s.WithRenewer(ctx, ttl, func(ctx context.Context, renewer *Renewer) error {
+		for step := 0; len(ids) > maxFanIn; step++ {
+			if err := miscutil.LogStep(ctx, logger, fmt.Sprintf("processing step %v", step), func() error {
+				stepScore := s.stepScore(step)
+				var emptyStep bool
+				for !emptyStep {
+					emptyStep = true
+					nextIds := make([]ID, 0, len(ids))
+					var compactIds []ID
+					eg, ctx := errgroup.WithContext(ctx)
+					for _, id := range ids {
+						prim, err := s.getPrimitive(ctx, id)
+						if err != nil {
+							return err
+						}
+						compactIds = append(compactIds, id)
+						if compactionScore(prim) > stepScore {
+							nextIds = append(nextIds, compactIds...)
+							compactIds = nil
+							continue
+						}
+						if len(compactIds) == maxFanIn {
+							emptyStep = false
+							ids := compactIds
+							i := len(nextIds)
+							nextIds = append(nextIds, ID{})
+							eg.Go(func() error {
+								logger := logger.WithFields(log.Fields{
+									"batch": uuid.NewWithoutDashes(),
+								})
+								return miscutil.LogStep(ctx, logger, "compacting batch", func() error {
+									id, err := compact(ctx, logger, ids, ttl)
+									if err != nil {
+										return err
+									}
+									if err := renewer.Add(ctx, *id); err != nil {
+										return err
+									}
+									nextIds[i] = *id
+									return nil
+								})
 							})
-							return miscutil.LogStep(ctx, logger, "compacting batch", func() error {
-								id, err := compact(ctx, logger, ids, ttl)
-								if err != nil {
-									return err
-								}
-								nextIds[i] = *id
-								return nil
-							})
-						})
-						compactIds = nil
+							compactIds = nil
+						}
 					}
+					nextIds = append(nextIds, compactIds...)
+					if err := eg.Wait(); err != nil {
+						return errors.EnsureStack(err)
+					}
+					ids = nextIds
 				}
-				nextIds = append(nextIds, compactIds...)
-				if err := eg.Wait(); err != nil {
-					return errors.EnsureStack(err)
-				}
-				ids = nextIds
+				return nil
+			}); err != nil {
+				return err
 			}
-			return nil
-		}); err != nil {
-			return nil, err
 		}
+		if len(ids) == 1 {
+			id = &ids[0]
+			return nil
+		}
+		logger = logger.WithFields(log.Fields{
+			"batch": uuid.NewWithoutDashes(),
+		})
+		var err error
+		id, err = compact(ctx, logger, ids, ttl)
+		return err
+	}); err != nil {
+		return nil, err
 	}
-	if len(ids) == 1 {
-		return &ids[0], nil
-	}
-	logger = logger.WithFields(log.Fields{
-		"batch": uuid.NewWithoutDashes(),
-	})
-	return compact(ctx, logger, ids, ttl)
+	return id, nil
 }
 
 func (s *Storage) stepScore(step int) int64 {

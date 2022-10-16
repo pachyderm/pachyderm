@@ -113,7 +113,7 @@ func TestLogin(t *testing.T) {
 	tu.ActivateAuthClient(t, c)
 
 	// Configure OIDC login
-	require.NoError(t, tu.ConfigureOIDCProvider(t, tu.AuthenticateClient(t, c, auth.RootUser)))
+	require.NoError(t, tu.ConfigureOIDCProvider(t, tu.AuthenticateClient(t, c, auth.RootUser), false))
 
 	cmd := tu.PachctlBashCmd(t, c, "pachctl auth login --no-browser")
 	out, err := cmd.StdoutPipe()
@@ -143,10 +143,10 @@ func TestLoginIDToken(t *testing.T) {
 	tu.ActivateAuthClient(t, c)
 	c = tu.AuthenticateClient(t, c, auth.RootUser)
 	// Configure OIDC login
-	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c, false))
 
 	// Get an ID token for a trusted peer app
-	token := tu.GetOIDCTokenForTrustedApp(t, c)
+	token := tu.GetOIDCTokenForTrustedApp(t, c, false)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo '{{.token}}' | pachctl auth login --id-token
 		pachctl auth whoami | match user:{{.user}}`,
@@ -276,7 +276,7 @@ func TestConfig(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	c = tu.AuthenticatedPachClient(t, c, auth.RootUser)
-	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c, false))
 
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
         pachctl auth set-config <<EOF

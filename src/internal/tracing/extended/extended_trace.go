@@ -7,6 +7,7 @@ import (
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -114,7 +115,7 @@ func (t *TraceProto) isValid() bool {
 // 'pipeline', and if any such trace exists, it creates a new span associated
 // with that trace and returns it
 func AddSpanToAnyPipelineTrace(ctx context.Context, c *etcd.Client,
-	pipeline, operation string, kvs ...interface{}) (opentracing.Span, context.Context) {
+	pipeline *pps.Pipeline, operation string, kvs ...interface{}) (opentracing.Span, context.Context) {
 	if !tracing.IsActive() {
 		return nil, ctx // no Jaeger instance to send trace info to
 	}
@@ -142,7 +143,8 @@ func AddSpanToAnyPipelineTrace(ctx context.Context, c *etcd.Client,
 	// return new span
 	span, ctx := opentracing.StartSpanFromContext(ctx,
 		operation, opentracing.FollowsFrom(spanCtx),
-		opentracing.Tag{Key: "pipeline", Value: pipeline})
+		opentracing.Tag{Key: "project", Value: pipeline.Project.GetName()},
+		opentracing.Tag{Key: "pipeline", Value: pipeline.Name})
 	tracing.TagAnySpan(span, kvs...)
 	return span, ctx
 }

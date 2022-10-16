@@ -63,7 +63,8 @@
     "lodash": "^4.17.21",
     "react": "^17.0.2",
     "rudder-sdk-js": "^1.2.1",
-    "svg-url-loader": "^7.1.1"
+    "svg-url-loader": "^7.1.1",
+    "yaml": "^2.1.1"
   },
   "devDependencies": {
     "@babel/core": "^7.16.0",

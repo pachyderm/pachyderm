@@ -25,7 +25,7 @@ type ErrPipelineNotFound struct {
 }
 
 func (e ErrPipelineNotFound) Error() string {
-	return fmt.Sprintf("pipeline %q not found", e.Pipeline.Name)
+	return fmt.Sprintf("pipeline %q not found", e.Pipeline)
 }
 
 func (e ErrPipelineNotFound) GRPCStatus() *status.Status {
@@ -37,7 +37,7 @@ type ErrPipelineAlreadyExists struct {
 }
 
 func (e ErrPipelineAlreadyExists) Error() string {
-	return fmt.Sprintf("pipeline %q already exists", e.Pipeline.Name)
+	return fmt.Sprintf("pipeline %q already exists", e.Pipeline)
 }
 
 func (e ErrPipelineAlreadyExists) GRPCStatus() *status.Status {

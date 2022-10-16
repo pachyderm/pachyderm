@@ -75,7 +75,7 @@ pachctl squash commit <commit-ID>
 !!! Important
     It is important to note that this use case is limited to simple cases where the "bad" changes were made relatively recently, as any pipeline update since then will make it impossible.
 
-I rare cases, you might need to delete a particular file from a given commit and further choose to delete its complete history. 
+In rare cases, you might need to delete a particular file from a given commit and further choose to delete its complete history. 
 In such a case, you will need to:
 
 - Create a new commit in which you surgically remove the problematic file.
