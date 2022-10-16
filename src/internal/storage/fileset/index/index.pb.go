@@ -23,11 +23,14 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-// Index stores an index to and metadata about a file.
+// Index stores an index to and metadata about a range of files or a file.
 type Index struct {
-	Path                 string   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Range                *Range   `protobuf:"bytes,2,opt,name=range,proto3" json:"range,omitempty"`
-	File                 *File    `protobuf:"bytes,3,opt,name=file,proto3" json:"file,omitempty"`
+	Path string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	// NOTE: range and file are mutually exclusive.
+	Range *Range `protobuf:"bytes,2,opt,name=range,proto3" json:"range,omitempty"`
+	File  *File  `protobuf:"bytes,3,opt,name=file,proto3" json:"file,omitempty"`
+	// NOTE: num_files and size_bytes did not exist in older versions of 2.x, so
+	// they will not be set.
 	NumFiles             int64    `protobuf:"varint,4,opt,name=num_files,json=numFiles,proto3" json:"num_files,omitempty"`
 	SizeBytes            int64    `protobuf:"varint,5,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`

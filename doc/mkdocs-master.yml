@@ -19,9 +19,9 @@ pach_branch: 'master'
 copyright: 'Copyright Pachyderm Inc, 2022'
 # Version of Pachyderm featured in the product
 
-pach_featured_version: '2.3.3'
+pach_featured_version: '2.3.6'
 # Latest version of Pachyderm
-pach_latest_version: '2.3.3'
+pach_latest_version: '2.3.6'
 pach_major_minor_version: '2.3'
 search_index_version: '2.3.x'
 
@@ -217,7 +217,7 @@ nav:
                 - Deploy on Azure: deploy-manage/deploy/azure.md
                 - Deploy on premises: deploy-manage/deploy/on-premises.md
             - Deploy Console: deploy-manage/deploy/console/#deploy-console
-            - Deploy JupyterLab Extension: how-tos/jupyterlab-extension/#install-the-mount-extension
+            - Deploy JupyterLab Extension: how-tos/jupyterlab-extension/
             - Additional Customizations:
                 - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
                 - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy-w-tls.md

@@ -10,8 +10,8 @@ import "google/protobuf/timestamp.proto";
  *
  * In Pachyderm, usernames are structured strings. This makes both
  * our API and our data model more flexible (at the loss of some type safety).
- * Basically, anywhere that Pachyderm refers to a subject (i.e. TokenInfo) or 
- * principal (ACL, the 'admins' collection), that username will have some 
+ * Basically, anywhere that Pachyderm refers to a subject (i.e. TokenInfo) or
+ * principal (ACL, the 'admins' collection), that username will have some
  * structured prefix.
  *
  * Note that externally-facing principals ({Get,Set}{Scope,ACL}, ModifyAdmins,
@@ -55,7 +55,7 @@ message RotateRootTokenResponse {
   string root_token = 1;
 }
 
-// Configure Pachyderm's auth system with an OIDC provider 
+// Configure Pachyderm's auth system with an OIDC provider
 message OIDCConfig{
   string issuer = 1;
   string client_id = 2 [(gogoproto.customname) = "ClientID"];
@@ -66,13 +66,13 @@ message OIDCConfig{
 
  // localhost_issuer ignores the contents of the issuer claim and makes all
  // OIDC requests to the embedded OIDC provider. This is necessary to support
- // some network configurations like Minikube. 
+ // some network configurations like Minikube.
  bool localhost_issuer = 7;
 
-  // user_accessible_issuer_host can be set to override the host used 
+  // user_accessible_issuer_host can be set to override the host used
   // in the OAuth2 authorization URL in case the OIDC issuer isn't
-  // accessible outside the cluster. This is necessary to support 
-  // some configurations like Minikube.
+  // accessible outside the cluster. This requires a fully formed URL with scheme of either http or https.
+  // This is necessary to support some configurations like Minikube.
   string user_accessible_issuer_host = 8;
 }
 
@@ -144,7 +144,7 @@ message RoleBinding {
   map<string, Roles> entries = 1;
 }
 
-// Permission represents the ability to perform a given operation on a Resource 
+// Permission represents the ability to perform a given operation on a Resource
 enum Permission {
   PERMISSION_UNKNOWN = 0;
 
@@ -232,7 +232,7 @@ enum ResourceType {
 
 // Resource represents any resource that has role-bindings in the system
 message Resource {
-  ResourceType type = 1; 
+  ResourceType type = 1;
   string name = 2;
 }
 
@@ -247,7 +247,7 @@ message Groups {
 message Role {
   string name = 1;
   repeated Permission permissions = 2;
-  repeated ResourceType resource_types = 3; 
+  repeated ResourceType resource_types = 3;
 }
 
 //// Authorization API
@@ -255,7 +255,7 @@ message Role {
 message AuthorizeRequest {
   Resource resource = 1;
 
-  // permissions are the operations the caller is attempting to perform 
+  // permissions are the operations the caller is attempting to perform
   repeated Permission permissions = 2;
 }
 
@@ -279,7 +279,7 @@ message GetPermissionsRequest {
 }
 
 // GetPermissionsForPrincipal evaluates an arbitrary principal's permissions
-// on a resource 
+// on a resource
 message GetPermissionsForPrincipalRequest {
   Resource resource = 1;
 
@@ -290,13 +290,13 @@ message GetPermissionsResponse {
   // permissions is the set of permissions the principal has
   repeated Permission permissions = 1;
 
-  // roles is the set of roles the principal has 
+  // roles is the set of roles the principal has
   repeated string roles = 2;
 }
 
 
 message ModifyRoleBindingRequest {
-  // resource is the resource to modify the role bindings on 
+  // resource is the resource to modify the role bindings on
   Resource resource = 1;
 
   // principal is the principal to modify the roles binding for
@@ -310,11 +310,11 @@ message ModifyRoleBindingRequest {
 message ModifyRoleBindingResponse {}
 
 message GetRoleBindingRequest {
-  Resource resource = 1; 
+  Resource resource = 1;
 }
 
 message GetRoleBindingResponse {
-  RoleBinding binding = 1; 
+  RoleBinding binding = 1;
 }
 
 //////////////////////////////
@@ -425,12 +425,12 @@ message GetUsersResponse {
 message ExtractAuthTokensRequest {}
 
 message ExtractAuthTokensResponse {
-  repeated TokenInfo tokens = 1; 
+  repeated TokenInfo tokens = 1;
 }
 
 // RestoreAuthToken inserts a hashed token that has previously been extracted.
 message RestoreAuthTokenRequest {
-  TokenInfo token = 1; 
+  TokenInfo token = 1;
 }
 
 message RestoreAuthTokenResponse {}

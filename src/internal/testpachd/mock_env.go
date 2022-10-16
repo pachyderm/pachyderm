@@ -23,7 +23,7 @@ type MockEnv struct {
 
 // NewMockEnv constructs a MockEnv for testing, which will be destroyed at the
 // end of the test.
-func NewMockEnv(t testing.TB) *MockEnv {
+func NewMockEnv(t testing.TB, options ...InterceptorOption) *MockEnv {
 	etcdEnv := testetcd.NewEnv(t)
 
 	// Use an error group with a cancelable context to supervise every component
@@ -39,7 +39,7 @@ func NewMockEnv(t testing.TB) *MockEnv {
 	mockEnv.Context = ctx
 
 	var err error
-	mockEnv.MockPachd, err = NewMockPachd(mockEnv.Context, 0)
+	mockEnv.MockPachd, err = NewMockPachd(mockEnv.Context, 0, options...)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, mockEnv.MockPachd.Close())

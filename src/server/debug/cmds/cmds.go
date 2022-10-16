@@ -133,6 +133,7 @@ func Cmds() []*cobra.Command {
 	return commands
 }
 
+// FIXME(CORE-1078): handle projects
 func createFilter(pachd, database bool, pipeline, worker string) (*debug.Filter, error) {
 	var f *debug.Filter
 	if pachd {

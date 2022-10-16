@@ -24,6 +24,7 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
@@ -98,7 +99,7 @@ func (s *debugServer) handleRedirect(
 						return s.collectDatabaseDump(ctx, tw, databasePrefix)
 					}
 				case *debug.Filter_Pipeline:
-					pipelineInfo, err := pachClient.InspectPipeline(f.Pipeline.Name, true)
+					pipelineInfo, err := pachClient.InspectProjectPipeline(f.Pipeline.Project.GetName(), f.Pipeline.Name, true)
 					if err != nil {
 						return err
 					}
@@ -285,7 +286,7 @@ func (s *debugServer) getLegacyWorkerPods(ctx context.Context, pipelineInfo *pps
 			LabelSelector: metav1.FormatLabelSelector(
 				metav1.SetAsLabelSelector(
 					map[string]string{
-						"app": ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+						"app": ppsutil.PipelineRcName(pipelineInfo),
 					},
 				),
 			),
@@ -507,7 +508,7 @@ func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pac
 		return err
 	}
 	for _, repoInfo := range repoInfos {
-		if _, err := pachClient.InspectPipeline(repoInfo.Repo.Name, true); err != nil {
+		if _, err := pachClient.InspectProjectPipeline(repoInfo.Repo.Project.GetName(), repoInfo.Repo.Name, true); err != nil {
 			if errutil.IsNotFoundError(err) {
 				repoPrefix := join("source-repos", repoInfo.Repo.Name)
 				return s.collectCommits(ctx, tw, pachClient, repoInfo.Repo, limit, repoPrefix)
@@ -709,7 +710,7 @@ func (s *debugServer) collectLogs(ctx context.Context, tw *tar.Writer, pod, cont
 }
 
 func (s *debugServer) collectLogsLoki(ctx context.Context, tw *tar.Writer, pod, container string, prefix ...string) error {
-	if os.Getenv(s.env.Config().LokiHostVar) == "" {
+	if s.env.Config().LokiHost == "" {
 		return nil
 	}
 	return collectDebugFile(tw, "logs-loki", "txt", func(w io.Writer) error {
@@ -755,7 +756,7 @@ func collectDump(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefi
 func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
 		if err := collectDebugFile(tw, "spec", "json", func(w io.Writer) error {
-			fullPipelineInfos, err := pachClient.ListPipelineHistory(pipelineInfo.Pipeline.Name, -1, true)
+			fullPipelineInfos, err := pachClient.ListProjectPipelineHistory(pfs.DefaultProjectName, pipelineInfo.Pipeline.Name, -1, true)
 			if err != nil {
 				return err
 			}
@@ -768,13 +769,13 @@ func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 		}, prefix...); err != nil {
 			return err
 		}
-		if err := s.collectCommits(ctx, tw, pachClient, client.NewRepo(pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
+		if err := s.collectCommits(ctx, tw, pachClient, client.NewProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
 			return err
 		}
 		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline.Name, limit, prefix...); err != nil {
 			return err
 		}
-		if os.Getenv(s.env.Config().LokiHostVar) != "" {
+		if s.env.Config().LokiHost != "" {
 			if err := s.forEachWorkerLoki(ctx, pipelineInfo, func(pod string) error {
 				workerPrefix := join(podPrefix, pod)
 				if len(prefix) > 0 {

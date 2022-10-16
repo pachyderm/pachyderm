@@ -53,7 +53,7 @@ Cypress.Commands.add('openMountPlugin', () => {
 });
 
 Cypress.Commands.add('unmountAllRepos', (command) => {
-  cy.request('PUT', 'http://localhost:8888/pachyderm/v2/repos/_unmount');
+  cy.request('PUT', 'http://localhost:8888/pachyderm/v2/_unmount_all');
 });
 
 //Taken from galata

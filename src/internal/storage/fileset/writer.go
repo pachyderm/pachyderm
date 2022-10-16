@@ -13,12 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
-// TODO: Size zero files need to be addressed now that we are moving away from storing tar headers.
-// We can run into the same issue as deletions where a lot of size zero files can cause us to get backed up
-// since no chunks will get created. The solution we have in mind is to write a small number of bytes
-// for a size zero file, then either not store references to them or ignore them at read time.
-
-// TODO: Might need to think a bit more about fileset sizes and whether deletes should be represented.
+// TODO: Might need to think a bit more about file set sizes and whether deletes should be represented.
 // Also, we should consider removing the file set size field and leaning on the new index size field.
 
 // Writer provides functionality for writing a file set.

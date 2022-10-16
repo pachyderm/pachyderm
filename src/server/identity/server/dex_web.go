@@ -9,13 +9,14 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	dex_server "github.com/dexidp/dex/server"
 	dex_storage "github.com/dexidp/dex/storage"
@@ -57,7 +58,7 @@ var (
 )
 
 // webDir is the path to find the static assets for the web server.
-// This is always /dex-assets in the docker image, but it can be overriden for testing
+// This is always /dex-assets in the docker image, but it can be overridden for testing
 var webDir = "/dex-assets"
 
 // dexWeb wraps a Dex web server and hot reloads it when the
@@ -79,16 +80,24 @@ type dexWeb struct {
 	logger          *logrus.Entry
 	storageProvider dex_storage.Storage
 	apiServer       identity.APIServer
+	assetsDir       string
+	addr            string
 }
 
-func newDexWeb(env Env, apiServer identity.APIServer) *dexWeb {
+func newDexWeb(env Env, apiServer identity.APIServer, options ...IdentityServerOption) *dexWeb {
 	logger := logrus.WithField("source", "dex-web")
-	return &dexWeb{
+	web := &dexWeb{
 		env:             env,
 		logger:          logger,
 		storageProvider: env.DexStorage,
 		apiServer:       apiServer,
+		addr:            dexHTTPPort,
+		assetsDir:       webDir,
 	}
+	for _, opt := range options {
+		opt(web)
+	}
+	return web
 }
 
 // stopWebServer must be called while holding the write mutex
@@ -169,7 +178,7 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 			Issuer:  "Pachyderm",
 			LogoURL: "/theme/logo.svg",
 			Theme:   "pachyderm",
-			Dir:     webDir,
+			Dir:     w.assetsDir,
 		},
 		Logger:             w.logger,
 		RefreshTokenPolicy: refreshTokenPolicy,
@@ -244,7 +253,6 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 }
 
 // ServeHTTP proxies requests to the Dex server, if it's configured.
-//
 func (w *dexWeb) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	server, err := w.getServer(r.Context())
 	if server == nil {

@@ -265,3 +265,58 @@
   display: flex;
   flex-direction: column;
 }
+
+/* === Datum === */
+
+.pachyderm-mount-datum-wrapper {
+  font-size: var(--jp-ui-font-size1);
+  min-height: 3.125rem;
+  min-width: 18.75rem;
+  color: var(--jp-ui-font-color0);
+  background-color: var(--jp-layout-color1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  border-bottom: 1px solid var(--jp-border-color2);
+}
+
+.pachyderm-mount-datum-base {
+  color: var(--jp-ui-font-color0);
+  background-color: var(--jp-layout-color1);
+  display: flex;
+  flex-direction: column;
+  margin: 0.25rem 16px;
+  height: 100%;
+}
+
+.pachyderm-mount-datum-back {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.pachyderm-mount-datum-subheading {
+  font-size: medium;
+  font-weight: 300;
+  margin-bottom: 0.75rem;
+}
+
+.pachyderm-mount-datum-label {
+  font-weight: 500;
+}
+
+.pachyderm-mount-datum-input-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.pachyderm-mount-datum-cycler {
+  display: flex;
+  justify-content: space-between;
+}
+
+.pachyderm-mount-datum-error {
+  color: var(--jp-error-color0);
+}

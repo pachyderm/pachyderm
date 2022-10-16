@@ -25,21 +25,30 @@ var PipelinesVersionIndex = &col.Index{
 	Name: "version",
 	Extract: func(val proto.Message) string {
 		info := val.(*pps.PipelineInfo)
-		return VersionKey(info.Pipeline.Name, info.Version)
+		return VersionKey(info.Pipeline, info.Version)
 	},
 }
 
-func VersionKey(pipeline string, version uint64) string {
+// VersionKey return a unique key for the given project, pipeline & version.  If
+// the project is the empty string it will return an old-style key without a
+// project; otherwise the key will include the project.  The version is
+// zero-padded in order to facilitate sorting.
+func VersionKey(p *pps.Pipeline, version uint64) string {
 	// zero pad in case we want to sort
-	return fmt.Sprintf("%s@%08d", pipeline, version)
+	return fmt.Sprintf("%s@%08d", p, version)
+}
+
+// PipelinesNameKey returns the key used by PipelinesNameIndex to index a
+// PipelineInfo.
+func PipelinesNameKey(p *pps.Pipeline) string {
+	return p.String()
 }
 
 // PipelinesNameIndex records the name of pipelines
 var PipelinesNameIndex = &col.Index{
 	Name: "name",
 	Extract: func(val proto.Message) string {
-		info := val.(*pps.PipelineInfo)
-		return info.Pipeline.Name
+		return PipelinesNameKey(val.(*pps.PipelineInfo).Pipeline)
 	},
 }
 
@@ -48,12 +57,34 @@ var pipelinesIndexes = []*col.Index{
 	PipelinesNameIndex,
 }
 
-func ParsePipelineKey(key string) (string, string, error) {
+// ParsePipelineKey expects keys to either be of the form <pipeline>@<id> or
+// <project>/<pipeline>@<id>.
+func ParsePipelineKey(key string) (projectName, pipelineName, id string, err error) {
 	parts := strings.Split(key, "@")
 	if len(parts) != 2 || !uuid.IsUUIDWithoutDashes(parts[1]) {
-		return "", "", errors.Errorf("key %s is not of form <pipeline>@<id>", key)
+		return "", "", "", errors.Errorf("key %s is not of form [<project>/]<pipeline>@<id>", key)
 	}
-	return parts[0], parts[1], nil
+	id = parts[1]
+	parts = strings.Split(parts[0], "/")
+	if len(parts) == 0 {
+		return "", "", "", errors.Errorf("key %s is not of form [<project>/]<pipeline>@<id>")
+	}
+	pipelineName = parts[len(parts)-1]
+	if len(parts) == 1 {
+		return
+	}
+	projectName = strings.Join(parts[0:len(parts)-1], "/")
+	return
+}
+
+func pipelineCommitKey(commit *pfs.Commit) (string, error) {
+	if commit.Branch.Repo.Type != pfs.SpecRepoType {
+		return "", errors.Errorf("commit %s is not from a spec repo", commit)
+	}
+	if projectName := commit.Branch.Repo.Project.GetName(); projectName != "" {
+		return fmt.Sprintf("%s/%s@%s", projectName, commit.Branch.Repo.Name, commit.ID), nil
+	}
+	return fmt.Sprintf("%s@%s", commit.Branch.Repo.Name, commit.ID), nil
 }
 
 // Pipelines returns a PostgresCollection of pipelines
@@ -66,37 +97,38 @@ func Pipelines(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollec
 		pipelinesIndexes,
 		col.WithKeyGen(func(key interface{}) (string, error) {
 			if commit, ok := key.(*pfs.Commit); ok {
-				if commit.Branch.Repo.Type != pfs.SpecRepoType {
-					return "", errors.Errorf("commit %s is not from a spec repo", commit)
-				}
-				return fmt.Sprintf("%s@%s", commit.Branch.Repo.Name, commit.ID), nil
+				return pipelineCommitKey(commit)
 			}
 			return "", errors.New("must provide a spec commit")
 		}),
 		col.WithKeyCheck(func(key string) error {
-			_, _, err := ParsePipelineKey(key)
+			_, _, _, err := ParsePipelineKey(key)
 			return err
 		}),
 	)
+}
+
+func JobsPipelineKey(p *pps.Pipeline) string {
+	return p.String()
 }
 
 // JobsPipelineIndex maps pipeline to Jobs started by the pipeline
 var JobsPipelineIndex = &col.Index{
 	Name: "pipeline",
 	Extract: func(val proto.Message) string {
-		return val.(*pps.JobInfo).Job.Pipeline.Name
+		return JobsPipelineKey(val.(*pps.JobInfo).Job.Pipeline)
 	},
 }
 
-func JobTerminalKey(pipeline *pps.Pipeline, isTerminal bool) string {
-	return fmt.Sprintf("%s_%v", pipeline.Name, isTerminal)
+func JobsTerminalKey(pipeline *pps.Pipeline, isTerminal bool) string {
+	return fmt.Sprintf("%s_%v", pipeline, isTerminal)
 }
 
 var JobsTerminalIndex = &col.Index{
 	Name: "job_state",
 	Extract: func(val proto.Message) string {
 		jobInfo := val.(*pps.JobInfo)
-		return JobTerminalKey(jobInfo.Job.Pipeline, pps.IsTerminal(jobInfo.State))
+		return JobsTerminalKey(jobInfo.Job.Pipeline, pps.IsTerminal(jobInfo.State))
 	},
 }
 
@@ -109,9 +141,11 @@ var JobsJobSetIndex = &col.Index{
 
 var jobsIndexes = []*col.Index{JobsPipelineIndex, JobsTerminalIndex, JobsJobSetIndex}
 
-// JobKey is the string representation of a Job suitable for use as an indexing key
-func JobKey(job *pps.Job) string {
-	return job.String()
+// JobKey is a string representation of a Job suitable for use as an indexing
+// key.  It will include the project if the project name is not the empty
+// string.
+func JobKey(j *pps.Job) string {
+	return fmt.Sprintf("%s@%s", j.Pipeline, j.ID)
 }
 
 // Jobs returns a PostgresCollection of Jobs
