@@ -24,6 +24,11 @@ const (
 	DefaultMaxChunkSize = 20 * units.MB
 )
 
+// ComputeChunks splits a stream of bytes into chunks using a content-defined
+// chunking algorithm. To prevent suboptimal chunk sizes, a minimum and maximum
+// chunk size is enforced. This algorithm is useful for ensuring that typical
+// data modifications (insertions, deletions, updates) only affect a small
+// number of chunks.
 // TODO: Expose configuration.
 func ComputeChunks(r io.Reader, cb func([]byte) error) error {
 	buf := make([]byte, units.MB)

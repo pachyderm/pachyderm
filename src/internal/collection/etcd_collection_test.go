@@ -14,6 +14,9 @@ import (
 	etcd "go.etcd.io/etcd/client/v3"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -22,7 +25,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 var (
@@ -70,7 +72,7 @@ func TestDryrun(t *testing.T) {
 	jobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
 
 	job := &pps.JobInfo{
-		Job: client.NewJob("p1", "j1"),
+		Job: client.NewProjectJob(pfs.DefaultProjectName, "p1", "j1"),
 	}
 	err := col.NewDryrunSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		return errors.EnsureStack(jobInfos.ReadWrite(stm).Put(ppsdb.JobKey(job.Job), job))
@@ -89,16 +91,16 @@ func TestDeletePrefix(t *testing.T) {
 	jobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
 
 	j1 := &pps.JobInfo{
-		Job: client.NewJob("p", "prefix/suffix/Job"),
+		Job: client.NewProjectJob(pfs.DefaultProjectName, "p", "prefix/suffix/Job"),
 	}
 	j2 := &pps.JobInfo{
-		Job: client.NewJob("p", "prefix/suffix/Job2"),
+		Job: client.NewProjectJob(pfs.DefaultProjectName, "p", "prefix/suffix/Job2"),
 	}
 	j3 := &pps.JobInfo{
-		Job: client.NewJob("p", "prefix/Job3"),
+		Job: client.NewProjectJob(pfs.DefaultProjectName, "p", "prefix/Job3"),
 	}
 	j4 := &pps.JobInfo{
-		Job: client.NewJob("p", "Job4"),
+		Job: client.NewProjectJob(pfs.DefaultProjectName, "p", "Job4"),
 	}
 
 	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
@@ -198,13 +200,13 @@ func TestIndex(t *testing.T) {
 	jobInfos := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, []*col.Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
 
 	j1 := &pps.JobInfo{
-		Job: client.NewJob("p1", "j1"),
+		Job: client.NewProjectJob(pfs.DefaultProjectName, "p1", "j1"),
 	}
 	j2 := &pps.JobInfo{
-		Job: client.NewJob("p1", "j2"),
+		Job: client.NewProjectJob(pfs.DefaultProjectName, "p1", "j2"),
 	}
 	j3 := &pps.JobInfo{
-		Job: client.NewJob("p2", "j3"),
+		Job: client.NewProjectJob(pfs.DefaultProjectName, "p2", "j3"),
 	}
 	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		rw := jobInfos.ReadWrite(stm)

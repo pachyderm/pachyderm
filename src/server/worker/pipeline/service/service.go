@@ -89,7 +89,7 @@ func forEachJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 	// These are used to cancel the existing service and wait for it to finish
 	var cancel func()
 	var eg *errgroup.Group
-	return pachClient.SubscribeJob(pipelineInfo.Pipeline.Name, true, func(ji *pps.JobInfo) error {
+	return pachClient.SubscribeProjectJob(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, true, func(ji *pps.JobInfo) error {
 		if ji.State == pps.JobState_JOB_FINISHING {
 			return nil // don't pick up a "finishing" job
 		}

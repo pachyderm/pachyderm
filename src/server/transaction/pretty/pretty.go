@@ -133,7 +133,7 @@ func sprintCreatePipeline(request *pps.CreatePipelineRequest) string {
 	if request.Update {
 		verb = "update"
 	}
-	return fmt.Sprintf("%s pipeline %s", verb, request.Pipeline.Name)
+	return fmt.Sprintf("%s pipeline %s", verb, request.Pipeline)
 }
 
 func transactionRequests(

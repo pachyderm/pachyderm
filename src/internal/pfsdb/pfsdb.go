@@ -28,16 +28,28 @@ var ReposTypeIndex = &col.Index{
 	},
 }
 
+func ReposNameKey(repo *pfs.Repo) string {
+	if projectName := repo.Project.GetName(); projectName != "" {
+		return repo.Project.Name + "/" + repo.Name
+	}
+	// TODO: remove this after CORE-93 is complete.
+	return repo.Name
+}
+
 var ReposNameIndex = &col.Index{
 	Name: "name",
 	Extract: func(val proto.Message) string {
-		return val.(*pfs.RepoInfo).Repo.Name
+		return ReposNameKey(val.(*pfs.RepoInfo).Repo)
 	},
 }
 
 var reposIndexes = []*col.Index{ReposNameIndex, ReposTypeIndex}
 
 func RepoKey(repo *pfs.Repo) string {
+	if projectName := repo.Project.GetName(); projectName != "" {
+		return repo.Project.Name + "/" + repo.Name + "." + repo.Type
+	}
+	// TODO: remove this after CORE-93 is complete.
 	return repo.Name + "." + repo.Type
 }
 

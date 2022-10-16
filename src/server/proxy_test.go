@@ -21,17 +21,19 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/minio/minio-go/v6"
-	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	applyappsv1 "k8s.io/client-go/applyconfigurations/apps/v1"
 	applyv1 "k8s.io/client-go/applyconfigurations/core/v1"
 	applymetav1 "k8s.io/client-go/applyconfigurations/meta/v1"
+
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 func get(t *testing.T, hc *http.Client, url string) error {
@@ -94,10 +96,10 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 	// Test GRPC API.
 	t.Run("TestGRPC", func(t *testing.T) {
 		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
-			if err := c.CreateRepo("test"); err != nil {
+			if err := c.CreateProjectRepo(pfs.DefaultProjectName, "test"); err != nil {
 				return errors.Errorf("create repo: %w", err)
 			}
-			if err := c.PutFile(client.NewRepo("test").NewCommit("master", ""), "test.txt", bytes.NewReader(testText)); err != nil {
+			if err := c.PutFile(client.NewProjectRepo(pfs.DefaultProjectName, "test").NewCommit("master", ""), "test.txt", bytes.NewReader(testText)); err != nil {
 				return errors.Errorf("put file: %w", err)
 			}
 			return nil
@@ -221,7 +223,7 @@ func TestTrafficThroughProxy(t *testing.T) {
 	c, ns := minikubetestenv.AcquireCluster(t)
 	deployFakeConsole(t, ns)
 	testutil.ActivateAuthClient(t, c)
-	require.NoError(t, testutil.ConfigureOIDCProvider(t, c))
+	require.NoError(t, testutil.ConfigureOIDCProvider(t, c, false))
 	proxyTest(t, http.DefaultClient, c, false)
 }
 
@@ -290,7 +292,7 @@ func TestTrafficThroughProxyTLS(t *testing.T) {
 	deployFakeConsole(t, ns)
 
 	testutil.ActivateAuthClient(t, c)
-	require.NoError(t, testutil.ConfigureOIDCProvider(t, c))
+	require.NoError(t, testutil.ConfigureOIDCProvider(t, c, false))
 
 	httpClient := &http.Client{
 		Transport: &http.Transport{

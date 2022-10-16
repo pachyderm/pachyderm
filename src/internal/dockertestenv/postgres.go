@@ -3,11 +3,11 @@ package dockertestenv
 
 import (
 	"context"
-	"fmt"
-	"os/exec"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -16,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -35,8 +34,9 @@ func PGBouncerHost() string {
 
 func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 	var (
-		ctx  = context.Background()
-		name = testutil.GenerateEphemeralDBName(t)
+		ctx     = context.Background()
+		dbName  = testutil.GenerateEphemeralDBName(t)
+		dexName = testutil.UniqueString("dex")
 	)
 	err := backoff.Retry(func() error {
 		return ensureDBEnv(t, ctx)
@@ -48,10 +48,12 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 	)
-	testutil.CreateEphemeralDB(t, db, name)
+	testutil.CreateEphemeralDB(t, db, dbName)
+	testutil.CreateEphemeralDB(t, db, dexName)
 	return func(c *serviceenv.Configuration) {
 		// common
-		c.PostgresDBName = name
+		c.PostgresDBName = dbName
+		c.IdentityServerDatabase = dexName
 
 		// direct
 		c.PostgresHost = postgresHost()
@@ -130,47 +132,53 @@ var spawnLock sync.Mutex
 func ensureDBEnv(t testing.TB, ctx context.Context) error {
 	spawnLock.Lock()
 	defer spawnLock.Unlock()
-	cmd := exec.CommandContext(ctx, "bash", "-c", `
-set -ve
-
-docker container prune -f
-
-if ! docker ps | grep -q pach_test_postgres
-then
-    echo "starting postgres..."
-    postgres_id=$(docker run -d \
-    -e POSTGRES_DB=pachyderm \
-    -e POSTGRES_USER=pachyderm \
-    -e POSTGRES_HOST_AUTH_METHOD=trust \
-    -p 30228:5432 \
-	--name pach_test_postgres \
-    postgres:13.0-alpine)
-
-    postgres_ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' $postgres_id)
-
-    docker run -d \
-    -e AUTH_TYPE=any \
-    -e DB_USER="pachyderm" \
-    -e DB_PASS="password" \
-    -e DB_HOST=$postgres_ip \
-    -e DB_PORT=5432 \
-	-e MAX_CLIENT_CONN=1000 \
-    -e POOL_MODE=transaction \
-	--name pach_test_pgbouncer \
-    -p 30229:5432 \
-    edoburu/pgbouncer:1.15.0
-else
-    echo "postgres already started"
-fi
-	`)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Println(string(output))
-		return errors.EnsureStack(err)
-	}
 	timeout := 30 * time.Second
 	ctx, cf := context.WithTimeout(ctx, timeout)
 	defer cf()
+
+	dclient := newDockerClient()
+	defer dclient.Close()
+	err := ensureContainer(ctx, dclient, "pach_test_postgres", containerSpec{
+		Env: map[string]string{
+			"POSTGRES_DB":               "pachyderm",
+			"POSTGRES_USER":             "pachyderm",
+			"POSTGRES_HOST_AUTH_METHOD": "trust",
+		},
+		PortMap: map[uint16]uint16{
+			30228: 5432,
+		},
+		Image: "postgres:13.0-alpine",
+	})
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	containerJSON, err := dclient.ContainerInspect(ctx, "pach_test_postgres")
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	postgresIP := containerJSON.NetworkSettings.IPAddress
+
+	err = ensureContainer(ctx, dclient, "pach_test_pgbouncer", containerSpec{
+		Env: map[string]string{
+			"AUTH_TYPE":       "any",
+			"DB_USER":         "pachyderm",
+			"DB_PASS":         "password",
+			"DB_HOST":         postgresIP,
+			"DB_PORT":         "5432",
+			"MAX_CLIENT_CONN": "1000",
+			"POOL_MODE":       "transaction",
+		},
+		PortMap: map[uint16]uint16{
+			30229: 5432,
+		},
+		Image: "edoburu/pgbouncer:1.15.0",
+	})
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+
 	return backoff.RetryUntilCancel(ctx, func() error {
 		db, err := dbutil.NewDB(
 			dbutil.WithDBName(testutil.DefaultPostgresDatabase),

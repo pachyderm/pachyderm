@@ -1,4 +1,3 @@
-import os
 import subprocess
 import time
 import platform
@@ -16,7 +15,7 @@ MOUNT_SERVER_PORT = 9002
 
 
 class MountServerClient(MountInterface):
-    """Client interface for the pachctl mount-server backend."""
+    """Client interface for the mount-server backend."""
 
     def __init__(
         self,
@@ -73,7 +72,7 @@ class MountServerClient(MountInterface):
                         "-c",
                         "set -o pipefail; "
                         + f"mount-server --mount-dir {self.mount_dir}"
-                        + " >> /tmp/pachctl-mount-server.log 2>&1",
+                        + " >> /tmp/mount-server.log 2>&1",
                     ]
                 )
 
@@ -89,43 +88,75 @@ class MountServerClient(MountInterface):
 
         return True
 
-    async def list(self):
+
+    async def list_repos(self):
         await self._ensure_mount_server()
         response = await self.client.fetch(f"{self.address}/repos")
         return response.body
 
-    async def mount(self, repo, branch, mode, name):
+    async def list_mounts(self):
+        await self._ensure_mount_server()
+        response = await self.client.fetch(f"{self.address}/mounts")
+        return response.body
+        
+    async def mount(self, body):
         await self._ensure_mount_server()
         response = await self.client.fetch(
-            f"{self.address}/repos/{repo}/{branch}/_mount?name={name}&mode={mode}",
+            f"{self.address}/_mount",
             method="PUT",
-            body="{}",
+            body=json.dumps(body),
         )
         return response.body
 
-    async def unmount(self, repo, branch, name):
+    async def unmount(self, body):
         await self._ensure_mount_server()
         response = await self.client.fetch(
-            f"{self.address}/repos/{repo}/{branch}/_unmount?name={name}",
+            f"{self.address}/_unmount",
             method="PUT",
-            body="{}",
+            body=json.dumps(body),
         )
         return response.body
+
+    async def commit(self, body):
+        await self._ensure_mount_server()
+        pass
 
     async def unmount_all(self):
         await self._ensure_mount_server()
         response = await self.client.fetch(
-            f"{self.address}/repos/_unmount", method="PUT", body="{}"
+            f"{self.address}/_unmount_all",
+            method="PUT",
+            body="{}"
         )
         return response.body
 
-    async def commit(self, repo, branch, name, message):
+    async def mount_datums(self, body):
         await self._ensure_mount_server()
-        pass
+        response = await self.client.fetch(
+            f"{self.address}/_mount_datums",
+            method="PUT",
+            body=json.dumps(body),
+        )
+        return response.body
 
-    async def config(self, request=None):
+    async def show_datum(self, slug):
         await self._ensure_mount_server()
-        if request is None:
+        slug = '&'.join(f"{k}={v}" for k,v in slug.items() if v is not None)
+        response = await self.client.fetch(
+            f"{self.address}/_show_datum?{slug}",
+            method="PUT",
+            body="{}",
+        )
+        return response.body
+
+    async def get_datums(self):
+        await self._ensure_mount_server()
+        response = await self.client.fetch(f"{self.address}/datums")
+        return response.body
+
+    async def config(self, body=None):
+        await self._ensure_mount_server()
+        if body is None:
             try:
                 response = await self.client.fetch(f"{self.address}/config")
             except HTTPClientError as e:
@@ -134,7 +165,7 @@ class MountServerClient(MountInterface):
                 raise e
         else:
             response = await self.client.fetch(
-                f"{self.address}/config", method="PUT", body=json.dumps(request)
+                f"{self.address}/config", method="PUT", body=json.dumps(body)
             )
 
         return response.body

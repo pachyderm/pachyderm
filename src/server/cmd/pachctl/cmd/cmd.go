@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	
+
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -519,7 +519,7 @@ This resets the cluster to its initial state.`,
 				return errors.EnsureStack(err)
 			}
 			if err := clientsdk.ForEachPipelineInfo(c, func(pi *pps.PipelineInfo) error {
-				pipelines = append(pipelines, red(pi.Pipeline.Name))
+				pipelines = append(pipelines, red(pi.Pipeline.String()))
 				return nil
 			}); err != nil {
 				return err
