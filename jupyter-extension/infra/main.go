@@ -2,6 +2,7 @@ package main
 
 import (
 	"io/ioutil"
+	"strings"
 
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes"
 	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/core/v1"
@@ -16,7 +17,7 @@ func main() {
 		cfg := config.New(ctx, "")
 		slug := "pachyderm/ci-cluster/dev"
 		stackRef, _ := pulumi.NewStackReference(ctx, slug, nil)
-		currBranch := cfg.Require("branch")
+		currBranch := strings.ReplaceAll(cfg.Require("branch"), "/", "_")
 		sha := cfg.Require("sha")
 
 		kubeConfig := stackRef.GetOutput(pulumi.String("kubeconfig"))

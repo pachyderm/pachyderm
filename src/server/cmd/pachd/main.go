@@ -1,7 +1,5 @@
 package main
 
-// FIXME: dummy change to force retest
-
 import (
 	"context"
 	"fmt"
