@@ -1316,6 +1316,15 @@ workflows:
             - build-pachctl-bin
             - publish-chart-preview
             - release-github-draft
+      - cust-prerelease-testing:
+          name: karius-planet-testing
+          customer: krs
+          filters: *only-alpha-tags
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+            - publish-chart-preview
+            - release-github-draft
       - sign-off:
           filters: *only-release-tags
           type: approval

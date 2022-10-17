@@ -31,6 +31,11 @@ elif [ "${1}" = "btl" ]; then
     -F name="${WORKSPACE}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG:1}-${CIRCLE_SHA1}" -F backend="aws_cluster" \
     -F infraJson=@etc/testing/circle/workloads/aws-btl/infra.json -F valuesYaml=@etc/testing/circle/workloads/aws-btl/values.yaml \
 https://helium.pachyderm.io/v1/api/workspace
+elif [ "${1}" = "krs"]; then
+  curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
+    -F name="${WORKSPACE}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG:1}-${CIRCLE_SHA1}" -F backend="aws_cluster" \
+    -F infraJson=@etc/testing/circle/workloads/aws-krs/infra.json -F valuesYaml=@etc/testing/circle/workloads/aws-krs/values.yaml \
+https://helium.pachyderm.io/v1/api/workspace
 else
   echo "no valid customer name provided"
   exit 1
@@ -95,6 +100,12 @@ elif [ "${1}" = "btl" ]; then
   cd customer-success/testing/performance/battelle/dag/scripts/
   ./dataload.sh
   ./deploy-all.sh
+elif [ "${1}" = "krs"]; then
+  # cloning karius workload test repo
+  git clone https://github.com/pachyderm/customer-success.git customer-success
+  git checkout -b "workload-hackathon-22"
+  cd ./testing/performance/karius/FD-0388/
+  make pipeline
 else
   echo "no valid customer name provided"
   exit 1
