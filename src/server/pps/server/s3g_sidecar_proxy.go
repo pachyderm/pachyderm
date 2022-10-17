@@ -65,6 +65,7 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 
 			mashup := func(s string) string {
 				// danger danger, this will probably mash too much in some cases
+				p := s
 				ret := strings.Replace(s, "/out", "/"+CurrentBucket, -1)
 				// XML stylee as well
 				ret = strings.Replace(ret, ">out", ">"+CurrentBucket, -1)
@@ -72,22 +73,22 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					// XXX SECURITY: Think about how inferring
 					// LastSeenPathToReplace based on user generated traffic may
 					// allow access to the whole bucket
-					p := ret
-					ret = strings.Replace(ret, LastSeenPathToReplace, CurrentTargetPath+"/"+LastSeenPathToReplace, -1)
-					if p != ret {
-						logrus.Infof("PROXY transformed '%s' to '%s'", p, ret)
-					}
+					// ret = strings.Replace(ret, LastSeenPathToReplace, CurrentTargetPath+"/"+LastSeenPathToReplace, -1)
 				} else {
 					if len(s) <= 100 {
 						logrus.Infof("PROXY Warning! LastSeenPathToReplace was empty when mashing up '%s'", s)
 					}
 				}
 				// logrus.Infof("MASHUP '%s' ==> '%s'", s, ret)
+				if p != ret {
+					logrus.Infof("PROXY transformed '%s' to '%s'", p, ret)
+				}
 				return ret
 			}
 
 			unmashup := func(s string) string {
 				// danger danger, this will probably mash too much in some cases
+				p := s
 				ret := strings.Replace(s, "/"+CurrentBucket, "/out", -1)
 				// XML stylee as well
 				ret = strings.Replace(ret, ">"+CurrentBucket, ">out", -1)
@@ -95,17 +96,16 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					// XXX SECURITY: Think about how inferring
 					// LastSeenPathToReplace based on user generated traffic may
 					// allow access to the whole bucket
-					p := ret
-					ret = strings.Replace(ret, CurrentTargetPath+"/"+LastSeenPathToReplace, LastSeenPathToReplace, -1)
-					if p != ret {
-						logrus.Infof("PROXY reverse transformed '%s' to '%s'", p, ret)
-					}
+					// ret = strings.Replace(ret, CurrentTargetPath+"/"+LastSeenPathToReplace, LastSeenPathToReplace, -1)
 				} else {
 					if len(s) <= 100 {
 						logrus.Infof("PROXY Warning! LastSeenPathToReplace was empty when unmashing '%s'", s)
 					}
 				}
 				// logrus.Infof("MASHUP '%s' ==> '%s'", s, ret)
+				if p != ret {
+					logrus.Infof("PROXY reverse transformed '%s' to '%s'", p, ret)
+				}
 				return ret
 			}
 
@@ -203,11 +203,15 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 						mashed := unmashup(string(bodyBytes))
 						modifiedBodyBytes := new(bytes.Buffer)
 						modifiedBodyBytes.WriteString(mashed)
+						prev := resp.ContentLength
+
 						resp.Body = ioutil.NopCloser(modifiedBodyBytes)
 						resp.ContentLength = int64(len(mashed))
+						logrus.Infof("PROXY Setting content length from %d to %d", prev, resp.ContentLength)
+
+						resp.Header.Set("Content-Length", fmt.Sprintf("%d", len(mashed)))
 
 						// prev := resp.Header.Get("Content-Length")
-						// resp.Header.Set("Content-Length", fmt.Sprintf("%d", len(mashed)))
 						// logrus.Infof("PROXY response switching Content-Length from %d to %d", prev, len(mashed))
 					}
 					return nil
