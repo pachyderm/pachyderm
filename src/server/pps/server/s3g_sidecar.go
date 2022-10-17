@@ -212,7 +212,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	if s.s.pipelineInfo.Details.S3Out {
 		outputBucket = &s3.Bucket{
 			Commit: jobInfo.OutputCommit,
-			Name:   "pachyderm-test", // maybe the name s2 is routing too needs to match the one the backend bucket is expecting too
+			Name:   "out", // maybe the name s2 is routing too needs to match the one the backend bucket is expecting too
 		}
 	}
 	var proxyToRealBackend bool
