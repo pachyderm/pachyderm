@@ -56,9 +56,10 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 			if LastSeenPathToReplace == "" {
 				// match the first Spark request per job...
 				// HEAD /out/example-data-24 HTTP/1.1
+				logrus.Infof("PROXY r.Method='%s', r.RequestURI='%s'", r.Method, r.RequestURI)
 				if r.Method == "HEAD" && strings.HasPrefix(r.RequestURI, "/out/") {
 					LastSeenPathToReplace = r.RequestURI[len("/out/"):]
-					logrus.Infof("PROXY LastSeenPathToReplace: %s", LastSeenPathToReplace)
+					logrus.Infof("PROXY LastSeenPathToReplace: '%s'", LastSeenPathToReplace)
 				}
 			}
 
@@ -66,16 +67,45 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 				// danger danger, this will probably mash too much in some cases
 				ret := strings.Replace(s, "/out", "/"+CurrentBucket, -1)
 				if LastSeenPathToReplace != "" {
-					// TODO: Think about how inferring LastSeenPathToReplace based on user generated traffic
+					// XXX SECURITY: Think about how inferring
+					// LastSeenPathToReplace based on user generated traffic may
+					// allow access to the whole bucket
+					p := ret
 					ret = strings.Replace(ret, LastSeenPathToReplace, CurrentTargetPath+"/"+LastSeenPathToReplace, -1)
+					if p != ret {
+						logrus.Infof("PROXY transformed '%s' to '%s'", p, ret)
+					}
 				} else {
-					logrus.Infof("PROXY Warning! LastSeenPathToReplace was empty when mashing up '%s'", s)
+					if len(s) <= 100 {
+						logrus.Infof("PROXY Warning! LastSeenPathToReplace was empty when mashing up '%s'", s)
+					}
 				}
 				// logrus.Infof("MASHUP '%s' ==> '%s'", s, ret)
 				return ret
 			}
 
-			logrus.Infof("===> IN PROXY ROUTER, w=%+v, r=%+v", w, r)
+			unmashup := func(s string) string {
+				// danger danger, this will probably mash too much in some cases
+				ret := strings.Replace(s, "/"+CurrentBucket, "/out", -1)
+				if LastSeenPathToReplace != "" {
+					// XXX SECURITY: Think about how inferring
+					// LastSeenPathToReplace based on user generated traffic may
+					// allow access to the whole bucket
+					p := ret
+					ret = strings.Replace(ret, CurrentTargetPath+"/"+LastSeenPathToReplace, LastSeenPathToReplace, -1)
+					if p != ret {
+						logrus.Infof("PROXY reverse transformed '%s' to '%s'", p, ret)
+					}
+				} else {
+					if len(s) <= 100 {
+						logrus.Infof("PROXY Warning! LastSeenPathToReplace was empty when unmashing '%s'", s)
+					}
+				}
+				// logrus.Infof("MASHUP '%s' ==> '%s'", s, ret)
+				return ret
+			}
+
+			// logrus.Infof("===> IN PROXY ROUTER, w=%+v, r=%+v", w, r)
 
 			proxy := &httputil.ReverseProxy{
 				Director: func(req *http.Request) {
@@ -101,6 +131,7 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					}
 					req.URL.Path = mashup(req.URL.Path)
 					req.URL.RawPath = mashup(req.URL.RawPath)
+					req.URL.RawQuery = mashup(req.URL.RawQuery)
 
 					// mashup each of the request headers
 					for k, v := range req.Header {
@@ -126,9 +157,14 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 							logrus.Fatal(err)
 						}
 						// TODO find and replace
+						mashed := mashup(string(bodyBytes))
 						modifiedBodyBytes := new(bytes.Buffer)
-						modifiedBodyBytes.WriteString(mashup(string(bodyBytes)))
+						modifiedBodyBytes.WriteString(mashed)
 						req.Body = ioutil.NopCloser(modifiedBodyBytes)
+						req.ContentLength = int64(len(mashed))
+						// prev := req.Header.Get("Content-Length")
+						// req.Header.Set("Content-Length", fmt.Sprintf("%d", len(mashed)))
+						// logrus.Infof("PROXY request switching Content-Length from %d to %d", prev, len(mashed))
 					}
 					// TODO: check whether awsauth.Sign4 reads the whole request
 					// body into memory, if it does that's bad for large writes
@@ -160,13 +196,20 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 
 					// find and replace
 					if resp.Body != nil {
+						mashed := unmashup(string(bodyBytes))
 						modifiedBodyBytes := new(bytes.Buffer)
-						modifiedBodyBytes.WriteString(mashup(string(bodyBytes)))
+						modifiedBodyBytes.WriteString(mashed)
 						resp.Body = ioutil.NopCloser(modifiedBodyBytes)
+						resp.ContentLength = int64(len(mashed))
+
+						// prev := resp.Header.Get("Content-Length")
+						// resp.Header.Set("Content-Length", fmt.Sprintf("%d", len(mashed)))
+						// logrus.Infof("PROXY response switching Content-Length from %d to %d", prev, len(mashed))
 					}
 					return nil
 				},
 				ErrorHandler: func(resp http.ResponseWriter, r *http.Request, err error) {
+					panic(err)
 					log.Printf("Error from proxy connection for %s %s: %s", r.Host, r.URL.Path, err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 				},
