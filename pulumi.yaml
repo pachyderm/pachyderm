@@ -1,0 +1,11 @@
+name: my-aws-project
+runtime: nodejs
+description: My AWS project description
+template:
+  config:
+    aws:region:
+      description: The AWS region to deploy into
+      default: us-west-2
+    myAccessToken:
+      description: My access token
+      secret: true
