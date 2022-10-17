@@ -29,7 +29,11 @@ var ReposTypeIndex = &col.Index{
 }
 
 func ReposNameKey(repo *pfs.Repo) string {
-	return repo.Project.Name + "/" + repo.Name
+	if projectName := repo.Project.GetName(); projectName != "" {
+		return repo.Project.Name + "/" + repo.Name
+	}
+	// TODO: remove this after CORE-93 is complete.
+	return repo.Name
 }
 
 var ReposNameIndex = &col.Index{
