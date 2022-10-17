@@ -45,6 +45,7 @@ if [ ! -f ${PG_CONFIG_DIR}/pgbouncer.ini ]; then
     # Config file is in “ini” format. Section names are between “[” and “]”.
     # Lines starting with “;” or “#” are taken as comments and ignored.
     # The characters “;” and “#” are not recognized when they appear later in the line.
+    # shellcheck disable=SC2059
     printf "\
     ################## Auto generated ##################
     [databases]
