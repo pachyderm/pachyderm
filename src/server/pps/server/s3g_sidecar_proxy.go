@@ -17,14 +17,22 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
+	awsauth "github.com/smartystreets/go-aws-auth"
 )
 
 type RawS3Proxy struct {
 }
 
 // XXX this shouldn't be a global variable, it's just convenient for this PoC..
-// e.g. "bucketname/prefix"
-var CurrentBucketPath string = "out"
+// e.g. "bucketname"
+var CurrentBucket string = "out"
+
+// This is like pipeline_name-<job-id>
+var CurrentTargetPath string = ""
+
+// Autodetected based on proxy traffic, will be like "example-data-24" or
+// whatever path the user specified after "s3a://out/<path>"
+var LastSeenPathToReplace string = ""
 
 func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 	// os.GetEnv("STORAGE_BACKEND") ==> "MINIO" or, presumably, "AWS"...
@@ -45,10 +53,25 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 	proxyRouter.PathPrefix("/").HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 
+			if LastSeenPathToReplace == "" {
+				// match the first Spark request per job...
+				// HEAD /out/example-data-24 HTTP/1.1
+				if r.Method == "HEAD" && strings.HasPrefix(r.RequestURI, "/out/") {
+					LastSeenPathToReplace = r.RequestURI[len("/out/"):]
+					logrus.Infof("PROXY LastSeenPathToReplace: %s", LastSeenPathToReplace)
+				}
+			}
+
 			mashup := func(s string) string {
 				// danger danger, this will probably mash too much in some cases
-				ret := strings.Replace(s, "/out", "/"+CurrentBucketPath, -1)
-				logrus.Infof("MASHUP '%s' ==> '%s'", s, ret)
+				ret := strings.Replace(s, "/out", "/"+CurrentBucket, -1)
+				if LastSeenPathToReplace != "" {
+					// TODO: Think about how inferring LastSeenPathToReplace based on user generated traffic
+					ret = strings.Replace(ret, LastSeenPathToReplace, CurrentTargetPath+"/"+LastSeenPathToReplace, -1)
+				} else {
+					logrus.Infof("PROXY Warning! LastSeenPathToReplace was empty when mashing up '%s'", s)
+				}
+				// logrus.Infof("MASHUP '%s' ==> '%s'", s, ret)
 				return ret
 			}
 
@@ -107,6 +130,14 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 						modifiedBodyBytes.WriteString(mashup(string(bodyBytes)))
 						req.Body = ioutil.NopCloser(modifiedBodyBytes)
 					}
+					// TODO: check whether awsauth.Sign4 reads the whole request
+					// body into memory, if it does that's bad for large writes
+					// and we should figure out how we can stream it to disk
+					// first...
+					awsauth.Sign4(req, awsauth.Credentials{
+						AccessKeyID:     os.Getenv("MINIO_ID"),
+						SecretAccessKey: os.Getenv("MINIO_SECRET"),
+					})
 				},
 				ModifyResponse: func(resp *http.Response) error {
 					// TODO: skip loading the response body into memory if we're

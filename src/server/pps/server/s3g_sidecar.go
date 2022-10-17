@@ -184,7 +184,10 @@ type s3InstanceCreatingJobHandler struct {
 func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pps.JobInfo) {
 
 	if os.Getenv("STORAGE_BACKEND") == "MINIO" {
-		CurrentBucketPath = fmt.Sprintf("%s/%s-%s", os.Getenv("MINIO_BUCKET"), jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
+		CurrentBucket = os.Getenv("MINIO_BUCKET")
+		CurrentTargetPath = fmt.Sprintf("%s-%s", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
+		// reset LastSeenPathToReplace so that it gets picked up on the first HEAD request by Spark
+		LastSeenPathToReplace = ""
 	}
 	// TODO: add support for real AWS/S3
 
