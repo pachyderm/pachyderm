@@ -908,7 +908,7 @@ func (a *apiServer) AddPipelineReaderToRepoInTransaction(txnCtx *txncontext.Tran
 		return err
 	}
 
-	return a.setUserRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repoResourceName(sourceRepo)}, auth.PipelinePrefix+pipeline.String(), []string{auth.RepoReaderRole})
+	return a.setUserRoleBindingInTransaction(txnCtx, sourceRepo.AuthResource(), auth.PipelinePrefix+pipeline.String(), []string{auth.RepoReaderRole})
 }
 
 // AddPipelineWriterToSourceRepoInTransaction gives a pipeline access to write data to the specified source repo.
@@ -926,7 +926,7 @@ func (a *apiServer) AddPipelineWriterToSourceRepoInTransaction(txnCtx *txncontex
 	if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, r, auth.Permission_REPO_ADD_PIPELINE_WRITER); err != nil {
 		return err
 	}
-	return a.setUserRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repoResourceName(sourceRepo)}, auth.PipelinePrefix+pipeline.String(), []string{auth.RepoWriterRole})
+	return a.setUserRoleBindingInTransaction(txnCtx, sourceRepo.AuthResource(), auth.PipelinePrefix+pipeline.String(), []string{auth.RepoWriterRole})
 }
 
 // AddPipelineWriterToRepoInTransaction gives a pipeline access to write to it's own output repo.
@@ -964,7 +964,7 @@ func (a *apiServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txncontext
 		return err
 	}
 
-	return a.setUserRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repoResourceName(sourceRepo)}, auth.PipelinePrefix+pipeline.String(), []string{})
+	return a.setUserRoleBindingInTransaction(txnCtx, sourceRepo.AuthResource(), auth.PipelinePrefix+pipeline.String(), []string{})
 }
 
 // ModifyRoleBindingInTransaction is identical to ModifyRoleBinding except that it can run inside

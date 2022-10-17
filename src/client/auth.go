@@ -1,11 +1,10 @@
 package client
 
 import (
-	"fmt"
-
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 )
 
 // IsAuthActive returns whether auth is activated on the cluster
@@ -49,18 +48,15 @@ func (c APIClient) ModifyClusterRoleBinding(principal string, roles []string) er
 	return nil
 }
 
-func repoResourceName(r *pfs.Repo) string {
-	return fmt.Sprintf("%s/%s", r.Project.Name, r.Name)
-}
-
 // Deprecated: use GetProjectRepoRoleBinding instead.
 func (c APIClient) GetRepoRoleBinding(repoName string) (*auth.RoleBinding, error) {
 	return c.GetProjectRepoRoleBinding(pfs.DefaultProjectName, repoName)
 }
 
+// Return the roles bound to a repo within a project.
 func (c APIClient) GetProjectRepoRoleBinding(projectName, repoName string) (*auth.RoleBinding, error) {
 	resp, err := c.GetRoleBinding(c.Ctx(), &auth.GetRoleBindingRequest{
-		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repoResourceName(NewProjectRepo(projectName, repoName))},
+		Resource: NewProjectRepo(projectName, repoName).AuthResource(),
 	})
 	if err != nil {
 		return nil, err
@@ -69,13 +65,14 @@ func (c APIClient) GetProjectRepoRoleBinding(projectName, repoName string) (*aut
 }
 
 // Deprecated: use ModifyProjectRepoRoleBinding instead.
-func (c APIClient) ModifyRepoRoleBinding(repo, principal string, roles []string) error {
-	return c.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, principal, roles)
+func (c APIClient) ModifyRepoRoleBinding(repoName, principal string, roles []string) error {
+	return c.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, principal, roles)
 }
 
+// Update the roles bound to a repo within a project.
 func (c APIClient) ModifyProjectRepoRoleBinding(projectName, repoName, principal string, roles []string) error {
 	_, err := c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
-		Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: repoResourceName(NewProjectRepo(projectName, repoName))},
+		Resource:  NewProjectRepo(projectName, repoName).AuthResource(),
 		Principal: principal,
 		Roles:     roles,
 	})
