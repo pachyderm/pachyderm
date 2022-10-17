@@ -46,8 +46,8 @@ describe('switching between repo and datum mode', () => {
       .should('contain', 'name: images_branch');
     cy.findByTestId('Datum__inputSpecInput')
       .clear()
-      .type('name: images_branch_custom', {delay: 50})
-      .should('contain', 'name: images_branch_custom');
+      .type('abcd')
+      .should('contain', 'abcd');
     cy.findByTestId('Datum__back').click();
 
     cy.findAllByText('Unmount').should('have.length', 1);
@@ -55,6 +55,6 @@ describe('switching between repo and datum mode', () => {
     cy.findByTestId('Datum__mode').click();
     cy.findByTestId('Datum__inputSpecInput')
       .invoke('prop', 'value')
-      .should('contain', 'name: images_branch_custom');
+      .should('contain', 'abcd');
   });
 });
