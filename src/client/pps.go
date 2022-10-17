@@ -474,8 +474,8 @@ func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit
 // that error, unless the error is errutil.ErrBreak in which case it will return
 // nil.
 //
-// If pipelineName is non empty then only jobs that were started by the named
-// pipeline will be returned.
+// If projectName & pipelineName are both non-empty then only jobs that were
+// started by the named pipeline will be returned.
 //
 // If inputCommit is non-nil then only jobs which took the specific commits as
 // inputs will be returned.
@@ -499,9 +499,7 @@ func (c APIClient) ListProjectJobFilterF(projectName, pipelineName string, input
 	history int64, details bool, jqFilter string,
 	f func(*pps.JobInfo) error) error {
 	var pipeline *pps.Pipeline
-	// Does not check for projectName not being empty because the empty
-	// project name is currently valid, and will be until after CORE-93.
-	if pipelineName != "" {
+	if projectName != "" && pipelineName != "" {
 		pipeline = NewProjectPipeline(projectName, pipelineName)
 	}
 	ctx, cf := context.WithCancel(c.Ctx())

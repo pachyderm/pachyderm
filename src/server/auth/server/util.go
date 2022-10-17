@@ -36,12 +36,6 @@ func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.Transa
 	}
 
 	resource := r.AuthResource()
-	// Handle spec commits differently from stats and user commits
-	t := auth.ResourceType_REPO
-	if r.Type == pfs.SpecRepoType {
-		t = auth.ResourceType_SPEC_REPO
-	}
-	resource.Type = t // FIXME: should this be done in AuthResource?
 
 	req := &auth.AuthorizeRequest{Resource: resource, Permissions: p}
 	resp, err := a.AuthorizeInTransaction(txnCtx, req)
@@ -64,11 +58,6 @@ func (a *apiServer) CheckRepoIsAuthorized(ctx context.Context, r *pfs.Repo, p ..
 
 	// Handle spec commits differently from stats and user commits
 	resource := r.AuthResource()
-	t := auth.ResourceType_REPO
-	if r.Type == pfs.SpecRepoType {
-		t = auth.ResourceType_SPEC_REPO
-	}
-	resource.Type = t // FIXME: should this be handled in AuthResource?
 
 	req := &auth.AuthorizeRequest{Resource: resource, Permissions: p}
 	resp, err := a.Authorize(ctx, req)
