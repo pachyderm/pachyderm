@@ -136,7 +136,7 @@
         accept_http_10: false,
       },
       request_timeout: '604800s',  // Necessary to allow long file uploads.
-      stream_idle_timeout: '600s',  // Only completely idle streams are dropped after this timeout.
+      stream_idle_timeout: '3600s',  // Only completely idle streams are dropped after this timeout.
       route_config: {
         [if std.length(response_headers_to_add) > 0 then 'response_headers_to_add' else null]: [
           {
