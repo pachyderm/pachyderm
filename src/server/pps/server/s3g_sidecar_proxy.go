@@ -66,6 +66,8 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 			mashup := func(s string) string {
 				// danger danger, this will probably mash too much in some cases
 				ret := strings.Replace(s, "/out", "/"+CurrentBucket, -1)
+				// XML stylee as well
+				ret = strings.Replace(s, ">out", ">"+CurrentBucket, -1)
 				if LastSeenPathToReplace != "" {
 					// XXX SECURITY: Think about how inferring
 					// LastSeenPathToReplace based on user generated traffic may
@@ -87,6 +89,8 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 			unmashup := func(s string) string {
 				// danger danger, this will probably mash too much in some cases
 				ret := strings.Replace(s, "/"+CurrentBucket, "/out", -1)
+				// XML stylee as well
+				ret = strings.Replace(s, ">"+CurrentBucket, ">out", -1)
 				if LastSeenPathToReplace != "" {
 					// XXX SECURITY: Think about how inferring
 					// LastSeenPathToReplace based on user generated traffic may
