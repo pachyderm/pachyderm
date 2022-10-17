@@ -121,22 +121,14 @@ func EnsureRepoProject(r *Repo) {
 // it is the project name and repo name separated by a slash.  Notably, it does
 // _not_ include the repo type string.
 func (r *Repo) AuthResource() *auth.Resource {
-	var (
-		t    auth.ResourceType
-		name string
-	)
+	var t auth.ResourceType
 	if r.Type == SpecRepoType {
 		t = auth.ResourceType_SPEC_REPO
 	} else {
 		t = auth.ResourceType_REPO
 	}
-	if r.Project == nil {
-		name = r.Name
-	} else {
-		name = fmt.Sprintf("%s/%s", r.Project.Name, r.Name)
-	}
 	return &auth.Resource{
 		Type: t,
-		Name: name,
+		Name: fmt.Sprintf("%s/%s", r.Project.Name, r.Name),
 	}
 }

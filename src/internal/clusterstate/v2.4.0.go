@@ -3,13 +3,14 @@ package clusterstate
 import (
 	"context"
 
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	auth "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	auth "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 )
 
 var state_2_4_0 migrations.State = state_2_3_0.
