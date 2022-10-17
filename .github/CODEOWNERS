@@ -1,6 +1,6 @@
 # Default match everything to the CORE team.
 # This means that items can be intentionally excluded below by using a match pattern without a group
-/ @pachyderm/CORE
+* @pachyderm/CORE
 
 # Docs
 /doc/ @lbliii
