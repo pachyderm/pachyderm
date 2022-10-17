@@ -64,6 +64,7 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 			}
 
 			mashup := func(s string) string {
+				return s
 				// danger danger, this will probably mash too much in some cases
 				p := s
 				ret := strings.Replace(s, "/out", "/"+CurrentBucket, -1)
@@ -87,6 +88,7 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 			}
 
 			unmashup := func(s string) string {
+				return s
 				// danger danger, this will probably mash too much in some cases
 				p := s
 				ret := strings.Replace(s, "/"+CurrentBucket, "/out", -1)
