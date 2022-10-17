@@ -2,6 +2,7 @@ package chunk
 
 import (
 	"context"
+	"sync"
 
 	"golang.org/x/sync/semaphore"
 )
@@ -23,6 +24,7 @@ type EntryFunc = func(interface{}, *DataRef) error
 type Batcher struct {
 	client    Client
 	entries   []*entry
+	bufPool   sync.Pool
 	buf       []byte
 	threshold int
 	taskChain *TaskChain
@@ -41,7 +43,10 @@ type entry struct {
 func (s *Storage) NewBatcher(ctx context.Context, name string, threshold int, opts ...BatcherOption) *Batcher {
 	client := NewClient(s.store, s.db, s.tracker, NewRenewer(ctx, s.tracker, name, defaultChunkTTL))
 	b := &Batcher{
-		client:    client,
+		client: client,
+		bufPool: sync.Pool{
+			New: func() interface{} { return make([]byte, 0, 2*threshold) },
+		},
 		threshold: threshold,
 		taskChain: NewTaskChain(ctx, semaphore.NewWeighted(chunkParallelism)),
 	}
@@ -57,6 +62,9 @@ func (b *Batcher) Add(meta interface{}, data []byte, pointsTo []*DataRef) error 
 		size:     len(data),
 		pointsTo: pointsTo,
 	})
+	if b.buf == nil {
+		b.buf = b.bufPool.Get().([]byte)
+	}
 	b.buf = append(b.buf, data...)
 	if len(b.buf) >= b.threshold {
 		if err := b.createBatch(b.entries, b.buf); err != nil {
@@ -70,6 +78,7 @@ func (b *Batcher) Add(meta interface{}, data []byte, pointsTo []*DataRef) error 
 
 func (b *Batcher) createBatch(entries []*entry, buf []byte) error {
 	return b.taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
+		defer b.bufPool.Put(buf[:0])
 		pointsTo := getPointsTo(entries)
 		dataRef, err := upload(ctx, b.client, buf, pointsTo, false)
 		if err != nil {

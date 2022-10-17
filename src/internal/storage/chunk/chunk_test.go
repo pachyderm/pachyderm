@@ -2,14 +2,19 @@ package chunk
 
 import (
 	"bytes"
+	"context"
+	fmt "fmt"
 	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
 // TODO: Write new tests.
@@ -72,10 +77,29 @@ func BenchmarkComputeChunks(b *testing.B) {
 	}
 }
 
+func BenchmarkBatcher(b *testing.B) {
+	ctx := context.Background()
+	_, storage := newTestStorage(b)
+	seed := time.Now().UTC().UnixNano()
+	random := rand.New(rand.NewSource(seed))
+	data := randutil.Bytes(random, 100*units.MB)
+	b.SetBytes(int64(len(data)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		batcher := storage.NewBatcher(ctx, "benchmark-batcher", units.MB, WithEntryCallback(func(_ interface{}, _ *DataRef) error {
+			return nil
+		}))
+		for i := 0; i < len(data); i += units.KB {
+			require.NoError(b, batcher.Add(fmt.Sprintf("%08x", i), data[i:i+units.KB], nil))
+		}
+		require.NoError(b, batcher.Close())
+	}
+}
+
 // newTestStorage is like NewTestStorage except it doesn't need an external tracker
 // it is for testing this package, not for reuse.
-//func newTestStorage(t testing.TB) (obj.Client, *Storage) {
-//	db := dockertestenv.NewTestDB(t)
-//	tr := track.NewTestTracker(t, db)
-//	return NewTestStorage(t, db, tr)
-//}
+func newTestStorage(t testing.TB) (obj.Client, *Storage) {
+	db := dockertestenv.NewTestDB(t)
+	tr := track.NewTestTracker(t, db)
+	return NewTestStorage(t, db, tr)
+}
