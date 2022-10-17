@@ -381,6 +381,8 @@ message ListFileRequest {
   File startMarker = 3;
   // Number of files to return
   int64 number = 4;
+  // If true, return files in reverse order
+  bool reverse = 5;
 
 // TODO:
 //  // History indicates how many historical versions you want returned. Its

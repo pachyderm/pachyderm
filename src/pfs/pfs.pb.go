@@ -3150,7 +3150,9 @@ type ListFileRequest struct {
 	// Marker for pagination - Armaan TODO - detail
 	StartMarker *File `protobuf:"bytes,3,opt,name=startMarker,proto3" json:"startMarker,omitempty"`
 	// Number of files to return
-	Number               int64    `protobuf:"varint,4,opt,name=number,proto3" json:"number,omitempty"`
+	Number int64 `protobuf:"varint,4,opt,name=number,proto3" json:"number,omitempty"`
+	// If true, return files in reverse order
+	Reverse              bool     `protobuf:"varint,5,opt,name=reverse,proto3" json:"reverse,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -3208,6 +3210,13 @@ func (m *ListFileRequest) GetNumber() int64 {
 		return m.Number
 	}
 	return 0
+}
+
+func (m *ListFileRequest) GetReverse() bool {
+	if m != nil {
+		return m.Reverse
+	}
+	return false
 }
 
 type WalkFileRequest struct {
@@ -10332,6 +10341,16 @@ func (m *ListFileRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
+	if m.Reverse {
+		i--
+		if m.Reverse {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x28
+	}
 	if m.Number != 0 {
 		i = encodeVarintPfs(dAtA, i, uint64(m.Number))
 		i--
@@ -13027,6 +13046,9 @@ func (m *ListFileRequest) Size() (n int) {
 	}
 	if m.Number != 0 {
 		n += 1 + sovPfs(uint64(m.Number))
+	}
+	if m.Reverse {
+		n += 2
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -20284,6 +20306,26 @@ func (m *ListFileRequest) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Reverse", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPfs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Reverse = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipPfs(dAtA[iNdEx:])
