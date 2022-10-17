@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -28,13 +27,6 @@ func (a *apiServer) CheckClusterIsAuthorizedInTransaction(txnCtx *txncontext.Tra
 	return nil
 }
 
-func repoResourceName(r *pfs.Repo) string {
-	if r.GetProject().GetName() == "" {
-		return r.Name
-	}
-	return fmt.Sprintf("%s/%s", r.Project.Name, r.Name)
-}
-
 // CheckRepoIsAuthorizedInTransaction is identical to CheckRepoIsAuthorized except that
 // it performs reads consistent with the latest state of the STM transaction.
 func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, r *pfs.Repo, p ...auth.Permission) error {
@@ -43,12 +35,13 @@ func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.Transa
 		return nil
 	}
 
+	resource := r.AuthResource()
 	// Handle spec commits differently from stats and user commits
 	t := auth.ResourceType_REPO
 	if r.Type == pfs.SpecRepoType {
 		t = auth.ResourceType_SPEC_REPO
 	}
-	resource := &auth.Resource{Type: t, Name: repoResourceName(r)}
+	resource.Type = t // FIXME: should this be done in AuthResource?
 
 	req := &auth.AuthorizeRequest{Resource: resource, Permissions: p}
 	resp, err := a.AuthorizeInTransaction(txnCtx, req)
@@ -70,11 +63,12 @@ func (a *apiServer) CheckRepoIsAuthorized(ctx context.Context, r *pfs.Repo, p ..
 	}
 
 	// Handle spec commits differently from stats and user commits
+	resource := r.AuthResource()
 	t := auth.ResourceType_REPO
 	if r.Type == pfs.SpecRepoType {
 		t = auth.ResourceType_SPEC_REPO
 	}
-	resource := &auth.Resource{Type: t, Name: repoResourceName(r)}
+	resource.Type = t // FIXME: should this be handled in AuthResource?
 
 	req := &auth.AuthorizeRequest{Resource: resource, Permissions: p}
 	resp, err := a.Authorize(ctx, req)
