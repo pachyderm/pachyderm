@@ -1,12 +1,12 @@
 # Default match everything to the CORE team.
 # This means that items can be intentionally excluded below by using a match pattern without a group
-/* @pachyderm/CORE
+/ @pachyderm/CORE
 
 # Docs
 /doc/ @lbliii
 
 # Helm
-/etc/helm/ @jrockway @seanslattery @robert-uhl @armaanv @chainlink
+/etc/helm/ @jrockway @seslattery @robert-uhl @armaanv @chainlink
 
 # Services with individual owners
 /src/auth/               @acohen4 @jrockway
@@ -33,9 +33,9 @@
 /src/task/               @brycemcanally
 
 # Integrations
-/src/integrations/ @pachyderm/INT
-/src/integrations/connectors/snowflake/ @robert-uhl
-/src/templates/ @pachyderm/INT
+/src/integrations/                         @pachyderm/INT
+/src/integrations/connectors/snowflake/    @robert-uhl
+/src/templates/                            @pachyderm/INT
 
 # Internal
 # Add all the teams, so anyone can make, or change internal libraries by default.
@@ -44,8 +44,8 @@
 # Individuals for specific packages
 /src/internal/collection/            @brycemcanally @acohen4 @robert-uhl
 /src/internal/clusterstate/          @jrockway @brycemcanally
-/src/internal/migrations/            @brendoncarrolla
-/src/interna/consistenthashing/      @fahad
+/src/internal/migrations/            @brendoncarroll
+/src/interna/consistenthashing/      @FahadBSyed
 /src/internal/dockertestenv/         @brendoncarroll
 /src/interna/minikubetestenv/        @acohen4
 /src/internal/obj/                   @pachyderm/PFS
