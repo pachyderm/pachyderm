@@ -1,0 +1,68 @@
+# Default match everything to the CORE team.
+# This means that items can be intentionally excluded below by using a match pattern without a group
+/* @pachyderm/CORE
+
+# Docs
+/doc/ @lb
+
+# Helm
+/etc/helm/ @jrockway @seanslattery @rob-uhl @armaan @chainlink
+
+# Services with individual owners
+/src/auth/               @alon @jrockway
+/src/server/auth/        @alon @jrockway
+
+/src/debug/              @jrockway @bryce
+/src/server/debug/       @jrockway @bryce
+
+/src/enterprise/         @alon
+/src/server/enterprise/  @alon
+
+/src/identity/           @jrockway @alon
+/src/server/identity/    @jrockway @alon
+
+/src/license/            @alon
+/src/server/license/     @alon
+
+/src/pfs/                @pachyderm/PFS
+/src/server/pfs/         @pachyderm/PFS
+
+/src/pps/                @bryce @alon
+/src/server/pps/         @bryce @alon
+
+/src/task/               @bryce
+
+# Integrations
+/src/integrations/ @pachyderm/INT
+/src/integrations/connectors/snowflake/ @bob-uhl
+/src/templates/ @pachyderm/INT
+
+# Internal
+# Add all the teams, so anyone can make, or change internal libraries by default.
+/src/internal/ @pachyderm/CORE @pachyderm/PFS @pachyderm/INT
+
+# Individuals for specific packages
+/src/internal/collection/            @bryce @alon @bob
+/src/internal/clusterstate/          @jrockway @bryce
+/src/internal/migrations/            @brendoncarrolla
+/src/interna/consistenthashing/      @fahad
+/src/internal/dockertestenv/         @brendoncarroll
+/src/interna/minikubetestenv/        @alon
+/src/internal/obj/                   @pachyderm/PFS
+/src/interna/pachhash/               @pachyderm/PFS
+/src/interna/pachsql/                @albert @brendoncarroll
+/src/interna/pachtmpl/               @albert @brendoncarroll @pachyderm/INT
+/src/internal/pfsdb/                 @pachyderm/PFS
+/src/internal/pfsfile/               @pachyderm/PFS
+/src/internal/pfssync/               @pachyderm/PFS
+/src/internal/pfsload/               @bryce
+/src/internal/ppsdb/                 @bryce
+/src/internal/ppsload/               @bryce 
+/src/internal/storage/               @pachyderm/PFS
+/src/internal/stream/                @bryce
+/src/internal/task/                  @bryce
+/src/internal/testsnowflake/         @albert
+/src/internal/transforms/            @albert @brendoncarroll
+
+# internal/middleware
+/src/internal/middleware/auth/       @alon
