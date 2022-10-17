@@ -498,12 +498,7 @@ func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit
 func (c APIClient) ListProjectJobFilterF(projectName, pipelineName string, inputCommit []*pfs.Commit,
 	history int64, details bool, jqFilter string,
 	f func(*pps.JobInfo) error) error {
-	var pipeline *pps.Pipeline
-	// Does not check for projectName not being empty because the empty
-	// project name is currently valid, and will be until after CORE-93.
-	if pipelineName != "" {
-		pipeline = NewProjectPipeline(projectName, pipelineName)
-	}
+	var pipeline = NewProjectPipeline(projectName, pipelineName)
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PpsAPIClient.ListJob(
