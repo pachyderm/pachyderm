@@ -125,10 +125,6 @@ func (s *sidecarS3G) createK8sServices() {
 	// createK8sServices goes through master election so that only one k8s service
 	// is created per pachyderm job running sidecar s3 gateway
 	var projectName = s.pipelineInfo.Pipeline.Project.GetName()
-	// TODO: project name will never be empty after CORE-93 lands
-	if projectName == "" {
-		projectName = "@no-project" // using an invalid project name as a dummy value
-	}
 	backoff.RetryNotify(func() error { //nolint:errcheck
 		masterLock := dlock.NewDLock(s.apiServer.env.EtcdClient,
 			path.Join(s.apiServer.etcdPrefix,
