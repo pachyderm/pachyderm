@@ -45,6 +45,7 @@ describe('switching between repo and datum mode', () => {
       .invoke('prop', 'value')
       .should('contain', 'name: images_branch');
     cy.findByTestId('Datum__inputSpecInput').type('name: images_branch_custom');
+    cy.wait(1000);
     cy.findByTestId('Datum__inputSpecInput')
       .invoke('prop', 'value')
       .should('contain', 'name: images_branch_custom');
