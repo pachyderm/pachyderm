@@ -5,7 +5,7 @@ import {BrowserRouter} from 'react-router-dom';
 
 import {withContextProviders} from 'testHelpers';
 
-import {UserSVG, WorkspacesSVG} from '../../Svg';
+import {SupportSVG, DirectionsSVG} from '../../Svg';
 import SideNav from '../SideNav';
 
 describe('SideNav', () => {
@@ -15,14 +15,14 @@ describe('SideNav', () => {
         <SideNav breakpoint={200}>
           <SideNav.SideNavList>
             <SideNav.SideNavLink
-              IconSVG={WorkspacesSVG}
+              IconSVG={DirectionsSVG}
               to={`/workspaces`}
               tooltipContent={'Workspaces'}
             >
               Workspaces
             </SideNav.SideNavLink>
             <SideNav.SideNavLink
-              IconSVG={UserSVG}
+              IconSVG={SupportSVG}
               to={`/members`}
               tooltipContent={'Sync'}
             >

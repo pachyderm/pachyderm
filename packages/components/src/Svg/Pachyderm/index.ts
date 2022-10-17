@@ -11,17 +11,14 @@ export {ReactComponent as ElephantHeadExtraLargeSVG} from './elephantHeadExtraLa
 export {ReactComponent as ElephantHeadLargeSVG} from './elephantHeadLarge.svg';
 export {ReactComponent as GenericErrorSVG} from './genericError.svg';
 export {ReactComponent as KubernetesElephantSVG} from './kubernetesElephant.svg';
-export {ReactComponent as LockSVG} from './Lock.svg';
 export {ReactComponent as MembersFreeSVG} from './MembersFree.svg';
 export {ReactComponent as OvalSVG} from './Oval.svg';
 export {ReactComponent as PachydermLogoSVG} from './pachydermLogo.svg';
 export {ReactComponent as PachydermLogoBaseSVG} from './pachydermLogoBase.svg';
 export {ReactComponent as PachydermLogoFooterSVG} from './pachydermLogoFooter.svg';
 export {ReactComponent as RectangleSVG} from './Rectangle.svg';
-export {ReactComponent as RepoSVG} from './Repo.svg';
 export {ReactComponent as SectionRectangleSVG} from './SectionRectangle.svg';
 export {ReactComponent as TriangleSVG} from './Triangle.svg';
 export {ReactComponent as WorkspaceSVG} from './workspace.svg';
-export {ReactComponent as PipelineSVG} from './Pipeline.svg';
 export {ReactComponent as PipelinesSVG} from './pipelines.svg';
 export {ReactComponent as CollaborationSVG} from './collaboration.svg';

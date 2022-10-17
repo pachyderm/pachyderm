@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/components",
-  "version": "3.4.3",
+  "version": "3.4.4",
   "type": "module",
   "main": "dist/components.umd.cjs",
   "module": "dist/components.js",

@@ -55,8 +55,8 @@
   background: var(--background-grey);
   border: 1.5px solid var(--dropshadow-grey);
   color: var(--background-grey);
-  height: 0.75rem;
-  width: 0.75rem;
+  height: 0.8rem;
+  width: 0.8rem;
   z-index: 2;
 }
 
@@ -87,8 +87,6 @@
 
 .checkmark {
   vertical-align: unset;
-  height: 0.75rem;
-  width: 0.75rem;
   z-index: 2;
 }
 
@@ -122,7 +120,7 @@
 }
 
 .vertical > .button .checkmark {
-  margin-right: 1rem;
+  margin-left: -0.3rem;
 }
 
 .vertical {

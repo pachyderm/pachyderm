@@ -2,6 +2,7 @@ import classNames from 'classnames';
 import React, {useEffect, useRef} from 'react';
 
 import useFadeOut from '../hooks/useFadeOut';
+import {Icon} from '../Icon';
 import {StatusCheckmarkSVG, StatusWarningSVG} from '../Svg';
 
 import styles from './NotificationBanner.module.css';
@@ -41,15 +42,13 @@ const NotificationBanner: React.FC<NotificationBannerProps> = ({
     <div className={containerClasses}>
       <div className={iconClasses}>
         {type === 'success' ? (
-          <StatusCheckmarkSVG
-            className={styles.svg}
-            data-testid="NotificationBanner__checkmark"
-          />
+          <Icon color="green" className={styles.svg}>
+            <StatusCheckmarkSVG data-testid="NotificationBanner__checkmark" />
+          </Icon>
         ) : (
-          <StatusWarningSVG
-            className={styles.exclamation}
-            data-testid="NotificationBanner__error"
-          />
+          <Icon color="red" className={styles.exclamation}>
+            <StatusWarningSVG data-testid="NotificationBanner__error" />
+          </Icon>
         )}
       </div>
       <span role="alert" className={styles.text}>

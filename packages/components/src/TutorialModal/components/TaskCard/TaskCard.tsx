@@ -2,12 +2,8 @@ import classNames from 'classnames';
 import React from 'react';
 
 import {Button} from '../../../Button';
-import {
-  CheckmarkSVG,
-  StatusWarningSVG,
-  StatusCheckmarkSVG,
-  InfoSVG,
-} from '../../../Svg';
+import {Icon} from '../../../Icon';
+import {StatusWarningSVG, StatusCheckmarkSVG, InfoSVG} from '../../../Svg';
 import {ErrorText} from '../../../Text';
 
 import styles from './TaskCard.module.css';
@@ -45,10 +41,12 @@ const TaskCard: React.FC<TaskCardProps> = ({
         >
           <h5 className={styles.task}>{`Task ${index + 1}`}</h5>
           {currentTask > index && (
-            <StatusCheckmarkSVG
-              aria-label={`Task ${index + 1} complete`}
-              className={styles.headerComplete}
-            />
+            <Icon color="green">
+              <StatusCheckmarkSVG
+                aria-label={`Task ${index + 1} complete`}
+                className={styles.headerComplete}
+              />
+            </Icon>
           )}
         </div>
         <div className={styles.taskHeaderWrapperChild}>{task}</div>
@@ -71,7 +69,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
           {currentTask > index && (
             <div className={styles.buttonCover}>
               <div className={styles.svgWrapper}>
-                <CheckmarkSVG />
+                <Icon color="white">
+                  <StatusCheckmarkSVG />
+                </Icon>
               </div>
               <strong className={styles.completedText}>Task Completed!</strong>
             </div>
@@ -79,7 +79,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
           {error && (
             <div className={styles.buttonCover}>
               <div className={styles.svgWrapperError}>
-                <StatusWarningSVG />
+                <Icon color="white">
+                  <StatusWarningSVG />
+                </Icon>
               </div>
               <ErrorText className={styles.errorText}>
                 {error} - you may need to restart the tutorial

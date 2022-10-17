@@ -13,6 +13,10 @@
   background-color: var(--background-black);  
 }
 
+.base.dark .collapse, .base.dark .collapseIcon {
+  color: var(--dropshadow-grey);
+}
+
 .base.light {
   background-color: var(--white);
   border-right: solid 1px var(--line-grey);
@@ -25,7 +29,6 @@
 .collapse {
   display: flex;
   border: none;
-  color: var(--dropshadow-grey);
   background-color: transparent;
   padding: 0.5rem 1rem;
   overflow-x: hidden;
@@ -37,29 +40,12 @@
   padding: 1rem 2rem;
 }
 
-.base.light .collapse{
-  color: var(--pachyderm-black);
-}
-
-.collapse:hover {
-  color: var(--pachyderm-orange);
-}
-
-.collapse:hover > .collapseIcon svg > path {
-  fill: var(--pachyderm-orange);
-}
-
 .collapse:focus:not([class$='focus-visible']) {
   outline: none;
 }
 
 .collapseIcon {
   margin-right: 0.5rem;
-}
-
-.collapseIcon svg > path {
-  color: var(--dropshadow-grey);
-  transition: fill .2s;
 }
 
 .flipSVG {

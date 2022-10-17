@@ -4,14 +4,10 @@
   }
 }
 
-.base {
-  color: var(--success-green);
-}
-
 .base > path {
-  fill: none;
+  fill: var(--success-green);;
   stroke: var(--success-green);
-  stroke-width: 3;
+  stroke-width: 2;
   stroke-dasharray: 1000;
   stroke-dashoffset: 1000;
   animation: dash 1s ease forwards;

@@ -7,6 +7,10 @@ module.exports = {
       path.resolve(__dirname, "../vite.config.ts")
     );
     userConfig.build.lib = undefined;
+    userConfig.build.rollupOptions = {
+      external: [],
+      output: {},
+    };
     return mergeConfig(config, userConfig);
   },
   stories: ['../src/**/*.stories.tsx'],

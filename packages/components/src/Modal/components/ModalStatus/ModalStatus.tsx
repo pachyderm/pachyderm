@@ -3,7 +3,11 @@ import React from 'react';
 
 import {Icon} from 'Icon';
 
-import {StatusWarningSVG, StatusCheckmarkSVG, SpinnerSVG} from '../../../Svg';
+import {
+  StatusWarningSVG,
+  StatusCheckmarkSVG,
+  StatusUpdatedSVG,
+} from '../../../Svg';
 
 import styles from './ModalStatus.module.css';
 
@@ -25,11 +29,23 @@ const ModalStatus: React.FC<ModalStatusProps> = ({status, children}) => {
           {(() => {
             switch (status) {
               case 'success':
-                return <StatusCheckmarkSVG aria-hidden />;
+                return (
+                  <Icon color="green">
+                    <StatusCheckmarkSVG aria-hidden />
+                  </Icon>
+                );
               case 'error':
-                return <StatusWarningSVG aria-hidden />;
+                return (
+                  <Icon color="red">
+                    <StatusWarningSVG aria-hidden />
+                  </Icon>
+                );
               case 'updating':
-                return <SpinnerSVG aria-hidden />;
+                return (
+                  <Icon color="green">
+                    <StatusUpdatedSVG aria-hidden />;
+                  </Icon>
+                );
               default:
                 return null;
             }

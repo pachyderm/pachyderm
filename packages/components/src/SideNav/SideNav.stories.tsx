@@ -2,15 +2,12 @@ import React from 'react';
 import {MemoryRouter} from 'react-router-dom';
 
 import {
-  UserSVG,
-  WorkspacesSVG,
-  BillingSVG,
   SettingsSVG,
   SupportSVG,
   DirectionsSVG,
   RepoSVG,
   PipelineSVG,
-  CodeSVG,
+  JobsSVG,
 } from '../Svg';
 
 import {SideNav} from './';
@@ -31,29 +28,11 @@ export const DarkMode = () => (
         <SideNav.SideNavList noPadding>
           <SideNav.SideNavItem>
             <SideNav.SideNavLink
-              IconSVG={WorkspacesSVG}
+              IconSVG={DirectionsSVG}
               to="workspaces"
               tooltipContent="Workspaces"
             >
               Workspaces
-            </SideNav.SideNavLink>
-          </SideNav.SideNavItem>
-          <SideNav.SideNavItem>
-            <SideNav.SideNavLink
-              IconSVG={UserSVG}
-              to="members"
-              tooltipContent="Members"
-            >
-              Members
-            </SideNav.SideNavLink>
-          </SideNav.SideNavItem>
-          <SideNav.SideNavItem>
-            <SideNav.SideNavLink
-              IconSVG={BillingSVG}
-              to="billing"
-              tooltipContent="Billing"
-            >
-              Billing
             </SideNav.SideNavLink>
           </SideNav.SideNavItem>
           <SideNav.SideNavItem>
@@ -120,7 +99,7 @@ export const LightMode = () => (
       <SideNav.SideNavList>
         <SideNav.SideNavItem>
           <SideNav.SideNavLink
-            IconSVG={CodeSVG}
+            IconSVG={JobsSVG}
             to="settings"
             tooltipContent="Settings"
             styleMode="light"

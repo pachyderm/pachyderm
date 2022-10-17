@@ -5,6 +5,7 @@ import React, {useMemo} from 'react';
 import {StatusCheckmarkSVG} from 'Svg';
 
 import {Circle} from '../../../Circle';
+import {Icon} from '../../../Icon';
 import useProgressBar from '../../hooks/useProgressBar';
 
 import styles from './ProgressBarStep.module.css';
@@ -41,11 +42,12 @@ const ProgressBarStep: React.FC<Props> = ({
       >
         <div className={styles.iconWrapper}>
           {isCompleted(id) ? (
-            <StatusCheckmarkSVG
-              className={styles.checkmark}
-              aria-label="check mark"
-              data-testid="ProgressBarStep__successCheckmark"
-            />
+            <Icon color="green" className={styles.checkmark} small>
+              <StatusCheckmarkSVG
+                aria-label="check mark"
+                data-testid="ProgressBarStep__successCheckmark"
+              />
+            </Icon>
           ) : (
             <Circle className={styles.circle} />
           )}

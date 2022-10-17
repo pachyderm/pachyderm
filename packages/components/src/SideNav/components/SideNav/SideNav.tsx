@@ -2,6 +2,7 @@ import classnames from 'classnames';
 import React, {useState, useMemo, useCallback, useEffect} from 'react';
 
 import useBreakpoint from '../../../hooks/useBreakpoint';
+import {Icon} from '../../../Icon';
 import {ChevronDoubleRightSVG} from '../../../Svg';
 import SideNavContext from '../../SideNavContext';
 
@@ -59,11 +60,11 @@ const SideNav: React.FC<Props> = ({
             data-testid="SideNav__toggle"
             aria-label={`${minimized ? 'Open' : 'Close'} navigation`}
           >
-            <div aria-hidden={true} className={styles.collapseIcon}>
+            <Icon aria-hidden={true} className={styles.collapseIcon}>
               <ChevronDoubleRightSVG
                 className={!minimized ? styles.flipSVG : ''}
               />
-            </div>
+            </Icon>
             {!minimized && 'Collapse'}
           </button>
         )}

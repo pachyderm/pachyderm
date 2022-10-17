@@ -34,9 +34,10 @@ MAKE SURE YOU HAVE BUMPED VERSION NUMBER
 Any time you merge something to master and it contains an update to the component library, the docs will be automatically built and publish to netlify.
 
 ### Adding Icons
-1. We typically export our own icons created in-house. Most commonly, we have access to a raw SVG created from Sketch.
-2. Pass the SVG through [SVGO](https://jakearchibald.github.io/svgomg/) with default settings.
-3. Add the Icon under the `SVG` component and update `index.ts` and `Svg.stories.tsx` as appropriate.
-4. Make sure the icon inherits colors from its parents using the `fill="currentcolor"` property.
-5. Make sure there are no potential conflicting SVG ids such as `id="a"` or `id="#b"`. In that case, rename them to something unique to the new SVG.
+We typically export icons provided to us from the design team on Figma. The final SVG file should have one `svg` parent and one path child with no ids set, and `fill="currentcolor"` on the parent.
+
+1. Install this SVG export extension for Figma https://www.figma.com/community/plugin/814345141907543603/SVG-Export
+2. Set the default options "Use currentcolor as fill" and "Remove all fills" to true
+3. Export your icons and add them under the `SVG` component in this repo
+4. Update `index.ts` and `Svg.stories.tsx` as appropriate. 
 
