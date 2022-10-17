@@ -1,6 +1,5 @@
 {
   "pipeline": {
-    "project": {"name": "default"},
     "name": "reduce"
   },
   "description": "A pipeline that aggregates the total counts for each word.",
@@ -14,7 +13,6 @@
   },
   "input": {
     "pfs": {
-      "project": "default",
       "repo": "map",
       "glob": "/"
     }

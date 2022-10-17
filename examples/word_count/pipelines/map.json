@@ -1,6 +1,5 @@
 {
   "pipeline": {
-    "project": {"name": "default"},
     "name": "map"
   },
   "description": "A pipeline that tokenizes scraped pages and appends counts of words to corresponding files.",
@@ -14,7 +13,6 @@
   },
   "input": {
     "pfs": {
-      "project": "default",
       "repo": "scraper",
       "glob": "/*/*"
     }

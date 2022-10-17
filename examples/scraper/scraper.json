@@ -1,6 +1,5 @@
 {
   "pipeline": {
-    "project": {"name": "default"},
     "name": "scraper"
   },
   "transform": {
@@ -18,7 +17,6 @@
     "cross": [ {
       "pfs": {
         "glob": "urls/*",
-        "project": "default",
         "repo": "urls"
       }
     },

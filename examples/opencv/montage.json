@@ -1,6 +1,5 @@
 {
   "pipeline": {
-    "project": {"name": "default"},
     "name": "montage"
   },
   "description": "A pipeline that combines images from the `images` and `edges` repositories into a montage.",
@@ -8,14 +7,12 @@
     "cross": [ {
       "pfs": {
         "glob": "/",
-        "project": "default",
         "repo": "images"
       }
     },
     {
       "pfs": {
         "glob": "/",
-        "project": "default",
         "repo": "edges"
       }
     } ]
