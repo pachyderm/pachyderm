@@ -127,8 +127,12 @@ func (r *Repo) AuthResource() *auth.Resource {
 	} else {
 		t = auth.ResourceType_REPO
 	}
+	name := r.Name
+	if r.Project.GetName() != "" {
+		name = fmt.Sprintf("%s/%s", r.Project.Name, r.Name)
+	}
 	return &auth.Resource{
 		Type: t,
-		Name: fmt.Sprintf("%s/%s", r.Project.Name, r.Name),
+		Name: name,
 	}
 }
