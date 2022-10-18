@@ -73,7 +73,7 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					// XXX SECURITY: Think about how inferring
 					// LastSeenPathToReplace based on user generated traffic may
 					// allow access to the whole bucket
-					// ret = strings.Replace(ret, LastSeenPathToReplace, CurrentTargetPath+"/"+LastSeenPathToReplace, -1)
+					ret = strings.Replace(ret, LastSeenPathToReplace, CurrentTargetPath+"/"+LastSeenPathToReplace, -1)
 				} else {
 					if len(s) <= 100 {
 						logrus.Infof("PROXY Warning! LastSeenPathToReplace was empty when mashing up '%s'", s)
@@ -96,7 +96,7 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					// XXX SECURITY: Think about how inferring
 					// LastSeenPathToReplace based on user generated traffic may
 					// allow access to the whole bucket
-					// ret = strings.Replace(ret, CurrentTargetPath+"/"+LastSeenPathToReplace, LastSeenPathToReplace, -1)
+					ret = strings.Replace(ret, CurrentTargetPath+"/"+LastSeenPathToReplace, LastSeenPathToReplace, -1)
 				} else {
 					if len(s) <= 100 {
 						logrus.Infof("PROXY Warning! LastSeenPathToReplace was empty when unmashing '%s'", s)
@@ -209,6 +209,9 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 						resp.ContentLength = int64(len(mashed))
 						logrus.Infof("PROXY Setting content length from %d to %d", prev, resp.ContentLength)
 
+						// not sure why we need to do this as well as setting
+						// resp.ContentLength, but we do (only in the response
+						// case)
 						resp.Header.Set("Content-Length", fmt.Sprintf("%d", len(mashed)))
 
 						// prev := resp.Header.Get("Content-Length")
