@@ -245,9 +245,28 @@ func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, job *
 		// should flow as expected, as we just need to update the reporting to be
 		// clearer (from a pachctl list jobs perspective) that the upload is
 		// still happening
-		logrus.Infof("PROXY Uploading result of job %s from job-scoped bucket path to output repo", job)
 
-		err := pachClient.WithModifyFileClient(jobInfo.OutputCommit, func(mf client.ModifyFile) error {
+		// By the time we get here, the jobInfo.OutputCommit is already closed.
+		// So, as a workaround for now (rather than finding the right place in
+		// the worker just yet), we create a new commit on the same branch of
+		// the same repo.
+
+		// TODO: Only create a new output commit if we haven't previously copied
+		// this! So, inspect the object store first, and check if the job-scoped
+		// prefix exists. If it doesn't, don't bother creating a new commit. Or,
+		// just move the code into the worker per the comment above.
+		outputCommit := client.NewCommit(
+			jobInfo.OutputCommit.Branch.Repo.Name, jobInfo.OutputCommit.Branch.Name, "",
+		)
+		// was:
+		// outputCommit := jobInfo.OutputCommit
+		logrus.Infof(
+			"PROXY Uploading result of job %s from job-scoped bucket path to output commit %s",
+			job, outputCommit,
+		)
+
+		// XXX output commit is closed. either we make a new one, or move the execution before it's closed
+		err := pachClient.WithModifyFileClient(outputCommit, func(mf client.ModifyFile) error {
 			// See src/internal/obj/factory.go NewClientFromURLAndSecret
 			var url string
 			if os.Getenv("STORAGE_BACKEND") == "MINIO" {
@@ -259,6 +278,13 @@ func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, job *
 			err := mf.PutFileURL("/", url, true)
 			if err != nil {
 				logrus.Infof("PROXY ERROR while copying %s: %s", os.Getenv("STORAGE_BACKEND"), err)
+				return err
+			}
+			err = pachClient.FinishCommit(
+				outputCommit.Branch.Repo.Name, outputCommit.Branch.Name, outputCommit.ID,
+			)
+			if err != nil {
+				logrus.Infof("PROXY ERROR while finishing commit: %s", err)
 				return err
 			}
 			// TODO: clean up from the backend bucket!
