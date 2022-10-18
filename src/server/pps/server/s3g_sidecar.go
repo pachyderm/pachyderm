@@ -287,7 +287,8 @@ func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, job *
 				logrus.Infof("PROXY ERROR while finishing commit: %s", err)
 				return err
 			}
-			// TODO: clean up from the backend bucket!
+			// TODO: clean up from the backend bucket! Should be able to use the
+			// obj interface..
 			return nil
 		})
 		if err != nil {
