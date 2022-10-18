@@ -5,12 +5,15 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
-func Modification(env *Env, repo, branch, commit string, spec *ModificationSpec) error {
+func Modification(env *Env, commit *pfs.Commit, spec *ModificationSpec) error {
 	taskDoer := env.TaskDoer()
 	client := env.Client()
 	eg, ctx := errgroup.WithContext(client.Ctx())
@@ -47,7 +50,7 @@ func Modification(env *Env, repo, branch, commit string, spec *ModificationSpec)
 				if err != nil {
 					return err
 				}
-				if err := client.AddFileSet(ctx, repo, branch, commit, data.FileSetId); err != nil {
+				if err := client.AddFileSet(ctx, commit.Branch.Repo.Name, commit.Branch.Name, commit.ID, data.FileSetId); err != nil {
 					return errors.EnsureStack(err)
 				}
 				if data.Hash != nil {

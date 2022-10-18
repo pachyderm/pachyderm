@@ -474,6 +474,7 @@ message RunLoadTestRequest {
   string spec = 1;
   Branch branch = 2;
   int64 seed = 3;
+  string state_id = 4;
 }
 
 message RunLoadTestResponse {
@@ -482,6 +483,7 @@ message RunLoadTestResponse {
   int64 seed = 3;
   string error = 4;
   google.protobuf.Duration duration = 5;
+  string state_id = 6;
 }
 
 message ObjectStorageEgress {

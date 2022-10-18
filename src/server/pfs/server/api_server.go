@@ -833,23 +833,25 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 		Seed:   seed,
 	}
 	start := time.Now()
-	if err := a.runLoadTest(pachClient, taskService, resp.Branch, req.Spec, seed); err != nil {
+	var err error
+	resp.StateId, err = a.runLoadTest(pachClient, taskService, resp.Branch, req.Spec, seed, req.StateId)
+	if err != nil {
 		resp.Error = err.Error()
 	}
 	resp.Duration = types.DurationProto(time.Since(start))
 	return resp, nil
 }
 
-func (a *apiServer) runLoadTest(pachClient *client.APIClient, taskService task.Service, branch *pfs.Branch, specStr string, seed int64) error {
+func (a *apiServer) runLoadTest(pachClient *client.APIClient, taskService task.Service, branch *pfs.Branch, specStr string, seed int64, stateID string) (string, error) {
 	jsonBytes, err := yaml.YAMLToJSON([]byte(specStr))
 	if err != nil {
-		return errors.EnsureStack(err)
+		return "", errors.EnsureStack(err)
 	}
 	spec := &pfsload.CommitSpec{}
 	if err := jsonpb.Unmarshal(bytes.NewReader(jsonBytes), spec); err != nil {
-		return errors.EnsureStack(err)
+		return "", errors.EnsureStack(err)
 	}
-	return pfsload.Commit(pachClient, taskService, branch.Repo.Name, branch.Name, spec, seed)
+	return pfsload.Commit(pachClient, taskService, branch, spec, seed, stateID)
 }
 
 func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (resp *pfs.RunLoadTestResponse, retErr error) {

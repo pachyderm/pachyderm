@@ -1,9 +1,11 @@
 package ppsload
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -12,20 +14,41 @@ import (
 )
 
 func Pipeline(pachClient *client.APIClient, req *pps.RunLoadTestRequest) (*pps.RunLoadTestResponse, error) {
-	branch, err := createPipelines(pachClient, req.DagSpec, req.Parallelism, req.PodPatch)
-	if err != nil {
-		return nil, err
+	var branch *pfs.Branch
+	var stateID string
+	if req.StateId == "" {
+		var err error
+		branch, err = createPipelines(pachClient, req.DagSpec, req.Parallelism, req.PodPatch)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		state, err := deserializeState(pachClient, req.StateId)
+		if err != nil {
+			return nil, err
+		}
+		branch = state.Branch
+		stateID = state.PfsStateId
 	}
 	resp, err := pachClient.PfsAPIClient.RunLoadTest(pachClient.Ctx(), &pfs.RunLoadTestRequest{
-		Spec:   req.LoadSpec,
-		Branch: branch,
-		Seed:   req.Seed,
+		Spec:    req.LoadSpec,
+		Branch:  branch,
+		Seed:    req.Seed,
+		StateId: stateID,
 	})
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	stateID, err = serializeState(pachClient, &State{
+		Branch:     branch,
+		PfsStateId: resp.StateId,
+	})
+	if err != nil {
+		return nil, err
+	}
 	return &pps.RunLoadTestResponse{
-		Error: resp.Error,
+		Error:   resp.Error,
+		StateId: stateID,
 	}, nil
 }
 
@@ -89,4 +112,33 @@ func createPipeline(pachClient *client.APIClient, repo string, inputRepos []stri
 		},
 	)
 	return errors.EnsureStack(err)
+}
+
+const stateFileName = "state"
+
+func serializeState(pachClient *client.APIClient, state *State) (string, error) {
+	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
+		data, err := proto.Marshal(state)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		return errors.EnsureStack(mf.PutFile(stateFileName, bytes.NewReader(data)))
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.FileSetId, nil
+}
+
+func deserializeState(pachClient *client.APIClient, stateID string) (*State, error) {
+	commit := client.NewRepo(client.FileSetsRepoName).NewCommit("", stateID)
+	buf := &bytes.Buffer{}
+	if err := pachClient.GetFile(commit, stateFileName, buf); err != nil {
+		return nil, err
+	}
+	state := &State{}
+	if err := proto.Unmarshal(buf.Bytes(), state); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return state, nil
 }

@@ -35,6 +35,14 @@ func NewValidator(spec *ValidatorSpec, random *rand.Rand) (*Validator, error) {
 	}, nil
 }
 
+func (v *Validator) Hash() []byte {
+	return v.hash
+}
+
+func (v *Validator) SetHash(hash []byte) {
+	v.hash = hash
+}
+
 func (v *Validator) AddHash(hash []byte) {
 	v.hash = xor(v.hash, hash)
 }
@@ -47,9 +55,7 @@ func xor(b1, b2 []byte) []byte {
 	return result
 }
 
-// TODO: Distribute validation and revert back to being based on file path + content rather than
-// file path + size.
-func (v *Validator) Validate(client Client, commit *pfs.Commit) (retErr error) {
+func (v *Validator) Validate(client Client, commit *pfs.Commit) error {
 	if v.spec.Frequency != nil {
 		freq := v.spec.Frequency
 		if freq.Count > 0 {
@@ -66,12 +72,21 @@ func (v *Validator) Validate(client Client, commit *pfs.Commit) (retErr error) {
 		if ci.Commit.Branch.Repo.Type != pfs.UserRepoType || ci.Origin.Kind == pfs.OriginKind_ALIAS {
 			return nil
 		}
-		return validate(client, ci.Commit, v.hash)
+		hash, err := computeCommitHash(client, ci.Commit)
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(hash, v.hash) {
+			return errors.Errorf("hash of files at commit %v different from validator hash", ci.Commit)
+		}
+		return nil
 	})
 	return errors.EnsureStack(err)
 }
 
-func validate(client Client, commit *pfs.Commit, expectedHash []byte) error {
+// TODO: Distribute validation and revert back to being based on file path + content rather than
+// file path + size.
+func computeCommitHash(client Client, commit *pfs.Commit) ([]byte, error) {
 	hash := pfs.NewHash().Sum(nil)
 	if err := client.GlobFile(client.Ctx(), commit, "**", func(fi *pfs.FileInfo) error {
 		if strings.HasSuffix(fi.File.Path, "/") {
@@ -83,12 +98,9 @@ func validate(client Client, commit *pfs.Commit, expectedHash []byte) error {
 		hash = xor(hash, h.Sum(nil))
 		return nil
 	}); err != nil {
-		return errors.EnsureStack(err)
+		return nil, errors.EnsureStack(err)
 	}
-	if !bytes.Equal(hash, expectedHash) {
-		return errors.Errorf("hash of files at commit %v different from validator hash", commit)
-	}
-	return nil
+	return hash, nil
 }
 
 type validatorClient struct {

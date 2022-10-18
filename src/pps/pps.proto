@@ -740,10 +740,12 @@ message RunLoadTestRequest {
   int64 seed = 3;
   int64 parallelism = 4;
   string pod_patch = 5;
+  string state_id = 6;
 }
 
 message RunLoadTestResponse {
   string error = 1;
+  string state_id = 2;
 }
 
 message RenderTemplateRequest {

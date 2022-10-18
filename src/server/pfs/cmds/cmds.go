@@ -1640,6 +1640,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 
 	var branchStr string
 	var seed int64
+	var stateID string
 	runLoadTest := &cobra.Command{
 		Use:     "{{alias}} <spec-file>",
 		Short:   "Run a PFS load test.",
@@ -1686,9 +1687,10 @@ Objects are a low-level resource and should not be accessed directly by most use
 					}
 				}
 				resp, err := c.PfsAPIClient.RunLoadTest(c.Ctx(), &pfs.RunLoadTestRequest{
-					Spec:   string(spec),
-					Branch: branch,
-					Seed:   seed,
+					Spec:    string(spec),
+					Branch:  branch,
+					Seed:    seed,
+					StateId: stateID,
 				})
 				if err != nil {
 					return errors.EnsureStack(err)
@@ -1705,6 +1707,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 	}
 	runLoadTest.Flags().StringVarP(&branchStr, "branch", "b", "", "The branch to use for generating the load.")
 	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
+	runLoadTest.Flags().StringVar(&stateID, "state-id", "", "The ID of the base state to use for the load.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pfs-load-test"))
 
 	// Add the mount commands (which aren't available on Windows, so they're in
