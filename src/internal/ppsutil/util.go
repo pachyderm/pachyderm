@@ -345,15 +345,17 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 	// make an http get request to localhost:1600/finish
 
 	// intentionally don't error if this fails - it only works in the s3g_proxy case
+
+	logrus.Infof("PROXY Starting calling localhost:1600/finish...")
 	resp, err := http.Get("http://localhost:1600/finish")
 	if err != nil {
-		logrus.Infof("Got error calling finish on s3g_proxy, continuing anyway... %s", err)
+		logrus.Infof("PROXY Got error calling finish on s3g_proxy, continuing anyway... %s", err)
 	} else {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			logrus.Infof("Got error reading body from finish on s3g_proxy, continuing anyway... %s", err)
+			logrus.Infof("PROXY Got error reading body from finish on s3g_proxy, continuing anyway... %s", err)
 		}
-		logrus.Infof("called finish on proxy from inside worker, got: %s", string(body))
+		logrus.Infof("PROXY called finish on proxy from inside worker, got: %s", string(body))
 	}
 
 	// TODO: find a way to selectively do this only if we need to
