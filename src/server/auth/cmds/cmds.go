@@ -560,13 +560,12 @@ func UseAuthTokenCmd() *cobra.Command {
 // CheckRepoCmd returns a cobra command that sends a GetPermissions request to
 // pachd to determine what permissions a user has on the repo.
 func CheckRepoCmd() *cobra.Command {
-	var project string
 	check := &cobra.Command{
 		Use:   "{{alias}} <repo> [<user>]",
 		Short: "Check the permissions a user has on 'repo'",
 		Long:  "Check the permissions a user has on 'repo'",
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
-			repoResource := client.NewProjectRepo(project, args[0]).AuthResource()
+			repo := args[0]
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
@@ -576,12 +575,12 @@ func CheckRepoCmd() *cobra.Command {
 			var perms *auth.GetPermissionsResponse
 			if len(args) == 2 {
 				perms, err = c.GetPermissionsForPrincipal(c.Ctx(), &auth.GetPermissionsForPrincipalRequest{
-					Resource:  repoResource,
+					Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
 					Principal: args[1],
 				})
 			} else {
 				perms, err = c.GetPermissions(c.Ctx(), &auth.GetPermissionsRequest{
-					Resource: repoResource,
+					Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
 				})
 			}
 			if err != nil {
@@ -591,13 +590,11 @@ func CheckRepoCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	check.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project containing the repo.")
 	return cmdutil.CreateAliases(check, "auth check repo", "repos")
 }
 
 // SetRepoRoleBindingCmd returns a cobra command that sets the roles for a user on a resource
 func SetRepoRoleBindingCmd() *cobra.Command {
-	var project string
 	setScope := &cobra.Command{
 		Use:   "{{alias}} <repo> [role1,role2 | none ] <subject>",
 		Short: "Set the roles that 'username' has on 'repo'",
@@ -616,17 +613,15 @@ func SetRepoRoleBindingCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			err = c.ModifyProjectRepoRoleBinding(project, repo, subject, roles)
+			err = c.ModifyRepoRoleBinding(repo, subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	setScope.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project containing the repo.")
 	return cmdutil.CreateAliases(setScope, "auth set repo", "repos")
 }
 
 // GetRepoRoleBindingCmd returns a cobra command that gets the role bindings for a resource
 func GetRepoRoleBindingCmd() *cobra.Command {
-	var project string
 	get := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Get the role bindings for 'repo'",
@@ -638,7 +633,7 @@ func GetRepoRoleBindingCmd() *cobra.Command {
 			}
 			defer c.Close()
 			repo := args[0]
-			resp, err := c.GetProjectRepoRoleBinding(project, repo)
+			resp, err := c.GetRepoRoleBinding(repo)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -646,7 +641,6 @@ func GetRepoRoleBindingCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	get.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project containing the repo.")
 	return cmdutil.CreateAliases(get, "auth get repo", "repos")
 }
 

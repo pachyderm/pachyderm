@@ -1,8 +1,6 @@
 package pps
 
-import (
-	fmt "fmt"
-)
+import "fmt"
 
 func (j *Job) String() string {
 	return fmt.Sprintf("%s@%s", j.Pipeline, j.ID)

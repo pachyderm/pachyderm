@@ -775,7 +775,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	))
 	require.OneOfEquals(t, pipeline, tu.PipelineNames(t, aliceClient))
 	// check that alice owns the output repo too,
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName+"/"+pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
 
 	// Make sure alice's pipeline runs successfully
 	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
