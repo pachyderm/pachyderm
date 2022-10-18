@@ -23,6 +23,7 @@ import {
 } from './types';
 import Config from './components/Config/Config';
 import Datum from './components/Datum/Datum';
+import Pipeline from './components/Pipeline/Pipeline';
 import SortableList from './components/SortableList/SortableList';
 import LoadingDots from '../../utils/components/LoadingDots/LoadingDots';
 import FullPageError from './components/FullPageError/FullPageError';
@@ -35,6 +36,7 @@ export class MountPlugin implements IMountPlugin {
   private _loader: ReactWidget;
   private _fullPageError: ReactWidget;
   private _config: ReactWidget;
+  private _pipeline: ReactWidget;
   private _mountedList: ReactWidget;
   private _unmountedList: ReactWidget;
   private _datum: ReactWidget;
@@ -47,6 +49,7 @@ export class MountPlugin implements IMountPlugin {
   private _readyPromise: Promise<void> = Promise.resolve();
 
   private _showDatum = false;
+  private _showPipeline = false;
   private _keepMounted = false;
   private _currentDatumInfo: CurrentDatumResponse | undefined;
   private _showDatumSignal = new Signal<this, boolean>(this);
@@ -54,6 +57,7 @@ export class MountPlugin implements IMountPlugin {
   private _saveInputSpecSignal = new Signal<this, CrossInputSpec | PfsInput>(
     this,
   );
+  private _showPipelineSignal = new Signal<this, boolean>(this);
 
   constructor(
     app: JupyterFrontEnd,
@@ -120,6 +124,16 @@ export class MountPlugin implements IMountPlugin {
                 Mounted Repositories
               </div>
               <div style={{display: 'flex'}}>
+                <button
+                  className="pachyderm-button-link"
+                  onClick={() => this.setShowPipeline(true)}
+                >
+                  Pipeline{' '}
+                  <spreadsheetIcon.react
+                    tag="span"
+                    className="pachyderm-mount-icon-padding"
+                  />
+                </button>
                 <button
                   className="pachyderm-button-link"
                   data-testid="Datum__mode"
@@ -203,7 +217,22 @@ export class MountPlugin implements IMountPlugin {
     );
     this._datum.addClass('pachyderm-mount-datum-wrapper');
 
+    this._pipeline = ReactWidget.create(
+      <UseSignal signal={this._showPipelineSignal}>
+        {(_, showPipeline) => (
+          <>
+            <Pipeline
+              showPipeline={showPipeline ? showPipeline : this._showPipeline}
+              setShowPipeline={this.setShowPipeline}
+            />
+          </>
+        )}
+      </UseSignal>,
+    );
+    this._pipeline.addClass('pachyderm-mount-pipeline-wrapper');
+
     this._loader = ReactWidget.create(<LoadingDots />);
+
     this._loader.addClass('pachyderm-mount-react-wrapper');
 
     this._fullPageError = ReactWidget.create(
@@ -229,6 +258,7 @@ export class MountPlugin implements IMountPlugin {
     this._panel.addWidget(this._mountedList);
     this._panel.addWidget(this._unmountedList);
     this._panel.addWidget(this._datum);
+    this._panel.addWidget(this._pipeline);
     this._panel.addWidget(this._mountBrowser);
     this._panel.setRelativeSizes([1, 1, 3, 3]);
 
@@ -242,6 +272,7 @@ export class MountPlugin implements IMountPlugin {
     this._mountedList.setHidden(true);
     this._unmountedList.setHidden(true);
     this._datum.setHidden(true);
+    this._pipeline.setHidden(true);
     this._mountBrowser.setHidden(true);
 
     window.addEventListener('resize', () => {
@@ -293,6 +324,7 @@ export class MountPlugin implements IMountPlugin {
     }
     this._mountBrowser.setHidden(false);
     this._config.setHidden(true);
+    this._pipeline.setHidden(true);
     this._fullPageError.setHidden(true);
     this._showDatum = shouldShow;
     this._showDatumSignal.emit(shouldShow);
@@ -377,6 +409,24 @@ export class MountPlugin implements IMountPlugin {
     this.open('');
   };
 
+  setShowPipeline = (shouldShow: boolean): void => {
+    if (shouldShow) {
+      this._pipeline.setHidden(false);
+      this._mountedList.setHidden(true);
+      this._unmountedList.setHidden(true);
+    } else {
+      this._pipeline.setHidden(true);
+      this._mountedList.setHidden(false);
+      this._unmountedList.setHidden(false);
+    }
+    this._mountBrowser.setHidden(false);
+    this._config.setHidden(true);
+    this._datum.setHidden(true);
+    this._fullPageError.setHidden(true);
+    this._showPipeline = shouldShow;
+    this._showPipelineSignal.emit(shouldShow);
+  };
+
   setKeepMounted = (keep: boolean): void => {
     this._keepMounted = keep;
   };
@@ -394,6 +444,7 @@ export class MountPlugin implements IMountPlugin {
       this._mountBrowser.setHidden(false);
     }
     this._datum.setHidden(true);
+    this._pipeline.setHidden(true);
     this._fullPageError.setHidden(true);
     this._showConfig = shouldShow;
     this._showConfigSignal.emit(shouldShow);
