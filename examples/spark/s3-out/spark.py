@@ -70,7 +70,7 @@ if minio:
     url = f"s3a://foo/{path}"
 else:
     # url = f"s3a://{branch}.{repo}/{path}"
-    url = f"s3a://pachyderm-test/{path}"
+    url = f"s3a://out/{path}"
 
 
 print("Starting write...")
