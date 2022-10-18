@@ -1,3 +1,0 @@
-[submodule "conformance/s3-tests"]
-	path = conformance/s3-tests
-	url = git@github.com:ceph/s3-tests.git

@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/s2"
+	"github.com/gorilla/mux"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 
-	"github.com/gorilla/mux"
+	"github.com/pachyderm/s2"
 	"github.com/sirupsen/logrus"
 )
 
