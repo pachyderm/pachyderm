@@ -1208,7 +1208,11 @@ jobs:
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
 workflows:
   integration-tests:
-    when: << pipeline.parameters.run-core-jobs >>
+    when:
+      or:
+        - << pipeline.parameters.run-core-jobs >>
+        - not:
+            << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - build-docker-images
       #- build-pachctl-bin:
@@ -1232,11 +1236,19 @@ workflows:
                 - EXAMPLES
                 - CONNECTORS
   helm-tests:
-    when: << pipeline.parameters.run-core-jobs >>
+    when:
+      or:
+        - << pipeline.parameters.run-core-jobs >>
+        - not:
+            << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - helm-tests
   nightly_load_tests:
-    when: << pipeline.parameters.run_load_tests >>
+    when:
+      or:
+        - << pipeline.parameters.run-core-jobs >>
+        - not:
+            << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - build-docker-images
       - nightly-load:
@@ -1262,11 +1274,19 @@ workflows:
                   #- LOAD14
                   #- LOAD15
   rootless-tests:
-    when: << pipeline.parameters.run-core-jobs >>
+    when:
+      or:
+        - << pipeline.parameters.run-core-jobs >>
+        - not:
+            << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - rootless
   deploy-tests:
-    when: << pipeline.parameters.run-core-jobs >>
+    when:
+      or:
+        - << pipeline.parameters.run-core-jobs >>
+        - not:
+            << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - deploy-tests
   jupyter-extension:
