@@ -1224,7 +1224,7 @@ func TestAuthorizedEveryone(t *testing.T) {
 
 	// alice is authorized as `OWNER`
 	resp, err := aliceClient.Authorize(aliceClient.Ctx(), &auth.AuthorizeRequest{
-		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo},
+		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
 		Permissions: []auth.Permission{
 			auth.Permission_REPO_MODIFY_BINDINGS,
 			auth.Permission_REPO_WRITE,
@@ -1236,7 +1236,7 @@ func TestAuthorizedEveryone(t *testing.T) {
 
 	// bob is not authorized
 	resp, err = bobClient.Authorize(bobClient.Ctx(), &auth.AuthorizeRequest{
-		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo},
+		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
 		Permissions: []auth.Permission{
 			auth.Permission_REPO_READ,
 		},
@@ -1249,7 +1249,7 @@ func TestAuthorizedEveryone(t *testing.T) {
 
 	// alice is still authorized as `OWNER`
 	resp, err = aliceClient.Authorize(aliceClient.Ctx(), &auth.AuthorizeRequest{
-		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo},
+		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
 		Permissions: []auth.Permission{
 			auth.Permission_REPO_MODIFY_BINDINGS,
 			auth.Permission_REPO_WRITE,
@@ -1261,7 +1261,7 @@ func TestAuthorizedEveryone(t *testing.T) {
 
 	// bob is now authorized as WRITER
 	resp, err = bobClient.Authorize(bobClient.Ctx(), &auth.AuthorizeRequest{
-		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo},
+		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
 		Permissions: []auth.Permission{
 			auth.Permission_REPO_WRITE,
 			auth.Permission_REPO_READ,
