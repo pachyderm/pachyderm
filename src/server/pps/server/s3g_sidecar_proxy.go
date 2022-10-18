@@ -17,6 +17,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
+	awsauth "github.com/smartystreets/go-aws-auth"
 )
 
 type RawS3Proxy struct {
@@ -63,7 +64,6 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 			}
 
 			mashup := func(s string) string {
-				return s
 				// danger danger, this will probably mash too much in some cases
 				p := s
 				ret := strings.Replace(s, "/out", "/"+CurrentBucket, -1)
@@ -87,7 +87,6 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 			}
 
 			unmashup := func(s string) string {
-				return s
 				// danger danger, this will probably mash too much in some cases
 				p := s
 				ret := strings.Replace(s, "/"+CurrentBucket, "/out", -1)
@@ -175,10 +174,10 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					// body into memory, if it does that's bad for large writes
 					// and we should figure out how we can stream it to disk
 					// first...
-					// awsauth.Sign4(req, awsauth.Credentials{
-					// 	AccessKeyID:     os.Getenv("MINIO_ID"),
-					// 	SecretAccessKey: os.Getenv("MINIO_SECRET"),
-					// })
+					awsauth.Sign4(req, awsauth.Credentials{
+						AccessKeyID:     os.Getenv("MINIO_ID"),
+						SecretAccessKey: os.Getenv("MINIO_SECRET"),
+					})
 				},
 				ModifyResponse: func(resp *http.Response) error {
 					// TODO: skip loading the response body into memory if we're
