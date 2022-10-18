@@ -22,11 +22,7 @@
       "--jars", "hadoop-aws-3.3.3.jar,aws-java-sdk-bundle-1.12.264.jar",
       "spark.py"
     ],
-    "image": "quay.io/lukemarsden/spark_s3_demo:v0.0.12",
-    "env": {
-        "AWS_ACCESS_KEY_ID": "minioadmin",
-        "AWS_SECRET_ACCESS_KEY": "minioadmin"
-    },
+    "image": "quay.io/lukemarsden/spark_s3_demo:v0.0.13",
     "working_dir": "/home/jovyan"
   },
   "s3_out": true

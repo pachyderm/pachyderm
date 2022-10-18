@@ -3,7 +3,6 @@ from pyspark.context import SparkContext
 from pyspark import SparkConf
 import time
 import os
-# import python_pachyderm
 
 conf = SparkConf()
 minio = False
@@ -25,9 +24,8 @@ if minio:
     conf.set('spark.hadoop.fs.s3a.access.key', 'admin')
     conf.set('spark.hadoop.fs.s3a.secret.key', 'password')
 else:
-    # TODO: make it so we don't need these
-    conf.set('spark.hadoop.fs.s3a.access.key', os.getenv("AWS_ACCESS_KEY_ID"))
-    conf.set('spark.hadoop.fs.s3a.secret.key', os.getenv("AWS_SECRET_ACCESS_KEY"))
+    conf.set('spark.hadoop.fs.s3a.access.key', "anything_will_do")
+    conf.set('spark.hadoop.fs.s3a.secret.key', "anything_will_do")
 
 conf.set('spark.hadoop.fs.s3a.path.style.access', 'true')
 conf.set('spark.hadoop.fs.s3a.connection.ssl.enabled', 'false')
@@ -59,19 +57,11 @@ df.explain()
 repo = "spark-s3g-demo2"
 branch = "master"
 
-# client = python_pachyderm.Client()
-
-# with client.commit(repo, branch) as commit:
-
-# print(f"Opening commit {commit} for spark job")
-
 path = "example-data-24"
 if minio:
     url = f"s3a://foo/{path}"
 else:
-    # url = f"s3a://{branch}.{repo}/{path}"
     url = f"s3a://out/{path}"
-
 
 print("Starting write...")
 (df.coalesce(1)
@@ -83,5 +73,3 @@ print("Starting write...")
 print("Finished write!")
 
 df.explain()
-
-# print(f"Closing {commit}")

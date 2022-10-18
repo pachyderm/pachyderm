@@ -185,12 +185,15 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 
 	if os.Getenv("STORAGE_BACKEND") == "MINIO" {
 		CurrentBucket = os.Getenv("MINIO_BUCKET")
-		CurrentTargetPath = fmt.Sprintf("%s-%s", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
-		// reset LastSeenPathToReplace so that it gets picked up on the (next)
-		// initial HEAD request by Spark, when processing the next jobs in this
-		// pipeline (whose user code might right to a different location)
-		LastSeenPathToReplace = ""
 	}
+	if os.Getenv("STORAGE_BACKEND") == "AMAZON" {
+		CurrentBucket = os.Getenv("AMAZON_BUCKET")
+	}
+	CurrentTargetPath = fmt.Sprintf("%s-%s", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
+	// reset LastSeenPathToReplace so that it gets picked up on the (next)
+	// initial HEAD request by Spark, when processing the next jobs in this
+	// pipeline (whose user code might right to a different location)
+	LastSeenPathToReplace = ""
 	// TODO: add support for real AWS/S3
 
 	// serve new S3 gateway & add to s.server routers

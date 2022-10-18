@@ -44,8 +44,8 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 	// minio.default.svc.cluster.local:9000), MINIO_SECURE, MINIO_BUCKET also
 	// set.
 
-	if os.Getenv("STORAGE_BACKEND") != "MINIO" {
-		panic("only minio supported by proxy to real backend s3_out feature right now - TODO: add real AWS!")
+	if os.Getenv("STORAGE_BACKEND") != "MINIO" || os.Getenv("STORAGE_BACKEND") == "AMAZON" {
+		panic("only MINIO or AMAZON STORAGE_BACKEND supported by proxy to real backend s3_out feature right now")
 	}
 
 	proxyRouter := mux.NewRouter()
@@ -109,10 +109,17 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 
 			proxy := &httputil.ReverseProxy{
 				Director: func(req *http.Request) {
-					u := os.Getenv("MINIO_ENDPOINT")
-					// TODO: check MINIO_SECURE
+					var u string
+					if os.Getenv("STORAGE_BACKEND") == "MINIO" {
+						u = fmt.Sprintf("http://%s", os.Getenv("MINIO_ENDPOINT"))
+					} else if os.Getenv("STORAGE_BACKEND") == "AMAZON" {
+						// https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html
+						u = fmt.Sprintf("https://s3.%s.amazonaws.com", os.Getenv("AWS_REGION"))
+					} else {
+						panic("only MINIO or AMAZON STORAGE_BACKEND supported by proxy to real backend s3_out feature right now")
+					}
 					logrus.Debugf("PROXY: r.URL.Path=%s", r.URL.Path)
-					target, err := url.Parse(fmt.Sprintf("http://%s", u))
+					target, err := url.Parse(u)
 					if err != nil {
 						log.Fatal(err)
 					}
@@ -152,10 +159,39 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					// body into memory, if it does that's bad for large writes
 					// and we should figure out how we can stream it to disk
 					// first...
-					awsauth.Sign4(req, awsauth.Credentials{
-						AccessKeyID:     os.Getenv("MINIO_ID"),
-						SecretAccessKey: os.Getenv("MINIO_SECRET"),
-					})
+					if os.Getenv("STORAGE_BACKEND") == "AMAZON" {
+						awsauth.Sign4(req)
+						// Maybe awsauth.Sign4 is magic enough to know to look
+						// in all the right places as an aws client? Hopefully.
+						// If not, we can do something like this:
+						/*
+							AmazonRegionEnvVar       = "AMAZON_REGION"
+							AmazonBucketEnvVar       = "AMAZON_BUCKET"
+							AmazonIDEnvVar           = "AMAZON_ID"
+							AmazonSecretEnvVar       = "AMAZON_SECRET"
+							AmazonTokenEnvVar        = "AMAZON_TOKEN"
+							AmazonDistributionEnvVar = "AMAZON_DISTRIBUTION"
+							CustomEndpointEnvVar     = "CUSTOM_ENDPOINT"
+						*/
+						// awsauth.Sign4(req, awsauth.Credentials{
+						// 	AccessKeyID:     os.Getenv("AMAZON_ID"),
+						// 	SecretAccessKey: os.Getenv("AMAZON_SECRET"),
+						// 	SessionToken:    os.Getenv("AMAZON_TOKEN"),
+						// }
+						// Copilot suggested this too, dunno if it's useful...
+						// ..., awsauth.SigningOptions{
+						// 	   Region: os.Getenv(AmazonRegionEnvVar),
+						// 	   Service: "s3",
+						//     Expires: time.Now().Add(15 * time.Minute),
+						// 	   Headers: []string{"host", "x-amz-date"},
+						// })
+
+					} else if os.Getenv("STORAGE_BACKEND") == "MINIO" {
+						awsauth.Sign4(req, awsauth.Credentials{
+							AccessKeyID:     os.Getenv("MINIO_ID"),
+							SecretAccessKey: os.Getenv("MINIO_SECRET"),
+						})
+					}
 				},
 				ModifyResponse: func(resp *http.Response) error {
 					// transform each of the response headers
