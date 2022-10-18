@@ -40,7 +40,7 @@ const DAGError: React.FC<DAGErrorProps> = ({error}) => {
     <>
       {error && (
         <div className={styles.errorBox}>
-          <Icon small>
+          <Icon small color="red">
             <StatusWarningSVG />
           </Icon>
           <ErrorText className={styles.dagError}>
@@ -53,10 +53,12 @@ const DAGError: React.FC<DAGErrorProps> = ({error}) => {
       <BasicModal
         show={errorModalOpen}
         headerContent={
-          <>
-            <StatusWarningSVG />
-            {dagBuildError ? ' Lineage Error' : ' Connection Error'}
-          </>
+          <span className={styles.titleError}>
+            <Icon small color="red">
+              <StatusWarningSVG />
+            </Icon>
+            <h4>{dagBuildError ? ' Lineage Error' : ' Connection Error'}</h4>
+          </span>
         }
         small
         loading={false}

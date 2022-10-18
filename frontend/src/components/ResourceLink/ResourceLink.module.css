@@ -30,7 +30,6 @@
   flex: 1;
   text-align: left;
   margin: 0;
-  margin-top: 0.125rem;
   color: var(--pachyderm-black);
   display: inline-block;
   white-space: nowrap;

@@ -40,12 +40,12 @@ const Description: React.FC<DescriptionProps> = ({
           </div>
         )}{' '}
         {error && (
-          <ErrorText>
-            <Icon small>
+          <div className={styles.term}>
+            <Icon small color="red">
               <StatusWarningSVG />
-            </Icon>{' '}
-            Unable to load
-          </ErrorText>
+            </Icon>
+            <ErrorText>Unable to load</ErrorText>
+          </div>
         )}
         {!loading && !error && children}
       </dd>

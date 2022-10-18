@@ -18,3 +18,12 @@
   margin: 0;
   max-width: none;
 }
+
+.term {
+  display: flex;
+  align-items: center;
+}
+
+.term span:nth-child(2) {
+  margin-left: 0.25rem;
+}

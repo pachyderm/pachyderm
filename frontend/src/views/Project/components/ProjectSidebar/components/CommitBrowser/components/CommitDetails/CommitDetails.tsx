@@ -2,7 +2,7 @@ import {RepoQuery} from '@graphqlTypes';
 import {
   LoadingDots,
   Button,
-  UpdatedCircleSVG,
+  StatusUpdatedSVG,
   AddCircleSVG,
   CloseCircleSVG,
   Icon,
@@ -114,7 +114,7 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({commitId, repo}) => {
               {commit.diff.filesUpdated > 0 && (
                 <div className={styles.filesUpdated}>
                   <Icon small color="green" className={styles.commitStatusIcon}>
-                    <UpdatedCircleSVG />
+                    <StatusUpdatedSVG />
                   </Icon>
                   {`${commit.diff.filesUpdated} File${
                     commit.diff.filesUpdated > 1 ? 's' : ''

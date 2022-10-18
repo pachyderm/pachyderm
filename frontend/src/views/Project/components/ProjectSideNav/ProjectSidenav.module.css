@@ -6,6 +6,10 @@
   justify-content: center;
 }
 
+.buttonLink > div{
+  height: auto;
+}
+
 .buttonLink.light svg{
   color: var(--pachyderm-plum);
   white-space: nowrap;

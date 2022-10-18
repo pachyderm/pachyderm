@@ -1,8 +1,9 @@
 import {JobState} from '@graphqlTypes';
 import {
   StatusWarningSVG,
-  StatusRunningSVG,
+  StatusDotsSVG,
   StatusCheckmarkSVG,
+  Icon,
 } from '@pachyderm/components';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
@@ -12,11 +13,23 @@ type JobVisualState = 'RUNNING' | 'ERROR' | 'SUCCESS' | 'IDLE';
 export const getJobStateIcon = (state: JobVisualState) => {
   switch (state) {
     case 'ERROR':
-      return <StatusWarningSVG />;
+      return (
+        <Icon color="red">
+          <StatusWarningSVG />
+        </Icon>
+      );
     case 'RUNNING':
-      return <StatusRunningSVG />;
+      return (
+        <Icon color="green">
+          <StatusDotsSVG />
+        </Icon>
+      );
     case 'SUCCESS':
-      return <StatusCheckmarkSVG />;
+      return (
+        <Icon color="green">
+          <StatusCheckmarkSVG />
+        </Icon>
+      );
     default:
       return null;
   }

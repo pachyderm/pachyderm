@@ -7,7 +7,7 @@ import {
   Tooltip,
   Icon,
   AddCircleSVG,
-  UpdatedCircleSVG,
+  StatusUpdatedSVG,
   Button,
   ButtonGroup,
 } from '@pachyderm/components';
@@ -28,7 +28,7 @@ type IconViewProps = {
 const getIcon = (file: File) => {
   switch (file.commitAction) {
     case FileCommitState.UPDATED:
-      return <UpdatedCircleSVG />;
+      return <StatusUpdatedSVG />;
     case FileCommitState.ADDED:
       return <AddCircleSVG />;
     default:

@@ -4,7 +4,8 @@ import {
   CheckboxCheckedSVG,
   CheckboxSVG,
   FullscreenSVG,
-  FlipSVG,
+  RotateSVG,
+  Icon,
   Button,
   ButtonGroup,
   DefaultDropdown,
@@ -66,13 +67,15 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
 
   const noDags = dags?.length === 0;
 
-  const RotateSVG = () => {
+  const RotateSVGComponent = () => {
     return (
-      <FlipSVG
+      <Icon
         className={classnames(styles.rotateSvg, {
           [styles.flipped]: dagDirection === DagDirection.RIGHT,
         })}
-      />
+      >
+        <RotateSVG />
+      </Icon>
     );
   };
 
@@ -104,7 +107,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
       id: 'flip-canvas',
       content: 'Flip Canvas',
       disabled: noDags,
-      IconSVG: RotateSVG,
+      IconSVG: RotateSVGComponent,
     },
     {
       id: 'reset-canvas',
@@ -161,7 +164,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
                 className={styles.controlButton}
                 buttonType="ghost"
                 color="black"
-                IconSVG={RotateSVG}
+                IconSVG={RotateSVGComponent}
                 disabled={noDags}
                 data-testid="DAGView__flipCanvas"
                 onClick={rotateDag}

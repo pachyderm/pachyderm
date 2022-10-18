@@ -6,9 +6,8 @@ import {
   LockSVG,
   JobsSVG,
   StatusPausedSVG,
-  StatusBusySVG,
+  StatusDotsSVG,
   StatusWarningSVG,
-  StatusRunningSVG,
   StatusCheckmarkSVG,
   ChevronRightSVG,
 } from '@pachyderm/components';
@@ -34,15 +33,15 @@ type NodeIconProps = {
 const NodeStateIcon = ({state, ...rest}: NodeIconProps) => {
   switch (state) {
     case NodeState.ERROR:
-      return <StatusWarningSVG {...rest} />;
+      return <StatusWarningSVG color="var(--pachyderm-red)" {...rest} />;
     case NodeState.RUNNING:
-      return <StatusRunningSVG {...rest} />;
+      return <StatusDotsSVG color="var(--icon-green)" {...rest} />;
     case NodeState.BUSY:
-      return <StatusBusySVG {...rest} />;
+      return <StatusDotsSVG color="var(--pachyderm-yellow)" {...rest} />;
     case NodeState.PAUSED:
-      return <StatusPausedSVG {...rest} />;
+      return <StatusPausedSVG color="var(--pachyderm-yellow)" {...rest} />;
     case NodeState.SUCCESS:
-      return <StatusCheckmarkSVG {...rest} />;
+      return <StatusCheckmarkSVG color="var(--icon-green)" {...rest} />;
     default:
       return null;
   }
@@ -119,7 +118,11 @@ const Node: React.FC<NodeProps> = ({
         />
         <text {...textElementProps} />
         <g transform="scale(0.75)">
-          {node.access ? <RepoSVG x={15} y={21} /> : <LockSVG x={15} y={23} />}
+          {node.access ? (
+            <RepoSVG x={15} y={21} />
+          ) : (
+            <LockSVG color="var(--disabled-tertiary)" x={15} y={23} />
+          )}
         </g>
       </g>
     );
@@ -218,7 +221,7 @@ const Node: React.FC<NodeProps> = ({
           {node.access ? (
             <PipelineSVG x={15} y={23} />
           ) : (
-            <LockSVG x={15} y={23} />
+            <LockSVG color="var(--disabled-tertiary)" x={15} y={23} />
           )}
         </g>
         <text {...textElementProps} x={32} y={26}>
@@ -246,7 +249,11 @@ const Node: React.FC<NodeProps> = ({
         <rect width={BUTTON_WIDTH} height={BUTTON_HEIGHT} rx={3} ry={3} />
 
         <g transform="scale(0.75)">
-          {node.access ? <RepoSVG x={15} y={23} /> : <LockSVG x={15} y={23} />}
+          {node.access ? (
+            <RepoSVG x={15} y={23} />
+          ) : (
+            <LockSVG color="var(--disabled-tertiary)" x={15} y={23} />
+          )}
         </g>
         <text {...textElementProps} x={32} y={26}>
           Output

@@ -3,6 +3,7 @@ import {
   StatusWarningSVG,
   Group,
   ErrorText,
+  Icon,
 } from '@pachyderm/components';
 import React from 'react';
 import {Helmet} from 'react-helmet';
@@ -43,7 +44,10 @@ const ErrorView: React.FC<ErrorViewProps> = ({
           />
           <Group vertical spacing={32} className={styles.content}>
             <Group spacing={8} align="center">
-              <StatusWarningSVG /> <h4>{errorMessage}</h4>
+              <Icon color="red">
+                <StatusWarningSVG />
+              </Icon>{' '}
+              <h4>{errorMessage}</h4>
             </Group>
             {errorDetails && <ErrorText>{errorDetails}</ErrorText>}
             {source && <ErrorText>Source: {source}</ErrorText>}

@@ -29,14 +29,12 @@ const EmptyState: React.FC<EmptyStateProps> = ({
         />
       )}
       <span className={classnames(styles.title, {[styles.noImage]: error})}>
-        <h6>
-          {error && (
-            <Icon small className={styles.errorStatus}>
-              <StatusWarningSVG />
-            </Icon>
-          )}
-          {title}
-        </h6>
+        {error && (
+          <Icon small className={styles.errorStatus} color="red">
+            <StatusWarningSVG />
+          </Icon>
+        )}
+        <h6>{title}</h6>
       </span>
       <span className={styles.message}>
         {message}

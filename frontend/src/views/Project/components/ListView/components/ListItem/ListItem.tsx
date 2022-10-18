@@ -2,7 +2,7 @@ import {NodeState, NodeType} from '@graphqlTypes';
 import {
   Link,
   Icon,
-  StatusBlockedSVG,
+  StatusStopSVG,
   StatusPausedSVG,
   CaptionTextSmall,
   RepoSVG,
@@ -58,12 +58,12 @@ const ListItem: React.FC<ListItemProps> = ({node, selectedItem, nodePath}) => {
         <CaptionTextSmall className={styles.status}>Input</CaptionTextSmall>
       )}
       {NodeType.PIPELINE === node.type && node.state === NodeState.ERROR && (
-        <Icon small>
-          <StatusBlockedSVG />
+        <Icon small color="red">
+          <StatusStopSVG />
         </Icon>
       )}
       {NodeType.PIPELINE === node.type && node.state === NodeState.PAUSED && (
-        <Icon small>
+        <Icon small color="yellow">
           <StatusPausedSVG />
         </Icon>
       )}

@@ -3,7 +3,7 @@ import {
   Table,
   Group,
   AddCircleSVG,
-  UpdatedCircleSVG,
+  StatusUpdatedSVG,
   Icon,
   Tooltip,
   ButtonGroup,
@@ -24,7 +24,7 @@ type FileTableRowProps = {
 const getIcon = (file: File) => {
   switch (file.commitAction) {
     case FileCommitState.UPDATED:
-      return <UpdatedCircleSVG />;
+      return <StatusUpdatedSVG />;
     case FileCommitState.ADDED:
       return <AddCircleSVG />;
     default:

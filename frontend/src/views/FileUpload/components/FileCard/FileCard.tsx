@@ -81,12 +81,12 @@ const FileCard: React.FC<FileCardProps> = ({
               <span className={styles.size}>{filesize(file.size)}</span>
               {loading && <ProgressBar value={progress} max={100} />}
               {!error && !loading && success && (
-                <Icon small data-testid="FileCard__success">
+                <Icon small data-testid="FileCard__success" color="green">
                   <StatusCheckmarkSVG aria-label="upload success" />
                 </Icon>
               )}
               {error && (
-                <Icon small>
+                <Icon small color="red">
                   <StatusWarningSVG aria-label="file error" />
                 </Icon>
               )}
