@@ -251,15 +251,12 @@ export class MountPlugin implements IMountPlugin {
     });
   };
 
-  refresh = async (
-    _sender: PollMounts,
-    _data: Mount[] | Repo[],
-  ): Promise<void> => {
+  refresh = async (_: PollMounts, _data: Mount[] | Repo[]): Promise<void> => {
     await this._mountBrowser.model.refresh();
   };
 
   // Change back to root directory if in a mount that no longer exists
-  verifyBrowserPath = (_sender: PollMounts, mounted: Mount[]): void => {
+  verifyBrowserPath = (_: PollMounts, mounted: Mount[]): void => {
     if (this._mountBrowser.model.path === this._mountBrowser.model.rootPath) {
       return;
     }
