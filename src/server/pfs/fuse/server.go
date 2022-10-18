@@ -1270,13 +1270,11 @@ type GetResponse RepoResponse
 type StateFn func(*MountStateMachine) StateFn
 
 func (m *MountStateMachine) transitionedTo(state, status string) {
-
-	// before we lock, as this fn takes the same lock.
-	m.manager.root.setState(m.Name, state)
-
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	logrus.Infof("[%s] (%s, %s, %s) %s -> %s", m.Name, m.Repo, m.Branch, m.Commit, m.State, state)
+	m.manager.root.setState(m.Name, state)
 	m.State = state
 	m.Status = status
 }
@@ -1556,7 +1554,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 
 	// remove from loopback filesystem so that it actually disappears for the user
 	cleanPath := m.manager.root.rootPath + "/" + m.Name
-	logrus.Infof("Path is %s", cleanPath)
+	logrus.Infof("Removing path %s", cleanPath)
 
 	err := os.RemoveAll(cleanPath)
 	m.responses <- Response{
