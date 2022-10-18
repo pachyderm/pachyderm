@@ -24,8 +24,10 @@ import (
 type RawS3Proxy struct {
 }
 
-// TODO: These shouldn't be global variables, it's just convenient for this PoC.
-// The real backend bucket
+// TODO: These shouldn't be global variables, it's just expedient for this
+// experimental feature.
+
+// CurrentBucket is the real backend bucket. Set in s3g_sidecar.go
 var CurrentBucket string = "out"
 
 // This is like pipeline_name-<job-id>
@@ -202,8 +204,8 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 		Handler: proxyRouter,
 		Addr:    fmt.Sprintf("0.0.0.0:%d", port),
 		// Good practice: enforce timeouts for servers you create!
-		WriteTimeout: 15 * time.Second,
-		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 600 * time.Second,
+		ReadTimeout:  600 * time.Second,
 	}
 	return srv.ListenAndServe()
 }

@@ -79,10 +79,9 @@ func (a *apiServer) ServeSidecarS3G() {
 
 	go func() {
 		for i := 0; i < 2; i++ { // If too many errors, the worker will fail the job
-
 			var err error
 			var useRawS3Out bool
-			logrus.Infof("PIPELINEINFO: %+v", s.pipelineInfo.Details)
+			logrus.Debugf("pipelineInfo: %+v", s.pipelineInfo.Details)
 			if s.pipelineInfo != nil && s.pipelineInfo.Details != nil && s.pipelineInfo.Details.Metadata != nil {
 				v, ok := s.pipelineInfo.Details.Metadata.Annotations["raw_s3_out"]
 				if ok && !(v == "" || strings.ToLower(v) == "false" || strings.ToLower(v) == "off" || strings.ToLower(v) == "no") {
@@ -90,12 +89,12 @@ func (a *apiServer) ServeSidecarS3G() {
 				}
 			}
 			if useRawS3Out {
-				// TODO: ooh, we could just run this on a separate port _as
-				// well_ like Nitin suggested then existing s3 inputs will carry
-				// on working too, and expose via a separate env var but for now
+				logrus.Infof("ENABLING PROXY TO REAL S3 BACKEND MODE (SPARK COMPATIBLE) FOR S3_OUT BUCKET")
+				// TODO: We could just run this on a separate port _as well_
+				// like Nitin suggested then existing s3 inputs will carry on
+				// working too, and expose via a separate env var but for now
 				// this is ok. Could help solve
 				// https://linear.app/pachyderm/issue/INT-739
-				logrus.Infof("ENABLING PROXY TO REAL S3 BACKEND MODE (SPARK COMPATIBLE) FOR S3_OUT BUCKET")
 				err = s.rawS3Proxy.ListenAndServe(port)
 			} else {
 				err = s.server.ListenAndServe()
@@ -220,11 +219,12 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	}
 	driver := s3.NewWorkerDriver(inputBuckets, outputBucket)
 	router := s3.Router(driver, s.s.apiServer.env.GetPachClient)
-	s.s.server.AddRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID), router) // <-- set up proxy to real s3 here?
+	s.s.server.AddRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID), router)
 }
 
 func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, job *pps.Job) {
-	s.s.server.RemoveRouter(ppsutil.SidecarS3GatewayService(job.Pipeline.Name, job.ID)) // <-- shut down proxy to real s3 here? AND UPLOAD/COPY THE DATA
+	// TODO: upload/copy the data into s3_out
+	s.s.server.RemoveRouter(ppsutil.SidecarS3GatewayService(job.Pipeline.Name, job.ID))
 }
 
 type k8sServiceCreatingJobHandler struct {

@@ -386,9 +386,7 @@ func RunLocal() (retErr error) {
 		return internalServer.Wait()
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		// false below indicates that we don't proxy to the real backend from
-		// pachd s3g, we only do this in the sidecar when s3_out is set
-		router := s3.Router(s3.NewMasterDriver(), env.GetPachClient, false)
+		router := s3.Router(s3.NewMasterDriver(), env.GetPachClient)
 		server := s3.Server(env.Config().S3GatewayPort, router)
 
 		if err != nil {
