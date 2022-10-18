@@ -156,7 +156,7 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					// 	req.Host = coords.Host
 					// }
 
-					if req.Body != nil {
+					if req.Body != nil && req.Header.Get("Content-Type") != "application/octet-stream" {
 						bodyBytes, err := ioutil.ReadAll(req.Body)
 						if err != nil {
 							logrus.Fatal(err)
@@ -199,8 +199,8 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 						resp.Header[k] = v
 					}
 
-					// find and replace
-					if resp.Body != nil {
+					// find and replace - only if not a byte stream (large data!)
+					if resp.Body != nil && resp.Header.Get("Content-Type") != "application/octet-stream" {
 						mashed := unmashup(string(bodyBytes))
 						modifiedBodyBytes := new(bytes.Buffer)
 						modifiedBodyBytes.WriteString(mashed)
