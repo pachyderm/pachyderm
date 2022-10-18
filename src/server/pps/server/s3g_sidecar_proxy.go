@@ -152,14 +152,14 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 							logrus.Fatal(err)
 						}
 						// TODO find and replace
-						mashed := transform(string(bodyBytes))
+						transformed := transform(string(bodyBytes))
 						modifiedBodyBytes := new(bytes.Buffer)
-						modifiedBodyBytes.WriteString(mashed)
+						modifiedBodyBytes.WriteString(transformed)
 						req.Body = ioutil.NopCloser(modifiedBodyBytes)
-						req.ContentLength = int64(len(mashed))
+						req.ContentLength = int64(len(transformed))
 						// prev := req.Header.Get("Content-Length")
-						// req.Header.Set("Content-Length", fmt.Sprintf("%d", len(mashed)))
-						// logrus.Infof("PROXY request switching Content-Length from %d to %d", prev, len(mashed))
+						// req.Header.Set("Content-Length", fmt.Sprintf("%d", len(transformed)))
+						// logrus.Infof("PROXY request switching Content-Length from %d to %d", prev, len(transformed))
 					}
 					// TODO: check whether awsauth.Sign4 reads the whole request
 					// body into memory, if it does that's bad for large writes
@@ -191,22 +191,22 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 
 					// find and replace - only if not a byte stream (large data!)
 					if resp.Body != nil && resp.Header.Get("Content-Type") != "application/octet-stream" {
-						mashed := untransform(string(bodyBytes))
+						transformed := untransform(string(bodyBytes))
 						modifiedBodyBytes := new(bytes.Buffer)
-						modifiedBodyBytes.WriteString(mashed)
+						modifiedBodyBytes.WriteString(transformed)
 						prev := resp.ContentLength
 
 						resp.Body = ioutil.NopCloser(modifiedBodyBytes)
-						resp.ContentLength = int64(len(mashed))
+						resp.ContentLength = int64(len(transformed))
 						logrus.Infof("PROXY Setting content length from %d to %d", prev, resp.ContentLength)
 
 						// not sure why we need to do this as well as setting
 						// resp.ContentLength, but we do (only in the response
 						// case)
-						resp.Header.Set("Content-Length", fmt.Sprintf("%d", len(mashed)))
+						resp.Header.Set("Content-Length", fmt.Sprintf("%d", len(transformed)))
 
 						// prev := resp.Header.Get("Content-Length")
-						// logrus.Infof("PROXY response switching Content-Length from %d to %d", prev, len(mashed))
+						// logrus.Infof("PROXY response switching Content-Length from %d to %d", prev, len(transformed))
 					}
 					return nil
 				},
