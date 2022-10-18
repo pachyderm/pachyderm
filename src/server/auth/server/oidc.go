@@ -167,7 +167,13 @@ func (a *apiServer) GetOIDCLoginURL(ctx context.Context) (string, string, error)
 		if err != nil {
 			return "", "", errors.Wrap(err, "could not parse Auth URL for Localhost Issuer rewrite")
 		}
-		rewriteURL.Host = config.userAccessAddress
+
+		userURL, err := url.Parse(config.userAccessAddress)
+		if err != nil {
+			return "", "", errors.Wrap(err, "could not parse User Accessible Oauth Issuer URL")
+		}
+		rewriteURL.Host = userURL.Host
+		rewriteURL.Scheme = userURL.Scheme
 		authURL = rewriteURL.String()
 	}
 	return authURL, state, nil
