@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -177,39 +176,6 @@ func TestBasicServerDifferingNames(t *testing.T) {
 		data, err := os.ReadFile(filepath.Join(mountPoint, "newname", "dir", "file1"))
 		require.NoError(t, err)
 		require.Equal(t, "foo", string(data))
-	})
-}
-
-func TestRepoAccess(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := "robot"+tu.UniqueString("alice"), "robot"+tu.UniqueString("bob")
-	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
-
-	require.NoError(t, aliceClient.CreateRepo("repo1"))
-	commit := client.NewCommit("repo1", "master", "")
-	err := aliceClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
-	require.NoError(t, err)
-
-	withServerMount(t, aliceClient, nil, func(mountPoint string) {
-		resp, err := get("repos")
-		require.NoError(t, err)
-
-		reposResp := &ListRepoResponse{}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
-		require.Equal(t, (*reposResp)["repo1"].Authorization, "write")
-	})
-
-	withServerMount(t, bobClient, nil, func(mountPoint string) {
-		resp, err := get("repos")
-		require.NoError(t, err)
-
-		reposResp := &ListRepoResponse{}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
-		require.Equal(t, (*reposResp)["repo1"].Authorization, "none")
-
-		resp, _ = put("repos/repo1/master/_mount?name=repo1&mode=ro", nil)
-		require.Equal(t, resp.StatusCode, 500)
 	})
 }
 
@@ -668,8 +634,8 @@ func TestRepoAccess(t *testing.T) {
 	alice, bob := "robot"+tu.UniqueString("alice"), "robot"+tu.UniqueString("bob")
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, "repo1"))
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo1", "master", "")
+	require.NoError(t, aliceClient.CreateRepo("repo1"))
+	commit := client.NewCommit("repo1", "master", "")
 	err := aliceClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 
