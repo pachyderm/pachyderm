@@ -66,6 +66,7 @@ workflows:
           # <regex path-to-test> <parameter-to-set> <value-of-pipeline-parameter>
           mapping: |
             jupyter-extension/.* run-jupyter-jobs true
+            src/.* run-core-jobs true
           base-revision: master # NOTE: This should be updated to reflect the base branch (ie. master, 2.3.x)
           config-path: .circleci/main.yml
       - setup: # Only run setup on tags, otherwise use path filtering

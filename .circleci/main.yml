@@ -38,6 +38,9 @@ parameters:
   run-jupyter-jobs:
     type: boolean
     default: false
+  run-core-jobs:
+    type: boolean
+    default: false
 
 executors:
   docker-go:
@@ -1205,8 +1208,7 @@ jobs:
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
 workflows:
   integration-tests:
-    when:
-      not: << pipeline.parameters.run-jupyter-jobs >>
+    when:<< pipeline.parameters.run-core-jobs >>
     jobs:
       - build-docker-images
       #- build-pachctl-bin:
@@ -1230,8 +1232,7 @@ workflows:
                 - EXAMPLES
                 - CONNECTORS
   helm-tests:
-    when:
-      not: << pipeline.parameters.run-jupyter-jobs >>
+    when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - helm-tests
   nightly_load_tests:
@@ -1261,13 +1262,11 @@ workflows:
                   #- LOAD14
                   #- LOAD15
   rootless-tests:
-    when:
-      not: << pipeline.parameters.run-jupyter-jobs >>
+    when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - rootless
   deploy-tests:
-    when:
-      not: << pipeline.parameters.run-jupyter-jobs >>
+    when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - deploy-tests
   jupyter-extension:
