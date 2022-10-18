@@ -800,6 +800,9 @@ func (d *driver) repoSize(ctx context.Context, repo *pfs.Repo) (int64, error) {
 // commits arrive on 'branch', when 'branches's HEAD is deleted, or when
 // 'branches' are newly created (i.e. in CreatePipeline).
 func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branches []*pfs.Branch) error {
+	if len(branches) == 0 {
+		return nil
+	}
 	totalSubv := make(map[string]*pfs.Branch, 0)
 	// TODO(acohen4): careful about this variable. It's important that it doesn't contain branch infos outside of the subvenance closure
 	branchInfos := make(map[string]*pfs.BranchInfo, 0)
