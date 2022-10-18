@@ -15,14 +15,18 @@ func Commit(pachClient *client.APIClient, taskService task.Service, branch *pfs.
 	if err != nil {
 		return "", err
 	}
-	if env.Validator() != nil && stateID != "" {
-		if err := validateState(pachClient, env.Validator(), stateID); err != nil {
+	state := &State{}
+	if stateID != "" {
+		state, err = deserializeState(pachClient, stateID)
+		if err != nil {
+			return "", err
+		}
+		if err := validateState(env, state); err != nil {
 			return "", err
 		}
 	}
 	project := branch.Repo.Project.GetName()
 	repo := branch.Repo.Name
-	state := &State{}
 	for i := 0; i < int(spec.Count); i++ {
 		commit, err := pachClient.StartProjectCommit(project, repo, branch.Name)
 		if err != nil {
@@ -50,15 +54,14 @@ func Commit(pachClient *client.APIClient, taskService task.Service, branch *pfs.
 	return serializeState(pachClient, state)
 }
 
-func validateState(pachClient *client.APIClient, validator *Validator, stateID string) error {
-	state, err := deserializeState(pachClient, stateID)
-	if err != nil {
-		return err
+func validateState(env *Env, state *State) error {
+	validator := env.Validator()
+	if validator == nil {
+		return nil
 	}
-	client := NewPachClient(pachClient)
 	for _, commit := range state.Commits {
 		validator.SetHash(commit.Hash)
-		if err := validator.Validate(client, commit.Commit); err != nil {
+		if err := validator.Validate(env.Client(), commit.Commit); err != nil {
 			return err
 		}
 	}
