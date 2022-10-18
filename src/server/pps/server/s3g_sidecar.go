@@ -92,9 +92,10 @@ func (a *apiServer) ServeSidecarS3G() {
 			if useRawS3Out {
 				// TODO: ooh, we could just run this on a separate port _as
 				// well_ like Nitin suggested then existing s3 inputs will carry
-				// on working too, and expose via a separate env var
-				// but for now this is ok
-				logrus.Infof("ENABLING PROXY TO REAL BACKEND MODE (SPARK COMPATIBLE) FOR S3_OUT BUCKET")
+				// on working too, and expose via a separate env var but for now
+				// this is ok. Could help solve
+				// https://linear.app/pachyderm/issue/INT-739
+				logrus.Infof("ENABLING PROXY TO REAL S3 BACKEND MODE (SPARK COMPATIBLE) FOR S3_OUT BUCKET")
 				err = s.rawS3Proxy.ListenAndServe(port)
 			} else {
 				err = s.server.ListenAndServe()
@@ -186,7 +187,9 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	if os.Getenv("STORAGE_BACKEND") == "MINIO" {
 		CurrentBucket = os.Getenv("MINIO_BUCKET")
 		CurrentTargetPath = fmt.Sprintf("%s-%s", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
-		// reset LastSeenPathToReplace so that it gets picked up on the first HEAD request by Spark
+		// reset LastSeenPathToReplace so that it gets picked up on the (next)
+		// initial HEAD request by Spark, when processing the next jobs in this
+		// pipeline (whose user code might right to a different location)
 		LastSeenPathToReplace = ""
 	}
 	// TODO: add support for real AWS/S3
@@ -212,18 +215,11 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	if s.s.pipelineInfo.Details.S3Out {
 		outputBucket = &s3.Bucket{
 			Commit: jobInfo.OutputCommit,
-			Name:   "out", // maybe the name s2 is routing too needs to match the one the backend bucket is expecting too
+			Name:   "out",
 		}
 	}
-	var proxyToRealBackend bool
-	if len(inputBuckets) == 0 && outputBucket != nil {
-		// TODO: support proxying to the real backend for the output bucket AND
-		// reading from s3 buckets
-		proxyToRealBackend = true
-		logrus.Infof("ENABLING PROXY TO REAL BACKEND MODE (SPARK COMPATIBLE) FOR S3_OUT BUCKET")
-	}
 	driver := s3.NewWorkerDriver(inputBuckets, outputBucket)
-	router := s3.Router(driver, s.s.apiServer.env.GetPachClient, proxyToRealBackend)
+	router := s3.Router(driver, s.s.apiServer.env.GetPachClient)
 	s.s.server.AddRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID), router) // <-- set up proxy to real s3 here?
 }
 

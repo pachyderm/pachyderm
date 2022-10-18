@@ -24,8 +24,8 @@ import (
 type RawS3Proxy struct {
 }
 
-// XXX this shouldn't be a global variable, it's just convenient for this PoC..
-// e.g. "bucketname"
+// TODO: These shouldn't be global variables, it's just convenient for this PoC.
+// The real backend bucket
 var CurrentBucket string = "out"
 
 // This is like pipeline_name-<job-id>
@@ -36,15 +36,11 @@ var CurrentTargetPath string = ""
 var LastSeenPathToReplace string = ""
 
 func (r *RawS3Proxy) ListenAndServe(port uint16) error {
-	// os.GetEnv("STORAGE_BACKEND") ==> "MINIO" or, presumably, "AWS"...
+
+	// Note: os.GetEnv("STORAGE_BACKEND") ==> "MINIO" or, presumably, "AWS"...
 	// MINIO_SECRET, MINIO_ID, MINIO_ENDPOINT (e.g.
 	// minio.default.svc.cluster.local:9000), MINIO_SECURE, MINIO_BUCKET also
 	// set.
-
-	// TODO!!! Need to mutate the bucket name in the proxied requests from
-	// "out" to whatever the real backend bucket is called in the backend...
-	// Before we do this, we'll just modify the user code to use the real
-	// minio bucket name, just to prove the concept.
 
 	if os.Getenv("STORAGE_BACKEND") != "MINIO" {
 		panic("only minio supported by proxy to real backend s3_out feature right now - TODO: add real AWS!")
@@ -57,16 +53,16 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 			if LastSeenPathToReplace == "" {
 				// match the first Spark request per job...
 				// HEAD /out/example-data-24 HTTP/1.1
-				logrus.Infof("PROXY r.Method='%s', r.RequestURI='%s'", r.Method, r.RequestURI)
+				logrus.Debugf("PROXY r.Method='%s', r.RequestURI='%s'", r.Method, r.RequestURI)
 				if r.Method == "HEAD" && strings.HasPrefix(r.RequestURI, "/out/") {
 					LastSeenPathToReplace = r.RequestURI[len("/out/"):]
-					logrus.Infof("PROXY LastSeenPathToReplace: '%s'", LastSeenPathToReplace)
+					logrus.Debugf("PROXY LastSeenPathToReplace: '%s'", LastSeenPathToReplace)
 				}
 			}
 
 			transform := func(s string) string {
-				// danger danger, this will probably mash too much in some cases
-				p := s
+				// TODO: think about whether this might transform too much in some cases
+				initial := s
 				ret := strings.Replace(s, "/out", "/"+CurrentBucket, -1)
 				// XML stylee as well
 				ret = strings.Replace(ret, ">out", ">"+CurrentBucket, -1)
@@ -77,19 +73,19 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					ret = strings.Replace(ret, LastSeenPathToReplace, CurrentTargetPath+"/"+LastSeenPathToReplace, -1)
 				} else {
 					if len(s) <= 100 {
-						logrus.Infof("PROXY Warning! LastSeenPathToReplace was empty when mashing up '%s'", s)
+						logrus.Debugf("PROXY Warning! LastSeenPathToReplace was empty when transforming up '%s'", s)
 					}
 				}
-				// logrus.Infof("transform '%s' ==> '%s'", s, ret)
-				if p != ret {
-					logrus.Infof("PROXY transformed '%s' to '%s'", p, ret)
+				// logrus.Debugf("transform '%s' ==> '%s'", s, ret)
+				if initial != ret {
+					logrus.Debugf("PROXY transformed '%s' to '%s'", initial, ret)
 				}
 				return ret
 			}
 
 			untransform := func(s string) string {
-				// danger danger, this will probably mash too much in some cases
-				p := s
+				// TODO: think about whether this might transform too much in some cases
+				initial := s
 				ret := strings.Replace(s, "/"+CurrentBucket, "/out", -1)
 				// XML stylee as well
 				ret = strings.Replace(ret, ">"+CurrentBucket, ">out", -1)
@@ -100,27 +96,20 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					ret = strings.Replace(ret, CurrentTargetPath+"/"+LastSeenPathToReplace, LastSeenPathToReplace, -1)
 				} else {
 					if len(s) <= 100 {
-						logrus.Infof("PROXY Warning! LastSeenPathToReplace was empty when unmashing '%s'", s)
+						logrus.Debugf("PROXY Warning! LastSeenPathToReplace was empty when untransforming '%s'", s)
 					}
 				}
-				// logrus.Infof("transform '%s' ==> '%s'", s, ret)
-				if p != ret {
-					logrus.Infof("PROXY reverse transformed '%s' to '%s'", p, ret)
+				if initial != ret {
+					logrus.Debugf("PROXY reverse transformed '%s' to '%s'", initial, ret)
 				}
 				return ret
 			}
-
-			// logrus.Infof("===> IN PROXY ROUTER, w=%+v, r=%+v", w, r)
 
 			proxy := &httputil.ReverseProxy{
 				Director: func(req *http.Request) {
 					u := os.Getenv("MINIO_ENDPOINT")
 					// TODO: check MINIO_SECURE
-					// TODO: use MINIO_SECRET, MINIO_ID, ... need to sign
-					// (after unwrapping??) the request before we send it
-					// onwards: see https://github.com/smarty-archives/go-aws-auth (deprecated!) etc
-					// TODO: need to add r.URL.Path?
-					logrus.Infof("PROXY: r.URL.Path=%s", r.URL.Path)
+					logrus.Debugf("PROXY: r.URL.Path=%s", r.URL.Path)
 					target, err := url.Parse(fmt.Sprintf("http://%s", u))
 					if err != nil {
 						log.Fatal(err)
@@ -151,15 +140,11 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 						if err != nil {
 							logrus.Fatal(err)
 						}
-						// TODO find and replace
 						transformed := transform(string(bodyBytes))
 						modifiedBodyBytes := new(bytes.Buffer)
 						modifiedBodyBytes.WriteString(transformed)
 						req.Body = ioutil.NopCloser(modifiedBodyBytes)
 						req.ContentLength = int64(len(transformed))
-						// prev := req.Header.Get("Content-Length")
-						// req.Header.Set("Content-Length", fmt.Sprintf("%d", len(transformed)))
-						// logrus.Infof("PROXY request switching Content-Length from %d to %d", prev, len(transformed))
 					}
 					// TODO: check whether awsauth.Sign4 reads the whole request
 					// body into memory, if it does that's bad for large writes
@@ -171,16 +156,6 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					})
 				},
 				ModifyResponse: func(resp *http.Response) error {
-					// TODO: skip loading the response body into memory if we're
-					// streaming data! i.e. anything other than xml... maybe we
-					// can use the Content-Type to distinguish..? Or only
-					// PUT/GETs with certain headers and certain patterns?
-					bodyBytes, err := ioutil.ReadAll(resp.Body)
-					if err != nil {
-						logrus.Info(err)
-						return err
-					}
-
 					// transform each of the response headers
 					for k, v := range resp.Header {
 						for i, vv := range v {
@@ -191,6 +166,11 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 
 					// find and replace - only if not a byte stream (large data!)
 					if resp.Body != nil && resp.Header.Get("Content-Type") != "application/octet-stream" {
+						bodyBytes, err := ioutil.ReadAll(resp.Body)
+						if err != nil {
+							return err
+						}
+
 						transformed := untransform(string(bodyBytes))
 						modifiedBodyBytes := new(bytes.Buffer)
 						modifiedBodyBytes.WriteString(transformed)
@@ -198,15 +178,12 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 
 						resp.Body = ioutil.NopCloser(modifiedBodyBytes)
 						resp.ContentLength = int64(len(transformed))
-						logrus.Infof("PROXY Setting content length from %d to %d", prev, resp.ContentLength)
+						logrus.Debugf("PROXY Setting content length from %d to %d", prev, resp.ContentLength)
 
 						// not sure why we need to do this as well as setting
 						// resp.ContentLength, but we do (only in the response
-						// case)
+						// case seemingly)
 						resp.Header.Set("Content-Length", fmt.Sprintf("%d", len(transformed)))
-
-						// prev := resp.Header.Get("Content-Length")
-						// logrus.Infof("PROXY response switching Content-Length from %d to %d", prev, len(transformed))
 					}
 					return nil
 				},
@@ -220,7 +197,7 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 		},
 	)
 	// log where we're listening
-	logrus.Infof("PROXY: Listening on port %d", port)
+	logrus.Debugf("PROXY: Listening on port %d", port)
 	srv := &http.Server{
 		Handler: proxyRouter,
 		Addr:    fmt.Sprintf("0.0.0.0:%d", port),
@@ -231,21 +208,7 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 	return srv.ListenAndServe()
 }
 
-// TODO: factor this out into a separate file, at least...
-// from https://gist.github.com/thezelus/d5ac9ec563b061c514dc ...
-// func handler(target string, p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		r.URL.Host = url.Host
-// 		r.URL.Scheme = url.Scheme
-// 		r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
-// 		r.Host = url.Host
-
-// 		r.URL.Path = mux.Vars(r)["rest"]
-// 		p.ServeHTTP(w, r)
-// 	}
-// }
-
-// tf we need all this cruft
+// copied from standard library
 func singleJoiningSlash(a, b string) string {
 	aslash := strings.HasSuffix(a, "/")
 	bslash := strings.HasPrefix(b, "/")

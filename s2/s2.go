@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -489,9 +488,8 @@ func (h *S2) readBody(r *http.Request, length uint32) (*bytes.Buffer, error) {
 }
 
 // Router creates a new mux router.
-func (h *S2) Router(proxyToRealBackend bool) *mux.Router {
+func (h *S2) Router() *mux.Router {
 
-	h.logger.Infof("In Router() of S2. proxy=%t. Env vars are! %+v", proxyToRealBackend, os.Environ())
 	serviceHandler := &serviceHandler{
 		controller: h.Service,
 		logger:     h.logger,
