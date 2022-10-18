@@ -18,6 +18,8 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -340,6 +342,20 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 
 	// Before closing the commit, copy any data needed by the s3_out_proxy.
 
+	// make an http get request to localhost:1600/finish
+
+	// intentionally don't error if this fails - it only works in the s3g_proxy case
+	resp, err := http.Get("http://localhost:1600/finish")
+	if err != nil {
+		logrus.Infof("Got error calling finish on s3g_proxy, continuing anyway... %s", err)
+	} else {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			logrus.Infof("Got error reading body from finish on s3g_proxy, continuing anyway... %s", err)
+		}
+		logrus.Infof("called finish on proxy from inside worker, got: %s", string(body))
+	}
+
 	// TODO: find a way to selectively do this only if we need to
 	logrus.Infof(
 		"PROXY Uploading result of job %s from job-scoped bucket path to output commit %s",
@@ -347,7 +363,7 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 	)
 	CurrentTargetPath := fmt.Sprintf("%s-%s", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
 
-	err := pachClient.WithModifyFileClient(jobInfo.OutputCommit, func(mf client.ModifyFile) error {
+	err = pachClient.WithModifyFileClient(jobInfo.OutputCommit, func(mf client.ModifyFile) error {
 		// See src/internal/obj/factory.go NewClientFromURLAndSecret
 		var url string
 		if os.Getenv("STORAGE_BACKEND") == "MINIO" {

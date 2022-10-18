@@ -227,75 +227,6 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 }
 
 func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, job *pps.Job, jobInfo *pps.JobInfo, pachClient *client.APIClient) {
-	// logrus.Infof("PROXY Existing outputCommit=%s", jobInfo.OutputCommit.ID)
-	// outputCommit := jobInfo.OutputCommit
-
-	// // The job is finished. If it's a raw_s3_out job, upload any resulting data
-	// // written to the job path in the backend bucket recursively into the s3_out
-	// // bucket
-	// if s.s.rawMode {
-	// 	// TODO: looks like we do need to be careful to be idempotent! We are
-	// 	// somewhat, in that we still call RemoveRouter and don't block this
-	// 	// function even if the recursive copy doesn't succeed (e.g. the
-	// 	// location we're copying from has already been deleted). We don't yet
-	// 	// actually delete it after copying it though!
-
-	// 	// TODO: while this function doesn't seem to get called concurrently
-	// 	// with itself, jobs are reported as finished (green) before this
-	// 	// function completes. This might cause subsequent jobs to try to read
-	// 	// from the output repo before they really should? Or, are subsequent
-	// 	// jobs triggered by writes to that repo? In the latter case, the system
-	// 	// should flow as expected, as we just need to update the reporting to be
-	// 	// clearer (from a pachctl list jobs perspective) that the upload is
-	// 	// still happening
-
-	// 	// By the time we get here, the jobInfo.OutputCommit is already closed.
-	// 	// So, as a workaround for now (rather than finding the right place in
-	// 	// the worker just yet), we create a new commit on the same branch of
-	// 	// the same repo.
-
-	// 	// TODO: Only create a new output commit if we haven't previously copied
-	// 	// this! So, inspect the object store first, and check if the job-scoped
-	// 	// prefix exists. If it doesn't, don't bother creating a new commit. Or,
-	// 	// just move the code into the worker per the comment above.
-	// 	logrus.Infof(
-	// 		"PROXY Uploading result of job %s from job-scoped bucket path to NEW output commit %s",
-	// 		job, outputCommit,
-	// 	)
-
-	// 	// XXX output commit is closed. either we make a new one, or move the execution before it's closed
-	// 	err := pachClient.WithModifyFileClient(outputCommit, func(mf client.ModifyFile) error {
-	// 		// See src/internal/obj/factory.go NewClientFromURLAndSecret
-	// 		var url string
-	// 		if os.Getenv("STORAGE_BACKEND") == "MINIO" {
-	// 			url = fmt.Sprintf("test-minio://minio:9000/%s/%s", CurrentBucket, CurrentTargetPath)
-	// 		} else if os.Getenv("STORAGE_BACKEND") == "AMAZON" {
-	// 			url = fmt.Sprintf("s3://%s/%s", CurrentBucket, CurrentTargetPath)
-	// 		}
-	// 		logrus.Infof("PROXY Starting PutFileURL to / in output commit from %s", url)
-	// 		err := mf.PutFileURL("/", url, true)
-	// 		if err != nil {
-	// 			logrus.Infof("PROXY ERROR while copying %s: %s", os.Getenv("STORAGE_BACKEND"), err)
-	// 			return err
-	// 		}
-	// 		// TODO: clean up from the backend bucket! Should be able to use the
-	// 		// obj interface...
-	// 		return nil
-	// 	})
-	// 	if err != nil {
-	// 		// TODO: maybe we want to retry a certain number of times?
-	// 		logrus.Infof("PROXY error copying, continuing anyway %s", err)
-	// 	} else {
-	// 		logrus.Infof("PROXY finished copying!")
-	// 	}
-	// }
-
-	// err := pachClient.FinishCommit(
-	// 	outputCommit.Branch.Repo.Name, outputCommit.Branch.Name, outputCommit.ID,
-	// )
-	// if err != nil {
-	// 	logrus.Infof("PROXY ERROR while finishing commit: %s", err)
-	// }
 	s.s.server.RemoveRouter(ppsutil.SidecarS3GatewayService(job.Pipeline.Name, job.ID))
 }
 
@@ -308,6 +239,7 @@ func (s *k8sServiceCreatingJobHandler) S3G() *sidecarS3G {
 }
 
 func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pps.JobInfo) {
+	CurrentJobInfo = jobInfo
 	// Create kubernetes service for the current job ('jobInfo')
 	copyMap := func(m map[string]string) map[string]string {
 		nm := make(map[string]string)
@@ -430,6 +362,9 @@ func (h *handleJobsCtx) start() {
 func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventType, job *pps.Job) {
 	// 'e' is a Put event (new or updated job)
 	pachClient := h.s.pachClient.WithCtx(jobCtx)
+
+	// XXX gross
+	CurrentPachClient = pachClient
 
 	// Inspect the job and make sure it's relevant, as this worker may be old
 	logrus.Infof("sidecar s3 gateway: inspecting job %q to begin/end serving inputs over s3 gateway", job)
