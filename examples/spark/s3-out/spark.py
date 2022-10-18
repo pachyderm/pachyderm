@@ -35,8 +35,8 @@ conf.set("spark.hadoop.fs.s3a.change.detection.mode", 'none')
 conf.set("spark.hadoop.fs.s3a.change.detection.version.required", 'false')
 
 sc = SparkContext(conf=conf)
-# sc.setLogLevel("ERROR")
-sc.setLogLevel("DEBUG")
+sc.setLogLevel("ERROR")
+# sc.setLogLevel("DEBUG")
 sc.setSystemProperty("com.amazonaws.services.s3.disablePutObjectMD5Validation", "true")
 
 # confirm config is applied to this session

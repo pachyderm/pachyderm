@@ -17,7 +17,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
-	awsauth "github.com/smartystreets/go-aws-auth"
 )
 
 type RawS3Proxy struct {
@@ -176,10 +175,10 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					// body into memory, if it does that's bad for large writes
 					// and we should figure out how we can stream it to disk
 					// first...
-					awsauth.Sign4(req, awsauth.Credentials{
-						AccessKeyID:     os.Getenv("MINIO_ID"),
-						SecretAccessKey: os.Getenv("MINIO_SECRET"),
-					})
+					// awsauth.Sign4(req, awsauth.Credentials{
+					// 	AccessKeyID:     os.Getenv("MINIO_ID"),
+					// 	SecretAccessKey: os.Getenv("MINIO_SECRET"),
+					// })
 				},
 				ModifyResponse: func(resp *http.Response) error {
 					// TODO: skip loading the response body into memory if we're
@@ -219,7 +218,7 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					return nil
 				},
 				ErrorHandler: func(resp http.ResponseWriter, r *http.Request, err error) {
-					panic(err)
+					panic(err) // so we can see traceback in logs to see where the error came from
 					log.Printf("Error from proxy connection for %s %s: %s", r.Host, r.URL.Path, err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 				},
