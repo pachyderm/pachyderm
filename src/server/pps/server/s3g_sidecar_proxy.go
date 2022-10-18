@@ -12,6 +12,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -220,8 +221,7 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					return nil
 				},
 				ErrorHandler: func(resp http.ResponseWriter, r *http.Request, err error) {
-					panic(err) // so we can see traceback in logs to see where the error came from
-					log.Printf("Error from proxy connection for %s %s: %s", r.Host, r.URL.Path, err)
+					log.Printf("Error from proxy connection for %s %s: %s, stack=%s", r.Host, r.URL.Path, err, debug.Stack())
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 				},
 			}
