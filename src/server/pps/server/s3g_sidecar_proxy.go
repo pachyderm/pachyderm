@@ -64,7 +64,7 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 				}
 			}
 
-			mashup := func(s string) string {
+			transform := func(s string) string {
 				// danger danger, this will probably mash too much in some cases
 				p := s
 				ret := strings.Replace(s, "/out", "/"+CurrentBucket, -1)
@@ -80,14 +80,14 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 						logrus.Infof("PROXY Warning! LastSeenPathToReplace was empty when mashing up '%s'", s)
 					}
 				}
-				// logrus.Infof("MASHUP '%s' ==> '%s'", s, ret)
+				// logrus.Infof("transform '%s' ==> '%s'", s, ret)
 				if p != ret {
 					logrus.Infof("PROXY transformed '%s' to '%s'", p, ret)
 				}
 				return ret
 			}
 
-			unmashup := func(s string) string {
+			untransform := func(s string) string {
 				// danger danger, this will probably mash too much in some cases
 				p := s
 				ret := strings.Replace(s, "/"+CurrentBucket, "/out", -1)
@@ -103,7 +103,7 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 						logrus.Infof("PROXY Warning! LastSeenPathToReplace was empty when unmashing '%s'", s)
 					}
 				}
-				// logrus.Infof("MASHUP '%s' ==> '%s'", s, ret)
+				// logrus.Infof("transform '%s' ==> '%s'", s, ret)
 				if p != ret {
 					logrus.Infof("PROXY reverse transformed '%s' to '%s'", p, ret)
 				}
@@ -134,27 +134,17 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					} else {
 						req.URL.RawQuery = targetQuery + "&" + req.URL.RawQuery
 					}
-					req.URL.Path = mashup(req.URL.Path)
-					req.URL.RawPath = mashup(req.URL.RawPath)
-					req.URL.RawQuery = mashup(req.URL.RawQuery)
+					req.URL.Path = transform(req.URL.Path)
+					req.URL.RawPath = transform(req.URL.RawPath)
+					req.URL.RawQuery = transform(req.URL.RawQuery)
 
-					// mashup each of the request headers
+					// transform each of the request headers
 					for k, v := range req.Header {
 						for i, vv := range v {
-							v[i] = mashup(vv)
+							v[i] = transform(vv)
 						}
 						req.Header[k] = v
 					}
-
-					if _, ok := req.Header["User-Agent"]; !ok {
-						// explicitly disable User-Agent so it's not set to default value ???
-						req.Header.Set("User-Agent", "")
-					}
-					// // If calling the istio ingress, we need to set the endpoint host in the header
-					// if coords.Host != "" {
-					// 	// req.Header.Set("Host", coords.Host)
-					// 	req.Host = coords.Host
-					// }
 
 					if req.Body != nil && req.Header.Get("Content-Type") != "application/octet-stream" {
 						bodyBytes, err := ioutil.ReadAll(req.Body)
@@ -162,7 +152,7 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 							logrus.Fatal(err)
 						}
 						// TODO find and replace
-						mashed := mashup(string(bodyBytes))
+						mashed := transform(string(bodyBytes))
 						modifiedBodyBytes := new(bytes.Buffer)
 						modifiedBodyBytes.WriteString(mashed)
 						req.Body = ioutil.NopCloser(modifiedBodyBytes)
@@ -191,17 +181,17 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 						return err
 					}
 
-					// mashup each of the response headers
+					// transform each of the response headers
 					for k, v := range resp.Header {
 						for i, vv := range v {
-							v[i] = mashup(vv)
+							v[i] = transform(vv)
 						}
 						resp.Header[k] = v
 					}
 
 					// find and replace - only if not a byte stream (large data!)
 					if resp.Body != nil && resp.Header.Get("Content-Type") != "application/octet-stream" {
-						mashed := unmashup(string(bodyBytes))
+						mashed := untransform(string(bodyBytes))
 						modifiedBodyBytes := new(bytes.Buffer)
 						modifiedBodyBytes.WriteString(mashed)
 						prev := resp.ContentLength
