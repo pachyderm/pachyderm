@@ -1211,8 +1211,7 @@ workflows:
     when:
       or:
         - << pipeline.parameters.run-core-jobs >>
-        - not:
-            << pipeline.parameters.run-jupyter-jobs >>
+        - not: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - build-docker-images
       #- build-pachctl-bin:
@@ -1239,16 +1238,14 @@ workflows:
     when:
       or:
         - << pipeline.parameters.run-core-jobs >>
-        - not:
-            << pipeline.parameters.run-jupyter-jobs >>
+        - not: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - helm-tests
   nightly_load_tests:
     when:
       or:
         - << pipeline.parameters.run-core-jobs >>
-        - not:
-            << pipeline.parameters.run-jupyter-jobs >>
+        - not: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - build-docker-images
       - nightly-load:
@@ -1277,16 +1274,14 @@ workflows:
     when:
       or:
         - << pipeline.parameters.run-core-jobs >>
-        - not:
-            << pipeline.parameters.run-jupyter-jobs >>
+        - not: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - rootless
   deploy-tests:
     when:
       or:
         - << pipeline.parameters.run-core-jobs >>
-        - not:
-            << pipeline.parameters.run-jupyter-jobs >>
+        - not: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - deploy-tests
   jupyter-extension:
