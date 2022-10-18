@@ -1242,10 +1242,7 @@ workflows:
     jobs:
       - helm-tests
   nightly_load_tests:
-    when:
-      or:
-        - << pipeline.parameters.run-core-jobs >>
-        - not: << pipeline.parameters.run-jupyter-jobs >>
+    when: << pipeline.parameters.run_load_tests >>
     jobs:
       - build-docker-images
       - nightly-load:
