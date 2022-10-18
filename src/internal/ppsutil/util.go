@@ -20,7 +20,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -356,38 +355,6 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 			logrus.Infof("PROXY Got error reading body from finish on s3g_proxy, continuing anyway... %s", err)
 		}
 		logrus.Infof("PROXY called finish on proxy from inside worker, got: %s", string(body))
-	}
-
-	// TODO: find a way to selectively do this only if we need to
-	logrus.Infof(
-		"PROXY Uploading result of job %s from job-scoped bucket path to output commit %s",
-		jobInfo.Job.ID, jobInfo.OutputCommit,
-	)
-	CurrentTargetPath := fmt.Sprintf("%s-%s", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
-
-	err = pachClient.WithModifyFileClient(jobInfo.OutputCommit, func(mf client.ModifyFile) error {
-		// See src/internal/obj/factory.go NewClientFromURLAndSecret
-		var url string
-		if os.Getenv("STORAGE_BACKEND") == "MINIO" {
-			url = fmt.Sprintf("test-minio://minio:9000/%s/%s", os.Getenv("MINIO_BUCKET"), CurrentTargetPath)
-		} else if os.Getenv("STORAGE_BACKEND") == "AMAZON" {
-			url = fmt.Sprintf("s3://%s/%s", os.Getenv("AMAZON_BUCKET"), CurrentTargetPath)
-		}
-		logrus.Infof("PROXY Starting PutFileURL to / in output commit from %s", url)
-		err := mf.PutFileURL("/", url, true)
-		if err != nil {
-			logrus.Infof("PROXY ERROR while copying %s: %s", os.Getenv("STORAGE_BACKEND"), err)
-			return err
-		}
-		// TODO: clean up from the backend bucket! Should be able to use the
-		// obj interface...
-		return nil
-	})
-	if err != nil {
-		// TODO: maybe we want to retry a certain number of times?
-		logrus.Infof("PROXY error copying, continuing anyway %s", err)
-	} else {
-		logrus.Infof("PROXY finished copying!")
 	}
 
 	// only try to close meta commits for transform pipelines. We can't simply ignore a NotFound error
