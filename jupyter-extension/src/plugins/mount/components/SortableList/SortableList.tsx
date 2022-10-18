@@ -61,7 +61,6 @@ const SortableList: React.FC<SortableListProps> = ({
               <ListUnmount
                 item={item}
                 key={item.repo}
-                open={open}
                 updateData={updateData}
                 mountedItems={mountedItems}
               />

@@ -10,14 +10,12 @@ export const DISABLED_STATES: mountState[] = [
 
 type ListUnmountProps = {
   item: Repo;
-  open: (path: string) => void;
   updateData: (data: ListMountsResponse) => void;
   mountedItems: Mount[];
 };
 
 const ListUnmount: React.FC<ListUnmountProps> = ({
   item,
-  open,
   updateData,
   mountedItems,
 }) => {
@@ -71,7 +69,6 @@ const ListUnmount: React.FC<ListUnmountProps> = ({
         });
         updateData(data);
       }
-      open('');
     } catch {
       console.log('error mounting or unmounting repo');
     }

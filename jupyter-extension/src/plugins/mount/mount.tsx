@@ -62,8 +62,6 @@ export class MountPlugin implements IMountPlugin {
       }
     });
 
-    // TODO: If unmounted list changes, check file browser path if it exists in unmounted repos list
-
     // This is used to detect if the user becomes unauthenticated of there are errors on the server
     this._poller.statusSignal.connect((_, status) => {
       if (status.code === 500) {
@@ -182,7 +180,7 @@ export class MountPlugin implements IMountPlugin {
               setShowDatum={this.setShowDatum}
               keepMounted={this._keepMounted}
               setKeepMounted={this.setKeepMounted}
-              refresh={this.open}
+              open={this.open}
               pollRefresh={this._poller.refresh}
               currentDatumInfo={this._currentDatumInfo}
             />
@@ -211,6 +209,9 @@ export class MountPlugin implements IMountPlugin {
     this._fullPageError.addClass('pachyderm-mount-react-wrapper');
 
     this._mountBrowser = createCustomFileBrowser(app, manager, factory);
+    this._poller.mountedSignal.connect(this.verifyBrowserPath);
+    this._poller.mountedSignal.connect(this.refresh);
+    this._poller.unmountedSignal.connect(this.refresh);
 
     this._panel = new SplitPanel();
     this._panel.orientation = 'vertical';
@@ -248,6 +249,30 @@ export class MountPlugin implements IMountPlugin {
     this._app.commands.execute('filebrowser:open-path', {
       path: MOUNT_BROWSER_NAME + path,
     });
+  };
+
+  refresh = async (
+    _sender: PollMounts,
+    _data: Mount[] | Repo[],
+  ): Promise<void> => {
+    await this._mountBrowser.model.refresh();
+  };
+
+  // Change back to root directory if in a mount that no longer exists
+  verifyBrowserPath = (_sender: PollMounts, mounted: Mount[]): void => {
+    if (this._mountBrowser.model.path === this._mountBrowser.model.rootPath) {
+      return;
+    }
+
+    const currentMountDir = this._mountBrowser.model.path
+      .split(MOUNT_BROWSER_NAME)[1]
+      .split('/')[0];
+    for (let i = 0; i < mounted.length; i++) {
+      if (currentMountDir === mounted[i].name) {
+        return;
+      }
+    }
+    this.open('');
   };
 
   setShowDatum = (shouldShow: boolean): void => {
