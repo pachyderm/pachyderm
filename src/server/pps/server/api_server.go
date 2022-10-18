@@ -1740,7 +1740,8 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 			case input.Pfs != nil:
 				repo = new(pfs.Repo)
 				if input.Pfs.Project == "" {
-					repo.Project = pipelineInfo.Pipeline.Project
+					// TODO change GetProject to Project after CORE-93 is complete
+					repo.Project = pipelineInfo.Pipeline.GetProject()
 				} else {
 					repo.Project = &pfs.Project{Name: input.Pfs.Project}
 				}
@@ -1749,7 +1750,8 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 				repo = new(pfs.Repo)
 				repo.Name = input.Cron.Repo
 				if input.Cron.Project == "" {
-					repo.Project = pipelineInfo.Pipeline.Project
+					// TODO change GetProject to Project after CORE-93 is complete
+					repo.Project = pipelineInfo.Pipeline.GetProject()
 				} else {
 					repo.Project = &pfs.Project{Name: input.Cron.Project}
 				}
@@ -1873,24 +1875,24 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 // CreatePipeline implements the protobuf pps.CreatePipeline RPC
 //
 // Implementation note:
-// - CreatePipeline always creates pipeline output branches such that the
-//   pipeline's spec branch is in the pipeline output branch's provenance
-// - CreatePipeline will always create a new output commit, but that's done
-//   by CreateBranch at the bottom of the function, which sets the new output
-//   branch provenance, rather than commitPipelineInfoFromFileSet higher up.
-// - This is because CreatePipeline calls hardStopPipeline towards the top,
-// 	 breaking the provenance connection from the spec branch to the output branch
-// - For straightforward pipeline updates (e.g. new pipeline image)
-//   stopping + updating + starting the pipeline isn't necessary
-// - However it is necessary in many slightly atypical cases  (e.g. the
-//   pipeline input changed: if the spec commit is created while the
-//   output branch has its old provenance, or the output branch gets new
-//   provenance while the old spec commit is the HEAD of the spec branch,
-//   then an output commit will be created with provenance that doesn't
-//   match its spec's PipelineInfo.Details.Input. Another example is when
-//   request.Reprocess == true).
-// - Rather than try to enumerate every case where we can't create a spec
-//   commit without stopping the pipeline, we just always stop the pipeline
+//   - CreatePipeline always creates pipeline output branches such that the
+//     pipeline's spec branch is in the pipeline output branch's provenance
+//   - CreatePipeline will always create a new output commit, but that's done
+//     by CreateBranch at the bottom of the function, which sets the new output
+//     branch provenance, rather than commitPipelineInfoFromFileSet higher up.
+//   - This is because CreatePipeline calls hardStopPipeline towards the top,
+//     breaking the provenance connection from the spec branch to the output branch
+//   - For straightforward pipeline updates (e.g. new pipeline image)
+//     stopping + updating + starting the pipeline isn't necessary
+//   - However it is necessary in many slightly atypical cases  (e.g. the
+//     pipeline input changed: if the spec commit is created while the
+//     output branch has its old provenance, or the output branch gets new
+//     provenance while the old spec commit is the HEAD of the spec branch,
+//     then an output commit will be created with provenance that doesn't
+//     match its spec's PipelineInfo.Details.Input. Another example is when
+//     request.Reprocess == true).
+//   - Rather than try to enumerate every case where we can't create a spec
+//     commit without stopping the pipeline, we just always stop the pipeline
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *types.Empty, retErr error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
