@@ -2057,7 +2057,7 @@ func TestGetPermissions(t *testing.T) {
 
 	// alice creates a repo and makes Bob a writer
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoWriterRole}))
 
 	// alice can get her own permissions on the cluster (none) and on the repo (repoOwner)
@@ -2245,8 +2245,8 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	commit := client.NewCommit(repo, "master", "")
+	require.NoError(t, aliceClient.CreateRepo(repo))
 	err := aliceClient.PutFile(commit, "/file.1", strings.NewReader("1"))
 	require.NoError(t, err)
 
@@ -2312,7 +2312,7 @@ func TestDeleteAll(t *testing.T) {
 
 	// admin creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, adminClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, adminClient.CreateRepo(repo))
 
 	// alice calls DeleteAll, but it fails
 	err := aliceClient.DeleteAll()
