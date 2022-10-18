@@ -18,12 +18,14 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -336,10 +338,44 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 	// TODO: Leaning on the reason rather than state for commit errors seems a bit sketchy, but we don't
 	// store commit states.
 
+	// Before closing the commit, copy any data needed by the s3_out_proxy.
+
+	// TODO: find a way to selectively do this only if we need to
+	logrus.Infof(
+		"PROXY Uploading result of job %s from job-scoped bucket path to output commit %s",
+		jobInfo.Job.ID, jobInfo.OutputCommit,
+	)
+	CurrentTargetPath := fmt.Sprintf("%s-%s", jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)
+
+	err := pachClient.WithModifyFileClient(jobInfo.OutputCommit, func(mf client.ModifyFile) error {
+		// See src/internal/obj/factory.go NewClientFromURLAndSecret
+		var url string
+		if os.Getenv("STORAGE_BACKEND") == "MINIO" {
+			url = fmt.Sprintf("test-minio://minio:9000/%s/%s", os.Getenv("MINIO_BUCKET"), CurrentTargetPath)
+		} else if os.Getenv("STORAGE_BACKEND") == "AMAZON" {
+			url = fmt.Sprintf("s3://%s/%s", os.Getenv("AMAZON_BUCKET"), CurrentTargetPath)
+		}
+		logrus.Infof("PROXY Starting PutFileURL to / in output commit from %s", url)
+		err := mf.PutFileURL("/", url, true)
+		if err != nil {
+			logrus.Infof("PROXY ERROR while copying %s: %s", os.Getenv("STORAGE_BACKEND"), err)
+			return err
+		}
+		// TODO: clean up from the backend bucket! Should be able to use the
+		// obj interface...
+		return nil
+	})
+	if err != nil {
+		// TODO: maybe we want to retry a certain number of times?
+		logrus.Infof("PROXY error copying, continuing anyway %s", err)
+	} else {
+		logrus.Infof("PROXY finished copying!")
+	}
+
 	// only try to close meta commits for transform pipelines. We can't simply ignore a NotFound error
 	// because the real error happens on the server and is returned by RunBatchInTransaction itself
 	hasMeta := jobInfo.GetDetails().GetSpout() == nil && jobInfo.GetDetails().GetService() == nil
-	_, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
+	_, err = pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
 		if hasMeta {
 			if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 				Commit: MetaCommit(jobInfo.OutputCommit),
