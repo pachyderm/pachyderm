@@ -3,7 +3,10 @@
 * @pachyderm/CORE
 
 # Docs
-/doc/ @lbliii
+/doc/ @pachyderm/DOC
+
+# etc
+/etc/ @pachyderm/BRE @pachyderm/CORE
 
 # Helm
 /etc/helm/ @jrockway @seslattery @robert-uhl @armaanv @chainlink
@@ -38,7 +41,7 @@
 /src/templates/                            @pachyderm/INT
 
 # Internal
-# Add all the teams, so anyone can make, or change internal libraries by default.
+# Add all the teams, so anyone can make or change internal libraries by default.
 /src/internal/ @pachyderm/CORE @pachyderm/PFS @pachyderm/INT
 
 # Individuals for specific packages
