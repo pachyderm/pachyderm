@@ -2252,7 +2252,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 
 	// Create pipeline
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
@@ -2261,7 +2261,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 			"cp /pfs/*/* /pfs/out/",
 		},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		client.NewPFSInput(repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -2272,12 +2272,12 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 
 	// make sure the pipeline either fails or restarts RC & finishes
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitCommit(pipeline, "master", commit.ID)
 		return err
 	})
 
 	// make sure the pipeline is failed
-	pi, err := rootClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
+	pi, err := rootClient.InspectPipeline(pipeline, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pi.State)
 }
