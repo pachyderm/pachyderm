@@ -555,7 +555,7 @@ jobs:
           path: ~/project
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip<< parameters.python-version >>-cache-v11-<< pipeline.git.branch >>-{{ checksum "ci-requirements.txt" }}
+          key: pip<< parameters.python-version >>-cache-v11-<< pipeline.git.branch >><< pipeline.git.tag >>-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -564,7 +564,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip<< parameters.python-version >>-cache-v11-<< pipeline.git.branch >>-{{ checksum "ci-requirements.txt" }}
+          key: pip<< parameters.python-version >>-cache-v11-<< pipeline.git.branch >><< pipeline.git.tag >>-{{ checksum "ci-requirements.txt" }}
           paths:
             - "venv"
 
@@ -1258,6 +1258,7 @@ workflows:
           filters: *only-release-tags
       - jupyter-extension-publish:
           requires:
+            - jupyter-extension-build
             - sign-off
           filters: *only-release-tags
       - jupyter-extension-docker-push-tag:

@@ -69,7 +69,7 @@ console:
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
-    tag: "2.3.4-1"
+    tag: "2.3.6-1"
   priorityClassName: ""
   nodeSelector: {}
   tolerations: []
@@ -112,7 +112,7 @@ etcd:
   dynamicNodes: 1
   image:
     repository: "pachyderm/etcd"
-    tag: "v3.5.1"
+    tag: "v3.5.5"
     pullPolicy: "IfNotPresent"
   # maxTxnOps sets the --max-txn-ops in the container args
   maxTxnOps: 10000
