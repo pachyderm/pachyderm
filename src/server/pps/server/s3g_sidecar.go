@@ -37,6 +37,7 @@ type sidecarS3G struct {
 
 	server     *s3.S3Server
 	rawS3Proxy *RawS3Proxy
+	rawMode    bool
 }
 
 func (a *apiServer) ServeSidecarS3G() {
@@ -88,8 +89,9 @@ func (a *apiServer) ServeSidecarS3G() {
 					useRawS3Out = true
 				}
 			}
-			if useRawS3Out {
-				logrus.Infof("ENABLING PROXY TO REAL S3 BACKEND MODE (SPARK COMPATIBLE) FOR S3_OUT BUCKET")
+			if useRawS3Out && (os.Getenv("STORAGE_BACKEND") == "MINIO" || os.Getenv("STORAGE_BACKEND") == "AMAZON") {
+				logrus.Infof("ENABLING PROXY TO REAL S3 BACKEND MODE (SPARK COMPATIBLE) FOR S3_OUT BUCKET WITH BACKEND %s", os.Getenv("STORAGE_BACKEND"))
+				s.rawMode = true
 				// TODO: We could just run this on a separate port _as well_
 				// like Nitin suggested then existing s3 inputs will carry on
 				// working too, and expose via a separate env var but for now
@@ -127,7 +129,7 @@ type jobHandler interface {
 	OnCreate(ctx context.Context, jobInfo *pps.JobInfo)
 
 	// OnTerminate runs when a job ends. Should be idempotent.
-	OnTerminate(ctx context.Context, job *pps.Job)
+	OnTerminate(ctx context.Context, job *pps.Job, jobInfo *pps.JobInfo, pachClient *client.APIClient)
 }
 
 func (s *sidecarS3G) serveS3Instances() {
@@ -194,7 +196,6 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	// initial HEAD request by Spark, when processing the next jobs in this
 	// pipeline (whose user code might right to a different location)
 	LastSeenPathToReplace = ""
-	// TODO: add support for real AWS/S3
 
 	// serve new S3 gateway & add to s.server routers
 	if ok := s.s.server.ContainsRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID)); ok {
@@ -225,8 +226,52 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	s.s.server.AddRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID), router)
 }
 
-func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, job *pps.Job) {
-	// TODO: upload/copy the data into s3_out
+func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, job *pps.Job, jobInfo *pps.JobInfo, pachClient *client.APIClient) {
+	// The job is finished. If it's a raw_s3_out job, upload any resulting data
+	// written to the job path in the backend bucket recursively into the s3_out
+	// bucket
+	if s.s.rawMode {
+		// TODO: looks like we do need to be careful to be idempotent! We are
+		// somewhat, in that we still call RemoveRouter and don't block this
+		// function even if the recursive copy doesn't succeed (e.g. the
+		// location we're copying from has already been deleted). We don't yet
+		// actually delete it after copying it though!
+
+		// TODO: while this function doesn't seem to get called concurrently
+		// with itself, jobs are reported as finished (green) before this
+		// function completes. This might cause subsequent jobs to try to read
+		// from the output repo before they really should? Or, are subsequent
+		// jobs triggered by writes to that repo? In the latter case, the system
+		// should flow as expected, as we just need to update the reporting to be
+		// clearer (from a pachctl list jobs perspective) that the upload is
+		// still happening
+		logrus.Infof("PROXY Uploading result of job %s from job-scoped bucket path to output repo", job)
+
+		err := pachClient.WithModifyFileClient(jobInfo.OutputCommit, func(mf client.ModifyFile) error {
+			// See src/internal/obj/factory.go NewClientFromURLAndSecret
+			var url string
+			if os.Getenv("STORAGE_BACKEND") == "MINIO" {
+				url = fmt.Sprintf("test-minio://minio:9000/%s/%s", CurrentBucket, CurrentTargetPath)
+			} else if os.Getenv("STORAGE_BACKEND") == "AMAZON" {
+				url = fmt.Sprintf("s3://%s/%s", CurrentBucket, CurrentTargetPath)
+			}
+			logrus.Infof("PROXY Starting PutFileURL to / in output commit from %s", url)
+			err := mf.PutFileURL("/", url, true)
+			if err != nil {
+				logrus.Infof("PROXY ERROR while copying %s: %s", os.Getenv("STORAGE_BACKEND"), err)
+				return err
+			}
+			// TODO: clean up from the backend bucket!
+			return nil
+		})
+		if err != nil {
+			// TODO: maybe we want to retry a certain number of times?
+			logrus.Infof("PROXY error copying, continuing anyway %s", err)
+		} else {
+			logrus.Infof("PROXY finished copying!")
+		}
+	}
+
 	s.s.server.RemoveRouter(ppsutil.SidecarS3GatewayService(job.Pipeline.Name, job.ID))
 }
 
@@ -297,8 +342,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	}
 }
 
-func (s *k8sServiceCreatingJobHandler) OnTerminate(ctx context.Context, job *pps.Job) {
-	// TODO cleanup data we wrote in the s3 pipeline
+func (s *k8sServiceCreatingJobHandler) OnTerminate(ctx context.Context, job *pps.Job, jobInfo *pps.JobInfo, pachClient *client.APIClient) {
 
 	if !ppsutil.ContainsS3Inputs(s.s.pipelineInfo.Details.Input) && !s.s.pipelineInfo.Details.S3Out {
 		return // Nothing to delete; this isn't an s3 pipeline (shouldn't happen)
@@ -360,14 +404,11 @@ func (h *handleJobsCtx) start() {
 }
 
 func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventType, job *pps.Job) {
-	if t == watch.EventDelete {
-		h.h.OnTerminate(jobCtx, job)
-		return
-	}
 	// 'e' is a Put event (new or updated job)
 	pachClient := h.s.pachClient.WithCtx(jobCtx)
+
 	// Inspect the job and make sure it's relevant, as this worker may be old
-	logrus.Infof("sidecar s3 gateway: inspecting job %q to begin serving inputs over s3 gateway", job)
+	logrus.Infof("sidecar s3 gateway: inspecting job %q to begin/end serving inputs over s3 gateway", job)
 
 	var jobInfo *pps.JobInfo
 	if err := backoff.RetryNotify(func() error {
@@ -402,8 +443,8 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 			jobInfo.PipelineVersion, h.s.pipelineInfo.Version)
 		return
 	}
-	if pps.IsTerminal(jobInfo.State) {
-		h.h.OnTerminate(jobCtx, job)
+	if t == watch.EventDelete || pps.IsTerminal(jobInfo.State) {
+		h.h.OnTerminate(jobCtx, job, jobInfo, pachClient)
 		return
 	}
 
