@@ -1208,7 +1208,7 @@ jobs:
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
 workflows:
   integration-tests:
-    when:<< pipeline.parameters.run-core-jobs >>
+    when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - build-docker-images
       #- build-pachctl-bin:
