@@ -31,7 +31,7 @@ elif [ "${1}" = "btl" ]; then
     -F name="${WORKSPACE}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG:1}-${CIRCLE_SHA1}" -F backend="aws_cluster" \
     -F infraJson=@etc/testing/circle/workloads/aws-btl/infra.json -F valuesYaml=@etc/testing/circle/workloads/aws-btl/values.yaml \
 https://helium.pachyderm.io/v1/api/workspace
-elif [ "${1}" = "krs"]; then
+elif [ "${1}" = "krs" ]; then
   curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
     -F name="${WORKSPACE}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG:1}-${CIRCLE_SHA1}" -F backend="aws_cluster" \
     -F infraJson=@etc/testing/circle/workloads/aws-krs/infra.json -F valuesYaml=@etc/testing/circle/workloads/aws-krs/values.yaml \
