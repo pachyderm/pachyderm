@@ -58,34 +58,14 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 	proxyRouter := mux.NewRouter()
 	proxyRouter.PathPrefix("/finish").HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
-			// Worker is telling us the job is finished. If it's a raw_s3_out job, upload any resulting data
-			// written to the job path in the backend bucket recursively into the s3_out
-			// bucket
+			// Worker is telling us the job is finished. If it's a raw_s3_out
+			// job, upload any resulting data written to the job path in the
+			// backend bucket recursively into the s3_out bucket
 
-			// TODO: looks like we do need to be careful to be idempotent! We are
-			// somewhat, in that we still call RemoveRouter and don't block this
-			// function even if the recursive copy doesn't succeed (e.g. the
-			// location we're copying from has already been deleted). We don't yet
-			// actually delete it after copying it though!
-
-			// TODO: while this function doesn't seem to get called concurrently
-			// with itself, jobs are reported as finished (green) before this
-			// function completes. This might cause subsequent jobs to try to read
-			// from the output repo before they really should? Or, are subsequent
-			// jobs triggered by writes to that repo? In the latter case, the system
-			// should flow as expected, as we just need to update the reporting to be
-			// clearer (from a pachctl list jobs perspective) that the upload is
-			// still happening
-
-			// By the time we get here, the jobInfo.OutputCommit is already closed.
-			// So, as a workaround for now (rather than finding the right place in
-			// the worker just yet), we create a new commit on the same branch of
-			// the same repo.
-
-			// TODO: Only create a new output commit if we haven't previously copied
-			// this! So, inspect the object store first, and check if the job-scoped
-			// prefix exists. If it doesn't, don't bother creating a new commit. Or,
-			// just move the code into the worker per the comment above.
+			// We do need to be careful to be idempotent! We are somewhat, in
+			// that we still call RemoveRouter and don't block this function
+			// even if the recursive copy doesn't succeed (e.g. the location
+			// we're copying from has already been deleted).
 			outputCommit := CurrentJobInfo.OutputCommit
 			logrus.Infof(
 				"PROXY Uploading result of job %s from job-scoped bucket path to output commit %s",
