@@ -85,6 +85,7 @@ workflows:
     when:
       and:
         - not: << pipeline.parameters.run_nightly_tag >>
+        - not: << pipeline.parameters.release-pgbouncer >>
     jobs:
       - path-filtering/filter:
           name: check-updated-files
