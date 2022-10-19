@@ -15,6 +15,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -462,6 +463,7 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag s
 		if src.Recursive {
 			path := strings.TrimPrefix(url.Object, "/")
 			err := objClient.Walk(ctx, path, func(name string) error {
+				logrus.Infof("PROXY visiting %s for copy", name)
 				return miscutil.WithPipe(func(w io.Writer) error {
 					return errors.EnsureStack(objClient.Get(ctx, name, w))
 				}, func(r io.Reader) error {

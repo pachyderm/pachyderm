@@ -116,7 +116,6 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 				objClient, err := obj.NewClientFromURLAndSecret(u, false)
 				if err != nil {
 					return err
-
 				}
 				logrus.Infof("PROXY starting cleanup!")
 				err = objClient.Walk(context.Background(), CurrentTargetPath, func(path string) error {
