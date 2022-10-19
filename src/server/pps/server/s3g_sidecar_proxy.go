@@ -91,24 +91,33 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 				"PROXY Uploading result of job %s from job-scoped bucket path to output commit %s",
 				CurrentJobInfo.Job.ID, outputCommit,
 			)
+			var url string
+			if os.Getenv("STORAGE_BACKEND") == "MINIO" {
+				url = fmt.Sprintf("test-minio://minio:9000/%s/%s", CurrentBucket, CurrentTargetPath)
+			} else if os.Getenv("STORAGE_BACKEND") == "AMAZON" {
+				url = fmt.Sprintf("s3://%s/%s", CurrentBucket, CurrentTargetPath)
+			}
+			logrus.Infof("PROXY Starting PutFileURL to / in output commit from %s", url)
 
 			// XXX output commit is closed. either we make a new one, or move the execution before it's closed
 			err := CurrentPachClient.WithModifyFileClient(outputCommit, func(mf client.ModifyFile) error {
 				// See src/internal/obj/factory.go NewClientFromURLAndSecret
-				var url string
-				if os.Getenv("STORAGE_BACKEND") == "MINIO" {
-					url = fmt.Sprintf("test-minio://minio:9000/%s/%s", CurrentBucket, CurrentTargetPath)
-				} else if os.Getenv("STORAGE_BACKEND") == "AMAZON" {
-					url = fmt.Sprintf("s3://%s/%s", CurrentBucket, CurrentTargetPath)
-				}
-				logrus.Infof("PROXY Starting PutFileURL to / in output commit from %s", url)
 				err := mf.PutFileURL("/", url, true)
 				if err != nil {
 					logrus.Infof("PROXY ERROR while copying %s: %s", os.Getenv("STORAGE_BACKEND"), err)
 					return err
 				}
-				// TODO: clean up from the backend bucket! Should be able to use the
-				// obj interface..
+				return nil
+			})
+			if err != nil {
+				// TODO: maybe we want to retry a certain number of times?
+				logrus.Infof("PROXY error copying, skipping cleanup: %s", err)
+				return
+			}
+			logrus.Infof("PROXY finished copying!")
+			// TODO: clean up from the backend bucket! Should be able to use the
+			// obj interface..
+			err = func() error {
 				u, err := obj.ParseURL(url)
 				if err != nil {
 					return errors.Wrapf(err, "error parsing url %v", url)
@@ -122,18 +131,12 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					logrus.Infof("PROXY Deleting %s", path)
 					return objClient.Delete(context.Background(), path)
 				})
-				if err != nil {
-					logrus.Infof("PROXY failed cleanup with %s, continuing", err)
-				} else {
-					logrus.Infof("PROXY finished cleanup!")
-				}
-				return nil
-			})
+				return err
+			}()
 			if err != nil {
-				// TODO: maybe we want to retry a certain number of times?
-				logrus.Infof("PROXY error copying, continuing anyway %s", err)
+				logrus.Infof("PROXY failed cleanup with %s, continuing", err)
 			} else {
-				logrus.Infof("PROXY finished copying!")
+				logrus.Infof("PROXY finished cleanup!")
 			}
 		},
 	)
