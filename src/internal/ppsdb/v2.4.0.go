@@ -22,7 +22,10 @@ func migrateJobInfoV2_4_0(j *pps.JobInfo) (*pps.JobInfo, error) {
 	}
 	if err := pps.VisitInput(j.Details.Input, func(i *pps.Input) error {
 		if i.Pfs != nil && i.Pfs.Project == "" {
-			i.Pfs.Project = "default"
+			i.Pfs.Project = j.Job.Pipeline.Project.Name
+		}
+		if i.Cron != nil && i.Cron.Project == "" {
+			i.Cron.Project = j.Job.Pipeline.Project.Name
 		}
 		return nil
 	}); err != nil {
