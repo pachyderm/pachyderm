@@ -5,6 +5,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -18,6 +19,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/sirupsen/logrus"
 	awsauth "github.com/smartystreets/go-aws-auth"
@@ -106,6 +109,25 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 				}
 				// TODO: clean up from the backend bucket! Should be able to use the
 				// obj interface..
+				u, err := obj.ParseURL(url)
+				if err != nil {
+					return errors.Wrapf(err, "error parsing url %v", url)
+				}
+				objClient, err := obj.NewClientFromURLAndSecret(u, false)
+				if err != nil {
+					return err
+
+				}
+				logrus.Infof("PROXY starting cleanup!")
+				err = objClient.Walk(context.Background(), CurrentTargetPath, func(path string) error {
+					logrus.Infof("PROXY Deleting %s", path)
+					return objClient.Delete(context.Background(), path)
+				})
+				if err != nil {
+					logrus.Infof("PROXY failed cleanup with %s, continuing", err)
+				} else {
+					logrus.Infof("PROXY finished cleanup!")
+				}
 				return nil
 			})
 			if err != nil {
