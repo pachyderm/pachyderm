@@ -100,7 +100,7 @@ elif [ "${1}" = "btl" ]; then
   cd customer-success/testing/performance/battelle/dag/scripts/
   ./dataload.sh
   ./deploy-all.sh
-elif [ "${1}" = "krs"]; then
+elif [ "${1}" = "krs" ]; then
   # cloning karius workload test repo
   git clone https://github.com/pachyderm/customer-success.git customer-success
   git checkout -b "workload-hackathon-22"
