@@ -18,6 +18,12 @@ parameters:
   working-pachyderm-version:
     type: string
     default: "v2.4.0"
+  release-pgbouncer:
+    type: boolean
+    default: false
+  pgbouncer-image-version:
+    type: string
+    default: "1.16.1"
 
 # our defined job, and its steps
 jobs:
@@ -51,6 +57,27 @@ jobs:
             NIGHTLY=${WORKINGVERSION}-nightly.${TIMESTAMP}
             git tag -am "nightly release tag ${NIGHTLY}" ${NIGHTLY}
             git push origin ${NIGHTLY}
+  release-pgbouncer:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: Download utilities
+          command: |
+            sudo apt update
+            sudo apt install qemu binfmt-support qemu-user-static
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          name: pachydermbuildbot docker login
+          command: |
+            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: update pgbouncer image
+          command: |
+            docker buildx create --name pgb --driver docker-container
+            docker buildx build --builder pgb --build-arg VERSION=<< pipeline.parameters.pgbouncer-image-version >> --platform=linux/amd64,linux/arm64 -f Dockerfile.pgbouncer -t pachyderm/pgbouncer:<< pipeline.parameters.pgbouncer-image-version >> --push
 
 # our single workflow, that triggers the setup job defined above
 workflows:
@@ -79,3 +106,10 @@ workflows:
     when: << pipeline.parameters.run_nightly_tag >>
     jobs:
       - create-nightly-tag
+  release-pgbouncer-image:
+    when:
+      and:
+        - not: << pipeline.parameters.run_nightly_tag >>
+        - equal: [true, << pipeline.parameters.release-pgbouncer >>]
+    jobs:
+      - release-pgbouncer
