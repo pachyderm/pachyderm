@@ -2993,7 +2993,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 
 	for _, commitInfo := range commitInfos {
 		// Skip alias commits and any commits which have already been finished
-		if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS || commitInfo.Finishing != nil {
+		if commitInfo.Finishing != nil {
 			continue
 		}
 
