@@ -67,6 +67,7 @@ const SidePanel: React.FC<SidePanelProps> = ({
           })}
         >
           <Button
+            data-testid="SidePanel__closeModal"
             aria-label="Close"
             onClick={onHide}
             className={styles.closeButton}

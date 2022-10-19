@@ -14,10 +14,12 @@
 
 .base.open {
   min-width: 18.75rem;
+  max-width: 18.75rem;
 }
 
 .base.expanded {
   min-width: 37.5rem;
+  max-width: 37.5rem;
 }
 
 .base.left {
@@ -52,7 +54,8 @@
 }
 
 .children {
-  height: 100%;
+  height: calc(100% - 3.5rem);
+  overflow-y: hidden;
 }
 
 .footer {
