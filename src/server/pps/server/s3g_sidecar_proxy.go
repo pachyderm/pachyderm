@@ -79,7 +79,6 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 			}
 			logrus.Infof("PROXY Starting PutFileURL to / in output commit from %s", url)
 
-			// XXX output commit is closed. either we make a new one, or move the execution before it's closed
 			err := CurrentPachClient.WithModifyFileClient(outputCommit, func(mf client.ModifyFile) error {
 				// See src/internal/obj/factory.go NewClientFromURLAndSecret
 				err := mf.PutFileURL("/", url, true)
@@ -95,8 +94,7 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 				return
 			}
 			logrus.Infof("PROXY finished copying!")
-			// TODO: clean up from the backend bucket! Should be able to use the
-			// obj interface..
+			// Clean up the backend bucket!
 			err = func() error {
 				u, err := obj.ParseURL(url)
 				if err != nil {
