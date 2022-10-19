@@ -3,6 +3,8 @@ syntax = "proto3";
 package pfsload;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/pfsload";
 
+import "pfs/pfs.proto";
+
 message CommitSpec {
   int64 count = 1;
   repeated ModificationSpec modifications = 2;
@@ -61,4 +63,12 @@ message ValidatorSpec {
 message FrequencySpec {
   int64 count = 1;
   int64 prob = 2; 
+}
+
+message State {
+  message Commit {
+    pfs_v2.Commit commit = 1;
+    bytes hash = 2;
+  }
+  repeated Commit commits = 1;
 }

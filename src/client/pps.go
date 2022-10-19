@@ -28,6 +28,9 @@ const (
 	// see its own name.  The pod name is made available through the
 	// Kubernetes downward API.
 	PPSPodNameEnv = "PPS_POD_NAME"
+	// PPSProjectNameEnv is the env var that sets the name of the project
+	// that the workers are running.
+	PPSProjectNameEnv = "PPS_PROJECT_NAME"
 	// PPSPipelineNameEnv is the env var that sets the name of the pipeline
 	// that the workers are running.
 	PPSPipelineNameEnv = "PPS_PIPELINE_NAME"

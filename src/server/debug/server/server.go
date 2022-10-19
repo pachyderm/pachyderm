@@ -24,6 +24,7 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
@@ -285,7 +286,7 @@ func (s *debugServer) getLegacyWorkerPods(ctx context.Context, pipelineInfo *pps
 			LabelSelector: metav1.FormatLabelSelector(
 				metav1.SetAsLabelSelector(
 					map[string]string{
-						"app": ppsutil.PipelineRcName(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+						"app": ppsutil.PipelineRcName(pipelineInfo),
 					},
 				),
 			),
@@ -709,7 +710,7 @@ func (s *debugServer) collectLogs(ctx context.Context, tw *tar.Writer, pod, cont
 }
 
 func (s *debugServer) collectLogsLoki(ctx context.Context, tw *tar.Writer, pod, container string, prefix ...string) error {
-	if os.Getenv(s.env.Config().LokiHostVar) == "" {
+	if s.env.Config().LokiHost == "" {
 		return nil
 	}
 	return collectDebugFile(tw, "logs-loki", "txt", func(w io.Writer) error {
@@ -774,7 +775,7 @@ func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline.Name, limit, prefix...); err != nil {
 			return err
 		}
-		if os.Getenv(s.env.Config().LokiHostVar) != "" {
+		if s.env.Config().LokiHost != "" {
 			if err := s.forEachWorkerLoki(ctx, pipelineInfo, func(pod string) error {
 				workerPrefix := join(podPrefix, pod)
 				if len(prefix) > 0 {

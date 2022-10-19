@@ -7,10 +7,11 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"golang.org/x/sync/errgroup"
 )
 
-func Modification(env *Env, project, repo, branch, commit string, spec *ModificationSpec) error {
+func Modification(env *Env, commit *pfs.Commit, spec *ModificationSpec) error {
 	taskDoer := env.TaskDoer()
 	client := env.Client()
 	eg, ctx := errgroup.WithContext(client.Ctx())
@@ -47,7 +48,7 @@ func Modification(env *Env, project, repo, branch, commit string, spec *Modifica
 				if err != nil {
 					return err
 				}
-				if err := client.AddFileSet(ctx, project, repo, branch, commit, data.FileSetId); err != nil {
+				if err := client.AddFileSet(ctx, commit, data.FileSetId); err != nil {
 					return errors.EnsureStack(err)
 				}
 				if data.Hash != nil {

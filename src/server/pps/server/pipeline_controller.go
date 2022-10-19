@@ -485,10 +485,10 @@ func (pc *pipelineController) apply(ctx context.Context, pi *pps.PipelineInfo, r
 // current RC is using e.g. an old spec commit or something.
 func rcIsFresh(pi *pps.PipelineInfo, rc *v1.ReplicationController) bool {
 	if rc == nil {
-		log.Errorf("PPS master: RC for %q is nil", pi.Pipeline.Name)
+		log.Errorf("PPS master: RC for %q is nil", pi.Pipeline)
 		return false
 	}
-	expectedName := ppsutil.PipelineRcName(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Version)
+	expectedName := ppsutil.PipelineRcName(pi)
 	// establish current RC properties
 	rcName := rc.ObjectMeta.Name
 	rcPachVersion := rc.ObjectMeta.Annotations[pachVersionAnnotation]
@@ -498,22 +498,22 @@ func rcIsFresh(pi *pps.PipelineInfo, rc *v1.ReplicationController) bool {
 	switch {
 	case rcPipelineVersion != strconv.FormatUint(pi.Version, 10):
 		log.Infof("PPS master: pipeline version in %q looks stale %s != %d",
-			pi.Pipeline.Name, rcPipelineVersion, pi.Version)
+			pi.Pipeline, rcPipelineVersion, pi.Version)
 		return false
 	case rcSpecCommit != pi.SpecCommit.ID:
 		log.Infof("PPS master: pipeline spec commit in %q looks stale %s != %s",
-			pi.Pipeline.Name, rcSpecCommit, pi.SpecCommit.ID)
+			pi.Pipeline, rcSpecCommit, pi.SpecCommit.ID)
 		return false
 	case rcPachVersion != version.PrettyVersion():
 		log.Infof("PPS master: %q is using stale pachd v%s != current v%s",
-			pi.Pipeline.Name, rcPachVersion, version.PrettyVersion())
+			pi.Pipeline, rcPachVersion, version.PrettyVersion())
 		return false
 	case rcName != expectedName:
 		log.Infof("PPS master: %q has an unexpected (likely stale) name %q != %q",
-			pi.Pipeline.Name, rcName, expectedName)
+			pi.Pipeline, rcName, expectedName)
 	case rcAuthTokenHash != hashAuthToken(pi.AuthToken):
 		log.Infof("PPS master: auth token in %q is stale %s != %s",
-			pi.Pipeline.Name, rcAuthTokenHash, hashAuthToken(pi.AuthToken))
+			pi.Pipeline, rcAuthTokenHash, hashAuthToken(pi.AuthToken))
 		return false
 	}
 	return true
@@ -562,10 +562,10 @@ func (pc *pipelineController) stopCrashingPipelineMonitor() {
 // event. This pipeline's output commits will stay open until another watch
 // event arrives for the pipeline and finishPipelineOutputCommits is retried.
 func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context, pi *pps.PipelineInfo) (retErr error) {
-	log.Infof("PPS master: finishing output commits for pipeline %q", pi.Pipeline.Name)
+	log.Infof("PPS master: finishing output commits for pipeline %q", pi.Pipeline)
 	pachClient := pc.env.GetPachClient(ctx)
 	if span, _ctx := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/FinishPipelineOutputCommits", "pipeline", pi.Pipeline.Name); span != nil {
+		"/pps.Master/FinishPipelineOutputCommits", "pipeline", pi.Pipeline); span != nil {
 		pachClient = pachClient.WithCtx(_ctx) // copy span back into pachClient
 		defer func() {
 			tracing.TagAnySpan(span, "err", fmt.Sprintf("%v", retErr))
@@ -579,7 +579,7 @@ func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context, p
 		if errutil.IsNotFoundError(err) {
 			return nil // already deleted
 		}
-		return errors.Wrapf(err, "could not finish output commits of pipeline %q", pi.Pipeline.Name)
+		return errors.Wrapf(err, "could not finish output commits of pipeline %q", pi.Pipeline)
 	}
 	return nil
 }
@@ -589,7 +589,7 @@ func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context, p
 func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.PipelineInfo, oldRC *v1.ReplicationController) (retErr error) {
 	log.Debugf("PPS master: ensuring correct k8s resources for %q", pi.Pipeline.Name)
 	span, _ := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/ScaleUpPipeline", "pipeline", pi.Pipeline.Name)
+		"/pps.Master/ScaleUpPipeline", "project", pi.Pipeline.Project, "pipeline", pi.Pipeline.Name)
 	defer func() {
 		if retErr != nil {
 			log.Errorf("PPS master: error scaling up: %v", retErr)
@@ -675,9 +675,9 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 // scaleDownPipeline edits the RC associated with pc's pipeline & spins down the
 // configured number of workers.
 func (pc *pipelineController) scaleDownPipeline(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationController) (retErr error) {
-	log.Debugf("PPS master: scaling down workers for %q", pi.Pipeline.Name)
+	log.Debugf("PPS master: scaling down workers for %q", pi.Pipeline)
 	span, _ := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/ScaleDownPipeline", "pipeline", pi.Pipeline.Name)
+		"/pps.Master/ScaleDownPipeline", "project", pi.Pipeline.Project, "pipeline", pi.Pipeline.Name)
 	defer func() {
 		if retErr != nil {
 			log.Errorf("PPS master: error scaling down: %v", retErr)

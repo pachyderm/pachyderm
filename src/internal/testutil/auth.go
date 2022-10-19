@@ -127,15 +127,17 @@ func GetRepoRoleBinding(t *testing.T, c *client.APIClient, repo string) *auth.Ro
 }
 
 // CommitCnt uses 'c' to get the number of commits made to the repo 'repo'
-func CommitCnt(t *testing.T, c *client.APIClient, projectName, repoName string) int {
+func CommitCnt(t *testing.T, c *client.APIClient, repo *pfs.Repo) int {
 	t.Helper()
-	commitList, err := c.ListCommitByRepo(client.NewProjectRepo(projectName, repoName))
+	commitList, err := c.ListCommitByRepo(repo)
 	require.NoError(t, err)
 	return len(commitList)
 }
 
 // PipelineNames returns the names of all pipelines that 'c' gets from
-// ListPipeline
+// ListPipeline.
+//
+// TODO(CORE-1100): replace with version which knows about projects.
 func PipelineNames(t *testing.T, c *client.APIClient) []string {
 	t.Helper()
 	ps, err := c.ListPipeline(false)
