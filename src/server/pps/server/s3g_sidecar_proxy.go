@@ -51,8 +51,8 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 	// minio.default.svc.cluster.local:9000), MINIO_SECURE, MINIO_BUCKET also
 	// set.
 
-	if os.Getenv("STORAGE_BACKEND") != "MINIO" || os.Getenv("STORAGE_BACKEND") != "AMAZON" {
-		panic("only MINIO or AMAZON STORAGE_BACKEND supported by proxy to real backend s3_out feature right now")
+	if os.Getenv("STORAGE_BACKEND") != "MINIO" && os.Getenv("STORAGE_BACKEND") != "AMAZON" {
+		panic("only MINIO or AMAZON STORAGE_BACKEND supported by proxy to real backend s3_out feature right now!!")
 	}
 
 	proxyRouter := mux.NewRouter()
