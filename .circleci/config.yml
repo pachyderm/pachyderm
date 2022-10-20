@@ -79,7 +79,7 @@ jobs:
             docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
             docker context create buildx-build
             docker buildx create --name pgb --driver docker-container --use buildx-build
-            docker buildx build --builder pgb --build-arg VERSION=<< pipeline.parameters.pgbouncer-image-version >> --platform=linux/amd64,linux/arm64 -f Dockerfile.pgbouncer -t pachyderm/pgbouncer:<< pipeline.parameters.pgbouncer-image-version >> --push
+            docker buildx build --builder pgb --build-arg VERSION=<< pipeline.parameters.pgbouncer-image-version >> --platform=linux/amd64,linux/arm64 -f Dockerfile.pgbouncer -t pachyderm/pgbouncer:<< pipeline.parameters.pgbouncer-image-version >> --push .
 
 # our single workflow, that triggers the setup job defined above
 workflows:
