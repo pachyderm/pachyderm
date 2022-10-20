@@ -326,6 +326,9 @@
                         "identityDatabaseFullNameOverride": {
                             "type": "string"
                         },
+                        "postgresqlAuthType": {
+                            "type": "string"
+                        },
                         "postgresqlDatabase": {
                             "type": "string"
                         },
@@ -560,8 +563,16 @@
                         "config": {
                             "type": "object",
                             "properties": {
-                                "lokiAddress": {
-                                    "type": "string"
+                                "clients": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "url": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
                                 },
                                 "snippets": {
                                     "type": "object",
@@ -601,6 +612,34 @@
                                             "type": "string"
                                         }
                                     }
+                                }
+                            }
+                        },
+                        "livenessProbe": {
+                            "type": "object",
+                            "properties": {
+                                "failureThreshold": {
+                                    "type": "integer"
+                                },
+                                "initialDelaySeconds": {
+                                    "type": "integer"
+                                },
+                                "periodSeconds": {
+                                    "type": "integer"
+                                },
+                                "successThreshold": {
+                                    "type": "integer"
+                                },
+                                "tcpSocket": {
+                                    "type": "object",
+                                    "properties": {
+                                        "port": {
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "timeoutSeconds": {
+                                    "type": "integer"
                                 }
                             }
                         }
@@ -751,9 +790,6 @@
                 "localhostIssuer": {
                     "type": "string"
                 },
-                "logFormat": {
-                    "type": "string"
-                },
                 "logLevel": {
                     "type": "string"
                 },
@@ -762,12 +798,6 @@
                 },
                 "lokiLogging": {
                     "type": "boolean"
-                },
-                "lokiPort": {
-                    "type": "integer"
-                },
-                "lokiHost": {
-                    "type": "string"
                 },
                 "metrics": {
                     "type": "object",
