@@ -1,0 +1,36 @@
+FROM debian:bullseye
+
+ARG VERSION
+
+ENV PG_VERSION=$VERSION
+
+RUN apt update && apt upgrade -y && apt install -y curl gcc pkg-config libudns-dev libevent-dev openssl libssl-dev make
+
+RUN curl -o  /tmp/pgbouncer-$PG_VERSION.tar.gz -L https://www.pgbouncer.org/downloads/files/$PG_VERSION/pgbouncer-$PG_VERSION.tar.gz && \
+    cd /tmp && \
+    # Unpack, compile
+    tar xvfz /tmp/pgbouncer-$PG_VERSION.tar.gz && \
+    cd pgbouncer-$PG_VERSION && \
+    ./configure --prefix=/usr --with-udns && \
+    make && \
+    # Manual install
+    cp pgbouncer /usr/bin && \
+    mkdir -p /etc/pgbouncer /var/log/pgbouncer /var/run/pgbouncer && \
+    # entrypoint installs the configuration, allow to write as postgres user
+    touch /etc/pgbouncer/userlist.txt && \
+    addgroup --gid 70 postgres 2>/dev/null && \
+    adduser --quiet --uid 70 --home /var/lib/postgresql  --shell /bin/bash --ingroup postgres --disabled-password postgres 2>/dev/null && \
+    chown -R postgres /var/run/pgbouncer /etc/pgbouncer && \
+    # Cleanup
+    cd /tmp && \
+    rm -rf /tmp/pgbouncer*  && \
+    apt purge -y curl gcc pkg-config libudns-dev libevent-dev libssl-dev make
+
+
+COPY entrypoint.sh /entrypoint.sh
+# need to remove already included pgbouncer.ini for entrypoint to create new config file based
+# on the container environment variables
+
+USER 1001
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/usr/bin/pgbouncer", "/tmp/pgbouncer.ini"]
