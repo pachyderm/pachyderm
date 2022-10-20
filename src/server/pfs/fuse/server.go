@@ -185,6 +185,10 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 		if readAccess {
 			bis, err := mm.Client.ListProjectBranch(repo.Repo.Project.GetName(), repo.Repo.Name)
 			if err != nil {
+				// Repo was deleted between ListRepo and ListBranch RPCs
+				if auth.IsErrNoRoleBinding(err) {
+					continue
+				}
 				return mr, err
 			}
 			for _, bi := range bis {
