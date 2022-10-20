@@ -48,7 +48,7 @@ http
 {{- if .Values.ingress.enabled -}}
 {{ required "if ingress is enabled, an ingress.host is required" .Values.ingress.host }}
 {{- else if .Values.proxy.enabled -}}
-{{ .Values.proxy.host }}
+{{ required "if proxy is enabled, a proxy.host is required"  .Values.proxy.host }}
 {{- end -}}
 {{- end }}
 
