@@ -2702,11 +2702,13 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 			return errors.EnsureStack(err)
 		}
 		// restore same provenance to meta repo
-		if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-			Branch:     client.NewSystemProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
-			Provenance: provenance,
-		}); err != nil {
-			return errors.EnsureStack(err)
+		if pipelineInfo.Details.Spout == nil {
+			if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
+				Branch:     client.NewSystemProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
+				Provenance: provenance,
+			}); err != nil {
+				return errors.EnsureStack(err)
+			}
 		}
 
 		newPipelineInfo := &pps.PipelineInfo{}
