@@ -23,7 +23,13 @@ if [ ! -e "${_AUTH_FILE}" ]; then
     touch "${_AUTH_FILE}"
 fi
 
-pass="md5$(echo -n "$POSTGRESQL_PASSWORD$POSTGRESQL_USERNAME" | md5sum | cut -f 1 -d ' ')"
+if [ "${PGBOUNCER_AUTH_TYPE:-md5}" == "md5" ]; then
+    pass="md5$(echo -n "$POSTGRESQL_PASSWORD$POSTGRESQL_USERNAME" | md5sum | cut -f 1 -d ' ')"
+    else
+    pass="$POSTGRESQL_PASSWORD"
+fi
+
+
 echo "\"$POSTGRESQL_USERNAME\" \"$pass\"" >> ${PG_CONFIG_DIR}/userlist.txt
 echo "Wrote authentication credentials to ${PG_CONFIG_DIR}/userlist.txt"
 
@@ -56,7 +62,7 @@ if [ ! -f ${PG_CONFIG_DIR}/pgbouncer.ini ]; then
     listen_addr = ${LISTEN_ADDR:-0.0.0.0}
     listen_port = ${LISTEN_PORT:-5432}
     auth_file = ${AUTH_FILE:-$PG_CONFIG_DIR/userlist.txt}
-    auth_type = ${AUTH_TYPE:-md5}
+    auth_type = ${PGBOUNCER_AUTH_TYPE:-md5}
     ${PGBOUNCER_POOL_MODE:+pool_mode = ${PGBOUNCER_POOL_MODE}\n}\
     ${PGBOUNCER_MAX_CLIENT_CONN:+max_client_conn = ${PGBOUNCER_MAX_CLIENT_CONN}\n}\
     ${PGBOUNCER_IGNORE_STARTUP_PARAMETERS:+ignore_startup_parameters = ${PGBOUNCER_IGNORE_STARTUP_PARAMETERS}\n}\
