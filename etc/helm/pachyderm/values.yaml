@@ -21,6 +21,8 @@ global:
     # explicitly set to a value if security is desired.  Pachyderm does not use this account; this
     # password is only required so that administrators can manually perform administrative tasks.
     postgresqlPostgresPassword: "insecure-root-password"
+    # The auth type to use with postgres and pg-bouncer. md5 is the default
+    postgresqlAuthType: "md5"
     # If you want to supply the postgresql password in an existing secret, leave Password blank and
     # Supply the name of the existing secret in the namespace and the key in that secret with the password
     postgresqlExistingSecretName: ""
