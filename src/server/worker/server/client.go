@@ -31,9 +31,9 @@ const (
 // Status returns the statuses of workers referenced by pipelineRcName.  Pass ""
 // for projectName & pipelineName and zero for pipelineVersion to get all clients
 // for all workers.
-func Status(ctx context.Context, projectName, pipelineName string, pipelineVersion uint64, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16) ([]*pps.WorkerStatus, error) {
+func Status(ctx context.Context, pipelineInfo *pps.PipelineInfo, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16) ([]*pps.WorkerStatus, error) {
 	var result []*pps.WorkerStatus
-	if err := forEachWorker(ctx, projectName, pipelineName, pipelineVersion, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
+	if err := forEachWorker(ctx, pipelineInfo, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
 		ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 		defer cancel()
 		status, err := c.Status(ctx, &types.Empty{})
@@ -51,10 +51,10 @@ func Status(ctx context.Context, projectName, pipelineName string, pipelineVersi
 
 // Cancel cancels a set of datums running on workers.  Pass empty strings for
 // project & pipeline names and a zero version to cancel ALL workers.
-func Cancel(ctx context.Context, projectName, pipelineName string, pipelineVersion uint64, etcdClient *etcd.Client,
+func Cancel(ctx context.Context, pipelineInfo *pps.PipelineInfo, etcdClient *etcd.Client,
 	etcdPrefix string, workerGrpcPort uint16, jobID string, dataFilter []string) (retErr error) {
 	success := false
-	if err := forEachWorker(ctx, projectName, pipelineName, pipelineVersion, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
+	if err := forEachWorker(ctx, pipelineInfo, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
 		resp, err := c.Cancel(ctx, &CancelRequest{
 			JobID:       jobID,
 			DataFilters: dataFilter,
@@ -118,10 +118,10 @@ func NewClient(address string) (Client, error) {
 // this operation can have multiple instances running in parallel.
 //
 // TODO: Consider switching from filepath.Walk style to buf.Scanner style.
-func forEachWorker(ctx context.Context, projectName, pipelineName string, pipelineVersion uint64, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16, cb func(Client) error) error {
+func forEachWorker(ctx context.Context, pipelineInfo *pps.PipelineInfo, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16, cb func(Client) error) error {
 	var pipelineRcName string
-	if pipelineName != "" && pipelineVersion != 0 {
-		pipelineRcName = ppsutil.PipelineRcName(projectName, pipelineName, pipelineVersion)
+	if pipelineInfo.Pipeline.Name != "" && pipelineInfo.Version != 0 {
+		pipelineRcName = ppsutil.PipelineRcName(pipelineInfo)
 	}
 	resp, err := etcdClient.Get(ctx, path.Join(etcdPrefix, WorkerEtcdPrefix, pipelineRcName), etcd.WithPrefix())
 	if err != nil {

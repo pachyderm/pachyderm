@@ -29,13 +29,16 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -308,6 +311,50 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "bar", true))
 			require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "foo", true))
 		}
+	})
+
+	suite.Run("CreateRepoWithSameNameAndAuthInDifferentProjects", func(t *testing.T) {
+		t.Parallel()
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		// activate auth
+		peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+		tu.ActivateLicense(t, env.PachClient, peerPort)
+		_, err := env.PachClient.Enterprise.Activate(env.PachClient.Ctx(),
+			&enterprise.ActivateRequest{
+				LicenseServer: "grpc://localhost:" + peerPort,
+				Id:            "localhost",
+				Secret:        "localhost",
+			})
+		require.NoError(t, err, "activate client should work")
+		_, err = env.AuthServer.Activate(env.PachClient.Ctx(), &auth.ActivateRequest{RootToken: tu.RootToken})
+		require.NoError(t, err, "activate server should work")
+		env.PachClient.SetAuthToken(tu.RootToken)
+		require.NoError(t, config.WritePachTokenToConfig(tu.RootToken, false))
+		client := env.PachClient.WithCtx(context.Background())
+		_, err = client.PfsAPIClient.ActivateAuth(client.Ctx(), &pfs.ActivateAuthRequest{})
+
+		// create two projects
+		project1 := tu.UniqueString("project")
+		project2 := tu.UniqueString("project")
+		require.NoError(t, client.CreateProject(project1))
+		require.NoError(t, client.CreateProject(project2))
+
+		// create repo with same name across both projects
+		repo := tu.UniqueString("repo")
+		require.NoError(t, client.CreateProjectRepo(project1, repo))
+		require.NoError(t, client.CreateProjectRepo(project2, repo))
+
+		// inspect whether the repos are actually from different projects
+		repoInfo1, err := client.InspectProjectRepo(project1, repo)
+		require.NoError(t, err)
+		require.Equal(t, project1, repoInfo1.Repo.Project.Name)
+		repoInfo2, err := client.InspectProjectRepo(project2, repo)
+		require.NoError(t, err)
+		require.Equal(t, project2, repoInfo2.Repo.Project.Name)
+
+		// delete both repos
+		require.NoError(t, client.DeleteProjectRepo(project1, repo, true))
+		require.NoError(t, client.DeleteProjectRepo(project2, repo, true))
 	})
 
 	suite.Run("Branch", func(t *testing.T) {

@@ -490,6 +490,10 @@ func (d *driver) UserCodeEnv(
 
 	if jobID != "" {
 		result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
+		pipeline := &pps.Pipeline{
+			Project: outputCommit.Branch.Repo.Project,
+			Name:    outputCommit.Branch.Repo.Name,
+		}
 		if ppsutil.ContainsS3Inputs(d.PipelineInfo().Details.Input) || d.PipelineInfo().Details.S3Out {
 			// TODO(msteffen) Instead of reading S3GATEWAY_PORT directly, worker/main.go
 			// should pass its ServiceEnv to worker.NewAPIServer, which should store it
@@ -502,7 +506,7 @@ func (d *driver) UserCodeEnv(
 			result = append(
 				result,
 				fmt.Sprintf("S3_ENDPOINT=http://%s.%s:%s",
-					ppsutil.SidecarS3GatewayService(outputCommit.Branch.Repo.Name, jobID),
+					ppsutil.SidecarS3GatewayService(pipeline, jobID),
 					d.Namespace(),
 					os.Getenv("S3GATEWAY_PORT"),
 				),

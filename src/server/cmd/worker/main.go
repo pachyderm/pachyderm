@@ -9,9 +9,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
@@ -46,16 +46,19 @@ func do(ctx context.Context, config interface{}) error {
 
 	// Construct a client that connects to the sidecar.
 	pachClient := env.GetPachClient(ctx)
+	p := &pps.Pipeline{
+		Project: &pfs.Project{Name: env.Config().PPSProjectName},
+		Name:    env.Config().PPSPipelineName,
+	}
 	pipelineInfo, err := ppsutil.GetWorkerPipelineInfo(
 		pachClient,
 		env.GetDBClient(),
 		env.GetPostgresListener(),
-		// TODO: this will get the project name in CORE-1024
-		client.NewProjectPipeline(pfs.DefaultProjectName, env.Config().PPSPipelineName),
+		p,
 		env.Config().PPSSpecCommitID,
 	) // get pipeline creds for pachClient
 	if err != nil {
-		return errors.Wrapf(err, "worker: get pipelineInfo")
+		return errors.Wrapf(err, "worker: get pipelineInfo for %q", p)
 	}
 
 	// Construct worker API server.
@@ -75,7 +78,7 @@ func do(ctx context.Context, config interface{}) error {
 	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.Config().PodName, pachClient, env.GetDBClient()))
 
 	// Put our IP address into etcd, so pachd can discover us
-	workerRcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	workerRcName := ppsutil.PipelineRcName(pipelineInfo)
 	key := path.Join(env.Config().PPSEtcdPrefix, workerserver.WorkerEtcdPrefix, workerRcName, env.Config().PPSWorkerIP)
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our

@@ -43,7 +43,7 @@ func newKubeDriver(kubeClient kubernetes.Interface, config serviceenv.Configurat
 
 // Creates a pipeline's services, secrets, and replication controllers.
 func (kd *kubeDriver) CreatePipelineResources(ctx context.Context, pi *pps.PipelineInfo) error {
-	log.Infof("PPS master: creating resources for pipeline %q", pi.Pipeline.Name)
+	log.Infof("PPS master: creating resources for pipeline %q", pi.Pipeline)
 	kd.limiter.Acquire()
 	defer kd.limiter.Release()
 	if err := kd.createWorkerSvcAndRc(ctx, pi); err != nil {
@@ -57,6 +57,16 @@ func (kd *kubeDriver) CreatePipelineResources(ctx context.Context, pi *pps.Pipel
 		return newRetriableError(err, "error creating resources")
 	}
 	return nil
+}
+
+func pipelineLabelSelector(p *pps.Pipeline) string {
+	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, p.Name)
+	if projectName := p.Project.GetName(); projectName != "" {
+		selector = fmt.Sprintf("%s,%s=%s", selector, pipelineProjectLabel, projectName)
+	} else {
+		selector = fmt.Sprintf("%s,!%s", selector, pipelineProjectLabel)
+	}
+	return selector
 }
 
 // Deletes a pipeline's services, secrets, and replication controllers.
@@ -74,10 +84,7 @@ func (kd *kubeDriver) DeletePipelineResources(ctx context.Context, pipeline *pps
 	kd.limiter.Acquire()
 	defer kd.limiter.Release()
 	// Delete any services associated with pc.pipeline
-	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pipelineName)
-	if projectName != "" {
-		selector = fmt.Sprintf("%s,%s=%s", selector, pipelineProjectLabel, projectName)
-	}
+	selector := pipelineLabelSelector(pipeline)
 	opts := metav1.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
@@ -124,10 +131,11 @@ func (kd *kubeDriver) ReadReplicationController(ctx context.Context, pi *pps.Pip
 	kd.limiter.Acquire()
 	defer kd.limiter.Release()
 	// List all RCs, so stale RCs from old pipelines are noticed and deleted
+	labelSelector := pipelineLabelSelector(pi.Pipeline)
 	rc, err := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).List(
 		ctx,
-		metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", pipelineNameLabel, pi.Pipeline.Name)})
-	return rc, errors.Wrapf(err, "failed to read rc for pipeline %s", pi.Pipeline.Name)
+		metav1.ListOptions{LabelSelector: labelSelector})
+	return rc, errors.Wrapf(err, "failed to read rc for pipeline %s", pi.Pipeline)
 }
 
 // UpdateReplicationController intends to server {scaleUp,scaleDown}Pipeline.

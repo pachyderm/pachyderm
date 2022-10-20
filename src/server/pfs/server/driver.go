@@ -10,8 +10,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/client/v3"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -27,15 +37,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
-	"github.com/sirupsen/logrus"
-	log "github.com/sirupsen/logrus"
-	etcd "go.etcd.io/etcd/client/v3"
 )
 
 const (
@@ -218,7 +219,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 				txnCtx,
 				whoAmI.Username,
 				[]string{auth.RepoOwnerRole},
-				&auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
+				&auth.Resource{Type: auth.ResourceType_REPO, Name: repo.String()},
 			); err != nil && (!col.IsErrExists(err) || repo.Type == pfs.UserRepoType) {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create role binding for new repo %q", repo)
 			}
@@ -245,7 +246,7 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 	}
 	if includeAuth {
 		resp, err := d.env.AuthServer.GetPermissionsInTransaction(txnCtx, &auth.GetPermissionsRequest{
-			Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
+			Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.String()},
 		})
 		if err != nil {
 			if auth.IsErrNotActivated(err) {
@@ -356,7 +357,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	if repo.Type == pfs.UserRepoType {
 		var dependentRepos []pfs.RepoInfo
 		var otherRepo pfs.RepoInfo
-		if err := repos.GetByIndex(pfsdb.ReposNameIndex, repo.Name, &otherRepo, col.DefaultOptions(), func(key string) error {
+		if err := repos.GetByIndex(pfsdb.ReposNameIndex, pfsdb.ReposNameKey(repo), &otherRepo, col.DefaultOptions(), func(key string) error {
 			if otherRepo.Repo.Type != repo.Type {
 				dependentRepos = append(dependentRepos, otherRepo)
 			}
@@ -417,7 +418,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 
 	// since system repos share a role binding, only delete it if this is the user repo, in which case the other repos will be deleted anyway
 	if repo.Type == pfs.UserRepoType {
-		if err := d.env.AuthServer.DeleteRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name}); err != nil && !auth.IsErrNotActivated(err) {
+		if err := d.env.AuthServer.DeleteRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.String()}); err != nil && !auth.IsErrNotActivated(err) {
 			return grpcutil.ScrubGRPC(err)
 		}
 	}
@@ -469,10 +470,10 @@ func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *p
 }
 
 // startCommit makes a new commit in 'branch', with the parent 'parent':
-// - 'parent' may be omitted, in which case the parent commit is inferred
-//   from 'branch'.
-// - If 'parent' is set, it determines the parent commit, but 'branch' is
-//   still moved to point at the new commit
+//   - 'parent' may be omitted, in which case the parent commit is inferred
+//     from 'branch'.
+//   - If 'parent' is set, it determines the parent commit, but 'branch' is
+//     still moved to point at the new commit
 func (d *driver) startCommit(
 	txnCtx *txncontext.TransactionContext,
 	parent *pfs.Commit,
@@ -763,8 +764,10 @@ func (d *driver) repoSize(ctx context.Context, repo *pfs.Repo) (int64, error) {
 // propagateBranches selectively starts commits in or downstream of 'branches'
 // in order to restore the invariant that branch provenance matches HEAD commit
 // provenance:
-//   B.Head is provenant on A.Head <=>
-//   branch B is provenant on branch A
+//
+//	B.Head is provenant on A.Head <=>
+//	branch B is provenant on branch A
+//
 // The implementation assumes that the invariant already holds for all branches
 // upstream of 'branches', but not necessarily for each 'branch' itself. Despite
 // the name, 'branches' do not need a HEAD commit to propagate, though one may
@@ -1727,7 +1730,8 @@ func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {
 // createBranch creates a new branch or updates an existing branch (must be one
 // or the other). Most importantly, it sets 'branch.DirectProvenance' to
 // 'provenance' and then for all (downstream) branches, restores the invariant:
-//   ∀ b . b.Provenance = ∪ b'.Provenance (where b' ∈ b.DirectProvenance)
+//
+//	∀ b . b.Provenance = ∪ b'.Provenance (where b' ∈ b.DirectProvenance)
 //
 // This invariant is assumed to hold for all branches upstream of 'branch', but not
 // for 'branch' itself once 'b.Provenance' has been set.

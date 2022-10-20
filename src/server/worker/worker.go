@@ -108,7 +108,12 @@ func (w *Worker) worker() {
 func (w *Worker) master(env serviceenv.ServiceEnv) {
 	pipelineInfo := w.driver.PipelineInfo()
 	logger := logs.NewMasterLogger(pipelineInfo)
-	lockPath := path.Join(env.Config().PPSEtcdPrefix, masterLockPath, pipelineInfo.Pipeline.Name, pipelineInfo.Details.Salt)
+	var projectName = pipelineInfo.Pipeline.Project.GetName()
+	// TODO: project name will never be empty after CORE-93 lands
+	if projectName == "" {
+		projectName = "@no-project" // using an invalid project name as a dummy value
+	}
+	lockPath := path.Join(env.Config().PPSEtcdPrefix, masterLockPath, projectName, pipelineInfo.Pipeline.Name, pipelineInfo.Details.Salt)
 	masterLock := dlock.NewDLock(env.GetEtcdClient(), lockPath)
 
 	b := backoff.NewInfiniteBackOff()

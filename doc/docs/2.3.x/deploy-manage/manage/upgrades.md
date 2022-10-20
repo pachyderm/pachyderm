@@ -21,6 +21,10 @@ This phase depends on whether you need to modify your existing configuration (fo
 In the case of a simple upgrade of version on a cluster, and provided that you do not need to change any additional configuration, no change in the values.yaml should be required. The new version of Pachyderm will be directly set in the `helm upgrade` command.
 
 ## 3- Upgrade `pachctl` Version
+
+!!!Warning 
+       Migrating from a **pachd** version older than 2.3.0? Do not skip upgrading **pachctl**.
+
  
  - To update to the latest version of Pachyderm, run the steps below depending on your operating system:
   

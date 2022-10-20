@@ -23,7 +23,10 @@ type levelWriter struct {
 }
 
 // Writer is used for creating a multilevel index into a serialized file set.
-// Each index level is a stream of byte length encoded index entries that are stored in chunk storage.
+// Each index level is a stream of byte length encoded index entries that are
+// stored in chunk storage. Both file and range type indexes can be written to
+// a writer. New levels above the written indexes will be created when the
+// serialized indexes reach the batching threshold.
 type Writer struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
