@@ -55,6 +55,7 @@ export {ReactComponent as SpinnerSVG} from './spinner.svg';
 export {ReactComponent as StatusCheckmarkSVG} from './statusCheckmark.svg';
 export {ReactComponent as StatusDotsSVG} from './statusDots.svg';
 export {ReactComponent as StatusStopSVG} from './statusStop.svg';
+export {ReactComponent as StatusUnknownSVG} from './statusUnknown.svg';
 export {ReactComponent as StatusSkipSVG} from './statusSkip.svg';
 export {ReactComponent as StatusPausedSVG} from './statusPaused.svg';
 export {ReactComponent as StatusUpdatedSVG} from './statusUpdated.svg';
