@@ -230,7 +230,11 @@ func (r *RawS3Proxy) ListenAndServe(port uint16) error {
 					// and we should figure out how we can stream it to disk
 					// first...
 					if os.Getenv("STORAGE_BACKEND") == "AMAZON" {
-						awsauth.Sign4(req)
+						awsauth.Sign4(req, awsauth.Credentials{
+							AccessKeyID:     os.Getenv("AMAZON_ID"),
+							SecretAccessKey: os.Getenv("AMAZON_SECRET"),
+							SecurityToken:    os.Getenv("AMAZON_TOKEN"),
+						})
 						// Maybe awsauth.Sign4 is magic enough to know to look
 						// in all the right places as an aws client? Hopefully.
 						// If not, we can do something like this:
