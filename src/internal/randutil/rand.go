@@ -32,7 +32,7 @@ func NewBytesReader(random *rand.Rand, n int64) *bytesReader {
 }
 
 func (br *bytesReader) Read(data []byte) (int, error) {
-	size := int(miscutil.MinInt64(br.n, int64(len(data))))
+	size := int(miscutil.Min(br.n, int64(len(data))))
 	for i := 0; i < size; i++ {
 		data[i] = letters[br.random.Intn(len(letters))]
 	}
