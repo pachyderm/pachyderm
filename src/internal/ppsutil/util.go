@@ -185,8 +185,8 @@ func logSetPipelineState(pipeline *pps.Pipeline, from []pps.PipelineState, to pp
 // exclusively?) called by the PPS master
 func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection col.PostgresCollection, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	pipeline := &pps.Pipeline{
-		Project: specCommit.Branch.Repo.Project,
-		Name:    specCommit.Branch.Repo.Name,
+		Project: specCommit.Repo.Project,
+		Name:    specCommit.Repo.Name,
 	}
 	logSetPipelineState(pipeline, from, to, reason)
 	var resultMessage string

@@ -218,7 +218,7 @@ func (d *debugDump) inspectCommit(_ context.Context, req *pfs.InspectCommitReque
 	} else if !uuid.IsUUIDWithoutDashes(targetID) {
 		targetBranch = targetID
 	}
-	glob := fmt.Sprintf(commitPatternFormatString, req.Commit.Branch.Repo.Name)
+	glob := fmt.Sprintf(commitPatternFormatString, req.Commit.Repo.Name)
 	var info pfs.CommitInfo
 	var foundCommit bool
 	if found, err := d.globTarProtos(glob, &info, func() error {
@@ -245,7 +245,7 @@ func (d *debugDump) inspectCommit(_ context.Context, req *pfs.InspectCommitReque
 	}); err != nil {
 		return nil, err
 	} else if !found {
-		return nil, pfsserver.ErrRepoNotFound{Repo: req.Commit.Branch.Repo}
+		return nil, pfsserver.ErrRepoNotFound{Repo: req.Commit.Repo}
 	}
 	if !foundCommit {
 		return nil, pfsserver.ErrCommitNotFound{Commit: req.Commit}

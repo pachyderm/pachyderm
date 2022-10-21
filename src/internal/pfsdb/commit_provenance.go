@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -21,8 +20,7 @@ func ResolveCommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo
 			return strings.TrimPrefix(c, RepoKey(repo)+"@"), nil
 		}
 	}
-	// TODO: Commit proto is FUBAR
-	return "", pfsserver.ErrCommitNotFound{Commit: &pfs.Commit{Branch: client.NewProjectBranch(repo.Project.Name, repo.Name, "master"), ID: commitSet}}
+	return "", pfsserver.ErrCommitNotFound{Commit: &pfs.Commit{Repo: repo, ID: commitSet}}
 }
 
 // CommitSetProvenance returns all the commit IDs that are in the provenance

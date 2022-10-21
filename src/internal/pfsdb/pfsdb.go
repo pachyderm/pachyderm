@@ -82,7 +82,7 @@ func Repos(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection
 var CommitsRepoIndex = &col.Index{
 	Name: "repo",
 	Extract: func(val proto.Message) string {
-		return RepoKey(val.(*pfs.CommitInfo).Commit.Branch.Repo)
+		return RepoKey(val.(*pfs.CommitInfo).Commit.Repo)
 	},
 }
 
@@ -107,7 +107,7 @@ func CommitKey(commit *pfs.Commit) string {
 }
 
 func CommitBranchlessKey(commit *pfs.Commit) string {
-	return RepoKey(commit.Branch.Repo) + "@" + commit.ID
+	return RepoKey(commit.Repo) + "@" + commit.ID
 }
 
 // Commits returns a collection of commits

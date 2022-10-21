@@ -102,7 +102,7 @@ func ProjectBranchCompletion(project, flag, text string, maxCompletions int64) (
 		client, err := c.PfsAPIClient.ListBranch(
 			c.Ctx(),
 			&pfs.ListBranchRequest{
-				Repo: partialFile.Commit.Branch.Repo,
+				Repo: partialFile.Commit.Repo,
 			},
 		)
 		if err != nil {
@@ -114,7 +114,7 @@ func ProjectBranchCompletion(project, flag, text string, maxCompletions int64) (
 				head = bi.Head.ID
 			}
 			result = append(result, prompt.Suggest{
-				Text:        fmt.Sprintf("%s@%s:", partialFile.Commit.Branch.Repo, bi.Branch.Name),
+				Text:        fmt.Sprintf("%s@%s:", partialFile.Commit.Repo, bi.Branch.Name),
 				Description: fmt.Sprintf("(%s)", head),
 			})
 			return nil
@@ -124,7 +124,7 @@ func ProjectBranchCompletion(project, flag, text string, maxCompletions int64) (
 		if len(result) == 0 {
 			// Master should show up even if it doesn't exist yet
 			result = append(result, prompt.Suggest{
-				Text:        fmt.Sprintf("%s@master", partialFile.Commit.Branch.Repo),
+				Text:        fmt.Sprintf("%s@master", partialFile.Commit.Repo),
 				Description: "(nil)",
 			})
 		}
@@ -186,7 +186,7 @@ func ProjectFileCompletion(project, flag, text string, maxCompletions int64) ([]
 				return errutil.ErrBreak
 			}
 			result = append(result, prompt.Suggest{
-				Text: fmt.Sprintf("%s@%s:%s", partialFile.Commit.Branch.Repo, partialFile.Commit.ID, fi.File.Path),
+				Text: fmt.Sprintf("%s@%s:%s", partialFile.Commit.Repo, partialFile.Commit.ID, fi.File.Path),
 			})
 			return nil
 		}); err != nil {

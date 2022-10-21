@@ -98,7 +98,7 @@ func (sd *stateDriver) SetState(ctx context.Context, specCommit *pfs.Commit, sta
 
 func (sd *stateDriver) TransitionState(ctx context.Context, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/TransitionPipelineState", "pipeline", specCommit.Branch.Repo.Name,
+		"/pps.Master/TransitionPipelineState", "pipeline", specCommit.Repo.Name,
 		"from-state", from, "to-state", to)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)

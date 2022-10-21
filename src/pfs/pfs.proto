@@ -114,8 +114,10 @@ message CommitOrigin {
 // protos)
 message Commit {
   option (gogoproto.goproto_stringer) = false;
+  Repo repo = 3;
+  // deprecated
   Branch branch = 1;
-  string id = 2 [(gogoproto.customname) = "ID"];
+  string id = 2 [(gogoproto.customname) = "ID"];  
 }
 
 // CommitInfo is the main data structure representing a commit in etcd
@@ -256,6 +258,11 @@ message ListCommitSetRequest {
 message SquashCommitSetRequest {
   CommitSet commit_set = 1;
 }
+
+message SquashCommitSetsRequest {
+  repeated CommitSet commit_sets = 1;
+}
+
 
 message DropCommitSetRequest {
   CommitSet commit_set = 1;
@@ -598,6 +605,8 @@ service API {
   rpc ListCommitSet(ListCommitSetRequest) returns (stream CommitSetInfo) {}
   // SquashCommitSet squashes the commits of a CommitSet into their children.
   rpc SquashCommitSet(SquashCommitSetRequest) returns (google.protobuf.Empty) {}
+  // SquashCommitSets squashes the commits of a list of CommitSets into their children.
+  rpc SquashCommitSets(SquashCommitSetsRequest) returns (google.protobuf.Empty) {}
   // DropCommitSet drops the commits of a CommitSet and all data included in the commits.
   rpc DropCommitSet(DropCommitSetRequest) returns (google.protobuf.Empty) {}
 

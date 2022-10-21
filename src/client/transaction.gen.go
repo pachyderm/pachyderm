@@ -453,6 +453,10 @@ func (c *unsupportedPfsBuilderClient) SquashCommitSet(_ context.Context, _ *pfs_
 	return nil, unsupportedError("SquashCommitSet")
 }
 
+func (c *unsupportedPfsBuilderClient) SquashCommitSets(_ context.Context, _ *pfs_v2.SquashCommitSetsRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("SquashCommitSets")
+}
+
 func (c *unsupportedPfsBuilderClient) StartCommit(_ context.Context, _ *pfs_v2.StartCommitRequest, opts ...grpc.CallOption) (*pfs_v2.Commit, error) {
 	return nil, unsupportedError("StartCommit")
 }
