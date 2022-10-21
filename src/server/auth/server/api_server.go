@@ -944,7 +944,7 @@ func (a *apiServer) AddPipelineWriterToRepoInTransaction(txnCtx *txncontext.Tran
 		return err
 	}
 
-	return a.setUserRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: pipeline.String()}, auth.PipelinePrefix+pipeline.String(), []string{auth.RepoWriterRole})
+	return a.setUserRoleBindingInTransaction(txnCtx, r.AuthResource(), auth.PipelinePrefix+pipeline.String(), []string{auth.RepoWriterRole})
 }
 
 // RemovePipelineReaderFromRepo revokes a pipeline's access to read data from the specified source repo.
