@@ -19,7 +19,7 @@ import (
 // IT HAS BEEN USED IN A RELEASED MIGRATION
 func CollectionsV2_4_0() []col.PostgresCollection {
 	return []col.PostgresCollection{
-		col.NewPostgresCollection(projectsCollectionName, nil, nil, nil, nil),
+		col.NewPostgresCollection("projects", nil, nil, nil, nil),
 	}
 }
 
