@@ -1,7 +1,7 @@
 package pps
 
 import (
-	fmt "fmt"
+	"fmt"
 )
 
 func (j *Job) String() string {
