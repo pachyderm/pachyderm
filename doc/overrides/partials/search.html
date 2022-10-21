@@ -149,10 +149,12 @@ docsearch({
     rudderanalytics.track(
       "search",
       {
-        term:  query
+        term:  query,
+        results: items.length
       }
     );
-  }, 3000),
+    console.log(items.length);
+  }, 5000),
   debug: true
 });
 </script>
