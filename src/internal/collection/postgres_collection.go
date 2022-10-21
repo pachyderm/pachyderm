@@ -37,6 +37,8 @@ type postgresCollection struct {
 	notFound           func(interface{}) string
 	exists             func(interface{}) string
 	listBufferCapacity int
+	createHook         func(*pachsql.Tx, interface{}) error
+	deleteHook         func(*pachsql.Tx, string) error
 }
 
 func indexFieldName(idx *Index) string {
@@ -80,6 +82,18 @@ func WithNotFoundMessage(format func(interface{}) string) Option {
 func WithListBufferCapacity(cap int) Option {
 	return func(c *postgresCollection) {
 		c.listBufferCapacity = cap
+	}
+}
+
+func WithCreateHook(createHook func(tx *pachsql.Tx, commitInfo interface{}) error) Option {
+	return func(c *postgresCollection) {
+		c.createHook = createHook
+	}
+}
+
+func WithDeleteHook(deleteHook func(*pachsql.Tx, string) error) Option {
+	return func(c *postgresCollection) {
+		c.deleteHook = deleteHook
 	}
 }
 
@@ -810,6 +824,11 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 		if count != int64(1) {
 			return errors.WithStack(ErrExists{Type: c.table, Key: key})
 		}
+		if c.createHook != nil {
+			if err := c.createHook(c.tx, val); err != nil {
+				return c.mapSQLError(err, key)
+			}
+		}
 	}
 	return nil
 }
@@ -847,6 +866,11 @@ func (c *postgresReadWriteCollection) delete(key string) error {
 		return c.mapSQLError(err, key)
 	} else if count == 0 {
 		return errors.WithStack(ErrNotFound{Type: c.table, Key: key})
+	}
+	if c.deleteHook != nil {
+		if err := c.deleteHook(c.tx, key); err != nil {
+			return c.mapSQLError(err, key)
+		}
 	}
 	return nil
 }

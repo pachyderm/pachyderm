@@ -1607,14 +1607,13 @@ func TestPFS(suite *testing.T) {
 
 		// The head commit of the C branch should have the same ID as the new heads
 		// of branches A and B, aliases of the old ones
-		ci, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "output", "C", "")
+		_, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "output", "C", "")
 		require.NoError(t, err)
 		aHead, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "input", "A", "")
 		require.NoError(t, err)
 		bHead, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "input", "B", "")
 		require.NoError(t, err)
-		require.Equal(t, aHead.Commit.ID, ci.Commit.ID)
-		require.Equal(t, bHead.Commit.ID, ci.Commit.ID)
+		require.Equal(t, aHead.Commit.ID, bHead.Commit.ID)
 
 		// We should be able to squash the parent commits of A and B Head
 		require.NoError(t, env.PachClient.SquashCommitSet(aHead.ParentCommit.ID))
@@ -1637,6 +1636,35 @@ func TestPFS(suite *testing.T) {
 		bCommit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "input", "B")
 		require.NoError(t, err)
 		require.NoError(t, finishCommit(env.PachClient, "input", bCommit.Branch.Name, bCommit.ID))
+	})
+
+	suite.Run("ResolveAlias", func(t *testing.T) {
+		t.Parallel()
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		c := env.PachClient
+		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "A"))
+		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "B"))
+		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "C"))
+		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "C", "master", "", "",
+			[]*pfs.Branch{
+				client.NewProjectBranch(pfs.DefaultProjectName, "A", "master"),
+				client.NewProjectBranch(pfs.DefaultProjectName, "B", "master")},
+		))
+		ci, err := c.InspectProjectCommit(pfs.DefaultProjectName, "A", "master", "")
+		require.NoError(t, err)
+		// create another commit on A that will propagate to C
+		commit1, err := c.StartProjectCommit(pfs.DefaultProjectName, "A", "master")
+		require.NoError(t, err)
+		require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo")))
+		require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, "A", commit1.Branch.Name, commit1.ID))
+		// Assert that referencing "B" at the latest commit ID gives us the latest "B" commit
+		cis, err := c.InspectCommitSet(commit1.ID)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(cis))
+		resolvedAliasCommit, err := c.InspectProjectCommit(pfs.DefaultProjectName, "B", "", commit1.ID)
+		require.NoError(t, err)
+		require.Equal(t, ci.Commit.ID, resolvedAliasCommit.Commit.ID)
+
 	})
 
 	suite.Run("Branch1", func(t *testing.T) {
@@ -1679,13 +1707,13 @@ func TestPFS(suite *testing.T) {
 
 		commitInfos, err = env.PachClient.InspectCommitSet(commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(commitInfos))
+		require.Equal(t, 1, len(commitInfos))
 
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "master3", commit.Branch.Name, commit.ID, nil))
 
 		commitInfos, err = env.PachClient.InspectCommitSet(commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 3, len(commitInfos))
+		require.Equal(t, 1, len(commitInfos))
 
 		branchInfos, err = env.PachClient.ListProjectBranch(pfs.DefaultProjectName, repo)
 		require.NoError(t, err)

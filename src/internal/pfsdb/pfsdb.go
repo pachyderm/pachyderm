@@ -2,6 +2,7 @@
 package pfsdb
 
 import (
+	"context"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -129,6 +130,16 @@ func Commits(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollecti
 		}),
 		col.WithExistsMessage(func(key interface{}) string {
 			return pfsserver.ErrCommitExists{Commit: key.(*pfs.Commit)}.Error()
+		}),
+		col.WithCreateHook(func(tx *pachsql.Tx, commitInfo interface{}) error {
+			ci := commitInfo.(*pfs.CommitInfo)
+			if err := AddCommit(context.TODO(), tx, CommitKey(ci.Commit), ci.Commit.ID); err != nil {
+				return err
+			}
+			return nil
+		}),
+		col.WithDeleteHook(func(tx *pachsql.Tx, commitKey string) error {
+			return nil
 		}),
 	)
 }
