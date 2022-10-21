@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -92,8 +93,8 @@ func User(email string) string {
 	return auth.UserPrefix + email
 }
 
-func Pl(pipeline string) string {
-	return auth.PipelinePrefix + pipeline
+func Pl(projectName, pipelineName string) string {
+	return fmt.Sprintf("%s%s/%s", auth.PipelinePrefix, projectName, pipelineName)
 }
 
 func Robot(robot string) string {
