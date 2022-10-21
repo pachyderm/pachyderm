@@ -14,7 +14,7 @@ func Bytes(random *rand.Rand, n int) []byte {
 	bs := make([]byte, n)
 	random.Read(bs) // Cannot return an error.
 	for i, b := range bs {
-		bs[i] = letters[(52*uint16(b))>>8]
+		bs[i] = letters[(uint16(len(letters))*uint16(b))>>8]
 	}
 	return bs
 }
@@ -36,7 +36,7 @@ func (br *bytesReader) Read(data []byte) (int, error) {
 	size := int(miscutil.Min(br.n, int64(len(data))))
 	br.random.Read(data[:size])
 	for i := 0; i < size; i++ {
-		data[i] = letters[52*uint16(data[i])>>8]
+		data[i] = letters[uint16(len(letters))*uint16(data[i])>>8]
 	}
 	br.n -= int64(size)
 	if br.n <= 0 {
