@@ -560,7 +560,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		require.NoError(t, c.DeleteAll())
 	})
 
-	t.Run("SpoutStopStart", func(t *testing.T) {
+	t.Run("SpoutRestart", func(t *testing.T) {
 		pipeline := tu.UniqueString("pipeline")
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
