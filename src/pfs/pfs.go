@@ -120,9 +120,8 @@ func (r *Repo) EnsureProject() {
 }
 
 // AuthResource returns the auth resource for a repo.  The resource name is the
-// bare repo name if the project is nil or the project name is empty; otherwise
-// it is the project name and repo name separated by a slash.  Notably, it does
-// _not_ include the repo type string.
+// project name and repo name separated by a slash.  Notably, it does _not_
+// include the repo type string.
 func (r *Repo) AuthResource() *auth.Resource {
 	var t auth.ResourceType
 	if r.Type == SpecRepoType {
