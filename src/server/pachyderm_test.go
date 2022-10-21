@@ -4838,7 +4838,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	t.Parallel()
 	c, ns := minikubetestenv.AcquireCluster(t)
 	// create repos
-	dataRepo := tu.UniqueString("TestPipelineResourceRequest")
+	dataRepo := tu.UniqueString("repo")
 	pipelineName := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	// Resources are not yet in client.CreatePipeline() (we may add them later)
