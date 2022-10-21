@@ -2268,7 +2268,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 
 	// Revoke pipeline's access to output repo while 'sleep 10' is running (so
 	// that it fails)
-	require.NoError(t, rootClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, fmt.Sprintf("pipeline:%s", pipeline), []string{}))
+	require.NoError(t, rootClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, tu.Pl(pfs.DefaultProjectName, pipeline), []string{}))
 
 	// make sure the pipeline either fails or restarts RC & finishes
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
