@@ -886,6 +886,7 @@ func MigratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 	if err != nil {
 		return errors.Wrap(err, "could not read table")
 	}
+	defer rr.Close()
 	type pair struct {
 		key string
 		val proto.Message
@@ -912,7 +913,6 @@ func MigratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 		vals[oldKey] = pair{newKey, proto.Clone(newVal)}
 
 	}
-	rr.Close()
 	for oldKey, pair := range vals {
 		if err := col.withKey(oldKey, func(oldKey string) error {
 			return col.withKey(pair.key, func(newKey string) error {
