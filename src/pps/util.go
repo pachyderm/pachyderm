@@ -116,7 +116,7 @@ func InputBranches(input *Input) []*pfs.Branch {
 	return ProjectInputBranches(pfs.DefaultProjectName, input)
 }
 
-func ProjectInputBranches(defaultProjectName string, input *Input) []*pfs.Branch {
+func ProjectInputBranches(projectName string, input *Input) []*pfs.Branch {
 	var result []*pfs.Branch
 	VisitInput(input, func(input *Input) error { //nolint:errcheck
 		if input.Pfs != nil {
@@ -129,7 +129,7 @@ func ProjectInputBranches(defaultProjectName string, input *Input) []*pfs.Branch
 				Name: input.Pfs.Branch,
 			}
 			if input.Pfs.Project == "" {
-				b.Repo.Project.Name = defaultProjectName
+				b.Repo.Project.Name = projectName
 			}
 			result = append(result, b)
 		}
@@ -143,7 +143,7 @@ func ProjectInputBranches(defaultProjectName string, input *Input) []*pfs.Branch
 				Name: "master",
 			}
 			if input.Cron.Project == "" {
-				b.Repo.Project.Name = defaultProjectName
+				b.Repo.Project.Name = projectName
 			}
 			result = append(result, b)
 		}
