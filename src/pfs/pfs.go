@@ -105,9 +105,9 @@ func ValidateProjectName(projectName string) error {
 	return ancestry.ValidateName(projectName)
 }
 
-// EnsureRepoProject ensures that repo.Project is valid.  It does nothing if
-// repo is nil.
-func EnsureRepoProject(r *Repo) {
+// EnsureProject ensures that repo.Project is set.  It does nothing if repo is
+// nil.
+func (r *Repo) EnsureProject() {
 	if r == nil {
 		return
 	}
