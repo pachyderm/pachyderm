@@ -137,6 +137,13 @@ type ErrSquashWithoutChildren struct {
 	Commit *pfs.Commit
 }
 
+// ErrSquashWithDependentCommitSets represents an error when attempting squash a
+// list of commit sets that have commits from other commit sets depending on them.
+type ErrSquashWithDependentCommitSets struct {
+	MinimalCommitSets         []*pfs.CommitSet
+	RequestedSquashCommitSets []*pfs.CommitSet
+}
+
 // ErrDropWithChildren represents an error when attempting to drop a commit that
 // has children.  Because proper datum removal semantics have not been
 // implemented in the middle of a commit chain, this operation is unsupported.
@@ -279,6 +286,10 @@ func (e ErrCommitOnOutputBranch) Error() string {
 
 func (e ErrSquashWithoutChildren) Error() string {
 	return fmt.Sprintf("cannot squash a commit that has no children as that would cause data loss, use the drop operation instead: %s", e.Commit)
+}
+
+func (e ErrSquashWithDependentCommitSets) Error() string {
+	return fmt.Sprintf("the commit sets %v, cannot be squashed in isolation. To delete them, also squash: %v", e.RequestedSquashCommitSets, e.MinimalCommitSets)
 }
 
 func (e ErrDropWithChildren) Error() string {
