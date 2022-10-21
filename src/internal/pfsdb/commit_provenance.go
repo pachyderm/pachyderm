@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -16,12 +17,12 @@ func ResolveCommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo
 		return "", err
 	}
 	for _, c := range cs {
-		if strings.HasPrefix(c, repo.String()+"@") {
-			return c, nil
+		if strings.HasPrefix(c, RepoKey(repo)+"@") {
+			return strings.TrimPrefix(c, RepoKey(repo)+"@"), nil
 		}
 	}
 	// TODO: Commit proto is FUBAR
-	return "", pfsserver.ErrCommitNotFound{Commit: &pfs.Commit{ID: repo.String() + "@" + commitSet}}
+	return "", pfsserver.ErrCommitNotFound{Commit: &pfs.Commit{Branch: client.NewProjectBranch(repo.Project.Name, repo.Name, "master"), ID: commitSet}}
 }
 
 // CommitSetProvenance returns all the commit IDs that are in the provenance
@@ -60,18 +61,18 @@ func CommitSetProvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]stri
 // full provenance
 func CommitSetSubvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]string, error) {
 	q := `
-          WITH RECURSIVE prov(from_id, to_id) AS (
+          WITH RECURSIVE subv(from_id, to_id) AS (
             SELECT from_id, to_id 
             FROM pfs.commit_provenance JOIN pfs.commits ON int_id = to_id 
             WHERE commit_set_id = $1
            UNION ALL
             SELECT cp.from_id, cp.to_id
-            FROM prov p, pfs.commit_provenance cp
-            WHERE cp.to_id = p.from_id
+            FROM subv s, pfs.commit_provenance cp
+            WHERE cp.to_id = s.from_id
           )
           SELECT DISTINCT commit_id 
-          FROM pfs.commits, prov 
-          WHERE int_id = prov.from_id AND commit_set_id != $2;`
+          FROM pfs.commits, subv 
+          WHERE int_id = subv.from_id AND commit_set_id != $2;`
 	rows, err := tx.QueryxContext(ctx, q, id, id)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -101,7 +102,9 @@ func AddCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to string) e
 		return err
 	}
 	var fromId, toId int
+	var count int
 	for rows.Next() {
+		count++
 		var tmp int
 		var commitId string
 		rows.Scan(&tmp, &commitId)
@@ -110,6 +113,9 @@ func AddCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to string) e
 		} else {
 			toId = tmp
 		}
+	}
+	if count != 2 {
+		return errors.Errorf("expected two existing commits, got %v", count)
 	}
 	return addCommitProvenance(ctx, tx, fromId, toId)
 }
