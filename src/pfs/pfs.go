@@ -95,14 +95,17 @@ func (b *Branch) String() string {
 	return b.Repo.String() + "@" + b.Name
 }
 
-// ValidateProjectName returns an error if projectName is an invalid project
-// name.  DefaultProjectName is always valid; otherwise the ancestry package is
-// used to validate the name.
-func ValidateProjectName(projectName string) error {
-	if projectName == DefaultProjectName {
+// ValidateName returns an error if the project is nil or its name is an invalid
+// project name.  DefaultProjectName is always valid; otherwise the ancestry
+// package is used to validate the name.
+func (p *Project) ValidateName() error {
+	if p == nil {
+		return errors.New("nil project")
+	}
+	if p.Name == DefaultProjectName {
 		return nil
 	}
-	return ancestry.ValidateName(projectName)
+	return ancestry.ValidateName(p.Name)
 }
 
 // EnsureProject ensures that repo.Project is set.  It does nothing if repo is
