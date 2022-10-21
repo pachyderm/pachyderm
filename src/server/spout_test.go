@@ -559,4 +559,39 @@ func testSpout(t *testing.T, usePachctl bool) {
 		}))
 		require.NoError(t, c.DeleteAll())
 	})
+
+	t.Run("SpoutRestart", func(t *testing.T) {
+		pipeline := tu.UniqueString("pipeline")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"sleep", "infinity"},
+				},
+				Spout: &pps.Spout{},
+			},
+		)
+		require.NoError(t, err)
+		require.NoError(t, backoff.Retry(func() error {
+			pi, err := c.InspectPipeline(pipeline, false)
+			require.NoError(t, err)
+			if pi.State != pps.PipelineState_PIPELINE_RUNNING {
+				return errors.Errorf("expected pipeline state: %s, but got: %s", pps.PipelineState_PIPELINE_RUNNING, pi.State)
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+
+		// stop and start spout pipeline
+		require.NoError(t, c.StopPipeline(pipeline))
+		require.NoError(t, backoff.Retry(func() error {
+			pi, err := c.InspectPipeline(pipeline, false)
+			require.NoError(t, err)
+			if pi.State != pps.PipelineState_PIPELINE_PAUSED {
+				return errors.Errorf("expected pipeline state: %s, but got: %s", pps.PipelineState_PIPELINE_PAUSED, pi.State)
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+		require.NoError(t, c.StartPipeline(pipeline))
+	})
 }
