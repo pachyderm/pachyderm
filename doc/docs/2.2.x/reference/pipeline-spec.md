@@ -107,7 +107,7 @@ To see how to use a pipeline spec to create a pipeline, refer to the [create pip
         "external_port": int
       },
       "spout": {
-        \\ Optionally, you can combine a spout with a service:
+        // Optionally, you can combine a spout with a service:
         "service": {
           "internal_port": int,
           "external_port": int
