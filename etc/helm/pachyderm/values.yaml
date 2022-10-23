@@ -674,7 +674,7 @@ pgbouncer:
   tolerations: []
   image:
     repository: pachyderm/pgbouncer
-    tag: 1.17.0
+    tag: 1.16.1
   resources:
     {}
     #limits:
