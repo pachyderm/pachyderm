@@ -88,6 +88,17 @@ func migrateCommitInfoV2_4_0(c *pfs.CommitInfo) *pfs.CommitInfo {
 // It uses some internal knowledge about how cols.PostgresCollection works to do
 // so.
 func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
+	// A pre-projects commit diff/total has a commit_id value which looks
+	// like images.user@master=da4016a16f8944cba94038ab5bcc9933; a
+	// post-projects commit diff/total has a commit_id which looks like
+	// myproject/images.user@master=da4016a16f8944cba94038ab5bcc9933.
+	//
+	// The regexp below is matches only rows with a pre-projects–style
+	// commit_id and does not touch post-projects–style rows.  This is
+	// because prior to the default project name changing, commits in the
+	// default project were still identified without the project (e.g. as
+	// images.user@master=da4016a16f8944cba94038ab5bcc9933 rather than
+	// /images.user@master=da4016a16f8944cba94038ab5bcc9933).
 	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_diffs SET commit_id = regexp_replace(commit_id, '^([-a-zA-Z0-9_]+)', 'default/\1') WHERE commit_id ~ '^[-a-zA-Z0-9_]+\.';`); err != nil {
 		return errors.Wrap(err, "could not update")
 	}
