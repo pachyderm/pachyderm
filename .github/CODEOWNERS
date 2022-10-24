@@ -9,7 +9,10 @@
 /etc/ @pachyderm/BRE @pachyderm/CORE
 
 # Helm
-/etc/helm/ @jrockway @seslattery @robert-uhl @armaanv @chainlink
+/etc/helm/ @jrockway @seslattery @robert-uhl @armaanv @chainlink @tybritten @BOsterbuhr
+
+# Examples
+/examples/ @pachyderm/DOC @tybritten @JimmyWhitaker @BOsterbuhr
 
 # Services with individual owners
 /src/auth/               @acohen4 @jrockway
@@ -36,9 +39,10 @@
 /src/task/               @brycemcanally
 
 # Integrations
-/src/integrations/                         @pachyderm/INT
-/src/integrations/connectors/snowflake/    @pachyderm/INT @albscui
-/src/templates/                            @pachyderm/INT
+/src/integrations/                          @pachyderm/INT
+/src/integrations/connectors/snowflake/     @pachyderm/INT @albscui @robert-uhl
+/src/templates/                             @pachyderm/INT
+/src/server/pfs/s3/                          @pachyderm/INT
 
 # Internal
 # Add all the teams, so anyone can make or change internal libraries by default.
@@ -47,14 +51,14 @@
 # Individuals for specific packages
 /src/internal/collection/            @brycemcanally @acohen4 @robert-uhl
 /src/internal/clusterstate/          @jrockway @brycemcanally
-/src/internal/migrations/            @brendoncarroll
-/src/internal/consistenthashing/      @FahadBSyed
+/src/internal/consistenthashing/     @FahadBSyed
 /src/internal/dockertestenv/         @brendoncarroll
-/src/internal/minikubetestenv/        @acohen4
+/src/internal/migrations/            @brendoncarroll
+/src/internal/minikubetestenv/       @acohen4
 /src/internal/obj/                   @pachyderm/PFS
-/src/internal/pachhash/               @pachyderm/PFS
-/src/internal/pachsql/                @albscui @brendoncarroll
-/src/internal/pachtmpl/               @albscui @brendoncarroll @pachyderm/INT
+/src/internal/pachhash/              @pachyderm/PFS
+/src/internal/pachsql/               @albscui @brendoncarroll
+/src/internal/pachtmpl/              @albscui @brendoncarroll @pachyderm/INT
 /src/internal/pfsdb/                 @pachyderm/PFS
 /src/internal/pfsfile/               @pachyderm/PFS
 /src/internal/pfssync/               @pachyderm/PFS
