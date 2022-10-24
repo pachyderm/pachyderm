@@ -37,7 +37,7 @@
 
 # Integrations
 /src/integrations/                         @pachyderm/INT
-/src/integrations/connectors/snowflake/    @robert-uhl
+/src/integrations/connectors/snowflake/    @pachyderm/INT @albscui
 /src/templates/                            @pachyderm/INT
 
 # Internal
@@ -48,13 +48,13 @@
 /src/internal/collection/            @brycemcanally @acohen4 @robert-uhl
 /src/internal/clusterstate/          @jrockway @brycemcanally
 /src/internal/migrations/            @brendoncarroll
-/src/interna/consistenthashing/      @FahadBSyed
+/src/internal/consistenthashing/      @FahadBSyed
 /src/internal/dockertestenv/         @brendoncarroll
-/src/interna/minikubetestenv/        @acohen4
+/src/internal/minikubetestenv/        @acohen4
 /src/internal/obj/                   @pachyderm/PFS
-/src/interna/pachhash/               @pachyderm/PFS
-/src/interna/pachsql/                @albscui @brendoncarroll
-/src/interna/pachtmpl/               @albscui @brendoncarroll @pachyderm/INT
+/src/internal/pachhash/               @pachyderm/PFS
+/src/internal/pachsql/                @albscui @brendoncarroll
+/src/internal/pachtmpl/               @albscui @brendoncarroll @pachyderm/INT
 /src/internal/pfsdb/                 @pachyderm/PFS
 /src/internal/pfsfile/               @pachyderm/PFS
 /src/internal/pfssync/               @pachyderm/PFS
