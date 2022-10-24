@@ -1,7 +1,0 @@
-{
-  "baseUrl": "http://localhost:4000/",
-  "chromeWebSecurity": false,
-  "screenshotsFolder": "/tmp/cypress-screenshots",
-  "videosFolder": "/tmp/cypress-videos",
-  "projectId": "wameh2"
-}

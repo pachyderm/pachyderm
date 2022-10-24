@@ -6,9 +6,15 @@ const inspectListItemScrolling = (testId: string, expectedLength: number) => {
   cy.isInViewport(() => cy.findAllByTestId(testId).last());
 };
 
-describe('Console Scrolling Content', () => {
+describe(
+  'Console Scrolling Content',
+  {
+    viewportHeight: 600,
+    viewportWidth: 1000,
+  },
+  () => {
   beforeEach(() => {
-    cy.visit('/')
+    cy.visit('/');
     cy.findByText('Skip tutorial').click();
   });
 
