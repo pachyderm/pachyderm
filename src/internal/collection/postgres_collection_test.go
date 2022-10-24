@@ -2,11 +2,13 @@ package collection_test
 
 import (
 	"context"
-	"log"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/proxy"
+
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -14,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
-	"github.com/pachyderm/pachyderm/v2/src/proxy"
 )
 
 func TestPostgresCollections(suite *testing.T) {
@@ -234,7 +235,6 @@ func newTestDirectDB(t testing.TB) (*pachsql.DB, string) {
 // the existence of the new item and the non-existence of the old.
 func TestMigratePostgreSQLCollection(t *testing.T) {
 	db, dsn := newTestDB(t)
-	log.Println(db, dsn)
 	listener := col.NewPostgresListener(dsn)
 	testCol := col.NewPostgresCollection("test_items", db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex})
 	ctx := context.Background()
