@@ -16,13 +16,25 @@ export VERSION
 # should be replaced with a ping 
 sleep 300
 
-# provision a pulumi test env
+# provision a aws pulumi test env
 TIMESTAMP=$(date +%T | sed 's/://g')
-WORKSPACE="aws-${CIRCLE_SHA1:0:7}-${TIMESTAMP}"
-curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
- -F name="${WORKSPACE}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG:1}-${CIRCLE_SHA1}" -F backend="aws_cluster" \
--F infraJson=@etc/testing/circle/workloads/aws-wp/infra.json -F valuesYaml=@etc/testing/circle/workloads/aws-wp/values.yaml \
+WORKSPACE="${1}-${CIRCLE_SHA1:0:7}-${TIMESTAMP}"
+
+
+if [ "${1}" = "wp" ]; then
+  curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
+    -F name="${WORKSPACE}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG:1}-${CIRCLE_SHA1}" -F backend="aws_cluster" \
+    -F infraJson=@etc/testing/circle/workloads/aws-wp/infra.json -F valuesYaml=@etc/testing/circle/workloads/aws-wp/values.yaml \
 https://helium.pachyderm.io/v1/api/workspace
+elif [ "${1}" = "btl" ]; then
+  curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
+    -F name="${WORKSPACE}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG:1}-${CIRCLE_SHA1}" -F backend="aws_cluster" \
+    -F infraJson=@etc/testing/circle/workloads/aws-btl/infra.json -F valuesYaml=@etc/testing/circle/workloads/aws-btl/values.yaml \
+https://helium.pachyderm.io/v1/api/workspace
+else
+  echo "no valid customer name provided"
+  exit 1
+fi
 
 # wait for helium to kick off to pulumi before pinging it.
 sleep 5
@@ -70,10 +82,20 @@ if [ "$READY" = false ] ; then
     exit 1
 fi
 
-# cloning wp-workload test repo
-git clone https://github.com/pachyderm/customer-success.git customer-success
-git checkout -b "bosterbuhr/wp-load-test"
-
-make wp-dag-test
-
-#make wp-destroy
+if [ "${1}" = "wp" ]; then
+  # cloning wp-workload test repo
+  git clone https://github.com/pachyderm/customer-success.git customer-success
+  git checkout -b "bosterbuhr/wp-load-test"
+  make wp-dag-test
+  #make wp-destroy
+elif [ "${1}" = "btl" ]; then
+  # cloning battelle workload test repo
+  git clone https://github.com/pachyderm/customer-success.git customer-success
+  git checkout -b "workload-hackathon-22"
+  cd customer-success/testing/performance/battelle/dag/scripts/
+  ./dataload.sh
+  ./deploy-all.sh
+else
+  echo "no valid customer name provided"
+  exit 1
+fi
