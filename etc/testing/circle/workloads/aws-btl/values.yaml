@@ -9,3 +9,4 @@ etcd:
 pgbouncer:
   maxConnections: 1500
   defaultPoolSize: 100
+
