@@ -15,3 +15,4 @@ cypress/screenshots
 cypress/fixtures/example.json
 cypress/accessToken.txt
 cypress/accessToken_*.txt
+cypress/downloads/**
