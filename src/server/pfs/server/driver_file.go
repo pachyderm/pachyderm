@@ -240,7 +240,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	return ret, nil
 }
 
-func (d *driver) listFile(ctx context.Context, parentDir *pfs.File, from *pfs.File, number int64, reverse bool, cb func(*pfs.FileInfo) error) error {
+func (d *driver) listFile(ctx context.Context, parentDir *pfs.File, paginationMarker *pfs.File, number int64, reverse bool, cb func(*pfs.FileInfo) error) error {
 	commitInfo, fs, err := d.openCommit(ctx, parentDir.Commit)
 	if err != nil {
 		return err
@@ -268,12 +268,12 @@ func (d *driver) listFile(ctx context.Context, parentDir *pfs.File, from *pfs.Fi
 			})
 		}),
 	}
-	if from != nil {
+	if paginationMarker != nil {
 		pathRange := &pfs.PathRange{}
 		if reverse {
-			pathRange.Upper = from.Path
+			pathRange.Upper = paginationMarker.Path
 		} else {
-			pathRange.Lower = from.Path
+			pathRange.Lower = paginationMarker.Path
 		}
 		opts = append(opts, WithPathRange(pathRange))
 	}

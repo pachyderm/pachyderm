@@ -3147,8 +3147,10 @@ type ListFileRequest struct {
 	// If the "path" field is omitted, a list of files at the top level of the repo
 	// is returned
 	ParentDirectory *File `protobuf:"bytes,1,opt,name=parentDirectory,proto3" json:"parentDirectory,omitempty"`
-	// Marker for pagination - Armaan TODO - detail
-	StartMarker *File `protobuf:"bytes,3,opt,name=startMarker,proto3" json:"startMarker,omitempty"`
+	// Marker for pagination. If set, the files that come after the marker in
+	// lexicographical order will be returned. If reverse is also set, the files
+	// that come before the marker in lexicographical order will be returned.
+	PaginationMarker *File `protobuf:"bytes,3,opt,name=paginationMarker,proto3" json:"paginationMarker,omitempty"`
 	// Number of files to return
 	Number int64 `protobuf:"varint,4,opt,name=number,proto3" json:"number,omitempty"`
 	// If true, return files in reverse order
@@ -3198,9 +3200,9 @@ func (m *ListFileRequest) GetParentDirectory() *File {
 	return nil
 }
 
-func (m *ListFileRequest) GetStartMarker() *File {
+func (m *ListFileRequest) GetPaginationMarker() *File {
 	if m != nil {
-		return m.StartMarker
+		return m.PaginationMarker
 	}
 	return nil
 }
@@ -10356,9 +10358,9 @@ func (m *ListFileRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x20
 	}
-	if m.StartMarker != nil {
+	if m.PaginationMarker != nil {
 		{
-			size, err := m.StartMarker.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.PaginationMarker.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -13040,8 +13042,8 @@ func (m *ListFileRequest) Size() (n int) {
 		l = m.ParentDirectory.Size()
 		n += 1 + l + sovPfs(uint64(l))
 	}
-	if m.StartMarker != nil {
-		l = m.StartMarker.Size()
+	if m.PaginationMarker != nil {
+		l = m.PaginationMarker.Size()
 		n += 1 + l + sovPfs(uint64(l))
 	}
 	if m.Number != 0 {
@@ -20253,7 +20255,7 @@ func (m *ListFileRequest) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field StartMarker", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field PaginationMarker", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -20280,10 +20282,10 @@ func (m *ListFileRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.StartMarker == nil {
-				m.StartMarker = &File{}
+			if m.PaginationMarker == nil {
+				m.PaginationMarker = &File{}
 			}
-			if err := m.StartMarker.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.PaginationMarker.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

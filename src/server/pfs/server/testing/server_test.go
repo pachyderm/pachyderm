@@ -138,7 +138,7 @@ func TestPFS(suite *testing.T) {
 		}))
 		require.ElementsEqual(t, []string{"/dir1/", "/dir2/"}, finfosToPaths(fis))
 
-		request := &pfs.ListFileRequest{ParentDirectory: commit1.NewFile("/dir1"), StartMarker: commit1.NewFile("/dir1/file1.2")}
+		request := &pfs.ListFileRequest{ParentDirectory: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.2")}
 		listFileClient, err := env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
 		fis, err = clientsdk.ListFile(listFileClient)
@@ -146,7 +146,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 2, len(fis))
 		require.ElementsEqual(t, []string{"/dir1/file1.2", "/dir1/file1.5"}, finfosToPaths(fis))
 
-		request = &pfs.ListFileRequest{ParentDirectory: commit1.NewFile("/dir1"), StartMarker: commit1.NewFile("/dir1/file1.1"), Number: 2}
+		request = &pfs.ListFileRequest{ParentDirectory: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.1"), Number: 2}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
 		fis, err = clientsdk.ListFile(listFileClient)
@@ -162,14 +162,14 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 1, len(fis))
 		require.ElementsEqual(t, []string{"/dir1/file1.5"}, finfosToPaths(fis))
 
-		request = &pfs.ListFileRequest{ParentDirectory: commit1.NewFile("/dir1"), StartMarker: commit1.NewFile("/dir1/file1.1"), Number: 2, Reverse: true}
+		request = &pfs.ListFileRequest{ParentDirectory: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.1"), Number: 2, Reverse: true}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
 		fis, err = clientsdk.ListFile(listFileClient)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(fis))
 
-		request = &pfs.ListFileRequest{ParentDirectory: commit1.NewFile("/dir1"), StartMarker: commit1.NewFile("/dir1/file1.5"), Number: 2, Reverse: true}
+		request = &pfs.ListFileRequest{ParentDirectory: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.5"), Number: 2, Reverse: true}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
 		fis, err = clientsdk.ListFile(listFileClient)
