@@ -97,8 +97,9 @@ func isValidBranch(name string) bool {
 	return err == nil
 }
 
-func ParseRepo(name string) *pfs.Repo {
+func ParseRepo(project, name string) *pfs.Repo {
 	var repo pfs.Repo
+	repo.Project = &pfs.Project{Name: project}
 	if strings.Contains(name, ".") {
 		repoParts := strings.SplitN(name, ".", 2)
 		repo.Name = repoParts[0]
@@ -107,7 +108,6 @@ func ParseRepo(name string) *pfs.Repo {
 		repo.Name = name
 		repo.Type = pfs.UserRepoType
 	}
-	repo.Project = new(pfs.Project) // ensure that Project is not nil
 	return &repo
 }
 
@@ -121,7 +121,7 @@ func ParseRepo(name string) *pfs.Repo {
 //   repo@branch=commit:path
 //   repo@commit
 //   repo@commit:path
-func parseFile(arg string) (*pfs.File, int, error) {
+func parseFile(project, arg string) (*pfs.File, int, error) {
 	var repo, branch, commit, path string
 	parts := strings.SplitN(arg, "@", 2)
 	if parts[0] == "" {
@@ -150,13 +150,13 @@ func parseFile(arg string) (*pfs.File, int, error) {
 			commit = parts[1]
 		}
 	}
-	return ParseRepo(repo).NewCommit(branch, commit).NewFile(path), numFields, nil
+	return ParseRepo(project, repo).NewCommit(branch, commit).NewFile(path), numFields, nil
 }
 
 // ParseCommit takes an argument of the form "repo[@branch-or-commit]" and
 // returns the corresponding *pfs.Commit.
-func ParseCommit(arg string) (*pfs.Commit, error) {
-	file, numFields, err := parseFile(arg)
+func ParseCommit(project, arg string) (*pfs.Commit, error) {
+	file, numFields, err := parseFile(project, arg)
 	if err != nil {
 		return nil, err
 	}
@@ -168,10 +168,10 @@ func ParseCommit(arg string) (*pfs.Commit, error) {
 
 // ParseCommits converts all arguments to *pfs.Commit structs using the
 // semantics of ParseCommit
-func ParseCommits(args []string) ([]*pfs.Commit, error) {
+func ParseCommits(project string, args []string) ([]*pfs.Commit, error) {
 	var results []*pfs.Commit
 	for _, arg := range args {
-		commit, err := ParseCommit(arg)
+		commit, err := ParseCommit(project, arg)
 		if err != nil {
 			return nil, err
 		}
@@ -184,8 +184,8 @@ func ParseCommits(args []string) ([]*pfs.Commit, error) {
 // corresponding *pfs.Branch. This uses ParseCommit under the hood because a
 // branch name is semantically interchangeable with a commit-id on the
 // command-line.
-func ParseBranch(arg string) (*pfs.Branch, error) {
-	commit, err := ParseCommit(arg)
+func ParseBranch(project, arg string) (*pfs.Branch, error) {
+	commit, err := ParseCommit(project, arg)
 	if err != nil {
 		return nil, err
 	}
@@ -210,10 +210,10 @@ func ParseJob(project, arg string) (*pps.Job, error) {
 
 // ParseBranches converts all arguments to *pfs.Commit structs using the
 // semantics of ParseBranch.
-func ParseBranches(args []string) ([]*pfs.Branch, error) {
+func ParseBranches(project string, args []string) ([]*pfs.Branch, error) {
 	var results []*pfs.Branch
 	for _, arg := range args {
-		branch, err := ParseBranch(arg)
+		branch, err := ParseBranch(project, arg)
 		if err != nil {
 			return nil, err
 		}
@@ -224,8 +224,8 @@ func ParseBranches(args []string) ([]*pfs.Branch, error) {
 
 // ParseFile takes an argument of the form "repo[@branch-or-commit[:path]]", and
 // returns the corresponding *pfs.File.
-func ParseFile(arg string) (*pfs.File, error) {
-	file, _, err := parseFile(arg)
+func ParseFile(project, arg string) (*pfs.File, error) {
+	file, _, err := parseFile(project, arg)
 	if err != nil {
 		return nil, err
 	}
@@ -235,14 +235,14 @@ func ParseFile(arg string) (*pfs.File, error) {
 // ParsePartialFile returns the same thing as ParseFile, unless ParseFile would
 // error on this input, in which case it returns as much as it was able to
 // parse.
-func ParsePartialFile(arg string) *pfs.File {
+func ParsePartialFile(project, arg string) *pfs.File {
 	// ParseFile already returns as much as it can parse since all fields are
 	// optional - the only thing we have to do is discard any errors.
-	file, err := ParseFile(arg)
+	file, err := ParseFile(project, arg)
 	if err == nil {
 		return file
 	}
-	return client.NewProjectFile(pfs.DefaultProjectName, arg, "", "", "")
+	return client.NewProjectFile(project, arg, "", "", "")
 }
 
 // ParseHistory parses a --history flag argument. Permissable values are "all"
