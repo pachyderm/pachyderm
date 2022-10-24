@@ -1191,6 +1191,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	var seed int64
 	var parallelism int64
 	var podPatchFile string
+	var stateID string
 	runLoadTest := &cobra.Command{
 		Use:   "{{alias}} <spec-file> ",
 		Short: "Run a PPS load test.",
@@ -1248,6 +1249,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 					Seed:        seed,
 					Parallelism: parallelism,
 					PodPatch:    string(podPatch),
+					StateId:     stateID,
 				})
 				if err != nil {
 					return errors.EnsureStack(err)
@@ -1265,6 +1267,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
 	runLoadTest.Flags().Int64VarP(&parallelism, "parallelism", "p", 0, "The parallelism to use for the pipelines.")
 	runLoadTest.Flags().StringVarP(&podPatchFile, "pod-patch", "", "", "The pod patch file to use for the pipelines.")
+	runLoadTest.Flags().StringVar(&stateID, "state-id", "", "The ID of the base state to use for the load.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pps-load-test"))
 
 	return commands

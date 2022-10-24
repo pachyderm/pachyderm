@@ -52,6 +52,8 @@ spec:
           value: "{{ .Values.global.postgresql.postgresqlPort }}"
         - name: PGBOUNCER_DATABASE
           value: "*"
+        - name: PGBOUNCER_AUTH_TYPE
+          value: {{ .Values.global.postgresql.postgresqlAuthType }}
         - name: PGBOUNCER_MAX_CLIENT_CONN
           value: "{{ .Values.pgbouncer.maxConnections }}"
         - name: PGBOUNCER_DEFAULT_POOL_SIZE

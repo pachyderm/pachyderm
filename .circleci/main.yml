@@ -38,6 +38,9 @@ parameters:
   run-jupyter-jobs:
     type: boolean
     default: false
+  run-core-jobs:
+    type: boolean
+    default: false
 
 executors:
   docker-go:
@@ -1206,7 +1209,9 @@ jobs:
 workflows:
   integration-tests:
     when:
-      not: << pipeline.parameters.run-jupyter-jobs >>
+      or:
+        - << pipeline.parameters.run-core-jobs >>
+        - not: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - build-docker-images
       #- build-pachctl-bin:
@@ -1231,7 +1236,9 @@ workflows:
                 - CONNECTORS
   helm-tests:
     when:
-      not: << pipeline.parameters.run-jupyter-jobs >>
+      or:
+        - << pipeline.parameters.run-core-jobs >>
+        - not: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - helm-tests
   nightly_load_tests:
@@ -1262,12 +1269,16 @@ workflows:
                   #- LOAD15
   rootless-tests:
     when:
-      not: << pipeline.parameters.run-jupyter-jobs >>
+      or:
+        - << pipeline.parameters.run-core-jobs >>
+        - not: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - rootless
   deploy-tests:
     when:
-      not: << pipeline.parameters.run-jupyter-jobs >>
+      or:
+        - << pipeline.parameters.run-core-jobs >>
+        - not: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - deploy-tests
   jupyter-extension:
