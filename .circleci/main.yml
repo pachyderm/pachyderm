@@ -1114,6 +1114,9 @@ jobs:
           path: /tmp/debug-dump
           destination: debug-dump
   cust-prerelease-testing:
+    parameters:
+      customer:
+        type: string
     resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -1129,7 +1132,7 @@ jobs:
       - run:
           name: "test customer workload"
           command: |
-            etc/testing/circle/run_cust_release_tests.sh
+            etc/testing/circle/run_cust_release_tests.sh << parameters.customer >>
           no_output_timeout: 1h
       - store_artifacts:
           path: /tmp/debug-dump
@@ -1396,6 +1399,17 @@ workflows:
             - publish-chart-preview
             - release-github-draft
       - cust-prerelease-testing:
+          name: woven-planet-testing
+          customer: wp
+          filters: *only-alpha-tags
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+            - publish-chart-preview
+            - release-github-draft
+      - cust-prerelease-testing:
+          name: battelle-planet-testing
+          customer: btl
           filters: *only-alpha-tags
           requires:
             - build-docker-images
