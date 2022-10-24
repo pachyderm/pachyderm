@@ -26,17 +26,25 @@ describe('Landing', () => {
     window.localStorage.removeItem('pachyderm-console-account-data');
   });
 
-  it('should display projects', async () => {
-    const {findAllByRole, findByRole} = render(<Landing />);
+  it('should display all projects with only a single tab', async () => {
+    const {findAllByRole, findByRole, getAllByRole} = render(<Landing />);
 
     expect(
       await findByRole('heading', {name: 'Data Cleaning Process', level: 5}),
     ).toBeInTheDocument();
 
     expect(await findAllByRole('row', {})).toHaveLength(7);
+
+    expect(
+      await findByRole('tab', {
+        name: /projects/i,
+      }),
+    ).toBeInTheDocument();
+
+    expect(getAllByRole('tab')).toHaveLength(1);
   });
 
-  it('should allow users to search for projects by name', async () => {
+  it('should allow users to non-case sensitive search for projects by name', async () => {
     const {queryByRole, findByRole} = render(<Landing />);
 
     expect(
@@ -51,7 +59,7 @@ describe('Landing', () => {
 
     const searchBox = await findByRole('searchbox');
 
-    await type(searchBox, 'Data Cleaning Process');
+    await type(searchBox, 'data CLeaning process');
 
     await waitFor(() =>
       expect(
@@ -242,9 +250,13 @@ describe('Landing', () => {
     const error = createServiceError({code: status.UNIMPLEMENTED});
     mockServer.setError(error);
 
-    const {findByText} = render(<Landing />);
+    const {findByRole} = render(<Landing />);
 
-    expect(await findByText('All')).toBeInTheDocument();
+    expect(
+      await findByRole('tab', {
+        name: /projects/i,
+      }),
+    ).toBeInTheDocument();
   });
 
   it('should display the project details', async () => {

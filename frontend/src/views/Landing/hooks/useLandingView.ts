@@ -133,7 +133,11 @@ export const useLandingView = () => {
 
   const filteredProjects = useMemo(() => {
     return sortedProjects.filter((project) => {
-      return filters[project.status] && project.name.includes(searchValue);
+      const projectName = project.name.toLowerCase();
+      return (
+        filters[project.status] &&
+        projectName.includes(searchValue.toLowerCase())
+      );
     });
   }, [filters, searchValue, sortedProjects]);
 
