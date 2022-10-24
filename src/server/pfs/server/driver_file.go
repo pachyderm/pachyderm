@@ -269,19 +269,37 @@ func (d *driver) listFile(ctx context.Context, parentDir *pfs.File, from *pfs.Fi
 		}),
 	}
 	if from != nil {
-		opts = append(opts, WithPathRange(&pfs.PathRange{Lower: from.Path}))
+		pathRange := &pfs.PathRange{}
+		if reverse {
+			pathRange.Upper = from.Path
+		} else {
+			pathRange.Lower = from.Path
+		}
+		opts = append(opts, WithPathRange(pathRange))
 	}
+	var fis []*pfs.FileInfo
 	s := NewSource(commitInfo, fs, opts...)
-	err = s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
+	if err = s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 		if pathIsChild(name, pfsfile.CleanPath(fi.File.Path)) {
-			if number == 0 {
-				return errutil.ErrBreak
-			}
-			number--
-			return cb(fi)
+			fis = append(fis, fi)
+			return nil
 		}
 		return nil
-	})
+	}); err != nil {
+		return errors.EnsureStack(err)
+	}
+	for i, fi := range fis {
+		if number == 0 {
+			break
+		}
+		if reverse {
+			fi = fis[len(fis)-1-i]
+		}
+		if err = cb(fi); err != nil {
+			return errors.EnsureStack(err)
+		}
+		number--
+	}
 	return errors.EnsureStack(err)
 }
 
