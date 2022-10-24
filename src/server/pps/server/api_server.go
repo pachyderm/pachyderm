@@ -446,7 +446,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 func (a *apiServer) UpdateJobState(ctx context.Context, request *pps.UpdateJobStateRequest) (response *types.Empty, retErr error) {
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.UpdateJobState(request))
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 
@@ -555,10 +555,10 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 	}
 
 	if err := forEachCommitInJob(pachClient, request.JobSet.ID, request.Wait, func(ci *pfs.CommitInfo) error {
-		if ci.Commit.Branch.Repo.Type != pfs.UserRepoType || ci.Origin.Kind == pfs.OriginKind_ALIAS {
+		if ci.Commit.Repo.Type != pfs.UserRepoType || ci.Origin.Kind == pfs.OriginKind_ALIAS {
 			return nil
 		}
-		return cb(ci.Commit.Branch.Repo.Project.GetName(), ci.Commit.Branch.Repo.Name)
+		return cb(ci.Commit.Repo.Project.GetName(), ci.Commit.Repo.Name)
 	}); err != nil {
 		if pfsServer.IsCommitSetNotFoundErr(err) {
 			// There are no commits for this ID, but there may still be jobs, query
@@ -967,7 +967,7 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 	ensurePipelineProject(request.GetJob().GetPipeline())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.StopJob(request))
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	clearJobCache(a.env.GetPachClient(ctx), ppsdb.JobKey(request.Job))
@@ -2028,7 +2028,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(request))
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -2998,13 +2998,13 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 		}
 
 		// Skip commits from system repos
-		if commitInfo.Commit.Branch.Repo.Type != pfs.UserRepoType {
+		if commitInfo.Commit.Repo.Type != pfs.UserRepoType {
 			continue
 		}
 
 		// Skip commits from repos that have no associated pipeline
 		var pipelineInfo *pps.PipelineInfo
-		if pipelineInfo, err = a.InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commitInfo.Commit.Branch.Repo)); err != nil {
+		if pipelineInfo, err = a.InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil {
 			if col.IsErrNotFound(err) {
 				continue
 			}

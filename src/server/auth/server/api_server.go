@@ -1060,7 +1060,7 @@ func (a *apiServer) ModifyRoleBinding(ctx context.Context, req *auth.ModifyRoleB
 		var err error
 		response, err = txn.ModifyRoleBinding(req)
 		return errors.EnsureStack(err)
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 

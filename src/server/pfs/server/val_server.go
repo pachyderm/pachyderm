@@ -46,10 +46,10 @@ func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txncontext.Transa
 	if userCommit.Branch == nil {
 		return errors.New("commit branch cannot be nil")
 	}
-	if userCommit.Branch.Repo == nil {
+	if userCommit.Branch.Repo == nil || userCommit.Repo == nil {
 		return errors.New("commit repo cannot be nil")
 	}
-	if err := a.auth.CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Branch.Repo, auth.Permission_REPO_WRITE); err != nil {
+	if err := a.auth.CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Permission_REPO_WRITE); err != nil {
 		return errors.EnsureStack(err)
 	}
 	return a.apiServer.FinishCommitInTransaction(txnCtx, request)
@@ -60,7 +60,7 @@ func (a *validatedAPIServer) InspectFile(ctx context.Context, request *pfs.Inspe
 	if err := validateFile(request.File); err != nil {
 		return nil, err
 	}
-	if err := a.auth.CheckRepoIsAuthorized(ctx, request.File.Commit.Branch.Repo, auth.Permission_REPO_INSPECT_FILE); err != nil {
+	if err := a.auth.CheckRepoIsAuthorized(ctx, request.File.Commit.Repo, auth.Permission_REPO_INSPECT_FILE); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return a.apiServer.InspectFile(ctx, request)
@@ -71,7 +71,7 @@ func (a *validatedAPIServer) ListFile(request *pfs.ListFileRequest, server pfs.A
 	if err := validateFile(request.File); err != nil {
 		return err
 	}
-	if err := a.auth.CheckRepoIsAuthorized(server.Context(), request.File.Commit.Branch.Repo, auth.Permission_REPO_LIST_FILE); err != nil {
+	if err := a.auth.CheckRepoIsAuthorized(server.Context(), request.File.Commit.Repo, auth.Permission_REPO_LIST_FILE); err != nil {
 		return errors.EnsureStack(err)
 	}
 	return a.apiServer.ListFile(request, server)
@@ -149,6 +149,13 @@ func (a *validatedAPIServer) SquashCommitSet(ctx context.Context, request *pfs.S
 	return a.apiServer.SquashCommitSet(ctx, request)
 }
 
+func (a *validatedAPIServer) SquashCommitSets(ctx context.Context, request *pfs.SquashCommitSetsRequest) (*types.Empty, error) {
+	if len(request.CommitSets) == 0 {
+		return nil, errors.New("commitsets must include at least one commit set")
+	}
+	return a.apiServer.SquashCommitSets(ctx, request)
+}
+
 func (a *validatedAPIServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileServer) error {
 	if request.File == nil {
 		return errors.New("file cannot be nil")
@@ -184,6 +191,9 @@ func (a *validatedAPIServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.
 func (a *validatedAPIServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.CreateBranchRequest) error {
 	if request.Head != nil && request.Branch.Repo.Name != request.Head.Branch.Repo.Name {
 		return errors.New("branch and head commit must belong to the same repo")
+	}
+	if request.Head != nil && request.Head.Repo == nil {
+		request.Head.Repo = request.Head.Branch.Repo
 	}
 	return a.apiServer.CreateBranchInTransaction(txnCtx, request)
 }

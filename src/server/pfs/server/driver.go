@@ -511,8 +511,9 @@ func (d *driver) startCommit(
 
 	// New commit and commitInfo
 	newCommit := &pfs.Commit{
-		Repo: branch.Repo,
-		ID:   txnCtx.CommitSetID,
+		Branch: branch,
+		Repo:   branch.Repo,
+		ID:     txnCtx.CommitSetID,
 	}
 	newCommitInfo := &pfs.CommitInfo{
 		Commit:      newCommit,
@@ -608,6 +609,17 @@ func (d *driver) startCommit(
 		}
 		return nil, errors.EnsureStack(err)
 	}
+	for _, prov := range branchInfo.DirectProvenance {
+		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(prov), branchInfo); err != nil {
+			if col.IsErrNotFound(err) {
+				return nil, pfsserver.ErrBranchNotFound{Branch: prov}
+			}
+			return nil, errors.EnsureStack(err)
+		}
+		if branchInfo.Head != nil {
+			pfsdb.AddCommitProvenance(context.TODO(), txnCtx.SqlTx, pfsdb.CommitKey(newCommit), pfsdb.CommitKey(branchInfo.Head))
+		}
+	}
 	// Defer propagation of the commit until the end of the transaction so we can
 	// batch downstream commits together if there are multiple changes.
 	if err := txnCtx.PropagateBranch(branch); err != nil {
@@ -630,7 +642,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 		return errors.Errorf("cannot finish an alias commit: %s", commitInfo.Commit)
 	}
 	if !force && len(commitInfo.DirectProvenance) > 0 {
-		if info, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commit.Branch.Repo)); err != nil && !errutil.IsNotFoundError(err) {
+		if info, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commit.Repo)); err != nil && !errutil.IsNotFoundError(err) {
 			return errors.EnsureStack(err)
 		} else if err == nil && info.Type == pps.PipelineInfo_PIPELINE_TYPE_TRANSFORM {
 			return errors.Errorf("cannot finish a pipeline output or meta commit, use 'stop job' instead")
@@ -672,6 +684,7 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 	commit := &pfs.Commit{
 		Branch: proto.Clone(branch).(*pfs.Branch),
 		ID:     txnCtx.CommitSetID,
+		Repo:   proto.Clone(branch.Repo).(*pfs.Repo),
 	}
 
 	// Update the branch head to point to the alias
@@ -812,7 +825,8 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		}
 		for _, sb := range bi.Subvenance {
 			if _, ok := propagatedBranches[pfsdb.BranchKey(sb)]; !ok {
-				if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
+				bi := &pfs.BranchInfo{}
+				if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(sb, bi); err != nil {
 					return errors.EnsureStack(err)
 				}
 				propagatedBranches[pfsdb.BranchKey(sb)] = proto.Clone(bi).(*pfs.BranchInfo)
@@ -830,6 +844,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			continue
 		}
 		newCommit := &pfs.Commit{
+			Repo:   bi.Branch.Repo,
 			Branch: bi.Branch,
 			ID:     txnCtx.CommitSetID,
 		}
@@ -891,7 +906,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 // As a side effect, this function also replaces the ID in the given commit
 // with a real commit ID.
 func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs.CommitState) (*pfs.CommitInfo, error) {
-	if commit.Branch.Repo.Name == fileSetsRepo {
+	if commit.Repo.Name == fileSetsRepo {
 		cinfo := &pfs.CommitInfo{
 			Commit:      commit,
 			Description: "FileSet - Virtual Commit",
@@ -902,7 +917,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 	if commit == nil {
 		return nil, errors.Errorf("cannot inspect nil commit")
 	}
-	if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, commit.Branch.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+	if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, commit.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 
@@ -964,13 +979,10 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 	if userCommit == nil {
 		return nil, errors.Errorf("cannot resolve nil commit")
 	}
-	if userCommit.Branch == nil {
-		return nil, errors.Errorf("cannot resolve commit with no branch")
-	}
-	if userCommit.Branch.Repo == nil {
+	if userCommit.Repo == nil {
 		return nil, errors.Errorf("cannot resolve commit with no repo")
 	}
-	if userCommit.ID == "" && userCommit.Branch.Name == "" {
+	if userCommit.ID == "" && userCommit.GetBranch().GetName() == "" {
 		return nil, errors.Errorf("cannot resolve commit with no ID or branch")
 	}
 	commit := proto.Clone(userCommit).(*pfs.Commit) // back up user commit, for error reporting
@@ -1251,56 +1263,14 @@ func (d *driver) listCommit(
 	return nil
 }
 
+// TODO(acohen4): does this actually need to be topologically sorted?
 func (d *driver) inspectCommitSetImmediate(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) ([]*pfs.CommitInfo, error) {
-	commitMap := map[string]*pfs.CommitInfo{}
+	var commitInfos []*pfs.CommitInfo
 	commitInfo := &pfs.CommitInfo{}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).List(commitInfo, col.DefaultOptions(), func(string) error {
+	return commitInfos, d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitset.ID, commitInfo, col.DefaultOptions(), func(string) error {
+		commitInfos = append(commitInfos, proto.Clone(commitInfo).(*pfs.CommitInfo))
 		return nil
-	}); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitset.ID, commitInfo, col.DefaultOptions(), func(string) error {
-		commitMap[pfsdb.BranchKey(commitInfo.Commit.Branch)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
-		return nil
-	}); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	if len(commitMap) == 0 {
-		return nil, pfsserver.ErrCommitSetNotFound{CommitSet: commitset}
-	}
-	// Do a topological sort of the commitInfos (note that this isn't a stable
-	// sort, but we could do it if that becomes a problem)
-	result := []*pfs.CommitInfo{}
-	added := map[string]struct{}{}
-	provMap := map[string][]string{} // map of provenance -> subvenance
-	for _, commitInfo := range commitMap {
-		commitKey := pfsdb.BranchKey(commitInfo.Commit.Branch)
-		for _, prov := range commitInfo.DirectProvenance {
-			provKey := pfsdb.BranchKey(prov)
-			if provs, ok := provMap[provKey]; ok {
-				provMap[provKey] = append(provs, commitKey)
-			} else {
-				provMap[provKey] = []string{commitKey}
-			}
-		}
-		if len(commitInfo.DirectProvenance) == 0 {
-			result = append(result, commitInfo)
-			added[commitKey] = struct{}{}
-		}
-	}
-
-	for i := 0; i < len(result); i++ {
-		commitInfo := result[i]
-		for _, provKey := range provMap[pfsdb.BranchKey(commitInfo.Commit.Branch)] {
-			if ci, ok := commitMap[provKey]; ok {
-				if _, ok := added[provKey]; !ok {
-					result = append(result, ci)
-					added[provKey] = struct{}{}
-				}
-			}
-		}
-	}
-	return result, nil
+	})
 }
 
 func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet, wait bool, cb func(*pfs.CommitInfo) error) error {
@@ -1318,7 +1288,6 @@ reloadCommitSet:
 		}); err != nil {
 			return err
 		}
-
 		reload := false
 		for _, commitInfo := range commitInfos {
 			// If we aren't blocking, we can just loop over everything once and return
@@ -2073,8 +2042,8 @@ func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchIn
 			break
 		}
 	}
-
 	commit := branchInfo.Branch.NewCommit(txnCtx.CommitSetID)
+	commit.Repo = branchInfo.Branch.Repo
 	commitInfo := &pfs.CommitInfo{
 		Commit:           commit,
 		Origin:           &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
@@ -2096,6 +2065,20 @@ func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchIn
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(commit, commitInfo); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	provHeads := make(map[string]struct{})
+	for _, prov := range branchInfo.DirectProvenance {
+		branchInfo := &pfs.BranchInfo{}
+		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(prov, branchInfo); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		if _, ok := provHeads[pfsdb.CommitKey(branchInfo.Head)]; !ok {
+			provHeads[pfsdb.CommitKey(branchInfo.Head)] = struct{}{}
+			if err := pfsdb.AddCommitProvenance(context.TODO(), txnCtx.SqlTx, pfsdb.CommitKey(commit), pfsdb.CommitKey(branchInfo.Head)); err != nil {
+				return nil, errors.EnsureStack(err)
+			}
+		}
+	}
+
 	return commit, nil
 }
 
