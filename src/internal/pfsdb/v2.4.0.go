@@ -161,22 +161,6 @@ func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
 	})); err != nil {
 		return errors.Wrap(err, "could not migrate commits")
 	}
-	var oldProject = new(pfs.ProjectInfo)
-	if err := col.MigratePostgreSQLCollection(ctx, tx, "projects", nil, oldProject, func(oldKey string) (newKey string, newVal proto.Message, err error) {
-		if oldProject.Project.Name == "" {
-			oldProject.Project.Name = "default"
-			return "default", oldProject, nil
-		}
-		return ProjectKey(oldProject.Project), oldProject, nil
-	}, col.WithKeyGen(func(key interface{}) (string, error) {
-		if project, ok := key.(*pfs.Project); !ok {
-			return "", errors.New("key must be a project")
-		} else {
-			return ProjectKey(project), nil
-		}
-	})); err != nil {
-		return errors.Wrap(err, "could not migrate projects")
-	}
 
 	return nil
 }

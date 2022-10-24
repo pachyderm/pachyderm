@@ -20,7 +20,7 @@ var state_2_4_0 migrations.State = state_2_3_0.
 	Apply("Add default project", func(ctx context.Context, env migrations.Env) error {
 		var defaultProject = &pfs.ProjectInfo{
 			Project: &pfs.Project{
-				Name: "", // hardcoded so that pfs.DefaultProjectName may change in the future
+				Name: "default", // hardcoded so that pfs.DefaultProjectName may change in the future
 			},
 		}
 		if err := pfsdb.Projects(nil, nil).ReadWrite(env.Tx).Create("", defaultProject); err != nil {
