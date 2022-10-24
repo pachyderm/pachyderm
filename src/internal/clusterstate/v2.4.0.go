@@ -23,7 +23,7 @@ var state_2_4_0 migrations.State = state_2_3_0.
 				Name: "default", // hardcoded so that pfs.DefaultProjectName may change in the future
 			},
 		}
-		if err := pfsdb.Projects(nil, nil).ReadWrite(env.Tx).Create("", defaultProject); err != nil {
+		if err := pfsdb.Projects(nil, nil).ReadWrite(env.Tx).Create("default", defaultProject); err != nil {
 			return errors.Wrap(err, "could not create default project")
 		}
 		return nil
