@@ -50,7 +50,7 @@ func migratePipelineInfoV2_4_0(p *pps.PipelineInfo) (*pps.PipelineInfo, error) {
 
 func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
 	var oldJob = new(pps.JobInfo)
-	if err := col.MigratePostgreSQLCollection(ctx, tx, "jobs", jobsIndexes, oldJob, func(oldKey string) (newKey string, newVal proto.Message, err error) {
+	if err := col.MigratePostgreSQLCollection_v2_4_0(ctx, tx, "jobs", jobsIndexes, oldJob, func(oldKey string) (newKey string, newVal proto.Message, err error) {
 		if oldJob, err = migrateJobInfoV2_4_0(oldJob); err != nil {
 			return "", nil, err
 		}
@@ -60,7 +60,7 @@ func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
 		return errors.Wrap(err, "could not migrate jobs")
 	}
 	var oldPipeline = new(pps.PipelineInfo)
-	if err := col.MigratePostgreSQLCollection(ctx, tx, "pipelines", pipelinesIndexes, oldPipeline, func(oldKey string) (newKey string, newVal proto.Message, err error) {
+	if err := col.MigratePostgreSQLCollection_v2_4_0(ctx, tx, "pipelines", pipelinesIndexes, oldPipeline, func(oldKey string) (newKey string, newVal proto.Message, err error) {
 		if oldPipeline, err = migratePipelineInfoV2_4_0(oldPipeline); err != nil {
 			return "", nil, err
 		}

@@ -106,7 +106,7 @@ func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
 		return errors.Wrap(err, "could not update")
 	}
 	var oldRepo = new(pfs.RepoInfo)
-	if err := col.MigratePostgreSQLCollection(ctx, tx, "repos", reposIndexes, oldRepo, func(oldKey string) (newKey string, newVal proto.Message, err error) {
+	if err := col.MigratePostgreSQLCollection_v2_4_0(ctx, tx, "repos", reposIndexes, oldRepo, func(oldKey string) (newKey string, newVal proto.Message, err error) {
 		oldRepo = migrateRepoInvoV2_4_0(oldRepo)
 		return RepoKey(oldRepo.Repo), oldRepo, nil
 
@@ -123,7 +123,7 @@ func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
 		return errors.Wrap(err, "could not migrate repos")
 	}
 	var oldBranch = new(pfs.BranchInfo)
-	if err := col.MigratePostgreSQLCollection(ctx, tx, "branches", branchesIndexes, oldBranch, func(oldKey string) (newKey string, newVal proto.Message, err error) {
+	if err := col.MigratePostgreSQLCollection_v2_4_0(ctx, tx, "branches", branchesIndexes, oldBranch, func(oldKey string) (newKey string, newVal proto.Message, err error) {
 		oldBranch = migrateBranchInfoV2_4_0(oldBranch)
 		return BranchKey(oldBranch.Branch), oldBranch, nil
 
@@ -148,7 +148,7 @@ func MigrateV2_4_0(ctx context.Context, tx *pachsql.Tx) error {
 		return errors.Wrap(err, "could not migrate branches")
 	}
 	var oldCommit = new(pfs.CommitInfo)
-	if err := col.MigratePostgreSQLCollection(ctx, tx, "commits", commitsIndexes, oldCommit, func(oldKey string) (newKey string, newVal proto.Message, err error) {
+	if err := col.MigratePostgreSQLCollection_v2_4_0(ctx, tx, "commits", commitsIndexes, oldCommit, func(oldKey string) (newKey string, newVal proto.Message, err error) {
 		oldCommit = migrateCommitInfoV2_4_0(oldCommit)
 		return CommitKey(oldCommit.Commit), oldCommit, nil
 
