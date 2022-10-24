@@ -107,7 +107,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	request.Repo.EnsureProject()
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreateRepo(request))
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -164,7 +164,7 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	request.GetRepo().EnsureProject()
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.DeleteRepo(request))
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -185,7 +185,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	if err = a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		commit, err = txn.StartCommit(request)
 		return errors.EnsureStack(err)
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return commit, nil
@@ -204,7 +204,7 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	request.GetCommit().GetBranch().GetRepo().EnsureProject()
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.FinishCommit(request))
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -258,11 +258,26 @@ func (a *apiServer) SquashCommitSetInTransaction(txnCtx *txncontext.TransactionC
 	return a.driver.squashCommitSets(txnCtx, []*pfs.CommitSet{request.CommitSet})
 }
 
+// SquashCommitSetInTransaction is identical to SquashCommitSet except that it can run
+// inside an existing postgres transaction.  This is not an RPC.
+func (a *apiServer) SquashCommitSetsInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitSetsRequest) error {
+	return a.driver.squashCommitSets(txnCtx, request.CommitSets)
+}
+
 // SquashCommitSet implements the protobuf pfs.SquashCommitSet RPC
 func (a *apiServer) SquashCommitSet(ctx context.Context, request *pfs.SquashCommitSetRequest) (response *types.Empty, retErr error) {
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.SquashCommitSet(request))
-	}, nil); err != nil {
+	}); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+func (a *apiServer) SquashCommitSets(ctx context.Context, request *pfs.SquashCommitSetsRequest) (*types.Empty, error) {
+	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return errors.EnsureStack(txn.SquashCommitSets(request))
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -306,25 +321,6 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 	}
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreateBranch(request))
-	}, func(txnCtx *txncontext.TransactionContext) (string, error) {
-		if request.Head == nil || request.NewCommitSet {
-			return "", nil
-		}
-		// CreateBranch in a transaction by itself has special handling with regards
-		// to its CommitSet ID.  In order to better support a 'deferred processing'
-		// workflow with global IDs, it is useful for moving a branch head to be
-		// done in the same CommitSet as the parent commit of the new branch head -
-		// this is similar to how we handle triggers when finishing a commit.
-		// Therefore we override the CommitSet ID being used by this operation, and
-		// propagateBranches will update the existing CommitSet structure.  As an
-		// escape hatch in case of an unexpected workload, this behavior can be
-		// overridden by setting NewCommitSet=true in the request.
-		// if request.Head != nil && !request.NewCommitSet {
-		commitInfo, err := a.driver.resolveCommit(txnCtx.SqlTx, request.Head)
-		if err != nil {
-			return "", err
-		}
-		return commitInfo.Commit.ID, nil
 	}); err != nil {
 		return nil, err
 	}
@@ -372,7 +368,7 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 	request.GetBranch().GetRepo().EnsureProject()
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.DeleteBranch(request))
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

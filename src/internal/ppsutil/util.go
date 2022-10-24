@@ -381,7 +381,7 @@ func WriteJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
 }
 
 func MetaCommit(commit *pfs.Commit) *pfs.Commit {
-	return client.NewSystemProjectRepo(commit.Branch.Repo.Project.GetName(), commit.Branch.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.ID)
+	return client.NewSystemProjectRepo(commit.Repo.Project.GetName(), commit.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.ID)
 }
 
 // ContainsS3Inputs returns 'true' if 'in' is or contains any PFS inputs with

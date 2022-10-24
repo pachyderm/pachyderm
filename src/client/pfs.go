@@ -70,8 +70,9 @@ func NewCommit(repoName, branchName, commitID string) *pfs.Commit {
 // NewProjectCommit creates a pfs.Commit in the given project, repo & branch.
 func NewProjectCommit(projectName, repoName, branchName, commitID string) *pfs.Commit {
 	return &pfs.Commit{
-		Repo: NewProjectRepo(projectName, repoName),
-		ID:   commitID,
+		Repo:   NewProjectRepo(projectName, repoName),
+		ID:     commitID,
+		Branch: NewProjectBranch(projectName, repoName, branchName),
 	}
 }
 

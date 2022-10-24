@@ -21,7 +21,7 @@ func (d *driver) triggerCommit(
 	commit *pfs.Commit,
 ) error {
 	repoInfo := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(commit.Branch.Repo, repoInfo); err != nil {
+	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(commit.Repo, repoInfo); err != nil {
 		return errors.EnsureStack(err)
 	}
 	commitInfo := &pfs.CommitInfo{}
@@ -46,7 +46,7 @@ func (d *driver) triggerCommit(
 
 		triggeredBranches[branch.Name] = nil
 		if bi.Trigger != nil {
-			newHead, err := triggerBranch(commit.Branch.Repo.NewBranch(bi.Trigger.Branch))
+			newHead, err := triggerBranch(commit.Repo.NewBranch(bi.Trigger.Branch))
 			if err != nil && !col.IsErrNotFound(err) {
 				return nil, err
 			}

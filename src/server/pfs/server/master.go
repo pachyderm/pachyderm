@@ -244,7 +244,7 @@ func (d *driver) finalizeCommit(ctx context.Context, logger *log.Entry, commit *
 			}); err != nil {
 				return errors.EnsureStack(err)
 			}
-			if commitInfo.Commit.Branch.Repo.Type == pfs.UserRepoType {
+			if commitInfo.Commit.Repo.Type == pfs.UserRepoType {
 				txnCtx.FinishJob(commitInfo)
 			}
 			return d.triggerCommit(txnCtx, commitInfo.Commit)

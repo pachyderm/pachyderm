@@ -106,7 +106,7 @@ func TestUpgradeSimple(t *testing.T) {
 
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(pfs.DefaultProjectName, outputRepo)) {
+				if proto.Equal(info.Commit.Repo, client.NewProjectRepo(pfs.DefaultProjectName, outputRepo)) {
 					require.NoError(t, c.GetFile(info.Commit, "foo", &buf))
 					require.Equal(t, "foo", buf.String())
 				}
@@ -129,7 +129,7 @@ func TestUpgradeSimple(t *testing.T) {
 
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(pfs.DefaultProjectName, outputRepo)) {
+				if proto.Equal(info.Commit.Repo, client.NewProjectRepo(pfs.DefaultProjectName, outputRepo)) {
 					require.NoError(t, c.GetFile(info.Commit, "foo", &buf))
 					require.Equal(t, "foo", buf.String())
 
