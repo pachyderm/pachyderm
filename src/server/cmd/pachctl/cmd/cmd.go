@@ -841,6 +841,12 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(editDocs, "edit"))
 
+	drawDocs := &cobra.Command{
+		Short: "Draw an ASCII representation of an existing Pachyderm resource.",
+		Long:  "Draw an ASCII representation of an existing Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(drawDocs, "draw"))
+
 	subcommands = append(subcommands, pfscmds.Cmds()...)
 	subcommands = append(subcommands, ppscmds.Cmds()...)
 	subcommands = append(subcommands, authcmds.Cmds()...)
