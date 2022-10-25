@@ -29,7 +29,7 @@ interface CommitLinkProps extends ResourceLinkProps {
 
 export const RepoLink: React.FC<ResourceLinkProps> = ({name, ...rest}) => {
   const {projectId} = useUrlState();
-  const nodeName = name.replace('_repo', '');
+  const nodeName = name.replace(/_repo$/, '');
   const path = repoRoute({
     branchId: 'default',
     projectId,

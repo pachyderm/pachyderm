@@ -3,6 +3,7 @@ import {NodeType, Vertex, NodeState} from '@graphqlTypes';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import flatten from 'lodash/flatten';
 import minBy from 'lodash/minBy';
+import uniqueId from 'lodash/uniqueId';
 import objectHash from 'object-hash';
 
 import {NODE_INPUT_REPO} from '@dash-frontend/views/Project/constants/nodeSizes';
@@ -65,7 +66,10 @@ const normalizeDAGData = async (
       }
 
       return node.parents.reduce<LinkInputData[]>((acc, parentName) => {
-        const nodeName = parentName.replace('_repo', '');
+        let nodeName = parentName;
+        if (node.type === NodeType.EGRESS) {
+          nodeName = parentName.replace(/_repo$/, '');
+        }
         const sourceIndex = correspondingIndex[nodeName || ''];
         const sourceVertex = vertices[sourceIndex];
 
@@ -236,7 +240,7 @@ const buildDags = async (
           (c) => c.type === NodeType.INPUT_REPO && c.id === v.name,
         ),
       );
-      const id = minBy(componentRepos, (r) => r.createdAt)?.name || '';
+      const id = minBy(componentRepos, (r) => r.createdAt)?.name || uniqueId();
 
       const adjustedComponent = adjustDag(component, direction);
 
