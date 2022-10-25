@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	
+
 	"net/http"
 	"os"
 	"os/signal"
@@ -1014,12 +1014,13 @@ func (m *MountStateMachine) RefreshMountState() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	logrus.Infof("starting RefreshMountState")
+	logrus.Infof("RefreshMountState called for mount %s", m.Name)
 
 	if m.State != "mounted" {
 		return nil
 	}
 
+	logrus.Infof("Getting mounted commit...")
 	// get commit from loopbackRoot
 	commit, ok := m.manager.root.commits[m.Name]
 	if !ok {
@@ -1027,7 +1028,7 @@ func (m *MountStateMachine) RefreshMountState() error {
 		m.Status = "unable to load current commit"
 		return nil
 	}
-
+	logrus.Infof("Mounted commit is %s", commit)
 	m.ActualMountedCommit = commit
 
 	// Get the latest commit on the branch
@@ -1036,9 +1037,11 @@ func (m *MountStateMachine) RefreshMountState() error {
 		return err
 	}
 
+	logrus.Infof("Latest commit on branch (from InspectBranch rpc) is %s", branchInfo.Head.ID)
 	// set the latest commit on the branch in our LatestCommit
 	m.LatestCommit = branchInfo.Head.ID
 
+	logrus.Infof("Calculating how many commits behind...")
 	// calculate how many commits behind LatestCommit ActualMountedCommit is
 	commitInfos, err := m.manager.Client.ListCommit(branchInfo.Branch.Repo, branchInfo.Head, nil, 0)
 	if err != nil {
