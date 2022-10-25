@@ -139,7 +139,7 @@ func Commits(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollecti
 			return nil
 		}),
 		col.WithDeleteHook(func(tx *pachsql.Tx, commitKey string) error {
-			return nil
+			return DeleteCommit(context.TODO(), tx, commitKey)
 		}),
 	)
 }

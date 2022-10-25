@@ -93,6 +93,34 @@ func AddCommit(ctx context.Context, tx *pachsql.Tx, commit, commitSet string) er
 	return errors.EnsureStack(err)
 }
 
+func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commit string) error {
+	id, err := getCommitTableID(ctx, tx, commit)
+	if err != nil {
+		return err
+	}
+	stmt := `DELETE FROM pfs.commits WHERE int_id = $1;`
+	_, err = tx.ExecContext(ctx, stmt, id)
+	if err != nil {
+		return err
+	}
+	stmt = `DELETE FROM pfs.commit_provenance WHERE from_id = $1 OR to_id = $1;`
+	_, err = tx.ExecContext(ctx, stmt, id)
+	return errors.EnsureStack(err)
+}
+
+func getCommitTableID(ctx context.Context, tx *pachsql.Tx, commit string) (int, error) {
+	query := `SELECT int_id, commit_id FROM pfs.commits WHERE commit_id = $1;`
+	rows, err := tx.QueryxContext(ctx, query, commit)
+	if err != nil {
+		return 0, err
+	}
+	var id int
+	for rows.Next() {
+		rows.Scan(&id)
+	}
+	return id, nil
+}
+
 func AddCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to string) error {
 	query := `SELECT int_id, commit_id FROM pfs.commits WHERE commit_id = $1 OR commit_id = $2;`
 	rows, err := tx.QueryxContext(ctx, query, from, to)

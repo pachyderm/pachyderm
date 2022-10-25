@@ -8,7 +8,6 @@ import (
 	"github.com/robfig/cron"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -24,57 +23,38 @@ func (d *driver) triggerCommit(
 	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(commit.Repo, repoInfo); err != nil {
 		return errors.EnsureStack(err)
 	}
-	commitInfo := &pfs.CommitInfo{}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(commit, commitInfo); err != nil {
+	newHead := &pfs.CommitInfo{}
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(commit, newHead); err != nil {
 		return errors.EnsureStack(err)
 	}
-
-	// Track any branches that are triggered and their new (alias) head commit
-	triggeredBranches := map[string]*pfs.CommitInfo{}
-	triggeredBranches[commitInfo.Commit.Branch.Name] = commitInfo
-
-	var triggerBranch func(branch *pfs.Branch) (*pfs.CommitInfo, error)
-	triggerBranch = func(branch *pfs.Branch) (*pfs.CommitInfo, error) {
-		if newHead, ok := triggeredBranches[branch.Name]; ok {
-			return newHead, nil
-		}
-
-		bi := &pfs.BranchInfo{}
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(branch, bi); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-
-		triggeredBranches[branch.Name] = nil
-		if bi.Trigger != nil {
-			newHead, err := triggerBranch(commit.Repo.NewBranch(bi.Trigger.Branch))
-			if err != nil && !col.IsErrNotFound(err) {
-				return nil, err
-			}
-
-			if newHead != nil {
-				oldHead := &pfs.CommitInfo{}
-				if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(bi.Head, oldHead); err != nil {
-					return nil, errors.EnsureStack(err)
-				}
-
-				triggered, err := d.isTriggered(txnCtx, bi.Trigger, oldHead, newHead)
-				if err != nil {
-					return nil, err
-				}
-
-				if triggered {
-					triggeredBranches[branch.Name] = commitInfo
-					if err := txnCtx.PropagateBranch(bi.Branch); err != nil {
-						return nil, err
-					}
-				}
-			}
-		}
-		return nil, nil
-	}
 	for _, b := range repoInfo.Branches {
-		if _, err := triggerBranch(b); err != nil {
+		bi := &pfs.BranchInfo{}
+		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
+			return errors.EnsureStack(err)
+		}
+		// already triggered - research whether this is necessary
+		if newHead.Commit.ID == bi.Head.ID || bi.Trigger == nil {
+			continue
+		}
+		oldHead := &pfs.CommitInfo{}
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(bi.Head, oldHead); err != nil {
+			return errors.EnsureStack(err)
+		}
+		triggered, err := d.isTriggered(txnCtx, bi.Trigger, oldHead, newHead)
+		if err != nil {
 			return err
+		}
+		if triggered {
+			var trigBi pfs.BranchInfo
+			if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(bi.Branch, &trigBi, func() error {
+				trigBi.Head = newHead.Commit
+				return nil
+			}); err != nil {
+				return errors.EnsureStack(err)
+			}
+			if err := txnCtx.PropagateBranch(bi.Branch); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
