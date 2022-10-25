@@ -694,3 +694,64 @@ func TestUnauthenticatedCode(t *testing.T) {
 		require.Equal(t, 200, resp.StatusCode)
 	})
 }
+
+func TestDeletingMountedRepo(t *testing.T) {
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "b1", "")
+	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	commit = client.NewProjectCommit(pfs.DefaultProjectName, "repo", "b2", "")
+	err = env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo_b1",
+					Repo:   "repo",
+					Branch: "b1",
+					Mode:   "ro",
+				},
+				{
+					Name:   "repo_b1_dup",
+					Repo:   "repo",
+					Branch: "b1",
+					Mode:   "ro",
+				},
+				{
+					Name:   "repo_b2",
+					Repo:   "repo",
+					Branch: "b2",
+					Mode:   "ro",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		_, err := put("_mount", b)
+		require.NoError(t, err)
+
+		env.PachClient.DeleteProjectBranch(pfs.DefaultProjectName, "repo", "b1", false)
+		resp, err := get("mounts")
+		require.NoError(t, err)
+
+		mountResp := &ListMountResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mountResp))
+		require.Equal(t, 1, len((*mountResp).Mounted))
+		require.Equal(t, "b2", (*mountResp).Mounted["repo_b2"].Branch)
+		require.Equal(t, 1, len((*mountResp).Unmounted))
+
+		env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "repo", false)
+		resp, err = get("mounts")
+		require.NoError(t, err)
+
+		mountResp = &ListMountResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mountResp))
+		require.Equal(t, 0, len((*mountResp).Mounted))
+		require.Equal(t, 0, len((*mountResp).Unmounted))
+	})
+}
