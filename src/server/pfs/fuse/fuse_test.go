@@ -617,7 +617,7 @@ func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPo
 		}
 	}()
 	go func() {
-		mountErr = Mount(c, "", dir, opts)
+		mountErr = Mount(c, pfs.DefaultProjectName, dir, opts)
 		close(unmounted)
 	}()
 	// Gotta give the fuse mount time to come up.
