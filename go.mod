@@ -69,6 +69,7 @@ require (
 	go.etcd.io/etcd/server/v3 v3.5.5
 	go.uber.org/automaxprocs v1.4.0
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
+	golang.org/x/exp v0.0.0-20221019170559-20944726eadf
 	golang.org/x/net v0.0.0-20220906165146-f3363e06e74c
 	golang.org/x/oauth2 v0.0.0-20220622183110-fd043fe589d2
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
