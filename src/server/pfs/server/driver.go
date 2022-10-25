@@ -216,11 +216,14 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create role binding for new repo %q", repo)
 			}
 		}
-		return errors.EnsureStack(repos.Create(repo, &pfs.RepoInfo{
+		if err := repos.Create(repo, &pfs.RepoInfo{
 			Repo:        repo,
 			Created:     txnCtx.Timestamp,
 			Description: description,
-		}))
+		}); err != nil {
+			return errors.EnsureStack(err)
+		}
+		return errors.EnsureStack(d.createBranch(txnCtx, &pfs.Branch{Name: "master", Repo: repo}, nil, nil, nil))
 	}
 }
 
@@ -817,22 +820,27 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 	if len(branches) == 0 {
 		return nil
 	}
-	propagatedBranches := make(map[string]*pfs.BranchInfo, 0)
+	var propagatedBranches []*pfs.BranchInfo
+	seen := make(map[string]*pfs.BranchInfo, 0)
 	bi := &pfs.BranchInfo{}
 	for _, b := range branches {
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
 			return errors.EnsureStack(err)
 		}
 		for _, sb := range bi.Subvenance {
-			if _, ok := propagatedBranches[pfsdb.BranchKey(sb)]; !ok {
+			if _, ok := seen[pfsdb.BranchKey(sb)]; !ok {
 				bi := &pfs.BranchInfo{}
 				if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(sb, bi); err != nil {
 					return errors.EnsureStack(err)
 				}
-				propagatedBranches[pfsdb.BranchKey(sb)] = proto.Clone(bi).(*pfs.BranchInfo)
+				seen[pfsdb.BranchKey(sb)] = proto.Clone(bi).(*pfs.BranchInfo)
+				propagatedBranches = append(propagatedBranches, seen[pfsdb.BranchKey(sb)])
 			}
 		}
 	}
+	sort.Slice(propagatedBranches, func(i, j int) bool {
+		return len(propagatedBranches[i].Provenance) < len(propagatedBranches[j].Provenance)
+	})
 	// TODO(acohen4): Only create one commit per repo block collision of same commit on multiple branches
 	// repoCommits := make(map[string]*pfs.CommitInfo)
 	//
@@ -882,7 +890,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		// add commit provenance
 		for _, b := range bi.DirectProvenance {
 			var provCommit string
-			if pbi, ok := propagatedBranches[pfsdb.BranchKey(b)]; ok {
+			if pbi, ok := seen[pfsdb.BranchKey(b)]; ok {
 				c := client.NewProjectCommit(pbi.Branch.Repo.Project.Name, pbi.Branch.Repo.Name, pbi.Branch.Name, txnCtx.CommitSetID)
 				provCommit = pfsdb.CommitKey(c)
 			} else {
@@ -1029,10 +1037,10 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 	// Traverse commits' parents until you've reached the right ancestor
 	if ancestryLength >= 0 {
 		for i := 1; i <= ancestryLength; i++ {
-			if commit == nil {
+			if commitInfo.ParentCommit == nil {
 				return nil, pfsserver.ErrCommitNotFound{Commit: userCommit}
 			}
-			if err := d.commits.ReadWrite(sqlTx).Get(commit, commitInfo); err != nil {
+			if err := d.commits.ReadWrite(sqlTx).Get(commitInfo.ParentCommit, commitInfo); err != nil {
 				if col.IsErrNotFound(err) {
 					if i == 0 {
 						return nil, pfsserver.ErrCommitNotFound{Commit: userCommit}
@@ -1041,7 +1049,6 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 				}
 				return nil, errors.EnsureStack(err)
 			}
-			commit = commitInfo.ParentCommit
 		}
 	} else {
 		// TODO(acohen4): HOW TO HANDLE THIS GUY?
@@ -1658,6 +1665,10 @@ func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {
 //
 // This invariant is assumed to hold for all branches upstream of 'branch', but not
 // for 'branch' itself once 'b.Provenance' has been set.
+//
+// TODO(acohen4): this signature is confusing. What if a commit is passed but provenance is changed, do we
+// sensible rules:
+// - add a commit to head whenever provenance is changed
 func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch, trigger *pfs.Trigger) error {
 	// Validate arguments
 	if branch == nil {
@@ -1693,8 +1704,10 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}
 	// Retrieve (and create, if necessary) the current version of this branch
 	branchInfo := &pfs.BranchInfo{}
+	var oldProvenance []*pfs.Branch
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Upsert(branch, branchInfo, func() error {
 		branchInfo.Branch = branch
+		oldProvenance = branchInfo.DirectProvenance
 		branchInfo.DirectProvenance = nil
 		for _, provBranch := range provenance {
 			if proto.Equal(provBranch.Repo, branch.Repo) {
@@ -1714,7 +1727,27 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}
 	// If the branch still has no head, create an empty commit on it so that we
 	// can maintain an invariant that branches always have a head commit.
-	if branchInfo.Head == nil {
+	branchKeys := func(bs []*pfs.Branch) []string {
+		var keys []string
+		for _, b := range bs {
+			keys = append(keys, pfsdb.BranchKey(b))
+		}
+		sort.Strings(keys)
+		return keys
+	}
+	sameBranches := func(as []*pfs.Branch, bs []*pfs.Branch) bool {
+		aKeys, bKeys := branchKeys(as), branchKeys(bs)
+		if len(as) == len(bs) {
+			for i, a := range aKeys {
+				if bKeys[i] != a {
+					return false
+				}
+			}
+			return true
+		}
+		return false
+	}
+	if branchInfo.Head == nil || !sameBranches(oldProvenance, provenance) {
 		branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo)
 		if err != nil {
 			return err
@@ -2078,7 +2111,6 @@ func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchIn
 			}
 		}
 	}
-
 	return commit, nil
 }
 
