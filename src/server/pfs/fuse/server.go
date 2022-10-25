@@ -25,6 +25,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -1159,8 +1160,6 @@ func (m *MountStateMachine) RefreshMountState() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	logrus.Infof("starting RefreshMountState")
-
 	if m.State != "mounted" {
 		return nil
 	}
@@ -1186,7 +1185,15 @@ func (m *MountStateMachine) RefreshMountState() error {
 	m.LatestCommit = branchInfo.Head.ID
 
 	// calculate how many commits behind LatestCommit ActualMountedCommit is
-	commitInfos, err := m.manager.Client.ListCommit(branchInfo.Branch.Repo, branchInfo.Head, nil, 0)
+	listClient, err := m.manager.Client.PfsAPIClient.ListCommit(m.manager.Client.Ctx(), &pfs.ListCommitRequest{
+		Repo: branchInfo.Branch.Repo,
+		To:   branchInfo.Head,
+		All:  true,
+	})
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	commitInfos, err := clientsdk.ListCommit(listClient)
 	if err != nil {
 		return err
 	}
@@ -1196,6 +1203,7 @@ func (m *MountStateMachine) RefreshMountState() error {
 	}
 
 	// iterate over commits in branch, counting how many are behind LatestCommit
+	logrus.Infof("mount: %s", m.Name)
 	indexOfCurrentCommit := -1
 	for i, commitInfo := range commitInfos {
 		logrus.Infof("%d: commitInfo.Commit.ID: %s, m.ActualMountedCommit: %s", i, commitInfo.Commit.ID, m.ActualMountedCommit)
