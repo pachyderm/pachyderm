@@ -65,7 +65,6 @@ const Datum: React.FC<DatumProps> = ({
           onClick={async () => {
             await callUnmountAll();
             saveInputSpec();
-            setInputSpec('');
             setKeepMounted(false);
             await setShowDatum(false);
           }}

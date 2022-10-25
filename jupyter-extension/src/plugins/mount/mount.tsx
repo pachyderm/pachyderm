@@ -63,6 +63,7 @@ export class MountPlugin implements IMountPlugin {
   ) {
     this._app = app;
     this._poller = new PollMounts('PollMounts');
+    this._repoViewInputSpec = {};
 
     // This is used to detect if the config goes bad (pachd address changes)
     this._poller.configSignal.connect((_, config) => {
@@ -87,34 +88,24 @@ export class MountPlugin implements IMountPlugin {
     this._config = ReactWidget.create(
       <UseSignal signal={this._showConfigSignal}>
         {(_, showConfig) => (
-          <>
-            <UseSignal signal={this._poller.configSignal}>
-              {(_, authConfig) => (
-                <>
-                  <UseSignal signal={this._poller.statusSignal}>
-                    {(_, status) => (
-                      <>
-                        <Config
-                          showConfig={
-                            showConfig ? showConfig : this._showConfig
-                          }
-                          setShowConfig={this.setShowConfig}
-                          reposStatus={
-                            status ? status.code : this._poller.status.code
-                          }
-                          updateConfig={this.updateConfig}
-                          authConfig={
-                            authConfig ? authConfig : this._poller.config
-                          }
-                          refresh={this._poller.refresh}
-                        />
-                      </>
-                    )}
-                  </UseSignal>
-                </>
-              )}
-            </UseSignal>
-          </>
+          <UseSignal signal={this._poller.configSignal}>
+            {(_, authConfig) => (
+              <UseSignal signal={this._poller.statusSignal}>
+                {(_, status) => (
+                  <Config
+                    showConfig={showConfig ? showConfig : this._showConfig}
+                    setShowConfig={this.setShowConfig}
+                    reposStatus={
+                      status ? status.code : this._poller.status.code
+                    }
+                    updateConfig={this.updateConfig}
+                    authConfig={authConfig ? authConfig : this._poller.config}
+                    refresh={this._poller.refresh}
+                  />
+                )}
+              </UseSignal>
+            )}
+          </UseSignal>
         )}
       </UseSignal>,
     );
@@ -128,27 +119,30 @@ export class MountPlugin implements IMountPlugin {
               <div className="pachyderm-mount-base-title">
                 Mounted Repositories
               </div>
-              <button
-                className="pachyderm-button-link"
-                data-testid="Datum__mode"
-                onClick={() => this.setShowDatum(true)}
-              >
-                Datum{' '}
-                <spreadsheetIcon.react
-                  tag="span"
-                  className="pachyderm-mount-icon-padding"
-                />
-              </button>
-              <button
-                className="pachyderm-button-link"
-                onClick={() => this.setShowConfig(true)}
-              >
-                Config{' '}
-                <settingsIcon.react
-                  tag="span"
-                  className="pachyderm-mount-icon-padding"
-                />
-              </button>
+              <div style={{display: 'flex'}}>
+                <button
+                  className="pachyderm-button-link"
+                  data-testid="Datum__mode"
+                  onClick={() => this.setShowDatum(true)}
+                  style={{marginRight: '0.25rem'}}
+                >
+                  Datum{' '}
+                  <spreadsheetIcon.react
+                    tag="span"
+                    className="pachyderm-mount-icon-padding"
+                  />
+                </button>
+                <button
+                  className="pachyderm-button-link"
+                  onClick={() => this.setShowConfig(true)}
+                >
+                  Config{' '}
+                  <settingsIcon.react
+                    tag="span"
+                    className="pachyderm-mount-icon-padding"
+                  />
+                </button>
+              </div>
             </div>
             <SortableList
               open={this.open}
@@ -182,47 +176,36 @@ export class MountPlugin implements IMountPlugin {
     this._datum = ReactWidget.create(
       <UseSignal signal={this._showDatumSignal}>
         {(_, showDatum) => (
-          <>
-            <UseSignal signal={this._saveInputSpecSignal}>
-              {(_, repoViewInputSpec) => (
-                <>
-                  <Datum
-                    showDatum={showDatum ? showDatum : this._showDatum}
-                    setShowDatum={this.setShowDatum}
-                    keepMounted={this._keepMounted}
-                    setKeepMounted={this.setKeepMounted}
-                    refresh={this.open}
-                    pollRefresh={this._poller.refresh}
-                    currentDatumInfo={this._currentDatumInfo}
-                    repoViewInputSpec={
-                      repoViewInputSpec
-                        ? repoViewInputSpec
-                        : this._repoViewInputSpec
-                    }
-                  />
-                </>
-              )}
-            </UseSignal>
-          </>
+          <UseSignal signal={this._saveInputSpecSignal}>
+            {(_, repoViewInputSpec) => (
+              <Datum
+                showDatum={showDatum ? showDatum : this._showDatum}
+                setShowDatum={this.setShowDatum}
+                keepMounted={this._keepMounted}
+                setKeepMounted={this.setKeepMounted}
+                refresh={this.open}
+                pollRefresh={this._poller.refresh}
+                currentDatumInfo={this._currentDatumInfo}
+                repoViewInputSpec={
+                  repoViewInputSpec
+                    ? repoViewInputSpec
+                    : this._repoViewInputSpec
+                }
+              />
+            )}
+          </UseSignal>
         )}
       </UseSignal>,
     );
     this._datum.addClass('pachyderm-mount-datum-wrapper');
-    this._repoViewInputSpec = {};
 
-    this._loader = ReactWidget.create(
-      <>
-        <LoadingDots />
-      </>,
-    );
+    this._loader = ReactWidget.create(<LoadingDots />);
     this._loader.addClass('pachyderm-mount-react-wrapper');
 
     this._fullPageError = ReactWidget.create(
       <UseSignal signal={this._poller.statusSignal}>
         {(_, status) => (
-          <>
-            <FullPageError status={status ? status : this._poller.status} />
-          </>
+          <FullPageError status={status ? status : this._poller.status} />
         )}
       </UseSignal>,
     );
@@ -289,45 +272,35 @@ export class MountPlugin implements IMountPlugin {
 
   saveMountedReposList = (): void => {
     const mounted = this._poller.mounted;
-    // No mounted repos to save
-    if (mounted.length === 0) {
-      this._repoViewInputSpec = {};
-    }
-    // Single mounted repo to save
-    else if (mounted.length === 1) {
+    const pfsInputs: PfsInput[] = [];
+
+    for (let i = 0; i < mounted.length; i++) {
       const pfsInput: PfsInput = {
         pfs: {
-          ...(mounted[0].branch !== 'master' && {
-            name: `${mounted[0].repo}_${mounted[0].branch}`,
+          ...(mounted[i].branch !== 'master' && {
+            name: `${mounted[i].repo}_${mounted[i].branch}`,
           }),
-          repo: mounted[0].repo,
-          ...(mounted[0].branch !== 'master' && {branch: mounted[0].branch}),
+          repo: mounted[i].repo,
+          ...(mounted[i].branch !== 'master' && {branch: mounted[i].branch}),
           glob: '/',
         },
       };
-      this._repoViewInputSpec = pfsInput;
+      pfsInputs.push(pfsInput);
     }
-    // Multiple mounted repos to save; use cross
-    else {
-      const cross: PfsInput[] = [];
-      for (let i = 0; i < mounted.length; i++) {
-        const pfsInput: PfsInput = {
-          pfs: {
-            ...(mounted[i].branch !== 'master' && {
-              name: `${mounted[i].repo}_${mounted[i].branch}`,
-            }),
-            repo: mounted[i].repo,
-            ...(mounted[i].branch !== 'master' && {branch: mounted[i].branch}),
-            glob: '/',
-          },
-        };
-        cross.push(pfsInput);
-      }
 
+    if (mounted.length === 0) {
+      // No mounted repos to save
+      this._repoViewInputSpec = {};
+    } else if (mounted.length === 1) {
+      // Single mounted repo to save
+      this._repoViewInputSpec = pfsInputs[0];
+    } else {
+      // Multiple mounted repos to save; use cross
       this._repoViewInputSpec = {
-        cross: cross,
+        cross: pfsInputs,
       };
     }
+
     this._saveInputSpecSignal.emit(this._repoViewInputSpec);
   };
 

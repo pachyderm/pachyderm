@@ -47,8 +47,9 @@ export const useDatum = (
   const [inputSpec, setInputSpec] = useState('');
   const [initialInputSpec, setInitialInputSpec] = useState({});
   const [errorMessage, setErrorMessage] = useState('');
-  const [datumViewInputSpec, setDatumViewInputSpec] = useState<any>({});
-  const [isYaml, setIsYaml] = useState(true);
+  const [datumViewInputSpec, setDatumViewInputSpec] = useState<
+    string | JSONObject
+  >({});
 
   useEffect(() => {
     if (showDatum && currIdx !== -1) {
@@ -73,17 +74,19 @@ export const useDatum = (
   }, [showDatum]);
 
   useEffect(() => {
-    if (typeof datumViewInputSpec === 'string') {
-      setInputSpec(datumViewInputSpec);
-    } else {
-      let specToShow = {};
-      if (Object.keys(datumViewInputSpec).length === 0) {
-        specToShow = repoViewInputSpec;
+    if (showDatum) {
+      if (typeof datumViewInputSpec === 'string') {
+        setInputSpec(datumViewInputSpec);
       } else {
-        specToShow = datumViewInputSpec;
+        let specToShow = {};
+        if (Object.keys(datumViewInputSpec).length === 0) {
+          specToShow = repoViewInputSpec;
+        } else {
+          specToShow = datumViewInputSpec;
+        }
+        setInputSpec(inputSpecObjToText(specToShow));
+        setInitialInputSpec(specToShow);
       }
-      setInputSpec(inputSpecObjToText(specToShow));
-      setInitialInputSpec(specToShow);
     }
   }, [showDatum, repoViewInputSpec]);
 
@@ -104,18 +107,13 @@ export const useDatum = (
     }
   };
 
-  let useYaml = isYaml;
   const inputSpecTextToObj = (): JSONObject => {
     let spec = {};
     try {
       spec = JSON.parse(inputSpec);
-      useYaml = false;
-      setIsYaml(false);
     } catch (e) {
       if (e instanceof SyntaxError) {
         spec = YAML.parse(inputSpec);
-        useYaml = true;
-        setIsYaml(true);
       } else {
         throw e;
       }
@@ -123,18 +121,17 @@ export const useDatum = (
     return spec;
   };
 
-  useEffect(() => {
-    useYaml = isYaml;
-  }, [isYaml]);
-
   const inputSpecObjToText = (specObj: JSONObject): string => {
     if (Object.keys(specObj).length === 0) {
       return '';
     }
-    if (useYaml) {
+
+    try {
+      JSON.parse(inputSpec);
+      return JSON.stringify(specObj, null, 2);
+    } catch {
       return YAML.stringify(specObj, null, 2);
     }
-    return JSON.stringify(specObj, null, 2);
   };
 
   const callMountDatums = async () => {
@@ -199,6 +196,7 @@ export const useDatum = (
       console.log(e);
     }
 
+    setErrorMessage('');
     setLoading(false);
   };
 
