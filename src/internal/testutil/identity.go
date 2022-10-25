@@ -1,14 +1,19 @@
 package testutil
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
 	"testing"
 
+	"golang.org/x/oauth2"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
