@@ -50,6 +50,7 @@ const Datum: React.FC<DatumProps> = ({
   } = useDatum(
     showDatum,
     keepMounted,
+    setKeepMounted,
     refresh,
     pollRefresh,
     repoViewInputSpec,

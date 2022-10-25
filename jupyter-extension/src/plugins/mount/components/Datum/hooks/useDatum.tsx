@@ -31,6 +31,7 @@ export type useDatumResponse = {
 export const useDatum = (
   showDatum: boolean,
   keepMounted: boolean,
+  setKeepMounted: (keep: boolean) => void,
   refresh: (path: string) => void,
   pollRefresh: () => Promise<void>,
   repoViewInputSpec: CrossInputSpec | PfsInput,
@@ -58,34 +59,37 @@ export const useDatum = (
   }, [currIdx, showDatum]);
 
   useEffect(() => {
-    if (showDatum && !keepMounted) {
-      callUnmountAll();
-    }
-    if (keepMounted && currentDatumInfo) {
-      setShouldShowCycler(true);
-      setCurrIdx(currentDatumInfo.curr_idx);
-      setCurrDatum({
-        id: '',
-        idx: currentDatumInfo.curr_idx,
-        num_datums: currentDatumInfo.num_datums,
-      });
-      setInputSpec(inputSpecObjToText(currentDatumInfo.input));
-    }
-  }, [showDatum]);
-
-  useEffect(() => {
     if (showDatum) {
-      if (typeof datumViewInputSpec === 'string') {
-        setInputSpec(datumViewInputSpec);
-      } else {
-        let specToShow = {};
-        if (Object.keys(datumViewInputSpec).length === 0) {
-          specToShow = repoViewInputSpec;
+      if (!keepMounted) {
+        callUnmountAll();
+      }
+
+      // Executes when browser reloaded; resume at currently mounted datum
+      if (keepMounted && currentDatumInfo) {
+        setShouldShowCycler(true);
+        setCurrIdx(currentDatumInfo.curr_idx);
+        setCurrDatum({
+          id: '',
+          idx: currentDatumInfo.curr_idx,
+          num_datums: currentDatumInfo.num_datums,
+        });
+        setInputSpec(inputSpecObjToText(currentDatumInfo.input));
+        setKeepMounted(false);
+      }
+      // Pre-populate input spec from mounted repos
+      else {
+        if (typeof datumViewInputSpec === 'string') {
+          setInputSpec(datumViewInputSpec);
         } else {
-          specToShow = datumViewInputSpec;
+          let specToShow = {};
+          if (Object.keys(datumViewInputSpec).length === 0) {
+            specToShow = repoViewInputSpec;
+          } else {
+            specToShow = datumViewInputSpec;
+          }
+          setInputSpec(inputSpecObjToText(specToShow));
+          setInitialInputSpec(specToShow);
         }
-        setInputSpec(inputSpecObjToText(specToShow));
-        setInitialInputSpec(specToShow);
       }
     }
   }, [showDatum, repoViewInputSpec]);
