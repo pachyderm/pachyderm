@@ -144,6 +144,7 @@ export class MountPlugin implements IMountPlugin {
               open={this.open}
               items={mounted ? mounted : this._poller.mounted}
               updateData={this._poller.updateData}
+              mountedItems={[]}
             />
           </div>
         )}
@@ -162,6 +163,7 @@ export class MountPlugin implements IMountPlugin {
               open={this.open}
               items={unmounted ? unmounted : this._poller.unmounted}
               updateData={this._poller.updateData}
+              mountedItems={this._poller.mounted}
             />
           </div>
         )}
@@ -178,7 +180,7 @@ export class MountPlugin implements IMountPlugin {
               setShowDatum={this.setShowDatum}
               keepMounted={this._keepMounted}
               setKeepMounted={this.setKeepMounted}
-              refresh={this.open}
+              open={this.open}
               pollRefresh={this._poller.refresh}
               currentDatumInfo={this._currentDatumInfo}
             />
@@ -207,6 +209,9 @@ export class MountPlugin implements IMountPlugin {
     this._fullPageError.addClass('pachyderm-mount-react-wrapper');
 
     this._mountBrowser = createCustomFileBrowser(app, manager, factory);
+    this._poller.mountedSignal.connect(this.verifyBrowserPath);
+    this._poller.mountedSignal.connect(this.refresh);
+    this._poller.unmountedSignal.connect(this.refresh);
 
     this._panel = new SplitPanel();
     this._panel.orientation = 'vertical';
@@ -244,6 +249,27 @@ export class MountPlugin implements IMountPlugin {
     this._app.commands.execute('filebrowser:open-path', {
       path: MOUNT_BROWSER_NAME + path,
     });
+  };
+
+  refresh = async (_: PollMounts, _data: Mount[] | Repo[]): Promise<void> => {
+    await this._mountBrowser.model.refresh();
+  };
+
+  // Change back to root directory if in a mount that no longer exists
+  verifyBrowserPath = (_: PollMounts, mounted: Mount[]): void => {
+    if (this._mountBrowser.model.path === this._mountBrowser.model.rootPath) {
+      return;
+    }
+
+    const currentMountDir = this._mountBrowser.model.path
+      .split(MOUNT_BROWSER_NAME)[1]
+      .split('/')[0];
+    for (let i = 0; i < mounted.length; i++) {
+      if (currentMountDir === mounted[i].name) {
+        return;
+      }
+    }
+    this.open('');
   };
 
   setShowDatum = (shouldShow: boolean): void => {

@@ -9,7 +9,7 @@ type DatumProps = {
   setShowDatum: (shouldShow: boolean) => void;
   keepMounted: boolean;
   setKeepMounted: (keep: boolean) => void;
-  refresh: (path: string) => void;
+  open: (path: string) => void;
   pollRefresh: () => Promise<void>;
   currentDatumInfo?: CurrentDatumResponse;
 };
@@ -26,7 +26,7 @@ const Datum: React.FC<DatumProps> = ({
   keepMounted,
   setKeepMounted,
   currentDatumInfo,
-  refresh,
+  open,
   pollRefresh,
 }) => {
   const {
@@ -40,7 +40,7 @@ const Datum: React.FC<DatumProps> = ({
     callMountDatums,
     callUnmountAll,
     errorMessage,
-  } = useDatum(showDatum, keepMounted, refresh, pollRefresh, currentDatumInfo);
+  } = useDatum(showDatum, keepMounted, open, pollRefresh, currentDatumInfo);
 
   return (
     <div className="pachyderm-mount-datum-base">

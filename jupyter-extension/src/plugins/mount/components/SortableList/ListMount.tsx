@@ -38,7 +38,6 @@ const ListMount: React.FC<ListMountProps> = ({item, open, updateData}) => {
         mounts: [`${item.name}`],
       });
       updateData(data);
-      open('');
     } catch {
       console.log('error unmounting repo');
     }
