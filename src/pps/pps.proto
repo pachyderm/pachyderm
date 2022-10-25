@@ -588,12 +588,10 @@ message ListDatumRequest {
   // with the provided input.
   Input input = 2;
   Filter filter = 3;
+  // TODO -armaan comments
   int64 number = 4;
   int64 paginationIndex = 5;
   bool reverse = 6;
-  // TODO:
-  //int64 page_size = 2;
-  //int64 page = 3;
 }
 
 // DatumSetSpec specifies how a pipeline should split its datums into datum sets.

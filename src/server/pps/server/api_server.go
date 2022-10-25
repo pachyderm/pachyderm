@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"path"
 	"sort"
 	"strings"
@@ -1065,23 +1066,68 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_ListDatumServer) (retErr error) {
 	// TODO: Auth?
 	ensurePipelineProject(request.GetJob().GetPipeline())
+	// add check for input and job
+	var metas []*datum.Meta
 	if request.Input != nil {
-		return a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
-			di := convertDatumMetaToInfo(meta, nil)
-			di.State = pps.DatumState_UNKNOWN
-			if !request.Filter.Allow(di) {
-				return nil
-			}
-			return errors.EnsureStack(server.Send(di))
-		})
+		if err := a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
+			metas = append(metas, meta)
+			return nil
+		}); err != nil {
+			return errors.EnsureStack(err)
+		}
+	} else {
+		if err := a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
+			metas = append(metas, meta)
+			return nil
+		}); err != nil {
+			return errors.EnsureStack(err)
+		}
 	}
-	return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
+	/*return a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
+		metas = append(metas, meta)
+		di := convertDatumMetaToInfo(meta, nil)
+		di.State = pps.DatumState_UNKNOWN
+		if !request.Filter.Allow(di) {
+			return nil
+		}
+		return errors.EnsureStack(server.Send(di))
+	})*/
+
+	/*return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
 		info := convertDatumMetaToInfo(meta, request.Job)
 		if !request.Filter.Allow(info) {
 			return nil
 		}
 		return errors.EnsureStack(server.Send(info))
-	})
+	})*/
+	number := request.Number
+	if number == 0 {
+		number = math.MaxInt64
+	}
+	for i, meta := range metas {
+		if number == 0 {
+			break
+		}
+		if request.Reverse {
+			meta = metas[len(metas)-i-1]
+		}
+		if (request.Reverse && meta.Index > request.PaginationIndex) || (!request.Reverse && meta.Index < request.PaginationIndex) {
+			// can we break?
+			continue
+		}
+		info := convertDatumMetaToInfo(meta, request.Job)
+		if request.Job == nil {
+			info.State = pps.DatumState_UNKNOWN
+		}
+		if !request.Filter.Allow(info) {
+			continue
+		}
+		if err := server.Send(info); err != nil {
+			return errors.EnsureStack(err)
+		}
+		number--
+	}
+	return nil
 }
 
 func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb func(*datum.Meta) error) error {
