@@ -24,6 +24,11 @@ func BenchmarkReader(b *testing.B) {
 	}
 }
 
+// testLetters ensures that every expected letter appears in the generated output.  There is some
+// probability that this won't happen, and we don't pick a seed that guarantees it happens.  Rather,
+// we assume with a large enough input, there should be at least one of every letter.  1000 seems to
+// be enough for 52 letters, but if you ever find the test being flaky, the options are to pick a
+// seed at the `var random` declaration above, or to produce more than 1000 letters.
 func testLetters(t *testing.T, buf []byte) {
 	t.Helper()
 	got := map[byte]int{}
