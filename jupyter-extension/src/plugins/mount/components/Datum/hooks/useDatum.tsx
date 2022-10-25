@@ -25,7 +25,7 @@ export type useDatumResponse = {
 export const useDatum = (
   showDatum: boolean,
   keepMounted: boolean,
-  refresh: (path: string) => void,
+  open: (path: string) => void,
   pollRefresh: () => Promise<void>,
   currentDatumInfo?: CurrentDatumResponse,
 ): useDatumResponse => {
@@ -81,7 +81,7 @@ export const useDatum = (
       const res = await requestAPI<MountDatumResponse>('_mount_datums', 'PUT', {
         input: input,
       });
-      refresh('');
+      open('');
       setCurrIdx(0);
       setCurrDatum(res);
       setShouldShowCycler(true);
@@ -110,7 +110,7 @@ export const useDatum = (
         `_show_datum?idx=${currIdx}`,
         'PUT',
       );
-      refresh('');
+      open('');
       setCurrDatum(res);
     } catch (e) {
       console.log(e);
@@ -123,9 +123,9 @@ export const useDatum = (
     setLoading(true);
 
     try {
-      refresh('');
+      open('');
       await requestAPI<ListMountsResponse>('_unmount_all', 'PUT');
-      refresh('');
+      open('');
       await pollRefresh();
       setCurrIdx(-1);
       setCurrDatum({id: '', idx: -1, num_datums: 0});
