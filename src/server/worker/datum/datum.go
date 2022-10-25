@@ -34,7 +34,7 @@ const (
 )
 
 func CreateSets(pachClient *client.APIClient, setSpec *SetSpec, fileSetID string, basePathRange *pfs.PathRange) ([]*pfs.PathRange, error) {
-	commit := client.NewProjectRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit(pfs.DefaultProjectName, fileSetID)
+	commit := client.NewProjectRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fileSetID)
 	pathRange := &pfs.PathRange{
 		Lower: basePathRange.Lower,
 	}

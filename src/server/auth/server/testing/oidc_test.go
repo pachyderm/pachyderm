@@ -1,16 +1,19 @@
-//go:build k8s
+//go:build unit_test
 
-package server
+package server_test
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 )
@@ -18,12 +21,12 @@ import (
 // TestOIDCAuthCodeFlow tests that we can configure an OIDC provider and do the
 // auth code flow
 func TestOIDCAuthCodeFlow(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
+	t.Parallel()
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c, true))
 
 	testClient := tu.UnauthenticatedPachClient(t, c)
 	loginInfo, err := testClient.GetOIDCLogin(testClient.Ctx(), &auth.GetOIDCLoginRequest{})
@@ -44,15 +47,15 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 
 // TestOIDCTrustedApp tests using an ID token issued to another OIDC app to authenticate.
 func TestOIDCTrustedApp(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
+	t.Parallel()
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c, true))
 	testClient := tu.UnauthenticatedPachClient(t, c)
 
-	token := tu.GetOIDCTokenForTrustedApp(t, c)
+	token := tu.GetOIDCTokenForTrustedApp(t, c, true)
 
 	// Use the id token from the previous OAuth flow with Pach
 	authResp, err := testClient.Authenticate(testClient.Ctx(),
@@ -70,12 +73,12 @@ func TestOIDCTrustedApp(t *testing.T) {
 // enterprise license is expired. We test this through the configured OIDC provider
 // and do the auth code flow.
 func TestCannotAuthenticateWithExpiredLicense(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
+	t.Parallel()
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c, true))
 
 	testClient := tu.UnauthenticatedPachClient(t, c)
 	loginInfo, err := testClient.GetOIDCLogin(testClient.Ctx(), &auth.GetOIDCLoginRequest{})

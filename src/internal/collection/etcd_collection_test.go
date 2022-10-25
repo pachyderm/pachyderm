@@ -125,7 +125,7 @@ func TestDeletePrefix(t *testing.T) {
 		job := &pps.JobInfo{}
 		rw := jobInfos.ReadWrite(stm)
 
-		if err := rw.DeleteAllPrefix("p@prefix/suffix"); err != nil {
+		if err := rw.DeleteAllPrefix("default/p@prefix/suffix"); err != nil {
 			return errors.EnsureStack(err)
 		}
 		if err := rw.Get(ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
@@ -141,7 +141,7 @@ func TestDeletePrefix(t *testing.T) {
 			return errors.EnsureStack(err)
 		}
 
-		if err := rw.DeleteAllPrefix("p@prefix"); err != nil {
+		if err := rw.DeleteAllPrefix("default/p@prefix"); err != nil {
 			return errors.EnsureStack(err)
 		}
 		if err := rw.Get(ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
@@ -164,7 +164,7 @@ func TestDeletePrefix(t *testing.T) {
 			return errors.EnsureStack(err)
 		}
 
-		if err := rw.DeleteAllPrefix("p@prefix/suffix"); err != nil {
+		if err := rw.DeleteAllPrefix("default/p@prefix/suffix"); err != nil {
 			return errors.EnsureStack(err)
 		}
 		if err := rw.Get(ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {

@@ -9,9 +9,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
@@ -46,16 +46,19 @@ func do(ctx context.Context, config interface{}) error {
 
 	// Construct a client that connects to the sidecar.
 	pachClient := env.GetPachClient(ctx)
+	p := &pps.Pipeline{
+		Project: &pfs.Project{Name: env.Config().PPSProjectName},
+		Name:    env.Config().PPSPipelineName,
+	}
 	pipelineInfo, err := ppsutil.GetWorkerPipelineInfo(
 		pachClient,
 		env.GetDBClient(),
 		env.GetPostgresListener(),
-		// TODO: this will get the project name in CORE-1024
-		client.NewProjectPipeline(pfs.DefaultProjectName, env.Config().PPSPipelineName),
+		p,
 		env.Config().PPSSpecCommitID,
 	) // get pipeline creds for pachClient
 	if err != nil {
-		return errors.Wrapf(err, "error getting pipelineInfo")
+		return errors.Wrapf(err, "worker: get pipelineInfo for %q", p)
 	}
 
 	// Construct worker API server.
@@ -75,39 +78,33 @@ func do(ctx context.Context, config interface{}) error {
 	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.Config().PodName, pachClient, env.GetDBClient()))
 
 	// Put our IP address into etcd, so pachd can discover us
-	workerRcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	workerRcName := ppsutil.PipelineRcName(pipelineInfo)
 	key := path.Join(env.Config().PPSEtcdPrefix, workerserver.WorkerEtcdPrefix, workerRcName, env.Config().PPSWorkerIP)
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
 	// IP will be removed from etcd
-	ctx, cancel := context.WithTimeout(pachClient.Ctx(), 10*time.Second)
-	defer cancel()
-
-	resp, err := env.GetEtcdClient().Grant(ctx, 10 /* seconds */)
+	leaseID, err := getETCDLease(ctx, env.GetEtcdClient(), 10*time.Second)
 	if err != nil {
-		return errors.Wrapf(err, "error granting lease")
+		return errors.Wrapf(err, "worker: get etcd lease")
 	}
 
 	// keepalive forever
-	keepAliveChan, err := env.GetEtcdClient().KeepAlive(ctx, resp.ID)
+	keepAliveChan, err := env.GetEtcdClient().KeepAlive(ctx, leaseID)
 	if err != nil {
-		return errors.Wrapf(err, "error with KeepAlive")
+		return errors.Wrapf(err, "worker: etcd KeepAlive")
 	}
 	go func() {
 		for {
 			_, more := <-keepAliveChan
 			if !more {
-				log.Errorf("failed to renew worker ip etcd lease")
+				log.Errorf("failed to renew worker IP address etcd lease")
 				return
 			}
 		}
 	}()
 
-	// Actually write "key" into etcd
-	ctx, cancel = context.WithTimeout(ctx, 10*time.Second) // new ctx
-	defer cancel()
-	if _, err := env.GetEtcdClient().Put(ctx, key, "", etcd.WithLease(resp.ID)); err != nil {
-		return errors.Wrapf(err, "error putting IP address")
+	if err := writeKey(ctx, env.GetEtcdClient(), key, leaseID, 10*time.Second); err != nil {
+		return errors.Wrapf(err, "worker: etcd key %s", key)
 	}
 
 	// If server ever exits, return error
@@ -115,4 +112,28 @@ func do(ctx context.Context, config interface{}) error {
 		return err
 	}
 	return server.Wait()
+}
+
+func getETCDLease(ctx context.Context, client *etcd.Client, duration time.Duration) (etcd.LeaseID, error) {
+	ctx, cancel := context.WithTimeout(ctx, duration)
+	defer cancel()
+
+	sec := int64(duration / time.Second)
+	if sec == 0 { // do not aallow durations < 1 second to round down to 0 seconds
+		sec = 1
+	}
+	resp, err := client.Grant(ctx, sec)
+	if err != nil {
+		return 0, errors.Wrapf(err, "getETCDLease: etcd grant")
+	}
+	return resp.ID, nil
+}
+
+func writeKey(ctx context.Context, client *etcd.Client, key string, id etcd.LeaseID, duration time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if _, err := client.Put(ctx, key, "", etcd.WithLease(id)); err != nil {
+		return errors.Wrapf(err, "writeKey: etcd put")
+	}
+	return nil
 }

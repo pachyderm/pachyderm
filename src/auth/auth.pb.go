@@ -561,8 +561,8 @@ type OIDCConfig struct {
 	LocalhostIssuer bool `protobuf:"varint,7,opt,name=localhost_issuer,json=localhostIssuer,proto3" json:"localhost_issuer,omitempty"`
 	// user_accessible_issuer_host can be set to override the host used
 	// in the OAuth2 authorization URL in case the OIDC issuer isn't
-	// accessible outside the cluster. This is necessary to support
-	// some configurations like Minikube.
+	// accessible outside the cluster. This requires a fully formed URL with scheme of either http or https.
+	// This is necessary to support some configurations like Minikube.
 	UserAccessibleIssuerHost string   `protobuf:"bytes,8,opt,name=user_accessible_issuer_host,json=userAccessibleIssuerHost,proto3" json:"user_accessible_issuer_host,omitempty"`
 	XXX_NoUnkeyedLiteral     struct{} `json:"-"`
 	XXX_unrecognized         []byte   `json:"-"`

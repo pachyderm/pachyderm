@@ -2,6 +2,8 @@ package client
 
 import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 )
 
@@ -46,9 +48,15 @@ func (c APIClient) ModifyClusterRoleBinding(principal string, roles []string) er
 	return nil
 }
 
-func (c APIClient) GetRepoRoleBinding(repo string) (*auth.RoleBinding, error) {
+// Deprecated: use GetProjectRepoRoleBinding instead.
+func (c APIClient) GetRepoRoleBinding(repoName string) (*auth.RoleBinding, error) {
+	return c.GetProjectRepoRoleBinding(pfs.DefaultProjectName, repoName)
+}
+
+// Return the roles bound to a repo within a project.
+func (c APIClient) GetProjectRepoRoleBinding(projectName, repoName string) (*auth.RoleBinding, error) {
 	resp, err := c.GetRoleBinding(c.Ctx(), &auth.GetRoleBindingRequest{
-		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
+		Resource: NewProjectRepo(projectName, repoName).AuthResource(),
 	})
 	if err != nil {
 		return nil, err
@@ -56,9 +64,15 @@ func (c APIClient) GetRepoRoleBinding(repo string) (*auth.RoleBinding, error) {
 	return resp.Binding, nil
 }
 
-func (c APIClient) ModifyRepoRoleBinding(repo, principal string, roles []string) error {
+// Deprecated: use ModifyProjectRepoRoleBinding instead.
+func (c APIClient) ModifyRepoRoleBinding(repoName, principal string, roles []string) error {
+	return c.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, principal, roles)
+}
+
+// Update the roles bound to a repo within a project.
+func (c APIClient) ModifyProjectRepoRoleBinding(projectName, repoName, principal string, roles []string) error {
 	_, err := c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
-		Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
+		Resource:  NewProjectRepo(projectName, repoName).AuthResource(),
 		Principal: principal,
 		Roles:     roles,
 	})

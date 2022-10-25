@@ -150,11 +150,12 @@ func TestS3Input(t *testing.T) {
 		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 		Input: &pps.Input{
 			Pfs: &pps.PFSInput{
-				Name:   "input_repo",
-				Repo:   repo,
-				Branch: "master",
-				S3:     true,
-				Glob:   "/",
+				Project: pfs.DefaultProjectName,
+				Repo:    repo,
+				Name:    "input_repo",
+				Branch:  "master",
+				S3:      true,
+				Glob:    "/",
 			},
 		},
 	})
@@ -200,7 +201,7 @@ func TestS3Input(t *testing.T) {
 		svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -245,11 +246,12 @@ func TestS3Chain(t *testing.T) {
 				ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 				Input: &pps.Input{
 					Pfs: &pps.PFSInput{
-						Name:   "s3g_in",
-						Repo:   input,
-						Branch: "master",
-						S3:     true,
-						Glob:   "/",
+						Project: pfs.DefaultProjectName,
+						Repo:    input,
+						Name:    "s3g_in",
+						Branch:  "master",
+						S3:      true,
+						Glob:    "/",
 					},
 				},
 				S3Out: true,
@@ -296,11 +298,12 @@ func TestNamespaceInEndpoint(t *testing.T) {
 		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 		Input: &pps.Input{
 			Pfs: &pps.PFSInput{
-				Name:   "input_repo",
-				Repo:   repo,
-				Branch: "master",
-				S3:     true,
-				Glob:   "/",
+				Project: pfs.DefaultProjectName,
+				Repo:    repo,
+				Name:    "input_repo",
+				Branch:  "master",
+				S3:      true,
+				Glob:    "/",
 			},
 		},
 	})
@@ -350,10 +353,11 @@ func TestS3Output(t *testing.T) {
 		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 		Input: &pps.Input{
 			Pfs: &pps.PFSInput{
-				Name:   "input_repo",
-				Repo:   repo,
-				Branch: "master",
-				Glob:   "/",
+				Project: pfs.DefaultProjectName,
+				Repo:    repo,
+				Name:    "input_repo",
+				Branch:  "master",
+				Glob:    "/",
 			},
 		},
 		S3Out: true,
@@ -395,7 +399,7 @@ func TestS3Output(t *testing.T) {
 		svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -434,11 +438,12 @@ func TestFullS3(t *testing.T) {
 		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 		Input: &pps.Input{
 			Pfs: &pps.PFSInput{
-				Name:   "input_repo",
-				Repo:   repo,
-				Branch: "master",
-				S3:     true,
-				Glob:   "/",
+				Project: pfs.DefaultProjectName,
+				Repo:    repo,
+				Name:    "input_repo",
+				Branch:  "master",
+				S3:      true,
+				Glob:    "/",
 			},
 		},
 		S3Out: true,
@@ -480,7 +485,7 @@ func TestFullS3(t *testing.T) {
 		svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
-			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID) {
+			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.ID) {
 				return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 			}
 		}
@@ -540,17 +545,19 @@ func TestS3SkippedDatums(t *testing.T) {
 			Input: &pps.Input{
 				Cross: []*pps.Input{
 					{Pfs: &pps.PFSInput{
-						Name:   "pfs_in",
-						Repo:   pfsin,
-						Branch: "master",
-						Glob:   "/*",
+						Project: pfs.DefaultProjectName,
+						Repo:    pfsin,
+						Name:    "pfs_in",
+						Branch:  "master",
+						Glob:    "/*",
 					}},
 					{Pfs: &pps.PFSInput{
-						Name:   "s3g_in",
-						Repo:   s3in,
-						Branch: "master",
-						S3:     true,
-						Glob:   "/",
+						Project: pfs.DefaultProjectName,
+						Repo:    s3in,
+						Name:    "s3g_in",
+						Branch:  "master",
+						S3:      true,
+						Glob:    "/",
 					}},
 				}},
 		})
@@ -630,7 +637,7 @@ func TestS3SkippedDatums(t *testing.T) {
 				svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 				require.NoError(t, err)
 				for _, s := range svcs.Items {
-					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jis[j].Job.Pipeline.Name, jis[j].Job.ID) {
+					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jis[j].Job.Pipeline, jis[j].Job.ID) {
 						return errors.Errorf("service %q should be cleaned up by sidecar after job", s.ObjectMeta.Name)
 					}
 				}
@@ -705,10 +712,11 @@ func TestS3SkippedDatums(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 			Input: &pps.Input{
 				Pfs: &pps.PFSInput{
-					Name:   "in",
-					Repo:   repo,
-					Branch: "master",
-					Glob:   "/*",
+					Project: pfs.DefaultProjectName,
+					Repo:    repo,
+					Name:    "in",
+					Branch:  "master",
+					Glob:    "/*",
 				},
 			},
 			S3Out: true,

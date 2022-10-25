@@ -1130,7 +1130,8 @@ func createLocalOutDir(mm *MountManager) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
 	mm.root.repoOpts["out"] = &RepoOptions{
-		Name:  "out",
+		Name: "out",
+		// FIXME: need a project
 		File:  &pfs.File{Commit: &pfs.Commit{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: "out"}}}},
 		Write: true}
 }

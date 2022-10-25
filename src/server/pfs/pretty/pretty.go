@@ -17,7 +17,7 @@ import (
 
 const (
 	// RepoHeader is the header for repos.
-	RepoHeader = "NAME\tCREATED\tSIZE (MASTER)\tDESCRIPTION\t\n"
+	RepoHeader = "PROJECT\tNAME\tCREATED\tSIZE (MASTER)\tDESCRIPTION\t\n"
 	// RepoAuthHeader is the header for repos with auth information attached.
 	RepoAuthHeader = "NAME\tCREATED\tSIZE (MASTER)\tACCESS LEVEL\t\n"
 	// CommitHeader is the header for commits.
@@ -38,7 +38,7 @@ const (
 
 // PrintRepoInfo pretty-prints repo info.
 func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", repoInfo.Repo)
+	fmt.Fprintf(w, "%s\t%s\t", repoInfo.Repo.Project.GetName(), repoInfo.Repo.Name)
 	if fullTimestamps {
 		fmt.Fprintf(w, "%s\t", repoInfo.Created.String())
 	} else {

@@ -110,26 +110,42 @@ func SortInput(input *Input) {
 }
 
 // InputBranches returns the branches in an Input.
+//
+// Deprecated: Use ProjectInputBranches instead.
 func InputBranches(input *Input) []*pfs.Branch {
+	return ProjectInputBranches(pfs.DefaultProjectName, input)
+}
+
+func ProjectInputBranches(projectName string, input *Input) []*pfs.Branch {
 	var result []*pfs.Branch
 	VisitInput(input, func(input *Input) error { //nolint:errcheck
 		if input.Pfs != nil {
-			result = append(result, &pfs.Branch{
+			b := &pfs.Branch{
 				Repo: &pfs.Repo{
-					Name: input.Pfs.Repo,
-					Type: input.Pfs.RepoType,
+					Project: &pfs.Project{Name: input.Pfs.Project},
+					Name:    input.Pfs.Repo,
+					Type:    input.Pfs.RepoType,
 				},
 				Name: input.Pfs.Branch,
-			})
+			}
+			if input.Pfs.Project == "" {
+				b.Repo.Project.Name = projectName
+			}
+			result = append(result, b)
 		}
 		if input.Cron != nil {
-			result = append(result, &pfs.Branch{
+			b := &pfs.Branch{
 				Repo: &pfs.Repo{
-					Name: input.Cron.Repo,
-					Type: pfs.UserRepoType,
+					Project: &pfs.Project{Name: input.Cron.Project},
+					Name:    input.Cron.Repo,
+					Type:    pfs.UserRepoType,
 				},
 				Name: "master",
-			})
+			}
+			if input.Cron.Project == "" {
+				b.Repo.Project.Name = projectName
+			}
+			result = append(result, b)
 		}
 		return nil
 	})

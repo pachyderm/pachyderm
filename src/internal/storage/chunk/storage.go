@@ -21,7 +21,11 @@ const (
 	DefaultPrefetchLimit = 10
 )
 
-// Storage is the abstraction that manages chunk storage.
+// Storage is an abstraction for interfacing with chunk storage.
+// A storage instance:
+// - Provides methods for uploading data to chunks and downloading data from chunks.
+// - Manages tracker state to keep chunks alive while uploading.
+// - Manages an internal chunk cache and work deduplicator (parallel downloads of the same chunk will be deduplicated).
 type Storage struct {
 	objClient     obj.Client
 	db            *pachsql.DB
