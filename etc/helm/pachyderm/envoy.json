@@ -486,7 +486,7 @@
                               ]
                            },
                            "stat_prefix": "proxy-http",
-                           "stream_idle_timeout": "600s",
+                           "stream_idle_timeout": "3600s",
                            "use_remote_address": true
                         }
                      }
@@ -570,7 +570,7 @@
                               ]
                            },
                            "stat_prefix": "https-warning",
-                           "stream_idle_timeout": "600s",
+                           "stream_idle_timeout": "3600s",
                            "use_remote_address": true
                         }
                      }
@@ -679,7 +679,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-s3",
-                           "stream_idle_timeout": "600s",
+                           "stream_idle_timeout": "3600s",
                            "use_remote_address": true
                         }
                      }
@@ -770,7 +770,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-grpc",
-                           "stream_idle_timeout": "600s",
+                           "stream_idle_timeout": "3600s",
                            "use_remote_address": true
                         }
                      }
@@ -853,7 +853,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-metrics",
-                           "stream_idle_timeout": "600s",
+                           "stream_idle_timeout": "3600s",
                            "use_remote_address": true
                         }
                      }
@@ -936,7 +936,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-oidc",
-                           "stream_idle_timeout": "600s",
+                           "stream_idle_timeout": "3600s",
                            "use_remote_address": true
                         }
                      }
@@ -1019,7 +1019,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-identity",
-                           "stream_idle_timeout": "600s",
+                           "stream_idle_timeout": "3600s",
                            "use_remote_address": true
                         }
                      }
@@ -1108,7 +1108,7 @@
                               ]
                            },
                            "stat_prefix": "direct-console",
-                           "stream_idle_timeout": "600s",
+                           "stream_idle_timeout": "3600s",
                            "use_remote_address": true
                         }
                      }

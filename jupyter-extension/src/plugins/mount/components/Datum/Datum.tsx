@@ -13,7 +13,7 @@ type DatumProps = {
   setShowDatum: (shouldShow: boolean) => Promise<void>;
   keepMounted: boolean;
   setKeepMounted: (keep: boolean) => void;
-  refresh: (path: string) => void;
+  open: (path: string) => void;
   pollRefresh: () => Promise<void>;
   currentDatumInfo?: CurrentDatumResponse;
   repoViewInputSpec: CrossInputSpec | PfsInput;
@@ -29,7 +29,7 @@ const Datum: React.FC<DatumProps> = ({
   setShowDatum,
   keepMounted,
   setKeepMounted,
-  refresh,
+  open,
   pollRefresh,
   currentDatumInfo,
   repoViewInputSpec,
@@ -51,7 +51,7 @@ const Datum: React.FC<DatumProps> = ({
     showDatum,
     keepMounted,
     setKeepMounted,
-    refresh,
+    open,
     pollRefresh,
     repoViewInputSpec,
     currentDatumInfo,

@@ -28,17 +28,21 @@ var ReposTypeIndex = &col.Index{
 	},
 }
 
+func ReposNameKey(repo *pfs.Repo) string {
+	return repo.Project.Name + "/" + repo.Name
+}
+
 var ReposNameIndex = &col.Index{
 	Name: "name",
 	Extract: func(val proto.Message) string {
-		return val.(*pfs.RepoInfo).Repo.Name
+		return ReposNameKey(val.(*pfs.RepoInfo).Repo)
 	},
 }
 
 var reposIndexes = []*col.Index{ReposNameIndex, ReposTypeIndex}
 
 func RepoKey(repo *pfs.Repo) string {
-	return repo.Name + "." + repo.Type
+	return repo.Project.Name + "/" + repo.Name + "." + repo.Type
 }
 
 func repoKeyCheck(key string) error {
@@ -213,14 +217,5 @@ func CollectionsV0() []col.PostgresCollection {
 		col.NewPostgresCollection(reposCollectionName, nil, nil, nil, reposIndexes),
 		col.NewPostgresCollection(commitsCollectionName, nil, nil, nil, commitsIndexes),
 		col.NewPostgresCollection(branchesCollectionName, nil, nil, nil, branchesIndexes),
-	}
-}
-
-// returns collections released in v2.4.0 - specifically the projects collection
-// DO NOT MODIFY THIS FUNCTION
-// IT HAS BEEN USED IN A RELEASED MIGRATION
-func CollectionsV2_4_0() []col.PostgresCollection {
-	return []col.PostgresCollection{
-		col.NewPostgresCollection(projectsCollectionName, nil, nil, nil, nil),
 	}
 }

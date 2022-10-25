@@ -6,6 +6,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 // InactiveAPIServer (in the auth/testing package) is an implementation of the
@@ -45,22 +46,22 @@ func (a *InactiveAPIServer) ModifyRoleBindingInTransaction(*txncontext.Transacti
 }
 
 // AddPipelineReaderToRepoInTransaction implements the AddPipelineReaderToRepoInTransaction internal API
-func (a *InactiveAPIServer) AddPipelineReaderToRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo, pipeline string) error {
+func (a *InactiveAPIServer) AddPipelineReaderToRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo *pfs.Repo, pipeline *pps.Pipeline) error {
 	return auth.ErrNotActivated
 }
 
 // AddPipelineWriterToRepoInTransaction implements the AddPipelineWriterToRepoInTransaction internal API
-func (a *InactiveAPIServer) AddPipelineWriterToRepoInTransaction(txnCtx *txncontext.TransactionContext, pipeline string) error {
+func (a *InactiveAPIServer) AddPipelineWriterToRepoInTransaction(txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline) error {
 	return auth.ErrNotActivated
 }
 
 // AddPipelineWriterToSourceRepoInTransaction implements the AddPipelineWriterToSourceRepoInTransaction internal API
-func (a *InactiveAPIServer) AddPipelineWriterToSourceRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo, pipeline string) error {
+func (a *InactiveAPIServer) AddPipelineWriterToSourceRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo *pfs.Repo, pipeline *pps.Pipeline) error {
 	return auth.ErrNotActivated
 }
 
 // RemovePipelineReaderToRepoInTransaction implements the RemovePipelineReaderToRepoInTransaction internal API
-func (a *InactiveAPIServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo, pipeline string) error {
+func (a *InactiveAPIServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo *pfs.Repo, pipeline *pps.Pipeline) error {
 	return auth.ErrNotActivated
 }
 
@@ -121,7 +122,7 @@ func (a *InactiveAPIServer) GetRobotToken(context.Context, *auth.GetRobotTokenRe
 }
 
 // GetPipelineAuthTokenInTransaction is the same as GetAuthToken but for use inside a running transaction.
-func (a *InactiveAPIServer) GetPipelineAuthTokenInTransaction(*txncontext.TransactionContext, string) (string, error) {
+func (a *InactiveAPIServer) GetPipelineAuthTokenInTransaction(*txncontext.TransactionContext, *pps.Pipeline) (string, error) {
 	return "", auth.ErrNotActivated
 }
 

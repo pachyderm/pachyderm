@@ -1,0 +1,12 @@
+etcd:
+  storageClass: "gp3"
+  storageSize: "10Gi"
+  resources:
+    requests:
+      cpu: 4
+      memory: "4Gi"
+      
+pgbouncer:
+  maxConnections: 1500
+  defaultPoolSize: 100
+

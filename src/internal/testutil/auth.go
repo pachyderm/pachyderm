@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -92,8 +93,8 @@ func User(email string) string {
 	return auth.UserPrefix + email
 }
 
-func Pl(pipeline string) string {
-	return auth.PipelinePrefix + pipeline
+func Pl(projectName, pipelineName string) string {
+	return fmt.Sprintf("%s%s/%s", auth.PipelinePrefix, projectName, pipelineName)
 }
 
 func Robot(robot string) string {
@@ -119,23 +120,25 @@ func BuildBindings(s ...string) *auth.RoleBinding {
 	return &b
 }
 
-func GetRepoRoleBinding(t *testing.T, c *client.APIClient, repo string) *auth.RoleBinding {
+func GetRepoRoleBinding(t *testing.T, c *client.APIClient, projectName, repoName string) *auth.RoleBinding {
 	t.Helper()
-	resp, err := c.GetRepoRoleBinding(repo)
+	resp, err := c.GetProjectRepoRoleBinding(projectName, repoName)
 	require.NoError(t, err)
 	return resp
 }
 
 // CommitCnt uses 'c' to get the number of commits made to the repo 'repo'
-func CommitCnt(t *testing.T, c *client.APIClient, projectName, repoName string) int {
+func CommitCnt(t *testing.T, c *client.APIClient, repo *pfs.Repo) int {
 	t.Helper()
-	commitList, err := c.ListCommitByRepo(client.NewProjectRepo(projectName, repoName))
+	commitList, err := c.ListCommitByRepo(repo)
 	require.NoError(t, err)
 	return len(commitList)
 }
 
 // PipelineNames returns the names of all pipelines that 'c' gets from
-// ListPipeline
+// ListPipeline.
+//
+// TODO(CORE-1100): replace with version which knows about projects.
 func PipelineNames(t *testing.T, c *client.APIClient) []string {
 	t.Helper()
 	ps, err := c.ListPipeline(false)

@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -77,110 +76,6 @@ func TestConfig(t *testing.T) {
 	})
 }
 
-func TestRepoAccess(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := "robot"+tu.UniqueString("alice"), "robot"+tu.UniqueString("bob")
-	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
-
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, "repo1"))
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo1", "master", "")
-	err := aliceClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
-	require.NoError(t, err)
-
-	withServerMount(t, aliceClient, nil, func(mountPoint string) {
-		resp, err := get("repos")
-		require.NoError(t, err)
-
-		reposResp := &ListRepoResponse{}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
-		require.Equal(t, "write", (*reposResp)["repo1"].Authorization)
-	})
-
-	withServerMount(t, bobClient, nil, func(mountPoint string) {
-		resp, err := get("repos")
-		require.NoError(t, err)
-
-		reposResp := &ListRepoResponse{}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
-		require.Equal(t, "none", (*reposResp)["repo1"].Authorization)
-
-		mr := MountRequest{
-			Mounts: []*MountInfo{
-				{
-					Name:   "repo1",
-					Repo:   "repo1",
-					Branch: "master",
-				},
-			},
-		}
-		b := new(bytes.Buffer)
-		require.NoError(t, json.NewEncoder(b).Encode(mr))
-		resp, _ = put("_mount", b)
-		require.Equal(t, 500, resp.StatusCode)
-	})
-}
-
-//TODO(fahad): requires identity server to work with realEnv.
-func TestUnauthenticatedCode(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	withServerMount(t, c, nil, func(mountPoint string) {
-		resp, _ := get("repos")
-		require.Equal(t, 200, resp.StatusCode)
-	})
-
-	c = tu.UnauthenticatedPachClient(t, c)
-	withServerMount(t, c, nil, func(mountPoint string) {
-		resp, _ := get("repos")
-		require.Equal(t, 401, resp.StatusCode)
-	})
-
-	c = tu.AuthenticateClient(t, c, "test")
-	withServerMount(t, c, nil, func(mountPoint string) {
-		resp, _ := get("repos")
-		require.Equal(t, 200, resp.StatusCode)
-	})
-}
-
-//TODO(fahad): requires identity server to work with realEnv.
-func TestAuthLoginLogout(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
-	c = tu.UnauthenticatedPachClient(t, c)
-
-	withServerMount(t, c, nil, func(mountPoint string) {
-		authResp, err := put("auth/_login", nil)
-		require.NoError(t, err)
-		defer authResp.Body.Close()
-
-		type AuthLoginResp struct {
-			AuthUrl string `json:"auth_url"`
-		}
-		getAuthLogin := &AuthLoginResp{}
-		require.NoError(t, json.NewDecoder(authResp.Body).Decode(getAuthLogin))
-
-		tu.DoOAuthExchange(t, c, c, getAuthLogin.AuthUrl)
-		time.Sleep(1 * time.Second)
-
-		_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-		require.NoError(t, err)
-
-		_, err = put("auth/_logout", nil)
-		require.NoError(t, err)
-
-		_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-		require.ErrorIs(t, err, auth.ErrNotSignedIn)
-	})
-}
-
 func TestMountDatum(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
@@ -190,7 +85,7 @@ func TestMountDatum(t *testing.T) {
 	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
 	require.NoError(t, err)
 	withServerMount(t, c, nil, func(mountPoint string) {
-		input := []byte("{'input': {'pfs': {'repo': 'repo', 'glob': '/'}}}")
+		input := []byte("{'input': {'pfs': {'project': 'default', 'repo': 'repo', 'glob': '/'}}}")
 		resp, err := put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
 
@@ -210,7 +105,7 @@ func TestMountDatum(t *testing.T) {
 		_, err = put("_unmount_all", nil)
 		require.NoError(t, err)
 
-		input = []byte("{'input': {'pfs': {'repo': 'repo', 'glob': '/*'}}}")
+		input = []byte("{'input': {'pfs': {'project': 'default', 'repo': 'repo', 'glob': '/*'}}}")
 		resp, err = put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
 
@@ -244,7 +139,7 @@ func TestCrossDatum(t *testing.T) {
 	require.NoError(t, err)
 
 	withServerMount(t, c, nil, func(mountPoint string) {
-		input := []byte("{'input': {'cross': [{'pfs': {'glob': '/', 'repo': 'repo1'}}, {'pfs': {'glob': '/*', 'repo': 'repo2', 'branch': 'dev'}}]}}}")
+		input := []byte("{'input': {'cross': [{'pfs': {'glob': '/', 'project': 'default', 'repo': 'repo1'}}, {'pfs': {'glob': '/*', 'repo': 'repo2', 'branch': 'dev'}}]}}}")
 		resp, err := put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
 
@@ -281,7 +176,7 @@ func TestUnionDatum(t *testing.T) {
 	require.NoError(t, err)
 
 	withServerMount(t, c, nil, func(mountPoint string) {
-		input := []byte("{'input': {'union': [{'pfs': {'glob': '/', 'repo': 'repo1'}}, {'pfs': {'glob': '/*', 'repo': 'repo2', 'branch': 'dev'}}]}}}")
+		input := []byte("{'input': {'union': [{'pfs': {'glob': '/', 'project': 'default', 'repo': 'repo1'}}, {'pfs': {'glob': '/*', 'project': 'default', 'repo': 'repo2', 'branch': 'dev'}}]}}}")
 		resp, err := put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
 
@@ -308,7 +203,7 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 	require.NoError(t, err)
 
 	withServerMount(t, c, nil, func(mountPoint string) {
-		input := []byte("{'input': {'cross': [{'pfs': {'glob': '/*', 'repo': 'repo1'}}, {'pfs': {'glob': '/*', 'repo': 'repo1'}}]}}")
+		input := []byte("{'input': {'cross': [{'pfs': {'glob': '/*', 'project': 'default', 'repo': 'repo1'}}, {'pfs': {'glob': '/*', 'project': 'default', 'repo': 'repo1'}}]}}")
 		resp, err := put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
 
@@ -328,7 +223,7 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 		_, err = put("_unmount_all", nil)
 		require.NoError(t, err)
 
-		input = []byte("{'input': {'cross': [{'pfs': {'glob': '/*', 'repo': 'repo1'}}, {'pfs': {'glob': '/*', 'repo': 'repo1'}}, {'pfs': {'glob': '/*', 'repo': 'repo1', 'branch': 'dev'}}]}}")
+		input = []byte("{'input': {'cross': [{'pfs': {'glob': '/*', 'project': 'default', 'repo': 'repo1'}}, {'pfs': {'glob': '/*', 'project': 'default', 'repo': 'repo1'}}, {'pfs': {'glob': '/*', 'project': 'default', 'repo': 'repo1', 'branch': 'dev'}}]}}")
 		resp, err = put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
 
@@ -359,7 +254,7 @@ func TestShowDatum(t *testing.T) {
 	require.NoError(t, err)
 
 	withServerMount(t, c, nil, func(mountPoint string) {
-		input := []byte("{'input': {'pfs': {'repo': 'repo', 'glob': '/*', 'branch': 'dev'}}}")
+		input := []byte("{'input': {'pfs': {'project': 'default', 'repo': 'repo', 'glob': '/*', 'branch': 'dev'}}}")
 		resp, err := put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
 
@@ -409,7 +304,7 @@ func TestGetDatums(t *testing.T) {
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(dr))
 		require.Equal(t, 0, dr.NumDatums)
 
-		input := []byte("{'input': {'pfs': {'repo': 'repo', 'glob': '/*', 'branch': 'dev'}}}")
+		input := []byte("{'input': {'pfs': {'project': 'default', 'repo': 'repo', 'glob': '/*', 'branch': 'dev'}}}")
 		resp, err = put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
 

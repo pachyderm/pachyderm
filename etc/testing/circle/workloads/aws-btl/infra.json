@@ -1,0 +1,19 @@
+{
+    "k8s": {
+        "nodepools": [
+            {
+                "nodeType": "m5.8xlarge",
+                "nodeNumInstances": 4,
+                "nodeDiskType": "gp3",
+                "nodeDiskSize": 2000,
+                "nodeDiskIOPS": 10000
+            }
+        ]
+    },
+    "rds": {
+        "nodeType": "db.m6g.4xlarge",
+        "diskType": "io1",
+        "diskSize": 1000,
+        "diskIOPS": 15000
+    }
+}

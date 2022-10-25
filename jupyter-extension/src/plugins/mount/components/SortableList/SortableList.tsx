@@ -9,6 +9,7 @@ type SortableListProps = {
   items: Mount[] | Repo[];
   open: (path: string) => void;
   updateData: (data: ListMountsResponse) => void;
+  mountedItems: Mount[];
 };
 
 const nameComparator = {
@@ -21,6 +22,7 @@ const SortableList: React.FC<SortableListProps> = ({
   open,
   items,
   updateData,
+  mountedItems,
 }) => {
   const {sortedData, setComparator, reversed} = useSort<Mount | Repo>({
     data: items,
@@ -59,8 +61,8 @@ const SortableList: React.FC<SortableListProps> = ({
               <ListUnmount
                 item={item}
                 key={item.repo}
-                open={open}
                 updateData={updateData}
+                mountedItems={mountedItems}
               />
             ),
           )}

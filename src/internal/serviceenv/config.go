@@ -22,8 +22,8 @@ type GlobalConfiguration struct {
 	Namespace                      string `env:"PACH_NAMESPACE,default=default"`
 	StorageRoot                    string `env:"PACH_ROOT,default=/pach"`
 	GCPercent                      int    `env:"GC_PERCENT,default=50"`
-	LokiHostVar                    string `env:"LOKI_SERVICE_HOST_VAR,default=LOKI_SERVICE_HOST"`
-	LokiPortVar                    string `env:"LOKI_SERVICE_PORT_VAR,default=LOKI_SERVICE_PORT"`
+	LokiHost                       string `env:"LOKI_SERVICE_HOST"`
+	LokiPort                       string `env:"LOKI_SERVICE_PORT"`
 	OidcPort                       uint16 `env:"OIDC_PORT,default=1657"`
 	PGBouncerHost                  string `env:"PG_BOUNCER_HOST,required"`
 	PGBouncerPort                  int    `env:"PG_BOUNCER_PORT,required"`
@@ -60,7 +60,9 @@ type GlobalConfiguration struct {
 	// and the sidecar so that it can serve the S3 gateway) it's stored in the
 	// GlobalConfiguration, but it isn't set in a cluster's main pachd containers.
 	PPSSpecCommitID string `env:"PPS_SPEC_COMMIT"`
-	// The name of the pipeline that this worker belongs to
+	// The name of the project that this worker belongs to.
+	PPSProjectName string `env:"PPS_PROJECT_NAME"`
+	// The name of the pipeline that this worker belongs to.
 	PPSPipelineName string `env:"PPS_PIPELINE_NAME"`
 
 	// If set to the name of a GCP project, enable GCP-specific continuous profiling and send

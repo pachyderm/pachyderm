@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	
+
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -519,7 +519,7 @@ This resets the cluster to its initial state.`,
 				return errors.EnsureStack(err)
 			}
 			if err := clientsdk.ForEachPipelineInfo(c, func(pi *pps.PipelineInfo) error {
-				pipelines = append(pipelines, red(pi.Pipeline.Name))
+				pipelines = append(pipelines, red(pi.Pipeline.String()))
 				return nil
 			}); err != nil {
 				return err
@@ -840,6 +840,12 @@ This resets the cluster to its initial state.`,
 		Long:  "Edit the value of an existing Pachyderm resource.",
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(editDocs, "edit"))
+
+	drawDocs := &cobra.Command{
+		Short: "Draw an ASCII representation of an existing Pachyderm resource.",
+		Long:  "Draw an ASCII representation of an existing Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(drawDocs, "draw"))
 
 	subcommands = append(subcommands, pfscmds.Cmds()...)
 	subcommands = append(subcommands, ppscmds.Cmds()...)

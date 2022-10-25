@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {requestAPI} from '../../../../handler';
-import {ListMountsResponse, mountState, Repo} from '../../types';
+import {ListMountsResponse, mountState, Repo, Mount} from '../../types';
 
 export const DISABLED_STATES: mountState[] = [
   'unmounting',
@@ -10,12 +10,18 @@ export const DISABLED_STATES: mountState[] = [
 
 type ListUnmountProps = {
   item: Repo;
-  open: (path: string) => void;
   updateData: (data: ListMountsResponse) => void;
+  mountedItems: Mount[];
 };
 
-const ListUnmount: React.FC<ListUnmountProps> = ({item, open, updateData}) => {
-  const [selectedBranch, setSelectedBranch] = useState<string>();
+const ListUnmount: React.FC<ListUnmountProps> = ({
+  item,
+  updateData,
+  mountedItems,
+}) => {
+  const [selectedBranch, setSelectedBranch] = useState<string>('');
+  const [selectedBranchMounted, setSelectedBranchMounted] =
+    useState<boolean>(false);
   const [disabled, setDisabled] = useState<boolean>(false);
   const [authorized, setAuthorized] = useState<boolean>(false);
   const hasBranches = item?.branches?.length > 0;
@@ -24,6 +30,13 @@ const ListUnmount: React.FC<ListUnmountProps> = ({item, open, updateData}) => {
   useEffect(() => {
     setAuthorized(item.authorization !== 'none');
   }, [item]);
+
+  useEffect(() => {
+    const branchMounted = mountedItems.find(
+      (mount) => mount.repo === item.repo && mount.branch === selectedBranch,
+    );
+    setSelectedBranchMounted(branchMounted ? true : false);
+  }, [mountedItems, selectedBranch]);
 
   useEffect(() => {
     if (hasBranches) {
@@ -56,7 +69,6 @@ const ListUnmount: React.FC<ListUnmountProps> = ({item, open, updateData}) => {
         });
         updateData(data);
       }
-      open('');
     } catch {
       console.log('error mounting or unmounting repo');
     }
@@ -87,7 +99,7 @@ const ListUnmount: React.FC<ListUnmountProps> = ({item, open, updateData}) => {
       <li
         className="pachyderm-mount-sortableList-item"
         data-testid="ListItem__noBranches"
-        title="Either all branches are mounted or the repo doesn't have a branch"
+        title="Repo doesn't have a branch"
       >
         <span className="pachyderm-mount-list-item-name-branch-wrapper pachyderm-mount-sortableList-disabled">
           <span className="pachyderm-mount-list-item-name" title={item.repo}>
@@ -139,7 +151,7 @@ const ListUnmount: React.FC<ListUnmountProps> = ({item, open, updateData}) => {
       </span>
       <span className="pachyderm-mount-list-item-action">
         <button
-          disabled={disabled}
+          disabled={disabled || selectedBranchMounted}
           onClick={mount}
           className="pachyderm-button-link"
           data-testid={`ListItem__${buttonText.toLowerCase()}`}

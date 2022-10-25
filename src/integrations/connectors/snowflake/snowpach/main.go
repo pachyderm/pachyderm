@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	log "github.com/sirupsen/logrus"
 	sf "github.com/snowflakedb/gosnowflake"
@@ -22,7 +23,7 @@ var (
 )
 
 func env(k string, failOnMissing bool) string {
-	if value := os.Getenv(k); value != "" {
+	if value := os.Getenv(k); value != "" || !failOnMissing {
 		return value
 	}
 	log.Fatalf("missing environment variable %v", k)
@@ -144,8 +145,12 @@ func connect() (*sqlx.DB, error) {
 	return db, nil
 }
 
+func stageName() string {
+	return env(client.PPSProjectNameEnv, false) + "_" + env(client.PPSPipelineNameEnv, true) + "_" + env(client.JobIDEnv, false)
+}
+
 func read(db *sqlx.DB) error {
-	stage := env("PPS_PIPELINE_NAME", true) + env("PACH_JOB_ID", false)
+	stage := stageName()
 	if err := copyIntoStage(db, stage); err != nil {
 		return err
 	}
@@ -166,7 +171,7 @@ func writeTable(db *sqlx.DB, files []string, table string) error {
 		return nil
 	}
 	// create temporary stage to stage files
-	stage := env("PPS_PIPELINE_NAME", true) + env("PACH_JOB_ID", false)
+	stage := stageName()
 	if err := createTempStage(db, stage); err != nil {
 		return err
 	}

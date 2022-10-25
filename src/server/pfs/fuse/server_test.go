@@ -7,13 +7,17 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -346,8 +350,9 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// the commit created above isn't actually written until we unmount, so
@@ -367,8 +372,9 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
@@ -398,8 +404,9 @@ func TestRwCommitCreatesCommit(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// the commit created above isn't actually written until we unmount, so
@@ -420,8 +427,9 @@ func TestRwCommitCreatesCommit(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
@@ -452,8 +460,9 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// the commit created above isn't actually written until we unmount, so
@@ -474,8 +483,9 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
@@ -493,8 +503,9 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
@@ -525,8 +536,9 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// the commit created above isn't actually written until we unmount, so
@@ -547,8 +559,9 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
@@ -568,8 +581,9 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 		require.NoError(t, err)
 
 		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
-			Name: "repo",
-			Type: pfs.UserRepoType,
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    "repo",
+			Type:    pfs.UserRepoType,
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
@@ -585,5 +599,169 @@ func TestHealth(t *testing.T) {
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 		_, err = get("health")
 		require.NoError(t, err)
+	})
+}
+
+// Requires 'use_allow_other' to be enabled in /etc/fuse.conf
+func TestAuthLoginLogout(t *testing.T) {
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c, true))
+	c = tu.UnauthenticatedPachClient(t, c)
+
+	withServerMount(t, c, nil, func(mountPoint string) {
+		authResp, err := put("auth/_login", nil)
+		require.NoError(t, err)
+		defer authResp.Body.Close()
+
+		type AuthLoginResp struct {
+			AuthUrl string `json:"auth_url"`
+		}
+		getAuthLogin := &AuthLoginResp{}
+		require.NoError(t, json.NewDecoder(authResp.Body).Decode(getAuthLogin))
+
+		tu.DoOAuthExchange(t, c, c, getAuthLogin.AuthUrl)
+		time.Sleep(1 * time.Second)
+
+		_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+		require.NoError(t, err)
+
+		_, err = put("auth/_logout", nil)
+		require.NoError(t, err)
+
+		_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+		require.ErrorIs(t, err, auth.ErrNotSignedIn)
+	})
+}
+
+func TestRepoAccess(t *testing.T) {
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	alice, bob := "robot"+tu.UniqueString("alice"), "robot"+tu.UniqueString("bob")
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
+
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, "repo1"))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo1", "master", "")
+	err := aliceClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, aliceClient, nil, func(mountPoint string) {
+		resp, err := get("repos")
+		require.NoError(t, err)
+
+		reposResp := &ListRepoResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
+		require.Equal(t, "write", (*reposResp)["repo1"].Authorization)
+	})
+
+	withServerMount(t, bobClient, nil, func(mountPoint string) {
+		resp, err := get("repos")
+		require.NoError(t, err)
+
+		reposResp := &ListRepoResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
+		require.Equal(t, "none", (*reposResp)["repo1"].Authorization)
+
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo1",
+					Repo:   "repo1",
+					Branch: "master",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		resp, _ = put("_mount", b)
+		require.Equal(t, 500, resp.StatusCode)
+	})
+}
+
+func TestUnauthenticatedCode(t *testing.T) {
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	withServerMount(t, c, nil, func(mountPoint string) {
+		resp, _ := get("repos")
+		require.Equal(t, 200, resp.StatusCode)
+	})
+
+	c = tu.UnauthenticatedPachClient(t, c)
+	withServerMount(t, c, nil, func(mountPoint string) {
+		resp, _ := get("repos")
+		require.Equal(t, 401, resp.StatusCode)
+	})
+
+	c = tu.AuthenticateClient(t, c, "test")
+	withServerMount(t, c, nil, func(mountPoint string) {
+		resp, _ := get("repos")
+		require.Equal(t, 200, resp.StatusCode)
+	})
+}
+
+func TestDeletingMountedRepo(t *testing.T) {
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "b1", "")
+	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	commit = client.NewProjectCommit(pfs.DefaultProjectName, "repo", "b2", "")
+	err = env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo_b1",
+					Repo:   "repo",
+					Branch: "b1",
+					Mode:   "ro",
+				},
+				{
+					Name:   "repo_b1_dup",
+					Repo:   "repo",
+					Branch: "b1",
+					Mode:   "ro",
+				},
+				{
+					Name:   "repo_b2",
+					Repo:   "repo",
+					Branch: "b2",
+					Mode:   "ro",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		_, err := put("_mount", b)
+		require.NoError(t, err)
+
+		env.PachClient.DeleteProjectBranch(pfs.DefaultProjectName, "repo", "b1", false)
+		resp, err := get("mounts")
+		require.NoError(t, err)
+
+		mountResp := &ListMountResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mountResp))
+		require.Equal(t, 1, len((*mountResp).Mounted))
+		require.Equal(t, "b2", (*mountResp).Mounted["repo_b2"].Branch)
+		require.Equal(t, 1, len((*mountResp).Unmounted))
+
+		env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "repo", false)
+		resp, err = get("mounts")
+		require.NoError(t, err)
+
+		mountResp = &ListMountResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mountResp))
+		require.Equal(t, 0, len((*mountResp).Mounted))
+		require.Equal(t, 0, len((*mountResp).Unmounted))
 	})
 }

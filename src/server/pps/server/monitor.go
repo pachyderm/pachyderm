@@ -34,9 +34,9 @@ import (
 // pipeline's output repo.
 // returns a cancel()
 func (pc *pipelineController) startMonitor(ctx context.Context, pipelineInfo *pps.PipelineInfo) func() {
-	pipeline := pipelineInfo.Pipeline.Name
 	return startMonitorThread(ctx,
-		"monitorPipeline for "+pipeline, func(ctx context.Context) {
+		fmt.Sprintf("monitorPipeline for %s", pipelineInfo.Pipeline),
+		func(ctx context.Context) {
 			// monitorPipeline needs auth privileges to call subscribeCommit and
 			// inspectCommit
 			pachClient := pc.env.GetPachClient(ctx)
@@ -53,9 +53,8 @@ func (pc *pipelineController) startMonitor(ctx context.Context, pipelineInfo *pp
 // themselves and moves the pipeline out of crashing if they have.
 // returns a cancel for the crashing monitor
 func (pc *pipelineController) startCrashingMonitor(ctx context.Context, pipelineInfo *pps.PipelineInfo) func() {
-	pipeline := pipelineInfo.Pipeline.Name
 	return startMonitorThread(ctx,
-		"monitorCrashingPipeline for "+pipeline,
+		fmt.Sprintf("monitorCrashingPipeline for %s", pipelineInfo.Pipeline),
 		func(ctx context.Context) {
 			pc.monitorCrashingPipeline(ctx, pipelineInfo)
 		})
@@ -93,7 +92,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 		if in.Cron != nil {
 			eg.Go(func() error {
 				return backoff.RetryNotify(func() error {
-					return makeCronCommits(ctx, pc.env, pipelineInfo.Pipeline.Project, in)
+					return makeCronCommits(ctx, pc.env, in)
 				}, backoff.NewInfiniteBackOff(),
 					backoff.NotifyCtx(ctx, "cron for "+in.Cron.Name))
 			})
@@ -113,7 +112,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 					return nil
 				})
 			}, backoff.NewInfiniteBackOff(),
-				backoff.NotifyCtx(ctx, "SubscribeCommit for "+pipelineName))
+				backoff.NotifyCtx(ctx, "SubscribeCommit for "+pipelineInfo.Pipeline.String()))
 		})
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
@@ -251,8 +250,6 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 }
 
 func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
-	projectName := pipelineInfo.Pipeline.Project.GetName()
-	pipelineName := pipelineInfo.Pipeline.Name
 	ctx, cancelInner := context.WithCancel(ctx)
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		currRC, _, err := pc.getRC(ctx, pipelineInfo)
@@ -260,8 +257,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 			return err
 		}
 		parallelism := int(*currRC.Spec.Replicas)
-		workerStatus, err := workerserver.Status(ctx, projectName, pipelineName, pipelineInfo.Version,
-			pc.env.EtcdClient, pc.etcdPrefix, pc.env.Config.PPSWorkerPort)
+		workerStatus, err := workerserver.Status(ctx, pipelineInfo, pc.env.EtcdClient, pc.etcdPrefix, pc.env.Config.PPSWorkerPort)
 		if err != nil {
 			return errors.Wrap(err, "could not check if all workers are up")
 		}
@@ -284,9 +280,9 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 	}
 }
 
-func cronTick(pachClient *client.APIClient, now time.Time, project *pfs.Project, cron *pps.CronInput) error {
+func cronTick(pachClient *client.APIClient, now time.Time, cron *pps.CronInput) error {
 	return pachClient.WithModifyFileClient(
-		client.NewProjectRepo(project.GetName(), cron.Repo).NewCommit("master", ""),
+		client.NewProjectRepo(cron.Project, cron.Repo).NewCommit("master", ""),
 		func(m client.ModifyFile) error {
 			if cron.Overwrite {
 				if err := m.DeleteFile("/"); err != nil {
@@ -299,13 +295,13 @@ func cronTick(pachClient *client.APIClient, now time.Time, project *pfs.Project,
 
 // makeCronCommits makes commits to a single cron input's repo. It's
 // a helper function called by monitorPipeline.
-func makeCronCommits(ctx context.Context, env Env, project *pfs.Project, in *pps.Input) error {
+func makeCronCommits(ctx context.Context, env Env, in *pps.Input) error {
 	schedule, err := cron.ParseStandard(in.Cron.Spec)
 	if err != nil {
 		return errors.EnsureStack(err) // Shouldn't happen, as the input is validated in CreatePipeline
 	}
 	pachClient := env.GetPachClient(ctx)
-	latestTime, err := getLatestCronTime(ctx, env, project, in)
+	latestTime, err := getLatestCronTime(ctx, env, in)
 	if err != nil {
 		return err
 	}
@@ -322,7 +318,7 @@ func makeCronCommits(ctx context.Context, env Env, project *pfs.Project, in *pps
 		case <-ctx.Done():
 			return errors.EnsureStack(ctx.Err())
 		}
-		if err := cronTick(pachClient, next, project, in.Cron); err != nil {
+		if err := cronTick(pachClient, next, in.Cron); err != nil {
 			return err
 		}
 		// set latestTime to the next time
@@ -334,10 +330,10 @@ func makeCronCommits(ctx context.Context, env Env, project *pfs.Project, in *pps
 // 'in's most recently executed cron tick was and returns it (or, if no cron
 // ticks are in 'in's cron repo, it retuns the 'Start' time set in 'in.Cron'
 // (typically set by 'pachctl extract')
-func getLatestCronTime(ctx context.Context, env Env, project *pfs.Project, in *pps.Input) (time.Time, error) {
+func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (time.Time, error) {
 	var latestTime time.Time
 	pachClient := env.GetPachClient(ctx)
-	files, err := pachClient.ListFileAll(client.NewProjectCommit(project.GetName(), in.Cron.Repo, "master", ""), "")
+	files, err := pachClient.ListFileAll(client.NewProjectCommit(in.Cron.Project, in.Cron.Repo, "master", ""), "")
 	if err != nil {
 		return latestTime, err
 	} else if err != nil || len(files) == 0 {

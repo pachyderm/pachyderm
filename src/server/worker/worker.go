@@ -108,7 +108,8 @@ func (w *Worker) worker() {
 func (w *Worker) master(env serviceenv.ServiceEnv) {
 	pipelineInfo := w.driver.PipelineInfo()
 	logger := logs.NewMasterLogger(pipelineInfo)
-	lockPath := path.Join(env.Config().PPSEtcdPrefix, masterLockPath, pipelineInfo.Pipeline.Name, pipelineInfo.Details.Salt)
+	var projectName = pipelineInfo.Pipeline.Project.GetName()
+	lockPath := path.Join(env.Config().PPSEtcdPrefix, masterLockPath, projectName, pipelineInfo.Pipeline.Name, pipelineInfo.Details.Salt)
 	masterLock := dlock.NewDLock(env.GetEtcdClient(), lockPath)
 
 	b := backoff.NewInfiniteBackOff()
