@@ -543,3 +543,29 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
 }
+
+func PutNamespace(t testing.TB, namespace string) {
+	kube := testutil.GetKubeClient(t)
+	if _, err := kube.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{}); err != nil {
+		_, err := kube.CoreV1().Namespaces().Create(context.Background(),
+			&v1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespace,
+				},
+			},
+			metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
+}
+
+// Deploy pachyderm using a `helm upgrade ...`
+// returns an API Client corresponding to the deployment
+func UpgradeRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
+	return putRelease(t, ctx, namespace, kubeClient, helmLock(helm.UpgradeE), opts)
+}
+
+// Deploy pachyderm using a `helm install ...`
+// returns an API Client corresponding to the deployment
+func InstallRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
+	return putRelease(t, ctx, namespace, kubeClient, helmLock(helm.InstallE), opts)
+}
