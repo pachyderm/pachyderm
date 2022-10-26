@@ -27,8 +27,8 @@ describe('switching between repo and datum mode', () => {
       .should('contain', 'cross:');
     cy.findByTestId('Datum__back').click();
 
-    cy.wait(3000);
-    cy.findAllByText('Unmount').should('have.length', 2);
+    // cy.wait(3000);
+    cy.findAllByText('Unmount', {timeout: 6000}).should('have.length', 2);
     cy.findAllByText('images').first().click();
     cy.findAllByText('liberty.png').should('have.length', 1);
     cy.findAllByText('images_branch').first().click();
@@ -44,10 +44,10 @@ describe('switching between repo and datum mode', () => {
     cy.findByTestId('Datum__inputSpecInput')
       .invoke('prop', 'value')
       .should('contain', 'name: images_branch');
-    cy.findByTestId('Datum__inputSpecInput')
+    cy.findByTestId('Datum__inputSpecInput', {timeout: 10000})
       .clear()
-      .type('abcd')
-      .should('contain', 'abcd');
+      .type('name: images_branch_custom')
+      .should('contain', 'name: images_branch_custom');
     cy.findByTestId('Datum__back').click();
 
     cy.findAllByText('Unmount').should('have.length', 1);
@@ -55,6 +55,6 @@ describe('switching between repo and datum mode', () => {
     cy.findByTestId('Datum__mode').click();
     cy.findByTestId('Datum__inputSpecInput')
       .invoke('prop', 'value')
-      .should('contain', 'abcd');
+      .should('contain', 'name: images_branch_custom');
   });
 });
