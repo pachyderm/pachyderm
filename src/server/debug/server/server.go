@@ -713,11 +713,28 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, tw *tar.Writer, pod, 
 		return nil
 	}
 	return collectDebugFile(tw, "logs-loki", "txt", func(w io.Writer) error {
+		var timeUntilExpiration time.Duration
+		if t, ok := ctx.Deadline(); ok {
+			timeUntilExpiration = time.Until(t)
+		}
+		log.Infof("getting loki logs for pod %s container %s prefix %v, time remaining: %s", pod, container, prefix, timeUntilExpiration.String())
 		queryStr := `{pod="` + pod
 		if container != "" {
 			queryStr += `", container="` + container
 		}
 		queryStr += `"}`
+
+		var skip error
+		select {
+		case <-ctx.Done():
+			skip = ctx.Err()
+		default:
+		}
+		if skip != nil {
+			fmt.Fprintf(w, "context not active; not getting loki logs: %v\n", skip)
+			return nil
+		}
+
 		logs, err := s.queryLoki(ctx, queryStr)
 		if err != nil {
 			return errors.EnsureStack(err)
@@ -754,6 +771,8 @@ func collectDump(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefi
 
 func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
+		name := pipelineInfo.GetPipeline().GetName()
+		log.Infof("collecting debug file for pipeline %v", name)
 		if err := collectDebugFile(tw, "spec", "json", func(w io.Writer) error {
 			fullPipelineInfos, err := pachClient.ListProjectPipelineHistory(pfs.DefaultProjectName, pipelineInfo.Pipeline.Name, -1, true)
 			if err != nil {
@@ -768,31 +787,41 @@ func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 		}, prefix...); err != nil {
 			return err
 		}
+		log.Infof("collecting commits for pipeline %v", name)
 		if err := s.collectCommits(ctx, tw, pachClient, client.NewProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
 			return err
 		}
+		log.Infof("collecting jobs for pipeline %v", name)
 		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline.Name, limit, prefix...); err != nil {
 			return err
 		}
+		log.Infof("done with jobs, commits, debug file for pipeline %v", name)
 		if os.Getenv(s.env.Config().LokiHostVar) != "" {
-			if err := s.forEachWorkerLoki(ctx, pipelineInfo, func(pod string) error {
+			log.Infof("collecting loki logs for pipeline %v", name)
+			tctx, c := context.WithTimeout(ctx, time.Minute)
+			defer c()
+			if err := s.forEachWorkerLoki(tctx, pipelineInfo, func(pod string) error {
+				log.Infof("collecting loki logs for pipeline %v pod %v", name, pod)
+				defer log.Infof("done collecting loki logs for pipeline %v pod %v", name, pod)
 				workerPrefix := join(podPrefix, pod)
 				if len(prefix) > 0 {
 					workerPrefix = join(prefix[0], workerPrefix)
 				}
 				userPrefix := join(workerPrefix, client.PPSWorkerUserContainerName)
-				if err := s.collectLogsLoki(ctx, tw, pod, client.PPSWorkerUserContainerName, userPrefix); err != nil {
+				if err := s.collectLogsLoki(tctx, tw, pod, client.PPSWorkerUserContainerName, userPrefix); err != nil {
 					return err
 				}
 				sidecarPrefix := join(workerPrefix, client.PPSWorkerSidecarContainerName)
-				return s.collectLogsLoki(ctx, tw, pod, client.PPSWorkerSidecarContainerName, sidecarPrefix)
+				return s.collectLogsLoki(tctx, tw, pod, client.PPSWorkerSidecarContainerName, sidecarPrefix)
 			}); err != nil {
 				name := "loki"
 				if len(prefix) > 0 {
 					name = join(prefix[0], name)
 				}
+				log.Errorf("ending loki log collection early for pipeline %v: %v", name, err)
 				return writeErrorFile(tw, err, name)
 			}
+			log.Infof("done collecting loki logs for pipeline %v", name)
 		}
 		return nil
 	}
