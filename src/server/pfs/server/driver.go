@@ -1684,7 +1684,6 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	if err := ancestry.ValidateName(branch.Name); err != nil {
 		return err
 	}
-
 	// resolve the given commit
 	var ci *pfs.CommitInfo
 	if commit != nil {
@@ -1696,10 +1695,8 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}
 	// Retrieve (and create, if necessary) the current version of this branch
 	branchInfo := &pfs.BranchInfo{}
-	var oldProvenance []*pfs.Branch
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Upsert(branch, branchInfo, func() error {
 		branchInfo.Branch = branch
-		oldProvenance = branchInfo.DirectProvenance
 		branchInfo.DirectProvenance = nil
 		for _, provBranch := range provenance {
 			if proto.Equal(provBranch.Repo, branch.Repo) {
@@ -1771,7 +1768,6 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 			}
 		}
 	}
-
 	// Add the new branch to the repo info
 	repoInfo := &pfs.RepoInfo{}
 	if err := d.repos.ReadWrite(txnCtx.SqlTx).Update(branch.Repo, repoInfo, func() error {
@@ -1780,36 +1776,14 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}); err != nil {
 		return errors.EnsureStack(err)
 	}
-	// If the branch still has no head, create an empty commit on it so that we
-	// can maintain an invariant that branches always have a head commit.
-	branchKeys := func(bs []*pfs.Branch) []string {
-		var keys []string
-		for _, b := range bs {
-			keys = append(keys, pfsdb.BranchKey(b))
-		}
-		sort.Strings(keys)
-		return keys
-	}
-	sameBranches := func(as []*pfs.Branch, bs []*pfs.Branch) bool {
-		aKeys, bKeys := branchKeys(as), branchKeys(bs)
-		if len(as) == len(bs) {
-			for i, a := range aKeys {
-				if bKeys[i] != a {
-					return false
-				}
-			}
-			return true
-		}
-		return false
-	}
-	if branchInfo.Head == nil || !sameBranches(oldProvenance, provenance) {
-		branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo)
-		if err != nil {
-			return err
-		}
-	}
-
 	if commit != nil && ci.Finished != nil {
+		// head may have been set during calls to addBranchProvenance(). Reload the branchInfo.
+		if branchInfo.Head == nil {
+			if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(branchInfo.Branch, branchInfo); err != nil {
+				return err
+			}
+
+		}
 		if err = d.triggerCommit(txnCtx, branchInfo.Head); err != nil {
 			return err
 		}
