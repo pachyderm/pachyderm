@@ -18,22 +18,18 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
+var valueOverrides map[string]string
+
 func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	t.Parallel()
 	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
 	opts := &minikubetestenv.DeployOpts{
-		AuthUser:    auth.RootUser,
-		Enterprise:  true,
-		PortOffset:  portOffset,
-		DisableLoki: true,
+		AuthUser:   auth.RootUser,
+		Enterprise: true,
+		PortOffset: portOffset,
 	}
-	opts.ValueOverrides = map[string]string{
-		"postgresql.image.repository": "pachyderm/postgresql",
-		"postgresql.image.tag":        "13.3.0",
-		"etcd.image.tag":              "v3.5.2",
-		"pgbouncer.image.tag":         "1.17.0",
-		"kubeEventTail.image.tag":     "0.0.0-dc32b3762ef4c6894b576bb4ac2f3f3c706a38fc"}
+	opts.ValueOverrides = valueOverrides
 	// Test Install
 	minikubetestenv.PutNamespace(t, ns)
 	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
@@ -79,14 +75,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 		AuthUser:         auth.RootUser,
 		EnterpriseServer: true,
 		CleanupAfter:     true,
-		DisableLoki:      true,
-		ValueOverrides: map[string]string{
-			"postgresql.image.repository": "pachyderm/postgresql",
-			"postgresql.image.tag":        "13.3.0",
-			"etcd.image.tag":              "v3.5.2",
-			"pgbouncer.image.tag":         "1.17.0",
-			"kubeEventTail.image.tag":     "0.0.0-dc32b3762ef4c6894b576bb4ac2f3f3c706a38fc",
-		},
+		ValueOverrides:   valueOverrides,
 	})
 	whoami, err := ec.AuthAPIClient.WhoAmI(ec.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
@@ -99,14 +88,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 		Enterprise:       true,
 		PortOffset:       portOffset,
 		CleanupAfter:     true,
-		DisableLoki:      true,
-		ValueOverrides: map[string]string{
-			"postgresql.image.repository": "pachyderm/postgresql",
-			"postgresql.image.tag":        "13.3.0",
-			"etcd.image.tag":              "v3.5.2",
-			"pgbouncer.image.tag":         "1.17.0",
-			"kubeEventTail.image.tag":     "0.0.0-dc32b3762ef4c6894b576bb4ac2f3f3c706a38fc",
-		},
+		ValueOverrides:   valueOverrides,
 	})
 	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
