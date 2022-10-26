@@ -25,10 +25,10 @@ describe('switching between repo and datum mode', () => {
     cy.findByTestId('Datum__inputSpecInput')
       .invoke('prop', 'value')
       .should('contain', 'cross:');
-    cy.findByTestId('Datum__back', {timeout: 6000}).click();
+    cy.findByTestId('Datum__back').click();
 
-    // cy.wait(3000);
     cy.findAllByText('Unmount').should('have.length', 2);
+    cy.wait(0);
     cy.findAllByText('images').first().click();
     cy.findAllByText('liberty.png').should('have.length', 1);
     cy.findAllByText('images_branch').first().click();
