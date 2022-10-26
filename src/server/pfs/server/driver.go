@@ -1717,34 +1717,6 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}); err != nil {
 		return errors.EnsureStack(err)
 	}
-	// If the branch still has no head, create an empty commit on it so that we
-	// can maintain an invariant that branches always have a head commit.
-	branchKeys := func(bs []*pfs.Branch) []string {
-		var keys []string
-		for _, b := range bs {
-			keys = append(keys, pfsdb.BranchKey(b))
-		}
-		sort.Strings(keys)
-		return keys
-	}
-	sameBranches := func(as []*pfs.Branch, bs []*pfs.Branch) bool {
-		aKeys, bKeys := branchKeys(as), branchKeys(bs)
-		if len(as) == len(bs) {
-			for i, a := range aKeys {
-				if bKeys[i] != a {
-					return false
-				}
-			}
-			return true
-		}
-		return false
-	}
-	if branchInfo.Head == nil || !sameBranches(oldProvenance, provenance) {
-		branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo)
-		if err != nil {
-			return err
-		}
-	}
 	// Update (or create)
 	// 1) 'branch's Provenance
 	// 2) the Provenance of all branches in 'branch's Subvenance (in the case of an update), and
@@ -1807,6 +1779,34 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		return nil
 	}); err != nil {
 		return errors.EnsureStack(err)
+	}
+	// If the branch still has no head, create an empty commit on it so that we
+	// can maintain an invariant that branches always have a head commit.
+	branchKeys := func(bs []*pfs.Branch) []string {
+		var keys []string
+		for _, b := range bs {
+			keys = append(keys, pfsdb.BranchKey(b))
+		}
+		sort.Strings(keys)
+		return keys
+	}
+	sameBranches := func(as []*pfs.Branch, bs []*pfs.Branch) bool {
+		aKeys, bKeys := branchKeys(as), branchKeys(bs)
+		if len(as) == len(bs) {
+			for i, a := range aKeys {
+				if bKeys[i] != a {
+					return false
+				}
+			}
+			return true
+		}
+		return false
+	}
+	if branchInfo.Head == nil || !sameBranches(oldProvenance, provenance) {
+		branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo)
+		if err != nil {
+			return err
+		}
 	}
 
 	if commit != nil && ci.Finished != nil {
