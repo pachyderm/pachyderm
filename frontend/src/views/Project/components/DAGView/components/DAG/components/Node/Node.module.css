@@ -55,3 +55,21 @@ rect.node{
   paint-order: stroke;
   filter: url('#node-dropshadow');
 }
+
+.pipelineSimplifiedBox.node {
+  fill: var(--green);
+  stroke-width: 0;
+  opacity: 0.3;
+}
+
+.pipelineSimplifiedBoxError.node {
+  fill: var(--error-red);
+  stroke-width: 0;
+  opacity: 0.3;
+}
+
+.repoSimplifiedBox.node {
+  fill: var(--pachyderm-green);
+  stroke-width: 0;
+  opacity: 0.3;
+}

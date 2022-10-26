@@ -223,7 +223,7 @@ const customerTeam = [
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('joint_call'))
-    .setLastJobState(JobState.JOB_SUCCESS)
+    .setLastJobState(JobState.JOB_KILLED)
     .setState(PipelineState.PIPELINE_FAILURE)
     .setDetails(
       new PipelineInfo.Details()

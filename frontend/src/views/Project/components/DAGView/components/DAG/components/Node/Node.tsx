@@ -12,7 +12,7 @@ import {
   ChevronRightSVG,
 } from '@pachyderm/components';
 import classNames from 'classnames';
-import React from 'react';
+import React, {SVGProps} from 'react';
 
 import {Node as GraphQLNode} from '@dash-frontend/lib/types';
 import {NODE_INPUT_REPO} from '@dash-frontend/views/Project/constants/nodeSizes';
@@ -22,13 +22,9 @@ import {ReactComponent as EgressSVG} from './DagEgress.svg';
 import useNode from './hooks/useNode';
 import styles from './Node.module.css';
 
-type NodeIconProps = {
+interface NodeIconProps extends SVGProps<SVGSVGElement> {
   state: GraphQLNode['state'];
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-};
+}
 
 const NodeStateIcon = ({state, ...rest}: NodeIconProps) => {
   switch (state) {
@@ -52,6 +48,8 @@ type NodeProps = {
   isInteractive: boolean;
   nodeWidth: number;
   nodeHeight: number;
+  hideDetails?: boolean;
+  showSimple?: boolean;
 };
 
 const NODE_ICON_X_OFFSET = 90;
@@ -72,6 +70,8 @@ const Node: React.FC<NodeProps> = ({
   isInteractive,
   nodeHeight,
   nodeWidth,
+  hideDetails = false,
+  showSimple = false,
 }) => {
   const {
     isHovered,
@@ -83,7 +83,7 @@ const Node: React.FC<NodeProps> = ({
     groupName,
     isEgress,
     showSuccess,
-  } = useNode(node, isInteractive);
+  } = useNode(node, isInteractive, hideDetails);
 
   const pipelineClasses = classNames(styles.buttonGroup, {
     [styles.interactive]: isInteractive,
@@ -110,20 +110,26 @@ const Node: React.FC<NodeProps> = ({
         onMouseOut={onMouseOut}
       >
         <rect
-          className={styles.node}
+          className={classNames(styles.node, {
+            [styles.repoSimplifiedBox]: showSimple,
+          })}
           width={nodeWidth}
           height={NODE_INPUT_REPO}
-          rx={3}
-          ry={3}
+          rx={showSimple ? 15 : 3}
+          ry={showSimple ? 15 : 3}
         />
-        <text {...textElementProps} />
-        <g transform="scale(0.75)">
-          {node.access ? (
-            <RepoSVG x={15} y={21} />
-          ) : (
-            <LockSVG color="var(--disabled-tertiary)" x={15} y={23} />
-          )}
-        </g>
+        {!hideDetails && (
+          <>
+            <text {...textElementProps} />
+            <g transform="scale(0.75)">
+              {node.access ? (
+                <RepoSVG x={15} y={21} />
+              ) : (
+                <LockSVG color="var(--disabled-tertiary)" x={15} y={23} />
+              )}
+            </g>
+          </>
+        )}
       </g>
     );
   }
@@ -155,110 +161,124 @@ const Node: React.FC<NodeProps> = ({
       <rect
         width={nodeWidth}
         height={nodeHeight}
-        className={classNames(styles.node)}
-        rx={3}
-        ry={3}
+        className={classNames(styles.node, {
+          [styles.pipelineSimplifiedBox]:
+            showSimple && node.jobState !== NodeState.ERROR,
+          [styles.pipelineSimplifiedBoxError]:
+            showSimple && node.jobState === NodeState.ERROR,
+        })}
+        rx={showSimple ? 20 : 3}
+        ry={showSimple ? 20 : 3}
       />
-      <line
-        x1="0"
-        y1={nodeHeight - BUTTON_HEIGHT}
-        x2={nodeWidth}
-        y2={nodeHeight - BUTTON_HEIGHT}
-        className={styles.line}
-        stroke="black"
-      />
-      <text {...textElementProps} />
-
-      {visiblePipelineStatus && (
-        <g
-          id="pipeineStatusGroup"
-          data-testid={`Node__state-${node.state}`}
-          transform={`translate (${
-            nodeWidth - NODE_ICON_X_OFFSET - 8
-          }, ${NODE_ICON_Y_OFFSET}) scale(0.6)`}
-        >
-          <rect
-            width={44 / 0.6}
-            height={19 / 0.6}
-            className={styles.statusRect}
-            rx={8}
-            ry={8}
-          />
-          <NodeStateIcon state={node.state} x={10} y={6} />
-          <PipelineSVG x={42} y={6} />
+      {hideDetails && !showSimple && node.jobState === NodeState.ERROR && (
+        <g transform="scale (1.75)">
+          <NodeStateIcon state={node.jobState} x={45} y={17} />
+          <JobsSVG x={70} y={17} />
         </g>
       )}
-
-      <g
-        id="jobStatusGroup"
-        data-testid={`Node__state-${node.jobState}`}
-        transform={`translate (${
-          nodeWidth - NODE_ICON_X_OFFSET / 2 - 4
-        }, ${NODE_ICON_Y_OFFSET}) scale(0.6)`}
-      >
-        <rect
-          width={44 / 0.6}
-          height={19 / 0.6}
-          className={styles.statusRect}
-          rx={8}
-          ry={8}
-        />
-        <NodeStateIcon state={node.jobState} x={10} y={6} />
-        <JobsSVG x={42} y={6} />
-      </g>
-
-      <g
-        id="pipelineButtonGroup"
-        transform={`translate (0, ${nodeHeight - BUTTON_HEIGHT})`}
-        onMouseOver={onMouseOver}
-        onMouseOut={onMouseOut}
-        onClick={() => onClick('pipeline')}
-        className={pipelineClasses}
-      >
-        <rect width={BUTTON_WIDTH} height={BUTTON_HEIGHT} rx={3} ry={3} />
-
-        <g transform="scale(0.75)">
-          {node.access ? (
-            <PipelineSVG x={15} y={23} />
-          ) : (
-            <LockSVG color="var(--disabled-tertiary)" x={15} y={23} />
+      {!hideDetails && (
+        <>
+          <text {...textElementProps} />
+          <line
+            x1="0"
+            y1={nodeHeight - BUTTON_HEIGHT}
+            x2={nodeWidth}
+            y2={nodeHeight - BUTTON_HEIGHT}
+            className={styles.line}
+            stroke="black"
+          />
+          {visiblePipelineStatus && (
+            <g
+              id="pipeineStatusGroup"
+              data-testid={`Node__state-${node.state}`}
+              transform={`translate (${
+                nodeWidth - NODE_ICON_X_OFFSET - 8
+              }, ${NODE_ICON_Y_OFFSET}) scale(0.6)`}
+            >
+              <rect
+                width={44 / 0.6}
+                height={19 / 0.6}
+                className={styles.statusRect}
+                rx={8}
+                ry={8}
+              />
+              <NodeStateIcon state={node.state} x={10} y={6} />
+              <PipelineSVG x={42} y={6} />
+            </g>
           )}
-        </g>
-        <text {...textElementProps} x={32} y={26}>
-          Pipeline
-        </text>
-      </g>
 
-      <g transform={`scale(0.6)`}>
-        <ChevronRightSVG
-          x={nodeWidth / 2 / 0.6 - 10}
-          y={nodeHeight / 0.6 - 28 / 0.6}
-        />
-      </g>
+          <g
+            id="jobStatusGroup"
+            data-testid={`Node__state-${node.jobState}`}
+            transform={`translate (${
+              nodeWidth - NODE_ICON_X_OFFSET / 2 - 4
+            }, ${NODE_ICON_Y_OFFSET}) scale(0.6)`}
+          >
+            <rect
+              width={44 / 0.6}
+              height={19 / 0.6}
+              className={styles.statusRect}
+              rx={8}
+              ry={8}
+            />
+            <NodeStateIcon state={node.jobState} x={10} y={6} />
+            <JobsSVG x={42} y={6} />
+          </g>
 
-      <g
-        id="repoButtonGroup"
-        transform={`translate (${BUTTON_WIDTH + 20}, ${
-          nodeHeight - BUTTON_HEIGHT
-        })`}
-        onMouseOver={onMouseOver}
-        onMouseOut={onMouseOut}
-        onClick={() => onClick('repo')}
-        className={repoClasses}
-      >
-        <rect width={BUTTON_WIDTH} height={BUTTON_HEIGHT} rx={3} ry={3} />
+          <g
+            id="pipelineButtonGroup"
+            transform={`translate (0, ${nodeHeight - BUTTON_HEIGHT})`}
+            onMouseOver={onMouseOver}
+            onMouseOut={onMouseOut}
+            onClick={() => onClick('pipeline')}
+            className={pipelineClasses}
+          >
+            <rect width={BUTTON_WIDTH} height={BUTTON_HEIGHT} rx={3} ry={3} />
 
-        <g transform="scale(0.75)">
-          {node.access ? (
-            <RepoSVG x={15} y={23} />
-          ) : (
-            <LockSVG color="var(--disabled-tertiary)" x={15} y={23} />
-          )}
-        </g>
-        <text {...textElementProps} x={32} y={26}>
-          Output
-        </text>
-      </g>
+            <g transform="scale(0.75)">
+              {node.access ? (
+                <PipelineSVG x={15} y={23} />
+              ) : (
+                <LockSVG color="var(--disabled-tertiary)" x={15} y={23} />
+              )}
+            </g>
+            <text {...textElementProps} x={32} y={26}>
+              Pipeline
+            </text>
+          </g>
+
+          <g transform={`scale(0.6)`}>
+            <ChevronRightSVG
+              x={nodeWidth / 2 / 0.6 - 10}
+              y={nodeHeight / 0.6 - 28 / 0.6}
+            />
+          </g>
+
+          <g
+            id="repoButtonGroup"
+            transform={`translate (${BUTTON_WIDTH + 20}, ${
+              nodeHeight - BUTTON_HEIGHT
+            })`}
+            onMouseOver={onMouseOver}
+            onMouseOut={onMouseOut}
+            onClick={() => onClick('repo')}
+            className={repoClasses}
+          >
+            <rect width={BUTTON_WIDTH} height={BUTTON_HEIGHT} rx={3} ry={3} />
+
+            <g transform="scale(0.75)">
+              {node.access ? (
+                <RepoSVG x={15} y={23} />
+              ) : (
+                <LockSVG color="var(--disabled-tertiary)" x={15} y={23} />
+              )}
+            </g>
+            <text {...textElementProps} x={32} y={26}>
+              Output
+            </text>
+          </g>
+        </>
+      )}
     </g>
   );
 };

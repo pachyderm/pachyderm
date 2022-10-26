@@ -11,7 +11,7 @@ import deriveRepoNameFromNode from 'lib/deriveRepoNameFromNode';
 
 const LABEL_WIDTH = NODE_WIDTH - 24;
 
-const useNode = (node: Node, isInteractive: boolean) => {
+const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
   const {
     navigateToNode,
     selectedPipeline,
@@ -81,6 +81,8 @@ const useNode = (node: Node, isInteractive: boolean) => {
   }, [groupName, node]);
 
   useEffect(() => {
+    if (hideDetails) return;
+
     const text = select<SVGGElement, Node>(
       `#${groupName}`,
     ).select<SVGTextElement>('.nodeLabel');
@@ -114,7 +116,7 @@ const useNode = (node: Node, isInteractive: boolean) => {
         }
       }
     }
-  }, [node, groupName]);
+  }, [node, groupName, hideDetails]);
 
   const isHovered = useMemo(
     () => hoveredNode === node.id,

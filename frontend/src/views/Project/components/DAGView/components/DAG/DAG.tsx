@@ -11,6 +11,9 @@ import useDag from './hooks/useDag';
 
 const DAG_TOP_PADDING = 30;
 const DAG_SIDE_PADDING = 200;
+const HIDE_DETAILS_THRESHOLD = 0.6;
+const SIMPLE_DAG_THRESHOLD = 0.3;
+
 type DagProps = {
   dagsToShow: number;
   data: Dag;
@@ -20,6 +23,7 @@ type DagProps = {
   isInteractive?: boolean;
   rotateDag: () => void;
   dagDirection: DagDirection;
+  largeDagMode?: boolean;
   forceFullRender?: boolean;
 };
 
@@ -30,6 +34,7 @@ const DAG: React.FC<DagProps> = ({
   nodeHeight,
   isInteractive = true,
   dagDirection,
+  largeDagMode = false,
   forceFullRender = false,
 }) => {
   const {rectBox, translateX, translateY, scale, svgWidth, svgHeight} = useDag({
@@ -50,25 +55,28 @@ const DAG: React.FC<DagProps> = ({
         height={rectBox.height}
       />
       {/* Ordering of links and nodes in DOM is important so nodes are on top layer */}
-      {data.links.map((link) => {
-        // only render links within DAG canvas boundaries
-        const [linkMinX, linkMaxX] = [link.startPoint.x, link.endPoint.x]
-          .sort((a, b) => a - b)
-          .map((p) => p * scale + translateX + DAG_SIDE_PADDING);
-        const [linkMinY, linkMaxY] = [link.startPoint.y, link.endPoint.y]
-          .sort((a, b) => a - b)
-          .map((p) => p * scale + translateY + DAG_TOP_PADDING);
-        if (
-          forceFullRender ||
-          (linkMaxX > DAG_SIDE_PADDING &&
-            linkMaxY > DAG_TOP_PADDING &&
-            linkMinX < svgWidth + DAG_SIDE_PADDING &&
-            linkMinY < svgHeight)
-        ) {
-          return <Link key={link.id} link={link} dagDirection={dagDirection} />;
-        }
-        return null;
-      })}
+      {(!largeDagMode || forceFullRender || scale >= SIMPLE_DAG_THRESHOLD) &&
+        data.links.map((link) => {
+          // only render links within DAG canvas boundaries
+          const [linkMinX, linkMaxX] = [link.startPoint.x, link.endPoint.x]
+            .sort((a, b) => a - b)
+            .map((p) => p * scale + translateX + DAG_SIDE_PADDING);
+          const [linkMinY, linkMaxY] = [link.startPoint.y, link.endPoint.y]
+            .sort((a, b) => a - b)
+            .map((p) => p * scale + translateY + DAG_TOP_PADDING);
+          if (
+            forceFullRender ||
+            (linkMaxX > DAG_SIDE_PADDING &&
+              linkMaxY > DAG_TOP_PADDING &&
+              linkMinX < svgWidth + DAG_SIDE_PADDING &&
+              linkMinY < svgHeight)
+          ) {
+            return (
+              <Link key={link.id} link={link} dagDirection={dagDirection} />
+            );
+          }
+          return null;
+        })}
       {data.nodes.map((node) => {
         // only render nodes within DAG canvas boundaries
         const nodeRealX = node.x * scale + translateX + DAG_SIDE_PADDING;
@@ -86,7 +94,12 @@ const DAG: React.FC<DagProps> = ({
               node={node}
               nodeHeight={NODE_HEIGHT}
               nodeWidth={NODE_WIDTH}
-              isInteractive={isInteractive}
+              isInteractive={
+                (!largeDagMode || scale >= HIDE_DETAILS_THRESHOLD) &&
+                isInteractive
+              }
+              hideDetails={largeDagMode && scale < HIDE_DETAILS_THRESHOLD}
+              showSimple={largeDagMode && scale < SIMPLE_DAG_THRESHOLD}
             />
           );
         }

@@ -36,6 +36,8 @@ import styles from './DAGView.module.css';
 import {useCanvasDownload} from './hooks/useCanvasDownload';
 import {MAX_SCALE_VALUE, useDAGView} from './hooks/useDAGView';
 
+const LARGE_DAG_MIN = 50;
+
 const MARKERS = [
   {id: 'end-arrow', color: '#747475'},
   {id: 'end-arrow-active', color: '#6FB3C3'},
@@ -68,9 +70,10 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
     graphExtents,
     projectName,
   );
-  const isResponsive = useBreakpoint(LARGE);
 
+  const isResponsive = useBreakpoint(LARGE);
   const noDags = dags?.length === 0;
+  const totalNodes = dags?.reduce((acc, val) => acc + val.nodes.length, 0) || 0;
 
   const RotateSVGComponent = () => {
     return (
@@ -273,6 +276,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
                   dagsToShow={dags.length}
                   dagDirection={dagDirection}
                   rotateDag={rotateDag}
+                  largeDagMode={totalNodes > LARGE_DAG_MIN}
                   forceFullRender={renderAndDownloadCanvas}
                 />
               );
