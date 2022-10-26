@@ -1196,10 +1196,12 @@ func (m *MountStateMachine) RefreshMountState() error {
 		All:  true,
 	})
 	if err != nil {
+		logrus.Infof("Erroring listing all commits %s", grpcutil.ScrubGRPC(err).Error())
 		return grpcutil.ScrubGRPC(err)
 	}
 	commitInfos, err := clientsdk.ListCommit(listClient)
 	if err != nil {
+		logrus.Infof("Erroring on our sdk ListCommit with %s", err.Error())
 		return err
 	}
 	// reverse slice
