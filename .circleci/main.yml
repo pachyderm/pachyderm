@@ -226,10 +226,10 @@ jobs:
             echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - restore_cache:
           keys:
-            - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+            - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
       - run: etc/testing/circle/install.sh
       - save_cache:
-          key: pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+          key: pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
           paths:
             - cached-deps/
       - go/install:
@@ -243,14 +243,14 @@ jobs:
       - run: "echo $(($(date +%s)/604800)) > current_week"
       - restore_cache:
           keys:
-            - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
-            - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-master-{{ arch }}-{{ checksum "current_week" }}
 
       # Only restore the module cache based on an exact match for go.sum.
       # This also avoids accumulating old versions of modules over time.
       - restore_cache:
           keys:
-            - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+            - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
       - run: make install # Install pachctl
       #Save cache in only one bucket, after build and before running tests,
       #this ensures build cache is saved even when tests fail
@@ -259,11 +259,11 @@ jobs:
             equal: [MISC, <<parameters.bucket>>]
           steps:
             - save_cache:
-                key: pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+                key: pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
                 paths:
                   - /home/circleci/.go_workspace/pkg/mod
             - save_cache:
-                key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
+                key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
                 paths:
                   - /home/circleci/.gocache
       - run: etc/testing/circle/wait-minikube.sh
@@ -455,7 +455,11 @@ jobs:
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
   deploy-tests:
-    resource_class: xlarge
+    parameters:
+      resource_class:
+        type: string
+        default: xlarge
+    resource_class: << parameters.resource_class >>
     machine:
       image: << pipeline.parameters.machine_image >>
     steps:
@@ -471,7 +475,7 @@ jobs:
             echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - restore_cache:
           keys:
-            - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+            - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
       - run: etc/testing/circle/install.sh
       - run:
           name: Collect node stats
@@ -483,17 +487,17 @@ jobs:
       - run: "echo $(($(date +%s)/604800)) > current_week"
       - restore_cache:
           keys:
-            - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
-            - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-master-{{ arch }}-{{ checksum "current_week" }}
       # Only restore the module cache based on an exact match for go.sum.
       # This also avoids accumulating old versions of modules over time.
       # Note: This gets saves in the main test runs, no need to save here
       - restore_cache:
           keys:
-            - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+            - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
       - run: make install # Install pachctl
       - save_cache:
-          key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
+          key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
             - /home/circleci/.gocache
       - run:
@@ -1285,7 +1289,12 @@ workflows:
         - << pipeline.parameters.run-core-jobs >>
         - not: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
-      - deploy-tests
+      - deploy-tests:
+          name: amd64 deploy tests
+          resource_class: xlarge # amd64
+      - deploy-tests:
+          name: arm64 deploy tests
+          resource_class: arm.xlarge # arm64
   jupyter-extension:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
