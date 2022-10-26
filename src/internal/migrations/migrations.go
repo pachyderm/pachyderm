@@ -53,11 +53,6 @@ func (s State) Apply(name string, fn Func) State {
 	}
 }
 
-// Name returns the name of the state
-func (s State) Name() string {
-	return s.name
-}
-
 // Number returns the number of changes to be applied before the state can be actualized.
 // The number of the initial state is 0
 // State number n requires n changes from the initial state.
