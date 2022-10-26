@@ -665,7 +665,7 @@ kubeEventTail:
   image:
     repository: pachyderm/kube-event-tail
     pullPolicy: "IfNotPresent"
-    tag: "v0.0.6"
+    tag: "v0.0.7"
   resources:
     limits:
       cpu: "1"
@@ -683,7 +683,7 @@ pgbouncer:
   tolerations: []
   image:
     repository: pachyderm/pgbouncer
-    tag: 1.16.1-debian-10-r82
+    tag: 1.16.1
   resources:
     {}
     #limits:
@@ -706,6 +706,7 @@ postgresql:
   # dependency in Chart.yaml
   enabled: true
   image:
+    repository: pachyderm/postgresql
     tag: "13.3.0"
   # DEPRECATED from pachyderm 2.1.5
   initdbScripts:
