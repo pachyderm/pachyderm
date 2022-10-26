@@ -23,7 +23,6 @@ import {
   LETS_START_TITLE,
 } from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import View from '@dash-frontend/components/View';
-import downloadSVG from '@dash-frontend/lib/downloadSVG';
 import {DagDirection, Dag} from '@dash-frontend/lib/types';
 import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
 import {LARGE} from 'constants/breakpoints';
@@ -34,6 +33,7 @@ import DAGError from '../DAGError';
 import DAG from './components/DAG';
 import RangeSlider from './components/RangeSlider';
 import styles from './DAGView.module.css';
+import {useCanvasDownload} from './hooks/useCanvasDownload';
 import {MAX_SCALE_VALUE, useDAGView} from './hooks/useDAGView';
 
 const MARKERS = [
@@ -63,6 +63,11 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
     projectName,
     viewState,
   } = useDAGView(NODE_WIDTH, NODE_HEIGHT, dags, loading);
+  const {renderAndDownloadCanvas, downloadCanvas} = useCanvasDownload(
+    viewState,
+    graphExtents,
+    projectName,
+  );
   const isResponsive = useBreakpoint(LARGE);
 
   const noDags = dags?.length === 0;
@@ -78,14 +83,6 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
       </Icon>
     );
   };
-
-  const downloadCanvas = () =>
-    downloadSVG(
-      graphExtents.xMax + 100,
-      graphExtents.yMax + 100,
-      projectName,
-      viewState.globalIdFilter,
-    );
 
   const onDropdownMenuSelect = (id: string) => {
     switch (id) {
@@ -276,6 +273,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
                   dagsToShow={dags.length}
                   dagDirection={dagDirection}
                   rotateDag={rotateDag}
+                  forceFullRender={renderAndDownloadCanvas}
                 />
               );
             })}

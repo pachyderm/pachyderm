@@ -79,44 +79,53 @@ const downloadSVG = (
   height: number,
   projectName?: string,
   globalId?: string,
-) => {
-  const svgCopy = (document.getElementById('Svg')?.cloneNode(true) ||
-    document.createElement('svg')) as Element;
+) =>
+  new Promise((resolve, reject) => {
+    try {
+      const svgCopy = (document.getElementById('Svg')?.cloneNode(true) ||
+        document.createElement('svg')) as Element;
 
-  computeStyles(
-    svgCopy,
-    document.getElementById('Svg') || document.createElement('svg'),
-  );
+      computeStyles(
+        svgCopy,
+        document.getElementById('Svg') || document.createElement('svg'),
+      );
 
-  // set useful attributes on the parent SVG
-  svgCopy.setAttribute('height', String(height + LABEL_PADDING));
-  svgCopy.setAttribute('width', String(width));
-  svgCopy.setAttribute('viewBox', `0 0 ${width} ${height}`);
-  svgCopy.setAttribute('style', 'background-color: #FAFAFA;');
-  (svgCopy.childNodes[1] as Element).setAttribute(
-    'transform',
-    `translate(0, ${LABEL_PADDING})`,
-  );
+      // set useful attributes on the parent SVG
+      svgCopy.setAttribute('height', String(height + LABEL_PADDING));
+      svgCopy.setAttribute('width', String(width));
+      svgCopy.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      svgCopy.setAttribute('style', 'background-color: #FAFAFA;');
+      (svgCopy.childNodes[1] as Element).setAttribute(
+        'transform',
+        `translate(0, ${LABEL_PADDING})`,
+      );
 
-  // embed Public Sans font
-  const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
-  style.type = 'text/css';
-  style.innerHTML = PublicFont;
-  (svgCopy.childNodes[0] as Element).appendChild(style);
+      // embed Public Sans font
+      const style = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'style',
+      );
+      style.type = 'text/css';
+      style.innerHTML = PublicFont;
+      (svgCopy.childNodes[0] as Element).appendChild(style);
 
-  // add date and global id labels to top of SVG
-  addLabel(
-    svgCopy,
-    `"${projectName}" ${format(new Date(), 'MM/dd/yyyy h:mmaaa OOO')}`,
-  );
-  globalId && addLabel(svgCopy, `Global ID ${globalId}`, 2);
+      // add date and global id labels to top of SVG
+      addLabel(
+        svgCopy,
+        `"${projectName}" ${format(new Date(), 'MM/dd/yyyy h:mmaaa OOO')}`,
+      );
+      globalId && addLabel(svgCopy, `Global ID ${globalId}`, 2);
 
-  // export to file
-  const data = new XMLSerializer().serializeToString(svgCopy);
-  const svg = new Blob([data], {type: 'image/svg+xml;charset=utf-8'});
-  const url = window.URL.createObjectURL(svg);
+      // export to file
+      const data = new XMLSerializer().serializeToString(svgCopy);
+      const svg = new Blob([data], {type: 'image/svg+xml;charset=utf-8'});
+      const url = window.URL.createObjectURL(svg);
 
-  downloadURLToFile(url, projectName || 'default_canvas');
-};
+      downloadURLToFile(url, projectName || 'default_canvas');
+      resolve(`${projectName} canvas downloaded`);
+    } catch (e) {
+      reject(e);
+    }
+  });
 
 export default downloadSVG;
