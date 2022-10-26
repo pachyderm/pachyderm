@@ -147,7 +147,7 @@ func AddCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to string) e
 }
 
 func addCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to int) error {
-	stmt := `INSERT INTO pfs.commit_provenance(from_id, to_id) VALUES ($1, $2)`
+	stmt := `INSERT INTO pfs.commit_provenance(from_id, to_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`
 	_, err := tx.ExecContext(ctx, stmt, from, to)
 	return errors.EnsureStack(err)
 }

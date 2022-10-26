@@ -407,6 +407,10 @@ func (a *apiServer) ModifyFile(server pfs.API_ModifyFileServer) (retErr error) {
 	if err != nil {
 		return err
 	}
+	// ensure commit.Repo is always populated
+	if commit.Repo == nil {
+		commit.Repo = commit.Branch.Repo
+	}
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		var bytesRead int64
 		if err := a.driver.modifyFile(server.Context(), commit, func(uw *fileset.UnorderedWriter) error {

@@ -132,6 +132,9 @@ func (a *validatedAPIServer) InspectCommit(ctx context.Context, req *pfs.Inspect
 	if req.Commit == nil {
 		return nil, errors.New("commit cannot be nil")
 	}
+	if req.Commit.Repo == nil {
+		req.Commit.Repo = req.Commit.Branch.Repo
+	}
 	return a.apiServer.InspectCommit(ctx, req)
 }
 

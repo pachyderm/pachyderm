@@ -216,14 +216,11 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create role binding for new repo %q", repo)
 			}
 		}
-		if err := repos.Create(repo, &pfs.RepoInfo{
+		return errors.EnsureStack(repos.Create(repo, &pfs.RepoInfo{
 			Repo:        repo,
 			Created:     txnCtx.Timestamp,
 			Description: description,
-		}); err != nil {
-			return errors.EnsureStack(err)
-		}
-		return errors.EnsureStack(d.createBranch(txnCtx, &pfs.Branch{Name: "master", Repo: repo}, nil, nil, nil))
+		}))
 	}
 }
 
@@ -879,12 +876,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			return errors.EnsureStack(err)
 		}
 		// create open 'commit'
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(newCommit, newCommitInfo); err != nil && col.IsErrExists(err) {
-			return errors.EnsureStack(pfsserver.ErrInconsistentCommit{
-				Commit: newCommit,
-				Branch: newCommit.Branch,
-			})
-		} else if err != nil {
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(newCommit, newCommitInfo); err != nil && !col.IsErrExists(err) {
 			return errors.EnsureStack(err)
 		}
 		// add commit provenance
