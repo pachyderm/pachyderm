@@ -76,6 +76,7 @@ func GetWhoAmI(ctx context.Context) string {
 	return ""
 }
 
+// TODO: Unused. Remove?
 func ClearWhoAmI(ctx context.Context) context.Context {
 	return context.WithValue(ctx, whoAmIResultKey, "")
 }
