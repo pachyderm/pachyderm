@@ -1,4 +1,5 @@
 import {SplitPanel} from '@lumino/widgets';
+import {JSONObject} from '@lumino/coreutils';
 
 export type mountState =
   | 'unmounting'
@@ -33,6 +34,23 @@ export type Repo = {
   repo: string;
   authorization: authorization;
   branches: string[];
+};
+
+export type PfsInput = {
+  pfs: {
+    name?: string;
+    repo: string;
+    branch?: string;
+    commit?: string;
+    files?: string[];
+    glob: string;
+    mode?: string;
+  };
+  cross?: JSONObject;
+};
+
+export type CrossInputSpec = {
+  cross?: PfsInput[];
 };
 
 export type CurrentDatumResponse = {

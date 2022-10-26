@@ -2,21 +2,25 @@ import React from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
 import {useDatum} from './hooks/useDatum';
 import {caretLeftIcon, caretRightIcon} from '@jupyterlab/ui-components';
-import {CurrentDatumResponse} from 'plugins/mount/types';
+import {
+  CrossInputSpec,
+  CurrentDatumResponse,
+  PfsInput,
+} from 'plugins/mount/types';
 
 type DatumProps = {
   showDatum: boolean;
-  setShowDatum: (shouldShow: boolean) => void;
+  setShowDatum: (shouldShow: boolean) => Promise<void>;
   keepMounted: boolean;
   setKeepMounted: (keep: boolean) => void;
   open: (path: string) => void;
   pollRefresh: () => Promise<void>;
   currentDatumInfo?: CurrentDatumResponse;
+  repoViewInputSpec: CrossInputSpec | PfsInput;
 };
 
 const placeholderText = `pfs:
   repo: images
-  branch: dev
   glob: /*
 `;
 
@@ -25,9 +29,10 @@ const Datum: React.FC<DatumProps> = ({
   setShowDatum,
   keepMounted,
   setKeepMounted,
-  currentDatumInfo,
   open,
   pollRefresh,
+  currentDatumInfo,
+  repoViewInputSpec,
 }) => {
   const {
     loading,
@@ -40,7 +45,17 @@ const Datum: React.FC<DatumProps> = ({
     callMountDatums,
     callUnmountAll,
     errorMessage,
-  } = useDatum(showDatum, keepMounted, open, pollRefresh, currentDatumInfo);
+    saveInputSpec,
+    initialInputSpec,
+  } = useDatum(
+    showDatum,
+    keepMounted,
+    setKeepMounted,
+    open,
+    pollRefresh,
+    repoViewInputSpec,
+    currentDatumInfo,
+  );
 
   return (
     <div className="pachyderm-mount-datum-base">
@@ -50,8 +65,9 @@ const Datum: React.FC<DatumProps> = ({
           className="pachyderm-button-link"
           onClick={async () => {
             await callUnmountAll();
+            saveInputSpec();
             setKeepMounted(false);
-            setShowDatum(false);
+            await setShowDatum(false);
           }}
         >
           Back{' '}
@@ -78,7 +94,11 @@ const Datum: React.FC<DatumProps> = ({
             setInputSpec(e.target.value);
           }}
           disabled={loading}
-          placeholder={placeholderText}
+          placeholder={
+            Object.keys(initialInputSpec).length === 0
+              ? placeholderText
+              : undefined
+          }
         ></textarea>
         <span
           className="pachyderm-mount-datum-error"
