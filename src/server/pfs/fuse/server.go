@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gorilla/mux"
 	"github.com/hanwen/go-fuse/v2/fs"
 	gofuse "github.com/hanwen/go-fuse/v2/fuse"
@@ -1189,6 +1190,9 @@ func (m *MountStateMachine) RefreshMountState() error {
 	m.LatestCommit = branchInfo.Head.ID
 
 	logrus.Infof("Calculating how many commits behind...")
+	logrus.Infof("To commit is %s", proto.MarshalTextString((branchInfo.Head)))
+	logrus.Infof("Repo is %s", proto.MarshalTextString((branchInfo.Branch.Repo)))
+	logrus.Infof("To commit repo is %s", proto.MarshalTextString((branchInfo.Head.Branch.Repo)))
 	// calculate how many commits behind LatestCommit ActualMountedCommit is
 	listClient, err := m.manager.Client.PfsAPIClient.ListCommit(m.manager.Client.Ctx(), &pfs.ListCommitRequest{
 		Repo: branchInfo.Branch.Repo,
