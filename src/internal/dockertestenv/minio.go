@@ -50,7 +50,7 @@ func newTestMinioBucket(t testing.TB, client *minio.Client) string {
 	err := client.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{})
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		err := client.RemoveBucketWithOptions(ctx, bucketName, minio.BucketOptions{ForceDelete: true})
+		err := client.RemoveBucketWithOptions(ctx, bucketName, minio.RemoveBucketOptions{ForceDelete: true})
 		require.NoError(t, err)
 	})
 	return bucketName
