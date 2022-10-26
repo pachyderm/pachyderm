@@ -43,10 +43,7 @@ func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txncontext.Transa
 	if userCommit == nil {
 		return errors.New("commit cannot be nil")
 	}
-	if userCommit.Branch == nil {
-		return errors.New("commit branch cannot be nil")
-	}
-	if userCommit.Branch.Repo == nil || userCommit.Repo == nil {
+	if userCommit.Branch == nil && userCommit.Repo == nil {
 		return errors.New("commit repo cannot be nil")
 	}
 	if err := a.auth.CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Permission_REPO_WRITE); err != nil {
@@ -87,11 +84,8 @@ func (a *validatedAPIServer) WalkFile(request *pfs.WalkFileRequest, server pfs.A
 	if file.Commit == nil {
 		return errors.New("file commit cannot be nil")
 	}
-	if file.Commit.Branch == nil {
-		return errors.New("file branch cannot be nil")
-	}
-	if file.Commit.Branch.Repo == nil {
-		return errors.New("file commit repo cannot be nil")
+	if file.Commit.Repo == nil && file.Commit.Branch == nil {
+		return errors.New("either the branch or repo must be set on the file commit repo")
 	}
 	if err := a.auth.CheckRepoIsAuthorized(server.Context(), file.Commit.Branch.Repo, auth.Permission_REPO_READ, auth.Permission_REPO_LIST_FILE); err != nil {
 		return errors.EnsureStack(err)
