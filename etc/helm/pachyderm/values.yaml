@@ -658,7 +658,7 @@ kubeEventTail:
   image:
     repository: pachyderm/kube-event-tail
     pullPolicy: "IfNotPresent"
-    tag: "v0.0.6"
+    tag: "v0.0.7"
   resources:
     limits:
       cpu: "1"
