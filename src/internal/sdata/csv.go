@@ -11,8 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/sdata/csv"
 )
 
-const NULL = ""
-
 // CSVWriter writes Tuples in CSV format.
 type CSVWriter struct {
 	cw      *csv.Writer

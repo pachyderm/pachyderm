@@ -1,15 +1,9 @@
 package miscutil
 
-// Min returns the smaller of a and b.
-func Min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
+import "golang.org/x/exp/constraints"
 
-// MinInt64 returns the smaller of a and b.
-func MinInt64(a, b int64) int64 {
+// Min returns the smaller of a and b.
+func Min[T constraints.Ordered](a, b T) T {
 	if a < b {
 		return a
 	}

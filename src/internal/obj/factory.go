@@ -23,24 +23,6 @@ const (
 	StorageBackendEnvVar = "STORAGE_BACKEND"
 )
 
-// StorageRootFromEnv gets the storage root based on environment variables.
-func StorageRootFromEnv(storageRoot string) (string, error) {
-	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
-	if !ok {
-		return "", errors.Errorf("%s not found", StorageBackendEnvVar)
-	}
-	// These storage backends do not like leading slashes
-	switch storageBackend {
-	case Amazon:
-		fallthrough
-	case Minio:
-		if len(storageRoot) > 0 && storageRoot[0] == '/' {
-			storageRoot = storageRoot[1:]
-		}
-	}
-	return storageRoot, nil
-}
-
 // Valid object storage backends
 const (
 	Minio     = "MINIO"
@@ -82,40 +64,6 @@ const (
 	AmazonTokenEnvVar        = "AMAZON_TOKEN"
 	AmazonDistributionEnvVar = "AMAZON_DISTRIBUTION"
 	CustomEndpointEnvVar     = "CUSTOM_ENDPOINT"
-)
-
-// Advanced configuration environment variables
-const (
-	RetriesEnvVar        = "RETRIES"
-	TimeoutEnvVar        = "TIMEOUT"
-	UploadACLEnvVar      = "UPLOAD_ACL"
-	ReverseEnvVar        = "REVERSE"
-	PartSizeEnvVar       = "PART_SIZE"
-	MaxUploadPartsEnvVar = "MAX_UPLOAD_PARTS"
-	DisableSSLEnvVar     = "DISABLE_SSL"
-	NoVerifySSLEnvVar    = "NO_VERIFY_SSL"
-	LogOptionsEnvVar     = "OBJ_LOG_OPTS"
-)
-
-const (
-	// DefaultRetries is the default number of retries for object storage requests.
-	DefaultRetries = 10
-	// DefaultTimeout is the default timeout for object storage requests.
-	DefaultTimeout = "5m"
-	// DefaultUploadACL is the default upload ACL for object storage uploads.
-	DefaultUploadACL = "bucket-owner-full-control"
-	// DefaultReverse is the default for whether to reverse object storage paths or not.
-	DefaultReverse = true
-	// DefaultPartSize is the default part size for object storage uploads.
-	DefaultPartSize = 5242880
-	// DefaultMaxUploadParts is the default maximum number of upload parts.
-	DefaultMaxUploadParts = 10000
-	// DefaultDisableSSL is the default for whether SSL should be disabled.
-	DefaultDisableSSL = false
-	// DefaultNoVerifySSL is the default for whether SSL certificate verification should be disabled.
-	DefaultNoVerifySSL = false
-	// DefaultAwsLogOptions is the default set of enabled S3 client log options
-	DefaultAwsLogOptions = ""
 )
 
 // AmazonAdvancedConfiguration contains the advanced configuration for the amazon client.
@@ -538,15 +486,6 @@ func NewClientFromEnv(storageRoot string) (c Client, err error) {
 	default:
 		return nil, errors.Errorf("unrecognized storage backend: %s", storageBackend)
 	}
-}
-
-// NewClientFromSecret creates a client based on mounted secret files.
-func NewClientFromSecret(storageRoot string) (c Client, err error) {
-	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
-	if !ok {
-		return nil, errors.Errorf("storage backend environment variable not found")
-	}
-	return NewClient(storageBackend, storageRoot)
 }
 
 // NewClient creates an obj.Client using the given backend and storage root (for

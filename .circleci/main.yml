@@ -59,6 +59,8 @@ jobs:
       TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
+      - go/install:
+          version: << pipeline.parameters.go-version >>
       - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
@@ -690,7 +692,7 @@ jobs:
           path: ~/project
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip<< parameters.python-version >>-cache-v11-<< pipeline.git.branch >><< pipeline.git.tag >>-{{ checksum "ci-requirements.txt" }}
+          key: pip<< parameters.python-version >>-cache-v12-<< pipeline.git.branch >>-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -699,7 +701,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip<< parameters.python-version >>-cache-v11-<< pipeline.git.branch >><< pipeline.git.tag >>-{{ checksum "ci-requirements.txt" }}
+          key: pip<< parameters.python-version >>-cache-v12-<< pipeline.git.branch >>-{{ checksum "ci-requirements.txt" }}
           paths:
             - "venv"
 
@@ -840,7 +842,7 @@ jobs:
 
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -849,7 +851,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
           paths:
             - "venv"
 
@@ -889,7 +891,7 @@ jobs:
           at: .
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -898,7 +900,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
           paths:
             - "venv"
       - run:
@@ -924,7 +926,7 @@ jobs:
           at: .
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -933,7 +935,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
           paths:
             - "venv"
       - run:

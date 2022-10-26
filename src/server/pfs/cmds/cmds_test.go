@@ -181,7 +181,7 @@ func TestPutFileNonexistentRepo(t *testing.T) {
 	// restore the order or adopt a different test.
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
                 (pachctl put file {{.repo}}@master:random -f nonexistent-file 2>&1 || true) \
-                  | match "repo {{.repo}} not found"
+                  | match "repo default/{{.repo}} not found"
 `,
 		"repo", repoName).Run())
 }

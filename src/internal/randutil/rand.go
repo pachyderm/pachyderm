@@ -12,8 +12,9 @@ var letters = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 // Bytes generates random bytes (n is number of bytes)
 func Bytes(random *rand.Rand, n int) []byte {
 	bs := make([]byte, n)
-	for i := range bs {
-		bs[i] = letters[random.Intn(len(letters))]
+	random.Read(bs) // Cannot return an error.
+	for i, b := range bs {
+		bs[i] = letters[(uint16(len(letters))*uint16(b))>>8]
 	}
 	return bs
 }
@@ -32,12 +33,13 @@ func NewBytesReader(random *rand.Rand, n int64) *bytesReader {
 }
 
 func (br *bytesReader) Read(data []byte) (int, error) {
-	size := int(miscutil.MinInt64(br.n, int64(len(data))))
+	size := int(miscutil.Min(br.n, int64(len(data))))
+	br.random.Read(data[:size])
 	for i := 0; i < size; i++ {
-		data[i] = letters[br.random.Intn(len(letters))]
+		data[i] = letters[uint16(len(letters))*uint16(data[i])>>8]
 	}
 	br.n -= int64(size)
-	if br.n == 0 {
+	if br.n <= 0 {
 		return size, io.EOF
 	}
 	return size, nil

@@ -389,8 +389,13 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 		// behalf)
 		done := make(map[string]struct{}) // don't double-authorize repos
 		if err := pps.VisitInput(input, func(in *pps.Input) error {
-			var repo string
+			var project, repo string
 			if in.Pfs != nil {
+				if in.Pfs.Project == "" {
+					project = projectName
+				} else {
+					project = in.Pfs.Project
+				}
 				repo = in.Pfs.Repo
 			} else {
 				return nil
@@ -400,7 +405,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 				return nil
 			}
 			done[repo] = struct{}{}
-			err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: repo}, auth.Permission_REPO_READ)
+			err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: project}, Name: repo}, auth.Permission_REPO_READ)
 			return errors.EnsureStack(err)
 		}); err != nil {
 			return err
@@ -430,7 +435,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 		default:
 			return errors.Errorf("internal error, unrecognized operation %v", operation)
 		}
-		if err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: outputName}, required); err != nil {
+		if err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: projectName}, Name: outputName}, required); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -473,6 +478,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if request.Job == nil {
 		return nil, errors.Errorf("must specify a job")
 	}
+	ensurePipelineProject(request.Job.Pipeline)
 	jobs := a.jobs.ReadOnly(ctx)
 	// Make sure the job exists
 	// TODO: there's a race condition between this check and the watch below where
@@ -704,6 +710,7 @@ func (a *apiServer) listJob(
 	f func(*pps.JobInfo) error,
 ) error {
 	if pipeline != nil {
+		ensurePipelineProject(pipeline)
 		// If 'pipeline is set, check that caller has access to the pipeline's
 		// output repo; currently, that's all that's required for ListJob.
 		//
@@ -711,7 +718,7 @@ func (a *apiServer) listJob(
 		// caller without access to a single pipeline's output repo couldn't run
 		// `pachctl list job` at all) and instead silently skip jobs where the user
 		// doesn't have access to the job's output repo.
-		if err := a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Name: pipeline.Name}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
+		if err := a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Project: pipeline.Project, Name: pipeline.Name}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -804,7 +811,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 	projectName := jobInfo.Job.Pipeline.Project.GetName()
 	pipelineName := jobInfo.Job.Pipeline.Name
 
-	if err := a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Name: pipelineName}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
+	if err := a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: projectName}, Name: pipelineName}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
 		return errors.EnsureStack(err)
 	}
 
@@ -876,6 +883,7 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 
 // SubscribeJob implements the protobuf pps.SubscribeJob RPC
 func (a *apiServer) SubscribeJob(request *pps.SubscribeJobRequest, stream pps.API_SubscribeJobServer) (retErr error) {
+	ensurePipelineProject(request.GetPipeline())
 	ctx := stream.Context()
 
 	// Validate arguments
@@ -883,7 +891,7 @@ func (a *apiServer) SubscribeJob(request *pps.SubscribeJobRequest, stream pps.AP
 		return errors.New("pipeline must be specified")
 	}
 
-	if err := a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Name: request.Pipeline.Name}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
+	if err := a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Project: request.Pipeline.Project, Name: request.Pipeline.Name}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
 		return errors.EnsureStack(err)
 	}
 
@@ -914,9 +922,10 @@ func (a *apiServer) SubscribeJob(request *pps.SubscribeJobRequest, stream pps.AP
 
 // DeleteJob implements the protobuf pps.DeleteJob RPC
 func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest) (response *types.Empty, retErr error) {
-	if request.Job == nil {
+	if request.GetJob() == nil {
 		return nil, errors.New("job cannot be nil")
 	}
+	ensurePipelineProject(request.Job.Pipeline)
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.deleteJobInTransaction(txnCtx, request)
 	}); err != nil {
@@ -935,6 +944,7 @@ func (a *apiServer) deleteJobInTransaction(txnCtx *txncontext.TransactionContext
 
 // StopJob implements the protobuf pps.StopJob RPC
 func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *types.Empty, retErr error) {
+	ensurePipelineProject(request.GetJob().GetPipeline())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.StopJob(request))
 	}, nil); err != nil {
@@ -1011,6 +1021,7 @@ func (a *apiServer) stopJob(txnCtx *txncontext.TransactionContext, job *pps.Job,
 
 // RestartDatum implements the protobuf pps.RestartDatum RPC
 func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumRequest) (response *types.Empty, retErr error) {
+	ensurePipelineProject(request.GetJob().GetPipeline())
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: request.Job,
 	})
@@ -1034,6 +1045,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	if request.Datum.Job == nil {
 		return nil, errors.New("must specify a job")
 	}
+	ensurePipelineProject(request.Datum.Job.Pipeline)
 	// TODO: Auth?
 	if err := a.collectDatums(ctx, request.Datum.Job, func(meta *datum.Meta, pfsState *pfs.File) error {
 		if common.DatumID(meta.Inputs) == request.Datum.ID {
@@ -1052,6 +1064,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 
 func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_ListDatumServer) (retErr error) {
 	// TODO: Auth?
+	ensurePipelineProject(request.GetJob().GetPipeline())
 	if request.Input != nil {
 		return a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
 			di := convertDatumMetaToInfo(meta, nil)
@@ -1158,6 +1171,10 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	if request.Since == nil || (request.Since.Seconds == 0 && request.Since.Nanos == 0) {
 		request.Since = types.DurationProto(DefaultLogsFrom)
 	}
+	ensurePipelineProject(request.GetPipeline())
+	ensurePipelineProject(request.GetJob().GetPipeline())
+	ensurePipelineProject(request.GetDatum().GetJob().GetPipeline())
+
 	if a.env.Config.LokiLogging || request.UseLokiBackend {
 		return a.getLogsLoki(request, apiGetLogsServer)
 	}
@@ -1710,24 +1727,36 @@ func branchProvenance(project *pfs.Project, input *pps.Input) []*pfs.Branch {
 }
 
 func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.TransactionContext, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) (retErr error) {
-	addRead := make(map[string]struct{})
-	addWrite := make(map[string]struct{})
-	remove := make(map[string]struct{})
-	var pipelineName string
+	addRead := make(map[string]*pfs.Repo)
+	addWrite := make(map[string]*pfs.Repo)
+	remove := make(map[string]*pfs.Repo)
+	var pipeline *pps.Pipeline
 	// Figure out which repos 'pipeline' might no longer be using
 	if prevPipelineInfo != nil {
-		pipelineName = prevPipelineInfo.Pipeline.Name
+		pipeline = prevPipelineInfo.Pipeline
 		if err := pps.VisitInput(prevPipelineInfo.Details.Input, func(input *pps.Input) error {
-			var repo string
+			var repo *pfs.Repo
 			switch {
 			case input.Pfs != nil:
-				repo = input.Pfs.Repo
+				repo = new(pfs.Repo)
+				if input.Pfs.Project == "" {
+					repo.Project = pipelineInfo.Pipeline.Project
+				} else {
+					repo.Project = &pfs.Project{Name: input.Pfs.Project}
+				}
+				repo.Name = input.Pfs.Repo
 			case input.Cron != nil:
-				repo = input.Cron.Repo
+				repo = new(pfs.Repo)
+				repo.Name = input.Cron.Repo
+				if input.Cron.Project == "" {
+					repo.Project = pipelineInfo.Pipeline.Project
+				} else {
+					repo.Project = &pfs.Project{Name: input.Cron.Project}
+				}
 			default:
 				return nil // no scope to set: input is not a repo
 			}
-			remove[repo] = struct{}{}
+			remove[repo.String()] = repo
 			return nil
 		}); err != nil {
 			return errors.EnsureStack(err)
@@ -1737,9 +1766,9 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 	// Figure out which repos 'pipeline' is using
 	if pipelineInfo != nil {
 		// also check that pipeline name is consistent
-		if pipelineName == "" {
-			pipelineName = pipelineInfo.Pipeline.Name
-		} else if pipelineInfo.Pipeline.Name != pipelineName {
+		if pipeline == nil {
+			pipeline = pipelineInfo.Pipeline
+		} else if !(pipelineInfo.Pipeline.Project.GetName() == pipeline.Project.GetName() && pipelineInfo.Pipeline.Name == pipeline.Name) {
 			return errors.Errorf("pipelineInfo (%s) and prevPipelineInfo (%s) do not "+
 				"belong to matching pipelines; this is a bug",
 				pipelineInfo.Pipeline.Name, prevPipelineInfo.Pipeline.Name)
@@ -1748,21 +1777,33 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 		// collect inputs (remove redundant inputs from 'remove', but don't
 		// bother authorizing 'pipeline' twice)
 		if err := pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
-			var repo string
+			var repo *pfs.Repo
 			switch {
 			case input.Pfs != nil:
-				repo = input.Pfs.Repo
+				repo = new(pfs.Repo)
+				if input.Pfs.Project == "" {
+					repo.Project = pipelineInfo.Pipeline.Project
+				} else {
+					repo.Project = &pfs.Project{Name: input.Pfs.Project}
+				}
+				repo.Name = input.Pfs.Repo
 			case input.Cron != nil:
-				repo = input.Cron.Repo
+				repo = new(pfs.Repo)
+				if input.Cron.Project == "" {
+					repo.Project = pipelineInfo.Pipeline.Project
+				} else {
+					repo.Project = &pfs.Project{Name: input.Cron.Project}
+				}
+				repo.Name = input.Cron.Repo
 			default:
 				return nil // no scope to set: input is not a repo
 			}
-			if _, ok := remove[repo]; ok {
-				delete(remove, repo)
+			if _, ok := remove[repo.String()]; ok {
+				delete(remove, repo.String())
 			} else {
-				addRead[repo] = struct{}{}
+				addRead[repo.String()] = repo
 				if input.Cron != nil {
-					addWrite[repo] = struct{}{}
+					addWrite[repo.String()] = repo
 				}
 			}
 			return nil
@@ -1770,45 +1811,45 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 			return errors.EnsureStack(err)
 		}
 	}
-	if pipelineName == "" {
+	if pipeline == nil {
 		return errors.Errorf("fixPipelineInputRepoACLs called with both current and " +
 			"previous pipelineInfos == to nil; this is a bug")
 	}
 
 	// make sure we don't touch the pipeline's permissions on its output repo
-	delete(remove, pipelineName)
-	delete(addRead, pipelineName)
-	delete(addWrite, pipelineName)
+	delete(remove, pipeline.String())
+	delete(addRead, pipeline.String())
+	delete(addWrite, pipeline.String())
 
 	defer func() {
-		retErr = errors.Wrapf(retErr, "error fixing ACLs on \"%s\"'s input repos", pipelineName)
+		retErr = errors.Wrapf(retErr, "error fixing ACLs on \"%s\"'s input repos", pipeline)
 	}()
 
 	// Remove pipeline from old, unused inputs
-	for repo := range remove {
+	for _, repo := range remove {
 		// If we get an `ErrNoRoleBinding` that means the input repo no longer exists - we're removing it anyways, so we don't care.
-		if err := a.env.AuthServer.RemovePipelineReaderFromRepoInTransaction(txnCtx, repo, pipelineName); err != nil && !auth.IsErrNoRoleBinding(err) {
+		if err := a.env.AuthServer.RemovePipelineReaderFromRepoInTransaction(txnCtx, repo, pipeline); err != nil && !auth.IsErrNoRoleBinding(err) {
 			return errors.EnsureStack(err)
 		}
 	}
 	// Add pipeline to every new input's ACL as a READER
-	for repo := range addRead {
+	for _, repo := range addRead {
 		// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a reader on the input repo
-		if err := a.env.AuthServer.AddPipelineReaderToRepoInTransaction(txnCtx, repo, pipelineName); err != nil {
+		if err := a.env.AuthServer.AddPipelineReaderToRepoInTransaction(txnCtx, repo, pipeline); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
 
-	for repo := range addWrite {
+	for _, repo := range addWrite {
 		// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a writer on the input repo
-		if err := a.env.AuthServer.AddPipelineWriterToSourceRepoInTransaction(txnCtx, repo, pipelineName); err != nil {
+		if err := a.env.AuthServer.AddPipelineWriterToSourceRepoInTransaction(txnCtx, repo, pipeline); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
 
 	// Add pipeline to its output repo's ACL as a WRITER if it's new
 	if prevPipelineInfo == nil {
-		if err := a.env.AuthServer.AddPipelineWriterToRepoInTransaction(txnCtx, pipelineName); err != nil {
+		if err := a.env.AuthServer.AddPipelineWriterToRepoInTransaction(txnCtx, pipeline); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -1857,6 +1898,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if request.Pipeline == nil {
 		return nil, errors.New("request.Pipeline cannot be nil")
 	}
+	ensurePipelineProject(request.GetPipeline())
 
 	// Annotate current span with pipeline & persist any extended trace to etcd
 	span := opentracing.SpanFromContext(ctx)
@@ -1969,9 +2011,12 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	if err != nil {
 		return err
 	}
-	// Verify that all input repos exist (create cron and git repos if necessary)
+	// Verify that all input repos exist (create cron repos if necessary).
 	if visitErr := pps.VisitInput(newPipelineInfo.Details.Input, func(input *pps.Input) error {
 		if input.Pfs != nil {
+			if input.Pfs.Project == "" {
+				input.Pfs.Project = projectName
+			}
 			if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx,
 				&pfs.InspectRepoRequest{
 					Repo: client.NewSystemProjectRepo(input.Pfs.Project, input.Pfs.Repo, input.Pfs.RepoType),
@@ -2076,7 +2121,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 
 	// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output repos
 	if err := func() error {
-		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline.Name)
+		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline)
 		if err != nil {
 			if auth.IsErrNotActivated(err) {
 				return nil // no auth work to do
@@ -2287,6 +2332,7 @@ func (a *apiServer) updatePipeline(
 
 // InspectPipeline implements the protobuf pps.InspectPipeline RPC
 func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPipelineRequest) (response *pps.PipelineInfo, retErr error) {
+	ensurePipelineProject(request.GetPipeline())
 	return a.inspectPipeline(ctx, request.Pipeline, request.Details)
 }
 
@@ -2382,6 +2428,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 
 // ListPipeline implements the protobuf pps.ListPipeline RPC
 func (a *apiServer) ListPipeline(request *pps.ListPipelineRequest, srv pps.API_ListPipelineServer) (retErr error) {
+	ensurePipelineProject(request.GetPipeline())
 	return a.listPipeline(srv.Context(), request, srv.Send)
 }
 
@@ -2478,6 +2525,9 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 
 // DeletePipeline implements the protobuf pps.DeletePipeline RPC
 func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
+	if request != nil && request.Pipeline != nil {
+		ensurePipelineProject(request.GetPipeline())
+	}
 	if request.All {
 		request.Pipeline = &pps.Pipeline{}
 		pipelineInfo := &pps.PipelineInfo{}
@@ -2528,6 +2578,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	}
 	// FIXME(1101): make project-aware
 	clearJobCache(a.env.GetPachClient(ctx), pipelineName)
+	clearJobCache(a.env.GetPachClient(ctx), request.Pipeline.String())
 	return deleteErr
 }
 
@@ -2680,6 +2731,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	if request.Pipeline == nil {
 		return nil, errors.New("request.Pipeline cannot be nil")
 	}
+	ensurePipelineProject(request.Pipeline)
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		pipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
@@ -2727,6 +2779,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	if request.Pipeline == nil {
 		return nil, errors.New("request.Pipeline cannot be nil")
 	}
+	ensurePipelineProject(request.Pipeline)
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		pipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
@@ -2780,6 +2833,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 }
 
 func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (response *types.Empty, retErr error) {
+	ensurePipelineProject(request.GetPipeline())
 	pipelineInfo, err := a.inspectPipeline(ctx, request.Pipeline, true)
 	if err != nil {
 		return nil, err
@@ -2999,7 +3053,7 @@ func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionCont
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).List(pi, col.DefaultOptions(), func(string) error {
 		// 1) Create a new auth token for 'pipeline' and attach it, so that the
 		// pipeline can authenticate as itself when it needs to read input data
-		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pi.Pipeline.Name)
+		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pi.Pipeline)
 		if err != nil {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
 		}
@@ -3191,4 +3245,15 @@ func (a *apiServer) RenderTemplate(ctx context.Context, req *pps.RenderTemplateR
 
 func (a *apiServer) ListTask(req *taskapi.ListTaskRequest, server pps.API_ListTaskServer) error {
 	return task.List(server.Context(), a.env.TaskService, req, server.Send)
+}
+
+// ensurePipelineProject ensures that a pipeline’s repo is valid.  It does nothing
+// if pipeline is nil.
+func ensurePipelineProject(p *pps.Pipeline) {
+	if p == nil {
+		return
+	}
+	if p.Project.GetName() == "" {
+		p.Project = &pfs.Project{Name: pfs.DefaultProjectName}
+	}
 }

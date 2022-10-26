@@ -362,8 +362,15 @@ pachd:
   clusterDeploymentID: ""
   configJob:
     annotations: {}
-  # goMaxProcs is passed as GOMAXPROCS to the pachd container.
+  # goMaxProcs is passed as GOMAXPROCS to the pachd container.  pachd can automatically pick an
+  # optimal GOMAXPROCS from the configured CPU limit, but this overrides it.
   goMaxProcs: 0
+  # goMemLimit is passed as GOMEMLIMIT to the pachd container. pachd can automatically pick an
+  # optimal GOMEMLIMIT from the configured memory request or limit, but this overrides it.  This is a string
+  # because it can be something like '256MiB'.
+  goMemLimit: ""
+  # gcPercent sets the initial garbage collection target percentage.
+  gcPercent: 0
   image:
     repository: "pachyderm/pachd"
     pullPolicy: "IfNotPresent"

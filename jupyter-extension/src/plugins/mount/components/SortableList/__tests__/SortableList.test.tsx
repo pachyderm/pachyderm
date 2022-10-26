@@ -28,15 +28,17 @@ describe('sortable list components', () => {
     ];
 
     const {getByTestId} = render(
-      <SortableList open={open} items={items} updateData={updateData} />,
+      <SortableList
+        open={open}
+        items={items}
+        updateData={updateData}
+        mountedItems={[]}
+      />,
     );
     const listItem = getByTestId('ListItem__noBranches');
     expect(listItem).toHaveTextContent('images');
     expect(listItem).toHaveTextContent('No branches');
-    expect(listItem).toHaveAttribute(
-      'title',
-      "Either all branches are mounted or the repo doesn't have a branch",
-    );
+    expect(listItem).toHaveAttribute('title', "Repo doesn't have a branch");
   });
 
   it('should disable mount for repo with no access', async () => {
@@ -49,7 +51,12 @@ describe('sortable list components', () => {
     ];
 
     const {getByTestId} = render(
-      <SortableList open={open} items={items} updateData={updateData} />,
+      <SortableList
+        open={open}
+        items={items}
+        updateData={updateData}
+        mountedItems={[]}
+      />,
     );
     const listItem = getByTestId('ListItem__unauthorized');
     expect(listItem).toHaveTextContent('images');
@@ -75,7 +82,12 @@ describe('sortable list components', () => {
     ];
 
     const {getByText, getAllByTestId} = render(
-      <SortableList open={open} items={items} updateData={updateData} />,
+      <SortableList
+        open={open}
+        items={items}
+        updateData={updateData}
+        mountedItems={[]}
+      />,
     );
     let listItems = getAllByTestId('ListItem__noBranches');
     expect(listItems.length).toEqual(2);
@@ -100,7 +112,12 @@ describe('sortable list components', () => {
     ];
 
     const {getByTestId} = render(
-      <SortableList open={open} items={items} updateData={updateData} />,
+      <SortableList
+        open={open}
+        items={items}
+        updateData={updateData}
+        mountedItems={[]}
+      />,
     );
     const listItem = getByTestId('ListItem__branches');
     const mountButton = getByTestId('ListItem__mount');
@@ -144,7 +161,12 @@ describe('sortable list components', () => {
     ];
 
     const {getByTestId} = render(
-      <SortableList open={open} items={items} updateData={updateData} />,
+      <SortableList
+        open={open}
+        items={items}
+        updateData={updateData}
+        mountedItems={[]}
+      />,
     );
     const listItem = getByTestId('ListItem__branches');
     const unmountButton = getByTestId('ListItem__unmount');
@@ -186,7 +208,12 @@ describe('sortable list components', () => {
     ];
 
     const {getByText} = render(
-      <SortableList open={open} items={items} updateData={updateData} />,
+      <SortableList
+        open={open}
+        items={items}
+        updateData={updateData}
+        mountedItems={[]}
+      />,
     );
     getByText('images').click();
     expect(open).toHaveBeenCalledWith('images');
@@ -202,7 +229,12 @@ describe('sortable list components', () => {
     ];
 
     const {getByText, getByTestId} = render(
-      <SortableList open={open} items={items} updateData={updateData} />,
+      <SortableList
+        open={open}
+        items={items}
+        updateData={updateData}
+        mountedItems={[]}
+      />,
     );
     const select = getByTestId('ListItem__select') as HTMLSelectElement;
 
@@ -241,7 +273,12 @@ describe('sortable list components', () => {
     ];
 
     const {getByTestId} = render(
-      <SortableList open={open} items={items} updateData={updateData} />,
+      <SortableList
+        open={open}
+        items={items}
+        updateData={updateData}
+        mountedItems={[]}
+      />,
     );
 
     const statusIcon = getByTestId('ListItem__statusIcon');
@@ -296,7 +333,12 @@ describe('sortable list components', () => {
       },
     ];
     const {getAllByTestId} = render(
-      <SortableList open={open} items={items} updateData={updateData} />,
+      <SortableList
+        open={open}
+        items={items}
+        updateData={updateData}
+        mountedItems={[]}
+      />,
     );
     const unmountButtons = getAllByTestId('ListItem__unmount');
     expect(unmountButtons[0]).toBeDisabled();
@@ -323,7 +365,12 @@ describe('sortable list components', () => {
     ];
 
     const {getByTestId} = render(
-      <SortableList open={open} items={items} updateData={updateData} />,
+      <SortableList
+        open={open}
+        items={items}
+        updateData={updateData}
+        mountedItems={[]}
+      />,
     );
 
     const commitBehindnessText = getByTestId('ListItem__commitBehindness');
@@ -349,7 +396,12 @@ describe('sortable list components', () => {
     ];
 
     const {getByTestId} = render(
-      <SortableList open={open} items={items} updateData={updateData} />,
+      <SortableList
+        open={open}
+        items={items}
+        updateData={updateData}
+        mountedItems={[]}
+      />,
     );
 
     const commitBehindnessText = getByTestId('ListItem__commitBehindness');
@@ -375,10 +427,59 @@ describe('sortable list components', () => {
     ];
 
     const {getByTestId} = render(
-      <SortableList open={open} items={items} updateData={updateData} />,
+      <SortableList
+        open={open}
+        items={items}
+        updateData={updateData}
+        mountedItems={[]}
+      />,
     );
 
     const commitBehindnessText = getByTestId('ListItem__commitBehindness');
     expect(commitBehindnessText.textContent).toContain('2 commits behind');
+  });
+
+  it('should grey out mount button for selected branches in dropdown that are already mounted', async () => {
+    const mountedItems: Mount[] = [
+      {
+        name: 'edges',
+        repo: 'edges',
+        branch: 'mounted_branch',
+        commit: null,
+        glob: null,
+        mode: null,
+        state: 'mounted',
+        status: 'all is well, la la la',
+        mountpoint: null,
+        how_many_commits_behind: 2,
+        actual_mounted_commit: 'a1b2c3',
+        latest_commit: 'a1b2c3',
+      },
+    ];
+
+    const items: Repo[] = [
+      {
+        repo: 'edges',
+        authorization: 'off',
+        branches: ['dev', 'master', 'mounted_branch'],
+      },
+    ];
+
+    const {getByTestId} = render(
+      <SortableList
+        open={open}
+        items={items}
+        updateData={updateData}
+        mountedItems={mountedItems}
+      />,
+    );
+
+    fireEvent.change(getByTestId('ListItem__select'), {
+      target: {value: 'mounted_branch'},
+    });
+    expect(getByTestId('ListItem__mount')).toBeDisabled();
+
+    fireEvent.change(getByTestId('ListItem__select'), {target: {value: 'dev'}});
+    expect(getByTestId('ListItem__mount')).not.toBeDisabled();
   });
 });
