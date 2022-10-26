@@ -1045,7 +1045,8 @@ func (m *MountStateMachine) RefreshMountState() error {
 	// calculate how many commits behind LatestCommit ActualMountedCommit is
 	commitInfos, err := m.manager.Client.ListCommit(branchInfo.Branch.Repo, branchInfo.Head, nil, 0)
 	if err != nil {
-		return err
+		logrus.Infof("Erroring listing all commits %s", grpcutil.ScrubGRPC(err).Error())
+		return grpcutil.ScrubGRPC(err)
 	}
 	// reverse slice
 	for i, j := 0, len(commitInfos)-1; i < j; i, j = i+1, j-1 {
