@@ -1066,7 +1066,9 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_ListDatumServer) (retErr error) {
 	// TODO: Auth?
 	ensurePipelineProject(request.GetJob().GetPipeline())
-	// add check for input and job
+	if request.Job != nil && request.Input != nil {
+		return errors.Errorf("cannot specify both job and input")
+	}
 	var metas []*datum.Meta
 	if request.Input != nil {
 		if err := a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
