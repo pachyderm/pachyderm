@@ -68,10 +68,10 @@ func (a *validatedAPIServer) InspectFile(ctx context.Context, request *pfs.Inspe
 
 // ListFile implements the protobuf pfs.ListFile RPC
 func (a *validatedAPIServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFileServer) (retErr error) {
-	if err := validateFile(request.ParentDirectory); err != nil {
+	if err := validateFile(request.File); err != nil {
 		return err
 	}
-	if err := a.auth.CheckRepoIsAuthorized(server.Context(), request.ParentDirectory.Commit.Branch.Repo, auth.Permission_REPO_LIST_FILE); err != nil {
+	if err := a.auth.CheckRepoIsAuthorized(server.Context(), request.File.Commit.Branch.Repo, auth.Permission_REPO_LIST_FILE); err != nil {
 		return errors.EnsureStack(err)
 	}
 	return a.apiServer.ListFile(request, server)

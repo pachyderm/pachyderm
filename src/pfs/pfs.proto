@@ -376,7 +376,7 @@ message ListFileRequest {
   // repo, the commit/branch, and path prefix of files we're interested in
   // If the "path" field is omitted, a list of files at the top level of the repo
   // is returned
-  File parentDirectory = 1;
+  File file = 1;
   // Marker for pagination. If set, the files that come after the marker in
   // lexicographical order will be returned. If reverse is also set, the files
   // that come before the marker in lexicographical order will be returned.

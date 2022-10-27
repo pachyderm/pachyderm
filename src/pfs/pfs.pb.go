@@ -3146,7 +3146,7 @@ type ListFileRequest struct {
 	// repo, the commit/branch, and path prefix of files we're interested in
 	// If the "path" field is omitted, a list of files at the top level of the repo
 	// is returned
-	ParentDirectory *File `protobuf:"bytes,1,opt,name=parentDirectory,proto3" json:"parentDirectory,omitempty"`
+	File *File `protobuf:"bytes,1,opt,name=file,proto3" json:"file,omitempty"`
 	// Marker for pagination. If set, the files that come after the marker in
 	// lexicographical order will be returned. If reverse is also set, the files
 	// that come before the marker in lexicographical order will be returned.
@@ -3193,9 +3193,9 @@ func (m *ListFileRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ListFileRequest proto.InternalMessageInfo
 
-func (m *ListFileRequest) GetParentDirectory() *File {
+func (m *ListFileRequest) GetFile() *File {
 	if m != nil {
-		return m.ParentDirectory
+		return m.File
 	}
 	return nil
 }
@@ -10370,9 +10370,9 @@ func (m *ListFileRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x1a
 	}
-	if m.ParentDirectory != nil {
+	if m.File != nil {
 		{
-			size, err := m.ParentDirectory.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.File.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -13038,8 +13038,8 @@ func (m *ListFileRequest) Size() (n int) {
 	}
 	var l int
 	_ = l
-	if m.ParentDirectory != nil {
-		l = m.ParentDirectory.Size()
+	if m.File != nil {
+		l = m.File.Size()
 		n += 1 + l + sovPfs(uint64(l))
 	}
 	if m.PaginationMarker != nil {
@@ -20219,7 +20219,7 @@ func (m *ListFileRequest) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ParentDirectory", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field File", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -20246,10 +20246,10 @@ func (m *ListFileRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.ParentDirectory == nil {
-				m.ParentDirectory = &File{}
+			if m.File == nil {
+				m.File = &File{}
 			}
-			if err := m.ParentDirectory.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.File.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
