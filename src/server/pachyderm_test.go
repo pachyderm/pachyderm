@@ -9831,7 +9831,9 @@ func TestTrigger(t *testing.T) {
 	// This should have given us a job, flush to let it complete.
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 5, len(commitInfos))
+	require.Equal(t, 1, len(commitInfos))
+	commitInfo, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline1, "master", "")
+	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
 		var buf bytes.Buffer
 		require.NoError(t, c.GetFile(pipelineCommit1, fmt.Sprintf("file%d", i), &buf))
@@ -9848,7 +9850,12 @@ func TestTrigger(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 9, len(commitInfos))
+	commitInfo, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline1, "master", "")
+	require.NoError(t, err)
+	commitInfo, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline2, "master", "")
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(commitInfos))
 	for i := 0; i < numFiles*2; i++ {
 		var buf bytes.Buffer
 		require.NoError(t, c.GetFile(pipelineCommit1, fmt.Sprintf("file%d", i), &buf))
@@ -9900,11 +9907,11 @@ func TestTrigger(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 9, len(commitInfos))
+	require.Equal(t, 1, len(commitInfos))
 
 	commitInfos, err = c.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline2), client.NewProjectCommit(pfs.DefaultProjectName, pipeline2, "master", ""), nil, 0)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(commitInfos))
+	require.Equal(t, 3, len(commitInfos))
 }
 
 func TestListDatum(t *testing.T) {

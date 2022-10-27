@@ -1263,7 +1263,7 @@ func (d *driver) listCommit(
 }
 
 // TODO(acohen4): does this actually need to be topologically sorted?
-func (d *driver) inspectCommitSetImmediate(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) ([]*pfs.CommitInfo, error) {
+func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) ([]*pfs.CommitInfo, error) {
 	var commitInfos []*pfs.CommitInfo
 	commitInfo := &pfs.CommitInfo{}
 	return commitInfos, d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitset.ID, commitInfo, col.DefaultOptions(), func(string) error {
@@ -1272,47 +1272,64 @@ func (d *driver) inspectCommitSetImmediate(txnCtx *txncontext.TransactionContext
 	})
 }
 
-func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet, wait bool, cb func(*pfs.CommitInfo) error) error {
-	sent := map[string]struct{}{}
+func (d *driver) inspectCommitSetImmediate(ctx context.Context, commitset *pfs.CommitSet, cb func(*pfs.CommitInfo) error) error {
+	var commitInfos []*pfs.CommitInfo
+	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		var err error
+		commitInfos, err = d.inspectCommitSetImmediateTx(txnCtx, commitset)
+		return err
+	}); err != nil {
+		return err
+	}
+	for _, commitInfo := range commitInfos {
+		if err := cb(commitInfo); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
+func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet, wait bool, cb func(*pfs.CommitInfo) error) error {
+	if !wait {
+		return d.inspectCommitSetImmediate(ctx, commitset, cb)
+	}
+	sent := map[string]struct{}{}
+	send := func(ci *pfs.CommitInfo) error {
+		if _, ok := sent[pfsdb.CommitKey(ci.Commit)]; ok {
+			return nil
+		}
+		sent[pfsdb.CommitKey(ci.Commit)] = struct{}{}
+		return cb(ci)
+
+	}
+	unfinishedCommits := make([]*pfs.Commit, 0)
 	// The commits in this CommitSet may change if any triggers or CreateBranches
 	// add more, so reload it after each wait.
-reloadCommitSet:
-	for {
-		var commitInfos []*pfs.CommitInfo
-		if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-			var err error
-			commitInfos, err = d.inspectCommitSetImmediate(txnCtx, commitset)
-			return err
+	repeat := true
+	for repeat {
+		repeat = false
+		if err := d.inspectCommitSetImmediate(ctx, commitset, func(ci *pfs.CommitInfo) error {
+			if ci.Finished != nil {
+				return send(ci)
+			}
+			unfinishedCommits = append(unfinishedCommits, proto.Clone(ci.Commit).(*pfs.Commit))
+			repeat = true
+			return nil
 		}); err != nil {
 			return err
 		}
-		reload := false
-		for _, commitInfo := range commitInfos {
-			// If we aren't blocking, we can just loop over everything once and return
-			if wait {
-				if _, ok := sent[pfsdb.CommitKey(commitInfo.Commit)]; ok {
-					continue
-				}
-				// TODO: make a dedicated call just for the blocking part, inspectCommit is a little heavyweight?
-				var err error
-				commitInfo, err = d.inspectCommit(ctx, commitInfo.Commit, pfs.CommitState_FINISHED)
-				if err != nil {
-					return err
-				}
-				reload = true
-			}
-			if err := cb(commitInfo); err != nil {
+		for _, uc := range unfinishedCommits {
+			// TODO: make a dedicated call just for the blocking part, inspectCommit is a little heavyweight?
+			ci, err := d.inspectCommit(ctx, uc, pfs.CommitState_FINISHED)
+			if err != nil {
 				return err
 			}
-			sent[pfsdb.CommitKey(commitInfo.Commit)] = struct{}{}
-			if reload {
-				continue reloadCommitSet
+			if err := send(ci); err != nil {
+				return err
 			}
 		}
-		// If we didn't find any commits we haven't already sent, it is safe to return
-		return nil
 	}
+	return nil
 }
 
 func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) error) error {
@@ -1383,7 +1400,7 @@ func (d *driver) deleteCommitsInternal(txnCtx *txncontext.TransactionContext, co
 				if commitInfo.ParentCommit == nil || !proto.Equal(commitInfo.ParentCommit.Branch, commitInfo.Commit.Branch) {
 					// Create a new empty commit for the branch head
 					var err error
-					branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo)
+					branchInfo.Head, err = d.makeEmptyCommit(txnCtx, branchInfo.Branch, branchInfo.DirectProvenance)
 					if err != nil {
 						return err
 					}
@@ -1483,7 +1500,7 @@ func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset 
 		return errors.Errorf("Commit set %q cannot be dropped since it has dependent commits: %v", commitset.ID, subvCommits)
 	}
 	// Look up the commits in the CommitSet
-	commitInfos, err := d.inspectCommitSetImmediate(txnCtx, commitset)
+	commitInfos, err := d.inspectCommitSetImmediateTx(txnCtx, commitset)
 	if err != nil {
 		return err
 	}
@@ -1556,7 +1573,7 @@ func (d *driver) squashCommitSets(txnCtx *txncontext.TransactionContext, commits
 	var commitInfos []*pfs.CommitInfo
 	for _, commitset := range commitsets {
 		var err error
-		commitInfos, err = d.inspectCommitSetImmediate(txnCtx, commitset)
+		commitInfos, err = d.inspectCommitSetImmediateTx(txnCtx, commitset)
 		if err != nil {
 			return err
 		}
@@ -1776,14 +1793,20 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}); err != nil {
 		return errors.EnsureStack(err)
 	}
-	if commit != nil && ci.Finished != nil {
-		// head may have been set during calls to addBranchProvenance(). Reload the branchInfo.
-		if branchInfo.Head == nil {
-			if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(branchInfo.Branch, branchInfo); err != nil {
-				return err
-			}
-
+	// head may have been set during calls to addBranchProvenance(). Reload the branchInfo.
+	if branchInfo.Head == nil {
+		newHead, err := d.makeEmptyCommit(txnCtx, branchInfo.Branch, branchInfo.DirectProvenance)
+		if err != nil {
+			return err
 		}
+		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(branch, branchInfo, func() error {
+			branchInfo.Head = newHead
+			return nil
+		}); err != nil {
+			return errors.EnsureStack(err)
+		}
+	}
+	if commit != nil && ci.Finished != nil {
 		if err = d.triggerCommit(txnCtx, branchInfo.Head); err != nil {
 			return err
 		}
@@ -1980,7 +2003,7 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 			// We are creating this branch for the first time, set the Branch and Head
 			provBranchInfo.Branch = provBranch
 
-			head, err := d.makeEmptyCommit(txnCtx, provBranchInfo)
+			head, err := d.makeEmptyCommit(txnCtx, provBranchInfo.Branch, provBranchInfo.DirectProvenance)
 			if err != nil {
 				return err
 			}
@@ -2030,24 +2053,24 @@ func (d *driver) deleteAll(ctx context.Context) error {
 	})
 }
 
-func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo) (*pfs.Commit, error) {
+func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, directProvenance []*pfs.Branch) (*pfs.Commit, error) {
 	// Input repos and spouts want a closed head commit, so decide if we leave
 	// it open by the presence of branch provenance.  If it's only provenant on
 	// a spec repo, we assume it's a spout and close the commit.
 	closed := true
-	for _, prov := range branchInfo.DirectProvenance {
+	for _, prov := range directProvenance {
 		if prov.Repo.Type != pfs.SpecRepoType {
 			closed = false
 			break
 		}
 	}
-	commit := branchInfo.Branch.NewCommit(txnCtx.CommitSetID)
-	commit.Repo = branchInfo.Branch.Repo
+	commit := branch.NewCommit(txnCtx.CommitSetID)
+	commit.Repo = branch.Repo
 	commitInfo := &pfs.CommitInfo{
 		Commit:           commit,
 		Origin:           &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
 		Started:          txnCtx.Timestamp,
-		DirectProvenance: branchInfo.DirectProvenance,
+		DirectProvenance: directProvenance,
 	}
 	if closed {
 		commitInfo.Finishing = txnCtx.Timestamp
@@ -2065,7 +2088,7 @@ func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchIn
 		return nil, errors.EnsureStack(err)
 	}
 	provHeads := make(map[string]struct{})
-	for _, prov := range branchInfo.DirectProvenance {
+	for _, prov := range directProvenance {
 		branchInfo := &pfs.BranchInfo{}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(prov, branchInfo); err != nil {
 			return nil, errors.EnsureStack(err)
