@@ -258,7 +258,7 @@ func (a *apiServer) SquashCommitSetInTransaction(txnCtx *txncontext.TransactionC
 	return a.driver.squashCommitSets(txnCtx, []*pfs.CommitSet{request.CommitSet})
 }
 
-// SquashCommitSetInTransaction is identical to SquashCommitSet except that it can run
+// SquashCommitSetsInTransaction is identical to SquashCommitSets except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) SquashCommitSetsInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitSetsRequest) error {
 	return a.driver.squashCommitSets(txnCtx, request.CommitSets)
