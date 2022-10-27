@@ -1083,23 +1083,6 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 			return errors.EnsureStack(err)
 		}
 	}
-	/*return a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
-		metas = append(metas, meta)
-		di := convertDatumMetaToInfo(meta, nil)
-		di.State = pps.DatumState_UNKNOWN
-		if !request.Filter.Allow(di) {
-			return nil
-		}
-		return errors.EnsureStack(server.Send(di))
-	})*/
-
-	/*return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
-		info := convertDatumMetaToInfo(meta, request.Job)
-		if !request.Filter.Allow(info) {
-			return nil
-		}
-		return errors.EnsureStack(server.Send(info))
-	})*/
 	number := request.Number
 	if number == 0 {
 		number = math.MaxInt64
@@ -1111,11 +1094,13 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 		if request.Reverse {
 			meta = metas[len(metas)-i-1]
 		}
-		if (request.Reverse && meta.Index > request.PaginationIndex) || (!request.Reverse && meta.Index < request.PaginationIndex) {
-			// can we break?
-			continue
-		}
 		info := convertDatumMetaToInfo(meta, request.Job)
+		if request.PaginationMarker != "" {
+			if (request.Reverse && info.Datum.ID >= request.PaginationMarker) || (!request.Reverse && info.Datum.ID <= request.PaginationMarker) {
+				// can we break?
+				continue
+			}
+		}
 		if request.Job == nil {
 			info.State = pps.DatumState_UNKNOWN
 		}
@@ -1429,7 +1414,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	}
 	return lokiutil.QueryRange(apiGetLogsServer.Context(), loki, query, time.Now().Add(-since), time.Time{}, request.Follow, func(t time.Time, line string) error {
 		msg := new(pps.LogMessage)
-		if err := parseLokiLine(line, msg); err != nil {
+		if err := ParseLokiLine(line, msg); err != nil {
 			logrus.WithField("line", line).WithError(err).Debug("get logs (loki): unparseable log line")
 			return nil
 		}
@@ -1501,7 +1486,7 @@ func parseCRILine(s string, msg *pps.LogMessage) error {
 	return nil
 }
 
-func parseLokiLine(inputLine string, msg *pps.LogMessage) error {
+func ParseLokiLine(inputLine string, msg *pps.LogMessage) error {
 	// There are three possible log formats in Loki, depending on the underlying formatting done
 	// by the container runtime.  Under ideal circumstances, the user of Loki has configured
 	// promtail to remove the runtime-specific logs, but it's quite easy to miss this
