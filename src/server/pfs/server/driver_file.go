@@ -240,19 +240,19 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	return ret, nil
 }
 
-func (d *driver) listFile(ctx context.Context, parentDir *pfs.File, paginationMarker *pfs.File, number int64, reverse bool, cb func(*pfs.FileInfo) error) error {
-	commitInfo, fs, err := d.openCommit(ctx, parentDir.Commit)
+func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker *pfs.File, number int64, reverse bool, cb func(*pfs.FileInfo) error) error {
+	commitInfo, fs, err := d.openCommit(ctx, file.Commit)
 	if err != nil {
 		return err
 	}
-	name := pfsfile.CleanPath(parentDir.Path)
+	name := pfsfile.CleanPath(file.Path)
 	// if number is 0, we return all files that match the criteria
 	if number == 0 {
 		number = math.MaxInt64
 	}
 	opts := []SourceOption{
 		WithPrefix(name),
-		WithDatum(parentDir.Datum),
+		WithDatum(file.Datum),
 		WithFilter(func(fs fileset.FileSet) fileset.FileSet {
 			return fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 				// Check for directory match (don't return directory in list)
