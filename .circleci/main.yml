@@ -554,8 +554,8 @@ jobs:
       - checkout:
           path: ~/project
       # Install and cache Python dependencies
-      - restore_cache:
-          key: pip<< parameters.python-version >>-cache-v12-<< pipeline.git.branch >><< pipeline.git.tag >>-{{ checksum "ci-requirements.txt" }}
+      # - restore_cache:
+      #     key: pip<< parameters.python-version >>-cache-v12-<< pipeline.git.branch >><< pipeline.git.tag >>-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -563,10 +563,10 @@ jobs:
             . venv/bin/activate
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
-      - save_cache:
-          key: pip<< parameters.python-version >>-cache-v12-<< pipeline.git.branch >><< pipeline.git.tag >>-{{ checksum "ci-requirements.txt" }}
-          paths:
-            - "venv"
+      # - save_cache:
+      #     key: pip<< parameters.python-version >>-cache-v12-<< pipeline.git.branch >><< pipeline.git.tag >>-{{ checksum "ci-requirements.txt" }}
+      #     paths:
+      #       - "venv"
 
       # Install and cache Node dependencies
       - restore_cache:
@@ -700,8 +700,8 @@ jobs:
             fi
 
       # Install and cache Python dependencies
-      - restore_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+      # - restore_cache:
+      #     key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -709,10 +709,10 @@ jobs:
             . venv/bin/activate
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
-      - save_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
-          paths:
-            - "venv"
+      # - save_cache:
+      #     key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+      #     paths:
+      #       - "venv"
 
       # Install and cache Node dependencies
       - restore_cache:
@@ -749,8 +749,8 @@ jobs:
       - attach_workspace:
           at: .
       # Install and cache Python dependencies
-      - restore_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+      # - restore_cache:
+      #     key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -758,10 +758,10 @@ jobs:
             . venv/bin/activate
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
-      - save_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
-          paths:
-            - "venv"
+      # - save_cache:
+      #     key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+      #     paths:
+      #       - "venv"
       - run:
           name: Init .pypirc
           command: |
@@ -784,8 +784,8 @@ jobs:
       - attach_workspace:
           at: .
       # Install and cache Python dependencies
-      - restore_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+      # - restore_cache:
+      #     key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -793,10 +793,10 @@ jobs:
             . venv/bin/activate
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
-      - save_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
-          paths:
-            - "venv"
+      # - save_cache:
+      #     key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+      #     paths:
+      #       - "venv"
       - run:
           name: Init .pypirc
           command: |
