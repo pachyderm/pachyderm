@@ -237,7 +237,7 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 // without the option of blocking for commits to finish so that it can run
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) InspectCommitSetInTransaction(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) ([]*pfs.CommitInfo, error) {
-	return a.driver.inspectCommitSetImmediate(txnCtx, commitset)
+	return a.driver.inspectCommitSetImmediateTx(txnCtx, commitset)
 }
 
 // InspectCommitSet implements the protobuf pfs.InspectCommitSet RPC
