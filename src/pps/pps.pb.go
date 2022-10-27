@@ -3949,9 +3949,11 @@ type ListDatumRequest struct {
 	// with the provided input.
 	Input  *Input                   `protobuf:"bytes,2,opt,name=input,proto3" json:"input,omitempty"`
 	Filter *ListDatumRequest_Filter `protobuf:"bytes,3,opt,name=filter,proto3" json:"filter,omitempty"`
-	// TODO -armaan comments
-	Number               int64    `protobuf:"varint,4,opt,name=number,proto3" json:"number,omitempty"`
-	PaginationMarker     string   `protobuf:"bytes,5,opt,name=paginationMarker,proto3" json:"paginationMarker,omitempty"`
+	// Number of datums to return
+	Number int64 `protobuf:"varint,4,opt,name=number,proto3" json:"number,omitempty"`
+	// datum id to start from. we do not include this datum in the response
+	PaginationMarker string `protobuf:"bytes,5,opt,name=paginationMarker,proto3" json:"paginationMarker,omitempty"`
+	// If true, return datums in reverse order
 	Reverse              bool     `protobuf:"varint,6,opt,name=reverse,proto3" json:"reverse,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
