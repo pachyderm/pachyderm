@@ -331,6 +331,8 @@ func TestProject(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+
 	// using xargs to trim newlines
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
                 pachctl list project | xargs | match '^PROJECT DESCRIPTION$'

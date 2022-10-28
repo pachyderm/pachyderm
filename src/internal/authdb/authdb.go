@@ -1,6 +1,8 @@
-package server
+package authdb
 
 import (
+	"fmt"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -12,11 +14,12 @@ const (
 	roleBindingsCollectionName = "role_bindings"
 	membersCollectionName      = "members"
 	groupsCollectionName       = "groups"
+	InternalUser               = auth.InternalPrefix + "auth-server"
 )
 
 var authConfigIndexes = []*col.Index{}
 
-func authConfigCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
+func AuthConfigCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		authConfigCollectionName,
 		db,
@@ -28,7 +31,7 @@ func authConfigCollection(db *pachsql.DB, listener col.PostgresListener) col.Pos
 
 var roleBindingsIndexes = []*col.Index{}
 
-func roleBindingsCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
+func RoleBindingCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		roleBindingsCollectionName,
 		db,
@@ -40,7 +43,7 @@ func roleBindingsCollection(db *pachsql.DB, listener col.PostgresListener) col.P
 
 var membersIndexes = []*col.Index{}
 
-func membersCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
+func MembersCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		membersCollectionName,
 		db,
@@ -52,7 +55,7 @@ func membersCollection(db *pachsql.DB, listener col.PostgresListener) col.Postgr
 
 var groupsIndexes = []*col.Index{}
 
-func groupsCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
+func GroupsCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		groupsCollectionName,
 		db,
@@ -78,14 +81,21 @@ func CollectionsV0() []col.PostgresCollection {
 
 // InternalAuthUserPermissions adds the Internal Auth User as a cluster admin
 func InternalAuthUserPermissions(tx *pachsql.Tx) error {
-	roleBindings := roleBindingsCollection(nil, nil)
+	roleBindings := RoleBindingCollection(nil, nil)
 	var binding auth.RoleBinding
-	if err := roleBindings.ReadWrite(tx).Get(clusterRoleBindingKey, &binding); err != nil {
+	if err := roleBindings.ReadWrite(tx).Get(auth.ClusterRoleBindingKey, &binding); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil
 		}
 		return errors.Wrapf(err, "getting the cluster role binding")
 	}
-	binding.Entries[internalUser] = &auth.Roles{Roles: map[string]bool{auth.ClusterAdminRole: true}}
-	return errors.EnsureStack(roleBindings.ReadWrite(tx).Put(clusterRoleBindingKey, &binding))
+	binding.Entries[InternalUser] = &auth.Roles{Roles: map[string]bool{auth.ClusterAdminRole: true}}
+	return errors.EnsureStack(roleBindings.ReadWrite(tx).Put(auth.ClusterRoleBindingKey, &binding))
+}
+
+func ResourceKey(r *auth.Resource) string {
+	if r.Type == auth.ResourceType_CLUSTER {
+		return auth.ClusterRoleBindingKey
+	}
+	return fmt.Sprintf("%s:%s", r.Type, r.Name)
 }

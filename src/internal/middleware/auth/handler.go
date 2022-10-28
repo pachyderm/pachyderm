@@ -60,7 +60,6 @@ func clusterPermissions(permissions ...auth.Permission) authHandler {
 		if resp.Authorized {
 			return "", nil
 		}
-
 		return "", &auth.ErrNotAuthorized{
 			Subject:  resp.Principal,
 			Resource: auth.Resource{Type: auth.ResourceType_CLUSTER},
