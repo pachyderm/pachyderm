@@ -13,7 +13,7 @@ import (
 const (
 	// maxLogMessages is the maximum number of log messages the loki server
 	// will send us, it will error if this is made higher.
-	maxLogMessages = 5000
+	maxLogMessages = 2000
 )
 
 func forEachLine(resp loki.QueryResponse, f func(t time.Time, line string) error) error {
