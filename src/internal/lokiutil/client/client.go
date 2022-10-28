@@ -64,9 +64,6 @@ func (c *Client) doQuery(ctx context.Context, path string, query string, quiet b
 }
 
 func (c *Client) doRequest(ctx context.Context, path, query string, quiet bool, out interface{}) error {
-	// Loki requests can hang if the size of the log lines is too big, so we set a timeout
-	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
-	defer cancel()
 	us, err := buildURL(c.Address, path, query)
 	if err != nil {
 		return err
