@@ -29,11 +29,7 @@ var ReposTypeIndex = &col.Index{
 }
 
 func ReposNameKey(repo *pfs.Repo) string {
-	if projectName := repo.Project.GetName(); projectName != "" {
-		return repo.Project.Name + "/" + repo.Name
-	}
-	// TODO: remove this after CORE-93 is complete.
-	return repo.Name
+	return repo.Project.Name + "/" + repo.Name
 }
 
 var ReposNameIndex = &col.Index{
@@ -46,11 +42,7 @@ var ReposNameIndex = &col.Index{
 var reposIndexes = []*col.Index{ReposNameIndex, ReposTypeIndex}
 
 func RepoKey(repo *pfs.Repo) string {
-	if projectName := repo.Project.GetName(); projectName != "" {
-		return repo.Project.Name + "/" + repo.Name + "." + repo.Type
-	}
-	// TODO: remove this after CORE-93 is complete.
-	return repo.Name + "." + repo.Type
+	return repo.Project.Name + "/" + repo.Name + "." + repo.Type
 }
 
 func repoKeyCheck(key string) error {
@@ -225,14 +217,5 @@ func CollectionsV0() []col.PostgresCollection {
 		col.NewPostgresCollection(reposCollectionName, nil, nil, nil, reposIndexes),
 		col.NewPostgresCollection(commitsCollectionName, nil, nil, nil, commitsIndexes),
 		col.NewPostgresCollection(branchesCollectionName, nil, nil, nil, branchesIndexes),
-	}
-}
-
-// returns collections released in v2.4.0 - specifically the projects collection
-// DO NOT MODIFY THIS FUNCTION
-// IT HAS BEEN USED IN A RELEASED MIGRATION
-func CollectionsV2_4_0() []col.PostgresCollection {
-	return []col.PostgresCollection{
-		col.NewPostgresCollection(projectsCollectionName, nil, nil, nil, nil),
 	}
 }

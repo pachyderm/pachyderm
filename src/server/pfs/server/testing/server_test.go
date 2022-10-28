@@ -332,6 +332,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, config.WritePachTokenToConfig(tu.RootToken, false))
 		client := env.PachClient.WithCtx(context.Background())
 		_, err = client.PfsAPIClient.ActivateAuth(client.Ctx(), &pfs.ActivateAuthRequest{})
+		require.NoError(t, err)
 
 		// create two projects
 		project1 := tu.UniqueString("project")

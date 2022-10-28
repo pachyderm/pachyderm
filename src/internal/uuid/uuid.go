@@ -33,11 +33,6 @@ func NewWithoutDashes() string {
 	return strings.ReplaceAll(New(), "-", "")
 }
 
-// NewWithoutUnderscores returns a new uuid without no "_".
-func NewWithoutUnderscores() string {
-	return strings.ReplaceAll(New(), "_", "")
-}
-
 // IsUUIDWithoutDashes checks whether a string is a UUID without dashes
 func IsUUIDWithoutDashes(s string) bool {
 	return uuidWithoutDashesRegexp.MatchString(s)

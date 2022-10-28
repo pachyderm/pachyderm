@@ -215,12 +215,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 			// and the ACL already exists with a different owner, this will fail.
 			// For now, we expect system repos to share auth info with their corresponding
 			// user repo, so the role binding should exist
-			if err := d.env.AuthServer.CreateRoleBindingInTransaction(
-				txnCtx,
-				whoAmI.Username,
-				[]string{auth.RepoOwnerRole},
-				&auth.Resource{Type: auth.ResourceType_REPO, Name: repo.String()},
-			); err != nil && (!col.IsErrExists(err) || repo.Type == pfs.UserRepoType) {
+			if err := d.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, whoAmI.Username, []string{auth.RepoOwnerRole}, repo.AuthResource()); err != nil && (!col.IsErrExists(err) || repo.Type == pfs.UserRepoType) {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not create role binding for new repo %q", repo)
 			}
 		}
@@ -246,7 +241,7 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 	}
 	if includeAuth {
 		resp, err := d.env.AuthServer.GetPermissionsInTransaction(txnCtx, &auth.GetPermissionsRequest{
-			Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.String()},
+			Resource: repo.AuthResource(),
 		})
 		if err != nil {
 			if auth.IsErrNotActivated(err) {
@@ -261,7 +256,7 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 
 func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Permission, []string, error) {
 	resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{
-		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name},
+		Resource: repo.AuthResource(),
 	})
 	if err != nil {
 		return nil, nil, errors.EnsureStack(err)
@@ -418,7 +413,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 
 	// since system repos share a role binding, only delete it if this is the user repo, in which case the other repos will be deleted anyway
 	if repo.Type == pfs.UserRepoType {
-		if err := d.env.AuthServer.DeleteRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.String()}); err != nil && !auth.IsErrNotActivated(err) {
+		if err := d.env.AuthServer.DeleteRoleBindingInTransaction(txnCtx, repo.AuthResource()); err != nil && !auth.IsErrNotActivated(err) {
 			return grpcutil.ScrubGRPC(err)
 		}
 	}
@@ -426,7 +421,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 }
 
 func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectRequest) error {
-	if err := pfs.ValidateProjectName(req.Project.Name); err != nil {
+	if err := req.Project.ValidateName(); err != nil {
 		return errors.Wrapf(err, "invalid project name")
 	}
 	return d.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {

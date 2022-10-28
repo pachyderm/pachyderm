@@ -249,11 +249,11 @@ func TestStableHash(t *testing.T) {
 		output, err := pachhash.ParseHex([]byte(td.expected[0]))
 		require.NoError(t, err)
 		random := rand.New(rand.NewSource(td.seed))
-		testStableHash(t, randutil.Bytes(random, 100*units.KB), output[:], msg)
+		testStableHash(t, oldRandomBytes(random, 100*units.KB), output[:], msg)
 		output, err = pachhash.ParseHex([]byte(td.expected[1]))
 		require.NoError(t, err)
 		random = rand.New(rand.NewSource(td.seed))
-		testStableHash(t, randutil.Bytes(random, 100*units.MB), output[:], msg)
+		testStableHash(t, oldRandomBytes(random, 100*units.MB), output[:], msg)
 	}
 }
 
@@ -263,6 +263,18 @@ func TestStableHashFuzz(t *testing.T) {
 	random := rand.New(rand.NewSource(seed))
 	testStableHash(t, randutil.Bytes(random, 100*units.KB), nil, msg)
 	testStableHash(t, randutil.Bytes(random, 100*units.MB), nil, msg)
+}
+
+var letters = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+// This is an older way of generating random bytes; what randutil.Bytes used to do.  The algorithm
+// it uses has changed in favor of a faster one, but breaks the above test.
+func oldRandomBytes(random *rand.Rand, n int) []byte {
+	bs := make([]byte, n)
+	for i := range bs {
+		bs[i] = letters[random.Intn(len(letters))]
+	}
+	return bs
 }
 
 func testStableHash(t *testing.T, data, expected []byte, msg string) {

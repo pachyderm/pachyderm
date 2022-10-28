@@ -21,7 +21,7 @@ type GlobalConfiguration struct {
 	PPSEtcdPrefix                  string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
 	Namespace                      string `env:"PACH_NAMESPACE,default=default"`
 	StorageRoot                    string `env:"PACH_ROOT,default=/pach"`
-	GCPercent                      int    `env:"GC_PERCENT,default=50"`
+	GCPercent                      int    `env:"GC_PERCENT,default=100"`
 	LokiHost                       string `env:"LOKI_SERVICE_HOST"`
 	LokiPort                       string `env:"LOKI_SERVICE_PORT"`
 	OidcPort                       uint16 `env:"OIDC_PORT,default=1657"`
@@ -75,6 +75,11 @@ type GlobalConfiguration struct {
 
 	// The number of concurrent requests that the PPS Master can make against kubernetes
 	PPSMaxConcurrentK8sRequests int `env:"PPS_MAX_CONCURRENT_K8S_REQUESTS,default=10"`
+
+	// These are automatically injected into pachd by Kubernetes.  They should not be set by
+	// users manually; use GOMEMLIMIT directly instead.
+	K8sMemoryLimit   int64 `env:"K8S_MEMORY_LIMIT,default=0"`
+	K8sMemoryRequest int64 `env:"K8S_MEMORY_REQUEST,default=0"`
 }
 
 // PachdFullConfiguration contains the full pachd configuration.

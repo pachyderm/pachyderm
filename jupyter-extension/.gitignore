@@ -9,6 +9,7 @@ jupyterlab_pachyderm/labextension
 yarn.lock
 coverage/
 cypress/screenshots
+cypress/videos
 .vscode
 
 # Created by https://www.gitignore.io/api/python

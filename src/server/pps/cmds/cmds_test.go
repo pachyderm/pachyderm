@@ -203,7 +203,7 @@ func TestUnrunnableJobInfo(t *testing.T) {
 		"pipeline", pipeline2, "inputPipeline", pipeline1).Run())
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl wait commit data@master
-		sleep 10
+		sleep 20
 		# make sure that there is a not-run job
 		pachctl list job --raw \
 			| match "JOB_UNRUNNABLE"

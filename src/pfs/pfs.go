@@ -2,9 +2,12 @@ package pfs
 
 import (
 	"encoding/hex"
+	"fmt"
 	"hash"
 
 	"github.com/gogo/protobuf/proto"
+
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -20,7 +23,7 @@ const (
 	MetaRepoType = "meta"
 	SpecRepoType = "spec"
 
-	DefaultProjectName = ""
+	DefaultProjectName = "default"
 )
 
 // NewHash returns a hash that PFS uses internally to compute checksums.
@@ -92,12 +95,42 @@ func (b *Branch) String() string {
 	return b.Repo.String() + "@" + b.Name
 }
 
-// ValidateProjectName returns an error if projectName is an invalid project
-// name.  DefaultProjectName is always valid; otherwise the ancestry package is
-// used to validate the name.
-func ValidateProjectName(projectName string) error {
-	if projectName == DefaultProjectName {
+// ValidateName returns an error if the project is nil or its name is an invalid
+// project name.  DefaultProjectName is always valid; otherwise the ancestry
+// package is used to validate the name.
+func (p *Project) ValidateName() error {
+	if p == nil {
+		return errors.New("nil project")
+	}
+	if p.Name == DefaultProjectName {
 		return nil
 	}
-	return ancestry.ValidateName(projectName)
+	return ancestry.ValidateName(p.Name)
+}
+
+// EnsureProject ensures that repo.Project is set.  It does nothing if repo is
+// nil.
+func (r *Repo) EnsureProject() {
+	if r == nil {
+		return
+	}
+	if r.Project.GetName() == "" {
+		r.Project = &Project{Name: DefaultProjectName}
+	}
+}
+
+// AuthResource returns the auth resource for a repo.  The resource name is the
+// project name and repo name separated by a slash.  Notably, it does _not_
+// include the repo type string.
+func (r *Repo) AuthResource() *auth.Resource {
+	var t auth.ResourceType
+	if r.Type == SpecRepoType {
+		t = auth.ResourceType_SPEC_REPO
+	} else {
+		t = auth.ResourceType_REPO
+	}
+	return &auth.Resource{
+		Type: t,
+		Name: fmt.Sprintf("%s/%s", r.Project.Name, r.Name),
+	}
 }

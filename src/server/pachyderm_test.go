@@ -4654,7 +4654,7 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 	require.NoError(t, c.PutFile(commit2, "file2", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo2, "master", ""))
 
-	pipeline := tu.UniqueString("TestAllDatumsAreProcessed_pipelines")
+	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"",
@@ -4838,8 +4838,8 @@ func TestPipelineResourceRequest(t *testing.T) {
 	t.Parallel()
 	c, ns := minikubetestenv.AcquireCluster(t)
 	// create repos
-	dataRepo := tu.UniqueString("TestPipelineResourceRequest")
-	pipelineName := tu.UniqueString("TestPipelineResourceRequest_Pipeline")
+	dataRepo := tu.UniqueString("repo")
+	pipelineName := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	// Resources are not yet in client.CreatePipeline() (we may add them later)
 	_, err := c.PpsAPIClient.CreatePipeline(
@@ -4915,7 +4915,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 	c, ns := minikubetestenv.AcquireCluster(t)
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineResourceLimit")
-	pipelineName := tu.UniqueString("TestPipelineResourceLimit_Pipeline")
+	pipelineName := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	// Resources are not yet in client.CreatePipeline() (we may add them later)
 	_, err := c.PpsAPIClient.CreatePipeline(
@@ -4988,7 +4988,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 	c, ns := minikubetestenv.AcquireCluster(t)
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineResourceLimit")
-	pipelineName := tu.UniqueString("TestPipelineResourceLimit_Pipeline")
+	pipelineName := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	// Resources are not yet in client.CreatePipeline() (we may add them later)
 	_, err := c.PpsAPIClient.CreatePipeline(
@@ -10722,9 +10722,9 @@ func TestTemporaryDuplicatedPath(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
-	repo := tu.UniqueString(t.Name())
-	other := tu.UniqueString("other-" + t.Name())
-	pipeline := tu.UniqueString("pipeline-" + t.Name())
+	repo := tu.UniqueString("repo")
+	other := tu.UniqueString("other")
+	pipeline := tu.UniqueString("pipeline")
 
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, other))
