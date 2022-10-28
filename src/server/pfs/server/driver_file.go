@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"math"
 	"path"
 	"path/filepath"
 	"strings"
@@ -241,14 +240,17 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 }
 
 func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker *pfs.File, number int64, reverse bool, cb func(*pfs.FileInfo) error) error {
+	if number > 100000 {
+		return errors.Errorf("cannot list more than 100000 files at a time")
+	}
 	commitInfo, fs, err := d.openCommit(ctx, file.Commit)
 	if err != nil {
 		return err
 	}
 	name := pfsfile.CleanPath(file.Path)
-	// if number is 0, we return all files that match the criteria
+	// if number is 0, we return up to 100k files that match the criteria
 	if number == 0 {
-		number = math.MaxInt64
+		number = 100000
 	}
 	opts := []SourceOption{
 		WithPrefix(name),
@@ -277,28 +279,46 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 		}
 		opts = append(opts, WithPathRange(pathRange))
 	}
-	var fis []*pfs.FileInfo
 	s := NewSource(commitInfo, fs, opts...)
-	if err = s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
+	callback := func(fi *pfs.FileInfo, _ fileset.File) error {
+		if number == 0 {
+			return errutil.ErrBreak
+		}
 		if pathIsChild(name, pfsfile.CleanPath(fi.File.Path)) {
-			fis = append(fis, fi)
-			return nil
+			number--
+			return cb(fi)
 		}
 		return nil
-	}); err != nil {
+	}
+	fis := make([]*pfs.FileInfo, number)
+	index := 0
+	if reverse {
+		callback = func(fi *pfs.FileInfo, _ fileset.File) error {
+			if pathIsChild(name, pfsfile.CleanPath(fi.File.Path)) {
+				fis[index] = fi
+				index++
+				if index == int(number) {
+					index = 0
+				}
+			}
+			return nil
+		}
+	}
+	if err = s.Iterate(ctx, callback); err != nil {
 		return errors.EnsureStack(err)
 	}
-	for i, fi := range fis {
-		if number == 0 {
-			break
+	if reverse {
+		for i := 0; i < int(number); i++ {
+			if fis[index] != nil {
+				if err := cb(fis[index]); err != nil {
+					return errors.EnsureStack(err)
+				}
+			}
+			index--
+			if index < 0 {
+				index = int(number) - 1
+			}
 		}
-		if reverse {
-			fi = fis[len(fis)-1-i]
-		}
-		if err = cb(fi); err != nil {
-			return errors.EnsureStack(err)
-		}
-		number--
 	}
 	return errors.EnsureStack(err)
 }
