@@ -68,6 +68,9 @@ func (a *validatedAPIServer) ListFile(request *pfs.ListFileRequest, server pfs.A
 	if err := validateFile(request.File); err != nil {
 		return err
 	}
+	if request.File.Commit.Repo == nil {
+		request.File.Commit.Repo = request.File.Commit.Branch.Repo
+	}
 	if err := a.auth.CheckRepoIsAuthorized(server.Context(), request.File.Commit.Repo, auth.Permission_REPO_LIST_FILE); err != nil {
 		return errors.EnsureStack(err)
 	}
