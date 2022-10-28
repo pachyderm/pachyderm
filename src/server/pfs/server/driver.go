@@ -445,7 +445,7 @@ func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectReques
 				return errors.Wrapf(err, "could not create role binding for new project %s", req.Project.GetName())
 			}
 		}
-		if !errors.Is(err, auth.ErrNotActivated) {
+		if err != nil && !errors.Is(err, auth.ErrNotActivated) {
 			return errors.Wrap(err, "could not get caller's username")
 		}
 		return errors.EnsureStack(projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
