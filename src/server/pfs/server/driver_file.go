@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"math"
 	"path"
 	"path/filepath"
 	"strings"
@@ -248,10 +249,6 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 		return err
 	}
 	name := pfsfile.CleanPath(file.Path)
-	// if number is 0, we return up to 100k files that match the criteria
-	if number == 0 {
-		number = 100000
-	}
 	opts := []SourceOption{
 		WithPrefix(name),
 		WithDatum(file.Datum),
@@ -280,44 +277,62 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 		opts = append(opts, WithPathRange(pathRange))
 	}
 	s := NewSource(commitInfo, fs, opts...)
-	callback := func(fi *pfs.FileInfo, _ fileset.File) error {
+	if !reverse {
 		if number == 0 {
-			return errutil.ErrBreak
+			number = math.MaxInt64
 		}
-		if pathIsChild(name, pfsfile.CleanPath(fi.File.Path)) {
-			number--
-			return cb(fi)
-		}
-		return nil
-	}
-	fis := make([]*pfs.FileInfo, number)
-	index := 0
-	if reverse {
-		callback = func(fi *pfs.FileInfo, _ fileset.File) error {
+		callback := func(fi *pfs.FileInfo, _ fileset.File) error {
+			if number == 0 {
+				return errutil.ErrBreak
+			}
 			if pathIsChild(name, pfsfile.CleanPath(fi.File.Path)) {
-				fis[index] = fi
-				index++
-				if index == int(number) {
-					index = 0
-				}
+				number--
+				return cb(fi)
 			}
 			return nil
 		}
+		if err = s.Iterate(ctx, callback); err != nil {
+			return errors.EnsureStack(err)
+		}
+		return nil
+	}
+	var fis []*pfs.FileInfo
+	if number != 0 {
+		// use a fixed size slice if we know the number of files we want
+		fis = make([]*pfs.FileInfo, number)
+	}
+	index := 0
+	callback := func(fi *pfs.FileInfo, _ fileset.File) error {
+		if pathIsChild(name, pfsfile.CleanPath(fi.File.Path)) {
+			if number == 0 {
+				if index > 100000 {
+					return errors.Errorf("cannot list more than 100000 files in reverse, try using pagination")
+				}
+				fis = append(fis, fi)
+				index++
+				return nil
+			}
+			fis[index] = fi
+			index++
+			// wrap around to the start of the slice
+			if index == int(number) {
+				index = 0
+			}
+		}
+		return nil
 	}
 	if err = s.Iterate(ctx, callback); err != nil {
 		return errors.EnsureStack(err)
 	}
-	if reverse {
-		for i := 0; i < int(number); i++ {
-			if fis[index] != nil {
-				if err := cb(fis[index]); err != nil {
-					return errors.EnsureStack(err)
-				}
+	for i := 0; i < len(fis); i++ {
+		if fis[index] != nil {
+			if err := cb(fis[index]); err != nil {
+				return errors.EnsureStack(err)
 			}
-			index--
-			if index < 0 {
-				index = int(number) - 1
-			}
+		}
+		index--
+		if index < 0 {
+			index = int(number) - 1
 		}
 	}
 	return errors.EnsureStack(err)
