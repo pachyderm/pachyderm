@@ -312,25 +312,34 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 				index++
 				return nil
 			}
-			fis[index] = fi
-			index++
 			// wrap around to the start of the slice
 			if index == int(number) {
 				index = 0
 			}
+			fis[index] = fi
+			index++
 		}
 		return nil
 	}
 	if err = s.Iterate(ctx, callback); err != nil {
 		return errors.EnsureStack(err)
 	}
+	if index == 0 {
+		// no files were found
+		return nil
+	}
+	index--
 	for i := 0; i < len(fis); i++ {
-		if fis[index] != nil {
-			if err := cb(fis[index]); err != nil {
-				return errors.EnsureStack(err)
-			}
+		if fis[index] == nil {
+			break
 		}
+
+		if err := cb(fis[index]); err != nil {
+			return errors.EnsureStack(err)
+		}
+		fis[index] = nil
 		index--
+
 		if index < 0 {
 			index = int(number) - 1
 		}

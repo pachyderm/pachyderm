@@ -164,6 +164,14 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 1, len(fis))
 		require.ElementsEqual(t, []string{"/dir1/file1.5"}, finfosToPaths(fis))
 
+		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), Reverse: true}
+		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
+		require.NoError(t, err)
+		fis, err = clientsdk.ListFile(listFileClient)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fis))
+		require.Equal(t, "/dir1/file1.5", finfosToPaths(fis)[0])
+
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.1"), Number: 2, Reverse: true}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
