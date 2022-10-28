@@ -333,13 +333,11 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 		if fis[index] == nil {
 			break
 		}
-
 		if err := cb(fis[index]); err != nil {
 			return errors.EnsureStack(err)
 		}
 		fis[index] = nil
 		index--
-
 		if index < 0 {
 			index = int(number) - 1
 		}
