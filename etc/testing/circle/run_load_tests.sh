@@ -27,7 +27,7 @@ JOB=$(echo "$CIRCLE_JOB" | tr '[:upper:]' '[:lower:]')
 # # provision a pulumi load test env
 curl --fail -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
  -F name=commit-"${CIRCLE_SHA1:0:7}-${JOB}" -F pachdVersion="${CIRCLE_SHA1}" -F backend=gcp_namespace_only -F clusterStack="pachyderm/helium/nightly-cluster" \
-  -F disableNotebooks="True"-F valuesYaml=@etc/testing/circle/helm-load-env-values.yaml \
+  -F disableNotebooks="True" -F valuesYaml=@etc/testing/circle/helm-load-env-values.yaml \
   https://helium.pachyderm.io/v1/api/workspace
 
 # wait for helium to kick off to pulumi before pinging it.

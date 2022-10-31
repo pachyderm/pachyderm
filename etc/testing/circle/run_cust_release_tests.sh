@@ -24,12 +24,12 @@ WORKSPACE="${1}-${CIRCLE_SHA1:0:7}-${TIMESTAMP}"
 if [ "${1}" = "wp" ]; then
   curl --fail -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
     -F name="${WORKSPACE}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG:1}-${CIRCLE_SHA1}" -F backend="aws_cluster" \
-    -F disableNotebooks="True"-F infraJson=@etc/testing/circle/workloads/aws-wp/infra.json -F valuesYaml=@etc/testing/circle/workloads/aws-wp/values.yaml \
+    -F disableNotebooks="True" -F infraJson=@etc/testing/circle/workloads/aws-wp/infra.json -F valuesYaml=@etc/testing/circle/workloads/aws-wp/values.yaml \
 https://helium.pachyderm.io/v1/api/workspace
 elif [ "${1}" = "btl" ]; then
   curl --fail -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
     -F name="${WORKSPACE}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG:1}-${CIRCLE_SHA1}" -F backend="aws_cluster" \
-    -F disableNotebooks="True"-F infraJson=@etc/testing/circle/workloads/aws-btl/infra.json -F valuesYaml=@etc/testing/circle/workloads/aws-btl/values.yaml \
+    -F disableNotebooks="True" -F infraJson=@etc/testing/circle/workloads/aws-btl/infra.json -F valuesYaml=@etc/testing/circle/workloads/aws-btl/values.yaml \
 https://helium.pachyderm.io/v1/api/workspace
 else
   echo "no valid customer name provided"
