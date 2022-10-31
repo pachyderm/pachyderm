@@ -39,8 +39,7 @@ func NewPachctl(ctx context.Context, c *client.APIClient, configPath string) (*P
 	if err := os.Remove(configPath); err != nil {
 		return nil, errors.Wrap(err, "could not delete placeholder pachctl config")
 	}
-	cmd, err := templateCommand(ctx, `
-		export PACH_CONFIG={{.config}}
+	cmd, err := p.CommandTemplate(ctx, `
 		pachctl config set context  --overwrite {{ .context }} <<EOF
 		{
 		  "source": 2,
@@ -73,8 +72,8 @@ func (p Pachctl) Close() error {
 	return errors.Wrapf(os.Remove(p.configPath), "could not delete pachctl config %q", p.configPath)
 }
 
-func bashPrelude(w io.Writer) error {
-	_, err := fmt.Fprintln(w, `
+func (p Pachctl) bashPrelude(w io.Writer) error {
+	_, err := fmt.Fprintf(w, `
 set -e -o pipefail
 # Try to ignore pipefail errors (encountered when writing to a closed pipe).
 # Processes like 'yes' are essentially guaranteed to hit this, and because of
@@ -91,7 +90,9 @@ which match >/dev/null || {
 	echo "You must have 'match' installed to run these tests. Please run:" >&2
 	echo "  go install ./src/testing/match" >&2
 	exit 1
-}`)
+}
+export PACH_CONFIG="%s"
+`, p.configPath)
 	return errors.Wrap(err, "could not write prelude")
 }
 
@@ -109,15 +110,14 @@ func writeTemplate(w io.Writer, s string, data any) error {
 }
 
 // bashTemplate interprets scriptTemplate as an indented Go template for a Bash script; it returns an io.Reader containing
-func bashTemplate(scriptTemplate string, data any) (io.Reader, error) {
+func (p Pachctl) bashTemplate(scriptTemplate string, data any) (io.Reader, error) {
 	// Warn users that they must install 'match' if they want to run tests with
 	// this library, and enable 'pipefail' so that if any 'match' in a chain
 	// fails, the whole command fails.
 	buf := &bytes.Buffer{}
-	if err := bashPrelude(buf); err != nil {
+	if err := p.bashPrelude(buf); err != nil {
 		return nil, errors.Wrap(err, "could not write prelude before template")
 	}
-
 	if err := writeTemplate(buf, scriptTemplate, data); err != nil {
 		return nil, errors.Wrap(err, "could not write template")
 	}
@@ -161,21 +161,14 @@ func newCmd(ctx context.Context, name string, args []string, stdin io.Reader) Cm
 	return cmd
 }
 
-func templateCommand(ctx context.Context, script string, data any) (Cmd, error) {
-	r, err := bashTemplate(script, data)
-	if err != nil {
-		return Cmd{}, errors.Wrap(err, "could not execute script template")
-	}
-	return newCmd(ctx, "/bin/bash", nil, r), nil
-}
-
 // Command provides a Cmd to execute script with Bash.  If context is cancelled
 // then the command will be terminated.
-func (b Pachctl) Command(ctx context.Context, script string) (Cmd, error) {
+func (p Pachctl) Command(ctx context.Context, script string) (Cmd, error) {
 	var buf = new(bytes.Buffer)
-	if err := bashPrelude(buf); err != nil {
+	if err := p.bashPrelude(buf); err != nil {
 		return Cmd{}, errors.Wrap(err, "could not insert prelude")
 	}
+	fmt.Fprintf(buf, "export PACH_CONFIG=\"%s\"\n", p.configPath)
 	buf.WriteString(script)
 	return newCmd(ctx, "/bin/bash", nil, buf), nil
 }
@@ -183,6 +176,10 @@ func (b Pachctl) Command(ctx context.Context, script string) (Cmd, error) {
 // Command provides a Cmd to execute script with Bash.  Script is interpreted as
 // a Go template and provided with data.  If context is cancelled then the
 // command will be terminated.
-func (b *Pachctl) CommandTemplate(ctx context.Context, scriptTemplate string, data any) (Cmd, error) {
-	return templateCommand(ctx, scriptTemplate, data)
+func (p *Pachctl) CommandTemplate(ctx context.Context, scriptTemplate string, data any) (Cmd, error) {
+	r, err := p.bashTemplate(scriptTemplate, data)
+	if err != nil {
+		return Cmd{}, errors.Wrap(err, "could not execute script template")
+	}
+	return newCmd(ctx, "/bin/bash", nil, r), nil
 }
