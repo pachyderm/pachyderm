@@ -166,5 +166,6 @@ func PachctlBashCmd(t *testing.T, c *client.APIClient, scriptTemplate string, su
 	})
 	cmd, err := p.CommandTemplate(ctx, scriptTemplate, data)
 	require.NoError(t, err, "could not create command")
+	cmd.Cmd.Stdout = os.Stdout
 	return cmd.Cmd
 }
