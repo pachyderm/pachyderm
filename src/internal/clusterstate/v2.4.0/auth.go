@@ -32,23 +32,24 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 	}
 
 	// Grant all users the ProjectCreator role at the cluster level
-	var rbs *auth.RoleBinding
-	if err := roleBindingsCol.Upsert(auth.ClusterRoleBindingKey, rbs, func() error {
-		if _, ok := rbs.Entries[auth.AllClusterUsersSubject]; !ok {
-			rbs.Entries[auth.AllClusterUsersSubject] = &auth.Roles{Roles: make(map[string]bool)}
+	clusterRbs := &auth.RoleBinding{Entries: make(map[string]*auth.Roles)}
+	if err := roleBindingsCol.Upsert(auth.ClusterRoleBindingKey, clusterRbs, func() error {
+		if _, ok := clusterRbs.Entries[auth.AllClusterUsersSubject]; !ok {
+			clusterRbs.Entries[auth.AllClusterUsersSubject] = &auth.Roles{Roles: make(map[string]bool)}
 		}
-		rbs.Entries[auth.AllClusterUsersSubject].Roles[auth.ProjectCreator] = true
+		clusterRbs.Entries[auth.AllClusterUsersSubject].Roles[auth.ProjectCreator] = true
 		return nil
 	}); err != nil {
 		return errors.Wrap(err, "could not update cluster level role bindings")
 	}
 
 	// Grant all users the ProjectWriter role for default project
-	if err := roleBindingsCol.Upsert("PROJECT:default", rbs, func() error {
-		if _, ok := rbs.Entries[auth.AllClusterUsersSubject]; !ok {
-			rbs.Entries[auth.AllClusterUsersSubject] = &auth.Roles{Roles: make(map[string]bool)}
+	defaultProjectRbs := &auth.RoleBinding{Entries: make(map[string]*auth.Roles)}
+	if err := roleBindingsCol.Upsert("PROJECT:default", defaultProjectRbs, func() error {
+		if _, ok := defaultProjectRbs.Entries[auth.AllClusterUsersSubject]; !ok {
+			defaultProjectRbs.Entries[auth.AllClusterUsersSubject] = &auth.Roles{Roles: make(map[string]bool)}
 		}
-		rbs.Entries[auth.AllClusterUsersSubject].Roles[auth.ProjectWriter] = true
+		defaultProjectRbs.Entries[auth.AllClusterUsersSubject].Roles[auth.ProjectWriter] = true
 		return nil
 	}); err != nil {
 		return errors.Wrap(err, "could not update default project's role bindings")

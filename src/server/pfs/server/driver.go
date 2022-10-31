@@ -434,8 +434,7 @@ func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectReques
 			}))
 		}
 		// If auth is active, make caller the owner of this new project.
-		whoAmI, err := txnCtx.WhoAmI()
-		if err == nil {
+		if whoAmI, err := txnCtx.WhoAmI(); err == nil {
 			if err := d.env.AuthServer.CreateRoleBindingInTransaction(
 				txnCtx,
 				whoAmI.Username,
@@ -444,8 +443,7 @@ func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectReques
 			); err != nil && !errors.Is(err, col.ErrExists{}) {
 				return errors.Wrapf(err, "could not create role binding for new project %s", req.Project.GetName())
 			}
-		}
-		if err != nil && !errors.Is(err, auth.ErrNotActivated) {
+		} else if !errors.Is(err, auth.ErrNotActivated) {
 			return errors.Wrap(err, "could not get caller's username")
 		}
 		return errors.EnsureStack(projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
