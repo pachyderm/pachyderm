@@ -3,8 +3,10 @@ package testutil
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"strings"
@@ -13,6 +15,7 @@ import (
 	"unicode"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
@@ -134,51 +137,36 @@ func BashCmd(cmd string, subs ...string) *exec.Cmd {
 	return res
 }
 
-func PachctlBashCmd(t *testing.T, c *client.APIClient, cmd string, subs ...string) *exec.Cmd {
-	t.Helper()
-
-	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(bashCmd(cmd, subs...))
-	require.NoError(t, err)
-
-	config := fmt.Sprintf("test-pach-config-%s.json", t.Name())
-	if _, err := os.Open(config); err != nil {
-		_, err = os.Create(config)
-		require.NoError(t, err)
-		// remove the empty file so that a config can be generated
-		require.NoError(t, os.Remove(config))
-		t.Cleanup(func() {
-			// since this call gets run multiple times, ignore error
-			_ = os.Remove(config)
-		})
-		return BashCmd(`
-		export PACH_CONFIG={{.config}}
-		pachctl config set context  --overwrite {{ .context }} <<EOF
-		{
-		  "source": 2,
-		  "session_token": "{{.token}}",
-		  "pachd_address": "grpc://{{.host}}:{{.port}}",
-		  "cluster_deployment_id": "dev"
-		}
-		EOF
-		pachctl config set active-context {{ .context }}
-		{{.cmd}}
-		`,
-			"config", config,
-			"context", t.Name(),
-			"token", c.AuthToken(),
-			"host", c.GetAddress().Host,
-			"port", fmt.Sprint(c.GetAddress().Port),
-			"cmd", buf.String(),
-		)
+func subsToTemplateData(subs ...string) (map[string]string, error) {
+	if len(subs)%2 == 1 {
+		return nil, errors.New("some variable does not have a corresponding value")
 	}
-	return BashCmd(`
-	export PACH_CONFIG={{.config}}
-	pachctl config set active-context {{ .context }}
-	{{.cmd}}
-	`,
-		"config", config,
-		"context", t.Name(),
-		"cmd", buf.String(),
-	)
+
+	// copy 'subs' into a map
+	subsMap := make(map[string]string)
+	for i := 0; i < len(subs); i += 2 {
+		subsMap[subs[i]] = subs[i+1]
+	}
+	return subsMap, nil
+}
+
+func PachctlBashCmd(t *testing.T, c *client.APIClient, scriptTemplate string, subs ...string) *exec.Cmd {
+	t.Helper()
+	ctx := context.Background()
+	data, err := subsToTemplateData(subs...)
+	require.NoError(t, err, "could not convert subs to data")
+	config := fmt.Sprintf("test-pach-config-%s.json", t.Name())
+	p, err := NewPachctl(ctx, c, config)
+	// NOTE: p is not closed in order to retain config file between runs;
+	// for the same reason, it is okay if the config file already exists.
+	require.True(t, err == nil || errors.Is(err, fs.ErrExist), "could not create new Pachctl environment:", err)
+	t.Cleanup(func() {
+		// since this call gets run multiple times, ignore error
+		_ = os.Remove(config)
+	})
+	cmd, err := p.CommandTemplate(ctx, scriptTemplate, data)
+	require.NoError(t, err, "could not create command")
+	cmd.Cmd.Stdout = nil // some existing tests expect Stdout not to be redirected
+	cmd.Cmd.Stderr = os.Stderr
+	return cmd.Cmd
 }
