@@ -241,6 +241,9 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 }
 
 func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker *pfs.File, number int64, reverse bool, cb func(*pfs.FileInfo) error) error {
+	if number == 0 && reverse {
+		return errors.Errorf("number must be > 0 when reverse is true")
+	}
 	if number > 100000 {
 		return errors.Errorf("cannot list more than 100000 files at a time")
 	}
@@ -277,41 +280,35 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 		opts = append(opts, WithPathRange(pathRange))
 	}
 	s := NewSource(commitInfo, fs, opts...)
-	if !reverse {
+	if number == 0 {
+		number = math.MaxInt64
+	}
+	if reverse {
+		return d.listFileReverse(ctx, name, s, number, cb)
+	}
+	callback := func(fi *pfs.FileInfo, _ fileset.File) error {
 		if number == 0 {
-			number = math.MaxInt64
+			return errutil.ErrBreak
 		}
-		callback := func(fi *pfs.FileInfo, _ fileset.File) error {
-			if number == 0 {
-				return errutil.ErrBreak
-			}
-			if pathIsChild(name, pfsfile.CleanPath(fi.File.Path)) {
-				number--
-				return cb(fi)
-			}
-			return nil
-		}
-		if err = s.Iterate(ctx, callback); err != nil {
-			return errors.EnsureStack(err)
+		if pathIsChild(name, pfsfile.CleanPath(fi.File.Path)) {
+			number--
+			return cb(fi)
 		}
 		return nil
 	}
-	var fis []*pfs.FileInfo
-	if number != 0 {
-		// use a fixed size slice if we know the number of files we want
-		fis = make([]*pfs.FileInfo, number)
+	if err = s.Iterate(ctx, callback); err != nil {
+		return errors.EnsureStack(err)
 	}
+
+	return errors.EnsureStack(err)
+}
+
+func (d *driver) listFileReverse(ctx context.Context, filename string, s Source, number int64, cb func(*pfs.FileInfo) error) error {
+	// use a fixed size slice if we know the number of files we want
+	fis := make([]*pfs.FileInfo, number)
 	index := 0
-	callback := func(fi *pfs.FileInfo, _ fileset.File) error {
-		if pathIsChild(name, pfsfile.CleanPath(fi.File.Path)) {
-			if number == 0 {
-				if index > 100000 {
-					return errors.Errorf("cannot list more than 100000 files in reverse, try using pagination")
-				}
-				fis = append(fis, fi)
-				index++
-				return nil
-			}
+	if err := s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
+		if pathIsChild(filename, pfsfile.CleanPath(fi.File.Path)) {
 			// wrap around to the start of the slice
 			if index == int(number) {
 				index = 0
@@ -320,8 +317,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 			index++
 		}
 		return nil
-	}
-	if err = s.Iterate(ctx, callback); err != nil {
+	}); err != nil {
 		return errors.EnsureStack(err)
 	}
 	if index == 0 {
@@ -342,7 +338,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 			index = int(number) - 1
 		}
 	}
-	return errors.EnsureStack(err)
+	return nil
 }
 
 func (d *driver) walkFile(ctx context.Context, file *pfs.File, cb func(*pfs.FileInfo) error) (retErr error) {
