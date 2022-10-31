@@ -65,11 +65,11 @@ func dedent(cmd string) string {
 	return dedentedCmd.String()
 }
 
-// Cmd is a convenience function that replaces exec.Command. It's both shorter
+// Command is a convenience function that replaces exec.Command. It's both shorter
 // and it uses the current process's stderr as output for the command, which
 // makes debugging failures much easier (i.e. you get an error message
 // rather than "exit status 1")
-func Cmd(name string, args ...string) *exec.Cmd {
+func Command(name string, args ...string) *exec.Cmd {
 	cmd := exec.Command(name, args...)
 	cmd.Stderr = os.Stderr
 	// for convenience, simulate hitting "enter" after any prompt. This can easily
@@ -133,6 +133,7 @@ func BashCmd(cmd string, subs ...string) *exec.Cmd {
 	res.Env = os.Environ()
 	return res
 }
+
 func PachctlBashCmd(t *testing.T, c *client.APIClient, cmd string, subs ...string) *exec.Cmd {
 	t.Helper()
 
