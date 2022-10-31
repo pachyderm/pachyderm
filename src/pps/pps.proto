@@ -588,10 +588,10 @@ message ListDatumRequest {
   // with the provided input.
   Input input = 2;
   Filter filter = 3;
-  // Number of datums to return
-  int64 number = 4;
   //datum id to start from. we do not include this datum in the response
-  string paginationMarker = 5;
+  string paginationMarker = 4;
+  // Number of datums to return
+  int64 number = 5;
   // If true, return datums in reverse order
   bool reverse = 6;
 }

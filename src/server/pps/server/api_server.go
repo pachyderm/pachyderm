@@ -1069,50 +1069,105 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 	if request.Job != nil && request.Input != nil {
 		return errors.Errorf("cannot specify both job and input")
 	}
-	var metas []*datum.Meta
+	number := request.Number
+	if number == 0 && request.Reverse {
+		return errors.Errorf("number must be > 0 when reverse is set")
+	}
+	if request.Reverse {
+		return a.listDatumReverse(server.Context(), request, server)
+	}
+	if number == 0 {
+		number = math.MaxInt64
+	}
 	if request.Input != nil {
 		if err := a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
-			metas = append(metas, meta)
+			if number == 0 {
+				return errutil.ErrBreak
+			}
+			info := convertDatumMetaToInfo(meta, nil)
+			info.State = pps.DatumState_UNKNOWN
+			if (request.PaginationMarker != "" && info.Datum.ID <= request.PaginationMarker) || !request.Filter.Allow(info) {
+				return nil
+			}
+			number--
+			return errors.EnsureStack(server.Send(info))
+		}); err != nil && !errors.Is(err, errutil.ErrBreak) {
+			return errors.EnsureStack(err)
+		}
+		return nil
+	}
+	if err := a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
+		if number == 0 {
+			return errutil.ErrBreak
+		}
+		info := convertDatumMetaToInfo(meta, nil)
+		if (request.PaginationMarker != "" && info.Datum.ID <= request.PaginationMarker) || !request.Filter.Allow(info) {
 			return nil
-		}); err != nil {
+		}
+		number--
+		return errors.EnsureStack(server.Send(info))
+	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
+		return errors.EnsureStack(err)
+	}
+	return nil
+}
+
+func (a *apiServer) listDatumReverse(ctx context.Context, request *pps.ListDatumRequest, server pps.API_ListDatumServer) error {
+	dis := make([]*pps.DatumInfo, request.Number)
+	index := 0
+	if request.Input != nil {
+		if err := a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
+			info := convertDatumMetaToInfo(meta, nil)
+			info.State = pps.DatumState_UNKNOWN
+			if request.PaginationMarker != "" && info.Datum.ID >= request.PaginationMarker {
+				return errutil.ErrBreak
+			}
+			if !request.Filter.Allow(info) {
+				return nil
+			}
+			if index == int(request.Number) {
+				index = 0
+			}
+			dis[index] = info
+			index++
+			return nil
+		}); err != nil && !errors.Is(err, errutil.ErrBreak) {
 			return errors.EnsureStack(err)
 		}
 	} else {
 		if err := a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
-			metas = append(metas, meta)
+			info := convertDatumMetaToInfo(meta, nil)
+			if request.PaginationMarker != "" && info.Datum.ID >= request.PaginationMarker {
+				return errutil.ErrBreak
+			}
+			if !request.Filter.Allow(info) {
+				return nil
+			}
+			if index == int(request.Number) {
+				index = 0
+			}
+			dis[index] = info
+			index++
 			return nil
-		}); err != nil {
+		}); err != nil && !errors.Is(err, errutil.ErrBreak) {
 			return errors.EnsureStack(err)
 		}
 	}
-	number := request.Number
-	if number == 0 {
-		number = math.MaxInt64
+	if index == 0 {
+		return nil
 	}
-	for i, meta := range metas {
-		if number == 0 {
+	index--
+	for i := 0; i < len(dis); i++ {
+		if dis[index] == nil {
 			break
 		}
-		if request.Reverse {
-			meta = metas[len(metas)-i-1]
+		if err := server.Send(dis[index]); err != nil {
+			return err
 		}
-		info := convertDatumMetaToInfo(meta, request.Job)
-		if request.PaginationMarker != "" {
-			if (request.Reverse && info.Datum.ID >= request.PaginationMarker) || (!request.Reverse && info.Datum.ID <= request.PaginationMarker) {
-				// can we break?
-				continue
-			}
+		index--
+		if index < 0 {
+			index = len(dis) - 1
 		}
-		if request.Job == nil {
-			info.State = pps.DatumState_UNKNOWN
-		}
-		if !request.Filter.Allow(info) {
-			continue
-		}
-		if err := server.Send(info); err != nil {
-			return errors.EnsureStack(err)
-		}
-		number--
 	}
 	return nil
 }
