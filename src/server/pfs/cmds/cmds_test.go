@@ -415,83 +415,81 @@ func TestMount(t *testing.T) {
 		// rather than on a name.  For now, though, this does work, even
 		// if the indirection through subtests which always succeed but
 		// spawn goroutines which may fail is a bit confusing.
-		t.Run(projectName, func(t *testing.T) {
-			eg.Go(func() error {
-				cmd, err := p.CommandTemplate(ctx, `
+		eg.Go(func() error {
+			cmd, err := p.CommandTemplate(ctx, `
 					pachctl create project {{.projectName}}
 					pachctl create repo {{.repoName}} --project {{.projectName}}
 					# this needs to be execed in order for process killing to cleanly unmount
 					exec pachctl mount {{.mntDirPath}} -w --project {{.projectName}}
 					`,
-					map[string]string{
-						"projectName": projectName,
-						"repoName":    repoName,
-						"mntDirPath":  mntDirPath,
-					})
-				if err != nil {
-					return errors.Wrap(err, "could not create mount command")
-				}
-				if err := cmd.Run(); err != nil {
-					t.Log("stdout:", cmd.Stdout())
-					t.Log("stderr:", cmd.Stderr())
-					return errors.Wrap(err, "could not mount")
-				}
-				if cmd, err = p.CommandTemplate(ctx, `
+				map[string]string{
+					"projectName": projectName,
+					"repoName":    repoName,
+					"mntDirPath":  mntDirPath,
+				})
+			if err != nil {
+				return errors.Wrap(err, "could not create mount command")
+			}
+			if err := cmd.Run(); err != nil {
+				t.Log("stdout:", cmd.Stdout())
+				t.Log("stderr:", cmd.Stderr())
+				return errors.Wrap(err, "could not mount")
+			}
+			if cmd, err = p.CommandTemplate(ctx, `
 					pachctl list files {{.repoName}}@master --project {{.projectName}} | grep {{.fileName}} > /dev/null || exit "could not find {{.fileName}}"
 					# check that only one file is present
 					[[ $(pachctl list files {{.repoName}}@master --project {{.projectName}} | wc -l) -eq 2 ]] || exit "more than one file found in repo"
 					`,
-					map[string]string{
-						"projectName": projectName,
-						"repoName":    repoName,
-						"fileName":    fileName,
-					}); err != nil {
-					return errors.Wrap(err, "could not create validation command")
+				map[string]string{
+					"projectName": projectName,
+					"repoName":    repoName,
+					"fileName":    fileName,
+				}); err != nil {
+				return errors.Wrap(err, "could not create validation command")
+			}
+			if err := cmd.Run(); err != nil {
+				t.Log("stdout:", cmd.Stdout())
+				t.Log("stderr:", cmd.Stderr())
+				return errors.Wrap(err, "could not validate")
+			}
+			return nil
+		})
+		eg.Go(func() error {
+			if err := backoff.Retry(func() error {
+				ff, err := os.ReadDir(mntDirPath)
+				if err != nil {
+					return errors.Wrapf(err, "could not read %s", mntDirPath)
 				}
-				if err := cmd.Run(); err != nil {
-					t.Log("stdout:", cmd.Stdout())
-					t.Log("stderr:", cmd.Stderr())
-					return errors.Wrap(err, "could not validate")
+				if len(ff) == 0 {
+					return errors.Errorf("%s not yet mounted", mntDirPath)
+				}
+				select {
+				case <-ctx.Done():
+					return backoff.Permanent(ctx.Err())
+				default:
 				}
 				return nil
-			})
-			eg.Go(func() error {
-				if err := backoff.Retry(func() error {
-					ff, err := os.ReadDir(mntDirPath)
-					if err != nil {
-						return errors.Wrapf(err, "could not read %s", mntDirPath)
-					}
-					if len(ff) == 0 {
-						return errors.Errorf("%s not yet mounted", mntDirPath)
-					}
-					select {
-					case <-ctx.Done():
-						return backoff.Permanent(ctx.Err())
-					default:
-					}
-					return nil
-				}, backoff.NewExponentialBackOff()); err != nil {
-					return errors.Wrapf(err, "%q never mounted", mntDirPath)
-				}
-				testFilePath := filepath.Join(mntDirPath, repoName, fileName)
-				cmd, err := p.CommandTemplate(ctx, `
+			}, backoff.NewExponentialBackOff()); err != nil {
+				return errors.Wrapf(err, "%q never mounted", mntDirPath)
+			}
+			testFilePath := filepath.Join(mntDirPath, repoName, fileName)
+			cmd, err := p.CommandTemplate(ctx, `
 					echo "this is a test" > {{.testFilePath}}
 					fusermount -u {{.mntDirPath}}
 					`,
-					map[string]string{
-						"mntDirPath":   mntDirPath,
-						"testFilePath": testFilePath,
-					})
-				if err != nil {
-					return errors.Wrap(err, "could not create mutator")
-				}
-				if err := cmd.Run(); err != nil {
-					t.Log("stdout:", cmd.Stdout())
-					t.Log("stderr:", cmd.Stderr())
-					return errors.Wrap(err, "could not run mutator")
-				}
-				return nil
-			})
+				map[string]string{
+					"mntDirPath":   mntDirPath,
+					"testFilePath": testFilePath,
+				})
+			if err != nil {
+				return errors.Wrap(err, "could not create mutator")
+			}
+			if err := cmd.Run(); err != nil {
+				t.Log("stdout:", cmd.Stdout())
+				t.Log("stderr:", cmd.Stderr())
+				return errors.Wrap(err, "could not run mutator")
+			}
+			return nil
 		})
 	}
 	require.NoError(t, eg.Wait(), "goroutines failed")
