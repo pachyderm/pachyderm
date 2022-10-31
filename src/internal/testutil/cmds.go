@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"strings"
@@ -154,10 +155,15 @@ func PachctlBashCmd(t *testing.T, c *client.APIClient, scriptTemplate string, su
 	ctx := context.Background()
 	data, err := subsToTemplateData(subs...)
 	require.NoError(t, err, "could not convert subs to data")
-	p, err := NewPachctl(ctx, c, fmt.Sprintf("test-pach-config-%s.json", t.Name()))
+	config := fmt.Sprintf("test-pach-config-%s.json", t.Name())
+	p, err := NewPachctl(ctx, c, config)
 	// NOTE: p is not closed in order to retain config file between runs;
 	// for the same reason, it is okay if the config file already exists.
-	require.True(t, err != nil || os.IsExist(err), "could not create new Pachctl environment")
+	require.True(t, err == nil || errors.Is(err, fs.ErrExist), "could not create new Pachctl environment:", err)
+	t.Cleanup(func() {
+		// since this call gets run multiple times, ignore error
+		_ = os.Remove(config)
+	})
 	cmd, err := p.CommandTemplate(ctx, scriptTemplate, data)
 	require.NoError(t, err, "could not create command")
 	return cmd.Cmd
