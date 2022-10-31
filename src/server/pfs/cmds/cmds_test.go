@@ -432,6 +432,8 @@ func TestMount(t *testing.T) {
 					return errors.Wrap(err, "could not create mount command")
 				}
 				if err := cmd.Run(); err != nil {
+					t.Log("stdout:", cmd.Stdout())
+					t.Log("stderr:", cmd.Stderr())
 					return errors.Wrap(err, "could not mount")
 				}
 				if cmd, err = p.CommandTemplate(ctx, `
@@ -447,6 +449,8 @@ func TestMount(t *testing.T) {
 					return errors.Wrap(err, "could not create validation command")
 				}
 				if err := cmd.Run(); err != nil {
+					t.Log("stdout:", cmd.Stdout())
+					t.Log("stderr:", cmd.Stderr())
 					return errors.Wrap(err, "could not validate")
 				}
 				return nil
@@ -482,6 +486,8 @@ func TestMount(t *testing.T) {
 					return errors.Wrap(err, "could not create mutator")
 				}
 				if err := cmd.Run(); err != nil {
+					t.Log("stdout:", cmd.Stdout())
+					t.Log("stderr:", cmd.Stderr())
 					return errors.Wrap(err, "could not run mutator")
 				}
 				return nil
