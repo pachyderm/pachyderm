@@ -92,7 +92,7 @@ which match >/dev/null || {
 	echo "  go install ./src/testing/match" >&2
 	exit 1
 }`)
-	return err
+	return errors.Wrap(err, "could not write prelude")
 }
 
 // writeTemplate dedents the given script, parses it as a Go template and writes
@@ -114,7 +114,9 @@ func bashTemplate(scriptTemplate string, data any) (io.Reader, error) {
 	// this library, and enable 'pipefail' so that if any 'match' in a chain
 	// fails, the whole command fails.
 	buf := &bytes.Buffer{}
-	bashPrelude(buf)
+	if err := bashPrelude(buf); err != nil {
+		return nil, errors.Wrap(err, "could not write prelude before template")
+	}
 
 	if err := writeTemplate(buf, scriptTemplate, data); err != nil {
 		return nil, errors.Wrap(err, "could not write template")
