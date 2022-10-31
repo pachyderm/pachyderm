@@ -14,11 +14,14 @@ const (
 	roleBindingsCollectionName = "role_bindings"
 	membersCollectionName      = "members"
 	groupsCollectionName       = "groups"
-	InternalUser               = auth.InternalPrefix + "auth-server"
+
+	// InternalUser is the name of the user representing the auth system. By default, it is a cluster admin.
+	InternalUser = auth.InternalPrefix + "auth-server"
 )
 
 var authConfigIndexes = []*col.Index{}
 
+// AuthConfigCollection returns a postgres collection representing auth configs.
 func AuthConfigCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		authConfigCollectionName,
@@ -31,6 +34,7 @@ func AuthConfigCollection(db *pachsql.DB, listener col.PostgresListener) col.Pos
 
 var roleBindingsIndexes = []*col.Index{}
 
+// RoleBindingCollection returns a postgres collection representing role bindings.
 func RoleBindingCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		roleBindingsCollectionName,
@@ -43,6 +47,7 @@ func RoleBindingCollection(db *pachsql.DB, listener col.PostgresListener) col.Po
 
 var membersIndexes = []*col.Index{}
 
+// MembersCollection returns a postgres collection representing members.
 func MembersCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		membersCollectionName,
@@ -55,6 +60,7 @@ func MembersCollection(db *pachsql.DB, listener col.PostgresListener) col.Postgr
 
 var groupsIndexes = []*col.Index{}
 
+// GroupsCollection returns a postgres collection representing groups.
 func GroupsCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		groupsCollectionName,
@@ -93,6 +99,7 @@ func InternalAuthUserPermissions(tx *pachsql.Tx) error {
 	return errors.EnsureStack(roleBindings.ReadWrite(tx).Put(auth.ClusterRoleBindingKey, &binding))
 }
 
+// ResourceKey generates the key for a resource in the role bindings collection.
 func ResourceKey(r *auth.Resource) string {
 	if r.Type == auth.ResourceType_CLUSTER {
 		return auth.ClusterRoleBindingKey

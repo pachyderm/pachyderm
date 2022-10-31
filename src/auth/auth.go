@@ -19,7 +19,7 @@ const (
 	// authenticated context
 	ContextTokenKey = "authn-token"
 
-	// clusterRoleBindingKey is a key in etcd, in the roleBindings collection,
+	// ClusterRoleBindingKey is a key in etcd, in the roleBindings collection,
 	// that contains the set of role bindings for the cluster. These are frequently
 	// accessed so we cache them.
 	ClusterRoleBindingKey = "CLUSTER:"
