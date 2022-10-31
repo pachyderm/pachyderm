@@ -8709,15 +8709,12 @@ func TestDeferredCross(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-
 	// make repo for our dataset
 	dataSet := tu.UniqueString("dataset")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataSet))
 	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataSet, "master", "")
-
 	downstreamPipeline := tu.UniqueString("downstream")
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
@@ -8734,11 +8731,9 @@ func TestDeferredCross(t *testing.T) {
 			OutputBranch: "master",
 		})
 	require.NoError(t, err)
-
 	require.NoError(t, c.PutFile(dataCommit, "file1", strings.NewReader("foo"), client.WithAppendPutFile()))
 	require.NoError(t, c.PutFile(dataCommit, "file2", strings.NewReader("foo"), client.WithAppendPutFile()))
 	require.NoError(t, c.PutFile(dataCommit, "file3", strings.NewReader("foo"), client.WithAppendPutFile()))
-
 	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataSet, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
@@ -8771,7 +8766,7 @@ func TestDeferredCross(t *testing.T) {
 	require.NoError(t, err)
 
 	// after all this, the imputation job should be using the master commit of the dataset repo
-	_, err = c.WaitProjectCommit(pfs.DefaultProjectName, impPipeline, "master", "")
+	commitInfo, err = c.WaitProjectCommit(pfs.DefaultProjectName, impPipeline, "master", "")
 	require.NoError(t, err)
 
 	jobs, err := c.ListProjectJob(pfs.DefaultProjectName, impPipeline, nil, 0, true)
@@ -8786,7 +8781,8 @@ func TestDeferredCross(t *testing.T) {
 
 	require.NoError(t, pps.VisitInput(jobInfo.Details.Input, func(i *pps.Input) error {
 		if i.Pfs != nil && i.Pfs.Repo == dataSet {
-			require.Equal(t, i.Pfs.Commit, headCommit.Commit.ID)
+			require.NotEqual(t, i.Pfs.Commit, headCommit.Commit.ID)
+			require.Equal(t, i.Pfs.Commit, commitInfo.Commit.ID)
 		}
 		return nil
 	}))

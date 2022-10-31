@@ -133,6 +133,9 @@ func Commits(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollecti
 		}),
 		col.WithCreateHook(func(tx *pachsql.Tx, commitInfo interface{}) error {
 			ci := commitInfo.(*pfs.CommitInfo)
+			if ci.Commit.Repo == nil {
+				return errors.New("Commits must have the repo field populated")
+			}
 			if err := AddCommit(context.TODO(), tx, CommitKey(ci.Commit), ci.Commit.ID); err != nil {
 				return err
 			}

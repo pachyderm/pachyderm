@@ -23,6 +23,24 @@ func ResolveCommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo
 	return "", pfsserver.ErrCommitNotFound{Commit: &pfs.Commit{Repo: repo, ID: commitSet}}
 }
 
+func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commitSet string) ([]string, error) {
+	commitKey := RepoKey(repo) + "@" + commitSet
+	query := `SELECT commit_id FROM pfs.commits JOIN pfs.commit_provenance WHERE int_id = from_id AND commit_id = $1;`
+	rows, err := tx.QueryxContext(ctx, query, commitKey)
+	if err != nil {
+		return nil, err
+	}
+	commitProvenance := make([]string, 0)
+	for rows.Next() {
+		var commitId string
+		if err := rows.Scan(&commitId); err != nil {
+			return nil, err
+		}
+		commitProvenance = append(commitProvenance, commitId)
+	}
+	return commitProvenance, nil
+}
+
 // CommitSetProvenance returns all the commit IDs that are in the provenance
 // of all the commits in this commit set.
 func CommitSetProvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]string, error) {
@@ -133,7 +151,9 @@ func AddCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to string) e
 		count++
 		var tmp int
 		var commitId string
-		rows.Scan(&tmp, &commitId)
+		if err := rows.Scan(&tmp, &commitId); err != nil {
+			return err
+		}
 		if commitId == from {
 			fromId = tmp
 		} else {
