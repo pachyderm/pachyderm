@@ -745,7 +745,7 @@ func TestDeletingMountedRepo(t *testing.T) {
 		_, err := put("_mount", b)
 		require.NoError(t, err)
 
-		env.PachClient.DeleteProjectBranch(pfs.DefaultProjectName, "repo", "b1", false)
+		require.NoError(t, env.PachClient.DeleteProjectBranch(pfs.DefaultProjectName, "repo", "b1", false))
 		resp, err := get("mounts")
 		require.NoError(t, err)
 
@@ -755,7 +755,7 @@ func TestDeletingMountedRepo(t *testing.T) {
 		require.Equal(t, "b2", (*mountResp).Mounted["repo_b2"].Branch)
 		require.Equal(t, 1, len((*mountResp).Unmounted))
 
-		env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "repo", false)
+		require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "repo", false))
 		resp, err = get("mounts")
 		require.NoError(t, err)
 
