@@ -777,6 +777,9 @@ func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 		}
 		if s.env.Config().LokiHost != "" {
 			if err := s.forEachWorkerLoki(ctx, pipelineInfo, func(pod string) error {
+				// Loki requests can hang if the size of the log lines is too big, so we set a timeout
+				ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+				defer cancel()
 				workerPrefix := join(podPrefix, pod)
 				if len(prefix) > 0 {
 					workerPrefix = join(prefix[0], workerPrefix)
