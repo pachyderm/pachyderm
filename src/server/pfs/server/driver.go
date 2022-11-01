@@ -616,7 +616,7 @@ func (d *driver) startCommit(
 			return nil, errors.EnsureStack(err)
 		}
 		if branchInfo.Head != nil {
-			pfsdb.AddCommitProvenance(context.TODO(), txnCtx.SqlTx, pfsdb.CommitKey(newCommit), pfsdb.CommitKey(branchInfo.Head))
+			pfsdb.AddCommitProvenance(context.TODO(), txnCtx.SqlTx, newCommit, branchInfo.Head)
 		}
 	}
 	// Defer propagation of the commit until the end of the transaction so we can
@@ -880,18 +880,18 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		}
 		// add commit provenance
 		for _, b := range bi.DirectProvenance {
-			var provCommit string
+			var provCommit *pfs.Commit
 			if pbi, ok := seen[pfsdb.BranchKey(b)]; ok {
 				c := client.NewProjectCommit(pbi.Branch.Repo.Project.Name, pbi.Branch.Repo.Name, pbi.Branch.Name, txnCtx.CommitSetID)
-				provCommit = pfsdb.CommitKey(c)
+				provCommit = c
 			} else {
 				provBranchInfo := &pfs.BranchInfo{}
 				if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(b), provBranchInfo); err != nil {
 					return errors.EnsureStack(err)
 				}
-				provCommit = pfsdb.CommitKey(provBranchInfo.Head)
+				provCommit = provBranchInfo.Head
 			}
-			if err := pfsdb.AddCommitProvenance(context.TODO(), txnCtx.SqlTx, pfsdb.CommitKey(newCommit), provCommit); err != nil {
+			if err := pfsdb.AddCommitProvenance(context.TODO(), txnCtx.SqlTx, newCommit, provCommit); err != nil {
 				return errors.EnsureStack(err)
 			}
 		}
@@ -966,21 +966,17 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 			// Do nothing
 		}
 	}
-
-	// if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-	// 	provCommits := make([]*pfs.Commit, 0)
-	// 	var err error
-	// 	commits, err := pfsdb.CommitProvenance(context.TODO(), txnCtx.SqlTx, commit.Repo, commit.ID)
-	// 	for _, c := range commits {
-	// 		splits := strings.Split(c, "@")
-	// 		repoKey, commitID := splits[0], splits[1]
-	// 		provCommits = append(provCommits, client.NewCommit(repoKey, "", commitID))
-	// 	}
-	// 	commitInfo.Details.CommitProvenance = provCommits
-	// 	return err
-	// }); err != nil {
-	// 	return nil, err
-	// }
+	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		var err error
+		provCommits, err := pfsdb.CommitProvenance(context.TODO(), txnCtx.SqlTx, commit.Repo, commit.ID)
+		if err != nil {
+			return err
+		}
+		commitInfo.Details.CommitProvenance = provCommits
+		return nil
+	}); err != nil {
+		return nil, err
+	}
 
 	return commitInfo, nil
 }
@@ -1027,11 +1023,11 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 	if err := d.commits.ReadWrite(sqlTx).Get(commit, commitInfo); err != nil {
 		if col.IsErrNotFound(err) {
 			// try to resolve to alias if not found
-			id, err := pfsdb.ResolveCommitProvenance(context.TODO(), sqlTx, userCommit.Branch.Repo, commit.ID)
+			resolvedCommit, err := pfsdb.ResolveCommitProvenance(context.TODO(), sqlTx, userCommit.Branch.Repo, commit.ID)
 			if err != nil {
 				return nil, err
 			}
-			commit.ID = id
+			commit.ID = resolvedCommit.ID
 			// re-query
 			if err := d.commits.ReadWrite(sqlTx).Get(commit, commitInfo); err != nil {
 				return nil, errors.EnsureStack(err)
@@ -1080,6 +1076,9 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 	}
 	userCommit.Branch = proto.Clone(commitInfo.Commit.Branch).(*pfs.Branch)
 	userCommit.ID = commitInfo.Commit.ID
+	if commitInfo.Details == nil {
+		commitInfo.Details = &pfs.CommitInfo_Details{}
+	}
 	return commitInfo, nil
 }
 
@@ -1774,7 +1773,7 @@ func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branch *
 		}
 		if _, ok := provHeads[pfsdb.CommitKey(branchInfo.Head)]; !ok {
 			provHeads[pfsdb.CommitKey(branchInfo.Head)] = struct{}{}
-			if err := pfsdb.AddCommitProvenance(context.TODO(), txnCtx.SqlTx, pfsdb.CommitKey(commit), pfsdb.CommitKey(branchInfo.Head)); err != nil {
+			if err := pfsdb.AddCommitProvenance(context.TODO(), txnCtx.SqlTx, commit, branchInfo.Head); err != nil {
 				return nil, errors.EnsureStack(err)
 			}
 		}

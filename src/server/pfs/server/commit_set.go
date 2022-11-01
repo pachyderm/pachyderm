@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"sort"
-	"strings"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -323,6 +322,9 @@ func (d *driver) deleteCommits(txnCtx *txncontext.TransactionContext, commitInfo
 			if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(b, branchInfo, func() error {
 				if ci, ok := deleteCommits[pfsdb.CommitKey(branchInfo.Head)]; ok {
 					branchInfo.Head = oldestAncestor(ci, deleteCommits)
+					if branchInfo.Head == nil {
+						headlessBranches = append(headlessBranches, proto.Clone(branchInfo).(*pfs.BranchInfo))
+					}
 				}
 				return nil
 			}); err != nil {
@@ -331,19 +333,27 @@ func (d *driver) deleteCommits(txnCtx *txncontext.TransactionContext, commitInfo
 		}
 	}
 	sort.Slice(headlessBranches, func(i, j int) bool { return len(headlessBranches[i].Provenance) < len(headlessBranches[j].Provenance) })
+	newRepoCommits := make(map[string]*pfs.Commit)
 	for _, bi := range headlessBranches {
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(bi.Branch, bi, func() error {
 			// Create a new empty commit for the branch head
+			var repoCommit *pfs.Commit
 			var err error
-			bi.Head, err = d.makeEmptyCommit(txnCtx, bi.Branch, bi.DirectProvenance)
-			return err
-			//		}); err != nil && !col.IsErrNotFound(err) {
+			if c, ok := newRepoCommits[pfsdb.RepoKey(bi.Branch.Repo)]; !ok {
+				repoCommit, err = d.makeEmptyCommit(txnCtx, bi.Branch, bi.DirectProvenance)
+				if err != nil {
+					return err
+				}
+				newRepoCommits[pfsdb.RepoKey(bi.Branch.Repo)] = repoCommit
+			} else {
+				repoCommit = c
+			}
+			bi.Head = repoCommit
+			return nil
 		}); err != nil {
-			// TODO(acohen4): DOES THIS LOOK RIGHT?
-			// If err is NotFound, branch is in downstream provenance but
-			// doesn't exist yet (or branch may have been deleted) --nothing to update
 			return errors.Wrapf(err, "error updating branch %s", bi.Branch)
 		}
+
 	}
 	// update parent/child relationships on commits where necessary.
 	// for each deleted commit, update its parent's children and childrens' parents.
@@ -418,9 +428,8 @@ func (d *driver) checkSubvenantCommitSets(txnCtx *txncontext.TransactionContext,
 				return nil, err
 			}
 			for _, subvCommit := range subvCommits {
-				cs := strings.Split(subvCommit, "@")[1]
-				if _, ok := setIDs[cs]; !ok {
-					subvCommitSets[cs] = struct{}{}
+				if _, ok := setIDs[subvCommit.ID]; !ok {
+					subvCommitSets[subvCommit.ID] = struct{}{}
 				}
 			}
 		}
@@ -446,7 +455,7 @@ func (d *driver) checkSubvenantCommitSets(txnCtx *txncontext.TransactionContext,
 				return err
 			}
 		}
-		css := make([]*pfs.CommitSet, len(unaccountedSubvCommitSets))
+		css := make([]*pfs.CommitSet, 0)
 		for cs := range unaccountedSubvCommitSets {
 			css = append(css, &pfs.CommitSet{ID: cs})
 		}
@@ -464,10 +473,11 @@ func (d *driver) dropCommitSets(txnCtx *txncontext.TransactionContext, commitset
 	var commitInfos []*pfs.CommitInfo
 	for _, commitset := range commitsets {
 		var err error
-		commitInfos, err = d.inspectCommitSetImmediateTx(txnCtx, commitset)
+		cis, err := d.inspectCommitSetImmediateTx(txnCtx, commitset)
 		if err != nil {
 			return err
 		}
+		commitInfos = append(commitInfos, cis...)
 	}
 	for _, ci := range commitInfos {
 		if ci.Commit.Branch.Repo.Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {

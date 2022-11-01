@@ -46,6 +46,16 @@ func RepoKey(repo *pfs.Repo) string {
 	return repo.Project.Name + "/" + repo.Name + "." + repo.Type
 }
 
+func ParseRepo(key string) *pfs.Repo {
+	slashSplit := strings.Split(key, "/")
+	dotSplit := strings.Split(slashSplit[1], ".")
+	return &pfs.Repo{
+		Project: &pfs.Project{Name: slashSplit[0]},
+		Name:    dotSplit[0],
+		Type:    dotSplit[1],
+	}
+}
+
 func repoKeyCheck(key string) error {
 	parts := strings.Split(key, ".")
 	if len(parts) < 2 || len(parts[1]) == 0 {
@@ -106,6 +116,14 @@ func CommitKey(commit *pfs.Commit) string {
 	return CommitBranchlessKey(commit)
 }
 
+func ParseCommit(key string) *pfs.Commit {
+	split := strings.Split(key, "@")
+	return &pfs.Commit{
+		Repo: ParseRepo(split[0]),
+		ID:   split[1],
+	}
+}
+
 func CommitBranchlessKey(commit *pfs.Commit) string {
 	return RepoKey(commit.Repo) + "@" + commit.ID
 }
@@ -136,7 +154,7 @@ func Commits(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollecti
 			if ci.Commit.Repo == nil {
 				return errors.New("Commits must have the repo field populated")
 			}
-			if err := AddCommit(context.TODO(), tx, CommitKey(ci.Commit), ci.Commit.ID); err != nil {
+			if err := AddCommit(context.TODO(), tx, ci.Commit); err != nil {
 				return err
 			}
 			return nil

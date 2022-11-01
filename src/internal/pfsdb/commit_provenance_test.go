@@ -7,8 +7,10 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 func TestCommitSetProvenance(t *testing.T) {
@@ -22,6 +24,19 @@ func TestCommitSetProvenance(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, SetupCommitProvenanceV0(ctx, tx))
 	require.NoError(t, tx.Commit())
+	// create some commits
+	tx, err = db.Beginx()
+	require.NoError(t, err)
+	a := client.NewCommit("A", "", "v")
+	require.NoError(t, AddCommit(ctx, tx, a))
+	b := client.NewCommit("B", "", "x")
+	require.NoError(t, AddCommit(ctx, tx, b))
+	c := client.NewCommit("C", "", "y")
+	require.NoError(t, AddCommit(ctx, tx, c))
+	d := client.NewCommit("D", "", "z")
+	require.NoError(t, AddCommit(ctx, tx, d))
+	e := client.NewCommit("E", "", "w")
+	require.NoError(t, AddCommit(ctx, tx, e))
 	// setup basic commit graph of
 	//                -- C@y
 	//               /
@@ -30,46 +45,48 @@ func TestCommitSetProvenance(t *testing.T) {
 	//                -- D@z
 	//               /
 	// E@w <---------
-	tx, err = db.Beginx()
-	require.NoError(t, err)
-	require.NoError(t, AddCommit(ctx, tx, "A@v", "v"))
-	require.NoError(t, AddCommit(ctx, tx, "B@x", "x"))
-	require.NoError(t, AddCommitProvenance(ctx, tx, "B@x", "A@v"))
-	require.NoError(t, AddCommit(ctx, tx, "C@y", "y"))
-	require.NoError(t, AddCommitProvenance(ctx, tx, "C@y", "B@x"))
-	require.NoError(t, AddCommit(ctx, tx, "E@w", "w"))
-	require.NoError(t, AddCommit(ctx, tx, "D@z", "z"))
-	require.NoError(t, AddCommitProvenance(ctx, tx, "D@z", "B@x"))
-	require.NoError(t, AddCommitProvenance(ctx, tx, "D@z", "E@w"))
+	require.NoError(t, AddCommitProvenance(ctx, tx, b, a))
+	require.NoError(t, AddCommitProvenance(ctx, tx, c, b))
+	require.NoError(t, AddCommitProvenance(ctx, tx, d, b))
+	require.NoError(t, AddCommitProvenance(ctx, tx, d, e))
 	require.NoError(t, tx.Commit())
 	// assert commit set provenance
 	tx, err = db.Beginx()
 	require.NoError(t, err)
 	defer tx.Commit()
+	// check y's commit set provenance
 	yProv, err := CommitSetProvenance(ctx, tx, "y")
 	require.NoError(t, err)
-	sort.Strings(yProv)
-	require.ElementsEqual(t,
-		[]string{"A@v", "B@x"},
-		yProv)
+	sort.Slice(yProv, func(i, j int) bool {
+		return CommitKey(yProv[i]) < CommitKey(yProv[j])
+	})
+	checkCommitsEqual(t, []*pfs.Commit{a, b}, yProv)
+	// check y's commit set subvenance
 	ySubv, err := CommitSetSubvenance(ctx, tx, "y")
 	require.NoError(t, err)
-	sort.Strings(ySubv)
-	require.ElementsEqual(t,
-		[]string{},
-		ySubv)
-
+	sort.Slice(ySubv, func(i, j int) bool {
+		return CommitKey(ySubv[i]) < CommitKey(ySubv[j])
+	})
+	checkCommitsEqual(t, []*pfs.Commit{}, ySubv)
+	// check z's commit set provenance
 	zProv, err := CommitSetProvenance(ctx, tx, "z")
 	require.NoError(t, err)
-	sort.Strings(zProv)
-	require.ElementsEqual(t,
-		[]string{"A@v", "B@x", "E@w"},
-		zProv)
-
+	sort.Slice(zProv, func(i, j int) bool {
+		return CommitKey(zProv[i]) < CommitKey(zProv[j])
+	})
+	checkCommitsEqual(t, []*pfs.Commit{a, b, e}, zProv)
+	// check x's commit set subvenance
 	xSubv, err := CommitSetSubvenance(ctx, tx, "x")
 	require.NoError(t, err)
-	sort.Strings(xSubv)
-	require.ElementsEqual(t,
-		[]string{"C@y", "D@z"},
-		xSubv)
+	sort.Slice(xSubv, func(i, j int) bool {
+		return CommitKey(xSubv[i]) < CommitKey(xSubv[j])
+	})
+	checkCommitsEqual(t, []*pfs.Commit{c, d}, xSubv)
+}
+
+func checkCommitsEqual(t *testing.T, as, bs []*pfs.Commit) {
+	require.Equal(t, len(as), len(bs))
+	for i := range as {
+		require.Equal(t, CommitKey(as[i]), CommitKey(bs[i]))
+	}
 }

@@ -2,7 +2,6 @@ package pfsdb
 
 import (
 	"context"
-	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -10,40 +9,45 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
-func ResolveCommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commitSet string) (string, error) {
+func ResolveCommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commitSet string) (*pfs.Commit, error) {
 	cs, err := CommitSetProvenance(ctx, tx, commitSet)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	for _, c := range cs {
-		if strings.HasPrefix(c, RepoKey(repo)+"@") {
-			return strings.TrimPrefix(c, RepoKey(repo)+"@"), nil
+		if RepoKey(c.Repo) == RepoKey(repo) {
+			return c, nil
 		}
 	}
-	return "", pfsserver.ErrCommitNotFound{Commit: &pfs.Commit{Repo: repo, ID: commitSet}}
+	return nil, pfsserver.ErrCommitNotFound{Commit: &pfs.Commit{Repo: repo, ID: commitSet}}
 }
 
-func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commitSet string) ([]string, error) {
-	commitKey := RepoKey(repo) + "@" + commitSet
-	query := `SELECT commit_id FROM pfs.commits JOIN pfs.commit_provenance WHERE int_id = from_id AND commit_id = $1;`
+func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commitSet string) ([]*pfs.Commit, error) {
+	commitKey := CommitKey(&pfs.Commit{
+		Repo: repo,
+		ID:   commitSet,
+	})
+	query := `SELECT commit_id FROM pfs.commits WHERE int_id IN (       
+            SELECT to_id FROM pfs.commits JOIN pfs.commit_provenance ON int_id = from_id WHERE commit_id = $1
+        );`
 	rows, err := tx.QueryxContext(ctx, query, commitKey)
 	if err != nil {
 		return nil, err
 	}
-	commitProvenance := make([]string, 0)
+	commitProvenance := make([]*pfs.Commit, 0)
 	for rows.Next() {
 		var commitId string
 		if err := rows.Scan(&commitId); err != nil {
 			return nil, err
 		}
-		commitProvenance = append(commitProvenance, commitId)
+		commitProvenance = append(commitProvenance, ParseCommit(commitId))
 	}
 	return commitProvenance, nil
 }
 
 // CommitSetProvenance returns all the commit IDs that are in the provenance
 // of all the commits in this commit set.
-func CommitSetProvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]string, error) {
+func CommitSetProvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]*pfs.Commit, error) {
 	q := `
           WITH RECURSIVE prov(from_id, to_id) AS (
             SELECT from_id, to_id 
@@ -62,20 +66,20 @@ func CommitSetProvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]stri
 		return nil, errors.EnsureStack(err)
 	}
 	defer rows.Close()
-	cs := make([]string, 0)
+	cs := make([]*pfs.Commit, 0)
 	for rows.Next() {
 		var commit string
 		if err := rows.Scan(&commit); err != nil {
 			return nil, err
 		}
-		cs = append(cs, commit)
+		cs = append(cs, ParseCommit(commit))
 	}
 	return cs, nil
 }
 
 // CommitSetSubvenance returns all the commit IDs that contain commits in this commit set in their
 // full provenance
-func CommitSetSubvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]string, error) {
+func CommitSetSubvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]*pfs.Commit, error) {
 	q := `
           WITH RECURSIVE subv(from_id, to_id) AS (
             SELECT from_id, to_id 
@@ -94,25 +98,25 @@ func CommitSetSubvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]stri
 		return nil, errors.EnsureStack(err)
 	}
 	defer rows.Close()
-	cs := make([]string, 0)
+	cs := make([]*pfs.Commit, 0)
 	for rows.Next() {
 		var commit string
 		if err := rows.Scan(&commit); err != nil {
 			return nil, err
 		}
-		cs = append(cs, commit)
+		cs = append(cs, ParseCommit(commit))
 	}
 	return cs, nil
 }
 
-func AddCommit(ctx context.Context, tx *pachsql.Tx, commit, commitSet string) error {
+func AddCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error {
 	stmt := `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES ($1, $2)`
-	_, err := tx.ExecContext(ctx, stmt, commit, commitSet)
+	_, err := tx.ExecContext(ctx, stmt, CommitKey(commit), commit.ID)
 	return errors.EnsureStack(err)
 }
 
-func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commit string) error {
-	id, err := getCommitTableID(ctx, tx, commit)
+func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commitKey string) error {
+	id, err := getCommitTableID(ctx, tx, commitKey)
 	if err != nil {
 		return err
 	}
@@ -126,9 +130,9 @@ func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commit string) error {
 	return errors.EnsureStack(err)
 }
 
-func getCommitTableID(ctx context.Context, tx *pachsql.Tx, commit string) (int, error) {
+func getCommitTableID(ctx context.Context, tx *pachsql.Tx, commitKey string) (int, error) {
 	query := `SELECT int_id, commit_id FROM pfs.commits WHERE commit_id = $1;`
-	rows, err := tx.QueryxContext(ctx, query, commit)
+	rows, err := tx.QueryxContext(ctx, query, commitKey)
 	if err != nil {
 		return 0, err
 	}
@@ -139,9 +143,9 @@ func getCommitTableID(ctx context.Context, tx *pachsql.Tx, commit string) (int, 
 	return id, nil
 }
 
-func AddCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to string) error {
+func AddCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to *pfs.Commit) error {
 	query := `SELECT int_id, commit_id FROM pfs.commits WHERE commit_id = $1 OR commit_id = $2;`
-	rows, err := tx.QueryxContext(ctx, query, from, to)
+	rows, err := tx.QueryxContext(ctx, query, CommitKey(from), CommitKey(to))
 	if err != nil {
 		return err
 	}
@@ -154,7 +158,7 @@ func AddCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to string) e
 		if err := rows.Scan(&tmp, &commitId); err != nil {
 			return err
 		}
-		if commitId == from {
+		if commitId == CommitKey(from) {
 			fromId = tmp
 		} else {
 			toId = tmp
