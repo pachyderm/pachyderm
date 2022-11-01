@@ -109,7 +109,8 @@ func writeTemplate(w io.Writer, s string, data any) error {
 	return nil
 }
 
-// bashTemplate interprets scriptTemplate as an indented Go template for a Bash script; it returns an io.Reader containing
+// bashTemplate interprets scriptTemplate as an indented Go template for a Bash
+// script; it returns an io.Reader from which the filled-in script may be read.
 func (p Pachctl) bashTemplate(scriptTemplate string, data any) (io.Reader, error) {
 	// Warn users that they must install 'match' if they want to run tests with
 	// this library, and enable 'pipefail' so that if any 'match' in a chain
@@ -151,7 +152,7 @@ func (cmd Cmd) Stderr() string {
 
 func newCmd(ctx context.Context, name string, args []string, stdin io.Reader) Cmd {
 	var cmd Cmd
-	cmd.Cmd = exec.CommandContext(ctx, "/bin/bash", args...)
+	cmd.Cmd = exec.CommandContext(ctx, name, args...)
 	cmd.Cmd.Stdin = stdin
 	cmd.stdout = new(bytes.Buffer)
 	cmd.Cmd.Stdout = cmd.stdout
