@@ -652,7 +652,7 @@ func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txncontext.Transact
 	if resource.Type == auth.ResourceType_SPEC_REPO {
 		if err := request.evaluateRoleBinding(txnCtx, &auth.RoleBinding{
 			Entries: map[string]*auth.Roles{
-				auth.AllClusterUsersSubject: {
+				auth.AllClusterUsersSubject: &auth.Roles{
 					Roles: map[string]bool{
 						auth.RepoReaderRole: true,
 					},

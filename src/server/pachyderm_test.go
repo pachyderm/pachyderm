@@ -111,7 +111,6 @@ func TestSimplePipeline(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	c = c.WithDefaultTransformUser("1000")
-	tu.ActivateAuthClient(t, c)
 
 	projectName := tu.UniqueString("project")
 	require.NoError(t, c.CreateProject(projectName))
