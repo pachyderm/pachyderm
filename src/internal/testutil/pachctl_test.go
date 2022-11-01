@@ -12,6 +12,7 @@ import (
 )
 
 func TestPachctl(t *testing.T) {
+	t.Fatal("this was deliberate")
 	ctx := context.Background()
 
 	if testing.Short() {
