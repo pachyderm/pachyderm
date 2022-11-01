@@ -1100,7 +1100,7 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 		if number == 0 {
 			return errutil.ErrBreak
 		}
-		info := convertDatumMetaToInfo(meta, nil)
+		info := convertDatumMetaToInfo(meta, request.Job)
 		if (request.PaginationMarker != "" && info.Datum.ID <= request.PaginationMarker) || !request.Filter.Allow(info) {
 			return nil
 		}
@@ -1137,7 +1137,7 @@ func (a *apiServer) listDatumReverse(ctx context.Context, request *pps.ListDatum
 		}
 	} else {
 		if err := a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
-			info := convertDatumMetaToInfo(meta, nil)
+			info := convertDatumMetaToInfo(meta, request.Job)
 			if request.PaginationMarker != "" && info.Datum.ID >= request.PaginationMarker {
 				return errutil.ErrBreak
 			}
