@@ -70,9 +70,13 @@ jobs:
       - image: cimg/base:stable
     steps:
       - checkout
+      - run:
+          name: Download utilities
+          command: |
+            sudo apt update
+            sudo apt install qemu binfmt-support qemu-user-static
       - setup_remote_docker:
           docker_layer_caching: true
-          version: "20.10.12"
       - run:
           name: pachydermbuildbot docker login
           command: |
@@ -80,7 +84,10 @@ jobs:
       - run:
           name: update etcd image
           command: |
-            docker buildx build --build-arg ETCD_VERSION=<< pipeline.parameters.etcd-image-version >> --platform=linux/amd64,linux/arm64 -f Dockerfile.etcd -t pachyderm/etcd:<< pipeline.parameters.etcd-image-version >> --push
+            docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+            docker context create buildx-build
+            docker buildx create --name etcd --driver docker-container --use buildx-build
+            docker buildx build --builder etcd --build-arg ETCD_VERSION=<< pipeline.parameters.etcd-image-version >> --platform=linux/amd64,linux/arm64 -f Dockerfile.etcd -t pachyderm/etcd:<< pipeline.parameters.etcd-image-version >> --push .
   release-pgbouncer:
     docker:
       - image: cimg/base:stable
