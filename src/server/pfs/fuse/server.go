@@ -25,6 +25,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -168,7 +169,7 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 		Mounted:   map[string]MountState{},
 		Unmounted: map[string]RepoResponse{},
 	}
-	// Go through repos and populate data to show in Unmounted section
+	// Keep track of existing repos and branches to see if mm.States contains deleted repos/branches
 	repoBranches := map[string]map[string]bool{}
 	repos, err := mm.Client.ListRepo()
 	if err != nil {
@@ -185,10 +186,15 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 		if readAccess {
 			bis, err := mm.Client.ListProjectBranch(repo.Repo.Project.GetName(), repo.Repo.Name)
 			if err != nil {
+				// Repo was deleted between ListRepo and ListBranch RPCs
+				if auth.IsErrNoRoleBinding(err) {
+					continue
+				}
 				return mr, err
 			}
 			for _, bi := range bis {
 				repoBranches[repo.Repo.Name][bi.Branch.Name] = true
+				rr.Branches = append(rr.Branches, bi.Branch.Name)
 			}
 			if repo.AuthInfo == nil {
 				rr.Authorization = "off"
@@ -201,7 +207,23 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 		mr.Unmounted[repo.Repo.Name] = rr
 	}
 
-	// Go through mounts and populate data to show in Mounted section
+	// Unmount mounted repos/branches that were deleted
+	for name, msm := range mm.States {
+		if msm.State == "mounted" {
+			_, ok := repoBranches[msm.Repo]
+			if !ok {
+				mm.unmountDeletedRepos(name)
+				continue
+			}
+			_, ok = repoBranches[msm.Repo][msm.Branch]
+			if !ok && msm.Mode == "ro" {
+				mm.unmountDeletedRepos(name)
+				continue
+			}
+		}
+	}
+
+	// Get data on mounted commits
 	for name, msm := range mm.States {
 		if msm.State == "mounted" {
 			if err := msm.RefreshMountState(); err != nil {
@@ -210,23 +232,17 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 			ms := msm.MountState
 			ms.Files = nil
 			mr.Mounted[name] = ms
-			delete(repoBranches[msm.Repo], msm.Branch)
-		}
-	}
-
-	// Populate list of unmounted branches for each repo in Unmounted section.
-	for repo, umbranches := range repoBranches {
-		if rr, ok := mr.Unmounted[repo]; ok {
-			for branch := range umbranches {
-				rr.Branches = append(rr.Branches, branch)
-			}
-			if len(rr.Branches) != 0 {
-				mr.Unmounted[repo] = rr
-			}
 		}
 	}
 
 	return mr, nil
+}
+
+func (mm *MountManager) unmountDeletedRepos(name string) {
+	mm.States[name].requests <- Request{
+		Action: "unmount",
+	}
+	<-mm.States[name].responses
 }
 
 func NewMountStateMachine(name string, mm *MountManager) *MountStateMachine {
@@ -1115,7 +1131,8 @@ func createLocalOutDir(mm *MountManager) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
 	mm.root.repoOpts["out"] = &RepoOptions{
-		Name:  "out",
+		Name: "out",
+		// FIXME: need a project
 		File:  &pfs.File{Commit: &pfs.Commit{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: "out"}}}},
 		Write: true}
 }
@@ -1143,8 +1160,6 @@ func (m *MountStateMachine) RefreshMountState() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	logrus.Infof("starting RefreshMountState")
-
 	if m.State != "mounted" {
 		return nil
 	}
@@ -1170,7 +1185,15 @@ func (m *MountStateMachine) RefreshMountState() error {
 	m.LatestCommit = branchInfo.Head.ID
 
 	// calculate how many commits behind LatestCommit ActualMountedCommit is
-	commitInfos, err := m.manager.Client.ListCommit(branchInfo.Branch.Repo, branchInfo.Head, nil, 0)
+	listClient, err := m.manager.Client.PfsAPIClient.ListCommit(m.manager.Client.Ctx(), &pfs.ListCommitRequest{
+		Repo: branchInfo.Branch.Repo,
+		To:   branchInfo.Head,
+		All:  true,
+	})
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	commitInfos, err := clientsdk.ListCommit(listClient)
 	if err != nil {
 		return err
 	}
@@ -1180,6 +1203,7 @@ func (m *MountStateMachine) RefreshMountState() error {
 	}
 
 	// iterate over commits in branch, counting how many are behind LatestCommit
+	logrus.Infof("mount: %s", m.Name)
 	indexOfCurrentCommit := -1
 	for i, commitInfo := range commitInfos {
 		logrus.Infof("%d: commitInfo.Commit.ID: %s, m.ActualMountedCommit: %s", i, commitInfo.Commit.ID, m.ActualMountedCommit)
@@ -1259,13 +1283,11 @@ type GetResponse RepoResponse
 type StateFn func(*MountStateMachine) StateFn
 
 func (m *MountStateMachine) transitionedTo(state, status string) {
-
-	// before we lock, as this fn takes the same lock.
-	m.manager.root.setState(m.Name, state)
-
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	logrus.Infof("[%s] (%s, %s, %s) %s -> %s", m.Name, m.Repo, m.Branch, m.Commit, m.State, state)
+	m.manager.root.setState(m.Name, state)
 	m.State = state
 	m.Status = status
 }
@@ -1545,7 +1567,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 
 	// remove from loopback filesystem so that it actually disappears for the user
 	cleanPath := m.manager.root.rootPath + "/" + m.Name
-	logrus.Infof("Path is %s", cleanPath)
+	logrus.Infof("Removing path %s", cleanPath)
 
 	err := os.RemoveAll(cleanPath)
 	m.responses <- Response{

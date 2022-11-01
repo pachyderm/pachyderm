@@ -13,12 +13,6 @@ import (
 // DataMapper maps one stream to another or errors
 type DataMapper = func(r io.Reader, w io.Writer) error
 
-// IdentityDM is the DataMapper which maps data to itself
-func IdentityDM(r io.Reader, w io.Writer) error {
-	_, err := io.Copy(w, r)
-	return errors.EnsureStack(err)
-}
-
 // PathMapper is a function that maps one path to another
 type PathMapper = func(string) string
 

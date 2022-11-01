@@ -184,7 +184,7 @@ def test_mount(pachyderm_resources, dev_server):
             list(os.walk(os.path.join(PFS_MOUNT_DIR, mount_info["name"])))[0][2]
         ) == sorted(files)
     assert len(resp["unmounted"]) == 3
-    assert len(resp["unmounted"][repos[1]]["branches"]) == 1
+    assert len(resp["unmounted"][repos[1]]["branches"]) == 2
     assert len(resp["unmounted"][repos[2]]["branches"]) == 2
 
     r = requests.put(
@@ -233,7 +233,7 @@ def test_unmount(pachyderm_resources, dev_server):
     assert r.status_code == 200
     assert len(r.json()["mounted"]) == 1
     assert len(r.json()["unmounted"]) == 3
-    assert len(r.json()["unmounted"][repos[0]]["branches"]) == 1
+    assert len(r.json()["unmounted"][repos[0]]["branches"]) == 2
 
     r = requests.put(
         f"{BASE_URL}/_unmount",

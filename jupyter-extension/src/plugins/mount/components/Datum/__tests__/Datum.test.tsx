@@ -36,8 +36,9 @@ describe('datum screen', () => {
           setShowDatum={setShowDatum}
           keepMounted={false}
           setKeepMounted={setKeepMounted}
-          refresh={jest.fn()}
+          open={jest.fn()}
           pollRefresh={jest.fn()}
+          repoViewInputSpec={{}}
         />,
       );
 
@@ -82,8 +83,9 @@ describe('datum screen', () => {
           setShowDatum={setShowDatum}
           keepMounted={false}
           setKeepMounted={setKeepMounted}
-          refresh={jest.fn()}
+          open={jest.fn()}
           pollRefresh={jest.fn()}
+          repoViewInputSpec={{}}
         />,
       );
 
@@ -127,8 +129,9 @@ describe('datum screen', () => {
           setShowDatum={setShowDatum}
           keepMounted={false}
           setKeepMounted={setKeepMounted}
-          refresh={jest.fn()}
+          open={jest.fn()}
           pollRefresh={jest.fn()}
+          repoViewInputSpec={{}}
         />,
       );
 
@@ -157,8 +160,9 @@ describe('datum screen', () => {
           setShowDatum={setShowDatum}
           keepMounted={false}
           setKeepMounted={setKeepMounted}
-          refresh={jest.fn()}
+          open={jest.fn()}
           pollRefresh={jest.fn()}
+          repoViewInputSpec={{}}
         />,
       );
 
@@ -185,8 +189,9 @@ describe('datum screen', () => {
           setShowDatum={setShowDatum}
           keepMounted={false}
           setKeepMounted={setKeepMounted}
-          refresh={jest.fn()}
+          open={jest.fn()}
           pollRefresh={jest.fn()}
+          repoViewInputSpec={{}}
         />,
       );
 
@@ -209,8 +214,9 @@ describe('datum screen', () => {
           setShowDatum={setShowDatum}
           keepMounted={false}
           setKeepMounted={setKeepMounted}
-          refresh={jest.fn()}
+          open={jest.fn()}
           pollRefresh={jest.fn()}
+          repoViewInputSpec={{}}
         />,
       );
 

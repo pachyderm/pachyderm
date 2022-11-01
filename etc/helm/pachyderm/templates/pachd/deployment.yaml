@@ -324,6 +324,24 @@ spec:
         - name: UPGRADE_NO_OP
           value: {{ randAlphaNum 32 }}
         {{- end }}
+        - name: K8S_MEMORY_REQUEST
+          valueFrom:
+            resourceFieldRef:
+              containerName: pachd
+              resource: requests.memory
+        - name: K8S_MEMORY_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: pachd
+              resource: limits.memory
+        {{- if .Values.pachd.goMemLimit }}
+        - name: GOMEMLIMIT
+          value: {{ .Values.pachd.goMemLimit | quote }}
+        {{- end }}
+        {{- if and .Values.pachd.gcPercent (gt .Values.pachd.gcPercent 0.0)}}
+        - name: GC_PERCENT
+          value: {{ .Values.pachd.gcPercent | quote }}
+        {{- end }}
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret

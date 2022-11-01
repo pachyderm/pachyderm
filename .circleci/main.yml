@@ -59,6 +59,8 @@ jobs:
       TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
+      - go/install:
+          version: << pipeline.parameters.go-version >>
       - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
@@ -224,10 +226,10 @@ jobs:
             echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - restore_cache:
           keys:
-            - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+            - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
       - run: etc/testing/circle/install.sh
       - save_cache:
-          key: pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+          key: pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
           paths:
             - cached-deps/
       - go/install:
@@ -241,14 +243,14 @@ jobs:
       - run: "echo $(($(date +%s)/604800)) > current_week"
       - restore_cache:
           keys:
-            - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
-            - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-master-{{ arch }}-{{ checksum "current_week" }}
 
       # Only restore the module cache based on an exact match for go.sum.
       # This also avoids accumulating old versions of modules over time.
       - restore_cache:
           keys:
-            - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+            - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
       - run: make install # Install pachctl
       #Save cache in only one bucket, after build and before running tests,
       #this ensures build cache is saved even when tests fail
@@ -257,11 +259,11 @@ jobs:
             equal: [MISC, <<parameters.bucket>>]
           steps:
             - save_cache:
-                key: pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+                key: pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
                 paths:
                   - /home/circleci/.go_workspace/pkg/mod
             - save_cache:
-                key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
+                key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
                 paths:
                   - /home/circleci/.gocache
       - run: etc/testing/circle/wait-minikube.sh
@@ -453,7 +455,11 @@ jobs:
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
   deploy-tests:
-    resource_class: xlarge
+    parameters:
+      resource_class:
+        type: string
+        default: xlarge
+    resource_class: << parameters.resource_class >>
     machine:
       image: << pipeline.parameters.machine_image >>
     steps:
@@ -469,7 +475,7 @@ jobs:
             echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - restore_cache:
           keys:
-            - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+            - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
       - run: etc/testing/circle/install.sh
       - run:
           name: Collect node stats
@@ -481,17 +487,17 @@ jobs:
       - run: "echo $(($(date +%s)/604800)) > current_week"
       - restore_cache:
           keys:
-            - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
-            - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-master-{{ arch }}-{{ checksum "current_week" }}
       # Only restore the module cache based on an exact match for go.sum.
       # This also avoids accumulating old versions of modules over time.
       # Note: This gets saves in the main test runs, no need to save here
       - restore_cache:
           keys:
-            - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+            - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
       - run: make install # Install pachctl
       - save_cache:
-          key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
+          key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
             - /home/circleci/.gocache
       - run:
@@ -686,7 +692,7 @@ jobs:
           path: ~/project
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip<< parameters.python-version >>-cache-v11-<< pipeline.git.branch >><< pipeline.git.tag >>-{{ checksum "ci-requirements.txt" }}
+          key: pip<< parameters.python-version >>-cache-v12-<< pipeline.git.branch >>-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -695,7 +701,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip<< parameters.python-version >>-cache-v11-<< pipeline.git.branch >><< pipeline.git.tag >>-{{ checksum "ci-requirements.txt" }}
+          key: pip<< parameters.python-version >>-cache-v12-<< pipeline.git.branch >>-{{ checksum "ci-requirements.txt" }}
           paths:
             - "venv"
 
@@ -836,7 +842,7 @@ jobs:
 
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -845,7 +851,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
           paths:
             - "venv"
 
@@ -885,7 +891,7 @@ jobs:
           at: .
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -894,7 +900,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
           paths:
             - "venv"
       - run:
@@ -920,7 +926,7 @@ jobs:
           at: .
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -929,7 +935,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
           paths:
             - "venv"
       - run:
@@ -1114,6 +1120,9 @@ jobs:
           path: /tmp/debug-dump
           destination: debug-dump
   cust-prerelease-testing:
+    parameters:
+      customer:
+        type: string
     resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -1129,7 +1138,7 @@ jobs:
       - run:
           name: "test customer workload"
           command: |
-            etc/testing/circle/run_cust_release_tests.sh
+            etc/testing/circle/run_cust_release_tests.sh << parameters.customer >>
           no_output_timeout: 1h
       - store_artifacts:
           path: /tmp/debug-dump
@@ -1280,7 +1289,12 @@ workflows:
         - << pipeline.parameters.run-core-jobs >>
         - not: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
-      - deploy-tests
+      - deploy-tests:
+          name: amd64 deploy tests
+          resource_class: xlarge # amd64
+      - deploy-tests:
+          name: arm64 deploy tests
+          resource_class: arm.xlarge # arm64
   jupyter-extension:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
@@ -1396,6 +1410,17 @@ workflows:
             - publish-chart-preview
             - release-github-draft
       - cust-prerelease-testing:
+          name: woven-planet-testing
+          customer: wp
+          filters: *only-alpha-tags
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+            - publish-chart-preview
+            - release-github-draft
+      - cust-prerelease-testing:
+          name: battelle-planet-testing
+          customer: btl
           filters: *only-alpha-tags
           requires:
             - build-docker-images

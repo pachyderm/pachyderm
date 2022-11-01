@@ -539,8 +539,6 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 func (kd *kubeDriver) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
 	vars := []v1.EnvVar{
 		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(kd.config.StorageUploadConcurrencyLimit)},
-		{Name: client.PPSProjectNameEnv, Value: pipelineInfo.Pipeline.Project.GetName()},
-		{Name: client.PPSPipelineNameEnv, Value: pipelineInfo.Pipeline.Name},
 	}
 	return vars
 }
@@ -610,13 +608,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 		userImage = DefaultUserImage
 	}
 
-	workerEnv := []v1.EnvVar{{
-		Name:  client.PPSProjectNameEnv,
-		Value: pipelineInfo.Pipeline.Project.GetName(),
-	}, {
-		Name:  client.PPSPipelineNameEnv,
-		Value: pipelineInfo.Pipeline.Name,
-	}}
+	workerEnv := []v1.EnvVar{}
 	for name, value := range transform.Env {
 		workerEnv = append(
 			workerEnv,

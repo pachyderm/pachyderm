@@ -2,9 +2,11 @@ package pachd
 
 import (
 	"context"
+	"math"
 	"os"
 	"runtime/debug"
 
+	"github.com/dustin/go-humanize"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -106,7 +108,11 @@ func newBuilder(config interface{}, service string) (b builder) {
 	}
 	b.env = serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	profileutil.StartCloudProfiler(service, b.env.Config())
+
 	debug.SetGCPercent(b.env.Config().GCPercent)
+	log.Infof("gc: set gc percent to %v", b.env.Config().GCPercent)
+	setupMemoryLimit(*b.env.Config().GlobalConfiguration)
+
 	if b.env.Config().EtcdPrefix == "" {
 		b.env.Config().EtcdPrefix = collection.DefaultPrefix
 	}
@@ -363,4 +369,41 @@ func (b *builder) maybeInitDexDB(ctx context.Context) error {
 		return nil
 	}
 	return b.initDexDB(ctx)
+}
+
+// setupMemoryLimit sets GOMEMLIMIT.  If not already set through the environment, set GOMEMLIMIT to
+// the container memory request, or if not set, the container memory limit minus some accounting for
+// the runtime (100MiB).
+func setupMemoryLimit(config serviceenv.GlobalConfiguration) {
+	if memLimit := debug.SetMemoryLimit(-1); memLimit != math.MaxInt64 {
+		log.Infof("memlimit: using configured GOMEMLIMIT of %v", humanize.IBytes(uint64(memLimit)))
+		return
+	}
+
+	// From https://go.dev/doc/gc-guide:
+	// > Do take advantage of the memory limit when the execution environment of your Go program
+	// > is entirely within your control, and the Go program is the only program with access to
+	// > some set of resources (i.e. some kind of memory reservation, like a container memory
+	// > limit).
+	// >
+	// > In this case, a good rule of thumb is to leave an additional 5-10% of headroom to
+	// > account for memory sources the Go runtime is unaware of.
+	//
+	// We pick 5%, since CGO_ENABLED=0 which reduces "unknown" sources of memory.
+	var target int64
+	var source string
+	if v := config.K8sMemoryRequest; v > 0 {
+		target = v - int64(0.05*float64(v))
+		source = "kubernetes request"
+	} else if v := config.K8sMemoryLimit; v > 0 {
+		target = v - int64(0.05*float64(v))
+		source = "kubernetes limit"
+	}
+	if target <= 0 {
+		log.Warnf("memlimit: not setting GOMEMLIMIT; not configured explicitly, or as a kubernetes request, or as a kubernetes limit")
+		return
+	}
+
+	log.Infof("memlimit: setting GOMEMLIMIT to %v, 95%% of the %v", humanize.IBytes(uint64(target)), source)
+	debug.SetMemoryLimit(target)
 }

@@ -1,0 +1,75 @@
+# Default match everything to the CORE team.
+# This means that items can be intentionally excluded below by using a match pattern without a group
+* @pachyderm/CORE
+
+# Docs
+/doc/ @pachyderm/DOC
+
+# etc
+/etc/ @pachyderm/BRE @pachyderm/CORE
+
+# Helm
+/etc/helm/ @jrockway @seslattery @robert-uhl @armaanv @chainlink @tybritten @BOsterbuhr
+
+# Examples
+/examples/ @pachyderm/DOC @tybritten @JimmyWhitaker @BOsterbuhr
+
+# Services with individual owners
+/src/auth/               @acohen4 @jrockway
+/src/server/auth/        @acohen4 @jrockway
+
+/src/debug/              @jrockway @brycemcanally
+/src/server/debug/       @jrockway @brycemcanally
+
+/src/enterprise/         @acohen4
+/src/server/enterprise/  @acohen4
+
+/src/identity/           @jrockway @acohen4
+/src/server/identity/    @jrockway @acohen4
+
+/src/license/            @acohen4
+/src/server/license/     @acohen4
+
+/src/pfs/                @pachyderm/PFS
+/src/server/pfs/         @pachyderm/PFS
+
+/src/pps/                @brycemcanally @acohen4
+/src/server/pps/         @brycemcanally @acohen4
+
+/src/task/               @brycemcanally
+
+# Integrations
+/src/integrations/                          @pachyderm/INT
+/src/integrations/connectors/snowflake/     @pachyderm/INT @albscui @robert-uhl
+/src/templates/                             @pachyderm/INT
+/src/server/pfs/s3/                          @pachyderm/INT
+
+# Internal
+# Add all the teams, so anyone can make or change internal libraries by default.
+/src/internal/ @pachyderm/CORE @pachyderm/PFS @pachyderm/INT
+
+# Individuals for specific packages
+/src/internal/collection/            @brycemcanally @acohen4 @robert-uhl
+/src/internal/clusterstate/          @jrockway @brycemcanally
+/src/internal/consistenthashing/     @FahadBSyed
+/src/internal/dockertestenv/         @brendoncarroll
+/src/internal/migrations/            @brendoncarroll
+/src/internal/minikubetestenv/       @acohen4
+/src/internal/obj/                   @pachyderm/PFS
+/src/internal/pachhash/              @pachyderm/PFS
+/src/internal/pachsql/               @albscui @brendoncarroll
+/src/internal/pachtmpl/              @albscui @brendoncarroll @pachyderm/INT
+/src/internal/pfsdb/                 @pachyderm/PFS
+/src/internal/pfsfile/               @pachyderm/PFS
+/src/internal/pfssync/               @pachyderm/PFS
+/src/internal/pfsload/               @brycemcanally
+/src/internal/ppsdb/                 @brycemcanally
+/src/internal/ppsload/               @brycemcanally 
+/src/internal/storage/               @pachyderm/PFS
+/src/internal/stream/                @brycemcanally
+/src/internal/task/                  @brycemcanally
+/src/internal/testsnowflake/         @albscui
+/src/internal/transforms/            @albscui @brendoncarroll
+
+# internal/middleware
+/src/internal/middleware/auth/       @acohen4

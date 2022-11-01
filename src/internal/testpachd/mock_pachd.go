@@ -90,13 +90,13 @@ type checkRepoIsAuthorizedInTransactionFunc func(*txncontext.TransactionContext,
 type authorizeInTransactionFunc func(*txncontext.TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
 type modifyRoleBindingInTransactionFunc func(*txncontext.TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
 type getRoleBindingInTransactionFunc func(*txncontext.TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error)
-type addPipelineReaderToRepoInTransactionFunc func(*txncontext.TransactionContext, string, string) error
-type addPipelineWriterToRepoInTransactionFunc func(*txncontext.TransactionContext, string) error
-type addPipelineWriterToSourceRepoInTransactionFunc func(*txncontext.TransactionContext, string, string) error
-type removePipelineReaderFromRepoInTransactionFunc func(*txncontext.TransactionContext, string, string) error
+type addPipelineReaderToRepoInTransactionFunc func(*txncontext.TransactionContext, *pfs.Repo, *pps.Pipeline) error
+type addPipelineWriterToRepoInTransactionFunc func(*txncontext.TransactionContext, *pps.Pipeline) error
+type addPipelineWriterToSourceRepoInTransactionFunc func(*txncontext.TransactionContext, *pfs.Repo, *pps.Pipeline) error
+type removePipelineReaderFromRepoInTransactionFunc func(*txncontext.TransactionContext, *pfs.Repo, *pps.Pipeline) error
 type createRoleBindingInTransactionFunc func(*txncontext.TransactionContext, string, []string, *auth.Resource) error
 type deleteRoleBindingInTransactionFunc func(*txncontext.TransactionContext, *auth.Resource) error
-type getPipelineAuthTokenInTransactionFunc func(*txncontext.TransactionContext, string) (string, error)
+type getPipelineAuthTokenInTransactionFunc func(*txncontext.TransactionContext, *pps.Pipeline) (string, error)
 type revokeAuthTokenInTransactionFunc func(*txncontext.TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
 type getPermissionsInTransactionFunc func(*txncontext.TransactionContext, *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
 
@@ -506,30 +506,30 @@ func (api *authServerAPI) GetRoleBindingInTransaction(transactionContext *txncon
 	return nil, errors.Errorf("unhandled pachd mock auth.GetRoleBindingInTransaction")
 }
 
-func (api *authServerAPI) AddPipelineReaderToRepoInTransaction(transactionContext *txncontext.TransactionContext, s string, s2 string) error {
+func (api *authServerAPI) AddPipelineReaderToRepoInTransaction(transactionContext *txncontext.TransactionContext, r *pfs.Repo, p *pps.Pipeline) error {
 	if api.mock.AddPipelineReaderToRepoInTransaction.handler != nil {
-		return api.mock.AddPipelineReaderToRepoInTransaction.handler(transactionContext, s, s2)
+		return api.mock.AddPipelineReaderToRepoInTransaction.handler(transactionContext, r, p)
 	}
 	return errors.Errorf("unhandled pachd mock auth.AddPipelineReaderToRepoInTransaction")
 }
 
-func (api *authServerAPI) AddPipelineWriterToRepoInTransaction(transactionContext *txncontext.TransactionContext, s string) error {
+func (api *authServerAPI) AddPipelineWriterToRepoInTransaction(transactionContext *txncontext.TransactionContext, p *pps.Pipeline) error {
 	if api.mock.AddPipelineWriterToRepoInTransaction.handler != nil {
-		return api.mock.AddPipelineWriterToRepoInTransaction.handler(transactionContext, s)
+		return api.mock.AddPipelineWriterToRepoInTransaction.handler(transactionContext, p)
 	}
 	return errors.Errorf("unhandled pachd mock auth.AddPipelineWriterToRepoInTransaction")
 }
 
-func (api *authServerAPI) AddPipelineWriterToSourceRepoInTransaction(transactionContext *txncontext.TransactionContext, s string, s2 string) error {
+func (api *authServerAPI) AddPipelineWriterToSourceRepoInTransaction(transactionContext *txncontext.TransactionContext, r *pfs.Repo, p *pps.Pipeline) error {
 	if api.mock.AddPipelineWriterToSourceRepoInTransaction.handler != nil {
-		return api.mock.AddPipelineWriterToSourceRepoInTransaction.handler(transactionContext, s, s2)
+		return api.mock.AddPipelineWriterToSourceRepoInTransaction.handler(transactionContext, r, p)
 	}
 	return errors.Errorf("unhandled pachd mock auth.AddPipelineWriterToSourceRepoInTransaction")
 }
 
-func (api *authServerAPI) RemovePipelineReaderFromRepoInTransaction(transactionContext *txncontext.TransactionContext, s string, s2 string) error {
+func (api *authServerAPI) RemovePipelineReaderFromRepoInTransaction(transactionContext *txncontext.TransactionContext, r *pfs.Repo, p *pps.Pipeline) error {
 	if api.mock.RemovePipelineReaderFromRepoInTransaction.handler != nil {
-		return api.mock.RemovePipelineReaderFromRepoInTransaction.handler(transactionContext, s, s2)
+		return api.mock.RemovePipelineReaderFromRepoInTransaction.handler(transactionContext, r, p)
 	}
 	return errors.Errorf("unhandled pachd mock auth.RemovePipelineReaderFromRepoInTransaction")
 }
@@ -548,9 +548,9 @@ func (api *authServerAPI) DeleteRoleBindingInTransaction(transactionContext *txn
 	return errors.Errorf("unhandled pachd mock auth.DeleteRoleBindingInTransaction")
 }
 
-func (api *authServerAPI) GetPipelineAuthTokenInTransaction(transactionContext *txncontext.TransactionContext, s string) (string, error) {
+func (api *authServerAPI) GetPipelineAuthTokenInTransaction(transactionContext *txncontext.TransactionContext, p *pps.Pipeline) (string, error) {
 	if api.mock.GetPipelineAuthTokenInTransaction.handler != nil {
-		return api.mock.GetPipelineAuthTokenInTransaction.handler(transactionContext, s)
+		return api.mock.GetPipelineAuthTokenInTransaction.handler(transactionContext, p)
 	}
 	return "", errors.Errorf("unhandled pachd mock auth.GetPipelineAuthTokenInTransaction")
 }

@@ -64,16 +64,6 @@ func NewIterator(ctx context.Context, iterate func(func(interface{}) error) erro
 	}
 }
 
-// Peek returns the next item without progressing the iterator.
-func (i *Iterator) Peek() (interface{}, error) {
-	if i.peek != nil {
-		return i.peek, nil
-	}
-	var err error
-	i.peek, err = i.Next()
-	return i.peek, err
-}
-
 // Next returns the next item and progresses the iterator.
 func (i *Iterator) Next() (interface{}, error) {
 	if i.peek != nil {

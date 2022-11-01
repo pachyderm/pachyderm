@@ -18,6 +18,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
+var valueOverrides map[string]string
+
 func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	t.Parallel()
 	ns, portOffset := minikubetestenv.ClaimCluster(t)
@@ -27,6 +29,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 		Enterprise: true,
 		PortOffset: portOffset,
 	}
+	opts.ValueOverrides = valueOverrides
 	// Test Install
 	minikubetestenv.PutNamespace(t, ns)
 	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
@@ -72,6 +75,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 		AuthUser:         auth.RootUser,
 		EnterpriseServer: true,
 		CleanupAfter:     true,
+		ValueOverrides:   valueOverrides,
 	})
 	whoami, err := ec.AuthAPIClient.WhoAmI(ec.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
@@ -84,6 +88,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 		Enterprise:       true,
 		PortOffset:       portOffset,
 		CleanupAfter:     true,
+		ValueOverrides:   valueOverrides,
 	})
 	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
