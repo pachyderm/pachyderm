@@ -286,7 +286,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 	if reverse {
 		return d.listFileReverse(ctx, name, s, number, cb)
 	}
-	callback := func(fi *pfs.FileInfo, _ fileset.File) error {
+	if err = s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 		if number == 0 {
 			return errutil.ErrBreak
 		}
@@ -295,16 +295,14 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 			return cb(fi)
 		}
 		return nil
-	}
-	if err = s.Iterate(ctx, callback); err != nil {
+	}); err != nil {
 		return errors.EnsureStack(err)
 	}
-
 	return errors.EnsureStack(err)
 }
 
 func (d *driver) listFileReverse(ctx context.Context, filename string, s Source, number int64, cb func(*pfs.FileInfo) error) error {
-	// use a fixed size slice if we know the number of files we want
+	// use a fixed size slice since we know the number of files we want
 	fis := make([]*pfs.FileInfo, number)
 	index := 0
 	if err := s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
