@@ -83,14 +83,9 @@ func Command(name string, args ...string) *exec.Cmd {
 }
 
 func bashCmd(cmd string, subs ...string) io.Reader {
-	if len(subs)%2 == 1 {
-		panic("some variable does not have a corresponding value")
-	}
-
-	// copy 'subs' into a map
-	subsMap := make(map[string]string)
-	for i := 0; i < len(subs); i += 2 {
-		subsMap[subs[i]] = subs[i+1]
+	data, err := subsToTemplateData(subs...)
+	if err != nil {
+		panic(err)
 	}
 
 	// Warn users that they must install 'match' if they want to run tests with
@@ -118,7 +113,7 @@ which match >/dev/null || {
 	buf.WriteRune('\n')
 
 	// do the substitution
-	if err := template.Must(template.New("").Parse(dedent(cmd))).Execute(buf, subsMap); err != nil {
+	if err := template.Must(template.New("").Parse(dedent(cmd))).Execute(buf, data); err != nil {
 		panic(err)
 	}
 	return buf
