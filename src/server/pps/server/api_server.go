@@ -1125,6 +1125,7 @@ func (a *apiServer) listDatumReverse(ctx context.Context, request *pps.ListDatum
 			if !request.Filter.Allow(info) {
 				return nil
 			}
+			// wrap around the buffer
 			if index == int(request.Number) {
 				index = 0
 			}
@@ -1156,6 +1157,7 @@ func (a *apiServer) listDatumReverse(ctx context.Context, request *pps.ListDatum
 	if index == 0 {
 		return nil
 	}
+	// move the index marker to the last populated datum
 	index--
 	for i := 0; i < len(dis); i++ {
 		if dis[index] == nil {
@@ -1165,6 +1167,7 @@ func (a *apiServer) listDatumReverse(ctx context.Context, request *pps.ListDatum
 			return err
 		}
 		index--
+		// wrap around to the end of the slice
 		if index < 0 {
 			index = len(dis) - 1
 		}
