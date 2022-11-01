@@ -109,9 +109,9 @@ func TestPFS(suite *testing.T) {
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+		require.NoError(t, env.PachClient.CreateRepo(repo))
 
-		commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		commit1, err := env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
 		require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/file1.5", &bytes.Buffer{}))
