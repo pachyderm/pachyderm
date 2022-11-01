@@ -1164,7 +1164,7 @@ func (a *apiServer) listDatumReverse(ctx context.Context, request *pps.ListDatum
 			break
 		}
 		if err := server.Send(dis[index]); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		index--
 		// wrap around to the end of the slice
