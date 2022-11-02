@@ -558,8 +558,6 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 		if ci.Commit.Branch.Repo.Type != pfs.UserRepoType || ci.Origin.Kind == pfs.OriginKind_ALIAS {
 			return nil
 		}
-		logrus.Info("qqq: Commit.Branch.Repo.Project.GetName() -> ", ci.Commit.Branch.Repo.Project.GetName())
-		logrus.Info("qqq: ci.Commit.Branch.Repo.Name -> ", ci.Commit.Branch.Repo.Name)
 		return cb(ci.Commit.Branch.Repo.Project.GetName(), ci.Commit.Branch.Repo.Name)
 	}); err != nil {
 		if pfsServer.IsCommitSetNotFoundErr(err) {
