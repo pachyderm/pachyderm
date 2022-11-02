@@ -15,6 +15,14 @@ parameters:
   run_nightly_tag:
     type: boolean
     default: false
+  release-etcd:
+    type: boolean
+    default: false
+  # etcd uses gcr.io/etcd-development/etcd as a primary container registry, and quay.io/coreos/etcd as secondary.
+  # visit https://github.com/etcd-io/etcd/releases to pass version you wish to update our mirror to.
+  etcd-image-version:
+    type: string
+    default: v3.5.5
   working-pachyderm-version:
     type: string
     default: "v2.4.0"
@@ -57,6 +65,29 @@ jobs:
             NIGHTLY=${WORKINGVERSION}-nightly.${TIMESTAMP}
             git tag -am "nightly release tag ${NIGHTLY}" ${NIGHTLY}
             git push origin ${NIGHTLY}
+  release-etcd:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: Download utilities
+          command: |
+            sudo apt update
+            sudo apt install qemu binfmt-support qemu-user-static
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          name: pachydermbuildbot docker login
+          command: |
+            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: update etcd image
+          command: |
+            docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+            docker context create buildx-build
+            docker buildx create --name etcd --driver docker-container --use buildx-build
+            docker buildx build --builder etcd --build-arg ETCD_VERSION=<< pipeline.parameters.etcd-image-version >> --platform=linux/amd64,linux/arm64 -f Dockerfile.etcd -t pachyderm/etcd:<< pipeline.parameters.etcd-image-version >> --push .
   release-pgbouncer:
     docker:
       - image: cimg/base:stable
@@ -88,6 +119,7 @@ workflows:
       and:
         - not: << pipeline.parameters.run_nightly_tag >>
         - not: << pipeline.parameters.release-pgbouncer >>
+        - not: << pipeline.parameters.release-etcd >>
     jobs:
       - path-filtering/filter:
           name: check-updated-files
@@ -109,6 +141,13 @@ workflows:
     when: << pipeline.parameters.run_nightly_tag >>
     jobs:
       - create-nightly-tag
+  release-etcd-image:
+    when:
+      and:
+        - not: << pipeline.parameters.run_nightly_tag >>
+        - equal: [true, << pipeline.parameters.release-etcd >>]
+    jobs:
+      - release-etcd
   release-pgbouncer-image:
     when:
       and:
