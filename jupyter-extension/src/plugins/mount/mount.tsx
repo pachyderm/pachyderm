@@ -4,17 +4,29 @@ import {IDocumentManager} from '@jupyterlab/docmanager';
 import {SplitPanel} from '@lumino/widgets';
 import {ReactWidget, UseSignal} from '@jupyterlab/apputils';
 import {FileBrowser, IFileBrowserFactory} from '@jupyterlab/filebrowser';
-import {settingsIcon} from '@jupyterlab/ui-components';
+import {settingsIcon, spreadsheetIcon} from '@jupyterlab/ui-components';
 import {Signal} from '@lumino/signaling';
+import {JSONObject} from '@lumino/coreutils';
 
 import {mountLogoIcon} from '../../utils/icons';
-import {PollRepos} from './pollRepos';
+import {PollMounts} from './pollMounts';
 import createCustomFileBrowser from './customFileBrowser';
-import {AuthConfig, IMountPlugin, Repo} from './types';
+import {
+  AuthConfig,
+  IMountPlugin,
+  Repo,
+  Mount,
+  CurrentDatumResponse,
+  PfsInput,
+  ListMountsResponse,
+  CrossInputSpec,
+} from './types';
 import Config from './components/Config/Config';
+import Datum from './components/Datum/Datum';
 import SortableList from './components/SortableList/SortableList';
 import LoadingDots from '../../utils/components/LoadingDots/LoadingDots';
 import FullPageError from './components/FullPageError/FullPageError';
+import {requestAPI} from '../../handler';
 
 export const MOUNT_BROWSER_NAME = 'mount-browser:';
 
@@ -25,13 +37,23 @@ export class MountPlugin implements IMountPlugin {
   private _config: ReactWidget;
   private _mountedList: ReactWidget;
   private _unmountedList: ReactWidget;
+  private _datum: ReactWidget;
   private _mountBrowser: FileBrowser;
-  private _poller: PollRepos;
+  private _poller: PollMounts;
   private _panel: SplitPanel;
 
   private _showConfig = false;
   private _showConfigSignal = new Signal<this, boolean>(this);
   private _readyPromise: Promise<void> = Promise.resolve();
+
+  private _showDatum = false;
+  private _keepMounted = false;
+  private _currentDatumInfo: CurrentDatumResponse | undefined;
+  private _showDatumSignal = new Signal<this, boolean>(this);
+  private _repoViewInputSpec: CrossInputSpec | PfsInput = {};
+  private _saveInputSpecSignal = new Signal<this, CrossInputSpec | PfsInput>(
+    this,
+  );
 
   constructor(
     app: JupyterFrontEnd,
@@ -40,7 +62,8 @@ export class MountPlugin implements IMountPlugin {
     restorer: ILayoutRestorer,
   ) {
     this._app = app;
-    this._poller = new PollRepos('PollRepos');
+    this._poller = new PollMounts('PollMounts');
+    this._repoViewInputSpec = {};
 
     // This is used to detect if the config goes bad (pachd address changes)
     this._poller.configSignal.connect((_, config) => {
@@ -65,34 +88,24 @@ export class MountPlugin implements IMountPlugin {
     this._config = ReactWidget.create(
       <UseSignal signal={this._showConfigSignal}>
         {(_, showConfig) => (
-          <>
-            <UseSignal signal={this._poller.configSignal}>
-              {(_, authConfig) => (
-                <>
-                  <UseSignal signal={this._poller.statusSignal}>
-                    {(_, status) => (
-                      <>
-                        <Config
-                          showConfig={
-                            showConfig ? showConfig : this._showConfig
-                          }
-                          setShowConfig={this.setShowConfig}
-                          reposStatus={
-                            status ? status.code : this._poller.status.code
-                          }
-                          updateConfig={this.updateConfig}
-                          authConfig={
-                            authConfig ? authConfig : this._poller.config
-                          }
-                          refresh={this._poller.refresh}
-                        />
-                      </>
-                    )}
-                  </UseSignal>
-                </>
-              )}
-            </UseSignal>
-          </>
+          <UseSignal signal={this._poller.configSignal}>
+            {(_, authConfig) => (
+              <UseSignal signal={this._poller.statusSignal}>
+                {(_, status) => (
+                  <Config
+                    showConfig={showConfig ? showConfig : this._showConfig}
+                    setShowConfig={this.setShowConfig}
+                    reposStatus={
+                      status ? status.code : this._poller.status.code
+                    }
+                    updateConfig={this.updateConfig}
+                    authConfig={authConfig ? authConfig : this._poller.config}
+                    refresh={this._poller.refresh}
+                  />
+                )}
+              </UseSignal>
+            )}
+          </UseSignal>
         )}
       </UseSignal>,
     );
@@ -106,21 +119,36 @@ export class MountPlugin implements IMountPlugin {
               <div className="pachyderm-mount-base-title">
                 Mounted Repositories
               </div>
-              <button
-                className="pachyderm-button-link"
-                onClick={() => this.setShowConfig(true)}
-              >
-                Config{' '}
-                <settingsIcon.react
-                  tag="span"
-                  className="pachyderm-mount-icon-padding"
-                />
-              </button>
+              <div style={{display: 'flex'}}>
+                <button
+                  className="pachyderm-button-link"
+                  data-testid="Datum__mode"
+                  onClick={() => this.setShowDatum(true)}
+                  style={{marginRight: '0.25rem'}}
+                >
+                  Datum{' '}
+                  <spreadsheetIcon.react
+                    tag="span"
+                    className="pachyderm-mount-icon-padding"
+                  />
+                </button>
+                <button
+                  className="pachyderm-button-link"
+                  onClick={() => this.setShowConfig(true)}
+                >
+                  Config{' '}
+                  <settingsIcon.react
+                    tag="span"
+                    className="pachyderm-mount-icon-padding"
+                  />
+                </button>
+              </div>
             </div>
             <SortableList
               open={this.open}
-              repos={mounted ? mounted : this._poller.mounted}
+              items={mounted ? mounted : this._poller.mounted}
               updateData={this._poller.updateData}
+              mountedItems={[]}
             />
           </div>
         )}
@@ -137,8 +165,9 @@ export class MountPlugin implements IMountPlugin {
             </div>
             <SortableList
               open={this.open}
-              repos={unmounted ? unmounted : this._poller.unmounted}
+              items={unmounted ? unmounted : this._poller.unmounted}
               updateData={this._poller.updateData}
+              mountedItems={this._poller.mounted}
             />
           </div>
         )}
@@ -146,25 +175,48 @@ export class MountPlugin implements IMountPlugin {
     );
     this._unmountedList.addClass('pachyderm-mount-react-wrapper');
 
-    this._loader = ReactWidget.create(
-      <>
-        <LoadingDots />
-      </>,
+    this._datum = ReactWidget.create(
+      <UseSignal signal={this._showDatumSignal}>
+        {(_, showDatum) => (
+          <UseSignal signal={this._saveInputSpecSignal}>
+            {(_, repoViewInputSpec) => (
+              <Datum
+                showDatum={showDatum ? showDatum : this._showDatum}
+                setShowDatum={this.setShowDatum}
+                keepMounted={this._keepMounted}
+                setKeepMounted={this.setKeepMounted}
+                open={this.open}
+                pollRefresh={this._poller.refresh}
+                currentDatumInfo={this._currentDatumInfo}
+                repoViewInputSpec={
+                  repoViewInputSpec
+                    ? repoViewInputSpec
+                    : this._repoViewInputSpec
+                }
+              />
+            )}
+          </UseSignal>
+        )}
+      </UseSignal>,
     );
+    this._datum.addClass('pachyderm-mount-datum-wrapper');
+
+    this._loader = ReactWidget.create(<LoadingDots />);
     this._loader.addClass('pachyderm-mount-react-wrapper');
 
     this._fullPageError = ReactWidget.create(
       <UseSignal signal={this._poller.statusSignal}>
         {(_, status) => (
-          <>
-            <FullPageError status={status ? status : this._poller.status} />
-          </>
+          <FullPageError status={status ? status : this._poller.status} />
         )}
       </UseSignal>,
     );
     this._fullPageError.addClass('pachyderm-mount-react-wrapper');
 
     this._mountBrowser = createCustomFileBrowser(app, manager, factory);
+    this._poller.mountedSignal.connect(this.verifyBrowserPath);
+    this._poller.mountedSignal.connect(this.refresh);
+    this._poller.unmountedSignal.connect(this.refresh);
 
     this._panel = new SplitPanel();
     this._panel.orientation = 'vertical';
@@ -174,10 +226,9 @@ export class MountPlugin implements IMountPlugin {
     this._panel.id = 'pachyderm-mount';
     this._panel.addWidget(this._mountedList);
     this._panel.addWidget(this._unmountedList);
+    this._panel.addWidget(this._datum);
     this._panel.addWidget(this._mountBrowser);
-    SplitPanel.setStretch(this._mountedList, 1);
-    SplitPanel.setStretch(this._unmountedList, 1);
-    SplitPanel.setStretch(this._mountBrowser, 3);
+    this._panel.setRelativeSizes([1, 1, 3, 3]);
 
     this._panel.addWidget(this._loader);
     this._panel.addWidget(this._config);
@@ -188,6 +239,7 @@ export class MountPlugin implements IMountPlugin {
     this._fullPageError.setHidden(true);
     this._mountedList.setHidden(true);
     this._unmountedList.setHidden(true);
+    this._datum.setHidden(true);
     this._mountBrowser.setHidden(true);
 
     window.addEventListener('resize', () => {
@@ -204,6 +256,123 @@ export class MountPlugin implements IMountPlugin {
     });
   };
 
+  refresh = async (_: PollMounts, _data: Mount[] | Repo[]): Promise<void> => {
+    await this._mountBrowser.model.refresh();
+  };
+
+  // Change back to root directory if in a mount that no longer exists
+  verifyBrowserPath = (_: PollMounts, mounted: Mount[]): void => {
+    if (this._mountBrowser.model.path === this._mountBrowser.model.rootPath) {
+      return;
+    }
+
+    const currentMountDir = this._mountBrowser.model.path
+      .split(MOUNT_BROWSER_NAME)[1]
+      .split('/')[0];
+    for (let i = 0; i < mounted.length; i++) {
+      if (currentMountDir === mounted[i].name) {
+        return;
+      }
+    }
+    this.open('');
+  };
+
+  setShowDatum = async (shouldShow: boolean): Promise<void> => {
+    if (shouldShow) {
+      this._datum.setHidden(false);
+      this._mountedList.setHidden(true);
+      this._unmountedList.setHidden(true);
+      this.saveMountedReposList();
+    } else {
+      this._datum.setHidden(true);
+      this._mountedList.setHidden(false);
+      this._unmountedList.setHidden(false);
+      await this.restoreMountedReposList();
+    }
+    this._mountBrowser.setHidden(false);
+    this._config.setHidden(true);
+    this._fullPageError.setHidden(true);
+    this._showDatum = shouldShow;
+    this._showDatumSignal.emit(shouldShow);
+  };
+
+  saveMountedReposList = (): void => {
+    const mounted = this._poller.mounted;
+    const pfsInputs: PfsInput[] = [];
+
+    for (let i = 0; i < mounted.length; i++) {
+      const pfsInput: PfsInput = {
+        pfs: {
+          ...(mounted[i].branch !== 'master' && {
+            name: `${mounted[i].repo}_${mounted[i].branch}`,
+          }),
+          repo: mounted[i].repo,
+          ...(mounted[i].branch !== 'master' && {branch: mounted[i].branch}),
+          glob: '/',
+        },
+      };
+      pfsInputs.push(pfsInput);
+    }
+
+    if (mounted.length === 0) {
+      // No mounted repos to save
+      this._repoViewInputSpec = {};
+    } else if (mounted.length === 1) {
+      // Single mounted repo to save
+      this._repoViewInputSpec = pfsInputs[0];
+    } else {
+      // Multiple mounted repos to save; use cross
+      this._repoViewInputSpec = {
+        cross: pfsInputs,
+      };
+    }
+
+    this._saveInputSpecSignal.emit(this._repoViewInputSpec);
+  };
+
+  restoreMountedReposList = async (): Promise<void> => {
+    const mounts: JSONObject[] = [];
+    // Restoring from cross of multiple mounts
+    if (
+      Object.prototype.hasOwnProperty.call(this._repoViewInputSpec, 'cross') &&
+      Array.isArray(this._repoViewInputSpec.cross)
+    ) {
+      for (let i = 0; i < this._repoViewInputSpec.cross.length; i++) {
+        const pfsInput = (this._repoViewInputSpec.cross[i] as PfsInput).pfs;
+        mounts.push({
+          name: pfsInput.name ? pfsInput.name : pfsInput.repo,
+          repo: pfsInput.repo,
+          branch: pfsInput.branch ? pfsInput.branch : 'master',
+          mode: 'ro',
+        });
+      }
+    }
+    // Restoring from single mount
+    else if (
+      Object.prototype.hasOwnProperty.call(this._repoViewInputSpec, 'pfs')
+    ) {
+      const pfsInput = (this._repoViewInputSpec as PfsInput).pfs;
+      mounts.push({
+        name: pfsInput.name ? pfsInput.name : pfsInput.repo,
+        repo: pfsInput.repo,
+        branch: pfsInput.branch ? pfsInput.branch : 'master',
+        mode: 'ro',
+      });
+    }
+
+    if (mounts.length > 0) {
+      const res = await requestAPI<ListMountsResponse>('_mount', 'PUT', {
+        mounts: mounts,
+      });
+      this._poller.updateData(res);
+    }
+    this.open('');
+  };
+
+  setKeepMounted = (keep: boolean): void => {
+    this._keepMounted = keep;
+  };
+
   setShowConfig = (shouldShow: boolean): void => {
     if (shouldShow) {
       this._config.setHidden(false);
@@ -216,6 +385,7 @@ export class MountPlugin implements IMountPlugin {
       this._unmountedList.setHidden(false);
       this._mountBrowser.setHidden(false);
     }
+    this._datum.setHidden(true);
     this._fullPageError.setHidden(true);
     this._showConfig = shouldShow;
     this._showConfigSignal.emit(shouldShow);
@@ -225,12 +395,14 @@ export class MountPlugin implements IMountPlugin {
     if (shouldShow) {
       this._fullPageError.setHidden(false);
       this._config.setHidden(true);
+      this._datum.setHidden(true);
       this._mountedList.setHidden(true);
       this._unmountedList.setHidden(true);
       this._mountBrowser.setHidden(true);
     } else {
       this._fullPageError.setHidden(true);
       this._config.setHidden(false);
+      this._datum.setHidden(false);
       this._mountedList.setHidden(false);
       this._unmountedList.setHidden(false);
       this._mountBrowser.setHidden(false);
@@ -251,11 +423,22 @@ export class MountPlugin implements IMountPlugin {
         this._poller.config.cluster_status === 'INVALID' ||
           this._poller.status.code !== 200,
       );
+
+      try {
+        const res = await requestAPI<CurrentDatumResponse>('datums', 'GET');
+        if (res['num_datums'] > 0) {
+          this._keepMounted = true;
+          this._currentDatumInfo = res;
+          await this.setShowDatum(true);
+        }
+      } catch (e) {
+        console.log(e);
+      }
     }
     this._loader.setHidden(true);
   };
 
-  get mountedRepos(): Repo[] {
+  get mountedRepos(): Mount[] {
     this._poller.poll.tick;
     return this._poller.mounted;
   }

@@ -2,11 +2,13 @@ package testutil
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
@@ -26,10 +28,10 @@ func TSProtoOrDie(t testing.TB, ts time.Time) *types.Timestamp {
 	return proto
 }
 
-func activateAuthHelper(tb testing.TB, client *client.APIClient) {
+func activateAuthHelper(tb testing.TB, client *client.APIClient, port ...string) {
 	client.SetAuthToken(RootToken)
 
-	ActivateEnterprise(tb, client)
+	ActivateEnterprise(tb, client, port...)
 
 	_, err := client.Activate(client.Ctx(),
 		&auth.ActivateRequest{RootToken: RootToken},
@@ -49,9 +51,9 @@ func activateAuthHelper(tb testing.TB, client *client.APIClient) {
 }
 
 // ActivateAuthClient activates the auth service in the test cluster, if it isn't already enabled
-func ActivateAuthClient(tb testing.TB, c *client.APIClient) {
+func ActivateAuthClient(tb testing.TB, c *client.APIClient, port ...string) {
 	tb.Helper()
-	activateAuthHelper(tb, c)
+	activateAuthHelper(tb, c, port...)
 }
 
 // creates a new authenticated pach client, without re-activating
@@ -69,9 +71,9 @@ func AuthenticateClient(tb testing.TB, c *client.APIClient, subject string) *cli
 	return client
 }
 
-func AuthenticatedPachClient(tb testing.TB, c *client.APIClient, subject string) *client.APIClient {
+func AuthenticatedPachClient(tb testing.TB, c *client.APIClient, subject string, port ...string) *client.APIClient {
 	tb.Helper()
-	activateAuthHelper(tb, c)
+	activateAuthHelper(tb, c, port...)
 	return AuthenticateClient(tb, c, subject)
 }
 
@@ -91,8 +93,8 @@ func User(email string) string {
 	return auth.UserPrefix + email
 }
 
-func Pl(pipeline string) string {
-	return auth.PipelinePrefix + pipeline
+func Pl(projectName, pipelineName string) string {
+	return fmt.Sprintf("%s%s/%s", auth.PipelinePrefix, projectName, pipelineName)
 }
 
 func Robot(robot string) string {
@@ -118,23 +120,25 @@ func BuildBindings(s ...string) *auth.RoleBinding {
 	return &b
 }
 
-func GetRepoRoleBinding(t *testing.T, c *client.APIClient, repo string) *auth.RoleBinding {
+func GetRepoRoleBinding(t *testing.T, c *client.APIClient, projectName, repoName string) *auth.RoleBinding {
 	t.Helper()
-	resp, err := c.GetRepoRoleBinding(repo)
+	resp, err := c.GetProjectRepoRoleBinding(projectName, repoName)
 	require.NoError(t, err)
 	return resp
 }
 
 // CommitCnt uses 'c' to get the number of commits made to the repo 'repo'
-func CommitCnt(t *testing.T, c *client.APIClient, repo string) int {
+func CommitCnt(t *testing.T, c *client.APIClient, repo *pfs.Repo) int {
 	t.Helper()
-	commitList, err := c.ListCommitByRepo(client.NewRepo(repo))
+	commitList, err := c.ListCommitByRepo(repo)
 	require.NoError(t, err)
 	return len(commitList)
 }
 
 // PipelineNames returns the names of all pipelines that 'c' gets from
-// ListPipeline
+// ListPipeline.
+//
+// TODO(CORE-1100): replace with version which knows about projects.
 func PipelineNames(t *testing.T, c *client.APIClient) []string {
 	t.Helper()
 	ps, err := c.ListPipeline(false)

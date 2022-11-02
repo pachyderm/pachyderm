@@ -767,13 +767,13 @@ func (c *postgresReadWriteCollection) Update(key interface{}, val proto.Message,
 func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upsert bool) error {
 	if c.keyCheck != nil {
 		if err := c.keyCheck(key); err != nil {
-			return err
+			return errors.Wrap(err, "bad key")
 		}
 	}
 
 	paramMap, err := c.getWriteParams(key, val)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not get write params")
 	}
 
 	columns := []string{}
@@ -804,7 +804,7 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 	if !upsert {
 		count, err := result.RowsAffected()
 		if err != nil {
-			return c.mapSQLError(err, key)
+			return errors.Wrap(c.mapSQLError(err, key), "insert failed")
 		}
 
 		if count != int64(1) {

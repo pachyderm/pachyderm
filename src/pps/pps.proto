@@ -36,6 +36,7 @@ message Transform {
   string user = 11;
   string working_dir = 12;
   string dockerfile = 13;
+  bool memory_volume = 14;
 }
 
 message TFJob {
@@ -117,6 +118,7 @@ message PFSInput {
 
 message CronInput {
   string name = 1;
+  string project = 7;
   string repo = 2;
   string commit = 3;
   string spec = 4;
@@ -588,9 +590,12 @@ message ListDatumRequest {
   // with the provided input.
   Input input = 2;
   Filter filter = 3;
-  // TODO:
-  //int64 page_size = 2;
-  //int64 page = 3;
+  //datum id to start from. we do not include this datum in the response
+  string paginationMarker = 4;
+  // Number of datums to return
+  int64 number = 5;
+  // If true, return datums in reverse order
+  bool reverse = 6;
 }
 
 // DatumSetSpec specifies how a pipeline should split its datums into datum sets.
@@ -680,6 +685,9 @@ message ListPipelineRequest {
 
   // A jq program string for additional result filtering
   string jqFilter = 4;
+
+  // If non-nil, will return all the pipeline infos at this commit set
+  pfs_v2.CommitSet commit_set = 5;
 }
 
 message DeletePipelineRequest {
@@ -742,10 +750,12 @@ message RunLoadTestRequest {
   int64 seed = 3;
   int64 parallelism = 4;
   string pod_patch = 5;
+  string state_id = 6;
 }
 
 message RunLoadTestResponse {
   string error = 1;
+  string state_id = 2;
 }
 
 message RenderTemplateRequest {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -60,6 +61,26 @@ const (
 	sideEffectName_CRASH_MONITOR        sideEffectName = 5
 )
 
+// String implements fmt.Stringer.
+func (s sideEffectName) String() string {
+	switch s {
+	case sideEffectName_KUBERNETES_RESOURCES:
+		return "KUBERNETES_RESOURCES"
+	case sideEffectName_FINISH_COMMITS:
+		return "FINISH_COMMITS"
+	case sideEffectName_RESTART:
+		return "RESTART"
+	case sideEffectName_SCALE_WORKERS:
+		return "SCALE_WORKERS"
+	case sideEffectName_PIPELINE_MONITOR:
+		return "PIPELINE_MONITOR"
+	case sideEffectName_CRASH_MONITOR:
+		return "CRASH_MONITOR"
+	default:
+		return "UNKNOWN"
+	}
+}
+
 type sideEffectToggle int32
 
 const (
@@ -67,6 +88,20 @@ const (
 	sideEffectToggle_UP   sideEffectToggle = 1
 	sideEffectToggle_DOWN sideEffectToggle = 2
 )
+
+// String implements fmt.Stringer.
+func (s sideEffectToggle) String() string {
+	switch s {
+	case sideEffectToggle_NONE:
+		return "NONE"
+	case sideEffectToggle_UP:
+		return "UP"
+	case sideEffectToggle_DOWN:
+		return "DOWN"
+	default:
+		return "UNKNOWN"
+	}
+}
 
 // sideEffect intends to capture a state changing operation that the pipeline controller may apply
 // NOTE: the PipelineInfo & ReplicationController arguments supplied to apply should be treated as read only copies
@@ -78,6 +113,18 @@ type sideEffect struct {
 
 func (se sideEffect) equals(o sideEffect) bool {
 	return se.name == o.name && se.toggle == o.toggle
+}
+
+// String implements fmt.Stringer.
+func (se sideEffect) String() string {
+	b := new(strings.Builder)
+	b.WriteString(se.name.String())
+	if t := se.toggle; t != sideEffectToggle_NONE {
+		b.WriteString(" (")
+		b.WriteString(t.String())
+		b.WriteString(")")
+	}
+	return b.String()
 }
 
 func ResourcesSideEffect(toggle sideEffectToggle) sideEffect {
@@ -424,7 +471,7 @@ func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineS
 func (pc *pipelineController) apply(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationController, target pps.PipelineState, sideEffects []sideEffect, reason string) error {
 	for _, s := range sideEffects {
 		if err := s.apply(ctx, pc, pi, rc); err != nil {
-			return err
+			return errors.Wrapf(err, "apply side effect %s", s.String())
 		}
 	}
 	if target != pi.State {
@@ -438,10 +485,10 @@ func (pc *pipelineController) apply(ctx context.Context, pi *pps.PipelineInfo, r
 // current RC is using e.g. an old spec commit or something.
 func rcIsFresh(pi *pps.PipelineInfo, rc *v1.ReplicationController) bool {
 	if rc == nil {
-		log.Errorf("PPS master: RC for %q is nil", pi.Pipeline.Name)
+		log.Errorf("PPS master: RC for %q is nil", pi.Pipeline)
 		return false
 	}
-	expectedName := ppsutil.PipelineRcName(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Version)
+	expectedName := ppsutil.PipelineRcName(pi)
 	// establish current RC properties
 	rcName := rc.ObjectMeta.Name
 	rcPachVersion := rc.ObjectMeta.Annotations[pachVersionAnnotation]
@@ -451,22 +498,22 @@ func rcIsFresh(pi *pps.PipelineInfo, rc *v1.ReplicationController) bool {
 	switch {
 	case rcPipelineVersion != strconv.FormatUint(pi.Version, 10):
 		log.Infof("PPS master: pipeline version in %q looks stale %s != %d",
-			pi.Pipeline.Name, rcPipelineVersion, pi.Version)
+			pi.Pipeline, rcPipelineVersion, pi.Version)
 		return false
 	case rcSpecCommit != pi.SpecCommit.ID:
 		log.Infof("PPS master: pipeline spec commit in %q looks stale %s != %s",
-			pi.Pipeline.Name, rcSpecCommit, pi.SpecCommit.ID)
+			pi.Pipeline, rcSpecCommit, pi.SpecCommit.ID)
 		return false
 	case rcPachVersion != version.PrettyVersion():
 		log.Infof("PPS master: %q is using stale pachd v%s != current v%s",
-			pi.Pipeline.Name, rcPachVersion, version.PrettyVersion())
+			pi.Pipeline, rcPachVersion, version.PrettyVersion())
 		return false
 	case rcName != expectedName:
 		log.Infof("PPS master: %q has an unexpected (likely stale) name %q != %q",
-			pi.Pipeline.Name, rcName, expectedName)
+			pi.Pipeline, rcName, expectedName)
 	case rcAuthTokenHash != hashAuthToken(pi.AuthToken):
 		log.Infof("PPS master: auth token in %q is stale %s != %s",
-			pi.Pipeline.Name, rcAuthTokenHash, hashAuthToken(pi.AuthToken))
+			pi.Pipeline, rcAuthTokenHash, hashAuthToken(pi.AuthToken))
 		return false
 	}
 	return true
@@ -515,10 +562,10 @@ func (pc *pipelineController) stopCrashingPipelineMonitor() {
 // event. This pipeline's output commits will stay open until another watch
 // event arrives for the pipeline and finishPipelineOutputCommits is retried.
 func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context, pi *pps.PipelineInfo) (retErr error) {
-	log.Infof("PPS master: finishing output commits for pipeline %q", pi.Pipeline.Name)
+	log.Infof("PPS master: finishing output commits for pipeline %q", pi.Pipeline)
 	pachClient := pc.env.GetPachClient(ctx)
 	if span, _ctx := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/FinishPipelineOutputCommits", "pipeline", pi.Pipeline.Name); span != nil {
+		"/pps.Master/FinishPipelineOutputCommits", "pipeline", pi.Pipeline); span != nil {
 		pachClient = pachClient.WithCtx(_ctx) // copy span back into pachClient
 		defer func() {
 			tracing.TagAnySpan(span, "err", fmt.Sprintf("%v", retErr))
@@ -526,13 +573,13 @@ func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context, p
 		}()
 	}
 	pachClient.SetAuthToken(pi.AuthToken)
-	if err := pachClient.ListCommitF(client.NewRepo(pi.Pipeline.Name), client.NewCommit(pi.Pipeline.Name, pi.Details.OutputBranch, ""), nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
-		return pachClient.StopJob(pi.Pipeline.Name, commitInfo.Commit.ID)
+	if err := pachClient.ListCommitF(client.NewProjectRepo(pi.Pipeline.Project.GetName(), pi.Pipeline.Name), client.NewProjectCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, ""), nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
+		return pachClient.StopProjectJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commitInfo.Commit.ID)
 	}); err != nil {
 		if errutil.IsNotFoundError(err) {
 			return nil // already deleted
 		}
-		return errors.Wrapf(err, "could not finish output commits of pipeline %q", pi.Pipeline.Name)
+		return errors.Wrapf(err, "could not finish output commits of pipeline %q", pi.Pipeline)
 	}
 	return nil
 }
@@ -542,7 +589,7 @@ func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context, p
 func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.PipelineInfo, oldRC *v1.ReplicationController) (retErr error) {
 	log.Debugf("PPS master: ensuring correct k8s resources for %q", pi.Pipeline.Name)
 	span, _ := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/ScaleUpPipeline", "pipeline", pi.Pipeline.Name)
+		"/pps.Master/ScaleUpPipeline", "project", pi.Pipeline.Project, "pipeline", pi.Pipeline.Name)
 	defer func() {
 		if retErr != nil {
 			log.Errorf("PPS master: error scaling up: %v", retErr)
@@ -579,12 +626,16 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 				return nil
 			})
 			// Set parallelism
-			log.Debugf("Beginning scale-up check for %q, which has %d tasks",
-				pi.Pipeline.Name, nTasks)
+			log.Debugf("PPS master: beginning scale-up check for %q, which has %d tasks and %d workers",
+				pi.Pipeline.Name, nTasks, curScale)
 			switch {
 			case err != nil || nTasks == 0:
-				log.Errorf("tasks remaining for %q not known (possibly still being calculated): %v",
-					pi.Pipeline.Name, err)
+				if err == nil {
+					log.Infof("PPS master: tasks remaining for %q not known (possibly still being calculated)",
+						pi.Pipeline.Name)
+				} else {
+					log.Errorf("PPS master: tasks remaining for %q not known (possibly still being calculated): %v", pi.Pipeline.Name, err)
+				}
 				return curScale // leave pipeline alone until until nTasks is available
 			case nTasks <= curScale:
 				return curScale // can't scale down w/o dropping work
@@ -611,9 +662,11 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 			}()
 		}
 		if curScale == targetScale {
+			log.Debugf("PPS master: pipeline %q is at desired scale", pi.GetPipeline().GetName())
 			return false // no changes necessary
 		}
 		// Update the # of replicas
+		log.Debugf("PPS master: scale pipeline %q from %d to %d replicas", pi.GetPipeline().GetName(), curScale, targetScale)
 		rc.Spec.Replicas = &targetScale
 		return true
 	}))
@@ -622,9 +675,9 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 // scaleDownPipeline edits the RC associated with pc's pipeline & spins down the
 // configured number of workers.
 func (pc *pipelineController) scaleDownPipeline(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationController) (retErr error) {
-	log.Debugf("PPS master: scaling down workers for %q", pi.Pipeline.Name)
+	log.Debugf("PPS master: scaling down workers for %q", pi.Pipeline)
 	span, _ := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/ScaleDownPipeline", "pipeline", pi.Pipeline.Name)
+		"/pps.Master/ScaleDownPipeline", "project", pi.Pipeline.Project, "pipeline", pi.Pipeline.Name)
 	defer func() {
 		if retErr != nil {
 			log.Errorf("PPS master: error scaling down: %v", retErr)
@@ -636,6 +689,7 @@ func (pc *pipelineController) scaleDownPipeline(ctx context.Context, pi *pps.Pip
 		if rc.Spec.Replicas != nil && *rc.Spec.Replicas == 0 {
 			return false // prior attempt succeeded
 		}
+		log.Debugf("PPS master: scale down pipline %q to 0 replicas", pi.GetPipeline().GetName())
 		rc.Spec.Replicas = &zero
 		return true
 	}))

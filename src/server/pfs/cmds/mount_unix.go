@@ -11,26 +11,28 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
-
 	"github.com/hanwen/go-fuse/v2/fs"
 	gofuse "github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/spf13/cobra"
+
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 const (
 	name = "pfs"
 )
 
-func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
+func parseRepoOpts(project string, args []string) (map[string]*fuse.RepoOptions, error) {
 	result := make(map[string]*fuse.RepoOptions)
 	for _, arg := range args {
 		opts := &fuse.RepoOptions{}
 		fileAndFlag := strings.Split(arg, "+")
-		file, err := cmdutil.ParseFile(fileAndFlag[0])
+		file, err := cmdutil.ParseFile(project, fileAndFlag[0])
 		if err != nil {
 			return nil, err
 		}
@@ -60,6 +62,7 @@ func mountCmds() []*cobra.Command {
 	var write bool
 	var debug bool
 	var repoOpts cmdutil.RepeatedStringArg
+	var project string
 	mount := &cobra.Command{
 		Use:   "{{alias}} <path/to/mount/point>",
 		Short: "Mount pfs locally. This command blocks.",
@@ -71,7 +74,7 @@ func mountCmds() []*cobra.Command {
 			}
 			defer c.Close()
 			mountPoint := args[0]
-			repoOpts, err := parseRepoOpts(repoOpts)
+			repoOpts, err := parseRepoOpts(project, repoOpts)
 			if err != nil {
 				return err
 			}
@@ -88,13 +91,14 @@ func mountCmds() []*cobra.Command {
 			}
 			// Prints a warning if we're on macOS
 			PrintWarning()
-			return fuse.Mount(c, mountPoint, opts)
+			return fuse.Mount(c, project, mountPoint, opts)
 		}),
 	}
 	mount.Flags().BoolVarP(&write, "write", "w", false, "Allow writing to pfs through the mount.")
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
 	mount.Flags().VarP(&repoOpts, "repos", "r", "Repos and branches / commits to mount, arguments should be of the form \"repo[@branch=commit][+w]\", where the trailing flag \"+w\" indicates write. You can omit the branch when specifying a commit unless the same commit ID is on multiple branches in the repo.")
 	mount.MarkFlagCustom("repos", "__pachctl_get_repo_branch")
+	mount.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	commands = append(commands, cmdutil.CreateAlias(mount, "mount"))
 
 	var all bool

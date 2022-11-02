@@ -39,7 +39,7 @@ func createPFS(pachClient *client.APIClient, taskDoer task.Doer, input *pps.PFSI
 	var outputFileSetID string
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		pachClient := pachClient.WithCtx(ctx)
-		fileSetID, err := pachClient.GetFileSet(input.Repo, input.Branch, input.Commit)
+		fileSetID, err := pachClient.GetProjectFileSet(input.Project, input.Repo, input.Branch, input.Commit)
 		if err != nil {
 			return err
 		}
@@ -368,11 +368,12 @@ func createGroup(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 
 func createCron(pachClient *client.APIClient, taskDoer task.Doer, input *pps.CronInput) (string, error) {
 	return createPFS(pachClient, taskDoer, &pps.PFSInput{
-		Name:   input.Name,
-		Repo:   input.Repo,
-		Branch: "master",
-		Commit: input.Commit,
-		Glob:   "/*",
+		Name:    input.Name,
+		Project: input.Project,
+		Repo:    input.Repo,
+		Branch:  "master",
+		Commit:  input.Commit,
+		Glob:    "/*",
 	})
 }
 

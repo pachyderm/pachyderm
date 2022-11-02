@@ -1,6 +1,6 @@
 import React from 'react';
 import {GenericError, StatusWarning} from '../../../../utils/components/Svgs';
-import {ServerStatus} from 'plugins/mount/pollRepos';
+import {ServerStatus} from 'plugins/mount/pollMounts';
 
 type FullPageErrorProps = {
   status: ServerStatus;

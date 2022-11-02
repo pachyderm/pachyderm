@@ -17,10 +17,17 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
-	log "github.com/sirupsen/logrus"
 )
+
+// Interceptor can be used to configure Unary and Stream interceptors
+type Interceptor struct {
+	UnaryServerInterceptor  grpc.UnaryServerInterceptor
+	StreamServerInterceptor grpc.StreamServerInterceptor
+}
 
 // Server is a convenience wrapper to gRPC servers that simplifies their
 // setup and execution
@@ -84,17 +91,6 @@ func NewServer(ctx context.Context, publicPortTLSAllowed bool, options ...grpc.S
 		Server: server,
 		eg:     eg,
 	}, nil
-}
-
-func (s *Server) ListenSocket(path string) error {
-	listener, err := net.Listen("unix", path)
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	s.eg.Go(func() error {
-		return errors.EnsureStack(s.Server.Serve(listener))
-	})
-	return nil
 }
 
 // ListenTCP causes the gRPC server to listen on a given TCP host and port

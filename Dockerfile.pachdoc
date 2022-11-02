@@ -15,7 +15,7 @@ FROM mkdocs as netlify
 
 RUN apt-get install -y npm
 RUN npm install netlify-cli -g
-RUN npm install netlify-plugin-checklinks
+# RUN npm install netlify-plugin-checklinks
 
 
 

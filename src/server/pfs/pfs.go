@@ -178,7 +178,7 @@ func (e ErrRepoExists) GRPCStatus() *status.Status {
 }
 
 func (e ErrBranchNotFound) Error() string {
-	return fmt.Sprintf("branch %q not found in repo %v", e.Branch.Name, e.Branch.Repo)
+	return fmt.Sprintf("branch %q not found in repo %v/%v", e.Branch.Name, e.Branch.Repo.Project.GetName(), e.Branch.Repo)
 }
 
 func (e ErrBranchNotFound) GRPCStatus() *status.Status {
@@ -291,9 +291,9 @@ var (
 	commitDeletedRe           = regexp.MustCompile("commit [^ ]+ was deleted")
 	commitFinishedRe          = regexp.MustCompile("commit [^ ]+ has already finished")
 	commitErrorRe             = regexp.MustCompile("commit [^ ]+ finished with an error")
-	repoNotFoundRe            = regexp.MustCompile(`repos [a-zA-Z0-9.\-_]{1,255} not found`)
-	repoExistsRe              = regexp.MustCompile(`repo ?[a-zA-Z0-9.\-_]{1,255} already exists`)
-	branchNotFoundRe          = regexp.MustCompile(`branch [^ ]+ not found in repo [^ ]+`)
+	repoNotFoundRe            = regexp.MustCompile(`repos ([a-zA-Z0-9.\-_]{1,255}/)?[a-zA-Z0-9.\-_]{1,255} not found`)
+	repoExistsRe              = regexp.MustCompile(`repo ?([a-zA-Z0-9.\-_]{1,255}/)?[a-zA-Z0-9.\-_]{1,255} already exists`)
+	branchNotFoundRe          = regexp.MustCompile(`branch [^ ]+ not found in repo [^ ]*/[^ ]+`)
 	fileNotFoundRe            = regexp.MustCompile(`file .+ not found`)
 	outputCommitNotFinishedRe = regexp.MustCompile("output commit .+ not finished")
 	commitNotFinishedRe       = regexp.MustCompile("commit .+ not finished")

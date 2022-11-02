@@ -19,19 +19,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/go-units"
 	"github.com/google/go-cmp/cmp"
 	"github.com/minio/minio-go/v6"
-	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	applyappsv1 "k8s.io/client-go/applyconfigurations/apps/v1"
 	applyv1 "k8s.io/client-go/applyconfigurations/core/v1"
 	applymetav1 "k8s.io/client-go/applyconfigurations/meta/v1"
+
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 func get(t *testing.T, hc *http.Client, url string) error {
@@ -84,20 +87,21 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 	})
 
 	testText := []byte("this is a test\n")
-	for i := 0; i < 8*1024*1024; i++ {
-		// Make sure the file doesn't fit in a single message.  Default message size is 4MB,
-		// so 8MiB is comfortably large enough to ensure that both pachd and Envoy agree on
+	for i := 0; i < 32*units.MiB; i++ {
+		// Make sure the file doesn't fit in a single message.  Default message size is 20MB,
+		// so 32MiB is comfortably large enough to ensure that both pachd and Envoy agree on
 		// that it won't fit in a single message.
 		testText = append(testText, (byte(i)%26)+'A')
 	}
+	testRepo := testutil.UniqueString("TestProxy")
 
 	// Test GRPC API.
 	t.Run("TestGRPC", func(t *testing.T) {
 		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
-			if err := c.CreateRepo("test"); err != nil {
+			if err := c.CreateProjectRepo(pfs.DefaultProjectName, testRepo); err != nil {
 				return errors.Errorf("create repo: %w", err)
 			}
-			if err := c.PutFile(client.NewRepo("test").NewCommit("master", ""), "test.txt", bytes.NewReader(testText)); err != nil {
+			if err := c.PutFile(client.NewProjectRepo(pfs.DefaultProjectName, testRepo).NewCommit("master", ""), "test.txt", bytes.NewReader(testText)); err != nil {
 				return errors.Errorf("put file: %w", err)
 			}
 			return nil
@@ -122,7 +126,7 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 			}{"v4": s3v4, "v2": s3v2} {
 				client.SetCustomTransport(httpClient.Transport)
 
-				obj, err := client.GetObject("master.test", "test.txt", minio.GetObjectOptions{})
+				obj, err := client.GetObject(fmt.Sprintf("master.%s", testRepo), "test.txt", minio.GetObjectOptions{})
 				if err != nil {
 					return errors.Errorf("s3%v: get object: %w", name, err)
 				}
@@ -221,7 +225,7 @@ func TestTrafficThroughProxy(t *testing.T) {
 	c, ns := minikubetestenv.AcquireCluster(t)
 	deployFakeConsole(t, ns)
 	testutil.ActivateAuthClient(t, c)
-	require.NoError(t, testutil.ConfigureOIDCProvider(t, c))
+	require.NoError(t, testutil.ConfigureOIDCProvider(t, c, false))
 	proxyTest(t, http.DefaultClient, c, false)
 }
 
@@ -290,7 +294,7 @@ func TestTrafficThroughProxyTLS(t *testing.T) {
 	deployFakeConsole(t, ns)
 
 	testutil.ActivateAuthClient(t, c)
-	require.NoError(t, testutil.ConfigureOIDCProvider(t, c))
+	require.NoError(t, testutil.ConfigureOIDCProvider(t, c, false))
 
 	httpClient := &http.Client{
 		Transport: &http.Transport{

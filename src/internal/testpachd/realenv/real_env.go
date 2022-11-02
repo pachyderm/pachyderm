@@ -3,30 +3,37 @@ package realenv
 import (
 	"net"
 	"net/url"
+	"os"
 	"path"
 	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-
 	units "github.com/docker/go-units"
+	testclient "k8s.io/client-go/kubernetes/fake"
+
+	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	authapi "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	enterpriseserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	identityserver "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	pfsapi "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
@@ -36,7 +43,6 @@ import (
 	txnserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	pb "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-	testclient "k8s.io/client-go/kubernetes/fake"
 )
 
 // RealEnv contains a setup for running end-to-end pachyderm tests locally.  It
@@ -48,6 +54,7 @@ type RealEnv struct {
 
 	ServiceEnv               serviceenv.ServiceEnv
 	AuthServer               authapi.APIServer
+	IdentityServer           identity.APIServer
 	EnterpriseServer         enterprise.APIServer
 	LicenseServer            license.APIServer
 	PPSServer                ppsapi.APIServer
@@ -59,23 +66,44 @@ type RealEnv struct {
 }
 
 // NewRealEnv constructs a MockEnv, then forwards all API calls to go to API
-// server instances for supported operations. PPS requires a kubernetes
-// environment in order to spin up pipelines, which is not yet supported by this
-// package, but the other API servers work.
+// server instances for supported operations. PPS uses a fake clientset which allows
+// some PPS behavior to work.
 func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
-	return newRealEnv(t, false, customOpts...)
+	return newRealEnv(t, false, testpachd.AuthMiddlewareInterceptor, customOpts...)
+}
+
+// NewRealEnvWithIdentity creates a new real Env and then activates an identity server with dex.
+func NewRealEnvWithIdentity(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
+	env := newRealEnv(t, false, testpachd.AuthMiddlewareInterceptor, customOpts...)
+	env.ActivateIdentity(t)
+	return env
 }
 
 // NewRealEnvWithPPSTransactionMock constructs a MockEnv, then forwards all API calls to go to API
-// server instances for supported operations. PPS requires a kubernetes
-// environment in order to spin up pipelines, which is not yet supported by this
-// package, but the other API servers work.
+// server instances for supported operations. A mock implementation of PPS Transactions are used.
 func NewRealEnvWithPPSTransactionMock(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
-	return newRealEnv(t, true, customOpts...)
+	noInterceptor := func(mock *testpachd.MockPachd) grpcutil.Interceptor {
+		return grpcutil.Interceptor{}
+	}
+	return newRealEnv(t, true, noInterceptor, customOpts...)
 }
 
-func newRealEnv(t testing.TB, mockPPSTransactionServer bool, customOpts ...serviceenv.ConfigOption) *RealEnv {
-	mockEnv := testpachd.NewMockEnv(t)
+func (realEnv *RealEnv) ActivateIdentity(t testing.TB) {
+	dir, err := os.Getwd()
+	require.NoError(t, err)
+	dexDir := strings.Split(dir, "src")[0] + "dex-assets"
+	_, err = os.Stat(dexDir)
+	require.NoError(t, err)
+	realEnv.ServiceEnv.InitDexDB()
+	identityEnv := identityserver.EnvFromServiceEnv(realEnv.ServiceEnv)
+	identityAddr := realEnv.PachClient.GetAddress().Host + ":" + strconv.Itoa(int(realEnv.PachClient.GetAddress().Port+8))
+	realEnv.IdentityServer = identityserver.NewIdentityServer(identityEnv, true, identityserver.UnitTestOption(identityAddr, dexDir))
+	realEnv.ServiceEnv.SetIdentityServer(realEnv.IdentityServer)
+	linkServers(&realEnv.MockPachd.Identity, realEnv.IdentityServer)
+}
+
+func newRealEnv(t testing.TB, mockPPSTransactionServer bool, interceptor testpachd.InterceptorOption, customOpts ...serviceenv.ConfigOption) *RealEnv {
+	mockEnv := testpachd.NewMockEnv(t, interceptor)
 
 	realEnv := &RealEnv{MockEnv: *mockEnv}
 	etcdClientURL, err := url.Parse(realEnv.EtcdClient.Endpoints()[0])
@@ -90,6 +118,7 @@ func newRealEnv(t testing.TB, mockPPSTransactionServer bool, customOpts ...servi
 		DefaultConfigOptions,
 		serviceenv.WithEtcdHostPort(etcdClientURL.Hostname(), etcdClientURL.Port()),
 		serviceenv.WithPachdPeerPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)),
+		serviceenv.WithOidcPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port + 7)),
 	}
 	opts = append(opts, customOpts...) // Overwrite with any custom options
 	realEnv.ServiceEnv = serviceenv.InitServiceEnv(serviceenv.ConfigFromOptions(opts...))
@@ -128,6 +157,7 @@ func newRealEnv(t testing.TB, mockPPSTransactionServer bool, customOpts ...servi
 	realEnv.EnterpriseServer, err = enterpriseserver.NewEnterpriseServer(entEnv, true)
 	require.NoError(t, err)
 	realEnv.ServiceEnv.SetEnterpriseServer(realEnv.EnterpriseServer)
+	mockEnv.MockPachd.GetAuthServer = realEnv.ServiceEnv.AuthServer
 
 	// LICENSE
 	licenseEnv := licenseserver.EnvFromServiceEnv(realEnv.ServiceEnv)

@@ -24,7 +24,7 @@ type Reader struct {
 	shardConfig *ShardConfig
 }
 
-// NewReader create a new Reader.
+// NewReader creates a new Reader.
 func NewReader(chunks *chunk.Storage, cache *Cache, topIdx *Index, opts ...Option) *Reader {
 	r := &Reader{
 		chunks: chunks,
@@ -41,7 +41,7 @@ func NewReader(chunks *chunk.Storage, cache *Cache, topIdx *Index, opts ...Optio
 	return r
 }
 
-// Iterate iterates over the indexes.
+// Iterate iterates over the lowest level (file type) indexes.
 func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 	if r.topIdx == nil {
 		return nil

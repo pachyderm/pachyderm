@@ -13,10 +13,6 @@ const (
 	// DefaultPachdNodePort is the pachd kubernetes service's default
 	// NodePort.Port setting
 	DefaultPachdNodePort = 30650
-
-	// DefaultPachdPort is the pachd kubernetes service's default
-	// Port (often used with Pachyderm ELBs)
-	DefaultPachdPort = 1650
 )
 
 var (

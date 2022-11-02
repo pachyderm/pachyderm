@@ -1,21 +1,29 @@
-READ_ONLY = "ro"
-READ_WRITE = "rw"
-
-
 class MountInterface:
-    async def list(self):
+    async def list_repos(self):
         pass
 
-    async def mount(self, repo, branch, mode, name):
+    async def list_mounts(self):
         pass
 
-    async def unmount(self, repo, branch, name):
+    async def mount(self, body):
+        pass
+
+    async def unmount(self, body):
+        pass
+
+    async def commit(self, body):
         pass
 
     async def unmount_all(self):
         pass
 
-    async def commit(self, repo, branch, name, message):
+    async def mount_datums(self, body):
+        pass
+
+    async def show_datum(self, slug):
+        pass
+
+    async def get_datums(self):
         pass
 
     async def config(self, body):

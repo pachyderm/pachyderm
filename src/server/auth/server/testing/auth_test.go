@@ -1,8 +1,11 @@
+//go:build unit_test
+
 package server_test
 
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"sort"
 	"strconv"
@@ -11,10 +14,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-
-	"github.com/pachyderm/pachyderm/v2/src/license"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -28,6 +27,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 func envWithAuth(t *testing.T) *realenv.RealEnv {
@@ -63,11 +65,12 @@ func TestGetSetBasic(t *testing.T) {
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create repo, and check that alice is the owner of the new repo
-	dataRepo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(dataRepo))
+	repoName := tu.UniqueString(t.Name())
+	repo := client.NewProjectRepo(pfs.DefaultProjectName, repoName)
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoName))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
+	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, repoName, "master", "")
 
 	// Add data to repo (alice can write). Make sure alice can read also.
 	err := aliceClient.PutFile(dataCommit, "/file", strings.NewReader("1"), client.WithAppendPutFile())
@@ -86,22 +89,22 @@ func TestGetSetBasic(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("lorem ipsum"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
-	_, err = bobClient.StartCommit(dataRepo, "master")
+	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
+	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
+	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 
 	//////////
 	/// alice adds bob to the ACL as a reader (alice can modify ACL)
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoReaderRole}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, bob, []string{auth.RepoReaderRole}))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataCommit, "/file", buf))
@@ -110,22 +113,22 @@ func TestGetSetBasic(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
-	_, err = bobClient.StartCommit(dataRepo, "master")
+	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
+	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
+	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 
 	//////////
 	/// alice adds bob to the ACL as a writer
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoWriterRole}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, bob, []string{auth.RepoWriterRole}))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataCommit, "/file", buf))
@@ -133,22 +136,22 @@ func TestGetSetBasic(t *testing.T) {
 	// bob can write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
-	commit, err := bobClient.StartCommit(dataRepo, "master")
+	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
+	commit, err := bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
-	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
+	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 
 	//////////
 	/// alice adds bob to the ACL as an owner
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoOwnerRole}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, bob, []string{auth.RepoOwnerRole}))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataCommit, "/file", buf))
@@ -156,17 +159,17 @@ func TestGetSetBasic(t *testing.T) {
 	// bob can write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("3"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
-	commit, err = bobClient.StartCommit(dataRepo, "master")
+	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
+	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
-	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
+	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can update the ACL
-	require.NoError(t, bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole}))
+	require.NoError(t, bobClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole}))
 	// check that ACL was updated)
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, tu.Robot("carol"), auth.RepoReaderRole),
-		tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 }
 
 // TestGetSetReverse creates two users, alice and bob, and gives bob gradually
@@ -179,25 +182,25 @@ func TestGetSetReverse(t *testing.T) {
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create repo, and check that alice is the owner of the new repo
-	dataRepo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(dataRepo))
-	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	repoName := tu.UniqueString(t.Name())
+	repo := client.NewProjectRepo(pfs.DefaultProjectName, repoName)
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoName))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
+	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, repoName, "master", "")
 
 	// Add data to repo (alice can write). Make sure alice can read also.
-	commit, err := aliceClient.StartCommit(dataRepo, "master")
+	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("1"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID)) // # commits = 1
+	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID)) // # commits = 1
 	buf := &bytes.Buffer{}
 	require.NoError(t, aliceClient.GetFile(dataCommit, "/file", buf))
 	require.Equal(t, "1", buf.String())
 
 	//////////
 	/// alice adds bob to the ACL as an owner
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoOwnerRole}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, bob, []string{auth.RepoOwnerRole}))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataCommit, "/file", buf))
@@ -205,26 +208,26 @@ func TestGetSetReverse(t *testing.T) {
 	// bob can write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
-	commit, err = bobClient.StartCommit(dataRepo, "master")
+	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
+	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
-	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
+	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can update the ACL
-	require.NoError(t, bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole}))
+	require.NoError(t, bobClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole}))
 	// check that ACL was updated)
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, tu.Robot("carol"), auth.RepoReaderRole),
-		tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 
 	// clear carol
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{}))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 
 	//////////
 	/// alice adds bob to the ACL as a writer
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoWriterRole}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, bob, []string{auth.RepoWriterRole}))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataCommit, "/file", buf))
@@ -232,22 +235,22 @@ func TestGetSetReverse(t *testing.T) {
 	// bob can write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("3"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
-	commit, err = bobClient.StartCommit(dataRepo, "master")
+	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
+	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
-	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
+	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 
 	//////////
 	/// alice adds bob to the ACL as a reader (alice can modify ACL)
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoReaderRole}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, bob, []string{auth.RepoReaderRole}))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataCommit, "/file", buf))
@@ -255,22 +258,22 @@ func TestGetSetReverse(t *testing.T) {
 	// bob can't write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("4"), client.WithAppendPutFile())
 	require.YesError(t, err)
-	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
-	_, err = bobClient.StartCommit(dataRepo, "master")
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
+	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 
 	//////////
 	/// alice revokes all of bob's privileges
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, bob, []string{}))
 	// bob can't read
 	err = bobClient.GetFile(dataCommit, "/file", buf)
 	require.YesError(t, err)
@@ -278,18 +281,18 @@ func TestGetSetReverse(t *testing.T) {
 	// bob can't write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("4"), client.WithAppendPutFile())
 	require.YesError(t, err)
-	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
-	_, err = bobClient.StartCommit(dataRepo, "master")
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
+	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 }
 
 // TestCreateAndUpdateRepo tests that if CreateRepo(foo, update=true) is
@@ -303,10 +306,9 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 
 	// create repo, and check that alice is the owner of the new repo
 	dataRepo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(dataRepo))
-	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, dataRepo))
+	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 
 	// Add data to repo (alice can write). Make sure alice can read also.
 	err := aliceClient.PutFile(dataCommit, "/file", strings.NewReader("1"))
@@ -316,9 +318,9 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 	require.Equal(t, "1", buf.String())
 
 	/// alice adds bob to the ACL as a reader (alice can modify ACL)
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoReaderRole}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, dataRepo, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, dataRepo))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataCommit, "/file", buf))
@@ -327,17 +329,17 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 	/// alice updates the repo
 	description := "This request updates the description to force a write"
 	_, err = aliceClient.PfsAPIClient.CreateRepo(aliceClient.Ctx(), &pfs.CreateRepoRequest{
-		Repo:        client.NewRepo(dataRepo),
+		Repo:        client.NewProjectRepo(pfs.DefaultProjectName, dataRepo),
 		Description: description,
 		Update:      true,
 	})
 	require.NoError(t, err)
-	repoInfo, err := aliceClient.InspectRepo(dataRepo)
+	repoInfo, err := aliceClient.InspectProjectRepo(pfs.DefaultProjectName, dataRepo)
 	require.NoError(t, err)
 	require.Equal(t, description, repoInfo.Description)
 	// buildBindings haven't changed
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, dataRepo))
 	// bob can still read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataCommit, "/file", buf))
@@ -358,13 +360,13 @@ func TestCreateRepoWithUpdateFlag(t *testing.T) {
 	dataRepo := tu.UniqueString(t.Name())
 	/// alice creates the repo with Update set
 	_, err := aliceClient.PfsAPIClient.CreateRepo(aliceClient.Ctx(), &pfs.CreateRepoRequest{
-		Repo:   client.NewRepo(dataRepo),
+		Repo:   client.NewProjectRepo(pfs.DefaultProjectName, dataRepo),
 		Update: true,
 	})
 	require.NoError(t, err)
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, dataRepo))
+	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 	// Add data to repo (alice can write). Make sure alice can read also.
 	err = aliceClient.PutFile(dataCommit, "/file", strings.NewReader("1"))
 	require.NoError(t, err)
@@ -383,13 +385,13 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		update     bool
 	}
 	createPipeline := func(args createArgs) error {
-		return args.client.CreatePipeline(
+		return args.client.CreateProjectPipeline(pfs.DefaultProjectName,
 			args.name,
 			"", // default image: DefaultUserImage
 			[]string{"bash"},
 			[]string{"cp /pfs/*/* /pfs/out/"},
 			&pps.ParallelismSpec{Constant: 1},
-			client.NewPFSInput(args.repo, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, args.repo, "/*"),
 			"", // default output branch: master
 			args.update,
 		)
@@ -399,10 +401,10 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 
 	// create repo, and check that alice is the owner of the new repo
 	dataRepo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(dataRepo))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, dataRepo))
+	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 
 	// alice can create a pipeline (she owns the input repo)
 	pipeline := tu.UniqueString("alice-pipeline")
@@ -414,14 +416,14 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.OneOfEquals(t, pipeline, tu.PipelineNames(t, aliceClient))
 	// check that alice owns the output repo too)
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
 
 	// Make sure alice's pipeline runs successfully
 	err := aliceClient.PutFile(dataCommit, tu.UniqueString("/file"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.WaitCommit(pipeline, "master", "")
+		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
 
@@ -437,7 +439,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.NoneEquals(t, badPipeline, tu.PipelineNames(t, aliceClient))
 
 	// alice adds bob as a reader of the input repo
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoReaderRole}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, dataRepo, bob, []string{auth.RepoReaderRole}))
 
 	// now bob can create a pipeline
 	goodPipeline := tu.UniqueString("bob-good")
@@ -449,19 +451,19 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.OneOfEquals(t, goodPipeline, tu.PipelineNames(t, aliceClient))
 	// check that bob owns the output repo too)
 	require.Equal(t,
-		tu.BuildBindings(bob, auth.RepoOwnerRole, tu.Pl(goodPipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, bobClient, goodPipeline))
+		tu.BuildBindings(bob, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, goodPipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, bobClient, pfs.DefaultProjectName, goodPipeline))
 
 	// Make sure bob's pipeline runs successfully
 	err = aliceClient.PutFile(dataCommit, tu.UniqueString("/file"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 4*time.Minute, func() error {
-		_, err := bobClient.WaitCommit(goodPipeline, "master", "")
+		_, err := bobClient.WaitProjectCommit(pfs.DefaultProjectName, goodPipeline, "master", "")
 		return err
 	})
 
 	// bob can't update alice's pipeline
-	infoBefore, err := aliceClient.InspectPipeline(pipeline, true)
+	infoBefore, err := aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	err = createPipeline(createArgs{
 		client: bobClient,
@@ -471,24 +473,24 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	infoAfter, err := aliceClient.InspectPipeline(pipeline, true)
+	infoAfter, err := aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	require.Equal(t, infoBefore.Version, infoAfter.Version)
 
 	// alice adds bob as a writer of the output repo, and removes him as a reader
 	// of the input repo
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoWriterRole}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, pipeline, bob, []string{auth.RepoWriterRole}))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole, tu.Pl(pipeline), auth.RepoWriterRole),
-		tu.GetRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole),
+		tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
 
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, dataRepo, bob, []string{}))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole, tu.Pl(goodPipeline), auth.RepoReaderRole),
-		tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoReaderRole, tu.Pl(pfs.DefaultProjectName, goodPipeline), auth.RepoReaderRole),
+		tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, dataRepo))
 
 	// bob still can't update alice's pipeline
-	infoBefore, err = aliceClient.InspectPipeline(pipeline, true)
+	infoBefore, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	err = createPipeline(createArgs{
 		client: bobClient,
@@ -498,18 +500,18 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	infoAfter, err = aliceClient.InspectPipeline(pipeline, true)
+	infoAfter, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	require.Equal(t, infoBefore.Version, infoAfter.Version)
 
 	// alice re-adds bob as a reader of the input repo
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoReaderRole}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, dataRepo, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole, tu.Pl(pipeline), auth.RepoReaderRole, tu.Pl(goodPipeline), auth.RepoReaderRole),
-		tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoReaderRole, tu.Pl(pfs.DefaultProjectName, goodPipeline), auth.RepoReaderRole),
+		tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, dataRepo))
 
 	// now bob can update alice's pipeline
-	infoBefore, err = aliceClient.InspectPipeline(pipeline, true)
+	infoBefore, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	err = createPipeline(createArgs{
 		client: bobClient,
@@ -518,13 +520,13 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		update: true,
 	})
 	require.NoError(t, err)
-	infoAfter, err = aliceClient.InspectPipeline(pipeline, true)
+	infoAfter, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	require.NotEqual(t, infoBefore.Version, infoAfter.Version)
 
 	// Make sure that we don't get an auth token returned by the inspect
 	require.Equal(t, "", infoAfter.AuthToken)
-	infoAfter, err = aliceClient.InspectPipeline(pipeline, false)
+	infoAfter, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
 	require.NoError(t, err)
 	require.Equal(t, "", infoAfter.AuthToken)
 
@@ -559,7 +561,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := bobClient.WaitCommit(pipeline, "master", "")
+		_, err := bobClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
 }
@@ -575,7 +577,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		update bool
 	}
 	createPipeline := func(args createArgs) error {
-		return args.client.CreatePipeline(
+		return args.client.CreateProjectPipeline(pfs.DefaultProjectName,
 			args.name,
 			"", // default image: DefaultUserImage
 			[]string{"bash"},
@@ -592,12 +594,12 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	// create two repos, and check that alice is the owner of the new repos
 	dataRepo1 := tu.UniqueString(t.Name())
 	dataRepo2 := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(dataRepo1))
-	require.NoError(t, aliceClient.CreateRepo(dataRepo2))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, dataRepo1))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, dataRepo2))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo1))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, dataRepo1))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo2))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, dataRepo2))
 
 	// alice can create a cross-pipeline with both inputs
 	aliceCrossPipeline := tu.UniqueString("alice-cross")
@@ -605,14 +607,14 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: aliceClient,
 		name:   aliceCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	}))
 	require.OneOfEquals(t, aliceCrossPipeline, tu.PipelineNames(t, aliceClient))
 	// check that alice owns the output repo too)
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(aliceCrossPipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, aliceCrossPipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, aliceCrossPipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, aliceCrossPipeline))
 
 	// alice can create a union-pipeline with both inputs
 	aliceUnionPipeline := tu.UniqueString("alice-union")
@@ -620,17 +622,17 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: aliceClient,
 		name:   aliceUnionPipeline,
 		input: client.NewUnionInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	}))
 	require.OneOfEquals(t, aliceUnionPipeline, tu.PipelineNames(t, aliceClient))
 	// check that alice owns the output repo too)
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(aliceUnionPipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, aliceUnionPipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, aliceUnionPipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, aliceUnionPipeline))
 
 	// alice adds bob as a reader of one of the input repos, but not the other
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo1, bob, []string{auth.RepoReaderRole}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, dataRepo1, bob, []string{auth.RepoReaderRole}))
 
 	// bob cannot create a cross-pipeline with both inputs
 	bobCrossPipeline := tu.UniqueString("bob-cross")
@@ -638,8 +640,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   bobCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	})
 	require.YesError(t, err)
@@ -652,8 +654,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   bobUnionPipeline,
 		input: client.NewUnionInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	})
 	require.YesError(t, err)
@@ -661,10 +663,10 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.NoneEquals(t, bobUnionPipeline, tu.PipelineNames(t, aliceClient))
 
 	// alice adds bob as a writer of her pipeline's output
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(aliceCrossPipeline, bob, []string{auth.RepoWriterRole}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, aliceCrossPipeline, bob, []string{auth.RepoWriterRole}))
 
 	// bob can update alice's pipeline if he removes one of the inputs
-	infoBefore, err := aliceClient.InspectPipeline(aliceCrossPipeline, true)
+	infoBefore, err := aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.NoError(t, createPipeline(createArgs{
 		client: bobClient,
@@ -672,48 +674,48 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		input: client.NewCrossInput(
 			// This cross input deliberately only has one element, to make sure it's
 			// not simply rejected for having a cross input
-			client.NewPFSInput(dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
 		),
 		update: true,
 	}))
-	infoAfter, err := aliceClient.InspectPipeline(aliceCrossPipeline, true)
+	infoAfter, err := aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.NotEqual(t, infoBefore.Version, infoAfter.Version)
 
 	// bob cannot update alice's to put the second input back
-	infoBefore, err = aliceClient.InspectPipeline(aliceCrossPipeline, true)
+	infoBefore, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	err = createPipeline(createArgs{
 		client: bobClient,
 		name:   aliceCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 		update: true,
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	infoAfter, err = aliceClient.InspectPipeline(aliceCrossPipeline, true)
+	infoAfter, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.Equal(t, infoBefore.Version, infoAfter.Version)
 
 	// alice adds bob as a reader of the second input
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo2, bob, []string{auth.RepoReaderRole}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, dataRepo2, bob, []string{auth.RepoReaderRole}))
 
 	// bob can now update alice's to put the second input back
-	infoBefore, err = aliceClient.InspectPipeline(aliceCrossPipeline, true)
+	infoBefore, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.NoError(t, createPipeline(createArgs{
 		client: bobClient,
 		name:   aliceCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 		update: true,
 	}))
-	infoAfter, err = aliceClient.InspectPipeline(aliceCrossPipeline, true)
+	infoAfter, err = aliceClient.InspectProjectPipeline(pfs.DefaultProjectName, aliceCrossPipeline, true)
 	require.NoError(t, err)
 	require.NotEqual(t, infoBefore.Version, infoAfter.Version)
 
@@ -722,8 +724,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   bobCrossPipeline,
 		input: client.NewCrossInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	}))
 	require.OneOfEquals(t, bobCrossPipeline, tu.PipelineNames(t, aliceClient))
@@ -733,8 +735,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		client: bobClient,
 		name:   bobUnionPipeline,
 		input: client.NewUnionInput(
-			client.NewPFSInput(dataRepo1, "/*"),
-			client.NewPFSInput(dataRepo2, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	}))
 	require.OneOfEquals(t, bobUnionPipeline, tu.PipelineNames(t, aliceClient))
@@ -750,122 +752,122 @@ func TestStopAndDeletePipeline(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo))
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
 	// Make sure the input and output repos have non-empty ACLs
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
 
 	// alice stops the pipeline (owner of the input and output repos can stop)
-	require.NoError(t, aliceClient.StopPipeline(pipeline))
+	require.NoError(t, aliceClient.StopProjectPipeline(pfs.DefaultProjectName, pipeline))
 
 	// Make sure the remaining input and output repos *still* have non-empty ACLs
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
 
 	// alice deletes the pipeline (owner of the input and output repos can delete)
-	require.NoError(t, aliceClient.DeletePipeline(pipeline, false))
-	require.Nil(t, tu.GetRepoRoleBinding(t, aliceClient, pipeline).Entries)
+	require.NoError(t, aliceClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false))
+	require.Nil(t, tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline).Entries)
 
 	// alice deletes the input repo (make sure the input repo's ACL is gone)
-	require.NoError(t, aliceClient.DeleteRepo(repo, false))
-	require.Nil(t, tu.GetRepoRoleBinding(t, aliceClient, repo).Entries)
+	require.NoError(t, aliceClient.DeleteProjectRepo(pfs.DefaultProjectName, repo, false))
+	require.Nil(t, tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo).Entries)
 
 	// alice creates another repo
 	repo = tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo))
 
 	// alice creates another pipeline
 	pipeline = tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
 
 	// bob can't stop or delete alice's pipeline
-	err := bobClient.StopPipeline(pipeline)
+	err := bobClient.StopProjectPipeline(pfs.DefaultProjectName, pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	err = bobClient.DeletePipeline(pipeline, false)
+	err = bobClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
 	// alice adds bob as a reader of the input repo
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole, tu.Pl(pipeline), auth.RepoReaderRole),
-		tu.GetRepoRoleBinding(t, aliceClient, repo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoReaderRole),
+		tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo))
 
 	// bob still can't stop or delete alice's pipeline
-	err = bobClient.StopPipeline(pipeline)
+	err = bobClient.StopProjectPipeline(pfs.DefaultProjectName, pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	err = bobClient.DeletePipeline(pipeline, false)
+	err = bobClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
 	// alice removes bob as a reader of the input repo and adds bob as a writer of
 	// the output repo
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, bob, []string{}))
 
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoWriterRole}))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, pipeline, bob, []string{auth.RepoWriterRole}))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole, tu.Pl(pipeline), auth.RepoWriterRole),
-		tu.GetRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole),
+		tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
 
 	// bob can now start and stop the pipeline, but can't delete it
-	require.NoError(t, bobClient.StopPipeline(pipeline))
-	require.NoError(t, bobClient.StartPipeline(pipeline))
-	err = bobClient.DeletePipeline(pipeline, false)
+	require.NoError(t, bobClient.StopProjectPipeline(pfs.DefaultProjectName, pipeline))
+	require.NoError(t, bobClient.StartProjectPipeline(pfs.DefaultProjectName, pipeline))
+	err = bobClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// alice re-adds bob as a reader of the input repo
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole, tu.Pl(pipeline), auth.RepoReaderRole),
-		tu.GetRepoRoleBinding(t, aliceClient, repo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoReaderRole),
+		tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo))
 
 	// no change to bob's capabilities
-	require.NoError(t, bobClient.StopPipeline(pipeline))
-	require.NoError(t, bobClient.StartPipeline(pipeline))
-	err = bobClient.DeletePipeline(pipeline, false)
+	require.NoError(t, bobClient.StopProjectPipeline(pfs.DefaultProjectName, pipeline))
+	require.NoError(t, bobClient.StartProjectPipeline(pfs.DefaultProjectName, pipeline))
+	err = bobClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
 	// alice adds bob as an owner of the output repo
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoOwnerRole}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, pipeline, bob, []string{auth.RepoOwnerRole}))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole),
-		tu.GetRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole),
+		tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
 
 	// finally bob can delete alice's pipeline
-	err = bobClient.DeletePipeline(pipeline, false)
+	err = bobClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false)
 	require.NoError(t, err)
 }
 
@@ -879,34 +881,34 @@ func TestStopJob(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	commit := client.NewCommit(repo, "master", "")
-	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo))
 	err := aliceClient.PutFile(commit, "/file", strings.NewReader("test"))
 	require.NoError(t, err)
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"sleep 600"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
 	// Make sure the input and output repos have non-empty ACLs
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
 
 	// Stop the first job in 'pipeline'
 	var jobID string
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, -1 /*history*/, true /* full */)
+		jobs, err := aliceClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil /*inputs*/, -1 /*history*/, true /* full */)
 		if err != nil {
 			return err
 		}
@@ -917,9 +919,9 @@ func TestStopJob(t *testing.T) {
 		return nil
 	})
 
-	require.NoError(t, aliceClient.StopJob(pipeline, jobID))
+	require.NoError(t, aliceClient.StopProjectJob(pfs.DefaultProjectName, pipeline, jobID))
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		ji, err := aliceClient.InspectJob(pipeline, jobID, false)
+		ji, err := aliceClient.InspectProjectJob(pfs.DefaultProjectName, pipeline, jobID, false)
 		if err != nil {
 			return errors.Wrapf(err, "could not inspect job %q", jobID)
 		}
@@ -943,32 +945,32 @@ func TestListAndInspectRepo(t *testing.T) {
 
 	// alice creates a repo and makes Bob a writer
 	repoWriter := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repoWriter))
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoWriter, bob, []string{auth.RepoWriterRole}))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoWriter))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoWriter, bob, []string{auth.RepoWriterRole}))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, repoWriter))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoWriter))
 
 	// alice creates a repo and makes Bob a reader
 	repoReader := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repoReader))
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoReader, bob, []string{auth.RepoReaderRole}))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoReader))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoReader, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repoReader))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoReader))
 
 	// alice creates a repo and gives Bob no access privileges
 	repoNone := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repoNone))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoNone))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repoNone))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoNone))
 
 	// put a file in the repo Bob can't access - we need to be able to get the size of the commits
-	err := aliceClient.PutFile(client.NewCommit(repoNone, "master", ""), "/test", strings.NewReader("test"))
+	err := aliceClient.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, repoNone, "master", ""), "/test", strings.NewReader("test"))
 	require.NoError(t, err)
 
 	// bob creates a repo
 	repoOwner := tu.UniqueString(t.Name())
-	require.NoError(t, bobClient.CreateRepo(repoOwner))
-	require.Equal(t, tu.BuildBindings(bob, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, bobClient, repoOwner))
+	require.NoError(t, bobClient.CreateProjectRepo(pfs.DefaultProjectName, repoOwner))
+	require.Equal(t, tu.BuildBindings(bob, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, bobClient, pfs.DefaultProjectName, repoOwner))
 
 	// Bob calls ListRepo, and the response must indicate the correct access scope
 	// for each repo (because other tests have run, we may see repos besides the
@@ -1032,7 +1034,7 @@ func TestListAndInspectRepo(t *testing.T) {
 	for _, name := range []string{repoOwner, repoWriter, repoReader, repoNone} {
 		inspectResp, err := bobClient.PfsAPIClient.InspectRepo(bobClient.Ctx(),
 			&pfs.InspectRepoRequest{
-				Repo: client.NewRepo(name),
+				Repo: client.NewProjectRepo(pfs.DefaultProjectName, name),
 			})
 		require.NoError(t, err)
 		require.ElementsEqual(t, expectedPermissions[name], inspectResp.AuthInfo.Permissions)
@@ -1048,15 +1050,15 @@ func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo))
 
 	// bob calls SetScope(bob, OWNER) on alice's repo. This should fail
-	err := bobClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoOwnerRole})
+	err := bobClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, bob, []string{auth.RepoOwnerRole})
 	require.YesError(t, err)
 	// make sure ACL wasn't updated
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo))
 }
 
 // TestListRepoNotLoggedInError makes sure that if a user isn't logged in, and
@@ -1070,9 +1072,9 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo))
 
 	// Anon (non-logged-in user) calls ListRepo, and must receive an error
 	c, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
@@ -1096,7 +1098,7 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 
 	// bob calls ListRepo, but has NONE access to all repos
 	infos, err := bobClient.ListRepo()
@@ -1138,11 +1140,11 @@ func TestCreateRepoAlreadyExistsError(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 
 	// bob creates the same repo, and should get an error to the effect that the
 	// repo already exists (rather than "access denied")
-	err := bobClient.CreateRepo(repo)
+	err := bobClient.CreateProjectRepo(pfs.DefaultProjectName, repo)
 	require.YesError(t, err)
 	require.Matches(t, "already exists", err.Error())
 }
@@ -1157,7 +1159,7 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 
 	// anonClient tries and fails to create a repo
 	repo := tu.UniqueString(t.Name())
-	err := anonClient.CreateRepo(repo)
+	err := anonClient.CreateProjectRepo(pfs.DefaultProjectName, repo)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
 }
@@ -1172,19 +1174,19 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 
 	// alice creates a repo
 	inputRepo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(inputRepo))
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(inputRepo, bob, []string{auth.RepoReaderRole}))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, inputRepo))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, inputRepo, bob, []string{auth.RepoReaderRole}))
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreateRepo(pipeline))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, pipeline))
 
 	// bob creates a pipeline, and should get an "access denied" error
-	err := bobClient.CreatePipeline(
+	err := bobClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(inputRepo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, inputRepo, "/*"),
 		"",    // default output branch: master
 		false, // Don't update -- we want an error
 	)
@@ -1192,14 +1194,14 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 	require.Matches(t, "already exists", err.Error())
 
 	// alice gives bob writer scope on pipeline output repo, but nothing changes
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoWriterRole}))
-	err = bobClient.CreatePipeline(
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, pipeline, bob, []string{auth.RepoWriterRole}))
+	err = bobClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(inputRepo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, inputRepo, "/*"),
 		"",    // default output branch: master
 		false, // Don't update -- we want an error
 	)
@@ -1218,11 +1220,11 @@ func TestAuthorizedEveryone(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 
 	// alice is authorized as `OWNER`
 	resp, err := aliceClient.Authorize(aliceClient.Ctx(), &auth.AuthorizeRequest{
-		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
+		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo},
 		Permissions: []auth.Permission{
 			auth.Permission_REPO_MODIFY_BINDINGS,
 			auth.Permission_REPO_WRITE,
@@ -1234,7 +1236,7 @@ func TestAuthorizedEveryone(t *testing.T) {
 
 	// bob is not authorized
 	resp, err = bobClient.Authorize(bobClient.Ctx(), &auth.AuthorizeRequest{
-		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
+		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo},
 		Permissions: []auth.Permission{
 			auth.Permission_REPO_READ,
 		},
@@ -1243,11 +1245,11 @@ func TestAuthorizedEveryone(t *testing.T) {
 	require.False(t, resp.Authorized)
 
 	// alice grants everybody WRITER access
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, "allClusterUsers", []string{auth.RepoWriterRole}))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, "allClusterUsers", []string{auth.RepoWriterRole}))
 
 	// alice is still authorized as `OWNER`
 	resp, err = aliceClient.Authorize(aliceClient.Ctx(), &auth.AuthorizeRequest{
-		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
+		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo},
 		Permissions: []auth.Permission{
 			auth.Permission_REPO_MODIFY_BINDINGS,
 			auth.Permission_REPO_WRITE,
@@ -1259,7 +1261,7 @@ func TestAuthorizedEveryone(t *testing.T) {
 
 	// bob is now authorized as WRITER
 	resp, err = bobClient.Authorize(bobClient.Ctx(), &auth.AuthorizeRequest{
-		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo},
+		Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo},
 		Permissions: []auth.Permission{
 			auth.Permission_REPO_WRITE,
 			auth.Permission_REPO_READ,
@@ -1280,11 +1282,11 @@ func TestDeleteAllRepos(t *testing.T) {
 
 	// admin creates a repo
 	adminRepo := tu.UniqueString(t.Name())
-	require.NoError(t, adminClient.CreateRepo(adminRepo))
+	require.NoError(t, adminClient.CreateProjectRepo(pfs.DefaultProjectName, adminRepo))
 
 	// alice creates a repo
 	aliceRepo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(aliceRepo))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, aliceRepo))
 
 	// alice calls DeleteAll. It passes, but only deletes the repos she was authorized to delete
 	_, err := aliceClient.PfsAPIClient.DeleteAll(aliceClient.Ctx(), &types.Empty{})
@@ -1310,63 +1312,63 @@ func TestListJob(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"ls /pfs/*/*; cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
 
 	// alice commits to the input repos, and the pipeline runs successfully
 	var err error
-	err = aliceClient.PutFile(client.NewCommit(repo, "master", ""), "/file", strings.NewReader("test"))
+	err = aliceClient.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", ""), "/file", strings.NewReader("test"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 4*time.Minute, func() error {
-		_, err := aliceClient.WaitCommit(pipeline, "master", "")
+		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
-	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, -1 /*history*/, true)
+	jobs, err := aliceClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil /*inputs*/, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 	jobID := jobs[0].Job.ID
 
 	// bob cannot call ListJob on 'pipeline'
-	_, err = bobClient.ListJob(pipeline, nil, -1 /*history*/, true)
+	_, err = bobClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1 /*history*/, true)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 	// bob can call blank ListJob, but gets no results
-	jobs, err = bobClient.ListJob("", nil, -1 /*history*/, true)
+	jobs, err = bobClient.ListProjectJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(jobs))
 
 	// alice adds bob to repo, but bob still can't call ListJob on 'pipeline' or
 	// get any output
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListJob(pipeline, nil, -1 /*history*/, true)
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, bob, []string{auth.RepoReaderRole}))
+	_, err = bobClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1 /*history*/, true)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
-	jobs, err = bobClient.ListJob("", nil, -1 /*history*/, true)
+	jobs, err = bobClient.ListProjectJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(jobs))
 
 	// alice removes bob from repo and adds bob to 'pipeline', and now bob can
 	// call listJob on 'pipeline', and gets results back from blank listJob
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{}))
-	err = aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoReaderRole})
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, bob, []string{}))
+	err = aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, pipeline, bob, []string{auth.RepoReaderRole})
 	require.NoError(t, err)
-	jobs, err = bobClient.ListJob(pipeline, nil, -1 /*history*/, true)
+	jobs, err = bobClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 	require.Equal(t, jobID, jobs[0].Job.ID)
-	jobs, err = bobClient.ListJob("", nil, -1 /*history*/, true)
+	jobs, err = bobClient.ListProjectJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 	require.Equal(t, jobID, jobs[0].Job.ID)
@@ -1382,7 +1384,7 @@ func TestInspectDatum(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 
 	// alice creates a pipeline (we must enable stats for InspectDatum, which
 	// means calling the grpc client function directly)
@@ -1395,18 +1397,18 @@ func TestInspectDatum(t *testing.T) {
 				Stdin: []string{"cp /pfs/*/* /pfs/out/"},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
-			Input:           client.NewPFSInput(repo, "/*"),
+			Input:           client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		})
 	require.NoError(t, err)
 
 	// alice commits to the input repo, and the pipeline runs successfully
-	err = aliceClient.PutFile(client.NewCommit(repo, "master", ""), "/file", strings.NewReader("test"))
+	err = aliceClient.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", ""), "/file", strings.NewReader("test"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 2*time.Minute, func() error {
-		_, err := aliceClient.WaitCommit(pipeline, "master", "")
+		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
-	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, -1 /*history*/, true)
+	jobs, err := aliceClient.ListProjectJob(pfs.DefaultProjectName, pipeline, nil /*inputs*/, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 	jobID := jobs[0].Job.ID
@@ -1415,11 +1417,11 @@ func TestInspectDatum(t *testing.T) {
 	// the /stats branch is written
 	// TODO(msteffen): verify if this is true, and if so, why
 	time.Sleep(5 * time.Second)
-	dis, err := aliceClient.ListDatumAll(pipeline, jobID)
+	dis, err := aliceClient.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, jobID)
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		for _, di := range dis {
-			if _, err := aliceClient.InspectDatum(pipeline, jobID, di.Datum.ID); err != nil {
+			if _, err := aliceClient.InspectProjectDatum(pfs.DefaultProjectName, pipeline, jobID, di.Datum.ID); err != nil {
 				continue
 			}
 		}
@@ -1438,75 +1440,75 @@ func TestPipelineNewInput(t *testing.T) {
 	var repo []string
 	for i := 0; i < 3; i++ {
 		repo = append(repo, tu.UniqueString(fmt.Sprint("TestPipelineNewInput-", i, "-")))
-		require.NoError(t, aliceClient.CreateRepo(repo[i]))
-		require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo[i]))
+		require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo[i]))
+		require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo[i]))
 
 		// Commit to repo
 		err := aliceClient.PutFile(
-			client.NewCommit(repo[i], "master", ""), "/"+repo[i], strings.NewReader(repo[i]))
+			client.NewProjectCommit(pfs.DefaultProjectName, repo[i], "master", ""), "/"+repo[i], strings.NewReader(repo[i]))
 		require.NoError(t, err)
 	}
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
 		client.NewUnionInput(
-			client.NewPFSInput(repo[0], "/*"),
-			client.NewPFSInput(repo[1], "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, repo[0], "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, repo[1], "/*"),
 		),
 		"", // default output branch: master
 		false,
 	))
 	// Make sure the input and output repos have appropriate ACLs
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo[0]))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo[0]))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo[1]))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo[1]))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
 	// repo[2] is not on pipeline -- doesn't include 'pipeline'
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo[2]))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo[2]))
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 4*time.Minute, func() error {
-		_, err := aliceClient.WaitCommit(pipeline, "master", "")
+		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
 
 	// alice updates the pipeline to replace repo[0] with repo[2]
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
 		client.NewUnionInput(
-			client.NewPFSInput(repo[1], "/*"),
-			client.NewPFSInput(repo[2], "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, repo[1], "/*"),
+			client.NewProjectPFSInput(pfs.DefaultProjectName, repo[2], "/*"),
 		),
 		"", // default output branch: master
 		true,
 	))
 	// Make sure the input and output repos have appropriate ACLs
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo[1]))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo[1]))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo[2]))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo[2]))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
 	// repo[0] is not on pipeline -- doesn't include 'pipeline'
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo[0]))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo[0]))
 
 	// make sure the pipeline still runs
 	require.NoErrorWithinT(t, 2*time.Minute, func() error {
-		_, err := aliceClient.WaitCommit(pipeline, "master", "")
+		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		return err
 	})
 }
@@ -1760,41 +1762,41 @@ func TestGetJobsBugFix(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	commit := client.NewCommit(repo, "master", "")
-	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo))
 	err := aliceClient.PutFile(commit, "/file", strings.NewReader("lorem ipsum"))
 	require.NoError(t, err)
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
 
 	// Wait for pipeline to finish
-	_, err = aliceClient.WaitCommit(pipeline, "master", commit.ID)
+	_, err = aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
 	require.NoError(t, err)
 
 	// alice calls 'list job'
-	jobs, err := aliceClient.ListJob("", nil, -1 /*history*/, true)
+	jobs, err := aliceClient.ListProjectJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
 	// anonClient calls 'list job'
-	_, err = anonClient.ListJob("", nil, -1 /*history*/, true)
+	_, err = anonClient.ListProjectJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
 
 	// alice calls 'list job' again, and the existing job must still be present
-	jobs2, err := aliceClient.ListJob("", nil, -1 /*history*/, true)
+	jobs2, err := aliceClient.ListProjectJob(pfs.DefaultProjectName, "", nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs2))
 	require.Equal(t, jobs[0].Job.ID, jobs2[0].Job.ID)
@@ -1811,27 +1813,27 @@ func TestDeleteFailedPipeline(t *testing.T) {
 
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
-	commit := client.NewCommit(repo, "master", "")
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	err := aliceClient.PutFile(commit, "/file", strings.NewReader("1"))
 	require.NoError(t, err)
 
 	// Create pipeline
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"does-not-exist", // nonexistant image
 		[]string{"true"}, nil,
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
-	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
+	require.NoError(t, aliceClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, true))
 
 	// Get the latest commit from the input repo (which should be an alias from
 	// when the pipeline was created)
-	commitInfo, err := aliceClient.InspectCommit(repo, "master", "")
+	commitInfo, err := aliceClient.InspectProjectCommit(pfs.DefaultProjectName, repo, "master", "")
 	require.NoError(t, err)
 
 	// make sure the pipeline failure doesn't cause waits to block indefinitely
@@ -1853,29 +1855,29 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
-	commit := client.NewCommit(repo, "master", "")
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	err := aliceClient.PutFile(commit, "/file", strings.NewReader("1"))
 	require.NoError(t, err)
 
 	// Create pipeline
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"does-not-exist", // nonexistant image
 		[]string{"true"}, nil,
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
 
 	// force-delete input and output repos
-	require.NoError(t, aliceClient.DeleteRepo(repo, true))
-	require.NoError(t, aliceClient.DeleteRepo(pipeline, true))
+	require.NoError(t, aliceClient.DeleteProjectRepo(pfs.DefaultProjectName, repo, true))
+	require.NoError(t, aliceClient.DeleteProjectRepo(pfs.DefaultProjectName, pipeline, true))
 
 	// Attempt to delete the pipeline--must succeed
-	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
+	require.NoError(t, aliceClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, true))
 	pis, err := aliceClient.ListPipeline(false)
 	require.NoError(t, err)
 	for _, pi := range pis {
@@ -1957,7 +1959,7 @@ func TestExpiredClusterLocksOutUsers(t *testing.T) {
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	repo := tu.UniqueString("TestRotateAuthToken")
-	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 
 	// Admin can list repos
 	repoInfo, err := adminClient.ListRepo()
@@ -2041,4 +2043,295 @@ func TestLoad(t *testing.T) {
 	buf := &bytes.Buffer{}
 	require.NoError(t, cmdutil.Encoder("", buf).EncodeProto(resp))
 	require.Equal(t, "", resp.Error, buf.String())
+}
+
+// TestGetPermissions tests that GetPermissions and GetPermissionsForPrincipal work for repos and the cluster itself
+func TestGetPermissions(t *testing.T) {
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
+
+	// alice creates a repo and makes Bob a writer
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, bob, []string{auth.RepoWriterRole}))
+
+	// alice can get her own permissions on the cluster (none) and on the repo (repoOwner)
+	permissions, err := aliceClient.GetPermissions(aliceClient.Ctx(), &auth.GetPermissionsRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}})
+	require.NoError(t, err)
+	require.Nil(t, permissions.Roles)
+
+	permissions, err = aliceClient.GetPermissions(aliceClient.Ctx(), &auth.GetPermissionsRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo}})
+	require.NoError(t, err)
+	require.Equal(t, []string{"repoOwner"}, permissions.Roles)
+
+	// the root user can get bob's permissions
+	permissions, err = rootClient.GetPermissionsForPrincipal(rootClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}, Principal: bob})
+	require.NoError(t, err)
+	require.Nil(t, permissions.Roles)
+
+	permissions, err = rootClient.GetPermissionsForPrincipal(rootClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo}, Principal: bob})
+	require.NoError(t, err)
+	require.Equal(t, []string{"repoWriter"}, permissions.Roles)
+
+	// alice cannot get bob's permissions
+	_, err = aliceClient.GetPermissionsForPrincipal(aliceClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}, Principal: bob})
+	require.YesError(t, err)
+	require.Matches(t, "is not authorized to perform this operation - needs permissions", err.Error())
+
+	_, err = aliceClient.GetPermissionsForPrincipal(aliceClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo}, Principal: bob})
+	require.YesError(t, err)
+	require.Matches(t, "is not authorized to perform this operation - needs permissions", err.Error())
+}
+
+// TestDeactivateFSAdmin tests that users with the FS admin role can't call Deactivate
+func TestDeactivateFSAdmin(t *testing.T) {
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	alice := tu.Robot(tu.UniqueString("alice"))
+	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
+
+	// admin makes alice an fs admin
+	require.NoError(t, adminClient.ModifyClusterRoleBinding(alice, []string{auth.RepoOwnerRole}))
+
+	// wait until alice shows up in admin list
+	resp, err := aliceClient.GetClusterRoleBinding()
+	require.NoError(t, err)
+	require.Equal(t, tu.BuildClusterBindings(alice, auth.RepoOwnerRole), resp)
+
+	// alice tries to deactivate, but doesn't have permission as an FS admin
+	_, err = aliceClient.Deactivate(aliceClient.Ctx(), &auth.DeactivateRequest{})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+}
+
+// TestExtractAuthToken tests that admins can extract hashed robot auth tokens
+func TestExtractAuthToken(t *testing.T) {
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	alice := tu.Robot(tu.UniqueString("alice"))
+	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
+
+	// alice can't extract auth tokens because she's not an admin
+	_, err := aliceClient.ExtractAuthTokens(aliceClient.Ctx(), &auth.ExtractAuthTokensRequest{})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// Create a token with a TTL and confirm it is extracted with an expiration
+	tokenResp, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "other", TTL: 1000})
+	require.NoError(t, err)
+
+	// Create a token without a TTL and confirm it is extracted
+	tokenRespTwo, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "otherTwo"})
+	require.NoError(t, err)
+
+	// admins can extract auth tokens
+	resp, err := adminClient.ExtractAuthTokens(adminClient.Ctx(), &auth.ExtractAuthTokensRequest{})
+	require.NoError(t, err)
+
+	// only robot tokens are extracted, so only the admin token (not the alice one) should be included
+	containsToken := func(plaintext, subject string, expires bool) error {
+		hash := auth.HashToken(plaintext)
+		for _, token := range resp.Tokens {
+			if token.HashedToken == hash {
+				require.Equal(t, subject, token.Subject)
+				if expires {
+					require.True(t, token.Expiration.After(time.Now()))
+				} else {
+					require.Nil(t, token.Expiration)
+				}
+				return nil
+			}
+		}
+		return errors.Errorf("didn't find a token with hash %q", hash)
+	}
+
+	require.NoError(t, containsToken(tokenResp.Token, "robot:other", true))
+	require.NoError(t, containsToken(tokenRespTwo.Token, "robot:otherTwo", false))
+}
+
+// TestRestoreAuthToken tests that admins can restore hashed auth tokens that have been extracted
+func TestRestoreAuthToken(t *testing.T) {
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	// Create a request to restore a token with known plaintext
+	req := &auth.RestoreAuthTokenRequest{
+		Token: &auth.TokenInfo{
+			HashedToken: fmt.Sprintf("%x", sha256.Sum256([]byte("an-auth-token"))),
+			Subject:     "robot:restored",
+		},
+	}
+
+	alice := tu.Robot(tu.UniqueString("alice"))
+	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
+
+	// alice can't restore auth tokens because she's not an admin
+	_, err := aliceClient.RestoreAuthToken(aliceClient.Ctx(), req)
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// admins can restore auth tokens
+	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
+	require.NoError(t, err)
+
+	req.Token.Subject = "robot:overwritten"
+	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
+	require.YesError(t, err)
+	require.Equal(t, "rpc error: code = Unknown desc = error restoring auth token: cannot overwrite existing token with same hash", err.Error())
+
+	// now we can authenticate with the restored token
+	aliceClient.SetAuthToken("an-auth-token")
+	whoAmIResp, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, "robot:restored", whoAmIResp.Username)
+	require.Nil(t, whoAmIResp.Expiration)
+
+	// restore a token with an expiration date in the past
+	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expired-token")))
+	pastExpiration := time.Now().Add(-1 * time.Minute)
+	req.Token.Expiration = &pastExpiration
+
+	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
+	require.YesError(t, err)
+	require.True(t, auth.IsErrExpiredToken(err))
+
+	// restore a token with an expiration date in the future
+	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expiring-token")))
+	futureExpiration := time.Now().Add(10 * time.Minute)
+	req.Token.Expiration = &futureExpiration
+
+	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
+	require.NoError(t, err)
+
+	aliceClient.SetAuthToken("expiring-token")
+	whoAmIResp, err = aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+
+	// Relying on time.Now is gross but the token should have a TTL in the
+	// next 10 minutes
+	require.True(t, whoAmIResp.Expiration.After(time.Now()))
+	require.True(t, whoAmIResp.Expiration.Before(time.Now().Add(time.Duration(600)*time.Second)))
+}
+
+// TestPipelineFailingWithOpenCommit creates a pipeline, then revokes its access
+// to its output repo while it's running, causing it to fail. Then it makes sure
+// that FlushJob still works and that the pipeline's output commit was
+// successfully finished (though as an empty commit)
+//
+// Note: This test actually doesn't use the admin client or admin privileges
+// anywhere. However, it restarts pachd, so it shouldn't be run in parallel with
+// any other test
+func TestPipelineFailingWithOpenCommit(t *testing.T) {
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	alice := tu.Robot(tu.UniqueString("alice"))
+	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
+
+	// Create input repo w/ initial commit
+	repo := tu.UniqueString(t.Name())
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	err := aliceClient.PutFile(commit, "/file.1", strings.NewReader("1"))
+	require.NoError(t, err)
+
+	// Create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+		pipeline,
+		"", // default image: DefaultUserImage
+		[]string{"bash"},
+		[]string{
+			"sleep 10",
+			"cp /pfs/*/* /pfs/out/",
+		},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+
+	// Revoke pipeline's access to output repo while 'sleep 10' is running (so
+	// that it fails)
+	require.NoError(t, rootClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, tu.Pl(pfs.DefaultProjectName, pipeline), []string{}))
+
+	// make sure the pipeline either fails or restarts RC & finishes
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		return err
+	})
+
+	// make sure the pipeline is failed
+	pi, err := rootClient.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pi.State)
+}
+
+// TestGetRobotTokenErrorNonAdminUser tests that non-admin users can't call
+// GetRobotToken
+func TestGetRobotTokenErrorNonAdminUser(t *testing.T) {
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	alice := tu.Robot(tu.UniqueString("alice"))
+	aliceClient := tu.AuthenticateClient(t, c, alice)
+	resp, err := aliceClient.GetRobotToken(aliceClient.Ctx(), &auth.GetRobotTokenRequest{
+		Robot: tu.UniqueString("t-1000"),
+	})
+	require.Nil(t, resp)
+	require.YesError(t, err)
+	require.Matches(t, "needs permissions \\[CLUSTER_AUTH_GET_ROBOT_TOKEN\\] on CLUSTER", err.Error())
+}
+
+// TestDeleteAll tests that you must be a cluster admin to call DeleteAll
+func TestDeleteAll(t *testing.T) {
+	t.Parallel()
+	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	c := env.PachClient
+	tu.ActivateAuthClient(t, c, peerPort)
+	alice := tu.Robot(tu.UniqueString("alice"))
+	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
+
+	// admin creates a repo
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, adminClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+
+	// alice calls DeleteAll, but it fails
+	err := aliceClient.DeleteAll()
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// admin makes alice an fs admin
+	require.NoError(t, adminClient.ModifyClusterRoleBinding(alice, []string{auth.RepoOwnerRole}))
+
+	// wait until alice shows up in admin list
+	resp, err := aliceClient.GetClusterRoleBinding()
+	require.NoError(t, err)
+	require.Equal(t, tu.BuildClusterBindings(alice, auth.RepoOwnerRole), resp)
+
+	// alice calls DeleteAll but it fails because she's only an fs admin
+	err = aliceClient.DeleteAll()
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// admin calls DeleteAll and succeeds
+	require.NoError(t, adminClient.DeleteAll())
 }

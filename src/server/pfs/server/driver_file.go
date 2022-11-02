@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"math"
 	"path"
 	"path/filepath"
 	"strings"
@@ -239,7 +240,13 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	return ret, nil
 }
 
-func (d *driver) listFile(ctx context.Context, file *pfs.File, cb func(*pfs.FileInfo) error) error {
+func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker *pfs.File, number int64, reverse bool, cb func(*pfs.FileInfo) error) error {
+	if number == 0 && reverse {
+		return errors.Errorf("number must be > 0 when reverse is true")
+	}
+	if number > 100000 {
+		return errors.Errorf("cannot list more than 100000 files at a time")
+	}
 	commitInfo, fs, err := d.openCommit(ctx, file.Commit)
 	if err != nil {
 		return err
@@ -263,14 +270,73 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, cb func(*pfs.File
 			})
 		}),
 	}
+	if paginationMarker != nil {
+		pathRange := &pfs.PathRange{}
+		if reverse {
+			pathRange.Upper = paginationMarker.Path
+		} else {
+			pathRange.Lower = paginationMarker.Path
+		}
+		opts = append(opts, WithPathRange(pathRange))
+	}
 	s := NewSource(commitInfo, fs, opts...)
-	err = s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
+	if number == 0 {
+		number = math.MaxInt64
+	}
+	if reverse {
+		return d.listFileReverse(ctx, name, s, number, cb)
+	}
+	if err = s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
+		if number == 0 {
+			return errutil.ErrBreak
+		}
 		if pathIsChild(name, pfsfile.CleanPath(fi.File.Path)) {
+			number--
 			return cb(fi)
 		}
 		return nil
-	})
+	}); err != nil {
+		return errors.EnsureStack(err)
+	}
 	return errors.EnsureStack(err)
+}
+
+func (d *driver) listFileReverse(ctx context.Context, filename string, s Source, number int64, cb func(*pfs.FileInfo) error) error {
+	// use a fixed size slice since we know the number of files we want
+	fis := make([]*pfs.FileInfo, number)
+	index := 0
+	if err := s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
+		if pathIsChild(filename, pfsfile.CleanPath(fi.File.Path)) {
+			// wrap around to the start of the slice
+			if index == int(number) {
+				index = 0
+			}
+			fis[index] = fi
+			index++
+		}
+		return nil
+	}); err != nil {
+		return errors.EnsureStack(err)
+	}
+	if index == 0 {
+		// no files were found
+		return nil
+	}
+	index--
+	for i := 0; i < len(fis); i++ {
+		if fis[index] == nil {
+			break
+		}
+		if err := cb(fis[index]); err != nil {
+			return errors.EnsureStack(err)
+		}
+		fis[index] = nil
+		index--
+		if index < 0 {
+			index = int(number) - 1
+		}
+	}
+	return nil
 }
 
 func (d *driver) walkFile(ctx context.Context, file *pfs.File, cb func(*pfs.FileInfo) error) (retErr error) {

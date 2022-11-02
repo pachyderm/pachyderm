@@ -166,6 +166,7 @@ message FileInfo {
 }
 
 message Project {
+  option (gogoproto.goproto_stringer) = false;
   string name = 1;
 }
 
@@ -239,6 +240,7 @@ message ListCommitRequest {
   bool reverse = 5;  // Return commits oldest to newest
   bool all = 6; // Return commits of all kinds (without this, aliases are excluded)
   OriginKind origin_kind = 7; // Return only commits of this kind (mutually exclusive with all)
+  google.protobuf.Timestamp started_time = 8; // Return commits started before this time
 }
 
 message InspectCommitSetRequest {
@@ -375,6 +377,15 @@ message ListFileRequest {
   // If the "path" field is omitted, a list of files at the top level of the repo
   // is returned
   File file = 1;
+  // Marker for pagination. If set, the files that come after the marker in
+  // lexicographical order will be returned. If reverse is also set, the files
+  // that come before the marker in lexicographical order will be returned.
+  File paginationMarker = 3;
+  // Number of files to return
+  int64 number = 4;
+  // If true, return files in reverse order
+  bool reverse = 5;
+
 // TODO:
 //  // History indicates how many historical versions you want returned. Its
 //  // semantics are:
@@ -500,6 +511,7 @@ message RunLoadTestRequest {
   string spec = 1;
   Branch branch = 2;
   int64 seed = 3;
+  string state_id = 4;
 }
 
 message RunLoadTestResponse {
@@ -508,6 +520,7 @@ message RunLoadTestResponse {
   int64 seed = 3;
   string error = 4;
   google.protobuf.Duration duration = 5;
+  string state_id = 6;
 }
 
 message ObjectStorageEgress {

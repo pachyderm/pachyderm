@@ -1,4 +1,5 @@
 import {SplitPanel} from '@lumino/widgets';
+import {JSONObject} from '@lumino/coreutils';
 
 export type mountState =
   | 'unmounting'
@@ -14,33 +15,59 @@ export type clusterStatus = 'INVALID' | 'AUTH_DISABLED' | 'AUTH_ENABLED';
 
 export type authorization = 'off' | 'none' | 'read' | 'write';
 
-export type Branch = {
-  branch: string;
-  mount: Mount[];
-};
-
 export type Mount = {
   name: string;
+  repo: string;
+  branch: string;
+  commit: string | null;
+  glob: string | null;
+  mode: string | null;
   state: mountState;
   status: string;
-  mode: string | null;
   mountpoint: string | null;
-  mount_key: MountKey | null;
   how_many_commits_behind: number;
   actual_mounted_commit: string;
   latest_commit: string;
 };
 
-export type MountKey = {
-  repo: string;
-  branch: string;
-  commit: string;
-};
-
 export type Repo = {
   repo: string;
   authorization: authorization;
-  branches: Branch[];
+  branches: string[];
+};
+
+export type PfsInput = {
+  pfs: {
+    name?: string;
+    repo: string;
+    branch?: string;
+    commit?: string;
+    files?: string[];
+    glob: string;
+    mode?: string;
+  };
+  cross?: JSONObject;
+};
+
+export type CrossInputSpec = {
+  cross?: PfsInput[];
+};
+
+export type CurrentDatumResponse = {
+  num_datums: number;
+  input: {[key: string]: any};
+  curr_idx: number;
+};
+
+export type MountDatumResponse = {
+  id: string;
+  idx: number;
+  num_datums: number;
+};
+
+export type ListMountsResponse = {
+  mounted: {[key: string]: Mount};
+  unmounted: {[key: string]: Repo};
 };
 
 export type AuthConfig = {
@@ -50,7 +77,7 @@ export type AuthConfig = {
 };
 
 export interface IMountPlugin {
-  mountedRepos: Repo[];
+  mountedRepos: Mount[];
   unmountedRepos: Repo[];
   layout: SplitPanel;
   ready: Promise<void>;

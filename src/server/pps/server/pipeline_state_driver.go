@@ -206,7 +206,7 @@ func (d *mockStateDriver) TransitionState(ctx context.Context, specCommit *pfs.C
 			return d.SetState(ctx, specCommit, to, reason)
 		}
 		return ppsutil.PipelineTransitionError{
-			Pipeline: pi.Pipeline.Name,
+			Pipeline: pi.Pipeline,
 			Expected: from,
 			Target:   to,
 			Current:  pi.State,
@@ -264,7 +264,7 @@ func (d *mockStateDriver) GetPipelineInfo(ctx context.Context, pipeline *pps.Pip
 }
 
 func (d *mockStateDriver) upsertPipeline(pi *pps.PipelineInfo) *pfs.Commit {
-	mockSpecCommit := client.NewCommit(pi.Pipeline.Name, "master", uuid.NewWithoutDashes())
+	mockSpecCommit := client.NewProjectCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, "master", uuid.NewWithoutDashes())
 	pi.SpecCommit = mockSpecCommit
 	d.pipelines[toKey(pi.Pipeline)] = pi.SpecCommit.ID
 	d.specCommits[mockSpecCommit.ID] = pi
@@ -279,7 +279,7 @@ func (d *mockStateDriver) upsertPipeline(pi *pps.PipelineInfo) *pfs.Commit {
 
 func (d *mockStateDriver) pushWatchEvent(pi *pps.PipelineInfo, et watch.EventType) {
 	d.eChan <- &watch.Event{
-		Key:  []byte(fmt.Sprintf("%s@%s", pi.Pipeline.Name, pi.SpecCommit.ID)),
+		Key:  []byte(fmt.Sprintf("%s@%s", pi.Pipeline, pi.SpecCommit.ID)),
 		Type: et,
 	}
 }

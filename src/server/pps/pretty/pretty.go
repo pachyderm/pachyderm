@@ -12,6 +12,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
@@ -68,7 +69,11 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) 
 	if jobInfo.Reason != "" {
 		fmt.Fprintf(w, "%s: %s\t", JobState(jobInfo.State), safeTrim(jobInfo.Reason, jobReasonLen))
 	} else {
-		fmt.Fprintf(w, "%s\t", JobState(jobInfo.State))
+		if jobInfo.State == ppsclient.JobState_JOB_SUCCESS && jobInfo.DataSkipped == jobInfo.DataTotal {
+			fmt.Fprintf(w, "%s\t", color.New(color.FgGreen).SprintFunc()("success: there were no datums to process"))
+		} else {
+			fmt.Fprintf(w, "%s\t", JobState(jobInfo.State))
+		}
 	}
 	fmt.Fprintln(w)
 }
