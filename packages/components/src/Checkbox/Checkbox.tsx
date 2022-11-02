@@ -26,28 +26,18 @@ export interface PureCheckboxProps
   selected: boolean;
   label?: React.ReactNode;
   small?: boolean;
-  disabled?: boolean;
 }
 
 export const Checkbox: React.FC<CheckboxProps> = ({
-  label,
   name,
-  className,
-  small = false,
   validationOptions = {},
   onChange,
   onBlur,
-  disabled = false,
   ...rest
 }) => {
   const {register, watch} = useFormContext();
 
   const value = watch(name);
-
-  const classes = classNames(styles.base, className, {
-    [styles.small]: small,
-    [styles.disabled]: disabled,
-  });
 
   const {handleChange, handleBlur, ...inputProps} = useRHFInputProps({
     onChange,
@@ -56,76 +46,59 @@ export const Checkbox: React.FC<CheckboxProps> = ({
   });
 
   return (
-    <label className={classes}>
-      <div className={styles.checkboxContainer}>
-        <input
-          type="checkbox"
-          className={styles.input}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          disabled={disabled}
-          {...rest}
-          {...inputProps}
-        />
-
-        {!value && (
-          <Icon small={small} color="plum">
-            <CheckboxSVG aria-hidden focusable={false} />
-          </Icon>
-        )}
-
-        {value && (
-          <Icon small={small} color="plum">
-            <CheckboxCheckedSVG aria-hidden focusable={false} />
-          </Icon>
-        )}
-      </div>
-
-      <span className={styles.label}>{label}</span>
-    </label>
+    <PureCheckbox
+      onChange={handleChange}
+      onBlur={handleBlur}
+      selected={value}
+      {...rest}
+      {...inputProps}
+    />
   );
 };
 
-export const PureCheckbox: React.FC<PureCheckboxProps> = ({
-  selected,
-  label,
-  small = false,
-  className,
-  disabled = false,
-  readOnly = false,
-  ...rest
-}) => {
+export const PureCheckbox = React.forwardRef<
+  HTMLInputElement,
+  PureCheckboxProps
+>(function PureCheckboxForwardRef(
+  {
+    className,
+    selected,
+    label,
+    onChange,
+    onBlur,
+    small = false,
+    disabled = false,
+    ...rest
+  },
+  ref,
+) {
   const classes = classNames(styles.base, className, {
     [styles.small]: small,
     [styles.disabled]: disabled,
-    [styles.readOnly]: readOnly,
   });
 
   return (
-    <label className={classes}>
+    <label className={classes} data-disabled={disabled}>
       <div className={styles.checkboxContainer}>
         <input
           type="checkbox"
           className={styles.input}
           disabled={disabled}
-          readOnly={readOnly}
+          onChange={onChange}
+          onBlur={onBlur}
+          ref={ref}
           {...rest}
         />
-
-        {!selected && (
-          <Icon small={small} color="plum">
-            <CheckboxSVG aria-hidden focusable={false} />
-          </Icon>
-        )}
-
-        {selected && (
-          <Icon small={small} color="plum">
+        <Icon small={small}>
+          {selected ? (
             <CheckboxCheckedSVG aria-hidden focusable={false} />
-          </Icon>
-        )}
+          ) : (
+            <CheckboxSVG aria-hidden focusable={false} />
+          )}
+        </Icon>
       </div>
 
       <span className={styles.label}>{label}</span>
     </label>
   );
-};
+});

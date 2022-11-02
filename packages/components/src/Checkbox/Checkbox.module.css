@@ -17,26 +17,26 @@
 }
 
 .checkboxContainer {
-  align-self: flex-start;
+  align-self: center;
   display: flex;
   align-items: center;
   flex-shrink: 0;
 }
 
-.checkbox > path {
-  transition: fill 0.2s;
-}
-
-.input:not(:disabled):hover + .checkbox {
+input:not(:disabled):hover + * > svg {
   color: var(--hover-plum);
 }
 
-.input:not(:disabled):focus + .checkbox {
-  color: var(--pachyderm-plum);
+input:not(:disabled):focus-visible + * > svg {
+  outline: 2px solid var(--focus-state); 
 }
 
 .label {
   margin-left: 0.416rem;
+}
+
+label:not([data-disabled=true]):hover .label {
+  color: var(--hover-plum);
 }
 
 .disabled {
@@ -46,8 +46,4 @@
 
 .input:disabled {
   cursor: not-allowed;
-}
-
-.readOnly, .readOnly * {
-  cursor: default;
 }

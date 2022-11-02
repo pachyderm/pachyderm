@@ -1,42 +1,43 @@
-import React from 'react';
-import {useForm} from 'react-hook-form';
-
-import {Form} from '../Form';
+import {ComponentStory, ComponentMeta} from '@storybook/react';
+import React, {useEffect} from 'react';
 
 import {PureCheckbox} from './Checkbox';
 
-import {Checkbox} from './';
+export default {
+  title: 'Checkbox',
+  component: PureCheckbox,
+} as ComponentMeta<typeof PureCheckbox>;
 
-export default {title: 'Checkbox'};
+const Template: ComponentStory<typeof PureCheckbox> = ({selected, ...args}) => {
+  const [value, setValue] = React.useState(false);
+  useEffect(() => setValue(selected), [selected]);
+  const handleChange = () => setValue((value) => !value);
 
-interface FormValues {
-  checkbox: string;
-}
-
-export const Default = () => {
-  const formCtx = useForm<FormValues>({mode: 'onChange'});
-
-  return (
-    <Form formContext={formCtx}>
-      <Checkbox
-        id="checkbox"
-        name="checkbox"
-        label="I accept the terms and conditions"
-      />
-    </Form>
-  );
+  return <PureCheckbox onChange={handleChange} selected={value} {...args} />;
 };
 
-export const disabledCheckbox = () => {
-  return (
-    <>
-      <PureCheckbox
-        selected={false}
-        disabled
-        id="checkbox"
-        name="checkbox"
-        label="I accept the terms and conditions"
-      />
-    </>
-  );
+const defaultArgs = {
+  selected: true,
+  disabled: false,
+  small: false,
+  id: 'checkbox',
+  name: 'checkbox',
+  label: 'I accept the terms and conditions',
+};
+
+export const Checkbox = Template.bind({});
+Checkbox.args = {
+  ...defaultArgs,
+};
+
+export const Disabled = Template.bind({});
+Disabled.args = {
+  ...defaultArgs,
+  disabled: true,
+};
+
+export const Small = Template.bind({});
+Small.args = {
+  ...defaultArgs,
+  small: true,
 };

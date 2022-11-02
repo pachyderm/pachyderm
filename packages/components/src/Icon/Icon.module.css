@@ -7,6 +7,10 @@
   color: var(--pachyderm-black);
 }
 
+.black {
+  color: var(--pachyderm-black);
+}
+
 .disabled  {
   color: var(--grey-7);
 }
