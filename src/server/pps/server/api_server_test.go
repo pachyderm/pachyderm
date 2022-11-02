@@ -9,7 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -20,14 +19,14 @@ func TestListDatum(t *testing.T) {
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	ctx := env.PachClient.Ctx()
 	repo := "TestListDatum"
-	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, env.PachClient.CreateRepo(repo))
+	commit1, err := env.PachClient.StartCommit(repo, "master")
 	require.NoError(t, err)
 	for i := 0; i < 9; i++ {
 		require.NoError(t, env.PachClient.PutFile(commit1, fmt.Sprintf("/file%d", i), &bytes.Buffer{}))
 	}
-	require.NoError(t, env.PachClient.FinishProjectCommit(pfs.DefaultProjectName, repo, "master", commit1.ID))
-	_, err = env.PachClient.WaitProjectCommit(pfs.DefaultProjectName, repo, "master", commit1.ID)
+	require.NoError(t, env.PachClient.FinishCommit(repo, "master", commit1.ID))
+	_, err = env.PachClient.WaitCommit(repo, "master", commit1.ID)
 	require.NoError(t, err)
 
 	input := &pps.Input{Pfs: &pps.PFSInput{Repo: repo, Glob: "/*"}}
