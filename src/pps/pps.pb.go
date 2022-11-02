@@ -3916,11 +3916,17 @@ type ListDatumRequest struct {
 	// Input is the input to list datums from.
 	// The datums listed are the ones that would be run if a pipeline was created
 	// with the provided input.
-	Input                *Input                   `protobuf:"bytes,2,opt,name=input,proto3" json:"input,omitempty"`
-	Filter               *ListDatumRequest_Filter `protobuf:"bytes,3,opt,name=filter,proto3" json:"filter,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
-	XXX_unrecognized     []byte                   `json:"-"`
-	XXX_sizecache        int32                    `json:"-"`
+	Input  *Input                   `protobuf:"bytes,2,opt,name=input,proto3" json:"input,omitempty"`
+	Filter *ListDatumRequest_Filter `protobuf:"bytes,3,opt,name=filter,proto3" json:"filter,omitempty"`
+	// datum id to start from. we do not include this datum in the response
+	PaginationMarker string `protobuf:"bytes,4,opt,name=paginationMarker,proto3" json:"paginationMarker,omitempty"`
+	// Number of datums to return
+	Number int64 `protobuf:"varint,5,opt,name=number,proto3" json:"number,omitempty"`
+	// If true, return datums in reverse order
+	Reverse              bool     `protobuf:"varint,6,opt,name=reverse,proto3" json:"reverse,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *ListDatumRequest) Reset()         { *m = ListDatumRequest{} }
@@ -3975,6 +3981,27 @@ func (m *ListDatumRequest) GetFilter() *ListDatumRequest_Filter {
 		return m.Filter
 	}
 	return nil
+}
+
+func (m *ListDatumRequest) GetPaginationMarker() string {
+	if m != nil {
+		return m.PaginationMarker
+	}
+	return ""
+}
+
+func (m *ListDatumRequest) GetNumber() int64 {
+	if m != nil {
+		return m.Number
+	}
+	return 0
+}
+
+func (m *ListDatumRequest) GetReverse() bool {
+	if m != nil {
+		return m.Reverse
+	}
+	return false
 }
 
 // Filter restricts returned DatumInfo messages to those which match
@@ -10646,6 +10673,28 @@ func (m *ListDatumRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
+	if m.Reverse {
+		i--
+		if m.Reverse {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x30
+	}
+	if m.Number != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.Number))
+		i--
+		dAtA[i] = 0x28
+	}
+	if len(m.PaginationMarker) > 0 {
+		i -= len(m.PaginationMarker)
+		copy(dAtA[i:], m.PaginationMarker)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.PaginationMarker)))
+		i--
+		dAtA[i] = 0x22
+	}
 	if m.Filter != nil {
 		{
 			size, err := m.Filter.MarshalToSizedBuffer(dAtA[:i])
@@ -13521,6 +13570,16 @@ func (m *ListDatumRequest) Size() (n int) {
 	if m.Filter != nil {
 		l = m.Filter.Size()
 		n += 1 + l + sovPps(uint64(l))
+	}
+	l = len(m.PaginationMarker)
+	if l > 0 {
+		n += 1 + l + sovPps(uint64(l))
+	}
+	if m.Number != 0 {
+		n += 1 + sovPps(uint64(m.Number))
+	}
+	if m.Reverse {
+		n += 2
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -23592,6 +23651,77 @@ func (m *ListDatumRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PaginationMarker", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPps
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthPps
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthPps
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.PaginationMarker = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Number", wireType)
+			}
+			m.Number = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPps
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Number |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 6:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Reverse", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPps
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Reverse = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipPps(dAtA[iNdEx:])

@@ -1,60 +1,116 @@
-package server
+package server_test
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 )
 
-func newClient(t testing.TB) pps.APIClient {
-	srv := newServer(t)
-	gc := grpcutil.NewTestClient(t, func(gs *grpc.Server) {
-		pps.RegisterAPIServer(gs, srv)
-	})
-	return pps.NewAPIClient(gc)
-}
-
-func newServer(t testing.TB) pps.APIServer {
-	txnEnv := transactionenv.New()
-	db := dockertestenv.NewTestDB(t)
-	etcdEnv := testetcd.NewEnv(t)
-	env := Env{
-		BackgroundContext: context.Background(),
-		Logger:            logrus.StandardLogger(),
-
-		DB:         db,
-		EtcdClient: etcdEnv.EtcdClient,
-		KubeClient: nil,
-
-		AuthServer: nil,
-		PFSServer:  nil,
-
-		TxnEnv:        txnEnv,
-		GetPachClient: nil,
-		Config:        newConfig(t),
-	}
-	srv, err := NewAPIServerNoMaster(env)
+func TestListDatum(t *testing.T) {
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := env.PachClient.Ctx()
+	repo := "TestListDatum"
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	return srv
-}
+	for i := 0; i < 9; i++ {
+		require.NoError(t, env.PachClient.PutFile(commit1, fmt.Sprintf("/file%d", i), &bytes.Buffer{}))
+	}
+	require.NoError(t, env.PachClient.FinishProjectCommit(pfs.DefaultProjectName, repo, "master", commit1.ID))
+	_, err = env.PachClient.WaitProjectCommit(pfs.DefaultProjectName, repo, "master", commit1.ID)
+	require.NoError(t, err)
 
-func newConfig(testing.TB) serviceenv.Configuration {
-	return *serviceenv.ConfigFromOptions()
+	input := &pps.Input{Pfs: &pps.PFSInput{Repo: repo, Glob: "/*"}}
+	request := &pps.ListDatumRequest{Input: input}
+	listDatumClient, err := env.PachClient.PpsAPIClient.ListDatum(ctx, request)
+	require.NoError(t, err)
+	dis, err := clientsdk.ListDatum(listDatumClient)
+	require.NoError(t, err)
+	require.Equal(t, 9, len(dis))
+	var datumIDs []string
+	for _, di := range dis {
+		datumIDs = append(datumIDs, di.Datum.ID)
+	}
+	// Test getting the datums in three pages of 3
+	var pagedDatumIDs []string
+	request = &pps.ListDatumRequest{Input: input, Number: 3}
+	listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
+	require.NoError(t, err)
+	dis, err = clientsdk.ListDatum(listDatumClient)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(dis))
+	for _, di := range dis {
+		pagedDatumIDs = append(pagedDatumIDs, di.Datum.ID)
+	}
+	// get next two pages
+	for i := 0; i < 2; i++ {
+		request = &pps.ListDatumRequest{Input: input, Number: 3, PaginationMarker: dis[2].Datum.ID}
+		listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
+		require.NoError(t, err)
+		dis, err = clientsdk.ListDatum(listDatumClient)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(dis))
+		for _, di := range dis {
+			pagedDatumIDs = append(pagedDatumIDs, di.Datum.ID)
+		}
+	}
+	// we should have gotten all the datums
+	require.ElementsEqual(t, datumIDs, pagedDatumIDs)
+	request = &pps.ListDatumRequest{Input: input, Number: 1, PaginationMarker: dis[2].Datum.ID}
+	listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
+	require.NoError(t, err)
+	dis, err = clientsdk.ListDatum(listDatumClient)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(dis))
+	// Test getting the datums in three pages of 3 in reverse order
+	var reverseDatumIDs []string
+	// get last page
+	request = &pps.ListDatumRequest{Input: input, Number: 3, Reverse: true}
+	listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
+	require.NoError(t, err)
+	dis, err = clientsdk.ListDatum(listDatumClient)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(dis))
+	for _, di := range dis {
+		reverseDatumIDs = append(reverseDatumIDs, di.Datum.ID)
+	}
+	// get previous two pages
+	for i := 0; i < 2; i++ {
+		request = &pps.ListDatumRequest{Input: input, Number: 3, PaginationMarker: dis[2].Datum.ID, Reverse: true}
+		listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
+		require.NoError(t, err)
+		dis, err = clientsdk.ListDatum(listDatumClient)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(dis))
+		for _, di := range dis {
+			reverseDatumIDs = append(reverseDatumIDs, di.Datum.ID)
+		}
+	}
+	request = &pps.ListDatumRequest{Input: input, Number: 1, PaginationMarker: dis[2].Datum.ID, Reverse: true}
+	listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
+	require.NoError(t, err)
+	dis, err = clientsdk.ListDatum(listDatumClient)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(dis))
+	for i, di := range datumIDs {
+		require.Equal(t, di, reverseDatumIDs[len(reverseDatumIDs)-1-i])
+	}
 }
 
 func TestRenderTemplate(t *testing.T) {
 	ctx := context.Background()
-	client := newClient(t)
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	client := env.PachClient.PpsAPIClient
 	res, err := client.RenderTemplate(ctx, &pps.RenderTemplateRequest{
 		Args: map[string]string{
 			"arg1": "value1",
@@ -156,7 +212,7 @@ func TestParseLokiLine(t *testing.T) {
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
 			var msg pps.LogMessage
-			err := parseLokiLine(test.line, &msg)
+			err := ppsserver.ParseLokiLine(test.line, &msg)
 			t.Logf("err: %v", err)
 			if test.wantErr && err == nil {
 				t.Fatal("parse: got success, want error")
