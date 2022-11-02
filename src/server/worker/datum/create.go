@@ -6,6 +6,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
@@ -17,6 +18,8 @@ import (
 )
 
 func Create(pachClient *client.APIClient, taskDoer task.Doer, input *pps.Input) (string, error) {
+	authToken, _ := auth.GetAuthToken(pachClient.Ctx())
+	pachClient.SetAuthToken(authToken)
 	switch {
 	case input.Pfs != nil:
 		return createPFS(pachClient, taskDoer, input.Pfs)
@@ -56,6 +59,7 @@ func createPFS(pachClient *client.APIClient, taskDoer task.Doer, input *pps.PFSI
 				Input:     input,
 				PathRange: shard,
 				BaseIndex: createBaseIndex(int64(i)),
+				AuthToken: pachClient.AuthToken(),
 			})
 			if err != nil {
 				return err
@@ -79,7 +83,7 @@ func createPFS(pachClient *client.APIClient, taskDoer task.Doer, input *pps.PFSI
 		}); err != nil {
 			return err
 		}
-		outputFileSetID, err = ComposeFileSets(ctx, taskDoer, resultFileSetIDs)
+		outputFileSetID, err = ComposeFileSets(pachClient, taskDoer, resultFileSetIDs)
 		return err
 	}); err != nil {
 		return "", err
@@ -91,14 +95,15 @@ func createBaseIndex(index int64) int64 {
 	return index * int64(math.Pow(float64(10), float64(16)))
 }
 
-func ComposeFileSets(ctx context.Context, taskDoer task.Doer, fileSetIDs []string) (string, error) {
+func ComposeFileSets(pachClient *client.APIClient, taskDoer task.Doer, fileSetIDs []string) (string, error) {
 	input, err := serializeComposeTask(&ComposeTask{
 		FileSetIds: fileSetIDs,
+		AuthToken:  pachClient.AuthToken(),
 	})
 	if err != nil {
 		return "", err
 	}
-	output, err := task.DoOne(ctx, taskDoer, input)
+	output, err := task.DoOne(pachClient.Ctx(), taskDoer, input)
 	if err != nil {
 		return "", err
 	}
@@ -117,7 +122,7 @@ func createUnion(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 		if err != nil {
 			return err
 		}
-		outputFileSetID, err = ComposeFileSets(ctx, taskDoer, fileSetIDs)
+		outputFileSetID, err = ComposeFileSets(pachClient, taskDoer, fileSetIDs)
 		return err
 	}); err != nil {
 		return "", err
@@ -180,6 +185,7 @@ func createCross(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 				BaseFileSetPathRange: shard,
 				FileSetIds:           fileSetIDs,
 				BaseIndex:            createBaseIndex(int64(i)),
+				AuthToken:            pachClient.AuthToken(),
 			})
 			if err != nil {
 				return err
@@ -203,7 +209,7 @@ func createCross(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 		}); err != nil {
 			return err
 		}
-		outputFileSetID, err = ComposeFileSets(ctx, taskDoer, resultFileSetIDs)
+		outputFileSetID, err = ComposeFileSets(pachClient, taskDoer, resultFileSetIDs)
 		return err
 	}); err != nil {
 		return "", err
@@ -270,6 +276,7 @@ func createKeyFileSet(pachClient *client.APIClient, taskDoer task.Doer, fileSetI
 				FileSetId: fileSetID,
 				PathRange: shard,
 				Type:      keyType,
+				AuthToken: pachClient.AuthToken(),
 			})
 			if err != nil {
 				return err
@@ -293,7 +300,7 @@ func createKeyFileSet(pachClient *client.APIClient, taskDoer task.Doer, fileSetI
 		}); err != nil {
 			return err
 		}
-		outputFileSetID, err = ComposeFileSets(ctx, taskDoer, resultFileSetIDs)
+		outputFileSetID, err = ComposeFileSets(pachClient, taskDoer, resultFileSetIDs)
 		return err
 	}); err != nil {
 		return "", err
@@ -315,6 +322,7 @@ func mergeKeyFileSets(pachClient *client.APIClient, taskDoer task.Doer, fileSetI
 				FileSetIds: fileSetIDs,
 				PathRange:  shard,
 				Type:       mergeType,
+				AuthToken:  pachClient.AuthToken(),
 			})
 			if err != nil {
 				return err
@@ -338,7 +346,7 @@ func mergeKeyFileSets(pachClient *client.APIClient, taskDoer task.Doer, fileSetI
 		}); err != nil {
 			return err
 		}
-		outputFileSetID, err = ComposeFileSets(ctx, taskDoer, resultFileSetIDs)
+		outputFileSetID, err = ComposeFileSets(pachClient, taskDoer, resultFileSetIDs)
 		return err
 	}); err != nil {
 		return "", err
