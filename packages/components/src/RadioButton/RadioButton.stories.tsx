@@ -18,6 +18,18 @@ export const Default = () => {
       <RadioButton id="no" name="answer" value="no">
         <RadioButton.Label>No</RadioButton.Label>
       </RadioButton>
+      <RadioButton id="disabled" name="answer" value="disabled" disabled>
+        <RadioButton.Label>Disabled</RadioButton.Label>
+      </RadioButton>
+      <RadioButton
+        id="small-disabled"
+        name="answer"
+        value="small-disabled"
+        disabled
+        small
+      >
+        <RadioButton.Label>Small Disabled</RadioButton.Label>
+      </RadioButton>
     </Form>
   );
 };

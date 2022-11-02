@@ -62,3 +62,6 @@
 .smaller {
   transform: scale(0.6);
 }
+
+/* Missing color classes from Colors type IconColor */
+/* .grey, .highlightOrange {} */

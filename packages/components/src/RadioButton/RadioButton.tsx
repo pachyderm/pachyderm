@@ -1,4 +1,4 @@
-import classnames from 'classnames';
+import classNames from 'classnames';
 import React, {InputHTMLAttributes} from 'react';
 import {
   useFormContext,
@@ -8,6 +8,9 @@ import {
 } from 'react-hook-form';
 
 import useRHFInputProps from 'hooks/useRHFInputProps';
+import {Icon} from 'Icon';
+
+import {RadioSVG, RadioCheckedSVG} from '../Svg';
 
 import RadioButtonLabel from './components/RadioButtonLabel';
 import styles from './RadioButton.module.css';
@@ -16,6 +19,7 @@ export interface RadioButtonProps
   extends InputHTMLAttributes<HTMLInputElement> {
   name: FieldPath<FieldValues>;
   validationOptions?: RegisterOptions;
+  small?: boolean;
 }
 
 const RadioButton: React.FC<RadioButtonProps> = ({
@@ -25,9 +29,14 @@ const RadioButton: React.FC<RadioButtonProps> = ({
   name,
   onChange,
   onBlur,
+  small = false,
+  disabled = false,
+  value,
   ...rest
 }) => {
-  const {register} = useFormContext();
+  const {register, watch} = useFormContext();
+
+  const watchedValue = watch(name);
 
   const {handleChange, handleBlur, ...inputProps} = useRHFInputProps({
     onChange,
@@ -35,19 +44,30 @@ const RadioButton: React.FC<RadioButtonProps> = ({
     registerOutput: register(name, validationOptions),
   });
 
+  const classes = classNames(styles.base, className, {
+    [styles.disabled]: disabled,
+  });
+
   return (
-    <label className={classnames(styles.base, className)}>
+    <label className={classes} data-disabled={disabled}>
       <div className={styles.radioButtonContainer}>
         <input
           type="radio"
           className={styles.input}
           onChange={handleChange}
           onBlur={handleBlur}
+          value={value}
+          disabled={disabled}
           {...rest}
           {...inputProps}
         />
-
-        <div className={styles.radio} />
+        <Icon small={small}>
+          {watchedValue === value ? (
+            <RadioCheckedSVG aria-hidden focusable={false} />
+          ) : (
+            <RadioSVG aria-hidden focusable={false} />
+          )}
+        </Icon>
       </div>
 
       {children}
