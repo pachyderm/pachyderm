@@ -147,6 +147,36 @@ func ListCommit(client pfs.API_ListCommitClient) ([]*pfs.CommitInfo, error) {
 	return results, nil
 }
 
+func ForEachFile(client pfs.API_ListFileClient, cb func(*pfs.FileInfo) error) error {
+	for {
+		x, err := client.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return errors.EnsureStack(err)
+		}
+		if err := cb(x); err != nil {
+			if errors.Is(err, pacherr.ErrBreak) {
+				err = nil
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+func ListFile(client pfs.API_ListFileClient) ([]*pfs.FileInfo, error) {
+	var results []*pfs.FileInfo
+	if err := ForEachFile(client, func(x *pfs.FileInfo) error {
+		results = append(results, x)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
 func ForEachSubscribeCommit(client pfs.API_SubscribeCommitClient, cb func(*pfs.CommitInfo) error) error {
 	for {
 		x, err := client.Recv()
