@@ -964,8 +964,8 @@ func TestListJobWithProject(t *testing.T) {
 	pipelineName := tu.UniqueString("pipeline")
 	require.NoError(t, tu.PachctlBashCmd(t, c, "yes | pachctl delete all").Run())
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl create repo data
-		pachctl put file data@master:/file <<<"This is a test"
+		pachctl create repo --project {{.project}} data
+		pachctl put file --project {{.project}} data@master:/file <<<"This is a test"
 		pachctl create pipeline <<EOF
 		  {
 		    "pipeline": {
