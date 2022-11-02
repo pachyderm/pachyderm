@@ -634,17 +634,17 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.
 		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
 		keep := request.GetProjects()
-		if len(keep) > 0 {
-			i := 0
+		var jobInfosFiltered []*pps.JobInfo
+		if len(keep) == 0 {
+			jobInfosFiltered = jobInfos
+		} else {
 			for _, ji := range jobInfos {
-				if keep[ji.GetJob().GetPipeline().GetProject().GetName()] {
-					jobInfos[i] = ji
-					i++
+				if keep[ji.Job.Pipeline.Project.GetName()] {
+					jobInfosFiltered = append(jobInfosFiltered, ji)
 				}
 			}
-			jobInfos = jobInfos[:i]
 		}
-		if len(jobInfos) == 0 {
+		if len(jobInfosFiltered) == 0 {
 			return nil
 		}
 
