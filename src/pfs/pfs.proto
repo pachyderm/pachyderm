@@ -377,6 +377,15 @@ message ListFileRequest {
   // If the "path" field is omitted, a list of files at the top level of the repo
   // is returned
   File file = 1;
+  // Marker for pagination. If set, the files that come after the marker in
+  // lexicographical order will be returned. If reverse is also set, the files
+  // that come before the marker in lexicographical order will be returned.
+  File paginationMarker = 3;
+  // Number of files to return
+  int64 number = 4;
+  // If true, return files in reverse order
+  bool reverse = 5;
+
 // TODO:
 //  // History indicates how many historical versions you want returned. Its
 //  // semantics are:

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"path"
 	"sort"
 	"strings"
@@ -1065,23 +1066,113 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_ListDatumServer) (retErr error) {
 	// TODO: Auth?
 	ensurePipelineProject(request.GetJob().GetPipeline())
+	if request.Job != nil && request.Input != nil {
+		return errors.Errorf("cannot specify both job and input")
+	}
+	number := request.Number
+	if number == 0 && request.Reverse {
+		return errors.Errorf("number must be > 0 when reverse is set")
+	}
+	if request.Reverse {
+		return a.listDatumReverse(server.Context(), request, server)
+	}
+	if number == 0 {
+		number = math.MaxInt64
+	}
 	if request.Input != nil {
-		return a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
-			di := convertDatumMetaToInfo(meta, nil)
-			di.State = pps.DatumState_UNKNOWN
-			if !request.Filter.Allow(di) {
+		if err := a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
+			if number == 0 {
+				return errutil.ErrBreak
+			}
+			info := convertDatumMetaToInfo(meta, nil)
+			info.State = pps.DatumState_UNKNOWN
+			if (request.PaginationMarker != "" && info.Datum.ID <= request.PaginationMarker) || !request.Filter.Allow(info) {
 				return nil
 			}
-			return errors.EnsureStack(server.Send(di))
-		})
+			number--
+			return errors.EnsureStack(server.Send(info))
+		}); err != nil && !errors.Is(err, errutil.ErrBreak) {
+			return errors.EnsureStack(err)
+		}
+		return nil
 	}
-	return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
+	if err := a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
+		if number == 0 {
+			return errutil.ErrBreak
+		}
 		info := convertDatumMetaToInfo(meta, request.Job)
-		if !request.Filter.Allow(info) {
+		if (request.PaginationMarker != "" && info.Datum.ID <= request.PaginationMarker) || !request.Filter.Allow(info) {
 			return nil
 		}
+		number--
 		return errors.EnsureStack(server.Send(info))
-	})
+	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
+		return errors.EnsureStack(err)
+	}
+	return nil
+}
+
+func (a *apiServer) listDatumReverse(ctx context.Context, request *pps.ListDatumRequest, server pps.API_ListDatumServer) error {
+	dis := make([]*pps.DatumInfo, request.Number)
+	index := 0
+	if request.Input != nil {
+		if err := a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
+			info := convertDatumMetaToInfo(meta, nil)
+			info.State = pps.DatumState_UNKNOWN
+			if request.PaginationMarker != "" && info.Datum.ID >= request.PaginationMarker {
+				return errutil.ErrBreak
+			}
+			if !request.Filter.Allow(info) {
+				return nil
+			}
+			// wrap around the buffer
+			if index == int(request.Number) {
+				index = 0
+			}
+			dis[index] = info
+			index++
+			return nil
+		}); err != nil && !errors.Is(err, errutil.ErrBreak) {
+			return errors.EnsureStack(err)
+		}
+	} else {
+		if err := a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
+			info := convertDatumMetaToInfo(meta, request.Job)
+			if request.PaginationMarker != "" && info.Datum.ID >= request.PaginationMarker {
+				return errutil.ErrBreak
+			}
+			if !request.Filter.Allow(info) {
+				return nil
+			}
+			if index == int(request.Number) {
+				index = 0
+			}
+			dis[index] = info
+			index++
+			return nil
+		}); err != nil && !errors.Is(err, errutil.ErrBreak) {
+			return errors.EnsureStack(err)
+		}
+	}
+	if index == 0 {
+		return nil
+	}
+	// move the index marker to the last populated datum
+	index--
+	for i := 0; i < len(dis); i++ {
+		if dis[index] == nil {
+			break
+		}
+		if err := server.Send(dis[index]); err != nil {
+			return errors.EnsureStack(err)
+		}
+		index--
+		// wrap around to the end of the slice
+		if index < 0 {
+			index = len(dis) - 1
+		}
+	}
+	return nil
 }
 
 func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb func(*datum.Meta) error) error {
@@ -1383,7 +1474,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	}
 	return lokiutil.QueryRange(apiGetLogsServer.Context(), loki, query, time.Now().Add(-since), time.Time{}, request.Follow, func(t time.Time, line string) error {
 		msg := new(pps.LogMessage)
-		if err := parseLokiLine(line, msg); err != nil {
+		if err := ParseLokiLine(line, msg); err != nil {
 			logrus.WithField("line", line).WithError(err).Debug("get logs (loki): unparseable log line")
 			return nil
 		}
@@ -1455,7 +1546,7 @@ func parseCRILine(s string, msg *pps.LogMessage) error {
 	return nil
 }
 
-func parseLokiLine(inputLine string, msg *pps.LogMessage) error {
+func ParseLokiLine(inputLine string, msg *pps.LogMessage) error {
 	// There are three possible log formats in Loki, depending on the underlying formatting done
 	// by the container runtime.  Under ideal circumstances, the user of Loki has configured
 	// promtail to remove the runtime-specific logs, but it's quite easy to miss this

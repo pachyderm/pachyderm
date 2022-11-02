@@ -79,3 +79,14 @@ func ForEachDatumInfo(client pps.API_ListDatumClient, cb func(*pps.DatumInfo) er
 	}
 	return nil
 }
+
+func ListDatum(client pps.API_ListDatumClient) ([]*pps.DatumInfo, error) {
+	var results []*pps.DatumInfo
+	if err := ForEachDatumInfo(client, func(x *pps.DatumInfo) error {
+		results = append(results, x)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return results, nil
+}

@@ -651,7 +651,7 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 // ListFile implements the protobuf pfs.ListFile RPC
 func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFileServer) (retErr error) {
 	request.GetFile().GetCommit().GetBranch().GetRepo().EnsureProject()
-	return a.driver.listFile(server.Context(), request.File, func(fi *pfs.FileInfo) error {
+	return a.driver.listFile(server.Context(), request.File, request.PaginationMarker, request.Number, request.Reverse, func(fi *pfs.FileInfo) error {
 		return errors.EnsureStack(server.Send(fi))
 	})
 }
