@@ -628,8 +628,6 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 			return err
 		}
 
-		logrus.Info("albscui len(jobInfos) given id ", id, len(jobInfos))
-
 		// Filter jobs based on projects.
 		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.
 		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
@@ -719,14 +717,84 @@ func (a *apiServer) intersectCommitSets(ctx context.Context, commits []*pfs.Comm
 	return intersection, nil
 }
 
-// listJob is the internal implementation of ListJob shared between ListJob and
-// ListJobStream. When ListJob is removed, this should be inlined into
-// ListJobStream.
-func (a *apiServer) listJob(
-	ctx context.Context,
-	request *pps.ListJobRequest,
-	f func(*pps.JobInfo) error,
-) error {
+func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) error {
+	projectName := jobInfo.Job.Pipeline.Project.GetName()
+	pipelineName := jobInfo.Job.Pipeline.Name
+
+	if err := a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: projectName}, Name: pipelineName}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
+		return errors.EnsureStack(err)
+	}
+
+	// Override the SpecCommit for the pipeline to be what it was when this job
+	// was created, this prevents races between updating a pipeline and
+	// previous jobs running.
+	pipelineInfo := &pps.PipelineInfo{}
+	if err := a.pipelines.ReadOnly(ctx).GetUniqueByIndex(
+		ppsdb.PipelinesVersionIndex,
+		ppsdb.VersionKey(jobInfo.Job.Pipeline, jobInfo.PipelineVersion),
+		pipelineInfo); err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	details := &pps.JobInfo_Details{}
+	details.Transform = pipelineInfo.Details.Transform
+	details.ParallelismSpec = pipelineInfo.Details.ParallelismSpec
+	details.Egress = pipelineInfo.Details.Egress
+	details.Service = pipelineInfo.Details.Service
+	details.Spout = pipelineInfo.Details.Spout
+	details.ResourceRequests = pipelineInfo.Details.ResourceRequests
+	details.ResourceLimits = pipelineInfo.Details.ResourceLimits
+	details.SidecarResourceLimits = pipelineInfo.Details.SidecarResourceLimits
+	details.Input = ppsutil.JobInput(pipelineInfo, jobInfo.OutputCommit)
+	details.Salt = pipelineInfo.Details.Salt
+	details.DatumSetSpec = pipelineInfo.Details.DatumSetSpec
+	details.DatumTimeout = pipelineInfo.Details.DatumTimeout
+	details.JobTimeout = pipelineInfo.Details.JobTimeout
+	details.DatumTries = pipelineInfo.Details.DatumTries
+	details.SchedulingSpec = pipelineInfo.Details.SchedulingSpec
+	details.PodSpec = pipelineInfo.Details.PodSpec
+	details.PodPatch = pipelineInfo.Details.PodPatch
+
+	// If the job is running, we fill in WorkerStatus field, otherwise
+	// we just return the jobInfo.
+	if jobInfo.State == pps.JobState_JOB_RUNNING {
+		var pi = &pps.PipelineInfo{
+			Pipeline: &pps.Pipeline{
+				Project: &pfs.Project{Name: projectName},
+				Name:    pipelineName,
+			},
+			Version: jobInfo.PipelineVersion,
+		}
+		workerStatus, err := workerserver.Status(ctx, pi, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
+		if err != nil {
+			logrus.Errorf("failed to get worker status with err: %s", err.Error())
+		} else {
+			// It's possible that the workers might be working on datums for other
+			// jobs, we omit those since they're not part of the status for this
+			// job.
+			for _, status := range workerStatus {
+				if status.JobID == jobInfo.Job.ID {
+					details.WorkerStatus = append(details.WorkerStatus, status)
+				}
+			}
+		}
+	}
+
+	jobInfo.Details = details
+	return nil
+}
+
+// ListJob implements the protobuf pps.ListJob RPC
+func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
+	keep := func(j *pps.JobInfo) error {
+		filter := request.GetProjects()
+		if len(filter) == 0 || filter[j.Job.Pipeline.Project.GetName()] {
+			return errors.Wrap(resp.Send(j), "could not send filtered job")
+		}
+		return nil
+	}
+
+	ctx := resp.Context()
 	pipeline := request.GetPipeline()
 	if pipeline != nil {
 		ensurePipelineProject(pipeline)
@@ -816,7 +884,7 @@ func (a *apiServer) listJob(
 			}
 		}
 
-		return f(jobInfo)
+		return keep(jobInfo)
 	}
 	if pipeline != nil {
 		err := jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, col.DefaultOptions(), _f)
@@ -825,84 +893,6 @@ func (a *apiServer) listJob(
 		err := jobs.List(jobInfo, col.DefaultOptions(), _f)
 		return errors.EnsureStack(err)
 	}
-}
-
-func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) error {
-	projectName := jobInfo.Job.Pipeline.Project.GetName()
-	pipelineName := jobInfo.Job.Pipeline.Name
-
-	if err := a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: projectName}, Name: pipelineName}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
-		return errors.EnsureStack(err)
-	}
-
-	// Override the SpecCommit for the pipeline to be what it was when this job
-	// was created, this prevents races between updating a pipeline and
-	// previous jobs running.
-	pipelineInfo := &pps.PipelineInfo{}
-	if err := a.pipelines.ReadOnly(ctx).GetUniqueByIndex(
-		ppsdb.PipelinesVersionIndex,
-		ppsdb.VersionKey(jobInfo.Job.Pipeline, jobInfo.PipelineVersion),
-		pipelineInfo); err != nil {
-		return errors.EnsureStack(err)
-	}
-
-	details := &pps.JobInfo_Details{}
-	details.Transform = pipelineInfo.Details.Transform
-	details.ParallelismSpec = pipelineInfo.Details.ParallelismSpec
-	details.Egress = pipelineInfo.Details.Egress
-	details.Service = pipelineInfo.Details.Service
-	details.Spout = pipelineInfo.Details.Spout
-	details.ResourceRequests = pipelineInfo.Details.ResourceRequests
-	details.ResourceLimits = pipelineInfo.Details.ResourceLimits
-	details.SidecarResourceLimits = pipelineInfo.Details.SidecarResourceLimits
-	details.Input = ppsutil.JobInput(pipelineInfo, jobInfo.OutputCommit)
-	details.Salt = pipelineInfo.Details.Salt
-	details.DatumSetSpec = pipelineInfo.Details.DatumSetSpec
-	details.DatumTimeout = pipelineInfo.Details.DatumTimeout
-	details.JobTimeout = pipelineInfo.Details.JobTimeout
-	details.DatumTries = pipelineInfo.Details.DatumTries
-	details.SchedulingSpec = pipelineInfo.Details.SchedulingSpec
-	details.PodSpec = pipelineInfo.Details.PodSpec
-	details.PodPatch = pipelineInfo.Details.PodPatch
-
-	// If the job is running, we fill in WorkerStatus field, otherwise
-	// we just return the jobInfo.
-	if jobInfo.State == pps.JobState_JOB_RUNNING {
-		var pi = &pps.PipelineInfo{
-			Pipeline: &pps.Pipeline{
-				Project: &pfs.Project{Name: projectName},
-				Name:    pipelineName,
-			},
-			Version: jobInfo.PipelineVersion,
-		}
-		workerStatus, err := workerserver.Status(ctx, pi, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
-		if err != nil {
-			logrus.Errorf("failed to get worker status with err: %s", err.Error())
-		} else {
-			// It's possible that the workers might be working on datums for other
-			// jobs, we omit those since they're not part of the status for this
-			// job.
-			for _, status := range workerStatus {
-				if status.JobID == jobInfo.Job.ID {
-					details.WorkerStatus = append(details.WorkerStatus, status)
-				}
-			}
-		}
-	}
-
-	jobInfo.Details = details
-	return nil
-}
-
-// ListJob implements the protobuf pps.ListJob RPC
-func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
-	return a.listJob(resp.Context(), request, func(ji *pps.JobInfo) error {
-		keep := request.GetProjects()
-		if len(keep) == 0 || keep[ji.GetJob().GetPipeline().GetProject().GetName()] {
-			return errors.EnsureStack(resp.Send(ji))
-		}
-		return nil
-	})
 }
 
 // SubscribeJob implements the protobuf pps.SubscribeJob RPC

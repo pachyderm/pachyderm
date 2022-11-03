@@ -252,7 +252,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 			projectsFilter := map[string]bool{project: true}
 			if allProjects {
 				projectsFilter = nil
-			} else if project == pfs.DefaultProjectName && project != pachCtx.GetProject() {
+			} else if project == pfs.DefaultProjectName {
 				projectsFilter = map[string]bool{pachCtx.GetProject(): true}
 			}
 			if len(args) == 0 {
@@ -1601,7 +1601,8 @@ func ParsePipelineStates(stateStrs []string) (string, error) {
 	return validateJQConditionString(strings.Join(conditions, " or "))
 }
 
-// copied from Client, because need to extend for projects without breaking user facing API.
+// Copied from src/client/pps.go's APIClient, because we need to add the new projects filter to the request,
+// rather then adding yet another param, we are just going to pass in the request.
 func listJobFilterF(ctx context.Context, client pps.APIClient, request *pps.ListJobRequest, f func(*pps.JobInfo) error) error {
 	listJobClient, err := client.ListJob(ctx, request)
 	if err != nil {
