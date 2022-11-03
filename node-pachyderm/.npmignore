@@ -1,0 +1,4 @@
+.jestcache/
+.circleci/
+node_modules/
+src

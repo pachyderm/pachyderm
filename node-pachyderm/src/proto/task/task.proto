@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package taskapi;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/task";
+
+import "gogoproto/gogo.proto";
+
+enum State {
+  UNKNOWN = 0;
+  RUNNING = 1;
+  SUCCESS = 2;
+  FAILURE = 3;
+  CLAIMED = 4; // not a real state used by task logic
+}
+
+message Group {
+  string namespace = 1;
+  string group = 2;
+}
+
+message TaskInfo {
+  string id = 1 [(gogoproto.customname) = "ID"];
+  Group group = 2;
+  State state = 3;
+  string reason = 4;
+  string input_type = 5;
+  string input_data = 6;
+}
+
+message ListTaskRequest {
+  Group group = 1;
+}
+

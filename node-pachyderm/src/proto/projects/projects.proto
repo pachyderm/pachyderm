@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+
+package mock;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+enum ProjectStatus {
+  HEALTHY = 0;
+  UNHEALTHY = 1;
+}
+
+message Project {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  google.protobuf.Timestamp createdAt = 4;
+  ProjectStatus status = 5;
+}
+
+message Projects {
+  repeated Project project_info = 1;
+}
+
+message ProjectRequest {
+  string projectId = 1;
+}
+
+service API {
+  rpc InspectProject(ProjectRequest) returns (Project);
+  rpc ListProject(google.protobuf.Empty) returns (Projects);
+}

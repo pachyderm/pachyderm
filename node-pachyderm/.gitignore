@@ -1,0 +1,11 @@
+node_modules/
+.jestcache/
+dist
+/examples/opencv/index.js
+.DS_Store
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.env.test.local
