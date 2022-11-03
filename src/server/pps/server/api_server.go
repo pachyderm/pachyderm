@@ -770,6 +770,13 @@ func (a *apiServer) listJob(
 		if number == 0 {
 			return errutil.ErrBreak
 		}
+		if paginationMarker != nil {
+			createdAt := time.Unix(int64(jobInfo.Started.GetSeconds()), int64(jobInfo.Started.GetNanos())).UTC()
+			fromTime := time.Unix(int64(paginationMarker.GetSeconds()), int64(paginationMarker.GetNanos())).UTC()
+			if !reverse && createdAt.After(fromTime) || reverse && createdAt.Before(fromTime) {
+				return nil
+			}
+		}
 		if details {
 			if err := a.getJobDetails(ctx, jobInfo); err != nil {
 				if auth.IsErrNotAuthorized(err) {
