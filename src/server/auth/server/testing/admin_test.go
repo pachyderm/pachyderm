@@ -474,7 +474,7 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		require.Nil(t, info.AuthInfo.Permissions)
+		require.ElementsEqual(t, info.AuthInfo.Permissions, []auth.Permission{auth.Permission_PROJECT_CREATE})
 	}
 
 	// admin calls ListRepo, and has OWNER access to all repos
