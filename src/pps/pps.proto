@@ -443,6 +443,12 @@ message InspectJobSetRequest {
 
 message ListJobSetRequest {
   bool details = 1;
+  // start time marker
+  google.protobuf.Timestamp from = 2;
+  // number 
+  int64 number = 3;
+  // reverse flag
+  bool reverse = 4;
 }
 
 message InspectJobRequest {

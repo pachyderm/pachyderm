@@ -613,10 +613,22 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	// Track the jobsets we've already processed
 	seen := map[string]struct{}{}
 
+	number := request.Number
+	if number == 0 {
+		number = math.MaxInt64
+	}
+
 	// Return jobsets by the newest job in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
 	jobInfo := &pps.JobInfo{}
-	err := a.jobs.ReadOnly(serv.Context()).List(jobInfo, col.DefaultOptions(), func(string) error {
+	opts := &col.Options{Target: col.SortByCreateRevision, Order: col.SortDescend}
+	if request.Reverse {
+		opts.Order = col.SortAscend
+	}
+	err := a.jobs.ReadOnly(serv.Context()).List(jobInfo, opts, func(string) error {
+		if number == 0 {
+			return errutil.ErrBreak
+		}
 		if _, ok := seen[jobInfo.Job.ID]; ok {
 			return nil
 		}
@@ -626,13 +638,16 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		if err != nil {
 			return err
 		}
-
+		number--
 		return errors.EnsureStack(serv.Send(&pps.JobSetInfo{
 			JobSet: client.NewJobSet(jobInfo.Job.ID),
 			Jobs:   jobInfos,
 		}))
 	})
-	return errors.EnsureStack(err)
+	if err != nil && err != errutil.ErrBreak {
+		return errors.EnsureStack(err)
+	}
+	return nil
 }
 
 // intersectCommitSets finds all commitsets which involve the specified commits
