@@ -1,0 +1,29 @@
+@keyframes show-popup {
+  0% {
+    transform: translate3d(0, 20%, 0);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes hide-popup {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(0, 20%, 0);
+    opacity: 0;
+  }
+}
+
+.show {
+  animation: show-popup 0.3s forwards;
+}
+
+.hide {
+  animation: hide-popup 0.3s forwards;
+}

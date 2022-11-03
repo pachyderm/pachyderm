@@ -1,0 +1,67 @@
+.base {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  line-height: 0.5;
+  --icon-shadow: #000000;
+  color: var(--pachyderm-black);
+}
+
+.black {
+  color: var(--pachyderm-black);
+}
+
+.disabled  {
+  color: var(--grey-7);
+}
+
+.white  {
+  color: var(--white);
+}
+
+.grey  {
+  color: var(--grey-7);
+}
+
+.plum  {
+  color: var(--pachyderm-plum);
+}
+
+.plum.disabled  {
+  color: var(--disabled-plum);
+}
+
+.green  {
+  color: var(--icon-green);
+}
+
+.blue  {
+  color: var(--chart-dark-blue);
+}
+
+.highlightGreen  {
+  color: var(--banner-green);
+}
+
+.red  {
+  color: var(--pachyderm-red);
+}
+
+.yellow  {
+  color: var(--pachyderm-yellow);
+}
+
+.highlightOrange  {
+  color: var(--highlight-orange);
+}
+
+.small {
+  transform: scale(0.8);
+}
+
+.smaller {
+  transform: scale(0.6);
+}
+
+/* Missing color classes from Colors type IconColor */
+/* .grey, .highlightOrange {} */

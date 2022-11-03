@@ -1,0 +1,112 @@
+@keyframes slide-down {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scaleY(0);
+  }
+
+  10% {
+    visibility: visible;
+    transform: scaleY(1);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 1rem, 0) scaleY(1);
+  }
+}
+
+@keyframes slide-up {
+  0% {
+    opacity: 1;
+    visibility: visible;
+    transform: translate3d(0, 1rem, 0) scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+    transform: translate3d(0, 0, 0) scaleY(1);
+  }
+}
+
+@keyframes slide-left {
+  0% {
+    visibility: visible;
+    opacity: 1;
+    transform: translate3d(5rem, 0rem, 0) scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+    transform: translate3d(4rem, 0rem, 0) scaleY(0);
+  }
+}
+
+@keyframes slide-right {
+  0% {
+    opacity: 0;
+    visibility: hidden;
+    transform: translate3d(4rem, 0rem, 0) scaleY(0);
+  }
+  100% {
+    visibility: visible;
+    opacity: 1;
+    transform: translate3d(5rem, 0rem, 0) scaleY(1);
+  }
+}
+
+.base {
+  position: absolute;
+  background-color: var(--white);
+  border-radius: 3px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate3d(0, 0, 0) scaleY(0);
+  transform-origin: top;
+  z-index: var(--z-index-dropdown-menu);
+  overflow: hidden;
+  box-shadow: 1px 1px 3px var(--dropshadow-grey);
+  max-height: 33rem;
+  overflow-y: auto;
+  top: 1rem;
+}
+
+.left {
+  left: 0;
+}
+
+.right {
+  right: 0;
+}
+
+.open:not(.sideOpen) {
+  opacity: 1;
+  visibility: visible;
+  transform: translate3d(0, 1rem, 0) scaleY(1);
+  /* Taken from https://easings.net/ */
+  animation: slide-down .3s cubic-bezier(0.68, -0.6, 0.32, 1.6);
+}
+
+.close:not(.sideOpen) {
+  transform: translate3d(0, 1rem, 0) scaleY(1);
+  animation: slide-up .1s linear;
+}
+
+.sideOpen {
+  top: 0;
+  margin-left: 1rem;
+  width: min-content;
+}
+
+
+.open.sideOpen {
+  opacity: 1;
+  visibility: visible;
+  transform: translate3d(5rem, 0rem, 0) scaleY(1);
+  animation: slide-right .3s cubic-bezier(0.68, -0.6, 0.32, 1.6);
+}
+
+.close.sideOpen {
+  transform: translate3d(0, 0rem, 0) scaleY(0);
+  animation: slide-left .1s linear;
+
+}

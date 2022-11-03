@@ -1,0 +1,15 @@
+.base {
+  color: var(--background-grey);
+  padding: 0.25rem 0.5rem 0.25rem 1rem;
+  position: relative;
+  cursor: default;
+}
+
+.base.minimized {
+  padding-right: 0;
+  padding-left: 2rem;
+}
+
+.base:focus:not([class$='focus-visible']) {
+  outline: none;
+}

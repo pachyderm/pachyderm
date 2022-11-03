@@ -1,0 +1,216 @@
+@import url('https://fonts.googleapis.com/css?family=Montserrat:400,600,700,800&display=swap');
+@import url('https://fonts.googleapis.com/css?family=Roboto+Mono:400,500,600,800&display=swap');
+@import url('https://fonts.googleapis.com/css?family=Public+Sans:300,600&display=swap');
+@import url('https://fonts.cdnfonts.com/css/menlo');
+
+:root {
+  /* colors */
+  --pachyderm-black: #020408;
+  --background-black: #272728;
+  --selected-grey: #595959;
+  --placeholder-grey: #868686;
+  --icon-grey: #464952;
+  --dropshadow-grey: #C6C6C6;
+  --border-grey: #DBDBDB;
+  --line-grey: #E9E9E9;
+  --hover-grey: #F6F6F6;
+  --background-grey: #FAFAFA;
+  --white: #FFFFFF;
+
+  --pachyderm-green: #5BA3B1;
+  --banner-green: #19CAAA;
+  --success-green: #00DBB4;
+  --icon-green: #118873;
+  --background-green-light: #ECFBF7;
+  --background-blue: #ECF5F7;
+  --background-blue-light: #F7FBFB;
+
+  --pachyderm-red: #BF444F;
+  --error-red: #E02020;
+  --highlight-orange: #FA6400;
+  --highlight-yellow: #FFD256;
+  --pachyderm-yellow: #FF9600;
+  --pachyderm-coral: #DF686C;
+  --pachyderm-orange: #FF9674;
+  --highlight-orange: #FFB474;
+  --background-pink: #F2E9E9;
+
+  --pachyderm-plum: #582F6B;
+  --disabled-plum: #6D5577;
+  --hover-plum:  #781696;
+  --highlight-plum: #B620E0;
+  --disabled-button-plum: #886A95;
+
+  --chart-blue: #0187C2;
+  --chart-dark-green: #083D49;
+  --chart-light-green: #1FC7B7;
+  --chart-dark-blue: #0063A9;
+  --chart-light-blue: #49BDDD;
+  --chart-hover-dark-green: #085566;
+  --chart-hover-light-green: #27d8c7;
+  --chart-hover-dark-blue: #0d75be;
+  --chart-hover-light-blue: #59d1f2;
+
+  --purple-viz-text-1: #b600ff;
+  --purple-viz-text-2: #a100e0;
+  --purple-viz-text-3: #8c00c2;
+  --purple-viz-text-4: #7800a4;
+  --purple-viz-text-5: #640088;
+  --purple-viz-text-6: #50006d;
+
+  /* NEW COLORS */
+  --cyan: #19CAAA;
+  --cyan-2: #E5F7FF;
+  --cyan-6: #6FB3C3;
+  --cyan-7: #5BA3B1;
+  --cyan-10: #F0F6F8;
+  --cyan-30: #BDD4E0;
+
+  --dropshadow: rgba(28, 6, 48, 0.3);
+
+  --grey-1: #F9F9FA;
+  --grey-2: #FAFAFA;
+  --grey-3: #f1f1f1;
+  --grey-4: #A4A8AE;
+  --grey-7: #747475;
+  --grey-9: #414142;
+  --grey-10: #0E0E0F;
+  --grey-20: #DEDEDF;
+
+  --plum-1: #F8F3F9;
+  --plum-2: #e1cfe5;
+  --plum-5: #926AA1;
+  --plum-7: #582F6B;
+
+  --green: #118873;
+
+  --black: #000000;
+
+  --focus-state: #007BFF;
+  --default-purple: #62028F;
+  --hover-purple: #A114CC;
+  --disabled-purple: #A187AD;
+  --disabled-tertiary: #8C9198;
+  
+  /* sizes */
+  --border-radius-bottom-level: 5px;
+  --border-radius-top-level: 10px;
+  --border-radius-mid-level: 8px;
+  --height-marketing-header: 7.5rem;
+  --height-marketing-header-compact: 4.688rem;
+  --height-marketing-banner: 3rem;
+  --padding-gutter-x: 15px;
+  --padding-view-x: 1.5rem;
+  --padding-view-x-sm: 1rem;
+  --width-partial: 65rem;
+  --width-screen-laptop: 1440px;
+  --width-screen-laptop-sm: 1024px;
+  --width-sidenav: 12.5rem;
+  --width-sidenav-collapsed: 5.25rem;
+  --z-index-sticky-header: 50;
+  --z-index-sidenav: 100;
+  --z-index-sheet: 102;
+  --z-index-application-banner: 101;
+  --z-index-modal-overlay: 1040;
+  --z-index-modal: 1050;
+  --z-index-modal-left-panel: 1051;
+  --z-index-notification-banner: 1052;
+  --z-index-dropdown-menu: 1053;
+
+  /*  font variables are deprecated in 3.0.0 and only used in hub */
+  --font-size-page-heading: 1.375rem;
+  --font-size-header: 1rem;
+  --font-size-body-medium: 0.75rem;
+  --font-size-body-large: 0.875rem;
+  --font-size-body-small: 0.6875rem;
+  --font-size-caption-small: 0.5625rem;
+  --font-family: 'Montserrat', sans-serif;
+  --font-family-mono: 'Roboto Mono', monospace;
+
+  font-size: 16px;
+}
+
+@custom-media --extra-small-viewport (width < 375px);
+@custom-media --small-viewport (width < 768px);
+@custom-media --medium-viewport (width < 1024px);
+@custom-media --large-viewport (width >= 1024px);
+
+* {
+  font-family: 'Public Sans';
+  font-weight: 300;
+  font-size: 0.875rem;
+  line-height: 1.437rem;
+  letter-spacing: 0.2px;
+  margin: 0;
+}
+
+* b, strong {
+  font-weight: 600;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line-grey);
+  border-radius: 10px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  color: var(--pachyderm-black);
+}
+
+h1 {
+  font-family: 'Montserrat';
+  font-weight: 800;
+  font-size: 2.5rem;
+  line-height: 3.125rem;
+  letter-spacing: 0;
+}
+
+h2 {
+  font-family: 'Montserrat';
+  font-weight: 800;
+  font-size: 1.875rem;
+  line-height: 2.5rem;
+  letter-spacing: 0;
+}
+
+h3 {
+  font-family: 'Montserrat';
+  font-weight: 600;
+  font-size: 1.625rem;
+  line-height: 2.25rem;
+  letter-spacing: 0;
+}
+
+h4 {
+  font-family: 'Montserrat';
+  font-weight: 800;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  letter-spacing: 0;
+}
+
+h5 {
+  font-family: 'Montserrat';
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.625rem;
+  letter-spacing: 0;
+}
+
+h6 {
+  font-family: 'Montserrat';
+  font-weight: 700;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+  letter-spacing: 0;
+}
+
+pre {
+  font-family: 'Roboto Mono', monospace;
+}

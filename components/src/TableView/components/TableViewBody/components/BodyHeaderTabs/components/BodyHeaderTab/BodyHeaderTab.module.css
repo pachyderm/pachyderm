@@ -1,0 +1,18 @@
+.count {
+  background-color: var(--pachyderm-plum);
+  color: var(--white);
+  width: 1.25rem;
+  border-radius: 6px;
+  font-size: 0.5625rem;
+  line-height: 1rem;
+  font-weight: 800;
+  font-family: 'Montserrat';
+  margin-left: 0.3125rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.container {
+  display: flex;
+}

@@ -1,0 +1,58 @@
+.base,
+.inputBase {
+  user-select: none;
+  background-color: var(--grey-2);
+  border: 2px solid var(--grey-3);
+  border-radius: 3px;
+  padding: 0.5rem 0.625rem;
+  cursor: pointer;
+  position: relative;
+}
+
+.selected {
+  background-color: var(--grey-9);
+  border-color: var(--grey-9);
+  color: var(--white);
+}
+
+.base:not(:disabled):not(.selected):hover,
+.inputBase:not(.disabled):not(.selected):hover {
+  background-color: var(--grey-3);
+  color: var(--pachyderm-black);
+}
+.base:disabled,
+.disabled {
+  border-style: none;
+  cursor: not-allowed;
+  color: var(--pachyderm-black);
+  opacity: 0.3;
+  background-color: var(--grey-3);
+}
+
+.input {
+  opacity: 0;
+  cursor: pointer;
+  position: absolute;
+  user-select: none;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+}
+
+.input:disabled {
+  cursor: not-allowed;
+}
+
+.group {
+  --gap-vertical: 0.938rem;
+  --gap-horizontal: 1.25rem;
+  display: inline-flex;
+  flex-wrap: wrap;
+  margin: calc(-1 * var(--gap-vertical)) 0 0 calc(-1 * var(--gap-horizontal));
+  width: calc(100% + var(--gap-horizontal));
+}
+
+.group > * {
+  margin: var(--gap-vertical) 0 0 var(--gap-horizontal);
+}
