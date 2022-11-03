@@ -2357,6 +2357,6 @@ func TestCreateProject(t *testing.T) {
 	// revoke cluster level role binding that grants all users ProjectCreate role
 	// and see if create project fails
 	rootClient := tu.AuthenticateClient(t, client, auth.RootUser)
-	rootClient.ModifyClusterRoleBinding(auth.AllClusterUsersSubject, []string{})
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(auth.AllClusterUsersSubject, []string{}))
 	require.YesError(t, aliceClient.CreateProject(projectName))
 }
