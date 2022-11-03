@@ -94,6 +94,17 @@ func commitChain(t *testing.T, c *client.APIClient, ci *pfs.CommitInfo) []*pfs.C
 	return results
 }
 
+func assertMasterHeads(t *testing.T, c *client.APIClient, repoToCommitIDs map[string]string) {
+	for repo, id := range repoToCommitIDs {
+		info, err := c.InspectProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+		require.NoError(t, err)
+		if id != info.Commit.ID {
+			fmt.Printf("for repo %q, expected: %q; actual: %q\n", repo, id, info.Commit.ID)
+		}
+		require.Equal(t, id, info.Commit.ID)
+	}
+}
+
 type fileSetSpec map[string]tarutil.File
 
 func (fs fileSetSpec) makeTarStream() io.Reader {
@@ -562,7 +573,9 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, commit1, cis[0].Commit)
 	})
 
+	// TODO(acohen4): should we allow moving a branch with provenance? Probably not since this would break Branch/Head invariant
 	suite.Run("RewindBranch", func(t *testing.T) {
+		t.Skip()
 		t.Parallel()
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
@@ -587,12 +600,12 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.PutFile(commit3, "file", strings.NewReader("3")))
 		require.NoError(t, finishCommit(env.PachClient, commit3.Branch.Repo.Name, commit1.Branch.Name, commit3.ID))
 
-		checkRepoCommits := func(commits []*pfs.Commit) {
+		checkRepoCommits := func(repos []string, commits []*pfs.Commit) {
 			ids := []string{}
 			for _, c := range commits {
 				ids = append(ids, c.ID)
 			}
-			for _, repo := range []string{"a", "b", "c"} {
+			for _, repo := range repos {
 				listCommitClient, err := env.PachClient.PfsAPIClient.ListCommit(env.PachClient.Ctx(), &pfs.ListCommitRequest{
 					Repo: client.NewProjectRepo(pfs.DefaultProjectName, repo),
 					All:  true,
@@ -609,7 +622,7 @@ func TestPFS(suite *testing.T) {
 			}
 		}
 
-		checkRepoCommits([]*pfs.Commit{commit3, commit2, commit1})
+		checkRepoCommits([]string{"a", "b", "c"}, []*pfs.Commit{commit3, commit2, commit1})
 
 		// Rewinding branch b.master to commit2 can reuse the old commit
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "b", "master", "master", commit2.ID, provB))
@@ -617,7 +630,11 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, ci.Commit.ID, commit2.ID)
 
-		checkRepoCommits([]*pfs.Commit{commit3, commit2, commit1})
+		checkRepoCommits([]string{"a", "b"}, []*pfs.Commit{commit3, commit2, commit1})
+
+		ci, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "c", "master", "")
+		require.NoError(t, err)
+		checkRepoCommits([]string{"c"}, []*pfs.Commit{ci.Commit, commit3, commit2, commit1})
 
 		// The commit4 data in "a" should be the same as what we wrote into commit2 (as that's the source data in "b")
 		aHead := client.NewProjectCommit(pfs.DefaultProjectName, "a", "master", "")
@@ -635,7 +652,7 @@ func TestPFS(suite *testing.T) {
 		commit4 := ci.Commit
 		require.NotEqual(t, commit4.ID, commit1.ID)
 
-		checkRepoCommits([]*pfs.Commit{commit4, commit3, commit2, commit1})
+		checkRepoCommits([]string{"a", "b", "c"}, []*pfs.Commit{commit4, commit3, commit2, commit1})
 
 		// The commit4 data in "a" should be from commit1
 		b.Reset()
@@ -647,17 +664,13 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 		c := env.PachClient
-
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "B"))
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "C"))
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "Z"))
-		repos := []string{"A", "B", "C", "Z"}
-
 		// A ─▶ B ─▶ Z
 		//           ▲
 		//      C ───╯
-
 		txnInfo, err := c.ExecuteInTransaction(func(tx *client.APIClient) error {
 			if err := tx.CreateProjectBranch(pfs.DefaultProjectName, "A", "master", "", "", nil); err != nil {
 				return err
@@ -676,52 +689,49 @@ func TestPFS(suite *testing.T) {
 		})
 		require.NoError(t, err)
 		firstID := txnInfo.Transaction.ID
-
+		expectedMasterCommits := map[string]string{
+			"A": firstID,
+			"B": firstID,
+			"C": firstID,
+			"Z": firstID,
+		}
+		assertMasterHeads(t, c, expectedMasterCommits)
 		// make two commits by putting files in A
 		require.NoError(t, c.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, "A", "master", ""), "one", strings.NewReader("foo")))
 		info, err := c.InspectProjectCommit(pfs.DefaultProjectName, "A", "master", "")
-		secondID := info.Commit.ID
 		require.NoError(t, err)
+		secondID := info.Commit.ID
 		require.NoError(t, c.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, "A", "master", ""), "two", strings.NewReader("bar")))
-
 		// rewind once, everything should be back to firstCommit
 		require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, "A", "master", "master", secondID, nil))
-		for _, r := range repos {
-			info, err := c.InspectProjectCommit(pfs.DefaultProjectName, r, "master", "")
-			require.NoError(t, err)
-			require.Equal(t, secondID, info.Commit.ID)
-		}
-
-		// add a file to C, then rewind A back to the start
-		// because C now has a different state, this must create a new commit ID
-		require.NoError(t, c.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, "C", "master", ""), "file", strings.NewReader("baz")))
-		info, err = c.InspectProjectCommit(pfs.DefaultProjectName, "A", "master", "")
-		require.NoError(t, err)
-		thirdID := info.Commit.ID
-		require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, "A", "master", "master", firstID, nil))
-
 		info, err = c.InspectProjectCommit(pfs.DefaultProjectName, "B", "master", "")
 		require.NoError(t, err)
-		newID := info.Commit.ID
-		require.NotEqual(t, firstID, newID)
-		require.NotEqual(t, secondID, newID)
-
-		// TODO: add logic to make the parent of B's head B@firstID, rather than the most recent commit
-		// require.Equal(t, firstID, info.ParentCommit.ID)
-		require.Equal(t, thirdID, info.ParentCommit.ID)
-
-		for _, r := range repos {
-			info, err := c.InspectProjectCommit(pfs.DefaultProjectName, r, "master", "")
-			require.NoError(t, err)
-			require.Equal(t, newID, info.Commit.ID)
-		}
+		fourthID := info.Commit.ID
+		expectedMasterCommits["A"] = secondID
+		expectedMasterCommits["B"] = fourthID
+		expectedMasterCommits["Z"] = fourthID
+		assertMasterHeads(t, c, expectedMasterCommits)
+		// add a file to C
+		require.NoError(t, c.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, "C", "master", ""), "file", strings.NewReader("baz")))
+		info, err = c.InspectProjectCommit(pfs.DefaultProjectName, "C", "master", "")
+		require.NoError(t, err)
+		expectedMasterCommits["C"] = info.Commit.ID
+		expectedMasterCommits["Z"] = info.Commit.ID
+		assertMasterHeads(t, c, expectedMasterCommits)
+		// rewind A back to the start
+		require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, "A", "master", "master", firstID, nil))
+		info, err = c.InspectProjectCommit(pfs.DefaultProjectName, "B", "master", "")
+		require.NoError(t, err)
+		expectedMasterCommits["A"] = firstID
+		expectedMasterCommits["B"] = info.Commit.ID
+		expectedMasterCommits["Z"] = info.Commit.ID
+		assertMasterHeads(t, c, expectedMasterCommits)
 	})
 
 	suite.Run("RewindProvenanceChange", func(t *testing.T) {
 		t.Parallel()
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 		c := env.PachClient
-
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "B"))
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "C"))
@@ -729,35 +739,50 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, "B", "master", "", "", nil))
 		require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, "C", "master", "", "", []*pfs.Branch{
 			client.NewProjectBranch(pfs.DefaultProjectName, "A", "master")}))
-
-		require.NoError(t, c.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, "A", "master", ""), "foo", strings.NewReader("bar")))
-		oldHead, err := c.InspectProjectBranch(pfs.DefaultProjectName, "A", "master")
+		oldHead, err := c.InspectProjectCommit(pfs.DefaultProjectName, "A", "master", "")
 		require.NoError(t, err)
-
+		cHead, err := c.InspectProjectCommit(pfs.DefaultProjectName, "C", "master", "")
+		require.NoError(t, err)
+		require.NoError(t, c.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, "A", "master", ""), "foo", strings.NewReader("bar")))
+		oldHead, err = c.InspectProjectCommit(pfs.DefaultProjectName, "A", "master", "")
+		require.NoError(t, err)
+		cHead, err = c.InspectProjectCommit(pfs.DefaultProjectName, "C", "master", "")
+		require.NoError(t, err)
+		expectedMasterCommits := map[string]string{
+			"A": oldHead.Commit.ID,
+			"C": oldHead.Commit.ID,
+		}
+		assertMasterHeads(t, c, expectedMasterCommits)
 		// add B to C's provenance
 		require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, "C", "master", "", "", []*pfs.Branch{
 			client.NewProjectBranch(pfs.DefaultProjectName, "A", "master"),
 			client.NewProjectBranch(pfs.DefaultProjectName, "B", "master"),
 		}))
-
+		cHead, err = c.InspectProjectCommit(pfs.DefaultProjectName, "C", "master", "")
+		require.NoError(t, err)
+		expectedMasterCommits["C"] = cHead.Commit.ID
+		assertMasterHeads(t, c, expectedMasterCommits)
 		// add a file to B and record C's new head
 		require.NoError(t, c.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, "B", "master", ""), "foo", strings.NewReader("bar")))
-		cHead, err := c.InspectProjectBranch(pfs.DefaultProjectName, "C", "master")
+		cHead, err = c.InspectProjectCommit(pfs.DefaultProjectName, "C", "master", "")
 		require.NoError(t, err)
-
+		expectedMasterCommits["B"] = cHead.Commit.ID
+		expectedMasterCommits["C"] = cHead.Commit.ID
+		assertMasterHeads(t, c, expectedMasterCommits)
 		// rewind A to before the provenance change
-		require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, "A", "master", "master", oldHead.Head.ID, nil))
-
+		require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, "A", "master", "master", oldHead.ParentCommit.ID, nil))
 		// this must create a new commit set, since the old one isn't consistent with current provenance
-		newHead, err := c.InspectProjectBranch(pfs.DefaultProjectName, "A", "master")
+		aHead, err := c.InspectProjectBranch(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
-		require.NotEqual(t, newHead.Head.ID, oldHead.Head.ID)
-
+		require.Equal(t, aHead.Head.ID, oldHead.ParentCommit.ID)
+		cHeadOld := cHead
+		cHead, err = c.InspectProjectCommit(pfs.DefaultProjectName, "C", "master", "")
+		require.NoError(t, err)
 		// there's no clear relationship between C's new state and any old one, so the new commit's parent should be the previous head
-		cInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, "C", "master", "")
 		require.NoError(t, err)
-		require.NotNil(t, cInfo.ParentCommit)
-		require.Equal(t, cHead.Head.ID, cInfo.ParentCommit.ID)
+		require.NotNil(t, cHead.ParentCommit)
+		require.NotEqual(t, cHeadOld.Commit.ID, cHead.Commit.ID)
+		require.Equal(t, cHeadOld.Commit.ID, cHead.ParentCommit.ID)
 	})
 
 	suite.Run("CreateAndInspectRepo", func(t *testing.T) {
