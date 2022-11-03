@@ -418,6 +418,14 @@ message ListFileRequest {
 
 message WalkFileRequest {
     File file = 1;
+    // Marker for pagination. If set, the files that come after the marker in
+    // lexicographical order will be returned. If reverse is also set, the files
+    // that come before the marker in lexicographical order will be returned.
+    File paginationMarker = 2;
+    // Number of files to return
+    int64 number = 3;
+    // If true, return files in reverse order
+    bool reverse = 4;
 }
 
 message GlobFileRequest {

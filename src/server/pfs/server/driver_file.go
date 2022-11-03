@@ -338,7 +338,7 @@ func (d *driver) listFileReverse(ctx context.Context, filename string, s Source,
 	return nil
 }
 
-func (d *driver) walkFile(ctx context.Context, file *pfs.File, cb func(*pfs.FileInfo) error) (retErr error) {
+func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker *pfs.File, number int64, reverse bool, cb func(*pfs.FileInfo) error) (retErr error) {
 	commitInfo, fs, err := d.openCommit(ctx, file.Commit)
 	if err != nil {
 		return err
@@ -346,6 +346,9 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, cb func(*pfs.File
 	p := pfsfile.CleanPath(file.Path)
 	if p == "/" {
 		p = ""
+	}
+	if number == 0 {
+		number = math.MaxInt64
 	}
 	opts := []SourceOption{
 		WithPrefix(p),
@@ -356,12 +359,25 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, cb func(*pfs.File
 			})
 		}),
 	}
+	if paginationMarker != nil {
+		pathRange := &pfs.PathRange{}
+		if reverse {
+			pathRange.Upper = paginationMarker.Path
+		} else {
+			pathRange.Lower = paginationMarker.Path
+		}
+		opts = append(opts, WithPathRange(pathRange))
+	}
 	s := NewSource(commitInfo, fs, opts...)
 	s = NewErrOnEmpty(s, newFileNotFound(commitInfo.Commit.ID, p))
 	err = s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
+		if number == 0 {
+			return errutil.ErrBreak
+		}
+		number--
 		return cb(fi)
 	})
-	if p == "" && pacherr.IsNotExist(err) {
+	if (p == "" && pacherr.IsNotExist(err)) || err == errutil.ErrBreak {
 		err = nil
 	}
 	return err
