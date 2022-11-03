@@ -1,4 +1,6 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 module.exports = {
+  root: true,
   extends: [
     'react-app',
     'eslint:recommended',
@@ -11,7 +13,7 @@ module.exports = {
     'plugin:import/typescript',
     'plugin:jest/recommended',
   ],
-  plugins: ['lodash', 'prefer-arrow', 'testing-library', 'jest'],
+  plugins: ['lodash', 'prefer-arrow', 'testing-library', 'jest', 'import'],
   env: {
     browser: true,
     jasmine: true,
@@ -38,7 +40,6 @@ module.exports = {
           'index',
         ],
         pathGroupsExcludedImportTypes: [],
-        // eslint-disable-next-line @typescript-eslint/naming-convention
         'newlines-between': 'always',
         alphabetize: {
           order: 'asc',
@@ -76,7 +77,6 @@ module.exports = {
         testIdPattern: '^{fileName}__[a-z]+\\w+$',
       },
     ],
-    // eslint-disable-next-line @typescript-eslint/naming-convention
     'no-useless-return': 'off',
   },
   settings: {
@@ -89,9 +89,7 @@ module.exports = {
       '@typescript-eslint/parser': ['.ts', '.tsx'],
     },
     'import/resolver': {
-      typescript: {
-        alwaysTryTypes: true,
-      },
+      typescript: {},
     },
   },
   parser: '@typescript-eslint/parser',

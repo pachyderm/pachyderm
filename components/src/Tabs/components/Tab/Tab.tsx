@@ -1,6 +1,6 @@
 import React, {AnchorHTMLAttributes, useRef} from 'react';
 
-import useTab from 'Tabs/hooks/useTab';
+import useTab from '@pachyderm/components/Tabs/hooks/useTab';
 
 import styles from './Tab.module.css';
 

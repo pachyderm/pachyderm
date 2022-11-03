@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 
-const {pathsToModuleNameMapper} = require('ts-jest');
+const {pathsToModuleNameMapper} = require('ts-jest/utils');
 
 const baseConfig = require('../jest.config.js');
 
@@ -18,6 +18,8 @@ baseConfig.moduleNameMapper = {
   '\\.(gif|jpg|png)$': '<rootDir>/jest.file.mock.js',
   '\\.svg': '<rootDir>/jest.svg.mock.js',
   ...moduleNameMapper,
+  // react: '<rootDir>/node_modules/react/react.development.js',
+  // 'react-dom': '<rootDir>/node_modules/react-dom',
   d3: '<rootDir>/node_modules/d3/dist/d3.min.js',
   '^d3-(.*)$': `d3-$1/dist/d3-$1`,
 };

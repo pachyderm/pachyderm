@@ -7,8 +7,8 @@ import {
   FieldValues,
 } from 'react-hook-form';
 
-import useRHFInputProps from 'hooks/useRHFInputProps';
-import {Icon} from 'Icon';
+import {Icon} from '@pachyderm/components';
+import useRHFInputProps from '@pachyderm/components/hooks/useRHFInputProps';
 
 import {RadioSVG, RadioCheckedSVG} from '../Svg';
 

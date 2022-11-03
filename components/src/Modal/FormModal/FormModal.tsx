@@ -2,7 +2,7 @@ import noop from 'lodash/noop';
 import React from 'react';
 import {UseFormReturn, SubmitHandler, FieldValues} from 'react-hook-form';
 
-import {LoadingDots} from 'LoadingDots';
+import {LoadingDots} from '@pachyderm/components';
 
 import Modal from '../components/Modal';
 import ModalBody from '../components/ModalBody';

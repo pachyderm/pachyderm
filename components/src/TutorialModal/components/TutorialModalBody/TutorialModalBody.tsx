@@ -2,18 +2,20 @@ import classNames from 'classnames';
 import noop from 'lodash/noop';
 import React, {useContext} from 'react';
 
-import {Button} from 'Button';
-import {Group} from 'Group';
-import {Icon} from 'Icon';
-import {StoryProgressDots} from 'StoryProgressDots';
+import {
+  TaskCard,
+  StoryProgressDots,
+  Button,
+  Group,
+  Icon,
+} from '@pachyderm/components';
 import {
   ArrowRightSVG,
   ChevronUpSVG,
   ChevronDownSVG,
   MinimizeSVG,
   StatusPausedSVG,
-} from 'Svg';
-import {TaskCard} from 'TutorialModal';
+} from '@pachyderm/components/Svg';
 
 import SideBar from '../../components/SideBar';
 import {Story} from '../../lib/types';

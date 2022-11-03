@@ -2,7 +2,7 @@ import classNames from 'classnames';
 import React, {forwardRef, InputHTMLAttributes, useMemo} from 'react';
 import {RegisterOptions} from 'react-hook-form';
 
-import useRHFInputProps from 'hooks/useRHFInputProps';
+import useRHFInputProps from '@pachyderm/components/hooks/useRHFInputProps';
 
 import useClearableInput from '../hooks/useClearableInput';
 import useFormField from '../hooks/useFormField';

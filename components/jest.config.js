@@ -1,4 +1,17 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/naming-convention */
+
+const {pathsToModuleNameMapper} = require('ts-jest/utils');
+
+const tsConfig = require('./tsconfig.json');
+
+const moduleNameMapper = pathsToModuleNameMapper(
+  tsConfig.compilerOptions.paths,
+  {
+    prefix: '<rootDir>/src',
+  },
+);
+
 module.exports = {
   cacheDirectory: '.jestcache',
   clearMocks: true,
@@ -17,6 +30,7 @@ module.exports = {
     '\\.(css)$': 'identity-obj-proxy',
     '\\.(gif|jpg|png)$': '<rootDir>/jest.file.mock.js',
     '\\.svg': '<rootDir>/jest.svg.mock.js',
+    ...moduleNameMapper,
   },
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
   testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$',
@@ -25,5 +39,4 @@ module.exports = {
   transform: {
     '^.+\\.tsx?$': 'ts-jest',
   },
-  transformIgnorePatterns: ['node_modules/(?!(@pachyderm/components)/)'],
 };

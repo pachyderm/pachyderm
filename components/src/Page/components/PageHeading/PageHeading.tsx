@@ -1,8 +1,6 @@
 import React from 'react';
 
-import {Group} from 'Group';
-import {Icon} from 'Icon';
-import {BoxSVG} from 'Svg';
+import {Group, Icon, BoxSVG} from '@pachyderm/components';
 
 const PageHeading: React.FC = ({children}) => (
   <Group spacing={8} align="center">

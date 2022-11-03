@@ -33,6 +33,11 @@ export default defineConfig(() => ({
     // Leave minification up to applications.
     minify: false,
   },
+  resolve: {
+    alias: {
+      '@pachyderm/components': path.resolve(__dirname, './src'),
+    },
+  },
   css: {
     postcss: {
       plugins: [customMedia(), normalize(), flexbugFixes(), presetEnv()],

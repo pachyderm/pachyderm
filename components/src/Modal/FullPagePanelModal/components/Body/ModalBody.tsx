@@ -1,7 +1,7 @@
 import classnames from 'classnames';
 import React from 'react';
 
-import usePanelModal from 'Modal/FullPagePanelModal/hooks/usePanelModal';
+import usePanelModal from '../../hooks/usePanelModal';
 
 import styles from './ModalBody.module.css';
 

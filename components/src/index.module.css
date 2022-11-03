@@ -2,6 +2,7 @@
 @import url('https://fonts.googleapis.com/css?family=Roboto+Mono:400,500,600,800&display=swap');
 @import url('https://fonts.googleapis.com/css?family=Public+Sans:300,600&display=swap');
 @import url('https://fonts.cdnfonts.com/css/menlo');
+@import url('bootstrap/dist/css/bootstrap.min.css');
 
 :root {
   /* colors */
@@ -24,6 +25,7 @@
   --background-green-light: #ECFBF7;
   --background-blue: #ECF5F7;
   --background-blue-light: #F7FBFB;
+  --background-blue-table: #F0F6F8;
 
   --pachyderm-red: #BF444F;
   --error-red: #E02020;

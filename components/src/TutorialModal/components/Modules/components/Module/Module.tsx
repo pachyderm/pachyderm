@@ -1,6 +1,6 @@
 import React from 'react';
 
-import {DocumentSVG} from 'Svg';
+import {DocumentSVG} from '@pachyderm/components';
 
 import styles from './Module.module.css';
 

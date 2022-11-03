@@ -1,6 +1,6 @@
 import React from 'react';
 
-import {useProgressBar} from 'ProgressBar';
+import {useProgressBar} from '@pachyderm/components/ProgressBar';
 
 import {Group} from '../../Group';
 

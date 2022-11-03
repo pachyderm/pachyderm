@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
     "baseUrl": "./src",
+    "paths": {
+      "@pachyderm/components": ["./"],
+      "@pachyderm/components/*": ["./*"]
+    },
     "target": "ESNext",
     "declaration": true,
     "noEmit": false,
@@ -20,11 +24,11 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "react",
+    "jsx": "react"
   },
   "include": [
     "./src/global.d.ts",
     "./src"
   ],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules"]
 }

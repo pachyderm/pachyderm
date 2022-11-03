@@ -2,7 +2,7 @@ import noop from 'lodash/noop';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {useHistory, useRouteMatch} from 'react-router-dom';
 
-import generatePathWithSearch from 'lib/generatePathWithSearch';
+import generatePathWithSearch from '@pachyderm/components/lib/generatePathWithSearch';
 
 import Tab from './components/Tab';
 import TabPanel from './components/TabPanel';

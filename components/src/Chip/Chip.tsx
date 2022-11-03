@@ -7,7 +7,7 @@ import React, {
 } from 'react';
 import {useFormContext} from 'react-hook-form';
 
-import useRHFInputProps from 'hooks/useRHFInputProps';
+import useRHFInputProps from '@pachyderm/components/hooks/useRHFInputProps';
 
 import styles from './Chip.module.css';
 export interface ChipInputProps extends InputHTMLAttributes<HTMLInputElement> {

@@ -95,7 +95,7 @@ module.exports = {
       pragma: 'React',
       version: 'detect',
     },
-    'import/extensions': ['.js', '.jsx', '.ts', '.tsx'],
+    'import/extensions': ['.js', '.jsx', '.ts', '.tsx', '.css'],
     'import/parsers': {
       '@typescript-eslint/parser': ['.ts', '.tsx'],
     },

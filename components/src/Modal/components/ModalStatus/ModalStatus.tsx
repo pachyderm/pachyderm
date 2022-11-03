@@ -1,7 +1,7 @@
 import classnames from 'classnames';
 import React from 'react';
 
-import {Icon} from 'Icon';
+import {Icon} from '@pachyderm/components';
 
 import {
   StatusWarningSVG,

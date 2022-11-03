@@ -1,7 +1,6 @@
 import React from 'react';
 
-import {SkeletonBodyText} from 'SkeletonBodyText';
-import {Tabs} from 'Tabs';
+import {Tabs, SkeletonBodyText} from '@pachyderm/components';
 
 import BodyContent from './components/BodyContent';
 import BodyHeader from './components/BodyHeader';

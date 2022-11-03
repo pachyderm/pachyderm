@@ -1,6 +1,6 @@
 import React, {SelectHTMLAttributes} from 'react';
 
-import useTabPanel from 'Tabs/hooks/useTabPanel';
+import useTabPanel from '@pachyderm/components/Tabs/hooks/useTabPanel';
 
 import styles from './TabPanel.module.css';
 

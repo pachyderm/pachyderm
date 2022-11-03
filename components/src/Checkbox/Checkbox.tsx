@@ -1,5 +1,5 @@
 import classNames from 'classnames';
-import React, {InputHTMLAttributes} from 'react';
+import React, {InputHTMLAttributes, forwardRef} from 'react';
 import {
   useFormContext,
   RegisterOptions,
@@ -7,7 +7,7 @@ import {
   FieldValues,
 } from 'react-hook-form';
 
-import useRHFInputProps from 'hooks/useRHFInputProps';
+import useRHFInputProps from '@pachyderm/components/hooks/useRHFInputProps';
 
 import {Icon} from '../Icon';
 import {CheckboxCheckedSVG, CheckboxSVG} from '../Svg';
@@ -56,49 +56,48 @@ export const Checkbox: React.FC<CheckboxProps> = ({
   );
 };
 
-export const PureCheckbox = React.forwardRef<
-  HTMLInputElement,
-  PureCheckboxProps
->(function PureCheckboxForwardRef(
-  {
-    className,
-    selected,
-    label,
-    onChange,
-    onBlur,
-    small = false,
-    disabled = false,
-    ...rest
+export const PureCheckbox = forwardRef<HTMLInputElement, PureCheckboxProps>(
+  function PureCheckboxForwardRef(
+    {
+      className,
+      selected,
+      label,
+      onChange,
+      onBlur,
+      small = false,
+      disabled = false,
+      ...rest
+    },
+    ref,
+  ) {
+    const classes = classNames(styles.base, className, {
+      [styles.small]: small,
+      [styles.disabled]: disabled,
+    });
+
+    return (
+      <label className={classes} data-disabled={disabled}>
+        <div className={styles.checkboxContainer}>
+          <input
+            type="checkbox"
+            className={styles.input}
+            disabled={disabled}
+            onChange={onChange}
+            onBlur={onBlur}
+            ref={ref}
+            {...rest}
+          />
+          <Icon small={small}>
+            {selected ? (
+              <CheckboxCheckedSVG aria-hidden focusable={false} />
+            ) : (
+              <CheckboxSVG aria-hidden focusable={false} />
+            )}
+          </Icon>
+        </div>
+
+        <span className={styles.label}>{label}</span>
+      </label>
+    );
   },
-  ref,
-) {
-  const classes = classNames(styles.base, className, {
-    [styles.small]: small,
-    [styles.disabled]: disabled,
-  });
-
-  return (
-    <label className={classes} data-disabled={disabled}>
-      <div className={styles.checkboxContainer}>
-        <input
-          type="checkbox"
-          className={styles.input}
-          disabled={disabled}
-          onChange={onChange}
-          onBlur={onBlur}
-          ref={ref}
-          {...rest}
-        />
-        <Icon small={small}>
-          {selected ? (
-            <CheckboxCheckedSVG aria-hidden focusable={false} />
-          ) : (
-            <CheckboxSVG aria-hidden focusable={false} />
-          )}
-        </Icon>
-      </div>
-
-      <span className={styles.label}>{label}</span>
-    </label>
-  );
-});
+);

@@ -37,19 +37,19 @@ setup-ci-auth:
 	npm run setup
 
 install:
-	npm install && npm install --prefix ./backend && npm install --prefix ./frontend
+	npm install && npm install --prefix ./backend && npm install --prefix ./frontend && npm install --prefix ./components
 
 ci:
-	npm ci && npm ci --prefix ./backend && npm ci --prefix ./frontend
+	npm ci && npm ci --prefix ./backend && npm ci --prefix ./frontend && npm ci --prefix ./components
 
 prune-deps:
-	rm -rf ./frontend/node_modules && npm ci --prefix ./backend --only=production
+	rm -rf ./frontend/node_modules && rm -rf ./components/node_modules && npm ci --prefix ./backend --only=production
 
 docker-ci:
 	npm ci --prefix ./backend && npm ci --prefix ./frontend
 
 clean-deps:
-	rm -rf ./node_modules && rm -rf ./frontend/node_modules && rm -rf ./backend/node_modules
+	rm -rf ./node_modules && rm -rf ./frontend/node_modules && rm -rf ./backend/node_modules && rm -rf ./components/node_modules
 
 build:
 	npm run build --prefix ./frontend && npm run build --prefix ./backend
@@ -58,7 +58,7 @@ graphql:
 	npm run generate-types && npm run lint --prefix ./backend -- --fix && npm run lint:js --prefix ./frontend -- --fix
 
 test:
-	npm test --prefix ./backend && npm test --prefix ./frontend
+	npm test --prefix ./backend && npm test --prefix ./frontend && npm test --prefix ./components
 
 circle-docker-build:
 	mkdir -p /tmp/docker-cache

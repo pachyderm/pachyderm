@@ -2,9 +2,9 @@ import classnames from 'classnames';
 import noop from 'lodash/noop';
 import React, {ButtonHTMLAttributes, useRef} from 'react';
 
-import useDropdownMenuItem from 'Dropdown/hooks/useDropdownMenuItem';
-import {Group} from 'Group';
-import {Icon} from 'Icon';
+import {Group, Icon} from '@pachyderm/components';
+
+import useDropdownMenuItem from '../../hooks/useDropdownMenuItem';
 
 import styles from './DropdownMenuItem.module.css';
 

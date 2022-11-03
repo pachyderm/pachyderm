@@ -1,8 +1,7 @@
 import noop from 'lodash/noop';
 import React from 'react';
 
-import {ErrorRetry} from 'ErrorRetry';
-import {Page} from 'Page';
+import {Page, ErrorRetry} from '@pachyderm/components';
 
 import {TableViewBody} from './components/TableViewBody';
 import {TableViewHeader} from './components/TableViewHeader';

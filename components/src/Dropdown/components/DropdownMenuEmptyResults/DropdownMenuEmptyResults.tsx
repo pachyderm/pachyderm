@@ -2,8 +2,7 @@ import classnames from 'classnames';
 import React, {HTMLAttributes, useMemo} from 'react';
 import {useFormContext} from 'react-hook-form';
 
-import useFilteredResults from 'Dropdown/hooks/useFilteredResults';
-
+import useFilteredResults from '../../hooks/useFilteredResults';
 import parentStyles from '../DropdownMenuItem/DropdownMenuItem.module.css';
 
 import styles from './DropdownMenuEmptyResults.module.css';

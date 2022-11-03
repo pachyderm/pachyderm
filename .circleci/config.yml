@@ -13,6 +13,23 @@ orbs:
     browser-tools: circleci/browser-tools@1.2.3
 
 jobs:
+    components-test:
+        resource_class: large
+        docker:
+            - image: cimg/node:16.11.0
+        steps:
+            - checkout
+            - run: cd components && npm ci
+            - run: cd components && npm run lint
+            - run: cd components && npm run test
+            - run: cd components && npm run build
+            - run: cd components && npm run build:storybook
+    components-storybook-release:
+        docker:
+            - image: cimg/node:16.11.0
+        steps:
+            - checkout
+            - run: .circleci/scripts/upload-storybook.sh
     backend-test:
         resource_class: xlarge
         docker:
@@ -202,10 +219,17 @@ workflows:
         jobs:
             - backend-test
             - frontend-test
+            - components-test
             - e2e-test
             - e2e-mock-test
             - check-types
             - build
+    storybook-release:
+        jobs:
+            - components-storybook-release:
+                  filters:
+                      branches:
+                          only: master
     load-test:
         when:
             equal: [scheduled_pipeline, << pipeline.trigger_source >>]

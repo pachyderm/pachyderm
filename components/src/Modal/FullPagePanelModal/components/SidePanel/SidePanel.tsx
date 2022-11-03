@@ -1,10 +1,14 @@
 import classNames from 'classnames';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 
-import {Button} from 'Button';
-import useOutsideClick from 'hooks/useOutsideClick';
-import usePanelModal from 'Modal/FullPagePanelModal/hooks/usePanelModal';
-import {CloseSVG, PanelLeftSVG, PanelRightSVG} from 'Svg';
+import {
+  Button,
+  CloseSVG,
+  PanelLeftSVG,
+  PanelRightSVG,
+} from '@pachyderm/components';
+import useOutsideClick from '@pachyderm/components/hooks/useOutsideClick';
+import usePanelModal from '@pachyderm/components/Modal/FullPagePanelModal/hooks/usePanelModal';
 
 import styles from './SidePanel.module.css';
 

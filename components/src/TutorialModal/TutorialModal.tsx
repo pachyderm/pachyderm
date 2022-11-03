@@ -1,6 +1,6 @@
 import React from 'react';
 
-import ProgressBar from 'ProgressBar';
+import ProgressBar from '@pachyderm/components/ProgressBar';
 
 import TutorialModalBody from './components/TutorialModalBody';
 import {TutorialModalBodyProps} from './components/TutorialModalBody/TutorialModalBody';

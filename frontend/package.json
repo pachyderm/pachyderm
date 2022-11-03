@@ -17,7 +17,6 @@
   },
   "dependencies": {
     "@apollo/client": "3.5.10",
-    "@pachyderm/components": "3.4.4",
     "@sentry/browser": "7.13.0",
     "@sentry/react": "6.18.2",
     "@sentry/tracing": "7.13.0",

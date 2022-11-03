@@ -4,7 +4,7 @@ import BootstrapModal, {
   ModalProps as BootstrapModalProps,
 } from 'react-bootstrap/Modal';
 
-import usePopUp from 'hooks/usePopUp';
+import usePopUp from '@pachyderm/components/hooks/usePopUp';
 
 import ModalContext from './contexts/ModalContext';
 import styles from './FullPagePanelModal.module.css';

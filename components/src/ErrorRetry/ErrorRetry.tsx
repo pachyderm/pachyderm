@@ -1,8 +1,7 @@
 import noop from 'lodash/noop';
 import React from 'react';
 
-import {ButtonLink} from 'ButtonLink';
-import {GenericError} from 'GenericError';
+import {ButtonLink, GenericError} from '@pachyderm/components';
 
 import styles from './ErrorRetry.module.css';
 

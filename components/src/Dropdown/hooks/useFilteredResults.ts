@@ -1,6 +1,6 @@
 import {useContext} from 'react';
 
-import FilteredResultsContext from 'Dropdown/contexts/FilteredResultsContext';
+import FilteredResultsContext from '../contexts/FilteredResultsContext';
 
 const useFilteredResults = () => {
   return useContext(FilteredResultsContext);

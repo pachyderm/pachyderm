@@ -1,6 +1,6 @@
 import React from 'react';
 
-import {TerminalSVG} from 'Svg';
+import {TerminalSVG} from '@pachyderm/components';
 
 import {CodeText} from './../../../Text';
 import styles from './Terminal.module.css';

@@ -1,8 +1,7 @@
 import classNames from 'classnames';
 import React from 'react';
 
-import {Group} from 'Group';
-import {CaptionTextSmall} from 'Text';
+import {Group, CaptionTextSmall} from '@pachyderm/components';
 
 import styles from './Info.module.css';
 

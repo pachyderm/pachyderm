@@ -2,8 +2,7 @@ import classNames from 'classnames';
 import noop from 'lodash/noop';
 import React, {Dispatch, SetStateAction} from 'react';
 
-import {Group} from 'Group';
-import {Search} from 'Search';
+import {Search, Group} from '@pachyderm/components';
 
 import styles from './BodyHeaderTabs.module.css';
 

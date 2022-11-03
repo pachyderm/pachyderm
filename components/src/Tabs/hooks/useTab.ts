@@ -1,6 +1,6 @@
 import {useCallback, RefObject} from 'react';
 
-import {Keys} from 'lib/types';
+import {Keys} from '@pachyderm/components/lib/types';
 
 import useTabPanel from './useTabPanel';
 

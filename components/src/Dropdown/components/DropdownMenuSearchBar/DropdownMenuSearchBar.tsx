@@ -3,10 +3,10 @@ import noop from 'lodash/noop';
 import React, {InputHTMLAttributes, useCallback, useRef} from 'react';
 import {useFormContext} from 'react-hook-form';
 
-import useItemKeyController from 'Dropdown/hooks/useItemKeyController';
-import useRHFInputProps from 'hooks/useRHFInputProps';
+import useRHFInputProps from '@pachyderm/components/hooks/useRHFInputProps';
 
 import {CloseSVG, SearchSVG} from '../../../Svg';
+import useItemKeyController from '../../hooks/useItemKeyController';
 
 import styles from './DropdownMenuSearchBar.module.css';
 

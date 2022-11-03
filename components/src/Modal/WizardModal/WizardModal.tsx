@@ -3,7 +3,7 @@ import noop from 'lodash/noop';
 import React, {useState} from 'react';
 import BootstrapModalFooter from 'react-bootstrap/ModalFooter';
 
-import {LoadingDots} from 'LoadingDots';
+import {LoadingDots} from '@pachyderm/components';
 
 import {Button} from './../../Button';
 import {ButtonLink} from './../../ButtonLink';

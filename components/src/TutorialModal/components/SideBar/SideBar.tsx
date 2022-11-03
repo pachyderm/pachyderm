@@ -1,7 +1,7 @@
 import React from 'react';
 
-import {Dropdown, DropdownProps} from 'Dropdown';
-import ProgressBar from 'ProgressBar';
+import {Dropdown, DropdownProps} from '@pachyderm/components';
+import ProgressBar from '@pachyderm/components/ProgressBar';
 
 import {Story, Section} from '../../lib/types';
 

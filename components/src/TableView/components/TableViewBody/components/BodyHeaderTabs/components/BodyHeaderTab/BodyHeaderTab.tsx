@@ -1,6 +1,6 @@
 import React from 'react';
 
-import {Tabs} from 'Tabs';
+import {Tabs} from '@pachyderm/components';
 
 import {TabProps} from '../../../../../../../Tabs/components/Tab/Tab';
 

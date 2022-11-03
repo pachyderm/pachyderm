@@ -1,4 +1,3 @@
-import 'bootstrap/dist/css/bootstrap.min.css';
 import './index.module.css';
 
 export {default as generatePathWithSearch} from './lib/generatePathWithSearch';

@@ -2,7 +2,7 @@ import classnames from 'classnames';
 import times from 'lodash/times';
 import React from 'react';
 
-import {CaptionTextSmall} from 'Text';
+import {CaptionTextSmall} from '@pachyderm/components';
 
 import styles from './StoryProgressDots.module.css';
 

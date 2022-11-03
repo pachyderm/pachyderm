@@ -1,7 +1,6 @@
 import React from 'react';
 
-import {PureCheckbox} from 'Checkbox';
-import {SuccessCheckmark} from 'SuccessCheckmark';
+import {PureCheckbox, SuccessCheckmark} from '@pachyderm/components';
 
 import Terminal from '../Terminal';
 

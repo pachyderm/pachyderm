@@ -1,7 +1,8 @@
 import {useCallback} from 'react';
 
-import findFocusableChild from 'Dropdown/utils/findFocusableChild';
-import {Keys} from 'lib/types';
+import {Keys} from '@pachyderm/components/lib/types';
+
+import findFocusableChild from '../utils/findFocusableChild';
 
 import useDropdown from './useDropdown';
 

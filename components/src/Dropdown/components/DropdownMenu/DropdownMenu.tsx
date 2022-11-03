@@ -1,8 +1,8 @@
 import classnames from 'classnames';
 import React from 'react';
 
-import {useDropdown} from 'Dropdown';
-import usePreviousValue from 'hooks/usePreviousValue';
+import {useDropdown} from '@pachyderm/components';
+import usePreviousValue from '@pachyderm/components/hooks/usePreviousValue';
 
 import styles from './DropdownMenu.module.css';
 

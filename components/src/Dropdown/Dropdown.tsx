@@ -3,7 +3,7 @@ import noop from 'lodash/noop';
 import React, {useState, useMemo, useCallback, useRef} from 'react';
 import {FormProvider, useForm, UseFormReturn} from 'react-hook-form';
 
-import useOutsideClick from 'hooks/useOutsideClick';
+import useOutsideClick from '@pachyderm/components/hooks/useOutsideClick';
 
 import {DropdownButton, DropdownButtonProps} from './components/DropdownButton';
 import {DropdownMenu, DropdownMenuProps} from './components/DropdownMenu';

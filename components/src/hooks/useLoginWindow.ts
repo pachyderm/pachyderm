@@ -1,7 +1,7 @@
 import noop from 'lodash/noop';
 import {useCallback, useEffect, useState} from 'react';
 
-import getRandomString from 'lib/getRandomString';
+import getRandomString from '@pachyderm/components/lib/getRandomString';
 
 type UseLoginWindowProps = {
   onSuccess?: (code: string) => void;

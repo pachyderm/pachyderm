@@ -1,6 +1,6 @@
 import {useContext} from 'react';
 
-import SelectedIdContext from 'Dropdown/contexts/SelectedIdContext';
+import SelectedIdContext from '../contexts/SelectedIdContext';
 
 const useSelectedId = () => {
   return useContext(SelectedIdContext);

@@ -1,9 +1,8 @@
 import React from 'react';
 import {UseFormReturn} from 'react-hook-form';
 
-import {Dropdown} from 'Dropdown';
-
-import {DropdownButtonProps} from '../../../../../Dropdown/components/DropdownButton/DropdownButton';
+import {Dropdown} from '@pachyderm/components';
+import {DropdownButtonProps} from '@pachyderm/components/Dropdown/components/DropdownButton/DropdownButton';
 
 import styles from './BodyHeaderDropdown.module.css';
 

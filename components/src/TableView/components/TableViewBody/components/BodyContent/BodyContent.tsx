@@ -1,6 +1,6 @@
 import React from 'react';
 
-import {Tabs} from 'Tabs';
+import {Tabs} from '@pachyderm/components';
 
 export type BodyContentProps = {
   id: string;

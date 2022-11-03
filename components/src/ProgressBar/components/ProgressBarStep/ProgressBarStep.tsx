@@ -2,7 +2,7 @@ import classNames from 'classnames';
 import noop from 'lodash/noop';
 import React, {useMemo} from 'react';
 
-import {StatusCheckmarkSVG} from 'Svg';
+import {StatusCheckmarkSVG} from '@pachyderm/components';
 
 import {Circle} from '../../../Circle';
 import {Icon} from '../../../Icon';

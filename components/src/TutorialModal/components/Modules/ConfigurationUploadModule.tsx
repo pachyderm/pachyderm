@@ -1,6 +1,6 @@
 import React from 'react';
 
-import {CodePreview} from 'CodePreview';
+import {CodePreview} from '@pachyderm/components';
 
 import Terminal from '../Terminal';
 

@@ -1,7 +1,7 @@
 import noop from 'lodash/noop';
 import React from 'react';
 
-import {LoadingDots} from 'LoadingDots';
+import {LoadingDots} from '@pachyderm/components';
 
 import {Modal} from './../../Modal';
 import styles from './BasicModal.module.css';

@@ -1,8 +1,7 @@
 import classnames from 'classnames';
 import React from 'react';
 
-import {Group} from 'Group';
-import {GenericErrorSVG} from 'Svg';
+import {Group, GenericErrorSVG} from '@pachyderm/components';
 
 import styles from './GenericError.module.css';
 

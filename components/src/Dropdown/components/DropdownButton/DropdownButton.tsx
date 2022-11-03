@@ -1,10 +1,10 @@
 import classnames from 'classnames';
 import React, {useRef, useMemo} from 'react';
 
-import useDropdownButton from 'Dropdown/hooks/useDropdownButton';
-import {ChevronDownSVG, ChevronRightSVG} from 'Svg';
+import {ChevronDownSVG, ChevronRightSVG} from '@pachyderm/components';
 
 import {Button, ButtonProps} from '../../../Button';
+import useDropdownButton from '../../hooks/useDropdownButton';
 
 import styles from './DropdownButton.module.css';
 

@@ -1,3 +1,5 @@
+import path from 'path';
+
 import react from '@vitejs/plugin-react';
 import analyze from 'rollup-plugin-analyzer';
 import copy from 'rollup-plugin-copy';
@@ -43,6 +45,12 @@ export default defineConfig({
   // comment this out if that isn't relevant for your project
   build: {
     outDir: 'build',
+  },
+  resolve: {
+    alias: {
+      '@pachyderm/components': path.resolve(__dirname, '../components/src'),
+      '@pachyderm/components/*': path.resolve(__dirname, '../components/src/*'),
+    },
   },
   plugins: [
     react(),
