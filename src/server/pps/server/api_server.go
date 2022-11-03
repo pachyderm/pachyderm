@@ -617,6 +617,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	if number == 0 {
 		number = math.MaxInt64
 	}
+	paginationMarker := request.From
 
 	// Return jobsets by the newest job in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
@@ -633,6 +634,14 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 			return nil
 		}
 		seen[jobInfo.Job.ID] = struct{}{}
+
+		if paginationMarker != nil {
+			createdAt := time.Unix(int64(jobInfo.Started.GetSeconds()), int64(jobInfo.Started.GetNanos())).UTC()
+			fromTime := time.Unix(int64(paginationMarker.GetSeconds()), int64(paginationMarker.GetNanos())).UTC()
+			if !request.Reverse && createdAt.After(fromTime) || request.Reverse && createdAt.Before(fromTime) {
+				return nil
+			}
+		}
 
 		jobInfos, err := pachClient.InspectJobSet(jobInfo.Job.ID, request.Details)
 		if err != nil {
