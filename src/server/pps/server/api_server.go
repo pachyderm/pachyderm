@@ -708,6 +708,9 @@ func (a *apiServer) listJob(
 	history int64,
 	details bool,
 	jqFilter string,
+	paginationMarker *types.Timestamp,
+	number int64,
+	reverse bool,
 	f func(*pps.JobInfo) error,
 ) error {
 	if pipeline != nil {
@@ -747,6 +750,10 @@ func (a *apiServer) listJob(
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
 
+	// If number is not set, return all jobs that match the query
+	if number == 0 {
+		number = math.MaxInt64
+	}
 	// pipelineVersions holds the versions of pipelines that we're interested in
 	pipelineVersions := make(map[string]bool)
 	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, pipeline, history,
@@ -760,6 +767,9 @@ func (a *apiServer) listJob(
 	jobs := a.jobs.ReadOnly(ctx)
 	jobInfo := &pps.JobInfo{}
 	_f := func(string) error {
+		if number == 0 {
+			return errutil.ErrBreak
+		}
 		if details {
 			if err := a.getJobDetails(ctx, jobInfo); err != nil {
 				if auth.IsErrNotAuthorized(err) {
@@ -796,16 +806,25 @@ func (a *apiServer) listJob(
 				return nil
 			}
 		}
-
+		number--
 		return f(jobInfo)
 	}
-	if pipeline != nil {
-		err := jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, col.DefaultOptions(), _f)
-		return errors.EnsureStack(err)
-	} else {
-		err := jobs.List(jobInfo, col.DefaultOptions(), _f)
-		return errors.EnsureStack(err)
+	opts := &col.Options{Target: col.SortByCreateRevision, Order: col.SortDescend}
+	if reverse {
+		opts.Order = col.SortAscend
 	}
+	if pipeline != nil {
+		err := jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, opts, _f)
+		if err != nil && err != errutil.ErrBreak {
+			return errors.EnsureStack(err)
+		}
+	} else {
+		err := jobs.List(jobInfo, opts, _f)
+		if err != nil && err != errutil.ErrBreak {
+			return errors.EnsureStack(err)
+		}
+	}
+	return nil
 }
 
 func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) error {
@@ -877,7 +896,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 
 // ListJob implements the protobuf pps.ListJob RPC
 func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
-	return a.listJob(resp.Context(), request.Pipeline, request.InputCommit, request.History, request.Details, request.JqFilter, func(ji *pps.JobInfo) error {
+	return a.listJob(resp.Context(), request.Pipeline, request.InputCommit, request.History, request.Details, request.JqFilter, request.PaginationMarker, request.Number, request.Reverse, func(ji *pps.JobInfo) error {
 		return errors.EnsureStack(resp.Send(ji))
 	})
 }

@@ -474,6 +474,15 @@ message ListJobRequest {
 
   // A jq program string for additional result filtering
   string jqFilter = 6;
+  
+  // timestamp that is pagination marker
+  google.protobuf.Timestamp paginationMarker = 7;
+
+  // number of results to return
+  int64 number = 8;
+
+  // flag to indicated if results should be returned in reverse order
+  bool reverse = 9;
 }
 
 // Streams open jobs until canceled
