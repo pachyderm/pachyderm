@@ -1,5 +1,0 @@
-{
-  "eslint.workingDirectories": [
-    "packages/components"
-  ]
-}
