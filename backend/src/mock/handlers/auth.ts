@@ -1,8 +1,8 @@
 import {status} from '@grpc/grpc-js';
 import {Status} from '@grpc/grpc-js/build/src/constants';
-import {AuthIAPIServer, AuthenticateResponse} from '@pachyderm/node-pachyderm';
 
 import {getAccountFromIdToken} from '@dash-backend/lib/auth';
+import {AuthIAPIServer, AuthenticateResponse} from '@dash-backend/proto';
 import {createServiceError} from '@dash-backend/testHelpers';
 
 import MockState from './MockState';

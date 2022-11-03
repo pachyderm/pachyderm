@@ -1,5 +1,5 @@
-import {JobState, JobInfo} from '@pachyderm/node-pachyderm';
-import {jobInfoFromObject} from '@pachyderm/node-pachyderm/dist/builders/pps';
+import {JobState, JobInfo} from '@dash-backend/proto';
+import {jobInfoFromObject} from '@dash-backend/proto/builders/pps';
 
 import {JOBS} from './loadLimits';
 

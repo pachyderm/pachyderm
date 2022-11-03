@@ -79,14 +79,14 @@ describe('FileSet', () => {
         .putFileFromFilepath(
           path.join(
             __dirname,
-            '../../../../../examples/opencv/images/8MN9Kg0.jpg',
+            '../../../../../../../etc/testing/files/8MN9Kg0.jpg',
           ),
           '/8MN9Kg0.jpg',
         )
         .putFileFromFilepath(
           path.join(
             __dirname,
-            '../../../../../examples/opencv/images/46Q8nDz.jpg',
+            '../../../../../../../etc/testing/files/46Q8nDz.jpg',
           ),
           '/46Q8nDz.jpg',
         )

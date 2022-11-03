@@ -1,8 +1,7 @@
-import {Commit, CommitInfo} from '@pachyderm/node-pachyderm';
-
 import formatBytes from '@dash-backend/lib/formatBytes';
 import getSizeBytes from '@dash-backend/lib/getSizeBytes';
 import {toGQLCommitOrigin} from '@dash-backend/lib/gqlEnumMappers';
+import {Commit, CommitInfo} from '@dash-backend/proto';
 import {Commit as graphqlCommit} from '@graphqlTypes';
 
 export const commitInfoToGQLCommit = (

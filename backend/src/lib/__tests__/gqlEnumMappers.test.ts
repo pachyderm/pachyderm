@@ -6,8 +6,7 @@ import {
   OriginKind,
   DatumState,
   State,
-} from '@pachyderm/node-pachyderm';
-
+} from '@dash-backend/proto';
 import {OriginKind as GQLOriginKind} from '@graphqlTypes';
 
 import {

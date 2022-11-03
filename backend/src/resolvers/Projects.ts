@@ -1,10 +1,10 @@
-import {PipelineState, Project} from '@pachyderm/node-pachyderm';
 import Logger from 'bunyan';
 
 import formatBytes from '@dash-backend/lib/formatBytes';
 import getSizeBytes from '@dash-backend/lib/getSizeBytes';
 import {toGQLProjectStatus} from '@dash-backend/lib/gqlEnumMappers';
 import {PachClient} from '@dash-backend/lib/types';
+import {PipelineState, Project} from '@dash-backend/proto';
 import {ProjectStatus, QueryResolvers} from '@graphqlTypes';
 
 import {jobSetsToGQLJobSets} from './builders/pps';

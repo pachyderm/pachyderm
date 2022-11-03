@@ -1,4 +1,6 @@
 import {Status} from '@grpc/grpc-js/build/src/constants';
+import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
+
 import {
   PpsIAPIServer,
   LogMessage,
@@ -9,11 +11,9 @@ import {
   RepoInfo,
   Repo,
   Branch,
-} from '@pachyderm/node-pachyderm';
-import {pipelineInfoFromObject} from '@pachyderm/node-pachyderm/dist/builders/pps';
-import {timestampFromObject} from '@pachyderm/node-pachyderm/dist/builders/protobuf';
-import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
-
+} from '@dash-backend/proto';
+import {pipelineInfoFromObject} from '@dash-backend/proto/builders/pps';
+import {timestampFromObject} from '@dash-backend/proto/builders/protobuf';
 import {createServiceError} from '@dash-backend/testHelpers';
 
 import runJQFilter from '../utils/runJQFilter';

@@ -1,11 +1,5 @@
 import {ServiceError} from '@grpc/grpc-js';
 import {Status} from '@grpc/grpc-js/build/src/constants';
-import {
-  Commit,
-  pachydermClient,
-  STREAM_OVERHEAD_LENGTH,
-} from '@pachyderm/node-pachyderm';
-import {FileSet} from '@pachyderm/node-pachyderm/dist/services/pfs/clients/FileSet';
 import {ApolloError} from 'apollo-server-errors';
 import busboy from 'busboy';
 import cors from 'cors';
@@ -18,6 +12,12 @@ import {GRPC_MAX_MESSAGE_LENGTH} from '@dash-backend/lib/constants';
 import FileUploads, {upload} from '@dash-backend/lib/FileUploads';
 import getPachClient from '@dash-backend/lib/getPachClient';
 import baseLogger from '@dash-backend/lib/log';
+import {
+  Commit,
+  pachydermClient,
+  STREAM_OVERHEAD_LENGTH,
+} from '@dash-backend/proto';
+import {FileSet} from '@dash-backend/proto/services/pfs/clients/FileSet';
 
 const {GRPC_SSL, PACHD_ADDRESS} = process.env;
 

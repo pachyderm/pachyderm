@@ -3,6 +3,11 @@ import path from 'path';
 
 import {ServiceError} from '@grpc/grpc-js';
 import {Status} from '@grpc/grpc-js/build/src/constants';
+import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
+import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
+import uniqueId from 'lodash/uniqueId';
+
+import {REPO_READER_PERMISSIONS} from '@dash-backend/constants/permissions';
 import {
   Permission,
   PfsIAPIServer,
@@ -16,17 +21,12 @@ import {
   FileType,
   OriginKind,
   CreateFileSetResponse,
-} from '@pachyderm/node-pachyderm';
+} from '@dash-backend/proto';
 import {
   commitInfoFromObject,
   fileInfoFromObject,
-} from '@pachyderm/node-pachyderm/dist/builders/pfs';
-import {timestampFromObject} from '@pachyderm/node-pachyderm/dist/builders/protobuf';
-import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
-import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
-import uniqueId from 'lodash/uniqueId';
-
-import {REPO_READER_PERMISSIONS} from '@dash-backend/constants/permissions';
+} from '@dash-backend/proto/builders/pfs';
+import {timestampFromObject} from '@dash-backend/proto/builders/protobuf';
 import {createServiceError} from '@dash-backend/testHelpers';
 
 import repoAuthInfos from '../fixtures/repoAuthInfos';

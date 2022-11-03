@@ -1,4 +1,4 @@
-import {Permission} from '@pachyderm/node-pachyderm';
+import {Permission} from '@dash-backend/proto';
 
 export const REPO_READER_PERMISSIONS = [
   Permission.REPO_READ,

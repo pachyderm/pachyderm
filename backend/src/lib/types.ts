@@ -1,8 +1,8 @@
 import {ChannelCredentials, Metadata} from '@grpc/grpc-js';
-import {pachydermClient} from '@pachyderm/node-pachyderm';
 import {ApolloError} from 'apollo-server-errors';
 import Logger from 'bunyan';
 
+import {pachydermClient} from '@dash-backend/proto';
 import {Account} from '@graphqlTypes';
 
 export type PachClient = ReturnType<typeof pachydermClient>;

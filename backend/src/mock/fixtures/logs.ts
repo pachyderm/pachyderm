@@ -1,5 +1,5 @@
-import {LogMessage} from '@pachyderm/node-pachyderm';
-import {timestampFromObject} from '@pachyderm/node-pachyderm/dist/builders/protobuf';
+import {LogMessage} from '@dash-backend/proto';
+import {timestampFromObject} from '@dash-backend/proto/builders/protobuf';
 
 import {LOGS} from './loadLimits';
 
