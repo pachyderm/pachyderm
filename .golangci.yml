@@ -4,6 +4,7 @@ run:
     - cached-deps
   build-tags:
     - k8s
+    - unit_test
 linters:
   enable:
     - wrapcheck

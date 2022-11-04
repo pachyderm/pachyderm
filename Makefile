@@ -260,6 +260,10 @@ test-cmds:
 	go test -v -count=1 -tags=k8s ./src/server/identity/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 	go test -v -count=1 -tags=k8s ./src/server/license/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 
+test-testutils:
+	go install -v ./src/testing/match
+	go test -v -count=1 -tags k8s ./src/internal/testutil
+
 test-transaction:
 	go test -count=1 -tags=k8s ./src/server/transaction/server/testing -timeout $(TIMEOUT) $(TESTFLAGS)
 

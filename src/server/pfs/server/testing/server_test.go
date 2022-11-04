@@ -108,6 +108,84 @@ func finfosToPaths(finfos []*pfs.FileInfo) (paths []string) {
 func TestPFS(suite *testing.T) {
 	suite.Parallel()
 
+	suite.Run("ListFileTest", func(t *testing.T) {
+		t.Parallel()
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+
+		commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+
+		require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/file1.5", &bytes.Buffer{}))
+		require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/file1.2", &bytes.Buffer{}))
+		require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/file1.1", &bytes.Buffer{}))
+		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.1", &bytes.Buffer{}))
+		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.2", &bytes.Buffer{}))
+
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+		// should list a directory but not siblings
+		var fis []*pfs.FileInfo
+		require.NoError(t, env.PachClient.ListFile(commit1, "/dir1", func(fi *pfs.FileInfo) error {
+			fis = append(fis, fi)
+			return nil
+		}))
+		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2", "/dir1/file1.5"}, finfosToPaths(fis))
+		// should list the root
+		fis = nil
+		require.NoError(t, env.PachClient.ListFile(commit1, "/", func(fi *pfs.FileInfo) error {
+			fis = append(fis, fi)
+			return nil
+		}))
+		require.ElementsEqual(t, []string{"/dir1/", "/dir2/"}, finfosToPaths(fis))
+
+		request := &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.2")}
+		listFileClient, err := env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
+		require.NoError(t, err)
+		fis, err = clientsdk.ListFile(listFileClient)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(fis))
+		require.ElementsEqual(t, []string{"/dir1/file1.2", "/dir1/file1.5"}, finfosToPaths(fis))
+
+		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.1"), Number: 2}
+		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
+		require.NoError(t, err)
+		fis, err = clientsdk.ListFile(listFileClient)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(fis))
+		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(fis))
+
+		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), Number: 1, Reverse: true}
+		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
+		require.NoError(t, err)
+		fis, err = clientsdk.ListFile(listFileClient)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(fis))
+		require.ElementsEqual(t, []string{"/dir1/file1.5"}, finfosToPaths(fis))
+
+		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), Reverse: true}
+		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
+		require.NoError(t, err)
+		fis, err = clientsdk.ListFile(listFileClient)
+		require.YesError(t, err)
+
+		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.1"), Number: 2, Reverse: true}
+		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
+		require.NoError(t, err)
+		fis, err = clientsdk.ListFile(listFileClient)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(fis))
+
+		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.5"), Number: 2, Reverse: true}
+		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
+		require.NoError(t, err)
+		fis, err = clientsdk.ListFile(listFileClient)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(fis))
+		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(fis))
+	})
+
 	suite.Run("ListCommitStartedTime", func(t *testing.T) {
 		t.Parallel()
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))

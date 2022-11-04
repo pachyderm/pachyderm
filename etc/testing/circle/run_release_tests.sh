@@ -27,13 +27,15 @@ else
 fi
 
 if [ "${1-default}" = "aws" ]; then
-  curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
+  curl --fail -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
   -F name="${WORKSPACE}-${CIRCLE_SHA1:0:7}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG:1}-${CIRCLE_SHA1}" \
+  -F disableNotebooks="True" \
   -F backend="aws_cluster" -F infraJson=@etc/testing/circle/workloads/aws-examples/infra.json -F valuesYaml=@etc/testing/circle/workloads/aws-examples/values.yaml \
     https://helium.pachyderm.io/v1/api/workspace
 else
   # assume default gcp
-  curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
+  curl --fail -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
+  -F disableNotebooks="True" \
   -F name="${WORKSPACE}-${CIRCLE_SHA1:0:7}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG:1}-${CIRCLE_SHA1}" \
     https://helium.pachyderm.io/v1/api/workspace
 fi

@@ -22,7 +22,7 @@ import (
 type PostgresListener interface {
 	// Register registers a notifier with the postgres listener.
 	// A notifier will receive notifications for the channel it is associated
-	// with while registered with the postgres listner.
+	// with while registered with the postgres listener.
 	Register(Notifier) error
 	// Unregister unregisters a notifier with the postgres listener.
 	// A notifier will no longer receive notifications when this call completes.
