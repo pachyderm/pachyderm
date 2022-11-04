@@ -1,0 +1,6 @@
+ARG ETCD_VERSION
+
+# etcd uses gcr.io/etcd-development/etcd as a primary container registry, and quay.io/coreos/etcd as secondary.
+# this docker file is needed instead of just pulling in from the third party repo because a
+# docker tag gcr.io/etcd-development/etcd:v3.5.5 -t pachyderm/etcd:v3.5.5; docker push pachyderm/etcd:v3.5.5 only publishes your host architecture
+FROM gcr.io/etcd-development/etcd:$ETCD_VERSION

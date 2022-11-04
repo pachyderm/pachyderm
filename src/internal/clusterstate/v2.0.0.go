@@ -3,6 +3,7 @@ package clusterstate
 import (
 	"context"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/authdb"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
@@ -13,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactiondb"
 	"github.com/pachyderm/pachyderm/v2/src/server/auth"
-	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/identity"
 	"github.com/pachyderm/pachyderm/v2/src/server/license"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
@@ -81,7 +81,7 @@ var state_2_0_0 migrations.State = migrations.InitialState().
 		collections = append(collections, pfsdb.CollectionsV0()...)
 		collections = append(collections, ppsdb.CollectionsV0()...)
 		collections = append(collections, transactiondb.CollectionsV0()...)
-		collections = append(collections, authserver.CollectionsV0()...)
+		collections = append(collections, authdb.CollectionsV0()...)
 		return col.SetupPostgresCollections(ctx, env.Tx, collections...)
 	}).
 	Apply("license clusters client_id column", func(ctx context.Context, env migrations.Env) error {
