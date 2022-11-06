@@ -1387,65 +1387,73 @@ func (d *driver) fillNewBranches(txnCtx *txncontext.TransactionContext, branch *
 	return nil
 }
 
-// BFS via DirectProvenance, starting with the branches with empty subvenance.
-// At each visit, add the complete subvenance of the downstream branch
-// At the end of each visit,
-// O(E) + O(V), for all V & E in the complete transitive closure of branchInfo (upstream + downstream)
-func (d *driver) recomputeCompleteProvenance(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo) error {
-	queue := make([]*pfs.Branch, 0)
+// Given branchInfo.DirectProvenance and its oldProvenance, compute Provenance of branchInfo,
+// and its Subvenance. Also update the Subvenance of branchInfo's old and new provenant branches.
+//
+// This algorithm updates every branch in branchInfo's Subvenance, new Provenance, and old Provenance.
+// Complexity is O(m*n*log(n)) where m is the complete Provenance of branchInfo, and n is the Subvenance of branchInfo
+func (d *driver) computeCompleteProvenance(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo, oldDirectProvenance []*pfs.Branch) error {
 	branchInfoCache := map[string]*pfs.BranchInfo{pfsdb.BranchKey(branchInfo.Branch): branchInfo}
 	getBranchInfo := func(b *pfs.Branch) (*pfs.BranchInfo, error) {
 		if bi, ok := branchInfoCache[pfsdb.BranchKey(b)]; ok {
 			return bi, nil
 		}
-		// if loaded for the first time, clear Provenance + Subvenance
 		bi := &pfs.BranchInfo{}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
 			return nil, errors.Wrapf(err, "error getting branch")
 		}
 		branchInfoCache[pfsdb.BranchKey(b)] = bi
-		bi.Subvenance = nil
-		bi.Provenance = nil
 		return bi, nil
 	}
-	// load all the subvenant branches, and fill queue will the branches without subvenance
-	for _, subvBranch := range branchInfo.Subvenance {
-		subvBranchInfo, err := getBranchInfo(subvBranch)
+	toUpdate := []*pfs.BranchInfo{branchInfo}
+	for _, sb := range branchInfo.Subvenance {
+		sbi, err := getBranchInfo(sb)
 		if err != nil {
 			return err
 		}
-		if len(subvBranchInfo.Subvenance) == 0 {
-			queue = append(queue, subvBranch)
+		toUpdate = append(toUpdate, sbi)
+	}
+	// Sorting is important here because it sorts topologically. This means
+	// that when evaluating element i of `toUpdate` all elements < i will
+	// have already been evaluated and thus we can safely use their
+	// Provenance field.
+	sort.Slice(toUpdate, func(i, j int) bool { return len(toUpdate[i].Provenance) < len(toUpdate[j].Provenance) })
+	// re-compute the complete provenance of branchInfo and all its subvenant branches
+	for _, bi := range toUpdate {
+		bi.Provenance = nil
+		for _, directProv := range branchInfo.DirectProvenance {
+			directProvBI, err := getBranchInfo(directProv)
+			if err != nil {
+				return err
+			}
+			for _, p := range directProvBI.Provenance {
+				add(&bi.Provenance, p)
+			}
 		}
 	}
-	if len(queue) == 0 {
-		queue = append(queue, branchInfo.Branch)
-	}
-	// BFS, filling all branches Subvenance fields as you go
-	var b *pfs.Branch
-	for len(queue) > 0 {
-		b, queue = queue[0], queue[1:]
-		bi, err := getBranchInfo(b)
+	// add branchInfo and it's subvenance to the subvenance of all of its provenance branches
+	for _, p := range branchInfo.Provenance {
+		pbi, err := getBranchInfo(p)
 		if err != nil {
 			return err
 		}
-		for _, prov := range bi.DirectProvenance {
-			queue = append(queue, prov)
-			provBi, err := getBranchInfo(prov)
-			if err != nil {
-				return err
-			}
-			add(&provBi.Subvenance, b)
+		for _, ubi := range toUpdate {
+			add(&pbi.Subvenance, ubi.Branch)
 		}
 	}
-	// for all accessed branches, iterate over all of their now updated subvenance and update their provenance
-	for _, bi := range branchInfoCache {
-		for _, subv := range bi.Subvenance {
-			subvBi, err := getBranchInfo(subv)
-			if err != nil {
-				return err
+	// remove branchInfo and its subvenance from all branches that are no longer in branchInfo's Provenance
+	for _, op := range oldDirectProvenance {
+		if has(&branchInfo.Provenance, op) {
+			continue
+		}
+		opbi, err := getBranchInfo(op)
+		if err != nil {
+			return err
+		}
+		for _, sbi := range toUpdate {
+			if !has(&sbi.Provenance, op) {
+				del(&opbi.Subvenance, sbi.Branch)
 			}
-			add(&subvBi.Provenance, b)
 		}
 	}
 	// now that all Provenance + Subvenance fields are up to date, save all the branches
@@ -1478,7 +1486,7 @@ func newUserCommitInfo(txnCtx *txncontext.TransactionContext, branch *pfs.Branch
 // This invariant is assumed to hold for all branches upstream of 'branch', but not
 // for 'branch' itself once 'b.Provenance' has been set.
 //
-// TODO(acohen4): this signature is confusing. What if a commit is passed but provenance is changed, do we
+// TODO(acohen4): this signature is confusing. What if a commit is passed but provenance is changed???
 // sensible rules:
 // - add a commit to head whenever provenance is changed
 func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch, trigger *pfs.Trigger) error {
@@ -1520,10 +1528,12 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		}
 		commit = ci.Commit
 	}
-	// Retrieve the current version of this branch resolve the given commit
+	// Retrieve the current version of this branch and set it's head if specified
+	var oldProvenance []*pfs.Branch
 	branchInfo := &pfs.BranchInfo{}
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(branch, branchInfo, func() error {
 		// check whether direct provenance has changed
+		oldProvenance = branchInfo.DirectProvenance
 		branchInfo.DirectProvenance = nil
 		for _, provBranch := range provenance {
 			if proto.Equal(provBranch.Repo, branch.Repo) {
@@ -1543,7 +1553,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}
 	// Update the total provenance of this branch and all of its subvenant branches
 	// loads all branches in the complete closure once and saves all of them
-	if err := d.recomputeCompleteProvenance(txnCtx, branchInfo); err != nil {
+	if err := d.computeCompleteProvenance(txnCtx, branchInfo, oldProvenance); err != nil {
 		return err
 	}
 	// ensure that a new head commit is created if the direct provenance has changed
@@ -1697,14 +1707,12 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Permission_REPO_DELETE_BRANCH); err != nil {
 		return errors.EnsureStack(err)
 	}
-
 	branchInfo := &pfs.BranchInfo{}
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(branch, branchInfo); err != nil {
 		if !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "branches.Get")
 		}
 	}
-
 	if branchInfo.Branch != nil {
 		if !force {
 			if len(branchInfo.Subvenance) > 0 {
