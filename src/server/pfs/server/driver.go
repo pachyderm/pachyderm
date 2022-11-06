@@ -360,13 +360,11 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		}); err != nil && !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "error finding dependent repos for %q", repo.Name)
 		}
-
 		// we expect potentially complicated provenance relationships between dependent repos
 		// deleting all branches at once allows for topological sorting, avoiding deletion order issues
 		if err := d.deleteAllBranchesFromRepos(txnCtx, append(dependentRepos, repoInfo), force); err != nil {
 			return errors.Wrap(err, "error deleting branches")
 		}
-
 		// delete the repos we found
 		for _, dep := range dependentRepos {
 			if err := d.deleteRepo(txnCtx, dep.Repo, force); err != nil {
@@ -1345,7 +1343,7 @@ func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {
 }
 
 func (d *driver) fillNewBranches(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, provenance []*pfs.Branch) error {
-	repoBranches := map[*pfs.Repo][]*pfs.Branch{branch.Repo: []*pfs.Branch{branch}}
+	repoBranches := map[*pfs.Repo][]*pfs.Branch{branch.Repo: {branch}}
 	branches := make([]*pfs.Branch, 0)
 	branches = append(branches, provenance...)
 	// it's important that branch is processed last so we ensure all of its direct provenance have commits
@@ -1353,18 +1351,21 @@ func (d *driver) fillNewBranches(txnCtx *txncontext.TransactionContext, branch *
 	for _, b := range branches {
 		branchInfo := &pfs.BranchInfo{}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Upsert(b, branchInfo, func() error {
-			if branchInfo.Branch == nil || branchInfo.Head == nil {
-				// We are creating this branch for the first time, set the Branch and Head
-				branchInfo.Branch = b
-				head, err := d.makeEmptyCommit(txnCtx, branchInfo.Branch, branchInfo.DirectProvenance)
-				if err != nil {
-					return err
-				}
-				branchInfo.Head = head
-				if branches, ok := repoBranches[b.Repo]; ok {
-					add(&branches, b)
-				} else {
-					repoBranches[b.Repo] = []*pfs.Branch{branch}
+			if branchInfo.Branch == nil {
+				if branchInfo.Head == nil {
+					// We are creating this branch for the first time, set the Branch and Head
+					// TODO does this need to be deduplicated??
+					branchInfo.Branch = b
+					head, err := d.makeEmptyCommit(txnCtx, branchInfo.Branch, branchInfo.DirectProvenance)
+					if err != nil {
+						return err
+					}
+					branchInfo.Head = head
+					if branches, ok := repoBranches[b.Repo]; ok {
+						add(&branches, b)
+					} else {
+						repoBranches[b.Repo] = []*pfs.Branch{b}
+					}
 				}
 			}
 			return nil
@@ -1373,8 +1374,8 @@ func (d *driver) fillNewBranches(txnCtx *txncontext.TransactionContext, branch *
 		}
 	}
 	// Add the new branches to their repo infos
-	repoInfo := &pfs.RepoInfo{}
 	for repo, branches := range repoBranches {
+		repoInfo := &pfs.RepoInfo{}
 		if err := d.repos.ReadWrite(txnCtx.SqlTx).Update(repo, repoInfo, func() error {
 			for _, b := range branches {
 				add(&repoInfo.Branches, b)
@@ -1422,6 +1423,7 @@ func (d *driver) computeCompleteProvenance(txnCtx *txncontext.TransactionContext
 	for _, bi := range toUpdate {
 		bi.Provenance = nil
 		for _, directProv := range branchInfo.DirectProvenance {
+			add(&bi.Provenance, directProv)
 			directProvBI, err := getBranchInfo(directProv)
 			if err != nil {
 				return err
@@ -1450,9 +1452,9 @@ func (d *driver) computeCompleteProvenance(txnCtx *txncontext.TransactionContext
 		if err != nil {
 			return err
 		}
-		for _, sbi := range toUpdate {
-			if !has(&sbi.Provenance, op) {
-				del(&opbi.Subvenance, sbi.Branch)
+		for _, bi := range toUpdate {
+			if !has(&bi.Provenance, op) {
+				del(&opbi.Subvenance, bi.Branch)
 			}
 		}
 	}
