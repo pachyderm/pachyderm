@@ -523,6 +523,7 @@ func (d *driver) addCommit(txnCtx *txncontext.TransactionContext, newCommitInfo 
 		}
 		return errors.EnsureStack(err)
 	}
+	provHeads := make(map[string]struct{})
 	for _, prov := range directProvenance {
 		branchInfo := &pfs.BranchInfo{}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(prov), branchInfo); err != nil {
@@ -531,8 +532,11 @@ func (d *driver) addCommit(txnCtx *txncontext.TransactionContext, newCommitInfo 
 			}
 			return errors.EnsureStack(err)
 		}
-		if err := pfsdb.AddCommitProvenance(context.TODO(), txnCtx.SqlTx, newCommitInfo.Commit, branchInfo.Head); err != nil {
-			return err
+		if _, ok := provHeads[pfsdb.CommitKey(branchInfo.Head)]; !ok {
+			provHeads[pfsdb.CommitKey(branchInfo.Head)] = struct{}{}
+			if err := pfsdb.AddCommitProvenance(context.TODO(), txnCtx.SqlTx, newCommitInfo.Commit, branchInfo.Head); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -1342,32 +1346,22 @@ func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {
 
 func (d *driver) fillNewBranches(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, provenance []*pfs.Branch) error {
 	repoBranches := map[*pfs.Repo][]*pfs.Branch{branch.Repo: {branch}}
-	branches := make([]*pfs.Branch, 0)
-	branches = append(branches, provenance...)
-	// it's important that branch is processed last so we ensure all of its direct provenance have commits
-	branches = append(branches, branch)
-	for _, b := range branches {
+	for _, p := range provenance {
 		branchInfo := &pfs.BranchInfo{}
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Upsert(b, branchInfo, func() error {
+		if err := d.branches.ReadWrite(txnCtx.SqlTx).Upsert(p, branchInfo, func() error {
 			if branchInfo.Branch == nil {
-				branchInfo.Branch = b
-				if branchInfo.Head == nil {
-					// We are creating this branch for the first time, set the Branch and Head
-					// TODO can we fix this up?
-					var prov []*pfs.Branch
-					if b == branch {
-						prov = provenance
-					}
-					head, err := d.makeEmptyCommit(txnCtx, branchInfo.Branch, prov)
-					if err != nil {
-						return err
-					}
-					branchInfo.Head = head
-					if branches, ok := repoBranches[b.Repo]; ok {
-						add(&branches, b)
-					} else {
-						repoBranches[b.Repo] = []*pfs.Branch{b}
-					}
+				branchInfo.Branch = p
+				// We are creating this branch for the first time, set the Branch and Head
+				// TODO can we fix this up?
+				head, err := d.makeEmptyCommit(txnCtx, branchInfo.Branch, nil)
+				if err != nil {
+					return err
+				}
+				branchInfo.Head = head
+				if branches, ok := repoBranches[p.Repo]; ok {
+					add(&branches, p)
+				} else {
+					repoBranches[p.Repo] = []*pfs.Branch{p}
 				}
 			}
 			return nil
@@ -1478,6 +1472,7 @@ func newUserCommitInfo(txnCtx *txncontext.TransactionContext, branch *pfs.Branch
 		},
 		Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
 		Started: txnCtx.Timestamp,
+		Details: &pfs.CommitInfo_Details{},
 	}
 }
 
@@ -1489,8 +1484,6 @@ func newUserCommitInfo(txnCtx *txncontext.TransactionContext, branch *pfs.Branch
 //
 // This invariant is assumed to hold for all branches upstream of 'branch', but not
 // for 'branch' itself once 'b.Provenance' has been set.
-//
-// what to do if pointing at new commit with inconsistent provenance?
 func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch, trigger *pfs.Trigger) error {
 	// Validate arguments
 	if branch == nil {
@@ -1518,11 +1511,11 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 			return err
 		}
 	}
-	// Create any of the branches that don't exist yet
+	// Create any of the provenance branches that don't exist yet, and give them an empty commit
 	if err := d.fillNewBranches(txnCtx, branch, provenance); err != nil {
 		return err
 	}
-	needsNewCommit := false
+	// if the user passed a commit to point this branch at, resolve it
 	var ci *pfs.CommitInfo
 	if commit != nil {
 		ci, err = d.resolveCommit(txnCtx.SqlTx, commit)
@@ -1530,15 +1523,13 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 			return errors.Wrapf(err, "unable to inspect %s", commit)
 		}
 		commit = ci.Commit
-		if !same(ci.DirectProvenance, provenance) {
-			needsNewCommit = true
-		}
 	}
 	// Retrieve the current version of this branch and set it's head if specified
 	var oldProvenance []*pfs.Branch
 	branchInfo := &pfs.BranchInfo{}
-	if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(branch, branchInfo, func() error {
+	if err := d.branches.ReadWrite(txnCtx.SqlTx).Upsert(branch, branchInfo, func() error {
 		// check whether direct provenance has changed
+		branchInfo.Branch = branch
 		oldProvenance = branchInfo.DirectProvenance
 		branchInfo.DirectProvenance = nil
 		for _, provBranch := range provenance {
@@ -1549,6 +1540,13 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		}
 		if commit != nil {
 			branchInfo.Head = commit
+		}
+		if branchInfo.Head == nil || !same(oldProvenance, provenance) {
+			ci = newUserCommitInfo(txnCtx, branch)
+			if err := d.addCommit(txnCtx, ci, branchInfo.Head, branchInfo.DirectProvenance, false); err != nil {
+				return err
+			}
+			branchInfo.Head = ci.Commit
 		}
 		if trigger != nil && trigger.Branch != "" {
 			branchInfo.Trigger = trigger
@@ -1561,20 +1559,6 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	// loads all branches in the complete closure once and saves all of them
 	if err := d.computeBranchProvenance(txnCtx, branchInfo, oldProvenance); err != nil {
 		return err
-	}
-	// ensure that a new head commit is created if the direct provenance has changed
-	changedProvenance := same(oldProvenance, provenance)
-	if needsNewCommit || commit == nil && branchInfo.Head.ID != txnCtx.CommitSetID && changedProvenance {
-		newHead := newUserCommitInfo(txnCtx, branch)
-		if err := d.addCommit(txnCtx, newHead, branchInfo.Head, branchInfo.DirectProvenance, false); err != nil {
-			return err
-		}
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(branch, branchInfo, func() error {
-			branchInfo.Head = newHead.Commit
-			return nil
-		}); err != nil {
-			return errors.EnsureStack(err)
-		}
 	}
 	if commit != nil && ci.Finished != nil {
 		if err = d.triggerCommit(txnCtx, branchInfo.Head); err != nil {
@@ -1786,6 +1770,7 @@ func (d *driver) deleteAll(ctx context.Context) error {
 	})
 }
 
+// only transform source repos and spouts get a closed commit
 func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, directProvenance []*pfs.Branch) (*pfs.Commit, error) {
 	// Input repos and spouts want a closed head commit, so decide if we leave
 	// it open by the presence of branch provenance.  If it's only provenant on
@@ -1817,21 +1802,8 @@ func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branch *
 			return nil, errors.EnsureStack(err)
 		}
 	}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(commit, commitInfo); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	provHeads := make(map[string]struct{})
-	for _, prov := range directProvenance {
-		branchInfo := &pfs.BranchInfo{}
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(prov, branchInfo); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-		if _, ok := provHeads[pfsdb.CommitKey(branchInfo.Head)]; !ok {
-			provHeads[pfsdb.CommitKey(branchInfo.Head)] = struct{}{}
-			if err := pfsdb.AddCommitProvenance(context.TODO(), txnCtx.SqlTx, commit, branchInfo.Head); err != nil {
-				return nil, errors.EnsureStack(err)
-			}
-		}
+	if err := d.addCommit(txnCtx, commitInfo, nil, directProvenance, false); err != nil {
+		return nil, err
 	}
 	return commit, nil
 }
