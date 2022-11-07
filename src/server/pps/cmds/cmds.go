@@ -306,16 +306,20 @@ $ {{alias}} -p foo -i bar@YYY`,
 
 					ctx, cf := context.WithCancel(client.Ctx())
 					defer cf()
+					ljClient, err := client.PpsAPIClient.ListJob(ctx, req)
+					if err != nil {
+						return grpcutil.ScrubGRPC(err)
+					}
 					if raw {
 						e := cmdutil.Encoder(output, os.Stdout)
-						return listJobFilterF(ctx, client.PpsAPIClient, req, func(ji *ppsclient.JobInfo) error {
+						return listJobFilterF(ctx, ljClient, func(ji *ppsclient.JobInfo) error {
 							return errors.EnsureStack(e.EncodeProto(ji))
 						})
 					}
 
 					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 						writer := tabwriter.NewWriter(w, pretty.JobHeader)
-						if err := listJobFilterF(ctx, client.PpsAPIClient, req, func(ji *ppsclient.JobInfo) error {
+						if err := listJobFilterF(ctx, ljClient, func(ji *ppsclient.JobInfo) error {
 							pretty.PrintJobInfo(writer, ji, fullTimestamps)
 							return nil
 						}); err != nil {
@@ -1603,13 +1607,9 @@ func ParsePipelineStates(stateStrs []string) (string, error) {
 
 // Copied from src/client/pps.go's APIClient, because we need to add the new projects filter to the request,
 // rather then adding yet another param, we are just going to pass in the request.
-func listJobFilterF(ctx context.Context, client pps.APIClient, request *pps.ListJobRequest, f func(*pps.JobInfo) error) error {
-	listJobClient, err := client.ListJob(ctx, request)
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
+func listJobFilterF(ctx context.Context, client pps.API_ListJobClient, f func(*pps.JobInfo) error) error {
 	for {
-		ji, err := listJobClient.Recv()
+		ji, err := client.Recv()
 		if errors.Is(err, io.EOF) {
 			return nil
 		} else if err != nil {
