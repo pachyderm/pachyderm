@@ -38,7 +38,7 @@ func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commi
 	for rows.Next() {
 		var commitId string
 		if err := rows.Scan(&commitId); err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		commitProvenance = append(commitProvenance, ParseCommit(commitId))
 	}
@@ -70,7 +70,7 @@ func CommitSetProvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]*pfs
 	for rows.Next() {
 		var commit string
 		if err := rows.Scan(&commit); err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		cs = append(cs, ParseCommit(commit))
 	}
@@ -102,7 +102,7 @@ func CommitSetSubvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]*pfs
 	for rows.Next() {
 		var commit string
 		if err := rows.Scan(&commit); err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		cs = append(cs, ParseCommit(commit))
 	}
@@ -123,7 +123,7 @@ func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commitKey string) error {
 	stmt := `DELETE FROM pfs.commits WHERE int_id = $1;`
 	_, err = tx.ExecContext(ctx, stmt, id)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	stmt = `DELETE FROM pfs.commit_provenance WHERE from_id = $1 OR to_id = $1;`
 	_, err = tx.ExecContext(ctx, stmt, id)
@@ -134,11 +134,13 @@ func getCommitTableID(ctx context.Context, tx *pachsql.Tx, commitKey string) (in
 	query := `SELECT int_id, commit_id FROM pfs.commits WHERE commit_id = $1;`
 	rows, err := tx.QueryxContext(ctx, query, commitKey)
 	if err != nil {
-		return 0, err
+		return 0, errors.EnsureStack(err)
 	}
 	var id int
 	for rows.Next() {
-		rows.Scan(&id)
+		if err := rows.Scan(&id); err != nil {
+			return 0, errors.EnsureStack(err)
+		}
 	}
 	return id, nil
 }
@@ -147,7 +149,7 @@ func AddCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to *pfs.Comm
 	query := `SELECT int_id, commit_id FROM pfs.commits WHERE commit_id = $1 OR commit_id = $2;`
 	rows, err := tx.QueryxContext(ctx, query, CommitKey(from), CommitKey(to))
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	var fromId, toId int
 	var count int
@@ -156,7 +158,7 @@ func AddCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to *pfs.Comm
 		var tmp int
 		var commitId string
 		if err := rows.Scan(&tmp, &commitId); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if commitId == CommitKey(from) {
 			fromId = tmp

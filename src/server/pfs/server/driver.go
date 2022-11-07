@@ -1897,12 +1897,3 @@ func getOrCreateKey(ctx context.Context, keyStore chunk.KeyStore, name string) (
 	res, err := keyStore.Get(ctx, name)
 	return res, errors.EnsureStack(err)
 }
-
-func allSameString(slice []string) bool {
-	for _, str := range slice {
-		if str != slice[0] {
-			return false
-		}
-	}
-	return true
-}
