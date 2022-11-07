@@ -348,6 +348,9 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 		p = ""
 	}
 	if number == 0 {
+		if reverse {
+			return errors.Errorf("number must be > 0 when reverse is true")
+		}
 		number = math.MaxInt64
 	}
 	opts := []SourceOption{
@@ -370,6 +373,10 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 	}
 	s := NewSource(commitInfo, fs, opts...)
 	s = NewErrOnEmpty(s, newFileNotFound(commitInfo.Commit.ID, p))
+	if reverse {
+		// call diff fn
+		return nil
+	}
 	err = s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		if number == 0 {
 			return errutil.ErrBreak
