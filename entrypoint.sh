@@ -65,6 +65,7 @@ if [ ! -f ${PG_CONFIG_DIR}/pgbouncer.ini ]; then
     auth_type = ${PGBOUNCER_AUTH_TYPE:-md5}
     ${PGBOUNCER_POOL_MODE:+pool_mode = ${PGBOUNCER_POOL_MODE}\n}\
     ${PGBOUNCER_MAX_CLIENT_CONN:+max_client_conn = ${PGBOUNCER_MAX_CLIENT_CONN}\n}\
+    ${PGBOUNCER_DEFAULT_POOL_SIZE:+default_pool_size = ${PGBOUNCER_DEFAULT_POOL_SIZE}\n}\
     ${PGBOUNCER_IGNORE_STARTUP_PARAMETERS:+ignore_startup_parameters = ${PGBOUNCER_IGNORE_STARTUP_PARAMETERS}\n}\
     admin_users = ${POSTGRESQL_USERNAME:-postgres}
     ${PGBOUNCER_IDLE_TRANSACTION_TIMEOUT:+idle_transaction_timeout = ${PGBOUNCER_IDLE_TRANSACTION_TIMEOUT}\n}\
