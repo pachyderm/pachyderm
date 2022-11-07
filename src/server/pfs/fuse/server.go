@@ -27,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
@@ -1394,9 +1395,15 @@ func mountingState(m *MountStateMachine) StateFn {
 		// Get the latest non-alias commit on branch
 		// TODO: notebooks support
 		branchInfo, err := m.manager.Client.InspectProjectBranch(pfs.DefaultProjectName, m.Repo, m.Branch)
-		if err != nil {
+		if err != nil && !errutil.IsNotFoundError(err) {
 			return err
 		}
+
+		if errutil.IsNotFoundError(err) {
+			m.manager.root.commits[m.Name] = ""
+			return nil
+		}
+
 		commitInfos, err := m.manager.Client.ListCommit(branchInfo.Branch.Repo, branchInfo.Head, nil, 1)
 		if err != nil {
 			return err
