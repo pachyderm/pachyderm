@@ -631,13 +631,13 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		// Filter jobs based on projects.
 		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.
 		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
-		keep := request.GetProjects()
+		filter := request.GetProjects()
 		var jobInfosFiltered []*pps.JobInfo
-		if len(keep) == 0 {
+		if len(filter) == 0 {
 			jobInfosFiltered = jobInfos
 		} else {
 			for _, ji := range jobInfos {
-				if keep[ji.Job.Pipeline.Project.GetName()] {
+				if ji.Job.Pipeline.Project.GetName() == filter[0] {
 					jobInfosFiltered = append(jobInfosFiltered, ji)
 				}
 			}
@@ -788,7 +788,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
 	keep := func(j *pps.JobInfo) error {
 		filter := request.GetProjects()
-		if len(filter) == 0 || filter[j.Job.Pipeline.Project.GetName()] {
+		if len(filter) == 0 || j.Job.Pipeline.Project.GetName() == filter[0] {
 			return errors.Wrap(resp.Send(j), "could not send filtered job")
 		}
 		return nil
