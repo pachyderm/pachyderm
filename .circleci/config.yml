@@ -34,7 +34,9 @@ parameters:
     default: "1.16.1"
   pgbouncer-image-tag:
     type: string
-    default: "1.16.1" #may not always be in sync with pgbouncer-base-image-version, for entrypoint.sh wrapper updates
+    # may not always be in sync with pgbouncer-base-image-version
+    # i.e any entrypoint.sh wrapper updates
+    default: "1.16.1"
 # our defined job, and its steps
 jobs:
   setup:

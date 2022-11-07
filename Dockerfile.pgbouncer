@@ -27,7 +27,7 @@ RUN curl -o  /tmp/pgbouncer-$PG_VERSION.tar.gz -L https://www.pgbouncer.org/down
     apt purge -y curl gcc pkg-config libudns-dev libevent-dev libssl-dev make
 
 
-COPY entrypoint.sh /entrypoint.sh
+COPY /etc/pgbouncer/entrypoint.sh /entrypoint.sh
 # need to remove already included pgbouncer.ini for entrypoint to create new config file based
 # on the container environment variables
 
