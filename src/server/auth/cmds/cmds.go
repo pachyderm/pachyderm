@@ -650,6 +650,30 @@ func GetRepoRoleBindingCmd() *cobra.Command {
 	return cmdutil.CreateAliases(get, "auth get repo", "repos")
 }
 
+// GetProjectRoleBindingCmd returns a cobra command that gets the role bindings for a resource
+func GetProjectRoleBindingCmd() *cobra.Command {
+	get := &cobra.Command{
+		Use:   "{{alias}} <project>",
+		Short: "Get the role bindings for 'project'",
+		Long:  "Get the role bindings for 'project'",
+		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+			project := args[0]
+			resp, err := c.GetProjectRoleBinding(project)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			printRoleBinding(resp)
+			return nil
+		}),
+	}
+	return cmdutil.CreateAliases(get, "auth get project", "projects")
+}
+
 // SetClusterRoleBindingCmd returns a cobra command that sets the roles for a user on a resource
 func SetClusterRoleBindingCmd() *cobra.Command {
 	setScope := &cobra.Command{
@@ -863,6 +887,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, RevokeCmd())
 	commands = append(commands, GetGroupsCmd())
 	commands = append(commands, GetRepoRoleBindingCmd())
+	commands = append(commands, GetProjectRoleBindingCmd())
 	commands = append(commands, SetRepoRoleBindingCmd())
 	commands = append(commands, GetClusterRoleBindingCmd())
 	commands = append(commands, SetClusterRoleBindingCmd())

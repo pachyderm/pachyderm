@@ -103,6 +103,7 @@ func Robot(robot string) string {
 
 func BuildClusterBindings(s ...string) *auth.RoleBinding {
 	return BuildBindings(append(s,
+		auth.AllClusterUsersSubject, auth.ProjectCreator,
 		auth.RootUser, auth.ClusterAdminRole,
 		auth.InternalPrefix+"auth-server", auth.ClusterAdminRole,
 	)...)
@@ -123,6 +124,13 @@ func BuildBindings(s ...string) *auth.RoleBinding {
 func GetRepoRoleBinding(t *testing.T, c *client.APIClient, projectName, repoName string) *auth.RoleBinding {
 	t.Helper()
 	resp, err := c.GetProjectRepoRoleBinding(projectName, repoName)
+	require.NoError(t, err)
+	return resp
+}
+
+func GetProjectRoleBinding(t *testing.T, c *client.APIClient, project string) *auth.RoleBinding {
+	t.Helper()
+	resp, err := c.GetProjectRoleBinding(project)
 	require.NoError(t, err)
 	return resp
 }
