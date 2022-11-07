@@ -14,14 +14,45 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
-// TODO(acohen4): does this actually need to be topologically sorted?
 func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) ([]*pfs.CommitInfo, error) {
 	var commitInfos []*pfs.CommitInfo
 	commitInfo := &pfs.CommitInfo{}
-	return commitInfos, d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitset.ID, commitInfo, col.DefaultOptions(), func(string) error {
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitset.ID, commitInfo, col.DefaultOptions(), func(string) error {
 		commitInfos = append(commitInfos, proto.Clone(commitInfo).(*pfs.CommitInfo))
 		return nil
-	})
+	}); err != nil {
+		return nil, err
+	}
+	// topologically sort commits - TODO(acohen4) is this really necessary?
+	totalCommits := len(commitInfos)
+	list := make([]*pfs.CommitInfo, 0)
+	collected := make(map[*pfs.Repo]struct{})
+	for len(list) < totalCommits {
+		for i, ci := range commitInfos {
+			if _, ok := collected[ci.Commit.Repo]; ok {
+				continue
+			}
+			satisfied := true
+			for _, p := range ci.DirectProvenance {
+				if _, ok := collected[p.Repo]; !ok {
+					satisfied = false
+					break
+				}
+			}
+			if satisfied {
+				collected[ci.Commit.Repo] = struct{}{}
+				list = append(list, ci)
+				commitInfos[i] = commitInfos[len(commitInfos)-1]
+				commitInfos = commitInfos[:len(commitInfos)-1]
+				break
+			}
+		}
+	}
+	// reverse the list so it's topologically sorted
+	for i := 0; i < len(list)/2; i++ {
+		list[i], list[len(list)-1-i] = list[len(list)-1-i], list[i]
+	}
+	return list, nil
 }
 
 func (d *driver) inspectCommitSetImmediate(ctx context.Context, commitset *pfs.CommitSet, cb func(*pfs.CommitInfo) error) error {
@@ -53,6 +84,23 @@ func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet,
 		sent[pfsdb.CommitKey(ci.Commit)] = struct{}{}
 		return cb(ci)
 
+	}
+	// include the commit set provenance in the inspectCommitSet results. TODO(acohen4): is this necessary?
+	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		cs, err := pfsdb.CommitSetProvenance(ctx, txnCtx.SqlTx, commitset.ID)
+		if err != nil {
+			return err
+		}
+		for _, c := range cs {
+			ci := &pfs.CommitInfo{}
+			d.commits.ReadWrite(txnCtx.SqlTx).Get(c, ci)
+			if err := send(ci); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	unfinishedCommits := make([]*pfs.Commit, 0)
 	// The commits in this CommitSet may change if any triggers or CreateBranches
