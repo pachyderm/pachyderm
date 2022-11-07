@@ -111,7 +111,6 @@ type ErrAmbiguousCommit struct {
 // create a CommitSet with multiple commits in the same branch, which would
 // result in inconsistent data dependencies.
 type ErrInconsistentCommit struct {
-	Branch *pfs.Branch
 	Commit *pfs.Commit
 }
 
@@ -277,7 +276,7 @@ func (e ErrAmbiguousCommit) Error() string {
 }
 
 func (e ErrInconsistentCommit) Error() string {
-	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s - branch (%s) already has a commit in this transaction", e.Commit, e.Branch.Name)
+	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s - repo (%s) already has a commit in this transaction", e.Commit, e.Commit.Repo.Name)
 }
 
 func (e ErrCommitOnOutputBranch) Error() string {

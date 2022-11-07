@@ -487,7 +487,7 @@ func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *p
 }
 
 // Set child.ParentCommit (if 'parent' has been determined) and write child to parent's ChildCommits
-func (d *driver) linkParent(txnCtx *txncontext.TransactionContext, child *pfs.CommitInfo, parent *pfs.Commit) error {
+func (d *driver) linkParent(txnCtx *txncontext.TransactionContext, child *pfs.CommitInfo, parent *pfs.Commit, needsFinishedParent bool) error {
 	if parent != nil {
 		// Resolve 'parent' if it's a branch that isn't 'branch' (which can
 		// happen if 'branch' is new and diverges from the existing branch in
@@ -499,7 +499,7 @@ func (d *driver) linkParent(txnCtx *txncontext.TransactionContext, child *pfs.Co
 			return errors.Wrapf(err, "parent commit not found")
 		}
 		// fail if the parent commit has not been finished
-		if parentCommitInfo.Finishing == nil {
+		if needsFinishedParent && parentCommitInfo.Finishing == nil {
 			return errors.Errorf("parent commit %s has not been finished", parent)
 		}
 		child.ParentCommit = parentCommitInfo.Commit
@@ -513,8 +513,8 @@ func (d *driver) linkParent(txnCtx *txncontext.TransactionContext, child *pfs.Co
 	return nil
 }
 
-func (d *driver) addCommit(txnCtx *txncontext.TransactionContext, newCommitInfo *pfs.CommitInfo, parent *pfs.Commit, directProvenance []*pfs.Branch) error {
-	if err := d.linkParent(txnCtx, newCommitInfo, parent); err != nil {
+func (d *driver) addCommit(txnCtx *txncontext.TransactionContext, newCommitInfo *pfs.CommitInfo, parent *pfs.Commit, directProvenance []*pfs.Branch, needsFinishedParent bool) error {
+	if err := d.linkParent(txnCtx, newCommitInfo, parent, needsFinishedParent); err != nil {
 		return err
 	}
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(newCommitInfo.Commit, newCommitInfo); err != nil {
@@ -531,10 +531,8 @@ func (d *driver) addCommit(txnCtx *txncontext.TransactionContext, newCommitInfo 
 			}
 			return errors.EnsureStack(err)
 		}
-		if branchInfo.Head != nil {
-			if err := pfsdb.AddCommitProvenance(context.TODO(), txnCtx.SqlTx, newCommitInfo.Commit, branchInfo.Head); err != nil {
-				return err
-			}
+		if err := pfsdb.AddCommitProvenance(context.TODO(), txnCtx.SqlTx, newCommitInfo.Commit, branchInfo.Head); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -613,7 +611,7 @@ func (d *driver) startCommit(
 		// Otherwise, we don't allow user code to start commits on output branches
 		return nil, pfsserver.ErrCommitOnOutputBranch{Branch: branch}
 	}
-	if err := d.addCommit(txnCtx, newCommitInfo, parent, branchInfo.DirectProvenance); err != nil {
+	if err := d.addCommit(txnCtx, newCommitInfo, parent, branchInfo.DirectProvenance, true); err != nil {
 		return nil, err
 	}
 	// Defer propagation of the commit until the end of the transaction so we can
@@ -750,7 +748,7 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 			return nil, err
 		}
 		if !proto.Equal(parentRoot.Commit, prevRoot.Commit) {
-			return nil, errors.EnsureStack(pfsserver.ErrInconsistentCommit{Commit: parent, Branch: branch})
+			return nil, errors.EnsureStack(pfsserver.ErrInconsistentCommit{Commit: parent})
 		}
 	}
 
@@ -1352,11 +1350,15 @@ func (d *driver) fillNewBranches(txnCtx *txncontext.TransactionContext, branch *
 		branchInfo := &pfs.BranchInfo{}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Upsert(b, branchInfo, func() error {
 			if branchInfo.Branch == nil {
+				branchInfo.Branch = b
 				if branchInfo.Head == nil {
 					// We are creating this branch for the first time, set the Branch and Head
-					// TODO does this need to be deduplicated??
-					branchInfo.Branch = b
-					head, err := d.makeEmptyCommit(txnCtx, branchInfo.Branch, branchInfo.DirectProvenance)
+					// TODO can we fix this up?
+					var prov []*pfs.Branch
+					if b == branch {
+						prov = provenance
+					}
+					head, err := d.makeEmptyCommit(txnCtx, branchInfo.Branch, prov)
 					if err != nil {
 						return err
 					}
@@ -1393,7 +1395,7 @@ func (d *driver) fillNewBranches(txnCtx *txncontext.TransactionContext, branch *
 //
 // This algorithm updates every branch in branchInfo's Subvenance, new Provenance, and old Provenance.
 // Complexity is O(m*n*log(n)) where m is the complete Provenance of branchInfo, and n is the Subvenance of branchInfo
-func (d *driver) computeCompleteProvenance(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo, oldDirectProvenance []*pfs.Branch) error {
+func (d *driver) computeBranchProvenance(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo, oldDirectProvenance []*pfs.Branch) error {
 	branchInfoCache := map[string]*pfs.BranchInfo{pfsdb.BranchKey(branchInfo.Branch): branchInfo}
 	getBranchInfo := func(b *pfs.Branch) (*pfs.BranchInfo, error) {
 		if bi, ok := branchInfoCache[pfsdb.BranchKey(b)]; ok {
@@ -1421,8 +1423,8 @@ func (d *driver) computeCompleteProvenance(txnCtx *txncontext.TransactionContext
 	sort.Slice(toUpdate, func(i, j int) bool { return len(toUpdate[i].Provenance) < len(toUpdate[j].Provenance) })
 	// re-compute the complete provenance of branchInfo and all its subvenant branches
 	for _, bi := range toUpdate {
-		bi.Provenance = nil
-		for _, directProv := range branchInfo.DirectProvenance {
+		bi.Provenance = make([]*pfs.Branch, 0)
+		for _, directProv := range bi.DirectProvenance {
 			add(&bi.Provenance, directProv)
 			directProvBI, err := getBranchInfo(directProv)
 			if err != nil {
@@ -1488,9 +1490,7 @@ func newUserCommitInfo(txnCtx *txncontext.TransactionContext, branch *pfs.Branch
 // This invariant is assumed to hold for all branches upstream of 'branch', but not
 // for 'branch' itself once 'b.Provenance' has been set.
 //
-// TODO(acohen4): this signature is confusing. What if a commit is passed but provenance is changed???
-// sensible rules:
-// - add a commit to head whenever provenance is changed
+// what to do if pointing at new commit with inconsistent provenance?
 func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch, trigger *pfs.Trigger) error {
 	// Validate arguments
 	if branch == nil {
@@ -1522,6 +1522,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	if err := d.fillNewBranches(txnCtx, branch, provenance); err != nil {
 		return err
 	}
+	needsNewCommit := false
 	var ci *pfs.CommitInfo
 	if commit != nil {
 		ci, err = d.resolveCommit(txnCtx.SqlTx, commit)
@@ -1529,6 +1530,9 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 			return errors.Wrapf(err, "unable to inspect %s", commit)
 		}
 		commit = ci.Commit
+		if !same(ci.DirectProvenance, provenance) {
+			needsNewCommit = true
+		}
 	}
 	// Retrieve the current version of this branch and set it's head if specified
 	var oldProvenance []*pfs.Branch
@@ -1555,24 +1559,14 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}
 	// Update the total provenance of this branch and all of its subvenant branches
 	// loads all branches in the complete closure once and saves all of them
-	if err := d.computeCompleteProvenance(txnCtx, branchInfo, oldProvenance); err != nil {
+	if err := d.computeBranchProvenance(txnCtx, branchInfo, oldProvenance); err != nil {
 		return err
 	}
 	// ensure that a new head commit is created if the direct provenance has changed
-	changedProvenance := false
-	if len(branchInfo.DirectProvenance) != len(provenance) {
-		changedProvenance = true
-	} else {
-		for _, oldProv := range branchInfo.DirectProvenance {
-			if !has(&provenance, oldProv) {
-				changedProvenance = true
-				break
-			}
-		}
-	}
-	if branchInfo.Head.ID != txnCtx.CommitSetID && changedProvenance {
+	changedProvenance := same(oldProvenance, provenance)
+	if needsNewCommit || commit == nil && branchInfo.Head.ID != txnCtx.CommitSetID && changedProvenance {
 		newHead := newUserCommitInfo(txnCtx, branch)
-		if err := d.addCommit(txnCtx, ci, branchInfo.Head, branchInfo.DirectProvenance); err != nil {
+		if err := d.addCommit(txnCtx, newHead, branchInfo.Head, branchInfo.DirectProvenance, false); err != nil {
 			return err
 		}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(branch, branchInfo, func() error {
@@ -1901,6 +1895,18 @@ func (b *branchSet) has(branch *pfs.Branch) bool {
 
 func has(bs *[]*pfs.Branch, branch *pfs.Branch) bool {
 	return (*branchSet)(bs).has(branch)
+}
+
+func same(bs []*pfs.Branch, branches []*pfs.Branch) bool {
+	if len(bs) != len(branches) {
+		return false
+	}
+	for _, br := range branches {
+		if !has(&bs, br) {
+			return false
+		}
+	}
+	return true
 }
 
 func getOrCreateKey(ctx context.Context, keyStore chunk.KeyStore, name string) ([]byte, error) {
