@@ -1645,7 +1645,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			}
 			oldFile := &pfs.File{}
 			if len(args) == 2 {
-				oldFile, err = cmdutil.ParseFile(project, args[1])
+				oldFile, err = cmdutil.ParseFile(oldProject, args[1])
 				if err != nil {
 					return err
 				}
