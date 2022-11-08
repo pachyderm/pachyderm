@@ -771,9 +771,9 @@ func (a *apiServer) listJob(
 			return errutil.ErrBreak
 		}
 		if paginationMarker != nil {
-			createdAt := time.Unix(int64(jobInfo.Started.GetSeconds()), int64(jobInfo.Started.GetNanos())).UTC()
+			createdAt := time.Unix(int64(jobInfo.Created.GetSeconds()), int64(jobInfo.Created.GetNanos())).UTC()
 			fromTime := time.Unix(int64(paginationMarker.GetSeconds()), int64(paginationMarker.GetNanos())).UTC()
-			if !reverse && createdAt.After(fromTime) || reverse && createdAt.Before(fromTime) {
+			if createdAt.Equal(fromTime) || !reverse && createdAt.After(fromTime) || reverse && createdAt.Before(fromTime) {
 				return nil
 			}
 		}
