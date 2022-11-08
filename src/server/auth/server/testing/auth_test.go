@@ -414,7 +414,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		name:   pipeline,
 		repo:   dataRepo,
 	}))
-	require.OneOfEquals(t, pipeline, tu.PipelineNames(t, aliceClient))
+	require.OneOfEquals(t, pipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
 	// check that alice owns the output repo too)
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
@@ -437,7 +437,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.NoneEquals(t, badPipeline, tu.PipelineNames(t, aliceClient))
+	require.NoneEquals(t, badPipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
 
 	// alice adds bob as a reader of the input repo
 	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, dataRepo, bob, []string{auth.RepoReaderRole}))
@@ -449,7 +449,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		name:   goodPipeline,
 		repo:   dataRepo,
 	}))
-	require.OneOfEquals(t, goodPipeline, tu.PipelineNames(t, aliceClient))
+	require.OneOfEquals(t, goodPipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
 	// check that bob owns the output repo too)
 	require.Equal(t,
 		tu.BuildBindings(bob, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, goodPipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, bobClient, pfs.DefaultProjectName, goodPipeline))
@@ -612,7 +612,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	}))
-	require.OneOfEquals(t, aliceCrossPipeline, tu.PipelineNames(t, aliceClient))
+	require.OneOfEquals(t, aliceCrossPipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
 	// check that alice owns the output repo too)
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, aliceCrossPipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, aliceCrossPipeline))
@@ -627,7 +627,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	}))
-	require.OneOfEquals(t, aliceUnionPipeline, tu.PipelineNames(t, aliceClient))
+	require.OneOfEquals(t, aliceUnionPipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
 	// check that alice owns the output repo too)
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, aliceUnionPipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, aliceUnionPipeline))
@@ -647,7 +647,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.NoneEquals(t, bobCrossPipeline, tu.PipelineNames(t, aliceClient))
+	require.NoneEquals(t, bobCrossPipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
 
 	// bob cannot create a union-pipeline with both inputs
 	bobUnionPipeline := tu.UniqueString("bob-union")
@@ -661,7 +661,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.NoneEquals(t, bobUnionPipeline, tu.PipelineNames(t, aliceClient))
+	require.NoneEquals(t, bobUnionPipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
 
 	// alice adds bob as a writer of her pipeline's output
 	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, aliceCrossPipeline, bob, []string{auth.RepoWriterRole}))
@@ -729,7 +729,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	}))
-	require.OneOfEquals(t, bobCrossPipeline, tu.PipelineNames(t, aliceClient))
+	require.OneOfEquals(t, bobCrossPipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
 
 	// bob can create a union-pipeline with both inputs
 	require.NoError(t, createPipeline(createArgs{
@@ -740,7 +740,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
 		),
 	}))
-	require.OneOfEquals(t, bobUnionPipeline, tu.PipelineNames(t, aliceClient))
+	require.OneOfEquals(t, bobUnionPipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
 
 }
 
