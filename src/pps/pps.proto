@@ -443,6 +443,8 @@ message InspectJobSetRequest {
 
 message ListJobSetRequest {
   bool details = 1;
+  // A list of projects to filter jobs on, nil means don't filter.
+  repeated string projects = 2;
 }
 
 message InspectJobRequest {
@@ -453,6 +455,8 @@ message InspectJobRequest {
 }
 
 message ListJobRequest {
+  // A list of projects to filter jobs on, nil means don't filter.
+  repeated string projects = 7;
   Pipeline pipeline = 1;                // nil means all pipelines
   repeated pfs_v2.Commit input_commit = 2; // nil means all inputs
 
