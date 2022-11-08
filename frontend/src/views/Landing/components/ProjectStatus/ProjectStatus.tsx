@@ -1,7 +1,8 @@
 import {ProjectStatus as ProjectStatusEnum} from '@graphqlTypes';
-import {Group, Circle} from '@pachyderm/components';
 import capitalize from 'lodash/capitalize';
 import React, {useMemo} from 'react';
+
+import {Group, Circle} from '@pachyderm/components';
 
 type ProjectStatusType = {
   status: ProjectStatusEnum;

@@ -50,6 +50,7 @@ module.exports = {
   rules: {
     'import/default': 'off',
     'import/named': 'off',
+    'import/no-anonymous-default-export': 'off',
     'import/order': [
       'error',
       {

@@ -1,3 +1,5 @@
+import React, {useCallback} from 'react';
+
 import {
   Button,
   CaptionTextSmall,
@@ -9,7 +11,6 @@ import {
   StoryProgressDots,
   Story,
 } from '@pachyderm/components';
-import React, {useCallback} from 'react';
 
 import styles from './TutorialItem.module.css';
 

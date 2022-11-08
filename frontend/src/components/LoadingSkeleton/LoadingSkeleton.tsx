@@ -1,8 +1,8 @@
-import {LoadingDots} from '@pachyderm/components';
 import React from 'react';
 import {useRouteMatch} from 'react-router';
 
 import {PROJECT_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
+import {LoadingDots} from '@pachyderm/components';
 
 import styles from './LoadingSkeleton.module.css';
 

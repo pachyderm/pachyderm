@@ -1,4 +1,3 @@
-import {LoadingDots} from '@pachyderm/components';
 import React, {useMemo} from 'react';
 
 import {
@@ -10,6 +9,7 @@ import {useJobSets} from '@dash-frontend/hooks/useJobSets';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import ProjectSidebar from '@dash-frontend/views/Project/components/ProjectSidebar';
+import {LoadingDots} from '@pachyderm/components';
 
 import styles from './ProjectJobList.module.css';
 

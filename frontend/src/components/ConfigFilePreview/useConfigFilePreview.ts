@@ -1,6 +1,5 @@
-import {useClipboardCopy} from '@pachyderm/components';
-
 import useDownloadText from '@dash-frontend/views/LogsViewers/LogsViewer/hooks/useDownloadText';
+import {useClipboardCopy} from '@pachyderm/components';
 
 import stringifyToFormat, {Format} from './utils/stringifyToFormat';
 

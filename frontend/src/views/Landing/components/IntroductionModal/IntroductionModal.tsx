@@ -1,3 +1,5 @@
+import React from 'react';
+
 import {
   BasicModal,
   Icon,
@@ -6,7 +8,6 @@ import {
   ExternalLinkSVG,
   Link,
 } from '@pachyderm/components';
-import React from 'react';
 
 import useIntroductionModal from './hooks/useIntroductionModal';
 import styles from './IntroductionModal.module.css';

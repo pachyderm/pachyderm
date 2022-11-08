@@ -1,3 +1,5 @@
+import React, {useState} from 'react';
+
 import {
   Group,
   Button,
@@ -7,7 +9,6 @@ import {
   SupportSVG,
   EducationSVG,
 } from '@pachyderm/components';
-import React, {useState} from 'react';
 
 import Account from './components/Account';
 import TutorialsMenu from './components/TutorialsMenu';

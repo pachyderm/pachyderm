@@ -1,4 +1,3 @@
-import {SkeletonDisplayText, Tabs} from '@pachyderm/components';
 import {format, fromUnixTime} from 'date-fns';
 import capitalize from 'lodash/capitalize';
 import React, {useRef, useCallback} from 'react';
@@ -17,6 +16,7 @@ import {
   LINEAGE_REPO_PATH,
   PROJECT_REPO_PATH,
 } from '@dash-frontend/views/Project/constants/projectPaths';
+import {SkeletonDisplayText, Tabs} from '@pachyderm/components';
 
 import CommitBrowser from '../CommitBrowser';
 import CommitDetails from '../CommitBrowser/components/CommitDetails';

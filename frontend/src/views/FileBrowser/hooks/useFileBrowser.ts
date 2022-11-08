@@ -1,4 +1,3 @@
-import {useModal} from '@pachyderm/components';
 import {useState, useMemo, useCallback} from 'react';
 import {useHistory} from 'react-router';
 
@@ -7,6 +6,7 @@ import {useFiles} from '@dash-frontend/hooks/useFiles';
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
+import {useModal} from '@pachyderm/components';
 
 const useFileBrowser = () => {
   const browserHistory = useHistory();

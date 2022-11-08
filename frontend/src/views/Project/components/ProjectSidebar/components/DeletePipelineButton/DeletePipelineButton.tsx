@@ -1,5 +1,6 @@
-import {TrashSVG, Tooltip, Button} from '@pachyderm/components';
 import React from 'react';
+
+import {TrashSVG, Tooltip, Button} from '@pachyderm/components';
 
 import DeletePipelineModal from './DeletePipelineModal';
 import useDeletePipelineButton from './hooks/useDeletePipelineButton';

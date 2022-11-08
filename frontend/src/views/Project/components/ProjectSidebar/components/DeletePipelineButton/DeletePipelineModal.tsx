@@ -1,6 +1,6 @@
-import {BasicModal} from '@pachyderm/components';
 import React from 'react';
 
+import {BasicModal} from '@pachyderm/components';
 import getServerErrorMessage from 'lib/errorHandling';
 
 import useDeletePipelineModal from './hooks/useDeletePipelineModal';

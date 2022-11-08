@@ -1,6 +1,7 @@
-import {Icon, StatusWarningSVG} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
+
+import {Icon, StatusWarningSVG} from '@pachyderm/components';
 
 import styles from './EmptyState.module.css';
 

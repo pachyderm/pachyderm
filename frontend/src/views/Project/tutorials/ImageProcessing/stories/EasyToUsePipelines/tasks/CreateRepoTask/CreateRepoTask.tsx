@@ -1,15 +1,15 @@
-import {
-  LoadingDots,
-  TaskCard,
-  TaskComponentProps,
-  Terminal,
-} from '@pachyderm/components';
 import React from 'react';
 
 import {useCreateRepoMutation} from '@dash-frontend/generated/hooks';
 import useAccount from '@dash-frontend/hooks/useAccount';
 import useRecordTutorialProgress from '@dash-frontend/hooks/useRecordTutorialProgress';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {
+  LoadingDots,
+  TaskCard,
+  TaskComponentProps,
+  Terminal,
+} from '@pachyderm/components';
 
 const CreateRepoTask: React.FC<TaskComponentProps> = ({
   onCompleted,

@@ -1,4 +1,3 @@
-import {Form, useOutsideClick, GlobalIdSVG} from '@pachyderm/components';
 import classnames from 'classnames';
 import React, {useCallback, useMemo, useRef, useState} from 'react';
 import {useForm} from 'react-hook-form';
@@ -6,6 +5,7 @@ import {useForm} from 'react-hook-form';
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {Form, useOutsideClick, GlobalIdSVG} from '@pachyderm/components';
 
 import DefaultDropdown from './components/DefaultDropdown';
 import SearchBar from './components/SearchInput';

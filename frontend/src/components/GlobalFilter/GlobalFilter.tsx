@@ -1,3 +1,7 @@
+import classnames from 'classnames';
+import React from 'react';
+
+import {UUID_WITHOUT_DASHES_REGEX} from '@dash-frontend/constants/pachCore';
 import {
   ExternalLinkSVG,
   Icon,
@@ -8,10 +12,6 @@ import {
   Button,
   CheckmarkSVG,
 } from '@pachyderm/components';
-import classnames from 'classnames';
-import React from 'react';
-
-import {UUID_WITHOUT_DASHES_REGEX} from '@dash-frontend/constants/pachCore';
 
 import styles from './GlobalFilter.module.css';
 import useGlobalFilter from './hooks/useGlobalFilter';

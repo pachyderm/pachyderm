@@ -1,5 +1,6 @@
-import {Story} from '@pachyderm/components';
 import React from 'react';
+
+import {Story} from '@pachyderm/components';
 
 import AddImagesTask from './tasks/AddImagesTask';
 import MinimizeTask from './tasks/MinimizeTask';

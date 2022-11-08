@@ -1,5 +1,6 @@
-import {Group} from '@pachyderm/components';
 import React, {ProgressHTMLAttributes} from 'react';
+
+import {Group} from '@pachyderm/components';
 
 import styles from './ProgressBar.module.css';
 

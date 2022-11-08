@@ -1,7 +1,7 @@
-import {useOutsideClick, TutorialModalBodyContext} from '@pachyderm/components';
 import React, {useRef, useCallback, useContext} from 'react';
 
 import useTutorialsList from '@dash-frontend/views/Project/tutorials/hooks/useTutorialsList';
+import {useOutsideClick, TutorialModalBodyContext} from '@pachyderm/components';
 
 import TutorialItem from './components/TutorialItem';
 import useTutorialsMenu from './hooks/useTutorialsMenu';

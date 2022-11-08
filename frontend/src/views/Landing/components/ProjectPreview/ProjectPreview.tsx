@@ -1,5 +1,4 @@
 import {Project} from '@graphqlTypes';
-import {Group} from '@pachyderm/components';
 import classNames from 'classnames';
 import React, {useRef} from 'react';
 import {Link} from 'react-router-dom';
@@ -14,6 +13,7 @@ import JobListStatic from '@dash-frontend/components/JobList/components/JobListS
 import useIntersection from '@dash-frontend/hooks/useIntersection';
 import {useProjectDetails} from '@dash-frontend/hooks/useProjectDetails';
 import {jobsRoute} from '@dash-frontend/views/Project/utils/routes';
+import {Group} from '@pachyderm/components';
 import getListTitle from 'lib/getListTitle';
 
 import ProjectStatus from '../ProjectStatus';

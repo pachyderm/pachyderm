@@ -1,10 +1,10 @@
-import {TaskComponentProps, TaskCard, Terminal} from '@pachyderm/components';
 import React, {useCallback} from 'react';
 
 import useAccount from '@dash-frontend/hooks/useAccount';
 import useCreateBranch from '@dash-frontend/hooks/useCreateBranch';
 import useRecordTutorialProgress from '@dash-frontend/hooks/useRecordTutorialProgress';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {TaskComponentProps, TaskCard, Terminal} from '@pachyderm/components';
 
 const MoveBranchTask: React.FC<TaskComponentProps> = ({
   onCompleted,

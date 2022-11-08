@@ -1,8 +1,8 @@
-import {SkeletonBodyText} from '@pachyderm/components';
 import React from 'react';
 
 import ConfigFilePreview from '@dash-frontend/components/ConfigFilePreview';
 import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
+import {SkeletonBodyText} from '@pachyderm/components';
 
 import styles from './PipelineSpec.module.css';
 

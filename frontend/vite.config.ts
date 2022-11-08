@@ -48,8 +48,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@pachyderm/components': path.resolve(__dirname, '../components/src'),
-      '@pachyderm/components/*': path.resolve(__dirname, '../components/src/*'),
+      '@pachyderm/components': path.resolve(__dirname, '/components/src'),
+      '@pachyderm/components/*': path.resolve(__dirname, '/components/src/*'),
     },
   },
   plugins: [

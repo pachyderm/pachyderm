@@ -1,5 +1,4 @@
 import {File} from '@graphqlTypes';
-import {useModal} from '@pachyderm/components';
 import {useCallback} from 'react';
 import {useHistory} from 'react-router';
 
@@ -7,6 +6,7 @@ import {useDeleteFileMutation} from '@dash-frontend/generated/hooks';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
+import {useModal} from '@pachyderm/components';
 
 const useDeleteFileButton = (file: File) => {
   const {openModal, closeModal, isOpen} = useModal(false);

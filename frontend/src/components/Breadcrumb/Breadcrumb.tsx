@@ -1,8 +1,8 @@
-import {Link, HomeSVG, Icon} from '@pachyderm/components';
 import React, {useMemo} from 'react';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
+import {Link, HomeSVG, Icon} from '@pachyderm/components';
 
 import styles from './Breadcrumb.module.css';
 

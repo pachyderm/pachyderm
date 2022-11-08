@@ -1,3 +1,6 @@
+import React, {HTMLAttributes} from 'react';
+
+import {FileMajorType} from '@dash-frontend/lib/types';
 import {
   FileAudioSVG,
   FileFolderSVG,
@@ -6,9 +9,6 @@ import {
   FileUnknownSVG,
   FileVideoSVG,
 } from '@pachyderm/components';
-import React, {HTMLAttributes} from 'react';
-
-import {FileMajorType} from '@dash-frontend/lib/types';
 
 import styles from './FileIcon.module.css';
 

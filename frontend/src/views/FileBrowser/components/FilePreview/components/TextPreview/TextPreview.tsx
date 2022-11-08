@@ -1,4 +1,3 @@
-import {LoadingDots} from '@pachyderm/components';
 import React, {CSSProperties} from 'react';
 import {FixedSizeList} from 'react-window';
 
@@ -8,6 +7,7 @@ import {
   PREVIEW_WIDTH,
   HEADER_OVERHEAD,
 } from '@dash-frontend/views/FileBrowser/constants/FileBrowser';
+import {LoadingDots} from '@pachyderm/components';
 
 import ContentWrapper from '../ContentWrapper';
 

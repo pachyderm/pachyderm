@@ -1,6 +1,7 @@
-import {CodePreview} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
+
+import {CodePreview} from '@pachyderm/components';
 
 import stringify, {Format} from '../../utils/stringifyToFormat';
 import MinimizableSection from '../MinimizableSection';

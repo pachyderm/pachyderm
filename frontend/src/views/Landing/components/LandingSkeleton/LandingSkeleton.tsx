@@ -1,8 +1,8 @@
-import {TableView} from '@pachyderm/components';
 import React from 'react';
 
 import Sidebar from '@dash-frontend/components/Sidebar';
 import View from '@dash-frontend/components/View';
+import {TableView} from '@pachyderm/components';
 
 import LandingHeader from '../LandingHeader';
 

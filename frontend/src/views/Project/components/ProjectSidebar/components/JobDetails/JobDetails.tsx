@@ -1,5 +1,4 @@
 import {JobSet} from '@graphqlTypes';
-import {Link, LoadingDots} from '@pachyderm/components';
 import React, {useState} from 'react';
 import {Helmet} from 'react-helmet';
 import {Redirect, Route} from 'react-router-dom';
@@ -16,6 +15,7 @@ import {
   jobRoute,
   pipelineRoute,
 } from '@dash-frontend/views/Project/utils/routes';
+import {Link, LoadingDots} from '@pachyderm/components';
 
 import InfoPanel from './components/InfoPanel';
 import PipelineList from './components/PipelineList';

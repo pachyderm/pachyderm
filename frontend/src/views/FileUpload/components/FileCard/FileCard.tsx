@@ -1,3 +1,7 @@
+import filesize from 'filesize';
+import React from 'react';
+
+import FileIcon from '@dash-frontend/components/FileIcon';
 import {
   Button,
   CloseSVG,
@@ -6,10 +10,6 @@ import {
   StatusCheckmarkSVG,
   StatusWarningSVG,
 } from '@pachyderm/components';
-import filesize from 'filesize';
-import React from 'react';
-
-import FileIcon from '@dash-frontend/components/FileIcon';
 
 import ProgressBar from './components/ProgressBar';
 import styles from './FileCard.module.css';

@@ -3,7 +3,6 @@ import {
   JobSetFieldsFragment,
   JobState,
 } from '@graphqlTypes';
-import {ArrowRightSVG, Tooltip, Group, ButtonLink} from '@pachyderm/components';
 import classNames from 'classnames';
 import {formatDistanceToNowStrict, fromUnixTime, format} from 'date-fns';
 import React from 'react';
@@ -12,6 +11,7 @@ import {Link} from 'react-router-dom';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {readableJobState} from '@dash-frontend/lib/jobs';
 import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
+import {ArrowRightSVG, Tooltip, Group, ButtonLink} from '@pachyderm/components';
 
 import isPipelineJob from '../../utils/isPipelineJob';
 

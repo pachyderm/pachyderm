@@ -1,8 +1,9 @@
 import {ApolloError} from '@apollo/client';
 import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
-import {LoadingDots} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
+
+import {LoadingDots} from '@pachyderm/components';
 
 import EmptyState from '../../../EmptyState';
 

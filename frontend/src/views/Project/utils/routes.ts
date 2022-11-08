@@ -1,5 +1,6 @@
-import {generatePathWithSearch} from '@pachyderm/components';
 import {ExtractRouteParams, generatePath, matchPath} from 'react-router';
+
+import {generatePathWithSearch} from '@pachyderm/components';
 
 import {
   LINEAGE_PATH,

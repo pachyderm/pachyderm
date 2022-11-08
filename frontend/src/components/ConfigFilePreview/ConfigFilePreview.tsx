@@ -1,5 +1,6 @@
-import {DefaultDropdown, Group, Icon, SettingsSVG} from '@pachyderm/components';
 import React from 'react';
+
+import {DefaultDropdown, Group, Icon, SettingsSVG} from '@pachyderm/components';
 
 import CodeElement from './components/CodeElement';
 import styles from './ConfigFilePreview.module.css';

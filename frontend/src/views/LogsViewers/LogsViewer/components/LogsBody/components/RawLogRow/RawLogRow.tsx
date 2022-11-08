@@ -1,8 +1,9 @@
 import {GetLogsQuery} from '@graphqlTypes';
-import {CodeText} from '@pachyderm/components';
 import classnames from 'classnames';
 import React, {CSSProperties, memo, useEffect, useRef} from 'react';
 import {areEqual} from 'react-window';
+
+import {CodeText} from '@pachyderm/components';
 
 import styles from './RawLogRow.module.css';
 

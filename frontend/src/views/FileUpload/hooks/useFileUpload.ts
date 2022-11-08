@@ -1,4 +1,3 @@
-import {useModal} from '@pachyderm/components';
 import {
   DragEventHandler,
   useCallback,
@@ -13,6 +12,7 @@ import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import {useLazyFetch} from '@dash-frontend/hooks/useLazyFetch';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import getAllFileEntries from '@dash-frontend/lib/getAllFileEntries';
+import {useModal} from '@pachyderm/components';
 
 import {GLOB_CHARACTERS, ERROR_MESSAGE} from '../lib/constants';
 

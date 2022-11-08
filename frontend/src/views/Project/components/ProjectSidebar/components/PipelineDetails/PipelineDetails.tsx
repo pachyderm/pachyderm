@@ -1,9 +1,9 @@
-import {SkeletonDisplayText, Tabs} from '@pachyderm/components';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
 import {Helmet} from 'react-helmet';
 
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
+import {SkeletonDisplayText, Tabs} from '@pachyderm/components';
 
 import InfoPanel from '../JobDetails/components/InfoPanel';
 import Title from '../Title';

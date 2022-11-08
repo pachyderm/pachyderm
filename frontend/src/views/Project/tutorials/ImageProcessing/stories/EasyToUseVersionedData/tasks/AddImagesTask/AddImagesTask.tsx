@@ -1,15 +1,15 @@
-import {
-  MultiSelectModule,
-  TaskCard,
-  TaskComponentProps,
-  useMultiSelectModule,
-} from '@pachyderm/components';
 import React, {useCallback} from 'react';
 
 import {usePutFilesFromUrLsMutation} from '@dash-frontend/generated/hooks';
 import useAccount from '@dash-frontend/hooks/useAccount';
 import useRecordTutorialProgress from '@dash-frontend/hooks/useRecordTutorialProgress';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {
+  MultiSelectModule,
+  TaskCard,
+  TaskComponentProps,
+  useMultiSelectModule,
+} from '@pachyderm/components';
 
 const files = {
   'https://i.imgur.com/FOO9q43.jpg': {

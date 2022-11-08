@@ -1,4 +1,8 @@
 import {File, FileType, FileCommitState} from '@graphqlTypes';
+import classnames from 'classnames';
+import capitalize from 'lodash/capitalize';
+import React from 'react';
+
 import {
   CopySVG,
   Link,
@@ -11,9 +15,6 @@ import {
   Button,
   ButtonGroup,
 } from '@pachyderm/components';
-import classnames from 'classnames';
-import capitalize from 'lodash/capitalize';
-import React from 'react';
 
 import FileIcon from '../../../../components/FileIcon';
 import useFileDisplay from '../../hooks/useFileDisplay';

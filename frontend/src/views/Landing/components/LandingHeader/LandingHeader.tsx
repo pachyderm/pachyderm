@@ -1,9 +1,9 @@
 import {Project} from '@graphqlTypes';
-import {Group} from '@pachyderm/components';
 import React from 'react';
 
 import Header from '@dash-frontend/components/Header';
 import HeaderButtons from '@dash-frontend/components/HeaderButtons';
+import {Group} from '@pachyderm/components';
 
 import styles from './LandingHeader.module.css';
 import {ReactComponent as LogoElephant} from './LogoElephant.svg';

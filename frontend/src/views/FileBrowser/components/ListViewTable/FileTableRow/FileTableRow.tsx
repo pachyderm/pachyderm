@@ -1,4 +1,7 @@
 import {File, FileType, FileCommitState} from '@graphqlTypes';
+import classnames from 'classnames';
+import React from 'react';
+
 import {
   Table,
   Group,
@@ -9,8 +12,6 @@ import {
   ButtonGroup,
   Button,
 } from '@pachyderm/components';
-import classnames from 'classnames';
-import React from 'react';
 
 import useFileDisplay from '../../../hooks/useFileDisplay';
 import DeleteFileButton from '../../DeleteFileButton';

@@ -1,13 +1,4 @@
 import {RepoQuery} from '@graphqlTypes';
-import {
-  LoadingDots,
-  Button,
-  StatusUpdatedSVG,
-  AddCircleSVG,
-  CloseCircleSVG,
-  Icon,
-  ButtonGroup,
-} from '@pachyderm/components';
 import {format, fromUnixTime} from 'date-fns';
 import React from 'react';
 import {useHistory} from 'react-router';
@@ -17,6 +8,15 @@ import useCommit from '@dash-frontend/hooks/useCommit';
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
+import {
+  LoadingDots,
+  Button,
+  StatusUpdatedSVG,
+  AddCircleSVG,
+  CloseCircleSVG,
+  Icon,
+  ButtonGroup,
+} from '@pachyderm/components';
 
 import styles from './CommitDetails.module.css';
 

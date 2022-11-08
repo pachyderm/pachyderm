@@ -1,12 +1,4 @@
 import {OriginKind, RepoQuery} from '@graphqlTypes';
-import {
-  LoadingDots,
-  Tooltip,
-  PureCheckbox,
-  Group,
-  Button,
-  ButtonGroup,
-} from '@pachyderm/components';
 import React from 'react';
 import {CSSTransition, TransitionGroup} from 'react-transition-group';
 
@@ -19,6 +11,14 @@ import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigat
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
+import {
+  LoadingDots,
+  Tooltip,
+  PureCheckbox,
+  Group,
+  Button,
+  ButtonGroup,
+} from '@pachyderm/components';
 
 import styles from './CommitBrowser.module.css';
 import BranchBrowser from './components/BranchBrowser';

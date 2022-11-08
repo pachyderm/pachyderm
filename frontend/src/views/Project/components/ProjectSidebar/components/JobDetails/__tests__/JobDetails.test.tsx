@@ -269,6 +269,9 @@ describe('Job Details', () => {
         queryByTestId('Description__InputsSkeleton'),
       ).not.toBeInTheDocument(),
     );
+    await waitFor(() =>
+      expect(queryByTestId('InfoPanel__commitLink')).toBeInTheDocument(),
+    );
 
     const outputCommitLink = getByTestId('InfoPanel__commitLink');
 

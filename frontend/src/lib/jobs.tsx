@@ -1,12 +1,13 @@
 import {JobState} from '@graphqlTypes';
+import capitalize from 'lodash/capitalize';
+import React from 'react';
+
 import {
   StatusWarningSVG,
   StatusDotsSVG,
   StatusCheckmarkSVG,
   Icon,
 } from '@pachyderm/components';
-import capitalize from 'lodash/capitalize';
-import React from 'react';
 
 type JobVisualState = 'RUNNING' | 'ERROR' | 'SUCCESS' | 'IDLE';
 

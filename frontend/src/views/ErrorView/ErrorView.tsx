@@ -1,3 +1,9 @@
+import React from 'react';
+import {Helmet} from 'react-helmet';
+
+import JSONDataPreview from '@dash-frontend/components/JSONDataPreview';
+import View from '@dash-frontend/components/View';
+import LandingHeader from '@dash-frontend/views/Landing/components/LandingHeader';
 import {
   Button,
   StatusWarningSVG,
@@ -5,12 +11,6 @@ import {
   ErrorText,
   Icon,
 } from '@pachyderm/components';
-import React from 'react';
-import {Helmet} from 'react-helmet';
-
-import JSONDataPreview from '@dash-frontend/components/JSONDataPreview';
-import View from '@dash-frontend/components/View';
-import LandingHeader from '@dash-frontend/views/Landing/components/LandingHeader';
 
 import styles from './ErrorView.module.css';
 

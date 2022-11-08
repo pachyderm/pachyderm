@@ -1,3 +1,12 @@
+import {format, fromUnixTime, formatDistanceStrict} from 'date-fns';
+import findIndex from 'lodash/findIndex';
+import React, {useMemo} from 'react';
+
+import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
+import Header from '@dash-frontend/components/Header';
+import useCommits, {COMMIT_LIMIT} from '@dash-frontend/hooks/useCommits';
+import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
   Group,
   ArrowRightSVG,
@@ -10,15 +19,6 @@ import {
   Icon,
   Switch,
 } from '@pachyderm/components';
-import {format, fromUnixTime, formatDistanceStrict} from 'date-fns';
-import findIndex from 'lodash/findIndex';
-import React, {useMemo} from 'react';
-
-import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
-import Header from '@dash-frontend/components/Header';
-import useCommits, {COMMIT_LIMIT} from '@dash-frontend/hooks/useCommits';
-import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import useFileBrowser from '../../hooks/useFileBrowser';
 

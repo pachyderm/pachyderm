@@ -1,10 +1,10 @@
 import {ApolloError} from '@apollo/client';
-import {useLoginWindow} from '@pachyderm/components';
 import {useEffect, useMemo} from 'react';
 import {useLocation} from 'react-router';
 
 import useAuth from '@dash-frontend/hooks/useAuth';
 import {getIssuerUri} from '@dash-frontend/lib/runtimeVariables';
+import {useLoginWindow} from '@pachyderm/components';
 
 const useAuthenticatedRoute = () => {
   const {

@@ -1,13 +1,14 @@
 import {GetLogsQuery} from '@graphqlTypes';
+import classnames from 'classnames';
+import fill from 'lodash/fill';
+import React, {useCallback, useEffect, useState} from 'react';
+
 import {
   DefaultDropdown,
   DropdownItem,
   SkeletonDisplayText,
   PureCheckbox,
 } from '@pachyderm/components';
-import classnames from 'classnames';
-import fill from 'lodash/fill';
-import React, {useCallback, useEffect, useState} from 'react';
 
 import styles from './LogsListHeader.module.css';
 

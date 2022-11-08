@@ -1,4 +1,5 @@
 import {ApolloClient, InMemoryCache, ApolloLink} from '@apollo/client';
+
 import {sentryLink} from '@pachyderm/components';
 
 import cacheConfig from './cacheConfig';

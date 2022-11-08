@@ -1,7 +1,7 @@
-import {Button, Chip, ChipGroup} from '@pachyderm/components';
 import React from 'react';
 
 import {jobStates} from '@dash-frontend/components/JobList/components/JobListStatusFilter/JobListStatusFilter';
+import {Button, Chip, ChipGroup} from '@pachyderm/components';
 import getListTitle from 'lib/getListTitle';
 
 import {useDefaultDropdown} from '../../hooks/useDefaultDropdown';

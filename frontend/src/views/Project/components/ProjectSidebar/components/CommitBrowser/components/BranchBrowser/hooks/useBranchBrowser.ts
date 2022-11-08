@@ -1,10 +1,10 @@
 import {RepoQuery} from '@graphqlTypes';
-import {DropdownItem} from '@pachyderm/components';
 import {useCallback, useMemo} from 'react';
 import {useHistory} from 'react-router';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
+import {DropdownItem} from '@pachyderm/components';
 
 interface useBranchBrowserOpts {
   branches: RepoQuery['repo']['branches'];

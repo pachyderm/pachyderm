@@ -3,10 +3,10 @@ import {
   JobSetFieldsFragment,
   JobState,
 } from '@graphqlTypes';
-import {Chip, ChipGroup} from '@pachyderm/components';
 import React from 'react';
 
 import {readableJobState} from '@dash-frontend/lib/jobs';
+import {Chip, ChipGroup} from '@pachyderm/components';
 import getListTitle from 'lib/getListTitle';
 
 import {JobFilters} from '../../hooks/useJobFilters';

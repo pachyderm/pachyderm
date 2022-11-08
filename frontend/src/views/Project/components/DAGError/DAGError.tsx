@@ -1,4 +1,6 @@
 import {ApolloError} from '@apollo/client';
+import React, {useEffect} from 'react';
+
 import {
   ErrorText,
   StatusWarningSVG,
@@ -6,7 +8,6 @@ import {
   BasicModal,
   useModal,
 } from '@pachyderm/components';
-import React, {useEffect} from 'react';
 
 import styles from './DAGError.module.css';
 
