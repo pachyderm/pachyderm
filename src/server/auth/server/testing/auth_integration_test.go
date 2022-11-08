@@ -33,7 +33,7 @@ import (
 )
 
 // works with global.postgresql.postgresqlAuthType: md5, which is default in values file.
-var default_test_opts = minikubetestenv.WithValueOverrides(map[string]string{
+var defaultTestOptions = minikubetestenv.WithValueOverrides(map[string]string{
 	"global.postgresql.postgresqlPassword": "-strong-password!@#$%^&*(){}[]|\\:\"'<>?,./_+=0123A",
 })
 
@@ -46,7 +46,7 @@ func TestListDatum(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t, default_test_opts)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -136,7 +136,7 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	}
 	t.Parallel()
 
-	c, _ := minikubetestenv.AcquireCluster(t, default_test_opts)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	// generate auth credentials
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
@@ -186,7 +186,7 @@ func TestDebug(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t, default_test_opts)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	// Get all the authenticated clients at the beginning of the test.
 	// GetAuthenticatedPachClient will always re-activate auth, which
@@ -271,7 +271,7 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t, default_test_opts)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -493,7 +493,7 @@ func TestPipelineRevoke(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t, default_test_opts)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -608,7 +608,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, ns := minikubetestenv.AcquireCluster(t, default_test_opts)
+	c, ns := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice := tu.Robot(tu.UniqueString("alice"))
 	c = tu.AuthenticateClient(t, c, alice)
@@ -668,7 +668,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t, default_test_opts)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
@@ -757,7 +757,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t, default_test_opts)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
@@ -845,7 +845,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t, default_test_opts)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
