@@ -847,15 +847,13 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(drawDocs, "draw"))
 
-	for _, cmdFunc := range []func() ([]*cobra.Command, error){pfscmds.Cmds} {
+	for _, cmdFunc := range []func() ([]*cobra.Command, error){pfscmds.Cmds, ppscmds.Cmds} {
 		cmds, err := cmdFunc()
 		if err != nil {
 			panic(err)
 		}
 		subcommands = append(subcommands, cmds...)
 	}
-	//subcommands = append(subcommands, pfscmds.Cmds()...)
-	subcommands = append(subcommands, ppscmds.Cmds()...)
 	subcommands = append(subcommands, authcmds.Cmds()...)
 	subcommands = append(subcommands, enterprisecmds.Cmds()...)
 	subcommands = append(subcommands, licensecmds.Cmds()...)
