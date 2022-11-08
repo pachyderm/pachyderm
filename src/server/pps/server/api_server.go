@@ -636,9 +636,9 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		seen[jobInfo.Job.ID] = struct{}{}
 
 		if paginationMarker != nil {
-			createdAt := time.Unix(int64(jobInfo.Started.GetSeconds()), int64(jobInfo.Started.GetNanos())).UTC()
+			createdAt := time.Unix(int64(jobInfo.Created.GetSeconds()), int64(jobInfo.Created.GetNanos())).UTC()
 			fromTime := time.Unix(int64(paginationMarker.GetSeconds()), int64(paginationMarker.GetNanos())).UTC()
-			if !request.Reverse && createdAt.After(fromTime) || request.Reverse && createdAt.Before(fromTime) {
+			if createdAt.Equal(fromTime) || !request.Reverse && createdAt.After(fromTime) || request.Reverse && createdAt.Before(fromTime) {
 				return nil
 			}
 		}
