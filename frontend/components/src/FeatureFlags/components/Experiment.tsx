@@ -15,7 +15,7 @@ const Experiment: React.FC<ExperimentProps> = ({children, name}) => {
 
   return (
     <>
-      {Children.map(children, (child) => {
+      {Children.map(children, (child: React.ReactChild) => {
         if (
           // Pass the child through if it is not a Variation
           typeof child === 'string' ||

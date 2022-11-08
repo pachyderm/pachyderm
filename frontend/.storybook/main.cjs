@@ -12,15 +12,10 @@ module.exports = {
     const { config: userConfig } = await loadConfigFromFile(
       path.resolve(__dirname, "../components/vite.config.ts")
     );
-    userConfig.build = {
-      sourcemap: true,
-      target: 'ES2018',
-      minify: false,
-    };
     userConfig.resolve = {
       alias: {
-        '@pachyderm/components': path.resolve(__dirname, './src'),
-        '@pachyderm/components/*': path.resolve(__dirname, '/components/src/*'),
+        '@pachyderm/components': path.resolve(__dirname, '../components/src'),
+        '@pachyderm/components/*': path.resolve(__dirname, '../components/src/*'),
       },
     };
     userConfig.css = {

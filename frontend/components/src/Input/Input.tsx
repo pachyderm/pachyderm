@@ -92,7 +92,7 @@ const Input: React.ForwardRefRenderFunction<HTMLInputElement, InputProps> = (
         <input
           aria-invalid={hasError}
           aria-describedby={errorId}
-          ref={(e: HTMLInputElement) => {
+          ref={(e) => {
             formRef(e);
             if (typeof ref === 'function') {
               ref(e);

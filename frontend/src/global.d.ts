@@ -51,3 +51,5 @@ declare interface Window {
     REACT_APP_RUNTIME_DISABLE_TELEMETRY?: string;
   };
 }
+
+declare module 'postcss-custom-media';

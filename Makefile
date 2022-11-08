@@ -43,7 +43,7 @@ ci:
 	npm ci && npm ci --prefix ./backend && npm ci --prefix ./frontend
 
 prune-deps:
-	rm -rf ./frontend/node_modules && rm -rf ./components/node_modules && npm ci --prefix ./backend --only=production
+	rm -rf ./frontend/node_modules && npm ci --prefix ./backend --only=production
 
 docker-ci:
 	npm ci --prefix ./backend && npm ci --prefix ./frontend
