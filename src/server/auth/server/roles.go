@@ -209,7 +209,7 @@ func init() {
 	// clusterAdmin is a catch-all role that has every permission
 	registerRole(&auth.Role{
 		Name:          auth.ClusterAdminRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
 		Permissions: combinePermissions(
 			repoOwnerRole.Permissions,
 			oidcAppAdminRole.Permissions,
