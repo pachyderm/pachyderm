@@ -26,6 +26,15 @@ const (
 	upgradeSubject string = "upgrade_client"
 )
 
+var (
+	fromVersions = []string{
+		"2.0.4",
+		"2.1.0",
+		"2.2.0",
+		"2.3.9",
+	}
+)
+
 // runs the upgrade test from all versions specified in "fromVersions" against the local image
 func upgradeTest(suite *testing.T, ctx context.Context, fromVersions []string, preUpgrade func(*testing.T, *client.APIClient), postUpgrade func(*testing.T, *client.APIClient)) {
 	k := testutil.GetKubeClient(suite)
@@ -70,12 +79,6 @@ func upgradeTest(suite *testing.T, ctx context.Context, fromVersions []string, p
 // - create file input@master:/bar
 // - verify output@master:/bar and output@master:/foo still exists
 func TestUpgradeSimple(t *testing.T) {
-	fromVersions := []string{
-		"2.0.4",
-		"2.1.0",
-		"2.2.0",
-		"2.3.9",
-	}
 	upgradeTest(t, context.Background(), fromVersions,
 		func(t *testing.T, c *client.APIClient) {
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
