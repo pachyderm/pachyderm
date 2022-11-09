@@ -10632,6 +10632,8 @@ func TestPutFileNoErrorOnErroredParentCommit(t *testing.T) {
 }
 
 func TestTemporaryDuplicatedPath(t *testing.T) {
+	// TODO: Reimplement as unit test
+	t.Skip("Reimplement as unit test")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
