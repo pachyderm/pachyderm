@@ -75,7 +75,7 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(repoDocs, "repo", " repo$", repos))
 
-	cfg, err := config.Read(false, false)
+	cfg, err := config.Read(false, true)
 	if err != nil {
 		return nil, err
 	}

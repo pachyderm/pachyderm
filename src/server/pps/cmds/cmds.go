@@ -81,7 +81,7 @@ If the job fails, the output commit will not be populated with data.`,
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(jobDocs, "job", " job$", jobs))
 
-	cfg, err := config.Read(false, false)
+	cfg, err := config.Read(false, true)
 	if err != nil {
 		return nil, err
 	}
