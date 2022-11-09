@@ -47,9 +47,9 @@ message PFSTaskResult {
 }
 
 message CrossTask {
-  string base_file_set_id = 1;
-  pfs_v2.PathRange base_file_set_path_range = 2; 
-  repeated string file_set_ids = 3;
+  repeated string file_set_ids = 1;
+  int64 base_file_set_index = 2;
+  pfs_v2.PathRange base_file_set_path_range = 3;
   int64 base_index = 4;
 }
 
