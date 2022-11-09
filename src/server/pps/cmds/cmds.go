@@ -1004,7 +1004,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
 	listPipeline.Flags().StringVarP(&commit, "commit", "c", "", "List the pipelines as they existed at this commit.")
 	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
-	listPipeline.Flags().StringVar(&project, "project", project, "Project containing projects.")
+	listPipeline.Flags().StringVar(&project, "project", project, "Project containing pipelines.")
 	commands = append(commands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
 
 	var commitSet string
