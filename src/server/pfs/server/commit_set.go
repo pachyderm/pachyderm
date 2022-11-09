@@ -62,10 +62,6 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 			}
 		}
 	}
-	// reverse the list so it's topologically sorted
-	for i := 0; i < len(list)/2; i++ {
-		list[i], list[len(list)-1-i] = list[len(list)-1-i], list[i]
-	}
 	return list, nil
 }
 
