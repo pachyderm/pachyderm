@@ -1,4 +1,8 @@
-import {Icon, StatusWarningSVG} from '@pachyderm/components';
+import {
+  Icon,
+  StatusWarningSVG,
+  ElephantEmptyState,
+} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 
@@ -21,13 +25,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
 }) => {
   return (
     <div className={`${styles.base} ${className}`}>
-      {!error && (
-        <img
-          src="/elephant_empty_state.png"
-          className={styles.elephantImage}
-          alt=""
-        />
-      )}
+      {!error && <ElephantEmptyState className={styles.elephantImage} />}
       <span className={classnames(styles.title, {[styles.noImage]: error})}>
         {error && (
           <Icon small className={styles.errorStatus} color="red">
