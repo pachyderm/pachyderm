@@ -2990,13 +2990,11 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-
 	for _, commitInfo := range commitInfos {
 		// Skip alias commits and any commits which have already been finished
-		if commitInfo.Finishing != nil {
+		if commitInfo.Finishing != nil || commitInfo.Commit.ID != txnCtx.CommitSetID {
 			continue
 		}
-
 		// Skip commits from system repos
 		if commitInfo.Commit.Repo.Type != pfs.UserRepoType {
 			continue

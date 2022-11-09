@@ -17,6 +17,19 @@ import (
 func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) ([]*pfs.CommitInfo, error) {
 	var commitInfos []*pfs.CommitInfo
 	commitInfo := &pfs.CommitInfo{}
+	// include the commit set provenance in the inspectCommitSet results. TODO(acohen4): is this necessary?
+	cs, err := pfsdb.CommitSetProvenance(context.TODO(), txnCtx.SqlTx, commitset.ID)
+	if err != nil {
+		return nil, err
+	}
+	// TODO: can there be multiple commits from the same repo in commitset subvenance
+	for _, c := range cs {
+		ci := &pfs.CommitInfo{}
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(c, ci); err != nil {
+			return nil, err
+		}
+		commitInfos = append(commitInfos, ci)
+	}
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitset.ID, commitInfo, col.DefaultOptions(), func(string) error {
 		commitInfos = append(commitInfos, proto.Clone(commitInfo).(*pfs.CommitInfo))
 		return nil
@@ -26,21 +39,22 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	// topologically sort commits - TODO(acohen4) is this really necessary?
 	totalCommits := len(commitInfos)
 	list := make([]*pfs.CommitInfo, 0)
-	collected := make(map[*pfs.Repo]struct{})
+	collected := make(map[string]struct{})
+	// O(n^2) sorting of commits
 	for len(list) < totalCommits {
 		for i, ci := range commitInfos {
-			if _, ok := collected[ci.Commit.Repo]; ok {
+			if _, ok := collected[pfsdb.RepoKey(ci.Commit.Repo)]; ok {
 				continue
 			}
 			satisfied := true
 			for _, p := range ci.DirectProvenance {
-				if _, ok := collected[p.Repo]; !ok {
+				if _, ok := collected[pfsdb.RepoKey(p.Repo)]; !ok {
 					satisfied = false
 					break
 				}
 			}
 			if satisfied {
-				collected[ci.Commit.Repo] = struct{}{}
+				collected[pfsdb.RepoKey(ci.Commit.Repo)] = struct{}{}
 				list = append(list, ci)
 				commitInfos[i] = commitInfos[len(commitInfos)-1]
 				commitInfos = commitInfos[:len(commitInfos)-1]
@@ -84,23 +98,6 @@ func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet,
 		sent[pfsdb.CommitKey(ci.Commit)] = struct{}{}
 		return cb(ci)
 
-	}
-	// include the commit set provenance in the inspectCommitSet results. TODO(acohen4): is this necessary?
-	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		cs, err := pfsdb.CommitSetProvenance(ctx, txnCtx.SqlTx, commitset.ID)
-		if err != nil {
-			return err
-		}
-		for _, c := range cs {
-			ci := &pfs.CommitInfo{}
-			d.commits.ReadWrite(txnCtx.SqlTx).Get(c, ci)
-			if err := send(ci); err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
-		return err
 	}
 	unfinishedCommits := make([]*pfs.Commit, 0)
 	// The commits in this CommitSet may change if any triggers or CreateBranches

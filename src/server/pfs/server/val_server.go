@@ -142,6 +142,17 @@ func (a *validatedAPIServer) InspectCommitSet(request *pfs.InspectCommitSetReque
 	return a.apiServer.InspectCommitSet(request, server)
 }
 
+// ListCommit implements the protobuf pfs.ListCommit RPC
+func (a *validatedAPIServer) ListCommit(req *pfs.ListCommitRequest, respServer pfs.API_ListCommitServer) (retErr error) {
+	if req.To != nil && req.To.Repo == nil {
+		req.To.Repo = req.To.Branch.Repo
+	}
+	if req.From != nil && req.From.Repo == nil {
+		req.From.Repo = req.From.Branch.Repo
+	}
+	return a.apiServer.ListCommit(req, respServer)
+}
+
 func (a *validatedAPIServer) SquashCommitSet(ctx context.Context, request *pfs.SquashCommitSetRequest) (*types.Empty, error) {
 	if request.CommitSet == nil {
 		return nil, errors.New("commitset cannot be nil")
