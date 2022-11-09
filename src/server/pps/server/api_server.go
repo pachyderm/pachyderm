@@ -617,7 +617,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	if number == 0 {
 		number = math.MaxInt64
 	}
-	paginationMarker := request.From
+	paginationMarker := request.PaginationMarker
 
 	// Return jobsets by the newest job in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)

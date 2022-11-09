@@ -7102,7 +7102,7 @@ func TestListJobSetPaged(t *testing.T) {
 	pagedJSIs = append(pagedJSIs, jsis...)
 	// get next two pages
 	for i := 0; i < 2; i++ {
-		listJobSetRequest = &pps.ListJobSetRequest{Number: 3, From: jsis[len(jsis)-1].Jobs[0].Created}
+		listJobSetRequest = &pps.ListJobSetRequest{Number: 3, PaginationMarker: jsis[len(jsis)-1].Jobs[0].Created}
 		client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
 		require.NoError(t, err)
 		jsis, err = clientsdk.ListJobSet(client)
@@ -7124,7 +7124,7 @@ func TestListJobSetPaged(t *testing.T) {
 	reverseJIs = append(reverseJIs, jsis...)
 	// get previous two pages
 	for i := 0; i < 2; i++ {
-		listJobSetRequest = &pps.ListJobSetRequest{Number: 3, Reverse: true, From: jsis[2].Jobs[0].Created}
+		listJobSetRequest = &pps.ListJobSetRequest{Number: 3, Reverse: true, PaginationMarker: jsis[2].Jobs[0].Created}
 		client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
 		require.NoError(t, err)
 		jsis, err = clientsdk.ListJobSet(client)
