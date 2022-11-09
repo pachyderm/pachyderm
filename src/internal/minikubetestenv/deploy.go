@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -442,6 +443,7 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 	mu.Lock()
 	err := helm.DeleteE(t, options, namespace, true)
 	mu.Unlock()
+	log.Println("QQQ helm err", err)
 	require.True(t, err == nil || strings.Contains(err.Error(), "not found"))
 	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "suite=pachyderm"}))
 	require.NoError(t, backoff.Retry(func() error {
