@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable testing-library/consistent-data-testid */
-import {captureException} from '@sentry/react';
+import * as sentryReact from '@sentry/react';
 import {render, waitFor} from '@testing-library/react';
 import {mocked} from 'jest-mock';
 import Cookies from 'js-cookie';
@@ -10,7 +10,6 @@ import {click} from '@dash-frontend/testHelpers';
 
 import {
   captureTrackingCookies,
-  CLICK_TIMEOUT,
   getTrackingCookies,
   fireClick,
   fireIdentify,
@@ -20,9 +19,7 @@ import {
   initPageTracker,
 } from '../analytics';
 
-jest.mock('@sentry/react', () => ({
-  captureException: jest.fn(),
-}));
+jest.spyOn(sentryReact, 'captureException').mockImplementation(jest.fn());
 
 describe('lib/analytics', () => {
   let identify = jest.fn(),
@@ -30,7 +27,6 @@ describe('lib/analytics', () => {
     track = jest.fn();
 
   beforeEach(() => {
-    jest.useFakeTimers();
     window.history.pushState({}, '', '');
     Cookies.remove('latest_utm_source');
     Cookies.remove('latest_utm_content');
@@ -151,16 +147,13 @@ describe('lib/analytics', () => {
     initClickTracker(track);
 
     await click(randomButton);
-    jest.advanceTimersByTime(CLICK_TIMEOUT);
     expect(track).toHaveBeenCalledTimes(0);
 
     await click(contactButton);
-    jest.advanceTimersByTime(CLICK_TIMEOUT);
-    expect(track).toHaveBeenCalledTimes(1);
+    waitFor(() => expect(track).toHaveBeenCalledTimes(1));
 
     await click(contactButton);
-    jest.advanceTimersByTime(CLICK_TIMEOUT);
-    expect(track).toHaveBeenCalledTimes(2);
+    waitFor(() => expect(track).toHaveBeenCalledTimes(2));
   });
 
   it('should send an event to sentry when a click event fails', () => {
@@ -169,7 +162,7 @@ describe('lib/analytics', () => {
     });
 
     fireClick('Button__click', track);
-    expect(captureException).toHaveBeenCalledWith(
+    expect(sentryReact.captureException).toHaveBeenCalledWith(
       '[Analytics Error]: Operation: track, Event: click, ID: Button__click, Error: Analytics exploded!',
     );
   });
@@ -186,7 +179,7 @@ describe('lib/analytics', () => {
       identify,
       track,
     );
-    expect(captureException).toHaveBeenCalledWith(
+    expect(sentryReact.captureException).toHaveBeenCalledWith(
       '[Analytics Error]: Operation: track, Event: identify, ID: 7, Error: Analytics exploded!',
     );
   });
@@ -197,7 +190,7 @@ describe('lib/analytics', () => {
     });
 
     fireUTM(track);
-    expect(captureException).toHaveBeenCalledWith(
+    expect(sentryReact.captureException).toHaveBeenCalledWith(
       '[Analytics Error]: Operation: track, Event: UTM, Error: Analytics exploded!',
     );
   });

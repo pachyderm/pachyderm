@@ -64,7 +64,8 @@ describe('Repos', () => {
       fileName: 'puppy.png',
     }], {force: true});
     
-    cy.waitUntil(() => cy.findByLabelText('Upload Selected Files').should('be.visible').click());
+    cy.waitUntil(() => cy.findByLabelText('Upload Selected Files').should('not.be.disabled'));
+    cy.findByLabelText('Upload Selected Files').click();
     cy.findByLabelText('Commit Selected Files').click();
     cy.findAllByText('Commits').click();
 

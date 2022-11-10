@@ -1,10 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {render, waitFor} from '@testing-library/react';
-import React from 'react';
-import {act} from 'react-dom/test-utils';
+import React, {ReactElement} from 'react';
 
-import {withContextProviders, click} from '@dash-frontend/testHelpers';
+import {click} from '@dash-frontend/testHelpers';
 
-import {useNotificationBanner} from '../';
+import {useNotificationBanner, NotificationBannerProvider} from '../';
 
 const TestComponent: React.FC<{
   duration?: number;
@@ -19,34 +19,33 @@ const TestComponent: React.FC<{
   );
 };
 
+const withContextProviders = (
+  Component: React.ElementType,
+): ((props: any) => ReactElement) => {
+  // eslint-disable-next-line react/display-name
+  return (props: any): any => {
+    return (
+      <NotificationBannerProvider>
+        <Component {...props} />
+      </NotificationBannerProvider>
+    );
+  };
+};
+
 const WrappedTestComponent = withContextProviders(TestComponent);
 
 describe('NotificationBanner', () => {
-  beforeEach(() => {
-    jest.useFakeTimers();
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
-  });
-
   it('should show a notification banner and default to removing it after 3 seconds', async () => {
     const {getByText, queryByText} = render(<WrappedTestComponent />);
 
     const bannerButton = getByText('Create Banner');
 
     await click(bannerButton);
-    let banner = queryByText('Test Banner');
+    const banner = queryByText('Test Banner');
 
     expect(banner).not.toBeNull();
 
-    act(() => {
-      jest.advanceTimersByTime(3001);
-    });
-
-    banner = queryByText('Test Banner');
-
-    expect(banner).toBeNull();
+    waitFor(() => expect(queryByText('Test Banner')).toBeNull());
   });
 
   it('should show the notification banner for the specified duration', async () => {
@@ -57,17 +56,10 @@ describe('NotificationBanner', () => {
     const bannerButton = getByText('Create Banner');
 
     await click(bannerButton);
-    let banner = queryByText('Test Banner');
+    const banner = queryByText('Test Banner');
 
     expect(banner).not.toBeNull();
-
-    act(() => {
-      jest.advanceTimersByTime(2001);
-    });
-
-    banner = queryByText('Test Banner');
-
-    expect(banner).toBeNull();
+    waitFor(() => expect(queryByText('Test Banner')).toBeNull());
   });
 
   it('should be able to show a success banner', async () => {

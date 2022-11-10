@@ -9,7 +9,6 @@ import React, {ReactElement} from 'react';
 import {BrowserRouter} from 'react-router-dom';
 
 import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
-import {NotificationBannerProvider} from '@pachyderm/components/NotificationBanner';
 
 import {UrlState} from './hooks/useUrlQueryState';
 import LoggedInProvider from './providers/LoggedInProvider';
@@ -30,9 +29,7 @@ export const withContextProviders = (
       <BrowserRouter>
         <LoggedInProvider>
           <ApolloProvider>
-            <NotificationBannerProvider>
-              <Component {...props} />
-            </NotificationBannerProvider>
+            <Component {...props} />
           </ApolloProvider>
         </LoggedInProvider>
       </BrowserRouter>

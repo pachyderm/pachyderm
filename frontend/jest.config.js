@@ -28,7 +28,7 @@ module.exports = {
   testTimeout: 20000,
   timers: 'real',
   transform: {
-    '^.+\\.tsx?$': '@swc/jest',
+    '^.+\\.tsx?$': 'ts-jest',
   },
   testEnvironment: './dash-jsdom-environment',
   moduleNameMapper: {
