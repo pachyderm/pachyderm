@@ -27,6 +27,25 @@ func (a *apiServer) CheckClusterIsAuthorizedInTransaction(txnCtx *txncontext.Tra
 	return nil
 }
 
+// CheckProjectIsAuthorizedInTransaction is identical to CheckRepoIsAuthorized except that
+// it performs reads consistent with the latest state of the STM transaction.
+func (a *apiServer) CheckResourceIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, resource *auth.Resource, p ...auth.Permission) error {
+	me, err := txnCtx.WhoAmI()
+	if auth.IsErrNotActivated(err) {
+		return nil
+	}
+
+	req := &auth.AuthorizeRequest{Resource: resource, Permissions: p}
+	resp, err := a.AuthorizeInTransaction(txnCtx, req)
+	if err != nil {
+		return err
+	}
+	if !resp.Authorized {
+		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: *resource, Required: p}
+	}
+	return nil
+}
+
 // CheckRepoIsAuthorizedInTransaction is identical to CheckRepoIsAuthorized except that
 // it performs reads consistent with the latest state of the STM transaction.
 func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, r *pfs.Repo, p ...auth.Permission) error {
