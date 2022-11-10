@@ -98,6 +98,10 @@ If the job fails, the output commit will not be populated with data.`,
 				return err
 			}
 			defer client.Close()
+			allArgs := os.Args
+			for i, arg := range allArgs {
+				fmt.Fprintf(os.Stderr, "ARG DEBUG NO.%d is %s\n", i, arg)
+			}
 			jobInfo, err := client.InspectProjectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, true)
 			if err != nil {
 				return errors.Wrap(err, "error from InspectJob")
