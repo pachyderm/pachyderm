@@ -844,7 +844,7 @@ func (c *APIClient) AddMetadata(ctx context.Context) context.Context {
 		clientData["userid"] = c.metricsUserID
 		clientData["prefix"] = c.metricsPrefix
 	}
-	if len(os.Args) > 1 {
+	if len(os.Args) > 1 && os.Args[0] != "/pachd" {
 		clientData["command"] = strings.Join(os.Args, " ")
 	}
 
