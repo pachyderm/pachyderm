@@ -31,14 +31,20 @@ curl --fail -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
   https://helium.pachyderm.io/v1/api/workspace
 
 # wait for helium to kick off to pulumi before pinging it.
-sleep 5
+sleep 10
 
 for _ in $(seq 108); do
-  STATUS=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/commit-${CIRCLE_SHA1:0:7}-${JOB}" | jq .Workspace.Status | tr -d '"')
+  STATUS=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/commit-${CIRCLE_SHA1:0:7}-${JOB}")
+  echo ${STATUS}
+  STATUS=$(echo ${STATUS} | jq .Workspace.Status || true | tr -d '"')
   if [[ ${STATUS} == "ready" ]]
   then
     echo "success"
     break
+  elif [[ ${STATUS} == "failed" ]]
+  then
+    echo "failed"
+    exit 1
   fi
   echo 'sleeping'
   sleep 10
