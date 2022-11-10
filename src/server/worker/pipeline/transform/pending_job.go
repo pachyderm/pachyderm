@@ -192,7 +192,7 @@ func createDatums(pachClient *client.APIClient, taskDoer task.Doer, job *pps.Job
 	if err != nil {
 		return "", errors.EnsureStack(err)
 	}
-	if metaCommitInfo.Finishing != nil {
+	if metaCommitInfo.Finished != nil {
 		resp, err := pachClient.PfsAPIClient.GetFileSet(
 			pachClient.Ctx(),
 			&pfs.GetFileSetRequest{

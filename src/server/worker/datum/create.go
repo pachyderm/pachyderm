@@ -158,8 +158,7 @@ func createCross(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 		if err != nil {
 			return err
 		}
-		var maxIdx int
-		var baseFileSetID string
+		var baseFileSetIndex int
 		var baseFileSetShards []*pfs.PathRange
 		for i, fileSetID := range fileSetIDs {
 			shards, err := pachClient.ShardFileSet(fileSetID)
@@ -167,18 +166,16 @@ func createCross(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 				return err
 			}
 			if len(shards) > len(baseFileSetShards) {
-				maxIdx = i
-				baseFileSetID = fileSetID
+				baseFileSetIndex = i
 				baseFileSetShards = shards
 			}
 		}
-		fileSetIDs = append(fileSetIDs[:maxIdx], fileSetIDs[maxIdx+1:]...)
 		var inputs []*types.Any
 		for i, shard := range baseFileSetShards {
 			input, err := serializeCrossTask(&CrossTask{
-				BaseFileSetId:        baseFileSetID,
-				BaseFileSetPathRange: shard,
 				FileSetIds:           fileSetIDs,
+				BaseFileSetIndex:     int64(baseFileSetIndex),
+				BaseFileSetPathRange: shard,
 				BaseIndex:            createBaseIndex(int64(i)),
 			})
 			if err != nil {
