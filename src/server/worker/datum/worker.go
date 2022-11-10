@@ -76,30 +76,35 @@ func ProcessTask(pachClient *client.APIClient, input *types.Any) (*types.Any, er
 		if err != nil {
 			return nil, err
 		}
+		pachClient.SetAuthToken(task.AuthToken)
 		return processPFSTask(pachClient, task)
 	case types.Is(input, &CrossTask{}):
 		task, err := deserializeCrossTask(input)
 		if err != nil {
 			return nil, err
 		}
+		pachClient.SetAuthToken(task.AuthToken)
 		return processCrossTask(pachClient, task)
 	case types.Is(input, &KeyTask{}):
 		task, err := deserializeKeyTask(input)
 		if err != nil {
 			return nil, err
 		}
+		pachClient.SetAuthToken(task.AuthToken)
 		return processKeyTask(pachClient, task)
 	case types.Is(input, &MergeTask{}):
 		task, err := deserializeMergeTask(input)
 		if err != nil {
 			return nil, err
 		}
+		pachClient.SetAuthToken(task.AuthToken)
 		return processMergeTask(pachClient, task)
 	case types.Is(input, &ComposeTask{}):
 		task, err := deserializeComposeTask(input)
 		if err != nil {
 			return nil, err
 		}
+		pachClient.SetAuthToken(task.AuthToken)
 		return processComposeTask(pachClient, task)
 	default:
 		return nil, errors.Errorf("unrecognized any type (%v) in datum worker", input.TypeUrl)
