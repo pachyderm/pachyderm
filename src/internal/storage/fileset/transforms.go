@@ -55,7 +55,7 @@ func (idxf *indexFilter) IterateDeletes(_ context.Context, _ func(File) error, o
 	return errors.Errorf("iterating deletes in an index filter file set")
 }
 
-func (idxf *indexFilter) Shards(_ context.Context) ([]*index.PathRange, error) {
+func (idxf *indexFilter) Shards(_ context.Context, _ ...index.Option) ([]*index.PathRange, error) {
 	return nil, errors.Errorf("sharding an index filter file set")
 }
 
@@ -86,7 +86,7 @@ func (im *indexMapper) IterateDeletes(_ context.Context, _ func(File) error, opt
 	return errors.Errorf("iterating deletes in an index mapper file set")
 }
 
-func (im *indexMapper) Shards(_ context.Context) ([]*index.PathRange, error) {
+func (im *indexMapper) Shards(_ context.Context, _ ...index.Option) ([]*index.PathRange, error) {
 	return nil, errors.Errorf("sharding an index mapper file set")
 }
 
