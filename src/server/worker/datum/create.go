@@ -18,6 +18,7 @@ import (
 )
 
 func Create(pachClient *client.APIClient, taskDoer task.Doer, input *pps.Input) (string, error) {
+	pachClient = pachClient.WithCtx(pachClient.Ctx())
 	authToken, _ := auth.GetAuthToken(pachClient.Ctx())
 	pachClient.SetAuthToken(authToken)
 	switch {
