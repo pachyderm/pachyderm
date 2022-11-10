@@ -156,8 +156,12 @@ func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*types.Any, er
 func processCrossTask(pachClient *client.APIClient, task *CrossTask) (*types.Any, error) {
 	index := task.BaseIndex
 	fileSetID, err := WithCreateFileSet(pachClient, "pachyderm-datums-cross", func(s *Set) error {
-		iterators := []Iterator{NewFileSetIterator(pachClient, task.BaseFileSetId, task.BaseFileSetPathRange)}
-		for _, fileSetID := range task.FileSetIds {
+		var iterators []Iterator
+		for i, fileSetID := range task.FileSetIds {
+			if i == int(task.BaseFileSetIndex) {
+				iterators = append(iterators, NewFileSetIterator(pachClient, fileSetID, task.BaseFileSetPathRange))
+				continue
+			}
 			iterators = append(iterators, NewFileSetIterator(pachClient, fileSetID, nil))
 		}
 		return iterate(nil, iterators, func(meta *Meta) error {
