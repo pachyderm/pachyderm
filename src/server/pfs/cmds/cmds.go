@@ -1937,7 +1937,7 @@ func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendF
 		switch {
 		case strings.HasSuffix(source, ".tar"):
 			return errors.EnsureStack(mf.PutFileTAR(f, opts...))
-		case strings.HasSuffix(source, ".tar.gz"):
+		case strings.HasSuffix(source, ".tar.gz"), strings.HasSuffix(source, ".tgz"):
 			r, err := gzip.NewReader(f)
 			if err != nil {
 				return errors.EnsureStack(err)
