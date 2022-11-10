@@ -16,6 +16,9 @@ func main() {
 	// (we link the kubernetes client, so otherwise they're in 'pachctl --help')
 	pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)
 	tracing.InstallJaegerTracerFromEnv()
+	for i, arg := range os.Args {
+		fmt.Fprintf(os.Stderr, "ARG NO.%d is %s\n", i, arg)
+	}
 	err := func() error {
 		defer tracing.CloseAndReportTraces()
 		return errors.EnsureStack(cmd.PachctlCmd().Execute())
