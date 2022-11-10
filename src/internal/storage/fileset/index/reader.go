@@ -32,7 +32,7 @@ func NewReader(chunks *chunk.Storage, cache *Cache, topIdx *Index, opts ...Optio
 		topIdx: topIdx,
 		shardConfig: &ShardConfig{
 			NumFiles:  1000000,
-			SizeBytes: 10 * units.GB,
+			SizeBytes: units.GB,
 		},
 	}
 	for _, opt := range opts {
