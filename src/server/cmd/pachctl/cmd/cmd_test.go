@@ -22,7 +22,7 @@ func TestPortForwardError(t *testing.T) {
 	defer os.Remove(cfgFile.Name())
 	os.Setenv("PACH_CONFIG", cfgFile.Name())
 
-	c := tu.Cmd("pachctl", "version", "--timeout=1ns")
+	c := tu.Command("pachctl", "version", "--timeout=1ns")
 	var errMsg bytes.Buffer
 	c.Stdout = io.Discard
 	c.Stderr = &errMsg

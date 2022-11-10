@@ -22,6 +22,7 @@ import (
 	"github.com/hanwen/go-fuse/v2/fs"
 	gofuse "github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/slices"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -1076,6 +1077,9 @@ func verifyMountRequest(mis []*MountInfo, lr ListRepoResponse) error {
 		}
 		if _, ok := lr[mi.Repo]; !ok {
 			return errors.Errorf("repo does not exist")
+		}
+		if mi.Mode == "ro" && lr[mi.Repo].Authorization != "none" && !slices.Contains(lr[mi.Repo].Branches, mi.Branch) {
+			return errors.Errorf("cannot mount a non-existent branch in read-only mode")
 		}
 	}
 

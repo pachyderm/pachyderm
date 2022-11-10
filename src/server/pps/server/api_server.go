@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"path"
 	"sort"
 	"strings"
@@ -616,18 +617,40 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	// timestamp due to triggers or deferred processing)
 	jobInfo := &pps.JobInfo{}
 	err := a.jobs.ReadOnly(serv.Context()).List(jobInfo, col.DefaultOptions(), func(string) error {
-		if _, ok := seen[jobInfo.Job.ID]; ok {
+		id := jobInfo.GetJob().GetID()
+		if _, ok := seen[id]; ok {
 			return nil
 		}
-		seen[jobInfo.Job.ID] = struct{}{}
+		seen[id] = struct{}{}
 
-		jobInfos, err := pachClient.InspectJobSet(jobInfo.Job.ID, request.Details)
+		jobInfos, err := pachClient.InspectJobSet(id, request.Details)
 		if err != nil {
 			return err
 		}
 
+		// Filter jobs based on projects.
+		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.
+		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
+		var jobInfosFiltered []*pps.JobInfo
+		if len(request.GetProjects()) == 0 {
+			jobInfosFiltered = jobInfos
+		} else {
+			filter := make(map[string]bool, len(request.GetProjects()))
+			for _, project := range request.GetProjects() {
+				filter[project] = true
+			}
+			for _, ji := range jobInfos {
+				if filter[ji.Job.Pipeline.Project.GetName()] {
+					jobInfosFiltered = append(jobInfosFiltered, ji)
+				}
+			}
+		}
+		if len(jobInfosFiltered) == 0 {
+			return nil
+		}
+
 		return errors.EnsureStack(serv.Send(&pps.JobSetInfo{
-			JobSet: client.NewJobSet(jobInfo.Job.ID),
+			JobSet: client.NewJobSet(id),
 			Jobs:   jobInfos,
 		}))
 	})
@@ -695,116 +718,6 @@ func (a *apiServer) intersectCommitSets(ctx context.Context, commits []*pfs.Comm
 		}
 	}
 	return intersection, nil
-}
-
-// listJob is the internal implementation of ListJob shared between ListJob and
-// ListJobStream. When ListJob is removed, this should be inlined into
-// ListJobStream.
-func (a *apiServer) listJob(
-	ctx context.Context,
-	pipeline *pps.Pipeline,
-	inputCommits []*pfs.Commit,
-	history int64,
-	details bool,
-	jqFilter string,
-	f func(*pps.JobInfo) error,
-) error {
-	if pipeline != nil {
-		ensurePipelineProject(pipeline)
-		// If 'pipeline is set, check that caller has access to the pipeline's
-		// output repo; currently, that's all that's required for ListJob.
-		//
-		// If 'pipeline' isn't set, then we don't return an error (otherwise, a
-		// caller without access to a single pipeline's output repo couldn't run
-		// `pachctl list job` at all) and instead silently skip jobs where the user
-		// doesn't have access to the job's output repo.
-		if err := a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Project: pipeline.Project, Name: pipeline.Name}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
-			return errors.EnsureStack(err)
-		}
-	}
-
-	// For each specified input commit, build the set of commitset IDs which
-	// belong to all of them.
-	commitsets, err := a.intersectCommitSets(ctx, inputCommits)
-	if err != nil {
-		return err
-	}
-
-	var jqCode *gojq.Code
-	var enc serde.Encoder
-	var jsonBuffer bytes.Buffer
-	if jqFilter != "" {
-		jqQuery, err := gojq.Parse(jqFilter)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		jqCode, err = gojq.Compile(jqQuery)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		// ensure field names and enum values match with --raw output
-		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
-	}
-
-	// pipelineVersions holds the versions of pipelines that we're interested in
-	pipelineVersions := make(map[string]bool)
-	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, pipeline, history,
-		func(ptr *pps.PipelineInfo) error {
-			pipelineVersions[ppsdb.VersionKey(ptr.Pipeline, ptr.Version)] = true
-			return nil
-		}); err != nil {
-		return err
-	}
-
-	jobs := a.jobs.ReadOnly(ctx)
-	jobInfo := &pps.JobInfo{}
-	_f := func(string) error {
-		if details {
-			if err := a.getJobDetails(ctx, jobInfo); err != nil {
-				if auth.IsErrNotAuthorized(err) {
-					return nil // skip job--see note at top of function
-				}
-				return err
-			}
-		}
-
-		if len(inputCommits) > 0 {
-			// Only include the job if it's in the set of intersected commitset IDs
-			if _, ok := commitsets[jobInfo.Job.ID]; !ok {
-				return nil
-			}
-		}
-
-		if !pipelineVersions[ppsdb.VersionKey(jobInfo.Job.Pipeline, jobInfo.PipelineVersion)] {
-			return nil
-		}
-
-		if jqCode != nil {
-			jsonBuffer.Reset()
-			// convert jobInfo to a map[string]interface{} for use with gojq
-			if err := enc.EncodeProto(jobInfo); err != nil {
-				return errors.EnsureStack(err)
-			}
-			var jobInterface interface{}
-			if err := json.Unmarshal(jsonBuffer.Bytes(), &jobInterface); err != nil {
-				return errors.EnsureStack(err)
-			}
-			iter := jqCode.Run(jobInterface)
-			// treat either jq false-y value as rejection
-			if v, _ := iter.Next(); v == false || v == nil {
-				return nil
-			}
-		}
-
-		return f(jobInfo)
-	}
-	if pipeline != nil {
-		err := jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, col.DefaultOptions(), _f)
-		return errors.EnsureStack(err)
-	} else {
-		err := jobs.List(jobInfo, col.DefaultOptions(), _f)
-		return errors.EnsureStack(err)
-	}
 }
 
 func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) error {
@@ -876,9 +789,116 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 
 // ListJob implements the protobuf pps.ListJob RPC
 func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
-	return a.listJob(resp.Context(), request.Pipeline, request.InputCommit, request.History, request.Details, request.JqFilter, func(ji *pps.JobInfo) error {
-		return errors.EnsureStack(resp.Send(ji))
-	})
+	filter := make(map[string]bool, len(request.GetProjects()))
+	for _, project := range request.GetProjects() {
+		filter[project] = true
+	}
+	keep := func(j *pps.JobInfo) error {
+		if len(filter) == 0 || filter[j.Job.Pipeline.Project.GetName()] {
+			return errors.Wrap(resp.Send(j), "could not send filtered job")
+		}
+		return nil
+	}
+
+	ctx := resp.Context()
+	pipeline := request.GetPipeline()
+	if pipeline != nil {
+		ensurePipelineProject(pipeline)
+		// If 'pipeline is set, check that caller has access to the pipeline's
+		// output repo; currently, that's all that's required for ListJob.
+		//
+		// If 'pipeline' isn't set, then we don't return an error (otherwise, a
+		// caller without access to a single pipeline's output repo couldn't run
+		// `pachctl list job` at all) and instead silently skip jobs where the user
+		// doesn't have access to the job's output repo.
+		if err := a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Project: pipeline.Project, Name: pipeline.Name}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
+			return errors.EnsureStack(err)
+		}
+	}
+
+	// For each specified input commit, build the set of commitset IDs which
+	// belong to all of them.
+	inputCommits := request.GetInputCommit()
+	commitsets, err := a.intersectCommitSets(ctx, inputCommits)
+	if err != nil {
+		return err
+	}
+
+	var jqCode *gojq.Code
+	var enc serde.Encoder
+	var jsonBuffer bytes.Buffer
+	if request.GetJqFilter() != "" {
+		jqQuery, err := gojq.Parse(request.GetJqFilter())
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		jqCode, err = gojq.Compile(jqQuery)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		// ensure field names and enum values match with --raw output
+		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
+	}
+
+	// pipelineVersions holds the versions of pipelines that we're interested in
+	pipelineVersions := make(map[string]bool)
+	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, pipeline, request.GetHistory(),
+		func(ptr *pps.PipelineInfo) error {
+			pipelineVersions[ppsdb.VersionKey(ptr.Pipeline, ptr.Version)] = true
+			return nil
+		}); err != nil {
+		return err
+	}
+
+	jobs := a.jobs.ReadOnly(ctx)
+	jobInfo := &pps.JobInfo{}
+	_f := func(string) error {
+		if request.GetDetails() {
+			if err := a.getJobDetails(ctx, jobInfo); err != nil {
+				if auth.IsErrNotAuthorized(err) {
+					return nil // skip job--see note at top of function
+				}
+				return err
+			}
+		}
+
+		if len(inputCommits) > 0 {
+			// Only include the job if it's in the set of intersected commitset IDs
+			if _, ok := commitsets[jobInfo.Job.ID]; !ok {
+				return nil
+			}
+		}
+
+		if !pipelineVersions[ppsdb.VersionKey(jobInfo.Job.Pipeline, jobInfo.PipelineVersion)] {
+			return nil
+		}
+
+		if jqCode != nil {
+			jsonBuffer.Reset()
+			// convert jobInfo to a map[string]interface{} for use with gojq
+			if err := enc.EncodeProto(jobInfo); err != nil {
+				return errors.EnsureStack(err)
+			}
+			var jobInterface interface{}
+			if err := json.Unmarshal(jsonBuffer.Bytes(), &jobInterface); err != nil {
+				return errors.EnsureStack(err)
+			}
+			iter := jqCode.Run(jobInterface)
+			// treat either jq false-y value as rejection
+			if v, _ := iter.Next(); v == false || v == nil {
+				return nil
+			}
+		}
+
+		return keep(jobInfo)
+	}
+	if pipeline != nil {
+		err := jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, col.DefaultOptions(), _f)
+		return errors.EnsureStack(err)
+	} else {
+		err := jobs.List(jobInfo, col.DefaultOptions(), _f)
+		return errors.EnsureStack(err)
+	}
 }
 
 // SubscribeJob implements the protobuf pps.SubscribeJob RPC
@@ -1065,23 +1085,113 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_ListDatumServer) (retErr error) {
 	// TODO: Auth?
 	ensurePipelineProject(request.GetJob().GetPipeline())
+	if request.Job != nil && request.Input != nil {
+		return errors.Errorf("cannot specify both job and input")
+	}
+	number := request.Number
+	if number == 0 && request.Reverse {
+		return errors.Errorf("number must be > 0 when reverse is set")
+	}
+	if request.Reverse {
+		return a.listDatumReverse(server.Context(), request, server)
+	}
+	if number == 0 {
+		number = math.MaxInt64
+	}
 	if request.Input != nil {
-		return a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
-			di := convertDatumMetaToInfo(meta, nil)
-			di.State = pps.DatumState_UNKNOWN
-			if !request.Filter.Allow(di) {
+		if err := a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
+			if number == 0 {
+				return errutil.ErrBreak
+			}
+			info := convertDatumMetaToInfo(meta, nil)
+			info.State = pps.DatumState_UNKNOWN
+			if (request.PaginationMarker != "" && info.Datum.ID <= request.PaginationMarker) || !request.Filter.Allow(info) {
 				return nil
 			}
-			return errors.EnsureStack(server.Send(di))
-		})
+			number--
+			return errors.EnsureStack(server.Send(info))
+		}); err != nil && !errors.Is(err, errutil.ErrBreak) {
+			return errors.EnsureStack(err)
+		}
+		return nil
 	}
-	return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
+	if err := a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
+		if number == 0 {
+			return errutil.ErrBreak
+		}
 		info := convertDatumMetaToInfo(meta, request.Job)
-		if !request.Filter.Allow(info) {
+		if (request.PaginationMarker != "" && info.Datum.ID <= request.PaginationMarker) || !request.Filter.Allow(info) {
 			return nil
 		}
+		number--
 		return errors.EnsureStack(server.Send(info))
-	})
+	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
+		return errors.EnsureStack(err)
+	}
+	return nil
+}
+
+func (a *apiServer) listDatumReverse(ctx context.Context, request *pps.ListDatumRequest, server pps.API_ListDatumServer) error {
+	dis := make([]*pps.DatumInfo, request.Number)
+	index := 0
+	if request.Input != nil {
+		if err := a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
+			info := convertDatumMetaToInfo(meta, nil)
+			info.State = pps.DatumState_UNKNOWN
+			if request.PaginationMarker != "" && info.Datum.ID >= request.PaginationMarker {
+				return errutil.ErrBreak
+			}
+			if !request.Filter.Allow(info) {
+				return nil
+			}
+			// wrap around the buffer
+			if index == int(request.Number) {
+				index = 0
+			}
+			dis[index] = info
+			index++
+			return nil
+		}); err != nil && !errors.Is(err, errutil.ErrBreak) {
+			return errors.EnsureStack(err)
+		}
+	} else {
+		if err := a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
+			info := convertDatumMetaToInfo(meta, request.Job)
+			if request.PaginationMarker != "" && info.Datum.ID >= request.PaginationMarker {
+				return errutil.ErrBreak
+			}
+			if !request.Filter.Allow(info) {
+				return nil
+			}
+			if index == int(request.Number) {
+				index = 0
+			}
+			dis[index] = info
+			index++
+			return nil
+		}); err != nil && !errors.Is(err, errutil.ErrBreak) {
+			return errors.EnsureStack(err)
+		}
+	}
+	if index == 0 {
+		return nil
+	}
+	// move the index marker to the last populated datum
+	index--
+	for i := 0; i < len(dis); i++ {
+		if dis[index] == nil {
+			break
+		}
+		if err := server.Send(dis[index]); err != nil {
+			return errors.EnsureStack(err)
+		}
+		index--
+		// wrap around to the end of the slice
+		if index < 0 {
+			index = len(dis) - 1
+		}
+	}
+	return nil
 }
 
 func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb func(*datum.Meta) error) error {
@@ -1383,7 +1493,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	}
 	return lokiutil.QueryRange(apiGetLogsServer.Context(), loki, query, time.Now().Add(-since), time.Time{}, request.Follow, func(t time.Time, line string) error {
 		msg := new(pps.LogMessage)
-		if err := parseLokiLine(line, msg); err != nil {
+		if err := ParseLokiLine(line, msg); err != nil {
 			logrus.WithField("line", line).WithError(err).Debug("get logs (loki): unparseable log line")
 			return nil
 		}
@@ -1455,7 +1565,7 @@ func parseCRILine(s string, msg *pps.LogMessage) error {
 	return nil
 }
 
-func parseLokiLine(inputLine string, msg *pps.LogMessage) error {
+func ParseLokiLine(inputLine string, msg *pps.LogMessage) error {
 	// There are three possible log formats in Loki, depending on the underlying formatting done
 	// by the container runtime.  Under ideal circumstances, the user of Loki has configured
 	// promtail to remove the runtime-specific logs, but it's quite easy to miss this
@@ -1973,8 +2083,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		return nil, err
 	}
 
-	pps.SortInput(pipelineInfo.Details.Input) // Makes datum hashes comparable
-
 	if oldPipelineInfo != nil {
 		// Modify pipelineInfo (increment Version, and *preserve Stopped* so
 		// that updating a pipeline doesn't restart it)
@@ -2261,6 +2369,7 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 }
 
 func setInputDefaults(pipelineName string, input *pps.Input) {
+	pps.SortInput(input)
 	now := time.Now()
 	nCreatedBranches := make(map[string]int)
 	if err := pps.VisitInput(input, func(input *pps.Input) error {

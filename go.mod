@@ -10,6 +10,7 @@ require (
 	github.com/aws/aws-lambda-go v1.17.0
 	github.com/aws/aws-sdk-go v1.40.56
 	github.com/c-bata/go-prompt v0.2.3
+	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/coreos/go-oidc v2.2.1+incompatible
@@ -143,7 +144,7 @@ require (
 	github.com/dlclark/regexp2 v1.2.0 // indirect
 	github.com/dnaeon/go-vcr v1.2.0 // indirect
 	github.com/docker/distribution v2.8.0+incompatible // indirect
-	github.com/dustin/go-humanize v1.0.0 // indirect
+	github.com/dustin/go-humanize v1.0.0
 	github.com/elazarl/goproxy v0.0.0-20191011121108-aa519ddbe484 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.5+incompatible // indirect
@@ -170,7 +171,6 @@ require (
 	github.com/googleapis/gax-go/v2 v2.4.0 // indirect
 	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/googleapis/go-type-adapters v1.0.0 // indirect
-	github.com/gopherjs/gopherjs v0.0.0-20191106031601-ce3c9ade29de // indirect
 	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
@@ -196,7 +196,6 @@ require (
 	github.com/jonboulle/clockwork v0.2.2 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/compress v1.15.9 // indirect
-	github.com/klauspost/cpuid v1.3.1 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
@@ -237,7 +236,6 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/segmentio/backo-go v0.0.0-20160424052352-204274ad699c // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
-	github.com/smartystreets/assertions v1.0.1 // indirect
 	github.com/snowflakedb/gosnowflake v1.6.11
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/cast v1.4.1 // indirect

@@ -48,6 +48,16 @@ func (c APIClient) ModifyClusterRoleBinding(principal string, roles []string) er
 	return nil
 }
 
+func (c APIClient) GetProjectRoleBinding(project string) (*auth.RoleBinding, error) {
+	resp, err := c.GetRoleBinding(c.Ctx(), &auth.GetRoleBindingRequest{
+		Resource: &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Binding, nil
+}
+
 // Deprecated: use GetProjectRepoRoleBinding instead.
 func (c APIClient) GetRepoRoleBinding(repoName string) (*auth.RoleBinding, error) {
 	return c.GetProjectRepoRoleBinding(pfs.DefaultProjectName, repoName)
