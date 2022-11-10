@@ -190,7 +190,7 @@ func (efs emptyFileSet) IterateDeletes(_ context.Context, _ func(File) error, _ 
 }
 
 func (efs emptyFileSet) Shards(_ context.Context) ([]*index.PathRange, error) {
-	return nil, nil
+	return []*index.PathRange{{}}, nil
 }
 
 func idsToHex(xs []ID) []string {
