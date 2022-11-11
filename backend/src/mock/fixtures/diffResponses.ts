@@ -1,5 +1,5 @@
-import {FileType, DiffFileResponse} from '@pachyderm/node-pachyderm';
-import {fileInfoFromObject} from '@pachyderm/node-pachyderm/dist/builders/pfs';
+import {FileType, DiffFileResponse} from '@dash-backend/proto';
+import {fileInfoFromObject} from '@dash-backend/proto/builders/pfs';
 
 const diffResponseUpdated = new DiffFileResponse();
 diffResponseUpdated.setNewFile(

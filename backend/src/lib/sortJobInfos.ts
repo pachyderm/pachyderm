@@ -1,7 +1,7 @@
-import {JobInfo} from '@pachyderm/node-pachyderm';
 import sortBy from 'lodash/sortBy';
 
 import timestampToNanos from '@dash-backend/lib/timestampToNanos';
+import {JobInfo} from '@dash-backend/proto';
 
 const sortJobInfos = (jobInfos: JobInfo.AsObject[]) => {
   return sortBy(jobInfos, [

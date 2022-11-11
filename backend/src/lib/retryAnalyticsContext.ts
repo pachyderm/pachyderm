@@ -1,6 +1,6 @@
-import {pachydermClient} from '@pachyderm/node-pachyderm';
 import {operation} from 'retry';
 
+import {pachydermClient} from '@dash-backend/proto';
 import {enterpriseInfoToGQLInfo} from '@dash-backend/resolvers/builders/enterprise';
 import {EnterpriseState} from '@graphqlTypes';
 

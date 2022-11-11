@@ -1,4 +1,4 @@
-import {JobInfo} from '@pachyderm/node-pachyderm';
+import {JobInfo} from '@dash-backend/proto';
 
 import jobs from './jobs';
 import {JOB_SETS} from './loadLimits';

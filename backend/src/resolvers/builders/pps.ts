@@ -1,12 +1,3 @@
-import {
-  Branch,
-  RepoInfo,
-  PipelineInfo,
-  LogMessage,
-  JobInfo,
-  JobSetInfo,
-  DatumInfo,
-} from '@pachyderm/node-pachyderm';
 import isEmpty from 'lodash/isEmpty';
 
 import formatBytes from '@dash-backend/lib/formatBytes';
@@ -18,6 +9,15 @@ import {
 import omitByDeep from '@dash-backend/lib/omitByDeep';
 import removeGeneratedSuffixes from '@dash-backend/lib/removeGeneratedSuffixes';
 import sortJobInfos from '@dash-backend/lib/sortJobInfos';
+import {
+  Branch,
+  RepoInfo,
+  PipelineInfo,
+  LogMessage,
+  JobInfo,
+  JobSetInfo,
+  DatumInfo,
+} from '@dash-backend/proto';
 import {
   Job,
   Pipeline,

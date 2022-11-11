@@ -1,8 +1,8 @@
-import {LogMessage} from '@pachyderm/node-pachyderm';
 import {default as reverseArray} from 'lodash/reverse';
 import {v4 as uuid} from 'uuid';
 
 import withStream from '@dash-backend/lib/withStream';
+import {LogMessage} from '@dash-backend/proto';
 import {Log, Maybe, QueryResolvers, SubscriptionResolvers} from '@graphqlTypes';
 
 import {logMessageToGQLLog} from './builders/pps';

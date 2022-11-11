@@ -1,4 +1,4 @@
-import {AdminIAPIServer} from '@pachyderm/node-pachyderm';
+import {AdminIAPIServer} from '@dash-backend/proto';
 
 import MockState from './MockState';
 

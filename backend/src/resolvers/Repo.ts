@@ -1,6 +1,5 @@
-import {JobInfo} from '@pachyderm/node-pachyderm';
-
 import getJobsFromJobSet from '@dash-backend/lib/getJobsFromJobSet';
+import {JobInfo} from '@dash-backend/proto';
 import {MutationResolvers, QueryResolvers, RepoResolvers} from '@graphqlTypes';
 
 import {pipelineInfoToGQLPipeline, repoInfoToGQLRepo} from './builders/pps';

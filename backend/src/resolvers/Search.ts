@@ -1,4 +1,3 @@
-import {Pipeline, RepoInfo, PipelineInfo} from '@pachyderm/node-pachyderm';
 import flattenDeep from 'lodash/flattenDeep';
 import keyBy from 'lodash/keyBy';
 
@@ -6,6 +5,7 @@ import {UUID_WITHOUT_DASHES_REGEX} from '@dash-backend/constants/pachCore';
 import flattenPipelineInput from '@dash-backend/lib/flattenPipelineInput';
 import getJobsFromJobSet from '@dash-backend/lib/getJobsFromJobSet';
 import hasRepoReadPermissions from '@dash-backend/lib/hasRepoReadPermissions';
+import {Pipeline, RepoInfo, PipelineInfo} from '@dash-backend/proto';
 import {QueryResolvers} from '@graphqlTypes';
 
 import {

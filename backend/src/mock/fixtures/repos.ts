@@ -1,5 +1,5 @@
-import {Branch, Repo, RepoInfo} from '@pachyderm/node-pachyderm';
-import {timestampFromObject} from '@pachyderm/node-pachyderm/dist/builders/protobuf';
+import {Branch, Repo, RepoInfo} from '@dash-backend/proto';
+import {timestampFromObject} from '@dash-backend/proto/builders/protobuf';
 
 import {DAGS} from './loadLimits';
 

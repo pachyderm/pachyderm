@@ -1,5 +1,6 @@
 import {Status} from '@grpc/grpc-js/build/src/constants';
-import {ProjectsIAPIServer} from '@pachyderm/node-pachyderm';
+
+import {ProjectsIAPIServer} from '@dash-backend/proto';
 
 import MockState from './MockState';
 

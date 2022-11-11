@@ -1,6 +1,6 @@
-import {GetStateResponse, State} from '@pachyderm/node-pachyderm';
-import {timestampFromObject} from '@pachyderm/node-pachyderm/dist/builders/protobuf';
-import {TokenInfo} from '@pachyderm/node-pachyderm/dist/proto/enterprise/enterprise_pb';
+import {GetStateResponse, State} from '@dash-backend/proto';
+import {timestampFromObject} from '@dash-backend/proto/builders/protobuf';
+import {TokenInfo} from '@dash-backend/proto/proto/enterprise/enterprise_pb';
 
 const active = new GetStateResponse()
   .setActivationCode('foo')

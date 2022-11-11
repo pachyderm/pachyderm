@@ -1,5 +1,6 @@
-import {Input} from '@pachyderm/node-pachyderm';
 import flattenDeep from 'lodash/flattenDeep';
+
+import {Input} from '@dash-backend/proto';
 
 const flattenPipelineInput = (input: Input.AsObject): string[] => {
   const result = [];

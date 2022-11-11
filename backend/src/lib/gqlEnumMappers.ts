@@ -1,3 +1,5 @@
+import {ApolloError} from 'apollo-server-errors';
+
 import {
   FileType,
   JobState,
@@ -6,9 +8,7 @@ import {
   OriginKind,
   DatumState,
   State,
-} from '@pachyderm/node-pachyderm';
-import {ApolloError} from 'apollo-server-errors';
-
+} from '@dash-backend/proto';
 import {
   ProjectStatus as GQLProjectStatus,
   FileType as GQLFileType,

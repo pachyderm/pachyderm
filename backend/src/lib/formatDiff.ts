@@ -1,7 +1,6 @@
-import {DiffFileResponse} from '@pachyderm/node-pachyderm';
-
 import {FileCommitState} from '@dash-backend/generated/types';
 import formatBytes from '@dash-backend/lib/formatBytes';
+import {DiffFileResponse} from '@dash-backend/proto';
 
 const formatDiff = (diff: DiffFileResponse.AsObject[]) => {
   let counts = {added: 0, updated: 0, deleted: 0};

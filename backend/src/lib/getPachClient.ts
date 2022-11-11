@@ -1,9 +1,9 @@
-import {pachydermClient} from '@pachyderm/node-pachyderm';
 import memoize from 'lodash/memoize';
 
 import errorPlugin from '@dash-backend/grpc/plugins/errorPlugin';
 import loggingPlugin from '@dash-backend/grpc/plugins/loggingPlugin';
 import baseLogger from '@dash-backend/lib/log';
+import {pachydermClient} from '@dash-backend/proto';
 
 const memo = memoize(
   (ssl: string, pachdAddress: string, projectId: string, authToken: string) => {

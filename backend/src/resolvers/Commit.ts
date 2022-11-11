@@ -1,8 +1,7 @@
-import {CommitState} from '@pachyderm/node-pachyderm';
-
 import formatDiff from '@dash-backend/lib/formatDiff';
 import {toProtoCommitOrigin} from '@dash-backend/lib/gqlEnumMappers';
 import {PachClient} from '@dash-backend/lib/types';
+import {CommitState} from '@dash-backend/proto';
 import {MutationResolvers, OriginKind, QueryResolvers} from '@graphqlTypes';
 
 import {commitInfoToGQLCommit, commitToGQLCommit} from './builders/pfs';
