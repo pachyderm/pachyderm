@@ -35,8 +35,9 @@ sleep 10
 
 for _ in $(seq 108); do
   STATUS=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/commit-${CIRCLE_SHA1:0:7}-${JOB}")
-  echo ${STATUS}
-  STATUS=$(echo ${STATUS} | jq .Workspace.Status || true | tr -d '"')
+  echo "${STATUS}" # for circleci logs
+  STATUS=$(echo "${STATUS}" | jq .Workspace.Status || true )
+  STATUS=$(echo "${STATUS}" | tr -d '"' || true)
   if [[ ${STATUS} == "ready" ]]
   then
     echo "success"
