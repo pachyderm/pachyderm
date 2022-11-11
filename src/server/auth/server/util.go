@@ -11,17 +11,23 @@ import (
 // CheckClusterIsAuthorizedInTransaction returns an error if the current user doesn't have
 // the permissions in `p` on the cluster
 func (a *apiServer) CheckClusterIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, p ...auth.Permission) error {
-	return a.CheckResourceIsAuthorizedInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_CLUSTER}, p...)
+	return a.checkResourceIsAuthorizedInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_CLUSTER}, p...)
 }
 
 // CheckRepoIsAuthorizedInTransaction is identical to CheckRepoIsAuthorized except that
 // it performs reads consistent with the latest state of the STM transaction.
 func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, r *pfs.Repo, p ...auth.Permission) error {
-	return a.CheckResourceIsAuthorizedInTransaction(txnCtx, r.AuthResource(), p...)
+	return a.checkResourceIsAuthorizedInTransaction(txnCtx, r.AuthResource(), p...)
+}
+
+// CheckProjectIsAuthorizedInTransaction is identical to CheckRepoIsAuthorized except that
+// it performs reads consistent with the latest state of the STM transaction.
+func (a *apiServer) CheckProjectIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, project *pfs.Project, p ...auth.Permission) error {
+	return a.checkResourceIsAuthorizedInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project.Name}, p...)
 }
 
 // CheckResourceIsAuthorizedInTransaction returns an error if the subject/user doesn't have permission in `p` on the `resource`
-func (a *apiServer) CheckResourceIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, resource *auth.Resource, p ...auth.Permission) error {
+func (a *apiServer) checkResourceIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, resource *auth.Resource, p ...auth.Permission) error {
 	me, err := txnCtx.WhoAmI()
 	if auth.IsErrNotActivated(err) {
 		return nil

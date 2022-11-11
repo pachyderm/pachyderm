@@ -1002,7 +1002,7 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 	default:
 		return nil, errors.Errorf("unknown resource type %v", req.Resource.Type)
 	}
-	if err := a.CheckResourceIsAuthorizedInTransaction(txnCtx, req.Resource, permission); err != nil {
+	if err := a.checkResourceIsAuthorizedInTransaction(txnCtx, req.Resource, permission); err != nil {
 		return nil, err
 	}
 

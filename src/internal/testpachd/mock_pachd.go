@@ -86,8 +86,8 @@ type RotateRootTokenFunc func(context.Context, *auth.RotateRootTokenRequest) (*a
 type checkRepoIsAuthorizedFunc func(context.Context, *pfs.Repo, ...auth.Permission) error
 type checkClusterIsAuthorizedFunc func(context.Context, ...auth.Permission) error
 type checkClusterIsAuthorizedInTransactionFunc func(*txncontext.TransactionContext, ...auth.Permission) error
+type checkProjectIsAuthorizedInTransactionFunc func(*txncontext.TransactionContext, *pfs.Project, ...auth.Permission) error
 type checkRepoIsAuthorizedInTransactionFunc func(*txncontext.TransactionContext, *pfs.Repo, ...auth.Permission) error
-type checkResourceIsAuthorizedInTransactionFunc func(*txncontext.TransactionContext, *auth.Resource, ...auth.Permission) error
 type authorizeInTransactionFunc func(*txncontext.TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
 type modifyRoleBindingInTransactionFunc func(*txncontext.TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
 type getRoleBindingInTransactionFunc func(*txncontext.TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error)
@@ -139,11 +139,11 @@ type mockCheckClusterIsAuthorized struct {
 type mockCheckClusterIsAuthorizedInTransaction struct {
 	handler checkClusterIsAuthorizedInTransactionFunc
 }
+type mockCheckProjectIsAuthorizedInTransaction struct {
+	handler checkProjectIsAuthorizedInTransactionFunc
+}
 type mockCheckRepoIsAuthorizedInTransaction struct {
 	handler checkRepoIsAuthorizedInTransactionFunc
-}
-type mockCheckResourceIsAuthorizedInTransaction struct {
-	handler checkResourceIsAuthorizedInTransactionFunc
 }
 type mockAuthorizeInTransaction struct {
 	handler authorizeInTransactionFunc
@@ -217,10 +217,10 @@ func (mock *mockCheckClusterIsAuthorized) Use(cb checkClusterIsAuthorizedFunc) {
 func (mock *mockCheckClusterIsAuthorizedInTransaction) Use(cb checkClusterIsAuthorizedInTransactionFunc) {
 	mock.handler = cb
 }
-func (mock *mockCheckRepoIsAuthorizedInTransaction) Use(cb checkRepoIsAuthorizedInTransactionFunc) {
+func (mock *mockCheckProjectIsAuthorizedInTransaction) Use(cb checkProjectIsAuthorizedInTransactionFunc) {
 	mock.handler = cb
 }
-func (mock *mockCheckResourceIsAuthorizedInTransaction) Use(cb checkResourceIsAuthorizedInTransactionFunc) {
+func (mock *mockCheckRepoIsAuthorizedInTransaction) Use(cb checkRepoIsAuthorizedInTransactionFunc) {
 	mock.handler = cb
 }
 func (mock *mockAuthorizeInTransaction) Use(cb authorizeInTransactionFunc) {
@@ -294,8 +294,8 @@ type mockAuthServer struct {
 	CheckRepoIsAuthorized                      mockCheckRepoIsAuthorized
 	CheckClusterIsAuthorized                   mockCheckClusterIsAuthorized
 	CheckClusterIsAuthorizedInTransaction      mockCheckClusterIsAuthorizedInTransaction
+	CheckProjectIsAuthorizedInTransaction      mockCheckProjectIsAuthorizedInTransaction
 	CheckRepoIsAuthorizedInTransaction         mockCheckRepoIsAuthorizedInTransaction
-	CheckResourceIsAuthorizedInTransaction     mockCheckResourceIsAuthorizedInTransaction
 	AuthorizeInTransaction                     mockAuthorizeInTransaction
 	ModifyRoleBindingInTransaction             mockModifyRoleBindingInTransaction
 	GetRoleBindingInTransaction                mockGetRoleBindingInTransaction
@@ -493,11 +493,11 @@ func (api *authServerAPI) CheckRepoIsAuthorizedInTransaction(transactionContext 
 	return errors.Errorf("unhandled pachd mock auth.CheckRepoIsAuthorizedInTranscation")
 }
 
-func (api *authServerAPI) CheckResourceIsAuthorizedInTransaction(transactionContext *txncontext.TransactionContext, resource *auth.Resource, permission ...auth.Permission) error {
-	if api.mock.CheckResourceIsAuthorizedInTransaction.handler != nil {
-		return api.mock.CheckResourceIsAuthorizedInTransaction.handler(transactionContext, resource, permission...)
+func (api *authServerAPI) CheckProjectIsAuthorizedInTransaction(transactionContext *txncontext.TransactionContext, project *pfs.Project, permission ...auth.Permission) error {
+	if api.mock.CheckProjectIsAuthorizedInTransaction.handler != nil {
+		return api.mock.CheckProjectIsAuthorizedInTransaction.handler(transactionContext, project, permission...)
 	}
-	return errors.Errorf("unhandled pachd mock auth.CheckResourceIsAuthorizedInTranscation")
+	return errors.Errorf("unhandled pachd mock auth.CheckProjectIsAuthorizedInTranscation")
 }
 
 func (api *authServerAPI) AuthorizeInTransaction(transactionContext *txncontext.TransactionContext, request *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error) {

@@ -406,7 +406,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 				return nil
 			}
 			done[repo] = struct{}{}
-			err := a.env.AuthServer.CheckResourceIsAuthorizedInTransaction(txnCtx, (&pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: project}, Name: repo}).AuthResource(), auth.Permission_REPO_READ)
+			err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: project}, Name: repo}, auth.Permission_REPO_READ)
 			return errors.EnsureStack(err)
 		}); err != nil {
 			return err
@@ -436,7 +436,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 		default:
 			return errors.Errorf("internal error, unrecognized operation %v", operation)
 		}
-		if err := a.env.AuthServer.CheckResourceIsAuthorizedInTransaction(txnCtx, (&pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: projectName}, Name: outputName}).AuthResource(), required); err != nil {
+		if err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: projectName}, Name: outputName}, required); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}

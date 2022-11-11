@@ -18,8 +18,8 @@ type APIServer interface {
 	CheckRepoIsAuthorized(context.Context, *pfs.Repo, ...auth.Permission) error
 	CheckClusterIsAuthorized(ctx context.Context, p ...auth.Permission) error
 	CheckClusterIsAuthorizedInTransaction(*txncontext.TransactionContext, ...auth.Permission) error
+	CheckProjectIsAuthorizedInTransaction(*txncontext.TransactionContext, *pfs.Project, ...auth.Permission) error
 	CheckRepoIsAuthorizedInTransaction(*txncontext.TransactionContext, *pfs.Repo, ...auth.Permission) error
-	CheckResourceIsAuthorizedInTransaction(*txncontext.TransactionContext, *auth.Resource, ...auth.Permission) error
 
 	AuthorizeInTransaction(*txncontext.TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
 	ModifyRoleBindingInTransaction(*txncontext.TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)

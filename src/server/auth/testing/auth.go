@@ -221,7 +221,7 @@ func (a *InactiveAPIServer) CheckRepoIsAuthorizedInTransaction(*txncontext.Trans
 	return nil
 }
 
-// CheckResourceIsAuthorizedInTransaction returns nil when auth is not activated
-func (a *InactiveAPIServer) CheckResourceIsAuthorizedInTransaction(*txncontext.TransactionContext, *auth.Resource, ...auth.Permission) error {
+// CheckProjectIsAuthorizedInTransaction returns nil when auth is not activated
+func (a *InactiveAPIServer) CheckProjectIsAuthorizedInTransaction(*txncontext.TransactionContext, *pfs.Project, ...auth.Permission) error {
 	return nil
 }
