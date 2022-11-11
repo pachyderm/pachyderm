@@ -19,8 +19,7 @@ import (
 
 func TestCompactLevelBasedFuzz(t *testing.T) {
 	ctx := context.Background()
-	s := newTestStorage(t)
-	s.shardSizeThreshold = units.KB
+	s := newTestStorage(t, WithShardSizeThreshold(units.KB))
 	numFileSets := 1000
 	maxFanIn := 10
 	numSteps := 3

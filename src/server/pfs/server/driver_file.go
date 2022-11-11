@@ -549,7 +549,7 @@ func (d *driver) shardFileSet(ctx context.Context, fsid fileset.ID) ([]*pfs.Path
 	if err != nil {
 		return nil, err
 	}
-	shards, err := fs.Shards(ctx)
+	shards, err := fs.Shards(ctx, index.WithShardConfig(d.storage.ShardConfig()))
 	if err != nil {
 		return nil, err
 	}
