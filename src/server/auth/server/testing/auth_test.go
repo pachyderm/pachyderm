@@ -2346,17 +2346,46 @@ func TestDeleteAll(t *testing.T) {
 func TestCreateProject(t *testing.T) {
 	t.Parallel()
 	client := envWithAuth(t).PachClient
+	rootClient := tu.AuthenticateClient(t, client, auth.RootUser)
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, client, alice)
+	bob := tu.Robot(tu.UniqueString("bob"))
+	bobClient := tu.AuthenticateClient(t, client, bob)
 
 	// create a project and check the caller is the owner
 	projectName := tu.UniqueString("project" + t.Name())
 	require.NoError(t, aliceClient.CreateProject(projectName))
 	require.Equal(t, tu.BuildBindings(alice, auth.ProjectOwner), tu.GetProjectRoleBinding(t, aliceClient, projectName))
 
+	// verify that bob cannot modify role binding for given project
+	_, err := bobClient.ModifyRoleBinding(bobClient.Ctx(), &auth.ModifyRoleBindingRequest{
+		Principal: bob,
+		Roles:     []string{auth.ProjectOwner},
+		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: projectName},
+	})
+	require.YesError(t, err)
+	require.Matches(t, `.+not authorized to perform this operation - needs permissions \[PROJECT_MODIFY_BINDINGS\] on PROJECT.+`, err.Error())
+
+	// Alice can give Bob project owner access
+	_, err = aliceClient.ModifyRoleBinding(aliceClient.Ctx(), &auth.ModifyRoleBindingRequest{
+		Principal: bob,
+		Roles:     []string{auth.ProjectOwner},
+		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: projectName},
+	})
+	require.NoError(t, err)
+
+	// Bob can now remove Alice as project owner
+	_, err = bobClient.ModifyRoleBinding(bobClient.Ctx(), &auth.ModifyRoleBindingRequest{
+		Principal: alice,
+		Roles:     []string{},
+		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: projectName},
+	})
+	require.NoError(t, err)
+
 	// revoke cluster level role binding that grants all users ProjectCreate role
 	// and see if create project fails
-	rootClient := tu.AuthenticateClient(t, client, auth.RootUser)
 	require.NoError(t, rootClient.ModifyClusterRoleBinding(auth.AllClusterUsersSubject, []string{}))
-	require.YesError(t, aliceClient.CreateProject(projectName))
+	err = aliceClient.CreateProject(projectName)
+	require.YesError(t, err)
+	require.Matches(t, `.+not authorized to perform this operation - needs permissions \[PROJECT_CREATE\] on CLUSTER.+`, err.Error())
 }
