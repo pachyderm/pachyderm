@@ -73,7 +73,7 @@ func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, 
 	if err != nil {
 		return nil, err
 	}
-	shards, err := fs.Shards(ctx)
+	shards, err := fs.Shards(ctx, index.WithShardConfig(c.storage.ShardConfig()))
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +186,7 @@ func (c *compactor) Validate(ctx context.Context, taskDoer task.Doer, id fileset
 	if err != nil {
 		return "", 0, err
 	}
-	shards, err := fs.Shards(ctx)
+	shards, err := fs.Shards(ctx, index.WithShardConfig(c.storage.ShardConfig()))
 	if err != nil {
 		return "", 0, err
 	}

@@ -57,10 +57,10 @@ func checkFile(t *testing.T, f File, tf *testFile) {
 
 // newTestStorage creates a storage object with a test db and test tracker
 // both of those components are kept hidden, so this is only appropriate for testing this package.
-func newTestStorage(tb testing.TB) *Storage {
+func newTestStorage(tb testing.TB, opts ...StorageOption) *Storage {
 	db := dockertestenv.NewTestDB(tb)
 	tr := track.NewTestTracker(tb, db)
-	return NewTestStorage(tb, db, tr)
+	return NewTestStorage(tb, db, tr, opts...)
 }
 
 func TestWriteThenRead(t *testing.T) {

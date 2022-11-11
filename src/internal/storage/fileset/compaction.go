@@ -208,5 +208,5 @@ func (s *Storage) compactLevels(ctx context.Context, logger *log.Entry, ids []ID
 }
 
 func (s *Storage) stepScore(step int) int64 {
-	return s.shardSizeThreshold * int64(math.Pow(float64(s.compactionConfig.LevelFactor), float64(step)))
+	return s.shardConfig.SizeBytes * int64(math.Pow(float64(s.compactionConfig.LevelFactor), float64(step)))
 }

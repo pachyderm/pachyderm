@@ -60,12 +60,12 @@ func (r *Reader) IterateDeletes(ctx context.Context, cb func(File) error, opts .
 	})
 }
 
-func (r *Reader) Shards(ctx context.Context) ([]*index.PathRange, error) {
+func (r *Reader) Shards(ctx context.Context, opts ...index.Option) ([]*index.PathRange, error) {
 	prim, err := r.getPrimitive(ctx)
 	if err != nil {
 		return nil, err
 	}
-	ir := index.NewReader(r.chunks, nil, prim.Additive)
+	ir := index.NewReader(r.chunks, nil, prim.Additive, opts...)
 	return ir.Shards(ctx)
 }
 

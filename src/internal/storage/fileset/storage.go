@@ -21,10 +21,6 @@ const (
 	// DefaultMemoryThreshold is the default for the memory threshold that must
 	// be met before a file set part is serialized (excluding close).
 	DefaultMemoryThreshold = units.GB
-	// DefaultShardThreshold is the default for the size threshold that must
-	// be met before a shard is created by the shard function.
-	DefaultShardSizeThreshold  = units.GB
-	DefaultShardCountThreshold = 1000000
 	// DefaultCompactionFixedDelay is the default fixed delay for compaction.
 	// This is expressed as the number of primitive filesets.
 	// TODO: Potentially remove this configuration.
@@ -57,14 +53,15 @@ var (
 // - Provides methods for processing file set compaction tasks.
 // - Provides a method for creating a garbage collector.
 type Storage struct {
-	tracker                                               track.Tracker
-	store                                                 MetadataStore
-	chunks                                                *chunk.Storage
-	idxCache                                              *index.Cache
-	memThreshold, shardSizeThreshold, shardCountThreshold int64
-	compactionConfig                                      *CompactionConfig
-	filesetSem                                            *semaphore.Weighted
-	prefetchLimit                                         int
+	tracker          track.Tracker
+	store            MetadataStore
+	chunks           *chunk.Storage
+	idxCache         *index.Cache
+	memThreshold     int64
+	shardConfig      *index.ShardConfig
+	compactionConfig *CompactionConfig
+	filesetSem       *semaphore.Weighted
+	prefetchLimit    int
 }
 
 type CompactionConfig struct {
@@ -74,13 +71,15 @@ type CompactionConfig struct {
 // NewStorage creates a new Storage.
 func NewStorage(mds MetadataStore, tr track.Tracker, chunks *chunk.Storage, opts ...StorageOption) *Storage {
 	s := &Storage{
-		store:               mds,
-		tracker:             tr,
-		chunks:              chunks,
-		idxCache:            index.NewCache(chunks, DefaultIndexCacheSize),
-		memThreshold:        DefaultMemoryThreshold,
-		shardSizeThreshold:  DefaultShardSizeThreshold,
-		shardCountThreshold: DefaultShardCountThreshold,
+		store:        mds,
+		tracker:      tr,
+		chunks:       chunks,
+		idxCache:     index.NewCache(chunks, DefaultIndexCacheSize),
+		memThreshold: DefaultMemoryThreshold,
+		shardConfig: &index.ShardConfig{
+			NumFiles:  index.DefaultShardNumThreshold,
+			SizeBytes: index.DefaultShardSizeThreshold,
+		},
 		compactionConfig: &CompactionConfig{
 			FixedDelay:  DefaultCompactionFixedDelay,
 			LevelFactor: DefaultCompactionLevelFactor,
@@ -102,9 +101,13 @@ func (s *Storage) ChunkStorage() *chunk.Storage {
 	return s.chunks
 }
 
+func (s *Storage) ShardConfig() *index.ShardConfig {
+	return s.shardConfig
+}
+
 // NewUnorderedWriter creates a new unordered file set writer.
 func (s *Storage) NewUnorderedWriter(ctx context.Context, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
-	return newUnorderedWriter(ctx, s, s.memThreshold, s.shardCountThreshold/2, opts...)
+	return newUnorderedWriter(ctx, s, s.memThreshold, s.shardConfig.NumFiles/2, opts...)
 }
 
 // NewWriter creates a new file set writer.
