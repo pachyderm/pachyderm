@@ -220,6 +220,9 @@ func (mock *mockCheckClusterIsAuthorizedInTransaction) Use(cb checkClusterIsAuth
 func (mock *mockCheckRepoIsAuthorizedInTransaction) Use(cb checkRepoIsAuthorizedInTransactionFunc) {
 	mock.handler = cb
 }
+func (mock *mockCheckResourceIsAuthorizedInTransaction) Use(cb checkResourceIsAuthorizedInTransactionFunc) {
+	mock.handler = cb
+}
 func (mock *mockAuthorizeInTransaction) Use(cb authorizeInTransactionFunc) {
 	mock.handler = cb
 }
@@ -494,7 +497,7 @@ func (api *authServerAPI) CheckResourceIsAuthorizedInTransaction(transactionCont
 	if api.mock.CheckResourceIsAuthorizedInTransaction.handler != nil {
 		return api.mock.CheckResourceIsAuthorizedInTransaction.handler(transactionContext, resource, permission...)
 	}
-	return errors.Errorf("unhandled pachd mock auth.CheckRepoIsAuthorizedInTranscation")
+	return errors.Errorf("unhandled pachd mock auth.CheckResourceIsAuthorizedInTranscation")
 }
 
 func (api *authServerAPI) AuthorizeInTransaction(transactionContext *txncontext.TransactionContext, request *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error) {
