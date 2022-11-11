@@ -49,7 +49,7 @@ func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txncontext.Transa
 	if userCommit.Branch.Repo == nil {
 		return errors.New("commit repo cannot be nil")
 	}
-	if err := a.auth.CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Branch.Repo, auth.Permission_REPO_WRITE); err != nil {
+	if err := a.auth.CheckResourceIsAuthorizedInTransaction(txnCtx, userCommit.Branch.Repo.AuthResource(), auth.Permission_REPO_WRITE); err != nil {
 		return errors.EnsureStack(err)
 	}
 	return a.apiServer.FinishCommitInTransaction(txnCtx, request)
