@@ -191,7 +191,7 @@ func createDatums(pachClient *client.APIClient, taskDoer task.Doer, job *pps.Job
 	if err != nil {
 		return "", errors.EnsureStack(err)
 	}
-	if metaCommitInfo.Finishing != nil {
+	if metaCommitInfo.Finished != nil {
 		resp, err := pachClient.PfsAPIClient.GetFileSet(
 			pachClient.Ctx(),
 			&pfs.GetFileSetRequest{
@@ -209,7 +209,7 @@ func createDatums(pachClient *client.APIClient, taskDoer task.Doer, job *pps.Job
 func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet, fileSetID, baseFileSetID string) (string, error) {
 	var outputFileSetID string
 	if err := pj.logger.LogStep("creating job datum file set (parallel jobs)", func() error {
-		pachClient := pj.driver.PachClient()
+		pachClient := pj.driver.PachClient().WithCtx(ctx)
 		return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 			pachClient := pachClient.WithCtx(ctx)
 			// TODO: We may want to create additional shards if the new job has much less datums.
@@ -249,7 +249,7 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 			}); err != nil {
 				return err
 			}
-			outputFileSetID, err = datum.ComposeFileSets(ctx, taskDoer, resultFileSetIDs)
+			outputFileSetID, err = datum.ComposeFileSets(pachClient, taskDoer, resultFileSetIDs)
 			return err
 		})
 	}); err != nil {
@@ -300,7 +300,7 @@ func (pj *pendingJob) createSerialDatums(ctx context.Context, taskDoer task.Doer
 func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet, fileSetID string, baseMetaCommit *pfs.Commit) (string, error) {
 	var outputFileSetID string
 	if err := pj.logger.LogStep("creating job datum file set (serial jobs)", func() error {
-		pachClient := pj.driver.PachClient()
+		pachClient := pj.driver.PachClient().WithCtx(ctx)
 		return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 			pachClient := pachClient.WithCtx(ctx)
 			// TODO: We may want to create additional shards if the new job has much less datums.
@@ -359,7 +359,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 			}); err != nil {
 				return err
 			}
-			outputFileSetID, err = datum.ComposeFileSets(ctx, taskDoer, resultFileSetIDs)
+			outputFileSetID, err = datum.ComposeFileSets(pachClient, taskDoer, resultFileSetIDs)
 			return err
 		})
 	}); err != nil {

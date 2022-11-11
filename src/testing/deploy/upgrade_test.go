@@ -26,16 +26,10 @@ const (
 	upgradeSubject string = "upgrade_client"
 )
 
-var (
-	fromVersions = []string{
-		"2.0.4",
-		"2.1.0",
-		"2.2.0",
-	}
-)
+var skip bool
 
 // runs the upgrade test from all versions specified in "fromVersions" against the local image
-func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing.T, *client.APIClient), postUpgrade func(*testing.T, *client.APIClient)) {
+func upgradeTest(suite *testing.T, ctx context.Context, fromVersions []string, preUpgrade func(*testing.T, *client.APIClient), postUpgrade func(*testing.T, *client.APIClient)) {
 	k := testutil.GetKubeClient(suite)
 	for _, from := range fromVersions {
 		suite.Run(fmt.Sprintf("UpgradeFrom_%s", from), func(t *testing.T) {
@@ -78,7 +72,16 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 // - create file input@master:/bar
 // - verify output@master:/bar and output@master:/foo still exists
 func TestUpgradeSimple(t *testing.T) {
-	upgradeTest(t, context.Background(),
+	if skip {
+		t.Skip("Skipping upgrade test")
+	}
+	fromVersions := []string{
+		"2.0.4",
+		"2.1.0",
+		"2.2.0",
+		"2.3.9",
+	}
+	upgradeTest(t, context.Background(), fromVersions,
 		func(t *testing.T, c *client.APIClient) {
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, inputRepo))
@@ -136,6 +139,64 @@ func TestUpgradeSimple(t *testing.T) {
 					require.Equal(t, "bar", buf.String())
 				}
 			}
+		},
+	)
+}
+
+func TestUpgradeLoad(t *testing.T) {
+	if skip {
+		t.Skip("Skipping upgrade test")
+	}
+	fromVersions := []string{"2.3.9"}
+	dagSpec := `
+default-load-test-source:
+default-load-test-pipeline: default-load-test-source
+`
+	loadSpec := `
+count: 5
+modifications:
+  - count: 5
+    putFile:
+      count: 5
+      source: "random"
+fileSources:
+  - name: "random"
+    random:
+      sizes:
+        - min: 1000
+          max: 10000
+          prob: 30
+        - min: 10000
+          max: 100000
+          prob: 40
+        - min: 1000000
+          max: 10000000
+          prob: 30
+validator:
+  frequency:
+    count: 1
+`
+	var stateID string
+	upgradeTest(t, context.Background(), fromVersions,
+		func(t *testing.T, c *client.APIClient) {
+			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
+			resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pps.RunLoadTestRequest{
+				DagSpec:  dagSpec,
+				LoadSpec: loadSpec,
+			})
+			require.NoError(t, err)
+			require.Equal(t, "", resp.Error)
+			stateID = resp.StateId
+		},
+		func(t *testing.T, c *client.APIClient) {
+			c = testutil.AuthenticateClient(t, c, upgradeSubject)
+			resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pps.RunLoadTestRequest{
+				DagSpec:  dagSpec,
+				LoadSpec: loadSpec,
+				StateId:  stateID,
+			})
+			require.NoError(t, err)
+			require.Equal(t, "", resp.Error)
 		},
 	)
 }

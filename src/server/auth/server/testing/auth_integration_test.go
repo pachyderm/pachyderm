@@ -32,6 +32,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
+// works with global.postgresql.postgresqlAuthType: md5, which is default in values file.
+var defaultTestOptions = minikubetestenv.WithValueOverrides(map[string]string{
+	"global.postgresql.postgresqlPassword": "-strong-password!@#$%^&*(){}[]|\\:\"'<>?,./_+=0123A",
+})
+
 // TODO(Fahad): Potentially convert these to unit tests by using Jon's fake kube apiserver
 
 // TestListDatum tests that you must have READER access to all of job's
@@ -41,7 +46,7 @@ func TestListDatum(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -54,16 +59,17 @@ func TestListDatum(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
+	input := client.NewCrossInput(
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repoA, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repoB, "/*"),
+	)
 	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"ls /pfs/*/*; cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewCrossInput(
-			client.NewProjectPFSInput(pfs.DefaultProjectName, repoA, "/*"),
-			client.NewProjectPFSInput(pfs.DefaultProjectName, repoB, "/*"),
-		),
+		input,
 		"", // default output branch: master
 		false,
 	))
@@ -123,6 +129,14 @@ func TestListDatum(t *testing.T) {
 		"file1": struct{}{},
 		"file2": struct{}{},
 	}, files)
+
+	// Test list datum input.
+	disInput, err := bobClient.ListDatumInputAll(input)
+	require.NoError(t, err)
+	require.Equal(t, len(dis), len(disInput))
+	for i, di := range dis {
+		require.Equal(t, di.Datum.ID, disInput[i].Datum.ID)
+	}
 }
 
 func TestS3GatewayAuthRequests(t *testing.T) {
@@ -130,7 +144,8 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	// generate auth credentials
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
@@ -180,7 +195,7 @@ func TestDebug(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	// Get all the authenticated clients at the beginning of the test.
 	// GetAuthenticatedPachClient will always re-activate auth, which
@@ -265,7 +280,7 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -487,7 +502,7 @@ func TestPipelineRevoke(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -602,7 +617,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, ns := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice := tu.Robot(tu.UniqueString("alice"))
 	c = tu.AuthenticateClient(t, c, alice)
@@ -662,7 +677,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
@@ -751,7 +766,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
@@ -773,7 +788,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		"",    // default output branch: master
 		false, // no update
 	))
-	require.OneOfEquals(t, pipeline, tu.PipelineNames(t, aliceClient))
+	require.OneOfEquals(t, pipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
 	// check that alice owns the output repo too,
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
 
@@ -839,7 +854,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)

@@ -40,6 +40,7 @@ message PFSTask {
   pps_v2.PFSInput input = 1; 
   pfs_v2.PathRange path_range = 2;
   int64 base_index = 3;
+  string auth_token = 4;
 }
 
 message PFSTaskResult {
@@ -47,10 +48,11 @@ message PFSTaskResult {
 }
 
 message CrossTask {
-  string base_file_set_id = 1;
-  pfs_v2.PathRange base_file_set_path_range = 2; 
-  repeated string file_set_ids = 3;
+  repeated string file_set_ids = 1;
+  int64 base_file_set_index = 2;
+  pfs_v2.PathRange base_file_set_path_range = 3;
   int64 base_index = 4;
+  string auth_token = 5;
 }
 
 message CrossTaskResult {
@@ -65,6 +67,7 @@ message KeyTask {
     GROUP = 1;
   }
   Type type = 3;
+  string auth_token = 4;
 }
 
 message KeyTaskResult {
@@ -79,6 +82,7 @@ message MergeTask {
     GROUP = 1;
   }
   Type type = 3;
+  string auth_token = 4;
 }
 
 message MergeTaskResult {
@@ -87,6 +91,7 @@ message MergeTaskResult {
 
 message ComposeTask {
   repeated string file_set_ids = 1;
+  string auth_token = 2;
 }
 
 message ComposeTaskResult {

@@ -173,7 +173,7 @@ type FileSet interface {
 	// IterateDeletes iterates over the deleted files in the file set.
 	IterateDeletes(ctx context.Context, cb func(File) error, opts ...index.Option) error
 	// Shards returns a list of shards for the file set.
-	Shards(ctx context.Context) ([]*index.PathRange, error)
+	Shards(ctx context.Context, opts ...index.Option) ([]*index.PathRange, error)
 }
 
 var _ FileSet = &MergeReader{}
@@ -189,8 +189,8 @@ func (efs emptyFileSet) IterateDeletes(_ context.Context, _ func(File) error, _ 
 	return nil
 }
 
-func (efs emptyFileSet) Shards(_ context.Context) ([]*index.PathRange, error) {
-	return nil, nil
+func (efs emptyFileSet) Shards(_ context.Context, _ ...index.Option) ([]*index.PathRange, error) {
+	return []*index.PathRange{{}}, nil
 }
 
 func idsToHex(xs []ID) []string {
