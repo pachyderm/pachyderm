@@ -9828,7 +9828,7 @@ func TestTrigger(t *testing.T) {
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
-	commitInfo, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline1, "master", "")
+	_, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline1, "master", "")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
 		var buf bytes.Buffer
@@ -9846,9 +9846,9 @@ func TestTrigger(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	commitInfo, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline1, "master", "")
+	_, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline1, "master", "")
 	require.NoError(t, err)
-	commitInfo, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline2, "master", "")
+	_, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline2, "master", "")
 	require.NoError(t, err)
 
 	require.Equal(t, 1, len(commitInfos))

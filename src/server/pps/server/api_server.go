@@ -2894,10 +2894,8 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 		return nil, errors.New("request.Pipeline cannot be nil")
 	}
 	ensurePipelineProject(request.Pipeline)
-
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		pipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
-		if err == nil {
+		if pipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline); err == nil {
 			// check if the caller is authorized to update this pipeline
 			// don't pass in the input - stopping the pipeline means they won't be read anymore,
 			// so we don't need to check any permissions
@@ -2999,7 +2997,6 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 		if commitInfo.Commit.Repo.Type != pfs.UserRepoType {
 			continue
 		}
-
 		// Skip commits from repos that have no associated pipeline
 		var pipelineInfo *pps.PipelineInfo
 		if pipelineInfo, err = a.InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil {
@@ -3008,12 +3005,10 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 			}
 			return err
 		}
-
 		// Don't create jobs for spouts
 		if pipelineInfo.Type == pps.PipelineInfo_PIPELINE_TYPE_SPOUT {
 			continue
 		}
-
 		// Check if there is an existing job for the output commit
 		job := client.NewProjectJob(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, txnCtx.CommitSetID)
 		jobInfo := &pps.JobInfo{}

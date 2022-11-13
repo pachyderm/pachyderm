@@ -532,7 +532,7 @@ func TestPFS(suite *testing.T) {
 		}))
 		cis, err = env.PachClient.ListCommit(outRepo, outRepo.NewCommit("master", ""), nil, 0)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(cis))
+		require.Equal(t, 3, len(cis))
 
 		inRepo = client.NewProjectRepo(pfs.DefaultProjectName, "in")
 		cis, err = env.PachClient.ListCommit(inRepo, inRepo.NewCommit("master", ""), nil, 0)
@@ -565,24 +565,14 @@ func TestPFS(suite *testing.T) {
 		commit1 := cis[0].Commit
 		require.NoError(t, env.PachClient.DeleteProjectBranch(pfs.DefaultProjectName, "out", "master", false))
 		require.NoError(t, finishCommit(env.PachClient, "out", "", commit1.ID))
-
 		cis, err = env.PachClient.ListCommit(outRepo, nil, nil, 0)
 		require.NoError(t, err)
-		fmt.Println("COMMITS")
-		for _, ci := range cis {
-			fmt.Println(ci.Commit)
-		}
 		require.Equal(t, 2, len(cis))
-
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "out", "master", "", commit1.ID, []*pfs.Branch{client.NewProjectBranch(pfs.DefaultProjectName, "in", "master")}))
 		cis, err = env.PachClient.ListCommit(outRepo, nil, nil, 0)
 		require.NoError(t, err)
-		fmt.Println("COMMITS")
-		for _, ci := range cis {
-			fmt.Println(ci.Commit)
-		}
-		require.Equal(t, 2, len(cis))
-		require.Equal(t, commit1, cis[0].Commit)
+		require.Equal(t, 3, len(cis))
+		require.Equal(t, commit1, cis[1].Commit)
 	})
 
 	// TODO(acohen4): should we allow moving a branch with provenance? Probably not since this would break Branch/Head invariant
@@ -1745,7 +1735,7 @@ func TestPFS(suite *testing.T) {
 		// Assert that referencing "B" at the latest commit ID gives us the latest "B" commit
 		cis, err := c.InspectCommitSet(commit1.ID)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(cis))
+		require.Equal(t, 3, len(cis))
 		resolvedAliasCommit, err := c.InspectProjectCommit(pfs.DefaultProjectName, "B", "", commit1.ID)
 		require.NoError(t, err)
 		require.Equal(t, ci.Commit.ID, resolvedAliasCommit.Commit.ID)
@@ -4102,7 +4092,6 @@ func TestPFS(suite *testing.T) {
 
 		commitInfos, err := env.PachClient.InspectCommitSet(cCommitInfo.Commit.ID)
 		require.NoError(t, err)
-		fmt.Println(commitInfos)
 		require.Equal(t, 2, len(commitInfos)) // only B & C in the commit set
 	})
 
@@ -4394,7 +4383,6 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "B", "master", "", "", nil))
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "C", "master", "", "",
 			[]*pfs.Branch{client.NewProjectBranch(pfs.DefaultProjectName, "A", "master")}))
-
 		// Create commits in A and B
 		commit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
@@ -4402,13 +4390,11 @@ func TestPFS(suite *testing.T) {
 		commit, err = env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "B", "master")
 		require.NoError(t, err)
 		require.NoError(t, finishCommit(env.PachClient, "B", commit.Branch.Name, commit.ID))
-
 		// Check for first output commit in C (plus the old empty head commit)
 		cRepo := client.NewProjectRepo(pfs.DefaultProjectName, "C")
 		commits, err := env.PachClient.ListCommit(cRepo, cRepo.NewCommit("master", ""), nil, 0)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(commits))
-
 		// Update the provenance of C/master and make sure it creates a new commit
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "C", "master", "", "",
 			[]*pfs.Branch{client.NewProjectBranch(pfs.DefaultProjectName, "B", "master")}))
@@ -5225,7 +5211,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		commitInfos, err = env.PachClient.WaitCommitSetAll(output1Master.Commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(commitInfos))
+		require.Equal(t, 2, len(commitInfos))
 		output2StagingCi, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "output2", "staging", "")
 		require.NoError(t, err)
 		require.Equal(t, outputStagingCi.Commit.Repo, output2StagingCi.Details.CommitProvenance[0].Repo)

@@ -1339,7 +1339,7 @@ func (d *driver) fillNewBranches(txnCtx *txncontext.TransactionContext, branch *
 				branchInfo.Branch = p
 				// We are creating this branch for the first time, set the Branch and Head
 				// TODO can we fix this up?
-				head, err := d.makeEmptyCommit(txnCtx, branchInfo.Branch, nil)
+				head, err := d.makeEmptyCommit(txnCtx, branchInfo.Branch, nil, nil)
 				if err != nil {
 					return err
 				}
@@ -1538,8 +1538,11 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		if commit != nil {
 			branchInfo.Head = commit
 		}
-		if branchInfo.Head == nil || !same(oldProvenance, provenance) {
-			c, err := d.makeEmptyCommit(txnCtx, branch, provenance)
+		// if we don't have a branch head, or the provenance has changed, add a new commit to the branch to capture the changed structure
+		// the one edge case here, is that it's undesirable to add a commit in the case where provenance is completely removed...
+		// TODO(acohen4): This sort of hurts Branch Provenance invariant. See if we can re-assess....
+		if branchInfo.Head == nil || (!same(oldProvenance, provenance) && len(provenance) != 0) {
+			c, err := d.makeEmptyCommit(txnCtx, branch, provenance, branchInfo.Head)
 			if err != nil {
 				return err
 			}
@@ -1762,7 +1765,7 @@ func (d *driver) deleteAll(ctx context.Context) error {
 }
 
 // only transform source repos and spouts get a closed commit
-func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, directProvenance []*pfs.Branch) (*pfs.Commit, error) {
+func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, directProvenance []*pfs.Branch, parent *pfs.Commit) (*pfs.Commit, error) {
 	// Input repos and spouts want a closed head commit, so decide if we leave
 	// it open by the presence of branch provenance.  If it's only provenant on
 	// a spec repo, we assume it's a spout and close the commit.
@@ -1793,7 +1796,7 @@ func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branch *
 			return nil, errors.EnsureStack(err)
 		}
 	}
-	if err := d.addCommit(txnCtx, commitInfo, nil, directProvenance, false); err != nil {
+	if err := d.addCommit(txnCtx, commitInfo, parent, directProvenance, false); err != nil {
 		return nil, err
 	}
 	return commit, nil

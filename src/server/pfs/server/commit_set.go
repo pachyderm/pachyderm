@@ -14,7 +14,10 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
-func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) ([]*pfs.CommitInfo, error) {
+// returns CommitInfos in a commit set. A commit set will include all the commits that were created across repos for a run,
+// along with all of the commits that the run's commit's rely on.
+// The returned commits will be sorted topologically.
+func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, filterPassiveCommits bool) ([]*pfs.CommitInfo, error) {
 	var commitInfos []*pfs.CommitInfo
 	commitInfo := &pfs.CommitInfo{}
 	// include the commit set provenance in the inspectCommitSet results. TODO(acohen4): is this necessary?
@@ -40,22 +43,27 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	totalCommits := len(commitInfos)
 	list := make([]*pfs.CommitInfo, 0)
 	collected := make(map[string]struct{})
+	collectCount := 0
 	// O(n^2) sorting of commits
-	for len(list) < totalCommits {
+	//
+	// FIXME acohen4: it's possible for a commit to have two branches from the same repo in its provenance.
+	for collectCount < totalCommits {
 		for i, ci := range commitInfos {
-			if _, ok := collected[pfsdb.RepoKey(ci.Commit.Repo)]; ok {
-				continue
-			}
 			satisfied := true
-			for _, p := range ci.DirectProvenance {
-				if _, ok := collected[pfsdb.RepoKey(p.Repo)]; !ok {
-					satisfied = false
-					break
+			if _, ok := collected[pfsdb.RepoKey(ci.Commit.Repo)]; !ok {
+				for _, p := range ci.DirectProvenance {
+					if _, ok := collected[pfsdb.RepoKey(p.Repo)]; !ok {
+						satisfied = false
+						break
+					}
 				}
 			}
 			if satisfied {
+				collectCount++
 				collected[pfsdb.RepoKey(ci.Commit.Repo)] = struct{}{}
-				list = append(list, ci)
+				if !filterPassiveCommits || ci.Commit.ID == commitset.ID {
+					list = append(list, ci)
+				}
 				commitInfos[i] = commitInfos[len(commitInfos)-1]
 				commitInfos = commitInfos[:len(commitInfos)-1]
 				break
@@ -69,7 +77,7 @@ func (d *driver) inspectCommitSetImmediate(ctx context.Context, commitset *pfs.C
 	var commitInfos []*pfs.CommitInfo
 	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		commitInfos, err = d.inspectCommitSetImmediateTx(txnCtx, commitset)
+		commitInfos, err = d.inspectCommitSetImmediateTx(txnCtx, commitset, false)
 		return err
 	}); err != nil {
 		return err
@@ -82,6 +90,7 @@ func (d *driver) inspectCommitSetImmediate(ctx context.Context, commitset *pfs.C
 	return nil
 }
 
+// applies a callback, cb, to all the commits in a commit set. A commit set includes
 func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet, wait bool, cb func(*pfs.CommitInfo) error) error {
 	if !wait {
 		return d.inspectCommitSetImmediate(ctx, commitset, cb)
@@ -98,6 +107,7 @@ func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet,
 	unfinishedCommits := make([]*pfs.Commit, 0)
 	// The commits in this CommitSet may change if any triggers or CreateBranches
 	// add more, so reload it after each wait.
+	// TODO acohen4: can we scrap this?
 	repeat := true
 	for repeat {
 		repeat = false
@@ -184,7 +194,7 @@ func traverseToEdges(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.Commit
 	return result
 }
 
-// deleteCommits accepts commitInfos that may span commit sets...
+// deleteCommits accepts commitInfos that may span commit sets.
 func (d *driver) deleteCommits(txnCtx *txncontext.TransactionContext, commitInfos []*pfs.CommitInfo) error {
 	deleteCommits := make(map[string]*pfs.CommitInfo)
 	repos := make(map[string]*pfs.Repo)
@@ -252,7 +262,7 @@ func (d *driver) deleteCommits(txnCtx *txncontext.TransactionContext, commitInfo
 			var repoCommit *pfs.Commit
 			var err error
 			if c, ok := newRepoCommits[pfsdb.RepoKey(bi.Branch.Repo)]; !ok {
-				repoCommit, err = d.makeEmptyCommit(txnCtx, bi.Branch, bi.DirectProvenance)
+				repoCommit, err = d.makeEmptyCommit(txnCtx, bi.Branch, bi.DirectProvenance, nil)
 				if err != nil {
 					return err
 				}
@@ -385,7 +395,7 @@ func (d *driver) dropCommitSets(txnCtx *txncontext.TransactionContext, commitset
 	var commitInfos []*pfs.CommitInfo
 	for _, commitset := range commitsets {
 		var err error
-		cis, err := d.inspectCommitSetImmediateTx(txnCtx, commitset)
+		cis, err := d.inspectCommitSetImmediateTx(txnCtx, commitset, true)
 		if err != nil {
 			return err
 		}
@@ -423,7 +433,7 @@ func (d *driver) squashCommitSets(txnCtx *txncontext.TransactionContext, commits
 	var commitInfos []*pfs.CommitInfo
 	for _, commitset := range commitsets {
 		var err error
-		commitInfos, err = d.inspectCommitSetImmediateTx(txnCtx, commitset)
+		commitInfos, err = d.inspectCommitSetImmediateTx(txnCtx, commitset, true)
 		if err != nil {
 			return err
 		}

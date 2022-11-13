@@ -32,7 +32,7 @@ func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commi
         );`
 	rows, err := tx.QueryxContext(ctx, query, commitKey)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	commitProvenance := make([]*pfs.Commit, 0)
 	for rows.Next() {
@@ -131,7 +131,7 @@ func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commitKey string) error {
 }
 
 func getCommitTableID(ctx context.Context, tx *pachsql.Tx, commitKey string) (int, error) {
-	query := `SELECT int_id, commit_id FROM pfs.commits WHERE commit_id = $1;`
+	query := `SELECT int_id FROM pfs.commits WHERE commit_id = $1;`
 	rows, err := tx.QueryxContext(ctx, query, commitKey)
 	if err != nil {
 		return 0, errors.EnsureStack(err)
