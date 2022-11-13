@@ -3233,14 +3233,12 @@ func TestPFS(suite *testing.T) {
 		// The first two commits will be A and B, but they aren't deterministically sorted
 		commitInfos, err := env.PachClient.WaitCommitSetAll(ACommit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(commitInfos))
-		require.Equal(t, ACommit, commitInfos[0].Commit)
-		require.Equal(t, client.NewProjectCommit(pfs.DefaultProjectName, "C", "master", ACommit.ID), commitInfos[1].Commit)
+		require.Equal(t, 3, len(commitInfos))
+		require.Equal(t, client.NewProjectCommit(pfs.DefaultProjectName, "C", "master", ACommit.ID), commitInfos[2].Commit)
 		commitInfos, err = env.PachClient.WaitCommitSetAll(BCommit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(commitInfos))
-		require.Equal(t, BCommit, commitInfos[0].Commit)
-		require.Equal(t, client.NewProjectCommit(pfs.DefaultProjectName, "C", "master", BCommit.ID), commitInfos[1].Commit)
+		require.Equal(t, 3, len(commitInfos))
+		require.Equal(t, client.NewProjectCommit(pfs.DefaultProjectName, "C", "master", BCommit.ID), commitInfos[2].Commit)
 	})
 
 	suite.Run("WaitCommitSetWithNoDownstreamRepos", func(t *testing.T) {

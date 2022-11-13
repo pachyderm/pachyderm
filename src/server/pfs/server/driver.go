@@ -1689,6 +1689,9 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}
 	branchInfo := &pfs.BranchInfo{}
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(branch, branchInfo); err != nil {
+		if col.IsErrNotFound(err) {
+			return nil
+		}
 		return errors.Wrapf(err, "branches.Get")
 	}
 	if !force {
