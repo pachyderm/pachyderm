@@ -401,54 +401,54 @@ func projectMasterListObjectsHeadlessBranch(t *testing.T, pachClient *client.API
 	checkListObjects(t, ch, nil, nil, []string{}, []string{})
 }
 
-// func masterListObjectsRecursive(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	// `startTime` and `endTime` will be used to ensure that an object's
-// 	// `LastModified` date is correct. A few minutes are subtracted/added to
-// 	// each to tolerate the node time not being the same as the host time.
-// 	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
-// 	repo := tu.UniqueString("testlistobjectsrecursive")
-// 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-// 	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
-// 	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "emptybranch", "", "", nil))
+func projectMasterListObjectsRecursive(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	// `startTime` and `endTime` will be used to ensure that an object's
+	// `LastModified` date is correct. A few minutes are subtracted/added to
+	// each to tolerate the node time not being the same as the host time.
+	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
+	repo := tu.UniqueString("testlistobjectsrecursive")
+	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
+	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "emptybranch", "", "", nil))
 
-// 	require.NoError(t, pachClient.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", ""), func(mf client.ModifyFile) error {
-// 		putListFileTestObject(t, mf, "", 0)
-// 		putListFileTestObject(t, mf, "rootdir/", 1)
-// 		putListFileTestObject(t, mf, "rootdir/subdir/", 2)
-// 		return nil
-// 	}))
+	require.NoError(t, pachClient.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", ""), func(mf client.ModifyFile) error {
+		putListFileTestObject(t, mf, "", 0)
+		putListFileTestObject(t, mf, "rootdir/", 1)
+		putListFileTestObject(t, mf, "rootdir/subdir/", 2)
+		return nil
+	}))
 
-// 	require.NoError(t, pachClient.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, repo, "branch", ""), func(mf client.ModifyFile) error {
-// 		putListFileTestObject(t, mf, "", 3)
-// 		return nil
-// 	}))
-// 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
+	require.NoError(t, pachClient.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, repo, "branch", ""), func(mf client.ModifyFile) error {
+		putListFileTestObject(t, mf, "", 3)
+		return nil
+	}))
+	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
-// 	// Request that will list all files in master
-// 	expectedFiles := []string{"0", "rootdir/1", "rootdir/subdir/2"}
-// 	ch := minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "", true, make(chan struct{}))
-// 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
+	// Request that will list all files in master
+	expectedFiles := []string{"0", "rootdir/1", "rootdir/subdir/2"}
+	ch := minioClient.ListObjects(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "", true, make(chan struct{}))
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 
-// 	// Requests that will list all files in rootdir
-// 	expectedFiles = []string{"rootdir/1", "rootdir/subdir/2"}
-// 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "r", true, make(chan struct{}))
-// 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
-// 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir", true, make(chan struct{}))
-// 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
-// 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/", true, make(chan struct{}))
-// 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
+	// Requests that will list all files in rootdir
+	expectedFiles = []string{"rootdir/1", "rootdir/subdir/2"}
+	ch = minioClient.ListObjects(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "r", true, make(chan struct{}))
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
+	ch = minioClient.ListObjects(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "rootdir", true, make(chan struct{}))
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
+	ch = minioClient.ListObjects(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "rootdir/", true, make(chan struct{}))
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 
-// 	// Requests that will list all files in subdir
-// 	expectedFiles = []string{"rootdir/subdir/2"}
-// 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/s", true, make(chan struct{}))
-// 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
-// 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir", true, make(chan struct{}))
-// 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
-// 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/", true, make(chan struct{}))
-// 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
-// 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/2", true, make(chan struct{}))
-// 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
-// }
+	// Requests that will list all files in subdir
+	expectedFiles = []string{"rootdir/subdir/2"}
+	ch = minioClient.ListObjects(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "rootdir/s", true, make(chan struct{}))
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
+	ch = minioClient.ListObjects(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "rootdir/subdir", true, make(chan struct{}))
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
+	ch = minioClient.ListObjects(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "rootdir/subdir/", true, make(chan struct{}))
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
+	ch = minioClient.ListObjects(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "rootdir/subdir/2", true, make(chan struct{}))
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
+}
 
 // func masterListSystemRepoBuckets(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 // 	repo := tu.UniqueString("listsystemrepo")
@@ -600,9 +600,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("ListObjectsHeadlessBranch", func(t *testing.T) {
 			projectMasterListObjectsHeadlessBranch(t, pachClient, minioClient)
 		})
-		// t.Run("ListObjectsRecursive", func(t *testing.T) {
-		// 	masterListObjectsRecursive(t, pachClient, minioClient)
-		// })
+		t.Run("ListObjectsRecursive", func(t *testing.T) {
+			projectMasterListObjectsRecursive(t, pachClient, minioClient)
+		})
 		// t.Run("ListSystemRepoBucket", func(t *testing.T) {
 		// 	masterListSystemRepoBuckets(t, pachClient, minioClient)
 		// })
