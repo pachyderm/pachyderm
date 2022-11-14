@@ -267,36 +267,36 @@ func projectMasterMakeBucketDifferentBranches(t *testing.T, pachClient *client.A
 	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("branch.%s.%s", repo, pfs.DefaultProjectName), ""))
 }
 
-// func masterBucketExists(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	repo := tu.UniqueString("testbucketexists")
+func projectMasterBucketExists(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("testbucketexists")
 
-// 	exists, err := minioClient.BucketExists(fmt.Sprintf("master.%s", repo))
-// 	require.NoError(t, err)
-// 	require.False(t, exists)
+	exists, err := minioClient.BucketExists(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName))
+	require.NoError(t, err)
+	require.False(t, exists)
 
-// 	// repo exists, but branch doesn't: should be false
-// 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-// 	exists, err = minioClient.BucketExists(fmt.Sprintf("master.%s", repo))
-// 	require.NoError(t, err)
-// 	require.False(t, exists)
+	// repo exists, but branch doesn't: should be false
+	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	exists, err = minioClient.BucketExists(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName))
+	require.NoError(t, err)
+	require.False(t, exists)
 
-// 	// repo and branch exists: should be true
-// 	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
-// 	exists, err = minioClient.BucketExists(fmt.Sprintf("master.%s", repo))
-// 	require.NoError(t, err)
-// 	require.True(t, exists)
+	// repo and branch exists: should be true
+	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
+	exists, err = minioClient.BucketExists(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName))
+	require.NoError(t, err)
+	require.True(t, exists)
 
-// 	// repo exists, but branch doesn't: should be false
-// 	exists, err = minioClient.BucketExists(fmt.Sprintf("branch.%s", repo))
-// 	require.NoError(t, err)
-// 	require.False(t, exists)
+	// repo exists, but branch doesn't: should be false
+	exists, err = minioClient.BucketExists(fmt.Sprintf("branch.%s.%s", repo, pfs.DefaultProjectName))
+	require.NoError(t, err)
+	require.False(t, exists)
 
-// 	// repo and branch exists: should be true
-// 	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
-// 	exists, err = minioClient.BucketExists(fmt.Sprintf("branch.%s", repo))
-// 	require.NoError(t, err)
-// 	require.True(t, exists)
-// }
+	// repo and branch exists: should be true
+	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
+	exists, err = minioClient.BucketExists(fmt.Sprintf("branch.%s.%s", repo, pfs.DefaultProjectName))
+	require.NoError(t, err)
+	require.True(t, exists)
+}
 
 // func masterRemoveBucket(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 // 	// TODO(required 2.0): removing bucket does a WalkFile which errors when no files match (on an empty bucket)
@@ -585,9 +585,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("MakeBucketDifferentBranches", func(t *testing.T) {
 			projectMasterMakeBucketDifferentBranches(t, pachClient, minioClient)
 		})
-		// t.Run("BucketExists", func(t *testing.T) {
-		// 	masterBucketExists(t, pachClient, minioClient)
-		// })
+		t.Run("BucketExists", func(t *testing.T) {
+			projectMasterBucketExists(t, pachClient, minioClient)
+		})
 		// t.Run("RemoveBucket", func(t *testing.T) {
 		// 	masterRemoveBucket(t, pachClient, minioClient)
 		// })
