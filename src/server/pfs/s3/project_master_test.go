@@ -114,24 +114,24 @@ func projectMasterStatObject(t *testing.T, pachClient *client.APIClient, minioCl
 	require.Equal(t, int64(11), info.Size)
 }
 
-// func masterPutObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	repo := tu.UniqueString("testputobject")
-// 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-// 	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
+func projectMasterPutObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("testputobject")
+	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
 
-// 	r := strings.NewReader("content1")
-// 	_, err := minioClient.PutObject(fmt.Sprintf("branch.%s", repo), "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
-// 	require.NoError(t, err)
+	r := strings.NewReader("content1")
+	_, err := minioClient.PutObject(fmt.Sprintf("branch.%s.%s", repo, pfs.DefaultProjectName), "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+	require.NoError(t, err)
 
-// 	// this should act as a PFS PutFile
-// 	r2 := strings.NewReader("content2")
-// 	_, err = minioClient.PutObject(fmt.Sprintf("branch.%s", repo), "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
-// 	require.NoError(t, err)
+	// this should act as a PFS PutFile
+	r2 := strings.NewReader("content2")
+	_, err = minioClient.PutObject(fmt.Sprintf("branch.%s.%s", repo, pfs.DefaultProjectName), "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+	require.NoError(t, err)
 
-// 	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("branch.%s", repo), "file")
-// 	require.NoError(t, err)
-// 	require.Equal(t, "content2", fetchedContent)
-// }
+	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("branch.%s.%s", repo, pfs.DefaultProjectName), "file")
+	require.NoError(t, err)
+	require.Equal(t, "content2", fetchedContent)
+}
 
 // func masterRemoveObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 // 	repo := tu.UniqueString("testremoveobject")
@@ -549,9 +549,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("StatObject", func(t *testing.T) {
 			projectMasterStatObject(t, pachClient, minioClient)
 		})
-		// t.Run("PutObject", func(t *testing.T) {
-		// 	masterPutObject(t, pachClient, minioClient)
-		// })
+		t.Run("PutObject", func(t *testing.T) {
+			projectMasterPutObject(t, pachClient, minioClient)
+		})
 		// t.Run("RemoveObject", func(t *testing.T) {
 		// 	masterRemoveObject(t, pachClient, minioClient)
 		// })
