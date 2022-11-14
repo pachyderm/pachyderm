@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -52,13 +53,31 @@ func NewMasterDriver() *MasterDriver {
 	return &MasterDriver{}
 }
 
+func branchBucketName(b *pfs.Branch) string {
+	if b.Repo.Type == pfs.UserRepoType {
+		return fmt.Sprintf("%s.%s", b.Name, b.Repo.Name)
+	}
+	return fmt.Sprintf("%s.%s.%s", b.Name, b.Repo.Type, b.Repo.Name)
+}
+
+func projectBranchBucketName(b *pfs.Branch) string {
+	if b.Repo.Type == pfs.UserRepoType {
+		return fmt.Sprintf("%s.%s.%s", b.Name, b.Repo.Name, b.Repo.Project.Name)
+	}
+	return fmt.Sprintf("%s.%s.%s.%s", b.Name, b.Repo.Type, b.Repo.Name, b.Repo.Project.Name)
+}
+
 func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, buckets *[]*s2.Bucket) error {
+	var isProjectAware = mux.Vars(r)["isProjectAware"] == "yes"
 	repos, err := pc.ListRepoByType("") // get repos of all types
 	if err != nil {
 		return err
 	}
 
 	for _, repo := range repos {
+		if !isProjectAware && repo.Repo.Project.Name != pfs.DefaultProjectName {
+			continue // skip repos not in the default project
+		}
 		if repo.Repo.Type == pfs.SpecRepoType {
 			continue // hide spec repos, but allow meta/stats repos
 		}
@@ -68,10 +87,10 @@ func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 		}
 		for _, branch := range repo.Branches {
 			var name string
-			if branch.Repo.Type == pfs.UserRepoType {
-				name = fmt.Sprintf("%s.%s", branch.Name, branch.Repo.Name)
+			if isProjectAware {
+				name = projectBranchBucketName(branch)
 			} else {
-				name = fmt.Sprintf("%s.%s.%s", branch.Name, branch.Repo.Type, branch.Repo.Name)
+				name = branchBucketName(branch)
 			}
 			*buckets = append(*buckets, &s2.Bucket{
 				Name:         name,
@@ -83,15 +102,14 @@ func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 	return nil
 }
 
-// FIXME: support projects here.  Need to turn commit ID into a project name.
-func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
+func bucketNameToCommit(bucketName string) *pfs.Commit {
 	var id string
 	branch := "master"
 	var repo *pfs.Repo
 
 	// the name is [commitID.][branch. | branch.type.]repoName
 	// in particular, to access a non-user system repo, the branch name must be given
-	parts := strings.SplitN(name, ".", 4)
+	parts := strings.SplitN(bucketName, ".", 4)
 	if uuid.IsUUIDWithoutDashes(parts[0]) {
 		id = parts[0]
 		parts = parts[1:]
@@ -106,8 +124,54 @@ func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string
 		repo = client.NewSystemProjectRepo(pfs.DefaultProjectName, parts[1], parts[0])
 	}
 
+	return repo.NewCommit(branch, id)
+}
+
+func bucketNameToProjectCommit(bucketName string) (*pfs.Commit, error) {
+	var id string
+	branch := "master"
+	var repo *pfs.Repo
+
+	// the name is [commitID.][branch. | branch.type.]repoName.projectName
+	// in particular, to access a non-user system repo, the branch name must be given
+	parts := strings.SplitN(bucketName, ".", 5)
+	if uuid.IsUUIDWithoutDashes(parts[0]) {
+		id = parts[0]
+		parts = parts[1:]
+	}
+	if len(parts) > 2 {
+		branch = parts[0]
+		parts = parts[1:]
+	}
+	switch len(parts) {
+	case 0:
+		return nil, errors.Errorf("bad bucket name %s", bucketName)
+	case 1:
+		return nil, errors.Errorf("bad bucket name %s", bucketName)
+	case 2:
+		repo = client.NewProjectRepo(parts[1], parts[0])
+	case 3:
+		repo = client.NewSystemProjectRepo(parts[2], parts[1], parts[0])
+	default:
+		return nil, errors.Errorf("bad bucket name %s", bucketName)
+	}
+
+	return repo.NewCommit(branch, id), nil
+}
+
+func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
+	if mux.Vars(r)["isProjectAware"] == "yes" {
+		commit, err := bucketNameToProjectCommit(name)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not map bucket name to commit")
+		}
+		return &Bucket{
+			Commit: commit,
+			Name:   name,
+		}, nil
+	}
 	return &Bucket{
-		Commit: repo.NewCommit(branch, id),
+		Commit: bucketNameToCommit(name),
 		Name:   name,
 	}, nil
 }
