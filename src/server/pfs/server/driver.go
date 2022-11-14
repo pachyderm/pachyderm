@@ -920,15 +920,15 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 		switch wait {
 		case pfs.CommitState_READY:
 			for _, branch := range commitInfo.DirectProvenance {
-				if _, err := d.inspectCommit(ctx, branch.NewCommit(commit.ID), pfs.CommitState_FINISHED); err != nil {
+				if _, err := d.inspectCommit(ctx, branch.NewCommit(commitInfo.Commit.ID), pfs.CommitState_FINISHED); err != nil {
 					return nil, err
 				}
 			}
 		case pfs.CommitState_FINISHED:
 			// Watch the CommitInfo until the commit has been finished
-			if err := d.commits.ReadOnly(ctx).WatchOneF(commit, func(ev *watch.Event) error {
+			if err := d.commits.ReadOnly(ctx).WatchOneF(commitInfo.Commit, func(ev *watch.Event) error {
 				if ev.Type == watch.EventDelete {
-					return pfsserver.ErrCommitDeleted{Commit: commit}
+					return pfsserver.ErrCommitDeleted{Commit: commitInfo.Commit}
 				}
 
 				var key string
@@ -950,7 +950,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 	}
 	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		provCommits, err := pfsdb.CommitProvenance(context.TODO(), txnCtx.SqlTx, commit.Repo, commit.ID)
+		provCommits, err := pfsdb.CommitProvenance(context.TODO(), txnCtx.SqlTx, commit.Repo, commitInfo.Commit.ID)
 		if err != nil {
 			return err
 		}
