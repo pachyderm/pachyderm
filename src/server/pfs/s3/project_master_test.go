@@ -246,12 +246,12 @@ func projectMasterMakeBucketWithBranch(t *testing.T, pachClient *client.APIClien
 	require.Equal(t, repoInfo.Branches[0].Name, "branch")
 }
 
-// func masterMakeBucketWithRegion(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	repo := tu.UniqueString("testmakebucketwithregion")
-// 	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("master.%s", repo), "us-east-1"))
-// 	_, err := pachClient.InspectProjectRepo(pfs.DefaultProjectName, repo)
-// 	require.NoError(t, err)
-// }
+func projectMasterMakeBucketWithRegion(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("testmakebucketwithregion")
+	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "us-east-1"))
+	_, err := pachClient.InspectProjectRepo(pfs.DefaultProjectName, repo)
+	require.NoError(t, err)
+}
 
 // func masterMakeBucketRedundant(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 // 	repo := tu.UniqueString("testmakebucketredundant")
@@ -576,9 +576,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("MakeBucketWithBranch", func(t *testing.T) {
 			projectMasterMakeBucketWithBranch(t, pachClient, minioClient)
 		})
-		// t.Run("MakeBucketWithRegion", func(t *testing.T) {
-		// 	masterMakeBucketWithRegion(t, pachClient, minioClient)
-		// })
+		t.Run("MakeBucketWithRegion", func(t *testing.T) {
+			projectMasterMakeBucketWithRegion(t, pachClient, minioClient)
+		})
 		// t.Run("MakeBucketRedundant", func(t *testing.T) {
 		// 	masterMakeBucketRedundant(t, pachClient, minioClient)
 		// })
