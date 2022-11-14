@@ -99,7 +99,7 @@ jobs:
     environment:
       TEST_RESULTS: /tmp/test-results
       GOPROXY: https://proxy.golang.org
-    parallelism: 16
+    parallelism: 8
     steps:
       - checkout
       - run:
