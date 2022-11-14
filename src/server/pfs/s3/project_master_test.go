@@ -53,20 +53,20 @@ func projectMasterListBuckets(t *testing.T, pachClient *client.APIClient, minioC
 	require.True(t, hasBranch)
 }
 
-// func masterListBucketsBranchless(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	repo1 := tu.UniqueString("testlistbucketsbranchless1")
-// 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo1))
-// 	repo2 := tu.UniqueString("testlistbucketsbranchless2")
-// 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo2))
+func projectMasterListBucketsBranchless(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo1 := tu.UniqueString("testlistbucketsbranchless1")
+	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo1))
+	repo2 := tu.UniqueString("testlistbucketsbranchless2")
+	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo2))
 
-// 	// should be 0 since no branches have been made yet
-// 	buckets, err := minioClient.ListBuckets()
-// 	require.NoError(t, err)
-// 	for _, bucket := range buckets {
-// 		require.NotEqual(t, bucket.Name, repo1)
-// 		require.NotEqual(t, bucket.Name, repo2)
-// 	}
-// }
+	buckets, err := minioClient.ListBuckets()
+	require.NoError(t, err)
+	// there should be no buckets for repos without branches
+	for _, bucket := range buckets {
+		require.NotEqual(t, bucket.Name, fmt.Sprintf("%s.%s", repo1, pfs.DefaultProjectName))
+		require.NotEqual(t, bucket.Name, fmt.Sprintf("%s.%s", repo2, pfs.DefaultProjectName))
+	}
+}
 
 // func masterGetObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 // 	repo := tu.UniqueString("testgetobject")
@@ -536,9 +536,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("ListBuckets", func(t *testing.T) {
 			projectMasterListBuckets(t, pachClient, minioClient)
 		})
-		// t.Run("ListBucketsBranchless", func(t *testing.T) {
-		// 	masterListBucketsBranchless(t, pachClient, minioClient)
-		// })
+		t.Run("ListBucketsBranchless", func(t *testing.T) {
+			projectMasterListBucketsBranchless(t, pachClient, minioClient)
+		})
 		// .Run("GetObject", func(t *testing.T) {
 		// 	masterGetObject(t, pachClient, minioClient)
 		// })
