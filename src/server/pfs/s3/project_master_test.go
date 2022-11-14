@@ -298,18 +298,18 @@ func projectMasterBucketExists(t *testing.T, pachClient *client.APIClient, minio
 	require.True(t, exists)
 }
 
-// func masterRemoveBucket(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	// TODO(required 2.0): removing bucket does a WalkFile which errors when no files match (on an empty bucket)
-// 	t.Skip("broken in 2.0 - WalkFile errors on an empty bucket")
-// 	repo := tu.UniqueString("testremovebucket")
+func projectMasterRemoveBucket(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	// TODO(required 2.0): removing bucket does a WalkFile which errors when no files match (on an empty bucket)
+	t.Skip("broken in 2.0 - WalkFile errors on an empty bucket")
+	repo := tu.UniqueString("testremovebucket")
 
-// 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-// 	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
-// 	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
+	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
+	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
 
-// 	require.NoError(t, minioClient.RemoveBucket(fmt.Sprintf("master.%s", repo)))
-// 	require.NoError(t, minioClient.RemoveBucket(fmt.Sprintf("branch.%s", repo)))
-// }
+	require.NoError(t, minioClient.RemoveBucket(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName)))
+	require.NoError(t, minioClient.RemoveBucket(fmt.Sprintf("branch.%s.%s", repo, pfs.DefaultProjectName)))
+}
 
 // func masterRemoveBucketBranchless(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 // 	repo := tu.UniqueString("testremovebucketbranchless")
@@ -588,9 +588,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("BucketExists", func(t *testing.T) {
 			projectMasterBucketExists(t, pachClient, minioClient)
 		})
-		// t.Run("RemoveBucket", func(t *testing.T) {
-		// 	masterRemoveBucket(t, pachClient, minioClient)
-		// })
+		t.Run("RemoveBucket", func(t *testing.T) {
+			projectMasterRemoveBucket(t, pachClient, minioClient)
+		})
 		// t.Run("RemoveBucketBranchless", func(t *testing.T) {
 		// 	masterRemoveBucketBranchless(t, pachClient, minioClient)
 		// })
