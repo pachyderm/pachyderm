@@ -4,6 +4,7 @@ package s3_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -68,16 +69,16 @@ func projectMasterListBucketsBranchless(t *testing.T, pachClient *client.APIClie
 	}
 }
 
-// func masterGetObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	repo := tu.UniqueString("testgetobject")
-// 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-// 	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
-// 	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
+func projectMasterGetObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("testgetobject")
+	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
 
-// 	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("master.%s", repo), "file")
-// 	require.NoError(t, err)
-// 	require.Equal(t, "content", fetchedContent)
-// }
+	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "file")
+	require.NoError(t, err)
+	require.Equal(t, "content", fetchedContent)
+}
 
 // func masterGetObjectInBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 // 	repo := tu.UniqueString("testgetobjectinbranch")
@@ -539,9 +540,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("ListBucketsBranchless", func(t *testing.T) {
 			projectMasterListBucketsBranchless(t, pachClient, minioClient)
 		})
-		// .Run("GetObject", func(t *testing.T) {
-		// 	masterGetObject(t, pachClient, minioClient)
-		// })
+		t.Run("GetObject", func(t *testing.T) {
+			projectMasterGetObject(t, pachClient, minioClient)
+		})
 		// t.Run("GetObjectInBranch", func(t *testing.T) {
 		// 	masterGetObjectInBranch(t, pachClient, minioClient)
 		// })
