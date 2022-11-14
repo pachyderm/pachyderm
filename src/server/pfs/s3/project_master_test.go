@@ -311,13 +311,13 @@ func projectMasterRemoveBucket(t *testing.T, pachClient *client.APIClient, minio
 	require.NoError(t, minioClient.RemoveBucket(fmt.Sprintf("branch.%s.%s", repo, pfs.DefaultProjectName)))
 }
 
-// func masterRemoveBucketBranchless(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	repo := tu.UniqueString("testremovebucketbranchless")
+func projectMasterRemoveBucketBranchless(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("testremovebucketbranchless")
 
-// 	// should error out because the repo doesn't have a branch
-// 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-// 	bucketNotFoundError(t, minioClient.RemoveBucket(fmt.Sprintf("master.%s", repo)))
-// }
+	// should error out because the repo doesn't have a branch
+	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	bucketNotFoundError(t, minioClient.RemoveBucket(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName)))
+}
 
 // func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 // 	// create a bunch of files - enough to require the use of paginated
@@ -591,9 +591,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("RemoveBucket", func(t *testing.T) {
 			projectMasterRemoveBucket(t, pachClient, minioClient)
 		})
-		// t.Run("RemoveBucketBranchless", func(t *testing.T) {
-		// 	masterRemoveBucketBranchless(t, pachClient, minioClient)
-		// })
+		t.Run("RemoveBucketBranchless", func(t *testing.T) {
+			projectMasterRemoveBucketBranchless(t, pachClient, minioClient)
+		})
 		// t.Run("ListObjectsPaginated", func(t *testing.T) {
 		// 	masterListObjectsPaginated(t, pachClient, minioClient)
 		// })
