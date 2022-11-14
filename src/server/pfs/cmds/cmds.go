@@ -1310,7 +1310,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
 	putFile.Flags().BoolVar(&fullPath, "full-path", false, "If true, use the entire path provided to -f as the target filename in PFS. By default only the base of the path is used.")
-	putFile.Flags().BoolVar(&untar, "untar", false, "If true, file(s) with the extension .tar are untarred and put as a separate file for each file within the tar stream(s). gzipped (.tar.gz) tar file(s) are handled as well")
+	putFile.Flags().BoolVar(&untar, "untar", false, "If true, file(s) with the extension .tar are untarred and put as a separate file for each file within the tar stream(s). gzipped (.tar.gz or .tgz) tar file(s) are handled as well")
 	putFile.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(putFile,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
@@ -1937,7 +1937,7 @@ func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendF
 		switch {
 		case strings.HasSuffix(source, ".tar"):
 			return errors.EnsureStack(mf.PutFileTAR(f, opts...))
-		case strings.HasSuffix(source, ".tar.gz"):
+		case strings.HasSuffix(source, ".tar.gz"), strings.HasSuffix(source, ".tgz"):
 			r, err := gzip.NewReader(f)
 			if err != nil {
 				return errors.EnsureStack(err)

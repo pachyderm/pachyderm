@@ -3,5 +3,5 @@
 package main
 
 func init() {
-	fromVersions = nil
+	skip = true
 }

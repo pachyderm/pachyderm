@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/go-units"
 	"github.com/google/go-cmp/cmp"
 	"github.com/minio/minio-go/v6"
 	v1 "k8s.io/api/core/v1"
@@ -86,20 +87,21 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 	})
 
 	testText := []byte("this is a test\n")
-	for i := 0; i < 8*1024*1024; i++ {
-		// Make sure the file doesn't fit in a single message.  Default message size is 4MB,
-		// so 8MiB is comfortably large enough to ensure that both pachd and Envoy agree on
+	for i := 0; i < 32*units.MiB; i++ {
+		// Make sure the file doesn't fit in a single message.  Default message size is 20MB,
+		// so 32MiB is comfortably large enough to ensure that both pachd and Envoy agree on
 		// that it won't fit in a single message.
 		testText = append(testText, (byte(i)%26)+'A')
 	}
+	testRepo := testutil.UniqueString("TestProxy")
 
 	// Test GRPC API.
 	t.Run("TestGRPC", func(t *testing.T) {
 		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
-			if err := c.CreateProjectRepo(pfs.DefaultProjectName, "test"); err != nil {
+			if err := c.CreateProjectRepo(pfs.DefaultProjectName, testRepo); err != nil {
 				return errors.Errorf("create repo: %w", err)
 			}
-			if err := c.PutFile(client.NewProjectRepo(pfs.DefaultProjectName, "test").NewCommit("master", ""), "test.txt", bytes.NewReader(testText)); err != nil {
+			if err := c.PutFile(client.NewProjectRepo(pfs.DefaultProjectName, testRepo).NewCommit("master", ""), "test.txt", bytes.NewReader(testText)); err != nil {
 				return errors.Errorf("put file: %w", err)
 			}
 			return nil
@@ -124,7 +126,7 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 			}{"v4": s3v4, "v2": s3v2} {
 				client.SetCustomTransport(httpClient.Transport)
 
-				obj, err := client.GetObject("master.test", "test.txt", minio.GetObjectOptions{})
+				obj, err := client.GetObject(fmt.Sprintf("master.%s", testRepo), "test.txt", minio.GetObjectOptions{})
 				if err != nil {
 					return errors.Errorf("s3%v: get object: %w", name, err)
 				}

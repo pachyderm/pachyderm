@@ -105,7 +105,7 @@
       codec_type: 'auto',
       common_http_protocol_options: {
         headers_with_underscores_action: 'REJECT_REQUEST',
-        idle_timeout: '3600s',
+        idle_timeout: '86400s',
       },
       http2_protocol_options: {
         initial_connection_window_size: 1048576,
@@ -136,7 +136,7 @@
         accept_http_10: false,
       },
       request_timeout: '604800s',  // Necessary to allow long file uploads.
-      stream_idle_timeout: '3600s',  // Only completely idle streams are dropped after this timeout.
+      stream_idle_timeout: '86400s',  // Only completely idle streams are dropped after this timeout.
       route_config: {
         [if std.length(response_headers_to_add) > 0 then 'response_headers_to_add' else null]: [
           {

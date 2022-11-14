@@ -76,30 +76,35 @@ func ProcessTask(pachClient *client.APIClient, input *types.Any) (*types.Any, er
 		if err != nil {
 			return nil, err
 		}
+		pachClient.SetAuthToken(task.AuthToken)
 		return processPFSTask(pachClient, task)
 	case types.Is(input, &CrossTask{}):
 		task, err := deserializeCrossTask(input)
 		if err != nil {
 			return nil, err
 		}
+		pachClient.SetAuthToken(task.AuthToken)
 		return processCrossTask(pachClient, task)
 	case types.Is(input, &KeyTask{}):
 		task, err := deserializeKeyTask(input)
 		if err != nil {
 			return nil, err
 		}
+		pachClient.SetAuthToken(task.AuthToken)
 		return processKeyTask(pachClient, task)
 	case types.Is(input, &MergeTask{}):
 		task, err := deserializeMergeTask(input)
 		if err != nil {
 			return nil, err
 		}
+		pachClient.SetAuthToken(task.AuthToken)
 		return processMergeTask(pachClient, task)
 	case types.Is(input, &ComposeTask{}):
 		task, err := deserializeComposeTask(input)
 		if err != nil {
 			return nil, err
 		}
+		pachClient.SetAuthToken(task.AuthToken)
 		return processComposeTask(pachClient, task)
 	default:
 		return nil, errors.Errorf("unrecognized any type (%v) in datum worker", input.TypeUrl)
@@ -156,8 +161,12 @@ func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*types.Any, er
 func processCrossTask(pachClient *client.APIClient, task *CrossTask) (*types.Any, error) {
 	index := task.BaseIndex
 	fileSetID, err := WithCreateFileSet(pachClient, "pachyderm-datums-cross", func(s *Set) error {
-		iterators := []Iterator{NewFileSetIterator(pachClient, task.BaseFileSetId, task.BaseFileSetPathRange)}
-		for _, fileSetID := range task.FileSetIds {
+		var iterators []Iterator
+		for i, fileSetID := range task.FileSetIds {
+			if i == int(task.BaseFileSetIndex) {
+				iterators = append(iterators, NewFileSetIterator(pachClient, fileSetID, task.BaseFileSetPathRange))
+				continue
+			}
 			iterators = append(iterators, NewFileSetIterator(pachClient, fileSetID, nil))
 		}
 		return iterate(nil, iterators, func(meta *Meta) error {

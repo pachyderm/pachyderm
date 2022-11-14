@@ -19,6 +19,11 @@ const (
 	// authenticated context
 	ContextTokenKey = "authn-token"
 
+	// ClusterRoleBindingKey is a key in etcd, in the roleBindings collection,
+	// that contains the set of role bindings for the cluster. These are frequently
+	// accessed so we cache them.
+	ClusterRoleBindingKey = "CLUSTER:"
+
 	// The following constants are Subject prefixes. These are prepended to
 	// subject names in ACLs, group membership, and any other references to subjects
 	// to indicate what type of Subject or Principal they are (every Pachyderm
@@ -91,6 +96,18 @@ const (
 
 	// PachdLogReaderRole is a role which grants the ability to pull pachd logs
 	PachdLogReaderRole = "pachdLogReader"
+
+	// ProjectViewer is a role which grants the ability to view resources under a project, such as repos and pipelines
+	ProjectViewer = "projectViewer"
+
+	// ProjectWriter is a role which grants the ability to create resources under a project, such as repos and pipelines
+	ProjectWriter = "projectWriter"
+
+	// ProjectOwner is a role which grants the ability to manage RoleBindings, as well as delete resources within a project
+	ProjectOwner = "projectOwner"
+
+	// ProjectCreator is a role which grants the ability to create projects
+	ProjectCreator = "projectCreator"
 )
 
 var (

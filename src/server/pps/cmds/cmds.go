@@ -20,7 +20,9 @@ import (
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
@@ -179,6 +181,7 @@ If the job fails, the output commit will not be populated with data.`,
 	commands = append(commands, cmdutil.CreateAliases(waitJob, "wait job", jobs))
 
 	var pipelineName string
+	var allProjects bool
 	var inputCommitStrs []string
 	var history string
 	var stateStrs []string
@@ -209,6 +212,14 @@ $ {{alias}} -i foo@XXX -i bar@YYY
 # Return all sub-jobs in pipeline foo and whose input commits include bar@YYY
 $ {{alias}} -p foo -i bar@YYY`,
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+			cfg, err := config.Read(false, false)
+			if err != nil {
+				return err
+			}
+			_, pachCtx, err := cfg.ActiveContext(true)
+			if err != nil {
+				return err
+			}
 			commits, err := cmdutil.ParseCommits(project, inputCommitStrs)
 			if err != nil {
 				return err
@@ -235,6 +246,15 @@ $ {{alias}} -p foo -i bar@YYY`,
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
+			// To list jobs for all projects, user must be explicit about it.
+			// The --project filter takes precedence over everything else.
+			// By default use pfs.DefaultProjectName
+			projectsFilter := []string{project}
+			if allProjects {
+				projectsFilter = nil
+			} else if project == pfs.DefaultProjectName {
+				projectsFilter = []string{pachCtx.GetProject()}
+			}
 			if len(args) == 0 {
 				if pipelineName == "" && !expand {
 					// We are listing jobs
@@ -246,7 +266,8 @@ $ {{alias}} -p foo -i bar@YYY`,
 						return errors.Errorf("cannot specify '--history' when listing all jobs")
 					}
 
-					listJobSetClient, err := client.PpsAPIClient.ListJobSet(client.Ctx(), &pps.ListJobSetRequest{})
+					req := &pps.ListJobSetRequest{Projects: projectsFilter}
+					listJobSetClient, err := client.PpsAPIClient.ListJobSet(client.Ctx(), req)
 					if err != nil {
 						return grpcutil.ScrubGRPC(err)
 					}
@@ -270,16 +291,35 @@ $ {{alias}} -p foo -i bar@YYY`,
 					})
 				} else {
 					// We are listing all sub-jobs, possibly restricted to a single pipeline
+					var pipeline *pps.Pipeline
+					if pipelineName != "" {
+						pipeline = &pps.Pipeline{Name: pipelineName, Project: &pfs.Project{Name: project}}
+					}
+					req := &pps.ListJobRequest{
+						Projects:    projectsFilter,
+						Pipeline:    pipeline,
+						InputCommit: commits,
+						History:     historyCount,
+						Details:     true,
+						JqFilter:    filter,
+					}
+
+					ctx, cf := context.WithCancel(client.Ctx())
+					defer cf()
+					ljClient, err := client.PpsAPIClient.ListJob(ctx, req)
+					if err != nil {
+						return grpcutil.ScrubGRPC(err)
+					}
 					if raw {
 						e := cmdutil.Encoder(output, os.Stdout)
-						return client.ListJobFilterF(pipelineName, commits, historyCount, true, filter, func(ji *ppsclient.JobInfo) error {
+						return listJobFilterF(ctx, ljClient, func(ji *ppsclient.JobInfo) error {
 							return errors.EnsureStack(e.EncodeProto(ji))
 						})
 					}
 
 					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 						writer := tabwriter.NewWriter(w, pretty.JobHeader)
-						if err := client.ListJobFilterF(pipelineName, commits, historyCount, false, filter, func(ji *ppsclient.JobInfo) error {
+						if err := listJobFilterF(ctx, ljClient, func(ji *ppsclient.JobInfo) error {
 							pretty.PrintJobInfo(writer, ji, fullTimestamps)
 							return nil
 						}); err != nil {
@@ -311,6 +351,8 @@ $ {{alias}} -p foo -i bar@YYY`,
 		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
+	listJob.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Show jobs from all projects.")
+	listJob.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Limit to jobs in the project specified.")
 	listJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
 	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits. format: <repo>@<branch-or-commit>")
 	listJob.MarkFlagCustom("input", "__pachctl_get_repo_commit")
@@ -320,7 +362,6 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.Flags().AddFlagSet(pagerFlags)
 	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
 	listJob.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only sub-jobs with the specified state. Can be repeated to include multiple states")
-	listJob.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(listJob,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-p" || flag == "--pipeline" {
@@ -954,7 +995,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
 	listPipeline.Flags().StringVarP(&commit, "commit", "c", "", "List the pipelines as they existed at this commit.")
 	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
-	listPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing projects.")
+	listPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing pipelines.")
 	commands = append(commands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
 
 	var commitSet string
@@ -1562,4 +1603,23 @@ func ParsePipelineStates(stateStrs []string) (string, error) {
 		}
 	}
 	return validateJQConditionString(strings.Join(conditions, " or "))
+}
+
+// Copied from src/client/pps.go's APIClient, because we need to add the new projects filter to the request,
+// rather then adding yet another param, we are just going to pass in the request.
+func listJobFilterF(ctx context.Context, client pps.API_ListJobClient, f func(*pps.JobInfo) error) error {
+	for {
+		ji, err := client.Recv()
+		if errors.Is(err, io.EOF) {
+			return nil
+		} else if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(ji); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
+			return err
+		}
+	}
 }

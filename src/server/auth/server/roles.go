@@ -171,6 +171,40 @@ func init() {
 		},
 	})
 
+	// Project related roles
+	projectViewer := registerRole(&auth.Role{
+		Name:          auth.ProjectViewer,
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_PROJECT, auth.ResourceType_CLUSTER},
+		Permissions: []auth.Permission{
+			auth.Permission_PROJECT_LIST_REPO,
+		},
+	})
+
+	projectWriter := registerRole(&auth.Role{
+		Name:          auth.ProjectWriter,
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_PROJECT, auth.ResourceType_CLUSTER},
+		Permissions: combinePermissions(projectViewer.Permissions, []auth.Permission{
+			auth.Permission_PROJECT_LIST_REPO,
+		}),
+	})
+
+	projectOwner := registerRole(&auth.Role{
+		Name:          auth.ProjectOwner,
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_PROJECT, auth.ResourceType_CLUSTER},
+		Permissions: combinePermissions(projectWriter.Permissions, []auth.Permission{
+			auth.Permission_PROJECT_DELETE,
+			auth.Permission_REPO_DELETE,
+		}),
+	})
+
+	projectCreator := registerRole(&auth.Role{
+		Name:          auth.ProjectCreator,
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		Permissions: []auth.Permission{
+			auth.Permission_PROJECT_CREATE,
+		},
+	})
+
 	// clusterAdmin is a catch-all role that has every permission
 	registerRole(&auth.Role{
 		Name:          auth.ClusterAdminRole,
@@ -185,6 +219,8 @@ func init() {
 			licenseAdminRole.Permissions,
 			secretAdminRole.Permissions,
 			pachdLogReaderRole.Permissions,
+			projectOwner.Permissions,
+			projectCreator.Permissions,
 			[]auth.Permission{
 				auth.Permission_CLUSTER_MODIFY_BINDINGS,
 				auth.Permission_CLUSTER_GET_BINDINGS,
@@ -207,6 +243,7 @@ func init() {
 				auth.Permission_CLUSTER_ENTERPRISE_DEACTIVATE,
 				auth.Permission_CLUSTER_DELETE_ALL,
 				auth.Permission_CLUSTER_ENTERPRISE_PAUSE,
+				auth.Permission_PROJECT_DELETE,
 			}),
 	})
 }

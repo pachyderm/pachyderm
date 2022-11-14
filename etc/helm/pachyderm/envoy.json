@@ -359,7 +359,7 @@
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
-                              "idle_timeout": "3600s"
+                              "idle_timeout": "86400s"
                            },
                            "http2_protocol_options": {
                               "initial_connection_window_size": 1048576,
@@ -486,7 +486,7 @@
                               ]
                            },
                            "stat_prefix": "proxy-http",
-                           "stream_idle_timeout": "3600s",
+                           "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
                      }
@@ -522,7 +522,7 @@
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
-                              "idle_timeout": "3600s"
+                              "idle_timeout": "86400s"
                            },
                            "http2_protocol_options": {
                               "initial_connection_window_size": 1048576,
@@ -570,7 +570,7 @@
                               ]
                            },
                            "stat_prefix": "https-warning",
-                           "stream_idle_timeout": "3600s",
+                           "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
                      }
@@ -606,7 +606,7 @@
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
-                              "idle_timeout": "3600s"
+                              "idle_timeout": "86400s"
                            },
                            "http2_protocol_options": {
                               "initial_connection_window_size": 1048576,
@@ -679,7 +679,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-s3",
-                           "stream_idle_timeout": "3600s",
+                           "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
                      }
@@ -715,7 +715,7 @@
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
-                              "idle_timeout": "3600s"
+                              "idle_timeout": "86400s"
                            },
                            "http2_protocol_options": {
                               "initial_connection_window_size": 1048576,
@@ -770,7 +770,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-grpc",
-                           "stream_idle_timeout": "3600s",
+                           "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
                      }
@@ -806,7 +806,7 @@
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
-                              "idle_timeout": "3600s"
+                              "idle_timeout": "86400s"
                            },
                            "http2_protocol_options": {
                               "initial_connection_window_size": 1048576,
@@ -853,7 +853,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-metrics",
-                           "stream_idle_timeout": "3600s",
+                           "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
                      }
@@ -889,7 +889,7 @@
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
-                              "idle_timeout": "3600s"
+                              "idle_timeout": "86400s"
                            },
                            "http2_protocol_options": {
                               "initial_connection_window_size": 1048576,
@@ -936,7 +936,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-oidc",
-                           "stream_idle_timeout": "3600s",
+                           "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
                      }
@@ -972,7 +972,7 @@
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
-                              "idle_timeout": "3600s"
+                              "idle_timeout": "86400s"
                            },
                            "http2_protocol_options": {
                               "initial_connection_window_size": 1048576,
@@ -1019,7 +1019,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-identity",
-                           "stream_idle_timeout": "3600s",
+                           "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
                      }
@@ -1055,7 +1055,7 @@
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
-                              "idle_timeout": "3600s"
+                              "idle_timeout": "86400s"
                            },
                            "http2_protocol_options": {
                               "initial_connection_window_size": 1048576,
@@ -1108,7 +1108,7 @@
                               ]
                            },
                            "stat_prefix": "direct-console",
-                           "stream_idle_timeout": "3600s",
+                           "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
                      }

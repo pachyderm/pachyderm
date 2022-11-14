@@ -50,7 +50,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -1850,12 +1850,15 @@ func TestProvenance(t *testing.T) {
 	require.Equal(t, 3, len(commitInfos))
 }
 
-// TestProvenance2 tests the following DAG:
-//   A
-//  / \
-// B   C
-//  \ /
-//   D
+/*
+TestProvenance2 tests the following DAG:
+
+	  A
+	 / \
+	B   C
+	 \ /
+	  D
+*/
 func TestProvenance2(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -10734,7 +10737,7 @@ func TestTemporaryDuplicatedPath(t *testing.T) {
 
 	// add an output file bigger than the sharding threshold so that two in a row
 	// will fall on either side of a naive shard division
-	bigSize := fileset.DefaultShardSizeThreshold * 5 / 4
+	bigSize := index.DefaultShardSizeThreshold * 5 / 4
 	require.NoError(t, c.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", ""), "a",
 		strings.NewReader(strconv.Itoa(bigSize/units.MB))))
 
