@@ -59,16 +59,17 @@ func TestListDatum(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
+	input := client.NewCrossInput(
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repoA, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repoB, "/*"),
+	)
 	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"ls /pfs/*/*; cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewCrossInput(
-			client.NewProjectPFSInput(pfs.DefaultProjectName, repoA, "/*"),
-			client.NewProjectPFSInput(pfs.DefaultProjectName, repoB, "/*"),
-		),
+		input,
 		"", // default output branch: master
 		false,
 	))
@@ -128,6 +129,14 @@ func TestListDatum(t *testing.T) {
 		"file1": struct{}{},
 		"file2": struct{}{},
 	}, files)
+
+	// Test list datum input.
+	disInput, err := bobClient.ListDatumInputAll(input)
+	require.NoError(t, err)
+	require.Equal(t, len(dis), len(disInput))
+	for i, di := range dis {
+		require.Equal(t, di.Datum.ID, disInput[i].Datum.ID)
+	}
 }
 
 func TestS3GatewayAuthRequests(t *testing.T) {

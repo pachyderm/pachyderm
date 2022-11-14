@@ -2083,8 +2083,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		return nil, err
 	}
 
-	pps.SortInput(pipelineInfo.Details.Input) // Makes datum hashes comparable
-
 	if oldPipelineInfo != nil {
 		// Modify pipelineInfo (increment Version, and *preserve Stopped* so
 		// that updating a pipeline doesn't restart it)
@@ -2371,6 +2369,7 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 }
 
 func setInputDefaults(pipelineName string, input *pps.Input) {
+	pps.SortInput(input)
 	now := time.Now()
 	nCreatedBranches := make(map[string]int)
 	if err := pps.VisitInput(input, func(input *pps.Input) error {

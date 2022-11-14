@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -380,6 +381,12 @@ func (li *LoggingInterceptor) UnaryServerInterceptor(ctx context.Context, req in
 	logReq := req
 	if config.transformRequest != nil && !isNilInterface(req) {
 		logReq = config.transformRequest(req)
+	}
+
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok && len(md.Get("command")) > 0 {
+		command := md.Get("command")
+		li.logger.Logf(logrus.InfoLevel, "user command: %s", strings.Join(command, ""))
 	}
 
 	li.logUnaryBefore(ctx, level, logReq, info.FullMethod, start)

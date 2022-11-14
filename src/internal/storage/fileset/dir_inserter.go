@@ -67,7 +67,7 @@ func parentOf(x string) string {
 	return y
 }
 
-func (s *dirInserter) Shards(_ context.Context) ([]*index.PathRange, error) {
+func (s *dirInserter) Shards(_ context.Context, _ ...index.Option) ([]*index.PathRange, error) {
 	return nil, errors.Errorf("sharding a directory inserter file set")
 }
 
