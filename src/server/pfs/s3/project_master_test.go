@@ -80,17 +80,17 @@ func projectMasterGetObject(t *testing.T, pachClient *client.APIClient, minioCli
 	require.Equal(t, "content", fetchedContent)
 }
 
-// func masterGetObjectInBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	repo := tu.UniqueString("testgetobjectinbranch")
-// 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-// 	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
-// 	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "branch", "")
-// 	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
+func projectMasterGetObjectInBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("testgetobjectinbranch")
+	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "branch", "", "", nil))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "branch", "")
+	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
 
-// 	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("branch.%s", repo), "file")
-// 	require.NoError(t, err)
-// 	require.Equal(t, "content", fetchedContent)
-// }
+	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("branch.%s.%s", repo, pfs.DefaultProjectName), "file")
+	require.NoError(t, err)
+	require.Equal(t, "content", fetchedContent)
+}
 
 // func masterStatObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 // 	repo := tu.UniqueString("teststatobject")
@@ -543,9 +543,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("GetObject", func(t *testing.T) {
 			projectMasterGetObject(t, pachClient, minioClient)
 		})
-		// t.Run("GetObjectInBranch", func(t *testing.T) {
-		// 	masterGetObjectInBranch(t, pachClient, minioClient)
-		// })
+		t.Run("GetObjectInBranch", func(t *testing.T) {
+			projectMasterGetObjectInBranch(t, pachClient, minioClient)
+		})
 		// t.Run("StatObject", func(t *testing.T) {
 		// 	masterStatObject(t, pachClient, minioClient)
 		// })
