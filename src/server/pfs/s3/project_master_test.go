@@ -212,13 +212,13 @@ func projectMasterGetObjectNoHead(t *testing.T, pachClient *client.APIClient, mi
 	keyNotFoundError(t, err)
 }
 
-// func masterGetObjectNoBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	repo := tu.UniqueString("testgetobjectnobranch")
-// 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+func projectMasterGetObjectNoBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("testgetobjectnobranch")
+	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 
-// 	_, err := getObject(t, minioClient, fmt.Sprintf("branch.%s", repo), "file")
-// 	bucketNotFoundError(t, err)
-// }
+	_, err := getObject(t, minioClient, fmt.Sprintf("branch.%s.%s", repo, pfs.DefaultProjectName), "file")
+	bucketNotFoundError(t, err)
+}
 
 // func masterGetObjectNoRepo(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 // 	repo := tu.UniqueString("testgetobjectnorepo")
@@ -564,9 +564,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("GetObjectNoHead", func(t *testing.T) {
 			projectMasterGetObjectNoHead(t, pachClient, minioClient)
 		})
-		// t.Run("GetObjectNoBranch", func(t *testing.T) {
-		// 	masterGetObjectNoBranch(t, pachClient, minioClient)
-		// })
+		t.Run("GetObjectNoBranch", func(t *testing.T) {
+			projectMasterGetObjectNoBranch(t, pachClient, minioClient)
+		})
 		// t.Run("GetObjectNoRepo", func(t *testing.T) {
 		// 	masterGetObjectNoRepo(t, pachClient, minioClient)
 		// })
