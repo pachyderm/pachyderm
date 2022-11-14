@@ -485,50 +485,40 @@ func projectMasterListSystemRepoBuckets(t *testing.T, pachClient *client.APIClie
 	require.True(t, hasMeta)
 }
 
-// func masterResolveSystemRepoBucket(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	repo := tu.UniqueString("testsystemrepo")
-// 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-// 	// create a branch named "spec" in the repo
-// 	branch := pfs.SpecRepoType
-// 	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, branch, "", "", nil))
+func projectMasterResolveSystemRepoBucket(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("testsystemrepo")
+	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	// create a branch named "spec" in the repo
+	branch := pfs.SpecRepoType
+	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, branch, "", "", nil))
 
-// 	// as well as a branch named "master" on an associated repo of type "spec"
-// 	specRepo := client.NewSystemProjectRepo(pfs.DefaultProjectName, repo, pfs.SpecRepoType)
-// 	_, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), &pfs.CreateRepoRequest{Repo: specRepo})
-// 	require.NoError(t, err)
-// 	_, err = pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), &pfs.CreateBranchRequest{Branch: specRepo.NewBranch("master")})
-// 	require.NoError(t, err)
+	// as well as a branch named "master" on an associated repo of type "spec"
+	specRepo := client.NewSystemProjectRepo(pfs.DefaultProjectName, repo, pfs.SpecRepoType)
+	_, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), &pfs.CreateRepoRequest{Repo: specRepo})
+	require.NoError(t, err)
+	_, err = pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), &pfs.CreateBranchRequest{Branch: specRepo.NewBranch("master")})
+	require.NoError(t, err)
 
-// 	bucketSuffix := fmt.Sprintf("%s.%s", branch, repo)
+	bucketSuffix := fmt.Sprintf("%s.%s.%s", branch, repo, pfs.DefaultProjectName)
 
-// 	r := strings.NewReader("user")
-// 	_, err = minioClient.PutObject(bucketSuffix, "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
-// 	require.NoError(t, err)
+	r := strings.NewReader("user")
+	_, err = minioClient.PutObject(bucketSuffix, "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+	require.NoError(t, err)
 
-// 	r2 := strings.NewReader("spec")
-// 	_, err = minioClient.PutObject(fmt.Sprintf("master.%s", bucketSuffix), "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
-// 	require.NoError(t, err)
+	r2 := strings.NewReader("spec")
+	_, err = minioClient.PutObject(fmt.Sprintf("master.%s", bucketSuffix), "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+	require.NoError(t, err)
 
-// 	// a two-part name should resolve to the user repo
-// 	fetchedContent, err := getObject(t, minioClient, bucketSuffix, "file")
-// 	require.NoError(t, err)
-// 	require.Equal(t, "user", fetchedContent)
+	// a two-part name should resolve to the user repo
+	fetchedContent, err := getObject(t, minioClient, bucketSuffix, "file")
+	require.NoError(t, err)
+	require.Equal(t, "user", fetchedContent)
 
-// 	// while the fully-specified name goes to the indicated system repo
-// 	fetchedContent, err = getObject(t, minioClient, fmt.Sprintf("master.%s", bucketSuffix), "file")
-// 	require.NoError(t, err)
-// 	require.Equal(t, "spec", fetchedContent)
-// }
-
-// TODO: This should be readded as an integration test (probably in src/server/pachyderm_test.go).
-// Commenting out for now to enable the other tests to run against mock pachd.
-// func masterAuthV2(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-//	// The other tests use auth V4, versus this which checks auth V2
-//	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
-//	require.NoError(t, err)
-//	_, err = minioClientV2.ListBuckets()
-//	require.NoError(t, err)
-// }
+	// while the fully-specified name goes to the indicated system repo
+	fetchedContent, err = getObject(t, minioClient, fmt.Sprintf("master.%s", bucketSuffix), "file")
+	require.NoError(t, err)
+	require.Equal(t, "spec", fetchedContent)
+}
 
 func TestProjectMasterDriver(t *testing.T) {
 	if testing.Short() {
@@ -606,12 +596,8 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("ListSystemRepoBucket", func(t *testing.T) {
 			projectMasterListSystemRepoBuckets(t, pachClient, minioClient)
 		})
-		// t.Run("ResolveSystemRepoBucket", func(t *testing.T) {
-		// 	masterResolveSystemRepoBucket(t, pachClient, minioClient)
-		// })
-		// TODO: Refer to masterAuthV2 function definition.
-		// t.Run("AuthV2", func(t *testing.T) {
-		//	masterAuthV2(t, pachClient, minioClient)
-		// })
+		t.Run("ResolveSystemRepoBucket", func(t *testing.T) {
+			projectMasterResolveSystemRepoBucket(t, pachClient, minioClient)
+		})
 	})
 }
