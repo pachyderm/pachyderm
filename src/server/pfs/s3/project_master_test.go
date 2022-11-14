@@ -391,15 +391,15 @@ func projectMasterListObjectsPaginated(t *testing.T, pachClient *client.APIClien
 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 }
 
-// func masterListObjectsHeadlessBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	repo := tu.UniqueString("testlistobjectsheadlessbranch")
-// 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-// 	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "emptybranch", "", "", nil))
+func projectMasterListObjectsHeadlessBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("testlistobjectsheadlessbranch")
+	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "emptybranch", "", "", nil))
 
-// 	// Request into branch that has no head
-// 	ch := minioClient.ListObjects(fmt.Sprintf("emptybranch.%s", repo), "", false, make(chan struct{}))
-// 	checkListObjects(t, ch, nil, nil, []string{}, []string{})
-// }
+	// Request into branch that has no head
+	ch := minioClient.ListObjects(fmt.Sprintf("emptybranch.%s.%s", repo, pfs.DefaultProjectName), "", false, make(chan struct{}))
+	checkListObjects(t, ch, nil, nil, []string{}, []string{})
+}
 
 // func masterListObjectsRecursive(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 // 	// `startTime` and `endTime` will be used to ensure that an object's
@@ -597,9 +597,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("ListObjectsPaginated", func(t *testing.T) {
 			projectMasterListObjectsPaginated(t, pachClient, minioClient)
 		})
-		// t.Run("ListObjectsHeadlessBranch", func(t *testing.T) {
-		// 	masterListObjectsHeadlessBranch(t, pachClient, minioClient)
-		// })
+		t.Run("ListObjectsHeadlessBranch", func(t *testing.T) {
+			projectMasterListObjectsHeadlessBranch(t, pachClient, minioClient)
+		})
 		// t.Run("ListObjectsRecursive", func(t *testing.T) {
 		// 	masterListObjectsRecursive(t, pachClient, minioClient)
 		// })
