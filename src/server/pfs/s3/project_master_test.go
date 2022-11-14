@@ -4,6 +4,8 @@ package s3_test
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -148,57 +151,57 @@ func projectMasterRemoveObject(t *testing.T, pachClient *client.APIClient, minio
 	keyNotFoundError(t, err)
 }
 
-// // Tests inserting and getting files over 64mb in size
-// func masterLargeObjects(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	// test repos: repo1 exists, repo2 does not
-// 	repo1 := tu.UniqueString("testlargeobject1")
-// 	repo2 := tu.UniqueString("testlargeobject2")
-// 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo1))
-// 	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo1, "master", "", "", nil))
+// Tests inserting and getting files over 64mb in size
+func projectMasterLargeObjects(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	// test repos: repo1 exists, repo2 does not
+	repo1 := tu.UniqueString("testlargeobject1")
+	repo2 := tu.UniqueString("testlargeobject2")
+	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo1))
+	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo1, "master", "", "", nil))
 
-// 	// create a temporary file to put ~65mb of contents into it
-// 	inputFile, err := os.CreateTemp("", "pachyderm-test-large-objects-input-*")
-// 	require.NoError(t, err)
-// 	defer os.Remove(inputFile.Name())
-// 	n, err := inputFile.WriteString(strings.Repeat("no tv and no beer make homer something something.\n", 1363149))
-// 	require.NoError(t, err)
-// 	require.Equal(t, n, 68157450)
-// 	require.NoError(t, inputFile.Sync())
+	// create a temporary file to put ~65mb of contents into it
+	inputFile, err := os.CreateTemp("", "pachyderm-test-large-objects-input-*")
+	require.NoError(t, err)
+	defer os.Remove(inputFile.Name())
+	n, err := inputFile.WriteString(strings.Repeat("no tv and no beer make homer something something.\n", 1363149))
+	require.NoError(t, err)
+	require.Equal(t, n, 68157450)
+	require.NoError(t, inputFile.Sync())
 
-// 	// first ensure that putting into a repo that doesn't exist triggers an
-// 	// error
-// 	_, err = minioClient.FPutObject(fmt.Sprintf("master.%s", repo2), "file", inputFile.Name(), minio.PutObjectOptions{
-// 		ContentType: "text/plain",
-// 	})
-// 	bucketNotFoundError(t, err)
+	// first ensure that putting into a repo that doesn't exist triggers an
+	// error
+	_, err = minioClient.FPutObject(fmt.Sprintf("master.%s.%s", repo2, pfs.DefaultProjectName), "file", inputFile.Name(), minio.PutObjectOptions{
+		ContentType: "text/plain",
+	})
+	bucketNotFoundError(t, err)
 
-// 	// now try putting into a legit repo
-// 	l, err := minioClient.FPutObject(fmt.Sprintf("master.%s", repo1), "file", inputFile.Name(), minio.PutObjectOptions{
-// 		ContentType: "text/plain",
-// 	})
-// 	require.NoError(t, err)
-// 	require.Equal(t, int(l), 68157450)
+	// now try putting into a legit repo
+	l, err := minioClient.FPutObject(fmt.Sprintf("master.%s.%s", repo1, pfs.DefaultProjectName), "file", inputFile.Name(), minio.PutObjectOptions{
+		ContentType: "text/plain",
+	})
+	require.NoError(t, err)
+	require.Equal(t, int(l), 68157450)
 
-// 	// try getting an object that does not exist
-// 	err = minioClient.FGetObject(fmt.Sprintf("master.%s", repo2), "file", "foo", minio.GetObjectOptions{})
-// 	bucketNotFoundError(t, err)
+	// try getting an object that does not exist
+	err = minioClient.FGetObject(fmt.Sprintf("master.%s.%s", repo2, pfs.DefaultProjectName), "file", "foo", minio.GetObjectOptions{})
+	bucketNotFoundError(t, err)
 
-// 	// get the file that does exist
-// 	outputFile, err := os.CreateTemp("", "pachyderm-test-large-objects-output-*")
-// 	require.NoError(t, err)
-// 	defer os.Remove(outputFile.Name())
-// 	err = minioClient.FGetObject(fmt.Sprintf("master.%s", repo1), "file", outputFile.Name(), minio.GetObjectOptions{})
-// 	require.True(t, err == nil || errors.Is(err, io.EOF), fmt.Sprintf("unexpected error: %s", err))
+	// get the file that does exist
+	outputFile, err := os.CreateTemp("", "pachyderm-test-large-objects-output-*")
+	require.NoError(t, err)
+	defer os.Remove(outputFile.Name())
+	err = minioClient.FGetObject(fmt.Sprintf("master.%s.%s", repo1, pfs.DefaultProjectName), "file", outputFile.Name(), minio.GetObjectOptions{})
+	require.True(t, err == nil || errors.Is(err, io.EOF), fmt.Sprintf("unexpected error: %s", err))
 
-// 	// compare the files and ensure they're the same
-// 	// NOTE: Because minio's `FGetObject` does a rename from a buffer file
-// 	// to the given filepath, `outputFile` will refer to an empty, overwritten
-// 	// file. We can still use `outputFile.Name()` though.
-// 	inputFileSize, inputFileHash := fileHash(t, inputFile.Name())
-// 	outputFileSize, outputFileHash := fileHash(t, inputFile.Name())
-// 	require.Equal(t, inputFileSize, outputFileSize)
-// 	require.Equal(t, inputFileHash, outputFileHash)
-// }
+	// compare the files and ensure they're the same
+	// NOTE: Because minio's `FGetObject` does a rename from a buffer file
+	// to the given filepath, `outputFile` will refer to an empty, overwritten
+	// file. We can still use `outputFile.Name()` though.
+	inputFileSize, inputFileHash := fileHash(t, inputFile.Name())
+	outputFileSize, outputFileHash := fileHash(t, inputFile.Name())
+	require.Equal(t, inputFileSize, outputFileSize)
+	require.Equal(t, inputFileHash, outputFileHash)
+}
 
 // func masterGetObjectNoHead(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 // 	repo := tu.UniqueString("testgetobjectnohead")
@@ -555,9 +558,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("RemoveObject", func(t *testing.T) {
 			projectMasterRemoveObject(t, pachClient, minioClient)
 		})
-		// t.Run("LargeObjects", func(t *testing.T) {
-		// 	masterLargeObjects(t, pachClient, minioClient)
-		// })
+		t.Run("LargeObjects", func(t *testing.T) {
+			projectMasterLargeObjects(t, pachClient, minioClient)
+		})
 		// t.Run("GetObjectNoHead", func(t *testing.T) {
 		// 	masterGetObjectNoHead(t, pachClient, minioClient)
 		// })
