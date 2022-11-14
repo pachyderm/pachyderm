@@ -226,15 +226,15 @@ func projectMasterGetObjectNoRepo(t *testing.T, pachClient *client.APIClient, mi
 	bucketNotFoundError(t, err)
 }
 
-// func masterMakeBucket(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	repo := tu.UniqueString("testmakebucket")
-// 	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
+func projectMasterMakeBucket(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("testmakebucket")
+	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), ""))
 
-// 	repoInfo, err := pachClient.InspectProjectRepo(pfs.DefaultProjectName, repo)
-// 	require.NoError(t, err)
-// 	require.Equal(t, len(repoInfo.Branches), 1)
-// 	require.Equal(t, repoInfo.Branches[0].Name, "master")
-// }
+	repoInfo, err := pachClient.InspectProjectRepo(pfs.DefaultProjectName, repo)
+	require.NoError(t, err)
+	require.Equal(t, len(repoInfo.Branches), 1)
+	require.Equal(t, repoInfo.Branches[0].Name, "master")
+}
 
 // func masterMakeBucketWithBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 // 	repo := tu.UniqueString("testmakebucketwithbranch")
@@ -570,9 +570,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("GetObjectNoRepo", func(t *testing.T) {
 			projectMasterGetObjectNoRepo(t, pachClient, minioClient)
 		})
-		// t.Run("MakeBucket", func(t *testing.T) {
-		// 	masterMakeBucket(t, pachClient, minioClient)
-		// })
+		t.Run("MakeBucket", func(t *testing.T) {
+			projectMasterMakeBucket(t, pachClient, minioClient)
+		})
 		// t.Run("MakeBucketWithBranch", func(t *testing.T) {
 		// 	masterMakeBucketWithBranch(t, pachClient, minioClient)
 		// })
