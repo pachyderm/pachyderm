@@ -92,27 +92,27 @@ func projectMasterGetObjectInBranch(t *testing.T, pachClient *client.APIClient, 
 	require.Equal(t, "content", fetchedContent)
 }
 
-// func masterStatObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	repo := tu.UniqueString("teststatobject")
-// 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-// 	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
-// 	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
+func projectMasterStatObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("teststatobject")
+	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
 
-// 	// `startTime` and `endTime` will be used to ensure that an object's
-// 	// `LastModified` date is correct. A few minutes are subtracted/added to
-// 	// each to tolerate the node time not being the same as the host time.
-// 	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
-// 	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("new-content")))
-// 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
+	// `startTime` and `endTime` will be used to ensure that an object's
+	// `LastModified` date is correct. A few minutes are subtracted/added to
+	// each to tolerate the node time not being the same as the host time.
+	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
+	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("new-content")))
+	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
-// 	info, err := minioClient.StatObject(fmt.Sprintf("master.%s", repo), "file", minio.StatObjectOptions{})
-// 	require.NoError(t, err)
-// 	require.True(t, startTime.Before(info.LastModified))
-// 	require.True(t, endTime.After(info.LastModified))
-// 	require.True(t, len(info.ETag) > 0)
-// 	require.Equal(t, "text/plain; charset=utf-8", info.ContentType)
-// 	require.Equal(t, int64(11), info.Size)
-// }
+	info, err := minioClient.StatObject(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "file", minio.StatObjectOptions{})
+	require.NoError(t, err)
+	require.True(t, startTime.Before(info.LastModified))
+	require.True(t, endTime.After(info.LastModified))
+	require.True(t, len(info.ETag) > 0)
+	require.Equal(t, "text/plain; charset=utf-8", info.ContentType)
+	require.Equal(t, int64(11), info.Size)
+}
 
 // func masterPutObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 // 	repo := tu.UniqueString("testputobject")
@@ -546,9 +546,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("GetObjectInBranch", func(t *testing.T) {
 			projectMasterGetObjectInBranch(t, pachClient, minioClient)
 		})
-		// t.Run("StatObject", func(t *testing.T) {
-		// 	masterStatObject(t, pachClient, minioClient)
-		// })
+		t.Run("StatObject", func(t *testing.T) {
+			projectMasterStatObject(t, pachClient, minioClient)
+		})
 		// t.Run("PutObject", func(t *testing.T) {
 		// 	masterPutObject(t, pachClient, minioClient)
 		// })
