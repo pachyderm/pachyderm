@@ -133,20 +133,20 @@ func projectMasterPutObject(t *testing.T, pachClient *client.APIClient, minioCli
 	require.Equal(t, "content2", fetchedContent)
 }
 
-// func masterRemoveObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	repo := tu.UniqueString("testremoveobject")
-// 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-// 	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
-// 	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
+func projectMasterRemoveObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("testremoveobject")
+	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
 
-// 	// as per PFS semantics, the second delete should be a no-op
-// 	require.NoError(t, minioClient.RemoveObject(fmt.Sprintf("master.%s", repo), "file"))
-// 	require.NoError(t, minioClient.RemoveObject(fmt.Sprintf("master.%s", repo), "file"))
+	// as per PFS semantics, the second delete should be a no-op
+	require.NoError(t, minioClient.RemoveObject(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "file"))
+	require.NoError(t, minioClient.RemoveObject(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "file"))
 
-// 	// make sure the object no longer exists
-// 	_, err := getObject(t, minioClient, fmt.Sprintf("master.%s", repo), "file")
-// 	keyNotFoundError(t, err)
-// }
+	// make sure the object no longer exists
+	_, err := getObject(t, minioClient, fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "file")
+	keyNotFoundError(t, err)
+}
 
 // // Tests inserting and getting files over 64mb in size
 // func masterLargeObjects(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
@@ -552,9 +552,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("PutObject", func(t *testing.T) {
 			projectMasterPutObject(t, pachClient, minioClient)
 		})
-		// t.Run("RemoveObject", func(t *testing.T) {
-		// 	masterRemoveObject(t, pachClient, minioClient)
-		// })
+		t.Run("RemoveObject", func(t *testing.T) {
+			projectMasterRemoveObject(t, pachClient, minioClient)
+		})
 		// t.Run("LargeObjects", func(t *testing.T) {
 		// 	masterLargeObjects(t, pachClient, minioClient)
 		// })
