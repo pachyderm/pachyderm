@@ -317,7 +317,7 @@ func newClient(enterprise bool, options ...client.Option) (*client.APIClient, er
 
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
 // interact with them (it implements the pachctl binary).
-func PachctlCmd() *cobra.Command {
+func PachctlCmd() (*cobra.Command, error) {
 	var verbose bool
 
 	var raw bool
@@ -850,7 +850,7 @@ This resets the cluster to its initial state.`,
 	for _, cmdFunc := range []func() ([]*cobra.Command, error){pfscmds.Cmds, ppscmds.Cmds} {
 		cmds, err := cmdFunc()
 		if err != nil {
-			panic(err)
+			return nil, errors.Wrap(err, "could not create subcommand")
 		}
 		subcommands = append(subcommands, cmds...)
 	}
@@ -868,7 +868,7 @@ This resets the cluster to its initial state.`,
 
 	applyRootUsageFunc(rootCmd)
 
-	return rootCmd
+	return rootCmd, nil
 }
 
 func printVersionHeader(w io.Writer) {

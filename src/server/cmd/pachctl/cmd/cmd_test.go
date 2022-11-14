@@ -35,7 +35,10 @@ func TestPortForwardError(t *testing.T) {
 // 'CreateAlias' was not used properly (or the command just needs to specify
 // its name).
 func TestCommandAliases(t *testing.T) {
-	pachctlCmd := PachctlCmd()
+	pachctlCmd, err := PachctlCmd()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Replace the first component with 'pachctl' because it uses os.Args[0] by default
 	path := func(cmd *cobra.Command) string {
