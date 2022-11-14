@@ -32,7 +32,7 @@ func (d *driver) triggerCommit(
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
 			return errors.EnsureStack(err)
 		}
-		// already triggered - research whether this is necessary
+		// already triggered - TODO(acohen4): research whether this is necessary
 		if newHead.Commit.ID == bi.Head.ID || bi.Trigger == nil {
 			continue
 		}

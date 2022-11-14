@@ -9,6 +9,10 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
+// returns the commit of a certain repo in a commit set.
+//
+// TODO(acohen4): should this func return multiple commits in the case that
+// multiple commits from a repo are in the commitset's provenance?
 func ResolveCommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commitSet string) (*pfs.Commit, error) {
 	cs, err := CommitSetProvenance(ctx, tx, commitSet)
 	if err != nil {

@@ -38,10 +38,7 @@ func Migrate(state migrations.State) migrations.State {
 			return nil
 		}).
 		Apply("Add commit_provenance table", func(ctx context.Context, env migrations.Env) error {
-			if err := pfsdb.SetupCommitProvenanceV0(ctx, env.Tx); err != nil {
-					return err
-			}
-			return nil
+			return pfsdb.SetupCommitProvenanceV0(ctx, env.Tx)
 		})
 	// DO NOT MODIFY THIS STATE
 	// IT HAS ALREADY SHIPPED IN A RELEASE

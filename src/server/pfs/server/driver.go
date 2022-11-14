@@ -472,29 +472,28 @@ func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *p
 
 // Set child.ParentCommit (if 'parent' has been determined) and write child to parent's ChildCommits
 func (d *driver) linkParent(txnCtx *txncontext.TransactionContext, child *pfs.CommitInfo, parent *pfs.Commit, needsFinishedParent bool) error {
-	if parent != nil {
-		// Resolve 'parent' if it's a branch that isn't 'branch' (which can
-		// happen if 'branch' is new and diverges from the existing branch in
-		// 'parent').
-		// Clone the parent proto because resolveCommit will modify it.
-		parent = proto.Clone(parent).(*pfs.Commit)
-		parentCommitInfo, err := d.resolveCommit(txnCtx.SqlTx, parent)
-		if err != nil {
-			return errors.Wrapf(err, "parent commit not found")
-		}
-		// fail if the parent commit has not been finished
-		if needsFinishedParent && parentCommitInfo.Finishing == nil {
-			return errors.Errorf("parent commit %s has not been finished", parent)
-		}
-		child.ParentCommit = parentCommitInfo.Commit
-		parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, child.Commit)
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(parentCommitInfo.Commit, parentCommitInfo); err != nil {
-			// Note: error is emitted if parent.ID is a missing/invalid branch OR a
-			// missing/invalid commit ID
-			return errors.Wrapf(err, "could not resolve parent commit %s", parent)
-		}
+	if parent == nil {
+		return nil
 	}
-	return nil
+	// Resolve 'parent' if it's a branch that isn't 'branch' (which can
+	// happen if 'branch' is new and diverges from the existing branch in
+	// 'parent').
+	// Clone the parent proto because resolveCommit will modify it.
+	parent = proto.Clone(parent).(*pfs.Commit)
+	parentCommitInfo, err := d.resolveCommit(txnCtx.SqlTx, parent)
+	if err != nil {
+		return errors.Wrapf(err, "parent commit not found")
+	}
+	// fail if the parent commit has not been finished
+	if needsFinishedParent && parentCommitInfo.Finishing == nil {
+		return errors.Errorf("parent commit %s has not been finished", parentCommitInfo.Commit)
+	}
+	child.ParentCommit = parentCommitInfo.Commit
+	parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, child.Commit)
+	// Note: error is emitted if parent.ID is a missing/invalid branch OR a
+	// missing/invalid commit ID
+	return errors.Wrapf(d.commits.ReadWrite(txnCtx.SqlTx).Put(parentCommitInfo.Commit, parentCommitInfo),
+		"could not resolve parent commit %s", parent)
 }
 
 func (d *driver) addCommit(txnCtx *txncontext.TransactionContext, newCommitInfo *pfs.CommitInfo, parent *pfs.Commit, directProvenance []*pfs.Branch, needsFinishedParent bool) error {
@@ -623,7 +622,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 		return errors.Errorf("cannot finish an alias commit: %s", commitInfo.Commit)
 	}
 	if !force && len(commitInfo.DirectProvenance) > 0 {
-		if info, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commit.Repo)); err != nil && !errutil.IsNotFoundError(err) {
+		if info, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil && !errutil.IsNotFoundError(err) {
 			return errors.EnsureStack(err)
 		} else if err == nil && info.Type == pps.PipelineInfo_PIPELINE_TYPE_TRANSFORM {
 			return errors.Errorf("cannot finish a pipeline output or meta commit, use 'stop job' instead")
@@ -967,10 +966,10 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 	return commitInfo, nil
 }
 
-// resolveCommit contains the essential implementation of inspectCommit: it converts 'commit' (which may
-// be a commit ID or branch reference, plus '~' and/or '^') to a repo + commit
-// ID. It accepts a postgres transaction so that it can be used in a transaction
-// and avoids an inconsistent call to d.inspectCommit()
+// resolveCommit contains the essential implementation of inspectCommit:
+// it accepts an unqualified commit and returns the CommitInfo corresponding to the fully qualified commit.
+// An unqualified commit is a commit containing ancestry syntax and alias semantics that need
+// to be resolved to a 'real' fully qualified commit.
 func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.CommitInfo, error) {
 	if userCommit == nil {
 		return nil, errors.Errorf("cannot resolve nil commit")
@@ -1009,7 +1008,7 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 	if err := d.commits.ReadWrite(sqlTx).Get(commit, commitInfo); err != nil {
 		if col.IsErrNotFound(err) {
 			// try to resolve to alias if not found
-			resolvedCommit, err := pfsdb.ResolveCommitProvenance(context.TODO(), sqlTx, userCommit.Branch.Repo, commit.ID)
+			resolvedCommit, err := pfsdb.ResolveCommitProvenance(context.TODO(), sqlTx, userCommit.Repo, commit.ID)
 			if err != nil {
 				return nil, err
 			}
@@ -1039,7 +1038,6 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 			}
 		}
 	} else {
-		// TODO(acohen4): HOW TO HANDLE THIS GUY?
 		cis := make([]pfs.CommitInfo, ancestryLength*-1)
 		for i := 0; ; i++ {
 			if commit == nil {
@@ -1060,8 +1058,6 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 			commit = cis[i%len(cis)].ParentCommit
 		}
 	}
-	userCommit.Branch = proto.Clone(commitInfo.Commit.Branch).(*pfs.Branch)
-	userCommit.ID = commitInfo.Commit.ID
 	if commitInfo.Details == nil {
 		commitInfo.Details = &pfs.CommitInfo_Details{}
 	}

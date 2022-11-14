@@ -293,7 +293,7 @@ func (a *apiServer) DropCommitSet(ctx context.Context, request *pfs.DropCommitSe
 	return &types.Empty{}, nil
 }
 
-// DropCommitSet implements the protobuf pfs.DropCommitSet RPC
+// DropCommitSets implements the protobuf pfs.DropCommitSets RPC
 func (a *apiServer) DropCommitSets(ctx context.Context, request *pfs.DropCommitSetsRequest) (response *types.Empty, retErr error) {
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.driver.dropCommitSets(txnCtx, request.CommitSets)
