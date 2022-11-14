@@ -1,5 +1,5 @@
-import {CommitInfo, OriginKind} from '@pachyderm/node-pachyderm';
-import {commitInfoFromObject} from '@pachyderm/node-pachyderm/dist/builders/pfs';
+import {CommitInfo, OriginKind} from '@dash-backend/proto';
+import {commitInfoFromObject} from '@dash-backend/proto/builders/pfs';
 
 import {COMMITS} from './loadLimits';
 import repos from './repos';

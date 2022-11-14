@@ -1,4 +1,3 @@
-import {RepoInfo, PipelineInfo} from '@pachyderm/node-pachyderm';
 import flatMap from 'lodash/flatMap';
 import keyBy from 'lodash/keyBy';
 import uniqBy from 'lodash/uniqBy';
@@ -18,6 +17,7 @@ import {
 } from '@dash-backend/lib/nodeStateMappers';
 import sortJobInfos from '@dash-backend/lib/sortJobInfos';
 import withSubscription from '@dash-backend/lib/withSubscription';
+import {RepoInfo, PipelineInfo} from '@dash-backend/proto';
 import {
   NodeType,
   QueryResolvers,

@@ -1,6 +1,5 @@
-import {RepoAuthInfo} from '@pachyderm/node-pachyderm';
-
 import {REPO_READER_PERMISSIONS} from '@dash-backend/constants/permissions';
+import {RepoAuthInfo} from '@dash-backend/proto';
 
 import allRepos from './repos';
 

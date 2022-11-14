@@ -16,7 +16,7 @@ When running Console locally, you have the option of using Console on top of a r
 
 ```
 make launch-mock
-````
+```
 
 This will start the UI server, API server, and mock gRPC server all in one. To switch between mock accounts, you can use our devtools in the JS console of the browser.
 

@@ -1,18 +1,4 @@
 import {ServiceError} from '@grpc/grpc-js';
-import {
-  RepoInfo,
-  CommitInfo,
-  DatumInfo,
-  PipelineInfo,
-  JobInfo,
-  LogMessage,
-  Project,
-  Projects,
-  ModifyFileRequest,
-  DiffFileResponse,
-  GetStateResponse,
-  ClusterInfo,
-} from '@pachyderm/node-pachyderm';
 import cloneDeep from 'lodash/cloneDeep';
 
 import admin from '@dash-backend/mock/fixtures/admin';
@@ -28,6 +14,20 @@ import {
   projectInfo,
 } from '@dash-backend/mock/fixtures/projects';
 import repos from '@dash-backend/mock/fixtures/repos';
+import {
+  RepoInfo,
+  CommitInfo,
+  DatumInfo,
+  PipelineInfo,
+  JobInfo,
+  LogMessage,
+  Project,
+  Projects,
+  ModifyFileRequest,
+  DiffFileResponse,
+  GetStateResponse,
+  ClusterInfo,
+} from '@dash-backend/proto';
 
 import jobSets from '../fixtures/jobSets';
 import {pipelineAndJobLogs, workspaceLogs} from '../fixtures/logs';

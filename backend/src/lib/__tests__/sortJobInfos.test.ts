@@ -1,7 +1,6 @@
-import {JobState} from '@pachyderm/node-pachyderm';
-import {jobInfoFromObject} from '@pachyderm/node-pachyderm/dist/builders/pps';
-
 import sortJobInfos from '@dash-backend/lib/sortJobInfos';
+import {JobState} from '@dash-backend/proto';
+import {jobInfoFromObject} from '@dash-backend/proto/builders/pps';
 
 describe('sortJobInfos', () => {
   it('should sortJobInfos by createdAt and pipeline name', () => {

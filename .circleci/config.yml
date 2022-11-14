@@ -30,6 +30,19 @@ jobs:
             - run: cd backend && npm run test -- --collect-coverage
             - codecov/upload:
                   file: backend/coverage/lcov.info
+    integration-test:
+        resource_class: xlarge
+        machine:
+            image: ubuntu-2004:202111-01
+        steps:
+            - checkout
+            - run: make ci
+            - run: etc/testing/circle/install.sh
+            - run: etc/testing/circle/start-kind.sh
+            - run: etc/testing/circle/deploy-pachyderm.sh
+            - run: cd backend && npm run lint
+            - run: pachctl port-forward & cd backend && npm run integration-test
+
     frontend-test:
         resource_class: xlarge
         docker:
@@ -212,6 +225,7 @@ workflows:
             - e2e-mock-test
             - check-types
             - build
+            - integration-test
     storybook-release:
         jobs:
             - components-storybook-release:

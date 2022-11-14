@@ -1,6 +1,5 @@
-import {GetStateResponse} from '@pachyderm/node-pachyderm';
-
 import {toGQLEnterpriseState} from '@dash-backend/lib/gqlEnumMappers';
+import {GetStateResponse} from '@dash-backend/proto';
 import {EnterpriseInfo} from '@graphqlTypes';
 
 export const enterpriseInfoToGQLInfo = (

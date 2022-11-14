@@ -1,5 +1,6 @@
-import {JobInfo} from '@pachyderm/node-pachyderm';
 import compact from 'lodash/compact';
+
+import {JobInfo} from '@dash-backend/proto';
 
 import {Context} from './types';
 

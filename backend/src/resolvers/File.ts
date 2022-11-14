@@ -1,5 +1,3 @@
-import {FileInfo, CommitState} from '@pachyderm/node-pachyderm';
-
 import {
   MutationResolvers,
   QueryResolvers,
@@ -11,6 +9,7 @@ import {FILE_DOWNLOAD_LIMIT} from '@dash-backend/lib/constants';
 import formatBytes from '@dash-backend/lib/formatBytes';
 import formatDiff from '@dash-backend/lib/formatDiff';
 import {toGQLFileType} from '@dash-backend/lib/gqlEnumMappers';
+import {FileInfo, CommitState} from '@dash-backend/proto';
 
 import {commitInfoToGQLCommit} from './builders/pfs';
 

@@ -10,11 +10,11 @@ import {
   Transform,
   JobState,
   ParallelismSpec,
-} from '@pachyderm/node-pachyderm';
+} from '@dash-backend/proto';
 import {
   ObjectStorageEgress,
   SQLDatabaseEgress,
-} from '@pachyderm/node-pachyderm/dist/proto/pfs/pfs_pb';
+} from '@dash-backend/proto/proto/pfs/pfs_pb';
 
 import {DAGS} from './loadLimits';
 

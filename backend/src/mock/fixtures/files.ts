@@ -1,5 +1,5 @@
-import {FileInfo, FileType} from '@pachyderm/node-pachyderm';
-import {fileInfoFromObject} from '@pachyderm/node-pachyderm/dist/builders/pfs';
+import {FileInfo, FileType} from '@dash-backend/proto';
+import {fileInfoFromObject} from '@dash-backend/proto/builders/pfs';
 
 import {FILES} from './loadLimits';
 

@@ -4,7 +4,7 @@ import {
   File,
   DatumState,
   Datum,
-} from '@pachyderm/node-pachyderm';
+} from '@dash-backend/proto';
 
 const allDatums = {
   montage: {

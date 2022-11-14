@@ -1,4 +1,3 @@
-import {pachydermClient} from '@pachyderm/node-pachyderm';
 import {ApolloError} from 'apollo-server-errors';
 import {Request, Response} from 'express';
 import {lookup} from 'mime-types';
@@ -6,6 +5,7 @@ import {lookup} from 'mime-types';
 import loggingPlugin from '@dash-backend/grpc/plugins/loggingPlugin';
 import getPachClient from '@dash-backend/lib/getPachClient';
 import log from '@dash-backend/lib/log';
+import {pachydermClient} from '@dash-backend/proto';
 const {GRPC_SSL} = process.env;
 
 const handleFileDownload = async (req: Request, res: Response) => {

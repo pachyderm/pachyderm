@@ -3,6 +3,11 @@ import {AddressInfo} from 'net';
 import {URL} from 'url';
 
 import {Server, ServerCredentials, ServiceError} from '@grpc/grpc-js';
+import cors from 'cors';
+import express from 'express';
+import cloneDeep from 'lodash/cloneDeep';
+
+import log from '@dash-backend/lib/log';
 import {
   AuthAPIService,
   EnterpriseAPIService,
@@ -11,12 +16,7 @@ import {
   PpsAPIService,
   ProjectsAPIService,
   AdminAPIService,
-} from '@pachyderm/node-pachyderm';
-import cors from 'cors';
-import express from 'express';
-import cloneDeep from 'lodash/cloneDeep';
-
-import log from '@dash-backend/lib/log';
+} from '@dash-backend/proto';
 import {generateIdTokenForAccount} from '@dash-backend/testHelpers';
 
 import accounts from './fixtures/accounts';

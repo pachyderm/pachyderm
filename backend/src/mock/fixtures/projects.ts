@@ -1,5 +1,6 @@
-import {Project, Projects, ProjectStatus} from '@pachyderm/node-pachyderm';
 import {Timestamp} from 'google-protobuf/google/protobuf/timestamp_pb';
+
+import {Project, Projects, ProjectStatus} from '@dash-backend/proto';
 
 const projects: {[projectId: string]: Project} = {
   '1': new Project()
