@@ -236,15 +236,15 @@ func projectMasterMakeBucket(t *testing.T, pachClient *client.APIClient, minioCl
 	require.Equal(t, repoInfo.Branches[0].Name, "master")
 }
 
-// func masterMakeBucketWithBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	repo := tu.UniqueString("testmakebucketwithbranch")
-// 	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("branch.%s", repo), ""))
+func projectMasterMakeBucketWithBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("testmakebucketwithbranch")
+	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("branch.%s.%s", repo, pfs.DefaultProjectName), ""))
 
-// 	repoInfo, err := pachClient.InspectProjectRepo(pfs.DefaultProjectName, repo)
-// 	require.NoError(t, err)
-// 	require.Equal(t, len(repoInfo.Branches), 1)
-// 	require.Equal(t, repoInfo.Branches[0].Name, "branch")
-// }
+	repoInfo, err := pachClient.InspectProjectRepo(pfs.DefaultProjectName, repo)
+	require.NoError(t, err)
+	require.Equal(t, len(repoInfo.Branches), 1)
+	require.Equal(t, repoInfo.Branches[0].Name, "branch")
+}
 
 // func masterMakeBucketWithRegion(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 // 	repo := tu.UniqueString("testmakebucketwithregion")
@@ -573,9 +573,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("MakeBucket", func(t *testing.T) {
 			projectMasterMakeBucket(t, pachClient, minioClient)
 		})
-		// t.Run("MakeBucketWithBranch", func(t *testing.T) {
-		// 	masterMakeBucketWithBranch(t, pachClient, minioClient)
-		// })
+		t.Run("MakeBucketWithBranch", func(t *testing.T) {
+			projectMasterMakeBucketWithBranch(t, pachClient, minioClient)
+		})
 		// t.Run("MakeBucketWithRegion", func(t *testing.T) {
 		// 	masterMakeBucketWithRegion(t, pachClient, minioClient)
 		// })
