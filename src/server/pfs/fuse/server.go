@@ -1395,13 +1395,11 @@ func mountingState(m *MountStateMachine) StateFn {
 		// Get the latest non-alias commit on branch
 		// TODO: notebooks support
 		branchInfo, err := m.manager.Client.InspectProjectBranch(pfs.DefaultProjectName, m.Repo, m.Branch)
-		if err != nil && !errutil.IsNotFoundError(err) {
-			return err
-		}
-
 		if errutil.IsNotFoundError(err) {
 			m.manager.root.commits[m.Name] = ""
 			return nil
+		} else if err != nil {
+			return err
 		}
 
 		commitInfos, err := m.manager.Client.ListCommit(branchInfo.Branch.Repo, branchInfo.Head, nil, 1)
