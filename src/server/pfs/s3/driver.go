@@ -139,17 +139,21 @@ func bucketNameToProjectCommit(bucketName string) (*pfs.Commit, error) {
 		id = parts[0]
 		parts = parts[1:]
 	}
-	if len(parts) > 1 {
+	if len(parts) > 2 {
 		branch = parts[0]
 		parts = parts[1:]
 	}
 	switch len(parts) {
+	case 0:
+		return nil, errors.Errorf("bad bucket name %s", bucketName)
 	case 1:
 		return nil, errors.Errorf("bad bucket name %s", bucketName)
 	case 2:
 		repo = client.NewProjectRepo(parts[1], parts[0])
+	case 3:
+		repo = client.NewSystemProjectRepo(parts[2], parts[1], parts[0])
 	default:
-		repo = client.NewSystemProjectRepo(parts[3], parts[2], parts[0])
+		return nil, errors.Errorf("bad bucket name %s", bucketName)
 	}
 
 	return repo.NewCommit(branch, id), nil

@@ -319,77 +319,77 @@ func projectMasterRemoveBucketBranchless(t *testing.T, pachClient *client.APICli
 	bucketNotFoundError(t, minioClient.RemoveBucket(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName)))
 }
 
-// func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	// create a bunch of files - enough to require the use of paginated
-// 	// requests when browsing all files. One file will be included on a
-// 	// separate branch to ensure it's not returned when querying against the
-// 	// master branch.
-// 	// `startTime` and `endTime` will be used to ensure that an object's
-// 	// `LastModified` date is correct. A few minutes are subtracted/added to
-// 	// each to tolerate the node time not being the same as the host time.
-// 	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
-// 	// S3 client limits bucket name length to 63 chars, but we also want to query with commit
-// 	// so we need to be conservative with the length of the repo name here
-// 	repo := tu.UniqueString("testLOP")
-// 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-// 	commit, err := pachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
-// 	require.NoError(t, err)
+func projectMasterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	// create a bunch of files - enough to require the use of paginated
+	// requests when browsing all files. One file will be included on a
+	// separate branch to ensure it's not returned when querying against the
+	// master branch.
+	// `startTime` and `endTime` will be used to ensure that an object's
+	// `LastModified` date is correct. A few minutes are subtracted/added to
+	// each to tolerate the node time not being the same as the host time.
+	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
+	// S3 client limits bucket name length to 63 chars, but we also want to query with commit
+	// so we need to be conservative with the length of the repo name here
+	repo := tu.UniqueString("LOP")
+	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	commit, err := pachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
 
-// 	require.NoError(t, pachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
-// 		for i := 0; i <= 1000; i++ {
-// 			putListFileTestObject(t, mf, "", i)
-// 		}
+	require.NoError(t, pachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
+		for i := 0; i <= 1000; i++ {
+			putListFileTestObject(t, mf, "", i)
+		}
 
-// 		for i := 0; i < 10; i++ {
-// 			putListFileTestObject(t, mf, "dir/", i)
-// 		}
-// 		return nil
-// 	}))
+		for i := 0; i < 10; i++ {
+			putListFileTestObject(t, mf, "dir/", i)
+		}
+		return nil
+	}))
 
-// 	require.NoError(t, pachClient.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, repo, "branch", ""), func(mf client.ModifyFile) error {
-// 		putListFileTestObject(t, mf, "", 1001)
-// 		return nil
-// 	}))
+	require.NoError(t, pachClient.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, repo, "branch", ""), func(mf client.ModifyFile) error {
+		putListFileTestObject(t, mf, "", 1001)
+		return nil
+	}))
 
-// 	require.NoError(t, pachClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, pachClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
 
-// 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
+	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
-// 	// Request that will list all files in master's root
-// 	ch := minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "", false, make(chan struct{}))
-// 	expectedFiles := []string{}
-// 	for i := 0; i <= 1000; i++ {
-// 		expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
-// 	}
-// 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
+	// Request that will list all files in master's root
+	ch := minioClient.ListObjects(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "", false, make(chan struct{}))
+	expectedFiles := []string{}
+	for i := 0; i <= 1000; i++ {
+		expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
+	}
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
 
-// 	// Query by commit.repo
-// 	ch = minioClient.ListObjects(fmt.Sprintf("%s.%s", commit.ID, repo), "", false, make(chan struct{}))
-// 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
+	// Query by commit.repo
+	ch = minioClient.ListObjects(fmt.Sprintf("%s.%s.%s", commit.ID, repo, pfs.DefaultProjectName), "", false, make(chan struct{}))
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
 
-// 	// Query by commit.branch.repo
-// 	ch = minioClient.ListObjects(fmt.Sprintf("%s.%s.%s", commit.ID, commit.Branch.Name, repo), "", false, make(chan struct{}))
-// 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
+	// Query by commit.branch.repo
+	ch = minioClient.ListObjects(fmt.Sprintf("%s.%s.%s.%s", commit.ID, commit.Branch.Name, repo, pfs.DefaultProjectName), "", false, make(chan struct{}))
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
 
-// 	// Request that will list all files in master starting with 1
-// 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "1", false, make(chan struct{}))
-// 	expectedFiles = []string{}
-// 	for i := 0; i <= 1000; i++ {
-// 		file := fmt.Sprintf("%d", i)
-// 		if strings.HasPrefix(file, "1") {
-// 			expectedFiles = append(expectedFiles, file)
-// 		}
-// 	}
-// 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
+	// Request that will list all files in master starting with 1
+	ch = minioClient.ListObjects(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "1", false, make(chan struct{}))
+	expectedFiles = []string{}
+	for i := 0; i <= 1000; i++ {
+		file := fmt.Sprintf("%d", i)
+		if strings.HasPrefix(file, "1") {
+			expectedFiles = append(expectedFiles, file)
+		}
+	}
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 
-// 	// Request that will list all files in a directory in master
-// 	ch = minioClient.ListObjects(fmt.Sprintf("master.%s", repo), "dir/", false, make(chan struct{}))
-// 	expectedFiles = []string{}
-// 	for i := 0; i < 10; i++ {
-// 		expectedFiles = append(expectedFiles, fmt.Sprintf("dir/%d", i))
-// 	}
-// 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
-// }
+	// Request that will list all files in a directory in master
+	ch = minioClient.ListObjects(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "dir/", false, make(chan struct{}))
+	expectedFiles = []string{}
+	for i := 0; i < 10; i++ {
+		expectedFiles = append(expectedFiles, fmt.Sprintf("dir/%d", i))
+	}
+	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
+}
 
 // func masterListObjectsHeadlessBranch(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 // 	repo := tu.UniqueString("testlistobjectsheadlessbranch")
@@ -594,9 +594,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("RemoveBucketBranchless", func(t *testing.T) {
 			projectMasterRemoveBucketBranchless(t, pachClient, minioClient)
 		})
-		// t.Run("ListObjectsPaginated", func(t *testing.T) {
-		// 	masterListObjectsPaginated(t, pachClient, minioClient)
-		// })
+		t.Run("ListObjectsPaginated", func(t *testing.T) {
+			projectMasterListObjectsPaginated(t, pachClient, minioClient)
+		})
 		// t.Run("ListObjectsHeadlessBranch", func(t *testing.T) {
 		// 	masterListObjectsHeadlessBranch(t, pachClient, minioClient)
 		// })
