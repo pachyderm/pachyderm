@@ -253,13 +253,13 @@ func projectMasterMakeBucketWithRegion(t *testing.T, pachClient *client.APIClien
 	require.NoError(t, err)
 }
 
-// func masterMakeBucketRedundant(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-// 	repo := tu.UniqueString("testmakebucketredundant")
-// 	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
-// 	err := minioClient.MakeBucket(fmt.Sprintf("master.%s", repo), "")
-// 	require.YesError(t, err)
-// 	require.Equal(t, err.Error(), "The bucket you tried to create already exists, and you own it.")
-// }
+func projectMasterMakeBucketRedundant(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("testmakebucketredundant")
+	require.NoError(t, minioClient.MakeBucket(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), ""))
+	err := minioClient.MakeBucket(fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName), "")
+	require.YesError(t, err)
+	require.Equal(t, err.Error(), "The bucket you tried to create already exists, and you own it.")
+}
 
 // func masterMakeBucketDifferentBranches(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 // 	repo := tu.UniqueString("testmakebucketdifferentbranches")
@@ -579,9 +579,9 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("MakeBucketWithRegion", func(t *testing.T) {
 			projectMasterMakeBucketWithRegion(t, pachClient, minioClient)
 		})
-		// t.Run("MakeBucketRedundant", func(t *testing.T) {
-		// 	masterMakeBucketRedundant(t, pachClient, minioClient)
-		// })
+		t.Run("MakeBucketRedundant", func(t *testing.T) {
+			projectMasterMakeBucketRedundant(t, pachClient, minioClient)
+		})
 		// t.Run("MakeBucketDifferentBranches", func(t *testing.T) {
 		// 	masterMakeBucketDifferentBranches(t, pachClient, minioClient)
 		// })
