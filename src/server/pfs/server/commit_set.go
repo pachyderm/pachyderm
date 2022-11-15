@@ -308,8 +308,8 @@ func (d *driver) deleteCommits(txnCtx *txncontext.TransactionContext, commitInfo
 		}
 	}
 	for child, parent := range childrenToNewParent {
-		var childInfo pfs.CommitInfo
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(child, &childInfo, func() error {
+		childInfo := &pfs.CommitInfo{}
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(child, childInfo, func() error {
 			childInfo.ParentCommit = parent
 			return nil
 		}); err != nil {
@@ -317,8 +317,8 @@ func (d *driver) deleteCommits(txnCtx *txncontext.TransactionContext, commitInfo
 		}
 	}
 	for parent := range parentsToNewChildren {
-		var parentInfo pfs.CommitInfo
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(parent, &parentInfo, func() error {
+		parentInfo := &pfs.CommitInfo{}
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(parent, parentInfo, func() error {
 			childrenSet := make(map[*pfs.Commit]struct{})
 			for _, fc := range parentInfo.ChildCommits {
 				childrenSet[fc] = struct{}{}
@@ -329,7 +329,7 @@ func (d *driver) deleteCommits(txnCtx *txncontext.TransactionContext, commitInfo
 			for deleteChild := range parentsToDeleteChildren[parent] {
 				delete(childrenSet, deleteChild)
 			}
-			parentInfo.ChildCommits = make([]*pfs.Commit, len(childrenSet))
+			parentInfo.ChildCommits = make([]*pfs.Commit, 0)
 			for c := range childrenSet {
 				parentInfo.ChildCommits = append(parentInfo.ChildCommits, c)
 			}

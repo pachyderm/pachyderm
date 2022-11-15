@@ -4090,7 +4090,7 @@ func TestPFS(suite *testing.T) {
 
 		commitInfos, err := env.PachClient.InspectCommitSet(cCommitInfo.Commit.ID)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(commitInfos)) // only B & C in the commit set
+		require.Equal(t, 4, len(commitInfos))
 	})
 
 	suite.Run("BranchProvenance", func(t *testing.T) {
