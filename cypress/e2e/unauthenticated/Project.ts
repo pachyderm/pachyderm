@@ -50,7 +50,7 @@ describe('Project', () => {
     cy.findByTestId('ModalFooter__confirm').click();
     cy.get('[data-test-id="ModalFooter__confirm"').should('not.exist');
     cy.waitUntil(() => cy.findAllByText('edges').its.length === 0);
-    cy.url().should('not.contain', '/pipelines');
+    cy.waitUntil(() => cy.url().should('not.contain', '/pipelines'));
 
     cy.findByText('images').click({force: true});
     cy.findByTestId('DeleteRepoButton__link').should('not.be.disabled');

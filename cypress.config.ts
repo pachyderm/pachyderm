@@ -3,6 +3,7 @@ import { defineConfig } from 'cypress'
 export default defineConfig({
   chromeWebSecurity: false,
   defaultCommandTimeout: 6000,
+  pageLoadTimeout: 120000,
   projectId: 'wameh2',
   screenshotsFolder: '/tmp/cypress-screenshots',
   trashAssetsBeforeRuns: true,
