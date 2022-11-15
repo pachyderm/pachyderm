@@ -617,8 +617,9 @@ pachd:
     # The shard size corresponds to the total size of the files in a shard.
     # The shard count corresponds to the total number of files in a shard.
     # If either criteria is met, a shard will be created.
-    compactionShardSizeThreshold: 0
-    compactionShardCountThreshold: 0
+    # values are strings
+    compactionShardSizeThreshold: "0"
+    compactionShardCountThreshold: "0"
   ppsWorkerGRPCPort: 1080
   # the number of seconds between pfs's garbage collection cycles.
   # if this value is set to 0, it will default to pachyderm's internal configuration.

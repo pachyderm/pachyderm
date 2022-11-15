@@ -770,14 +770,14 @@
                         }
                     }
                 },
+                "gcPercent": {
+                    "type": "integer"
+                },
                 "goMaxProcs": {
                     "type": "integer"
                 },
                 "goMemLimit": {
                     "type": "string"
-                },
-                "gcPercent": {
-                    "type": "integer"
                 },
                 "image": {
                     "type": "object",
@@ -977,10 +977,10 @@
                             "type": "string"
                         },
                         "compactionShardCountThreshold": {
-                            "type": "integer"
+                            "type": "string"
                         },
                         "compactionShardSizeThreshold": {
-                            "type": "integer"
+                            "type": "string"
                         },
                         "google": {
                             "type": "object",
@@ -1172,6 +1172,9 @@
                 "image": {
                     "type": "object",
                     "properties": {
+                        "repository": {
+                            "type": "string"
+                        },
                         "tag": {
                             "type": "string"
                         }
