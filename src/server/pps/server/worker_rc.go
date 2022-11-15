@@ -49,7 +49,9 @@ const (
 	DefaultWorkerServiceAccountName = "pachyderm-worker"
 	// UploadConcurrencyLimitEnvVar is the environment variable for the upload concurrency limit.
 	// EnvVar defined in src/internal/serviceenv/config.go
-	UploadConcurrencyLimitEnvVar = "STORAGE_UPLOAD_CONCURRENCY_LIMIT"
+	UploadConcurrencyLimitEnvVar               = "STORAGE_UPLOAD_CONCURRENCY_LIMIT"
+	StorageCompactionShardSizeThresholdEnvVar  = "STORAGE_COMPACTION_SHARD_SIZE_THRESHOLD"
+	StorageCompactionShardCountThresholdEnvVar = "STORAGE_COMPACTION_SHARD_COUNT_THRESHOLD"
 )
 
 // Parameters used when creating the kubernetes replication controller in charge
@@ -539,6 +541,18 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 func (kd *kubeDriver) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
 	vars := []v1.EnvVar{
 		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(kd.config.StorageUploadConcurrencyLimit)},
+	}
+	if kd.config.StorageCompactionShardSizeThreshold > 0 {
+		vars = append(vars, v1.EnvVar{
+			Name:  StorageCompactionShardSizeThresholdEnvVar,
+			Value: strconv.FormatInt(kd.config.StorageCompactionShardSizeThreshold, 10),
+		})
+	}
+	if kd.config.StorageCompactionShardCountThreshold > 0 {
+		vars = append(vars, v1.EnvVar{
+			Name:  StorageCompactionShardCountThresholdEnvVar,
+			Value: strconv.FormatInt(kd.config.StorageCompactionShardCountThreshold, 10),
+		})
 	}
 	return vars
 }
