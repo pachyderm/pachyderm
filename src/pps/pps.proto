@@ -443,11 +443,11 @@ message InspectJobSetRequest {
 
 message ListJobSetRequest {
   bool details = 1;
-  // start time marker
+  // we return job sets created before or after this time based on the reverse flag
   google.protobuf.Timestamp paginationMarker = 2;
-  // number 
+  // number of results to return 
   int64 number = 3;
-  // reverse flag
+  // if true, return results in reverse order
   bool reverse = 4;
 }
 

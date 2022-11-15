@@ -614,6 +614,9 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	seen := map[string]struct{}{}
 
 	number := request.Number
+	if number < 0 {
+		return errors.Errorf("number must be non-negative")
+	}
 	if number == 0 {
 		number = math.MaxInt64
 	}
@@ -626,7 +629,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	if request.Reverse {
 		opts.Order = col.SortAscend
 	}
-	err := a.jobs.ReadOnly(serv.Context()).List(jobInfo, opts, func(string) error {
+	if err := a.jobs.ReadOnly(serv.Context()).List(jobInfo, opts, func(string) error {
 		if number == 0 {
 			return errutil.ErrBreak
 		}
@@ -652,8 +655,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 			JobSet: client.NewJobSet(jobInfo.Job.ID),
 			Jobs:   jobInfos,
 		}))
-	})
-	if err != nil && err != errutil.ErrBreak {
+	}); err != nil && err != errutil.ErrBreak {
 		return errors.EnsureStack(err)
 	}
 	return nil

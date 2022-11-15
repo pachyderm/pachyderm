@@ -3105,11 +3105,11 @@ func (m *InspectJobSetRequest) GetDetails() bool {
 
 type ListJobSetRequest struct {
 	Details bool `protobuf:"varint,1,opt,name=details,proto3" json:"details,omitempty"`
-	// start time marker
+	// we return job sets created before or after this time based on the reverse flag
 	PaginationMarker *types.Timestamp `protobuf:"bytes,2,opt,name=paginationMarker,proto3" json:"paginationMarker,omitempty"`
-	// number
+	// number of results to return
 	Number int64 `protobuf:"varint,3,opt,name=number,proto3" json:"number,omitempty"`
-	// reverse flag
+	// if true, return results in reverse order
 	Reverse              bool     `protobuf:"varint,4,opt,name=reverse,proto3" json:"reverse,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
