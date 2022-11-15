@@ -4436,6 +4436,9 @@ func TestPFS(suite *testing.T) {
 			NewCommitSet: true,
 		})
 		require.NoError(t, err)
+		d, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "repo", "master2")
+		require.NoError(t, err)
+		require.NoError(t, finishCommit(env.PachClient, "repo", d.Branch.Name, d.ID))
 
 		// Create 'c'
 		c, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "repo", "master")
@@ -4452,7 +4455,6 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		dInfo, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "repo", "master2", "")
 		require.NoError(t, err)
-		d := dInfo.Commit
 
 		require.NotNil(t, aInfo.ParentCommit) // this should be the empty default head
 		require.ImagesEqual(t, []*pfs.Commit{b}, aInfo.ChildCommits, CommitToID)
