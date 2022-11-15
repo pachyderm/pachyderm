@@ -16,7 +16,7 @@ func (a *apiServer) CheckClusterIsAuthorizedInTransaction(txnCtx *txncontext.Tra
 }
 
 // CheckProjectIsAuthorizedInTransaction returns an error if the current user doesn't have the permissions in `p` on the project.
-// Projects inherits cluster permissions, so check cluster level first.
+// Projects inherit the access controls from its parent cluster, so we check the cluster first.
 func (a *apiServer) CheckProjectIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, project *pfs.Project, p ...auth.Permission) error {
 	if err := a.CheckClusterIsAuthorizedInTransaction(txnCtx, p...); err == nil || !errors.As(err, &auth.ErrNotAuthorized{}) {
 		return err
@@ -26,7 +26,7 @@ func (a *apiServer) CheckProjectIsAuthorizedInTransaction(txnCtx *txncontext.Tra
 
 // CheckRepoIsAuthorizedInTransaction is identical to CheckRepoIsAuthorized except that
 // it performs reads consistent with the latest state of the STM transaction.
-// Repos inherits project permissions, so check project level, which in turn checks cluster level.
+// Repos inherit the access controls from its parent project, so we check the project first, which in turn checks cluster.
 func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, p ...auth.Permission) error {
 	if err := a.CheckProjectIsAuthorizedInTransaction(txnCtx, repo.Project, p...); err == nil || !errors.As(err, &auth.ErrNotAuthorized{}) {
 		return err
