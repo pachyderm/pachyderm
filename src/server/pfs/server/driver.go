@@ -915,7 +915,6 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 	}); err != nil {
 		return nil, err
 	}
-
 	if commitInfo.Finished == nil {
 		switch wait {
 		case pfs.CommitState_READY:
@@ -930,7 +929,6 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 				if ev.Type == watch.EventDelete {
 					return pfsserver.ErrCommitDeleted{Commit: commitInfo.Commit}
 				}
-
 				var key string
 				newCommitInfo := &pfs.CommitInfo{}
 				if err := ev.Unmarshal(&key, newCommitInfo); err != nil {
@@ -962,7 +960,6 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 	}); err != nil {
 		return nil, err
 	}
-
 	return commitInfo, nil
 }
 
@@ -1145,9 +1142,11 @@ func (d *driver) listCommit(
 		}
 	}
 	if to != nil {
-		if _, err := d.inspectCommit(ctx, to, pfs.CommitState_STARTED); err != nil {
+		ci, err := d.inspectCommit(ctx, to, pfs.CommitState_STARTED)
+		if err != nil {
 			return err
 		}
+		to = ci.Commit
 	}
 
 	// if number is 0, we return all commits that match the criteria

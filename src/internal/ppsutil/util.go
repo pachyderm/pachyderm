@@ -467,6 +467,7 @@ func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, 
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	curr = commitInfo.Commit
 	for commitInfo.Origin.Kind != pfs.OriginKind_USER {
 		curr = commitInfo.ParentCommit
 		if curr == nil {
