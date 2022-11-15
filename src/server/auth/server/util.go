@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -14,16 +15,26 @@ func (a *apiServer) CheckClusterIsAuthorizedInTransaction(txnCtx *txncontext.Tra
 	return a.checkResourceIsAuthorizedInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_CLUSTER}, p...)
 }
 
-// CheckRepoIsAuthorizedInTransaction is identical to CheckRepoIsAuthorized except that
-// it performs reads consistent with the latest state of the STM transaction.
-func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, r *pfs.Repo, p ...auth.Permission) error {
-	return a.checkResourceIsAuthorizedInTransaction(txnCtx, r.AuthResource(), p...)
-}
-
 // CheckProjectIsAuthorizedInTransaction is identical to CheckRepoIsAuthorized except that
 // it performs reads consistent with the latest state of the STM transaction.
 func (a *apiServer) CheckProjectIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, project *pfs.Project, p ...auth.Permission) error {
+	if err := a.CheckClusterIsAuthorizedInTransaction(txnCtx, p...); err == nil {
+		return nil
+	}
 	return a.checkResourceIsAuthorizedInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project.Name}, p...)
+}
+
+// CheckRepoIsAuthorizedInTransaction is identical to CheckRepoIsAuthorized except that
+// it performs reads consistent with the latest state of the STM transaction.
+func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, p ...auth.Permission) error {
+	if err := a.CheckClusterIsAuthorizedInTransaction(txnCtx, p...); err == nil {
+		return nil
+	}
+	if err := a.CheckProjectIsAuthorizedInTransaction(txnCtx, repo.Project, p...); err == nil {
+		fmt.Println("qqq running CheckProjectIsAuthorizedInTransaction in CheckRepoIsAuthorizedInTransaction")
+		return nil
+	}
+	return a.checkResourceIsAuthorizedInTransaction(txnCtx, repo.AuthResource(), p...)
 }
 
 // CheckResourceIsAuthorizedInTransaction returns an error if the subject/user doesn't have permission in `p` on the `resource`

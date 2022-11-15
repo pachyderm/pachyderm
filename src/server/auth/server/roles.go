@@ -190,8 +190,8 @@ func init() {
 
 	projectOwner := registerRole(&auth.Role{
 		Name:          auth.ProjectOwner,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
-		Permissions: combinePermissions(projectWriter.Permissions, []auth.Permission{
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
+		Permissions: combinePermissions(projectWriter.Permissions, repoOwnerRole.Permissions, []auth.Permission{
 			auth.Permission_PROJECT_DELETE,
 			auth.Permission_REPO_DELETE,
 			auth.Permission_PROJECT_MODIFY_BINDINGS,
@@ -248,6 +248,7 @@ func init() {
 	})
 }
 
+// TODO Deduplicate permissiosn in result
 func combinePermissions(permissions ...[]auth.Permission) []auth.Permission {
 	output := make([]auth.Permission, 0)
 	for _, p := range permissions {

@@ -991,19 +991,27 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 
 	// ModifyRoleBinding can be called for any type of resource,
 	// and the permission required depends on the type of resource.
-	var permission auth.Permission
 	switch req.Resource.Type {
 	case auth.ResourceType_CLUSTER:
-		permission = auth.Permission_CLUSTER_MODIFY_BINDINGS
+		if err := a.CheckClusterIsAuthorizedInTransaction(txnCtx, auth.Permission_CLUSTER_MODIFY_BINDINGS); err != nil {
+			return nil, err
+		}
 	case auth.ResourceType_PROJECT:
-		permission = auth.Permission_PROJECT_MODIFY_BINDINGS
+		if err := a.CheckProjectIsAuthorizedInTransaction(txnCtx, &pfs.Project{Name: req.Resource.Name}, auth.Permission_PROJECT_MODIFY_BINDINGS); err != nil {
+			return nil, err
+		}
 	case auth.ResourceType_REPO:
-		permission = auth.Permission_REPO_MODIFY_BINDINGS
+		// FIXME: seems kind of broken to destructure here
+		parts := strings.Split(req.Resource.Name, "/")
+		if len(parts) != 2 {
+			return nil, errors.Errorf("invalid resource name %s", req.Resource.Name)
+		}
+		repo := &pfs.Repo{Project: &pfs.Project{Name: parts[0]}, Name: parts[1]}
+		if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_MODIFY_BINDINGS); err != nil {
+			return nil, err
+		}
 	default:
 		return nil, errors.Errorf("unknown resource type %v", req.Resource.Type)
-	}
-	if err := a.checkResourceIsAuthorizedInTransaction(txnCtx, req.Resource, permission); err != nil {
-		return nil, err
 	}
 
 	if err := a.setUserRoleBindingInTransaction(txnCtx, req.Resource, req.Principal, req.Roles); err != nil {
