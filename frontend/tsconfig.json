@@ -6,7 +6,9 @@
     "paths": {
       "@graphqlTypes": [ "../../backend/src/generated/types.ts" ],
       "@dash-backend/*": ["../../backend/src/*"],
-      "@dash-frontend/*": ["./*"]
+      "@dash-frontend/*": ["./*"],
+      "@pachyderm/components": ["../components/src"],
+      "@pachyderm/components/*": ["../components/src/*"]
     },
     "lib": [
       "dom",

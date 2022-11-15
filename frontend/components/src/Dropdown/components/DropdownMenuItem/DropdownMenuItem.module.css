@@ -1,0 +1,46 @@
+.base {
+  color: var(--pachyderm-black);
+  border: none;
+  background-color: transparent;
+  padding: 0.5rem 1rem;
+  white-space: nowrap;
+  width: 100%;
+  text-align: left;
+}
+
+.tertiary {
+  background-color: var(--background-black);
+  color: var(--white);
+}
+
+.selected:not(.tertiary) {
+  color: var(--pachyderm-plum);
+  font-weight: 600;
+}
+
+.base:hover,
+.base:focus {
+  background-color: var(--hover-grey);
+}
+
+
+.tertiary:hover,
+.tertiary:focus {
+  background-color: var(--grey-9);
+}
+
+.base:focus {
+  outline: none;
+}
+
+.base:disabled:not(.tertiary) {
+  opacity: 0.4;
+}
+
+.tertiary:disabled {
+  background-color: var(--disabled-tertiary);
+}
+
+.important:hover {
+  color: var(--error-red);
+}

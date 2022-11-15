@@ -1,6 +1,6 @@
-import {LoadingDots} from '@pachyderm/components';
 import React, {useCallback} from 'react';
 
+import {LoadingDots} from '@pachyderm/components';
 import {useFetch} from 'hooks/useFetch';
 
 import ContentWrapper from '../ContentWrapper';

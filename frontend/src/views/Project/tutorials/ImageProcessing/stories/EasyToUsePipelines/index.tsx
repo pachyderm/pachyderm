@@ -1,5 +1,6 @@
-import {Story} from '@pachyderm/components';
 import React from 'react';
+
+import {Story} from '@pachyderm/components';
 
 import CreatePipelineTask from './tasks/CreatePipelineTask';
 import CreateRepoTask from './tasks/CreateRepoTask';

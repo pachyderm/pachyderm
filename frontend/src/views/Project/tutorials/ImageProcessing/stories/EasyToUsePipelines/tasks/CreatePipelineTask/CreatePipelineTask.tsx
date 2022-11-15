@@ -1,9 +1,3 @@
-import {
-  TaskComponentProps,
-  TaskCard,
-  LoadingDots,
-  ConfigurationUploadModule,
-} from '@pachyderm/components';
 import React from 'react';
 
 import CodeElement from '@dash-frontend/components/ConfigFilePreview/components/CodeElement';
@@ -12,6 +6,12 @@ import useAccount from '@dash-frontend/hooks/useAccount';
 import useCreatePipeline from '@dash-frontend/hooks/useCreatePipeline';
 import useRecordTutorialProgress from '@dash-frontend/hooks/useRecordTutorialProgress';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {
+  TaskComponentProps,
+  TaskCard,
+  LoadingDots,
+  ConfigurationUploadModule,
+} from '@pachyderm/components';
 
 const PIPELINE_JSON = `{
   "pipeline": {

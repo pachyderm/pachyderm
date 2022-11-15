@@ -1,5 +1,6 @@
-import {BasicModal, Group, Login, Connect, Verify} from '@pachyderm/components';
 import React, {memo} from 'react';
+
+import {BasicModal, Group, Login, Connect, Verify} from '@pachyderm/components';
 
 import styles from './ConnectModal.module.css';
 

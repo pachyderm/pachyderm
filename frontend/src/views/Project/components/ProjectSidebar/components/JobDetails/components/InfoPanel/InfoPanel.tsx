@@ -1,12 +1,4 @@
 import formatBytes from '@dash-backend/lib/formatBytes';
-import {
-  ChevronDownSVG,
-  ChevronUpSVG,
-  Icon,
-  LoadingDots,
-  Tooltip,
-  CaptionTextSmall,
-} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 
@@ -24,6 +16,14 @@ import {
   getVisualJobState,
 } from '@dash-frontend/lib/jobs';
 import ReadLogsButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/ReadLogsButton';
+import {
+  ChevronDownSVG,
+  ChevronUpSVG,
+  Icon,
+  LoadingDots,
+  Tooltip,
+  CaptionTextSmall,
+} from '@pachyderm/components';
 
 import useInfoPanel from './hooks/useInfoPanel';
 import styles from './InfoPanel.module.css';

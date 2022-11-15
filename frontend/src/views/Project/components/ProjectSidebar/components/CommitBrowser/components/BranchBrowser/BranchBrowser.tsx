@@ -1,9 +1,9 @@
 import {RepoQuery} from '@graphqlTypes';
-import {SearchableDropdown} from '@pachyderm/components';
 import classNames from 'classnames';
 import React, {useRef} from 'react';
 
 import useIntersection from '@dash-frontend/hooks/useIntersection';
+import {SearchableDropdown} from '@pachyderm/components';
 
 import styles from './BranchBrowser.module.css';
 import useBranchBrowser from './hooks/useBranchBrowser';

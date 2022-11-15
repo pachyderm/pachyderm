@@ -1,0 +1,18 @@
+.base {
+  position: sticky;
+  top: 0;
+  text-align: left;
+  list-style: none;
+  margin: 0px;
+  padding: 1rem 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.base.noPadding {
+  padding: 0;
+}
+
+.base + .base {
+  border-top: solid 1px var(--line-grey);
+}

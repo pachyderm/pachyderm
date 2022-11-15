@@ -1,5 +1,4 @@
 import {Project} from '@graphqlTypes';
-import {Button, Group, Info} from '@pachyderm/components';
 import classNames from 'classnames';
 import {format, fromUnixTime} from 'date-fns';
 import noop from 'lodash/noop';
@@ -11,6 +10,7 @@ import {
   projectReposRoute,
   lineageRoute,
 } from '@dash-frontend/views/Project/utils/routes';
+import {Button, Group, Info} from '@pachyderm/components';
 
 import ProjectStatus from '../ProjectStatus';
 

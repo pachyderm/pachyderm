@@ -1,8 +1,8 @@
 import {PipelineState as PipelineStateEnum} from '@graphqlTypes';
-import {Circle, Group} from '@pachyderm/components';
 import React, {useMemo} from 'react';
 
 import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
+import {Circle, Group} from '@pachyderm/components';
 
 interface PipelineStateProps {
   state: PipelineStateEnum;

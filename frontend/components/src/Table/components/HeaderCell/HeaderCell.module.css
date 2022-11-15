@@ -1,0 +1,52 @@
+.base {
+  background-color: var(--background-blue);
+  text-transform: capitalize;
+  padding: 1.5rem;
+}
+
+.text {
+  color: var(--pachyderm-black);
+}
+
+.rightAligned {
+  text-align: right;
+}
+
+.base:first-child {
+  padding-left: calc(var(--padding-view-x) + 1.875rem);
+}
+
+.base:last-child {
+  padding-right: 3rem;
+}
+
+.sortHeader:hover {
+  cursor: pointer;
+}
+
+.selectedColumn > path:last-of-type {
+  fill: var(--pachyderm-green);
+}
+
+.flip {
+  transform: scaleY(-1);
+}
+
+.wrapperButton {
+  border: none;
+  background: none;
+  padding-left: 0;
+  text-transform: capitalize;
+  color: var(--pachyderm-black);
+  padding-bottom: 0;
+}
+
+.wrapperButton:focus:not([class$='focus-visible']) {
+  outline: none;
+}
+
+@media (--medium-viewport) {
+  .base:first-child {
+    padding-left: calc(var(--padding-view-x-sm) + 1.875rem);
+  }
+}

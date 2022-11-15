@@ -1,0 +1,9 @@
+.base {
+  width: 100%;
+  border-collapse: collapse;
+  position: relative;
+}
+
+.base.compressed td {
+  padding: 1.25rem 1.875rem;
+}

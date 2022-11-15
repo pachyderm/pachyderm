@@ -1,11 +1,11 @@
 import {ApolloError} from '@apollo/client';
 import {GetLogsQuery} from '@graphqlTypes';
-import {LoadingDots, Link} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
+import {LoadingDots, Link} from '@pachyderm/components';
 
 import {
   HEADER_HEIGHT_OFFSET,

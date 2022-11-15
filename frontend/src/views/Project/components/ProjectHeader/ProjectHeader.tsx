@@ -1,3 +1,10 @@
+import React, {useCallback, useState} from 'react';
+
+import GlobalFilter from '@dash-frontend/components/GlobalFilter';
+import Header from '@dash-frontend/components/Header';
+import HeaderButtons from '@dash-frontend/components/HeaderButtons';
+import Search from '@dash-frontend/components/Search';
+import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
   SkeletonDisplayText,
   Tooltip,
@@ -7,13 +14,6 @@ import {
   StatusWarningSVG,
   Icon,
 } from '@pachyderm/components';
-import React, {useCallback, useState} from 'react';
-
-import GlobalFilter from '@dash-frontend/components/GlobalFilter';
-import Header from '@dash-frontend/components/Header';
-import HeaderButtons from '@dash-frontend/components/HeaderButtons';
-import Search from '@dash-frontend/components/Search';
-import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 import useProjectHeader from './hooks/useProjectHeader';
 import styles from './ProjectHeader.module.css';

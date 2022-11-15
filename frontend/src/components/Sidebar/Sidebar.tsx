@@ -1,4 +1,3 @@
-import {Button, ButtonGroup, CloseSVG} from '@pachyderm/components';
 import classnames from 'classnames';
 import React, {HTMLAttributes} from 'react';
 import {Route} from 'react-router';
@@ -16,6 +15,7 @@ import {
   LINEAGE_REPO_PATH,
   LINEAGE_PIPELINE_PATH,
 } from '@dash-frontend/views/Project/constants/projectPaths';
+import {Button, ButtonGroup, CloseSVG} from '@pachyderm/components';
 
 import useSidebar from './hooks/useSidebar';
 import styles from './Sidebar.module.css';

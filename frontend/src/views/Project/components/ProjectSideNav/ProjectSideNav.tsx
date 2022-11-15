@@ -1,13 +1,3 @@
-import {
-  SideNav,
-  DirectionsSVG,
-  RepoSVG,
-  PipelineSVG,
-  JobsSVG,
-  ViewListSVG,
-  AddCircleSVG,
-  useModal,
-} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 import {Route} from 'react-router';
@@ -18,6 +8,16 @@ import {
   projectReposRoute,
   projectPipelinesRoute,
 } from '@dash-frontend/views/Project/utils/routes';
+import {
+  SideNav,
+  DirectionsSVG,
+  RepoSVG,
+  PipelineSVG,
+  JobsSVG,
+  ViewListSVG,
+  AddCircleSVG,
+  useModal,
+} from '@pachyderm/components';
 import {MEDIUM} from 'constants/breakpoints';
 
 import {LINEAGE_PATH, PROJECT_PATH} from '../../constants/projectPaths';

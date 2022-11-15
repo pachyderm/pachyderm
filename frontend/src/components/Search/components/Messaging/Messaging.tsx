@@ -1,5 +1,6 @@
-import {PlaceholderText} from '@pachyderm/components';
 import React from 'react';
+
+import {PlaceholderText} from '@pachyderm/components';
 
 import styles from './Messaging.module.css';
 

@@ -1,0 +1,12 @@
+.base {
+  display: flex;
+  margin-bottom: 0.625rem;
+  padding-left: 1rem;
+  width: 100%;
+}
+
+.content {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}

@@ -13,6 +13,12 @@ orbs:
     browser-tools: circleci/browser-tools@1.2.3
 
 jobs:
+    components-storybook-release:
+        docker:
+            - image: cimg/node:16.11.0
+        steps:
+            - checkout
+            - run: .circleci/scripts/upload-storybook.sh
     backend-test:
         resource_class: xlarge
         docker:
@@ -55,7 +61,7 @@ jobs:
         steps:
             - checkout
             - run: make ci
-            - run: make launch-mock & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run cypress:ci-mock
+            - run: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e:local-mock
             - store_artifacts:
                   path: /tmp/cypress-screenshots
             - store_artifacts:
@@ -220,6 +226,12 @@ workflows:
             - check-types
             - build
             - integration-test
+    storybook-release:
+        jobs:
+            - components-storybook-release:
+                  filters:
+                      branches:
+                          only: master
     load-test:
         when:
             equal: [scheduled_pipeline, << pipeline.trigger_source >>]

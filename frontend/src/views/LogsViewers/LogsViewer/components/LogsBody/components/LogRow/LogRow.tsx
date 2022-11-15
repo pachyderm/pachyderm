@@ -1,5 +1,4 @@
 import {GetLogsQuery} from '@graphqlTypes';
-import {CodeText, PureCheckbox} from '@pachyderm/components';
 import classnames from 'classnames';
 import {format, fromUnixTime} from 'date-fns';
 import React, {
@@ -11,6 +10,8 @@ import React, {
   useRef,
 } from 'react';
 import {areEqual} from 'react-window';
+
+import {CodeText, PureCheckbox} from '@pachyderm/components';
 
 import {LOGS_DATE_FORMAT} from '../../../../../constants/logsViewersConstants';
 

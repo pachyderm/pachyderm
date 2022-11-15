@@ -1,3 +1,5 @@
+import React, {useCallback} from 'react';
+
 import {
   CopySVG,
   ButtonLink,
@@ -6,7 +8,6 @@ import {
   Tooltip,
   Icon,
 } from '@pachyderm/components';
-import React, {useCallback} from 'react';
 
 import styles from './ShortId.module.css';
 

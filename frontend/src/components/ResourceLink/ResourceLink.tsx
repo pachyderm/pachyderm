@@ -1,3 +1,11 @@
+import React, {useCallback} from 'react';
+
+import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
+import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {
+  pipelineRoute,
+  repoRoute,
+} from '@dash-frontend/views/Project/utils/routes';
 import {
   Link,
   RepoSVG,
@@ -7,14 +15,6 @@ import {
   SuccessCheckmark,
   CopySVG,
 } from '@pachyderm/components';
-import React, {useCallback} from 'react';
-
-import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
-import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {
-  pipelineRoute,
-  repoRoute,
-} from '@dash-frontend/views/Project/utils/routes';
 
 import styles from './ResourceLink.module.css';
 

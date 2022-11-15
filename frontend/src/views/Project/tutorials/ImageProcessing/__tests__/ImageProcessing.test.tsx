@@ -1,5 +1,4 @@
 import {mockServer} from '@dash-backend/testHelpers';
-import {TutorialModalBodyProvider} from '@pachyderm/components';
 import {render, waitFor} from '@testing-library/react';
 import React from 'react';
 
@@ -8,6 +7,7 @@ import {
   click,
   generateTutorialView,
 } from '@dash-frontend/testHelpers';
+import {TutorialModalBodyProvider} from '@pachyderm/components';
 
 import ProjectTutorialComponent from '../../ProjectTutorial';
 

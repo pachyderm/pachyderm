@@ -3,7 +3,7 @@ import React from 'react';
 import {render} from 'react-dom';
 import {load as loadRudderstack} from 'rudder-sdk-js';
 
-import '@pachyderm/components/dist/style.css';
+import '@pachyderm/components/index.module.css';
 
 import 'styles/index.css';
 

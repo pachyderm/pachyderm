@@ -1,4 +1,15 @@
 import {ApolloError} from '@apollo/client';
+import classnames from 'classnames';
+import React from 'react';
+
+import EmptyState from '@dash-frontend/components/EmptyState';
+import {
+  NO_DAG_MESSAGE,
+  LETS_START_TITLE,
+} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
+import View from '@dash-frontend/components/View';
+import {DagDirection, Dag} from '@dash-frontend/lib/types';
+import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
 import {
   Tooltip,
   CheckboxCheckedSVG,
@@ -14,17 +25,6 @@ import {
   useBreakpoint,
   DownloadSVG,
 } from '@pachyderm/components';
-import classnames from 'classnames';
-import React from 'react';
-
-import EmptyState from '@dash-frontend/components/EmptyState';
-import {
-  NO_DAG_MESSAGE,
-  LETS_START_TITLE,
-} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
-import View from '@dash-frontend/components/View';
-import {DagDirection, Dag} from '@dash-frontend/lib/types';
-import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
 import {LARGE} from 'constants/breakpoints';
 
 import {NODE_HEIGHT, NODE_WIDTH} from '../../constants/nodeSizes';

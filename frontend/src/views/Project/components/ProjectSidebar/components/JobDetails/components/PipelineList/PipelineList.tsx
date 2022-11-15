@@ -1,11 +1,11 @@
 import {JobSet} from '@graphqlTypes';
-import {Tooltip, Icon} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 import {NavLink} from 'react-router-dom';
 
 import {getJobStateIcon, getVisualJobState} from '@dash-frontend/lib/jobs';
 import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
+import {Tooltip, Icon} from '@pachyderm/components';
 
 import styles from './PipelineList.module.css';
 

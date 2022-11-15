@@ -1,6 +1,7 @@
 import {File} from '@graphqlTypes';
-import {Table} from '@pachyderm/components';
 import React from 'react';
+
+import {Table} from '@pachyderm/components';
 
 import FileTableRow from './FileTableRow';
 import useListViewTable from './hooks/useListViewTable';

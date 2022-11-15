@@ -1,11 +1,11 @@
 import {NodeType} from '@graphqlTypes';
-import {useClipboardCopy} from '@pachyderm/components';
 import {select} from 'd3-selection';
 import {useCallback, useEffect, useMemo, useState} from 'react';
 
 import {Node} from '@dash-frontend/lib/types';
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
 import {NODE_WIDTH} from '@dash-frontend/views/Project/constants/nodeSizes';
+import {useClipboardCopy} from '@pachyderm/components';
 import useRouteController from 'hooks/useRouteController';
 import deriveRepoNameFromNode from 'lib/deriveRepoNameFromNode';
 

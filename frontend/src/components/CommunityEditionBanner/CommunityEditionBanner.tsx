@@ -1,7 +1,8 @@
-import {Button} from '@pachyderm/components';
 import classnames from 'classnames';
 import {formatDistanceToNowStrict, fromUnixTime} from 'date-fns';
 import React from 'react';
+
+import {Button} from '@pachyderm/components';
 
 import styles from './CommunityEditionBanner.module.css';
 import useCommunityEditionBanner, {

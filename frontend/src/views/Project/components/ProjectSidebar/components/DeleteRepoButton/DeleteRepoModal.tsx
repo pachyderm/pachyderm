@@ -1,6 +1,6 @@
-import {BasicModal} from '@pachyderm/components';
 import React from 'react';
 
+import {BasicModal} from '@pachyderm/components';
 import getServerErrorMessage from 'lib/errorHandling';
 
 import useDeleteRepoModal from './hooks/useDeleteRepoModal';

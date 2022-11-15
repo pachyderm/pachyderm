@@ -1,4 +1,9 @@
 import {NodeState, NodeType} from '@graphqlTypes';
+import classnames from 'classnames';
+import React from 'react';
+
+import deriveRepoNameFromNode from '@dash-frontend/lib/deriveRepoNameFromNode';
+import {Node} from '@dash-frontend/lib/types';
 import {
   Link,
   Icon,
@@ -8,11 +13,6 @@ import {
   RepoSVG,
   PipelineSVG,
 } from '@pachyderm/components';
-import classnames from 'classnames';
-import React from 'react';
-
-import deriveRepoNameFromNode from '@dash-frontend/lib/deriveRepoNameFromNode';
-import {Node} from '@dash-frontend/lib/types';
 
 import styles from './ListItem.module.css';
 

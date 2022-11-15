@@ -1,3 +1,11 @@
+import classnames from 'classnames';
+import React from 'react';
+import {Helmet} from 'react-helmet';
+import {Switch, useHistory} from 'react-router';
+
+import Breadcrumb from '@dash-frontend/components/Breadcrumb';
+import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
   Tooltip,
   GenericErrorSVG,
@@ -7,14 +15,6 @@ import {
   LoadingDots,
   Button,
 } from '@pachyderm/components';
-import classnames from 'classnames';
-import React from 'react';
-import {Helmet} from 'react-helmet';
-import {Switch, useHistory} from 'react-router';
-
-import Breadcrumb from '@dash-frontend/components/Breadcrumb';
-import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import FileHeader from './components/FileHeader';
 import FilePreview from './components/FilePreview';

@@ -1,5 +1,4 @@
 import {ApolloError} from '@apollo/client';
-import {LoadingDots} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 import {Route, Redirect} from 'react-router';
@@ -7,6 +6,7 @@ import {Route, Redirect} from 'react-router';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {Dag, DagNodes} from '@dash-frontend/lib/types';
 import {lineageRoute} from '@dash-frontend/views/Project/utils/routes';
+import {LoadingDots} from '@pachyderm/components';
 
 import DAGView from '../../components/DAGView';
 import ListView from '../../components/ListView';

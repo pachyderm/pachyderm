@@ -1,3 +1,6 @@
+import React from 'react';
+import {Helmet} from 'react-helmet';
+
 import {
   FullPageModal,
   Group,
@@ -14,8 +17,6 @@ import {
   HelpText,
   ButtonGroup,
 } from '@pachyderm/components';
-import React from 'react';
-import {Helmet} from 'react-helmet';
 
 import EmptyState from '../../components/EmptyState';
 

@@ -1,0 +1,12 @@
+.base {
+  padding-top: 3rem;
+  padding-bottom: 1.875rem;
+}
+
+.base.hasDrawerPadding {
+  padding-bottom: 11.725rem;
+}
+
+.fullHeight {
+  padding-bottom: 0;
+}

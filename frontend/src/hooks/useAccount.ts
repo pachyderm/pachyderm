@@ -1,8 +1,8 @@
-import {getRandomName} from '@pachyderm/components';
 import {useEffect} from 'react';
 
 import {useGetAccountQuery} from '@dash-frontend/generated/hooks';
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
+import {getRandomName} from '@pachyderm/components';
 interface useAccountArgs {
   skip?: boolean;
 }

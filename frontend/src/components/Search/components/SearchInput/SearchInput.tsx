@@ -1,7 +1,8 @@
-import {CloseSVG, SearchSVG, Icon} from '@pachyderm/components';
 import classNames from 'classnames';
 import React, {useMemo} from 'react';
 import {UseFormReturn} from 'react-hook-form';
+
+import {CloseSVG, SearchSVG, Icon} from '@pachyderm/components';
 
 import {useSearch} from '../../hooks/useSearch';
 

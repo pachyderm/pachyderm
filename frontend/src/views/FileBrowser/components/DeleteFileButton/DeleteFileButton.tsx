@@ -1,6 +1,7 @@
 import {File} from '@graphqlTypes';
-import {BasicModal, Button, TrashSVG} from '@pachyderm/components';
 import React, {Children} from 'react';
+
+import {BasicModal, Button, TrashSVG} from '@pachyderm/components';
 
 import useDeleteFileButton from './hooks/useDeleteFileButton';
 

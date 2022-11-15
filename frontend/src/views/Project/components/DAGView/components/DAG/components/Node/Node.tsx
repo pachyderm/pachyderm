@@ -1,4 +1,9 @@
 import {NodeState, NodeType} from '@graphqlTypes';
+import classNames from 'classnames';
+import React, {SVGProps} from 'react';
+
+import {Node as GraphQLNode} from '@dash-frontend/lib/types';
+import {NODE_INPUT_REPO} from '@dash-frontend/views/Project/constants/nodeSizes';
 import {
   SuccessCheckmark,
   RepoSVG,
@@ -11,11 +16,6 @@ import {
   StatusCheckmarkSVG,
   ChevronRightSVG,
 } from '@pachyderm/components';
-import classNames from 'classnames';
-import React, {SVGProps} from 'react';
-
-import {Node as GraphQLNode} from '@dash-frontend/lib/types';
-import {NODE_INPUT_REPO} from '@dash-frontend/views/Project/constants/nodeSizes';
 
 import NodeTooltip from './components/NodeTooltip';
 import {ReactComponent as EgressSVG} from './DagEgress.svg';

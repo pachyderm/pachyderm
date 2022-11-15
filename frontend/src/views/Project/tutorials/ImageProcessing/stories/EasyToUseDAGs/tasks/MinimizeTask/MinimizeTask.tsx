@@ -1,7 +1,7 @@
-import {TaskComponentProps, TaskCard} from '@pachyderm/components';
 import React, {useEffect} from 'react';
 
 import useRecordTutorialProgress from '@dash-frontend/hooks/useRecordTutorialProgress';
+import {TaskComponentProps, TaskCard} from '@pachyderm/components';
 
 const MinimizeTask: React.FC<TaskComponentProps> = ({
   onCompleted,

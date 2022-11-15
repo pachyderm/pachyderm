@@ -1,10 +1,11 @@
+import classnames from 'classnames';
+import React from 'react';
+
 import {
   Icon,
   StatusWarningSVG,
   ElephantEmptyState,
 } from '@pachyderm/components';
-import classnames from 'classnames';
-import React from 'react';
 
 import styles from './EmptyState.module.css';
 

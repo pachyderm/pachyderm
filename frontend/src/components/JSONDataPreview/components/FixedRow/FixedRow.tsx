@@ -1,14 +1,14 @@
+import classNames from 'classnames';
+import times from 'lodash/times';
+import React, {CSSProperties} from 'react';
+
+import {PADDING_SIZE} from '@dash-frontend/views/FileBrowser/constants/FileBrowser';
 import {
   Icon,
   ChevronDownSVG,
   ChevronRightSVG,
   CodePreview,
 } from '@pachyderm/components';
-import classNames from 'classnames';
-import times from 'lodash/times';
-import React, {CSSProperties} from 'react';
-
-import {PADDING_SIZE} from '@dash-frontend/views/FileBrowser/constants/FileBrowser';
 
 import {ListItem} from '../../hooks/useDataPreview';
 

@@ -1,0 +1,33 @@
+.base {
+  position: relative;
+}
+
+.base::marker {
+  font-weight: 600;
+}
+
+.mono {
+  display: inline-flex;
+  width: 100%;
+}
+
+.copy {
+  position: absolute;
+  right: -1.25rem;
+  top: 0;
+}
+
+.copyIcon {
+  margin-left: 1rem;
+}
+
+.title {
+  margin-bottom: 0.25rem;
+  padding-right: 3rem;
+  display: inline-block;
+}
+
+.note {
+  line-height: 2rem;
+  margin: 0;
+}

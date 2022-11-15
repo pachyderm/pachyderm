@@ -1,5 +1,6 @@
-import {TutorialModal} from '@pachyderm/components';
 import React from 'react';
+
+import {TutorialModal} from '@pachyderm/components';
 
 import useTutorialsList from '../hooks/useTutorialsList';
 import {TutorialProps} from '../ProjectTutorial';

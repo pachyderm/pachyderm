@@ -1,10 +1,10 @@
 import {Maybe} from '@graphqlTypes';
-import {useModal} from '@pachyderm/components';
 import {useCallback, useEffect, useState} from 'react';
 
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useLogs from '@dash-frontend/hooks/useLogs';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {useModal} from '@pachyderm/components';
 
 import {LOGS_DEFAULT_DROPDOWN_OPTIONS} from '../../constants/logsViewersConstants';
 

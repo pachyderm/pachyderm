@@ -1,5 +1,6 @@
-import {TrashSVG, Tooltip, Button} from '@pachyderm/components';
 import React from 'react';
+
+import {TrashSVG, Tooltip, Button} from '@pachyderm/components';
 
 import DeleteRepoModal from './DeleteRepoModal';
 import useDeleteRepoButton from './hooks/useDeleteRepoButton';

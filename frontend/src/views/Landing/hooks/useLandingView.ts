@@ -1,10 +1,4 @@
 import {Project} from '@graphqlTypes';
-import {
-  SortableItem,
-  useSort,
-  stringComparator,
-  numberComparator,
-} from '@pachyderm/components';
 import capitalize from 'lodash/capitalize';
 import every from 'lodash/every';
 import reduce from 'lodash/reduce';
@@ -13,6 +7,12 @@ import {useForm} from 'react-hook-form';
 
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import {useProjects} from '@dash-frontend/hooks/useProjects';
+import {
+  SortableItem,
+  useSort,
+  stringComparator,
+  numberComparator,
+} from '@pachyderm/components';
 
 type sortOptionsType = {
   [key: string]: SortableItem<Project>;

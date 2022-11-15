@@ -1,0 +1,53 @@
+
+.base {
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  width: var(--width-sidenav);
+  transition: width 0.1s ease-out;
+  z-index: var(--z-index-sidenav);
+  height: 100%;
+}
+
+.base.dark {
+  background-color: var(--background-black);  
+}
+
+.base.dark .collapse, .base.dark .collapseIcon {
+  color: var(--dropshadow-grey);
+}
+
+.base.light {
+  background-color: var(--white);
+  border-right: solid 1px var(--line-grey);
+}
+
+.base.collapsed {
+  width: var(--width-sidenav-collapsed);
+}
+
+.collapse {
+  display: flex;
+  border: none;
+  background-color: transparent;
+  padding: 0.5rem 1rem;
+  overflow-x: hidden;
+  white-space: nowrap;
+  transition: color .2s;
+}
+
+.collapsed .collapse {
+  padding: 1rem 2rem;
+}
+
+.collapse:focus:not([class$='focus-visible']) {
+  outline: none;
+}
+
+.collapseIcon {
+  margin-right: 0.5rem;
+}
+
+.flipSVG {
+  transform: scale(-1, 1);
+}

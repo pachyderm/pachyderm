@@ -53,6 +53,8 @@ Object.defineProperty(window.document, 'execCommand', {
   writable: true,
 });
 
+window.HTMLElement.prototype.scrollIntoView = jest.fn();
+
 beforeAll(async () => {
   const [grpcPort, authPort] = await mockServer.start();
   const graphqlPort = await server.start();

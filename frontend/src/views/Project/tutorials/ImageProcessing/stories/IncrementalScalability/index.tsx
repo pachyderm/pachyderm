@@ -1,5 +1,6 @@
-import {Story} from '@pachyderm/components';
 import React from 'react';
+
+import {Story} from '@pachyderm/components';
 
 import styles from './IncrementalScalability.module.css';
 import AddImagesTask from './tasks/AddImagesTask';

@@ -1,0 +1,60 @@
+.base.dark {
+  --active-color: var(--pachyderm-orange);
+  --secondary-active-color: var(--pachyderm-orange);
+  --base-color: var(--background-grey);
+  --disabled-color: var(--grey-4);
+}
+
+.base.light {
+  --active-color: var(--banner-green);
+  --secondary-active-color: var(--green);
+  --base-color: var(--pachyderm-black);
+  --disabled-color: var(--grey-4);
+}
+
+.base {
+  display: inline-flex;
+  white-space: nowrap;
+  color: var(--base-color);
+  padding: 0.25rem 1rem;
+  transition: color .2s;
+}
+
+.base.minimized {
+  padding: 0.25rem 2rem;
+}
+
+.base:not(.minimized) {
+  overflow-x: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.base[aria-current] {
+  box-shadow: inset 0.3rem 0 0 var(--active-color);
+}
+
+.base:active,
+.base:hover {
+  text-decoration: none;
+  color: var(--secondary-active-color);
+}
+
+.base.light[aria-current] {
+  color: var(--secondary-active-color);
+}
+
+.icon svg {
+  color: var(--base-color);
+  transition: color .2s;
+}
+
+.disabled,
+.disabled svg {
+  pointer-events: none;
+  color: var(--disabled-color);
+}
+
+.disabled:hover {
+  color: var(--disabled-color);
+}

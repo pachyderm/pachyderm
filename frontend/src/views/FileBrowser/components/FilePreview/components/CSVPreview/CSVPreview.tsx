@@ -1,8 +1,8 @@
-import {LoadingDots, DefaultDropdown} from '@pachyderm/components';
 import React, {CSSProperties, useCallback} from 'react';
 import {FixedSizeGrid} from 'react-window';
 
 import {FixedGridRowProps} from '@dash-frontend/lib/types';
+import {LoadingDots, DefaultDropdown} from '@pachyderm/components';
 
 import styles from './CSVPreview.module.css';
 import useCSVPreview, {

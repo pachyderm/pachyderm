@@ -1,7 +1,7 @@
-import {LoadingDots} from '@pachyderm/components';
 import React from 'react';
 
 import JSONDataPreview from '@dash-frontend/components/JSONDataPreview';
+import {LoadingDots} from '@pachyderm/components';
 
 import ContentWrapper from '../ContentWrapper';
 

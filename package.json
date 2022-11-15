@@ -14,6 +14,7 @@
     "e2e": "start-server-and-test start:e2e http-get://localhost:4000 cypress:ci",
     "e2e-auth": "start-server-and-test start:e2e http-get://localhost:4000 cypress:ci-auth",
     "e2e:local": "start-server-and-test start:e2e http-get://localhost:4000 cypress:local",
+    "e2e:local-mock": "start-server-and-test start:mock http-get://localhost:4000 cypress:ci-mock",
     "generate-types": "graphql-codegen",
     "setup": "node setup.js",
     "setup:local": "NODE_ENV=development dotenv-flow -- node setup.js",

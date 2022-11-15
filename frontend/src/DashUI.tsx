@@ -1,7 +1,3 @@
-import {
-  NotificationBannerProvider,
-  TutorialModalBodyProvider,
-} from '@pachyderm/components';
 import React, {Suspense, lazy} from 'react';
 import {BrowserRouter, Redirect, Route, Switch} from 'react-router-dom';
 
@@ -14,6 +10,10 @@ import {
   LINEAGE_PATH,
   PROJECT_PATH,
 } from '@dash-frontend/views/Project/constants/projectPaths';
+import {
+  NotificationBannerProvider,
+  TutorialModalBodyProvider,
+} from '@pachyderm/components';
 
 import ErrorBoundaryProvider from './providers/ErrorBoundaryProvider';
 import LoggedInProvider from './providers/LoggedInProvider';

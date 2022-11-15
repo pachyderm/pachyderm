@@ -1,10 +1,10 @@
-import {useOutsideClick} from '@pachyderm/components';
 import {useCallback, useState, useRef, useEffect} from 'react';
 import {useForm} from 'react-hook-form';
 
 import {useJobSetLazyQuery} from '@dash-frontend/generated/hooks';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {useOutsideClick} from '@pachyderm/components';
 
 type GlobalIdFilterFormValues = {
   globalId: string;

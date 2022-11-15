@@ -1,5 +1,4 @@
 import {ApolloError} from '@apollo/client';
-import {Group} from '@pachyderm/components';
 import React, {useEffect} from 'react';
 import {useHistory} from 'react-router';
 
@@ -10,6 +9,7 @@ import {
 } from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import View from '@dash-frontend/components/View';
 import {Node, DagNodes} from '@dash-frontend/lib/types';
+import {Group} from '@pachyderm/components';
 
 import DAGError from '../DAGError';
 

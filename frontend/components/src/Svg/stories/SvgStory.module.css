@@ -1,0 +1,41 @@
+.base {
+  width: 100%;
+  padding-left: 1rem;
+}
+.grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 16rem);
+  row-gap: 3rem;
+  column-gap: 1rem;
+  margin: 1.5rem 0 2rem 0;
+}
+
+.image {
+  padding: 1rem;
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  max-height: 18.75rem;
+}
+
+.progressCheck > path {
+  fill: #000000
+}
+
+.text {
+  text-align: center;
+  border-top: 0.125rem solid rgba(0, 0, 0, 0.1);
+  min-height: 3rem;
+  display: flex;
+  padding: 1rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.wrapper {
+  border: 0.125rem solid rgba(0, 0, 0, 0.1); 
+  display: flex; 
+  flex-direction: column;
+}

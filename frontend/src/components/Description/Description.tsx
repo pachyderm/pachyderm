@@ -1,4 +1,6 @@
 import {ApolloError} from '@apollo/client';
+import React, {HTMLAttributes} from 'react';
+
 import {
   SkeletonBodyText,
   CaptionTextSmall,
@@ -6,7 +8,6 @@ import {
   StatusWarningSVG,
   Icon,
 } from '@pachyderm/components';
-import React, {HTMLAttributes} from 'react';
 
 import styles from './Description.module.css';
 

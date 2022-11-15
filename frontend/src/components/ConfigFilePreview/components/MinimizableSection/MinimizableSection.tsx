@@ -1,6 +1,7 @@
-import {Icon, ChevronDownSVG, ChevronRightSVG} from '@pachyderm/components';
 import classnames from 'classnames';
 import React, {useState} from 'react';
+
+import {Icon, ChevronDownSVG, ChevronRightSVG} from '@pachyderm/components';
 
 import styles from './MinimizableSection.module.css';
 

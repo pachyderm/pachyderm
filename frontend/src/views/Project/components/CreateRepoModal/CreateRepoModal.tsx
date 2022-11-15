@@ -1,5 +1,6 @@
-import {Group, Input, Label, TextArea, FormModal} from '@pachyderm/components';
 import React, {FunctionComponent} from 'react';
+
+import {Group, Input, Label, TextArea, FormModal} from '@pachyderm/components';
 
 import useCreateRepoModal from './hooks/useCreateRepoModal';
 

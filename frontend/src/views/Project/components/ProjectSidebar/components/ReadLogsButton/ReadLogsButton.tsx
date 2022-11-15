@@ -1,4 +1,3 @@
-import {DocumentSVG, Button} from '@pachyderm/components';
 import React from 'react';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -6,6 +5,7 @@ import {
   logsViewerJobRoute,
   logsViewerPipelneRoute,
 } from '@dash-frontend/views/Project/utils/routes';
+import {DocumentSVG, Button} from '@pachyderm/components';
 
 interface ReadLogsButtonProps {
   isButton?: boolean;

@@ -1,6 +1,7 @@
-import {ButtonLink} from '@pachyderm/components';
 import escapeRegExp from 'lodash/escapeRegExp';
 import React, {useCallback} from 'react';
+
+import {ButtonLink} from '@pachyderm/components';
 
 import styles from './SearchResultItem.module.css';
 

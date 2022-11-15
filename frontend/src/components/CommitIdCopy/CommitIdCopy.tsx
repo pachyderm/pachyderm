@@ -1,3 +1,7 @@
+import classnames from 'classnames';
+import noop from 'lodash/noop';
+import React, {useCallback, useState} from 'react';
+
 import {
   CopySVG,
   useClipboardCopy,
@@ -5,9 +9,6 @@ import {
   Icon,
   Button,
 } from '@pachyderm/components';
-import classnames from 'classnames';
-import noop from 'lodash/noop';
-import React, {useCallback, useState} from 'react';
 
 import styles from './CommitIdCopy.module.css';
 

@@ -50,6 +50,7 @@ module.exports = {
   rules: {
     'import/default': 'off',
     'import/named': 'off',
+    'import/no-anonymous-default-export': 'off',
     'import/order': [
       'error',
       {
@@ -95,7 +96,7 @@ module.exports = {
       pragma: 'React',
       version: 'detect',
     },
-    'import/extensions': ['.js', '.jsx', '.ts', '.tsx'],
+    'import/extensions': ['.js', '.jsx', '.ts', '.tsx', '.css'],
     'import/parsers': {
       '@typescript-eslint/parser': ['.ts', '.tsx'],
     },
