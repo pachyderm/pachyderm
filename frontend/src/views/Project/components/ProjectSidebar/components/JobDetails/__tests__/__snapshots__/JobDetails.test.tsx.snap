@@ -801,7 +801,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                           <span
                             class="hljs-number"
                           >
-                            531186700
+                            589999999
                           </span>
                           
 
@@ -984,7 +984,7 @@ exports[`Job Details should display job durations 1`] = `
       <div
         class="duration"
       >
-        20.53 seconds
+        20.59 seconds
       </div>
     </div>
     <div>

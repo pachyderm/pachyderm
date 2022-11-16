@@ -75,7 +75,7 @@ const tutorial = [
       },
       processTime: {
         seconds: 20,
-        nanos: 531186700,
+        nanos: 589999999,
       },
       uploadTime: {
         seconds: 30,
