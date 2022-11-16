@@ -480,16 +480,8 @@ func ErrorIs(tb testing.TB, err, target error, msgAndArgs ...interface{}) {
 	}
 }
 
-// ErrorAs checks that the errors.As returns true
-func ErrorAs(tb testing.TB, err, target error, msgAndArgs ...interface{}) {
-	tb.Helper()
-	if !errors.As(err, target) {
-		fatal(tb, msgAndArgs, "errors.As(%v, %v) should be true", err, target)
-	}
-}
-
 // ErrorContains checks that the error contains a specified substring.
-func ErrContains(tb testing.TB, err error, contains string, msgAndArgs ...interface{}) {
+func ErrorContains(tb testing.TB, err error, contains string, msgAndArgs ...interface{}) {
 	require.ErrorContains(tb, err, contains, msgAndArgs...)
 }
 

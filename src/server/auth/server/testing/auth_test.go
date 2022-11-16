@@ -2358,7 +2358,7 @@ func TestCreateProject(t *testing.T) {
 	// and see if create project fails
 	rootClient := tu.AuthenticateClient(t, client, auth.RootUser)
 	require.NoError(t, rootClient.ModifyClusterRoleBinding(auth.AllClusterUsersSubject, []string{}))
-	require.ErrContains(t, aliceClient.CreateProject(projectName), "not authorized to perform this operation - needs permissions [PROJECT_CREATE] on CLUSTER")
+	require.ErrorContains(t, aliceClient.CreateProject(projectName), "not authorized to perform this operation - needs permissions [PROJECT_CREATE] on CLUSTER")
 }
 
 func TestModifyRoleBindingAccess(t *testing.T) {
@@ -2410,7 +2410,7 @@ func TestModifyRoleBindingAccess(t *testing.T) {
 			if tc.expectedErrMsg == "" {
 				require.NoError(t, err)
 			} else {
-				require.ErrContains(t, err, tc.expectedErrMsg)
+				require.ErrorContains(t, err, tc.expectedErrMsg)
 			}
 		})
 	}
