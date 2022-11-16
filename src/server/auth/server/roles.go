@@ -248,11 +248,17 @@ func init() {
 	})
 }
 
-// TODO Deduplicate permissiosn in result
-func combinePermissions(permissions ...[]auth.Permission) []auth.Permission {
+func combinePermissions(permissionSets ...[]auth.Permission) []auth.Permission {
+	seen := make(map[auth.Permission]bool)
 	output := make([]auth.Permission, 0)
-	for _, p := range permissions {
-		output = append(output, p...)
+	for _, permissions := range permissionSets {
+		for _, permission := range permissions {
+			if seen[permission] {
+				continue
+			}
+			seen[permission] = true
+			output = append(output, permission)
+		}
 	}
 	return output
 }

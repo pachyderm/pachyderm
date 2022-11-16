@@ -134,10 +134,3 @@ func (r *Repo) AuthResource() *auth.Resource {
 		Name: fmt.Sprintf("%s/%s", r.Project.Name, r.Name),
 	}
 }
-
-// func AuthResourceToProject() *Project {
-// 	if r.Type != auth.ResourceType_PROJECT {
-// 		return nil
-// 	}
-// 	return &Project{Name: r.Name}
-// }
