@@ -2346,48 +2346,19 @@ func TestDeleteAll(t *testing.T) {
 func TestCreateProject(t *testing.T) {
 	t.Parallel()
 	client := envWithAuth(t).PachClient
-	rootClient := tu.AuthenticateClient(t, client, auth.RootUser)
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, client, alice)
-	bob := tu.Robot(tu.UniqueString("bob"))
-	bobClient := tu.AuthenticateClient(t, client, bob)
 
 	// create a project and check the caller is the owner
 	projectName := tu.UniqueString("project" + t.Name())
 	require.NoError(t, aliceClient.CreateProject(projectName))
 	require.Equal(t, tu.BuildBindings(alice, auth.ProjectOwner), tu.GetProjectRoleBinding(t, aliceClient, projectName))
 
-	// verify that bob cannot modify role binding for given project
-	_, err := bobClient.ModifyRoleBinding(bobClient.Ctx(), &auth.ModifyRoleBindingRequest{
-		Principal: bob,
-		Roles:     []string{auth.ProjectOwner},
-		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: projectName},
-	})
-	require.YesError(t, err)
-	require.Matches(t, `.+not authorized to perform this operation - needs permissions \[PROJECT_MODIFY_BINDINGS\] on PROJECT.+`, err.Error())
-
-	// Alice can give Bob project owner access
-	_, err = aliceClient.ModifyRoleBinding(aliceClient.Ctx(), &auth.ModifyRoleBindingRequest{
-		Principal: bob,
-		Roles:     []string{auth.ProjectOwner},
-		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: projectName},
-	})
-	require.NoError(t, err)
-
-	// Bob can now remove Alice as project owner
-	_, err = bobClient.ModifyRoleBinding(bobClient.Ctx(), &auth.ModifyRoleBindingRequest{
-		Principal: alice,
-		Roles:     []string{},
-		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: projectName},
-	})
-	require.NoError(t, err)
-
 	// revoke cluster level role binding that grants all users ProjectCreate role
 	// and see if create project fails
+	rootClient := tu.AuthenticateClient(t, client, auth.RootUser)
 	require.NoError(t, rootClient.ModifyClusterRoleBinding(auth.AllClusterUsersSubject, []string{}))
-	err = aliceClient.CreateProject(projectName)
-	require.YesError(t, err)
-	require.Matches(t, `.+not authorized to perform this operation - needs permissions \[PROJECT_CREATE\] on CLUSTER.+`, err.Error())
+	require.ErrContains(t, aliceClient.CreateProject(projectName), "not authorized to perform this operation - needs permissions [PROJECT_CREATE] on CLUSTER")
 }
 
 func TestModifyRoleBindingAccess(t *testing.T) {
@@ -2414,9 +2385,9 @@ func TestModifyRoleBindingAccess(t *testing.T) {
 	bobRepoInAliceProject := auth.Resource{Type: auth.ResourceType_REPO, Name: fmt.Sprintf("%s/%s", project1, repo2)}
 
 	tests := map[string]struct {
-		client   *client.APIClient
-		resource auth.Resource
-		expected string
+		client         *client.APIClient
+		resource       auth.Resource
+		expectedErrMsg string
 	}{
 		"ClusterAdminCanModifyCluster":               {clusterAdmin, clusterResource, ""},
 		"ClusterAdminCanModifyProject":               {clusterAdmin, aliceProject, ""},
@@ -2424,10 +2395,10 @@ func TestModifyRoleBindingAccess(t *testing.T) {
 		"ProjectOwnerCanModifyProject":               {aliceClient, aliceProject, ""},
 		"ProjectOwnerCanModifyAnyRepoWithinProject":  {aliceClient, bobRepoInAliceProject, ""},
 		"RepoOwnerCanModifyRepo":                     {bobClient, bobRepoInAliceProject, ""},
-		"ProjectOwnerCannotModifyProjectTheyDontOwn": {aliceClient, bobProject, `.+needs permissions \[PROJECT_MODIFY_BINDINGS\].+`},
-		"ProjectOwnerCannotModifyCluster":            {aliceClient, clusterResource, `.+needs permissions \[CLUSTER_MODIFY_BINDINGS\].+`},
-		"RepoOwnerCannotModifyCluster":               {aliceClient, clusterResource, `.+needs permissions \[CLUSTER_MODIFY_BINDINGS\].+`},
-		"RepoOwnerCannotModifyRepoTheyDontOwn":       {bobClient, aliceRepoInAliceProject, `.+needs permissions \[REPO_MODIFY_BINDINGS\].+`},
+		"ProjectOwnerCannotModifyProjectTheyDontOwn": {aliceClient, bobProject, "needs permissions [PROJECT_MODIFY_BINDINGS]"},
+		"ProjectOwnerCannotModifyCluster":            {aliceClient, clusterResource, "needs permissions [CLUSTER_MODIFY_BINDINGS]"},
+		"RepoOwnerCannotModifyCluster":               {aliceClient, clusterResource, "needs permissions [CLUSTER_MODIFY_BINDINGS]"},
+		"RepoOwnerCannotModifyRepoTheyDontOwn":       {bobClient, aliceRepoInAliceProject, "needs permissions [REPO_MODIFY_BINDINGS]"},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -2436,10 +2407,10 @@ func TestModifyRoleBindingAccess(t *testing.T) {
 				Roles:     []string{},
 				Resource:  &tc.resource,
 			})
-			if tc.expected == "" {
+			if tc.expectedErrMsg == "" {
 				require.NoError(t, err)
 			} else {
-				require.Matches(t, tc.expected, err.Error())
+				require.ErrContains(t, err, tc.expectedErrMsg)
 			}
 		})
 	}

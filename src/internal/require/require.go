@@ -488,6 +488,11 @@ func ErrorAs(tb testing.TB, err, target error, msgAndArgs ...interface{}) {
 	}
 }
 
+// ErrorContains checks that the error contains a specified substring.
+func ErrContains(tb testing.TB, err error, contains string, msgAndArgs ...interface{}) {
+	require.ErrorContains(tb, err, contains, msgAndArgs...)
+}
+
 // NotNil checks a value is non-nil.
 func NotNil(tb testing.TB, object interface{}, msgAndArgs ...interface{}) {
 	tb.Helper()

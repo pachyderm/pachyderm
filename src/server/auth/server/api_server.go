@@ -726,8 +726,7 @@ func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txncontext.Transact
 	return request, nil
 }
 
-// AuthorizeInTransaction is identical to Authorize except that it can run
-// inside an existing STM transaction. This is not an RPC.
+// AuthorizeInTransaction is identical to Authorize except that it can run in a `pachsql.Tx`.
 func (a *apiServer) AuthorizeInTransaction(
 	txnCtx *txncontext.TransactionContext,
 	req *auth.AuthorizeRequest,
