@@ -64,6 +64,10 @@ func (c *controller) requestClient(r *http.Request) *client.APIClient {
 	vars := mux.Vars(r)
 	if vars["s3gAuth"] != "disabled" {
 		accessKey := vars["authAccessKey"]
+		if strings.HasPrefix(accessKey, "PAC1") {
+			vars["isProjectAware"] = "yes"
+			accessKey = accessKey[4:]
+		}
 		if accessKey != "" {
 			pc.SetAuthToken(accessKey)
 		}
