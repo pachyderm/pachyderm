@@ -221,20 +221,15 @@ func TestS3Input(t *testing.T) {
 	})
 }
 
-func TestS3Chain(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, userToken, _ := initPachClient(t)
-
-	dataRepo := tu.UniqueString(t.Name() + "_data")
+func testS3Chain(t *testing.T, c *client.APIClient, accessKeyID, secretAccessKey, ns string) {
+	dataRepo := tu.UniqueString("data")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 
 	numPipelines := 5
 	pipelines := make([]string, numPipelines)
 	for i := 0; i < numPipelines; i++ {
-		pipelines[i] = tu.UniqueString(t.Name())
+		pipelines[i] = tu.UniqueString("pipeline")
 		input := dataRepo
 		if i > 0 {
 			input = pipelines[i-1]
@@ -251,8 +246,8 @@ func TestS3Chain(t *testing.T) {
 						"aws --endpoint=${S3_ENDPOINT} s3 cp /tmp/s3in s3://out/file",
 					},
 					Env: map[string]string{
-						"AWS_ACCESS_KEY_ID":     userToken,
-						"AWS_SECRET_ACCESS_KEY": userToken,
+						"AWS_ACCESS_KEY_ID":     accessKeyID,
+						"AWS_SECRET_ACCESS_KEY": secretAccessKey,
 					},
 				},
 				ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
@@ -283,6 +278,23 @@ func TestS3Chain(t *testing.T) {
 		require.NoError(t, c.GetFile(client.NewProjectCommit(pfs.DefaultProjectName, pipelines[i], "master", ""), "/file", &buf))
 		require.Equal(t, i+1, strings.Count(buf.String(), "1\n"))
 	}
+}
+
+func TestS3Chain(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, userToken, ns := initPachClient(t)
+	if userToken == "" {
+		userToken = "abc123"
+	}
+	t.Run("ProjectUnaware", func(t *testing.T) {
+		testS3Chain(t, c, userToken, userToken, ns)
+	})
+	t.Run("ProjectAware", func(t *testing.T) {
+		accessKeyID := "PAC1" + userToken
+		testS3Chain(t, c, accessKeyID, userToken, ns)
+	})
 }
 
 func TestNamespaceInEndpoint(t *testing.T) {
