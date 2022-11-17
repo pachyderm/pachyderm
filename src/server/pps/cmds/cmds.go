@@ -55,7 +55,7 @@ const (
 )
 
 // Cmds returns a slice containing pps commands.
-func Cmds() ([]*cobra.Command, error) {
+func Cmds(pachCtx *config.Context) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var raw bool
@@ -80,15 +80,6 @@ results will be merged together at the end.
 If the job fails, the output commit will not be populated with data.`,
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(jobDocs, "job", " job$", jobs))
-
-	cfg, err := config.Read(false, true)
-	if err != nil {
-		return nil, err
-	}
-	_, pachCtx, err := cfg.ActiveContext(true)
-	if err != nil {
-		return nil, err
-	}
 
 	var project = pachCtx.Project
 	inspectJob := &cobra.Command{
@@ -1320,7 +1311,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	runLoadTest.Flags().StringVar(&stateID, "state-id", "", "The ID of the base state to use for the load.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pps-load-test"))
 
-	return commands, nil
+	return commands
 }
 
 // readPipelineBytes reads the pipeline spec at 'pipelinePath' (which may be

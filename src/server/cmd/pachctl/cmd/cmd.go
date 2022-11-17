@@ -324,6 +324,15 @@ func PachctlCmd() (*cobra.Command, error) {
 	var output string
 	outputFlags := cmdutil.OutputFlags(&raw, &output)
 
+	cfg, err := config.Read(false, true)
+	if err != nil {
+		return nil, err
+	}
+	_, pachCtx, err := cfg.ActiveContext(true)
+	if err != nil {
+		return nil, err
+	}
+
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
 		Long: `Access the Pachyderm API.
@@ -847,13 +856,8 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(drawDocs, "draw"))
 
-	for _, cmdFunc := range []func() ([]*cobra.Command, error){pfscmds.Cmds, ppscmds.Cmds} {
-		cmds, err := cmdFunc()
-		if err != nil {
-			return nil, errors.Wrap(err, "could not create subcommand")
-		}
-		subcommands = append(subcommands, cmds...)
-	}
+	subcommands = append(subcommands, pfscmds.Cmds(pachCtx)...)
+	subcommands = append(subcommands, ppscmds.Cmds(pachCtx)...)
 	subcommands = append(subcommands, authcmds.Cmds()...)
 	subcommands = append(subcommands, enterprisecmds.Cmds()...)
 	subcommands = append(subcommands, licensecmds.Cmds()...)

@@ -53,7 +53,7 @@ const (
 )
 
 // Cmds returns a slice containing pfs commands.
-func Cmds() ([]*cobra.Command, error) {
+func Cmds(pachCtx *config.Context) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var raw bool
@@ -75,14 +75,6 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(repoDocs, "repo", " repo$", repos))
 
-	cfg, err := config.Read(false, true)
-	if err != nil {
-		return nil, err
-	}
-	_, pachCtx, err := cfg.ActiveContext(true)
-	if err != nil {
-		return nil, err
-	}
 	var description string
 	project := pachCtx.Project
 	createRepo := &cobra.Command{
@@ -1895,7 +1887,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 	// their own file)
 	commands = append(commands, mountCmds()...)
 
-	return commands, nil
+	return commands
 }
 
 func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendFile, untar bool) (retErr error) {
