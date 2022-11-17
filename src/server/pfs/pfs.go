@@ -152,6 +152,10 @@ type ErrDropWithChildren struct {
 	Commit *pfs.Commit
 }
 
+type ErrPropagateMultipleCommitsInRepo struct {
+	Repo *pfs.Repo
+}
+
 const GetFileTARSuggestion = "Use GetFileTAR instead"
 
 var (
@@ -295,6 +299,10 @@ func (e ErrDropWithChildren) Error() string {
 	return fmt.Sprintf("cannot drop a commit that has children: %s", e.Commit)
 }
 
+func (e ErrPropagateMultipleCommitsInRepo) Error() string {
+	return fmt.Sprintf("cannot propgate multiple commits off of repo %q", e.Repo)
+}
+
 var (
 	commitNotFoundRe          = regexp.MustCompile("commit [^ ]+ not found")
 	commitsetNotFoundRe       = regexp.MustCompile("no commits found for commitset")
@@ -313,6 +321,7 @@ var (
 	commitOnOutputBranchRe    = regexp.MustCompile("cannot start a commit on an output branch")
 	squashWithoutChildrenRe   = regexp.MustCompile("cannot squash a commit that has no children")
 	dropWithChildrenRe        = regexp.MustCompile("cannot drop a commit that has children")
+	deleteWithDependentSetsRe = regexp.MustCompile("cannot be squashed in isolation. To delete them, also squash")
 )
 
 // IsCommitNotFoundErr returns true if 'err' has an error message that matches
@@ -467,6 +476,13 @@ func IsDropWithChildrenErr(err error) bool {
 		return false
 	}
 	return dropWithChildrenRe.MatchString(err.Error())
+}
+
+func IsDeleteWithDependentCommitSetsErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return deleteWithDependentSetsRe.MatchString(err.Error())
 }
 
 func ValidateSQLDatabaseEgress(sql *pfs.SQLDatabaseEgress) error {
