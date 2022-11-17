@@ -194,7 +194,7 @@ describe('components/TagsInput', () => {
     const input = getByTestId('TagsInput__input');
     input.focus();
 
-    paste(
+    await paste(
       'test1@test.com,test2@test.com test3@test.com, test4@test.com,,test5@test.com',
     );
     await type(input, '{enter}');
@@ -225,14 +225,14 @@ describe('components/TagsInput', () => {
     const input = getByTestId('TagsInput__input');
     input.focus();
 
-    paste('hello');
+    await paste('hello');
     await type(input, '{enter}');
 
     let clearButton = queryByText('Clear Tagsinput');
     expect(clearButton).not.toBeInTheDocument();
 
     input.focus();
-    paste('world');
+    await paste('world');
     await type(input, '{enter}');
 
     clearButton = queryByText('Clear Tagsinput');
@@ -244,7 +244,7 @@ describe('components/TagsInput', () => {
     const input = getByTestId('TagsInput__input');
     input.focus();
 
-    paste('hello,world');
+    await paste('hello,world');
     await type(input, '{enter}');
 
     const helloTag = getByText('hello');

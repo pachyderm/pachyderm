@@ -1,4 +1,4 @@
-import {mockServer, graphqlServer} from './testHelpers';
+import {mockServer, graphqlServer} from './src/testHelpers';
 
 beforeAll(async () => {
   const graphqlPort = await graphqlServer.start();

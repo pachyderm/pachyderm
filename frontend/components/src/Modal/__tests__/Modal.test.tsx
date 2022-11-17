@@ -33,7 +33,9 @@ const TestComponent = () => {
 
 const runTimers = () =>
   act(() => {
+    jest.useFakeTimers();
     jest.runAllTimers();
+    jest.useRealTimers();
   });
 
 describe('Modal', () => {

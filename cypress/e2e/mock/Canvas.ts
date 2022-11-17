@@ -10,9 +10,9 @@ describe('Download Canvas', () => {
     cy.findAllByTestId('DropdownButton__button').eq(1).click();
     cy.findByText('Download Canvas').click();
 
-    cy.task(
+    cy.waitUntil(() => cy.task(
       'readFileMaybe',
       `Solar\ Power\ Data\ Logger\ Team\ Collab.svg`,
-    ).should('have.string', 'Solar Power Data Logger Team Collab');
+    )).should('have.string', 'Solar Power Data Logger Team Collab');
   });
 });

@@ -6,7 +6,7 @@ import {Page} from '../';
 describe('Page', () => {
   it('should change the document title', async () => {
     render(<Page title="Hello Page" />);
-    jest.runAllTimers();
+
     await waitFor(() =>
       expect(document.title).toEqual('Hello Page - Pachyderm'),
     );

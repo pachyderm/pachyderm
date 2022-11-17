@@ -2,14 +2,14 @@ import {render} from '@testing-library/react';
 import React from 'react';
 import {BrowserRouter} from 'react-router-dom';
 
-import {withContextProviders, click} from '@dash-frontend/testHelpers';
+import {click} from '@dash-frontend/testHelpers';
 
 import {SupportSVG, DirectionsSVG} from '../../Svg';
 import SideNav from '../SideNav';
 
 describe('SideNav', () => {
   const renderTestBed = () => {
-    const TestBed = withContextProviders(() => (
+    const TestBed = () => (
       <BrowserRouter>
         <SideNav breakpoint={200}>
           <SideNav.SideNavList>
@@ -30,7 +30,7 @@ describe('SideNav', () => {
           </SideNav.SideNavList>
         </SideNav>
       </BrowserRouter>
-    ));
+    );
 
     return render(<TestBed />);
   };

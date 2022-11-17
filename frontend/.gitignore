@@ -33,6 +33,8 @@
 /cypress/screenshots
 /cypress/fixtures/example.json
 /.jestcache
+/components/.jestcache
+/src/.jestcache
 
 # production
 /build

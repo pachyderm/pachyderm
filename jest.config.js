@@ -1,22 +1,18 @@
 module.exports = {
   cacheDirectory: '.jestcache',
   clearMocks: true,
-  collectCoverageFrom: [
-    '<rootDir>/src/**/*.{js,jsx,ts,tsx}',
-  ],
+  collectCoverageFrom: ['<rootDir>/**/*.{js,jsx,ts,tsx}'],
   coverageReporters: ['text-summary', 'lcov', 'json'],
-  modulePaths: ['<rootDir>/src/'],
+  modulePaths: ['<rootDir>'],
   moduleDirectories: ['src', 'node_modules'],
-  roots: ['<rootDir>/src/'],
+  roots: ['<rootDir>'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
+  setupFilesAfterEnv: ['./setupTests.ts'],
   testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$',
   testTimeout: 20000,
-  timers: 'modern',
+  timers: 'real',
   transform: {
     '^.+\\.tsx?$': '@swc/jest',
   },
-  transformIgnorePatterns: [
-    "node_modules/(?!(@pachyderm/components)/)"
-  ],
+  testEnvironment: 'jsdom',
 };
