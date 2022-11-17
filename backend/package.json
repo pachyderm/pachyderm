@@ -4,7 +4,7 @@
   "private": true,
   "proxy": "http://localhost:3000",
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && cp -r ./src/proto/proto ./dist/proto/proto",
     "generate-types": "graphql-codegen",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
     "start": "NODE_PATH=dist/ NODE_ENV=production DOTENV_FLOW_PATH=../ node -r module-alias/register -r dotenv-flow/config dist/index.js",
@@ -12,8 +12,8 @@
     "start:test": "NODE_ENV=test DOTENV_FLOW_PATH=../ nodemon --watch ./src --ext ts -- --files -r dotenv-flow/config -r tsconfig-paths/register src/index.ts",
     "start:mock": "NODE_PATH=dist/ NODE_ENV=test DOTENV_FLOW_PATH=../ MOCK_AUTH_PORT=30658 MOCK_GRPC_PORT=30650 nodemon --watch ./src --ext ts -- --files -r dotenv-flow/config -r tsconfig-paths/register src/mock/index.ts",
     "mock-and-start": "npm run start:test & npm run start:mock",
-    "test": "NODE_ENV=test GRAPHQL_PORT=0 LOG_LEVEL=none dotenv-flow -p ../ -- jest \"^(.*\/)*(.*\\.)*(test)\\.ts$\" --max-workers=6",
-    "integration-test": "NODE_ENV=test dotenv-flow -p ../ -- jest \"^(.*\/)*(.*\\.)*(integration)\\.ts$\" --max-workers=1"
+    "test": "NODE_ENV=test GRAPHQL_PORT=0 LOG_LEVEL=none dotenv-flow -p ../ -- jest \"^(.*/)*(.*\\.)*(test)\\.ts$\" --max-workers=6",
+    "integration-test": "NODE_ENV=test dotenv-flow -p ../ -- jest \"^(.*/)*(.*\\.)*(integration)\\.ts$\" --max-workers=1"
   },
   "dependencies": {
     "@graphql-tools/schema": "9.0.4",

@@ -734,6 +734,11 @@ export class ListCommitRequest extends jspb.Message {
     getOriginKind(): OriginKind;
     setOriginKind(value: OriginKind): ListCommitRequest;
 
+    hasStartedTime(): boolean;
+    clearStartedTime(): void;
+    getStartedTime(): google_protobuf_timestamp_pb.Timestamp | undefined;
+    setStartedTime(value?: google_protobuf_timestamp_pb.Timestamp): ListCommitRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListCommitRequest.AsObject;
     static toObject(includeInstance: boolean, msg: ListCommitRequest): ListCommitRequest.AsObject;
@@ -753,6 +758,7 @@ export namespace ListCommitRequest {
         reverse: boolean,
         all: boolean,
         originKind: OriginKind,
+        startedTime?: google_protobuf_timestamp_pb.Timestamp.AsObject,
     }
 }
 
@@ -1214,6 +1220,11 @@ export class GetFileRequest extends jspb.Message {
     getOffset(): number;
     setOffset(value: number): GetFileRequest;
 
+    hasPathRange(): boolean;
+    clearPathRange(): void;
+    getPathRange(): PathRange | undefined;
+    setPathRange(value?: PathRange): GetFileRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetFileRequest.AsObject;
     static toObject(includeInstance: boolean, msg: GetFileRequest): GetFileRequest.AsObject;
@@ -1229,6 +1240,7 @@ export namespace GetFileRequest {
         file?: File.AsObject,
         url: string,
         offset: number,
+        pathRange?: PathRange.AsObject,
     }
 }
 
@@ -1262,6 +1274,15 @@ export class ListFileRequest extends jspb.Message {
     getFile(): File | undefined;
     setFile(value?: File): ListFileRequest;
 
+    hasPaginationmarker(): boolean;
+    clearPaginationmarker(): void;
+    getPaginationmarker(): File | undefined;
+    setPaginationmarker(value?: File): ListFileRequest;
+    getNumber(): number;
+    setNumber(value: number): ListFileRequest;
+    getReverse(): boolean;
+    setReverse(value: boolean): ListFileRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListFileRequest.AsObject;
     static toObject(includeInstance: boolean, msg: ListFileRequest): ListFileRequest.AsObject;
@@ -1275,6 +1296,9 @@ export class ListFileRequest extends jspb.Message {
 export namespace ListFileRequest {
     export type AsObject = {
         file?: File.AsObject,
+        paginationmarker?: File.AsObject,
+        number: number,
+        reverse: boolean,
     }
 }
 
@@ -1310,6 +1334,11 @@ export class GlobFileRequest extends jspb.Message {
     getPattern(): string;
     setPattern(value: string): GlobFileRequest;
 
+    hasPathRange(): boolean;
+    clearPathRange(): void;
+    getPathRange(): PathRange | undefined;
+    setPathRange(value?: PathRange): GlobFileRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GlobFileRequest.AsObject;
     static toObject(includeInstance: boolean, msg: GlobFileRequest): GlobFileRequest.AsObject;
@@ -1324,6 +1353,7 @@ export namespace GlobFileRequest {
     export type AsObject = {
         commit?: Commit.AsObject,
         pattern: string,
+        pathRange?: PathRange.AsObject,
     }
 }
 
@@ -1551,6 +1581,8 @@ export class ComposeFileSetRequest extends jspb.Message {
     addFileSetIds(value: string, index?: number): string;
     getTtlSeconds(): number;
     setTtlSeconds(value: number): ComposeFileSetRequest;
+    getCompact(): boolean;
+    setCompact(value: boolean): ComposeFileSetRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ComposeFileSetRequest.AsObject;
@@ -1566,6 +1598,72 @@ export namespace ComposeFileSetRequest {
     export type AsObject = {
         fileSetIdsList: Array<string>,
         ttlSeconds: number,
+        compact: boolean,
+    }
+}
+
+export class ShardFileSetRequest extends jspb.Message { 
+    getFileSetId(): string;
+    setFileSetId(value: string): ShardFileSetRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ShardFileSetRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ShardFileSetRequest): ShardFileSetRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ShardFileSetRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ShardFileSetRequest;
+    static deserializeBinaryFromReader(message: ShardFileSetRequest, reader: jspb.BinaryReader): ShardFileSetRequest;
+}
+
+export namespace ShardFileSetRequest {
+    export type AsObject = {
+        fileSetId: string,
+    }
+}
+
+export class PathRange extends jspb.Message { 
+    getLower(): string;
+    setLower(value: string): PathRange;
+    getUpper(): string;
+    setUpper(value: string): PathRange;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): PathRange.AsObject;
+    static toObject(includeInstance: boolean, msg: PathRange): PathRange.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: PathRange, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): PathRange;
+    static deserializeBinaryFromReader(message: PathRange, reader: jspb.BinaryReader): PathRange;
+}
+
+export namespace PathRange {
+    export type AsObject = {
+        lower: string,
+        upper: string,
+    }
+}
+
+export class ShardFileSetResponse extends jspb.Message { 
+    clearShardsList(): void;
+    getShardsList(): Array<PathRange>;
+    setShardsList(value: Array<PathRange>): ShardFileSetResponse;
+    addShards(value?: PathRange, index?: number): PathRange;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ShardFileSetResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: ShardFileSetResponse): ShardFileSetResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ShardFileSetResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ShardFileSetResponse;
+    static deserializeBinaryFromReader(message: ShardFileSetResponse, reader: jspb.BinaryReader): ShardFileSetResponse;
+}
+
+export namespace ShardFileSetResponse {
+    export type AsObject = {
+        shardsList: Array<PathRange.AsObject>,
     }
 }
 
@@ -1760,6 +1858,8 @@ export class RunLoadTestRequest extends jspb.Message {
     setBranch(value?: Branch): RunLoadTestRequest;
     getSeed(): number;
     setSeed(value: number): RunLoadTestRequest;
+    getStateId(): string;
+    setStateId(value: string): RunLoadTestRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RunLoadTestRequest.AsObject;
@@ -1776,6 +1876,7 @@ export namespace RunLoadTestRequest {
         spec: string,
         branch?: Branch.AsObject,
         seed: number,
+        stateId: string,
     }
 }
 
@@ -1796,6 +1897,8 @@ export class RunLoadTestResponse extends jspb.Message {
     clearDuration(): void;
     getDuration(): google_protobuf_duration_pb.Duration | undefined;
     setDuration(value?: google_protobuf_duration_pb.Duration): RunLoadTestResponse;
+    getStateId(): string;
+    setStateId(value: string): RunLoadTestResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RunLoadTestResponse.AsObject;
@@ -1814,6 +1917,7 @@ export namespace RunLoadTestResponse {
         seed: number,
         error: string,
         duration?: google_protobuf_duration_pb.Duration.AsObject,
+        stateId: string,
     }
 }
 

@@ -83,6 +83,8 @@ export class Transform extends jspb.Message {
     setWorkingDir(value: string): Transform;
     getDockerfile(): string;
     setDockerfile(value: string): Transform;
+    getMemoryVolume(): boolean;
+    setMemoryVolume(value: boolean): Transform;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Transform.AsObject;
@@ -110,6 +112,7 @@ export namespace Transform {
         user: string,
         workingDir: string,
         dockerfile: string,
+        memoryVolume: boolean,
     }
 }
 
@@ -1763,6 +1766,12 @@ export class ListDatumRequest extends jspb.Message {
     clearFilter(): void;
     getFilter(): ListDatumRequest.Filter | undefined;
     setFilter(value?: ListDatumRequest.Filter): ListDatumRequest;
+    getPaginationmarker(): string;
+    setPaginationmarker(value: string): ListDatumRequest;
+    getNumber(): number;
+    setNumber(value: number): ListDatumRequest;
+    getReverse(): boolean;
+    setReverse(value: boolean): ListDatumRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListDatumRequest.AsObject;
@@ -1779,6 +1788,9 @@ export namespace ListDatumRequest {
         job?: Job.AsObject,
         input?: Input.AsObject,
         filter?: ListDatumRequest.Filter.AsObject,
+        paginationmarker: string,
+        number: number,
+        reverse: boolean,
     }
 
 
@@ -2048,6 +2060,11 @@ export class ListPipelineRequest extends jspb.Message {
     getJqfilter(): string;
     setJqfilter(value: string): ListPipelineRequest;
 
+    hasCommitSet(): boolean;
+    clearCommitSet(): void;
+    getCommitSet(): pfs_pfs_pb.CommitSet | undefined;
+    setCommitSet(value?: pfs_pfs_pb.CommitSet): ListPipelineRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListPipelineRequest.AsObject;
     static toObject(includeInstance: boolean, msg: ListPipelineRequest): ListPipelineRequest.AsObject;
@@ -2064,6 +2081,7 @@ export namespace ListPipelineRequest {
         history: number,
         details: boolean,
         jqfilter: string,
+        commitSet?: pfs_pfs_pb.CommitSet.AsObject,
     }
 }
 
@@ -2386,6 +2404,8 @@ export class RunLoadTestRequest extends jspb.Message {
     setParallelism(value: number): RunLoadTestRequest;
     getPodPatch(): string;
     setPodPatch(value: string): RunLoadTestRequest;
+    getStateId(): string;
+    setStateId(value: string): RunLoadTestRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RunLoadTestRequest.AsObject;
@@ -2404,12 +2424,15 @@ export namespace RunLoadTestRequest {
         seed: number,
         parallelism: number,
         podPatch: string,
+        stateId: string,
     }
 }
 
 export class RunLoadTestResponse extends jspb.Message { 
     getError(): string;
     setError(value: string): RunLoadTestResponse;
+    getStateId(): string;
+    setStateId(value: string): RunLoadTestResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RunLoadTestResponse.AsObject;
@@ -2424,6 +2447,7 @@ export class RunLoadTestResponse extends jspb.Message {
 export namespace RunLoadTestResponse {
     export type AsObject = {
         error: string,
+        stateId: string,
     }
 }
 

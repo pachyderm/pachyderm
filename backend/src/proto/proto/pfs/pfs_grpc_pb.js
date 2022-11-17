@@ -551,6 +551,28 @@ function deserialize_pfs_v2_RunLoadTestResponse(buffer_arg) {
   return pfs_pfs_pb.RunLoadTestResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_v2_ShardFileSetRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.ShardFileSetRequest)) {
+    throw new Error('Expected argument of type pfs_v2.ShardFileSetRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_ShardFileSetRequest(buffer_arg) {
+  return pfs_pfs_pb.ShardFileSetRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_ShardFileSetResponse(arg) {
+  if (!(arg instanceof pfs_pfs_pb.ShardFileSetResponse)) {
+    throw new Error('Expected argument of type pfs_v2.ShardFileSetResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_ShardFileSetResponse(buffer_arg) {
+  return pfs_pfs_pb.ShardFileSetResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pfs_v2_SquashCommitSetRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.SquashCommitSetRequest)) {
     throw new Error('Expected argument of type pfs_v2.SquashCommitSetRequest');
@@ -1027,6 +1049,17 @@ composeFileSet: {
     requestDeserialize: deserialize_pfs_v2_ComposeFileSetRequest,
     responseSerialize: serialize_pfs_v2_CreateFileSetResponse,
     responseDeserialize: deserialize_pfs_v2_CreateFileSetResponse,
+  },
+  shardFileSet: {
+    path: '/pfs_v2.API/ShardFileSet',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.ShardFileSetRequest,
+    responseType: pfs_pfs_pb.ShardFileSetResponse,
+    requestSerialize: serialize_pfs_v2_ShardFileSetRequest,
+    requestDeserialize: deserialize_pfs_v2_ShardFileSetRequest,
+    responseSerialize: serialize_pfs_v2_ShardFileSetResponse,
+    responseDeserialize: deserialize_pfs_v2_ShardFileSetResponse,
   },
   // CheckStorage runs integrity checks for the storage layer.
 checkStorage: {

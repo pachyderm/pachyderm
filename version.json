@@ -1,5 +1,5 @@
 {
-  "proto": "2.3.9",
+  "proto": "2.4.0-24d4c16e306b2debab1aaaf0d7d42b1eed284fbd",
   "pachyderm": "2.4.0-24d4c16e306b2debab1aaaf0d7d42b1eed284fbd",
   "pachReleaseCommit": "24d4c16e306b2debab1aaaf0d7d42b1eed284fbd",
   "pachctl": "2.3.9",

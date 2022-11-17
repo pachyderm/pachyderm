@@ -50,6 +50,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     addFileSet: IAPIService_IAddFileSet;
     renewFileSet: IAPIService_IRenewFileSet;
     composeFileSet: IAPIService_IComposeFileSet;
+    shardFileSet: IAPIService_IShardFileSet;
     checkStorage: IAPIService_ICheckStorage;
     putCache: IAPIService_IPutCache;
     getCache: IAPIService_IGetCache;
@@ -366,6 +367,15 @@ interface IAPIService_IComposeFileSet extends grpc.MethodDefinition<pfs_pfs_pb.C
     responseSerialize: grpc.serialize<pfs_pfs_pb.CreateFileSetResponse>;
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.CreateFileSetResponse>;
 }
+interface IAPIService_IShardFileSet extends grpc.MethodDefinition<pfs_pfs_pb.ShardFileSetRequest, pfs_pfs_pb.ShardFileSetResponse> {
+    path: "/pfs_v2.API/ShardFileSet";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.ShardFileSetRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.ShardFileSetRequest>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.ShardFileSetResponse>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.ShardFileSetResponse>;
+}
 interface IAPIService_ICheckStorage extends grpc.MethodDefinition<pfs_pfs_pb.CheckStorageRequest, pfs_pfs_pb.CheckStorageResponse> {
     path: "/pfs_v2.API/CheckStorage";
     requestStream: false;
@@ -476,6 +486,7 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     addFileSet: grpc.handleUnaryCall<pfs_pfs_pb.AddFileSetRequest, google_protobuf_empty_pb.Empty>;
     renewFileSet: grpc.handleUnaryCall<pfs_pfs_pb.RenewFileSetRequest, google_protobuf_empty_pb.Empty>;
     composeFileSet: grpc.handleUnaryCall<pfs_pfs_pb.ComposeFileSetRequest, pfs_pfs_pb.CreateFileSetResponse>;
+    shardFileSet: grpc.handleUnaryCall<pfs_pfs_pb.ShardFileSetRequest, pfs_pfs_pb.ShardFileSetResponse>;
     checkStorage: grpc.handleUnaryCall<pfs_pfs_pb.CheckStorageRequest, pfs_pfs_pb.CheckStorageResponse>;
     putCache: grpc.handleUnaryCall<pfs_pfs_pb.PutCacheRequest, google_protobuf_empty_pb.Empty>;
     getCache: grpc.handleUnaryCall<pfs_pfs_pb.GetCacheRequest, pfs_pfs_pb.GetCacheResponse>;
@@ -578,6 +589,9 @@ export interface IAPIClient {
     composeFileSet(request: pfs_pfs_pb.ComposeFileSetRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
     composeFileSet(request: pfs_pfs_pb.ComposeFileSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
     composeFileSet(request: pfs_pfs_pb.ComposeFileSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
+    shardFileSet(request: pfs_pfs_pb.ShardFileSetRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ShardFileSetResponse) => void): grpc.ClientUnaryCall;
+    shardFileSet(request: pfs_pfs_pb.ShardFileSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ShardFileSetResponse) => void): grpc.ClientUnaryCall;
+    shardFileSet(request: pfs_pfs_pb.ShardFileSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ShardFileSetResponse) => void): grpc.ClientUnaryCall;
     checkStorage(request: pfs_pfs_pb.CheckStorageRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;
     checkStorage(request: pfs_pfs_pb.CheckStorageRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;
     checkStorage(request: pfs_pfs_pb.CheckStorageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;
@@ -696,6 +710,9 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public composeFileSet(request: pfs_pfs_pb.ComposeFileSetRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
     public composeFileSet(request: pfs_pfs_pb.ComposeFileSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
     public composeFileSet(request: pfs_pfs_pb.ComposeFileSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CreateFileSetResponse) => void): grpc.ClientUnaryCall;
+    public shardFileSet(request: pfs_pfs_pb.ShardFileSetRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ShardFileSetResponse) => void): grpc.ClientUnaryCall;
+    public shardFileSet(request: pfs_pfs_pb.ShardFileSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ShardFileSetResponse) => void): grpc.ClientUnaryCall;
+    public shardFileSet(request: pfs_pfs_pb.ShardFileSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ShardFileSetResponse) => void): grpc.ClientUnaryCall;
     public checkStorage(request: pfs_pfs_pb.CheckStorageRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;
     public checkStorage(request: pfs_pfs_pb.CheckStorageRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;
     public checkStorage(request: pfs_pfs_pb.CheckStorageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;

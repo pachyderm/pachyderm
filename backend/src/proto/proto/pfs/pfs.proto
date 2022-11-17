@@ -229,6 +229,7 @@ message ListCommitRequest {
   bool reverse = 5;  // Return commits oldest to newest
   bool all = 6; // Return commits of all kinds (without this, aliases are excluded)
   OriginKind origin_kind = 7; // Return only commits of this kind (mutually exclusive with all)
+  google.protobuf.Timestamp started_time = 8; // Return commits started before this time
 }
 
 message InspectCommitSetRequest {
@@ -331,6 +332,7 @@ message GetFileRequest {
   File file = 1;
   string URL = 2;
   int64 offset = 3;
+  PathRange path_range = 4;
 // TODO:
 //  int64 size_bytes = 3;
 }
@@ -347,6 +349,15 @@ message ListFileRequest {
   // If the "path" field is omitted, a list of files at the top level of the repo
   // is returned
   File file = 1;
+  // Marker for pagination. If set, the files that come after the marker in
+  // lexicographical order will be returned. If reverse is also set, the files
+  // that come before the marker in lexicographical order will be returned.
+  File paginationMarker = 3;
+  // Number of files to return
+  int64 number = 4;
+  // If true, return files in reverse order
+  bool reverse = 5;
+
 // TODO:
 //  // History indicates how many historical versions you want returned. Its
 //  // semantics are:
@@ -369,6 +380,7 @@ message WalkFileRequest {
 message GlobFileRequest {
   Commit commit = 1;
   string pattern = 2;
+  PathRange path_range = 3;
 }
 
 message DiffFileRequest {
@@ -419,6 +431,20 @@ message RenewFileSetRequest {
 message ComposeFileSetRequest {
   repeated string file_set_ids = 1;
   int64 ttl_seconds = 2;
+  bool compact = 3;
+}
+
+message ShardFileSetRequest {
+  string file_set_id = 1;
+}
+
+message PathRange {
+  string lower = 1;
+  string upper = 2;
+}
+
+message ShardFileSetResponse {
+  repeated PathRange shards = 1;
 }
 
 message CheckStorageRequest {
@@ -457,6 +483,7 @@ message RunLoadTestRequest {
   string spec = 1;
   Branch branch = 2;
   int64 seed = 3;
+  string state_id = 4;
 }
 
 message RunLoadTestResponse {
@@ -465,6 +492,7 @@ message RunLoadTestResponse {
   int64 seed = 3;
   string error = 4;
   google.protobuf.Duration duration = 5;
+  string state_id = 6;
 }
 
 message ObjectStorageEgress {
@@ -588,6 +616,7 @@ service API {
   rpc RenewFileSet(RenewFileSetRequest) returns (google.protobuf.Empty) {}
   // ComposeFileSet composes a file set from a list of file sets.
   rpc ComposeFileSet(ComposeFileSetRequest) returns (CreateFileSetResponse) {}
+  rpc ShardFileSet(ShardFileSetRequest) returns (ShardFileSetResponse) {}
   // CheckStorage runs integrity checks for the storage layer.
   rpc CheckStorage(CheckStorageRequest) returns (CheckStorageResponse) {}
   rpc PutCache(PutCacheRequest) returns (google.protobuf.Empty) {}
