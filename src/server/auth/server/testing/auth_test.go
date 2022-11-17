@@ -945,21 +945,21 @@ func TestListAndInspectRepo(t *testing.T) {
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo and makes Bob a writer
-	repoWriter := tu.UniqueString(t.Name())
+	repoWriter := tu.UniqueString("repoWriter")
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoWriter))
 	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoWriter, bob, []string{auth.RepoWriterRole}))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoWriter))
 
 	// alice creates a repo and makes Bob a reader
-	repoReader := tu.UniqueString(t.Name())
+	repoReader := tu.UniqueString("repoReader")
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoReader))
 	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoReader, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoReader))
 
 	// alice creates a repo and gives Bob no access privileges
-	repoNone := tu.UniqueString(t.Name())
+	repoNone := tu.UniqueString("repoNone")
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoNone))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoNone))
@@ -969,72 +969,80 @@ func TestListAndInspectRepo(t *testing.T) {
 	require.NoError(t, err)
 
 	// bob creates a repo
-	repoOwner := tu.UniqueString(t.Name())
+	repoOwner := tu.UniqueString("repoOwner")
 	require.NoError(t, bobClient.CreateProjectRepo(pfs.DefaultProjectName, repoOwner))
 	require.Equal(t, tu.BuildBindings(bob, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, bobClient, pfs.DefaultProjectName, repoOwner))
 
 	// Bob calls ListRepo, and the response must indicate the correct access scope
 	// for each repo (because other tests have run, we may see repos besides the
 	// above. Bob's access to those should be NONE
-	lrClient, err := bobClient.PfsAPIClient.ListRepo(bobClient.Ctx(),
-		&pfs.ListRepoRequest{})
+	lrClient, err := bobClient.PfsAPIClient.ListRepo(bobClient.Ctx(), &pfs.ListRepoRequest{})
 	require.NoError(t, err)
 	repoInfos, err := clientsdk.ListRepoInfo(lrClient)
 	require.NoError(t, err)
 	expectedPermissions := map[string][]auth.Permission{
-		repoOwner: []auth.Permission{
+		repoOwner: {
+			auth.Permission_PIPELINE_LIST_JOB,
+			auth.Permission_PROJECT_CREATE_REPO,
 			auth.Permission_PROJECT_CREATE,
-			auth.Permission_REPO_READ,
-			auth.Permission_REPO_WRITE,
-			auth.Permission_REPO_MODIFY_BINDINGS,
+			auth.Permission_PROJECT_LIST_REPO,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
+			auth.Permission_REPO_ADD_PIPELINE_WRITER,
+			auth.Permission_REPO_CREATE_BRANCH,
+			auth.Permission_REPO_DELETE_BRANCH,
+			auth.Permission_REPO_DELETE_COMMIT,
 			auth.Permission_REPO_DELETE,
 			auth.Permission_REPO_INSPECT_COMMIT,
-			auth.Permission_REPO_LIST_COMMIT,
-			auth.Permission_REPO_DELETE_COMMIT,
-			auth.Permission_REPO_CREATE_BRANCH,
-			auth.Permission_REPO_LIST_BRANCH,
-			auth.Permission_REPO_DELETE_BRANCH,
-			auth.Permission_REPO_LIST_FILE,
-			auth.Permission_REPO_ADD_PIPELINE_READER,
-			auth.Permission_REPO_REMOVE_PIPELINE_READER,
-			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 			auth.Permission_REPO_INSPECT_FILE,
-			auth.Permission_PIPELINE_LIST_JOB,
-		},
-		repoWriter: []auth.Permission{
-			auth.Permission_PROJECT_CREATE,
+			auth.Permission_REPO_LIST_BRANCH,
+			auth.Permission_REPO_LIST_COMMIT,
+			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_MODIFY_BINDINGS,
 			auth.Permission_REPO_READ,
+			auth.Permission_REPO_REMOVE_PIPELINE_READER,
 			auth.Permission_REPO_WRITE,
-			auth.Permission_REPO_INSPECT_COMMIT,
-			auth.Permission_REPO_LIST_COMMIT,
-			auth.Permission_REPO_DELETE_COMMIT,
-			auth.Permission_REPO_CREATE_BRANCH,
-			auth.Permission_REPO_LIST_BRANCH,
-			auth.Permission_REPO_DELETE_BRANCH,
-			auth.Permission_REPO_LIST_FILE,
-			auth.Permission_REPO_ADD_PIPELINE_READER,
-			auth.Permission_REPO_REMOVE_PIPELINE_READER,
-			auth.Permission_REPO_ADD_PIPELINE_WRITER,
-			auth.Permission_REPO_INSPECT_FILE,
-			auth.Permission_PIPELINE_LIST_JOB,
 		},
-		repoReader: []auth.Permission{
-			auth.Permission_PROJECT_CREATE,
-			auth.Permission_REPO_READ,
-			auth.Permission_REPO_INSPECT_COMMIT,
-			auth.Permission_REPO_LIST_COMMIT,
-			auth.Permission_REPO_LIST_BRANCH,
-			auth.Permission_REPO_LIST_FILE,
-			auth.Permission_REPO_ADD_PIPELINE_READER,
-			auth.Permission_REPO_REMOVE_PIPELINE_READER,
-			auth.Permission_REPO_INSPECT_FILE,
+		repoWriter: {
 			auth.Permission_PIPELINE_LIST_JOB,
+			auth.Permission_PROJECT_CREATE_REPO,
+			auth.Permission_PROJECT_CREATE,
+			auth.Permission_PROJECT_LIST_REPO,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
+			auth.Permission_REPO_ADD_PIPELINE_WRITER,
+			auth.Permission_REPO_CREATE_BRANCH,
+			auth.Permission_REPO_DELETE_BRANCH,
+			auth.Permission_REPO_DELETE_COMMIT,
+			auth.Permission_REPO_INSPECT_COMMIT,
+			auth.Permission_REPO_INSPECT_FILE,
+			auth.Permission_REPO_LIST_BRANCH,
+			auth.Permission_REPO_LIST_COMMIT,
+			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_READ,
+			auth.Permission_REPO_REMOVE_PIPELINE_READER,
+			auth.Permission_REPO_WRITE,
+		},
+		repoReader: {
+			auth.Permission_PIPELINE_LIST_JOB,
+			auth.Permission_PROJECT_CREATE_REPO,
+			auth.Permission_PROJECT_CREATE,
+			auth.Permission_PROJECT_LIST_REPO,
+			auth.Permission_REPO_ADD_PIPELINE_READER,
+			auth.Permission_REPO_INSPECT_COMMIT,
+			auth.Permission_REPO_INSPECT_FILE,
+			auth.Permission_REPO_LIST_BRANCH,
+			auth.Permission_REPO_LIST_COMMIT,
+			auth.Permission_REPO_LIST_FILE,
+			auth.Permission_REPO_READ,
+			auth.Permission_REPO_REMOVE_PIPELINE_READER,
 		},
 		repoNone: {
+			auth.Permission_PROJECT_CREATE_REPO,
 			auth.Permission_PROJECT_CREATE,
+			auth.Permission_PROJECT_LIST_REPO,
 		},
 	}
 	for _, info := range repoInfos {
+		fmt.Println("qqq", info.Repo.Name)
 		require.ElementsEqual(t, expectedPermissions[info.Repo.Name], info.AuthInfo.Permissions)
 	}
 
@@ -1107,11 +1115,12 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 
-	// bob calls ListRepo, but has NONE access to all repos
+	// PROJECT_CREATE comes from cluster level all users having projectCreator role
+	// PROJECT_LIST_REPO and PROJECT_CREATE_REPO comes from all users having projectWriter role for default project
 	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		require.ElementsEqual(t, info.AuthInfo.Permissions, []auth.Permission{auth.Permission_PROJECT_CREATE})
+		require.ElementsEqual(t, []auth.Permission{auth.Permission_PROJECT_CREATE, auth.Permission_PROJECT_LIST_REPO, auth.Permission_PROJECT_CREATE_REPO}, info.AuthInfo.Permissions)
 	}
 
 	// Deactivate auth
