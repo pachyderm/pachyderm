@@ -346,13 +346,8 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	require.True(t, strings.Contains(buf.String(), "."+ns))
 }
 
-func TestS3Output(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, userToken, ns := initPachClient(t)
-
-	repo := tu.UniqueString(t.Name() + "_data")
+func testS3Output(t *testing.T, c *client.APIClient, accessKeyID, secretAccessKey, ns string) {
+	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	masterCommit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
 
@@ -370,8 +365,8 @@ func TestS3Output(t *testing.T) {
 				"aws --endpoint=${S3_ENDPOINT} s3 ls | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/s3_buckets",
 			},
 			Env: map[string]string{
-				"AWS_ACCESS_KEY_ID":     userToken,
-				"AWS_SECRET_ACCESS_KEY": userToken,
+				"AWS_ACCESS_KEY_ID":     accessKeyID,
+				"AWS_SECRET_ACCESS_KEY": secretAccessKey,
 			},
 		},
 		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
@@ -428,6 +423,23 @@ func TestS3Output(t *testing.T) {
 			}
 		}
 		return nil
+	})
+}
+
+func TestS3Output(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, userToken, ns := initPachClient(t)
+	if userToken == "" {
+		userToken = "abc123"
+	}
+	t.Run("ProjectUnaware", func(t *testing.T) {
+		testS3Output(t, c, userToken, userToken, ns)
+	})
+	t.Run("ProjectAware", func(t *testing.T) {
+		accessKeyID := "PAC1" + userToken
+		testS3Output(t, c, accessKeyID, userToken, ns)
 	})
 }
 
