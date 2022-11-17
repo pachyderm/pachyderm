@@ -26,9 +26,9 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
@@ -1184,29 +1184,18 @@ func (m *MountStateMachine) RefreshMountState() error {
 	if err != nil {
 		return err
 	}
-
-	// set the latest commit on the branch in our LatestCommit
-	m.LatestCommit = branchInfo.Head.ID
-
-	// calculate how many commits behind LatestCommit ActualMountedCommit is
-	listClient, err := m.manager.Client.PfsAPIClient.ListCommit(m.manager.Client.Ctx(), &pfs.ListCommitRequest{
-		Repo: branchInfo.Branch.Repo,
-		To:   branchInfo.Head,
-		All:  true,
-	})
-	if err != nil {
-		return grpcutil.ScrubGRPC(err)
-	}
-	commitInfos, err := clientsdk.ListCommit(listClient)
+	commitInfos, err := m.manager.Client.ListCommit(branchInfo.Branch.Repo, branchInfo.Head, nil, 0)
 	if err != nil {
 		return err
 	}
+	m.LatestCommit = commitInfos[0].Commit.ID
+
 	// reverse slice
 	for i, j := 0, len(commitInfos)-1; i < j; i, j = i+1, j-1 {
 		commitInfos[i], commitInfos[j] = commitInfos[j], commitInfos[i]
 	}
 
-	// iterate over commits in branch, counting how many are behind LatestCommit
+	// iterate over non-alias commits in branch, calculating how many commits behind LatestCommit ActualMountedCommit is
 	logrus.Infof("mount: %s", m.Name)
 	indexOfCurrentCommit := -1
 	for i, commitInfo := range commitInfos {
@@ -1395,7 +1384,8 @@ func mountingState(m *MountStateMachine) StateFn {
 	// _in all cases_
 	m.transitionedTo("mounting", "")
 	// TODO: refactor this so we're not reaching into another struct's lock
-	func() {
+	var err error;
+	err = func() error {
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.Name] = &RepoOptions{
@@ -1405,10 +1395,29 @@ func mountingState(m *MountStateMachine) StateFn {
 			Write:    m.Mode == "rw",
 		}
 		m.manager.root.branches[m.Name] = m.Branch
-	}()
+
+		// Get the latest non-alias commit on branch
+		// TODO: notebooks support
+		branchInfo, err := m.manager.Client.InspectProjectBranch(pfs.DefaultProjectName, m.Repo, m.Branch)
+		if errutil.IsNotFoundError(err) {
+			m.manager.root.commits[m.Name] = ""
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		commitInfos, err := m.manager.Client.ListCommit(branchInfo.Branch.Repo, branchInfo.Head, nil, 1)
+		if err != nil {
+			return err
+		}
+		m.manager.root.commits[m.Name] = commitInfos[0].Commit.ID
+		return nil
+	}();
 	// re-downloading the repos with an updated RepoOptions set will have the
 	// effect of causing it to pop into existence
-	err := m.manager.root.mkdirMountNames()
+	if err == nil {
+		err = m.manager.root.mkdirMountNames()
+	}
 	m.responses <- Response{
 		MountState: m.MountState,
 		Error:      err,

@@ -154,3 +154,25 @@ func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver
 
 	require.NoError(t, server.Shutdown(context.Background()))
 }
+
+func projectTestRunner(t *testing.T, pachClient *client.APIClient, group string, driver s3.Driver, runner func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client)) {
+	router := s3.Router(driver, func(_ctx context.Context) *client.APIClient {
+		return pachClient.WithCtx(context.Background())
+	})
+	server := s3.Server(0, router)
+	listener, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
+
+	go server.Serve(listener) //nolint:errcheck
+
+	port := listener.Addr().(*net.TCPAddr).Port
+
+	minioClient, err := minio.NewV4(fmt.Sprintf("127.0.0.1:%d", port), "PAC11234", "1234", false)
+	require.NoError(t, err)
+
+	t.Run(group, func(t *testing.T) {
+		runner(t, pachClient, minioClient)
+	})
+
+	require.NoError(t, server.Shutdown(context.Background()))
+}
