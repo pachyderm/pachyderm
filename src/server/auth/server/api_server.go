@@ -652,7 +652,7 @@ func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txncontext.Transact
 	if resource.Type == auth.ResourceType_SPEC_REPO {
 		if err := request.evaluateRoleBinding(txnCtx, &auth.RoleBinding{
 			Entries: map[string]*auth.Roles{
-				auth.AllClusterUsersSubject: &auth.Roles{
+				auth.AllClusterUsersSubject: {
 					Roles: map[string]bool{
 						auth.RepoReaderRole: true,
 					},
@@ -687,8 +687,31 @@ func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txncontext.Transact
 		return request, nil
 	}
 
-	// Get the role bindings for the resource to check
+	// if resource is a repo, then we should check project level permissions as well
 	var roleBinding auth.RoleBinding
+	if resource.Type == auth.ResourceType_REPO {
+		repo, err := authRepoResourceToRepo(resource)
+		if err != nil {
+			return nil, err
+		}
+		projectKey := authdb.ResourceKey(&auth.Resource{Type: auth.ResourceType_PROJECT, Name: repo.Project.Name})
+		if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(projectKey, &roleBinding); err != nil {
+			if col.IsErrNotFound(err) {
+				return nil, &auth.ErrNoRoleBinding{
+					Resource: *resource,
+				}
+			}
+			return nil, errors.Wrapf(err, "error getting role bindings for %s", repo.Project)
+		}
+		if err := request.evaluateRoleBinding(txnCtx, &roleBinding); err != nil {
+			return nil, err
+		}
+		if request.isSatisfied() {
+			return request, nil
+		}
+	}
+
+	// Get the role bindings for the resource to check
 	if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(authdb.ResourceKey(resource), &roleBinding); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, &auth.ErrNoRoleBinding{
@@ -703,8 +726,7 @@ func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txncontext.Transact
 	return request, nil
 }
 
-// AuthorizeInTransaction is identical to Authorize except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
+// AuthorizeInTransaction is identical to Authorize except that it can run in a `pachsql.Tx`.
 func (a *apiServer) AuthorizeInTransaction(
 	txnCtx *txncontext.TransactionContext,
 	req *auth.AuthorizeRequest,
@@ -991,22 +1013,19 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 
 	// ModifyRoleBinding can be called for any type of resource,
 	// and the permission required depends on the type of resource.
+	var permission auth.Permission
 	switch req.Resource.Type {
 	case auth.ResourceType_CLUSTER:
-		if err := a.CheckClusterIsAuthorizedInTransaction(txnCtx, auth.Permission_CLUSTER_MODIFY_BINDINGS); err != nil {
-			return nil, err
-		}
+		permission = auth.Permission_CLUSTER_MODIFY_BINDINGS
+	case auth.ResourceType_PROJECT:
+		permission = auth.Permission_PROJECT_MODIFY_BINDINGS
 	case auth.ResourceType_REPO:
-		// FIXME: seems kind of broken to destructure here
-		parts := strings.Split(req.Resource.Name, "/")
-		if len(parts) != 2 {
-			return nil, errors.Errorf("invalid resource name %s", req.Resource.Name)
-		}
-		if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: parts[0]}, Name: parts[1]}, auth.Permission_REPO_MODIFY_BINDINGS); err != nil {
-			return nil, err
-		}
+		permission = auth.Permission_REPO_MODIFY_BINDINGS
 	default:
 		return nil, errors.Errorf("unknown resource type %v", req.Resource.Type)
+	}
+	if err := a.checkResourceIsAuthorizedInTransaction(txnCtx, req.Resource, permission); err != nil {
+		return nil, err
 	}
 
 	if err := a.setUserRoleBindingInTransaction(txnCtx, req.Resource, req.Principal, req.Roles); err != nil {
@@ -1723,4 +1742,15 @@ func (a *apiServer) deleteAuthTokensForSubjectInTransaction(tx *pachsql.Tx, subj
 		return errors.Wrapf(err, "error deleting all auth tokens")
 	}
 	return nil
+}
+
+func authRepoResourceToRepo(resource *auth.Resource) (*pfs.Repo, error) {
+	if resource.Type != auth.ResourceType_REPO {
+		return nil, errors.Errorf("%v is not a repo", resource)
+	}
+	parts := strings.Split(resource.Name, "/")
+	if len(parts) != 2 {
+		return nil, errors.Errorf("invalid resource name %s", resource.Name)
+	}
+	return &pfs.Repo{Project: &pfs.Project{Name: parts[0]}, Name: parts[1]}, nil
 }

@@ -467,14 +467,22 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
-	repoWriter := tu.UniqueString("TestListRepoAdminIsOwnerOfAllRepos")
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoWriter))
+	project := tu.UniqueString("project")
+	require.NoError(t, aliceClient.CreateProject(project))
+	repo := tu.UniqueString("repo")
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, aliceClient.CreateProjectRepo(project, repo))
 
-	// bob calls ListRepo, but has NONE access to all repos
+	// PROJECT_CREATE comes from cluster level all users having projectCreator role
+	// PROJECT_LIST_REPO and PROJECT_CREATE_REPO comes from all users having projectWriter role for default project
 	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		require.ElementsEqual(t, info.AuthInfo.Permissions, []auth.Permission{auth.Permission_PROJECT_CREATE})
+		if info.Repo.Project.Name == pfs.DefaultProjectName {
+			require.ElementsEqual(t, []auth.Permission{auth.Permission_PROJECT_CREATE, auth.Permission_PROJECT_LIST_REPO, auth.Permission_PROJECT_CREATE_REPO}, info.AuthInfo.Permissions)
+		} else {
+			require.ElementsEqual(t, []auth.Permission{auth.Permission_PROJECT_CREATE}, info.AuthInfo.Permissions)
+		}
 	}
 
 	// admin calls ListRepo, and has OWNER access to all repos
