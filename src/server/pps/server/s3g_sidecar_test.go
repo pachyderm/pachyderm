@@ -541,27 +541,21 @@ func TestFullS3(t *testing.T) {
 	})
 }
 
-func TestS3SkippedDatums(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	name := t.Name()
-
-	c, userToken, ns := initPachClient(t)
-
+// repoBucket returns the bucket name for a repo.
+func testS3SkippedDatums(t *testing.T, c *client.APIClient, accessKeyID, secretAccessKey, ns string, repoBucket func(project, repo string) string) {
 	t.Run("S3Inputs", func(t *testing.T) {
 		// TODO(2.0 optional): Duplicate file paths from different datums no longer allowed.
 		t.Skip("Duplicate file paths from different datums no longer allowed.")
-		s3in := tu.UniqueString(name + "_s3_data")
+		s3in := tu.UniqueString("s3_data")
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, s3in))
-		pfsin := tu.UniqueString(name + "_pfs_data")
+		pfsin := tu.UniqueString("pfs_data")
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, pfsin))
 
 		s3Commit := client.NewProjectCommit(pfs.DefaultProjectName, s3in, "master", "")
 		// Pipelines with S3 inputs should still skip datums, as long as the S3 input
 		// hasn't changed. We'll check this by reading from a repo that isn't a
 		// pipeline input
-		background := tu.UniqueString(name + "_bg_data")
+		background := tu.UniqueString("bg_data")
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, background))
 
 		require.NoError(t, c.PutFile(s3Commit, "file", strings.NewReader("foo")))
@@ -578,15 +572,15 @@ func TestS3SkippedDatums(t *testing.T) {
 						// access background repo via regular s3g (not S3_ENDPOINT, which
 						// can only access inputs)
 						"aws --endpoint=http://pachd.%s:30600 s3 cp s3://master.%s/round /tmp/bg",
-						ns, background,
+						ns, repoBucket(pfs.DefaultProjectName, background),
 					),
 					"aws --endpoint=${S3_ENDPOINT} s3 cp s3://s3g_in/file /tmp/s3in",
 					"cat /pfs/pfs_in/* >/tmp/pfsin",
 					"echo \"$(cat /tmp/bg) $(cat /tmp/pfsin) $(cat /tmp/s3in)\" >/pfs/out/out",
 				},
 				Env: map[string]string{
-					"AWS_ACCESS_KEY_ID":     userToken,
-					"AWS_SECRET_ACCESS_KEY": userToken,
+					"AWS_ACCESS_KEY_ID":     accessKeyID,
+					"AWS_SECRET_ACCESS_KEY": secretAccessKey,
 				},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
@@ -719,12 +713,12 @@ func TestS3SkippedDatums(t *testing.T) {
 	})
 
 	t.Run("S3Output", func(t *testing.T) {
-		repo := tu.UniqueString(name + "_pfs_data")
+		repo := tu.UniqueString("pfs_data")
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
 		// Pipelines with S3 output should not skip datums, as they have no way of
 		// tracking which output data should be associated with which input data.
 		// We'll check this by reading from a repo that isn't a pipeline input
-		background := tu.UniqueString(name + "_bg_data")
+		background := tu.UniqueString("bg_data")
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, background))
 
 		pipeline := tu.UniqueString("Pipeline")
@@ -739,7 +733,7 @@ func TestS3SkippedDatums(t *testing.T) {
 						// can only access inputs)
 						// NOTE: in tests the S3G port is assigned dynamically in src/internal/minikubetestenv/deploy.go
 						"aws --endpoint=http://pachd.%s:%v s3 cp s3://master.%s/round /tmp/bg",
-						ns, c.GetAddress().Port+3, background,
+						ns, c.GetAddress().Port+3, repoBucket(pfs.DefaultProjectName, background),
 					),
 					"cat /pfs/in/* >/tmp/pfsin",
 					// Write the "background" value to a new file in every datum. As
@@ -753,8 +747,8 @@ func TestS3SkippedDatums(t *testing.T) {
 					"aws --endpoint=${S3_ENDPOINT} s3 cp /tmp/bg s3://out/bg/\"$(cat /tmp/bg)\"",
 				},
 				Env: map[string]string{
-					"AWS_ACCESS_KEY_ID":     userToken,
-					"AWS_SECRET_ACCESS_KEY": userToken,
+					"AWS_ACCESS_KEY_ID":     accessKeyID,
+					"AWS_SECRET_ACCESS_KEY": secretAccessKey,
 				},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
@@ -818,5 +812,22 @@ func TestS3SkippedDatums(t *testing.T) {
 			require.Equal(t, 1, len(fis))
 
 		}
+	})
+}
+
+func TestS3SkippedDatums(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, userToken, ns := initPachClient(t)
+	if userToken == "" {
+		userToken = "abc123"
+	}
+	t.Run("ProjectUnaware", func(t *testing.T) {
+		testS3SkippedDatums(t, c, userToken, userToken, ns, func(p, r string) string { return r })
+	})
+	t.Run("ProjectAware", func(t *testing.T) {
+		accessKeyID := "PAC1" + userToken
+		testS3SkippedDatums(t, c, accessKeyID, userToken, ns, func(p, r string) string { return r + "." + p })
 	})
 }
