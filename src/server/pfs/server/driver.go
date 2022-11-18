@@ -1361,16 +1361,21 @@ func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {
 
 func (d *driver) fillNewBranches(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, provenance []*pfs.Branch) error {
 	repoBranches := map[*pfs.Repo][]*pfs.Branch{branch.Repo: {branch}}
+	newRepoCommits := make(map[string]*pfs.Commit)
 	for _, p := range provenance {
 		branchInfo := &pfs.BranchInfo{}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Upsert(p, branchInfo, func() error {
 			if branchInfo.Branch == nil {
 				branchInfo.Branch = p
-				// We are creating this branch for the first time, set the Branch and Head
-				// TODO can we fix this up?
-				head, err := d.makeEmptyCommit(txnCtx, branchInfo.Branch, nil, nil)
-				if err != nil {
-					return err
+				var head *pfs.Commit
+				var ok bool
+				if head, ok = newRepoCommits[pfsdb.RepoKey(branchInfo.Branch.Repo)]; !ok {
+					var err error
+					head, err = d.makeEmptyCommit(txnCtx, branchInfo.Branch, nil, nil)
+					if err != nil {
+						return err
+					}
+					newRepoCommits[pfsdb.RepoKey(branchInfo.Branch.Repo)] = head
 				}
 				branchInfo.Head = head
 				if branches, ok := repoBranches[p.Repo]; ok {
