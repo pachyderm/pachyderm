@@ -137,9 +137,13 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 }
 
 // ListRepo implements the protobuf pfs.ListRepo RPC
-// TODO make ListRepo project-aware
 func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) (retErr error) {
-	return a.driver.listRepo(srv.Context(), true, request.Type, srv.Send)
+	projectsFilter := make(map[string]bool)
+	for _, project := range request.Projects {
+		projectsFilter[project] = true
+	}
+
+	return a.driver.listRepo(srv.Context(), true, request.Type, projectsFilter, srv.Send)
 }
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
@@ -708,7 +712,8 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	}
 	if request.GetZombieAll() {
 		// list meta repos as a proxy for finding pipelines
-		return a.driver.listRepo(ctx, false, pfs.MetaRepoType, func(info *pfs.RepoInfo) error {
+		// TODO projectsFilter
+		return a.driver.listRepo(ctx, false, pfs.MetaRepoType, nil, func(info *pfs.RepoInfo) error {
 			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
 			output := client.NewProjectCommit(info.Repo.Project.GetName(), info.Repo.Name, "master", "")
 			for output != nil {

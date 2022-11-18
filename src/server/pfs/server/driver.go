@@ -255,9 +255,7 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 }
 
 func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Permission, []string, error) {
-	resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{
-		Resource: repo.AuthResource(),
-	})
+	resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: repo.AuthResource()})
 	if err != nil {
 		return nil, nil, errors.EnsureStack(err)
 	}
@@ -265,36 +263,55 @@ func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Per
 	return resp.Permissions, resp.Roles, nil
 }
 
-func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string, cb func(*pfs.RepoInfo) error) error {
-	authSeemsActive := true
+func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string, projectsFilter map[string]bool, cb func(*pfs.RepoInfo) error) error {
+	authIsActive := true
 	repoInfo := &pfs.RepoInfo{}
 
 	processFunc := func(string) error {
+		if len(projectsFilter) > 0 && !projectsFilter[repoInfo.Repo.Project.Name] {
+			return nil
+		}
 		size, err := d.repoSize(ctx, repoInfo.Repo)
 		if err != nil {
 			return err
 		}
 		repoInfo.SizeBytesUpperBound = size
-		if includeAuth && authSeemsActive {
+
+		if !authIsActive {
+			return cb(proto.Clone(repoInfo).(*pfs.RepoInfo))
+		}
+
+		// Check if the user can list repo within the project, otherwise check if they can read the repo.
+		// TODO cache the project check
+		if err := d.env.AuthServer.CheckProjectIsAuthorized(ctx, repoInfo.Repo.Project, auth.Permission_PROJECT_LIST_REPO); err != nil {
+			if errors.Is(err, auth.ErrNotActivated) {
+				authIsActive = false
+				return cb(proto.Clone(repoInfo).(*pfs.RepoInfo))
+			} else if errors.As(err, &auth.ErrNotAuthorized{}) {
+				if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, repoInfo.Repo, auth.Permission_REPO_READ); err != nil {
+					if errors.As(err, &auth.ErrNotAuthorized{}) {
+						return nil
+					}
+					return errors.Wrap(err, "could not check user is authorized to access repo")
+				}
+			}
+			return errors.Wrap(err, "could not check user is authorized to access project")
+		}
+		if includeAuth {
 			permissions, roles, err := d.getPermissions(ctx, repoInfo.Repo)
-			if err == nil {
-				repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions, Roles: roles}
-			} else if auth.IsErrNotActivated(err) {
-				authSeemsActive = false
-			} else {
+			if err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for %q", repoInfo.Repo)
 			}
+			repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions, Roles: roles}
 		}
 		return cb(proto.Clone(repoInfo).(*pfs.RepoInfo))
 	}
 
 	if repoType == "" {
 		// blank type means return all
-		return errors.EnsureStack(d.repos.ReadOnly(ctx).List(repoInfo, col.DefaultOptions(), processFunc))
-	} else {
-		err := d.repos.ReadOnly(ctx).GetByIndex(pfsdb.ReposTypeIndex, repoType, repoInfo, col.DefaultOptions(), processFunc)
-		return errors.EnsureStack(err)
+		return errors.Wrap(d.repos.ReadOnly(ctx).List(repoInfo, col.DefaultOptions(), processFunc), "could not list repos of all types")
 	}
+	return errors.Wrap(d.repos.ReadOnly(ctx).GetByIndex(pfsdb.ReposTypeIndex, repoType, repoInfo, col.DefaultOptions(), processFunc), "could not to list repos")
 }
 
 func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContext, repos []pfs.RepoInfo, force bool) error {
@@ -2110,7 +2127,8 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 
 func (d *driver) deleteAll(ctx context.Context) error {
 	var repoInfos []*pfs.RepoInfo
-	if err := d.listRepo(ctx, !includeAuth, "", func(repoInfo *pfs.RepoInfo) error {
+	// TODO projectsFilter is nil
+	if err := d.listRepo(ctx, !includeAuth, "", nil, func(repoInfo *pfs.RepoInfo) error {
 		repoInfos = append(repoInfos, repoInfo)
 		return nil
 	}); err != nil {
