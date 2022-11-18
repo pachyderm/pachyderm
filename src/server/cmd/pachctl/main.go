@@ -18,7 +18,11 @@ func main() {
 	tracing.InstallJaegerTracerFromEnv()
 	err := func() error {
 		defer tracing.CloseAndReportTraces()
-		return errors.EnsureStack(cmd.PachctlCmd().Execute())
+		pachctl, err := cmd.PachctlCmd()
+		if err != nil {
+			return errors.Wrap(err, "could not create pachctl command")
+		}
+		return errors.EnsureStack(pachctl.Execute())
 	}()
 	if err != nil {
 		if errString := strings.TrimSpace(err.Error()); errString != "" {
