@@ -225,6 +225,7 @@ enum Permission {
   PROJECT_DELETE = 401;
   PROJECT_LIST_REPO = 402;
   PROJECT_CREATE_REPO = 403;
+  PROJECT_MODIFY_BINDINGS = 404;
 }
 
 // ResourceType represents the type of a Resource
