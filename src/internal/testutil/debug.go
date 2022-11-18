@@ -7,6 +7,7 @@ import (
 	globlib "github.com/pachyderm/ohmyglob"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 func DebugFiles(t testing.TB, dataRepo string) (map[string]*globlib.Glob, []string) {
@@ -20,7 +21,7 @@ func DebugFiles(t testing.TB, dataRepo string) (map[string]*globlib.Glob, []stri
 	}
 	// Record glob patterns for expected source repo files.
 	for _, file := range []string{"commits.json", "commits-chart**"} {
-		pattern := path.Join("source-repos", dataRepo, file)
+		pattern := path.Join("source-repos", pfs.DefaultProjectName, dataRepo, file)
 		g, err := globlib.Compile(pattern, '/')
 		require.NoError(t, err)
 		expectedFiles[pattern] = g
@@ -30,20 +31,20 @@ func DebugFiles(t testing.TB, dataRepo string) (map[string]*globlib.Glob, []stri
 		pipeline := UniqueString("TestDebug")
 		pipelines = append(pipelines, pipeline)
 		// Record glob patterns for expected pipeline files.
-		pattern := path.Join("pipelines", pipeline, "pods", "*", "describe.txt")
+		pattern := path.Join("pipelines", pfs.DefaultProjectName, pipeline, "pods", "*", "describe.txt")
 		g, err := globlib.Compile(pattern, '/')
 		require.NoError(t, err)
 		expectedFiles[pattern] = g
 		for _, container := range []string{"user", "storage"} {
 			for _, file := range []string{"logs.txt", "logs-previous**", "logs-loki.txt", "goroutine", "heap"} {
-				pattern := path.Join("pipelines", pipeline, "pods", "*", container, file)
+				pattern := path.Join("pipelines", pfs.DefaultProjectName, pipeline, "pods", "*", container, file)
 				g, err := globlib.Compile(pattern, '/')
 				require.NoError(t, err)
 				expectedFiles[pattern] = g
 			}
 		}
 		for _, file := range []string{"spec.json", "commits.json", "jobs.json", "commits-chart**", "jobs-chart**"} {
-			pattern := path.Join("pipelines", pipeline, file)
+			pattern := path.Join("pipelines", pfs.DefaultProjectName, pipeline, file)
 			g, err := globlib.Compile(pattern, '/')
 			require.NoError(t, err)
 			expectedFiles[pattern] = g
