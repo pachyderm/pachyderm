@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -26,7 +27,11 @@ func do(ctx context.Context, appEnvObj interface{}) error {
 		path = os.Args[1]
 	}
 
-	rootCmd := cmd.PachctlCmd()
+	rootCmd, err := cmd.PachctlCmd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "could not generate pachctl command: %v\n", err)
+		os.Exit(1)
+	}
 	rootCmd.DisableAutoGenTag = true
 	return errors.EnsureStack(doc.GenMarkdownTree(rootCmd, path))
 }

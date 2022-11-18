@@ -317,12 +317,21 @@ func newClient(enterprise bool, options ...client.Option) (*client.APIClient, er
 
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
 // interact with them (it implements the pachctl binary).
-func PachctlCmd() *cobra.Command {
+func PachctlCmd() (*cobra.Command, error) {
 	var verbose bool
 
 	var raw bool
 	var output string
 	outputFlags := cmdutil.OutputFlags(&raw, &output)
+
+	cfg, err := config.Read(false, true)
+	if err != nil {
+		return nil, err
+	}
+	_, pachCtx, err := cfg.ActiveContext(true)
+	if err != nil {
+		return nil, err
+	}
 
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
@@ -847,8 +856,8 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(drawDocs, "draw"))
 
-	subcommands = append(subcommands, pfscmds.Cmds()...)
-	subcommands = append(subcommands, ppscmds.Cmds()...)
+	subcommands = append(subcommands, pfscmds.Cmds(pachCtx)...)
+	subcommands = append(subcommands, ppscmds.Cmds(pachCtx)...)
 	subcommands = append(subcommands, authcmds.Cmds()...)
 	subcommands = append(subcommands, enterprisecmds.Cmds()...)
 	subcommands = append(subcommands, licensecmds.Cmds()...)
@@ -863,7 +872,7 @@ This resets the cluster to its initial state.`,
 
 	applyRootUsageFunc(rootCmd)
 
-	return rootCmd
+	return rootCmd, nil
 }
 
 func printVersionHeader(w io.Writer) {
