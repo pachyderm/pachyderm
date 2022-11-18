@@ -60,40 +60,41 @@ func createPipelines(pachClient *client.APIClient, spec string, parallelism int6
 			continue
 		}
 		split := strings.Split(pipelineStr, ":")
-		repoName := strings.TrimSpace(split[0]) + namespace
+		projectName, repoName := parseRepoName(split[0], namespace)
 		// Create source repos.
 		if strings.TrimSpace(split[1]) == "" {
-			if err := pachClient.CreateProjectRepo(pfs.DefaultProjectName, repoName); err != nil {
+			if err := pachClient.CreateProjectRepo(projectName, repoName); err != nil {
 				return nil, err
 			}
 			// First source repo will be the target of the PFS load test.
 			if retBranch == nil {
-				retBranch = client.NewProjectBranch(pfs.DefaultProjectName, repoName, "master")
+				retBranch = client.NewProjectBranch(projectName, repoName, "master")
 			}
-			continue
-		}
-		// Create pipelines.
-		inputs := strings.Split(split[1], ",")
-		for i := range inputs {
-			inputs[i] = strings.TrimSpace(inputs[i]) + namespace
-		}
-		// TODO(CORE-1063): plumb through project somehow
-		repo := &pfs.Repo{Project: &pfs.Project{Name: pfs.DefaultProjectName}, Name: repoName}
-		if err := createPipeline(pachClient, repo, inputs, parallelism, podPatch); err != nil {
-			return nil, err
+		} else {
+			// Create pipelines.
+			inputs := strings.Split(split[1], ",")
+			var repoInputs = make([]*pfs.Repo, 0)
+			for _, input := range inputs {
+				inputProjectName, inputRepoName := parseRepoName(input, namespace)
+				repoInputs = append(repoInputs, &pfs.Repo{Project: &pfs.Project{Name: inputProjectName}, Name: inputRepoName})
+			}
+			repo := &pfs.Repo{Project: &pfs.Project{Name: projectName}, Name: repoName}
+			if err := createPipeline(pachClient, repo, repoInputs, parallelism, podPatch); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return retBranch, nil
 }
 
-func createPipeline(pachClient *client.APIClient, repo *pfs.Repo, inputRepos []string, parallelism int64, podPatch string) error {
+func createPipeline(pachClient *client.APIClient, repo *pfs.Repo, inputRepos []*pfs.Repo, parallelism int64, podPatch string) error {
 	var inputs []*pps.Input
 	for i, inputRepo := range inputRepos {
 		inputs = append(inputs, &pps.Input{
 			Pfs: &pps.PFSInput{
 				Name:      fmt.Sprint("input-", i),
-				Project:   pfs.DefaultProjectName,
-				Repo:      inputRepo,
+				Project:   inputRepo.GetProject().GetName(),
+				Repo:      inputRepo.GetName(),
 				Branch:    "master",
 				Glob:      "/(*)",
 				JoinOn:    "$1",
@@ -115,6 +116,18 @@ func createPipeline(pachClient *client.APIClient, repo *pfs.Repo, inputRepos []s
 		},
 	)
 	return errors.EnsureStack(err)
+}
+
+func parseRepoName(projectRepoName string, namespace string) (projectName string, repoName string) {
+	if strings.Count(projectRepoName, "/") == 1 {
+		nameSplit := strings.Split(projectRepoName, "/")
+		projectName = strings.TrimSpace(nameSplit[0])
+		repoName = strings.TrimSpace(nameSplit[1]) + namespace
+	} else {
+		projectName = pfs.DefaultProjectName
+		repoName = strings.TrimSpace(projectRepoName) + namespace
+	}
+	return projectName, repoName
 }
 
 const stateFileName = "state"

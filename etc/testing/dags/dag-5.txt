@@ -1,0 +1,5 @@
+project-1/source:
+project-2/source:
+project-1/pipeline-1: project-1/source
+project-2/pipeline-2: project-2/source
+project-3/pipeline-3: project-1/pipeline-1, project-2/pipeline-2
