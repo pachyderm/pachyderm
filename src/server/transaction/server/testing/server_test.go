@@ -473,6 +473,19 @@ func TestTransactions(suite *testing.T) {
 			}
 		}
 	})
+
+	suite.Run("TestProjectlessBatch", func(t *testing.T) {
+		info, err := env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
+			_, err := builder.PfsApiClient.CreateRepo(&pfs.CreateRepoRequest{
+				Repo: &pfs.Repo{
+					Name: "someproject",
+				},
+			})
+			require.NoError(t, err)
+			return nil
+		})
+		require.NoError(t, err)
+	})
 }
 
 func TestCreatePipelineTransaction(t *testing.T) {
