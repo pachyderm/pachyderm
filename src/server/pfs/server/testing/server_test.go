@@ -760,7 +760,7 @@ func TestPFS(suite *testing.T) {
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo123"
-		_, err = env.PachClient.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		_, err := env.PachClient.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
 			Repo: &pfs.Repo{Name: repo},
 		})
 		require.NoError(t, err)
@@ -777,7 +777,7 @@ func TestPFS(suite *testing.T) {
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo123"
-		_, err = env.PachClient.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		_, err := env.PachClient.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
 			Repo: &pfs.Repo{Project: &pfs.Project{}, Name: repo},
 		})
 		require.NoError(t, err)
