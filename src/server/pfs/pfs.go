@@ -153,7 +153,13 @@ type ErrDropWithChildren struct {
 }
 
 type ErrPropagateMultipleCommitsInRepo struct {
-	Repo *pfs.Repo
+	Repo            *pfs.Repo
+	PreviousHead    *pfs.Commit
+	InconsisentHead *pfs.Commit
+	Branches        []*pfs.Branch
+	BranchHeads     []*pfs.Commit
+	CommitInfo      *pfs.CommitInfo
+	ID              string
 }
 
 const GetFileTARSuggestion = "Use GetFileTAR instead"
@@ -300,7 +306,7 @@ func (e ErrDropWithChildren) Error() string {
 }
 
 func (e ErrPropagateMultipleCommitsInRepo) Error() string {
-	return fmt.Sprintf("cannot propgate multiple commits off of repo %q", e.Repo)
+	return fmt.Sprintf("cannot propgate multiple commits off of repo %q. Previous head: %q. InconsisentHead: %q. Branches: %q. BranchHeads: %q. CommitInfo: %q. ID: %q.", e.Repo, e.PreviousHead, e.InconsisentHead, e.Branches, e.BranchHeads, e.CommitInfo, e.ID)
 }
 
 var (

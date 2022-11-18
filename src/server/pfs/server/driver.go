@@ -159,7 +159,6 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	}
 
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
-
 	// check if 'repo' already exists. If so, return that error. Otherwise,
 	// proceed with ACL creation (avoids awkward "access denied" error when
 	// calling "createRepo" on a repo that already exists)
@@ -816,11 +815,11 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		}
 		for _, sb := range bi.Subvenance {
 			if _, ok := seen[pfsdb.BranchKey(sb)]; !ok {
-				bi := &pfs.BranchInfo{}
-				if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(sb, bi); err != nil {
+				sbi := &pfs.BranchInfo{}
+				if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(sb, sbi); err != nil {
 					return errors.EnsureStack(err)
 				}
-				seen[pfsdb.BranchKey(sb)] = proto.Clone(bi).(*pfs.BranchInfo)
+				seen[pfsdb.BranchKey(sb)] = sbi
 				propagatedBranches = append(propagatedBranches, seen[pfsdb.BranchKey(sb)])
 			}
 		}
@@ -836,6 +835,10 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		if len(bi.Provenance) == 1 && bi.Provenance[0].Repo.Type == pfs.SpecRepoType {
 			continue
 		}
+		// TODO(acohen4): understand why this is necessary
+		if bi.GetHead().GetID() == txnCtx.CommitSetID {
+			continue
+		}
 		newCommit := &pfs.Commit{
 			Repo:   bi.Branch.Repo,
 			Branch: bi.Branch,
@@ -849,7 +852,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		}
 		// we might be able to find an older parent commit that better reflects the provenance state, saving work
 		// Set 'newCommit's ParentCommit, 'branch.Head's ChildCommits and 'branch.Head'
-		newCommitInfo.ParentCommit = bi.Head
+		newCommitInfo.ParentCommit = proto.Clone(bi.Head).(*pfs.Commit)
 		bi.Head = newCommit
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Put(bi.Branch, bi); err != nil {
 			return errors.EnsureStack(err)
@@ -860,8 +863,24 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(newCommit, ci); err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
 		}
-		if ci.Commit != nil && ci.ParentCommit != newCommitInfo.ParentCommit {
-			return pfsserver.ErrPropagateMultipleCommitsInRepo{Repo: ci.Commit.Repo}
+		if ci.Commit != nil {
+			multiParents := false
+			if ci.ParentCommit != nil && newCommitInfo.ParentCommit != nil {
+				if pfsdb.CommitKey(ci.ParentCommit) != pfsdb.CommitKey(newCommitInfo.ParentCommit) {
+					multiParents = true
+				}
+			} else if !(ci.ParentCommit == nil && newCommitInfo.ParentCommit == nil) {
+				multiParents = true
+			}
+			if multiParents {
+				return pfsserver.ErrPropagateMultipleCommitsInRepo{
+					Repo:            ci.Commit.Repo,
+					PreviousHead:    ci.ParentCommit,
+					InconsisentHead: newCommitInfo.ParentCommit,
+					CommitInfo:      ci,
+					ID:              txnCtx.CommitSetID,
+				}
+			}
 		}
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(newCommit, newCommitInfo); err != nil {
 			return errors.EnsureStack(err)
@@ -1140,7 +1159,6 @@ func (d *driver) listCommit(
 	if from != nil && !proto.Equal(from.Branch.Repo, repo) || to != nil && !proto.Equal(to.Branch.Repo, repo) {
 		return errors.Errorf("`from` and `to` commits need to be from repo %s", repo)
 	}
-
 	// Make sure that the repo exists
 	if repo.Name != "" {
 		if err := d.repos.ReadOnly(ctx).Get(repo, &pfs.RepoInfo{}); err != nil {
