@@ -276,7 +276,9 @@ func TestDebug(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	for _, projectName := range []string{pfs.DefaultProjectName, tu.UniqueString("project")} {
-		testDebug(t, c, projectName, tu.UniqueString("repo"))
+		t.Run("projectName", func(t *testing.T) {
+			testDebug(t, c, projectName, tu.UniqueString("repo"))
+		})
 	}
 }
 

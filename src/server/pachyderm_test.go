@@ -10047,7 +10047,9 @@ func TestDebug(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	for _, projectName := range []string{pfs.DefaultProjectName, tu.UniqueString("project")} {
-		testDebug(t, c, projectName, tu.UniqueString("TestDebug_data"))
+		t.Run(projectName, func(t *testing.T) {
+			testDebug(t, c, projectName, tu.UniqueString("TestDebug_data"))
+		})
 	}
 }
 
