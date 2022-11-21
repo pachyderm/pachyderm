@@ -518,17 +518,8 @@ func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pac
 		return err
 	}
 	for i, repoInfo := range repoInfos {
-		if repoInfo == nil {
-			return errors.Errorf("repo info %d from ListRepo is nil", i)
-		}
-		if repoInfo.Repo == nil {
-			return errors.Errorf("repo %d from ListRepo is nil", i)
-		}
-		if repoInfo.Repo.Project == nil {
-			return errors.Errorf("repo %q has a nil project", repoInfo.Repo.Name)
-		}
-		if repoInfo.Repo.Project.Name == "" {
-			return errors.Errorf("repo %q has an empty project name", repoInfo.Repo.Name)
+		if err := validateRepoInfo(repoInfo); err != nil {
+			return errors.Wrap(err, "invalid repo info %d from ListRepo")
 		}
 		if _, err := pachClient.InspectProjectPipeline(repoInfo.Repo.Project.Name, repoInfo.Repo.Name, true); err != nil {
 			if errutil.IsNotFoundError(err) {
@@ -777,6 +768,9 @@ func collectDump(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefi
 
 func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
+		if err := validatePipelineInfo(pipelineInfo); err != nil {
+			return errors.Wrap(err, "collectPipelineDumpFunc: invalid pipeline info")
+		}
 		if err := collectDebugFile(tw, "spec", "json", func(w io.Writer) error {
 			fullPipelineInfos, err := pachClient.ListProjectPipelineHistory(pipelineInfo.Pipeline.Project.Name, pipelineInfo.Pipeline.Name, -1, true)
 			if err != nil {
