@@ -193,14 +193,20 @@ func NewFromPachdAddress(pachdAddress *grpcutil.PachdAddress, options ...Option)
 		settings.unaryInterceptors = append(settings.unaryInterceptors, tracing.UnaryClientInterceptor())
 		settings.streamInterceptors = append(settings.streamInterceptors, tracing.StreamClientInterceptor())
 	}
+
+	fmt.Println("creating API client")
 	c := &APIClient{
 		addr:         pachdAddress,
 		caCerts:      settings.caCerts,
 		gzipCompress: settings.gzipCompress,
 	}
+	fmt.Printf("%+v\n", c.addr)
+
+	fmt.Println("attempting to connect")
 	if err := c.connect(settings.dialTimeout, settings.unaryInterceptors, settings.streamInterceptors); err != nil {
 		return nil, err
 	}
+	fmt.Println("connected")
 	return c, nil
 }
 
@@ -559,6 +565,7 @@ func NewEnterpriseClientOnUserMachine(prefix string, options ...Option) (*APICli
 // constructor.
 func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, prefix string, options ...Option) (*APIClient, error) {
 	// create new pachctl client
+	fmt.Println("getting pachd Address.")
 	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
 	if err != nil {
 		return nil, err
@@ -577,6 +584,7 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 		}
 	}
 	if pachdAddress == nil {
+		fmt.Println("pachd address is nil, setting up local config.")
 		var pachdLocalPort uint16
 		fw, pachdLocalPort, err = portForwarder(context)
 		if err != nil {
@@ -589,6 +597,7 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 		}
 	}
 
+	fmt.Println("creating new client from pachd Address.")
 	client, err := NewFromPachdAddress(pachdAddress, append(options, cfgOptions...)...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to pachd at %q", pachdAddress.Qualified())
@@ -604,6 +613,7 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 	}
 
 	// Verify cluster deployment ID
+	fmt.Println("Calling inspect cluster")
 	clusterInfo, err := client.InspectCluster()
 	if err != nil {
 		if strings.Contains("unknown service admin_v2.API", err.Error()) {
@@ -807,13 +817,22 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	// service discovery forever.
 	dialOptions = append(dialOptions, grpc.WithDisableServiceConfig())
 
+	fmt.Println("creating clientConn")
+
 	clientConn, err := grpc.DialContext(ctx, c.addr.Target(), dialOptions...)
 	if err != nil {
 		return err
 	}
+
+	fmt.Println("got clientConn")
+
+	fmt.Println("creating pfs API clients...")
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
+	fmt.Println("creating pps API clients...")
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
+	fmt.Println("creating auth API clients...")
 	c.AuthAPIClient = auth.NewAPIClient(clientConn)
+	fmt.Println("creating identity API clients...")
 	c.IdentityAPIClient = identity.NewAPIClient(clientConn)
 	c.Enterprise = enterprise.NewAPIClient(clientConn)
 	c.License = license.NewAPIClient(clientConn)
