@@ -41,11 +41,6 @@ import (
 )
 
 const (
-	// Makes calls to ListRepo and InspectRepo more legible
-	includeAuth = true
-)
-
-const (
 	storageTaskNamespace = "storage"
 	fileSetsRepo         = client.FileSetsRepoName
 	defaultTTL           = client.DefaultTTL
@@ -2131,8 +2126,7 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 
 func (d *driver) deleteAll(ctx context.Context) error {
 	var repoInfos []*pfs.RepoInfo
-	// TODO projectsFilter is nil
-	if err := d.listRepo(ctx, !includeAuth, "", nil, func(repoInfo *pfs.RepoInfo) error {
+	if err := d.listRepo(ctx, false, "", nil, func(repoInfo *pfs.RepoInfo) error {
 		repoInfos = append(repoInfos, repoInfo)
 		return nil
 	}); err != nil {
