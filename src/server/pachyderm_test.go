@@ -3216,7 +3216,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 
 	// Pipeline should start and create a job should succeed -- fix
 	// https://github.com/pachyderm/pachyderm/v2/issues/3934)
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipelineName, "master", "")
 	require.NoError(t, err)
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -3564,11 +3564,11 @@ func TestAutoscalingStandby(t *testing.T) {
 		require.NoError(t, err)
 		nonAliasCommits := 0
 		for _, v := range commitInfos {
-			if v.Origin.Kind != pfs.OriginKind_ALIAS {
+			if v.Commit.ID != commitInfo.Commit.ID {
 				nonAliasCommits++
 			}
 		}
-		require.Equal(t, 3, nonAliasCommits)
+		require.Equal(t, 1, nonAliasCommits)
 		pod := ""
 		commitInfos, err = c.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline), client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", ""), nil, 0)
 		require.NoError(t, err)
@@ -3891,7 +3891,7 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 		false,
 	))
 
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipelineName, "master", "")
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -3952,7 +3952,7 @@ func TestPipelineThatSymlinks(t *testing.T) {
 			false,
 		))
 
-		commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+		commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipelineName, "master", "")
 		require.NoError(t, err)
 		commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 		require.NoError(t, err)
@@ -4152,8 +4152,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 11, len(commitInfos))
-
+	require.Equal(t, 9, len(commitInfos))
 	eCommit2, err := c.StartProjectCommit(pfs.DefaultProjectName, eRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(eCommit2, "file", strings.NewReader("bar\n"), client.WithAppendPutFile()))
@@ -4161,7 +4160,8 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 
 	commitInfos, err = c.WaitCommitSetAll(eCommit2.ID)
 	require.NoError(t, err)
-	require.Equal(t, 11, len(commitInfos))
+	// here we have one more commit for e.meta
+	require.Equal(t, 10, len(commitInfos))
 
 	// Get number of jobs triggered in pipeline D
 	jobInfos, err := c.ListProjectJob(pfs.DefaultProjectName, dPipeline, nil, -1, true)
@@ -4222,7 +4222,7 @@ func TestStartInternalPipeline(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 7, len(commitInfos))
+	require.Equal(t, 6, len(commitInfos))
 	// Stop and Start a pipeline was orginal trigger of bug so "reproduce" it here.
 	require.NoError(t, c.StopProjectPipeline(pfs.DefaultProjectName, bPipeline))
 	require.NoError(t, c.StartProjectPipeline(pfs.DefaultProjectName, bPipeline))
