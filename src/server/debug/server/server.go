@@ -517,8 +517,20 @@ func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pac
 	if err != nil {
 		return err
 	}
-	for _, repoInfo := range repoInfos {
-		if _, err := pachClient.InspectProjectPipeline(repoInfo.Repo.Project.GetName(), repoInfo.Repo.Name, true); err != nil {
+	for i, repoInfo := range repoInfos {
+		if repoInfo == nil {
+			return errors.Errorf("repo info %d from ListRepo is nil", i)
+		}
+		if repoInfo.Repo == nil {
+			return errors.Errorf("repo %d from ListRepo is nil", i)
+		}
+		if repoInfo.Repo.Project == nil {
+			return errors.Errorf("repo %q has a nil project", repoInfo.Repo.Name)
+		}
+		if repoInfo.Repo.Project.Name == "" {
+			return errors.Errorf("repo %q has an empty project name", repoInfo.Repo.Name)
+		}
+		if _, err := pachClient.InspectProjectPipeline(repoInfo.Repo.Project.Name, repoInfo.Repo.Name, true); err != nil {
 			if errutil.IsNotFoundError(err) {
 				repoPrefix := join("source-repos", repoInfo.Repo.Project.Name, repoInfo.Repo.Name)
 				return s.collectCommits(ctx, tw, pachClient, repoInfo.Repo, limit, repoPrefix)
