@@ -1560,6 +1560,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	// Retrieve the current version of this branch and set it's head if specified
 	var oldProvenance []*pfs.Branch
 	branchInfo := &pfs.BranchInfo{}
+	propagate := false
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Upsert(branch, branchInfo, func() error {
 		// check whether direct provenance has changed
 		branchInfo.Branch = branch
@@ -1583,6 +1584,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 				return err
 			}
 			branchInfo.Head = c
+			propagate = true
 		}
 		if trigger != nil && trigger.Branch != "" {
 			branchInfo.Trigger = trigger
@@ -1604,7 +1606,11 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its
 	// current HEAD commit has old provenance
-	return txnCtx.PropagateBranch(branch)
+	// TODO(aochen4): GO BACK AND MOVE THIS UP TO WHERE IT'S SET
+	if propagate {
+		return txnCtx.PropagateBranch(branch)
+	}
+	return nil
 }
 
 func (d *driver) inspectBranch(txnCtx *txncontext.TransactionContext, branch *pfs.Branch) (*pfs.BranchInfo, error) {
