@@ -190,13 +190,7 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 
 // Need to restructure testing such that we have the implementation of this
 // test in one place while still being able to test auth enabled and disabled clusters.
-func TestDebug(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
-	tu.ActivateAuthClient(t, c)
+func testDebug(t *testing.T, c *client.APIClient, projectName, repoName string) {
 	// Get all the authenticated clients at the beginning of the test.
 	// GetAuthenticatedPachClient will always re-activate auth, which
 	// causes PPS to rotate all the pipeline tokens. This makes the RCs
@@ -272,6 +266,18 @@ func TestDebug(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+func TestDebug(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
+	tu.ActivateAuthClient(t, c)
+	for _, projectName := range []string{pfs.DefaultProjectName, tu.UniqueString("project")} {
+		testDebug(t, c, projectName, tu.UniqueString("repo"))
+	}
 }
 
 // asserts that retrieval of Pachd logs requires additional permissions granted to the PachdLogReader role
