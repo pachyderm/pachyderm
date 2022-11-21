@@ -519,7 +519,7 @@ func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pac
 	}
 	for i, repoInfo := range repoInfos {
 		if err := validateRepoInfo(repoInfo); err != nil {
-			return errors.Wrap(err, "invalid repo info %d from ListRepo")
+			return errors.Wrapf(err, "invalid repo info %d from ListRepo", i)
 		}
 		if _, err := pachClient.InspectProjectPipeline(repoInfo.Repo.Project.Name, repoInfo.Repo.Name, true); err != nil {
 			if errutil.IsNotFoundError(err) {
