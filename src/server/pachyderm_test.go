@@ -9976,7 +9976,7 @@ func TestDebug(t *testing.T) {
 	dataRepo := tu.UniqueString("TestDebug_data")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 
-	expectedFiles, pipelines := tu.DebugFiles(t, dataRepo)
+	expectedFiles, pipelines := tu.DebugFiles(t, pfs.DefaultProjectName, dataRepo)
 
 	for i, p := range pipelines {
 		cmdStdin := []string{

@@ -207,7 +207,7 @@ func TestDebug(t *testing.T) {
 	dataRepo := tu.UniqueString("TestDebug_data")
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 
-	expectedFiles, pipelines := tu.DebugFiles(t, dataRepo)
+	expectedFiles, pipelines := tu.DebugFiles(t, pfs.DefaultProjectName, dataRepo)
 
 	for _, p := range pipelines {
 		require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,

@@ -10,7 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-func DebugFiles(t testing.TB, dataRepo string) (map[string]*globlib.Glob, []string) {
+func DebugFiles(t testing.TB, projectName, repoName string) (map[string]*globlib.Glob, []string) {
 	expectedFiles := make(map[string]*globlib.Glob)
 	// Record glob patterns for expected pachd files.
 	for _, file := range []string{"version.txt", "describe.txt", "logs.txt", "logs-previous**", "logs-loki.txt", "goroutine", "heap"} {
@@ -21,7 +21,7 @@ func DebugFiles(t testing.TB, dataRepo string) (map[string]*globlib.Glob, []stri
 	}
 	// Record glob patterns for expected source repo files.
 	for _, file := range []string{"commits.json", "commits-chart**"} {
-		pattern := path.Join("source-repos", pfs.DefaultProjectName, dataRepo, file)
+		pattern := path.Join("source-repos", projectName, repoName, file)
 		g, err := globlib.Compile(pattern, '/')
 		require.NoError(t, err)
 		expectedFiles[pattern] = g
