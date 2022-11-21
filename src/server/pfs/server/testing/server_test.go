@@ -755,6 +755,40 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 	})
 
+	suite.Run("CreateRepoWithoutProject", func(t *testing.T) {
+		t.Parallel()
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+
+		repo := "repo123"
+		_, err := env.PachClient.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+			Repo: &pfs.Repo{Name: repo},
+		})
+		require.NoError(t, err)
+
+		repoInfo, err := env.PachClient.InspectProjectRepo(pfs.DefaultProjectName, repo)
+		require.NoError(t, err)
+		require.Equal(t, repo, repoInfo.Repo.Name)
+		require.NotNil(t, repoInfo.Created)
+		require.Equal(t, 0, int(repoInfo.Details.SizeBytes))
+	})
+
+	suite.Run("CreateRepoWithEmptyProject", func(t *testing.T) {
+		t.Parallel()
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+
+		repo := "repo123"
+		_, err := env.PachClient.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+			Repo: &pfs.Repo{Project: &pfs.Project{}, Name: repo},
+		})
+		require.NoError(t, err)
+
+		repoInfo, err := env.PachClient.InspectProjectRepo(pfs.DefaultProjectName, repo)
+		require.NoError(t, err)
+		require.Equal(t, repo, repoInfo.Repo.Name)
+		require.NotNil(t, repoInfo.Created)
+		require.Equal(t, 0, int(repoInfo.Details.SizeBytes))
+	})
+
 	suite.Run("ListRepo", func(t *testing.T) {
 		t.Parallel()
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
