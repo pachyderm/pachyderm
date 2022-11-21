@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"fmt"
 	"math"
 	"os"
 	"sort"
@@ -286,18 +287,21 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 		if err := d.env.AuthServer.CheckProjectIsAuthorized(ctx, repoInfo.Repo.Project, auth.Permission_PROJECT_LIST_REPO); err != nil {
 			if errors.Is(err, auth.ErrNotActivated) {
 				authIsActive = false
-				return cb(proto.Clone(repoInfo).(*pfs.RepoInfo))
 			} else if errors.As(err, &auth.ErrNotAuthorized{}) {
+				fmt.Println("qqq project check failed, checking repo now")
 				if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, repoInfo.Repo, auth.Permission_REPO_READ); err != nil {
 					if errors.As(err, &auth.ErrNotAuthorized{}) {
+						// user does not have access to either the project nor the underlying repo
 						return nil
 					}
 					return errors.Wrap(err, "could not check user is authorized to access repo")
 				}
+				// project filter failed, but repo filter passed
+			} else {
+				return errors.Wrap(err, "could not check user is authorized to access project")
 			}
-			return errors.Wrap(err, "could not check user is authorized to access project")
 		}
-		if includeAuth {
+		if authIsActive && includeAuth {
 			permissions, roles, err := d.getPermissions(ctx, repoInfo.Repo)
 			if err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for %q", repoInfo.Repo)
