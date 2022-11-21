@@ -480,7 +480,7 @@ func TestTransactions(suite *testing.T) {
 		_, err := env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
 			_, err := builder.PfsAPIClient.CreateRepo(builder.Ctx(), &pfs.CreateRepoRequest{
 				Repo: &pfs.Repo{
-					Name: "someproject",
+					Name: "somerepo",
 				},
 			})
 			require.NoError(t, err)
