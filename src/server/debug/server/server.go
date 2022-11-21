@@ -825,6 +825,17 @@ func (s *debugServer) forEachWorkerLoki(ctx context.Context, pipelineInfo *pps.P
 	return nil
 }
 
+// quoteLogQLStreamSelector returns a string quoted as a LogQL stream selector.
+// The rules for quoting a LogQL stream selector are documented at
+// https://grafana.com/docs/loki/latest/logql/log_queries/#log-stream-selector
+// to be the same as for a Prometheus string literal, as documented at
+// https://prometheus.io/docs/prometheus/latest/querying/basics/#string-literals.
+// This happens to be the same as a Go string, with single or double quotes or
+// backticks allowed as enclosing characters.
+func quoteLogQL(s string) string {
+	return fmt.Sprintf("%q", s)
+}
+
 func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.PipelineInfo) (map[string]struct{}, error) {
 	// This function uses the log querying API and not the label querying API, to bound the the
 	// number of workers for a pipeline that we return.  We'll get 30,000 of the most recent
@@ -832,7 +843,7 @@ func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.P
 	// logs for further inspection.  The alternative would be to get every worker that existed
 	// in some time interval, but that results in too much data to inspect.
 
-	queryStr := fmt.Sprintf(`{pipelineProject="%s", pipelineName="%s"}`, pipelineInfo.Pipeline.Project.Name, pipelineInfo.Pipeline.Name)
+	queryStr := fmt.Sprintf(`{pipelineProject=%s, pipelineName=%s}`, quoteLogQL(pipelineInfo.Pipeline.Project.Name), quoteLogQL(pipelineInfo.Pipeline.Name))
 	pods := make(map[string]struct{})
 	logs, err := s.queryLoki(ctx, queryStr)
 	if err != nil {
