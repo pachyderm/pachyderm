@@ -1013,6 +1013,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		limit int
 		// runFailed    bool
 		runFailedJob string
+		mountResult  bool
 	)
 	testPipeline := &cobra.Command{
 		Short: "Test a pipeline locally.",
@@ -1022,13 +1023,14 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return err
 			}
-			return testPipeline(client, pipelinePath, limit, runFailedJob)
+			return testPipeline(client, pipelinePath, limit, runFailedJob, mountResult)
 		}),
 	}
 	testPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior).")
 	testPipeline.Flags().IntVarP(&limit, "limit", "l", 0, "Limits the number of datums to test.")
 	// testPipeline.Flags().BoolVar(&runFailed, "run-failed", false, "Run only the failed datums from the most recent jobs in the pipelines.")
 	testPipeline.Flags().StringVarP(&runFailedJob, "run-failed-job", "j", "", "Run only the failed datums from the specified job.")
+	testPipeline.Flags().BoolVar(&mountResult, "mount-result", true, "Mount the results of running the pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(testPipeline, "test pipeline", pipelines))
 
 	var file string

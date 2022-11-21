@@ -1123,6 +1123,14 @@ func TestSynonymsDocs(t *testing.T) {
 	}
 }
 
+func TestTestPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	pachClient := tu.GetPachClient(t)
+	pachClient.CreateRepo
+}
+
 func resourcesMap() map[string][]string {
 	return map[string][]string{
 		datum:    {inspect, list, restart},

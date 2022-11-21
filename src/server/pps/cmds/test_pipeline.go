@@ -28,7 +28,7 @@ const (
 	defaultBranch = "dev"
 )
 
-func testPipeline(client *pachdclient.APIClient, pipelinePath string, datumLimit int, failedJob string) (retErr error) {
+func testPipeline(client *pachdclient.APIClient, pipelinePath string, datumLimit int, failedJob string, mountResult bool) (retErr error) {
 	branch := defaultBranch
 	resp, err := client.WhoAmI(client.Ctx(), &auth.WhoAmIRequest{})
 	if err != nil {
@@ -195,20 +195,23 @@ func testPipeline(client *pachdclient.APIClient, pipelinePath string, datumLimit
 		}
 		finishedCommits[request.Pipeline.Name] = true
 	}
-	mountOpts := make(map[string]*fuse.RepoOptions)
-	for _, outC := range outCommits {
-		mountOpts[outC.Branch.Repo.Name] = &fuse.RepoOptions{
-			Name: outC.Branch.Repo.Name,
-			File: &pfs.File{Commit: outC},
+	if mountResult {
+		mountOpts := make(map[string]*fuse.RepoOptions)
+		for _, outC := range outCommits {
+			mountOpts[outC.Branch.Repo.Name] = &fuse.RepoOptions{
+				Name: outC.Branch.Repo.Name,
+				File: &pfs.File{Commit: outC},
+			}
 		}
+		fmt.Println("Mounting output at /pfs, CTRL-c to unmount.")
+		return fuse.Mount(client, "/pfs", &fuse.Options{
+			RepoOptions: mountOpts,
+			Fuse: &fs.Options{
+				MountOptions: gofuse.MountOptions{
+					FsName: name,
+					Name:   name,
+				}},
+		})
 	}
-	fmt.Println("Mounting output at /pfs, CTRL-c to unmount.")
-	return fuse.Mount(client, "/pfs", &fuse.Options{
-		RepoOptions: mountOpts,
-		Fuse: &fs.Options{
-			MountOptions: gofuse.MountOptions{
-				FsName: name,
-				Name:   name,
-			}},
-	})
+	return nil
 }
