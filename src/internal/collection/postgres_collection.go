@@ -875,6 +875,7 @@ func (c *postgresReadWriteCollection) delete(key string) error {
 	return nil
 }
 
+// TODO(acohen4): need to cascade delete pfs.commits & pfs.commit_provenance from collections.commits
 func (c *postgresReadWriteCollection) DeleteAll() error {
 	query := fmt.Sprintf("delete from collections.%s", c.table)
 	_, err := c.tx.Exec(query)

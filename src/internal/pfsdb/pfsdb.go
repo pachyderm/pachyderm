@@ -178,6 +178,11 @@ func BranchKey(branch *pfs.Branch) string {
 	return RepoKey(branch.Repo) + "@" + branch.Name
 }
 
+func ParseBranch(key string) *pfs.Branch {
+	split := strings.Split(key, "@")
+	return &pfs.Branch{Name: split[1], Repo: ParseRepo(split[0])}
+}
+
 // Branches returns a collection of branches
 func Branches(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(

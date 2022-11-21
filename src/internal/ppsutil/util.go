@@ -255,19 +255,45 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 }
 
 // JobInput fills in the commits for an Input
-func JobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Input {
+func JobInput(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) (*pps.Input, error) {
 	commitsetID := outputCommit.ID
+	// can we just set all the branch heads?
 	jobInput := proto.Clone(pipelineInfo.Details.Input).(*pps.Input)
-	pps.VisitInput(jobInput, func(input *pps.Input) error { //nolint:errcheck
+	ci, err := pachClient.InspectProjectCommit(outputCommit.Repo.Project.Name, outputCommit.Repo.Name, "", outputCommit.ID)
+	if err != nil {
+		return nil, err
+	}
+	branchToCommits := make(map[string]*pfs.Commit)
+	for _, c := range ci.Details.CommitProvenance {
+		branchToCommits[c.Branch.String()] = c
+	}
+	if err := pps.VisitInput(jobInput, func(input *pps.Input) error {
 		if input.Pfs != nil {
-			input.Pfs.Commit = commitsetID
+			b := client.NewProjectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch).String()
+			if c, ok := branchToCommits[b]; ok {
+				input.Pfs.Commit = c.ID
+			} else {
+				// this is a HACK: instead InspectCommit should return multiple commits with different branches
+				for _, c := range ci.Details.CommitProvenance {
+					fmt.Printf("COMPARING %q AND %q\n", c.Repo.String(), client.NewProjectRepo(input.Pfs.Project, input.Pfs.Repo).String())
+					if c.Repo.String() == client.NewProjectRepo(input.Pfs.Project, input.Pfs.Repo).String() {
+						input.Pfs.Commit = c.ID
+						break
+					}
+				}
+				if input.Pfs.Commit == "" {
+					return errors.Errorf("could not find branch:: %q, in map: %v\n", b, branchToCommits)
+				}
+			}
 		}
 		if input.Cron != nil {
 			input.Cron.Commit = commitsetID
 		}
 		return nil
-	})
-	return jobInput
+	}); err != nil {
+		return nil, err
+	}
+	return jobInput, nil
 }
 
 // PipelineReqFromInfo converts a PipelineInfo into a CreatePipelineRequest.

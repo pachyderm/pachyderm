@@ -25,7 +25,7 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	if err != nil {
 		return nil, err
 	}
-	// TODO: can there be multiple commits from the same repo in commitset subvenance
+	// TODO: can there be multiple commits from the same repo in commitset subvenance?
 	for _, c := range cs {
 		ci := &pfs.CommitInfo{}
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(c, ci); err != nil {
@@ -47,6 +47,7 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	// O(n^2) sorting of commits
 	//
 	// FIXME acohen4: it's possible for a commit to have two branches from the same repo in its provenance.
+	// this must be keyed by branch
 	for collectCount < totalCommits {
 		for i, ci := range commitInfos {
 			satisfied := true

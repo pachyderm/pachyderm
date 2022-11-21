@@ -339,6 +339,7 @@ func (d *driver) deleteRepos(txnCtx *txncontext.TransactionContext, repoInfos []
 	for _, ri := range repoInfos {
 		repoMap[pfsdb.RepoKey(ri.Repo)] = struct{}{}
 	}
+	extraRepos := make([]*pfs.RepoInfo, 0)
 	// collect the repoInfos that need to be deleted
 	for _, ri := range repoInfos {
 		// Check if the caller is authorized to delete this repo
@@ -356,15 +357,16 @@ func (d *driver) deleteRepos(txnCtx *txncontext.TransactionContext, repoInfos []
 		if ri.Repo.Type == pfs.UserRepoType {
 			otherRepo := &pfs.RepoInfo{}
 			if err := repos.GetByIndex(pfsdb.ReposNameIndex, pfsdb.ReposNameKey(ri.Repo), otherRepo, col.DefaultOptions(), func(key string) error {
-				if _, ok := repoMap[pfsdb.RepoKey(ri.Repo)]; !ok {
-					repoInfos = append(repoInfos, otherRepo)
+				if _, ok := repoMap[pfsdb.RepoKey(otherRepo.Repo)]; !ok {
+					extraRepos = append(extraRepos, proto.Clone(otherRepo).(*pfs.RepoInfo))
 				}
 				return nil
-			}); err != nil && !col.IsErrNotFound(err) {
+			}); err != nil && !col.IsErrNotFound(err) { // TODO(acohen4): remove this !NotFound condition - I think it's unnecessary
 				return errors.Wrapf(err, "error finding dependent repos for %q", ri.Repo.Name)
 			}
 		}
 	}
+	repoInfos = append(repoInfos, extraRepos...)
 	// we expect potentially complicated provenance relationships between dependent repos
 	// deleting all branches at once allows for topological sorting, avoiding deletion order issues
 	if err := d.deleteAllBranchesFromRepos(txnCtx, repoInfos, force); err != nil {

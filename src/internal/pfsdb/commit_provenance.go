@@ -31,7 +31,7 @@ func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commi
 		Repo: repo,
 		ID:   commitSet,
 	})
-	query := `SELECT commit_id FROM pfs.commits WHERE int_id IN (       
+	query := `SELECT commit_id, branch FROM pfs.commits WHERE int_id IN (       
             SELECT to_id FROM pfs.commits JOIN pfs.commit_provenance ON int_id = from_id WHERE commit_id = $1
         );`
 	rows, err := tx.QueryxContext(ctx, query, commitKey)
@@ -40,11 +40,16 @@ func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commi
 	}
 	commitProvenance := make([]*pfs.Commit, 0)
 	for rows.Next() {
-		var commitId string
-		if err := rows.Scan(&commitId); err != nil {
+		var commitId, branch string
+		if err := rows.Scan(&commitId, &branch); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
-		commitProvenance = append(commitProvenance, ParseCommit(commitId))
+		c := ParseCommit(commitId)
+		// will there always be an origin branch? In theory the relationship is many to many between branches and commits
+		if branch != "" {
+			c.Branch = ParseBranch(branch)
+		}
+		commitProvenance = append(commitProvenance, c)
 	}
 	return commitProvenance, nil
 }
@@ -114,8 +119,8 @@ func CommitSetSubvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]*pfs
 }
 
 func AddCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error {
-	stmt := `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES ($1, $2)`
-	_, err := tx.ExecContext(ctx, stmt, CommitKey(commit), commit.ID)
+	stmt := `INSERT INTO pfs.commits(commit_id, commit_set_id, branch) VALUES ($1, $2, $3)`
+	_, err := tx.ExecContext(ctx, stmt, CommitKey(commit), commit.ID, BranchKey(commit.GetBranch()))
 	return errors.EnsureStack(err)
 }
 
@@ -192,6 +197,7 @@ var schema = `
 		int_id BIGSERIAL PRIMARY KEY,
 		commit_id VARCHAR(4096) UNIQUE,
                 commit_set_id VARCHAR(4096),
+                branch VARCHAR(4096),
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 
