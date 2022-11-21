@@ -212,6 +212,15 @@ func (s *debugServer) handlePipelineRedirect(
 	collectWorker collectWorkerFunc,
 	redirect redirectFunc,
 ) (retErr error) {
+	if pipelineInfo == nil {
+		return errors.Errorf("nil pipeline info")
+	}
+	if pipelineInfo.Pipeline == nil {
+		return errors.Errorf("nil pipeline in pipeline info")
+	}
+	if pipelineInfo.Pipeline.Project == nil {
+		return errors.Errorf("nil project in pipeline %q", pipelineInfo.Pipeline.Name)
+	}
 	prefix := join(pipelinePrefix, pipelineInfo.Pipeline.Project.Name, pipelineInfo.Pipeline.Name)
 	defer func() {
 		if retErr != nil {
