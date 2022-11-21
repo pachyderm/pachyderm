@@ -36,7 +36,7 @@ func (a *validatedAPIServer) DeleteRepoInTransaction(txnCtx *txncontext.Transact
 }
 
 // FinishCommitInTransaction is identical to FinishCommit except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
+// inside an existing postgres transaction.  This is not an RPC.
 func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
 	userCommit := request.Commit
 	// Validate arguments
@@ -89,6 +89,9 @@ func (a *validatedAPIServer) WalkFile(request *pfs.WalkFileRequest, server pfs.A
 	}
 	if file.Commit.Repo == nil && file.Commit.Branch == nil {
 		return errors.New("either the branch or repo must be set on the file commit repo")
+	}
+	if file.Commit.Branch != nil {
+		file.Commit.Repo = file.Commit.Branch.Repo
 	}
 	if err := a.auth.CheckRepoIsAuthorized(server.Context(), file.Commit.Branch.Repo, auth.Permission_REPO_READ, auth.Permission_REPO_LIST_FILE); err != nil {
 		return errors.EnsureStack(err)

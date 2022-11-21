@@ -8842,15 +8842,19 @@ func TestDeferredProcessing(t *testing.T) {
 
 	require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, dataRepo, "master", "staging", "", nil))
 
+	commitInfo, err = c.InspectProjectCommit(pfs.DefaultProjectName, pipeline1, "staging", "")
+	require.NoError(t, err)
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 5, len(commitInfos))
+	require.Equal(t, 4, len(commitInfos))
 
 	require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, pipeline1, "master", "staging", "", nil))
 
+	commitInfo, err = c.InspectProjectCommit(pfs.DefaultProjectName, pipeline2, "master", "")
+	require.NoError(t, err)
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 9, len(commitInfos))
+	require.Equal(t, 6, len(commitInfos))
 }
 
 func TestListPipelineAtCommit(t *testing.T) {
