@@ -9968,6 +9968,7 @@ func TestListDatumFilter(t *testing.T) {
 
 func testDebug(t *testing.T, c *client.APIClient, projectName, repoName string) {
 	t.Helper()
+	require.NoError(t, c.CreateProject(projectName))
 	require.NoError(t, c.CreateProjectRepo(projectName, repoName))
 
 	expectedFiles, pipelines := tu.DebugFiles(t, projectName, repoName)
