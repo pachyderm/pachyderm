@@ -9557,7 +9557,6 @@ func TestKeepRepo(t *testing.T) {
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 
 	pipeline := tu.UniqueString("TestKeepRepo")
-	pipelineCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"",
@@ -9572,8 +9571,7 @@ func TestKeepRepo(t *testing.T) {
 		"",
 		false,
 	))
-
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -9599,9 +9597,8 @@ func TestKeepRepo(t *testing.T) {
 	require.True(t, errutil.IsNotFoundError(err))
 
 	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(pipelineCommit, "file", &buf))
+	require.NoError(t, c.GetFile(client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", ""), "file", &buf))
 	require.Equal(t, "foo", buf.String())
-
 	require.YesError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"",
