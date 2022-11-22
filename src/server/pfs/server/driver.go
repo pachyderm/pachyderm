@@ -1574,6 +1574,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		}
 		if commit != nil {
 			branchInfo.Head = commit
+			propagate = true
 		}
 		// if we don't have a branch head, or the provenance has changed, add a new commit to the branch to capture the changed structure
 		// the one edge case here, is that it's undesirable to add a commit in the case where provenance is completely removed...
@@ -1606,7 +1607,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its
 	// current HEAD commit has old provenance
-	// TODO(aochen4): GO BACK AND MOVE THIS UP TO WHERE IT'S SET
+	// TODO(acohen4): GO BACK AND MOVE THIS UP TO WHERE IT'S SET
 	if propagate {
 		return txnCtx.PropagateBranch(branch)
 	}

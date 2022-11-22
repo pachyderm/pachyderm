@@ -3306,7 +3306,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		"",
 		true,
 	))
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipelineName, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -4058,7 +4058,7 @@ func TestChainedPipelines(t *testing.T) {
 
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 8, len(commitInfos))
+	require.Equal(t, 7, len(commitInfos))
 
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(commitInfo.Commit, "bFile", &buf))
