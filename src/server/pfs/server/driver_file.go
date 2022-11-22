@@ -115,7 +115,7 @@ func (d *driver) withUnorderedWriter(ctx context.Context, renewer *fileset.Renew
 }
 
 func (d *driver) openCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, fileset.FileSet, error) {
-	if commit.Branch.Repo.Name == fileSetsRepo {
+	if commit.Branch.Repo.Name == fileSetsRepo || commit.Repo.Name == fileSetsRepo { // TODO(acohen4): can we resimplify this?
 		fsid, err := fileset.ParseID(commit.ID)
 		if err != nil {
 			return nil, nil, err
