@@ -8498,7 +8498,7 @@ func TestDatumTries(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
 	jobInfos, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
