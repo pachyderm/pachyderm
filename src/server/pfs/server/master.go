@@ -173,7 +173,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 			return backoff.RetryUntilCancel(ctx, func() error {
 				// Skip compaction / validation for errored commits.
 				if commitInfo.Error != "" {
-					return d.finalizeCommit(ctx, logger, commit, "", nil, nil)
+					return d.finalizeCommit(ctx, logger, commit, "", nil)
 				}
 				id, err := d.getFileSet(ctx, commit)
 				if err != nil {
@@ -218,7 +218,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 				}
 				details.ValidatingTime = types.DurationProto(time.Since(start))
 				// Finish the commit.
-				return d.finalizeCommit(ctx, logger, commit, validationError, details, totalId)
+				return d.finalizeCommit(ctx, logger, commit, validationError, details)
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 				logger.Errorf("error finishing commit: %v, retrying in %v", err, d)
 				return nil
@@ -228,7 +228,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 	return errors.EnsureStack(err)
 }
 
-func (d *driver) finalizeCommit(ctx context.Context, logger *log.Entry, commit *pfs.Commit, validationError string, details *pfs.CommitInfo_Details, totalId *fileset.ID) error {
+func (d *driver) finalizeCommit(ctx context.Context, logger *log.Entry, commit *pfs.Commit, validationError string, details *pfs.CommitInfo_Details) error {
 	return miscutil.LogStep(ctx, logger, "finalizing commit", func() error {
 		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 			commitInfo := &pfs.CommitInfo{}
@@ -248,7 +248,10 @@ func (d *driver) finalizeCommit(ctx context.Context, logger *log.Entry, commit *
 			if commitInfo.Commit.Repo.Type == pfs.UserRepoType {
 				txnCtx.FinishJob(commitInfo)
 			}
-			return d.triggerCommit(txnCtx, commitInfo.Commit)
+			if commitInfo.Error == "" {
+				return d.triggerCommit(txnCtx, commitInfo.Commit)
+			}
+			return nil
 		})
 	})
 }
