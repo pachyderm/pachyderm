@@ -31,9 +31,6 @@ func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.Transa
 
 // CheckResourceIsAuthorizedInTransaction returns an error if the subject/user doesn't have permission in `p` on the `resource`
 func (a *apiServer) checkResourceIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, resource *auth.Resource, p ...auth.Permission) error {
-	if err := a.isActiveInTransaction(txnCtx); err != nil {
-		return err
-	}
 	me, err := txnCtx.WhoAmI()
 	if err != nil {
 		// TODO why are we swallowing the error?
@@ -72,9 +69,6 @@ func (a *apiServer) CheckRepoIsAuthorized(ctx context.Context, repo *pfs.Repo, p
 }
 
 func (a *apiServer) checkResourceIsAuthorized(ctx context.Context, resource *auth.Resource, p ...auth.Permission) error {
-	if err := a.isActive(ctx); err != nil {
-		return err
-	}
 	me, err := a.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if err != nil {
 		// TODO why are we swallowing the error?

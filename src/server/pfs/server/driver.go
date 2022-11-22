@@ -2127,7 +2127,7 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 
 func (d *driver) deleteAll(ctx context.Context) error {
 	var repoInfos []*pfs.RepoInfo
-	if err := d.listRepo(ctx, false, "", nil, func(repoInfo *pfs.RepoInfo) error {
+	if err := d.listRepo(ctx, false /* includeAuth */, "" /* repoType */, nil /* projectsFilter */, func(repoInfo *pfs.RepoInfo) error {
 		repoInfos = append(repoInfos, repoInfo)
 		return nil
 	}); err != nil {

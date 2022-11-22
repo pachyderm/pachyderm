@@ -498,21 +498,21 @@ func (api *authServerAPI) CheckClusterIsAuthorizedInTransaction(transactionConte
 	if api.mock.CheckClusterIsAuthorizedInTransaction.handler != nil {
 		return api.mock.CheckClusterIsAuthorizedInTransaction.handler(transactionContext, permission...)
 	}
-	return errors.Errorf("unhandled pachd mock auth.CheckClusterIsAuthorizedInTranscation")
+	return errors.Errorf("unhandled pachd mock auth.CheckClusterIsAuthorizedInTransaction")
 }
 
 func (api *authServerAPI) CheckRepoIsAuthorizedInTransaction(transactionContext *txncontext.TransactionContext, repo *pfs.Repo, permission ...auth.Permission) error {
 	if api.mock.CheckRepoIsAuthorizedInTransaction.handler != nil {
 		return api.mock.CheckRepoIsAuthorizedInTransaction.handler(transactionContext, repo, permission...)
 	}
-	return errors.Errorf("unhandled pachd mock auth.CheckRepoIsAuthorizedInTranscation")
+	return errors.Errorf("unhandled pachd mock auth.CheckRepoIsAuthorizedInTransaction")
 }
 
 func (api *authServerAPI) CheckProjectIsAuthorizedInTransaction(transactionContext *txncontext.TransactionContext, project *pfs.Project, permission ...auth.Permission) error {
 	if api.mock.CheckProjectIsAuthorizedInTransaction.handler != nil {
 		return api.mock.CheckProjectIsAuthorizedInTransaction.handler(transactionContext, project, permission...)
 	}
-	return errors.Errorf("unhandled pachd mock auth.CheckProjectIsAuthorizedInTranscation")
+	return errors.Errorf("unhandled pachd mock auth.CheckProjectIsAuthorizedInTransaction")
 }
 
 func (api *authServerAPI) AuthorizeInTransaction(transactionContext *txncontext.TransactionContext, request *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error) {

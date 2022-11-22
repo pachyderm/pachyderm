@@ -712,8 +712,7 @@ func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txncontext.Transact
 	}
 
 	// Get the role bindings for the resource to check
-	key := authdb.ResourceKey(resource)
-	if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(key, &roleBinding); err != nil {
+	if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(authdb.ResourceKey(resource), &roleBinding); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, &auth.ErrNoRoleBinding{
 				Resource: *resource,
