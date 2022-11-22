@@ -33,7 +33,9 @@ func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.Transa
 func (a *apiServer) checkResourceIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, resource *auth.Resource, p ...auth.Permission) error {
 	me, err := txnCtx.WhoAmI()
 	if err != nil {
-		// TODO why are we swallowing the error?
+		// FIXME stop swallowing ErrNotActivated
+		// Why are we swallowing? So that code that calls into this can not worry about auth activeness.
+		// However, we should let the code calling this explicitly handle it.
 		if errors.Is(err, auth.ErrNotActivated) {
 			return nil
 		}
@@ -71,7 +73,9 @@ func (a *apiServer) CheckRepoIsAuthorized(ctx context.Context, repo *pfs.Repo, p
 func (a *apiServer) checkResourceIsAuthorized(ctx context.Context, resource *auth.Resource, p ...auth.Permission) error {
 	me, err := a.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if err != nil {
-		// TODO why are we swallowing the error?
+		// FIXME stop swallowing ErrNotActivated
+		// Why are we swallowing? So that code that calls into this can not worry about auth activeness.
+		// However, we should let the code calling this explicitly handle it.
 		if errors.Is(err, auth.ErrNotActivated) {
 			return nil
 		}
