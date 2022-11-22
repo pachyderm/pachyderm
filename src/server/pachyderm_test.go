@@ -8781,8 +8781,8 @@ func TestDeferredCross(t *testing.T) {
 
 	require.NoError(t, pps.VisitInput(jobInfo.Details.Input, func(i *pps.Input) error {
 		if i.Pfs != nil && i.Pfs.Repo == dataSet {
-			require.NotEqual(t, i.Pfs.Commit, headCommit.Commit.ID)
-			require.Equal(t, i.Pfs.Commit, commitInfo.Commit.ID)
+			require.Equal(t, i.Pfs.Commit, headCommit.Commit.ID)
+			require.NotEqual(t, i.Pfs.Commit, commitInfo.Commit.ID)
 		}
 		return nil
 	}))
