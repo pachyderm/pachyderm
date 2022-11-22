@@ -85,7 +85,7 @@ func WithListBufferCapacity(cap int) Option {
 	}
 }
 
-func WithCreateHook(createHook func(tx *pachsql.Tx, commitInfo interface{}) error) Option {
+func WithCreateHook(createHook func(*pachsql.Tx, interface{}) error) Option {
 	return func(c *postgresCollection) {
 		c.createHook = createHook
 	}
