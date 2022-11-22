@@ -9656,7 +9656,7 @@ func TestMalformedPipeline(t *testing.T) {
 		SpecCommit: &pfs.Commit{},
 	})
 	require.YesError(t, err)
-	require.Matches(t, "cannot resolve commit with no branch", err.Error())
+	require.Matches(t, "cannot resolve commit with no repo", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline:   client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
