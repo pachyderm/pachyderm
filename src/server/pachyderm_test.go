@@ -173,7 +173,7 @@ func TestPipelineWithSubprocesses(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	c = c.WithDefaultTransformUser("1000")
 
-	projectName := tu.UniqueString("project")
+	projectName := tu.UniqueString("p")
 	require.NoError(t, c.CreateProject(projectName))
 	dataRepoName := tu.UniqueString("TestPipelineWithSubprocesses_data")
 	require.NoError(t, c.CreateProjectRepo(projectName, dataRepoName))
@@ -184,7 +184,7 @@ func TestPipelineWithSubprocesses(t *testing.T) {
 	require.NoError(t, c.PutFile(commit1, "bar", strings.NewReader("bar"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishProjectCommit(projectName, dataRepoName, commit1.Branch.Name, commit1.ID))
 
-	pipeline := tu.UniqueString("TestPipelineWithSubprocesses")
+	pipeline := tu.UniqueString("TestPipelineWS")
 	_, err = c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
@@ -217,8 +217,12 @@ func TestPipelineWithSubprocesses(t *testing.T) {
 	}
 	require.NotNil(t, output, "output commit should have been found (got: %#v)", commitInfos)
 
-	require.NoError(t, c.GetFile(output.Commit, "foo", io.Discard), "should get foo without error")
-	require.NoError(t, c.GetFile(output.Commit, "bar", io.Discard), "should get bar without error")
+	buf := new(bytes.Buffer)
+	require.NoError(t, c.GetFile(output.Commit, "foo", buf), "should get foo without error")
+	require.Equal(t, "foo", buf.String(), "content should be correct")
+	buf.Reset()
+	require.NoError(t, c.GetFile(output.Commit, "bar", buf), "should get bar without error")
+	require.Equal(t, "bar", buf.String(), "content should be correct")
 }
 
 func TestCrossProjectPipeline(t *testing.T) {
