@@ -607,6 +607,15 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 			return nil, errors.Wrapf(err, "could not determine resource limit")
 		}
 	}
+	// If there are no resources specified then assume the user wants 1 CPU.  Users are often
+	// surprised when their jobs that claim to require 0 CPU are scheduled to a node with no
+	// free CPU resources.  They are still free to set ResourceRequests.Cpu = 0 to avoid this
+	// automatic generation.
+	if pipelineInfo.Details.ResourceRequests == nil && pipelineInfo.Details.ResourceLimits == nil {
+		resourceRequests = &v1.ResourceList{
+			v1.ResourceCPU: resource.MustParse("1"),
+		}
+	}
 	if pipelineInfo.Details.SidecarResourceLimits != nil {
 		var err error
 		sidecarResourceLimits, err = ppsutil.GetLimitsResourceList(pipelineInfo.Details.SidecarResourceLimits)
