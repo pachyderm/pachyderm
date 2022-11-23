@@ -11,10 +11,15 @@ linters:
     - nolintlint
 linters-settings:
   errcheck:
-     exclude-functions:
+    exclude-functions:
       - (*database/sql.Tx).Rollback
       - (*github.com/spf13/cobra.Command).MarkFlagCustom
       - (*github.com/spf13/cobra.Command).Usage
+  nolintlint:
+    allow-unused: false
+    allow-leading-space: false
+    require-explanation: false
+    require-specific: true
   wrapcheck:
     ignoreSigs:
       - github.com/pachyderm/pachyderm/v2/src/internal/errors.Errorf
@@ -27,6 +32,8 @@ linters-settings:
       - .WithMessagef(
       - .WithStack(
     ignorePackageGlobs:
+      # These are packages whose return values don't have to be wrapped, not packages where the
+      # linter isn't used.
       - github.com/pachyderm/pachyderm/v2/src/*
     ignoreInterfaceRegexps:
       - ^fileset\.
