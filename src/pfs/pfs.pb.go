@@ -1459,7 +1459,8 @@ func (m *InspectRepoRequest) GetRepo() *Repo {
 type ListRepoRequest struct {
 	// type is the type of (system) repos that should be returned
 	// an empty string requests all repos
-	Type                 string   `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	// projects filters out repos that do not belong in the list, while no projects means list all repos.
 	Projects             []string `protobuf:"bytes,2,rep,name=projects,proto3" json:"projects,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

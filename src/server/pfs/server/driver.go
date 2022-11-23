@@ -309,7 +309,7 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 		// blank type means return all
 		return errors.Wrap(d.repos.ReadOnly(ctx).List(repoInfo, col.DefaultOptions(), processFunc), "could not list repos of all types")
 	}
-	return errors.Wrap(d.repos.ReadOnly(ctx).GetByIndex(pfsdb.ReposTypeIndex, repoType, repoInfo, col.DefaultOptions(), processFunc), "could not to list repos")
+	return errors.Wrapf(d.repos.ReadOnly(ctx).GetByIndex(pfsdb.ReposTypeIndex, repoType, repoInfo, col.DefaultOptions(), processFunc), "could not get repos of type %q: ERROR FROM GetByIndex", repoType)
 }
 
 func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContext, repos []pfs.RepoInfo, force bool) error {

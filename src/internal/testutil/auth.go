@@ -165,7 +165,7 @@ func Group(group string) string {
 	return auth.GroupPrefix + group
 }
 
-func RandoRobot(t *testing.T, c *client.APIClient, name string) (string, *client.APIClient) {
+func RandomRobot(t *testing.T, c *client.APIClient, name string) (string, *client.APIClient) {
 	name = Robot(UniqueString(name))
 	return name, AuthenticateClient(t, c, name)
 }

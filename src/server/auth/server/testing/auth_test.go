@@ -2429,8 +2429,8 @@ func TestListRepoWithProjectAccessControl(t *testing.T) {
 	c := envWithAuth(t).PachClient
 	// create users
 	admin := tu.AuthenticateClient(t, c, auth.RootUser)
-	aliceName, alice := tu.RandoRobot(t, c, "alice")
-	bobName, bob := tu.RandoRobot(t, c, "bob")
+	aliceName, alice := tu.RandomRobot(t, c, "alice")
+	bobName, bob := tu.RandomRobot(t, c, "bob")
 	// create projects and repos
 	project1, project2 := tu.UniqueString("project1"), tu.UniqueString("project2")
 	repo1, repo2 := "repo1", "repo2"
