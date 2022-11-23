@@ -201,12 +201,24 @@ func TestPipelineWithSubprocesses(t *testing.T) {
 			DatumTimeout:    types.DurationProto(5 * time.Second),
 		},
 	)
-	require.NoError(t, err, "should create pipeline")
+	require.NoError(t, err, "should create pipeline ok")
 
-	_, err = c.WaitCommitSetAll(commit1.ID)
-	require.NoError(t, err, "should wait for commitset")
-	require.NoError(t, c.GetFile(client.NewProjectCommit(projectName, pipeline, "master", commit1.ID), "foo", io.Discard), "should get foo without error")
-	require.NoError(t, c.GetFile(client.NewProjectCommit(projectName, pipeline, "master", commit1.ID), "bar", io.Discard), "should get bar without error")
+	commitInfo, err := c.InspectProjectCommit(projectName, pipeline, "master", "")
+	require.NoError(t, err, "should inspect commit ok")
+	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err, "should wait commit ok")
+
+	var output *pfs.CommitInfo
+	for _, info := range commitInfos {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(projectName, pipeline)) {
+			output = info
+			break
+		}
+	}
+	require.NotNil(t, output, "output commit should have been found (got: %#v)", commitInfos)
+
+	require.NoError(t, c.GetFile(output.Commit, "foo", io.Discard), "should get foo without error")
+	require.NoError(t, c.GetFile(output.Commit, "bar", io.Discard), "should get bar without error")
 }
 
 func TestCrossProjectPipeline(t *testing.T) {
