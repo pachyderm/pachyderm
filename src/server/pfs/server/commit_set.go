@@ -20,7 +20,6 @@ import (
 func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, filterPassiveCommits bool) ([]*pfs.CommitInfo, error) {
 	var commitInfos []*pfs.CommitInfo
 	commitInfo := &pfs.CommitInfo{}
-	// include the commit set provenance in the inspectCommitSet results. TODO(acohen4): is this necessary?
 	cs, err := pfsdb.CommitSetProvenance(context.TODO(), txnCtx.SqlTx, commitset.ID)
 	if err != nil {
 		return nil, err
@@ -39,7 +38,6 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	}); err != nil {
 		return nil, err
 	}
-	// topologically sort commits - TODO(acohen4) is this really necessary?
 	totalCommits := len(commitInfos)
 	list := make([]*pfs.CommitInfo, 0)
 	collected := make(map[string]struct{})
@@ -108,7 +106,7 @@ func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet,
 	unfinishedCommits := make([]*pfs.Commit, 0)
 	// The commits in this CommitSet may change if any triggers or CreateBranches
 	// add more, so reload it after each wait.
-	// TODO acohen4: can we scrap this?
+	// TODO(acohen4): can we scrap this?
 	repeat := true
 	for repeat {
 		repeat = false

@@ -10,22 +10,29 @@ import (
 )
 
 // returns the commit of a certain repo in a commit set.
-//
-// TODO(acohen4): should this func return multiple commits in the case that
-// multiple commits from a repo are in the commitset's provenance?
 func ResolveCommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commitSet string) (*pfs.Commit, error) {
 	cs, err := CommitSetProvenance(ctx, tx, commitSet)
 	if err != nil {
 		return nil, err
 	}
+	matches := make([]*pfs.Commit, 0)
 	for _, c := range cs {
 		if RepoKey(c.Repo) == RepoKey(repo) {
-			return c, nil
+			matches = append(matches, c)
 		}
 	}
-	return nil, pfsserver.ErrCommitNotFound{Commit: &pfs.Commit{Repo: repo, ID: commitSet}}
+	if len(matches) == 0 {
+		return nil, pfsserver.ErrCommitNotFound{Commit: &pfs.Commit{Repo: repo, ID: commitSet}}
+	}
+	if len(matches) > 1 {
+		return nil, pfsserver.ErrAmbiguousCommit{Commit: &pfs.Commit{Repo: repo, ID: commitSet}, PossibleCommits: matches}
+	}
+	return matches[0], nil
 }
 
+// pps wants to know for each output commit that needs to be filled, what are all the commits that correspond to the input branches
+// this means that we need some mapping between and the branch that they were spawned off of.
+// Can we get in a weird situation
 func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commitSet string) ([]*pfs.Commit, error) {
 	commitKey := CommitKey(&pfs.Commit{
 		Repo: repo,

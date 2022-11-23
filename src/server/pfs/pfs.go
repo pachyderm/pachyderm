@@ -104,7 +104,8 @@ type ErrBaseCommitNotFinished struct {
 // ErrAmbiguousCommit represents an error where a user-specified commit did not
 // specify a branch and resolved to multiple commits on different branches.
 type ErrAmbiguousCommit struct {
-	Commit *pfs.Commit
+	Commit          *pfs.Commit
+	PossibleCommits []*pfs.Commit
 }
 
 // ErrInconsistentCommit represents an error where a transaction attempts to
@@ -282,7 +283,7 @@ func (e ErrBaseCommitNotFinished) Error() string {
 }
 
 func (e ErrAmbiguousCommit) Error() string {
-	return fmt.Sprintf("commit %v is ambiguous (specify the branch to resolve)", e.Commit)
+	return fmt.Sprintf("commit %v is ambiguous. Possible resolutions are: %v", e.Commit, e.PossibleCommits)
 }
 
 func (e ErrInconsistentCommit) Error() string {

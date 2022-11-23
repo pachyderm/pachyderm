@@ -1607,7 +1607,6 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its
 	// current HEAD commit has old provenance
-	// TODO(acohen4): GO BACK AND MOVE THIS UP TO WHERE IT'S SET
 	if propagate {
 		return txnCtx.PropagateBranch(branch)
 	}
