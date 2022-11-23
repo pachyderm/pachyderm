@@ -18,11 +18,11 @@ linters:
     - asciicheck
     - asasalint
     - bidichk
-    # - bodyclose
     - exhaustive
-    # - gocritic
     - goprintffuncname
-    # - gosec
+    # - bodyclose CORE-1317
+    # - gocritic CORE-1318
+    # - gosec CORE-1319
 linters-settings:
   errcheck:
     exclude-functions:
