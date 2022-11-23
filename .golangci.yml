@@ -21,7 +21,8 @@ linters:
     # - bodyclose
     - exhaustive
     # - gocritic
-    # - goprintffuncname
+    - goprintffuncname
+    # - gosec
 linters-settings:
   errcheck:
     exclude-functions:

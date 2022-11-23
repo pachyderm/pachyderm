@@ -32,7 +32,7 @@ func RunFixedArgs(numArgs int, run func([]string) error) func(*cobra.Command, []
 			cmd.Usage()
 		} else {
 			if err := run(args); err != nil {
-				ErrorAndExit("%v", err)
+				ErrorAndExitf("%v", err)
 			}
 		}
 	}
@@ -47,7 +47,7 @@ func RunBoundedArgs(min int, max int, run func([]string) error) func(*cobra.Comm
 			cmd.Usage()
 		} else {
 			if err := run(args); err != nil {
-				ErrorAndExit("%v", err)
+				ErrorAndExitf("%v", err)
 			}
 		}
 	}
@@ -62,7 +62,7 @@ func RunMinimumArgs(min int, run func([]string) error) func(*cobra.Command, []st
 			cmd.Usage()
 		} else {
 			if err := run(args); err != nil {
-				ErrorAndExit("%v", err)
+				ErrorAndExitf("%v", err)
 			}
 		}
 	}
@@ -72,13 +72,13 @@ func RunMinimumArgs(min int, run func([]string) error) func(*cobra.Command, []st
 func Run(run func(args []string) error) func(*cobra.Command, []string) {
 	return func(_ *cobra.Command, args []string) {
 		if err := run(args); err != nil {
-			ErrorAndExit("%v", err)
+			ErrorAndExitf("%v", err)
 		}
 	}
 }
 
-// ErrorAndExit errors with the given format and args, and then exits.
-func ErrorAndExit(format string, args ...interface{}) {
+// ErrorAndExitf errors with the given format and args, and then exits.
+func ErrorAndExitf(format string, args ...interface{}) {
 	if errString := strings.TrimSpace(fmt.Sprintf(format, args...)); errString != "" {
 		fmt.Fprintf(os.Stderr, "%s\n", errString)
 	}
