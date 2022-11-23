@@ -55,7 +55,7 @@ func TracesCol(c *etcd.Client) col.EtcdCollection {
 // trace for future updates by the PPS master and workers.  This function is
 // best-effort, and therefore doesn't currently return an error. Any errors are
 // logged, and then the given context is returned.
-func PersistAny(ctx context.Context, c *etcd.Client, pipeline string) {
+func PersistAny(ctx context.Context, c *etcd.Client, project, pipeline string) {
 	if !tracing.IsActive() {
 		return
 	}
@@ -90,6 +90,7 @@ func PersistAny(ctx context.Context, c *etcd.Client, pipeline string) {
 	// serialize extended trace & write to etcd
 	traceProto := &TraceProto{
 		SerializedTrace: map[string]string{}, // init map
+		Project:         project,
 		Pipeline:        pipeline,
 	}
 	if err := opentracing.GlobalTracer().Inject(
