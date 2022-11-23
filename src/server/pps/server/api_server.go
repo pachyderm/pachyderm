@@ -2419,7 +2419,7 @@ func (a *apiServer) stopAllJobsInPipeline(txnCtx *txncontext.TransactionContext,
 	jobInfo := &pps.JobInfo{}
 	sort := &col.Options{Target: col.SortByCreateRevision, Order: col.SortAscend}
 	err := a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsTerminalIndex, ppsdb.JobsTerminalKey(pipeline, false), jobInfo, sort, func(string) error {
-		return a.stopJob(txnCtx, jobInfo.Job, "pipeline updated")
+		return a.stopJob(txnCtx, jobInfo.Job, "pipeline stopped")
 	})
 	return errors.EnsureStack(err)
 }
