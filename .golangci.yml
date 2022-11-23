@@ -9,6 +9,7 @@ linters:
   enable:
     - wrapcheck
     - nolintlint
+    - gofmt
 linters-settings:
   errcheck:
     exclude-functions:
@@ -39,3 +40,6 @@ linters-settings:
       - ^fileset\.
       - ^collection\.
       - ^track\.
+  gofmt:
+    # You can check in "gofmt -s"'d code, but it's not mandatory.
+    simplify: false

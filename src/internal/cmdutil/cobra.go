@@ -114,13 +114,14 @@ func ParseRepo(project, name string) *pfs.Repo {
 // Parses the following formats, any unspecified fields will be left as empty
 // strings in the pfs.File structure.  The second return value is the number of fields parsed -
 // (1: repo only, 2: repo and branch-or-commit, 3: repo, branch, and file).
-//   repo
-//   repo@branch
-//   repo@branch:path
-//   repo@branch=commit
-//   repo@branch=commit:path
-//   repo@commit
-//   repo@commit:path
+//
+//	repo
+//	repo@branch
+//	repo@branch:path
+//	repo@branch=commit
+//	repo@branch=commit:path
+//	repo@commit
+//	repo@commit:path
 func parseFile(project, arg string) (*pfs.File, int, error) {
 	var repo, branch, commit, path string
 	parts := strings.SplitN(arg, "@", 2)
