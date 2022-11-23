@@ -135,6 +135,192 @@ func (e ErrMissingBranchHead) Error() string {
 	return fmt.Sprintf("consistency error: branch %s does not have a head commit", e.Branch)
 }
 
+func CheckBranchProvenances(bi *pfs.BranchInfo, branchInfos map[string]*pfs.BranchInfo, onError func(error) error) error {
+	// we expect the branch's provenance to equal the union of the provenances of the branch's direct provenances
+	// i.e. union(branch, branch.Provenance) = union(branch, branch.DirectProvenance, branch.DirectProvenance.Provenance)
+	direct := bi.DirectProvenance
+	union := []*pfs.Branch{bi.Branch}
+
+	for _, directProvenance := range direct {
+		directProvenanceInfo := branchInfos[pfsdb.BranchKey(directProvenance)]
+		union = append(union, directProvenance)
+		if directProvenanceInfo != nil {
+			union = append(union, directProvenanceInfo.Provenance...)
+		}
+	}
+
+	if !equalBranches(append(bi.Provenance, bi.Branch), union) {
+		if err := onError(ErrBranchProvenanceTransitivity{
+			BranchInfo:     bi,
+			FullProvenance: union,
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func CheckBranchSubvenances(bi *pfs.BranchInfo, branchInfos map[string]*pfs.BranchInfo, onError func(error) error) error {
+
+	for _, provBranch := range bi.Provenance {
+		provBranchInfo := branchInfos[pfsdb.BranchKey(provBranch)]
+		if !branchInSet(bi.Branch, provBranchInfo.Subvenance) {
+			if err := onError(ErrBranchSubvenanceTransitivity{
+				BranchInfo:        provBranchInfo,
+				MissingSubvenance: bi.Branch,
+			}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func CheckMissingHead(bi *pfs.BranchInfo, branchInfos map[string]*pfs.BranchInfo, commitInfos map[string]*pfs.CommitInfo, onError func(error) error) error {
+
+	if bi.Head == nil {
+		if err := onError(ErrMissingBranchHead{
+			Branch: bi.Branch,
+		}); err != nil {
+			return err
+		}
+	} else {
+		// we expect the branch's provenance to equal the HEAD commit's provenance
+		// i.e branch.Provenance contains the branch provBranch and
+		// provBranch.Head != nil implies branch.Head.Provenance contains
+		// provBranch.Head
+		for _, provBranch := range bi.Provenance {
+			provBranchInfo, ok := branchInfos[pfsdb.BranchKey(provBranch)]
+			if !ok {
+				if err := onError(ErrBranchInfoNotFound{Branch: provBranch}); err != nil {
+					return err
+				}
+				continue
+			}
+			if provBranchInfo.Head != nil {
+				// in this case, the headCommit Provenance should contain provBranch.Head
+				if _, ok := commitInfos[pfsdb.CommitKey(bi.Head)]; !ok {
+					if err := onError(ErrCommitInfoNotFound{
+						Location: "head commit provenance (=>)",
+						Commit:   bi.Head,
+					}); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+
+func FsckBranches(branchInfos map[string]*pfs.BranchInfo, commitInfos map[string]*pfs.CommitInfo, onError func(error) error) error {
+
+	// for each branch
+	for _, bi := range branchInfos {
+
+		if err := CheckBranchProvenances(bi, branchInfos, onError); err != nil {
+			return err
+		}
+
+		// every provenant branch should have this branch in its subvenance
+		if err := CheckBranchSubvenances(bi, branchInfos, onError); err != nil {
+			return err
+		}
+
+		if err:= CheckMissingHead(bi, branchInfos, commitInfos, onError); err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+func CheckParentCommit(commitInfo *pfs.CommitInfo, commitInfos map[string]*pfs.CommitInfo, onError func(error) error) error {
+
+	if commitInfo.ParentCommit != nil {
+		parentCommitInfo, ok := commitInfos[pfsdb.CommitKey(commitInfo.ParentCommit)]
+		if !ok {
+			if err := onError(ErrCommitInfoNotFound{
+				Location: fmt.Sprintf("parent commit of %s", commitInfo.Commit),
+				Commit:   commitInfo.ParentCommit,
+			}); err != nil {
+				return err
+			}
+		} else {
+			found := false
+			for _, child := range parentCommitInfo.ChildCommits {
+				if proto.Equal(child, commitInfo.Commit) {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				if err := onError(ErrCommitAncestryBroken{
+					Parent: parentCommitInfo.Commit,
+					Child:  commitInfo.Commit,
+				}); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func CheckChildCommits(commitInfo *pfs.CommitInfo, commitInfos map[string]*pfs.CommitInfo, onError func(error) error) error {
+
+	for _, child := range commitInfo.ChildCommits {
+		childCommitInfo, ok := commitInfos[pfsdb.CommitKey(child)]
+
+		if !ok {
+			if err := onError(ErrCommitInfoNotFound{
+				Location: fmt.Sprintf("child commit of %s", commitInfo.Commit),
+				Commit:   child,
+			}); err != nil {
+				return err
+			}
+		} else {
+			if childCommitInfo.ParentCommit == nil || !proto.Equal(childCommitInfo.ParentCommit, commitInfo.Commit) {
+				if err := onError(ErrCommitAncestryBroken{
+					Parent: commitInfo.Commit,
+					Child:  childCommitInfo.Commit,
+				}); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func FsckCommits(commitInfos map[string]*pfs.CommitInfo, onError func(error) error) error {
+
+	// For every commit
+	for _, commitInfo := range commitInfos {
+		// Every parent commit info should exist and point to this as a child
+		if err := CheckParentCommit(commitInfo, commitInfos, onError); err != nil {
+			return err
+		}
+
+		// Every child commit info should exist and point to this as their parent
+		if err := CheckChildCommits(commitInfo, commitInfos, onError); err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+
 // fsck verifies that pfs satisfies the following invariants:
 // 1. Branch provenance is transitive
 // 2. Head commit provenance has heads of branch's branch provenance
@@ -168,130 +354,12 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 		return errors.EnsureStack(err)
 	}
 
-	// for each branch
-	for _, bi := range branchInfos {
-		// we expect the branch's provenance to equal the union of the provenances of the branch's direct provenances
-		// i.e. union(branch, branch.Provenance) = union(branch, branch.DirectProvenance, branch.DirectProvenance.Provenance)
-		direct := bi.DirectProvenance
-		union := []*pfs.Branch{bi.Branch}
-		for _, directProvenance := range direct {
-			directProvenanceInfo := branchInfos[pfsdb.BranchKey(directProvenance)]
-			union = append(union, directProvenance)
-			if directProvenanceInfo != nil {
-				union = append(union, directProvenanceInfo.Provenance...)
-			}
-		}
-
-		if !equalBranches(append(bi.Provenance, bi.Branch), union) {
-			if err := onError(ErrBranchProvenanceTransitivity{
-				BranchInfo:     bi,
-				FullProvenance: union,
-			}); err != nil {
-				return err
-			}
-		}
-
-		// every provenant branch should have this branch in its subvenance
-		for _, provBranch := range bi.Provenance {
-			provBranchInfo := branchInfos[pfsdb.BranchKey(provBranch)]
-			if !branchInSet(bi.Branch, provBranchInfo.Subvenance) {
-				if err := onError(ErrBranchSubvenanceTransitivity{
-					BranchInfo:        provBranchInfo,
-					MissingSubvenance: bi.Branch,
-				}); err != nil {
-					return err
-				}
-			}
-		}
-
-		if bi.Head == nil {
-			if err := onError(ErrMissingBranchHead{
-				Branch: bi.Branch,
-			}); err != nil {
-				return err
-			}
-		} else {
-			// we expect the branch's provenance to equal the HEAD commit's provenance
-			// i.e branch.Provenance contains the branch provBranch and
-			// provBranch.Head != nil implies branch.Head.Provenance contains
-			// provBranch.Head
-			for _, provBranch := range bi.Provenance {
-				provBranchInfo, ok := branchInfos[pfsdb.BranchKey(provBranch)]
-				if !ok {
-					if err := onError(ErrBranchInfoNotFound{Branch: provBranch}); err != nil {
-						return err
-					}
-					continue
-				}
-				if provBranchInfo.Head != nil {
-					// in this case, the headCommit Provenance should contain provBranch.Head
-					if _, ok := commitInfos[pfsdb.CommitKey(bi.Head)]; !ok {
-						if err := onError(ErrCommitInfoNotFound{
-							Location: "head commit provenance (=>)",
-							Commit:   bi.Head,
-						}); err != nil {
-							return err
-						}
-					}
-				}
-			}
-		}
+	if err := FsckBranches(branchInfos, commitInfos, onError); err != nil {
+		return err
 	}
 
-	// For every commit
-	for _, commitInfo := range commitInfos {
-		// Every parent commit info should exist and point to this as a child
-		if commitInfo.ParentCommit != nil {
-			parentCommitInfo, ok := commitInfos[pfsdb.CommitKey(commitInfo.ParentCommit)]
-			if !ok {
-				if err := onError(ErrCommitInfoNotFound{
-					Location: fmt.Sprintf("parent commit of %s", commitInfo.Commit),
-					Commit:   commitInfo.ParentCommit,
-				}); err != nil {
-					return err
-				}
-			} else {
-				found := false
-				for _, child := range parentCommitInfo.ChildCommits {
-					if proto.Equal(child, commitInfo.Commit) {
-						found = true
-						break
-					}
-				}
-
-				if !found {
-					if err := onError(ErrCommitAncestryBroken{
-						Parent: parentCommitInfo.Commit,
-						Child:  commitInfo.Commit,
-					}); err != nil {
-						return err
-					}
-				}
-			}
-		}
-
-		// Every child commit info should exist and point to this as their parent
-		for _, child := range commitInfo.ChildCommits {
-			childCommitInfo, ok := commitInfos[pfsdb.CommitKey(child)]
-
-			if !ok {
-				if err := onError(ErrCommitInfoNotFound{
-					Location: fmt.Sprintf("child commit of %s", commitInfo.Commit),
-					Commit:   child,
-				}); err != nil {
-					return err
-				}
-			} else {
-				if childCommitInfo.ParentCommit == nil || !proto.Equal(childCommitInfo.ParentCommit, commitInfo.Commit) {
-					if err := onError(ErrCommitAncestryBroken{
-						Parent: commitInfo.Commit,
-						Child:  childCommitInfo.Commit,
-					}); err != nil {
-						return err
-					}
-				}
-			}
-		}
+	if err := FsckCommits(commitInfos, onError); err != nil {
+		return err
 	}
 
 	// TODO(global ids): is there any verification we can do for commitsets?
