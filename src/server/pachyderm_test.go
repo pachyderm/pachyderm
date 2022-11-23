@@ -164,6 +164,51 @@ func TestSimplePipeline(t *testing.T) {
 	}
 }
 
+func TestPipelineWithSubprocesses(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	c = c.WithDefaultTransformUser("1000")
+
+	projectName := tu.UniqueString("project")
+	require.NoError(t, c.CreateProject(projectName))
+	dataRepoName := tu.UniqueString("TestPipelineWithSubprocesses_data")
+	require.NoError(t, c.CreateProjectRepo(projectName, dataRepoName))
+
+	commit1, err := c.StartProjectCommit(projectName, dataRepoName, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit1, "foo", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(commit1, "bar", strings.NewReader("bar"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishProjectCommit(projectName, dataRepoName, commit1.Branch.Name, commit1.ID))
+
+	pipeline := tu.UniqueString("TestPipelineWithSubprocesses")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewProjectPipeline(projectName, pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"/bin/bash"},
+				Stdin: []string{
+					"sleep infinity &", // sleep holds onto stdout forever, meaning we have to explicitly kill it to make progress
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepoName),
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
+			Input:           client.NewProjectPFSInput(projectName, dataRepoName, "/*"),
+			DatumTimeout:    types.DurationProto(5 * time.Second),
+		},
+	)
+	require.NoError(t, err, "should create pipeline")
+
+	_, err = c.WaitCommitSetAll(commit1.ID)
+	require.NoError(t, err, "should wait for commitset")
+	require.NoError(t, c.GetFile(client.NewProjectCommit(projectName, pipeline, "master", commit1.ID), "foo", io.Discard), "should get foo without error")
+	require.NoError(t, c.GetFile(client.NewProjectCommit(projectName, pipeline, "master", commit1.ID), "bar", io.Discard), "should get bar without error")
+}
+
 func TestCrossProjectPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -7215,7 +7260,10 @@ func TestService(t *testing.T) {
 		[]string{"sh"},
 		[]string{
 			"cd /pfs",
-			"exec python -m SimpleHTTPServer 8000",
+			// Note: a correct shell script would "exec python ..." here, but we want to
+			// test that the server gets properly killed even if the user messes this
+			// up.
+			"python -m SimpleHTTPServer 8000",
 		},
 		&pps.ParallelismSpec{
 			Constant: 1,
