@@ -45,7 +45,7 @@ func makeProcessGroupKiller(rctx context.Context, l logs.TaggedLogger, pgid int)
 	ctx, c := context.WithCancel(rctx)
 	go func() {
 		<-ctx.Done()
-		l.Logf("killing remaining children") // XXX: delete
+		logRunningProcesses(l, pgid)
 		if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil {
 			// ESRCH means that the process group is gone, because everything
 			// has already exited on its own (or there was only one process in
