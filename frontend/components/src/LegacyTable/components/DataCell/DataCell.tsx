@@ -1,38 +1,25 @@
 import classnames from 'classnames';
 import React, {TdHTMLAttributes} from 'react';
 
-import useStickyState from '../../../hooks/useStickyState';
-
 import styles from './DataCell.module.css';
 
 export interface DataCellProps
   extends TdHTMLAttributes<HTMLTableDataCellElement> {
   rightAligned?: boolean;
-  cellRef?: React.LegacyRef<HTMLTableDataCellElement>;
-  sticky?: boolean;
-  isSelected?: boolean;
 }
 
 const DataCell: React.FC<DataCellProps> = ({
   children,
   rightAligned = false,
   className,
-  cellRef,
-  sticky = false,
-  isSelected = false,
   ...rest
 }) => {
-  const {stickyRef, elementIsStuck} = useStickyState();
-
   const classes = classnames(styles.base, className, {
     [styles.rightAligned]: rightAligned,
-    [styles.sticky]: sticky,
-    [styles.stuck]: elementIsStuck,
-    [styles.isSelected]: isSelected && elementIsStuck,
   });
 
   return (
-    <td className={classes} ref={sticky ? stickyRef : undefined} {...rest}>
+    <td className={classes} {...rest}>
       {children}
     </td>
   );

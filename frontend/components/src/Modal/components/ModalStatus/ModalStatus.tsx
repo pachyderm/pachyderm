@@ -43,7 +43,7 @@ const ModalStatus: React.FC<ModalStatusProps> = ({status, children}) => {
               case 'updating':
                 return (
                   <Icon color="green">
-                    <StatusUpdatedSVG aria-hidden />;
+                    <StatusUpdatedSVG aria-hidden />
                   </Icon>
                 );
               default:

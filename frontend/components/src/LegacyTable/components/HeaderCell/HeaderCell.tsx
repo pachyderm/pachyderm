@@ -2,13 +2,9 @@ import classnames from 'classnames';
 import noop from 'lodash/noop';
 import React, {ThHTMLAttributes, useMemo} from 'react';
 
-import {
-  Icon,
-  ArrowDownSVG,
-  ArrowUpSVG,
-  CaptionText,
-} from '@pachyderm/components';
-
+import {Group} from './../../../Group';
+import {ChevronDownSVG} from './../../../Svg';
+import {CaptionText} from './../../../Text';
 import styles from './HeaderCell.module.css';
 
 export interface HeaderCellProps
@@ -34,6 +30,11 @@ const HeaderCell: React.FC<HeaderCellProps> = ({
   const className = classnames(styles.base, {
     [styles.rightAligned]: rightAligned,
     [styles.sortHeader]: sortable,
+  });
+
+  const sortClasses = classnames({
+    [styles.selectedColumn]: sortSelected,
+    [styles.flip]: sortSelected && sortReversed,
   });
 
   const sortDir = useMemo(() => {
@@ -64,10 +65,10 @@ const HeaderCell: React.FC<HeaderCellProps> = ({
           className={styles.wrapperButton}
           onClick={onClick}
         >
-          <CaptionText className={styles.text}>{children}</CaptionText>
-          <Icon color={sortSelected ? 'blue' : 'grey'} small>
-            {sortSelected && sortReversed ? <ArrowDownSVG /> : <ArrowUpSVG />}
-          </Icon>
+          <Group spacing={8} align="center">
+            <CaptionText className={styles.text}>{children}</CaptionText>
+            <ChevronDownSVG className={sortClasses} />
+          </Group>
         </button>
       ) : (
         <CaptionText className={styles.text}>{children}</CaptionText>

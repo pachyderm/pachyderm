@@ -5,9 +5,18 @@ import DropdownContext from '../contexts/DropdownContext';
 const useDropdown = () => {
   const {isOpen, setIsOpen, ...rest} = useContext(DropdownContext);
 
-  const toggleDropdown = useCallback(() => {
-    setIsOpen((prevIsOpen: boolean) => !prevIsOpen);
-  }, [setIsOpen]);
+  const toggleDropdown = useCallback(
+    (
+      event: React.MouseEvent<
+        HTMLButtonElement & HTMLAnchorElement,
+        MouseEvent
+      >,
+    ) => {
+      event.stopPropagation();
+      setIsOpen((prevIsOpen: boolean) => !prevIsOpen);
+    },
+    [setIsOpen],
+  );
 
   const openDropdown = useCallback(() => {
     setIsOpen(true);

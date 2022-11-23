@@ -1,22 +1,22 @@
-.base {
-  padding: 1.5rem;
-}
-
 .rightAligned {
   text-align: right;
 }
 
-.base:first-child {
-  padding-left: calc(var(--padding-view-x) + 1.875rem);
+.stuck > * {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  border-left: solid 1px var(--border-grey);
+  padding: 0 0.5rem !important;
 }
 
-.base:last-child {
-  padding-right: 1.5rem;
+.sticky {
+  position: sticky;
+  width: 3rem;
+  right: -1px;
+  padding: 0 !important;
 }
 
-@media (--medium-viewport) {
-  .base:first-child {
-    padding-left: calc(var(--padding-view-x-sm) + 1.875rem);
-  }
+.isSelected > * {
+  box-shadow: inset -2px 0 0 0 var(--cyan);
 }
-

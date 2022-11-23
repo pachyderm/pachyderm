@@ -55,7 +55,7 @@ export const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
       role="menuitem"
       type="button"
       className={classes}
-      onClick={handleClick}
+      onClick={(e) => handleClick(e)}
       onKeyDown={handleKeyDown}
       tabIndex={-1}
       {...rest}

@@ -1,22 +1,20 @@
-.sticky tr:nth-child(1) th{
+.base th {
+  padding: 0;
+}
+
+.sticky {
   position: sticky;
   top: 0;
   z-index: 1;
 }
 
-.sticky.stuck{
-  position: relative;
+.hasCheckbox th:first-of-type {
+  padding-left: 3rem;
 }
 
-.sticky.stuck::after{
-  position: fixed;
-  content: '';
-  width: 100%;
-  height: 6px;
-  margin-top: -6px;
-  box-shadow: 0 3px 2px -2px var(--dropshadow-grey);
-}
-
-.sticky.stuck.absoluteTop::after{
-  top: 4.2rem;
+.checkbox {
+  position: absolute;
+  margin-left: -2rem;
+  margin-top: 0.75rem;
+  z-index: var(--z-index-sticky-header);
 }

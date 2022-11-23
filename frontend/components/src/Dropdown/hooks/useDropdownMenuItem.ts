@@ -62,20 +62,24 @@ const useDropdownMenuItem = ({
 
   const isSelected = selectedId === id;
 
-  const handleClick = useCallback(() => {
-    selectItem();
-    onClick();
+  const handleClick = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
+      event.stopPropagation();
+      selectItem();
+      onClick();
 
-    if (closeOnClick) {
-      closeDropdown();
+      if (closeOnClick) {
+        closeDropdown();
 
-      const menuButton = ref.current?.parentElement?.previousSibling;
+        const menuButton = ref.current?.parentElement?.previousSibling;
 
-      if (menuButton) {
-        (menuButton as HTMLElement).focus();
+        if (menuButton) {
+          (menuButton as HTMLElement).focus();
+        }
       }
-    }
-  }, [closeDropdown, closeOnClick, onClick, ref, selectItem]);
+    },
+    [closeDropdown, closeOnClick, onClick, ref, selectItem],
+  );
 
   return {
     selectItem,

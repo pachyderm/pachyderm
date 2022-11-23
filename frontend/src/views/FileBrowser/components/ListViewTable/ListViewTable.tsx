@@ -1,7 +1,7 @@
 import {File} from '@graphqlTypes';
 import React from 'react';
 
-import {Table} from '@pachyderm/components';
+import {LegacyTable as Table} from '@pachyderm/components';
 
 import FileTableRow from './FileTableRow';
 import useListViewTable from './hooks/useListViewTable';

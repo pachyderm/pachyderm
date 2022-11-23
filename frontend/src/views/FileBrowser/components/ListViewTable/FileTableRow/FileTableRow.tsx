@@ -3,7 +3,7 @@ import classnames from 'classnames';
 import React from 'react';
 
 import {
-  Table,
+  LegacyTable as Table,
   Group,
   AddCircleSVG,
   StatusUpdatedSVG,

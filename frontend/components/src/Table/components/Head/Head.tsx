@@ -1,12 +1,16 @@
 import classNames from 'classnames';
-import React, {HTMLAttributes, useEffect, useRef, useState} from 'react';
+import React, {HTMLAttributes} from 'react';
+
+import {PureCheckbox} from '@pachyderm/components';
 
 import styles from './Head.module.css';
 
 export interface HeadProps extends HTMLAttributes<HTMLTableSectionElement> {
   sticky?: boolean;
   screenReaderOnly?: boolean;
-  relativeShadow?: boolean;
+  hasCheckbox?: boolean;
+  isSelected?: boolean;
+  onClick?: () => void;
 }
 
 const Head: React.FC<HeadProps> = ({
@@ -14,40 +18,29 @@ const Head: React.FC<HeadProps> = ({
   className,
   sticky,
   screenReaderOnly = false,
-  relativeShadow = false,
+  isSelected = false,
+  hasCheckbox = false,
+  onClick,
   ...rest
 }) => {
-  const [isStuck, setIsStuck] = useState(false);
-  const ref = useRef<HTMLTableSectionElement>(null);
-
-  useEffect(() => {
-    const currentRef = ref.current;
-    let observer: IntersectionObserver | null = null;
-    if (!screenReaderOnly && currentRef) {
-      observer = new IntersectionObserver(
-        ([e]) => {
-          // We are only concerned with the top value of the two bounding
-          // rectangles, as the header is not "stuck" when the viewport
-          // is constrainted by the x-axis.
-          setIsStuck(e.boundingClientRect.top < e.intersectionRect.top);
-        },
-        {threshold: [1]},
-      );
-      observer.observe(currentRef);
-      return () => {
-        if (observer && currentRef) observer.unobserve(currentRef);
-      };
-    }
-  }, [screenReaderOnly]);
-
-  const classes = classNames(className, {
+  const classes = classNames(styles.base, className, {
     [styles.sticky]: sticky,
-    [styles.stuck]: isStuck,
-    [styles.absoluteTop]: !relativeShadow,
+    [styles.hasCheckbox]: Boolean(hasCheckbox),
   });
 
   return (
-    <thead {...rest} className={classes} ref={ref}>
+    <thead {...rest} className={classes}>
+      {hasCheckbox && onClick && (
+        <tr>
+          <th>
+            <PureCheckbox
+              className={styles.checkbox}
+              selected={isSelected}
+              onChange={onClick}
+            />
+          </th>
+        </tr>
+      )}
       {children}
     </thead>
   );

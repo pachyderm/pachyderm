@@ -1,22 +1,12 @@
 import classnames from 'classnames';
 import React, {HTMLAttributes} from 'react';
 
-import styles from './Body.module.css';
-
-export interface BodyProps extends HTMLAttributes<HTMLTableSectionElement> {
-  bandedRows?: boolean;
-}
-
-const Body: React.FC<BodyProps> = ({
+const Body: React.FC<HTMLAttributes<HTMLTableSectionElement>> = ({
   children,
   className,
-  bandedRows = true,
   ...rest
 }) => (
-  <tbody
-    className={classnames(className, {[styles.bandedRows]: bandedRows})}
-    {...rest}
-  >
+  <tbody className={classnames(className)} {...rest}>
     {children}
   </tbody>
 );
