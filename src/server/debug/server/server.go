@@ -838,7 +838,7 @@ func (s *debugServer) forEachWorkerLoki(ctx context.Context, pipelineInfo *pps.P
 // https://prometheus.io/docs/prometheus/latest/querying/basics/#string-literals.
 // This happens to be the same as a Go string, with single or double quotes or
 // backticks allowed as enclosing characters.
-func quoteLogQL(s string) string {
+func quoteLogQLStreamSelector(s string) string {
 	return fmt.Sprintf("%q", s)
 }
 
@@ -849,7 +849,7 @@ func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.P
 	// logs for further inspection.  The alternative would be to get every worker that existed
 	// in some time interval, but that results in too much data to inspect.
 
-	queryStr := fmt.Sprintf(`{pipelineProject=%s, pipelineName=%s}`, quoteLogQL(pipelineInfo.Pipeline.Project.Name), quoteLogQL(pipelineInfo.Pipeline.Name))
+	queryStr := fmt.Sprintf(`{pipelineProject=%s, pipelineName=%s}`, quoteLogQLStreamSelector(pipelineInfo.Pipeline.Project.Name), quoteLogQLStreamSelector(pipelineInfo.Pipeline.Name))
 	pods := make(map[string]struct{})
 	logs, err := s.queryLoki(ctx, queryStr)
 	if err != nil {

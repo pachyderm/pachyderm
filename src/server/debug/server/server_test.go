@@ -309,8 +309,8 @@ func TestQuoteLogQL(t *testing.T) {
 bc`: `"a\nbc"`,
 		`ßþ…`: `"ßþ…"`,
 	} {
-		if quoteLogQL(s) != q {
-			t.Errorf("expected quoteLogQL(%q) = %q; got %q", s, q, quoteLogQL(s))
+		if quoteLogQLStreamSelector(s) != q {
+			t.Errorf("expected quoteLogQL(%q) = %q; got %q", s, q, quoteLogQLStreamSelector(s))
 		}
 	}
 }
