@@ -77,7 +77,7 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.registerPFSServer,
 		fb.registerPPSServer,
 		fb.registerTransactionServer,
-		fb.registerAdminServer,
+		//fb.registerAdminServer,
 		fb.registerHealthServer,
 		fb.registerVersionServer,
 		fb.registerDebugServer,

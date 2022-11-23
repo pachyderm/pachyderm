@@ -181,7 +181,7 @@ func (b *builder) initExternalServer(ctx context.Context) error {
 		// (because the version_middleware interceptor throws an error, or the auth interceptor does).
 		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
 			method, _ := grpc.MethodFromServerStream(stream)
-			return errors.Errorf("unknown service %v", method)
+			return &grpcutil.ErrUnknownService{Method: method}
 		}),
 		grpc.ChainUnaryInterceptor(
 			errorsmw.UnaryServerInterceptor,

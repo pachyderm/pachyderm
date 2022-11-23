@@ -112,3 +112,21 @@ func (s *Server) ListenTCP(host string, port uint16) (net.Listener, error) {
 func (s *Server) Wait() error {
 	return errors.EnsureStack(s.eg.Wait())
 }
+
+// ErrUnknownService is returned by gRPC servers when there is a client to server version mismatch.
+type ErrUnknownService struct {
+	Method string
+}
+
+func (e ErrUnknownService) Error() string {
+	return fmt.Sprintf("unknown service %v", e.Method)
+}
+
+//func (e ErrUnknownService) Is(target error) bool {
+//	t, ok := target.(*ErrUnknownService)
+//	if !ok {
+//		return false
+//	}
+//
+//	return t.Method == e.Method
+//}

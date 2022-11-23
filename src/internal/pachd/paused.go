@@ -76,7 +76,7 @@ func (pb *pausedBuilder) buildAndRun(ctx context.Context) error {
 		pb.initExternalServer,
 		pb.registerLicenseServer,
 		pb.registerEnterpriseServer,
-		pb.registerAdminServer,
+		//pb.registerAdminServer,
 		pb.maybeRegisterIdentityServer,
 		pb.registerAuthServer,
 		pb.registerHealthServer,

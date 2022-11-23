@@ -304,7 +304,6 @@ __custom_func() {
 
 func newClient(enterprise bool, options ...client.Option) (*client.APIClient, error) {
 	if enterprise {
-		fmt.Println("creating enterprise client.")
 		c, err := client.NewEnterpriseClientOnUserMachine("user", options...)
 		if err != nil {
 			return nil, err
@@ -312,7 +311,6 @@ func newClient(enterprise bool, options ...client.Option) (*client.APIClient, er
 		fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
 		return c, nil
 	}
-	fmt.Println("creating non-enterprise client.")
 	return client.NewOnUserMachine("user", options...)
 }
 
@@ -403,14 +401,12 @@ Environment variables:
 				}
 			} else {
 				printVersionHeader(writer)
-				fmt.Println("printing version...")
 				printVersion(writer, "pachctl", version.Version)
 				if err := writer.Flush(); err != nil {
 					return errors.EnsureStack(err)
 				}
 			}
 
-			fmt.Println("dialing pachd.")
 			// Dial pachd & get server version
 			var pachClient *client.APIClient
 			var err error
@@ -422,7 +418,6 @@ Environment variables:
 				}
 				pachClient, err = newClient(enterprise, client.WithDialTimeout(timeout))
 			} else {
-				fmt.Println("creating new client")
 				pachClient, err = newClient(enterprise)
 			}
 			if err != nil {
@@ -431,7 +426,6 @@ Environment variables:
 			defer pachClient.Close()
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-			fmt.Println("getting version.")
 			version, err := pachClient.GetVersion(ctx, &types.Empty{})
 
 			if err != nil {

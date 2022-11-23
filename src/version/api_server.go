@@ -21,6 +21,7 @@ func newAPIServer(version *pb.Version, options APIServerOptions) *apiServer {
 }
 
 func (a *apiServer) GetVersion(ctx context.Context, request *types.Empty) (response *pb.Version, err error) {
+	a.version.Major = 1 //@fahad TODO: remove after testing
 	return a.version, nil
 }
 

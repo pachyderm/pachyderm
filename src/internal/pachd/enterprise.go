@@ -63,7 +63,7 @@ func (eb *enterpriseBuilder) buildAndRun(ctx context.Context) error {
 		eb.registerIdentityServer,
 		eb.registerAuthServer,
 		eb.registerHealthServer,
-		eb.registerAdminServer,
+		//eb.registerAdminServer,
 		eb.registerVersionServer,
 
 		eb.initTransaction,

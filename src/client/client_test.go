@@ -2,17 +2,35 @@ package client
 
 import (
 	"context"
+	errors_v2 "errors"
 	"testing"
 	"time"
 
+	"google.golang.org/grpc"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"google.golang.org/grpc"
 )
 
 type countingInterceptor struct {
 	s int
 	u int
+}
+
+// So why doesn't Is() typecasting work when its returned from the server to the client?
+func retError() error {
+	return grpcutil.ScrubGRPC(grpcutil.ErrUnknownService{Method: "/admin_v2.API/InspectCluster"})
+}
+
+func TestErrUnknownSvc(t *testing.T) {
+	err := retError()
+	if !errors.As(err, &grpcutil.ErrUnknownService{}) {
+		t.Fatal()
+	}
+	if !errors_v2.As(err, &grpcutil.ErrUnknownService{}) {
+		t.Fatal()
+	}
 }
 
 func (i *countingInterceptor) unary() grpc.UnaryClientInterceptor {
