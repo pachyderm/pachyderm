@@ -10,6 +10,18 @@ linters:
     - wrapcheck
     - nolintlint
     - gofmt
+    - govet
+    - gosimple
+    - errcheck
+    - ineffassign
+    - unused
+    - asciicheck
+    - asasalint
+    - bidichk
+    # - bodyclose
+    - exhaustive
+    # - gocritic
+    # - goprintffuncname
 linters-settings:
   errcheck:
     exclude-functions:
@@ -42,3 +54,10 @@ linters-settings:
       - ^track\.
   gofmt:
     simplify: true
+  exhaustive:
+    default-signifies-exhaustive: true
+    # Right now, we only allow opting into the exhaustive check due to a lot of code that makes
+    # correct use of non-exhaustive switch statements.
+    # Annotate your switch statement with //exhaustive:enforce to opt in.
+    explicit-exhaustive-switch: true
+    explicit-exhaustive-map: true
