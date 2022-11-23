@@ -41,5 +41,4 @@ linters-settings:
       - ^collection\.
       - ^track\.
   gofmt:
-    # You can check in "gofmt -s"'d code, but it's not mandatory.
-    simplify: false
+    simplify: true

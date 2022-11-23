@@ -126,8 +126,8 @@ func TestListDatum(t *testing.T) {
 		}
 	}
 	require.Equal(t, map[string]struct{}{
-		"file1": struct{}{},
-		"file2": struct{}{},
+		"file1": {},
+		"file2": {},
 	}, files)
 
 	// Test list datum input.
