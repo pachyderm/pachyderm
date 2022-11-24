@@ -16,7 +16,7 @@ import (
 // key, value and indices, all in one transaction which caller is responsible
 // for committing.
 //
-// DO NOT MODIFY THIS FUNCTION
+// # DO NOT MODIFY THIS FUNCTION
 //
 // IT HAS BEEN USED IN A RELEASED MIGRATION
 func MigratePostgreSQLCollection_v2_4_0(ctx context.Context, tx *pachsql.Tx, name string, indices []*Index, oldVal proto.Message, f func(oldKey string) (newKey string, newVal proto.Message, err error), opts ...Option) error {

@@ -21,7 +21,7 @@ import (
 	kube "k8s.io/client-go/kubernetes"
 )
 
-//Reporter is used to submit user & cluster metrics to segment
+// Reporter is used to submit user & cluster metrics to segment
 type Reporter struct {
 	router    *router
 	clusterID string
@@ -48,7 +48,7 @@ func NewReporter(env serviceenv.ServiceEnv) *Reporter {
 	return reporter
 }
 
-//ReportUserAction pushes the action into a queue for reporting,
+// ReportUserAction pushes the action into a queue for reporting,
 // and reports the start, finish, and error conditions
 func ReportUserAction(ctx context.Context, r *Reporter, action string) func(time.Time, error) {
 	if r == nil {
