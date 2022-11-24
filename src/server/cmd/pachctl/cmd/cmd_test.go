@@ -102,7 +102,7 @@ func testConfig(t *testing.T, pachdAddressStr string) *os.File {
 		V2: &config.ConfigV2{
 			ActiveContext: "test",
 			Contexts: map[string]*config.Context{
-				"test": &config.Context{
+				"test": {
 					PachdAddress: pachdAddress.Qualified(),
 				},
 			},
