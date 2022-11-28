@@ -339,13 +339,17 @@ func (d *driver) deleteRepos(txnCtx *txncontext.TransactionContext, repoInfos []
 	for _, ri := range repoInfos {
 		repoMap[pfsdb.RepoKey(ri.Repo)] = struct{}{}
 	}
-	extraRepos := make([]*pfs.RepoInfo, 0)
+	completeRepos := make([]*pfs.RepoInfo, 0)
 	// collect the repoInfos that need to be deleted
 	for _, ri := range repoInfos {
 		// Check if the caller is authorized to delete this repo
 		if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, ri.Repo, auth.Permission_REPO_DELETE); err != nil {
+			if auth.IsErrNotAuthorized(err) {
+				continue
+			}
 			return errors.EnsureStack(err)
 		}
+		completeRepos = append(completeRepos, proto.Clone(ri).(*pfs.RepoInfo))
 		if !force {
 			if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(ri.Repo)); err == nil {
 				return errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
@@ -358,7 +362,7 @@ func (d *driver) deleteRepos(txnCtx *txncontext.TransactionContext, repoInfos []
 			otherRepo := &pfs.RepoInfo{}
 			if err := repos.GetByIndex(pfsdb.ReposNameIndex, pfsdb.ReposNameKey(ri.Repo), otherRepo, col.DefaultOptions(), func(key string) error {
 				if _, ok := repoMap[pfsdb.RepoKey(otherRepo.Repo)]; !ok {
-					extraRepos = append(extraRepos, proto.Clone(otherRepo).(*pfs.RepoInfo))
+					completeRepos = append(completeRepos, proto.Clone(otherRepo).(*pfs.RepoInfo))
 				}
 				return nil
 			}); err != nil && !col.IsErrNotFound(err) { // TODO(acohen4): remove this !NotFound condition - I think it's unnecessary
@@ -366,13 +370,12 @@ func (d *driver) deleteRepos(txnCtx *txncontext.TransactionContext, repoInfos []
 			}
 		}
 	}
-	repoInfos = append(repoInfos, extraRepos...)
 	// we expect potentially complicated provenance relationships between dependent repos
 	// deleting all branches at once allows for topological sorting, avoiding deletion order issues
-	if err := d.deleteAllBranchesFromRepos(txnCtx, repoInfos, force); err != nil {
+	if err := d.deleteAllBranchesFromRepos(txnCtx, completeRepos, force); err != nil {
 		return errors.Wrap(err, "error deleting branches")
 	}
-	for _, ri := range repoInfos {
+	for _, ri := range completeRepos {
 		// make a list of all the commits
 		commitInfos := make(map[string]*pfs.CommitInfo)
 		commitInfo := &pfs.CommitInfo{}
