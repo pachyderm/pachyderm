@@ -9,7 +9,7 @@ jobs:
       - uses: actions/checkout@v2
       - name: Helium Delete
         run: |
-          curl -X DELETE -H "Authorization: Bearer ${HELIUM_API_TOKEN}" https://helium.pachyderm.io/v1/api/workspace/${CURRENT_BRANCH}
+          curl -X DELETE -H "Authorization: Bearer ${HELIUM_API_TOKEN}" https://helium.pachyderm.io/v1/api/workspace/console-$(echo ${CURRENT_BRANCH} | tr "." "-")
         env:
           HELIUM_API_TOKEN: ${{ secrets.HELIUM_API_TOKEN }}
           CURRENT_BRANCH: ${{ github.head_ref }}

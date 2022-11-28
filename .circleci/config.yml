@@ -164,9 +164,13 @@ jobs:
         steps:
             - checkout
             - run:
+                name: Create a name helium can use, persist in ENV
+                command: |
+                  echo 'export HELIUM_NAME=console-"$(echo ${CIRCLE_BRANCH} | tr "." "-")"' >> "$BASH_ENV"
+            - run:
                 name: Curl helium for preview env
                 command: |
-                  curl --fail -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" -F name="console-${CIRCLE_BRANCH}" -F consoleVersion="<<pipeline.git.revision>>" -F expiry="$(date "+%Y-%m-%d" --date="14 days")" -F backend=gcp_namespace_only -F clusterStack="pachyderm/helium/console-preview-cluster" https://helium.pachyderm.io/v1/api/workspace
+                  curl --fail -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" -F name="$HELIUM_NAME" -F consoleVersion="<<pipeline.git.revision>>" -F expiry="$(date "+%Y-%m-%d" --date="14 days")" -F backend=gcp_namespace_only -F clusterStack="pachyderm/helium/console-preview-cluster" https://helium.pachyderm.io/v1/api/workspace
             - run:
                 name: Comment on PR
                 command: |
@@ -178,7 +182,7 @@ jobs:
                   ./onecomment -pr-id ${CIRCLE_PULL_REQUEST##*/} \
                   -owner pachyderm -repo haberdashery \
                   -includes '<!-- Created by one-comment -->' \
-                  -message "PR Preview available at [https://console-$CIRCLE_BRANCH.workspace.pachyderm.com](https://console-$CIRCLE_BRANCH.workspace.pachyderm.com)  and [https://helium.pachyderm.io/get/console-$CIRCLE_BRANCH](https://helium.pachyderm.io/get/console-$CIRCLE_BRANCH)"
+                  -message "PR Preview available at [https://$HELIUM_NAME.workspace.pachyderm.com](https://$HELIUM_NAME.workspace.pachyderm.com) and [https://helium.pachyderm.io/get/$HELIUM_NAME](https://helium.pachyderm.io/get/$HELIUM_NAME)"
     redhat-release:
         docker:
           - image: cimg/base:2022.04
