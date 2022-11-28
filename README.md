@@ -1,74 +1,117 @@
 # Console
 
 ## Installation
+The following command will install dependencies in `./`, `./frontend`, and `./backend`.
+
 ```
 make install
 ```
-This installs dependencies in `./`, `./frontend`, and `./backend`.
 
 <br />
 
 ## Local Deploy
+You can run Console locally against either of the following:
+1. A mock backend with useful fixtures.
+1. A real Pachyderm cluster.
 
-When running Console locally, you have the option of using Console on top of a real pachyderm cluster, or a mock server with existing fixtures. When running, Console will be live at `localhost:4000`
+When Console runs it will be live at `localhost:4000`.
 
 ### Against the mock backend:
+
+Note: Ensure you disable port-forwarding from a real pachyderm cluster.
+
+The following command will start the UI server, API server, and mock gRPC server all-in-one.
 
 ```
 make launch-mock
 ```
 
-This will start the UI server, API server, and mock gRPC server all in one. To switch between mock accounts, you can use our devtools in the JS console of the browser.
+To switch between mock accounts use our devtools in the JS console of the browser.
 
 ```
 > devtools.setAccount('2'); // will switch your current account
 ```
 
-### Against a real pachyderm cluster:
-[Deploy Pachyderm locally,](./README_Pachyderm.md) in either Enterprise or Community Edition. Make sure Pachyderm is port-forwarding with `pachctl port-forward`, then run:
+### Against a real Pachyderm cluster:
+1. [Deploy Pachyderm locally](./README_Pachyderm.md) in either Enterprise or Community Edition. 
+1. Ensure Pachyderm is port-forwarded with `pachctl port-forward`
+1. Run the following command:
 
-```
-make launch-dev
-```
+    ```
+    make launch-dev
+    ```
 
 <br />
 
 ## Testing
-Console uses both unit tests in Jest against the mock backend, and E2E/integration tests with Cypress against a real Pachyderm cluster.
+### What tests do we have?
 
-<br />
+Console frontend tests consist of:
+1. Jest unit tests against:
+    1. The mock backend.
+    1. A component library.
 
-## Unit tests
-The following command will run unit tests in `./frontend` and `./backend`.
+1. Cypress E2E tests against:
+    1. A real Pachyderm cluster in EE (auth).
+    1. A real Pachyderm cluster in CE (unauth).
+    1. The mock backend (mock).
+
+Console backend tests consist of:
+1. Backend unit tests
+1. Backend integration tests
+
+### Running unit / integration tests
+The following command runs unit and integration tests in `./frontend` and `./backend`.
+
 ```
 make test
 ```
+
 You may want to be more precise in either frontend or backend tests. To run jest against a single test, `cd` into the appropriate directory and provide a pattern for the test runner.
 
 ```
 cd frontend
-npm run test TestName.test.ts
+npm run frontend:test TestName.test.ts
+npm run components:test Button
 ```
 
-<br />
+If you want to only run one of the tests outlined above refer to the `package.json` found in the subdirectory `frontend` or `backend`.
 
-## E2E tests
-We use E2E tests for both Community Edition Console and Enterprise Console.
+### E2E tests
+We use Cypress for E2E tests.
 
-1. Make sure you have a port-forwarding [local pachyderm cluster](./README_Pachyderm.md) in either Enterprise or Community Edition.
-1. Start running console locally with `make launch-dev`
-1. Finally in another terminal window, use one of the following commands to start Cypress
+There are three distinct sets of tests. They run against:
+1. Community Edition.
+1. Enterprise Edition.
+1. The mock backend.
 
-To run the unauthenticated (Community Edition) test suites:
-```
-make e2e
-```
-And to run the authenticated (Enterprise) test suites:
+Before running one of the above sets of tests you must configure your local pachyderm and console setup to match what the test is expecting to test against.
+
+**To run the mock test suite:**
+1. Run `make launch-mock`
+1. Run `npm run cypress:local-mock`
+
+**Otherwise, to run either of the authenticated (Enterprise)or unauthenticated (Community Edition) test suites:**
+
+1. [Run and port-forward a local Pachyderm cluster](./README_Pachyderm.md) in either Enterprise or Community Edition.
+1. Run Console locally with `make launch-dev`.
+1. Use one of the following commands to start Cypress:
+
+
+**To run the authenticated (Enterprise) test suite:**
+
 ```
 make e2e-auth
 ```
 
-Note: you will need a `PACHYDERM_ENTERPRISE_KEY` env variable with a valid [Enterprise key](https://enterprise-token-gen.pachyderm.io/dev) to be able to pass the authenticated test suite, as console tests the community edition upgrade flow.
+**To run the unauthenticated (Community Edition) test suite:**
+
+1. Note: Ensure you add `PACHYDERM_ENTERPRISE_KEY` env variable with a valid [Enterprise key](https://enterprise-token-gen.pachyderm.io/dev) to your `.env.development.local`. Otherwise one test will fail.
+
+2. Run the following command:
+    ```
+    make e2e
+    ```
 
 <br />
 
