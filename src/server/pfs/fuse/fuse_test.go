@@ -372,6 +372,7 @@ func TestOpenCommit(t *testing.T) {
 }
 
 func TestMountCommit(t *testing.T) {
+	t.Skip("FIXME - skipping for now. We don't want to allow creating multiple commits in the same transaction on the same repo")
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 	txn, err := env.PachClient.StartTransaction()
