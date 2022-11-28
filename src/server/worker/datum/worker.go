@@ -134,7 +134,7 @@ func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*types.Any, er
 			groupBy := g.Replace(p, task.Input.GroupBy)
 			meta := &Meta{
 				Inputs: []*common.Input{
-					&common.Input{
+					{
 						FileInfo:   fi,
 						JoinOn:     joinOn,
 						OuterJoin:  task.Input.OuterJoin,

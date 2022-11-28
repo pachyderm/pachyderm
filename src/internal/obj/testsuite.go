@@ -72,10 +72,11 @@ func TestEmptyWrite(t *testing.T, client Client) {
 
 // TestInterruption
 // Interruption is currently not implemented on the Amazon, Microsoft, and Minio clients
-//  Amazon client - use *WithContext methods
-//  Microsoft client - move to github.com/Azure/azure-storage-blob-go which supports contexts
-//  Minio client - upgrade to v7 which supports contexts in all APIs
-//  Local client - interruptible file operations are not a thing in the stdlib
+//
+//	Amazon client - use *WithContext methods
+//	Microsoft client - move to github.com/Azure/azure-storage-blob-go which supports contexts
+//	Minio client - upgrade to v7 which supports contexts in all APIs
+//	Local client - interruptible file operations are not a thing in the stdlib
 func TestInterruption(t *testing.T, client Client) {
 	// Make a canceled context
 	ctx, cancel := context.WithCancel(context.Background())
