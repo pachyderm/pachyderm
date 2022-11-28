@@ -166,7 +166,7 @@ jobs:
             - run:
                 name: Create a name helium can use, persist in ENV
                 command: |
-                  echo 'export HELIUM_NAME=console-"$(echo ${CIRCLE_BRANCH} | tr "." "-")"' >> "$BASH_ENV"
+                  echo 'export HELIUM_NAME=console-"$(echo ${CIRCLE_BRANCH} | sed -E "s/[._]|-npm_and_yarn-/-/g")"' >> "$BASH_ENV"
             - run:
                 name: Curl helium for preview env
                 command: |
