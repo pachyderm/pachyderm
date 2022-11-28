@@ -194,7 +194,7 @@ message ListRepoRequest {
 }
 
 message DeleteRepoRequest {
-  Repo repo = 1;
+  Repo repo = 1; // leave repo name empty to delete all repos in project
   bool force = 2;
 }
 

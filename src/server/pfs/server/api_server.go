@@ -151,6 +151,12 @@ func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContex
 // DeleteRepo implements the protobuf pfs.DeleteRepo RPC
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
 	request.GetRepo().EnsureProject()
+	if request.GetRepo().GetName() == "" {
+		if err := a.driver.deleteProjectRepos(ctx, request.GetRepo().GetProject()); err != nil {
+			return nil, err
+		}
+		return &types.Empty{}, nil
+	}
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.DeleteRepo(request))
 	}, nil); err != nil {

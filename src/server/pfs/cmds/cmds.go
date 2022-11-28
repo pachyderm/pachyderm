@@ -246,11 +246,7 @@ or type (e.g. csv, binary, images, etc).`,
 			}
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				if all {
-					_, err = c.PfsAPIClient.DeleteAll(c.Ctx(), &types.Empty{})
-				} else {
-					_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
-				}
+				_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
 				return errors.EnsureStack(err)
 			})
 			return grpcutil.ScrubGRPC(err)

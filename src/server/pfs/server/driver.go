@@ -2109,6 +2109,27 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 	return errors.EnsureStack(err)
 }
 
+func (d *driver) deleteProjectRepos(ctx context.Context, project *pfs.Project) error {
+	var repoInfos []*pfs.RepoInfo
+	if err := d.listRepo(ctx, !includeAuth, "", func(repoInfo *pfs.RepoInfo) error {
+		if repoInfo.GetRepo().GetProject().GetName() == project.GetName() {
+			repoInfos = append(repoInfos, repoInfo)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		// the list does not use the transaction
+		for _, repoInfo := range repoInfos {
+			if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 func (d *driver) deleteAll(ctx context.Context) error {
 	var repoInfos []*pfs.RepoInfo
 	if err := d.listRepo(ctx, !includeAuth, "", func(repoInfo *pfs.RepoInfo) error {

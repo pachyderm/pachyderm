@@ -494,3 +494,20 @@ func TestMount(t *testing.T) {
 	}
 	require.NoError(t, eg.Wait(), "goroutines failed")
 }
+
+func TestDeleteAllRepos(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create project {{.project}}
+		pachctl create repo {{.repo}}
+		pachctl create repo {{.repo}} --project {{.project}}
+		pachctl delete repo --all
+		pachctl list repo | match {{.repo}}
+		`,
+		"project", tu.UniqueString("project"),
+		"repo", tu.UniqueString("repo"),
+	).Run())
+}
