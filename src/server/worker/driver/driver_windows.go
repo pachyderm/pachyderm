@@ -1,9 +1,9 @@
+//go:build windows
 // +build windows
 
 package driver
 
 import (
-	
 	"os"
 	"path/filepath"
 	"syscall"
