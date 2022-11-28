@@ -556,6 +556,8 @@ message UpdateJobStateRequest {
   ProcessStats stats = 11;
 }
 
+message GetKubeEventTailLogsRequest()
+
 message GetLogsRequest {
   // The pipeline from which we want to get logs (required if the job in 'job'
   // was created as part of a pipeline. To get logs from a non-orphan job
