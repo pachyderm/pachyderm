@@ -5,8 +5,9 @@ updates:
     schedule:
       # The default is a random time every Monday, but
       # we prefer a fixed time on Tuesdays
+      interval: "weekly"
       day: "tuesday"
-      time: "9:00"
+      time: "09:00"
       timezone: "America/Los_Angeles"
     pull-request-branch-name:
       # Separate sections of the branch name with a hyphen
@@ -17,40 +18,45 @@ updates:
   - package-ecosystem: "npm"
     directory: "/backend"
     schedule:
+      interval: "weekly"
       day: "tuesday"
-      time: "9:00"
+      time: "09:00"
       timezone: "America/Los_Angeles"
     pull-request-branch-name:
       separator: "-"
   - package-ecosystem: "npm"
     directory: "/backend/src/proto"
     schedule:
+      interval: "weekly"
       day: "tuesday"
-      time: "9:00"
+      time: "09:00"
       timezone: "America/Los_Angeles"
     pull-request-branch-name:
       separator: "-"
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
+      interval: "weekly"
       day: "tuesday"
-      time: "9:00"
+      time: "09:00"
       timezone: "America/Los_Angeles"
     pull-request-branch-name:
       separator: "-"
   - package-ecosystem: "npm"
     directory: "/live-automation"
     schedule:
+      interval: "weekly"
       day: "tuesday"
-      time: "9:00"
+      time: "09:00"
       timezone: "America/Los_Angeles"
     pull-request-branch-name:
       separator: "-"
   - package-ecosystem: "npm"
     directory: "/load-tests"
     schedule:
+      interval: "weekly"
       day: "tuesday"
-      time: "9:00"
+      time: "09:00"
       timezone: "America/Los_Angeles"
     pull-request-branch-name:
       separator: "-"
