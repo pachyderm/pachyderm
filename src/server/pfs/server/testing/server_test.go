@@ -741,14 +741,14 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, "B", "master", "", "", nil))
 		require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, "C", "master", "", "", []*pfs.Branch{
 			client.NewProjectBranch(pfs.DefaultProjectName, "A", "master")}))
-		oldHead, err := c.InspectProjectCommit(pfs.DefaultProjectName, "A", "master", "")
+		_, err := c.InspectProjectCommit(pfs.DefaultProjectName, "A", "master", "")
 		require.NoError(t, err)
-		cHead, err := c.InspectProjectCommit(pfs.DefaultProjectName, "C", "master", "")
+		_, err = c.InspectProjectCommit(pfs.DefaultProjectName, "C", "master", "")
 		require.NoError(t, err)
 		require.NoError(t, c.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, "A", "master", ""), "foo", strings.NewReader("bar")))
-		oldHead, err = c.InspectProjectCommit(pfs.DefaultProjectName, "A", "master", "")
+		oldHead, err := c.InspectProjectCommit(pfs.DefaultProjectName, "A", "master", "")
 		require.NoError(t, err)
-		cHead, err = c.InspectProjectCommit(pfs.DefaultProjectName, "C", "master", "")
+		_, err = c.InspectProjectCommit(pfs.DefaultProjectName, "C", "master", "")
 		require.NoError(t, err)
 		expectedMasterCommits := map[string]string{
 			"A": oldHead.Commit.ID,
@@ -760,7 +760,7 @@ func TestPFS(suite *testing.T) {
 			client.NewProjectBranch(pfs.DefaultProjectName, "A", "master"),
 			client.NewProjectBranch(pfs.DefaultProjectName, "B", "master"),
 		}))
-		cHead, err = c.InspectProjectCommit(pfs.DefaultProjectName, "C", "master", "")
+		cHead, err := c.InspectProjectCommit(pfs.DefaultProjectName, "C", "master", "")
 		require.NoError(t, err)
 		expectedMasterCommits["C"] = cHead.Commit.ID
 		assertMasterHeads(t, c, expectedMasterCommits)
@@ -1609,7 +1609,7 @@ func TestPFS(suite *testing.T) {
 
 		commitInfo, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "D", "master", "")
 		require.NoError(t, err)
-		aliasCommitInfo, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "D", "", ECommit.ID)
+		_, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "D", "", ECommit.ID)
 		require.NoError(t, err)
 		require.Equal(t, ECommit.ID, commitInfo.Commit.ID)
 	})
@@ -1677,12 +1677,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, bHead.ParentCommit)
 		// Now, dropping the head of A and B and C should leave each of them with just an empty head commit
-		_, err = env.PFSServer.DropCommitSets(context.TODO(), &pfs.DropCommitSetsRequest{
-			CommitSets: []*pfs.CommitSet{
-				&pfs.CommitSet{ID: aHead.Commit.ID},
-				&pfs.CommitSet{ID: cHead.Commit.ID},
-			},
-		})
+		_, err = env.PFSServer.DropCommitSets(context.TODO(), &pfs.DropCommitSetsRequest{CommitSets: []*pfs.CommitSet{&pfs.CommitSet{ID: aHead.Commit.ID}, &pfs.CommitSet{ID: cHead.Commit.ID}}})
 		require.NoError(t, err)
 		cHeadNew, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "output", "C", "")
 		require.NoError(t, err)

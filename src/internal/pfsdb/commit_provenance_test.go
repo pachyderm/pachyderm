@@ -27,15 +27,16 @@ func TestCommitSetProvenance(t *testing.T) {
 	// create some commits
 	tx, err = db.Beginx()
 	require.NoError(t, err)
-	a := client.NewCommit("A", "", "v")
+	proj := "my_project"
+	a := client.NewProjectCommit(proj, "A", "", "v")
 	require.NoError(t, AddCommit(ctx, tx, a))
-	b := client.NewCommit("B", "", "x")
+	b := client.NewProjectCommit(proj, "B", "", "x")
 	require.NoError(t, AddCommit(ctx, tx, b))
-	c := client.NewCommit("C", "", "y")
+	c := client.NewProjectCommit(proj, "C", "", "y")
 	require.NoError(t, AddCommit(ctx, tx, c))
-	d := client.NewCommit("D", "", "z")
+	d := client.NewProjectCommit(proj, "D", "", "z")
 	require.NoError(t, AddCommit(ctx, tx, d))
-	e := client.NewCommit("E", "", "w")
+	e := client.NewProjectCommit(proj, "E", "", "w")
 	require.NoError(t, AddCommit(ctx, tx, e))
 	// setup basic commit graph of
 	//                -- C@y
@@ -53,7 +54,6 @@ func TestCommitSetProvenance(t *testing.T) {
 	// assert commit set provenance
 	tx, err = db.Beginx()
 	require.NoError(t, err)
-	defer tx.Commit()
 	// check y's commit set provenance
 	yProv, err := CommitSetProvenance(ctx, tx, "y")
 	require.NoError(t, err)
@@ -82,6 +82,7 @@ func TestCommitSetProvenance(t *testing.T) {
 		return CommitKey(xSubv[i]) < CommitKey(xSubv[j])
 	})
 	checkCommitsEqual(t, []*pfs.Commit{c, d}, xSubv)
+	require.NoError(t, tx.Commit())
 }
 
 func checkCommitsEqual(t *testing.T, as, bs []*pfs.Commit) {
