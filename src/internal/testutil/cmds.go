@@ -23,13 +23,15 @@ import (
 // lines of text. This is useful for long, inline commands that are indented to
 // match the surrounding code but should be interpreted without the space:
 // e.g.:
-// func() {
-//   BashCmd(`
-//     cat <<EOF
-//     This is a test
-//     EOF
-//   `)
-// }
+//
+//	func() {
+//	  BashCmd(`
+//	    cat <<EOF
+//	    This is a test
+//	    EOF
+//	  `)
+//	}
+//
 // Should evaluate:
 // $ cat <<EOF
 // > This is a test

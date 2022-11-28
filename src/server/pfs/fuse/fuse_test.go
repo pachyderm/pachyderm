@@ -390,7 +390,7 @@ func TestMountCommit(t *testing.T) {
 	require.NoError(t, err)
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
-			"repo": &RepoOptions{
+			"repo": {
 				Name: "repo",
 				File: &pfs.File{Commit: c1},
 			},
@@ -413,7 +413,7 @@ func TestMountCommit(t *testing.T) {
 
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
-			"repo": &RepoOptions{
+			"repo": {
 				Name: "repo",
 				File: &pfs.File{Commit: c2},
 			},
@@ -443,7 +443,7 @@ func TestMountFile(t *testing.T) {
 	require.NoError(t, env.PachClient.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", ""), "buzz", strings.NewReader("buzz")))
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
-			"repo": &RepoOptions{
+			"repo": {
 				Name: "repo",
 				File: client.NewProjectFile(pfs.DefaultProjectName, "repo", "master", "master^", "/foo"),
 			},
@@ -466,7 +466,7 @@ func TestMountFile(t *testing.T) {
 
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
-			"repo": &RepoOptions{
+			"repo": {
 				Name: "repo",
 				File: client.NewProjectFile(pfs.DefaultProjectName, "repo", "master", "", "/bar"),
 			},
@@ -503,7 +503,7 @@ func TestMountDir(t *testing.T) {
 	require.NoError(t, err)
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
-			"repo": &RepoOptions{
+			"repo": {
 				Name: "repo",
 				File: client.NewProjectFile(pfs.DefaultProjectName, "repo", "master", "", "/dir/foo"),
 			},
@@ -531,7 +531,7 @@ func TestMountDir(t *testing.T) {
 
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
-			"repo": &RepoOptions{
+			"repo": {
 				Name: "repo",
 				File: client.NewProjectFile(pfs.DefaultProjectName, "repo", "master", "", "/dir/bar"),
 			},
@@ -559,7 +559,7 @@ func TestMountDir(t *testing.T) {
 
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
-			"repo": &RepoOptions{
+			"repo": {
 				Name: "repo",
 				File: client.NewProjectFile(pfs.DefaultProjectName, "repo", "master", "", "/dir"),
 			},

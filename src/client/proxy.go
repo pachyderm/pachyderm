@@ -1,11 +1,9 @@
-//nolint:wrapcheck
 package client
 
 import (
 	"context"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
@@ -100,7 +98,7 @@ func (ppl *proxyPostgresListener) listen(notifier col.Notifier) {
 				ppl.mu.Lock()
 				if ci, ok := ppl.channelInfos[channel]; ok {
 					for _, notifier := range ci.notifiers {
-						notifier.Notify(&collection.Notification{
+						notifier.Notify(&col.Notification{
 							Channel: channel,
 							Extra:   resp.Extra,
 						})
