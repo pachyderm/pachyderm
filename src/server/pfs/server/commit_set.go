@@ -24,7 +24,7 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	if err != nil {
 		return nil, err
 	}
-	// TODO: can there be multiple commits from the same repo in commitset subvenance?
+	// TODO(acohen4): can there be multiple commits from the same repo in commitset subvenance?
 	for _, c := range cs {
 		ci := &pfs.CommitInfo{}
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(c, ci); err != nil {
