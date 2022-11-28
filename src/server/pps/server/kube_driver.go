@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"io"
 	"path"
 
 	"github.com/pachyderm/pachyderm/v2/src/client/limit"
@@ -188,4 +189,22 @@ func (kd *kubeDriver) WatchPipelinePods(ctx context.Context) (<-chan watch.Event
 		return nil, nil, errors.Wrap(err, "failed to watch kubernetes pods")
 	}
 	return kubePipelineWatch.ResultChan(), kubePipelineWatch.Stop, nil
+}
+
+func (kd *kubeDriver) GetKubeEventTail(ctx context.Context) error {
+	// get logs from kubernetes
+	pod, err := kd.kubeClient.CoreV1().Pods(kd.namespace).Get(ctx, "kube-event-tail", metav1.GetOptions{})
+	if err != nil {
+		return errors.Wrap(err, "failed to get kube-event-tail pod")
+	}
+	logStream, err := kd.kubeClient.CoreV1().Pods("kube-system").GetLogs(pod.Name, &v1.PodLogOptions{}).Stream(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get kube-event-tail logs")
+	}
+	defer func() {
+		if closeErr := logStream.Close(); err == nil {
+			err = closeErr
+		}
+	}()
+	_, err = io.Copy(std, logStream)
 }
