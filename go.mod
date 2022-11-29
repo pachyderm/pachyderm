@@ -87,12 +87,6 @@ require (
 )
 
 require (
-	github.com/gogo/googleapis v1.4.0 // indirect
-	github.com/gogo/status v1.1.1 // indirect
-	github.com/klauspost/cpuid/v2 v2.1.0 // indirect
-)
-
-require (
 	cloud.google.com/go v0.102.0 // indirect
 	cloud.google.com/go/compute v1.7.0 // indirect
 	cloud.google.com/go/iam v0.3.0 // indirect
@@ -200,6 +194,7 @@ require (
 	github.com/jonboulle/clockwork v0.2.2 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/compress v1.15.9 // indirect
+	github.com/klauspost/cpuid/v2 v2.1.0 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
