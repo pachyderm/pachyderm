@@ -27,6 +27,10 @@ Whenever you create or update a PR, a GitHub Action runs that generates a docker
 
 This repo defines a command `make graphql`, which will generate the Typescript code with `graphql-codegen`, and place that code in the `/generated` directory in both `/frontend` and `/backend`. **Note**: This command is also checked in CI to ensure that types that have been checked in match all of the graphql documents.
 
+### GraphQL Explorer
+
+Try using the graphql explorer locally by starting the app and going to `http://localhost:3000/graphql`. It's helpful during development or to learn about what is available from the API.
+
 ### Steps for defining new Types.
 1. Update `/backend/src/schema.graphqls`.
     ```graphqls
