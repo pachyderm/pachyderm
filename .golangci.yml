@@ -40,6 +40,8 @@ linters-settings:
       - github.com/pachyderm/pachyderm/v2/src/internal/errors.New
       - github.com/pachyderm/pachyderm/v2/src/internal/errors.Unwrap
       - github.com/pachyderm/pachyderm/v2/src/internal/errors.EnsureStack
+      - google.golang.org/grpc/status.Error
+      - google.golang.org/grpc/status.Errorf
       - .Wrap(
       - .Wrapf(
       - .WithMessage(
