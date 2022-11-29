@@ -15,6 +15,8 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/gogo/status"
+	"google.golang.org/grpc/codes"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -151,11 +153,17 @@ func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContex
 // DeleteRepo implements the protobuf pfs.DeleteRepo RPC
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
 	request.GetRepo().EnsureProject()
-	if request.GetRepo().GetName() == "" {
-		if err := a.driver.deleteProjectRepos(ctx, request.GetRepo().GetProject()); err != nil {
+	if project := request.GetProject(); project != nil {
+		if request.GetRepo() != nil {
+			return nil, status.Error(codes.InvalidArgument, "may not delete repo and project’s repos at once")
+		}
+		if err := a.driver.deleteProjectRepos(ctx, project); err != nil {
 			return nil, err
 		}
 		return &types.Empty{}, nil
+	}
+	if request.GetRepo() == nil {
+		return nil, status.Error(codes.InvalidArgument, "no repo or project specified")
 	}
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.DeleteRepo(request))

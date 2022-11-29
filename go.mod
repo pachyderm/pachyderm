@@ -86,7 +86,11 @@ require (
 	k8s.io/kubectl v0.23.1
 )
 
-require github.com/klauspost/cpuid/v2 v2.1.0 // indirect
+require (
+	github.com/gogo/googleapis v1.4.0 // indirect
+	github.com/gogo/status v1.1.1 // indirect
+	github.com/klauspost/cpuid/v2 v2.1.0 // indirect
+)
 
 require (
 	cloud.google.com/go v0.102.0 // indirect

@@ -194,8 +194,11 @@ message ListRepoRequest {
 }
 
 message DeleteRepoRequest {
-  Repo repo = 1; // leave repo name empty to delete all repos in project
+  Repo repo = 1;
   bool force = 2;
+  // If project present, and if repo is absent, then all repos in
+  // project will be deleted.
+  Project project = 3;
 }
 
 // CommitState describes the states a commit can be in.
