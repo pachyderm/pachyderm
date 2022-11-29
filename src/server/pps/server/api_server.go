@@ -2257,7 +2257,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	if update {
 		// Kill all unfinished jobs (as those are for the previous version and will
 		// no longer be completed)
-		if err := a.stopAllJobsInPipeline(txnCtx, request.Pipeline); err != nil {
+		if err := a.stopAllJobsInPipeline(txnCtx, request.Pipeline, "all jobs killed because pipeline was updated"); err != nil {
 			return err
 		}
 
@@ -2411,15 +2411,20 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 	}
 }
 
-func (a *apiServer) stopAllJobsInPipeline(txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline) error {
+func (a *apiServer) stopAllJobsInPipeline(txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline, reason string) error {
 	// Using ReadWrite here may load a large number of jobs inline in the
 	// transaction, but doing an inconsistent read outside of the transaction
 	// would be pretty sketchy (and we'd have to worry about trying to get another
 	// postgres connection and possibly deadlocking).
 	jobInfo := &pps.JobInfo{}
 	sort := &col.Options{Target: col.SortByCreateRevision, Order: col.SortAscend}
+	username := "unknown_username"
+	if whoami, err := txnCtx.WhoAmI(); err == nil {
+		username = whoami.Username
+	}
+	reason += " for user " + username
 	err := a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsTerminalIndex, ppsdb.JobsTerminalKey(pipeline, false), jobInfo, sort, func(string) error {
-		return a.stopJob(txnCtx, jobInfo.Job, "pipeline updated")
+		return a.stopJob(txnCtx, jobInfo.Job, reason)
 	})
 	return errors.EnsureStack(err)
 }
@@ -2930,7 +2935,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 		// Kill any remaining jobs
 		// if the pipeline output repo doesn't exist, we technically run this without authorization,
 		// but it's not clear what authorization means in that case, and those jobs are doomed, anyway
-		return a.stopAllJobsInPipeline(txnCtx, request.Pipeline)
+		return a.stopAllJobsInPipeline(txnCtx, request.Pipeline, "all jobs killed because pipeline was stopped")
 	}); err != nil {
 		return nil, err
 	}
