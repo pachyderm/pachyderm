@@ -217,7 +217,9 @@ func TestS3Input(t *testing.T) {
 	})
 	t.Run("ProjectAware", func(t *testing.T) {
 		accessKeyID := "PAC1" + userToken
-		testS3Input(t, c, accessKeyID, userToken, ns, tu.UniqueString("project"))
+		projectName := tu.UniqueString("project")
+		require.NoError(t, c.CreateProject(projectName))
+		testS3Input(t, c, accessKeyID, userToken, ns, projectName)
 	})
 }
 
@@ -293,7 +295,9 @@ func TestS3Chain(t *testing.T) {
 	})
 	t.Run("ProjectAware", func(t *testing.T) {
 		accessKeyID := "PAC1" + userToken
-		testS3Chain(t, c, accessKeyID, userToken, ns, tu.UniqueString("project"))
+		projectName := tu.UniqueString("project")
+		require.NoError(t, c.CreateProject(projectName))
+		testS3Chain(t, c, accessKeyID, userToken, ns, projectName)
 	})
 }
 
@@ -439,7 +443,9 @@ func TestS3Output(t *testing.T) {
 	})
 	t.Run("ProjectAware", func(t *testing.T) {
 		accessKeyID := "PAC1" + userToken
-		testS3Output(t, c, accessKeyID, userToken, ns, tu.UniqueString("project"))
+		projectName := tu.UniqueString("project")
+		require.NoError(t, c.CreateProject(projectName))
+		testS3Output(t, c, accessKeyID, userToken, ns, projectName)
 	})
 }
 
@@ -537,7 +543,9 @@ func TestFullS3(t *testing.T) {
 	})
 	t.Run("ProjectAware", func(t *testing.T) {
 		accessKeyID := "PAC1" + userToken
-		testFullS3(t, c, accessKeyID, userToken, ns, tu.UniqueString("project"))
+		projectName := tu.UniqueString("project")
+		require.NoError(t, c.CreateProject(projectName))
+		testFullS3(t, c, accessKeyID, userToken, ns, projectName)
 	})
 }
 
@@ -828,6 +836,8 @@ func TestS3SkippedDatums(t *testing.T) {
 	})
 	t.Run("ProjectAware", func(t *testing.T) {
 		accessKeyID := "PAC1" + userToken
-		testS3SkippedDatums(t, c, accessKeyID, userToken, ns, tu.UniqueString("project"), func(p, r string) string { return r + "." + p })
+		projectName := tu.UniqueString("project")
+		require.NoError(t, c.CreateProject(projectName))
+		testS3SkippedDatums(t, c, accessKeyID, userToken, ns, projectName, func(p, r string) string { return r + "." + p })
 	})
 }
