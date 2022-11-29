@@ -176,6 +176,20 @@ func (c APIClient) ListRepoByType(repoType string) (_ []*pfs.RepoInfo, retErr er
 	return clientsdk.ListRepoInfo(client)
 }
 
+// ListRepoProject returns
+func (c APIClient) ListRepoProject(r *pfs.ListRepoRequest) ([]*pfs.RepoInfo, error) {
+	ctx, cf := context.WithCancel(c.Ctx())
+	defer cf()
+	client, err := c.PfsAPIClient.ListRepo(
+		ctx,
+		r,
+	)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return clientsdk.ListRepoInfo(client)
+}
+
 // DeleteRepo deletes a repo and reclaims the storage space it was using.  Note
 // that as of 1.0 we do not reclaim the blocks that the Repo was referencing,
 // this is because they may also be referenced by other Repos and deleting them
