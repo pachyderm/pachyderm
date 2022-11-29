@@ -12,6 +12,7 @@ import (
 	runtimedebug "runtime/debug"
 	"runtime/pprof"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -839,7 +840,7 @@ func (s *debugServer) forEachWorkerLoki(ctx context.Context, pipelineInfo *pps.P
 // This happens to be the same as a Go string, with single or double quotes or
 // backticks allowed as enclosing characters.
 func quoteLogQLStreamSelector(s string) string {
-	return fmt.Sprintf("%q", s)
+	return strconv.Quote(s)
 }
 
 func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.PipelineInfo) (map[string]struct{}, error) {
