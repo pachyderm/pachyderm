@@ -81,19 +81,6 @@ func finishCommit(pachClient *client.APIClient, repo, branch, id string) error {
 	return err
 }
 
-func commitChain(t *testing.T, c *client.APIClient, ci *pfs.CommitInfo) []*pfs.Commit {
-	results := make([]*pfs.Commit, 0)
-	results = append(results, ci.Commit)
-	curr := ci
-	for curr.ParentCommit != nil {
-		var err error
-		curr, err = c.InspectProjectCommit(pfs.DefaultProjectName, ci.GetCommit().Repo.Name, "", curr.ParentCommit.ID)
-		require.NoError(t, err)
-		results = append(results, curr.Commit)
-	}
-	return results
-}
-
 func assertMasterHeads(t *testing.T, c *client.APIClient, repoToCommitIDs map[string]string) {
 	for repo, id := range repoToCommitIDs {
 		info, err := c.InspectProjectCommit(pfs.DefaultProjectName, repo, "master", "")
