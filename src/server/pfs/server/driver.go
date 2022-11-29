@@ -145,6 +145,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	if repo == nil {
 		return errors.New("repo cannot be nil")
 	}
+	repo.EnsureProject()
 
 	// Check that the user is logged in (user doesn't need any access level to
 	// create a repo, but they must be authenticated if auth is active)

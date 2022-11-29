@@ -9,7 +9,7 @@ import (
 func TestBucketNameToProjectCommit(t *testing.T) {
 	// pattern: [commitID.][branch. | branch.type.]repoName.projectName
 	var cases = map[string]*pfs.Commit{
-		"8b234298216044d4accaf3f472175a54.testLOPed701519c9c4.default": &pfs.Commit{
+		"8b234298216044d4accaf3f472175a54.testLOPed701519c9c4.default": {
 			ID: "8b234298216044d4accaf3f472175a54",
 			Branch: &pfs.Branch{
 				Name: "master",
@@ -22,7 +22,7 @@ func TestBucketNameToProjectCommit(t *testing.T) {
 				},
 			},
 		},
-		"8b234298216044d4accaf3f472175a54.notmaster.testLOPed701519c9c4.default": &pfs.Commit{
+		"8b234298216044d4accaf3f472175a54.notmaster.testLOPed701519c9c4.default": {
 			ID: "8b234298216044d4accaf3f472175a54",
 			Branch: &pfs.Branch{
 				Name: "notmaster",
@@ -35,7 +35,7 @@ func TestBucketNameToProjectCommit(t *testing.T) {
 				},
 			},
 		},
-		"8b234298216044d4accaf3f472175a54.notmaster.spec.testLOPed701519c9c4.default": &pfs.Commit{
+		"8b234298216044d4accaf3f472175a54.notmaster.spec.testLOPed701519c9c4.default": {
 			ID: "8b234298216044d4accaf3f472175a54",
 			Branch: &pfs.Branch{
 				Name: "notmaster",
@@ -48,7 +48,7 @@ func TestBucketNameToProjectCommit(t *testing.T) {
 				},
 			},
 		},
-		"notmaster.testLOPed701519c9c4.default": &pfs.Commit{
+		"notmaster.testLOPed701519c9c4.default": {
 			ID: "",
 			Branch: &pfs.Branch{
 				Name: "notmaster",
@@ -61,7 +61,7 @@ func TestBucketNameToProjectCommit(t *testing.T) {
 				},
 			},
 		},
-		"notmaster.spec.testLOPed701519c9c4.default": &pfs.Commit{
+		"notmaster.spec.testLOPed701519c9c4.default": {
 			ID: "",
 			Branch: &pfs.Branch{
 				Name: "notmaster",
@@ -74,7 +74,7 @@ func TestBucketNameToProjectCommit(t *testing.T) {
 				},
 			},
 		},
-		"testLOPed701519c9c4.default": &pfs.Commit{
+		"testLOPed701519c9c4.default": {
 			ID: "",
 			Branch: &pfs.Branch{
 				Name: "master",

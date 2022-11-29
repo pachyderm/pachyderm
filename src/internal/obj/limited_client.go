@@ -41,8 +41,10 @@ type limitedClient struct {
 }
 
 // NewLimitedClient constructs a Client which will only ever have
-//   <= maxReaders objects open for reading
-//   <= maxWriters objects open for writing
+//
+//	<= maxReaders objects open for reading
+//	<= maxWriters objects open for writing
+//
 // if either is < 1 then that constraint is ignored.
 func NewLimitedClient(client Client, maxReaders, maxWriters int) Client {
 	if maxReaders < 1 {
