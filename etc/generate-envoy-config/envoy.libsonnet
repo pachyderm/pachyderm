@@ -109,7 +109,7 @@
       },
       http2_protocol_options: {
         initial_connection_window_size: 1048576,
-        initial_stream_window_size: 65536,
+        initial_stream_window_size: 524288,
         max_concurrent_streams: 100,
       },
       http_filters: std.prune([
