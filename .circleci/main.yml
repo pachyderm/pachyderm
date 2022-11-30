@@ -651,7 +651,7 @@ jobs:
         entrypoint: /bin/sh
     steps:
       - run: apt update
-      - run: apt install -y make wget git ssh
+      - run: DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true apt install -y make wget git ssh
       - checkout
       - run: wget https://github.com/google/jsonnet/releases/download/v0.17.0/jsonnet-bin-v0.17.0-linux.tar.gz
       - run: tar xzvf jsonnet-bin-v0.17.0-linux.tar.gz
