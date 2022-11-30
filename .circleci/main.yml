@@ -1410,7 +1410,7 @@ workflows:
             - publish-chart-preview
             - release-github-draft
       - cust-prerelease-testing:
-          name: woven-planet-testing
+          name: wp-testing
           customer: wp
           filters: *only-alpha-tags
           requires:
@@ -1419,7 +1419,7 @@ workflows:
             - publish-chart-preview
             - release-github-draft
       - cust-prerelease-testing:
-          name: battelle-planet-testing
+          name: btl-testing
           customer: btl
           filters: *only-alpha-tags
           requires:
