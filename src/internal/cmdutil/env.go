@@ -53,7 +53,7 @@ const (
 // These are structs types that we unmarshal directly, without recursing into them.
 var knownStructs = map[reflect.Type]func(string) (any, error){
 	reflect.TypeOf(resource.Quantity{}): func(x string) (any, error) {
-		return resource.ParseQuantity(x)
+		return resource.ParseQuantity(x) //nolint:wrapcheck
 	},
 }
 
