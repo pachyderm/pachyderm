@@ -12,7 +12,7 @@
   "license": "ISC",
   "devDependencies": {
     "@babel/core": "7.12.10",
-    "@babel/preset-env": "7.12.11",
+    "@babel/preset-env": "7.20.2",
     "@babel/preset-typescript": "7.12.7",
     "@types/k6": "0.29.1",
     "babel-loader": "8.2.2",
