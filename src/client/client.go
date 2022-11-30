@@ -9,13 +9,16 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/status"
 
 	// Import registers the grpc GZIP encoder
 	_ "google.golang.org/grpc/encoding/gzip"
@@ -40,6 +43,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
+	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
 
@@ -606,11 +610,21 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 	// Verify cluster deployment ID
 	clusterInfo, err := client.InspectCluster()
 	if err != nil {
-		if strings.Contains("unknown service admin_v2.API", err.Error()) {
-			return nil, errors.Errorf("this client is for pachyderm 2.x, but the server has a different version - please install the correct client for your server")
-
+		scrubbedErr := grpcutil.ScrubGRPC(err)
+		if status.Code(err) == codes.Unimplemented {
+			pachdVersion, versErr := client.Version()
+			if err != nil {
+				return nil, errors.Wrap(scrubbedErr, errors.Wrap(versErr, "could not determine pachd version").Error())
+			}
+			pachdMajVersion, convErr := strconv.Atoi(strings.Split(pachdVersion, ".")[0])
+			if convErr != nil {
+				return nil, errors.Wrap(scrubbedErr, errors.Wrap(convErr, "could not parse pachd major version").Error())
+			}
+			if pachdMajVersion != int(version.Version.Major) {
+				return nil, errors.Errorf("this client is for pachyderm %d.x, but the server has a version %d.x - please install the correct client for your server", version.Version.Major, pachdMajVersion)
+			}
 		}
-		return nil, errors.Wrap(err, "could not get cluster ID")
+		return nil, errors.Wrap(scrubbedErr, "could not get cluster ID")
 	}
 	if context.ClusterDeploymentID != clusterInfo.DeploymentID {
 		if context.ClusterDeploymentID == "" {

@@ -176,13 +176,6 @@ func (b *builder) initExternalServer(ctx context.Context) error {
 	b.daemon.external, err = grpcutil.NewServer(
 		ctx,
 		true,
-		// Add an UnknownServiceHandler to catch the case where the user has a client with the wrong major version.
-		// Weirdly, GRPC seems to run the interceptor stack before the UnknownServiceHandler, so this is never called
-		// (because the version_middleware interceptor throws an error, or the auth interceptor does).
-		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
-			method, _ := grpc.MethodFromServerStream(stream)
-			return errors.Errorf("unknown service %v", method)
-		}),
 		grpc.ChainUnaryInterceptor(
 			errorsmw.UnaryServerInterceptor,
 			version_middleware.UnaryServerInterceptor,
