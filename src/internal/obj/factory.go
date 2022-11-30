@@ -140,9 +140,10 @@ func NewGoogleClientFromEnv() (Client, error) {
 }
 
 // NewMicrosoftClient creates a microsoft client:
+//
 //	container   - Azure Blob Container name
 //	accountName - Azure Storage Account name
-// 	accountKey  - Azure Storage Account key
+//	accountKey  - Azure Storage Account key
 func NewMicrosoftClient(container string, accountName string, accountKey string) (c Client, err error) {
 	c, err = newMicrosoftClient(container, accountName, accountKey)
 	if err != nil {
@@ -191,12 +192,13 @@ func NewMicrosoftClientFromEnv() (Client, error) {
 }
 
 // NewMinioClient creates an s3 compatible client with the following credentials:
-//   endpoint - S3 compatible endpoint
-//   bucket - S3 bucket name
-//   id     - AWS access key id
-//   secret - AWS secret access key
-//   secure - Set to true if connection is secure.
-//   isS3V2 - Set to true if client follows S3V2
+//
+//	endpoint - S3 compatible endpoint
+//	bucket - S3 bucket name
+//	id     - AWS access key id
+//	secret - AWS secret access key
+//	secure - Set to true if connection is secure.
+//	isS3V2 - Set to true if client follows S3V2
 func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (c Client, err error) {
 	log.Warnf("DEPRECATED: Support for the S3V2 option is being deprecated. It will be removed in a future version")
 	if isS3V2 {
@@ -210,14 +212,15 @@ func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (c
 }
 
 // NewAmazonClient creates an amazon client with the following credentials:
-//   bucket - S3 bucket name
-//   distribution - cloudfront distribution ID
-//   id     - AWS access key id
-//   secret - AWS secret access key
-//   token  - AWS access token
-//   region - AWS region
-//   endpoint - Custom endpoint (generally used for S3 compatible object stores)
-//   reverse - Reverse object storage paths (overwrites configured value)
+//
+//	bucket - S3 bucket name
+//	distribution - cloudfront distribution ID
+//	id     - AWS access key id
+//	secret - AWS secret access key
+//	token  - AWS access token
+//	region - AWS region
+//	endpoint - Custom endpoint (generally used for S3 compatible object stores)
+//	reverse - Reverse object storage paths (overwrites configured value)
 func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution string, endpoint string) (c Client, err error) {
 	advancedConfig := &AmazonAdvancedConfiguration{}
 	if err := cmdutil.Populate(advancedConfig); err != nil {

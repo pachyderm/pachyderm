@@ -9,12 +9,31 @@ linters:
   enable:
     - wrapcheck
     - nolintlint
+    - gofmt
+    - govet
+    - gosimple
+    - errcheck
+    - ineffassign
+    - unused
+    - asciicheck
+    - asasalint
+    - bidichk
+    - exhaustive
+    - goprintffuncname
+    # - bodyclose CORE-1317
+    # - gocritic CORE-1318
+    # - gosec CORE-1319
 linters-settings:
   errcheck:
-     exclude-functions:
+    exclude-functions:
       - (*database/sql.Tx).Rollback
       - (*github.com/spf13/cobra.Command).MarkFlagCustom
       - (*github.com/spf13/cobra.Command).Usage
+  nolintlint:
+    allow-unused: false
+    allow-leading-space: false
+    require-explanation: false
+    require-specific: true
   wrapcheck:
     ignoreSigs:
       - github.com/pachyderm/pachyderm/v2/src/internal/errors.Errorf
@@ -27,8 +46,19 @@ linters-settings:
       - .WithMessagef(
       - .WithStack(
     ignorePackageGlobs:
+      # These are packages whose return values don't have to be wrapped, not packages where the
+      # linter isn't used.
       - github.com/pachyderm/pachyderm/v2/src/*
     ignoreInterfaceRegexps:
       - ^fileset\.
       - ^collection\.
       - ^track\.
+  gofmt:
+    simplify: true
+  exhaustive:
+    default-signifies-exhaustive: true
+    # Right now, we only allow opting into the exhaustive check due to a lot of code that makes
+    # correct use of non-exhaustive switch statements.
+    # Annotate your switch statement with //exhaustive:enforce to opt in.
+    explicit-exhaustive-switch: true
+    explicit-exhaustive-map: true
