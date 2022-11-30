@@ -1,11 +1,42 @@
 {
+  accessLogFormat:: {
+    omit_empty_values: true,
+    json_format: {
+      timestamp: '%START_TIME%',
+      severity: 'info',
+      message: 'http response',
+      method: '%REQ(:method)%',
+      path: '%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%',
+      protocol: '%PROTOCOL%',
+      response_code: '%RESPONSE_CODE%',
+      response_code_details: '%RESPONSE_CODE_DETAILS%',
+      connection_termination_details: '%CONNECTION_TERMINATION_DETAILS%',
+      grpc_status_code: '%GRPC_STATUS(SNAKE_STRING)%',
+      grpc_message: '%RESP(GRPC-MESSAGE):64%',
+      response_flags: '%RESPONSE_FLAGS%',
+      bytes_rx: '%BYTES_RECEIVED%',
+      bytes_tx: '%BYTES_SENT%',
+      duration_ms: '%DURATION%',
+      upstream_service_time_ms: '%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%',
+      xff: '%REQ(X-FORWARDED-FOR)%',
+      user_agent: '%REQ(USER-AGENT)%',
+      'x-request-id': '%REQ(X-REQUEST-ID)%',
+      authority: '%REQ(authority)%',
+      upstream_host: '%UPSTREAM_HOST%',
+      route: '%ROUTE_NAME%',
+      upstream_local_address: '%UPSTREAM_LOCAL_ADDRESS%',
+      pachctl_command: '%REQ(COMMAND):64%',
+    },
+  },
+
   bootstrap(listeners, clusters): {
     admin: {
       access_log: [
         {
-          name: 'envoy.access_loggers.stderr',
+          name: 'envoy.access_loggers.stdout',
           typed_config: {
             '@type': 'type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StderrAccessLog',
+            log_format: $.accessLogFormat { json_format+: { is_admin_request: 'true' } },
           },
         },
       ],
@@ -99,6 +130,7 @@
           name: 'envoy.access_loggers.stdout',
           typed_config: {
             '@type': 'type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog',
+            log_format: $.accessLogFormat,
           },
         },
       ],
@@ -109,7 +141,7 @@
       },
       http2_protocol_options: {
         initial_connection_window_size: 1048576,
-        initial_stream_window_size: 524288,
+        initial_stream_window_size: 65536,
         max_concurrent_streams: 100,
       },
       http_filters: std.prune([
