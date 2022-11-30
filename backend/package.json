@@ -76,7 +76,7 @@
     "eslint-plugin-lodash": "^7.4.0",
     "eslint-plugin-prefer-arrow": "^1.2.3",
     "eslint-plugin-prettier": "^4.0.0",
-    "eslint-plugin-testing-library": "5.7.0",
+    "eslint-plugin-testing-library": "5.9.1",
     "jest": "27.5.1",
     "node-jq": "2.3.3",
     "nodemon": "2.0.20",
