@@ -166,10 +166,11 @@ jobs:
             - run:
                 name: Create a name helium can use, persist in ENV
                 command: |
-                  echo 'export HELIUM_NAME=console-"$(echo ${CIRCLE_BRANCH} | sed -E "s/[._]|-npm_and_yarn-/-/g")"' >> "$BASH_ENV"
+                  echo 'export HELIUM_NAME="console-$(echo ${CIRCLE_BRANCH} | sed -E "s/[._]|-npm_and_yarn-/-/g")"' >> "$BASH_ENV"
             - run:
                 name: Curl helium for preview env
                 command: |
+                  echo "Creating $HELIUM_NAME in Helium"
                   curl --fail -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" -F name="$HELIUM_NAME" -F consoleVersion="<<pipeline.git.revision>>" -F expiry="$(date "+%Y-%m-%d" --date="14 days")" -F backend=gcp_namespace_only -F clusterStack="pachyderm/helium/console-preview-cluster" https://helium.pachyderm.io/v1/api/workspace
             - run:
                 name: Comment on PR
