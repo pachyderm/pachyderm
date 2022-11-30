@@ -660,7 +660,11 @@ pachd:
     # Setting it to false is analogous to passing --no-rbac to pachctl
     # deploy.
     create: true
-
+  # Set up default resources for pipelines that don't include any requests or limits.  The values
+  # are k8s resource quantities, so "1Gi", "2", etc.  Set to "0" to disable setting any defaults.
+  defaultPipelineCPURequest: ""
+  defaultPipelineMemoryRequest: ""
+  defaultPipelineStorageRequest: ""
 kubeEventTail:
   # Deploys a lightweight app that watches kubernetes events and echos them to logs.
   enabled: true

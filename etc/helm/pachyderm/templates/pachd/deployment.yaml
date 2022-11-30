@@ -342,6 +342,18 @@ spec:
         - name: GC_PERCENT
           value: {{ .Values.pachd.gcPercent | quote }}
         {{- end }}
+        {{- if ne .Values.pachd.defaultPipelineCPURequest "" }}
+        - name: PIPELINE_DEFAULT_CPU_REQUEST
+          value: {{ .Values.pachd.defaultPipelineCPURequest | quote }}
+        {{- end }}
+        {{- if ne .Values.pachd.defaultPipelineMemoryRequest "" }}
+        - name: PIPELINE_DEFAULT_MEMORY_REQUEST
+          value: {{ .Values.pachd.defaultPipelineMemoryRequest | quote }}
+        {{- end }}
+        {{- if ne .Values.pachd.defaultPipelineStorageRequest "" }}
+        - name: PIPELINE_DEFAULT_STORAGE_REQUEST
+          value: {{ .Values.pachd.defaultPipelineStorageRequest | quote }}
+        {{- end }}
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret

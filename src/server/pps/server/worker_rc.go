@@ -435,10 +435,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             workerEnv,
 				Resources: v1.ResourceRequirements{
-					Requests: v1.ResourceList{
-						v1.ResourceCPU:    cpuZeroQuantity,
-						v1.ResourceMemory: memDefaultQuantity,
-					},
+					Requests: v1.ResourceList{},
 				},
 				VolumeMounts:    userVolumeMounts,
 				SecurityContext: userSecurityCtx,
@@ -607,14 +604,18 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 			return nil, errors.Wrapf(err, "could not determine resource limit")
 		}
 	}
-	// If there are no resources specified then assume the user wants 1 CPU.  Users are often
-	// surprised when their jobs that claim to require 0 CPU are scheduled to a node with no
-	// free CPU resources.  They are still free to set ResourceRequests.Cpu = 0 to avoid this
-	// automatic generation.
+	// Users are often surprised when their jobs that claim to require 0 CPU are scheduled to a
+	// node with no free CPU resources.  This avoids that; if resources are completely omitted
+	// in the pipeline spec, then we supply some reasonable defaults.  You can supply an empty
+	// ResrouceRequests in your pipeline to avoid these defaults; this will explicitly request
+	// the old behavior of not making any requests.
 	if pipelineInfo.Details.ResourceRequests == nil && pipelineInfo.Details.ResourceLimits == nil {
 		resourceRequests = &v1.ResourceList{
-			v1.ResourceCPU: resource.MustParse("1"),
+			v1.ResourceCPU:              kd.config.PipelineDefaultCPURequest,
+			v1.ResourceMemory:           kd.config.PipelineDefaultMemoryRequest,
+			v1.ResourceEphemeralStorage: kd.config.PipelineDefaultStorageRequest,
 		}
+		log.WithField("requests", resourceRequests).Infof("PPS master: setting default resource requests on pipeline %q; supply an empty resource request ('resource_requests: {}') to opt out", pipelineInfo.GetPipeline().GetName())
 	}
 	if pipelineInfo.Details.SidecarResourceLimits != nil {
 		var err error
