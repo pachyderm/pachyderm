@@ -61,7 +61,7 @@ require (
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.0
-	github.com/uber/jaeger-client-go v2.28.0+incompatible
+	github.com/uber/jaeger-client-go v2.29.1+incompatible
 	github.com/vbauerster/mpb/v6 v6.0.2
 	github.com/wcharczuk/go-chart v2.0.1+incompatible
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
@@ -86,7 +86,16 @@ require (
 	k8s.io/kubectl v0.23.1
 )
 
-require github.com/klauspost/cpuid/v2 v2.1.0 // indirect
+require (
+	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
+	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645 // indirect
+	github.com/jessevdk/go-flags v1.5.0 // indirect
+	github.com/jrockway/opinionated-server v0.0.22 // indirect
+	github.com/klauspost/cpuid/v2 v2.1.0 // indirect
+	github.com/opentracing-contrib/go-stdlib v1.0.0 // indirect
+	github.com/povilasv/prommod v0.0.12 // indirect
+	go.uber.org/ratelimit v0.2.0 // indirect
+)
 
 require (
 	cloud.google.com/go v0.102.0 // indirect
@@ -103,7 +112,7 @@ require (
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20220621081337-cb9428e4ac1e // indirect
-	github.com/HdrHistogram/hdrhistogram-go v1.0.1 // indirect
+	github.com/HdrHistogram/hdrhistogram-go v1.1.1 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.2 // indirect
@@ -262,7 +271,7 @@ require (
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/goleak v1.1.12 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	go.uber.org/zap v1.19.0
+	go.uber.org/zap v1.19.1
 	golang.org/x/image v0.0.0-20210216034530-4410531fe030 // indirect
 	golang.org/x/text v0.5.0 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
