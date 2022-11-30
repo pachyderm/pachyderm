@@ -124,7 +124,7 @@
     "react-dev-utils": "^12.0.1",
     "rollup-plugin-analyzer": "^4.0.0",
     "rollup-plugin-copy": "3.4.0",
-    "serve": "14.0.1",
+    "serve": "14.1.2",
     "splitting": "^1.0.6",
     "start-server-and-test": "1.14.0",
     "stylelint": "^14.11.0",
