@@ -867,7 +867,7 @@ proxy:
   # The envoy image to pull.
   image:
     repository: "envoyproxy/envoy"
-    tag: "v1.22.0"
+    tag: "v1.24.0"
     pullPolicy: "IfNotPresent"
   # Set up resources.  The proxy is configured to shed traffic before using 500MB of RAM, so that's
   # a resonable memory limit.  It doesn't need much CPU.
