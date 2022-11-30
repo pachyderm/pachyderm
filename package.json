@@ -34,7 +34,7 @@
     "@graphql-codegen/cli": "2.12.0",
     "@graphql-codegen/import-types-preset": "2.2.6",
     "@graphql-codegen/typescript": "2.7.3",
-    "@graphql-codegen/typescript-operations": "2.5.3",
+    "@graphql-codegen/typescript-operations": "2.5.7",
     "@graphql-codegen/typescript-react-apollo": "3.3.3",
     "@graphql-codegen/typescript-resolvers": "2.7.3",
     "@testing-library/cypress": "8.0.3",
