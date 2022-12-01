@@ -1,9 +1,10 @@
-//go:build !windows
-// +build !windows
+//go:build unix
+// +build unix
 
 package driver
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,16 +13,50 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
 
-func makeCmdCredentials(uid uint32, gid uint32) *syscall.SysProcAttr {
-	return &syscall.SysProcAttr{
-		Credential: &syscall.Credential{
-			Uid:         uid,
-			Gid:         gid,
-			NoSetGroups: true,
-		},
+func makeSysProcAttr(uid *uint32, gid *uint32) *syscall.SysProcAttr {
+	attr := &syscall.SysProcAttr{
+		// We create a process group so that we can later send SIGKILL to all child
+		// processes created by the user code.
+		Setpgid: true,
 	}
+	if uid != nil && gid != nil {
+		attr.Credential = &syscall.Credential{
+			Uid:         *uid,
+			Gid:         *gid,
+			NoSetGroups: true,
+		}
+	}
+	return attr
+}
+
+// makeProcessGroupKiller creates a background goroutine that kills all processes assosciated with
+// the provided process group when the root context expires or the returned cancellation function is
+// called.  Even though we pass a negative number to syscall.Kill, pgid should be positive.
+//
+// For the driver specifically, we always run this no matter what.  If the context times out, we
+// kill all subprocesses including the parent (the non-zero exit there will fail the job, as
+// expected).  If user code exits 0, but has child processes in the background, we still kill those,
+// but the job will succeed.  If user code wants to fail when its children hang, it will have to
+// implement that logic itself (by calling waitpid on the children; "wait" in bash).
+func makeProcessGroupKiller(rctx context.Context, l logs.TaggedLogger, pgid int) func() {
+	ctx, c := context.WithCancel(rctx)
+	go func() {
+		<-ctx.Done()
+		logRunningProcesses(l, pgid)
+		if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil {
+			// ESRCH means that the process group is gone, because everything
+			// has already exited on its own (or there was only one process in
+			// the process group, and it's already gone).
+			if err == syscall.ESRCH {
+				return
+			}
+			l.Logf("warning: problem killing user code process group #%v: %v", pgid, err)
+		}
+	}()
+	return c
 }
 
 // WithActiveData is implemented differently in unix vs windows because of how

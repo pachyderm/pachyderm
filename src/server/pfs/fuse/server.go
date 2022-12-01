@@ -1384,7 +1384,7 @@ func mountingState(m *MountStateMachine) StateFn {
 	// _in all cases_
 	m.transitionedTo("mounting", "")
 	// TODO: refactor this so we're not reaching into another struct's lock
-	var err error;
+	var err error
 	err = func() error {
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
@@ -1412,7 +1412,7 @@ func mountingState(m *MountStateMachine) StateFn {
 		}
 		m.manager.root.commits[m.Name] = commitInfos[0].Commit.ID
 		return nil
-	}();
+	}()
 	// re-downloading the repos with an updated RepoOptions set will have the
 	// effect of causing it to pop into existence
 	if err == nil {

@@ -245,29 +245,35 @@ func (a *apiServer) OIDCStateToEmail(ctx context.Context, state string) (email s
 // have network access to Pachyderm, but may not have an OIDC account or any
 // legitimate access to this cluster, so we want to avoid accidentally leaking
 // operational details. In general:
-// - This should not return an HTTP error with more information than pachctl
-//   prints. Currently, pachctl only prints the OIDC state token presented by
-//   the user and "Authorization failed" if the token exchange doesn't work
-//   (indicated by SessionInfo.ConversionErr == true).
-// - More information may be included in logs (which should only be accessible
-//   Pachyderm administrators with kubectl access), and logs include enough
-//   characters of any relevant OIDC state token to identify a particular login
-//   flow. Thus if a user is legitimate, they can present their OIDC state token
-//   (displayed by pachctl or their browser) to a cluster administrator, and the
-//   cluster administrator can locate a detailed error in pachctl's logs.
-//   Together they can resolve any authorization issues.
-// - This should also not log any user credentials that would allow a
-//   kubernetes cluster administrator to impersonate an individual user
-//   undetected in Pachyderm or elsewhere. Where this logs OIDC state tokens, to
-//   correlate authentication flows to error logs, it only logs the first half,
-//   which is not enough to authenticate.
+//   - This should not return an HTTP error with more information than pachctl
+//     prints. Currently, pachctl only prints the OIDC state token presented by
+//     the user and "Authorization failed" if the token exchange doesn't work
+//     (indicated by SessionInfo.ConversionErr == true).
+//   - More information may be included in logs (which should only be accessible
+//     Pachyderm administrators with kubectl access), and logs include enough
+//     characters of any relevant OIDC state token to identify a particular login
+//     flow. Thus if a user is legitimate, they can present their OIDC state token
+//     (displayed by pachctl or their browser) to a cluster administrator, and the
+//     cluster administrator can locate a detailed error in pachctl's logs.
+//     Together they can resolve any authorization issues.
+//   - This should also not log any user credentials that would allow a
+//     kubernetes cluster administrator to impersonate an individual user
+//     undetected in Pachyderm or elsewhere. Where this logs OIDC state tokens, to
+//     correlate authentication flows to error logs, it only logs the first half,
+//     which is not enough to authenticate.
 //
 // If needed, Pachyderm cluster administrators can impersonate users by calling
 // GetAuthToken(), but that call is logged and auditable.
 func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
-	code := req.URL.Query()["code"][0]
-	state := req.URL.Query()["state"][0]
+
+	var code, state string
+	if codes := req.URL.Query()["code"]; len(codes) > 0 {
+		code = codes[0]
+	}
+	if states := req.URL.Query()["state"]; len(states) > 0 {
+		state = states[0]
+	}
 	if state == "" || code == "" {
 		http.Error(w,
 			"invalid OIDC callback request: missing OIDC state token or authorization code",

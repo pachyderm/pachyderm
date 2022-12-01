@@ -1547,80 +1547,80 @@ func TestModifyMembers(t *testing.T) {
 	}{
 		{
 			[]*auth.ModifyMembersRequest{
-				&auth.ModifyMembersRequest{
+				{
 					Add:   []string{alice},
 					Group: organization,
 				},
-				&auth.ModifyMembersRequest{
+				{
 					Add:   []string{alice},
 					Group: organization,
 				},
 			},
 			map[string][]string{
-				alice: []string{organization},
+				alice: {organization},
 			},
 		},
 		{
 			[]*auth.ModifyMembersRequest{
-				&auth.ModifyMembersRequest{
+				{
 					Add:   []string{bob},
 					Group: organization,
 				},
-				&auth.ModifyMembersRequest{
+				{
 					Add:   []string{alice, bob},
 					Group: engineering,
 				},
-				&auth.ModifyMembersRequest{
+				{
 					Add:   []string{bob},
 					Group: security,
 				},
 			},
 			map[string][]string{
-				alice: []string{organization, engineering},
-				bob:   []string{organization, engineering, security},
+				alice: {organization, engineering},
+				bob:   {organization, engineering, security},
 			},
 		},
 		{
 			[]*auth.ModifyMembersRequest{
-				&auth.ModifyMembersRequest{
+				{
 					Add:    []string{alice},
 					Remove: []string{bob},
 					Group:  security,
 				},
-				&auth.ModifyMembersRequest{
+				{
 					Remove: []string{bob},
 					Group:  engineering,
 				},
 			},
 			map[string][]string{
-				alice: []string{organization, engineering, security},
-				bob:   []string{organization},
+				alice: {organization, engineering, security},
+				bob:   {organization},
 			},
 		},
 		{
 			[]*auth.ModifyMembersRequest{
-				&auth.ModifyMembersRequest{
+				{
 					Remove: []string{alice, bob},
 					Group:  organization,
 				},
-				&auth.ModifyMembersRequest{
+				{
 					Remove: []string{alice, bob},
 					Group:  security,
 				},
-				&auth.ModifyMembersRequest{
+				{
 					Add:    []string{alice},
 					Remove: []string{alice},
 					Group:  organization,
 				},
-				&auth.ModifyMembersRequest{
+				{
 					Add:    []string{},
 					Remove: []string{},
 					Group:  organization,
 				},
 			},
 			map[string][]string{
-				alice: []string{engineering},
-				bob:   []string{},
+				alice: {engineering},
+				bob:   {},
 			},
 		},
 	}

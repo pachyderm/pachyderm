@@ -349,9 +349,7 @@ func (d *driver) RunUserCode(
 	cmd.Stdout = logger.WithUserCode()
 	cmd.Stderr = logger.WithUserCode()
 	cmd.Env = environ
-	if d.uid != nil && d.gid != nil {
-		cmd.SysProcAttr = makeCmdCredentials(*d.uid, *d.gid)
-	}
+	cmd.SysProcAttr = makeSysProcAttr(d.uid, d.gid)
 
 	// By default PWD will be the working dir for the container, so we don't need to set Dir explicitly.
 	// If the pipeline or worker config explicitly sets the value, then override the container working dir.
@@ -362,7 +360,20 @@ func (d *driver) RunUserCode(
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
+	killChildren := makeProcessGroupKiller(ctx, logger, cmd.Process.Pid)
+	if ok, err := blockUntilWaitable(cmd.Process.Pid); ok {
+		// Since cmd.Process.Pid is dead, we can kill its children now.
+		killChildren()
+	} else if err != nil {
+		// The error can occur before cmd.Process.Pid exits, so it's not safe to kill the
+		// children yet.  Because of this error, we lose the ability to kill subprocesses
+		// that the user code might have spawned, and those children can hold onto stdout
+		// and prevent Wait from ever returning.  This log message will indicate the
+		// presence of that problem.
+		logger.Logf("blockUntilWaitable: %v", err)
+	}
 	err = cmd.Wait()
+	killChildren()
 
 	// We ignore broken pipe errors, these occur very occasionally if a user
 	// specifies Stdin but their process doesn't actually read everything from
@@ -406,16 +417,27 @@ func (d *driver) RunUserErrorHandlingCode(
 	cmd.Stdout = logger.WithUserCode()
 	cmd.Stderr = logger.WithUserCode()
 	cmd.Env = environ
-	if d.uid != nil && d.gid != nil {
-		cmd.SysProcAttr = makeCmdCredentials(*d.uid, *d.gid)
-	}
+	cmd.SysProcAttr = makeSysProcAttr(d.uid, d.gid)
 	cmd.Dir = d.pipelineInfo.Details.Transform.WorkingDir
 	err := cmd.Start()
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-
+	killChildren := makeProcessGroupKiller(ctx, logger, cmd.Process.Pid)
+	if ok, err := blockUntilWaitable(cmd.Process.Pid); ok {
+		// Since cmd.Process.Pid is dead, we can kill its children now.
+		killChildren()
+	} else if err != nil {
+		// The error can occur before cmd.Process.Pid exits, so it's not safe to kill the
+		// children yet.  Because of this error, we lose the ability to kill subprocesses
+		// that the user code might have spawned, and those children can hold onto stdout
+		// and prevent Wait from ever returning.  This log message will indicate the
+		// presence of that problem.
+		logger.Logf("blockUntilWaitable: %v", err)
+	}
 	err = cmd.Wait()
+	killChildren()
+
 	// We ignore broken pipe errors, these occur very occasionally if a user
 	// specifies Stdin but their process doesn't actually read everything from
 	// Stdin. This is a fairly common thing to do, bash by default ignores

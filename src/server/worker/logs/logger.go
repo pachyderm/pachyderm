@@ -74,10 +74,11 @@ func newLogger(pipelineInfo *pps.PipelineInfo) *taggedLogger {
 // client.
 //
 // TODO: the whole object api interface here is bad, there are a few shortcomings:
-//  - it's only used under the worker function when stats are enabled
-//  - 'Close' is used to end the object, but it must be explicitly called
-//  - the 'eg', 'putObjClient', 'msgCh', 'buffer', and 'objSize' don't play well
-//      with cloned loggers.
+//   - it's only used under the worker function when stats are enabled
+//   - 'Close' is used to end the object, but it must be explicitly called
+//   - the 'eg', 'putObjClient', 'msgCh', 'buffer', and 'objSize' don't play well
+//     with cloned loggers.
+//
 // Abstract this into a separate object with a more explicit lifetime?
 func NewLogger(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient) (TaggedLogger, error) {
 	result := newLogger(pipelineInfo)
