@@ -642,6 +642,9 @@
                                     "type": "integer"
                                 }
                             }
+                        },
+                        "tolerations": {
+                            "type": "array"
                         }
                     }
                 }
