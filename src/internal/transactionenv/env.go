@@ -95,12 +95,13 @@ func (tnxEnv *TransactionEnv) Initialize(
 // action directly or append an action to an existing transaction (depending on
 // if there is an active transaction in the client context metadata).  There
 // are two implementations of this interface:
-//  directTransaction: all operations will be run directly through the relevant
-//    server, all inside the same STM.
-//  appendTransaction: all operations will be appended to the active transaction
-//    which will then be dryrun so that the response for the operation can be
-//    returned.  Each operation that is appended will do a new dryrun, so this
-//    isn't as efficient as it could be.
+//
+//	directTransaction: all operations will be run directly through the relevant
+//	  server, all inside the same STM.
+//	appendTransaction: all operations will be appended to the active transaction
+//	  which will then be dryrun so that the response for the operation can be
+//	  returned.  Each operation that is appended will do a new dryrun, so this
+//	  isn't as efficient as it could be.
 type Transaction interface {
 	PfsWrites
 	PpsWrites

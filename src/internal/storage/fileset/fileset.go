@@ -26,8 +26,8 @@ The algorithms for file and index chunking have changed throughout 2.x, and we
 must support previously written data. Here are some examples of conditions in
 past data which current code will not generate:
   - a file that is split across multiple chunks may share some of them with
-  other files (in the current code, a file split across chunks will be the only
-  file in those chunks).
+    other files (in the current code, a file split across chunks will be the only
+    file in those chunks).
   - related, even small files may be split across multiple chunks
   - an index range data reference may start part way through a chunk
 */

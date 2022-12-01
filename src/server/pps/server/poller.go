@@ -172,9 +172,10 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 }
 
 // pollPipelinePods creates a kubernetes watch, and for each event:
-//   1) Checks if the event concerns a Pod
-//   2) Checks if the Pod belongs to a pipeline (pipelineName annotation is set)
-//   3) Checks if the Pod is failing
+//  1. Checks if the event concerns a Pod
+//  2. Checks if the Pod belongs to a pipeline (pipelineName annotation is set)
+//  3. Checks if the Pod is failing
+//
 // If all three conditions are met, then the pipline (in 'pipelineName') is set
 // to CRASHING
 func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
@@ -256,10 +257,10 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 // pollPipelinePods (above) observes that a pipeline is crashing and updates its
 // state in the database, the flow for starting monitorPipelineCrashing is:
 //
-//  k8s watch ─> pollPipelinePods  ╭───> watchPipelines    ╭──> m.run()
-//                      │          │            │          │      │
-//                      ↓          │            ↓          │      ↓
-//                   db write──────╯       m.eventCh ──────╯   m.step()
+//	k8s watch ─> pollPipelinePods  ╭───> watchPipelines    ╭──> m.run()
+//	                    │          │            │          │      │
+//	                    ↓          │            ↓          │      ↓
+//	                 db write──────╯       m.eventCh ──────╯   m.step()
 //
 // Most of the other poll/monitor goroutines actually go through watchPipelines
 // (by writing to the database, which is then observed by the watch below)

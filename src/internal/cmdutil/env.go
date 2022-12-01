@@ -37,7 +37,7 @@ func Main(ctx context.Context, do func(context.Context, interface{}) error, appE
 }
 
 func mainError(err error) {
-	ErrorAndExit("%v\n", err)
+	ErrorAndExitf("%v\n", err)
 }
 
 const (
