@@ -12,6 +12,7 @@ export const useDeletePipeline = (
   const [deletePipeline, {loading, error}] = useDeletePipelineMutation({
     refetchQueries: [{query: GET_DAG_QUERY, variables: {args: {projectId}}}],
     awaitRefetchQueries: true,
+    onCompleted: onCompleted,
     update(cache, {data}) {
       if (data?.deletePipeline) {
         cache.modify({
@@ -25,7 +26,6 @@ export const useDeletePipeline = (
             },
           },
         });
-        onCompleted && onCompleted();
       }
     },
   });

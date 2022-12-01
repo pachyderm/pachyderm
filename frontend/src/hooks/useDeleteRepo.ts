@@ -9,6 +9,7 @@ export const useDeleteRepo = (repoId: string, onCompleted?: () => void) => {
   const [deleteRepo, {loading, error}] = useDeleteRepoMutation({
     refetchQueries: [{query: GET_DAG_QUERY, variables: {args: {projectId}}}],
     awaitRefetchQueries: true,
+    onCompleted: onCompleted,
     update(cache, {data}) {
       if (data?.deleteRepo) {
         cache.modify({
@@ -20,7 +21,6 @@ export const useDeleteRepo = (repoId: string, onCompleted?: () => void) => {
             },
           },
         });
-        onCompleted && onCompleted();
       }
     },
   });

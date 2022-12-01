@@ -21,9 +21,10 @@ describe('Project', () => {
       cy.exec(`pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/${res.stdout}/examples/opencv/montage.json`);
     });
 
-    cy.waitUntil(() => cy.findAllByTestId('DropdownButton__button').should('have.length', 2));
-    cy.findAllByTestId('DropdownButton__button').eq(1).click();
-    cy.findByText('Center Selections').click();
+    // wait for jobs to finish to reduce pachd strain
+    cy.findByText('Jobs').click();
+    cy.waitUntil(() => cy.findAllByText('Success', {timeout: 30000}).then(jobs => jobs.length === 2), {timeout: 30000});
+    cy.findByLabelText('Close').click();
 
     cy.findByText('images').click();
     cy.findByTestId('DeleteRepoButton__link').should('be.disabled');
@@ -36,8 +37,8 @@ describe('Project', () => {
     cy.get("#GROUP_montage").within(() => cy.findByText('Pipeline').click());
     cy.findByTestId('DeletePipelineButton__link').click();
     cy.findByTestId('ModalFooter__confirm').click();
-    cy.get('[data-test-id="ModalFooter__confirm"').should('not.exist');
-    cy.waitUntil(() => cy.findAllByText('montage').its.length === 0);
+    cy.findByTestId('ModalFooter__confirm').should('not.exist');
+    cy.get('montage').should('not.exist');
     cy.url().should('not.contain', '/pipelines');
 
     cy.findByText('images').click({force: true});
@@ -48,8 +49,8 @@ describe('Project', () => {
     cy.get("#GROUP_edges").within(() => cy.findByText('Pipeline').click());
     cy.findByTestId('DeletePipelineButton__link').click();
     cy.findByTestId('ModalFooter__confirm').click();
-    cy.get('[data-test-id="ModalFooter__confirm"').should('not.exist');
-    cy.waitUntil(() => cy.findAllByText('edges').its.length === 0);
+    cy.findByTestId('ModalFooter__confirm').should('not.exist');
+    cy.get('edges').should('not.exist');
     cy.waitUntil(() => cy.url().should('not.contain', '/pipelines'));
 
     cy.findByText('images').click({force: true});
