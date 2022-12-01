@@ -88,7 +88,7 @@
           },
           typed_config: {
             '@type': 'type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StderrAccessLog',
-            log_format: $.accessLogFormat { json_format+: { message: 'admin request', is_admin_request: 'true' } },
+            log_format: $.accessLogFormat { json_format+: { message: 'admin response' } },
           },
         },
       ],
