@@ -43,15 +43,6 @@ updates:
     pull-request-branch-name:
       separator: "-"
   - package-ecosystem: "npm"
-    directory: "/live-automation"
-    schedule:
-      interval: "weekly"
-      day: "tuesday"
-      time: "09:00"
-      timezone: "America/Los_Angeles"
-    pull-request-branch-name:
-      separator: "-"
-  - package-ecosystem: "npm"
     directory: "/load-tests"
     schedule:
       interval: "weekly"
