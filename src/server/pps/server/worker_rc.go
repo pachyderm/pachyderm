@@ -431,7 +431,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 			{
 				Name:            client.PPSWorkerUserContainerName,
 				Image:           options.userImage,
-				Command:         []string{"/pach-bin/worker"},
+				Command:         []string{"/pach-bin/dumb-init", "--", "/pach-bin/worker"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             workerEnv,
 				Resources: v1.ResourceRequirements{
