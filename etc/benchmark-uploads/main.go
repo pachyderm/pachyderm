@@ -4,6 +4,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"log"
 	"math"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -25,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"golang.org/x/net/http2"
 )
 
 var (
@@ -32,6 +35,8 @@ var (
 	kind   = flag.String("kind", "grpc", "type of benchmark to perform; grpc, http (requires experimental pachd), s3, s3-multipart, console")
 	scheme = flag.String("scheme", "http", "url scheme for http-based protocols")
 	addr   = flag.String("addr", "localhost", "for http, console, and s3; the address to connect to (always requires a valid pach context, though)")
+	h2c    = flag.Bool("h2c", false, "if true, use http2 over cleartext (only works against proxy)")
+	iters  = flag.Int("n", 10, "number of times to run the benchmark; reusing connections between tests where allowed in the protocol")
 )
 
 type R struct {
@@ -66,7 +71,7 @@ func (r *R) Read(p []byte) (int, error) {
 var _ io.Reader = new(R)
 
 func bench(f func(name string, r io.Reader, length uint64) error) error {
-	for i := 0; i < 10; i++ {
+	for i := 0; i < *iters; i++ {
 		r := new(R)
 		var length uint64
 		if x, err := humanize.ParseBytes(*size); err != nil {
@@ -96,6 +101,7 @@ func bench(f func(name string, r io.Reader, length uint64) error) error {
 func main() {
 	flag.Parse()
 
+	// Cancel context on first SIGINT.
 	ctx, cancel := context.WithCancel(context.Background())
 	cancelCh := make(chan os.Signal, 1)
 	signal.Notify(cancelCh, os.Interrupt)
@@ -106,6 +112,7 @@ func main() {
 		close(cancelCh)
 	}()
 
+	// Setup pach context for creating destination repo, etc.
 	c, err := client.NewOnUserMachine("")
 	if err != nil {
 		log.Fatal(err)
@@ -115,6 +122,19 @@ func main() {
 		log.Printf("create repo: %v", err)
 	}
 
+	hc := &http.Client{}
+	if *h2c {
+		hc = &http.Client{
+			Transport: &http2.Transport{
+				AllowHTTP: true,
+				DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+					return (&net.Dialer{}).DialContext(ctx, network, addr)
+				},
+			},
+		}
+	}
+
+	// Run benchmark.
 	var benchErr error
 	switch *kind {
 	case "grpc":
@@ -128,7 +148,7 @@ func main() {
 			if err != nil {
 				return err
 			}
-			res, err := http.DefaultClient.Do(req)
+			res, err := hc.Do(req)
 			if err != nil {
 				return err
 			}
@@ -150,7 +170,7 @@ func main() {
 				"repo":   "benchmark-upload",
 			})
 			if err != nil {
-				return err
+				return errors.Wrap(err, "marshal start")
 			}
 			req, err := http.NewRequestWithContext(ctx, "POST", *scheme+"://"+*addr+"/upload/start", bytes.NewReader(start))
 			if err != nil {
@@ -161,14 +181,14 @@ func main() {
 				Name:  "dashAuthToken",
 				Value: c.AuthToken(),
 			})
-			res, err := http.DefaultClient.Do(req)
+			res, err := hc.Do(req)
 			if err != nil {
 				return errors.Wrap(err, "start")
 			}
 			body, err := io.ReadAll(res.Body)
 			res.Body.Close()
 			if err != nil {
-				return err
+				return errors.Wrap(err, "read start body")
 			}
 			if got, want := res.StatusCode, http.StatusOK; got != want {
 				return fmt.Errorf("start: unexpected status code: got %d want %d %v", got, want, res.Status)
@@ -177,7 +197,7 @@ func main() {
 				UploadId string `json:"uploadId"`
 			}
 			if err := json.Unmarshal(body, &idInfo); err != nil {
-				return err
+				return errors.Wrap(err, "unmarshal start reply")
 			}
 
 			// Upload
@@ -210,7 +230,7 @@ func main() {
 					Value: c.AuthToken(),
 				})
 
-				res, err := http.DefaultClient.Do(req)
+				res, err := hc.Do(req)
 				if err != nil {
 					return errors.Wrapf(err, "chunk %d/%d", i, nCk)
 				}
@@ -232,7 +252,7 @@ func main() {
 			// Finish
 			finish, err := json.Marshal(idInfo) // could reuse "body" from start section
 			if err != nil {
-				return err
+				return errors.Wrap(err, "marshal finish request")
 			}
 			req, err = http.NewRequestWithContext(ctx, "POST", *scheme+"://"+*addr+"/upload/finish", bytes.NewReader(finish))
 			if err != nil {
@@ -243,14 +263,11 @@ func main() {
 				Name:  "dashAuthToken",
 				Value: c.AuthToken(),
 			})
-			res, err = http.DefaultClient.Do(req)
+			res, err = hc.Do(req)
 			if err != nil {
 				return errors.Wrap(err, "finish")
 			}
 			res.Body.Close()
-			if err != nil {
-				return err
-			}
 			if got, want := res.StatusCode, http.StatusOK; got != want {
 				return fmt.Errorf("finish: unexpected status code: got %d want %d %v", got, want, res.Status)
 			}
@@ -258,21 +275,23 @@ func main() {
 		})
 	case "s3":
 		mc, err := minio.New(*addr, &minio.Options{
-			Creds: credentials.NewStaticV4(c.AuthToken(), c.AuthToken(), ""),
+			Creds:  credentials.NewStaticV4(c.AuthToken(), c.AuthToken(), ""),
+			Secure: *scheme == "https",
 		})
 		if err != nil {
-			log.Fatalf("minio: %v", err)
+			log.Fatalf("make minio client: %v", err)
 		}
 		benchErr = bench(func(name string, r io.Reader, length uint64) error {
 			res, err := mc.PutObject(ctx, "master.benchmark-upload", name, r, int64(length), minio.PutObjectOptions{
 				DisableMultipart: true,
 			})
-			log.Printf("%#v", res)
+			log.Printf("minio reply: %#v", res)
 			return err
 		})
 	case "s3-multipart":
 		mc, err := minio.New(*addr, &minio.Options{
-			Creds: credentials.NewStaticV4(c.AuthToken(), c.AuthToken(), ""),
+			Creds:  credentials.NewStaticV4(c.AuthToken(), c.AuthToken(), ""),
+			Secure: *scheme == "https",
 		})
 		if err != nil {
 			log.Fatalf("minio: %v", err)
@@ -281,16 +300,18 @@ func main() {
 			res, err := mc.PutObject(ctx, "master.benchmark-upload", name, r, int64(length), minio.PutObjectOptions{
 				DisableMultipart: false,
 			})
-			log.Printf("Minio response: %#v", res)
+			log.Printf("minio response: %#v", res)
 			return err
 		})
 	default:
 		log.Fatalf("unknown benchmark kind %v", *kind)
 	}
+	// Exit if benchmark returned an error.
 	if benchErr != nil {
 		log.Fatal(benchErr)
 	}
 
+	// Cleanup.
 	if err := c.Close(); err != nil {
 		log.Fatalf("close: %v", err)
 	}
