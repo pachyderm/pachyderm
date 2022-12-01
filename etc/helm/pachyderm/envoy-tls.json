@@ -211,6 +211,41 @@
             },
             "dns_lookup_family": "V4_ONLY",
             "dns_refresh_rate": "5s",
+            "health_checks": [ ],
+            "lb_policy": "random",
+            "load_assignment": {
+               "cluster_name": "pachd-http",
+               "endpoints": [
+                  {
+                     "lb_endpoints": [
+                        {
+                           "endpoint": {
+                              "address": {
+                                 "socket_address": {
+                                    "address": "pachd-proxy-backend",
+                                    "port_value": 2000
+                                 }
+                              }
+                           }
+                        }
+                     ]
+                  }
+               ]
+            },
+            "name": "pachd-http",
+            "type": "strict_dns",
+            "upstream_connection_options": {
+               "tcp_keepalive": { }
+            }
+         },
+         {
+            "connect_timeout": "10s",
+            "dns_failure_refresh_rate": {
+               "base_interval": "0.05s",
+               "max_interval": "0.1s"
+            },
+            "dns_lookup_family": "V4_ONLY",
+            "dns_refresh_rate": "5s",
             "health_checks": [
                {
                   "healthy_threshold": 1,

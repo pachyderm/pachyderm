@@ -16,6 +16,7 @@ import (
 	_ "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/keepalive"
 
+	units "github.com/docker/go-units"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	log "github.com/sirupsen/logrus"
 
@@ -53,6 +54,8 @@ func NewServer(ctx context.Context, publicPortTLSAllowed bool, options ...grpc.S
 			MinTime:             5 * time.Second,
 			PermitWithoutStream: true,
 		}),
+		grpc.InitialConnWindowSize(300 * units.MiB),
+		grpc.InitialWindowSize(150 * units.MiB),
 		grpc.ChainUnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
 		grpc.ChainStreamInterceptor(grpc_prometheus.StreamServerInterceptor),
 	}, options...)

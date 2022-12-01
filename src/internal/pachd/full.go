@@ -2,13 +2,18 @@ package pachd
 
 import (
 	"context"
+	"io"
+	"net/http"
 	"os"
 	"path"
 
 	"google.golang.org/grpc"
 
+	"github.com/dustin/go-humanize"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	"github.com/sirupsen/logrus"
 )
 
 // A fullBuilder builds a full-mode pachd.
@@ -90,6 +95,51 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.bootstrap,
 		fb.externallyListen,
 		fb.resumeHealth,
+		func(ctx context.Context) error {
+			logrus.Infof("spawning server")
+			go func() {
+				logrus.Infof("server starting")
+				err := http.ListenAndServe("0.0.0.0:2000", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					logrus.Infof("upload request started")
+					defer logrus.Infof("upload request ended")
+					var badusage bool
+					if req.Method != "PUT" {
+						badusage = true
+					}
+					dir, file := path.Split(req.URL.Path)
+					if dir != "/upload/" {
+						badusage = true
+					}
+					if badusage {
+						logrus.Error("bad upload usage")
+						http.Error(w, "usage: PUT /upload/filename", http.StatusBadRequest)
+						return
+					}
+					c := fb.env.GetPachClient(req.Context())
+					c.SetAuthToken("V4Ptmxchcj04TY5vmngJAD0RiuJ3JYc6")
+					defer req.Body.Close()
+					var err error
+					if req.URL.Query().Has("fake") {
+						var n int64
+						n, err = io.Copy(io.Discard, req.Body)
+						logrus.Infof("fake upload: read %v", humanize.IBytes(uint64(n)))
+					} else {
+						err = c.PutFile(client.NewProjectCommit("default", "benchmark-upload", "master", ""), file, req.Body)
+					}
+					if err != nil {
+						logrus.Error("putfile failed: %v", err)
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
+					}
+
+					w.WriteHeader(http.StatusAccepted)
+				}))
+				if err != nil {
+					logrus.Errorf("could not start http server: %v", err)
+				}
+			}()
+			return nil
+		},
 		fb.daemon.serve,
 	)
 }

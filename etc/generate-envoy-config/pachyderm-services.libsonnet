@@ -26,6 +26,21 @@
       no_traffic_healthy_interval: '10s',
     },
   },
+  'pachd-http': {
+    internal_port: 2000,
+    service: 'pachd-proxy-backend',
+    routes: [
+      {
+        match: {
+          prefix: '/upload',
+        },
+        route: {
+          cluster: 'pachd-http',
+          timeout: '604800s',
+        },
+      },
+    ],
+  },
   'pachd-s3': {
     internal_port: 1600,
     external_port: 30600,
