@@ -39,6 +39,7 @@ require (
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/jmoiron/sqlx v1.2.0
+	github.com/jrockway/opinionated-server v0.0.22
 	github.com/json-iterator/go v1.1.12
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/lib/pq v1.10.5
@@ -77,7 +78,7 @@ require (
 	golang.org/x/sys v0.3.0
 	golang.org/x/term v0.3.0
 	google.golang.org/api v0.89.0
-	google.golang.org/grpc v1.48.0
+	google.golang.org/grpc v1.51.0
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.23.1
@@ -87,14 +88,11 @@ require (
 )
 
 require (
-	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645 // indirect
 	github.com/jessevdk/go-flags v1.5.0 // indirect
-	github.com/jrockway/opinionated-server v0.0.22 // indirect
 	github.com/klauspost/cpuid/v2 v2.1.0 // indirect
 	github.com/opentracing-contrib/go-stdlib v1.0.0 // indirect
 	github.com/povilasv/prommod v0.0.12 // indirect
-	go.uber.org/ratelimit v0.2.0 // indirect
 )
 
 require (
@@ -112,7 +110,6 @@ require (
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20220621081337-cb9428e4ac1e // indirect
-	github.com/HdrHistogram/hdrhistogram-go v1.1.1 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.2 // indirect
