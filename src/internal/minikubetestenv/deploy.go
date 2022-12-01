@@ -19,15 +19,16 @@ import (
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	terraTest "github.com/gruntwork-io/terratest/modules/testing"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kube "k8s.io/client-go/kubernetes"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kube "k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -423,8 +424,9 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 		}
 		// Ensure that pachd is really ready to receive requests.
 		if _, err := c.InspectCluster(); err != nil {
-			t.Logf("retryable: failed to inspect cluster on port %v: %v", pachAddress.Port, err)
-			return errors.Wrapf(err, "failed to inspect cluster on port %v", pachAddress.Port)
+			scrubbedErr := grpcutil.ScrubGRPC(err)
+			t.Logf("retryable: failed to inspect cluster on port %v: %v", pachAddress.Port, scrubbedErr)
+			return errors.Wrapf(scrubbedErr, "failed to inspect cluster on port %v", pachAddress.Port)
 		}
 		return nil
 	}, backoff.RetryEvery(time.Second).For(50*time.Second)))
