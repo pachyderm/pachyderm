@@ -11,6 +11,7 @@ orbs:
     codecov: codecov/codecov@1.1.0
     pagerduty: fredbi/pagerduty@0.3.0
     browser-tools: circleci/browser-tools@1.2.3
+    gh: circleci/github-cli@2.1.1
 
 jobs:
     components-storybook-release:
@@ -37,6 +38,8 @@ jobs:
         steps:
             - checkout
             - run: make ci
+            - gh/setup:
+                version: 2.20.2
             - run: etc/testing/circle/install.sh
             - run: etc/testing/circle/start-kind.sh
             - run: etc/testing/circle/deploy-pachyderm.sh
@@ -79,6 +82,8 @@ jobs:
             - run: npm ci
             - run: cd backend && npm ci
             - run: cd frontend && npm ci
+            - gh/setup:
+                version: 2.20.2
             - run: etc/testing/circle/install.sh
             - run: etc/testing/circle/start-kind.sh
             - run: etc/testing/circle/deploy-pachyderm.sh
@@ -104,6 +109,8 @@ jobs:
             - run: sudo apt-get update
             - run: sudo apt-get install k6
             - run: make ci
+            - gh/setup:
+                version: 2.20.2
             - run: etc/testing/circle/install.sh
             - run: etc/testing/circle/start-kind.sh
             - run: etc/testing/circle/deploy-pachyderm.sh

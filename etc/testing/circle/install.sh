@@ -38,5 +38,6 @@ fi
 export PACHCTL_VERSION="$(jq -r .pachctl version.json)"
 
 # Install Pachyderm
-curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v${PACHCTL_VERSION}/pachctl_${PACHCTL_VERSION}_amd64.deb
+# gh cli downloads the bin of a draft or published release
+gh release download v${PACHCTL_VERSION} --pattern pachctl_${PACHCTL_VERSION}_amd64.deb --repo pachyderm/pachyderm --output /tmp/pachctl.deb
 sudo dpkg -i /tmp/pachctl.deb
