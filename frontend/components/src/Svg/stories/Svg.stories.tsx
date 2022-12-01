@@ -82,6 +82,9 @@ export const Pachyderm = () => {
         <SVGWrapper title="ElephantCtaSVG">
           <PachydermSVG.ElephantCtaSVG viewBox="0 0 500 625" />
         </SVGWrapper>
+        <SVGWrapper title="ElephantErrorState">
+          <PachydermSVG.ElephantErrorState />
+        </SVGWrapper>
         <SVGWrapper title="ElephantEmptyState">
           <PachydermSVG.ElephantEmptyState />
         </SVGWrapper>

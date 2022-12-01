@@ -1,11 +1,6 @@
-import classnames from 'classnames';
 import React from 'react';
 
-import {
-  Icon,
-  StatusWarningSVG,
-  ElephantEmptyState,
-} from '@pachyderm/components';
+import {ElephantEmptyState, ElephantErrorState} from '@pachyderm/components';
 
 import styles from './EmptyState.module.css';
 
@@ -26,13 +21,12 @@ const EmptyState: React.FC<EmptyStateProps> = ({
 }) => {
   return (
     <div className={`${styles.base} ${className}`}>
-      {!error && <ElephantEmptyState className={styles.elephantImage} />}
-      <span className={classnames(styles.title, {[styles.noImage]: error})}>
-        {error && (
-          <Icon small className={styles.errorStatus} color="red">
-            <StatusWarningSVG />
-          </Icon>
-        )}
+      {error ? (
+        <ElephantErrorState className={styles.elephantImage} />
+      ) : (
+        <ElephantEmptyState className={styles.elephantImage} />
+      )}
+      <span className={styles.title}>
         <h6>{title}</h6>
       </span>
       <span className={styles.message}>
