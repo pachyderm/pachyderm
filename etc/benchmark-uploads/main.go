@@ -28,9 +28,10 @@ import (
 )
 
 var (
-	size = flag.String("size", "50MB", "size of the file to upload")
-	kind = flag.String("kind", "grpc", "type of benchmark to perform; grpc, http (requires experimental pachd), s3, s3-multipart, console")
-	addr = flag.String("addr", "localhost", "for http and s3, the address to connect to (always requires a valid pach context, though)")
+	size   = flag.String("size", "50MB", "size of the file to upload")
+	kind   = flag.String("kind", "grpc", "type of benchmark to perform; grpc, http (requires experimental pachd), s3, s3-multipart, console")
+	scheme = flag.String("scheme", "http", "url scheme for http-based protocols")
+	addr   = flag.String("addr", "localhost", "for http, console, and s3; the address to connect to (always requires a valid pach context, though)")
 )
 
 type R struct {
@@ -123,7 +124,7 @@ func main() {
 		})
 	case "http":
 		benchErr = bench(func(name string, r io.Reader, _ uint64) error {
-			req, err := http.NewRequestWithContext(ctx, "PUT", "http://"+*addr+"/upload/"+name, r)
+			req, err := http.NewRequestWithContext(ctx, "PUT", *scheme+"://"+*addr+"/upload/"+name, r)
 			if err != nil {
 				return err
 			}
@@ -151,7 +152,7 @@ func main() {
 			if err != nil {
 				return err
 			}
-			req, err := http.NewRequestWithContext(ctx, "POST", "http://"+*addr+"/upload/start", bytes.NewReader(start))
+			req, err := http.NewRequestWithContext(ctx, "POST", *scheme+"://"+*addr+"/upload/start", bytes.NewReader(start))
 			if err != nil {
 				return err
 			}
@@ -199,7 +200,7 @@ func main() {
 					}
 				}()
 
-				req, err := http.NewRequestWithContext(ctx, "POST", "http://"+*addr+"/upload", uploadR)
+				req, err := http.NewRequestWithContext(ctx, "POST", *scheme+"://"+*addr+"/upload", uploadR)
 				if err != nil {
 					return err
 				}
@@ -233,7 +234,7 @@ func main() {
 			if err != nil {
 				return err
 			}
-			req, err = http.NewRequestWithContext(ctx, "POST", "http://"+*addr+"/upload/finish", bytes.NewReader(finish))
+			req, err = http.NewRequestWithContext(ctx, "POST", *scheme+"://"+*addr+"/upload/finish", bytes.NewReader(finish))
 			if err != nil {
 				return err
 			}
