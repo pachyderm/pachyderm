@@ -5,6 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 
 	"github.com/spf13/cobra"
 )
@@ -24,7 +25,7 @@ func Cmds() []*cobra.Command {
 			defer c.Close()
 			ci, err := c.InspectCluster()
 			if err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
 			fmt.Println(ci.ID)
 			return nil
