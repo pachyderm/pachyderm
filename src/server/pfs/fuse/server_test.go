@@ -5,6 +5,7 @@ package fuse
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -763,5 +764,225 @@ func TestDeletingMountedRepo(t *testing.T) {
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mountResp))
 		require.Equal(t, 0, len((*mountResp).Mounted))
 		require.Equal(t, 0, len((*mountResp).Unmounted))
+	})
+}
+
+func TestListReposProjectFilter(t *testing.T) {
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+
+	projectName := tu.UniqueString("p1")
+	require.NoError(t, env.PachClient.CreateProject(projectName))
+	require.NoError(t, env.PachClient.CreateProjectRepo(projectName, "repo"))
+
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		reposList := &ListRepoResponse{}
+
+		resp, err := get("repos")
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposList))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(*reposList))
+
+		resp, err = get(fmt.Sprintf("repos?project=%s", projectName))
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposList))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(*reposList))
+		require.Equal(t, projectName, (*reposList)[0].Project)
+
+		_, err = get(fmt.Sprint("repos?project=invalid"))
+		require.YesError(t, err)
+	})
+}
+
+func TestListMountsProjectFilter(t *testing.T) {
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "b1", "")
+	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commit = client.NewProjectCommit(pfs.DefaultProjectName, "repo", "b2", "")
+	err = env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	projectName := tu.UniqueString("p1")
+	require.NoError(t, env.PachClient.CreateProject(projectName))
+	require.NoError(t, env.PachClient.CreateProjectRepo(projectName, "repo_p1"))
+	commit = client.NewProjectCommit(projectName, "repo_p1", "b1", "")
+	err = env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commit = client.NewProjectCommit(projectName, "repo_p1", "b2", "")
+	err = env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "default_repo_b1",
+					Repo:   "repo",
+					Branch: "b1",
+				},
+				{
+					Name:   "default_repo_b1_dup",
+					Repo:   "repo",
+					Branch: "b1",
+				},
+				{
+					Name:   "p1_repo_p1_b2",
+					Project: "p1",
+					Repo:   "repo_p1",
+					Branch: "b2",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		_, err := put("_mount", b)
+		require.NoError(t, err)
+
+		mountsList := &ListMountResponse{}
+
+		resp, err := get("mounts")
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mountsList))
+		require.NoError(t, err)
+		require.Equal(t, 3, len((*mountsList).Mounted))
+		require.Equal(t, 2, len((*mountsList).Unmounted))
+		require.NotEqual(t, "", (*mountsList).Mounted[0].Project)
+		require.NotEqual(t, "", (*mountsList).Mounted[1].Project)
+
+		resp, err = get(fmt.Sprintf("mounts?project=%s", pfs.DefaultProjectName))
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mountsList))
+		require.NoError(t, err)
+		require.Equal(t, 3, len((*mountsList).Mounted))
+		require.Equal(t, 1, len((*mountsList).Unmounted))
+		require.Equal(t, "repo", len((*mountsList).Unmounted[0].Repo))
+		require.Equal(t, pfs.DefaultProjectName, len((*mountsList).Unmounted[0].Project))
+
+		resp, err = get(fmt.Sprintf("mounts?project=%s", projectName))
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mountsList))
+		require.NoError(t, err)
+		require.Equal(t, 3, len((*mountsList).Mounted))
+		require.Equal(t, "repo_p1", len((*mountsList).Unmounted[0].Repo))
+		require.Equal(t, projectName, len((*mountsList).Unmounted[0].Project))
+
+		_, err = get(fmt.Sprint("mounts?project=invalid"))
+		require.YesError(t, err)
+	})
+}
+
+func TestMountWithProjects(t *testing.T) {
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "b1", "")
+	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commit = client.NewProjectCommit(pfs.DefaultProjectName, "repo", "b2", "")
+	err = env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	projectName := tu.UniqueString("p1")
+	require.NoError(t, env.PachClient.CreateProject(projectName))
+	require.NoError(t, env.PachClient.CreateProjectRepo(projectName, "repo_p1"))
+	commit = client.NewProjectCommit(projectName, "repo_p1", "b1", "")
+	err = env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commit = client.NewProjectCommit(projectName, "repo_p1", "b2", "")
+	err = env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "default_repo_b1",
+					Repo:   "repo",
+					Branch: "b1",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		_, err := put("_mount", b)
+		require.NoError(t, err)
+
+		mr = MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "default_repo_b1_dup1",
+					Project: "",
+					Repo:   "repo",
+					Branch: "b1",
+				},
+			},
+		}
+		b = new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		_, err = put("_mount", b)
+		require.NoError(t, err)
+
+		mr = MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "default_repo_b1_dup2",
+					Project: "default",
+					Repo:   "repo",
+					Branch: "b1",
+				},
+			},
+		}
+		b = new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		_, err = put("_mount", b)
+		require.NoError(t, err)
+
+		mr = MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "invalid_repo_b1",
+					Project: "invalid",
+					Repo:   "repo",
+					Branch: "b1",
+				},
+			},
+		}
+		b = new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		_, err = put("_mount", b)
+		require.YesError(t, err)
+
+		mr = MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "p1_repo_p1_b2",
+					Repo:   "repo_p1",
+					Branch: "b2",
+				},
+			},
+		}
+		b = new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		_, err = put("_mount", b)
+		require.YesError(t, err)
+
+		mr = MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "p1_repo_p1_b2",
+					Project: projectName,
+					Repo:   "repo_p1",
+					Branch: "b2",
+				},
+			},
+		}
+		b = new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		resp, err := put("_mount", b)
+		require.NoError(t, err)
+
+		mountsList := &ListMountResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mountsList))
+		require.Equal(t, 4, len((*mountsList).Mounted))
 	})
 }
