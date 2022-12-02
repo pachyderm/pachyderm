@@ -15,7 +15,7 @@
     "@babel/preset-env": "7.20.2",
     "@babel/preset-typescript": "7.12.7",
     "@types/k6": "0.29.1",
-    "babel-loader": "8.2.2",
+    "babel-loader": "9.1.0",
     "core-js": "3.26.1",
     "glob": "8.0.3",
     "graphql": "15.5.0",
