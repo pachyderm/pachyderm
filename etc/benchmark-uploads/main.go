@@ -1,3 +1,12 @@
+// Command benchmark-uploads uploads data to Pachyderm and reports the observed upload throughput.
+// You should have a Pachyderm context already configured; we use that.
+//
+// It is possible to upload over protocols other than gRPC.  We still use the Pachyderm context for
+// some setup/cleanup and to get your auth token.  Make sure that -addr and -scheme and the context
+// refer to the same server; we have no way to check that for you.
+//
+// Run `go run ./etc/benchmark-uploads -h` for help.
+
 //nolint:wrapcheck
 package main
 
