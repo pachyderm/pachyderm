@@ -31,7 +31,7 @@
   "devDependencies": {
     "@cypress/code-coverage": "3.10.0",
     "@graphql-codegen/add": "3.2.1",
-    "@graphql-codegen/cli": "2.12.0",
+    "@graphql-codegen/cli": "2.15.0",
     "@graphql-codegen/import-types-preset": "2.2.6",
     "@graphql-codegen/typescript": "2.8.2",
     "@graphql-codegen/typescript-operations": "2.5.7",
