@@ -89,7 +89,7 @@
     "@types/wicg-file-system-access": "^2020.9.5",
     "@typescript-eslint/eslint-plugin": "^5.36.2",
     "@typescript-eslint/parser": "^5.36.2",
-    "canvas": "2.10.1",
+    "canvas": "2.10.2",
     "cross-fetch": "3.1.5",
     "dotenv-flow": "3.2.0",
     "dotenv-flow-cli": "1.0.0",
