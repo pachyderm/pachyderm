@@ -482,7 +482,9 @@ func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *p
 		return errors.Wrapf(err, "delete project %q", project)
 	}
 	if err := d.env.AuthServer.DeleteRoleBindingInTransaction(txnCtx, project.AuthResource()); err != nil {
-		return errors.Wrapf(err, "delete role binding for project %q", project)
+		if !errors.Is(err, auth.ErrNotActivated) {
+			return errors.Wrapf(err, "delete role binding for project %q", project)
+		}
 	}
 	return nil
 }
