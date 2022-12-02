@@ -342,6 +342,9 @@ loki-stack:
           # this gets all kubernetes labels as well
           - action: labelmap
             regex: __meta_kubernetes_pod_label_(.+)
+    # Tolerations for promtail pods. Promtail must run on any node where pachyderm resources will run or you won't get any logs for them
+    # For example, GKE gpu nodes have a default taint of nvidia.com/gpu=present:NoSchedule so if you use GPUs we wouldn't have logs
+    tolerations: []
     livenessProbe:
       failureThreshold: 5
       tcpSocket:
