@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -22,7 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -141,8 +142,7 @@ func (sd *stateDriver) tryLoadLatestPipelineInfo(ctx context.Context, pipeline *
 		// Don't put the pipeline in a failing state if we're in the middle
 		// of activating auth, retry in a bit
 		if (auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err)) && errCnt <= maxErrCount {
-			log.Warnf("PPS master: could not retrieve pipelineInfo for pipeline %q: %v; retrying in %v",
-				pipeline, err, d)
+			log.Info(ctx, "could not retrieve pipelineInfo; retrying", zap.Error(err), zap.Duration("retryAfter", d), zap.Int("nErr", errCnt), zap.Int("maxErr", maxErrCount))
 			return nil
 		}
 		return stepError{

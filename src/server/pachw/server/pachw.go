@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
@@ -25,14 +26,12 @@ const (
 )
 
 type pachW struct {
-	log *logrus.Logger
 	env Env
 }
 
 func NewController(ctx context.Context, env *Env) {
 	controller := &pachW{
 		env: *env,
-		log: env.Logger,
 	}
 	go controller.run(ctx)
 }
@@ -61,7 +60,7 @@ func (p *pachW) run(ctx context.Context) {
 			}
 			if numTasks > replicas {
 				replicas = miscutil.Min(numTasks, p.env.MaxReplicas)
-				p.log.Infof("scaling up pachw workers to %d replicas", replicas)
+				log.Info(ctx, "scaling up pachw workers", zap.Int(replicas))
 				if err := p.scalePachw(ctx, int32(replicas)); err != nil {
 					return errors.Wrap(err, "error scaling up pachw")
 				}
@@ -79,7 +78,7 @@ func (p *pachW) run(ctx context.Context) {
 			}
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
-		p.log.Errorf("error in pachw run: %v", err)
+		log.Error(ctx, "error in pachw run", zap.Error(err))
 		return nil
 	})
 }

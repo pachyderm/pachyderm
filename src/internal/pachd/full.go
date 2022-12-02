@@ -63,8 +63,12 @@ func newFullBuilder(config any) *fullBuilder {
 
 // buildAndRun builds and starts a full-mode pachd.
 func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
-	fb.daemon.criticalServersOnly = fb.env.Config().RequireCriticalServersOnly
 	return fb.apply(ctx,
+		fb.tweakResources,
+		fb.setupProfiling,
+		fb.printVersion,
+		fb.initJaeger,
+		fb.initKube,
 		fb.setupDB,
 		fb.maybeInitDexDB,
 		fb.maybeInitReporter,

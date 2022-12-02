@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/wcharczuk/go-chart"
+	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -188,7 +189,7 @@ func (s *debugServer) appLogs(ctx context.Context, tw *tar.Writer) error {
 	}
 	for _, pod := range pods.Items {
 		podPrefix := join(pod.Labels["app"], pod.Name)
-		if err := s.collectDescribe(tw, pod.Name, podPrefix); err != nil {
+		if err := s.collectDescribe(ctx, tw, pod.Name, podPrefix); err != nil {
 			return err
 		}
 		for _, container := range pod.Spec.Containers {
@@ -314,6 +315,10 @@ func (s *debugServer) handleWorkerRedirect(ctx context.Context, tw *tar.Writer, 
 	if len(prefix) > 0 {
 		workerPrefix = join(prefix[0], workerPrefix)
 	}
+
+	ctx, end := log.SpanContext(ctx, "handleWorkerRedirect", zap.String("pod", pod.Name))
+	defer end(log.Errorp(&retErr))
+
 	defer func() {
 		if retErr != nil {
 			retErr = writeErrorFile(tw, retErr, workerPrefix)
@@ -333,7 +338,7 @@ func (s *debugServer) handleWorkerRedirect(ctx context.Context, tw *tar.Writer, 
 	}
 	defer func() {
 		if err := c.Close(); err != nil {
-			log.Errorf("errored closing worker client: %v", err)
+			log.Error(ctx, "errored closing worker client", zap.Error(err))
 		}
 	}()
 	r, err := cb(ctx, c.DebugClient, &debug.Filter{
@@ -378,7 +383,8 @@ func collectProfile(ctx context.Context, tw *tar.Writer, profile *debug.Profile,
 	}, prefix...)
 }
 
-func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) error {
+func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) (retErr error) {
+	defer log.Span(ctx, "writeProfile", zap.String("profile", profile.GetName()))(log.Errorp(&retErr))
 	if profile.Name == "cpu" {
 		if err := pprof.StartCPUProfile(w); err != nil {
 			return errors.EnsureStack(err)
@@ -439,8 +445,9 @@ func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_Bi
 	)
 }
 
-func collectBinary(_ context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
+func collectBinary(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
 	return collectDebugFile(tw, "binary", "", func(w io.Writer) (retErr error) {
+		defer log.Span(ctx, "collectBinary", zap.String("binary", os.Args[0]))(log.Errorp(&retErr))
 		f, err := os.Open(os.Args[0])
 		if err != nil {
 			return errors.EnsureStack(err)
@@ -483,13 +490,15 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 }
 
 func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
-	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, prefix ...string) error {
+	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, prefix ...string) (retErr error) {
+		defer log.Span(ctx, "collectPachdDump")(log.Errorp(&retErr))
+
 		// Collect input repos.
 		if err := s.collectInputRepos(ctx, tw, pachClient, limit); err != nil {
 			return err
 		}
 		// Collect the pachd version.
-		if err := s.collectPachdVersion(tw, pachClient, prefix...); err != nil {
+		if err := s.collectPachdVersion(ctx, tw, pachClient, prefix...); err != nil {
 			return err
 		}
 		// Collect go info.
@@ -497,7 +506,7 @@ func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
 			return err
 		}
 		// Collect the pachd describe output.
-		if err := s.collectDescribe(tw, s.name, prefix...); err != nil {
+		if err := s.collectDescribe(ctx, tw, s.name, prefix...); err != nil {
 			return err
 		}
 		// Collect the pachd container logs.
@@ -505,7 +514,9 @@ func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
 			return err
 		}
 		// Collect the pachd container logs from loki.
-		if err := s.collectLogsLoki(ctx, tw, s.name, "pachd", prefix...); err != nil {
+		lctx, c := context.WithTimeout(ctx, time.Minute)
+		defer c()
+		if err := s.collectLogsLoki(lctx, tw, s.name, "pachd", prefix...); err != nil {
 			return err
 		}
 		// Collect the pachd container dump.
@@ -513,7 +524,8 @@ func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
 	}
 }
 
-func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, limit int64) error {
+func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, limit int64) (retErr error) {
+	defer log.Span(ctx, "collectInputRepos")(log.Errorp(&retErr))
 	repoInfos, err := pachClient.ListRepo()
 	if err != nil {
 		return err
@@ -667,8 +679,9 @@ func (s *debugServer) collectGoInfo(tw *tar.Writer, prefix ...string) error {
 	}, prefix...)
 }
 
-func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.APIClient, prefix ...string) error {
-	return collectDebugFile(tw, "version", "txt", func(w io.Writer) error {
+func (s *debugServer) collectPachdVersion(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, prefix ...string) error {
+	return collectDebugFile(tw, "version", "txt", func(w io.Writer) (retErr error) {
+		defer log.Span(ctx, "collectPachdVersion")(log.Errorp(&retErr))
 		version, err := pachClient.Version()
 		if err != nil {
 			return err
@@ -678,8 +691,9 @@ func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.API
 	}, prefix...)
 }
 
-func (s *debugServer) collectDescribe(tw *tar.Writer, pod string, prefix ...string) error {
-	return collectDebugFile(tw, "describe", "txt", func(w io.Writer) error {
+func (s *debugServer) collectDescribe(ctx context.Context, tw *tar.Writer, pod string, prefix ...string) error {
+	return collectDebugFile(tw, "describe", "txt", func(w io.Writer) (retErr error) {
+		defer log.Span(ctx, "collectDescribe")(log.Errorp(&retErr))
 		pd := describe.PodDescriber{
 			Interface: s.env.GetKubeClient(),
 		}
@@ -694,6 +708,7 @@ func (s *debugServer) collectDescribe(tw *tar.Writer, pod string, prefix ...stri
 
 func (s *debugServer) collectLogs(ctx context.Context, tw *tar.Writer, pod, container string, prefix ...string) error {
 	if err := collectDebugFile(tw, "logs", "txt", func(w io.Writer) (retErr error) {
+		defer log.Span(ctx, "collectLogs", zap.String("pod", pod), zap.String("container", container))(log.Errorp(&retErr))
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream(ctx)
 		if err != nil {
 			return errors.EnsureStack(err)
@@ -709,6 +724,7 @@ func (s *debugServer) collectLogs(ctx context.Context, tw *tar.Writer, pod, cont
 		return err
 	}
 	return collectDebugFile(tw, "logs-previous", "txt", func(w io.Writer) (retErr error) {
+		defer log.Span(ctx, "collectLogs.previous", zap.String("pod", pod), zap.String("container", container))(log.Errorp(&retErr))
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream(ctx)
 		if err != nil {
 			return errors.EnsureStack(err)
@@ -727,7 +743,8 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, tw *tar.Writer, pod, 
 	if s.env.Config().LokiHost == "" {
 		return nil
 	}
-	return collectDebugFile(tw, "logs-loki", "txt", func(w io.Writer) error {
+	return collectDebugFile(tw, "logs-loki", "txt", func(w io.Writer) (retErr error) {
+		defer log.Span(ctx, "collectLogsLoki", zap.String("pod", pod), zap.String("container", container))(log.Errorp(&retErr))
 		queryStr := `{pod="` + pod
 		if container != "" {
 			queryStr += `", container="` + container
@@ -760,7 +777,8 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, tw *tar.Writer, pod, 
 	}, prefix...)
 }
 
-func collectDump(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
+func collectDump(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) (retErr error) {
+	defer log.Span(ctx, "collectDump", zap.Strings("prefix", prefix))(log.Errorp(&retErr))
 	if err := collectProfile(ctx, tw, &debug.Profile{Name: "goroutine"}, prefix...); err != nil {
 		return err
 	}
@@ -768,7 +786,8 @@ func collectDump(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefi
 }
 
 func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
-	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
+	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, prefix ...string) (retErr error) {
+		defer log.Span(ctx, "collectPipelineDump", zap.Stringer("pipeline", pipelineInfo.GetPipeline()))(log.Errorp(&retErr))
 		if err := validatePipelineInfo(pipelineInfo); err != nil {
 			return errors.Wrap(err, "collectPipelineDumpFunc: invalid pipeline info")
 		}
@@ -916,7 +935,7 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 		if err != nil {
 			// Note: the error from QueryRange has a stack.
 			if errors.Is(err, context.DeadlineExceeded) {
-				log.Debugf("query range timed out (query=%v, limit=%v, start=%v, end=%v): %+v", queryStr, serverMaxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
+				log.Debug(ctx, "loki query range timed out", zap.String("query", queryStr), zap.Int("serverMaxLogs", serverMaxLogs), zap.Time("start", start), zap.Time("end", end), zap.Int("logs", len(result)))
 				sortLogs(result)
 				return result, nil
 			}
@@ -1019,9 +1038,9 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 	return collectGraph(tw, "jobs-chart.png", "number of jobs", []chart.Series{download, process, upload}, prefix...)
 }
 
-func (s *debugServer) collectWorkerDump(ctx context.Context, tw *tar.Writer, pod *v1.Pod, prefix ...string) error {
+func (s *debugServer) collectWorkerDump(ctx context.Context, tw *tar.Writer, pod *v1.Pod, prefix ...string) (retErr error) {
 	// Collect the worker describe output.
-	if err := s.collectDescribe(tw, pod.Name, prefix...); err != nil {
+	if err := s.collectDescribe(ctx, tw, pod.Name, prefix...); err != nil {
 		return err
 	}
 	// Collect go info.

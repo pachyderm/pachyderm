@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -28,7 +29,14 @@ func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.Unord
 	}
 	switch url.Scheme {
 	case "http", "https":
-		resp, err := http.Get(src.URL)
+		client := &http.Client{
+			Transport: promutil.InstrumentRoundTripper("putFileURL", http.DefaultTransport),
+		}
+		req, err := http.NewRequestWithContext(ctx, "GET", src.URL, nil)
+		if err != nil {
+			return 0, errors.EnsureStack(err)
+		}
+		resp, err := client.Do(req)
 		if err != nil {
 			return 0, errors.EnsureStack(err)
 		} else if resp.StatusCode >= 400 {
@@ -48,7 +56,7 @@ func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.Unord
 		if err != nil {
 			return 0, errors.Wrapf(err, "error parsing url %v", src)
 		}
-		objClient, err := obj.NewClientFromURLAndSecret(url, false)
+		objClient, err := obj.NewClientFromURLAndSecret(ctx, url, false)
 		if err != nil {
 			return 0, err
 		}
@@ -87,7 +95,7 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 		if err != nil {
 			return errors.Wrapf(err, "error parsing url %v", src)
 		}
-		objClient, err := obj.NewClientFromURLAndSecret(url, false)
+		objClient, err := obj.NewClientFromURLAndSecret(ctx, url, false)
 		if err != nil {
 			return err
 		}

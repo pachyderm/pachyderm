@@ -99,8 +99,9 @@ func NotEqual(tb testing.TB, expected interface{}, actual interface{}, msgAndArg
 		fatal(
 			tb,
 			msgAndArgs,
-			"Equal: %#v (expected)\n"+
-				"    == %#v (actual)", expected, actual)
+			"Equal: (want non-equal)\n"+
+				"    %#v (expected)\n"+
+				" == %#v (actual)", expected, actual)
 	}
 }
 

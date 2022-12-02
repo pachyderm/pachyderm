@@ -23,10 +23,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type amazonClient struct {
@@ -48,7 +49,7 @@ type AmazonCreds struct {
 	Token  string // Access token (if using temporary security credentials
 }
 
-func parseLogOptions(optstring string) *aws.LogLevelType {
+func parseLogOptions(ctx context.Context, optstring string) *aws.LogLevelType {
 	if optstring == "" {
 		return nil
 	}
@@ -80,11 +81,11 @@ func parseLogOptions(optstring string) *aws.LogLevelType {
 			msg.WriteString(",")
 		}
 	}
-	log.Infof(msg.String())
+	log.Info(ctx, msg.String())
 	return &result
 }
 
-func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistribution string, endpoint string, advancedConfig *AmazonAdvancedConfiguration) (*amazonClient, error) {
+func newAmazonClient(ctx context.Context, region, bucket string, creds *AmazonCreds, cloudfrontDistribution string, endpoint string, advancedConfig *AmazonAdvancedConfiguration) (*amazonClient, error) {
 	// set up aws config, including credentials (If creds.ID not set then this will use the EC2 metadata service)
 	timeout, err := time.ParseDuration(advancedConfig.Timeout)
 	if err != nil {
@@ -103,8 +104,8 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 		MaxRetries: aws.Int(advancedConfig.Retries),
 		HTTPClient: httpClient,
 		DisableSSL: aws.Bool(advancedConfig.DisableSSL),
-		LogLevel:   parseLogOptions(advancedConfig.LogOptions),
-		Logger:     aws.NewDefaultLogger(),
+		LogLevel:   parseLogOptions(ctx, advancedConfig.LogOptions),
+		Logger:     log.NewAmazonLogger(ctx),
 	}
 	if creds.ID != "" {
 		awsConfig.Credentials = credentials.NewStaticCredentials(creds.ID, creds.Secret, creds.Token)
@@ -151,7 +152,7 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 			return nil, errors.EnsureStack(err)
 		}
 		awsClient.cloudfrontURLSigner = sign.NewURLSigner(cloudfrontKeyPairID, cloudfrontPrivateKey)
-		log.Infof("Using cloudfront security credentials - keypair ID (%v) - to sign cloudfront URLs", string(cloudfrontKeyPairID))
+		log.Info(ctx, "Using cloudfront security credentials to sign cloudfront URLs", zap.String("keypairID", string(cloudfrontKeyPairID)))
 	}
 	return awsClient, nil
 }
@@ -227,7 +228,7 @@ func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 			}
 			return nil
 		}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-			log.Infof("Error connecting to (%v); retrying in %s: %#v", url, d, err)
+			log.Info(ctx, "Error connecting; retrying", zap.String("url", url), zap.Duration("retryAfter", d), zap.Error(err))
 			return nil
 		})
 		if connErr != nil {

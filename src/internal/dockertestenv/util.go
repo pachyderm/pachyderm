@@ -12,9 +12,10 @@ import (
 	"github.com/docker/docker/api/types/container"
 	docker "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 )
 
 func newDockerClient() docker.APIClient {
@@ -58,15 +59,15 @@ func ensureContainer(ctx context.Context, dclient docker.APIClient, containerNam
 		}
 	} else {
 		if cjson.State.Running {
-			logrus.Infof("container %s is running. skip creation.", containerName)
+			log.Info(ctx, "container is running. skip creation.", zap.String("container", containerName))
 			return nil
 		}
-		logrus.Infof("container %s exists, but is not running. deleting...", containerName)
+		log.Info(ctx, "container exists, but is not running. deleting...", zap.String("container", containerName))
 		if err := dclient.ContainerRemove(ctx, containerName, types.ContainerRemoveOptions{}); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
-	logrus.Infof("container %s does not exist. creating...", containerName)
+	log.Info(ctx, "container does not exist. creating...", zap.String("container", containerName))
 	if err := ensureImage(ctx, dclient, imageName); err != nil {
 		return err
 	}
@@ -101,13 +102,13 @@ func ensureContainer(ctx context.Context, dclient docker.APIClient, containerNam
 		return errors.EnsureStack(err)
 	}
 	if len(resp.Warnings) > 0 {
-		logrus.Warn(resp.Warnings)
+		log.Info(ctx, "warnings from docker", zap.Strings("warnings", resp.Warnings))
 	}
-	logrus.Info("created container ", containerName)
+	log.Info(ctx, "created container", zap.String("container", containerName))
 	if err := dclient.ContainerStart(ctx, containerName, types.ContainerStartOptions{}); err != nil {
 		return errors.EnsureStack(err)
 	}
-	logrus.Info("started container ", containerName)
+	log.Info(ctx, "started container", zap.String("container", containerName))
 	return nil
 }
 

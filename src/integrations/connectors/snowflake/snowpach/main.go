@@ -12,8 +12,9 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	log "github.com/sirupsen/logrus"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	sf "github.com/snowflakedb/gosnowflake"
+	"go.uber.org/zap"
 )
 
 var (
@@ -26,7 +27,8 @@ func env(k string, failOnMissing bool) string {
 	if value := os.Getenv(k); value != "" || !failOnMissing {
 		return value
 	}
-	log.Fatalf("missing environment variable %v", k)
+	log.Error(log.TODO(), "missing environment variable", zap.String("variable", k))
+	os.Exit(1)
 	return ""
 }
 
@@ -122,7 +124,7 @@ func downloadFromStage(db *sqlx.DB, stage string, files []string, outputDir stri
 		if _, err := db.Exec(fmt.Sprintf("GET @%s file://%s", file, outputFileDir)); err != nil {
 			return errors.Errorf("could not download @%s to %s: %v", file, outputFileDir, err)
 		}
-		log.Infof("downloaded %s to %s", file, outputFileDir)
+		log.Info(context.TODO(), "downloaded file", zap.String("file", file), zap.String("output", outputFileDir))
 	}
 	return nil
 }
@@ -130,7 +132,8 @@ func downloadFromStage(db *sqlx.DB, stage string, files []string, outputDir stri
 func connect() (*sqlx.DB, error) {
 	dsn, err := getDSN()
 	if err != nil {
-		log.Fatalf("failed to get Snowflake DSN from environment: %s, error: %v", dsn, err)
+		log.Error(log.TODO(), "failed to get Snowflake DSN from environment", zap.String("dsn", dsn), zap.Error(err))
+		os.Exit(1)
 	}
 	db, err := sqlx.Open("snowflake", dsn)
 	if err != nil {
@@ -234,6 +237,8 @@ func write(db *sqlx.DB) error {
 }
 
 func main() {
+	log.InitPachctlLogger()
+
 	// TODO should we use cobra?
 	readCmd := flag.NewFlagSet("read", flag.ExitOnError)
 	readCmd.BoolVar(&debug, "debug", false, "set Snowflake log level to 'debug'")
@@ -251,14 +256,15 @@ func main() {
 	writeCmd.StringVar(&fileFormat, "fileFormat", "", "configure file format options")
 	writeCmd.StringVar(&copyOptions, "copyOptions", "", "configure options for copying files to stage")
 	if len(os.Args) < 2 {
-		log.Fatal("expected 'read' or 'write' subcommands")
+		log.Error(log.TODO(), "expected 'read' or 'write' subcommands")
 		os.Exit(1)
 	}
 
 	// attempt to connect to database and verify connection
 	db, err := connect()
 	if err != nil {
-		log.Fatal(err)
+		log.Error(log.TODO(), "problem connecting to database", zap.Error(err))
+		os.Exit(1)
 	}
 	defer db.Close()
 
@@ -267,28 +273,30 @@ func main() {
 	switch os.Args[1] {
 	case "read":
 		if err := readCmd.Parse(os.Args[2:]); err != nil {
-			log.Fatal(err)
+			log.Error(log.TODO(), "problem parsing flags", zap.Error(err))
 			os.Exit(1)
 		}
 		if debug {
 			_ = sfLogger.SetLogLevel("debug")
 		}
 		if err := read(db); err != nil {
-			log.Fatal(err)
+			log.Error(log.TODO(), "problem running read op", zap.Error(err))
+			os.Exit(1)
 		}
 	case "write":
 		if err := writeCmd.Parse(os.Args[2:]); err != nil {
-			log.Fatal(err)
+			log.Error(log.TODO(), "problem parsing flags", zap.Error(err))
 			os.Exit(1)
 		}
 		if debug {
 			_ = sfLogger.SetLogLevel("debug")
 		}
 		if err := write(db); err != nil {
-			log.Fatal(err)
+			log.Error(log.TODO(), "problem running write op", zap.Error(err))
+			os.Exit(1)
 		}
 	default:
-		log.Fatal("subcommand must be either 'read' or 'write'")
+		log.Error(log.TODO(), "subcommand must be either 'read' or 'write'")
 		os.Exit(1)
 	}
 }

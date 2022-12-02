@@ -47,6 +47,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -4418,8 +4419,9 @@ func testGetLogs(t *testing.T, useLoki bool) {
 	require.NoError(t, backoff.Retry(func() error {
 		// Get logs from pipeline, using pipeline
 		iter = c.GetProjectLogs(pfs.DefaultProjectName, pipelineName, "", nil, "", false, false, 0)
-		var numLogs int
+		var numLogs, totalLogs int
 		for iter.Next() {
+			totalLogs++
 			if !iter.Message().User {
 				continue
 			}
@@ -4428,7 +4430,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 			require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
 		}
 		if numLogs < 2 {
-			return errors.Errorf("didn't get enough log lines")
+			return errors.Errorf("didn't get enough log lines (%d total logs, %d non-user logs)", totalLogs, numLogs)
 		}
 		if err := iter.Err(); err != nil {
 			return err
@@ -4611,8 +4613,9 @@ func TestManyLogs(t *testing.T) {
 
 	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
 		iter := c.GetProjectLogs(pfs.DefaultProjectName, pipelineName, jis[0].Job.ID, nil, "", false, false, 0)
-		logsReceived := 0
+		var logsReceived, totalLines int
 		for iter.Next() {
+			totalLines++
 			if iter.Message().User {
 				logsReceived++
 			}
@@ -4621,7 +4624,7 @@ func TestManyLogs(t *testing.T) {
 			return iter.Err()
 		}
 		if numLogs != logsReceived {
-			return errors.Errorf("received: %d log lines, expected: %d", logsReceived, numLogs)
+			return errors.Errorf("received: %d user log lines, expected: %d (%d total lines)", logsReceived, numLogs, totalLines)
 		}
 		return nil
 	})
@@ -4663,7 +4666,7 @@ func TestLokiLogs(t *testing.T) {
 	require.Equal(t, 1, len(jis))
 
 	// Follow the logs the make sure we get enough foos
-	require.NoErrorWithinT(t, time.Minute, func() error {
+	require.NoErrorWithinT(t, 2*time.Minute, func() error {
 		iter := c.GetLogsLoki(pipelineName, jis[0].Job.ID, nil, "", false, true, 0)
 		foundFoos := 0
 		for iter.Next() {
@@ -8509,7 +8512,7 @@ func TestDatumTries(t *testing.T) {
 		iter := c.GetProjectLogs(pfs.DefaultProjectName, pipeline, jobInfos[0].Job.ID, nil, "", false, false, 0)
 		var observedTries int64
 		for iter.Next() {
-			if strings.Contains(iter.Message().Message, "errored running user code after") {
+			if strings.Contains(iter.Message().Message, "errored running user code") {
 				observedTries++
 			}
 		}
@@ -10910,7 +10913,8 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
 
 	// create output database, and destination table
-	db, dbName := testsnowflake.NewEphemeralSnowflakeDB(t)
+	ctx := pctx.TestContext(t)
+	db, dbName := testsnowflake.NewEphemeralSnowflakeDB(ctx, t)
 	require.NoError(t, pachsql.CreateTestTable(db, "test_table", struct {
 		Id int    `column:"ID" dtype:"INT" constraint:"PRIMARY KEY"`
 		A  string `column:"A" dtype:"VARCHAR(100)"`

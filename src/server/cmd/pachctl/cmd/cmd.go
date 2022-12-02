@@ -21,7 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	taskcmds "github.com/pachyderm/pachyderm/v2/src/internal/task/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -38,14 +38,12 @@ import (
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	prefixed "github.com/x-cray/logrus-prefixed-formatter"
-	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/status"
 )
 
@@ -347,25 +345,9 @@ Environment variables:
     a pipeline after 'pachctl create-pipeline' (PACH_TRACE must also be set).
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			log.SetFormatter(new(prefixed.TextFormatter))
-
-			if !verbose {
-				log.SetLevel(log.ErrorLevel)
-				// Silence grpc logs
-				grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, io.Discard, io.Discard))
-			} else {
+			if verbose {
 				log.SetLevel(log.DebugLevel)
-				// etcd overrides grpc's logs--there's no way to enable one without
-				// enabling both.
-				// Error and warning logs are discarded because they will be
-				// redundantly sent to the info logger. See:
-				// https://godoc.org/google.golang.org/grpc/grpclog#NewLoggerV2
-				logger := log.StandardLogger()
-				grpclog.SetLoggerV2(grpclog.NewLoggerV2(
-					logutil.NewGRPCLogWriter(logger, "etcd/grpc"),
-					io.Discard,
-					io.Discard,
-				))
+				log.SetGRPCLogLevel(zapcore.DebugLevel)
 				cmdutil.PrintErrorStacks = true
 			}
 		},
