@@ -164,6 +164,67 @@ func TestSimplePipeline(t *testing.T) {
 	}
 }
 
+func TestPipelineWithSubprocesses(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	c = c.WithDefaultTransformUser("1000")
+
+	projectName := tu.UniqueString("p")
+	require.NoError(t, c.CreateProject(projectName))
+	dataRepoName := tu.UniqueString("TestPipelineWithSubprocesses_data")
+	require.NoError(t, c.CreateProjectRepo(projectName, dataRepoName))
+
+	commit1, err := c.StartProjectCommit(projectName, dataRepoName, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit1, "foo", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(commit1, "bar", strings.NewReader("bar"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishProjectCommit(projectName, dataRepoName, commit1.Branch.Name, commit1.ID))
+
+	pipeline := tu.UniqueString("TestPipelineWS")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewProjectPipeline(projectName, pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"/bin/bash"},
+				Stdin: []string{
+					"sleep infinity &", // sleep holds onto stdout forever, meaning we have to explicitly kill it to make progress
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepoName),
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
+			Input:           client.NewProjectPFSInput(projectName, dataRepoName, "/*"),
+			DatumTimeout:    types.DurationProto(5 * time.Second),
+		},
+	)
+	require.NoError(t, err, "should create pipeline ok")
+
+	commitInfo, err := c.InspectProjectCommit(projectName, pipeline, "master", "")
+	require.NoError(t, err, "should inspect commit ok")
+	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err, "should wait commit ok")
+
+	var output *pfs.CommitInfo
+	for _, info := range commitInfos {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(projectName, pipeline)) {
+			output = info
+			break
+		}
+	}
+	require.NotNil(t, output, "output commit should have been found (got: %#v)", commitInfos)
+
+	buf := new(bytes.Buffer)
+	require.NoError(t, c.GetFile(output.Commit, "foo", buf), "should get foo without error")
+	require.Equal(t, "foo", buf.String(), "content should be correct")
+	buf.Reset()
+	require.NoError(t, c.GetFile(output.Commit, "bar", buf), "should get bar without error")
+	require.Equal(t, "bar", buf.String(), "content should be correct")
+}
+
 func TestCrossProjectPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -7215,7 +7276,10 @@ func TestService(t *testing.T) {
 		[]string{"sh"},
 		[]string{
 			"cd /pfs",
-			"exec python -m SimpleHTTPServer 8000",
+			// Note: a correct shell script would "exec python ..." here, but we want to
+			// test that the server gets properly killed even if the user messes this
+			// up.
+			"python -m SimpleHTTPServer 8000",
 		},
 		&pps.ParallelismSpec{
 			Constant: 1,
