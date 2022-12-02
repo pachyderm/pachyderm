@@ -65,8 +65,8 @@ func TestBasicServerSameNames(t *testing.T) {
 		defer resp.Body.Close()
 		mountResp := &ListMountResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mountResp))
-		require.Equal(t, "repo", (*mountResp).Mounted["repo"].Repo)
-		require.Equal(t, "master", (*mountResp).Mounted["repo"].Branch)
+		require.Equal(t, "repo", (*mountResp).Mounted[0].Repo)
+		require.Equal(t, "master", (*mountResp).Mounted[0].Branch)
 
 		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
@@ -325,6 +325,44 @@ func TestMountNonexistentRepo(t *testing.T) {
 		require.NoError(t, json.NewEncoder(b).Encode(mr))
 		resp, _ := put("_mount", b)
 		require.Equal(t, 400, resp.StatusCode)
+	})
+}
+
+func TestRwMountNonexistentBranch(t *testing.T) {
+	// Mounting a nonexistent branch fails for read-only mounts and succeeds for read-write mounts
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
+
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo",
+					Repo:   "repo",
+					Branch: "master",
+					Mode:   "ro",
+				},
+			},
+		}
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		_, err := put("_mount", b)
+		require.YesError(t, err)
+
+		mr = MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo",
+					Repo:   "repo",
+					Branch: "master",
+					Mode:   "rw",
+				},
+			},
+		}
+		b = new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		_, err = put("_mount", b)
+		require.NoError(t, err)
 	})
 }
 
@@ -656,7 +694,7 @@ func TestRepoAccess(t *testing.T) {
 
 		reposResp := &ListRepoResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
-		require.Equal(t, "write", (*reposResp)["repo1"].Authorization)
+		require.Equal(t, "write", (*reposResp)[0].Authorization)
 	})
 
 	withServerMount(t, bobClient, nil, func(mountPoint string) {
@@ -665,7 +703,7 @@ func TestRepoAccess(t *testing.T) {
 
 		reposResp := &ListRepoResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
-		require.Equal(t, "none", (*reposResp)["repo1"].Authorization)
+		require.Equal(t, "none", (*reposResp)[0].Authorization)
 
 		mr := MountRequest{
 			Mounts: []*MountInfo{
@@ -753,7 +791,7 @@ func TestDeletingMountedRepo(t *testing.T) {
 		mountResp := &ListMountResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mountResp))
 		require.Equal(t, 1, len((*mountResp).Mounted))
-		require.Equal(t, "b2", (*mountResp).Mounted["repo_b2"].Branch)
+		require.Equal(t, "b2", (*mountResp).Mounted[0].Branch)
 		require.Equal(t, 1, len((*mountResp).Unmounted))
 
 		require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "repo", false))
