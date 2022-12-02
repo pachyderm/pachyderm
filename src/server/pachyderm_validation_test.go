@@ -7,8 +7,10 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -18,21 +20,23 @@ import (
 // - No dash in pipeline name
 // - Input must have branch and glob
 func TestInvalidCreatePipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
+	c := env.PachClient
 	// Set up repo
 	dataRepo := tu.UniqueString("TestDuplicatedJob_data")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+
+	projectName := tu.UniqueString("_prj-")
+	err := c.CreateProject(projectName)
+	require.NoError(t, err)
 
 	pipelineName := tu.UniqueString("pipeline")
 	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
 
 	// Create pipeline with input named "out"
-	err := c.CreateProjectPipeline(pfs.DefaultProjectName,
+	err = c.CreateProjectPipeline(projectName,
 		pipelineName,
 		"",
 		cmd,
@@ -40,7 +44,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInputOpts("out", pfs.DefaultProjectName, dataRepo, "", "/*", "", "", false, false, nil),
+		client.NewProjectPFSInputOpts("out", projectName, dataRepo, "", "/*", "", "", false, false, nil),
 		"master",
 		false,
 	)
@@ -48,7 +52,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	require.Matches(t, "out", err.Error())
 
 	// Create pipeline with no glob
-	err = c.CreateProjectPipeline(pfs.DefaultProjectName,
+	err = c.CreateProjectPipeline(projectName,
 		pipelineName,
 		"",
 		cmd,
@@ -56,7 +60,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInputOpts("input", pfs.DefaultProjectName, dataRepo, "", "", "", "", false, false, nil),
+		client.NewProjectPFSInputOpts("input", projectName, dataRepo, "", "", "", "", false, false, nil),
 		"master",
 		false,
 	)
