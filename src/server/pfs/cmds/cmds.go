@@ -191,7 +191,7 @@ or type (e.g. csv, binary, images, etc).`,
 			if allProjects {
 				projectsFilter = nil
 			}
-			repoInfos, err := c.ListRepoProject(&pfs.ListRepoRequest{Type: repoType, Projects: projectsFilter})
+			repoInfos, err := c.ListProjectRepo(&pfs.ListRepoRequest{Type: repoType, Projects: projectsFilter})
 			if err != nil {
 				return errors.Wrap(err, "cannot list repos")
 			}
