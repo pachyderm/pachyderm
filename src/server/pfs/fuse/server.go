@@ -1046,45 +1046,68 @@ func hasRepoRead(permissions []auth.Permission) bool {
 func hasRepoWrite(permissions []auth.Permission) bool {
 	return slices.Contains(permissions, auth.Permission_REPO_WRITE)
 }
+
+func (mm *MountManager) verifyProjectExists(project string) (bool, error) {
+	if _, err := mm.Client.InspectProject(project); err != nil {
+		return false, err
 	}
-	return false
+	return true, nil
 }
 
-func hasRepoWrite(permissions []auth.Permission) bool {
-	for _, p := range permissions {
-		if p == auth.Permission_REPO_WRITE {
-			return true
-		}
+func (mm *MountManager) verifyProjectRepoExist(project, repo string) (bool, error) {
+	if _, err := mm.verifyProjectExists(project); err != nil {
+		return false, err
 	}
-	return false
+	if _, err := mm.Client.InspectProjectRepo(project, repo); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
-func verifyMountRequest(mis []*MountInfo, lr ListRepoResponse) error {
+func (mm *MountManager) verifyProjectRepoBranchExist(project, repo, branch string) (bool, error) {
+	if _, err := mm.verifyProjectRepoExist(project, repo); err != nil {
+		return false, err
+	}
+	if _, err := mm.Client.InspectProjectBranch(project, repo, branch); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 	for _, mi := range mis {
 		if mi.Name == "" {
-			return errors.Errorf("no name specified in request %+v", mi)
+			return errors.Wrapf(errors.New("no name specified"), "mount request %+v", mi)
+		}
+		if mi.Project == "" {
+			mi.Project = pfs.DefaultProjectName
 		}
 		if mi.Repo == "" {
-			return errors.Errorf("no repo specified in request %+v", mi)
+			return errors.Wrapf(errors.New("no repo specified"), "mount request %+v", mi)
 		}
 		if mi.Branch == "" {
 			mi.Branch = "master"
 		}
 		if mi.Commit != "" {
 			// TODO: case of same commit id on diff branches
-			return errors.Errorf("don't support mounting commits yet in request %+v", mi)
+			return errors.Wrapf(errors.New("don't support mounting commits yet"), "mount request %+v", mi)
 		}
 		if mi.Files != nil && mi.Glob != "" {
-			return errors.Errorf("can't specify both files and glob pattern in request %+v", mi)
+			return errors.Wrapf(errors.New("can't specify both files and glob pattern"), "mount request %+v", mi)
 		}
 		if mi.Mode == "" {
 			mi.Mode = "ro"
+		} else if mi.Mode != "ro" && mi.Mode != "rw" {
+			return errors.Wrapf(errors.New("mount mode can only be 'ro' or 'rw'",), "mount request %+v", mi)
 		}
-		if _, ok := lr[mi.Repo]; !ok {
-			return errors.Errorf("repo does not exist")
-		}
-		if mi.Mode == "ro" && lr[mi.Repo].Authorization != "none" && !slices.Contains(lr[mi.Repo].Branches, mi.Branch) {
-			return errors.Errorf("cannot mount a non-existent branch in read-only mode")
+		if mi.Mode == "ro" {
+			if exists, err := mm.verifyProjectRepoBranchExist(mi.Project, mi.Repo, mi.Branch); !exists {
+				return errors.Wrapf(err, "mount request %+v", mi)
+			}
+		} else {
+			if exists, err := mm.verifyProjectRepoExist(mi.Project, mi.Repo); !exists {
+				return errors.Wrapf(err, "mount request %+v", mi)
+			}
 		}
 	}
 
