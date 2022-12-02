@@ -2423,3 +2423,17 @@ func TestModifyRoleBindingAccess(t *testing.T) {
 		})
 	}
 }
+
+// TestDeleteProject tests whether only owners of a project can delete the project.
+func TestDeleteProject(t *testing.T) {
+	t.Parallel()
+
+	env := envWithAuth(t)
+	c := env.PachClient
+	project := tu.UniqueString("project")
+	require.NoError(t, c.CreateProject(project))
+	alice := tu.AuthenticateClient(t, c, tu.Robot(tu.UniqueString("alice")))
+
+	require.ErrorContains(t, alice.DeleteProject(project, false), "user is not authorized to delete project")
+	require.NoError(t, c.DeleteProject(project, false))
+}

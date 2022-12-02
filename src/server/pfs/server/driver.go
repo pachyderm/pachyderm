@@ -471,11 +471,19 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 }
 
 // TODO: delete all repos and pipelines within project
-func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *pfs.Project, force bool) error {
-	if err := d.projects.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.ProjectKey(project)); err != nil {
-		return errors.Wrapf(err, "delete project %q", project.Name)
+func (d *driver) deleteProject(ctx context.Context, req *pfs.DeleteProjectRequest) error {
+	if err := req.Project.ValidateName(); err != nil {
+		return errors.Wrap(err, "invalid project name")
 	}
-	return nil
+	return d.env.TxnEnv.WithWriteContext(ctx, func(txn *txncontext.TransactionContext) error {
+		if err := d.env.AuthServer.CheckProjectIsAuthorizedInTransaction(txn, req.Project, auth.Permission_PROJECT_DELETE); err != nil {
+			return errors.Wrap(err, "user is not authorized to delete project")
+		}
+		if err := d.projects.ReadWrite(txn.SqlTx).Delete(pfsdb.ProjectKey(req.Project)); err != nil {
+			return errors.Wrapf(err, "delete project %q", req.Project)
+		}
+		return nil
+	})
 }
 
 // startCommit makes a new commit in 'branch', with the parent 'parent':
@@ -2132,7 +2140,7 @@ func (d *driver) deleteAll(ctx context.Context) error {
 			}
 		}
 		for _, projectInfo := range projectInfos {
-			if err := d.deleteProject(txnCtx, projectInfo.Project, true); err != nil {
+			if err := d.deleteProject(ctx, &pfs.DeleteProjectRequest{Project: projectInfo.Project, Force: true}); err != nil {
 				return err
 			}
 		}

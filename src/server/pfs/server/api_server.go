@@ -387,9 +387,7 @@ func (a *apiServer) ListProject(request *pfs.ListProjectRequest, srv pfs.API_Lis
 
 // DeleteProject implements the protobuf pfs.DeleteProject RPC
 func (a *apiServer) DeleteProject(ctx context.Context, request *pfs.DeleteProjectRequest) (*types.Empty, error) {
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.driver.deleteProject(txnCtx, request.Project, request.Force)
-	}); err != nil {
+	if err := a.driver.deleteProject(ctx, request); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
