@@ -9,6 +9,7 @@ updates:
       day: "tuesday"
       time: "09:00"
       timezone: "America/Los_Angeles"
+      open-pull-requests-limit: 1
     pull-request-branch-name:
       # Separate sections of the branch name with a hyphen
       # for example, `dependabot-npm_and_foo-6.4.1`
@@ -22,6 +23,7 @@ updates:
       day: "tuesday"
       time: "09:00"
       timezone: "America/Los_Angeles"
+      open-pull-requests-limit: 1
     pull-request-branch-name:
       separator: "-"
   - package-ecosystem: "npm"
@@ -31,6 +33,7 @@ updates:
       day: "tuesday"
       time: "09:00"
       timezone: "America/Los_Angeles"
+      open-pull-requests-limit: 1
     pull-request-branch-name:
       separator: "-"
   - package-ecosystem: "npm"
@@ -40,6 +43,7 @@ updates:
       day: "tuesday"
       time: "09:00"
       timezone: "America/Los_Angeles"
+      open-pull-requests-limit: 1
     pull-request-branch-name:
       separator: "-"
   - package-ecosystem: "npm"
@@ -49,5 +53,6 @@ updates:
       day: "tuesday"
       time: "09:00"
       timezone: "America/Los_Angeles"
+      open-pull-requests-limit: 1
     pull-request-branch-name:
       separator: "-"
