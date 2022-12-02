@@ -16,6 +16,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -73,6 +74,18 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 }
 
 func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
+	// Create role bindings for projects created before auth activation
+	var projectInfo pfs.ProjectInfo
+	if err := a.driver.projects.ReadWrite(txnCtx.SqlTx).List(&projectInfo, col.DefaultOptions(), func(string) error {
+		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: projectInfo.Project.Name})
+		if err != nil && !col.IsErrExists(err) {
+			return errors.EnsureStack(err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	// Create role bindings for repos created before auth activation
 	var repoInfo pfs.RepoInfo
 	if err := a.driver.repos.ReadWrite(txnCtx.SqlTx).List(&repoInfo, col.DefaultOptions(), func(string) error {
 		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, repoInfo.Repo.AuthResource())

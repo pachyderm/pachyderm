@@ -2423,3 +2423,36 @@ func TestModifyRoleBindingAccess(t *testing.T) {
 		})
 	}
 }
+
+func TestPreAuthProjects(t *testing.T) {
+	t.Parallel()
+
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	c := env.PachClient
+	project := tu.UniqueString("project")
+	require.NoError(t, c.CreateProject(project))
+
+	// activate auth
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	tu.ActivateLicense(t, c, peerPort)
+	_, err := env.PachClient.Enterprise.Activate(env.PachClient.Ctx(),
+		&enterprise.ActivateRequest{
+			LicenseServer: "grpc://localhost:" + peerPort,
+			Id:            "localhost",
+			Secret:        "localhost",
+		})
+	require.NoError(t, err)
+	_, err = c.Activate(c.Ctx(), &auth.ActivateRequest{RootToken: tu.RootToken})
+	require.NoError(t, err)
+	c.SetAuthToken(tu.RootToken)
+	_, err = c.PfsAPIClient.ActivateAuth(c.Ctx(), &pfs.ActivateAuthRequest{})
+	require.NoError(t, err)
+
+	// We are just using ModifyRoleBinding to trigger some code that checks for the project's role binding.
+	_, err = c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
+		Principal: tu.Robot("marvin"),
+		Roles:     []string{},
+		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project},
+	})
+	require.NoError(t, err)
+}
