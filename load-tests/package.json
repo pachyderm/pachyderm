@@ -18,7 +18,7 @@
     "babel-loader": "9.1.0",
     "core-js": "3.26.1",
     "glob": "8.0.3",
-    "graphql": "15.5.0",
+    "graphql": "16.6.0",
     "graphql-tag": "2.11.0",
     "k6": "0.0.0",
     "typescript": "4.1.3",
