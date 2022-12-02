@@ -27,16 +27,18 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"golang.org/x/crypto/blake2b"
 	"golang.org/x/net/http2"
 )
 
 var (
-	size   = flag.String("size", "50MB", "size of the file to upload")
-	kind   = flag.String("kind", "grpc", "type of benchmark to perform; grpc, http (requires experimental pachd), s3, s3-multipart, console")
-	scheme = flag.String("scheme", "http", "url scheme for http-based protocols")
-	addr   = flag.String("addr", "localhost", "for http, console, and s3; the address to connect to (always requires a valid pach context, though)")
-	h2c    = flag.Bool("h2c", false, "if true, use http2 over cleartext (only works against proxy)")
-	iters  = flag.Int("n", 10, "number of times to run the benchmark; reusing connections between tests where allowed in the protocol")
+	size           = flag.String("size", "50MB", "size of the file to upload")
+	kind           = flag.String("kind", "grpc", "type of benchmark to perform; grpc, http (requires experimental pachd), s3, s3-multipart, console")
+	scheme         = flag.String("scheme", "http", "url scheme for http-based protocols")
+	addr           = flag.String("addr", "localhost", "for http, console, and s3; the address to connect to (always requires a valid pach context, though)")
+	h2c            = flag.Bool("h2c", false, "if true, use http2 over cleartext (only works against proxy)")
+	iters          = flag.Int("n", 10, "number of times to run the benchmark; reusing connections between tests where allowed in the protocol")
+	checkIntegrity = flag.Bool("check", false, "if true, check the integrity of uploaded files by downloading them")
 )
 
 type R struct {
@@ -70,6 +72,18 @@ func (r *R) Read(p []byte) (int, error) {
 
 var _ io.Reader = new(R)
 
+// CW is an io.Writer that counts the bytes written to it.
+type CW int
+
+func (n *CW) Write(p []byte) (int, error) {
+	*n += CW(len(p))
+	return len(p), nil
+}
+
+var _ io.Writer = new(CW)
+
+var hashes = make(map[string][]byte)
+
 func bench(f func(name string, r io.Reader, length uint64) error) error {
 	for i := 0; i < *iters; i++ {
 		r := new(R)
@@ -86,14 +100,19 @@ func bench(f func(name string, r io.Reader, length uint64) error) error {
 			panic(err)
 		}
 		name := n.String()
+
+		h, _ := blake2b.New256(nil) // Can't return an error.
+		hr := io.TeeReader(r, h)
 		start := time.Now()
-		if err := f(name, r, length); err != nil {
+		if err := f(name, hr, length); err != nil {
 			return err
 		}
 		log.Printf("total time: %v", time.Since(start).String())
 		log.Printf(" = %s/s", humanize.Bytes(uint64(float64(length)/float64(time.Since(start).Seconds()))))
 		log.Printf("read time: %v", time.Since(start)-time.Since(r.EOFAt))
 		log.Printf("flush time: %v", time.Since(r.EOFAt).String())
+		log.Printf("blake2b checksum: %x", h.Sum(nil))
+		hashes[name] = h.Sum(nil)
 	}
 	return nil
 }
@@ -135,11 +154,11 @@ func main() {
 	}
 
 	// Run benchmark.
+	commit := client.NewProjectCommit("default", "benchmark-upload", "master", "")
 	var benchErr error
 	switch *kind {
 	case "grpc":
 		benchErr = bench(func(name string, r io.Reader, _ uint64) error {
-			commit := client.NewProjectCommit("default", "benchmark-upload", "master", "")
 			return c.PutFile(commit, name, r)
 		})
 	case "http":
@@ -159,6 +178,10 @@ func main() {
 				return err
 			}
 			log.Printf("%s", d)
+
+			if got, want := res.StatusCode, http.StatusAccepted; got != want {
+				return fmt.Errorf("unexpected status: got %d want %d: %v", got, want, res.Status)
+			}
 			return nil
 		})
 	case "console":
@@ -306,9 +329,39 @@ func main() {
 	default:
 		log.Fatalf("unknown benchmark kind %v", *kind)
 	}
+
 	// Exit if benchmark returned an error.
 	if benchErr != nil {
 		log.Fatal(benchErr)
+	}
+
+	// Check integrity and delete files that uploaded ok.
+	if *checkIntegrity {
+		fmt.Println()
+		for name, want := range hashes {
+			h, _ := blake2b.New256(nil) // cannot error
+			cw := new(CW)
+			w := io.MultiWriter(h, cw)
+
+			start := time.Now()
+			// we have to GetFile because the hash in the FileInfo depends on some internals
+			err := c.GetFile(commit, name, w)
+			d := time.Since(start)
+			if err != nil {
+				log.Fatalf("get %v: %v", name, err)
+			}
+
+			log.Printf("download %v: %v in %v = %v/s", name, humanize.Bytes(uint64(*cw)), d.String(), humanize.Bytes(uint64(float64(*cw)/float64(d.Seconds()))))
+			if got := h.Sum(nil); !bytes.Equal(got, want) {
+				log.Printf("WARNING: %v: checksum mismatch:\n got: %x\nwant: %x", name, got, want)
+				continue
+			}
+
+			log.Printf("%v: integrity ok; deleting", name)
+			if err := c.DeleteFile(commit, name); err != nil {
+				log.Printf("delete %v: %v", name, err)
+			}
+		}
 	}
 
 	// Cleanup.
