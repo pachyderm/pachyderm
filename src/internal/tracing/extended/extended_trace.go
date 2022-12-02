@@ -5,15 +5,16 @@ import (
 	"os"
 	"time"
 
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc/metadata"
+
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 )
 
 const (
@@ -55,7 +56,7 @@ func TracesCol(c *etcd.Client) col.EtcdCollection {
 // trace for future updates by the PPS master and workers.  This function is
 // best-effort, and therefore doesn't currently return an error. Any errors are
 // logged, and then the given context is returned.
-func PersistAny(ctx context.Context, c *etcd.Client, pipeline string) {
+func PersistAny(ctx context.Context, c *etcd.Client, pipeline *pps.Pipeline) {
 	if !tracing.IsActive() {
 		return
 	}
@@ -90,7 +91,8 @@ func PersistAny(ctx context.Context, c *etcd.Client, pipeline string) {
 	// serialize extended trace & write to etcd
 	traceProto := &TraceProto{
 		SerializedTrace: map[string]string{}, // init map
-		Pipeline:        pipeline,
+		Project:         pipeline.GetProject().GetName(),
+		Pipeline:        pipeline.GetName(),
 	}
 	if err := opentracing.GlobalTracer().Inject(
 		span.Context(), opentracing.TextMap,
@@ -100,7 +102,7 @@ func PersistAny(ctx context.Context, c *etcd.Client, pipeline string) {
 	}
 	if _, err := col.NewSTM(ctx, c, func(stm col.STM) error {
 		tracesCol := TracesCol(c).ReadWrite(stm)
-		return errors.EnsureStack(tracesCol.PutTTL(pipeline, traceProto, int64(duration.Seconds())))
+		return errors.EnsureStack(tracesCol.PutTTL(pipeline.String(), traceProto, int64(duration.Seconds())))
 	}); err != nil {
 		log.Errorf("could not persist extended trace for pipeline %q to etcd: %v",
 			pipeline, err)
