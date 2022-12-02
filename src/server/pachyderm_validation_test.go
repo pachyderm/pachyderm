@@ -8,7 +8,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -22,7 +21,6 @@ import (
 func TestInvalidCreatePipeline(t *testing.T) {
 	t.Parallel()
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-
 	c := env.PachClient
 	// Set up repo
 	dataRepo := tu.UniqueString("TestDuplicatedJob_data")
@@ -70,11 +68,9 @@ func TestInvalidCreatePipeline(t *testing.T) {
 
 // Make sure that pipeline validation checks that all inputs exist
 func TestPipelineThatUseNonexistentInputs(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	c := env.PachClient
 	pipelineName := tu.UniqueString("pipeline")
 	require.YesError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipelineName,
@@ -92,16 +88,18 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 
 // Make sure that pipeline validation checks that all inputs exist
 func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	c := env.PachClient
+
+	projectName := tu.UniqueString("_prj-")
+	err := c.CreateProject(projectName)
+	require.NoError(t, err)
 
 	dataRepo := tu.UniqueString("TestPipelineNamesThatContainUnderscoresAndHyphens")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.CreateProjectRepo(projectName, dataRepo))
 
-	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, c.CreateProjectPipeline(projectName,
 		tu.UniqueString("pipeline-hyphen"),
 		"",
 		[]string{"bash"},
@@ -109,12 +107,12 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		client.NewProjectPFSInput(projectName, dataRepo, "/*"),
 		"",
 		false,
 	))
 
-	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, c.CreateProjectPipeline(projectName,
 		tu.UniqueString("pipeline_underscore"),
 		"",
 		[]string{"bash"},
@@ -122,8 +120,49 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		client.NewProjectPFSInput(projectName, dataRepo, "/*"),
 		"",
 		false,
 	))
+}
+
+func TestProjectNameValidation(t *testing.T) {
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	c := env.PachClient
+	badFormatErr := "only alphanumeric characters"
+	testCases := []struct {
+		projectName string
+		errMatch    string // "" means no error
+	}{
+		{tu.UniqueString("PROJECT"), ""},
+		{tu.UniqueString("0123456789"), ""},
+		{tu.UniqueString("_"), ""},
+		{tu.UniqueString("project-"), ""},
+		{"default", "already exists"},
+		{tu.UniqueString("!project"), badFormatErr},
+		{tu.UniqueString("\""), badFormatErr},
+		{tu.UniqueString("\\"), badFormatErr},
+		{tu.UniqueString("'"), badFormatErr},
+		{tu.UniqueString("[]{}"), badFormatErr},
+		{tu.UniqueString("|"), badFormatErr},
+		{tu.UniqueString("new->project"), badFormatErr},
+		{tu.UniqueString("project?"), badFormatErr},
+		{tu.UniqueString("project:1"), badFormatErr},
+		{tu.UniqueString("project;"), badFormatErr},
+		{tu.UniqueString("project."), badFormatErr},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.projectName, func(t *testing.T) {
+			t.Parallel()
+			err := c.CreateProject(testCase.projectName)
+			if testCase.errMatch != "" {
+				require.YesError(t, err)
+				require.Matches(t, testCase.errMatch, err.Error())
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+
 }
