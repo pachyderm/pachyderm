@@ -1037,10 +1037,15 @@ func jsonMarshal(t interface{}) ([]byte, error) {
 }
 
 func hasRepoRead(permissions []auth.Permission) bool {
-	for _, p := range permissions {
-		if p == auth.Permission_REPO_READ {
-			return true
-		}
+	return slices.Contains(permissions, auth.Permission_REPO_READ) &&
+		slices.Contains(permissions, auth.Permission_REPO_LIST_COMMIT) &&
+		slices.Contains(permissions, auth.Permission_REPO_LIST_BRANCH) &&
+		slices.Contains(permissions, auth.Permission_REPO_LIST_FILE)
+}
+
+func hasRepoWrite(permissions []auth.Permission) bool {
+	return slices.Contains(permissions, auth.Permission_REPO_WRITE)
+}
 	}
 	return false
 }
