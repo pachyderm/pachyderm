@@ -29,10 +29,14 @@ parameters:
   release-pgbouncer:
     type: boolean
     default: false
-  pgbouncer-image-version:
+  pgbouncer-base-image-version:
     type: string
     default: "1.16.1"
-
+  pgbouncer-image-tag:
+    type: string
+    # may not always be in sync with pgbouncer-base-image-version
+    # i.e any entrypoint.sh wrapper updates
+    default: "1.16.1"
 # our defined job, and its steps
 jobs:
   setup:
@@ -110,7 +114,7 @@ jobs:
             docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
             docker context create buildx-build
             docker buildx create --name pgb --driver docker-container --use buildx-build
-            docker buildx build --builder pgb --build-arg VERSION=<< pipeline.parameters.pgbouncer-image-version >> --platform=linux/amd64,linux/arm64 -f Dockerfile.pgbouncer -t pachyderm/pgbouncer:<< pipeline.parameters.pgbouncer-image-version >> --push .
+            docker buildx build --builder pgb --build-arg VERSION=<< pipeline.parameters.pgbouncer-base-image-version >> --platform=linux/amd64,linux/arm64 -f Dockerfile.pgbouncer -t pachyderm/pgbouncer:<< pipeline.parameters.pgbouncer-image-tag >> --push ./etc/pgbouncer
 
 # our single workflow, that triggers the setup job defined above
 workflows:

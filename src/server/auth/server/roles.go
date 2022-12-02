@@ -39,7 +39,7 @@ func init() {
 	// and create pipelines that read from a repo.
 	repoReaderRole := registerRole(&auth.Role{
 		Name:          auth.RepoReaderRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_REPO},
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
 		Permissions: []auth.Permission{
 			auth.Permission_REPO_READ,
 			auth.Permission_REPO_INSPECT_COMMIT,
@@ -58,7 +58,7 @@ func init() {
 	// plus all the permissions of repoReader.
 	repoWriterRole := registerRole(&auth.Role{
 		Name:          auth.RepoWriterRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_REPO},
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
 		Permissions: combinePermissions(repoReaderRole.Permissions, []auth.Permission{
 			auth.Permission_REPO_WRITE,
 			auth.Permission_REPO_DELETE_COMMIT,
@@ -72,7 +72,7 @@ func init() {
 	// a repo and delete it, plus all the permissions of repoWriter.
 	repoOwnerRole := registerRole(&auth.Role{
 		Name:          auth.RepoOwnerRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_REPO},
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
 		Permissions: combinePermissions(repoWriterRole.Permissions, []auth.Permission{
 			auth.Permission_REPO_MODIFY_BINDINGS,
 			auth.Permission_REPO_DELETE,
@@ -171,10 +171,45 @@ func init() {
 		},
 	})
 
+	// Project related roles
+	projectViewer := registerRole(&auth.Role{
+		Name:          auth.ProjectViewer,
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
+		Permissions: []auth.Permission{
+			auth.Permission_PROJECT_LIST_REPO,
+		},
+	})
+
+	projectWriter := registerRole(&auth.Role{
+		Name:          auth.ProjectWriter,
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
+		Permissions: combinePermissions(projectViewer.Permissions, []auth.Permission{
+			auth.Permission_PROJECT_CREATE_REPO,
+		}),
+	})
+
+	projectOwner := registerRole(&auth.Role{
+		Name:          auth.ProjectOwner,
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
+		Permissions: combinePermissions(projectWriter.Permissions, repoOwnerRole.Permissions, []auth.Permission{
+			auth.Permission_PROJECT_DELETE,
+			auth.Permission_REPO_DELETE,
+			auth.Permission_PROJECT_MODIFY_BINDINGS,
+		}),
+	})
+
+	projectCreator := registerRole(&auth.Role{
+		Name:          auth.ProjectCreator,
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
+		Permissions: []auth.Permission{
+			auth.Permission_PROJECT_CREATE,
+		},
+	})
+
 	// clusterAdmin is a catch-all role that has every permission
 	registerRole(&auth.Role{
 		Name:          auth.ClusterAdminRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_REPO},
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
 		Permissions: combinePermissions(
 			repoOwnerRole.Permissions,
 			oidcAppAdminRole.Permissions,
@@ -185,6 +220,8 @@ func init() {
 			licenseAdminRole.Permissions,
 			secretAdminRole.Permissions,
 			pachdLogReaderRole.Permissions,
+			projectOwner.Permissions,
+			projectCreator.Permissions,
 			[]auth.Permission{
 				auth.Permission_CLUSTER_MODIFY_BINDINGS,
 				auth.Permission_CLUSTER_GET_BINDINGS,
@@ -211,10 +248,17 @@ func init() {
 	})
 }
 
-func combinePermissions(permissions ...[]auth.Permission) []auth.Permission {
+func combinePermissions(permissionSets ...[]auth.Permission) []auth.Permission {
+	seen := make(map[auth.Permission]bool)
 	output := make([]auth.Permission, 0)
-	for _, p := range permissions {
-		output = append(output, p...)
+	for _, permissions := range permissionSets {
+		for _, permission := range permissions {
+			if seen[permission] {
+				continue
+			}
+			seen[permission] = true
+			output = append(output, permission)
+		}
 	}
 	return output
 }

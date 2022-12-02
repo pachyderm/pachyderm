@@ -1,8 +1,0 @@
-
-{
-    "issuer": "http://34.69.62.89:658",
-    "client_id": "jk-2-15-beta",
-    "client_secret": "jpnoysl3s7ifwvrwqobi5vzhysu4tgwtewuo2j75irwpyr64jk",
-    "redirect_uri": "http://a9ba23211eeab43f2b9c513e496ec8ce-1589750346.us-west-2.elb.amazonaws.com:657/authorization-code/callback",
-    "scopes": ["email", "profile", "groups", "openid"]
-    }

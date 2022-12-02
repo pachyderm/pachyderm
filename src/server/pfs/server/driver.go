@@ -145,6 +145,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	if repo == nil {
 		return errors.New("repo cannot be nil")
 	}
+	repo.EnsureProject()
 
 	// Check that the user is logged in (user doesn't need any access level to
 	// create a repo, but they must be authenticated if auth is active)
@@ -432,6 +433,19 @@ func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectReques
 				projectInfo.Description = req.Description
 				return nil
 			}))
+		}
+		// If auth is active, make caller the owner of this new project.
+		if whoAmI, err := txnCtx.WhoAmI(); err == nil {
+			if err := d.env.AuthServer.CreateRoleBindingInTransaction(
+				txnCtx,
+				whoAmI.Username,
+				[]string{auth.ProjectOwner},
+				&auth.Resource{Type: auth.ResourceType_PROJECT, Name: req.Project.GetName()},
+			); err != nil && !errors.Is(err, col.ErrExists{}) {
+				return errors.Wrapf(err, "could not create role binding for new project %s", req.Project.GetName())
+			}
+		} else if !errors.Is(err, auth.ErrNotActivated) {
+			return errors.Wrap(err, "could not get caller's username")
 		}
 		return errors.EnsureStack(projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
 			Project:     req.Project,

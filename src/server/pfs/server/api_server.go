@@ -137,6 +137,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 }
 
 // ListRepo implements the protobuf pfs.ListRepo RPC
+// TODO make ListRepo project-aware
 func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) (retErr error) {
 	return a.driver.listRepo(srv.Context(), true, request.Type, srv.Send)
 }

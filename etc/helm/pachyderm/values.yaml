@@ -342,6 +342,9 @@ loki-stack:
           # this gets all kubernetes labels as well
           - action: labelmap
             regex: __meta_kubernetes_pod_label_(.+)
+    # Tolerations for promtail pods. Promtail must run on any node where pachyderm resources will run or you won't get any logs for them
+    # For example, GKE gpu nodes have a default taint of nvidia.com/gpu=present:NoSchedule so if you use GPUs we wouldn't have logs
+    tolerations: []
     livenessProbe:
       failureThreshold: 5
       tcpSocket:
@@ -617,8 +620,9 @@ pachd:
     # The shard size corresponds to the total size of the files in a shard.
     # The shard count corresponds to the total number of files in a shard.
     # If either criteria is met, a shard will be created.
-    compactionShardSizeThreshold: 0
-    compactionShardCountThreshold: 0
+    # values are strings
+    compactionShardSizeThreshold: "0"
+    compactionShardCountThreshold: "0"
   ppsWorkerGRPCPort: 1080
   # the number of seconds between pfs's garbage collection cycles.
   # if this value is set to 0, it will default to pachyderm's internal configuration.
@@ -683,7 +687,7 @@ pgbouncer:
   tolerations: []
   image:
     repository: pachyderm/pgbouncer
-    tag: 1.16.1
+    tag: 1.16.2
   resources:
     {}
     #limits:
@@ -866,7 +870,7 @@ proxy:
   # The envoy image to pull.
   image:
     repository: "envoyproxy/envoy"
-    tag: "v1.22.0"
+    tag: "v1.24.0"
     pullPolicy: "IfNotPresent"
   # Set up resources.  The proxy is configured to shed traffic before using 500MB of RAM, so that's
   # a resonable memory limit.  It doesn't need much CPU.

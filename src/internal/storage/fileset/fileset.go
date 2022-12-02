@@ -26,8 +26,8 @@ The algorithms for file and index chunking have changed throughout 2.x, and we
 must support previously written data. Here are some examples of conditions in
 past data which current code will not generate:
   - a file that is split across multiple chunks may share some of them with
-  other files (in the current code, a file split across chunks will be the only
-  file in those chunks).
+    other files (in the current code, a file split across chunks will be the only
+    file in those chunks).
   - related, even small files may be split across multiple chunks
   - an index range data reference may start part way through a chunk
 */
@@ -173,7 +173,7 @@ type FileSet interface {
 	// IterateDeletes iterates over the deleted files in the file set.
 	IterateDeletes(ctx context.Context, cb func(File) error, opts ...index.Option) error
 	// Shards returns a list of shards for the file set.
-	Shards(ctx context.Context) ([]*index.PathRange, error)
+	Shards(ctx context.Context, opts ...index.Option) ([]*index.PathRange, error)
 }
 
 var _ FileSet = &MergeReader{}
@@ -189,8 +189,8 @@ func (efs emptyFileSet) IterateDeletes(_ context.Context, _ func(File) error, _ 
 	return nil
 }
 
-func (efs emptyFileSet) Shards(_ context.Context) ([]*index.PathRange, error) {
-	return nil, nil
+func (efs emptyFileSet) Shards(_ context.Context, _ ...index.Option) ([]*index.PathRange, error) {
+	return []*index.PathRange{{}}, nil
 }
 
 func idsToHex(xs []ID) []string {

@@ -19,10 +19,10 @@ import (
 )
 
 // NewTestStorage constructs a local storage instance scoped to the lifetime of the test
-func NewTestStorage(t testing.TB, db *pachsql.DB, tr track.Tracker) *Storage {
+func NewTestStorage(t testing.TB, db *pachsql.DB, tr track.Tracker, opts ...StorageOption) *Storage {
 	_, chunks := chunk.NewTestStorage(t, db, tr)
 	store := NewTestStore(t, db)
-	return NewStorage(store, tr, chunks)
+	return NewStorage(store, tr, chunks, opts...)
 }
 
 // CopyFiles copies files from a file set to a file set writer.

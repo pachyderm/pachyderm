@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -65,6 +66,9 @@ func (c *Config) ActiveContext(errorOnNoActive bool) (string, *Context, error) {
 				c.V2.ActiveContext, c.V2.ActiveContext)
 		}
 
+	}
+	if context.GetProject() == "" {
+		context.Project = pfs.DefaultProjectName
 	}
 	return c.V2.ActiveContext, context, nil
 }

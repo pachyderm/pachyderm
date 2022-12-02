@@ -22,7 +22,7 @@ func TestPortForwardError(t *testing.T) {
 	defer os.Remove(cfgFile.Name())
 	os.Setenv("PACH_CONFIG", cfgFile.Name())
 
-	c := tu.Cmd("pachctl", "version", "--timeout=1ns")
+	c := tu.Command("pachctl", "version", "--timeout=1ns")
 	var errMsg bytes.Buffer
 	c.Stdout = io.Discard
 	c.Stderr = &errMsg
@@ -35,7 +35,10 @@ func TestPortForwardError(t *testing.T) {
 // 'CreateAlias' was not used properly (or the command just needs to specify
 // its name).
 func TestCommandAliases(t *testing.T) {
-	pachctlCmd := PachctlCmd()
+	pachctlCmd, err := PachctlCmd()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Replace the first component with 'pachctl' because it uses os.Args[0] by default
 	path := func(cmd *cobra.Command) string {
@@ -99,7 +102,7 @@ func testConfig(t *testing.T, pachdAddressStr string) *os.File {
 		V2: &config.ConfigV2{
 			ActiveContext: "test",
 			Contexts: map[string]*config.Context{
-				"test": &config.Context{
+				"test": {
 					PachdAddress: pachdAddress.Qualified(),
 				},
 			},

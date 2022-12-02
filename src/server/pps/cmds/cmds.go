@@ -20,7 +20,9 @@ import (
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
@@ -53,7 +55,7 @@ const (
 )
 
 // Cmds returns a slice containing pps commands.
-func Cmds() []*cobra.Command {
+func Cmds(pachCtx *config.Context) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var raw bool
@@ -79,7 +81,7 @@ If the job fails, the output commit will not be populated with data.`,
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(jobDocs, "job", " job$", jobs))
 
-	var project string
+	var project = pachCtx.Project
 	inspectJob := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job>",
 		Short: "Return info about a job.",
@@ -114,7 +116,7 @@ If the job fails, the output commit will not be populated with data.`,
 	}
 	inspectJob.Flags().AddFlagSet(outputFlags)
 	inspectJob.Flags().AddFlagSet(timestampFlags)
-	inspectJob.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing job.")
+	inspectJob.Flags().StringVar(&project, "project", project, "Project containing job.")
 	shell.RegisterCompletionFunc(inspectJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectJob, "inspect job", jobs))
 
@@ -174,11 +176,12 @@ If the job fails, the output commit will not be populated with data.`,
 	}
 	waitJob.Flags().AddFlagSet(outputFlags)
 	waitJob.Flags().AddFlagSet(timestampFlags)
-	waitJob.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing job.")
+	waitJob.Flags().StringVar(&project, "project", project, "Project containing job.")
 	shell.RegisterCompletionFunc(waitJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(waitJob, "wait job", jobs))
 
 	var pipelineName string
+	var allProjects bool
 	var inputCommitStrs []string
 	var history string
 	var stateStrs []string
@@ -209,6 +212,14 @@ $ {{alias}} -i foo@XXX -i bar@YYY
 # Return all sub-jobs in pipeline foo and whose input commits include bar@YYY
 $ {{alias}} -p foo -i bar@YYY`,
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+			cfg, err := config.Read(false, false)
+			if err != nil {
+				return err
+			}
+			_, pachCtx, err := cfg.ActiveContext(true)
+			if err != nil {
+				return err
+			}
 			commits, err := cmdutil.ParseCommits(project, inputCommitStrs)
 			if err != nil {
 				return err
@@ -235,6 +246,15 @@ $ {{alias}} -p foo -i bar@YYY`,
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
+			// To list jobs for all projects, user must be explicit about it.
+			// The --project filter takes precedence over everything else.
+			// By default use pfs.DefaultProjectName
+			projectsFilter := []string{project}
+			if allProjects {
+				projectsFilter = nil
+			} else if project == pfs.DefaultProjectName {
+				projectsFilter = []string{pachCtx.GetProject()}
+			}
 			if len(args) == 0 {
 				if pipelineName == "" && !expand {
 					// We are listing jobs
@@ -246,7 +266,8 @@ $ {{alias}} -p foo -i bar@YYY`,
 						return errors.Errorf("cannot specify '--history' when listing all jobs")
 					}
 
-					listJobSetClient, err := client.PpsAPIClient.ListJobSet(client.Ctx(), &pps.ListJobSetRequest{})
+					req := &pps.ListJobSetRequest{Projects: projectsFilter}
+					listJobSetClient, err := client.PpsAPIClient.ListJobSet(client.Ctx(), req)
 					if err != nil {
 						return grpcutil.ScrubGRPC(err)
 					}
@@ -270,16 +291,35 @@ $ {{alias}} -p foo -i bar@YYY`,
 					})
 				} else {
 					// We are listing all sub-jobs, possibly restricted to a single pipeline
+					var pipeline *pps.Pipeline
+					if pipelineName != "" {
+						pipeline = &pps.Pipeline{Name: pipelineName, Project: &pfs.Project{Name: project}}
+					}
+					req := &pps.ListJobRequest{
+						Projects:    projectsFilter,
+						Pipeline:    pipeline,
+						InputCommit: commits,
+						History:     historyCount,
+						Details:     true,
+						JqFilter:    filter,
+					}
+
+					ctx, cf := context.WithCancel(client.Ctx())
+					defer cf()
+					ljClient, err := client.PpsAPIClient.ListJob(ctx, req)
+					if err != nil {
+						return grpcutil.ScrubGRPC(err)
+					}
 					if raw {
 						e := cmdutil.Encoder(output, os.Stdout)
-						return client.ListJobFilterF(pipelineName, commits, historyCount, true, filter, func(ji *ppsclient.JobInfo) error {
+						return listJobFilterF(ctx, ljClient, func(ji *ppsclient.JobInfo) error {
 							return errors.EnsureStack(e.EncodeProto(ji))
 						})
 					}
 
 					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 						writer := tabwriter.NewWriter(w, pretty.JobHeader)
-						if err := client.ListJobFilterF(pipelineName, commits, historyCount, false, filter, func(ji *ppsclient.JobInfo) error {
+						if err := listJobFilterF(ctx, ljClient, func(ji *ppsclient.JobInfo) error {
 							pretty.PrintJobInfo(writer, ji, fullTimestamps)
 							return nil
 						}); err != nil {
@@ -311,6 +351,8 @@ $ {{alias}} -p foo -i bar@YYY`,
 		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
+	listJob.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Show jobs from all projects.")
+	listJob.Flags().StringVar(&project, "project", project, "Limit to jobs in the project specified.")
 	listJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
 	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits. format: <repo>@<branch-or-commit>")
 	listJob.MarkFlagCustom("input", "__pachctl_get_repo_commit")
@@ -320,7 +362,6 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.Flags().AddFlagSet(pagerFlags)
 	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
 	listJob.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only sub-jobs with the specified state. Can be repeated to include multiple states")
-	listJob.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(listJob,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-p" || flag == "--pipeline" {
@@ -351,7 +392,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 			return nil
 		}),
 	}
-	deleteJob.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project within which to delete job")
+	deleteJob.Flags().StringVar(&project, "project", project, "Project within which to delete job")
 	shell.RegisterCompletionFunc(deleteJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteJob, "delete job", jobs))
 
@@ -394,7 +435,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 			return nil
 		}),
 	}
-	stopJob.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing the job")
+	stopJob.Flags().StringVar(&project, "project", project, "Project containing the job")
 	shell.RegisterCompletionFunc(stopJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(stopJob, "stop job", jobs))
 
@@ -439,7 +480,7 @@ each datum.`,
 			return client.RestartProjectDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, datumFilter)
 		}),
 	}
-	restartDatum.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing the datum job")
+	restartDatum.Flags().StringVar(&project, "project", project, "Project containing the datum job")
 	commands = append(commands, cmdutil.CreateAliases(restartDatum, "restart datum", datums))
 
 	var pipelineInputPath string
@@ -502,7 +543,7 @@ each datum.`,
 		}),
 	}
 	listDatum.Flags().StringVarP(&pipelineInputPath, "file", "f", "", "The JSON file containing the pipeline to list datums from, the pipeline need not exist")
-	listDatum.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing the job")
+	listDatum.Flags().StringVar(&project, "project", project, "Project containing the job")
 	listDatum.Flags().AddFlagSet(outputFlags)
 	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listDatum, "list datum", datums))
@@ -534,7 +575,7 @@ each datum.`,
 			return nil
 		}),
 	}
-	inspectDatum.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing the job")
+	inspectDatum.Flags().StringVar(&project, "project", project, "Project containing the job")
 	inspectDatum.Flags().AddFlagSet(outputFlags)
 	commands = append(commands, cmdutil.CreateAliases(inspectDatum, "inspect datum", datums))
 
@@ -667,7 +708,7 @@ each datum.`,
 	getLogs.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
 	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
 	getLogs.Flags().StringVar(&since, "since", "24h", "Return log messages more recent than \"since\".")
-	getLogs.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing the job.")
+	getLogs.Flags().StringVar(&project, "project", project, "Project containing the job.")
 	shell.RegisterCompletionFunc(getLogs,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "--pipeline" || flag == "-p" {
@@ -713,7 +754,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
-	createPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project in which to create the pipeline.")
+	createPipeline.Flags().StringVar(&project, "project", project, "The project in which to create the pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(createPipeline, "create pipeline", pipelines))
 
 	var reprocess bool
@@ -731,7 +772,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
-	updatePipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project in which to update the pipeline.")
+	updatePipeline.Flags().StringVar(&project, "project", project, "The project in which to update the pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(updatePipeline, "update pipeline", pipelines))
 
 	runCron := &cobra.Command{
@@ -754,7 +795,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	runCron.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing pipeline.")
+	runCron.Flags().StringVar(&project, "project", project, "Project containing pipeline.")
 	commands = append(commands, cmdutil.CreateAlias(runCron, "run cron"))
 
 	inspectPipeline := &cobra.Command{
@@ -785,7 +826,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	inspectPipeline.Flags().AddFlagSet(outputFlags)
 	inspectPipeline.Flags().AddFlagSet(timestampFlags)
-	inspectPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project of pipeline to inspect.")
+	inspectPipeline.Flags().StringVar(&project, "project", project, "Project of pipeline to inspect.")
 	commands = append(commands, cmdutil.CreateAliases(inspectPipeline, "inspect pipeline", pipelines))
 
 	var editor string
@@ -864,7 +905,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	editPipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 	editPipeline.Flags().StringVar(&editor, "editor", "", "Editor to use for modifying the manifest.")
 	editPipeline.Flags().StringVarP(&output, "output", "o", "", "Output format: \"json\" or \"yaml\" (default \"json\")")
-	editPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project of pipeline to edit.")
+	editPipeline.Flags().StringVar(&project, "project", project, "Project of pipeline to edit.")
 	commands = append(commands, cmdutil.CreateAliases(editPipeline, "edit pipeline", pipelines))
 
 	var spec bool
@@ -954,7 +995,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
 	listPipeline.Flags().StringVarP(&commit, "commit", "c", "", "List the pipelines as they existed at this commit.")
 	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
-	listPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing projects.")
+	listPipeline.Flags().StringVar(&project, "project", project, "Project containing pipelines.")
 	commands = append(commands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
 
 	var commitSet string
@@ -1035,7 +1076,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
 	deletePipeline.Flags().BoolVarP(&force, "force", "f", false, "delete the pipeline regardless of errors; use with care")
 	deletePipeline.Flags().BoolVar(&keepRepo, "keep-repo", false, "delete the pipeline, but keep the output repo data around (the pipeline cannot be recreated later with the same name unless the repo is deleted)")
-	deletePipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing project.")
+	deletePipeline.Flags().StringVar(&project, "project", project, "Project containing project.")
 	commands = append(commands, cmdutil.CreateAliases(deletePipeline, "delete pipeline", pipelines))
 
 	startPipeline := &cobra.Command{
@@ -1054,7 +1095,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	startPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing pipeline.")
+	startPipeline.Flags().StringVar(&project, "project", project, "Project containing pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(startPipeline, "start pipeline", pipelines))
 
 	stopPipeline := &cobra.Command{
@@ -1073,7 +1114,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	stopPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing pipeline.")
+	stopPipeline.Flags().StringVar(&project, "project", project, "Project containing pipeline.")
 	commands = append(commands, cmdutil.CreateAliases(stopPipeline, "stop pipeline", pipelines))
 
 	var file string
@@ -1562,4 +1603,23 @@ func ParsePipelineStates(stateStrs []string) (string, error) {
 		}
 	}
 	return validateJQConditionString(strings.Join(conditions, " or "))
+}
+
+// Copied from src/client/pps.go's APIClient, because we need to add the new projects filter to the request,
+// rather then adding yet another param, we are just going to pass in the request.
+func listJobFilterF(ctx context.Context, client pps.API_ListJobClient, f func(*pps.JobInfo) error) error {
+	for {
+		ji, err := client.Recv()
+		if errors.Is(err, io.EOF) {
+			return nil
+		} else if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(ji); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
+			return err
+		}
+	}
 }

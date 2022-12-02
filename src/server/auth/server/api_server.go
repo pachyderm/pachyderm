@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"net/http"
 	"path"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/authdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -40,16 +40,8 @@ const (
 	// implemenation details of our config library, we can't use an empty key)
 	configKey = "config"
 
-	// clusterRoleBindingKey is a key in etcd, in the roleBindings collection,
-	// that contains the set of role bindings for the cluster. These are frequently
-	// accessed so we cache them.
-	clusterRoleBindingKey = "CLUSTER:"
-
 	// the length of interval between expired auth token cleanups
 	cleanupIntervalHours = 24
-
-	// auth server internal user
-	internalUser = auth.InternalPrefix + "auth-server"
 )
 
 // DefaultOIDCConfig is the default config for the auth API server
@@ -100,10 +92,10 @@ func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bo
 	)
 	s := &apiServer{
 		env:            env,
-		authConfig:     authConfigCollection(env.DB, env.Listener),
-		roleBindings:   roleBindingsCollection(env.DB, env.Listener),
-		members:        membersCollection(env.DB, env.Listener),
-		groups:         groupsCollection(env.DB, env.Listener),
+		authConfig:     authdb.AuthConfigCollection(env.DB, env.Listener),
+		roleBindings:   authdb.RoleBindingCollection(env.DB, env.Listener),
+		members:        authdb.MembersCollection(env.DB, env.Listener),
+		groups:         authdb.GroupsCollection(env.DB, env.Listener),
 		oidcStates:     oidcStates,
 		public:         public,
 		watchesEnabled: watchesEnabled,
@@ -116,7 +108,7 @@ func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bo
 
 	if watchesEnabled {
 		s.configCache = keycache.NewCache(env.BackgroundContext, s.authConfig.ReadOnly(env.BackgroundContext), configKey, &DefaultOIDCConfig)
-		s.clusterRoleBindingCache = keycache.NewCache(env.BackgroundContext, s.roleBindings.ReadOnly(env.BackgroundContext), clusterRoleBindingKey, &auth.RoleBinding{})
+		s.clusterRoleBindingCache = keycache.NewCache(env.BackgroundContext, s.roleBindings.ReadOnly(env.BackgroundContext), auth.ClusterRoleBindingKey, &auth.RoleBinding{})
 
 		// Watch for new auth config options
 		go s.configCache.Watch()
@@ -136,7 +128,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 		return nil
 	}
 	a.env.Logger.Info("Started to configure auth server via environment")
-	ctx = internalauth.AsInternalUser(ctx, internalUser)
+	ctx = internalauth.AsInternalUser(ctx, authdb.InternalUser)
 	if err := func() error {
 		// handle auth activation
 		if a.env.Config.AuthRootToken != "" {
@@ -301,14 +293,14 @@ func (a *apiServer) getClusterRoleBinding(ctx context.Context) (*auth.RoleBindin
 			return nil, errors.New("cached cluster binding had unexpected type")
 		}
 
-		if bindings.Entries == nil {
+		if len(bindings.Entries) == 0 {
 			return nil, auth.ErrNotActivated
 		}
 		return bindings, nil
 	}
 
 	var binding auth.RoleBinding
-	if err := a.roleBindings.ReadOnly(ctx).Get(clusterRoleBindingKey, &binding); err != nil {
+	if err := a.roleBindings.ReadOnly(ctx).Get(auth.ClusterRoleBindingKey, &binding); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, auth.ErrNotActivated
 		}
@@ -344,7 +336,7 @@ func (a *apiServer) getClusterRoleBindingInTransaction(txnCtx *txncontext.Transa
 	}
 
 	var binding auth.RoleBinding
-	if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(clusterRoleBindingKey, &binding); err != nil {
+	if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(auth.ClusterRoleBindingKey, &binding); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, auth.ErrNotActivated
 		}
@@ -471,13 +463,32 @@ func (a *apiServer) activateInTransaction(ctx context.Context, txCtx *txncontext
 	// initialize the root user as a cluster admin
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
 		roleBindings := a.roleBindings.ReadWrite(txCtx.SqlTx)
-		if err := roleBindings.Put(clusterRoleBindingKey, &auth.RoleBinding{
+		if err := roleBindings.Put(auth.ClusterRoleBindingKey, &auth.RoleBinding{
 			Entries: map[string]*auth.Roles{
-				auth.RootUser: {Roles: map[string]bool{auth.ClusterAdminRole: true}},
-				internalUser:  {Roles: map[string]bool{auth.ClusterAdminRole: true}},
+				auth.RootUser:               {Roles: map[string]bool{auth.ClusterAdminRole: true}},
+				authdb.InternalUser:         {Roles: map[string]bool{auth.ClusterAdminRole: true}},
+				auth.AllClusterUsersSubject: {Roles: map[string]bool{auth.ProjectCreator: true}},
 			},
 		}); err != nil {
 			return errors.EnsureStack(err)
+		}
+		// If default project exists, grant allClusterUsers ProjectWriter role
+		defaultProjectKey := authdb.ResourceKey(&auth.Resource{Type: auth.ResourceType_PROJECT, Name: pfs.DefaultProjectName})
+		defaultProjectRoleBindings := &auth.RoleBinding{}
+		if err := roleBindings.Get(defaultProjectKey, defaultProjectRoleBindings); err != nil && !errors.Is(err, col.ErrNotFound{}) {
+			return errors.Wrap(err, "failed to get role bindings for default project")
+		}
+		if err == nil {
+			if len(defaultProjectRoleBindings.Entries) == 0 {
+				defaultProjectRoleBindings.Entries = make(map[string]*auth.Roles)
+			}
+			if _, ok := defaultProjectRoleBindings.Entries[auth.AllClusterUsersSubject]; !ok {
+				defaultProjectRoleBindings.Entries[auth.AllClusterUsersSubject] = &auth.Roles{Roles: make(map[string]bool)}
+			}
+			defaultProjectRoleBindings.Entries[auth.AllClusterUsersSubject].Roles[auth.ProjectWriter] = true
+			if err := roleBindings.Put(defaultProjectKey, defaultProjectRoleBindings); err != nil {
+				return errors.Wrap(err, "failed to add ProjectWriter to allClusterUsers for default project")
+			}
 		}
 		return a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(pachToken), auth.RootUser)
 	}); err != nil {
@@ -633,13 +644,6 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 	}, nil
 }
 
-func resourceKey(r *auth.Resource) string {
-	if r.Type == auth.ResourceType_CLUSTER {
-		return clusterRoleBindingKey
-	}
-	return fmt.Sprintf("%s:%s", r.Type, r.Name)
-}
-
 func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txncontext.TransactionContext, principal string, resource *auth.Resource, permissions map[auth.Permission]bool) (*authorizeRequest, error) {
 	request := newAuthorizeRequest(principal, permissions, a.getGroupsInTransaction)
 
@@ -648,7 +652,7 @@ func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txncontext.Transact
 	if resource.Type == auth.ResourceType_SPEC_REPO {
 		if err := request.evaluateRoleBinding(txnCtx, &auth.RoleBinding{
 			Entries: map[string]*auth.Roles{
-				auth.AllClusterUsersSubject: &auth.Roles{
+				auth.AllClusterUsersSubject: {
 					Roles: map[string]bool{
 						auth.RepoReaderRole: true,
 					},
@@ -683,9 +687,32 @@ func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txncontext.Transact
 		return request, nil
 	}
 
-	// Get the role bindings for the resource to check
+	// if resource is a repo, then we should check project level permissions as well
 	var roleBinding auth.RoleBinding
-	if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(resourceKey(resource), &roleBinding); err != nil {
+	if resource.Type == auth.ResourceType_REPO {
+		repo, err := authRepoResourceToRepo(resource)
+		if err != nil {
+			return nil, err
+		}
+		projectKey := authdb.ResourceKey(&auth.Resource{Type: auth.ResourceType_PROJECT, Name: repo.Project.Name})
+		if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(projectKey, &roleBinding); err != nil {
+			if col.IsErrNotFound(err) {
+				return nil, &auth.ErrNoRoleBinding{
+					Resource: *resource,
+				}
+			}
+			return nil, errors.Wrapf(err, "error getting role bindings for %s", repo.Project)
+		}
+		if err := request.evaluateRoleBinding(txnCtx, &roleBinding); err != nil {
+			return nil, err
+		}
+		if request.isSatisfied() {
+			return request, nil
+		}
+	}
+
+	// Get the role bindings for the resource to check
+	if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(authdb.ResourceKey(resource), &roleBinding); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, &auth.ErrNoRoleBinding{
 				Resource: *resource,
@@ -699,8 +726,7 @@ func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txncontext.Transact
 	return request, nil
 }
 
-// AuthorizeInTransaction is identical to Authorize except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
+// AuthorizeInTransaction is identical to Authorize except that it can run in a `pachsql.Tx`.
 func (a *apiServer) AuthorizeInTransaction(
 	txnCtx *txncontext.TransactionContext,
 	req *auth.AuthorizeRequest,
@@ -833,7 +859,7 @@ func (a *apiServer) DeleteRoleBindingInTransaction(txnCtx *txncontext.Transactio
 		return errors.Errorf("cannot delete cluster role binding")
 	}
 
-	key := resourceKey(resource)
+	key := authdb.ResourceKey(resource)
 	roleBindings := a.roleBindings.ReadWrite(txnCtx.SqlTx)
 	if err := roleBindings.Delete(key); err != nil {
 		return errors.EnsureStack(err)
@@ -885,7 +911,7 @@ func (a *apiServer) CreateRoleBindingInTransaction(txnCtx *txncontext.Transactio
 	}
 
 	// Call Create, this will raise an error if the role binding already exists.
-	key := resourceKey(resource)
+	key := authdb.ResourceKey(resource)
 	roleBindings := a.roleBindings.ReadWrite(txnCtx.SqlTx)
 	if err := roleBindings.Create(key, bindings); err != nil {
 		return errors.EnsureStack(err)
@@ -987,22 +1013,19 @@ func (a *apiServer) ModifyRoleBindingInTransaction(
 
 	// ModifyRoleBinding can be called for any type of resource,
 	// and the permission required depends on the type of resource.
+	var permission auth.Permission
 	switch req.Resource.Type {
 	case auth.ResourceType_CLUSTER:
-		if err := a.CheckClusterIsAuthorizedInTransaction(txnCtx, auth.Permission_CLUSTER_MODIFY_BINDINGS); err != nil {
-			return nil, err
-		}
+		permission = auth.Permission_CLUSTER_MODIFY_BINDINGS
+	case auth.ResourceType_PROJECT:
+		permission = auth.Permission_PROJECT_MODIFY_BINDINGS
 	case auth.ResourceType_REPO:
-		// FIXME: seems kind of broken to destructure here
-		parts := strings.Split(req.Resource.Name, "/")
-		if len(parts) != 2 {
-			return nil, errors.Errorf("invalid resource name %s", req.Resource.Name)
-		}
-		if err := a.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: parts[0]}, Name: parts[1]}, auth.Permission_REPO_MODIFY_BINDINGS); err != nil {
-			return nil, err
-		}
+		permission = auth.Permission_REPO_MODIFY_BINDINGS
 	default:
 		return nil, errors.Errorf("unknown resource type %v", req.Resource.Type)
+	}
+	if err := a.checkResourceIsAuthorizedInTransaction(txnCtx, req.Resource, permission); err != nil {
+		return nil, err
 	}
 
 	if err := a.setUserRoleBindingInTransaction(txnCtx, req.Resource, req.Principal, req.Roles); err != nil {
@@ -1018,7 +1041,7 @@ func (a *apiServer) setUserRoleBindingInTransaction(txnCtx *txncontext.Transacti
 		return err
 	}
 
-	key := resourceKey(resource)
+	key := authdb.ResourceKey(resource)
 	roleBindings := a.roleBindings.ReadWrite(txnCtx.SqlTx)
 	var bindings auth.RoleBinding
 	if err := roleBindings.Get(key, &bindings); err != nil {
@@ -1087,7 +1110,7 @@ func (a *apiServer) GetRoleBindingInTransaction(
 	}
 
 	var roleBindings auth.RoleBinding
-	if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(resourceKey(req.Resource), &roleBindings); err != nil && !col.IsErrNotFound(err) {
+	if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(authdb.ResourceKey(req.Resource), &roleBindings); err != nil && !col.IsErrNotFound(err) {
 		return nil, errors.EnsureStack(err)
 	}
 
@@ -1719,4 +1742,15 @@ func (a *apiServer) deleteAuthTokensForSubjectInTransaction(tx *pachsql.Tx, subj
 		return errors.Wrapf(err, "error deleting all auth tokens")
 	}
 	return nil
+}
+
+func authRepoResourceToRepo(resource *auth.Resource) (*pfs.Repo, error) {
+	if resource.Type != auth.ResourceType_REPO {
+		return nil, errors.Errorf("%v is not a repo", resource)
+	}
+	parts := strings.Split(resource.Name, "/")
+	if len(parts) != 2 {
+		return nil, errors.Errorf("invalid resource name %s", resource.Name)
+	}
+	return &pfs.Repo{Project: &pfs.Project{Name: parts[0]}, Name: parts[1]}, nil
 }

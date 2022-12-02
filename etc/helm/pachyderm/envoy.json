@@ -2,9 +2,46 @@
    "admin": {
       "access_log": [
          {
-            "name": "envoy.access_loggers.stderr",
+            "name": "envoy.access_loggers.stdout",
             "typed_config": {
-               "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StderrAccessLog"
+               "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StderrAccessLog",
+               "log_format": {
+                  "json_format": {
+                     "authority": "%REQ(authority)%",
+                     "connection_id": "%CONNECTION_ID%",
+                     "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                     "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                     "duration_ms": "%DURATION%",
+                     "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                     "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                     "is_admin_request": "true",
+                     "message": "http response",
+                     "method": "%REQ(:method)%",
+                     "pachctl_command": "%REQ(COMMAND):64%",
+                     "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                     "protocol": "%PROTOCOL%",
+                     "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                     "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                     "response_code": "%RESPONSE_CODE%",
+                     "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                     "response_flags": "%RESPONSE_FLAGS%",
+                     "route": "%ROUTE_NAME%",
+                     "rx_bytes": "%BYTES_RECEIVED%",
+                     "severity": "info",
+                     "timestamp": "%START_TIME%",
+                     "tx_bytes": "%BYTES_SENT%",
+                     "upgrade": "%RESP(UPGRADE)%",
+                     "upstream": "%UPSTREAM_CLUSTER%",
+                     "upstream_host": "%UPSTREAM_HOST%",
+                     "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                     "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                     "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                     "user_agent": "%REQ(USER-AGENT)%",
+                     "x-request-id": "%REQ(X-REQUEST-ID)%",
+                     "xff": "%REQ(X-FORWARDED-FOR)%"
+                  },
+                  "omit_empty_values": true
+               }
             }
          }
       ],
@@ -335,6 +372,51 @@
       ],
       "listeners": [
          {
+            "access_log": [
+               {
+                  "name": "envoy.access_loggers.stdout",
+                  "typed_config": {
+                     "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StderrAccessLog",
+                     "log_format": {
+                        "json_format": {
+                           "authority": "%REQ(authority)%",
+                           "connection_id": "%CONNECTION_ID%",
+                           "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                           "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                           "duration_ms": "%DURATION%",
+                           "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                           "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                           "listener": "proxy-http",
+                           "message": "listener log",
+                           "method": "%REQ(:method)%",
+                           "pachctl_command": "%REQ(COMMAND):64%",
+                           "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                           "protocol": "%PROTOCOL%",
+                           "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                           "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                           "response_code": "%RESPONSE_CODE%",
+                           "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                           "response_flags": "%RESPONSE_FLAGS%",
+                           "route": "%ROUTE_NAME%",
+                           "rx_bytes": "%BYTES_RECEIVED%",
+                           "severity": "info",
+                           "timestamp": "%START_TIME%",
+                           "tx_bytes": "%BYTES_SENT%",
+                           "upgrade": "%RESP(UPGRADE)%",
+                           "upstream": "%UPSTREAM_CLUSTER%",
+                           "upstream_host": "%UPSTREAM_HOST%",
+                           "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                           "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                           "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                           "user_agent": "%REQ(USER-AGENT)%",
+                           "x-request-id": "%REQ(X-REQUEST-ID)%",
+                           "xff": "%REQ(X-FORWARDED-FOR)%"
+                        },
+                        "omit_empty_values": true
+                     }
+                  }
+               }
+            ],
             "address": {
                "socket_address": {
                   "address": "0.0.0.0",
@@ -352,18 +434,54 @@
                               {
                                  "name": "envoy.access_loggers.stdout",
                                  "typed_config": {
-                                    "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog"
+                                    "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+                                    "log_format": {
+                                       "json_format": {
+                                          "authority": "%REQ(authority)%",
+                                          "connection_id": "%CONNECTION_ID%",
+                                          "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                                          "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                                          "duration_ms": "%DURATION%",
+                                          "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                                          "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                                          "message": "http response",
+                                          "method": "%REQ(:method)%",
+                                          "pachctl_command": "%REQ(COMMAND):64%",
+                                          "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                                          "protocol": "%PROTOCOL%",
+                                          "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                                          "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                                          "response_code": "%RESPONSE_CODE%",
+                                          "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                                          "response_flags": "%RESPONSE_FLAGS%",
+                                          "route": "%ROUTE_NAME%",
+                                          "rx_bytes": "%BYTES_RECEIVED%",
+                                          "severity": "info",
+                                          "timestamp": "%START_TIME%",
+                                          "tx_bytes": "%BYTES_SENT%",
+                                          "upgrade": "%RESP(UPGRADE)%",
+                                          "upstream": "%UPSTREAM_CLUSTER%",
+                                          "upstream_host": "%UPSTREAM_HOST%",
+                                          "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                                          "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                                          "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                                          "user_agent": "%REQ(USER-AGENT)%",
+                                          "x-request-id": "%REQ(X-REQUEST-ID)%",
+                                          "xff": "%REQ(X-FORWARDED-FOR)%"
+                                       },
+                                       "omit_empty_values": true
+                                    }
                                  }
                               }
                            ],
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
-                              "idle_timeout": "3600s"
+                              "idle_timeout": "86400s"
                            },
                            "http2_protocol_options": {
                               "initial_connection_window_size": 1048576,
-                              "initial_stream_window_size": 65536,
+                              "initial_stream_window_size": 524288,
                               "max_concurrent_streams": 100
                            },
                            "http_filters": [
@@ -486,7 +604,7 @@
                               ]
                            },
                            "stat_prefix": "proxy-http",
-                           "stream_idle_timeout": "3600s",
+                           "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
                      }
@@ -498,6 +616,51 @@
             "traffic_direction": "INBOUND"
          },
          {
+            "access_log": [
+               {
+                  "name": "envoy.access_loggers.stdout",
+                  "typed_config": {
+                     "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StderrAccessLog",
+                     "log_format": {
+                        "json_format": {
+                           "authority": "%REQ(authority)%",
+                           "connection_id": "%CONNECTION_ID%",
+                           "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                           "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                           "duration_ms": "%DURATION%",
+                           "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                           "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                           "listener": "https-warning",
+                           "message": "listener log",
+                           "method": "%REQ(:method)%",
+                           "pachctl_command": "%REQ(COMMAND):64%",
+                           "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                           "protocol": "%PROTOCOL%",
+                           "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                           "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                           "response_code": "%RESPONSE_CODE%",
+                           "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                           "response_flags": "%RESPONSE_FLAGS%",
+                           "route": "%ROUTE_NAME%",
+                           "rx_bytes": "%BYTES_RECEIVED%",
+                           "severity": "info",
+                           "timestamp": "%START_TIME%",
+                           "tx_bytes": "%BYTES_SENT%",
+                           "upgrade": "%RESP(UPGRADE)%",
+                           "upstream": "%UPSTREAM_CLUSTER%",
+                           "upstream_host": "%UPSTREAM_HOST%",
+                           "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                           "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                           "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                           "user_agent": "%REQ(USER-AGENT)%",
+                           "x-request-id": "%REQ(X-REQUEST-ID)%",
+                           "xff": "%REQ(X-FORWARDED-FOR)%"
+                        },
+                        "omit_empty_values": true
+                     }
+                  }
+               }
+            ],
             "address": {
                "socket_address": {
                   "address": "0.0.0.0",
@@ -515,18 +678,54 @@
                               {
                                  "name": "envoy.access_loggers.stdout",
                                  "typed_config": {
-                                    "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog"
+                                    "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+                                    "log_format": {
+                                       "json_format": {
+                                          "authority": "%REQ(authority)%",
+                                          "connection_id": "%CONNECTION_ID%",
+                                          "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                                          "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                                          "duration_ms": "%DURATION%",
+                                          "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                                          "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                                          "message": "http response",
+                                          "method": "%REQ(:method)%",
+                                          "pachctl_command": "%REQ(COMMAND):64%",
+                                          "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                                          "protocol": "%PROTOCOL%",
+                                          "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                                          "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                                          "response_code": "%RESPONSE_CODE%",
+                                          "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                                          "response_flags": "%RESPONSE_FLAGS%",
+                                          "route": "%ROUTE_NAME%",
+                                          "rx_bytes": "%BYTES_RECEIVED%",
+                                          "severity": "info",
+                                          "timestamp": "%START_TIME%",
+                                          "tx_bytes": "%BYTES_SENT%",
+                                          "upgrade": "%RESP(UPGRADE)%",
+                                          "upstream": "%UPSTREAM_CLUSTER%",
+                                          "upstream_host": "%UPSTREAM_HOST%",
+                                          "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                                          "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                                          "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                                          "user_agent": "%REQ(USER-AGENT)%",
+                                          "x-request-id": "%REQ(X-REQUEST-ID)%",
+                                          "xff": "%REQ(X-FORWARDED-FOR)%"
+                                       },
+                                       "omit_empty_values": true
+                                    }
                                  }
                               }
                            ],
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
-                              "idle_timeout": "3600s"
+                              "idle_timeout": "86400s"
                            },
                            "http2_protocol_options": {
                               "initial_connection_window_size": 1048576,
-                              "initial_stream_window_size": 65536,
+                              "initial_stream_window_size": 524288,
                               "max_concurrent_streams": 100
                            },
                            "http_filters": [
@@ -570,7 +769,7 @@
                               ]
                            },
                            "stat_prefix": "https-warning",
-                           "stream_idle_timeout": "3600s",
+                           "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
                      }
@@ -582,6 +781,51 @@
             "traffic_direction": "INBOUND"
          },
          {
+            "access_log": [
+               {
+                  "name": "envoy.access_loggers.stdout",
+                  "typed_config": {
+                     "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StderrAccessLog",
+                     "log_format": {
+                        "json_format": {
+                           "authority": "%REQ(authority)%",
+                           "connection_id": "%CONNECTION_ID%",
+                           "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                           "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                           "duration_ms": "%DURATION%",
+                           "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                           "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                           "listener": "direct-pachd-s3",
+                           "message": "listener log",
+                           "method": "%REQ(:method)%",
+                           "pachctl_command": "%REQ(COMMAND):64%",
+                           "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                           "protocol": "%PROTOCOL%",
+                           "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                           "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                           "response_code": "%RESPONSE_CODE%",
+                           "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                           "response_flags": "%RESPONSE_FLAGS%",
+                           "route": "%ROUTE_NAME%",
+                           "rx_bytes": "%BYTES_RECEIVED%",
+                           "severity": "info",
+                           "timestamp": "%START_TIME%",
+                           "tx_bytes": "%BYTES_SENT%",
+                           "upgrade": "%RESP(UPGRADE)%",
+                           "upstream": "%UPSTREAM_CLUSTER%",
+                           "upstream_host": "%UPSTREAM_HOST%",
+                           "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                           "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                           "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                           "user_agent": "%REQ(USER-AGENT)%",
+                           "x-request-id": "%REQ(X-REQUEST-ID)%",
+                           "xff": "%REQ(X-FORWARDED-FOR)%"
+                        },
+                        "omit_empty_values": true
+                     }
+                  }
+               }
+            ],
             "address": {
                "socket_address": {
                   "address": "0.0.0.0",
@@ -599,18 +843,54 @@
                               {
                                  "name": "envoy.access_loggers.stdout",
                                  "typed_config": {
-                                    "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog"
+                                    "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+                                    "log_format": {
+                                       "json_format": {
+                                          "authority": "%REQ(authority)%",
+                                          "connection_id": "%CONNECTION_ID%",
+                                          "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                                          "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                                          "duration_ms": "%DURATION%",
+                                          "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                                          "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                                          "message": "http response",
+                                          "method": "%REQ(:method)%",
+                                          "pachctl_command": "%REQ(COMMAND):64%",
+                                          "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                                          "protocol": "%PROTOCOL%",
+                                          "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                                          "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                                          "response_code": "%RESPONSE_CODE%",
+                                          "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                                          "response_flags": "%RESPONSE_FLAGS%",
+                                          "route": "%ROUTE_NAME%",
+                                          "rx_bytes": "%BYTES_RECEIVED%",
+                                          "severity": "info",
+                                          "timestamp": "%START_TIME%",
+                                          "tx_bytes": "%BYTES_SENT%",
+                                          "upgrade": "%RESP(UPGRADE)%",
+                                          "upstream": "%UPSTREAM_CLUSTER%",
+                                          "upstream_host": "%UPSTREAM_HOST%",
+                                          "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                                          "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                                          "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                                          "user_agent": "%REQ(USER-AGENT)%",
+                                          "x-request-id": "%REQ(X-REQUEST-ID)%",
+                                          "xff": "%REQ(X-FORWARDED-FOR)%"
+                                       },
+                                       "omit_empty_values": true
+                                    }
                                  }
                               }
                            ],
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
-                              "idle_timeout": "3600s"
+                              "idle_timeout": "86400s"
                            },
                            "http2_protocol_options": {
                               "initial_connection_window_size": 1048576,
-                              "initial_stream_window_size": 65536,
+                              "initial_stream_window_size": 524288,
                               "max_concurrent_streams": 100
                            },
                            "http_filters": [
@@ -679,7 +959,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-s3",
-                           "stream_idle_timeout": "3600s",
+                           "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
                      }
@@ -691,6 +971,51 @@
             "traffic_direction": "INBOUND"
          },
          {
+            "access_log": [
+               {
+                  "name": "envoy.access_loggers.stdout",
+                  "typed_config": {
+                     "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StderrAccessLog",
+                     "log_format": {
+                        "json_format": {
+                           "authority": "%REQ(authority)%",
+                           "connection_id": "%CONNECTION_ID%",
+                           "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                           "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                           "duration_ms": "%DURATION%",
+                           "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                           "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                           "listener": "direct-pachd-grpc",
+                           "message": "listener log",
+                           "method": "%REQ(:method)%",
+                           "pachctl_command": "%REQ(COMMAND):64%",
+                           "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                           "protocol": "%PROTOCOL%",
+                           "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                           "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                           "response_code": "%RESPONSE_CODE%",
+                           "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                           "response_flags": "%RESPONSE_FLAGS%",
+                           "route": "%ROUTE_NAME%",
+                           "rx_bytes": "%BYTES_RECEIVED%",
+                           "severity": "info",
+                           "timestamp": "%START_TIME%",
+                           "tx_bytes": "%BYTES_SENT%",
+                           "upgrade": "%RESP(UPGRADE)%",
+                           "upstream": "%UPSTREAM_CLUSTER%",
+                           "upstream_host": "%UPSTREAM_HOST%",
+                           "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                           "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                           "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                           "user_agent": "%REQ(USER-AGENT)%",
+                           "x-request-id": "%REQ(X-REQUEST-ID)%",
+                           "xff": "%REQ(X-FORWARDED-FOR)%"
+                        },
+                        "omit_empty_values": true
+                     }
+                  }
+               }
+            ],
             "address": {
                "socket_address": {
                   "address": "0.0.0.0",
@@ -708,18 +1033,54 @@
                               {
                                  "name": "envoy.access_loggers.stdout",
                                  "typed_config": {
-                                    "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog"
+                                    "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+                                    "log_format": {
+                                       "json_format": {
+                                          "authority": "%REQ(authority)%",
+                                          "connection_id": "%CONNECTION_ID%",
+                                          "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                                          "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                                          "duration_ms": "%DURATION%",
+                                          "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                                          "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                                          "message": "http response",
+                                          "method": "%REQ(:method)%",
+                                          "pachctl_command": "%REQ(COMMAND):64%",
+                                          "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                                          "protocol": "%PROTOCOL%",
+                                          "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                                          "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                                          "response_code": "%RESPONSE_CODE%",
+                                          "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                                          "response_flags": "%RESPONSE_FLAGS%",
+                                          "route": "%ROUTE_NAME%",
+                                          "rx_bytes": "%BYTES_RECEIVED%",
+                                          "severity": "info",
+                                          "timestamp": "%START_TIME%",
+                                          "tx_bytes": "%BYTES_SENT%",
+                                          "upgrade": "%RESP(UPGRADE)%",
+                                          "upstream": "%UPSTREAM_CLUSTER%",
+                                          "upstream_host": "%UPSTREAM_HOST%",
+                                          "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                                          "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                                          "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                                          "user_agent": "%REQ(USER-AGENT)%",
+                                          "x-request-id": "%REQ(X-REQUEST-ID)%",
+                                          "xff": "%REQ(X-FORWARDED-FOR)%"
+                                       },
+                                       "omit_empty_values": true
+                                    }
                                  }
                               }
                            ],
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
-                              "idle_timeout": "3600s"
+                              "idle_timeout": "86400s"
                            },
                            "http2_protocol_options": {
                               "initial_connection_window_size": 1048576,
-                              "initial_stream_window_size": 65536,
+                              "initial_stream_window_size": 524288,
                               "max_concurrent_streams": 100
                            },
                            "http_filters": [
@@ -770,7 +1131,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-grpc",
-                           "stream_idle_timeout": "3600s",
+                           "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
                      }
@@ -782,6 +1143,51 @@
             "traffic_direction": "INBOUND"
          },
          {
+            "access_log": [
+               {
+                  "name": "envoy.access_loggers.stdout",
+                  "typed_config": {
+                     "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StderrAccessLog",
+                     "log_format": {
+                        "json_format": {
+                           "authority": "%REQ(authority)%",
+                           "connection_id": "%CONNECTION_ID%",
+                           "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                           "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                           "duration_ms": "%DURATION%",
+                           "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                           "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                           "listener": "direct-pachd-metrics",
+                           "message": "listener log",
+                           "method": "%REQ(:method)%",
+                           "pachctl_command": "%REQ(COMMAND):64%",
+                           "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                           "protocol": "%PROTOCOL%",
+                           "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                           "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                           "response_code": "%RESPONSE_CODE%",
+                           "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                           "response_flags": "%RESPONSE_FLAGS%",
+                           "route": "%ROUTE_NAME%",
+                           "rx_bytes": "%BYTES_RECEIVED%",
+                           "severity": "info",
+                           "timestamp": "%START_TIME%",
+                           "tx_bytes": "%BYTES_SENT%",
+                           "upgrade": "%RESP(UPGRADE)%",
+                           "upstream": "%UPSTREAM_CLUSTER%",
+                           "upstream_host": "%UPSTREAM_HOST%",
+                           "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                           "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                           "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                           "user_agent": "%REQ(USER-AGENT)%",
+                           "x-request-id": "%REQ(X-REQUEST-ID)%",
+                           "xff": "%REQ(X-FORWARDED-FOR)%"
+                        },
+                        "omit_empty_values": true
+                     }
+                  }
+               }
+            ],
             "address": {
                "socket_address": {
                   "address": "0.0.0.0",
@@ -799,18 +1205,54 @@
                               {
                                  "name": "envoy.access_loggers.stdout",
                                  "typed_config": {
-                                    "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog"
+                                    "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+                                    "log_format": {
+                                       "json_format": {
+                                          "authority": "%REQ(authority)%",
+                                          "connection_id": "%CONNECTION_ID%",
+                                          "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                                          "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                                          "duration_ms": "%DURATION%",
+                                          "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                                          "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                                          "message": "http response",
+                                          "method": "%REQ(:method)%",
+                                          "pachctl_command": "%REQ(COMMAND):64%",
+                                          "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                                          "protocol": "%PROTOCOL%",
+                                          "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                                          "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                                          "response_code": "%RESPONSE_CODE%",
+                                          "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                                          "response_flags": "%RESPONSE_FLAGS%",
+                                          "route": "%ROUTE_NAME%",
+                                          "rx_bytes": "%BYTES_RECEIVED%",
+                                          "severity": "info",
+                                          "timestamp": "%START_TIME%",
+                                          "tx_bytes": "%BYTES_SENT%",
+                                          "upgrade": "%RESP(UPGRADE)%",
+                                          "upstream": "%UPSTREAM_CLUSTER%",
+                                          "upstream_host": "%UPSTREAM_HOST%",
+                                          "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                                          "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                                          "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                                          "user_agent": "%REQ(USER-AGENT)%",
+                                          "x-request-id": "%REQ(X-REQUEST-ID)%",
+                                          "xff": "%REQ(X-FORWARDED-FOR)%"
+                                       },
+                                       "omit_empty_values": true
+                                    }
                                  }
                               }
                            ],
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
-                              "idle_timeout": "3600s"
+                              "idle_timeout": "86400s"
                            },
                            "http2_protocol_options": {
                               "initial_connection_window_size": 1048576,
-                              "initial_stream_window_size": 65536,
+                              "initial_stream_window_size": 524288,
                               "max_concurrent_streams": 100
                            },
                            "http_filters": [
@@ -853,7 +1295,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-metrics",
-                           "stream_idle_timeout": "3600s",
+                           "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
                      }
@@ -865,6 +1307,51 @@
             "traffic_direction": "INBOUND"
          },
          {
+            "access_log": [
+               {
+                  "name": "envoy.access_loggers.stdout",
+                  "typed_config": {
+                     "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StderrAccessLog",
+                     "log_format": {
+                        "json_format": {
+                           "authority": "%REQ(authority)%",
+                           "connection_id": "%CONNECTION_ID%",
+                           "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                           "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                           "duration_ms": "%DURATION%",
+                           "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                           "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                           "listener": "direct-pachd-oidc",
+                           "message": "listener log",
+                           "method": "%REQ(:method)%",
+                           "pachctl_command": "%REQ(COMMAND):64%",
+                           "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                           "protocol": "%PROTOCOL%",
+                           "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                           "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                           "response_code": "%RESPONSE_CODE%",
+                           "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                           "response_flags": "%RESPONSE_FLAGS%",
+                           "route": "%ROUTE_NAME%",
+                           "rx_bytes": "%BYTES_RECEIVED%",
+                           "severity": "info",
+                           "timestamp": "%START_TIME%",
+                           "tx_bytes": "%BYTES_SENT%",
+                           "upgrade": "%RESP(UPGRADE)%",
+                           "upstream": "%UPSTREAM_CLUSTER%",
+                           "upstream_host": "%UPSTREAM_HOST%",
+                           "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                           "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                           "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                           "user_agent": "%REQ(USER-AGENT)%",
+                           "x-request-id": "%REQ(X-REQUEST-ID)%",
+                           "xff": "%REQ(X-FORWARDED-FOR)%"
+                        },
+                        "omit_empty_values": true
+                     }
+                  }
+               }
+            ],
             "address": {
                "socket_address": {
                   "address": "0.0.0.0",
@@ -882,18 +1369,54 @@
                               {
                                  "name": "envoy.access_loggers.stdout",
                                  "typed_config": {
-                                    "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog"
+                                    "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+                                    "log_format": {
+                                       "json_format": {
+                                          "authority": "%REQ(authority)%",
+                                          "connection_id": "%CONNECTION_ID%",
+                                          "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                                          "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                                          "duration_ms": "%DURATION%",
+                                          "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                                          "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                                          "message": "http response",
+                                          "method": "%REQ(:method)%",
+                                          "pachctl_command": "%REQ(COMMAND):64%",
+                                          "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                                          "protocol": "%PROTOCOL%",
+                                          "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                                          "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                                          "response_code": "%RESPONSE_CODE%",
+                                          "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                                          "response_flags": "%RESPONSE_FLAGS%",
+                                          "route": "%ROUTE_NAME%",
+                                          "rx_bytes": "%BYTES_RECEIVED%",
+                                          "severity": "info",
+                                          "timestamp": "%START_TIME%",
+                                          "tx_bytes": "%BYTES_SENT%",
+                                          "upgrade": "%RESP(UPGRADE)%",
+                                          "upstream": "%UPSTREAM_CLUSTER%",
+                                          "upstream_host": "%UPSTREAM_HOST%",
+                                          "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                                          "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                                          "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                                          "user_agent": "%REQ(USER-AGENT)%",
+                                          "x-request-id": "%REQ(X-REQUEST-ID)%",
+                                          "xff": "%REQ(X-FORWARDED-FOR)%"
+                                       },
+                                       "omit_empty_values": true
+                                    }
                                  }
                               }
                            ],
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
-                              "idle_timeout": "3600s"
+                              "idle_timeout": "86400s"
                            },
                            "http2_protocol_options": {
                               "initial_connection_window_size": 1048576,
-                              "initial_stream_window_size": 65536,
+                              "initial_stream_window_size": 524288,
                               "max_concurrent_streams": 100
                            },
                            "http_filters": [
@@ -936,7 +1459,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-oidc",
-                           "stream_idle_timeout": "3600s",
+                           "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
                      }
@@ -948,6 +1471,51 @@
             "traffic_direction": "INBOUND"
          },
          {
+            "access_log": [
+               {
+                  "name": "envoy.access_loggers.stdout",
+                  "typed_config": {
+                     "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StderrAccessLog",
+                     "log_format": {
+                        "json_format": {
+                           "authority": "%REQ(authority)%",
+                           "connection_id": "%CONNECTION_ID%",
+                           "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                           "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                           "duration_ms": "%DURATION%",
+                           "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                           "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                           "listener": "direct-pachd-identity",
+                           "message": "listener log",
+                           "method": "%REQ(:method)%",
+                           "pachctl_command": "%REQ(COMMAND):64%",
+                           "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                           "protocol": "%PROTOCOL%",
+                           "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                           "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                           "response_code": "%RESPONSE_CODE%",
+                           "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                           "response_flags": "%RESPONSE_FLAGS%",
+                           "route": "%ROUTE_NAME%",
+                           "rx_bytes": "%BYTES_RECEIVED%",
+                           "severity": "info",
+                           "timestamp": "%START_TIME%",
+                           "tx_bytes": "%BYTES_SENT%",
+                           "upgrade": "%RESP(UPGRADE)%",
+                           "upstream": "%UPSTREAM_CLUSTER%",
+                           "upstream_host": "%UPSTREAM_HOST%",
+                           "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                           "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                           "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                           "user_agent": "%REQ(USER-AGENT)%",
+                           "x-request-id": "%REQ(X-REQUEST-ID)%",
+                           "xff": "%REQ(X-FORWARDED-FOR)%"
+                        },
+                        "omit_empty_values": true
+                     }
+                  }
+               }
+            ],
             "address": {
                "socket_address": {
                   "address": "0.0.0.0",
@@ -965,18 +1533,54 @@
                               {
                                  "name": "envoy.access_loggers.stdout",
                                  "typed_config": {
-                                    "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog"
+                                    "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+                                    "log_format": {
+                                       "json_format": {
+                                          "authority": "%REQ(authority)%",
+                                          "connection_id": "%CONNECTION_ID%",
+                                          "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                                          "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                                          "duration_ms": "%DURATION%",
+                                          "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                                          "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                                          "message": "http response",
+                                          "method": "%REQ(:method)%",
+                                          "pachctl_command": "%REQ(COMMAND):64%",
+                                          "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                                          "protocol": "%PROTOCOL%",
+                                          "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                                          "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                                          "response_code": "%RESPONSE_CODE%",
+                                          "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                                          "response_flags": "%RESPONSE_FLAGS%",
+                                          "route": "%ROUTE_NAME%",
+                                          "rx_bytes": "%BYTES_RECEIVED%",
+                                          "severity": "info",
+                                          "timestamp": "%START_TIME%",
+                                          "tx_bytes": "%BYTES_SENT%",
+                                          "upgrade": "%RESP(UPGRADE)%",
+                                          "upstream": "%UPSTREAM_CLUSTER%",
+                                          "upstream_host": "%UPSTREAM_HOST%",
+                                          "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                                          "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                                          "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                                          "user_agent": "%REQ(USER-AGENT)%",
+                                          "x-request-id": "%REQ(X-REQUEST-ID)%",
+                                          "xff": "%REQ(X-FORWARDED-FOR)%"
+                                       },
+                                       "omit_empty_values": true
+                                    }
                                  }
                               }
                            ],
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
-                              "idle_timeout": "3600s"
+                              "idle_timeout": "86400s"
                            },
                            "http2_protocol_options": {
                               "initial_connection_window_size": 1048576,
-                              "initial_stream_window_size": 65536,
+                              "initial_stream_window_size": 524288,
                               "max_concurrent_streams": 100
                            },
                            "http_filters": [
@@ -1019,7 +1623,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-identity",
-                           "stream_idle_timeout": "3600s",
+                           "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
                      }
@@ -1031,6 +1635,51 @@
             "traffic_direction": "INBOUND"
          },
          {
+            "access_log": [
+               {
+                  "name": "envoy.access_loggers.stdout",
+                  "typed_config": {
+                     "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StderrAccessLog",
+                     "log_format": {
+                        "json_format": {
+                           "authority": "%REQ(authority)%",
+                           "connection_id": "%CONNECTION_ID%",
+                           "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                           "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                           "duration_ms": "%DURATION%",
+                           "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                           "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                           "listener": "direct-console",
+                           "message": "listener log",
+                           "method": "%REQ(:method)%",
+                           "pachctl_command": "%REQ(COMMAND):64%",
+                           "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                           "protocol": "%PROTOCOL%",
+                           "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                           "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                           "response_code": "%RESPONSE_CODE%",
+                           "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                           "response_flags": "%RESPONSE_FLAGS%",
+                           "route": "%ROUTE_NAME%",
+                           "rx_bytes": "%BYTES_RECEIVED%",
+                           "severity": "info",
+                           "timestamp": "%START_TIME%",
+                           "tx_bytes": "%BYTES_SENT%",
+                           "upgrade": "%RESP(UPGRADE)%",
+                           "upstream": "%UPSTREAM_CLUSTER%",
+                           "upstream_host": "%UPSTREAM_HOST%",
+                           "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                           "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                           "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                           "user_agent": "%REQ(USER-AGENT)%",
+                           "x-request-id": "%REQ(X-REQUEST-ID)%",
+                           "xff": "%REQ(X-FORWARDED-FOR)%"
+                        },
+                        "omit_empty_values": true
+                     }
+                  }
+               }
+            ],
             "address": {
                "socket_address": {
                   "address": "0.0.0.0",
@@ -1048,18 +1697,54 @@
                               {
                                  "name": "envoy.access_loggers.stdout",
                                  "typed_config": {
-                                    "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog"
+                                    "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+                                    "log_format": {
+                                       "json_format": {
+                                          "authority": "%REQ(authority)%",
+                                          "connection_id": "%CONNECTION_ID%",
+                                          "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                                          "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                                          "duration_ms": "%DURATION%",
+                                          "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                                          "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                                          "message": "http response",
+                                          "method": "%REQ(:method)%",
+                                          "pachctl_command": "%REQ(COMMAND):64%",
+                                          "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                                          "protocol": "%PROTOCOL%",
+                                          "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                                          "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                                          "response_code": "%RESPONSE_CODE%",
+                                          "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                                          "response_flags": "%RESPONSE_FLAGS%",
+                                          "route": "%ROUTE_NAME%",
+                                          "rx_bytes": "%BYTES_RECEIVED%",
+                                          "severity": "info",
+                                          "timestamp": "%START_TIME%",
+                                          "tx_bytes": "%BYTES_SENT%",
+                                          "upgrade": "%RESP(UPGRADE)%",
+                                          "upstream": "%UPSTREAM_CLUSTER%",
+                                          "upstream_host": "%UPSTREAM_HOST%",
+                                          "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                                          "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                                          "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                                          "user_agent": "%REQ(USER-AGENT)%",
+                                          "x-request-id": "%REQ(X-REQUEST-ID)%",
+                                          "xff": "%REQ(X-FORWARDED-FOR)%"
+                                       },
+                                       "omit_empty_values": true
+                                    }
                                  }
                               }
                            ],
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
-                              "idle_timeout": "3600s"
+                              "idle_timeout": "86400s"
                            },
                            "http2_protocol_options": {
                               "initial_connection_window_size": 1048576,
-                              "initial_stream_window_size": 65536,
+                              "initial_stream_window_size": 524288,
                               "max_concurrent_streams": 100
                            },
                            "http_filters": [
@@ -1108,7 +1793,7 @@
                               ]
                            },
                            "stat_prefix": "direct-console",
-                           "stream_idle_timeout": "3600s",
+                           "stream_idle_timeout": "86400s",
                            "use_remote_address": true
                         }
                      }

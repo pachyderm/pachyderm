@@ -71,7 +71,7 @@ func (p *prefetcher) Iterate(ctx context.Context, cb func(File) error, opts ...i
 	}
 	var ref *chunk.DataRef
 	var files []File
-	maxFilesBuf := p.storage.shardCountThreshold / int64(p.storage.prefetchLimit)
+	maxFilesBuf := p.storage.shardConfig.NumFiles / int64(p.storage.prefetchLimit)
 	if err := p.FileSet.Iterate(ctx, func(f File) error {
 		// Emit the files if a large number are buffered.
 		if int64(len(files)) >= maxFilesBuf {
