@@ -50,10 +50,15 @@ var funcs = map[string]interface{}{
 	},
 	"title": strings.Title, //nolint:staticcheck
 	"typeName": func(t *string) string {
+
+		if *t == ".google.protobuf.Empty" {
+			return "emptypb.Empty"
+		}
+
 		parts := strings.Split(*t, ".")
-		if len(parts) == 4 && parts[1] == "google" && parts[2] == "protobuf" && parts[3] == "Empty" {
-			// example .google.protobuf.Empty
-			return "emptypb.Empty" //fmt.Sprintf("types.%s", parts[len(parts)-1])
+		if len(parts) == 4 && parts[1] == "google" && parts[2] == "protobuf" {
+			// example .google.protobuf.Duration
+			return fmt.Sprintf("types.%s", parts[len(parts)-1])
 		}
 		// example .pfs_v2.CreateRepoRequest
 		return strings.Join(parts[1:], ".")
