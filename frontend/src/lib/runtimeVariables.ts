@@ -16,7 +16,7 @@ export const getIssuerUri = () => {
 
 export const getSubscriptionsPrefix = () => {
   let subscriptionsPrefix = '';
-  if (window.pachDashConfig) {
+  if (window.pachDashConfig?.REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX) {
     subscriptionsPrefix =
       window.pachDashConfig.REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX;
   } else if (process.env.REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX) {

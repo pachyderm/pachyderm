@@ -6,10 +6,16 @@ import {getSubscriptionsPrefix} from '@dash-frontend/lib/runtimeVariables';
 import {WebSocketLink} from './websocketLink';
 
 export const splitLink = () => {
+  const isProd = process.env.NODE_ENV === 'production';
+  const wsProtocol = window.location.protocol.startsWith('https:')
+    ? 'wss'
+    : 'ws';
+  const wsUrl = isProd
+    ? `${window.location.host}/graphql`
+    : `${window.location.hostname}${getSubscriptionsPrefix()}`;
+
   const webSocketLink = new WebSocketLink({
-    url: `${window.location.protocol.startsWith('https:') ? 'wss' : 'ws'}://${
-      window.location.hostname
-    }${getSubscriptionsPrefix()}`,
+    url: `${wsProtocol}://${wsUrl}`,
     connectionParams: () => {
       return {
         'auth-token': window.localStorage.getItem('auth-token') || '',
