@@ -190,48 +190,43 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 
 // Need to restructure testing such that we have the implementation of this
 // test in one place while still being able to test auth enabled and disabled clusters.
-func TestDebug(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
-	tu.ActivateAuthClient(t, c)
+func testDebug(t *testing.T, c *client.APIClient, projectName, repoName string) {
+	t.Helper()
 	// Get all the authenticated clients at the beginning of the test.
 	// GetAuthenticatedPachClient will always re-activate auth, which
 	// causes PPS to rotate all the pipeline tokens. This makes the RCs
 	// change and recreates all the pods, which used to race with collecting logs.
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
+	require.NoError(t, aliceClient.CreateProject(projectName))
 
-	dataRepo := tu.UniqueString("TestDebug_data")
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, aliceClient.CreateProjectRepo(projectName, repoName))
 
-	expectedFiles, pipelines := tu.DebugFiles(t, dataRepo)
+	expectedFiles, pipelines := tu.DebugFiles(t, projectName, repoName)
 
 	for _, p := range pipelines {
-		require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+		require.NoError(t, aliceClient.CreateProjectPipeline(projectName,
 			p,
 			"",
 			[]string{"bash"},
 			[]string{
-				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repoName),
 				"sleep 45",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+			client.NewProjectPFSInput(projectName, repoName, "/*"),
 			"",
 			false,
 		))
 	}
 
-	commit1, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit1, err := aliceClient.StartProjectCommit(projectName, repoName, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit1, "file", strings.NewReader("foo"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.ID))
+	require.NoError(t, aliceClient.FinishProjectCommit(projectName, repoName, commit1.Branch.Name, commit1.ID))
 
 	jobInfos, err := aliceClient.WaitJobSetAll(commit1.ID, false)
 	require.NoError(t, err)
@@ -272,6 +267,20 @@ func TestDebug(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+func TestDebug(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
+	tu.ActivateAuthClient(t, c)
+	for _, projectName := range []string{pfs.DefaultProjectName, tu.UniqueString("project")} {
+		t.Run(projectName, func(t *testing.T) {
+			testDebug(t, c, projectName, tu.UniqueString("repo"))
+		})
+	}
 }
 
 // asserts that retrieval of Pachd logs requires additional permissions granted to the PachdLogReader role
