@@ -19,13 +19,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	// Import registers the grpc GZIP encoder
 	_ "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 
-	types "github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
@@ -732,13 +732,13 @@ func (c APIClient) DeleteAll() error {
 	}
 	if _, err := c.PpsAPIClient.DeleteAll(
 		c.Ctx(),
-		&types.Empty{},
+		&emptypb.Empty{},
 	); err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.PfsAPIClient.DeleteAll(
 		c.Ctx(),
-		&types.Empty{},
+		&emptypb.Empty{},
 	); err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}

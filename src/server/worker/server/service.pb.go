@@ -8,7 +8,7 @@ import (
 	fmt "fmt"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
-	types "github.com/gogo/protobuf/types"
+	empty "github.com/golang/protobuf/ptypes/empty"
 	pps "github.com/pachyderm/pachyderm/v2/src/pps"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
@@ -177,7 +177,7 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type WorkerClient interface {
-	Status(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*pps.WorkerStatus, error)
+	Status(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*pps.WorkerStatus, error)
 	Cancel(ctx context.Context, in *CancelRequest, opts ...grpc.CallOption) (*CancelResponse, error)
 }
 
@@ -189,7 +189,7 @@ func NewWorkerClient(cc *grpc.ClientConn) WorkerClient {
 	return &workerClient{cc}
 }
 
-func (c *workerClient) Status(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*pps.WorkerStatus, error) {
+func (c *workerClient) Status(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*pps.WorkerStatus, error) {
 	out := new(pps.WorkerStatus)
 	err := c.cc.Invoke(ctx, "/server.Worker/Status", in, out, opts...)
 	if err != nil {
@@ -209,7 +209,7 @@ func (c *workerClient) Cancel(ctx context.Context, in *CancelRequest, opts ...gr
 
 // WorkerServer is the server API for Worker service.
 type WorkerServer interface {
-	Status(context.Context, *types.Empty) (*pps.WorkerStatus, error)
+	Status(context.Context, *empty.Empty) (*pps.WorkerStatus, error)
 	Cancel(context.Context, *CancelRequest) (*CancelResponse, error)
 }
 
@@ -217,7 +217,7 @@ type WorkerServer interface {
 type UnimplementedWorkerServer struct {
 }
 
-func (*UnimplementedWorkerServer) Status(ctx context.Context, req *types.Empty) (*pps.WorkerStatus, error) {
+func (*UnimplementedWorkerServer) Status(ctx context.Context, req *empty.Empty) (*pps.WorkerStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
 func (*UnimplementedWorkerServer) Cancel(ctx context.Context, req *CancelRequest) (*CancelResponse, error) {
@@ -229,7 +229,7 @@ func RegisterWorkerServer(s *grpc.Server, srv WorkerServer) {
 }
 
 func _Worker_Status_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(types.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -241,7 +241,7 @@ func _Worker_Status_Handler(srv interface{}, ctx context.Context, dec func(inter
 		FullMethod: "/server.Worker/Status",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(WorkerServer).Status(ctx, req.(*types.Empty))
+		return srv.(WorkerServer).Status(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }

@@ -51,13 +51,14 @@ var funcs = map[string]interface{}{
 	"title": strings.Title, //nolint:staticcheck
 	"typeName": func(t *string) string {
 		parts := strings.Split(*t, ".")
-		if len(parts) == 4 && parts[1] == "google" && parts[2] == "protobuf" {
+		if len(parts) == 4 && parts[1] == "google" && parts[2] == "protobuf" && parts[3] == "Empty" {
 			// example .google.protobuf.Empty
-			return fmt.Sprintf("types.%s", parts[len(parts)-1])
+			return "emptypb.Empty" //fmt.Sprintf("types.%s", parts[len(parts)-1])
 		}
 		// example .pfs_v2.CreateRepoRequest
 		return strings.Join(parts[1:], ".")
 	},
+
 	"clientName": func(t string) string {
 		return fmt.Sprintf("unsupported%sBuilderClient", strings.Title(t)) //nolint:staticcheck
 	},
@@ -72,8 +73,8 @@ import (
 	{{importPath .}}{{end}}{{end}}
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
-	types "github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func unsupportedError(name string) error {

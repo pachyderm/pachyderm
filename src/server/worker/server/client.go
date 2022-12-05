@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
@@ -36,7 +36,7 @@ func Status(ctx context.Context, pipelineInfo *pps.PipelineInfo, etcdClient *etc
 	if err := forEachWorker(ctx, pipelineInfo, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
 		ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 		defer cancel()
-		status, err := c.Status(ctx, &types.Empty{})
+		status, err := c.Status(ctx, &emptypb.Empty{})
 		if err != nil {
 			log.Warnf("error getting worker status: %v", err)
 			return nil

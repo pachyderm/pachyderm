@@ -33,6 +33,7 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -76,7 +77,7 @@ func NewDumpServer(filePath string, port uint16) *debugDump {
 	mock.Auth.WhoAmI.Use(func(_ context.Context, _ *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error) {
 		return nil, auth.ErrNotActivated
 	})
-	mock.Admin.InspectCluster.Use(func(_ context.Context, _ *types.Empty) (*admin.ClusterInfo, error) {
+	mock.Admin.InspectCluster.Use(func(_ context.Context, _ *emptypb.Empty) (*admin.ClusterInfo, error) {
 		return &admin.ClusterInfo{ID: "debug"}, nil
 	})
 
@@ -553,7 +554,7 @@ func (d *debugDump) inspectJobSet(req *pps.InspectJobSetRequest, srv pps.API_Ins
 	return err
 }
 
-func (d *debugDump) getVersion(context.Context, *types.Empty) (*versionpb.Version, error) {
+func (d *debugDump) getVersion(context.Context, *emptypb.Empty) (*versionpb.Version, error) {
 	var version *versionpb.Version
 	err := d.globTar("pachd/*/pachd/version.txt", func(_ string, r io.Reader) error {
 		b, err := io.ReadAll(r)

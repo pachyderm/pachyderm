@@ -40,13 +40,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
 	"github.com/fatih/color"
-	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
@@ -436,7 +436,7 @@ Environment variables:
 			defer pachClient.Close()
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-			version, err := pachClient.GetVersion(ctx, &types.Empty{})
+			version, err := pachClient.GetVersion(ctx, &emptypb.Empty{})
 
 			if err != nil {
 				buf := bytes.NewBufferString("")

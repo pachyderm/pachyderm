@@ -9,6 +9,7 @@ import (
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	types "github.com/gogo/protobuf/types"
+	empty "github.com/golang/protobuf/ptypes/empty"
 	pfs "github.com/pachyderm/pachyderm/v2/src/pfs"
 	pps "github.com/pachyderm/pachyderm/v2/src/pps"
 	grpc "google.golang.org/grpc"
@@ -766,10 +767,10 @@ type APIClient interface {
 	BatchTransaction(ctx context.Context, in *BatchTransactionRequest, opts ...grpc.CallOption) (*TransactionInfo, error)
 	StartTransaction(ctx context.Context, in *StartTransactionRequest, opts ...grpc.CallOption) (*Transaction, error)
 	InspectTransaction(ctx context.Context, in *InspectTransactionRequest, opts ...grpc.CallOption) (*TransactionInfo, error)
-	DeleteTransaction(ctx context.Context, in *DeleteTransactionRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	DeleteTransaction(ctx context.Context, in *DeleteTransactionRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	ListTransaction(ctx context.Context, in *ListTransactionRequest, opts ...grpc.CallOption) (*TransactionInfos, error)
 	FinishTransaction(ctx context.Context, in *FinishTransactionRequest, opts ...grpc.CallOption) (*TransactionInfo, error)
-	DeleteAll(ctx context.Context, in *DeleteAllRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	DeleteAll(ctx context.Context, in *DeleteAllRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
 type aPIClient struct {
@@ -807,8 +808,8 @@ func (c *aPIClient) InspectTransaction(ctx context.Context, in *InspectTransacti
 	return out, nil
 }
 
-func (c *aPIClient) DeleteTransaction(ctx context.Context, in *DeleteTransactionRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) DeleteTransaction(ctx context.Context, in *DeleteTransactionRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/transaction_v2.API/DeleteTransaction", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -834,8 +835,8 @@ func (c *aPIClient) FinishTransaction(ctx context.Context, in *FinishTransaction
 	return out, nil
 }
 
-func (c *aPIClient) DeleteAll(ctx context.Context, in *DeleteAllRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) DeleteAll(ctx context.Context, in *DeleteAllRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/transaction_v2.API/DeleteAll", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -849,10 +850,10 @@ type APIServer interface {
 	BatchTransaction(context.Context, *BatchTransactionRequest) (*TransactionInfo, error)
 	StartTransaction(context.Context, *StartTransactionRequest) (*Transaction, error)
 	InspectTransaction(context.Context, *InspectTransactionRequest) (*TransactionInfo, error)
-	DeleteTransaction(context.Context, *DeleteTransactionRequest) (*types.Empty, error)
+	DeleteTransaction(context.Context, *DeleteTransactionRequest) (*empty.Empty, error)
 	ListTransaction(context.Context, *ListTransactionRequest) (*TransactionInfos, error)
 	FinishTransaction(context.Context, *FinishTransactionRequest) (*TransactionInfo, error)
-	DeleteAll(context.Context, *DeleteAllRequest) (*types.Empty, error)
+	DeleteAll(context.Context, *DeleteAllRequest) (*empty.Empty, error)
 }
 
 // UnimplementedAPIServer can be embedded to have forward compatible implementations.
@@ -868,7 +869,7 @@ func (*UnimplementedAPIServer) StartTransaction(ctx context.Context, req *StartT
 func (*UnimplementedAPIServer) InspectTransaction(ctx context.Context, req *InspectTransactionRequest) (*TransactionInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InspectTransaction not implemented")
 }
-func (*UnimplementedAPIServer) DeleteTransaction(ctx context.Context, req *DeleteTransactionRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) DeleteTransaction(ctx context.Context, req *DeleteTransactionRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteTransaction not implemented")
 }
 func (*UnimplementedAPIServer) ListTransaction(ctx context.Context, req *ListTransactionRequest) (*TransactionInfos, error) {
@@ -877,7 +878,7 @@ func (*UnimplementedAPIServer) ListTransaction(ctx context.Context, req *ListTra
 func (*UnimplementedAPIServer) FinishTransaction(ctx context.Context, req *FinishTransactionRequest) (*TransactionInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FinishTransaction not implemented")
 }
-func (*UnimplementedAPIServer) DeleteAll(ctx context.Context, req *DeleteAllRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) DeleteAll(ctx context.Context, req *DeleteAllRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAll not implemented")
 }
 

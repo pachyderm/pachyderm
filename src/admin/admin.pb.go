@@ -8,7 +8,7 @@ import (
 	fmt "fmt"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
-	types "github.com/gogo/protobuf/types"
+	empty "github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -121,7 +121,7 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type APIClient interface {
-	InspectCluster(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*ClusterInfo, error)
+	InspectCluster(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ClusterInfo, error)
 }
 
 type aPIClient struct {
@@ -132,7 +132,7 @@ func NewAPIClient(cc *grpc.ClientConn) APIClient {
 	return &aPIClient{cc}
 }
 
-func (c *aPIClient) InspectCluster(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*ClusterInfo, error) {
+func (c *aPIClient) InspectCluster(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*ClusterInfo, error) {
 	out := new(ClusterInfo)
 	err := c.cc.Invoke(ctx, "/admin_v2.API/InspectCluster", in, out, opts...)
 	if err != nil {
@@ -143,14 +143,14 @@ func (c *aPIClient) InspectCluster(ctx context.Context, in *types.Empty, opts ..
 
 // APIServer is the server API for API service.
 type APIServer interface {
-	InspectCluster(context.Context, *types.Empty) (*ClusterInfo, error)
+	InspectCluster(context.Context, *empty.Empty) (*ClusterInfo, error)
 }
 
 // UnimplementedAPIServer can be embedded to have forward compatible implementations.
 type UnimplementedAPIServer struct {
 }
 
-func (*UnimplementedAPIServer) InspectCluster(ctx context.Context, req *types.Empty) (*ClusterInfo, error) {
+func (*UnimplementedAPIServer) InspectCluster(ctx context.Context, req *empty.Empty) (*ClusterInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InspectCluster not implemented")
 }
 
@@ -159,7 +159,7 @@ func RegisterAPIServer(s *grpc.Server, srv APIServer) {
 }
 
 func _API_InspectCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(types.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func _API_InspectCluster_Handler(srv interface{}, ctx context.Context, dec func(
 		FullMethod: "/admin_v2.API/InspectCluster",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).InspectCluster(ctx, req.(*types.Empty))
+		return srv.(APIServer).InspectCluster(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }

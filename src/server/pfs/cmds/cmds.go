@@ -16,9 +16,9 @@ import (
 
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
@@ -253,7 +253,7 @@ or type (e.g. csv, binary, images, etc).`,
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				if all {
-					_, err = c.PfsAPIClient.DeleteAll(c.Ctx(), &types.Empty{})
+					_, err = c.PfsAPIClient.DeleteAll(c.Ctx(), &emptypb.Empty{})
 				} else {
 					_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
 				}
@@ -1835,7 +1835,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 				}
 			}()
 			if len(args) == 0 {
-				resp, err := c.PfsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
+				resp, err := c.PfsAPIClient.RunLoadTestDefault(c.Ctx(), &emptypb.Empty{})
 				if err != nil {
 					return errors.EnsureStack(err)
 				}

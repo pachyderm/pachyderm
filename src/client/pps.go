@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/gogo/protobuf/types"
 )
@@ -1154,7 +1155,7 @@ func (c APIClient) InspectSecret(secret string) (*pps.SecretInfo, error) {
 func (c APIClient) ListSecret() ([]*pps.SecretInfo, error) {
 	secretInfos, err := c.PpsAPIClient.ListSecret(
 		c.Ctx(),
-		&types.Empty{},
+		&emptypb.Empty{},
 	)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)

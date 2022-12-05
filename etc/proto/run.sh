@@ -32,7 +32,6 @@ for i in $(find src -name "*.proto"); do \
         -Isrc \
         --gogofast_out=plugins=grpc,\
 Mgoogle/protobuf/duration.proto=github.com/gogo/protobuf/types,\
-Mgoogle/protobuf/empty.proto=github.com/gogo/protobuf/types,\
 Mgoogle/protobuf/timestamp.proto=github.com/gogo/protobuf/types,\
 Mgoogle/protobuf/wrappers.proto=github.com/gogo/protobuf/types,\
 Mgogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto,\

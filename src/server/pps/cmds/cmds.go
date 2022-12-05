@@ -36,11 +36,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	prompt "github.com/c-bata/go-prompt"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/itchyny/gojq"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -1203,7 +1203,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 
 			secretInfos, err := client.PpsAPIClient.ListSecret(
 				client.Ctx(),
-				&types.Empty{},
+				&emptypb.Empty{},
 			)
 
 			if err != nil {
@@ -1238,7 +1238,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				}
 			}()
 			if len(args) == 0 {
-				resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
+				resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &emptypb.Empty{})
 				if err != nil {
 					return errors.EnsureStack(err)
 				}

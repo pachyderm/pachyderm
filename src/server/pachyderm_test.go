@@ -56,6 +56,7 @@ import (
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func newCountBreakFunc(maxCount int) func(func() error) error {
@@ -10739,7 +10740,7 @@ func TestLoad(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
+	resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &emptypb.Empty{})
 	require.NoError(t, err)
 	buf := &bytes.Buffer{}
 	require.NoError(t, cmdutil.Encoder("", buf).EncodeProto(resp))

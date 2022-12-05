@@ -3,10 +3,10 @@ package server
 import (
 	"context"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // Env is the set of dependencies required by an APIServer
@@ -43,6 +43,6 @@ type apiServer struct {
 	clusterInfo *admin.ClusterInfo
 }
 
-func (a *apiServer) InspectCluster(ctx context.Context, request *types.Empty) (*admin.ClusterInfo, error) {
+func (a *apiServer) InspectCluster(ctx context.Context, request *emptypb.Empty) (*admin.ClusterInfo, error) {
 	return a.clusterInfo, nil
 }

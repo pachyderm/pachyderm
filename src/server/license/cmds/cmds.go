@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
@@ -59,7 +60,7 @@ func ActivateCmd() *cobra.Command {
 			}
 
 			// inspect the activated cluster for its Deployment Id
-			clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &types.Empty{})
+			clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &emptypb.Empty{})
 			if inspectErr != nil {
 				return errors.Wrapf(inspectErr, "could not inspect cluster")
 			}

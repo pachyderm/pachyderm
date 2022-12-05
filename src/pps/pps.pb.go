@@ -10,6 +10,7 @@ import (
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	types "github.com/gogo/protobuf/types"
+	empty "github.com/golang/protobuf/ptypes/empty"
 	pfs "github.com/pachyderm/pachyderm/v2/src/pfs"
 	task "github.com/pachyderm/pachyderm/v2/src/task"
 	grpc "google.golang.org/grpc"
@@ -5975,36 +5976,36 @@ type APIClient interface {
 	ListJob(ctx context.Context, in *ListJobRequest, opts ...grpc.CallOption) (API_ListJobClient, error)
 	ListJobSet(ctx context.Context, in *ListJobSetRequest, opts ...grpc.CallOption) (API_ListJobSetClient, error)
 	SubscribeJob(ctx context.Context, in *SubscribeJobRequest, opts ...grpc.CallOption) (API_SubscribeJobClient, error)
-	DeleteJob(ctx context.Context, in *DeleteJobRequest, opts ...grpc.CallOption) (*types.Empty, error)
-	StopJob(ctx context.Context, in *StopJobRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	DeleteJob(ctx context.Context, in *DeleteJobRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	StopJob(ctx context.Context, in *StopJobRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	InspectDatum(ctx context.Context, in *InspectDatumRequest, opts ...grpc.CallOption) (*DatumInfo, error)
 	// ListDatum returns information about each datum fed to a Pachyderm job
 	ListDatum(ctx context.Context, in *ListDatumRequest, opts ...grpc.CallOption) (API_ListDatumClient, error)
-	RestartDatum(ctx context.Context, in *RestartDatumRequest, opts ...grpc.CallOption) (*types.Empty, error)
-	CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	RestartDatum(ctx context.Context, in *RestartDatumRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	InspectPipeline(ctx context.Context, in *InspectPipelineRequest, opts ...grpc.CallOption) (*PipelineInfo, error)
 	ListPipeline(ctx context.Context, in *ListPipelineRequest, opts ...grpc.CallOption) (API_ListPipelineClient, error)
-	DeletePipeline(ctx context.Context, in *DeletePipelineRequest, opts ...grpc.CallOption) (*types.Empty, error)
-	StartPipeline(ctx context.Context, in *StartPipelineRequest, opts ...grpc.CallOption) (*types.Empty, error)
-	StopPipeline(ctx context.Context, in *StopPipelineRequest, opts ...grpc.CallOption) (*types.Empty, error)
-	RunPipeline(ctx context.Context, in *RunPipelineRequest, opts ...grpc.CallOption) (*types.Empty, error)
-	RunCron(ctx context.Context, in *RunCronRequest, opts ...grpc.CallOption) (*types.Empty, error)
-	CreateSecret(ctx context.Context, in *CreateSecretRequest, opts ...grpc.CallOption) (*types.Empty, error)
-	DeleteSecret(ctx context.Context, in *DeleteSecretRequest, opts ...grpc.CallOption) (*types.Empty, error)
-	ListSecret(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*SecretInfos, error)
+	DeletePipeline(ctx context.Context, in *DeletePipelineRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	StartPipeline(ctx context.Context, in *StartPipelineRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	StopPipeline(ctx context.Context, in *StopPipelineRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	RunPipeline(ctx context.Context, in *RunPipelineRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	RunCron(ctx context.Context, in *RunCronRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	CreateSecret(ctx context.Context, in *CreateSecretRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	DeleteSecret(ctx context.Context, in *DeleteSecretRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	ListSecret(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*SecretInfos, error)
 	InspectSecret(ctx context.Context, in *InspectSecretRequest, opts ...grpc.CallOption) (*SecretInfo, error)
 	// DeleteAll deletes everything
-	DeleteAll(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*types.Empty, error)
+	DeleteAll(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 	GetLogs(ctx context.Context, in *GetLogsRequest, opts ...grpc.CallOption) (API_GetLogsClient, error)
 	// An internal call that causes PPS to put itself into an auth-enabled state
 	// (all pipeline have tokens, correct permissions, etcd)
 	ActivateAuth(ctx context.Context, in *ActivateAuthRequest, opts ...grpc.CallOption) (*ActivateAuthResponse, error)
 	// An internal call used to move a job from one state to another
-	UpdateJobState(ctx context.Context, in *UpdateJobStateRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	UpdateJobState(ctx context.Context, in *UpdateJobStateRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// RunLoadTest runs a load test.
 	RunLoadTest(ctx context.Context, in *RunLoadTestRequest, opts ...grpc.CallOption) (*RunLoadTestResponse, error)
 	// RunLoadTestDefault runs the default load test.
-	RunLoadTestDefault(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*RunLoadTestResponse, error)
+	RunLoadTestDefault(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*RunLoadTestResponse, error)
 	// RenderTemplate renders the provided template and arguments into a list of Pipeline specicifications
 	RenderTemplate(ctx context.Context, in *RenderTemplateRequest, opts ...grpc.CallOption) (*RenderTemplateResponse, error)
 	// ListTask lists PPS tasks
@@ -6156,8 +6157,8 @@ func (x *aPISubscribeJobClient) Recv() (*JobInfo, error) {
 	return m, nil
 }
 
-func (c *aPIClient) DeleteJob(ctx context.Context, in *DeleteJobRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) DeleteJob(ctx context.Context, in *DeleteJobRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pps_v2.API/DeleteJob", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6165,8 +6166,8 @@ func (c *aPIClient) DeleteJob(ctx context.Context, in *DeleteJobRequest, opts ..
 	return out, nil
 }
 
-func (c *aPIClient) StopJob(ctx context.Context, in *StopJobRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) StopJob(ctx context.Context, in *StopJobRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pps_v2.API/StopJob", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6215,8 +6216,8 @@ func (x *aPIListDatumClient) Recv() (*DatumInfo, error) {
 	return m, nil
 }
 
-func (c *aPIClient) RestartDatum(ctx context.Context, in *RestartDatumRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) RestartDatum(ctx context.Context, in *RestartDatumRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pps_v2.API/RestartDatum", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6224,8 +6225,8 @@ func (c *aPIClient) RestartDatum(ctx context.Context, in *RestartDatumRequest, o
 	return out, nil
 }
 
-func (c *aPIClient) CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pps_v2.API/CreatePipeline", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6274,8 +6275,8 @@ func (x *aPIListPipelineClient) Recv() (*PipelineInfo, error) {
 	return m, nil
 }
 
-func (c *aPIClient) DeletePipeline(ctx context.Context, in *DeletePipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) DeletePipeline(ctx context.Context, in *DeletePipelineRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pps_v2.API/DeletePipeline", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6283,8 +6284,8 @@ func (c *aPIClient) DeletePipeline(ctx context.Context, in *DeletePipelineReques
 	return out, nil
 }
 
-func (c *aPIClient) StartPipeline(ctx context.Context, in *StartPipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) StartPipeline(ctx context.Context, in *StartPipelineRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pps_v2.API/StartPipeline", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6292,8 +6293,8 @@ func (c *aPIClient) StartPipeline(ctx context.Context, in *StartPipelineRequest,
 	return out, nil
 }
 
-func (c *aPIClient) StopPipeline(ctx context.Context, in *StopPipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) StopPipeline(ctx context.Context, in *StopPipelineRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pps_v2.API/StopPipeline", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6301,8 +6302,8 @@ func (c *aPIClient) StopPipeline(ctx context.Context, in *StopPipelineRequest, o
 	return out, nil
 }
 
-func (c *aPIClient) RunPipeline(ctx context.Context, in *RunPipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) RunPipeline(ctx context.Context, in *RunPipelineRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pps_v2.API/RunPipeline", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6310,8 +6311,8 @@ func (c *aPIClient) RunPipeline(ctx context.Context, in *RunPipelineRequest, opt
 	return out, nil
 }
 
-func (c *aPIClient) RunCron(ctx context.Context, in *RunCronRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) RunCron(ctx context.Context, in *RunCronRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pps_v2.API/RunCron", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6319,8 +6320,8 @@ func (c *aPIClient) RunCron(ctx context.Context, in *RunCronRequest, opts ...grp
 	return out, nil
 }
 
-func (c *aPIClient) CreateSecret(ctx context.Context, in *CreateSecretRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) CreateSecret(ctx context.Context, in *CreateSecretRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pps_v2.API/CreateSecret", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6328,8 +6329,8 @@ func (c *aPIClient) CreateSecret(ctx context.Context, in *CreateSecretRequest, o
 	return out, nil
 }
 
-func (c *aPIClient) DeleteSecret(ctx context.Context, in *DeleteSecretRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) DeleteSecret(ctx context.Context, in *DeleteSecretRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pps_v2.API/DeleteSecret", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6337,7 +6338,7 @@ func (c *aPIClient) DeleteSecret(ctx context.Context, in *DeleteSecretRequest, o
 	return out, nil
 }
 
-func (c *aPIClient) ListSecret(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*SecretInfos, error) {
+func (c *aPIClient) ListSecret(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*SecretInfos, error) {
 	out := new(SecretInfos)
 	err := c.cc.Invoke(ctx, "/pps_v2.API/ListSecret", in, out, opts...)
 	if err != nil {
@@ -6355,8 +6356,8 @@ func (c *aPIClient) InspectSecret(ctx context.Context, in *InspectSecretRequest,
 	return out, nil
 }
 
-func (c *aPIClient) DeleteAll(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) DeleteAll(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pps_v2.API/DeleteAll", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6405,8 +6406,8 @@ func (c *aPIClient) ActivateAuth(ctx context.Context, in *ActivateAuthRequest, o
 	return out, nil
 }
 
-func (c *aPIClient) UpdateJobState(ctx context.Context, in *UpdateJobStateRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) UpdateJobState(ctx context.Context, in *UpdateJobStateRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pps_v2.API/UpdateJobState", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6423,7 +6424,7 @@ func (c *aPIClient) RunLoadTest(ctx context.Context, in *RunLoadTestRequest, opt
 	return out, nil
 }
 
-func (c *aPIClient) RunLoadTestDefault(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*RunLoadTestResponse, error) {
+func (c *aPIClient) RunLoadTestDefault(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*RunLoadTestResponse, error) {
 	out := new(RunLoadTestResponse)
 	err := c.cc.Invoke(ctx, "/pps_v2.API/RunLoadTestDefault", in, out, opts...)
 	if err != nil {
@@ -6481,36 +6482,36 @@ type APIServer interface {
 	ListJob(*ListJobRequest, API_ListJobServer) error
 	ListJobSet(*ListJobSetRequest, API_ListJobSetServer) error
 	SubscribeJob(*SubscribeJobRequest, API_SubscribeJobServer) error
-	DeleteJob(context.Context, *DeleteJobRequest) (*types.Empty, error)
-	StopJob(context.Context, *StopJobRequest) (*types.Empty, error)
+	DeleteJob(context.Context, *DeleteJobRequest) (*empty.Empty, error)
+	StopJob(context.Context, *StopJobRequest) (*empty.Empty, error)
 	InspectDatum(context.Context, *InspectDatumRequest) (*DatumInfo, error)
 	// ListDatum returns information about each datum fed to a Pachyderm job
 	ListDatum(*ListDatumRequest, API_ListDatumServer) error
-	RestartDatum(context.Context, *RestartDatumRequest) (*types.Empty, error)
-	CreatePipeline(context.Context, *CreatePipelineRequest) (*types.Empty, error)
+	RestartDatum(context.Context, *RestartDatumRequest) (*empty.Empty, error)
+	CreatePipeline(context.Context, *CreatePipelineRequest) (*empty.Empty, error)
 	InspectPipeline(context.Context, *InspectPipelineRequest) (*PipelineInfo, error)
 	ListPipeline(*ListPipelineRequest, API_ListPipelineServer) error
-	DeletePipeline(context.Context, *DeletePipelineRequest) (*types.Empty, error)
-	StartPipeline(context.Context, *StartPipelineRequest) (*types.Empty, error)
-	StopPipeline(context.Context, *StopPipelineRequest) (*types.Empty, error)
-	RunPipeline(context.Context, *RunPipelineRequest) (*types.Empty, error)
-	RunCron(context.Context, *RunCronRequest) (*types.Empty, error)
-	CreateSecret(context.Context, *CreateSecretRequest) (*types.Empty, error)
-	DeleteSecret(context.Context, *DeleteSecretRequest) (*types.Empty, error)
-	ListSecret(context.Context, *types.Empty) (*SecretInfos, error)
+	DeletePipeline(context.Context, *DeletePipelineRequest) (*empty.Empty, error)
+	StartPipeline(context.Context, *StartPipelineRequest) (*empty.Empty, error)
+	StopPipeline(context.Context, *StopPipelineRequest) (*empty.Empty, error)
+	RunPipeline(context.Context, *RunPipelineRequest) (*empty.Empty, error)
+	RunCron(context.Context, *RunCronRequest) (*empty.Empty, error)
+	CreateSecret(context.Context, *CreateSecretRequest) (*empty.Empty, error)
+	DeleteSecret(context.Context, *DeleteSecretRequest) (*empty.Empty, error)
+	ListSecret(context.Context, *empty.Empty) (*SecretInfos, error)
 	InspectSecret(context.Context, *InspectSecretRequest) (*SecretInfo, error)
 	// DeleteAll deletes everything
-	DeleteAll(context.Context, *types.Empty) (*types.Empty, error)
+	DeleteAll(context.Context, *empty.Empty) (*empty.Empty, error)
 	GetLogs(*GetLogsRequest, API_GetLogsServer) error
 	// An internal call that causes PPS to put itself into an auth-enabled state
 	// (all pipeline have tokens, correct permissions, etcd)
 	ActivateAuth(context.Context, *ActivateAuthRequest) (*ActivateAuthResponse, error)
 	// An internal call used to move a job from one state to another
-	UpdateJobState(context.Context, *UpdateJobStateRequest) (*types.Empty, error)
+	UpdateJobState(context.Context, *UpdateJobStateRequest) (*empty.Empty, error)
 	// RunLoadTest runs a load test.
 	RunLoadTest(context.Context, *RunLoadTestRequest) (*RunLoadTestResponse, error)
 	// RunLoadTestDefault runs the default load test.
-	RunLoadTestDefault(context.Context, *types.Empty) (*RunLoadTestResponse, error)
+	RunLoadTestDefault(context.Context, *empty.Empty) (*RunLoadTestResponse, error)
 	// RenderTemplate renders the provided template and arguments into a list of Pipeline specicifications
 	RenderTemplate(context.Context, *RenderTemplateRequest) (*RenderTemplateResponse, error)
 	// ListTask lists PPS tasks
@@ -6536,10 +6537,10 @@ func (*UnimplementedAPIServer) ListJobSet(req *ListJobSetRequest, srv API_ListJo
 func (*UnimplementedAPIServer) SubscribeJob(req *SubscribeJobRequest, srv API_SubscribeJobServer) error {
 	return status.Errorf(codes.Unimplemented, "method SubscribeJob not implemented")
 }
-func (*UnimplementedAPIServer) DeleteJob(ctx context.Context, req *DeleteJobRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) DeleteJob(ctx context.Context, req *DeleteJobRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteJob not implemented")
 }
-func (*UnimplementedAPIServer) StopJob(ctx context.Context, req *StopJobRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) StopJob(ctx context.Context, req *StopJobRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StopJob not implemented")
 }
 func (*UnimplementedAPIServer) InspectDatum(ctx context.Context, req *InspectDatumRequest) (*DatumInfo, error) {
@@ -6548,10 +6549,10 @@ func (*UnimplementedAPIServer) InspectDatum(ctx context.Context, req *InspectDat
 func (*UnimplementedAPIServer) ListDatum(req *ListDatumRequest, srv API_ListDatumServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListDatum not implemented")
 }
-func (*UnimplementedAPIServer) RestartDatum(ctx context.Context, req *RestartDatumRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) RestartDatum(ctx context.Context, req *RestartDatumRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RestartDatum not implemented")
 }
-func (*UnimplementedAPIServer) CreatePipeline(ctx context.Context, req *CreatePipelineRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) CreatePipeline(ctx context.Context, req *CreatePipelineRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreatePipeline not implemented")
 }
 func (*UnimplementedAPIServer) InspectPipeline(ctx context.Context, req *InspectPipelineRequest) (*PipelineInfo, error) {
@@ -6560,34 +6561,34 @@ func (*UnimplementedAPIServer) InspectPipeline(ctx context.Context, req *Inspect
 func (*UnimplementedAPIServer) ListPipeline(req *ListPipelineRequest, srv API_ListPipelineServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListPipeline not implemented")
 }
-func (*UnimplementedAPIServer) DeletePipeline(ctx context.Context, req *DeletePipelineRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) DeletePipeline(ctx context.Context, req *DeletePipelineRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeletePipeline not implemented")
 }
-func (*UnimplementedAPIServer) StartPipeline(ctx context.Context, req *StartPipelineRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) StartPipeline(ctx context.Context, req *StartPipelineRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartPipeline not implemented")
 }
-func (*UnimplementedAPIServer) StopPipeline(ctx context.Context, req *StopPipelineRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) StopPipeline(ctx context.Context, req *StopPipelineRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StopPipeline not implemented")
 }
-func (*UnimplementedAPIServer) RunPipeline(ctx context.Context, req *RunPipelineRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) RunPipeline(ctx context.Context, req *RunPipelineRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunPipeline not implemented")
 }
-func (*UnimplementedAPIServer) RunCron(ctx context.Context, req *RunCronRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) RunCron(ctx context.Context, req *RunCronRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunCron not implemented")
 }
-func (*UnimplementedAPIServer) CreateSecret(ctx context.Context, req *CreateSecretRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) CreateSecret(ctx context.Context, req *CreateSecretRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateSecret not implemented")
 }
-func (*UnimplementedAPIServer) DeleteSecret(ctx context.Context, req *DeleteSecretRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) DeleteSecret(ctx context.Context, req *DeleteSecretRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteSecret not implemented")
 }
-func (*UnimplementedAPIServer) ListSecret(ctx context.Context, req *types.Empty) (*SecretInfos, error) {
+func (*UnimplementedAPIServer) ListSecret(ctx context.Context, req *empty.Empty) (*SecretInfos, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListSecret not implemented")
 }
 func (*UnimplementedAPIServer) InspectSecret(ctx context.Context, req *InspectSecretRequest) (*SecretInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InspectSecret not implemented")
 }
-func (*UnimplementedAPIServer) DeleteAll(ctx context.Context, req *types.Empty) (*types.Empty, error) {
+func (*UnimplementedAPIServer) DeleteAll(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAll not implemented")
 }
 func (*UnimplementedAPIServer) GetLogs(req *GetLogsRequest, srv API_GetLogsServer) error {
@@ -6596,13 +6597,13 @@ func (*UnimplementedAPIServer) GetLogs(req *GetLogsRequest, srv API_GetLogsServe
 func (*UnimplementedAPIServer) ActivateAuth(ctx context.Context, req *ActivateAuthRequest) (*ActivateAuthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ActivateAuth not implemented")
 }
-func (*UnimplementedAPIServer) UpdateJobState(ctx context.Context, req *UpdateJobStateRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) UpdateJobState(ctx context.Context, req *UpdateJobStateRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateJobState not implemented")
 }
 func (*UnimplementedAPIServer) RunLoadTest(ctx context.Context, req *RunLoadTestRequest) (*RunLoadTestResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunLoadTest not implemented")
 }
-func (*UnimplementedAPIServer) RunLoadTestDefault(ctx context.Context, req *types.Empty) (*RunLoadTestResponse, error) {
+func (*UnimplementedAPIServer) RunLoadTestDefault(ctx context.Context, req *empty.Empty) (*RunLoadTestResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunLoadTestDefault not implemented")
 }
 func (*UnimplementedAPIServer) RenderTemplate(ctx context.Context, req *RenderTemplateRequest) (*RenderTemplateResponse, error) {
@@ -6995,7 +6996,7 @@ func _API_DeleteSecret_Handler(srv interface{}, ctx context.Context, dec func(in
 }
 
 func _API_ListSecret_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(types.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -7007,7 +7008,7 @@ func _API_ListSecret_Handler(srv interface{}, ctx context.Context, dec func(inte
 		FullMethod: "/pps_v2.API/ListSecret",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).ListSecret(ctx, req.(*types.Empty))
+		return srv.(APIServer).ListSecret(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -7031,7 +7032,7 @@ func _API_InspectSecret_Handler(srv interface{}, ctx context.Context, dec func(i
 }
 
 func _API_DeleteAll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(types.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -7043,7 +7044,7 @@ func _API_DeleteAll_Handler(srv interface{}, ctx context.Context, dec func(inter
 		FullMethod: "/pps_v2.API/DeleteAll",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).DeleteAll(ctx, req.(*types.Empty))
+		return srv.(APIServer).DeleteAll(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -7124,7 +7125,7 @@ func _API_RunLoadTest_Handler(srv interface{}, ctx context.Context, dec func(int
 }
 
 func _API_RunLoadTestDefault_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(types.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -7136,7 +7137,7 @@ func _API_RunLoadTestDefault_Handler(srv interface{}, ctx context.Context, dec f
 		FullMethod: "/pps_v2.API/RunLoadTestDefault",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).RunLoadTestDefault(ctx, req.(*types.Empty))
+		return srv.(APIServer).RunLoadTestDefault(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }

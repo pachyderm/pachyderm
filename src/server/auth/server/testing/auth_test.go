@@ -30,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func envWithAuth(t *testing.T) *realenv.RealEnv {
@@ -1304,7 +1305,7 @@ func TestDeleteAllRepos(t *testing.T) {
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, aliceRepo))
 
 	// alice calls DeleteAll. It passes, but only deletes the repos she was authorized to delete
-	_, err := aliceClient.PfsAPIClient.DeleteAll(aliceClient.Ctx(), &types.Empty{})
+	_, err := aliceClient.PfsAPIClient.DeleteAll(aliceClient.Ctx(), &emptypb.Empty{})
 	require.NoError(t, err)
 
 	listResp, err := aliceClient.ListRepo()
@@ -2053,7 +2054,7 @@ func TestLoad(t *testing.T) {
 	c := env.PachClient
 	alice := tu.UniqueString("robot:alice")
 	aliceClient := tu.AuthenticateClient(t, c, alice)
-	resp, err := aliceClient.PfsAPIClient.RunLoadTestDefault(aliceClient.Ctx(), &types.Empty{})
+	resp, err := aliceClient.PfsAPIClient.RunLoadTestDefault(aliceClient.Ctx(), &emptypb.Empty{})
 	require.NoError(t, err)
 	buf := &bytes.Buffer{}
 	require.NoError(t, cmdutil.Encoder("", buf).EncodeProto(resp))

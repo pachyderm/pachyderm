@@ -9,6 +9,7 @@ import (
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	types "github.com/gogo/protobuf/types"
+	empty "github.com/golang/protobuf/ptypes/empty"
 	auth "github.com/pachyderm/pachyderm/v2/src/auth"
 	task "github.com/pachyderm/pachyderm/v2/src/task"
 	grpc "google.golang.org/grpc"
@@ -5433,19 +5434,19 @@ const _ = grpc.SupportPackageIsVersion4
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type APIClient interface {
 	// CreateRepo creates a new repo.
-	CreateRepo(ctx context.Context, in *CreateRepoRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	CreateRepo(ctx context.Context, in *CreateRepoRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// InspectRepo returns info about a repo.
 	InspectRepo(ctx context.Context, in *InspectRepoRequest, opts ...grpc.CallOption) (*RepoInfo, error)
 	// ListRepo returns info about all repos.
 	ListRepo(ctx context.Context, in *ListRepoRequest, opts ...grpc.CallOption) (API_ListRepoClient, error)
 	// DeleteRepo deletes a repo.
-	DeleteRepo(ctx context.Context, in *DeleteRepoRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	DeleteRepo(ctx context.Context, in *DeleteRepoRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// StartCommit creates a new write commit from a parent commit.
 	StartCommit(ctx context.Context, in *StartCommitRequest, opts ...grpc.CallOption) (*Commit, error)
 	// FinishCommit turns a write commit into a read commit.
-	FinishCommit(ctx context.Context, in *FinishCommitRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	FinishCommit(ctx context.Context, in *FinishCommitRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// ClearCommit removes all data from the commit.
-	ClearCommit(ctx context.Context, in *ClearCommitRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	ClearCommit(ctx context.Context, in *ClearCommitRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// InspectCommit returns the info about a commit.
 	InspectCommit(ctx context.Context, in *InspectCommitRequest, opts ...grpc.CallOption) (*CommitInfo, error)
 	// ListCommit returns info about all commits.
@@ -5457,17 +5458,17 @@ type APIClient interface {
 	// ListCommitSet returns info about all CommitSets.
 	ListCommitSet(ctx context.Context, in *ListCommitSetRequest, opts ...grpc.CallOption) (API_ListCommitSetClient, error)
 	// SquashCommitSet squashes the commits of a CommitSet into their children.
-	SquashCommitSet(ctx context.Context, in *SquashCommitSetRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	SquashCommitSet(ctx context.Context, in *SquashCommitSetRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// DropCommitSet drops the commits of a CommitSet and all data included in the commits.
-	DropCommitSet(ctx context.Context, in *DropCommitSetRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	DropCommitSet(ctx context.Context, in *DropCommitSetRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// CreateBranch creates a new branch.
-	CreateBranch(ctx context.Context, in *CreateBranchRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	CreateBranch(ctx context.Context, in *CreateBranchRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// InspectBranch returns info about a branch.
 	InspectBranch(ctx context.Context, in *InspectBranchRequest, opts ...grpc.CallOption) (*BranchInfo, error)
 	// ListBranch returns info about the heads of branches.
 	ListBranch(ctx context.Context, in *ListBranchRequest, opts ...grpc.CallOption) (API_ListBranchClient, error)
 	// DeleteBranch deletes a branch; note that the commits still exist.
-	DeleteBranch(ctx context.Context, in *DeleteBranchRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	DeleteBranch(ctx context.Context, in *DeleteBranchRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// ModifyFile performs modifications on a set of files.
 	ModifyFile(ctx context.Context, opts ...grpc.CallOption) (API_ModifyFileClient, error)
 	// GetFile returns the contents of a single file
@@ -5487,7 +5488,7 @@ type APIClient interface {
 	// ActivateAuth creates a role binding for all existing repos
 	ActivateAuth(ctx context.Context, in *ActivateAuthRequest, opts ...grpc.CallOption) (*ActivateAuthResponse, error)
 	// DeleteAll deletes everything.
-	DeleteAll(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*types.Empty, error)
+	DeleteAll(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 	// Fsck does a file system consistency check for pfs.
 	Fsck(ctx context.Context, in *FsckRequest, opts ...grpc.CallOption) (API_FsckClient, error)
 	// FileSet API
@@ -5496,34 +5497,34 @@ type APIClient interface {
 	// GetFileSet returns a file set with the data from a commit
 	GetFileSet(ctx context.Context, in *GetFileSetRequest, opts ...grpc.CallOption) (*CreateFileSetResponse, error)
 	// AddFileSet associates a file set with a commit
-	AddFileSet(ctx context.Context, in *AddFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	AddFileSet(ctx context.Context, in *AddFileSetRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// RenewFileSet prevents a file set from being deleted for a set amount of time.
-	RenewFileSet(ctx context.Context, in *RenewFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	RenewFileSet(ctx context.Context, in *RenewFileSetRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// ComposeFileSet composes a file set from a list of file sets.
 	ComposeFileSet(ctx context.Context, in *ComposeFileSetRequest, opts ...grpc.CallOption) (*CreateFileSetResponse, error)
 	ShardFileSet(ctx context.Context, in *ShardFileSetRequest, opts ...grpc.CallOption) (*ShardFileSetResponse, error)
 	// CheckStorage runs integrity checks for the storage layer.
 	CheckStorage(ctx context.Context, in *CheckStorageRequest, opts ...grpc.CallOption) (*CheckStorageResponse, error)
-	PutCache(ctx context.Context, in *PutCacheRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	PutCache(ctx context.Context, in *PutCacheRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	GetCache(ctx context.Context, in *GetCacheRequest, opts ...grpc.CallOption) (*GetCacheResponse, error)
-	ClearCache(ctx context.Context, in *ClearCacheRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	ClearCache(ctx context.Context, in *ClearCacheRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// RunLoadTest runs a load test.
 	RunLoadTest(ctx context.Context, in *RunLoadTestRequest, opts ...grpc.CallOption) (*RunLoadTestResponse, error)
 	// RunLoadTestDefault runs the default load tests.
-	RunLoadTestDefault(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*RunLoadTestResponse, error)
+	RunLoadTestDefault(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*RunLoadTestResponse, error)
 	// ListTask lists PFS tasks
 	ListTask(ctx context.Context, in *task.ListTaskRequest, opts ...grpc.CallOption) (API_ListTaskClient, error)
 	// Egress writes data from a commit to an external system
 	Egress(ctx context.Context, in *EgressRequest, opts ...grpc.CallOption) (*EgressResponse, error)
 	// Project API
 	// CreateProject creates a new project.
-	CreateProject(ctx context.Context, in *CreateProjectRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	CreateProject(ctx context.Context, in *CreateProjectRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// InspectProject returns info about a project.
 	InspectProject(ctx context.Context, in *InspectProjectRequest, opts ...grpc.CallOption) (*ProjectInfo, error)
 	// ListProject returns info about all projects.
 	ListProject(ctx context.Context, in *ListProjectRequest, opts ...grpc.CallOption) (API_ListProjectClient, error)
 	// DeleteProject deletes a project.
-	DeleteProject(ctx context.Context, in *DeleteProjectRequest, opts ...grpc.CallOption) (*types.Empty, error)
+	DeleteProject(ctx context.Context, in *DeleteProjectRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
 type aPIClient struct {
@@ -5534,8 +5535,8 @@ func NewAPIClient(cc *grpc.ClientConn) APIClient {
 	return &aPIClient{cc}
 }
 
-func (c *aPIClient) CreateRepo(ctx context.Context, in *CreateRepoRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) CreateRepo(ctx context.Context, in *CreateRepoRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pfs_v2.API/CreateRepo", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -5584,8 +5585,8 @@ func (x *aPIListRepoClient) Recv() (*RepoInfo, error) {
 	return m, nil
 }
 
-func (c *aPIClient) DeleteRepo(ctx context.Context, in *DeleteRepoRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) DeleteRepo(ctx context.Context, in *DeleteRepoRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pfs_v2.API/DeleteRepo", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -5602,8 +5603,8 @@ func (c *aPIClient) StartCommit(ctx context.Context, in *StartCommitRequest, opt
 	return out, nil
 }
 
-func (c *aPIClient) FinishCommit(ctx context.Context, in *FinishCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) FinishCommit(ctx context.Context, in *FinishCommitRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pfs_v2.API/FinishCommit", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -5611,8 +5612,8 @@ func (c *aPIClient) FinishCommit(ctx context.Context, in *FinishCommitRequest, o
 	return out, nil
 }
 
-func (c *aPIClient) ClearCommit(ctx context.Context, in *ClearCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) ClearCommit(ctx context.Context, in *ClearCommitRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pfs_v2.API/ClearCommit", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -5757,8 +5758,8 @@ func (x *aPIListCommitSetClient) Recv() (*CommitSetInfo, error) {
 	return m, nil
 }
 
-func (c *aPIClient) SquashCommitSet(ctx context.Context, in *SquashCommitSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) SquashCommitSet(ctx context.Context, in *SquashCommitSetRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pfs_v2.API/SquashCommitSet", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -5766,8 +5767,8 @@ func (c *aPIClient) SquashCommitSet(ctx context.Context, in *SquashCommitSetRequ
 	return out, nil
 }
 
-func (c *aPIClient) DropCommitSet(ctx context.Context, in *DropCommitSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) DropCommitSet(ctx context.Context, in *DropCommitSetRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pfs_v2.API/DropCommitSet", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -5775,8 +5776,8 @@ func (c *aPIClient) DropCommitSet(ctx context.Context, in *DropCommitSetRequest,
 	return out, nil
 }
 
-func (c *aPIClient) CreateBranch(ctx context.Context, in *CreateBranchRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) CreateBranch(ctx context.Context, in *CreateBranchRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pfs_v2.API/CreateBranch", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -5825,8 +5826,8 @@ func (x *aPIListBranchClient) Recv() (*BranchInfo, error) {
 	return m, nil
 }
 
-func (c *aPIClient) DeleteBranch(ctx context.Context, in *DeleteBranchRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) DeleteBranch(ctx context.Context, in *DeleteBranchRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pfs_v2.API/DeleteBranch", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -5845,7 +5846,7 @@ func (c *aPIClient) ModifyFile(ctx context.Context, opts ...grpc.CallOption) (AP
 
 type API_ModifyFileClient interface {
 	Send(*ModifyFileRequest) error
-	CloseAndRecv() (*types.Empty, error)
+	CloseAndRecv() (*empty.Empty, error)
 	grpc.ClientStream
 }
 
@@ -5857,11 +5858,11 @@ func (x *aPIModifyFileClient) Send(m *ModifyFileRequest) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *aPIModifyFileClient) CloseAndRecv() (*types.Empty, error) {
+func (x *aPIModifyFileClient) CloseAndRecv() (*empty.Empty, error) {
 	if err := x.ClientStream.CloseSend(); err != nil {
 		return nil, err
 	}
-	m := new(types.Empty)
+	m := new(empty.Empty)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -6078,8 +6079,8 @@ func (c *aPIClient) ActivateAuth(ctx context.Context, in *ActivateAuthRequest, o
 	return out, nil
 }
 
-func (c *aPIClient) DeleteAll(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) DeleteAll(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pfs_v2.API/DeleteAll", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6162,8 +6163,8 @@ func (c *aPIClient) GetFileSet(ctx context.Context, in *GetFileSetRequest, opts 
 	return out, nil
 }
 
-func (c *aPIClient) AddFileSet(ctx context.Context, in *AddFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) AddFileSet(ctx context.Context, in *AddFileSetRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pfs_v2.API/AddFileSet", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6171,8 +6172,8 @@ func (c *aPIClient) AddFileSet(ctx context.Context, in *AddFileSetRequest, opts 
 	return out, nil
 }
 
-func (c *aPIClient) RenewFileSet(ctx context.Context, in *RenewFileSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) RenewFileSet(ctx context.Context, in *RenewFileSetRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pfs_v2.API/RenewFileSet", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6207,8 +6208,8 @@ func (c *aPIClient) CheckStorage(ctx context.Context, in *CheckStorageRequest, o
 	return out, nil
 }
 
-func (c *aPIClient) PutCache(ctx context.Context, in *PutCacheRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) PutCache(ctx context.Context, in *PutCacheRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pfs_v2.API/PutCache", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6225,8 +6226,8 @@ func (c *aPIClient) GetCache(ctx context.Context, in *GetCacheRequest, opts ...g
 	return out, nil
 }
 
-func (c *aPIClient) ClearCache(ctx context.Context, in *ClearCacheRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) ClearCache(ctx context.Context, in *ClearCacheRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pfs_v2.API/ClearCache", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6243,7 +6244,7 @@ func (c *aPIClient) RunLoadTest(ctx context.Context, in *RunLoadTestRequest, opt
 	return out, nil
 }
 
-func (c *aPIClient) RunLoadTestDefault(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*RunLoadTestResponse, error) {
+func (c *aPIClient) RunLoadTestDefault(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*RunLoadTestResponse, error) {
 	out := new(RunLoadTestResponse)
 	err := c.cc.Invoke(ctx, "/pfs_v2.API/RunLoadTestDefault", in, out, opts...)
 	if err != nil {
@@ -6293,8 +6294,8 @@ func (c *aPIClient) Egress(ctx context.Context, in *EgressRequest, opts ...grpc.
 	return out, nil
 }
 
-func (c *aPIClient) CreateProject(ctx context.Context, in *CreateProjectRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) CreateProject(ctx context.Context, in *CreateProjectRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pfs_v2.API/CreateProject", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6343,8 +6344,8 @@ func (x *aPIListProjectClient) Recv() (*ProjectInfo, error) {
 	return m, nil
 }
 
-func (c *aPIClient) DeleteProject(ctx context.Context, in *DeleteProjectRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	out := new(types.Empty)
+func (c *aPIClient) DeleteProject(ctx context.Context, in *DeleteProjectRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/pfs_v2.API/DeleteProject", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -6355,19 +6356,19 @@ func (c *aPIClient) DeleteProject(ctx context.Context, in *DeleteProjectRequest,
 // APIServer is the server API for API service.
 type APIServer interface {
 	// CreateRepo creates a new repo.
-	CreateRepo(context.Context, *CreateRepoRequest) (*types.Empty, error)
+	CreateRepo(context.Context, *CreateRepoRequest) (*empty.Empty, error)
 	// InspectRepo returns info about a repo.
 	InspectRepo(context.Context, *InspectRepoRequest) (*RepoInfo, error)
 	// ListRepo returns info about all repos.
 	ListRepo(*ListRepoRequest, API_ListRepoServer) error
 	// DeleteRepo deletes a repo.
-	DeleteRepo(context.Context, *DeleteRepoRequest) (*types.Empty, error)
+	DeleteRepo(context.Context, *DeleteRepoRequest) (*empty.Empty, error)
 	// StartCommit creates a new write commit from a parent commit.
 	StartCommit(context.Context, *StartCommitRequest) (*Commit, error)
 	// FinishCommit turns a write commit into a read commit.
-	FinishCommit(context.Context, *FinishCommitRequest) (*types.Empty, error)
+	FinishCommit(context.Context, *FinishCommitRequest) (*empty.Empty, error)
 	// ClearCommit removes all data from the commit.
-	ClearCommit(context.Context, *ClearCommitRequest) (*types.Empty, error)
+	ClearCommit(context.Context, *ClearCommitRequest) (*empty.Empty, error)
 	// InspectCommit returns the info about a commit.
 	InspectCommit(context.Context, *InspectCommitRequest) (*CommitInfo, error)
 	// ListCommit returns info about all commits.
@@ -6379,17 +6380,17 @@ type APIServer interface {
 	// ListCommitSet returns info about all CommitSets.
 	ListCommitSet(*ListCommitSetRequest, API_ListCommitSetServer) error
 	// SquashCommitSet squashes the commits of a CommitSet into their children.
-	SquashCommitSet(context.Context, *SquashCommitSetRequest) (*types.Empty, error)
+	SquashCommitSet(context.Context, *SquashCommitSetRequest) (*empty.Empty, error)
 	// DropCommitSet drops the commits of a CommitSet and all data included in the commits.
-	DropCommitSet(context.Context, *DropCommitSetRequest) (*types.Empty, error)
+	DropCommitSet(context.Context, *DropCommitSetRequest) (*empty.Empty, error)
 	// CreateBranch creates a new branch.
-	CreateBranch(context.Context, *CreateBranchRequest) (*types.Empty, error)
+	CreateBranch(context.Context, *CreateBranchRequest) (*empty.Empty, error)
 	// InspectBranch returns info about a branch.
 	InspectBranch(context.Context, *InspectBranchRequest) (*BranchInfo, error)
 	// ListBranch returns info about the heads of branches.
 	ListBranch(*ListBranchRequest, API_ListBranchServer) error
 	// DeleteBranch deletes a branch; note that the commits still exist.
-	DeleteBranch(context.Context, *DeleteBranchRequest) (*types.Empty, error)
+	DeleteBranch(context.Context, *DeleteBranchRequest) (*empty.Empty, error)
 	// ModifyFile performs modifications on a set of files.
 	ModifyFile(API_ModifyFileServer) error
 	// GetFile returns the contents of a single file
@@ -6409,7 +6410,7 @@ type APIServer interface {
 	// ActivateAuth creates a role binding for all existing repos
 	ActivateAuth(context.Context, *ActivateAuthRequest) (*ActivateAuthResponse, error)
 	// DeleteAll deletes everything.
-	DeleteAll(context.Context, *types.Empty) (*types.Empty, error)
+	DeleteAll(context.Context, *empty.Empty) (*empty.Empty, error)
 	// Fsck does a file system consistency check for pfs.
 	Fsck(*FsckRequest, API_FsckServer) error
 	// FileSet API
@@ -6418,41 +6419,41 @@ type APIServer interface {
 	// GetFileSet returns a file set with the data from a commit
 	GetFileSet(context.Context, *GetFileSetRequest) (*CreateFileSetResponse, error)
 	// AddFileSet associates a file set with a commit
-	AddFileSet(context.Context, *AddFileSetRequest) (*types.Empty, error)
+	AddFileSet(context.Context, *AddFileSetRequest) (*empty.Empty, error)
 	// RenewFileSet prevents a file set from being deleted for a set amount of time.
-	RenewFileSet(context.Context, *RenewFileSetRequest) (*types.Empty, error)
+	RenewFileSet(context.Context, *RenewFileSetRequest) (*empty.Empty, error)
 	// ComposeFileSet composes a file set from a list of file sets.
 	ComposeFileSet(context.Context, *ComposeFileSetRequest) (*CreateFileSetResponse, error)
 	ShardFileSet(context.Context, *ShardFileSetRequest) (*ShardFileSetResponse, error)
 	// CheckStorage runs integrity checks for the storage layer.
 	CheckStorage(context.Context, *CheckStorageRequest) (*CheckStorageResponse, error)
-	PutCache(context.Context, *PutCacheRequest) (*types.Empty, error)
+	PutCache(context.Context, *PutCacheRequest) (*empty.Empty, error)
 	GetCache(context.Context, *GetCacheRequest) (*GetCacheResponse, error)
-	ClearCache(context.Context, *ClearCacheRequest) (*types.Empty, error)
+	ClearCache(context.Context, *ClearCacheRequest) (*empty.Empty, error)
 	// RunLoadTest runs a load test.
 	RunLoadTest(context.Context, *RunLoadTestRequest) (*RunLoadTestResponse, error)
 	// RunLoadTestDefault runs the default load tests.
-	RunLoadTestDefault(context.Context, *types.Empty) (*RunLoadTestResponse, error)
+	RunLoadTestDefault(context.Context, *empty.Empty) (*RunLoadTestResponse, error)
 	// ListTask lists PFS tasks
 	ListTask(*task.ListTaskRequest, API_ListTaskServer) error
 	// Egress writes data from a commit to an external system
 	Egress(context.Context, *EgressRequest) (*EgressResponse, error)
 	// Project API
 	// CreateProject creates a new project.
-	CreateProject(context.Context, *CreateProjectRequest) (*types.Empty, error)
+	CreateProject(context.Context, *CreateProjectRequest) (*empty.Empty, error)
 	// InspectProject returns info about a project.
 	InspectProject(context.Context, *InspectProjectRequest) (*ProjectInfo, error)
 	// ListProject returns info about all projects.
 	ListProject(*ListProjectRequest, API_ListProjectServer) error
 	// DeleteProject deletes a project.
-	DeleteProject(context.Context, *DeleteProjectRequest) (*types.Empty, error)
+	DeleteProject(context.Context, *DeleteProjectRequest) (*empty.Empty, error)
 }
 
 // UnimplementedAPIServer can be embedded to have forward compatible implementations.
 type UnimplementedAPIServer struct {
 }
 
-func (*UnimplementedAPIServer) CreateRepo(ctx context.Context, req *CreateRepoRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) CreateRepo(ctx context.Context, req *CreateRepoRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateRepo not implemented")
 }
 func (*UnimplementedAPIServer) InspectRepo(ctx context.Context, req *InspectRepoRequest) (*RepoInfo, error) {
@@ -6461,16 +6462,16 @@ func (*UnimplementedAPIServer) InspectRepo(ctx context.Context, req *InspectRepo
 func (*UnimplementedAPIServer) ListRepo(req *ListRepoRequest, srv API_ListRepoServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListRepo not implemented")
 }
-func (*UnimplementedAPIServer) DeleteRepo(ctx context.Context, req *DeleteRepoRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) DeleteRepo(ctx context.Context, req *DeleteRepoRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteRepo not implemented")
 }
 func (*UnimplementedAPIServer) StartCommit(ctx context.Context, req *StartCommitRequest) (*Commit, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartCommit not implemented")
 }
-func (*UnimplementedAPIServer) FinishCommit(ctx context.Context, req *FinishCommitRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) FinishCommit(ctx context.Context, req *FinishCommitRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FinishCommit not implemented")
 }
-func (*UnimplementedAPIServer) ClearCommit(ctx context.Context, req *ClearCommitRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) ClearCommit(ctx context.Context, req *ClearCommitRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ClearCommit not implemented")
 }
 func (*UnimplementedAPIServer) InspectCommit(ctx context.Context, req *InspectCommitRequest) (*CommitInfo, error) {
@@ -6488,13 +6489,13 @@ func (*UnimplementedAPIServer) InspectCommitSet(req *InspectCommitSetRequest, sr
 func (*UnimplementedAPIServer) ListCommitSet(req *ListCommitSetRequest, srv API_ListCommitSetServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListCommitSet not implemented")
 }
-func (*UnimplementedAPIServer) SquashCommitSet(ctx context.Context, req *SquashCommitSetRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) SquashCommitSet(ctx context.Context, req *SquashCommitSetRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SquashCommitSet not implemented")
 }
-func (*UnimplementedAPIServer) DropCommitSet(ctx context.Context, req *DropCommitSetRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) DropCommitSet(ctx context.Context, req *DropCommitSetRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DropCommitSet not implemented")
 }
-func (*UnimplementedAPIServer) CreateBranch(ctx context.Context, req *CreateBranchRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) CreateBranch(ctx context.Context, req *CreateBranchRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateBranch not implemented")
 }
 func (*UnimplementedAPIServer) InspectBranch(ctx context.Context, req *InspectBranchRequest) (*BranchInfo, error) {
@@ -6503,7 +6504,7 @@ func (*UnimplementedAPIServer) InspectBranch(ctx context.Context, req *InspectBr
 func (*UnimplementedAPIServer) ListBranch(req *ListBranchRequest, srv API_ListBranchServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListBranch not implemented")
 }
-func (*UnimplementedAPIServer) DeleteBranch(ctx context.Context, req *DeleteBranchRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) DeleteBranch(ctx context.Context, req *DeleteBranchRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteBranch not implemented")
 }
 func (*UnimplementedAPIServer) ModifyFile(srv API_ModifyFileServer) error {
@@ -6533,7 +6534,7 @@ func (*UnimplementedAPIServer) DiffFile(req *DiffFileRequest, srv API_DiffFileSe
 func (*UnimplementedAPIServer) ActivateAuth(ctx context.Context, req *ActivateAuthRequest) (*ActivateAuthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ActivateAuth not implemented")
 }
-func (*UnimplementedAPIServer) DeleteAll(ctx context.Context, req *types.Empty) (*types.Empty, error) {
+func (*UnimplementedAPIServer) DeleteAll(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAll not implemented")
 }
 func (*UnimplementedAPIServer) Fsck(req *FsckRequest, srv API_FsckServer) error {
@@ -6545,10 +6546,10 @@ func (*UnimplementedAPIServer) CreateFileSet(srv API_CreateFileSetServer) error 
 func (*UnimplementedAPIServer) GetFileSet(ctx context.Context, req *GetFileSetRequest) (*CreateFileSetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetFileSet not implemented")
 }
-func (*UnimplementedAPIServer) AddFileSet(ctx context.Context, req *AddFileSetRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) AddFileSet(ctx context.Context, req *AddFileSetRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddFileSet not implemented")
 }
-func (*UnimplementedAPIServer) RenewFileSet(ctx context.Context, req *RenewFileSetRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) RenewFileSet(ctx context.Context, req *RenewFileSetRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RenewFileSet not implemented")
 }
 func (*UnimplementedAPIServer) ComposeFileSet(ctx context.Context, req *ComposeFileSetRequest) (*CreateFileSetResponse, error) {
@@ -6560,19 +6561,19 @@ func (*UnimplementedAPIServer) ShardFileSet(ctx context.Context, req *ShardFileS
 func (*UnimplementedAPIServer) CheckStorage(ctx context.Context, req *CheckStorageRequest) (*CheckStorageResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CheckStorage not implemented")
 }
-func (*UnimplementedAPIServer) PutCache(ctx context.Context, req *PutCacheRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) PutCache(ctx context.Context, req *PutCacheRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PutCache not implemented")
 }
 func (*UnimplementedAPIServer) GetCache(ctx context.Context, req *GetCacheRequest) (*GetCacheResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCache not implemented")
 }
-func (*UnimplementedAPIServer) ClearCache(ctx context.Context, req *ClearCacheRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) ClearCache(ctx context.Context, req *ClearCacheRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ClearCache not implemented")
 }
 func (*UnimplementedAPIServer) RunLoadTest(ctx context.Context, req *RunLoadTestRequest) (*RunLoadTestResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunLoadTest not implemented")
 }
-func (*UnimplementedAPIServer) RunLoadTestDefault(ctx context.Context, req *types.Empty) (*RunLoadTestResponse, error) {
+func (*UnimplementedAPIServer) RunLoadTestDefault(ctx context.Context, req *empty.Empty) (*RunLoadTestResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunLoadTestDefault not implemented")
 }
 func (*UnimplementedAPIServer) ListTask(req *task.ListTaskRequest, srv API_ListTaskServer) error {
@@ -6581,7 +6582,7 @@ func (*UnimplementedAPIServer) ListTask(req *task.ListTaskRequest, srv API_ListT
 func (*UnimplementedAPIServer) Egress(ctx context.Context, req *EgressRequest) (*EgressResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Egress not implemented")
 }
-func (*UnimplementedAPIServer) CreateProject(ctx context.Context, req *CreateProjectRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) CreateProject(ctx context.Context, req *CreateProjectRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateProject not implemented")
 }
 func (*UnimplementedAPIServer) InspectProject(ctx context.Context, req *InspectProjectRequest) (*ProjectInfo, error) {
@@ -6590,7 +6591,7 @@ func (*UnimplementedAPIServer) InspectProject(ctx context.Context, req *InspectP
 func (*UnimplementedAPIServer) ListProject(req *ListProjectRequest, srv API_ListProjectServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListProject not implemented")
 }
-func (*UnimplementedAPIServer) DeleteProject(ctx context.Context, req *DeleteProjectRequest) (*types.Empty, error) {
+func (*UnimplementedAPIServer) DeleteProject(ctx context.Context, req *DeleteProjectRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteProject not implemented")
 }
 
@@ -6945,7 +6946,7 @@ func _API_ModifyFile_Handler(srv interface{}, stream grpc.ServerStream) error {
 }
 
 type API_ModifyFileServer interface {
-	SendAndClose(*types.Empty) error
+	SendAndClose(*empty.Empty) error
 	Recv() (*ModifyFileRequest, error)
 	grpc.ServerStream
 }
@@ -6954,7 +6955,7 @@ type aPIModifyFileServer struct {
 	grpc.ServerStream
 }
 
-func (x *aPIModifyFileServer) SendAndClose(m *types.Empty) error {
+func (x *aPIModifyFileServer) SendAndClose(m *empty.Empty) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -7129,7 +7130,7 @@ func _API_ActivateAuth_Handler(srv interface{}, ctx context.Context, dec func(in
 }
 
 func _API_DeleteAll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(types.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -7141,7 +7142,7 @@ func _API_DeleteAll_Handler(srv interface{}, ctx context.Context, dec func(inter
 		FullMethod: "/pfs_v2.API/DeleteAll",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).DeleteAll(ctx, req.(*types.Empty))
+		return srv.(APIServer).DeleteAll(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -7374,7 +7375,7 @@ func _API_RunLoadTest_Handler(srv interface{}, ctx context.Context, dec func(int
 }
 
 func _API_RunLoadTestDefault_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(types.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -7386,7 +7387,7 @@ func _API_RunLoadTestDefault_Handler(srv interface{}, ctx context.Context, dec f
 		FullMethod: "/pfs_v2.API/RunLoadTestDefault",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).RunLoadTestDefault(ctx, req.(*types.Empty))
+		return srv.(APIServer).RunLoadTestDefault(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }

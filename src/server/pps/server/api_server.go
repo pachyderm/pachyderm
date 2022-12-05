@@ -21,6 +21,7 @@ import (
 	"github.com/robfig/cron"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -443,14 +444,14 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 	return nil
 }
 
-func (a *apiServer) UpdateJobState(ctx context.Context, request *pps.UpdateJobStateRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) UpdateJobState(ctx context.Context, request *pps.UpdateJobStateRequest) (response *emptypb.Empty, retErr error) {
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.UpdateJobState(request))
 	}, nil); err != nil {
 		return nil, err
 	}
 
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (a *apiServer) UpdateJobStateInTransaction(txnCtx *txncontext.TransactionContext, request *pps.UpdateJobStateRequest) error {
@@ -941,7 +942,7 @@ func (a *apiServer) SubscribeJob(request *pps.SubscribeJobRequest, stream pps.AP
 }
 
 // DeleteJob implements the protobuf pps.DeleteJob RPC
-func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest) (response *emptypb.Empty, retErr error) {
 	if request.GetJob() == nil {
 		return nil, errors.New("job cannot be nil")
 	}
@@ -952,7 +953,7 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 		return nil, err
 	}
 	clearJobCache(a.env.GetPachClient(ctx), ppsdb.JobKey(request.Job))
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (a *apiServer) deleteJobInTransaction(txnCtx *txncontext.TransactionContext, request *pps.DeleteJobRequest) error {
@@ -963,7 +964,7 @@ func (a *apiServer) deleteJobInTransaction(txnCtx *txncontext.TransactionContext
 }
 
 // StopJob implements the protobuf pps.StopJob RPC
-func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *emptypb.Empty, retErr error) {
 	ensurePipelineProject(request.GetJob().GetPipeline())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.StopJob(request))
@@ -971,7 +972,7 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 		return nil, err
 	}
 	clearJobCache(a.env.GetPachClient(ctx), ppsdb.JobKey(request.Job))
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // TODO: Remove when job state transition operations are handled by a background process.
@@ -1040,7 +1041,7 @@ func (a *apiServer) stopJob(txnCtx *txncontext.TransactionContext, job *pps.Job,
 }
 
 // RestartDatum implements the protobuf pps.RestartDatum RPC
-func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumRequest) (response *emptypb.Empty, retErr error) {
 	ensurePipelineProject(request.GetJob().GetPipeline())
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: request.Job,
@@ -1055,7 +1056,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	if err := workerserver.Cancel(ctx, pi, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumRequest) (response *pps.DatumInfo, retErr error) {
@@ -2001,7 +2002,7 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 //     request.Reprocess == true).
 //   - Rather than try to enumerate every case where we can't create a spec
 //     commit without stopping the pipeline, we just always stop the pipeline
-func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *emptypb.Empty, retErr error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -2031,7 +2032,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}, nil); err != nil {
 		return nil, err
 	}
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
@@ -2638,7 +2639,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 }
 
 // DeletePipeline implements the protobuf pps.DeletePipeline RPC
-func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *emptypb.Empty, retErr error) {
 	if request != nil && request.Pipeline != nil {
 		ensurePipelineProject(request.GetPipeline())
 	}
@@ -2665,7 +2666,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 		return nil, err
 	}
 
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) error {
@@ -2841,7 +2842,7 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 }
 
 // StartPipeline implements the protobuf pps.StartPipeline RPC
-func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelineRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelineRequest) (response *emptypb.Empty, retErr error) {
 	if request.Pipeline == nil {
 		return nil, errors.New("request.Pipeline cannot be nil")
 	}
@@ -2885,11 +2886,11 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	}); err != nil {
 		return nil, err
 	}
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // StopPipeline implements the protobuf pps.StopPipeline RPC
-func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineRequest) (response *emptypb.Empty, retErr error) {
 	if request.Pipeline == nil {
 		return nil, errors.New("request.Pipeline cannot be nil")
 	}
@@ -2939,14 +2940,14 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	}); err != nil {
 		return nil, err
 	}
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
-func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineRequest) (response *emptypb.Empty, retErr error) {
 	return nil, errors.New("unimplemented")
 }
 
-func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (response *emptypb.Empty, retErr error) {
 	ensurePipelineProject(request.GetPipeline())
 	pipelineInfo, err := a.inspectPipeline(ctx, request.Pipeline, true)
 	if err != nil {
@@ -2982,7 +2983,7 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 		}
 	}
 
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
@@ -3042,7 +3043,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 }
 
 // CreateSecret implements the protobuf pps.CreateSecret RPC
-func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretRequest) (response *emptypb.Empty, retErr error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -3065,18 +3066,18 @@ func (a *apiServer) CreateSecret(ctx context.Context, request *pps.CreateSecretR
 	if _, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Create(ctx, &s, metav1.CreateOptions{}); err != nil {
 		return nil, errors.Wrapf(err, "failed to create secret")
 	}
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // DeleteSecret implements the protobuf pps.DeleteSecret RPC
-func (a *apiServer) DeleteSecret(ctx context.Context, request *pps.DeleteSecretRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) DeleteSecret(ctx context.Context, request *pps.DeleteSecretRequest) (response *emptypb.Empty, retErr error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	if err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Delete(ctx, request.Secret.Name, metav1.DeleteOptions{}); err != nil {
 		return nil, errors.Wrapf(err, "failed to delete secret")
 	}
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // InspectSecret implements the protobuf pps.InspectSecret RPC
@@ -3102,7 +3103,7 @@ func (a *apiServer) InspectSecret(ctx context.Context, request *pps.InspectSecre
 }
 
 // ListSecret implements the protobuf pps.ListSecret RPC
-func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *pps.SecretInfos, retErr error) {
+func (a *apiServer) ListSecret(ctx context.Context, in *emptypb.Empty) (response *pps.SecretInfos, retErr error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListSecret")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -3134,7 +3135,7 @@ func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *
 }
 
 // DeleteAll implements the protobuf pps.DeleteAll RPC
-func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
+func (a *apiServer) DeleteAll(ctx context.Context, request *emptypb.Empty) (response *emptypb.Empty, retErr error) {
 	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {
 		return nil, err
 	}
@@ -3144,7 +3145,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	}); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return &types.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // ActivateAuth implements the protobuf pps.ActivateAuth RPC
@@ -3198,7 +3199,7 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pps.RunLoadTestRequest
 }
 
 // RunLoadTestDefault implements the pps.RunLoadTestDefault RPC
-func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (_ *pps.RunLoadTestResponse, retErr error) {
+func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *emptypb.Empty) (_ *pps.RunLoadTestResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
 	return ppsload.Pipeline(pachClient, &pps.RunLoadTestRequest{
 		DagSpec:  defaultDagSpecs[0],

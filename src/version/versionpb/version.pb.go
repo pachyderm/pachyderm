@@ -7,7 +7,7 @@ import (
 	context "context"
 	fmt "fmt"
 	proto "github.com/gogo/protobuf/proto"
-	types "github.com/gogo/protobuf/types"
+	empty "github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -181,7 +181,7 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type APIClient interface {
-	GetVersion(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*Version, error)
+	GetVersion(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*Version, error)
 }
 
 type aPIClient struct {
@@ -192,7 +192,7 @@ func NewAPIClient(cc *grpc.ClientConn) APIClient {
 	return &aPIClient{cc}
 }
 
-func (c *aPIClient) GetVersion(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*Version, error) {
+func (c *aPIClient) GetVersion(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*Version, error) {
 	out := new(Version)
 	err := c.cc.Invoke(ctx, "/versionpb_v2.API/GetVersion", in, out, opts...)
 	if err != nil {
@@ -203,14 +203,14 @@ func (c *aPIClient) GetVersion(ctx context.Context, in *types.Empty, opts ...grp
 
 // APIServer is the server API for API service.
 type APIServer interface {
-	GetVersion(context.Context, *types.Empty) (*Version, error)
+	GetVersion(context.Context, *empty.Empty) (*Version, error)
 }
 
 // UnimplementedAPIServer can be embedded to have forward compatible implementations.
 type UnimplementedAPIServer struct {
 }
 
-func (*UnimplementedAPIServer) GetVersion(ctx context.Context, req *types.Empty) (*Version, error) {
+func (*UnimplementedAPIServer) GetVersion(ctx context.Context, req *empty.Empty) (*Version, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetVersion not implemented")
 }
 
@@ -219,7 +219,7 @@ func RegisterAPIServer(s *grpc.Server, srv APIServer) {
 }
 
 func _API_GetVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(types.Empty)
+	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -231,7 +231,7 @@ func _API_GetVersion_Handler(srv interface{}, ctx context.Context, dec func(inte
 		FullMethod: "/versionpb_v2.API/GetVersion",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).GetVersion(ctx, req.(*types.Empty))
+		return srv.(APIServer).GetVersion(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }

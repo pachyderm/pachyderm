@@ -10,11 +10,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const enterpriseRootToken = "iamenterprise"
@@ -347,7 +347,7 @@ func TestRegisterDefaultArgs(t *testing.T) {
 	id := tu.UniqueString("cluster")
 
 	// get cluster ID from connection
-	clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &types.Empty{})
+	clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &emptypb.Empty{})
 	require.NoError(t, inspectErr)
 	clusterId := clusterInfo.DeploymentID
 

@@ -53,6 +53,7 @@ import (
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func CommitToID(commit interface{}) interface{} {
@@ -5354,7 +5355,7 @@ func TestPFS(suite *testing.T) {
 		t.Log("Random seed is", seed)
 		r := rand.New(rand.NewSource(seed))
 
-		_, err := env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &types.Empty{})
+		_, err := env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &emptypb.Empty{})
 		require.NoError(t, err)
 		nOps := 300
 		opShares := []int{
@@ -5545,7 +5546,7 @@ func TestPFS(suite *testing.T) {
 		}
 
 		// make sure we can delete at the end
-		_, err = env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &types.Empty{})
+		_, err = env.PachClient.PfsAPIClient.DeleteAll(env.PachClient.Ctx(), &emptypb.Empty{})
 		require.NoError(t, err)
 	})
 
