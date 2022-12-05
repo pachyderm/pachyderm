@@ -73,22 +73,23 @@ type DatumsResponse struct {
 }
 
 type MountInfo struct {
-	Name   string   `json:"name"`
-	Repo   string   `json:"repo"`
-	Branch string   `json:"branch"`
-	Commit string   `json:"commit"` // "" for no commit (commit as noun)
-	Files  []string `json:"files"`
-	Glob   string   `json:"glob"`
-	Mode   string   `json:"mode"` // "ro", "rw"
+	Name    string   `json:"name"`
+	Project string   `json:"project"`
+	Repo    string   `json:"repo"`
+	Branch  string   `json:"branch"`
+	Commit  string   `json:"commit"` // "" for no commit (commit as noun)
+	Files   []string `json:"files"`
+	Glob    string   `json:"glob"`
+	Mode    string   `json:"mode"` // "ro", "rw"
 }
 
 type Request struct {
 	*MountInfo
-	Action  string // default empty, set to "commit" if we want to commit (verb) a mounted branch
-	Project string
+	Action string // default empty, set to "commit" if we want to commit (verb) a mounted branch
 }
 
 type Response struct {
+	Project    string
 	Repo       string
 	Branch     string
 	Commit     string // "" for no commit
@@ -118,27 +119,39 @@ type MountManager struct {
 	Cleanup  chan struct{}
 }
 
-func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
+func (mm *MountManager) ListByRepos(projectFilter string) (ListRepoResponse, error) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
 
 	// fetch list of available repos & branches from pachyderm, and overlay that
 	// with their mount states
-	lr := map[string]RepoResponse{}
+	lr := ListRepoResponse{}
+	// TODO: pass specific project to ListRepo when rpc is updated
 	repos, err := mm.Client.ListRepo()
 	if err != nil {
+		logrus.Info("Error listing repos...")
 		return lr, err
 	}
 	for _, repo := range repos {
-		rr := RepoResponse{Repo: repo.Repo.Name}
+		projectName := repo.Repo.GetProject().GetName()
+		if projectFilter != "" && projectName != projectFilter {
+			continue
+		}
+
+		repoName := repo.Repo.Name
+		rr := RepoResponse{Repo: repoName, Project: projectName}
 		readAccess := true
 		if repo.AuthInfo != nil {
 			readAccess = hasRepoRead(repo.AuthInfo.Permissions)
 			rr.Authorization = "none"
 		}
 		if readAccess {
-			bis, err := mm.Client.ListProjectBranch(repo.Repo.Project.GetName(), repo.Repo.Name)
+			bis, err := mm.Client.ListProjectBranch(projectName, repoName)
 			if err != nil {
+				// Repo was deleted between ListRepo and ListBranch RPCs
+				if auth.IsErrNoRoleBinding(err) {
+					continue
+				}
 				return lr, err
 			}
 			for _, bi := range bis {
@@ -152,89 +165,52 @@ func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 				rr.Authorization = "read"
 			}
 		}
-		lr[repo.Repo.Name] = rr
+		lr = append(lr, rr)
 	}
-
-	// TODO: also add any repos/branches that have been deleted from pachyderm
-	// but are still mounted here :-O we should send them a special signal to
-	// tell them they're "stranded" or "missing" probably?
 
 	return lr, nil
 }
 
-func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
+func (mm *MountManager) ListByMounts(projectFilter string) (ListMountResponse, error) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
 
 	mr := ListMountResponse{
-		Mounted:   map[string]MountState{},
-		Unmounted: map[string]RepoResponse{},
+		Mounted:   []MountState{},
+		Unmounted: []RepoResponse{},
 	}
-	// Keep track of existing repos and branches to see if mm.States contains deleted repos/branches
-	repoBranches := map[string]map[string]bool{}
-	repos, err := mm.Client.ListRepo()
-	if err != nil {
-		return mr, err
-	}
-	for _, repo := range repos {
-		repoBranches[repo.Repo.Name] = map[string]bool{}
-		rr := RepoResponse{Repo: repo.Repo.Name}
-		readAccess := true
-		if repo.AuthInfo != nil {
-			readAccess = hasRepoRead(repo.AuthInfo.Permissions)
-			rr.Authorization = "none"
-		}
-		if readAccess {
-			bis, err := mm.Client.ListProjectBranch(repo.Repo.Project.GetName(), repo.Repo.Name)
-			if err != nil {
-				// Repo was deleted between ListRepo and ListBranch RPCs
-				if auth.IsErrNoRoleBinding(err) {
+
+	// TODO: add verify project, repo, branch exists utility
+
+	for name, msm := range mm.States {
+		if msm.State == "mounted" {
+			// Check if a mounted repo/branch was deleted to remove it from state
+			if msm.Mode == "ro" {
+				if exists, _ := mm.verifyProjectRepoBranchExist(msm.Project, msm.Repo, msm.Branch); !exists {
+					mm.unmountDeletedRepos(name)
 					continue
 				}
-				return mr, err
-			}
-			for _, bi := range bis {
-				repoBranches[repo.Repo.Name][bi.Branch.Name] = true
-				rr.Branches = append(rr.Branches, bi.Branch.Name)
-			}
-			if repo.AuthInfo == nil {
-				rr.Authorization = "off"
-			} else if hasRepoWrite(repo.AuthInfo.Permissions) {
-				rr.Authorization = "write"
 			} else {
-				rr.Authorization = "read"
+				if exists, _ := mm.verifyProjectRepoExist(msm.Project, msm.Repo); !exists {
+					mm.unmountDeletedRepos(name)
+					continue
+				}
 			}
-		}
-		mr.Unmounted[repo.Repo.Name] = rr
-	}
 
-	// Unmount mounted repos/branches that were deleted
-	for name, msm := range mm.States {
-		if msm.State == "mounted" {
-			_, ok := repoBranches[msm.Repo]
-			if !ok {
-				mm.unmountDeletedRepos(name)
-				continue
-			}
-			_, ok = repoBranches[msm.Repo][msm.Branch]
-			if !ok && msm.Mode == "ro" {
-				mm.unmountDeletedRepos(name)
-				continue
-			}
-		}
-	}
-
-	// Get data on mounted commits
-	for name, msm := range mm.States {
-		if msm.State == "mounted" {
 			if err := msm.RefreshMountState(); err != nil {
 				return mr, err
 			}
 			ms := msm.MountState
 			ms.Files = nil
-			mr.Mounted[name] = ms
+			mr.Mounted = append(mr.Mounted, ms)
 		}
 	}
+
+	lr, err := mm.ListByRepos(projectFilter)
+	if err != nil {
+		return mr, err
+	}
+	mr.Unmounted = lr
 
 	return mr, nil
 }
@@ -437,6 +413,16 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
+		// Verify project in request
+		vs := req.URL.Query()
+		project := vs.Get("project")
+		if project != "" {
+			if _, err := mm.verifyProjectExists(project); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+		}
+
 		reposList, err := mm.ListByRepos(project)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -454,6 +440,16 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
+		}
+
+		// Verify project in request
+		vs := req.URL.Query()
+		project := vs.Get("project")
+		if project != "" {
+			if _, err := mm.verifyProjectExists(project); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 		}
 
 		mountsList, err := mm.ListByMounts(project)
@@ -486,13 +482,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
-		lr, err := mm.ListByRepos()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if err := verifyMountRequest(mreq.Mounts, lr); err != nil {
+		if err := mm.verifyMountRequest(mreq.Mounts); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -640,6 +630,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 		mm.DatumInput = pipelineReq.Input
+		// FIXME: Are invalid projects caught here?
 		mm.Datums, err = mm.Client.ListDatumInputAll(mm.DatumInput)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -1100,7 +1091,7 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 		if mi.Mode == "" {
 			mi.Mode = "ro"
 		} else if mi.Mode != "ro" && mi.Mode != "rw" {
-			return errors.Wrapf(errors.New("mount mode can only be 'ro' or 'rw'",), "mount request %+v", mi)
+			return errors.Wrapf(errors.New("mount mode can only be 'ro' or 'rw'"), "mount request %+v", mi)
 		}
 		if mi.Mode == "ro" {
 			if exists, err := mm.verifyProjectRepoBranchExist(mi.Project, mi.Repo, mi.Branch); !exists {
@@ -1120,10 +1111,11 @@ func datumToMounts(d *pps.DatumInfo) []*MountInfo {
 	mounts := map[string]*MountInfo{}
 	files := map[string]map[string]bool{}
 	for _, fi := range d.Data {
+		project := fi.File.Commit.Branch.Repo.GetProject().GetName()
 		repo := fi.File.Commit.Branch.Repo.Name
 		branch := fi.File.Commit.Branch.Name
 		// TODO: add commit here
-		mount := repo
+		mount := project + "_" + repo
 		if branch != "master" {
 			mount = mount + "_" + branch
 		}
@@ -1138,11 +1130,12 @@ func datumToMounts(d *pps.DatumInfo) []*MountInfo {
 			}
 		} else {
 			mi := &MountInfo{
-				Name:   mount,
-				Repo:   repo,
-				Branch: branch,
-				Files:  []string{fi.File.Path},
-				Mode:   "ro",
+				Name:    mount,
+				Project: project,
+				Repo:    repo,
+				Branch:  branch,
+				Files:   []string{fi.File.Path},
+				Mode:    "ro",
 			}
 			mounts[mount] = mi
 		}
@@ -1166,8 +1159,9 @@ func createLocalOutDir(mm *MountManager) {
 	defer mm.mu.Unlock()
 	mm.root.repoOpts["out"] = &RepoOptions{
 		Name: "out",
-		// FIXME: need a project
-		File:  &pfs.File{Commit: &pfs.Commit{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: "out"}}}},
+		// FIXME: need a project??
+		File: &pfs.File{Commit: &pfs.Commit{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: "out"}}}},
+		// File:  client.NewProjectFile("", "out", "", "", ""),
 		Write: true}
 }
 
@@ -1209,8 +1203,7 @@ func (m *MountStateMachine) RefreshMountState() error {
 	m.ActualMountedCommit = commit
 
 	// Get the latest commit on the branch
-	// TODO: Update when supporting projects in notebooks
-	branchInfo, err := m.manager.Client.InspectProjectBranch(pfs.DefaultProjectName, m.Repo, m.Branch)
+	branchInfo, err := m.manager.Client.InspectProjectBranch(m.Project, m.Repo, m.Branch)
 	if err != nil {
 		return err
 	}
@@ -1281,10 +1274,10 @@ func (m *MountStateMachine) RefreshMountState() error {
 	return nil
 }
 
-// TODO: switch to pach internal types if appropriate?
-type ListRepoResponse map[string]RepoResponse
+type ListRepoResponse []RepoResponse
 
 type RepoResponse struct {
+	Project       string   `json:"project"`
 	Repo          string   `json:"repo"`
 	Branches      []string `json:"branches"`
 	Authorization string   `json:"authorization"` // "off", "none", "read", "write"
@@ -1292,11 +1285,9 @@ type RepoResponse struct {
 }
 
 type ListMountResponse struct {
-	Mounted   map[string]MountState   `json:"mounted"`
-	Unmounted map[string]RepoResponse `json:"unmounted"`
+	Mounted   []MountState   `json:"mounted"`
+	Unmounted []RepoResponse `json:"unmounted"`
 }
-
-type GetResponse RepoResponse
 
 // state machines in the style of Rob Pike's Lexical Scanning
 // http://www.timschmelmer.com/2013/08/state-machines-with-state-functions-in.html
@@ -1309,7 +1300,7 @@ func (m *MountStateMachine) transitionedTo(state, status string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	logrus.Infof("[%s] (%s, %s, %s) %s -> %s", m.Name, m.Repo, m.Branch, m.Commit, m.State, state)
+	logrus.Infof("[%s] (%s, %s, %s, %s) %s -> %s", m.Name, m.Project, m.Repo, m.Branch, m.Commit, m.State, state)
 	m.manager.root.setState(m.Name, state)
 	m.State = state
 	m.Status = status
@@ -1333,15 +1324,15 @@ func discoveringState(m *MountStateMachine) StateFn {
 
 func unmountedState(m *MountStateMachine) StateFn {
 	m.transitionedTo("unmounted", "")
-	// TODO: listen on our request chan, mount filesystems, and respond
 	for {
 		req := <-m.requests
 		switch req.Action {
 		case "mount":
 			// check user permissions on repo
-			repoInfo, err := m.manager.Client.InspectProjectRepo(pfs.DefaultProjectName, req.Repo)
+			repoInfo, err := m.manager.Client.InspectProjectRepo(req.Project, req.Repo)
 			if err != nil {
 				m.responses <- Response{
+					Project:    req.Project,
 					Repo:       req.Repo,
 					Branch:     req.Branch,
 					Commit:     req.Commit,
@@ -1354,6 +1345,7 @@ func unmountedState(m *MountStateMachine) StateFn {
 			if repoInfo.AuthInfo != nil {
 				if !hasRepoRead(repoInfo.AuthInfo.Permissions) {
 					m.responses <- Response{
+						Project:    req.Project,
 						Repo:       req.Repo,
 						Branch:     req.Branch,
 						Commit:     req.Commit,
@@ -1366,6 +1358,7 @@ func unmountedState(m *MountStateMachine) StateFn {
 
 				if req.Mode == "rw" && !hasRepoWrite(repoInfo.AuthInfo.Permissions) {
 					m.responses <- Response{
+						Project:    req.Project,
 						Repo:       req.Repo,
 						Branch:     req.Branch,
 						Commit:     req.Commit,
@@ -1380,6 +1373,7 @@ func unmountedState(m *MountStateMachine) StateFn {
 			// copy data from request into fields that are documented as being
 			// written by the client (see MountState struct)
 			m.Name = req.Name
+			m.Project = req.Project
 			m.Repo = req.Repo
 			m.Branch = req.Branch
 			m.Commit = req.Commit
@@ -1420,15 +1414,14 @@ func mountingState(m *MountStateMachine) StateFn {
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.Name] = &RepoOptions{
 			Name:     m.Name,
-			File:     client.NewProjectFile(pfs.DefaultProjectName, m.Repo, m.Branch, "", ""),
+			File:     client.NewProjectFile(m.Project, m.Repo, m.Branch, "", ""),
 			Subpaths: m.Files,
 			Write:    m.Mode == "rw",
 		}
 		m.manager.root.branches[m.Name] = m.Branch
 
 		// Get the latest non-alias commit on branch
-		// TODO: notebooks support
-		branchInfo, err := m.manager.Client.InspectProjectBranch(pfs.DefaultProjectName, m.Repo, m.Branch)
+		branchInfo, err := m.manager.Client.InspectProjectBranch(m.Project, m.Repo, m.Branch)
 		if errutil.IsNotFoundError(err) {
 			m.manager.root.commits[m.Name] = ""
 			return nil
@@ -1470,10 +1463,11 @@ func mountedState(m *MountStateMachine) StateFn {
 		case "mount":
 			// This check is necessary to make sure that if the incoming request
 			// is trying to mount a repo at mount_name and mount_name is already
-			// being used, the request repo and branch match the repo and branch
-			// already associated with mount_name. It's essentially a safety
-			// check for when we get to the remounting case below.
-			if req.Repo != m.Repo || req.Branch != m.Branch {
+			// being used, the request project, repo, and branch match the
+			// project, repo, and branch already associated with mount_name.
+			// It's essentially a safety check for when we get to the remounting
+			// case below.
+			if req.Project != m.Project || req.Repo != m.Repo || req.Branch != m.Branch {
 				m.responses <- Response{
 					Repo:       req.Repo,
 					Branch:     req.Branch,
@@ -1494,6 +1488,7 @@ func mountedState(m *MountStateMachine) StateFn {
 			return committingState
 		default:
 			m.responses <- Response{
+				Project:    req.Project,
 				Repo:       req.Repo,
 				Branch:     req.Branch,
 				Commit:     req.Commit,
@@ -1648,19 +1643,12 @@ func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 	if mfc, ok := mm.mfcs[name]; ok {
 		return mfc, nil
 	}
-	var repoName, projectName string
 	opts, ok := mm.root.repoOpts[name]
 	if !ok {
-		// assume that the project is the default project
-		projectName = pfs.DefaultProjectName
-		// assume the repo name is the same as the mount name, e.g in the
-		// pachctl mount (with no -r args) case where they all get mounted based
-		// on their name
-		repoName = name
-	} else {
-		projectName = opts.File.Commit.Branch.Repo.Project.GetName()
-		repoName = opts.File.Commit.Branch.Repo.Name
+		return nil, errors.Errorf("could not get fuse repo options for mount %s", name)
 	}
+	projectName := opts.File.Commit.Branch.Repo.Project.GetName()
+	repoName := opts.File.Commit.Branch.Repo.Name
 	mfc, err := mm.Client.NewModifyFileClient(client.NewProjectCommit(projectName, repoName, mm.root.branch(name), ""))
 	if err != nil {
 		return nil, err
