@@ -5,10 +5,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"net/http"
-	"net/url"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -21,8 +17,6 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -150,9 +144,13 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 }
 
 // ListRepo implements the protobuf pfs.ListRepo RPC
-// TODO make ListRepo project-aware
 func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) (retErr error) {
-	return a.driver.listRepo(srv.Context(), true, request.Type, srv.Send)
+	projectsFilter := make(map[string]bool)
+	for _, project := range request.Projects {
+		projectsFilter[project] = true
+	}
+
+	return a.driver.listRepo(srv.Context(), true /* includeAuth */, request.Type, projectsFilter, srv.Send)
 }
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
@@ -455,7 +453,7 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 			case *pfs.AddFile_Raw:
 				n, err = putFileRaw(ctx, uw, p, t, src.Raw)
 			case *pfs.AddFile_Url:
-				n, err = putFileURL(ctx, uw, p, t, src.Url)
+				n, err = putFileURL(ctx, a.env.TaskService, uw, p, t, src.Url)
 			default:
 				// need to write empty data to path
 				n, err = putFileRaw(ctx, uw, p, t, &types.BytesValue{})
@@ -489,55 +487,6 @@ func putFileRaw(ctx context.Context, uw *fileset.UnorderedWriter, path, tag stri
 	return int64(len(src.Value)), nil
 }
 
-func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag string, src *pfs.AddFile_URLSource) (n int64, retErr error) {
-	url, err := url.Parse(src.URL)
-	if err != nil {
-		return 0, errors.EnsureStack(err)
-	}
-	switch url.Scheme {
-	case "http":
-		fallthrough
-	case "https":
-		resp, err := http.Get(src.URL)
-		if err != nil {
-			return 0, errors.EnsureStack(err)
-		} else if resp.StatusCode >= 400 {
-			return 0, errors.Errorf("error retrieving content from %q: %s", src.URL, resp.Status)
-		}
-		defer func() {
-			if err := resp.Body.Close(); retErr == nil {
-				retErr = err
-			}
-		}()
-		return 0, uw.Put(ctx, dstPath, tag, true, resp.Body)
-	default:
-		url, err := obj.ParseURL(src.URL)
-		if err != nil {
-			return 0, errors.Wrapf(err, "error parsing url %v", src)
-		}
-		objClient, err := obj.NewClientFromURLAndSecret(url, false)
-		if err != nil {
-			return 0, err
-		}
-		if src.Recursive {
-			path := strings.TrimPrefix(url.Object, "/")
-			err := objClient.Walk(ctx, path, func(name string) error {
-				return miscutil.WithPipe(func(w io.Writer) error {
-					return errors.EnsureStack(objClient.Get(ctx, name, w))
-				}, func(r io.Reader) error {
-					return uw.Put(ctx, filepath.Join(dstPath, strings.TrimPrefix(name, path)), tag, true, r)
-				})
-			})
-			return 0, errors.EnsureStack(err)
-		}
-		return 0, miscutil.WithPipe(func(w io.Writer) error {
-			return errors.EnsureStack(objClient.Get(ctx, url.Object, w))
-		}, func(r io.Reader) error {
-			return uw.Put(ctx, dstPath, tag, true, r)
-		})
-	}
-}
-
 func deleteFile(ctx context.Context, uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
 	return uw.Delete(ctx, request.Path, request.Datum)
 }
@@ -547,12 +496,12 @@ func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFi
 	request.GetFile().GetCommit().GetBranch().Repo.EnsureProject()
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
+		if request.URL != "" {
+			return a.driver.getFileURL(ctx, a.env.TaskService, request.URL, request.File, request.PathRange)
+		}
 		src, err := a.driver.getFile(ctx, request.File, request.PathRange)
 		if err != nil {
 			return 0, err
-		}
-		if request.URL != "" {
-			return getFileURL(ctx, request.URL, src)
 		}
 		var bytesWritten int64
 		err = grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
@@ -571,12 +520,12 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileS
 	request.GetFile().GetCommit().GetBranch().GetRepo().EnsureProject()
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
+		if request.URL != "" {
+			return a.driver.getFileURL(ctx, a.env.TaskService, request.URL, request.File, request.PathRange)
+		}
 		src, err := a.driver.getFile(ctx, request.File, request.PathRange)
 		if err != nil {
 			return 0, err
-		}
-		if request.URL != "" {
-			return getFileURL(ctx, request.URL, src)
 		}
 		if err := checkSingleFile(ctx, src); err != nil {
 			return 0, err
@@ -592,34 +541,6 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileS
 		}
 		return n, nil
 	})
-}
-
-// TODO: Parallelize and decide on appropriate config.
-func getFileURL(ctx context.Context, URL string, src Source) (int64, error) {
-	parsedURL, err := obj.ParseURL(URL)
-	if err != nil {
-		return 0, err
-	}
-	objClient, err := obj.NewClientFromURLAndSecret(parsedURL, false)
-	if err != nil {
-		return 0, err
-	}
-	var bytesWritten int64
-	err = src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) (retErr error) {
-		if fi.FileType != pfs.FileType_FILE {
-			return nil
-		}
-		if err := miscutil.WithPipe(func(w io.Writer) error {
-			return errors.EnsureStack(file.Content(ctx, w))
-		}, func(r io.Reader) error {
-			return errors.EnsureStack(objClient.Put(ctx, filepath.Join(parsedURL.Object, fi.File.Path), r))
-		}); err != nil {
-			return err
-		}
-		bytesWritten += int64(fi.SizeBytes)
-		return nil
-	})
-	return bytesWritten, errors.EnsureStack(err)
 }
 
 func withGetFileWriter(w io.Writer, cb func(io.Writer) error) (int64, error) {
@@ -721,7 +642,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	}
 	if request.GetZombieAll() {
 		// list meta repos as a proxy for finding pipelines
-		return a.driver.listRepo(ctx, false, pfs.MetaRepoType, func(info *pfs.RepoInfo) error {
+		return a.driver.listRepo(ctx, false /* includeAuth */, pfs.MetaRepoType, nil /* projectsFilter */, func(info *pfs.RepoInfo) error {
 			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
 			output := client.NewProjectCommit(info.Repo.Project.GetName(), info.Repo.Name, "master", "")
 			for output != nil {
@@ -1025,19 +946,20 @@ func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
 }
 
 func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.EgressResponse, error) {
-	src, err := a.driver.getFile(ctx, req.Commit.NewFile("/"), nil)
-	if err != nil {
-		return nil, err
-	}
+	file := req.Commit.NewFile("/")
 	switch target := req.Target.(type) {
 	case *pfs.EgressRequest_ObjectStorage:
-		result, err := copyToObjectStorage(ctx, src, target.ObjectStorage.Url)
+		result, err := a.driver.copyToObjectStorage(ctx, a.env.TaskService, file, target.ObjectStorage.Url)
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}
 		return &pfs.EgressResponse{Result: &pfs.EgressResponse_ObjectStorage{ObjectStorage: result}}, nil
 
 	case *pfs.EgressRequest_SqlDatabase:
+		src, err := a.driver.getFile(ctx, file, nil)
+		if err != nil {
+			return nil, err
+		}
 		result, err := copyToSQLDB(ctx, src, target.SqlDatabase.Url, target.SqlDatabase.FileFormat)
 		if err != nil {
 			return nil, errors.EnsureStack(err)

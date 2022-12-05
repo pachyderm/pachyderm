@@ -299,3 +299,18 @@ slice samples:
 		})
 	}
 }
+
+func TestQuoteLogQL(t *testing.T) {
+	for s, q := range map[string]string{
+		"abc":  `"abc"`,
+		"a'bc": `"a'bc"`,
+		`a"bc`: `"a\"bc"`,
+		`a
+bc`: `"a\nbc"`,
+		`ßþ…`: `"ßþ…"`,
+	} {
+		if quoteLogQLStreamSelector(s) != q {
+			t.Errorf("expected quoteLogQL(%q) = %q; got %q", s, q, quoteLogQLStreamSelector(s))
+		}
+	}
+}
