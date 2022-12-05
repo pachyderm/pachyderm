@@ -126,20 +126,24 @@ func (mm *MountManager) ListByRepos(projectFilter string) (ListRepoResponse, err
 	// fetch list of available repos & branches from pachyderm, and overlay that
 	// with their mount states
 	lr := ListRepoResponse{}
-	// TODO: pass specific project to ListRepo when rpc is updated
-	repos, err := mm.Client.ListRepo()
+	filter := []string{projectFilter}
+	if projectFilter == "" {
+		filter = nil
+	}
+	repos, err := mm.Client.ListProjectRepo(&pfs.ListRepoRequest{
+		Type:     pfs.UserRepoType,
+		Projects: filter,
+	})
 	if err != nil {
 		logrus.Info("Error listing repos...")
 		return lr, err
 	}
+
 	for _, repo := range repos {
 		projectName := repo.Repo.GetProject().GetName()
-		if projectFilter != "" && projectName != projectFilter {
-			continue
-		}
-
 		repoName := repo.Repo.Name
 		rr := RepoResponse{Repo: repoName, Project: projectName}
+
 		readAccess := true
 		if repo.AuthInfo != nil {
 			readAccess = hasRepoRead(repo.AuthInfo.Permissions)
