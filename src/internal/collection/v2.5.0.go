@@ -10,7 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
-// MigratePostgreSQLCollection_v2_4_0 is used to migrate a PostgreSQL collection.
+// MigratePostgreSQLCollection_v2_5_0 is used to migrate a PostgreSQL collection.
 // Given a collection named name, with the given indices and options, it will
 // fetch each row and call f on it, then update the current row with the new
 // key, value and indices, all in one transaction which caller is responsible
@@ -19,7 +19,7 @@ import (
 // # DO NOT MODIFY THIS FUNCTION
 //
 // IT HAS BEEN USED IN A RELEASED MIGRATION
-func MigratePostgreSQLCollection_v2_4_0(ctx context.Context, tx *pachsql.Tx, name string, indices []*Index, oldVal proto.Message, f func(oldKey string) (newKey string, newVal proto.Message, err error), opts ...Option) error {
+func MigratePostgreSQLCollection_v2_5_0(ctx context.Context, tx *pachsql.Tx, name string, indices []*Index, oldVal proto.Message, f func(oldKey string) (newKey string, newVal proto.Message, err error), opts ...Option) error {
 	var col = postgresReadWriteCollection{
 		postgresCollection: &postgresCollection{
 			table:   name,
