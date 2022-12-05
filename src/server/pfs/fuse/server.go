@@ -437,12 +437,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
-		l, err := mm.ListByRepos()
+		reposList, err := mm.ListByRepos(project)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		marshalled, err := json.Marshal(l)
+		marshalled, err := json.Marshal(reposList)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -456,12 +456,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
-		l, err := mm.ListByMounts()
+		mountsList, err := mm.ListByMounts(project)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		marshalled, err := json.Marshal(l)
+		marshalled, err := json.Marshal(mountsList)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -503,12 +503,13 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				return
 			}
 		}
-		lm, err := mm.ListByMounts()
+
+		mountsList, err := mm.ListByMounts("")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		marshalled, err := jsonMarshal(lm)
+		marshalled, err := jsonMarshal(mountsList)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -540,12 +541,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			}
 		}
 
-		lm, err := mm.ListByMounts()
+		mountsList, err := mm.ListByMounts("")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		marshalled, err := jsonMarshal(lm)
+		marshalled, err := jsonMarshal(mountsList)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -570,12 +571,13 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		lm, err := mm.ListByMounts()
+
+		mountsList, err := mm.ListByMounts("")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		marshalled, err := jsonMarshal(lm)
+		marshalled, err := jsonMarshal(mountsList)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -593,17 +595,17 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
 		if err := removeOutDir(mm); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		lm, err := mm.ListByMounts()
+
+		mountsList, err := mm.ListByMounts("")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		marshalled, err := jsonMarshal(lm)
+		marshalled, err := jsonMarshal(mountsList)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -785,12 +787,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		mm.configMu.RLock()
 		defer mm.configMu.RUnlock()
 
-		r, err := getClusterStatus(mm.Client)
+		clusterStatus, err := getClusterStatus(mm.Client)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		marshalled, err := jsonMarshal(r)
+		marshalled, err := jsonMarshal(clusterStatus)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -908,8 +910,8 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		mm.Client.SetAuthToken("")
 	})
 	router.Methods("GET").Path("/health").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		r := map[string]string{"status": "running"}
-		marshalled, err := jsonMarshal(r)
+		health := map[string]string{"status": "running"}
+		marshalled, err := jsonMarshal(health)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
