@@ -2456,3 +2456,82 @@ func TestPreAuthProjects(t *testing.T) {
 	})
 	require.NoError(t, err)
 }
+
+func TestListRepoWithProjectAccessControl(t *testing.T) {
+	t.Parallel()
+	c := envWithAuth(t).PachClient
+	// create users
+	admin := tu.AuthenticateClient(t, c, auth.RootUser)
+	aliceName, alice := tu.RandomRobot(t, c, "alice")
+	bobName, bob := tu.RandomRobot(t, c, "bob")
+	// create projects and repos
+	project1, project2 := tu.UniqueString("project1"), tu.UniqueString("project2")
+	repo1, repo2 := "repo1", "repo2"
+	require.NoError(t, admin.CreateProjectRepo(pfs.DefaultProjectName, repo1))
+	require.NoError(t, admin.CreateProjectRepo(pfs.DefaultProjectName, repo2))
+	require.NoError(t, admin.CreateProject(project1))
+	require.NoError(t, admin.CreateProject(project2))
+	require.NoError(t, admin.CreateProjectRepo(project1, repo1))
+	require.NoError(t, admin.CreateProjectRepo(project1, repo2))
+	require.NoError(t, admin.CreateProjectRepo(project2, repo1))
+	require.NoError(t, admin.CreateProjectRepo(project2, repo2))
+	// auth repo resource names need to be project-aware
+	defaultRepo1, defaultRepo2 := pfs.DefaultProjectName+"/"+repo1, pfs.DefaultProjectName+"/"+repo2
+	project1Repo1, project1Repo2 := project1+"/"+repo1, project1+"/"+repo2
+	project2Repo1, project2Repo2 := project2+"/"+repo1, project2+"/"+repo2
+	// make bob ProjectViewer for project1
+	_, err := admin.ModifyRoleBinding(admin.Ctx(), &auth.ModifyRoleBindingRequest{
+		Principal: bobName,
+		Roles:     []string{auth.ProjectViewer},
+		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project1},
+	})
+	require.NoError(t, err)
+	// make alice RepoReader for two repos from separate projects
+	_, err = admin.ModifyRoleBinding(admin.Ctx(), &auth.ModifyRoleBindingRequest{
+		Principal: aliceName,
+		Roles:     []string{auth.RepoReaderRole},
+		Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: project1Repo1},
+	})
+	require.NoError(t, err)
+	_, err = admin.ModifyRoleBinding(admin.Ctx(), &auth.ModifyRoleBindingRequest{
+		Principal: aliceName,
+		Roles:     []string{auth.RepoReaderRole},
+		Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: project2Repo2},
+	})
+	require.NoError(t, err)
+
+	defaultRepos := []string{defaultRepo1, defaultRepo2}
+	project1Repos := []string{project1Repo1, project1Repo2}
+	project2Repos := []string{project2Repo1, project2Repo2}
+	allRepos := append(defaultRepos, append(project1Repos, project2Repos...)...)
+
+	tests := map[string]struct {
+		user     *client.APIClient
+		projects []string
+		expected []string
+	}{
+		"AllProjects":                   {admin, nil, allRepos},
+		"DefaultProject":                {admin, []string{pfs.DefaultProjectName}, defaultRepos},
+		"Project1":                      {admin, []string{project1}, project1Repos},
+		"ProjectViewer":                 {bob, nil, append(defaultRepos, project1Repos...)},
+		"ProjectViewerFilterOnProject1": {bob, []string{project1}, project1Repos},
+		"ProjectViewerFilterOnProject2": {bob, []string{project2}, []string{}},
+		"RepoReaderCanSeeTheirRepos":    {alice, nil, append(defaultRepos, project1Repo1, project2Repo2)},
+		"RepoReaderFilterOnProject1":    {alice, []string{project1}, []string{project1Repo1}},
+		"RepoReaderFilterOnProject2":    {alice, []string{project2}, []string{project2Repo2}},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(tc.user.Ctx())
+			defer cancel()
+			resp, err := tc.user.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{Type: pfs.UserRepoType, Projects: tc.projects})
+			require.NoError(t, err)
+			var repos []string
+			require.NoError(t, clientsdk.ForEachRepoInfo(resp, func(ri *pfs.RepoInfo) error {
+				repos = append(repos, ri.Repo.AuthResource().Name)
+				return nil
+			}))
+			require.ElementsEqual(t, tc.expected, repos)
+		})
+	}
+}
