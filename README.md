@@ -77,6 +77,15 @@ npm run components:test Button
 
 If you want to only run one of the tests outlined above refer to the `package.json` found in the subdirectory `frontend` or `backend`.
 
+**To run the backend integration tests:**
+1. [Run and port-forward a local Pachyderm cluster](./README_Pachyderm.md) in either Enterprise or Community Edition.
+1. Run the following commands
+
+```
+cd backend
+npm run integration-test
+```
+
 ### E2E tests
 We use Cypress for E2E tests.
 
