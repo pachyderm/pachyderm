@@ -172,33 +172,32 @@ func init() {
 	})
 
 	// Project related roles
-	projectViewer := registerRole(&auth.Role{
+	projectViewerRole := registerRole(&auth.Role{
 		Name:          auth.ProjectViewer,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_REPO},
 		Permissions: []auth.Permission{
 			auth.Permission_PROJECT_LIST_REPO,
 		},
 	})
 
-	projectWriter := registerRole(&auth.Role{
+	projectWriterRole := registerRole(&auth.Role{
 		Name:          auth.ProjectWriter,
 		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
-		Permissions: combinePermissions(projectViewer.Permissions, []auth.Permission{
+		Permissions: combinePermissions(projectViewerRole.Permissions, []auth.Permission{
 			auth.Permission_PROJECT_CREATE_REPO,
 		}),
 	})
 
-	projectOwner := registerRole(&auth.Role{
+	projectOwnerRole := registerRole(&auth.Role{
 		Name:          auth.ProjectOwner,
 		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
-		Permissions: combinePermissions(projectWriter.Permissions, repoOwnerRole.Permissions, []auth.Permission{
+		Permissions: combinePermissions(projectWriterRole.Permissions, repoOwnerRole.Permissions, []auth.Permission{
 			auth.Permission_PROJECT_DELETE,
-			auth.Permission_REPO_DELETE,
 			auth.Permission_PROJECT_MODIFY_BINDINGS,
 		}),
 	})
 
-	projectCreator := registerRole(&auth.Role{
+	projectCreatorRole := registerRole(&auth.Role{
 		Name:          auth.ProjectCreator,
 		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
 		Permissions: []auth.Permission{
@@ -220,8 +219,8 @@ func init() {
 			licenseAdminRole.Permissions,
 			secretAdminRole.Permissions,
 			pachdLogReaderRole.Permissions,
-			projectOwner.Permissions,
-			projectCreator.Permissions,
+			projectOwnerRole.Permissions,
+			projectCreatorRole.Permissions,
 			[]auth.Permission{
 				auth.Permission_CLUSTER_MODIFY_BINDINGS,
 				auth.Permission_CLUSTER_GET_BINDINGS,

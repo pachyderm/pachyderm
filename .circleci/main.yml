@@ -647,11 +647,11 @@ jobs:
             find . -maxdepth 10 -name \*.jsonnet | xargs jsonnet-lint
   test-envoy:
     docker:
-      - image: envoyproxy/envoy:v1.22.0
+      - image: envoyproxy/envoy:v1.24.0
         entrypoint: /bin/sh
     steps:
       - run: apt update
-      - run: apt install -y make wget git ssh
+      - run: DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true apt install -y make wget git ssh
       - checkout
       - run: wget https://github.com/google/jsonnet/releases/download/v0.17.0/jsonnet-bin-v0.17.0-linux.tar.gz
       - run: tar xzvf jsonnet-bin-v0.17.0-linux.tar.gz
@@ -1410,7 +1410,7 @@ workflows:
             - publish-chart-preview
             - release-github-draft
       - cust-prerelease-testing:
-          name: woven-planet-testing
+          name: wp-testing
           customer: wp
           filters: *only-alpha-tags
           requires:
@@ -1419,7 +1419,7 @@ workflows:
             - publish-chart-preview
             - release-github-draft
       - cust-prerelease-testing:
-          name: battelle-planet-testing
+          name: btl-testing
           customer: btl
           filters: *only-alpha-tags
           requires:

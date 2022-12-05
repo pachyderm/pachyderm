@@ -15,8 +15,14 @@ import (
 
 // Note: these are stubs only meant for tests - the worker does not run on windows
 
-func makeCmdCredentials(uid uint32, gid uint32) *syscall.SysProcAttr {
+func makeSysProcAttr(uid *uint32, gid *uint32) *syscall.SysProcAttr {
 	return nil
+}
+
+func makeProcessGroupKiller(rctx context.Context, l logs.TaggedLogger, p *os.Process) func() {
+	return func() {
+		l.Logf("warning: not killing user code's children: unsupported OS")
+	}
 }
 
 // WithActiveData is implemented differently in unix vs windows because of how

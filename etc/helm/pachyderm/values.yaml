@@ -71,7 +71,7 @@ console:
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
-    tag: "2.4.0-alpha.4"
+    tag: "2.5.0-alpha.1"
   priorityClassName: ""
   nodeSelector: {}
   tolerations: []
@@ -342,6 +342,9 @@ loki-stack:
           # this gets all kubernetes labels as well
           - action: labelmap
             regex: __meta_kubernetes_pod_label_(.+)
+    # Tolerations for promtail pods. Promtail must run on any node where pachyderm resources will run or you won't get any logs for them
+    # For example, GKE gpu nodes have a default taint of nvidia.com/gpu=present:NoSchedule so if you use GPUs we wouldn't have logs
+    tolerations: []
     livenessProbe:
       failureThreshold: 5
       tcpSocket:
@@ -867,7 +870,7 @@ proxy:
   # The envoy image to pull.
   image:
     repository: "envoyproxy/envoy"
-    tag: "v1.22.0"
+    tag: "v1.24.0"
     pullPolicy: "IfNotPresent"
   # Set up resources.  The proxy is configured to shed traffic before using 500MB of RAM, so that's
   # a resonable memory limit.  It doesn't need much CPU.
