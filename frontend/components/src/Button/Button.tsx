@@ -10,7 +10,13 @@ import styles from './Button.module.css';
 export type ButtonProps = React.ButtonHTMLAttributes<
   HTMLButtonElement & HTMLAnchorElement
 > & {
-  buttonType?: 'primary' | 'secondary' | 'ghost' | 'tertiary' | 'dropdown';
+  buttonType?:
+    | 'primary'
+    | 'secondary'
+    | 'ghost'
+    | 'tertiary'
+    | 'quaternary'
+    | 'dropdown';
   color?: string;
   href?: string;
   to?: LinkProps['to'];
@@ -58,6 +64,7 @@ export const Button: FunctionComponent<ButtonProps> = ({
     [styles.secondary]: buttonType === 'secondary',
     [styles.ghost]: buttonType === 'ghost',
     [styles.tertiary]: buttonType === 'tertiary',
+    [styles.quaternary]: buttonType === 'quaternary',
     [styles.iconOnly]: iconOnly,
     [styles.link]: Boolean(href || to),
     [styles.black]: color === 'black',
@@ -74,6 +81,7 @@ export const Button: FunctionComponent<ButtonProps> = ({
         iconColor = color === 'black' ? 'black' : 'plum';
         break;
       case 'dropdown':
+      case 'quaternary':
         iconColor = 'black';
         break;
       default:

@@ -17,7 +17,14 @@ const defaultArgTypes = {
   buttonType: {
     control: {
       type: 'radio',
-      options: ['primary', 'secondary', 'ghost', 'tertiary', 'dropdown'],
+      options: [
+        'primary',
+        'secondary',
+        'ghost',
+        'tertiary',
+        'quaternary',
+        'dropdown',
+      ],
     },
   },
   iconPosition: {

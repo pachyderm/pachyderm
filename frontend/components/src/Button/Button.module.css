@@ -171,3 +171,18 @@
 .tertiary:disabled {
   background-color: var(--disabled-tertiary);
 }
+
+.quaternary {
+  color: var(--pachyderm-black);
+  border: 1px solid var(--border-grey);
+  background-color: var(--background-grey);
+}
+
+.quaternary:not(:disabled):hover:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+.quaternary:not(:disabled):focus-visible {
+  border-color: transparent;
+} 
