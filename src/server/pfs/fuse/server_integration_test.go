@@ -86,7 +86,7 @@ func TestMountDatum(t *testing.T) {
 	require.NoError(t, err)
 	withServerMount(t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
-			`{'input': {'pfs': {'project': 'default', 'repo': 'repo', 'glob': '/'}}}`,
+			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/'}}}`,
 			pfs.DefaultProjectName),
 		)
 		resp, err := put("_mount_datums", bytes.NewReader(input))
@@ -109,7 +109,7 @@ func TestMountDatum(t *testing.T) {
 		require.NoError(t, err)
 
 		input = []byte(fmt.Sprintf(
-			`{'input': {'pfs': {'project': 'default', 'repo': 'repo', 'glob': '/*'}}}`,
+			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*'}}}`,
 			pfs.DefaultProjectName),
 		)
 		resp, err = put("_mount_datums", bytes.NewReader(input))
@@ -413,7 +413,7 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 
 	withServerMount(t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(`{'input': {'cross': [{'pfs': {'glob': '/*', 'repo': 'repo1'}}, 
-			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'branch': 'dev'}}]}}`, 
+			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'branch': 'dev'}}]}}`,
 			pfs.DefaultProjectName),
 		)
 		resp, err := put("_mount_datums", bytes.NewReader(input))

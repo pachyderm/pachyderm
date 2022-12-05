@@ -827,7 +827,7 @@ func TestListReposProjectFilter(t *testing.T) {
 		require.Equal(t, 1, len(*reposList))
 		require.Equal(t, projectName, (*reposList)[0].Project)
 
-		_, err = get(fmt.Sprint("repos?project=invalid"))
+		_, err = get("repos?project=invalid")
 		require.YesError(t, err)
 	})
 }
@@ -867,10 +867,10 @@ func TestListMountsProjectFilter(t *testing.T) {
 					Branch: "b1",
 				},
 				{
-					Name:   "p1_repo_p1_b2",
+					Name:    "p1_repo_p1_b2",
 					Project: "p1",
-					Repo:   "repo_p1",
-					Branch: "b2",
+					Repo:    "repo_p1",
+					Branch:  "b2",
 				},
 			},
 		}
@@ -904,7 +904,7 @@ func TestListMountsProjectFilter(t *testing.T) {
 		require.Equal(t, "repo_p1", len((*mountsList).Unmounted[0].Repo))
 		require.Equal(t, projectName, len((*mountsList).Unmounted[0].Project))
 
-		_, err = get(fmt.Sprint("mounts?project=invalid"))
+		_, err = get("mounts?project=invalid")
 		require.YesError(t, err)
 	})
 }
@@ -948,10 +948,10 @@ func TestMountWithProjects(t *testing.T) {
 		mr = MountRequest{
 			Mounts: []*MountInfo{
 				{
-					Name:   "default_repo_b1_dup1",
+					Name:    "default_repo_b1_dup1",
 					Project: "",
-					Repo:   "repo",
-					Branch: "b1",
+					Repo:    "repo",
+					Branch:  "b1",
 				},
 			},
 		}
@@ -963,10 +963,10 @@ func TestMountWithProjects(t *testing.T) {
 		mr = MountRequest{
 			Mounts: []*MountInfo{
 				{
-					Name:   "default_repo_b1_dup2",
+					Name:    "default_repo_b1_dup2",
 					Project: "default",
-					Repo:   "repo",
-					Branch: "b1",
+					Repo:    "repo",
+					Branch:  "b1",
 				},
 			},
 		}
@@ -978,10 +978,10 @@ func TestMountWithProjects(t *testing.T) {
 		mr = MountRequest{
 			Mounts: []*MountInfo{
 				{
-					Name:   "invalid_repo_b1",
+					Name:    "invalid_repo_b1",
 					Project: "invalid",
-					Repo:   "repo",
-					Branch: "b1",
+					Repo:    "repo",
+					Branch:  "b1",
 				},
 			},
 		}
@@ -1007,10 +1007,10 @@ func TestMountWithProjects(t *testing.T) {
 		mr = MountRequest{
 			Mounts: []*MountInfo{
 				{
-					Name:   "p1_repo_p1_b2",
+					Name:    "p1_repo_p1_b2",
 					Project: projectName,
-					Repo:   "repo_p1",
-					Branch: "b2",
+					Repo:    "repo_p1",
+					Branch:  "b2",
 				},
 			},
 		}
