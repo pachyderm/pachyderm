@@ -27,9 +27,7 @@ func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.Unord
 		return 0, errors.EnsureStack(err)
 	}
 	switch url.Scheme {
-	case "http":
-		fallthrough
-	case "https":
+	case "http", "https":
 		resp, err := http.Get(src.URL)
 		if err != nil {
 			return 0, errors.EnsureStack(err)
