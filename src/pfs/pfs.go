@@ -137,5 +137,5 @@ func (r *Repo) AuthResource() *auth.Resource {
 
 // AuthResource returns the auth resource for a project.
 func (p *Project) AuthResource() *auth.Resource {
-	return &auth.Resource{Type: auth.ResourceType_PROJECT, Name: p.Name}
+	return &auth.Resource{Type: auth.ResourceType_PROJECT, Name: p.GetName()}
 }
