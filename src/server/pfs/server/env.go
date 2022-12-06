@@ -6,7 +6,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
-	"k8s.io/client-go/kubernetes"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -28,8 +27,6 @@ type Env struct {
 	TaskService  task.Service
 	TxnEnv       *txnenv.TransactionEnv
 	Listener     col.PostgresListener
-	KubeClient   kubernetes.Interface
-	Namespace    string
 
 	AuthServer authserver.APIServer
 	// TODO: a reasonable repo metadata solution would let us get rid of this circular dependency
@@ -61,8 +58,6 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 		EtcdPrefix:   etcdPrefix,
 		EtcdClient:   env.GetEtcdClient(),
 		TaskService:  env.GetTaskService(etcdPrefix),
-		KubeClient:   env.GetKubeClient(),
-		Namespace:    env.Config().Namespace,
 
 		AuthServer:    env.AuthServer(),
 		GetPPSServer:  env.PpsServer,

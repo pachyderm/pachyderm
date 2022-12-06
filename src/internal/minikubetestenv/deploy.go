@@ -501,8 +501,8 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	} else {
 		helmOpts = union(helmOpts, withPachd(version))
 		// TODO(acohen4): apply minio deployment to this namespace
-		helmOpts = union(helmOpts, withMinio())
 	}
+	helmOpts = union(helmOpts, withMinio())
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset
 		helmOpts = union(helmOpts, withPort(namespace, pachAddress.Port, opts.TLS))

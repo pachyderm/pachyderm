@@ -14,8 +14,8 @@ func NewAPIServer(env Env) (pfsserver.APIServer, error) {
 	go a.driver.master(env.BackgroundContext)
 	go a.driver.URLWorker(env.BackgroundContext)
 	go func() { pfsload.Worker(env.GetPachClient(env.BackgroundContext), env.TaskService) }() //nolint:errcheck
-	//taskSource := env.TaskService.NewSource(storageTaskNamespace)
-	//go compactionWorker(env.BackgroundContext, taskSource, a.driver.storage) //nolint:errcheck
+	taskSource := env.TaskService.NewSource(StorageTaskNamespace)
+	go compactionWorker(env.BackgroundContext, taskSource, a.driver.storage) //nolint:errcheck
 	return newValidatedAPIServer(a, env.AuthServer), nil
 }
 
@@ -34,7 +34,7 @@ func NewPachwAPIServer(env Env) (pfsserver.APIServer, error) {
 		return nil, err
 	}
 	go func() { pfsload.Worker(env.GetPachClient(env.BackgroundContext), env.TaskService) }() //nolint:errcheck
-	taskSource := env.TaskService.NewSource(storageTaskNamespace)
+	taskSource := env.TaskService.NewSource(StorageTaskNamespace)
 	go compactionWorker(env.BackgroundContext, taskSource, a.driver.storage) //nolint:errcheck
 	return newValidatedAPIServer(a, env.AuthServer), nil
 }

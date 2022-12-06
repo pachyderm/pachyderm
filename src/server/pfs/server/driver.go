@@ -40,7 +40,7 @@ import (
 )
 
 const (
-	storageTaskNamespace = "storage"
+	StorageTaskNamespace = "storage"
 	fileSetsRepo         = client.FileSetsRepoName
 	defaultTTL           = client.DefaultTTL
 	maxTTL               = 30 * time.Minute
