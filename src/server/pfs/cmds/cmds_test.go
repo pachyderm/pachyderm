@@ -495,7 +495,7 @@ func TestMount(t *testing.T) {
 	require.NoError(t, eg.Wait(), "goroutines failed")
 }
 
-func TestListRepo(t *testing.T) {
+func TestCmdListRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -515,5 +515,4 @@ func TestListRepo(t *testing.T) {
 		pachctl list repo --all-projects | match {{.repo1}}
 		pachctl list repo --all-projects | match {{.repo2}}
 	`, "project", project, "repo1", repo1, "repo2", repo2).Run())
-
 }
