@@ -80,7 +80,7 @@ func NewGRPCLogWriter(logger *logrus.Logger, source string) *GRPCLogWriter {
 // Write allows `GRPCInfoWriter` to implement the `io.Writer` interface. This
 // will take gRPC logs, which look something like this:
 // ```
-// INFO: 2019/02/18 12:21:54 ClientConn switching balancer to "pick_first"
+// 2019/02/18 12:21:54 INFO: ClientConn switching balancer to "pick_first"
 // ```
 // strip out redundant content, and print the message at the appropriate log
 // level in logrus. Any parse errors of the log message will be reported in
