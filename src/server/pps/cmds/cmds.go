@@ -212,14 +212,6 @@ $ {{alias}} -i foo@XXX -i bar@YYY
 # Return all sub-jobs in pipeline foo and whose input commits include bar@YYY
 $ {{alias}} -p foo -i bar@YYY`,
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			cfg, err := config.Read(false, false)
-			if err != nil {
-				return err
-			}
-			_, pachCtx, err := cfg.ActiveContext(true)
-			if err != nil {
-				return err
-			}
 			commits, err := cmdutil.ParseCommits(project, inputCommitStrs)
 			if err != nil {
 				return err
@@ -252,8 +244,6 @@ $ {{alias}} -p foo -i bar@YYY`,
 			projectsFilter := []string{project}
 			if allProjects {
 				projectsFilter = nil
-			} else if project == pfs.DefaultProjectName {
-				projectsFilter = []string{pachCtx.GetProject()}
 			}
 			if len(args) == 0 {
 				if pipelineName == "" && !expand {

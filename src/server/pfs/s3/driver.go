@@ -69,7 +69,7 @@ func projectBranchBucketName(b *pfs.Branch) string {
 }
 
 func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, buckets *[]*s2.Bucket) error {
-	var isProjectAware = mux.Vars(r)["isProjectAware"] == "yes"
+	var isProjectAware = mux.Vars(r)[isProjectAwareVar] == isProjectAwareValue
 	repos, err := pc.ListRepoByType("") // get repos of all types
 	if err != nil {
 		return err
@@ -161,7 +161,7 @@ func bucketNameToProjectCommit(bucketName string) (*pfs.Commit, error) {
 }
 
 func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
-	if mux.Vars(r)["isProjectAware"] == "yes" {
+	if mux.Vars(r)[isProjectAwareVar] == isProjectAwareValue {
 		commit, err := bucketNameToProjectCommit(name)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not map bucket name to commit")
