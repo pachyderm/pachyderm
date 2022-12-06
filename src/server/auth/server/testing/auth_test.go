@@ -2438,6 +2438,23 @@ func TestPreAuthProjects(t *testing.T) {
 	_, err = c.Activate(c.Ctx(), &auth.ActivateRequest{RootToken: tu.RootToken})
 	require.NoError(t, err)
 	c.SetAuthToken(tu.RootToken)
+
+	// default project's role binding should be created automatically via auth activation
+	_, err = c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
+		Principal: tu.Robot("marvin"),
+		Roles:     []string{},
+		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: pfs.DefaultProjectName},
+	})
+	require.NoError(t, err)
+
+	// however non-defualt projects get their role bindings through pfs auth activation
+	_, err = c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
+		Principal: tu.Robot("marvin"),
+		Roles:     []string{},
+		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project},
+	})
+	require.YesError(t, err)
+
 	_, err = c.PfsAPIClient.ActivateAuth(c.Ctx(), &pfs.ActivateAuthRequest{})
 	require.NoError(t, err)
 
@@ -2447,7 +2464,6 @@ func TestPreAuthProjects(t *testing.T) {
 		Roles:     []string{},
 		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project},
 	})
-	require.NoError(t, err)
 }
 
 // TODO uncomment for CORE-1111
