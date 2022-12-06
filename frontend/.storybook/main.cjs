@@ -9,21 +9,25 @@ const tsconfigPaths = require('vite-tsconfig-paths');
 
 module.exports = {
   async viteFinal(config) {
-    const { config: userConfig } = await loadConfigFromFile(
-      path.resolve(__dirname, "../components/vite.config.ts")
-    );
-    userConfig.resolve = {
-      alias: {
-        '@pachyderm/components': path.resolve(__dirname, '../components/src'),
-        '@pachyderm/components/*': path.resolve(__dirname, '../components/src/*'),
+    const userConfig = {
+      build: {
+        sourcemap: true,
+        target: 'ES2018',
+        minify: false,
       },
-    };
-    userConfig.css = {
-      postcss: {
-        plugins: [customMedia(), normalize(), flexbugFixes(), presetEnv()],
+      resolve: {
+        alias: {
+          '@pachyderm/components': path.resolve(__dirname, '../components/src'),
+          '@pachyderm/components/*': path.resolve(__dirname, '../components/src/*'),
+        },
       },
+      css: {
+        postcss: {
+          plugins: [customMedia(), normalize(), flexbugFixes(), presetEnv()],
+        },
+      },
+      plugins: [tsconfigPaths, svgr()],
     };
-    userConfig.plugins = [tsconfigPaths, svgr()];
     return mergeConfig(config, userConfig);
   },
   stories: ['../components/src/**/*.stories.tsx'],

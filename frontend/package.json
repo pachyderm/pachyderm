@@ -16,6 +16,7 @@
     "components:test": "NODE_ENV=test GRAPHQL_PORT=0 LOG_LEVEL=none dotenv-flow -p ../ -- jest --projects components --max-workers=6",
     "tslint": "npx tslint 'src/**/*.{ts,tsx}'",
     "generate-hooks": "graphql-codegen",
+    "build:storybook": "build-storybook",
     "components:publish:storybook": "build-storybook && netlify deploy --dir=storybook-static --prod",
     "storybook": "start-storybook -p 6006"
   },
