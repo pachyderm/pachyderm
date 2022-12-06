@@ -51,6 +51,7 @@ func TestConfig(t *testing.T) {
 
 		putResp, err = put("config", b)
 		require.NoError(t, err)
+		require.Equal(t, 200, putResp.StatusCode)
 		defer putResp.Body.Close()
 
 		putConfig := &Config{}
@@ -66,6 +67,7 @@ func TestConfig(t *testing.T) {
 		// GET
 		getResp, err := get("config")
 		require.NoError(t, err)
+		require.Equal(t, 200, getResp.StatusCode)
 		defer getResp.Body.Close()
 
 		getConfig := &Config{}
@@ -91,6 +93,7 @@ func TestMountDatum(t *testing.T) {
 		)
 		resp, err := put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		mdr := &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
@@ -105,8 +108,9 @@ func TestMountDatum(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 
-		_, err = put("_unmount_all", nil)
+		resp, err = put("_unmount_all", nil)
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		input = []byte(fmt.Sprintf(
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*'}}}`,
@@ -114,6 +118,7 @@ func TestMountDatum(t *testing.T) {
 		)
 		resp, err = put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		mdr = &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
@@ -152,6 +157,7 @@ func TestCrossDatum(t *testing.T) {
 		)
 		resp, err := put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		mdr := &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
@@ -193,6 +199,7 @@ func TestUnionDatum(t *testing.T) {
 		)
 		resp, err := put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		mdr := &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
@@ -224,6 +231,7 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 		)
 		resp, err := put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		mdr := &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
@@ -238,8 +246,9 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 
-		_, err = put("_unmount_all", nil)
+		resp, err = put("_unmount_all", nil)
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		input = []byte(fmt.Sprintf(
 			`{'input': {'cross': [{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}},
@@ -249,6 +258,7 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 		)
 		resp, err = put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		mdr = &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
@@ -283,6 +293,7 @@ func TestShowDatum(t *testing.T) {
 		)
 		resp, err := put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		mdr := &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
@@ -297,6 +308,7 @@ func TestShowDatum(t *testing.T) {
 
 		resp, err = put("_show_datum?idx=1", nil)
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 1, mdr.Idx)
@@ -305,6 +317,7 @@ func TestShowDatum(t *testing.T) {
 
 		resp, err = put(fmt.Sprintf("_show_datum?idx=1&id=%s", datum1Id), nil)
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
@@ -325,6 +338,7 @@ func TestGetDatums(t *testing.T) {
 	withServerMount(t, c, nil, func(mountPoint string) {
 		resp, err := get("datums")
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		dr := &DatumsResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(dr))
@@ -336,6 +350,7 @@ func TestGetDatums(t *testing.T) {
 		)
 		resp, err = put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		mdr := &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
@@ -350,6 +365,7 @@ func TestGetDatums(t *testing.T) {
 
 		resp, err = get("datums")
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		dr = &DatumsResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(dr))
@@ -361,6 +377,7 @@ func TestGetDatums(t *testing.T) {
 
 		resp, err = put("_show_datum?idx=1", nil)
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 1, mdr.Idx)
@@ -369,6 +386,7 @@ func TestGetDatums(t *testing.T) {
 
 		resp, err = get("datums")
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		dr = &DatumsResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(dr))
@@ -376,6 +394,7 @@ func TestGetDatums(t *testing.T) {
 
 		resp, err = put(fmt.Sprintf("_show_datum?idx=1&id=%s", datum1Id), nil)
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
@@ -412,12 +431,13 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 	require.NoError(t, err)
 
 	withServerMount(t, c, nil, func(mountPoint string) {
-		input := []byte(fmt.Sprintf(`{'input': {'cross': [{'pfs': {'glob': '/*', 'repo': 'repo1'}}, 
+		input := []byte(fmt.Sprintf(`{'input': {'cross': [{'pfs': {'glob': '/*', 'repo': 'repo1'}},
 			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'branch': 'dev'}}]}}`,
 			pfs.DefaultProjectName),
 		)
 		resp, err := put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		mdr := &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
@@ -439,6 +459,7 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 		)
 		resp, err = put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		mdr = &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
@@ -458,6 +479,7 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 
 		resp, err = put("_show_datum?idx=1", nil)
 		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 1, mdr.Idx)
@@ -465,7 +487,8 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 		require.Equal(t, 8, mdr.NumDatums)
 
 		input = []byte("{'input': {'pfs': {'project': 'invalid', 'repo': 'repo1', 'glob': '/*'}}}")
-		_, err = put("_mount_datums", bytes.NewReader(input))
-		require.YesError(t, err)
+		resp, err = put("_mount_datums", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
 	})
 }
