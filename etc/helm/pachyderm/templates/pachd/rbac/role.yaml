@@ -53,6 +53,8 @@ rules:
   resources:
   - deployments
   - deployments/scale
+  - replicasets
+  - replicasets/scale
   verbs:
   - get
   - list

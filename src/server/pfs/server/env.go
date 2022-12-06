@@ -4,6 +4,10 @@ import (
 	"context"
 	"path"
 
+	"github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/client/v3"
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -13,8 +17,6 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
-	"github.com/sirupsen/logrus"
-	etcd "go.etcd.io/etcd/client/v3"
 )
 
 // Env is the dependencies needed to run the PFS API server
@@ -26,6 +28,8 @@ type Env struct {
 	TaskService  task.Service
 	TxnEnv       *txnenv.TransactionEnv
 	Listener     col.PostgresListener
+	KubeClient   kubernetes.Interface
+	Namespace    string
 
 	AuthServer authserver.APIServer
 	// TODO: a reasonable repo metadata solution would let us get rid of this circular dependency
@@ -57,6 +61,8 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 		EtcdPrefix:   etcdPrefix,
 		EtcdClient:   env.GetEtcdClient(),
 		TaskService:  env.GetTaskService(etcdPrefix),
+		KubeClient:   env.GetKubeClient(),
+		Namespace:    env.Config().Namespace,
 
 		AuthServer:    env.AuthServer(),
 		GetPPSServer:  env.PpsServer,

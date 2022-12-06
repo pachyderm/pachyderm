@@ -126,9 +126,6 @@ func newDriver(env Env) (*driver, error) {
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
 	chunkStorage := chunk.NewStorage(objClient, memCache, env.DB, tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, fileset.StorageOptions(&storageConfig)...)
-	// Set up compaction worker.
-	taskSource := env.TaskService.NewSource(storageTaskNamespace)
-	go compactionWorker(env.BackgroundContext, taskSource, d.storage) //nolint:errcheck
 	d.commitStore = newPostgresCommitStore(env.DB, tracker, d.storage)
 	// TODO: Make the cache max size configurable.
 	d.cache = fileset.NewCache(env.DB, tracker, 10000)

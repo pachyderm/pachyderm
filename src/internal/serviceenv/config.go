@@ -27,13 +27,14 @@ type GlobalConfiguration struct {
 	LokiHost                       string `env:"LOKI_SERVICE_HOST"`
 	LokiPort                       string `env:"LOKI_SERVICE_PORT"`
 	OidcPort                       uint16 `env:"OIDC_PORT,default=1657"`
+	IsPachw                        bool   `env:"IS_PACHW,default=false"`
 	PGBouncerHost                  string `env:"PG_BOUNCER_HOST,required"`
 	PGBouncerPort                  int    `env:"PG_BOUNCER_PORT,required"`
 	PostgresSSL                    string `env:"POSTGRES_SSL,default=disable"`
 	PostgresHost                   string `env:"POSTGRES_HOST"`
 	PostgresPort                   int    `env:"POSTGRES_PORT"`
-	PostgresDBName                 string `env:"POSTGRES_DATABASE,required"`
-	PostgresUser                   string `env:"POSTGRES_USER,required"`
+	PostgresDBName                 string `env:"POSTGRES_DATABASE"` //made this non-required, hopefully it doesn't explode
+	PostgresUser                   string `env:"POSTGRES_USER"`     //made this non-required, hopefully it doesn't explode
 	PostgresPassword               string `env:"POSTGRES_PASSWORD"`
 	PostgresMaxOpenConns           int    `env:"POSTGRES_MAX_OPEN_CONNS,default=10"`
 	PostgresMaxIdleConns           int    `env:"POSTGRES_MAX_IDLE_CONNS,default=10"`

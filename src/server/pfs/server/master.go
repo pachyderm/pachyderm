@@ -2,14 +2,19 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"time"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/consistenthashing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 
 	"github.com/hashicorp/go-multierror"
 
 	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
@@ -79,11 +84,103 @@ func (d *driver) master(ctx context.Context) {
 		eg.Go(func() error {
 			return d.finishCommits(ctx)
 		})
+		eg.Go(func() error {
+			lock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath, "pachw"))
+			defer func() {
+				if err := lock.Unlock(ctx); err != nil {
+					d.log.Errorf("error unlocking in pfs master: %v", err)
+				}
+			}()
+			tickerSeconds := 5
+			samplesPerMinute := 60 / tickerSeconds
+			tasksPerMinute := float32(0)
+			var taskSamples []int
+			ticker := time.NewTicker(time.Second * time.Duration(tickerSeconds))
+			defer ticker.Stop()
+			for {
+				totalTasks := d.countTasks(ctx)
+				taskSamples, tasksPerMinute = d.taskAverage(taskSamples, totalTasks, samplesPerMinute)
+				fmt.Printf("samples: %v avg: %v\n", taskSamples, tasksPerMinute)
+				totalInstances := d.countPipelineInstances(ctx)
+				if tasksPerMinute == 0 {
+					err := d.scalePachw(ctx, 0)
+					if err != nil {
+						d.log.Errorf("failed to scale down pachw: %v", err)
+					}
+				} else if totalTasks > 0 {
+					err := d.scalePachw(ctx, int32(totalInstances))
+					if err != nil {
+						d.log.Errorf("failed to scale up pachw: %v", err)
+					}
+				}
+				select {
+				case <-ctx.Done():
+					return errors.EnsureStack(ctx.Err())
+				case <-ticker.C:
+				}
+			}
+		})
 		return errors.EnsureStack(eg.Wait())
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
 		log.Errorf("error in pfs master: %v", err)
 		return nil
 	})
+}
+
+func (d *driver) taskAverage(taskSamples []int, tasks, numSamples int) ([]int, float32) {
+	taskSamples = append(taskSamples, tasks)
+	if len(taskSamples) > numSamples {
+		taskSamples = taskSamples[1:]
+	}
+	totalTasksLastMinute := 0
+	for _, taskCount := range taskSamples {
+		totalTasksLastMinute += taskCount
+	}
+	return taskSamples, float32(totalTasksLastMinute) / float32(numSamples)
+}
+
+// todo: Update logic to iterate through projects x pipelines, when project logic gets merged.
+func (d *driver) countPipelineInstances(ctx context.Context) int {
+	pachClient := d.env.GetPachClient(ctx)
+	infos, err := pachClient.ListPipeline(true)
+	if err != nil {
+		d.log.Errorf("error listing pipelines: %v", err)
+	}
+	totalInstances := 0
+	for _, info := range infos {
+		totalInstances += int(info.Parallelism)
+	}
+	return totalInstances
+}
+
+func (d *driver) countTasks(ctx context.Context) int {
+	totalTasks := 0
+	for _, ns := range []string{storageTaskNamespace, "url"} {
+		tasks, _, err := task.Count(ctx, d.env.TaskService, ns, "")
+		if err != nil {
+			d.log.Errorf("error counting tasks: %v", err)
+		}
+		totalTasks += int(tasks)
+	}
+	return totalTasks
+}
+
+func (d *driver) scalePachw(ctx context.Context, replicas int32) error {
+	pachwRs, err := d.env.KubeClient.AppsV1().ReplicaSets(d.env.Namespace).Get(ctx,
+		"pachw", v1.GetOptions{})
+	if err != nil {
+		return errors.Wrap(err, "could not get pachw replicaSet")
+	}
+	pachwRs.Spec.Replicas = &replicas
+	_, err = d.env.KubeClient.AppsV1().ReplicaSets(d.env.Namespace).Update(
+		ctx,
+		pachwRs,
+		v1.UpdateOptions{},
+	)
+	if err != nil {
+		return errors.Wrap(err, "could not scale pachw replicaSet")
+	}
+	return nil
 }
 
 func (d *driver) finishCommits(ctx context.Context) (retErr error) {
