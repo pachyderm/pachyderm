@@ -2425,7 +2425,7 @@ func TestPreAuthProjects(t *testing.T) {
 	project := tu.UniqueString("project")
 	require.NoError(t, c.CreateProject(project))
 
-	// activate auth
+	// activate auth auth
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateLicense(t, c, peerPort)
 	_, err := env.PachClient.Enterprise.Activate(env.PachClient.Ctx(),
@@ -2455,6 +2455,7 @@ func TestPreAuthProjects(t *testing.T) {
 	})
 	require.YesError(t, err)
 
+	// activate pfs auth
 	_, err = c.PfsAPIClient.ActivateAuth(c.Ctx(), &pfs.ActivateAuthRequest{})
 	require.NoError(t, err)
 
@@ -2464,6 +2465,7 @@ func TestPreAuthProjects(t *testing.T) {
 		Roles:     []string{},
 		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project},
 	})
+	require.NoError(t, err)
 }
 
 // TODO uncomment for CORE-1111
