@@ -4,6 +4,7 @@ package pfsserver;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/server/pfs/server";
 
 import "internal/storage/fileset/index/index.proto";
+import "pfs/pfs.proto";
 
 message ShardTask {
   repeated string inputs = 1;
@@ -47,3 +48,22 @@ message ValidateTaskResult {
   string error = 3;
   int64 size_bytes = 4;
 }
+
+message PutFileURLTask {
+  string dst = 1;
+  string datum = 2;
+  string URL = 3;
+  repeated string paths = 4;
+}
+
+message PutFileURLTaskResult {
+  string id = 1;
+}
+
+message GetFileURLTask {
+  string URL = 1;
+  pfs_v2.File file = 2;
+  pfs_v2.PathRange path_range = 3;
+}
+
+message GetFileURLTaskResult {}

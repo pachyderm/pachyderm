@@ -256,7 +256,7 @@ func TestMigratePostgreSQLCollection(t *testing.T) {
 	}
 	if err := dbutil.WithTx(ctx, db, func(tx *pachsql.Tx) error {
 		var oldItem = new(col.TestItem)
-		return col.MigratePostgreSQLCollection_v2_4_0(ctx, tx, "test_items", []*col.Index{TestSecondaryIndex}, oldItem, func(oldKey string) (newKey string, newVal proto.Message, err error) {
+		return col.MigratePostgreSQLCollection_v2_5_0(ctx, tx, "test_items", []*col.Index{TestSecondaryIndex}, oldItem, func(oldKey string) (newKey string, newVal proto.Message, err error) {
 			oldItem.Value = oldItem.Value + " quux"
 			return "foo", oldItem, nil
 		})
