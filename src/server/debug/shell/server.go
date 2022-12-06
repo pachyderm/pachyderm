@@ -77,7 +77,7 @@ func NewDumpServer(filePath string, port uint16) *debugDump {
 		return nil, auth.ErrNotActivated
 	})
 	mock.Admin.InspectCluster.Use(func(_ context.Context, _ *types.Empty) (*admin.ClusterInfo, error) {
-		return &admin.ClusterInfo{ID: "debug"}, nil
+		return &admin.ClusterInfo{Id: "debug"}, nil
 	})
 
 	return d

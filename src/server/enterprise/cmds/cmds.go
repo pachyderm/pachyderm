@@ -101,7 +101,7 @@ func RegisterCmd() *cobra.Command {
 				if inspectErr != nil {
 					return errors.Wrapf(inspectErr, "could not inspect cluster")
 				}
-				clusterId = clusterInfo.DeploymentID
+				clusterId = clusterInfo.DeploymentId
 			}
 
 			enterpriseServer, err := getIsActiveContextEnterpriseServer()

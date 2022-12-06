@@ -349,7 +349,7 @@ func TestRegisterDefaultArgs(t *testing.T) {
 	// get cluster ID from connection
 	clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &types.Empty{})
 	require.NoError(t, inspectErr)
-	clusterId := clusterInfo.DeploymentID
+	clusterId := clusterInfo.DeploymentId
 
 	host := c.GetAddress().Host
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
