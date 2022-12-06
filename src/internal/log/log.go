@@ -90,11 +90,11 @@ func (l *GRPCLogWriter) Write(p []byte) (int, error) {
 	entry := l.logger.WithField("source", l.source)
 
 	if len(parts) == 4 {
-		// parts[1] and parts[2] contain the date and time, but logrus already
+		// parts[0] and parts[1] contain the date and time, but logrus already
 		// adds this under the `time` entry field, so it's not needed (though
 		// the time will presumably be marginally ahead of the original log
 		// message)
-		level := parts[0]
+		level := parts[2]
 		message := strings.TrimSpace(parts[3])
 
 		if level == "INFO:" {
