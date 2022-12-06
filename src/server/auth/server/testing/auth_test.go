@@ -982,10 +982,8 @@ func TestListAndInspectRepo(t *testing.T) {
 	require.NoError(t, err)
 	expectedPermissions := map[string][]auth.Permission{
 		repoOwner: {
-			auth.Permission_PIPELINE_LIST_JOB,
-			auth.Permission_PROJECT_CREATE_REPO,
 			auth.Permission_PROJECT_CREATE,
-			auth.Permission_PROJECT_LIST_REPO,
+			auth.Permission_PIPELINE_LIST_JOB,
 			auth.Permission_REPO_ADD_PIPELINE_READER,
 			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 			auth.Permission_REPO_CREATE_BRANCH,
@@ -1003,10 +1001,8 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_WRITE,
 		},
 		repoWriter: {
-			auth.Permission_PIPELINE_LIST_JOB,
-			auth.Permission_PROJECT_CREATE_REPO,
 			auth.Permission_PROJECT_CREATE,
-			auth.Permission_PROJECT_LIST_REPO,
+			auth.Permission_PIPELINE_LIST_JOB,
 			auth.Permission_REPO_ADD_PIPELINE_READER,
 			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 			auth.Permission_REPO_CREATE_BRANCH,
@@ -1022,10 +1018,8 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_WRITE,
 		},
 		repoReader: {
-			auth.Permission_PIPELINE_LIST_JOB,
-			auth.Permission_PROJECT_CREATE_REPO,
 			auth.Permission_PROJECT_CREATE,
-			auth.Permission_PROJECT_LIST_REPO,
+			auth.Permission_PIPELINE_LIST_JOB,
 			auth.Permission_REPO_ADD_PIPELINE_READER,
 			auth.Permission_REPO_INSPECT_COMMIT,
 			auth.Permission_REPO_INSPECT_FILE,
@@ -1036,12 +1030,11 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_REMOVE_PIPELINE_READER,
 		},
 		repoNone: {
-			auth.Permission_PROJECT_CREATE_REPO,
 			auth.Permission_PROJECT_CREATE,
-			auth.Permission_PROJECT_LIST_REPO,
 		},
 	}
 	for _, info := range repoInfos {
+		fmt.Println("qqq", info.Repo.Name)
 		require.ElementsEqual(t, expectedPermissions[info.Repo.Name], info.AuthInfo.Permissions)
 	}
 
@@ -1114,12 +1107,10 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 
-	// PROJECT_CREATE comes from cluster level all users having projectCreator role
-	// PROJECT_LIST_REPO and PROJECT_CREATE_REPO comes from all users having projectWriter role for default project
 	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		require.ElementsEqual(t, []auth.Permission{auth.Permission_PROJECT_CREATE, auth.Permission_PROJECT_LIST_REPO, auth.Permission_PROJECT_CREATE_REPO}, info.AuthInfo.Permissions)
+		require.ElementsEqual(t, []auth.Permission{auth.Permission_PROJECT_CREATE}, info.AuthInfo.Permissions)
 	}
 
 	// Deactivate auth
