@@ -2109,17 +2109,19 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 	return errors.EnsureStack(err)
 }
 
-func (d *driver) deleteProjectRepos(ctx context.Context, project *pfs.Project) error {
+func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
 	var repos []*pfs.Repo
-	if err := d.listRepo(ctx, !includeAuth, "", func(repoInfo *pfs.RepoInfo) error {
-		if repoInfo.GetRepo().GetProject().GetName() == project.GetName() {
-			repos = append(repos, repoInfo.Repo)
+	for _, project := range projects {
+		if err := d.listRepo(ctx, !includeAuth, "", func(repoInfo *pfs.RepoInfo) error {
+			if repoInfo.GetRepo().GetProject().GetName() == project.GetName() {
+				repos = append(repos, repoInfo.Repo)
+			}
+			return nil
+		}); err != nil {
+			return nil, err
 		}
-		return nil
-	}); err != nil {
-		return err
 	}
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// the list does not use the transaction
 		for _, repo := range repos {
 			if err := d.deleteRepo(txnCtx, repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
@@ -2127,7 +2129,10 @@ func (d *driver) deleteProjectRepos(ctx context.Context, project *pfs.Project) e
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return nil, err
+	}
+	return repos, nil
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {

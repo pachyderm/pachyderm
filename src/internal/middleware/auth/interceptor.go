@@ -129,6 +129,7 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/InspectRepo":      authDisabledOr(authenticated),
 	"/pfs_v2.API/ListRepo":         authDisabledOr(authenticated),
 	"/pfs_v2.API/DeleteRepo":       authDisabledOr(authenticated),
+	"/pfs_v2.API/DeleteRepos":      authDisabledOr(authenticated),
 	"/pfs_v2.API/StartCommit":      authDisabledOr(authenticated),
 	"/pfs_v2.API/FinishCommit":     authDisabledOr(authenticated),
 	"/pfs_v2.API/InspectCommit":    authDisabledOr(authenticated),

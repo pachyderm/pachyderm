@@ -153,17 +153,8 @@ func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContex
 // DeleteRepo implements the protobuf pfs.DeleteRepo RPC
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
 	request.GetRepo().EnsureProject()
-	if project := request.GetProject(); project != nil {
-		if request.GetRepo() != nil {
-			return nil, status.Error(codes.InvalidArgument, "may not delete repo and project’s repos at once")
-		}
-		if err := a.driver.deleteProjectRepos(ctx, project); err != nil {
-			return nil, err
-		}
-		return &types.Empty{}, nil
-	}
 	if request.GetRepo() == nil {
-		return nil, status.Error(codes.InvalidArgument, "no repo or project specified")
+		return nil, status.Error(codes.InvalidArgument, "no repo specified")
 	}
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.DeleteRepo(request))
@@ -171,6 +162,21 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+// DeleteRepos implements the pfs.DeleteRepo RPC.  It deletes more than one repo at once.
+func (a *apiServer) DeleteRepos(ctx context.Context, request *pfs.DeleteReposRequest) (resp *pfs.DeleteReposResponse, err error) {
+	if request.Projects == nil {
+		return nil, status.Error(codes.InvalidArgument, "DeleteRepos must specify project(s) whose repos should be deleted.")
+	}
+	repos, err := a.driver.deleteProjectsRepos(ctx, request.Projects)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pfs.DeleteReposResponse{
+		Repos: repos,
+	}, nil
 }
 
 // StartCommitInTransaction is identical to StartCommit except that it can run

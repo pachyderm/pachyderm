@@ -196,9 +196,17 @@ message ListRepoRequest {
 message DeleteRepoRequest {
   Repo repo = 1;
   bool force = 2;
-  // If project present, and if repo is absent, then all repos in
-  // project will be deleted.
-  Project project = 3;
+}
+
+// DeleteReposRequest is used to delete more than one repo at once.
+message DeleteReposRequest {
+  // All repos in each project will be deleted.
+  repeated Project projects = 1;
+  bool force = 2;
+}
+
+message DeleteReposResponse {
+  repeated Repo repos = 1;
 }
 
 // CommitState describes the states a commit can be in.
@@ -579,6 +587,8 @@ service API {
   rpc ListRepo(ListRepoRequest) returns (stream RepoInfo) {}
   // DeleteRepo deletes a repo.
   rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
+  // DeleteRepos deletes more than one repo at once.
+  rpc DeleteRepos(DeleteReposRequest) returns (DeleteReposResponse) {}
 
   // StartCommit creates a new write commit from a parent commit.
   rpc StartCommit(StartCommitRequest) returns (Commit) {}

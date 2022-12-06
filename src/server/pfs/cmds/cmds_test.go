@@ -503,9 +503,9 @@ func TestDeleteAllRepos(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create project {{.project}}
 		pachctl create repo {{.repo}}
-		pachctl create repo {{.repo}} --project {{.project}}
+		pachctl create repo {{.repo}}a --project {{.project}}
 		pachctl delete repo --all
-		pachctl list repo | match {{.repo}}
+		pachctl list repo | match {{.repo}}a
 		`,
 		"project", tu.UniqueString("project"),
 		"repo", tu.UniqueString("repo"),
