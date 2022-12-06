@@ -120,9 +120,6 @@ type MountManager struct {
 }
 
 func (mm *MountManager) ListByRepos(projectFilter string) (ListRepoResponse, error) {
-	mm.mu.Lock()
-	defer mm.mu.Unlock()
-
 	// fetch list of available repos & branches from pachyderm, and overlay that
 	// with their mount states
 	lr := ListRepoResponse{}
