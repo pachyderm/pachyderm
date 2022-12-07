@@ -2156,7 +2156,7 @@ func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Projec
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// the list does not use the transaction
 		for _, repo := range repos {
-			if err := d.deleteRepo(txnCtx, repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
+			if err := d.deleteRepo(txnCtx, repo, true); err != nil && !errors.As(err, &auth.ErrNotAuthorized{}) {
 				return err
 			}
 		}
