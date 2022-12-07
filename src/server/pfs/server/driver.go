@@ -485,9 +485,20 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 }
 
 // TODO: delete all repos and pipelines within project
-func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *pfs.Project, force bool) error {
+func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *pfs.Project, _ bool) error {
+	if err := project.ValidateName(); err != nil {
+		return errors.Wrap(err, "invalid project name")
+	}
+	if err := d.env.AuthServer.CheckProjectIsAuthorizedInTransaction(txnCtx, project, auth.Permission_PROJECT_DELETE, auth.Permission_PROJECT_MODIFY_BINDINGS); err != nil {
+		return errors.Wrapf(err, "user is not authorized to delete project %q", project)
+	}
 	if err := d.projects.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.ProjectKey(project)); err != nil {
-		return errors.Wrapf(err, "delete project %q", project.Name)
+		return errors.Wrapf(err, "delete project %q", project)
+	}
+	if err := d.env.AuthServer.DeleteRoleBindingInTransaction(txnCtx, project.AuthResource()); err != nil {
+		if !errors.Is(err, auth.ErrNotActivated) {
+			return errors.Wrapf(err, "delete role binding for project %q", project)
+		}
 	}
 	return nil
 }

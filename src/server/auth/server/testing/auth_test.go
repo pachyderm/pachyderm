@@ -1303,15 +1303,17 @@ func TestDeleteAllRepos(t *testing.T) {
 	aliceRepo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, aliceRepo))
 
-	// alice calls DeleteAll. It passes, but only deletes the repos she was authorized to delete
+	// alice tries to delete all repos, but is not allowed to delete admin's repo
 	_, err := aliceClient.PfsAPIClient.DeleteAll(aliceClient.Ctx(), &types.Empty{})
+	require.ErrorContains(t, err, "not authorized")
+
+	// admin can delete all repos
+	_, err = adminClient.PfsAPIClient.DeleteAll(adminClient.Ctx(), &types.Empty{})
 	require.NoError(t, err)
 
 	listResp, err := aliceClient.ListRepo()
 	require.NoError(t, err)
-
-	require.Equal(t, 1, len(listResp))
-	require.Equal(t, adminRepo, listResp[0].Repo.Name)
+	require.Equal(t, 0, len(listResp))
 }
 
 // TestListJob tests that you must have READER access to a pipeline's output
@@ -2534,4 +2536,18 @@ func TestListRepoWithProjectAccessControl(t *testing.T) {
 			require.ElementsEqual(t, tc.expected, repos)
 		})
 	}
+}
+
+// TestDeleteProject tests whether only owners of a project can delete the project.
+func TestDeleteProject(t *testing.T) {
+	t.Parallel()
+
+	env := envWithAuth(t)
+	c := env.PachClient
+	project := tu.UniqueString("project")
+	require.NoError(t, c.CreateProject(project))
+	alice := tu.AuthenticateClient(t, c, tu.Robot(tu.UniqueString("alice")))
+
+	require.ErrorContains(t, alice.DeleteProject(project, false), "not authorized")
+	require.NoError(t, c.DeleteProject(project, false))
 }
