@@ -21,8 +21,8 @@ export const gqlPipelineStateToNodeState = (pipelineState: PipelineState) => {
 export const gqlJobStateToNodeState = (jobState: JobState) => {
   switch (jobState) {
     case JobState.JOB_SUCCESS:
-    case JobState.JOB_CREATED:
       return NodeState.SUCCESS;
+    case JobState.JOB_CREATED:
     case JobState.JOB_RUNNING:
     case JobState.JOB_EGRESSING:
     case JobState.JOB_STARTING:
