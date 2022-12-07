@@ -41,9 +41,6 @@ parameters:
   run-core-jobs:
     type: boolean
     default: false
-  run-perf-tests:
-    type: boolean
-    default: false
 
 executors:
   docker-go:

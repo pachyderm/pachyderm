@@ -223,7 +223,10 @@ workflows:
     jobs:
       - release-pgbouncer
   nightly-api-performance:
-    when: << pipeline.parameters.run-perf-tests >>
+    when:
+      and:
+        - not: << pipeline.parameters.run_nightly_tag >>
+        - equal: [true, << pipeline.parameters.run-perf-tests >>]
     jobs:
       - api-performance-test:
           matrix:
@@ -231,4 +234,3 @@ workflows:
               version:
                 - v2.4.0
                 - latest
-
