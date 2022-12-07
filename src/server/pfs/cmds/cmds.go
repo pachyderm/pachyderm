@@ -6,7 +6,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -252,10 +251,9 @@ or type (e.g. csv, binary, images, etc).`,
 				return errors.Errorf("either a repo name or the --all flag needs to be provided")
 			}
 			if all {
-				log.Println("QQQ deleting all repos in", project)
 				_, err := c.PfsAPIClient.DeleteRepos(c.Ctx(), &pfs.DeleteReposRequest{
 					Projects: []*pfs.Project{
-						&pfs.Project{
+						{
 							Name: project,
 						},
 					},
