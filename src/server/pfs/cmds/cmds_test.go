@@ -505,7 +505,7 @@ func TestDeleteAllRepos(t *testing.T) {
 		pachctl create repo {{.repo}}
 		pachctl create repo {{.repo}}a --project {{.project}}
 		pachctl delete repo --all
-		pachctl list repo | match {{.repo}}a
+		pachctl list repo --all-projects | match {{.repo}}a
 		`,
 		"project", tu.UniqueString("project"),
 		"repo", tu.UniqueString("repo"),
