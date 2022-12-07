@@ -123,7 +123,7 @@ jobs:
             docker buildx create --name pgb --driver docker-container --use buildx-build
             docker buildx build --builder pgb --build-arg VERSION=<< pipeline.parameters.pgbouncer-base-image-version >> --platform=linux/amd64,linux/arm64 -f Dockerfile.pgbouncer -t pachyderm/pgbouncer:<< pipeline.parameters.pgbouncer-image-tag >> --push ./etc/pgbouncer
   api-performance-test:
-    resource_class: large
+    resource_class: xlarge
     parameters:
       version:
         type: string
