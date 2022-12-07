@@ -1218,61 +1218,7 @@ jobs:
             index=${#prefix}
             additional=${v:index}
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
-  api-performance-test:
-    resource_class: xlarge
-    parameters:
-      version:
-        type: string
-    machine:
-      image: << pipeline.parameters.machine_image >>
-    environment:
-      TEST_RESULTS: /tmp/test-results
-      PACHD_VERSION: << parameters.version >>
-    parallelism: 1
-    steps:
-      - checkout
-      - run:
-          name: Collect node stats
-          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
-          background: true
-      - run: mkdir -p ${TEST_RESULTS}
-      - run:
-          name: Clone Locust tests
-          command: |
-            git clone https://github.com/pachyderm/locust-pachyderm.git locust-pachyderm
-      - run:
-          name: setup env vars
-          command: |
-            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
-            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
 
-            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
-            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-      - restore_cache:
-          keys:
-            - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
-      - run: etc/testing/circle/install.sh
-      - gh/setup:
-          version: 2.20.2
-      - run:
-          name: Start minikube
-          command: etc/testing/circle/start-minikube.sh
-          background: true
-      - run: etc/testing/circle/wait-minikube.sh
-      - run:
-          name: Install minio
-          command: kubectl apply -f etc/testing/minio.yaml
-      - run:
-          name: run api performance benchmark
-          no_output_timeout: 20m
-          command: |
-            etc/testing/circle/run_api_performance_tests.sh
-      - run:
-          name: Dump debugging info in case of failure
-          when: on_fail
-          command: etc/testing/circle/kube_debug.sh
-      - store_artifacts:
-          path: /tmp/test-results
 workflows:
   integration-tests:
     when:
@@ -1597,15 +1543,6 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - gcp-prerelease-testing
-  nightly-api-performance:
-    when: << pipeline.parameters.run-perf-tests >>
-    jobs:
-      - api-performance-test:
-          matrix:
-            parameters:
-              version:
-                - v2.4.0
-                - latest
 
 commands:
   install-jupyter-test-deps:
