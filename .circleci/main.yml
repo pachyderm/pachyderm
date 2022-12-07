@@ -1228,7 +1228,7 @@ jobs:
     environment:
       TEST_RESULTS: /tmp/test-results
       PACHD_VERSION: << parameters.version >>
-    parallelism: 8
+    parallelism: 1
     steps:
       - checkout
       - run:
@@ -1236,6 +1236,10 @@ jobs:
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
       - run: mkdir -p ${TEST_RESULTS}
+      - run:
+          name: Clone Locust tests
+          command: |
+            git clone https://github.com/pachyderm/locust-pachyderm.git locust-pachyderm
       - run:
           name: setup env vars
           command: |
@@ -1248,6 +1252,8 @@ jobs:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
       - run: etc/testing/circle/install.sh
+      - gh/setup:
+          version: 2.20.2
       - run:
           name: Start minikube
           command: etc/testing/circle/start-minikube.sh
@@ -1260,7 +1266,7 @@ jobs:
           name: run api performance benchmark
           no_output_timeout: 20m
           command: |
-            echo "workflow test $PACHD_VERSION"
+            etc/testing/circle/run_api_performance_tests.sh
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
