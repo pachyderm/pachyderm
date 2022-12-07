@@ -178,7 +178,7 @@ func (e ErrRepoExists) GRPCStatus() *status.Status {
 }
 
 func (e ErrBranchNotFound) Error() string {
-	return fmt.Sprintf("branch %q not found in repo %v/%v", e.Branch.Name, e.Branch.Repo.Project.GetName(), e.Branch.Repo)
+	return fmt.Sprintf("branch %q not found in repo %v", e.Branch.Name, e.Branch.Repo)
 }
 
 func (e ErrBranchNotFound) GRPCStatus() *status.Status {
