@@ -43,7 +43,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	// set new root token via env
 	opts.AuthUser = ""
 	token := "new-root-token"
-	opts.ValueOverrides = map[string]string{"pachd.rootToken": token}
+	opts.ValueOverrides = map[string]string{"pachd.rootToken": token, "pachw.enabled": "false"}
 	// add config file with trusted peers & new clients
 	opts.ValuesFiles = []string{createAdditionalClientsFile(t), createTrustedPeersFile(t)}
 	// apply upgrade

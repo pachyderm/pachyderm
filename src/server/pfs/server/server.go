@@ -24,6 +24,10 @@ func NewSidecarAPIServer(env Env) (pfsserver.APIServer, error) {
 	if err != nil {
 		return nil, err
 	}
+	if !env.PachwEnabled {
+		taskSource := env.TaskService.NewSource(StorageTaskNamespace)
+		go compactionWorker(env.BackgroundContext, taskSource, a.driver.storage) //nolint:errcheck
+	}
 	return newValidatedAPIServer(a, env.AuthServer), nil
 }
 

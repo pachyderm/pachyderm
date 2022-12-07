@@ -243,6 +243,7 @@ func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Op
 
 func withEnterpriseServer(image, host string) *helm.Options {
 	return &helm.Options{SetValues: map[string]string{
+		"pachw.enabled":                      "false",
 		"pachd.enabled":                      "false",
 		"enterpriseServer.enabled":           "true",
 		"enterpriseServer.image.tag":         image,
@@ -497,12 +498,13 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	if opts.EnterpriseServer {
 		helmOpts = union(helmOpts, withEnterpriseServer(version, pachAddress.Host))
+		helmOpts = union(helmOpts, withMinio())
 		pachAddress.Port = uint16(31650)
 	} else {
 		helmOpts = union(helmOpts, withPachd(version))
 		// TODO(acohen4): apply minio deployment to this namespace
+		helmOpts = union(helmOpts, withMinio())
 	}
-	helmOpts = union(helmOpts, withMinio())
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset
 		helmOpts = union(helmOpts, withPort(namespace, pachAddress.Port, opts.TLS))

@@ -38,6 +38,7 @@ type Env struct {
 	BackgroundContext context.Context
 	StorageConfig     serviceenv.StorageConfiguration
 	Logger            *logrus.Logger
+	PachwEnabled      bool
 }
 
 func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*Env, error) {
@@ -66,5 +67,6 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 		BackgroundContext: env.Context(),
 		StorageConfig:     env.Config().StorageConfiguration,
 		Logger:            env.Logger(),
+		PachwEnabled:      env.Config().PachwEnabled,
 	}, nil
 }

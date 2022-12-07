@@ -3,6 +3,7 @@ SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
 {{- $randHostPath := printf "/var/pachyderm-%s/" (randAlphaNum 5) -}}
+{{- if .Values.pachw.enabled -}}
 apiVersion: apps/v1
 kind: ReplicaSet
 metadata:
@@ -12,7 +13,7 @@ metadata:
   name: pachw
   namespace: {{ .Release.Namespace }}
 spec:
-  replicas: 0
+  replicas: {{ .Values.pachw.minReplicas | default 0 }}
   selector:
     matchLabels:
       app: pachw
@@ -238,3 +239,4 @@ spec:
             defaultMode: 420
             secretName: {{ .Values.oidc.dexCredentialSecretName }}
       {{- end }}
+{{- end -}}

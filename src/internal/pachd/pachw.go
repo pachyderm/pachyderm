@@ -64,9 +64,7 @@ func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 }
 
 // PachwMode runs a pachw-mode pachd.
-//
-// Pachw mode is run as a pachw in a pipeline pod; it provides services to
-// the pipeline worker code running in that pod.
+// When in pachw mode, the pachd instance processes storage and url tasks.
 func PachwMode(ctx context.Context, config any) error {
 	return newPachwBuilder(config).buildAndRun(ctx)
 }

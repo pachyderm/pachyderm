@@ -354,6 +354,13 @@ loki-stack:
       successThreshold: 1
       timeoutSeconds: 1
 
+# If enabled creates a pool of pachd instances running in 'pachw' mode which can dynamically scale to handle
+# storage related tasks
+pachw:
+  enabled: true
+  # minReplicas: 0
+  # maxReplicas: 100
+
 pachd:
   enabled: true
   preflightChecks:

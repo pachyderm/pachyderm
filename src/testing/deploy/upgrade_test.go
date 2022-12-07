@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	proto "github.com/gogo/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -48,6 +49,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, fromVersions []string, p
 					// overrides.  They became the default (instead of random)
 					// in the 2.3 alpha cycle.
 					ValueOverrides: map[string]string{
+						"pachw.enabled":                                "false",
 						"global.postgresql.postgresqlPassword":         "insecure-user-password",
 						"global.postgresql.postgresqlPostgresPassword": "insecure-root-password",
 					},

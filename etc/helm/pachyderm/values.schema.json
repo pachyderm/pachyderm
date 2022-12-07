@@ -688,6 +688,20 @@
                 }
             }
         },
+        "pachw": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "minReplicas": {
+                    "type": "integer"
+                },
+                "maxReplicas": {
+                    "type": "integer"
+                }
+            }
+        },
         "pachd": {
             "type": "object",
             "properties": {

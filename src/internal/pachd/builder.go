@@ -365,10 +365,13 @@ func (b *builder) maybeInitDexDB(ctx context.Context) error {
 	return b.initDexDB(ctx)
 }
 
-func (b *builder) initPachwMaster(ctx context.Context) error {
-	env, err := pachw.EnvFromServiceEnv(b.env, b.txnEnv)
+func (b *builder) maybeInitPachwMaster(ctx context.Context) error {
+	env, err := pachw.EnvFromServiceEnv(b.env)
 	if err != nil {
 		return err
+	}
+	if !env.Enabled {
+		return nil
 	}
 	pachw.NewMaster(ctx, env)
 	return nil

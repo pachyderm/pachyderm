@@ -194,8 +194,7 @@ func (env *NonblockingServiceEnv) Config() *Configuration {
 }
 
 func (env *NonblockingServiceEnv) isWorker() bool {
-	return env.config.PPSPipelineName != "" ||
-		env.config.IsPachw // is this the best way to determine if we are a worker?
+	return env.config.PPSPipelineName != "" || env.config.IsPachw
 }
 
 func (env *NonblockingServiceEnv) initClusterID() error {
