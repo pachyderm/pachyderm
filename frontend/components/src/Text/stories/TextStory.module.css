@@ -1,5 +1,5 @@
 .wrapper {
-  border: 1px  solid rgba(0, 0, 0, 0.1); 
+  border: 1px solid rgba(0, 0, 0, 0.1);
   display: inline-flex;
   max-width: 70rem;
 }
@@ -12,7 +12,7 @@
   width: 100%;
   padding: 0.5rem 2rem;
   background-color: var(--background-blue);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1); 
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .body {
@@ -24,7 +24,7 @@
   background-color: var(--background-grey);
   padding: 1rem;
   width: 13rem;
-  border-right: 1px solid rgba(0, 0, 0, 0.1); 
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .specs * {
@@ -37,5 +37,5 @@
 }
 
 .specs > div > b {
-  flex: 1
+  flex: 1;
 }

@@ -24,6 +24,8 @@
   margin-right: 1rem;
 }
 
-.terminalCommand > .terminalSVG *, .terminalContent > span, .terminalContent {
+.terminalCommand > .terminalSVG *,
+.terminalContent > span,
+.terminalContent {
   color: var(--white);
 }

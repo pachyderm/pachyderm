@@ -12,15 +12,15 @@
   background-color: var(--background-blue-table);
 }
 
-.base > td:first-child  {
+.base > td:first-child {
   padding-left: 1rem;
 }
 
-.base > td:last-child  {
+.base > td:last-child {
   padding-right: 1rem;
 }
 
-.hasCheckbox > td:last-child  {
+.hasCheckbox > td:last-child {
   border: none;
 }
 
@@ -47,7 +47,7 @@ tr.hasCheckbox > td:first-of-type {
 .checkbox {
   position: absolute;
   margin-left: 1rem;
-  margin-top: calc(10rem/16);
+  margin-top: calc(10rem / 16);
 }
 
 .selected {
@@ -55,13 +55,17 @@ tr.hasCheckbox > td:first-of-type {
   --bottom-border: inset 0 -1px 0 0 var(--cyan);
   --left-border: inset 1px 0 0 0 var(--cyan);
   --right-border: inset -1px 0 0 0 var(--cyan);
-  --top-bottom-border:  inset 0 1px 0 0 var(--cyan), inset 0 -1px 0 0 var(--cyan);
-  --left-bottom-border: inset 1px 0 0 0 var(--cyan), inset 0 -1px 0 0 var(--cyan);
-  --right-bottom-border: inset -1px 0 0 0 var(--cyan), inset 0 -1px 0 0 var(--cyan);
+  --top-bottom-border: inset 0 1px 0 0 var(--cyan), inset 0 -1px 0 0 var(--cyan);
+  --left-bottom-border: inset 1px 0 0 0 var(--cyan),
+    inset 0 -1px 0 0 var(--cyan);
+  --right-bottom-border: inset -1px 0 0 0 var(--cyan),
+    inset 0 -1px 0 0 var(--cyan);
   --left-top-border: inset 1px 0 0 0 var(--cyan), inset 0 1px 0 0 var(--cyan);
   --right-top-border: inset -1px 0 0 0 var(--cyan), inset 0 1px 0 0 var(--cyan);
-  --left-top-bottom-border: inset 1px 0 0 0 var(--cyan), inset 0 -1px 0 0 var(--cyan), inset 0 1px 0 0 var(--cyan);
-  --right-top-bottom-border: inset -1px 0 0 0 var(--cyan), inset 0 -1px 0 0 var(--cyan), inset 0 1px 0 0 var(--cyan);
+  --left-top-bottom-border: inset 1px 0 0 0 var(--cyan),
+    inset 0 -1px 0 0 var(--cyan), inset 0 1px 0 0 var(--cyan);
+  --right-top-bottom-border: inset -1px 0 0 0 var(--cyan),
+    inset 0 -1px 0 0 var(--cyan), inset 0 1px 0 0 var(--cyan);
 }
 
 /* first selected row */
@@ -99,12 +103,12 @@ tr.hasCheckbox > td:first-of-type {
   box-shadow: var(--left-top-bottom-border);
 }
 .selected:last-of-type td:last-of-type {
-  box-shadow:  var(--right-top-bottom-border);
+  box-shadow: var(--right-top-bottom-border);
 }
 
 /* last possible selected row if part of a group*/
 .selected + .checkboxRow + .selected:last-of-type td {
-  box-shadow: var(--bottom-border)
+  box-shadow: var(--bottom-border);
 }
 .selected + .checkboxRow + .selected:last-of-type td:first-of-type {
   box-shadow: var(--left-bottom-border);

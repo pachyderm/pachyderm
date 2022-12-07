@@ -1,5 +1,5 @@
-.base{
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+.base {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

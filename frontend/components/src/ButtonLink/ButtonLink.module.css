@@ -9,7 +9,7 @@
   background-color: inherit;
   padding: 0;
   margin: 0;
-  transition: color 300ms ease-in-out
+  transition: color 300ms ease-in-out;
 }
 
 a + .base,

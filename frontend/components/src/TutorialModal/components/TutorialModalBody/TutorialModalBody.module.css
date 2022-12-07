@@ -18,10 +18,10 @@
 
 @keyframes fadeContent {
   0% {
-     opacity: 1;
+    opacity: 1;
   }
   75% {
-     opacity: 1;
+    opacity: 1;
   }
   100% {
     opacity: 0;
@@ -96,7 +96,7 @@
 
 .buttonBackground {
   width: 100%;
-  height:100%;
+  height: 100%;
   z-index: 10;
   background-color: #fff;
 }
@@ -104,7 +104,7 @@
 .body {
   border-radius: 3px;
   border: 1px solid var(--grey-4);
-  background-color:var(--white);
+  background-color: var(--white);
   overflow-y: scroll;
   height: calc(100% - 1rem);
   display: grid;
@@ -124,7 +124,7 @@
 }
 
 .followUp {
-  padding: 2rem 2rem 0 2rem;;
+  padding: 2rem 2rem 0 2rem;
 }
 
 .sectionHeader {
@@ -140,11 +140,11 @@
 }
 
 .rightArrow {
-  margin-left: 1rem
+  margin-left: 1rem;
 }
 
 .rightArrow path + path {
-  fill: var(--white)
+  fill: var(--white);
 }
 
 .minimizeSVG {
@@ -152,7 +152,7 @@
 }
 
 .pauseIcon path:last-of-type {
-  fill: var(--pachyderm-plum)
+  fill: var(--pachyderm-plum);
 }
 
 .storyProgressWrapper {

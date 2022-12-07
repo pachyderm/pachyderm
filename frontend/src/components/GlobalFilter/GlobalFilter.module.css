@@ -7,7 +7,8 @@
   padding-left: 0.75rem;
 }
 
-.filter, .filter:not(:disabled):hover {
+.filter,
+.filter:not(:disabled):hover {
   max-width: 11.5rem;
   text-overflow: ellipsis;
   overflow-x: hidden;
@@ -24,14 +25,14 @@
 }
 
 .filter .dot:before {
-  content: "";
+  content: '';
   position: absolute;
   width: 1rem;
   height: 1rem;
   border-radius: 1rem;
   top: -0.3125rem;
   left: -0.3125rem;
-  border: solid 2px var(--cyan) ;
+  border: solid 2px var(--cyan);
 }
 
 .dropdownBase {
@@ -43,10 +44,11 @@
   border: 1px solid var(--border-grey);
   border-radius: 0px 0px 3px 3px;
   background-color: var(--white);
-  box-shadow: 0 1px 2px 0 rgba(184,184,184,0.5);
+  box-shadow: 0 1px 2px 0 rgba(184, 184, 184, 0.5);
 }
 
-.filter.active, .filter.active:not(:disabled):hover {
+.filter.active,
+.filter.active:not(:disabled):hover {
   border: none;
   background-color: var(--green);
 }

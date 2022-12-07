@@ -13,7 +13,9 @@
   margin-bottom: 2rem;
 }
 
-.filesAdded, .filesUpdated, .filesDeleted {
+.filesAdded,
+.filesUpdated,
+.filesDeleted {
   align-self: flex-end;
   display: inline-flex;
   align-items: center;
@@ -30,14 +32,16 @@
   color: var(--icon-green);
 }
 
-.filesUpdated, .filesUpdated svg {
+.filesUpdated,
+.filesUpdated svg {
   background-color: var(--background-blue);
   color: var(--chart-dark-blue);
 }
 
-.filesDeleted, .filesDeleted svg  {
+.filesDeleted,
+.filesDeleted svg {
   background-color: var(--hover-grey);
-  color: var(--pachyderm-black)
+  color: var(--pachyderm-black);
 }
 
 .commitStatusIcon {

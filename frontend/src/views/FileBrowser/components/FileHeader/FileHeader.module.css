@@ -1,59 +1,59 @@
 .search {
-    border-left: solid 1px var(--line-grey);
-    flex: 1;
-    padding: 1rem;
-    padding-left: 3rem;
-    background-origin: content-box;
-    background-size: 1rem;
-    background-position: -1.5rem 0.2rem;
+  border-left: solid 1px var(--line-grey);
+  flex: 1;
+  padding: 1rem;
+  padding-left: 3rem;
+  background-origin: content-box;
+  background-size: 1rem;
+  background-position: -1.5rem 0.2rem;
 }
 
 .header {
-    width: 100%;
-    padding-right: 3rem;
-    min-height: var(--header-height);
+  width: 100%;
+  padding-right: 3rem;
+  min-height: var(--header-height);
 }
 
 .subHeader {
-    display: flex;
-    align-items: center;
-    border-top: solid 1px var(--line-grey);
-    padding: 1rem 0;
-    justify-content: space-between;
+  display: flex;
+  align-items: center;
+  border-top: solid 1px var(--line-grey);
+  padding: 1rem 0;
+  justify-content: space-between;
 }
 
 .dateField {
-    white-space: nowrap;
-    max-height: 1rem;
-    min-width: 8rem
+  white-space: nowrap;
+  max-height: 1rem;
+  min-width: 8rem;
 }
 
 .datelabel {
-    display: inline-flex;
-    align-items: center;
+  display: inline-flex;
+  align-items: center;
 }
 
 .infoIcon {
-    margin-left: 0.25rem;
-    transform: scale(0.75);
+  margin-left: 0.25rem;
+  transform: scale(0.75);
 }
 
 .navigate {
-    color: var(--pachyderm-black);
-    width: auto;
-    display: inline-flex;
-    justify-content: space-between;
-    align-items: center;
+  color: var(--pachyderm-black);
+  width: auto;
+  display: inline-flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .directionRight {
-    margin-left: 1rem;
+  margin-left: 1rem;
 }
 
 .directionLeft {
-    margin-right: 1rem;
+  margin-right: 1rem;
 }
- 
+
 .switchItem {
   display: flex;
   align-items: center;

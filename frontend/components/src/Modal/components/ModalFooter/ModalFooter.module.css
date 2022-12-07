@@ -9,6 +9,6 @@
   padding: 0;
 }
 
-.base[class$='modal-footer']>* {
+.base[class$='modal-footer'] > * {
   margin: 0;
 }

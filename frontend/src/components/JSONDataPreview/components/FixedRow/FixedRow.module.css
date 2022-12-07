@@ -5,7 +5,8 @@
   white-space: nowrap;
 }
 
-.base *, .base {
+.base *,
+.base {
   font-family: 'Menlo';
   line-height: 1.5rem;
   background: transparent;

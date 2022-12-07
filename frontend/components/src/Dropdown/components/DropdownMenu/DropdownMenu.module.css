@@ -5,7 +5,7 @@
   }
 
   10% {
-     visibility: visible;
+    visibility: visible;
     transform: scaleY(1);
   }
 
@@ -83,12 +83,12 @@
   visibility: visible;
   transform: translate3d(0, 1rem, 0) scaleY(1);
   /* Taken from https://easings.net/ */
-  animation: slide-down .3s cubic-bezier(0.68, -0.6, 0.32, 1.6);
+  animation: slide-down 0.3s cubic-bezier(0.68, -0.6, 0.32, 1.6);
 }
 
 .close:not(.sideOpen) {
   transform: translate3d(0, 1rem, 0) scaleY(1);
-  animation: slide-up .1s linear;
+  animation: slide-up 0.1s linear;
 }
 
 .sideOpen {
@@ -97,16 +97,14 @@
   width: min-content;
 }
 
-
 .open.sideOpen {
   opacity: 1;
   visibility: visible;
   transform: translate3d(5rem, 0rem, 0) scaleY(1);
-  animation: slide-right .3s cubic-bezier(0.68, -0.6, 0.32, 1.6);
+  animation: slide-right 0.3s cubic-bezier(0.68, -0.6, 0.32, 1.6);
 }
 
 .close.sideOpen {
   transform: translate3d(0, 0rem, 0) scaleY(0);
-  animation: slide-left .1s linear;
-
+  animation: slide-left 0.1s linear;
 }

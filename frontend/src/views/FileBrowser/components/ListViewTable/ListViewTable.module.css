@@ -9,6 +9,6 @@
   scrollbar-width: none;
 }
 
-.scrolling::-webkit-scrollbar { 
+.scrolling::-webkit-scrollbar {
   display: none;
 }

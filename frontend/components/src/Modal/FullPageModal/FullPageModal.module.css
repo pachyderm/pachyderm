@@ -2,12 +2,12 @@
   padding: 0 !important;
 }
 
-.base [class$="modal-dialog"] {
+.base [class$='modal-dialog'] {
   margin: 0;
   max-width: 100%;
 }
 
-.base [class$="modal-content"] {
+.base [class$='modal-content'] {
   width: 100%;
   height: 100vh;
   margin: 0;

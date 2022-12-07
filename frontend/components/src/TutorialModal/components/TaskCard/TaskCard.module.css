@@ -62,10 +62,11 @@
 .buttonCover {
   display: flex;
   align-items: center;
-  box-shadow: 0 1 4  1 var(--dropshadow);
+  box-shadow: 0 1 4 1 var(--dropshadow);
 }
 
-.svgWrapper, .svgWrapperError {
+.svgWrapper,
+.svgWrapperError {
   background-color: var(--cyan);
   border-radius: 3px 0 0 3px;
   border: 1px solid transparent;
@@ -84,7 +85,8 @@
   fill: var(--white);
 }
 
-.completedText, .errorText {
+.completedText,
+.errorText {
   background-color: var(--white);
   text-align: center;
   width: 100%;
@@ -102,5 +104,5 @@
 
 .button {
   width: 100%;
-  box-shadow: 0 1 4  1 var(--dropshadow);
+  box-shadow: 0 1 4 1 var(--dropshadow);
 }

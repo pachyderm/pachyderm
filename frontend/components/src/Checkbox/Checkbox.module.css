@@ -28,14 +28,14 @@ input:not(:disabled):hover + * > svg {
 }
 
 input:not(:disabled):focus-visible + * > svg {
-  outline: 2px solid var(--focus-state); 
+  outline: 2px solid var(--focus-state);
 }
 
 .label {
   margin-left: 0.416rem;
 }
 
-label:not([data-disabled=true]):hover .label {
+label:not([data-disabled='true']):hover .label {
   color: var(--hover-plum);
 }
 

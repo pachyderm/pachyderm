@@ -7,12 +7,12 @@
   height: 40rem;
 }
 
-.base [class$="modal-dialog"] {
-	top: 0;
+.base [class$='modal-dialog'] {
+  top: 0;
   max-width: 38.25rem;
 }
 
-.small [class$="modal-dialog"] {
+.small [class$='modal-dialog'] {
   max-width: 30rem;
 }
 
@@ -21,7 +21,7 @@
   height: 25rem;
 }
 
-.base [class$="modal-backdrop"] {
+.base [class$='modal-backdrop'] {
   background-color: var(--background-black);
 }
 
@@ -49,7 +49,8 @@
   cursor: pointer;
 }
 
-:global(.modal-backdrop.show) { /* stylelint-disable-line selector-class-pattern */
+:global(.modal-backdrop.show) {
+  /* stylelint-disable-line selector-class-pattern */
   background-color: var(--background-black);
   opacity: 0.7;
 }

@@ -17,7 +17,7 @@
   white-space: nowrap;
   color: var(--base-color);
   padding: 0.25rem 1rem;
-  transition: color .2s;
+  transition: color 0.2s;
 }
 
 .base.minimized {
@@ -46,7 +46,7 @@
 
 .icon svg {
   color: var(--base-color);
-  transition: color .2s;
+  transition: color 0.2s;
 }
 
 .disabled,

@@ -23,7 +23,7 @@
   background-color: var(--white);
   position: sticky;
   z-index: 1;
-  top: -1px
+  top: -1px;
 }
 
 .subTitle.stuck {

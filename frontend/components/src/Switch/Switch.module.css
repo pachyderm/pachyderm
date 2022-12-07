@@ -4,7 +4,7 @@
   cursor: pointer;
   height: 20px;
   padding: 0;
-  width:  2.625rem;
+  width: 2.625rem;
 }
 
 .base:focus:not([class$='focus-visible']) {

@@ -1,5 +1,3 @@
-
-
 .line {
   stroke: var(--border-grey);
   paint-order: stroke;
@@ -28,7 +26,8 @@
   user-select: none;
 }
 
-.buttonGroup.interactive.access:hover rect, .buttonGroup.selected rect {
+.buttonGroup.interactive.access:hover rect,
+.buttonGroup.selected rect {
   stroke: var(--cyan);
   stroke-width: 2px;
 }
@@ -48,7 +47,7 @@
   cursor: not-allowed;
 }
 
-rect.node{
+rect.node {
   fill: var(--white);
   stroke-width: 2px;
   stroke: var(--border-grey);

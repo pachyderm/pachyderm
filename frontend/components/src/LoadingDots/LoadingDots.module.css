@@ -19,7 +19,9 @@
   justify-content: center;
 }
 
-.base, .base::before, .base::after {
+.base,
+.base::before,
+.base::after {
   position: absolute;
   width: 10px;
   height: 10px;
@@ -30,7 +32,7 @@
 
 .base {
   text-align: left;
-  animation-delay: .25s;  
+  animation-delay: 0.25s;
 }
 
 .base::before {
@@ -38,7 +40,7 @@
   margin-left: -30px;
   animation-delay: 0s;
 }
-  
+
 .base::after {
   content: '';
   margin-left: 30px;

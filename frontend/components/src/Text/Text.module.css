@@ -44,7 +44,7 @@
   font-size: var(--font-size-header);
 }
 
-.slideIn [class$="word"] {
+.slideIn [class$='word'] {
   opacity: 0;
   animation: slide-in 1s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   animation-delay: calc(0.1s * var(--line-index) + 1.5s);
@@ -69,7 +69,10 @@
   letter-spacing: 0;
 }
 
-.bodyText, .errorText, .helpText, .placeholderText {
+.bodyText,
+.errorText,
+.helpText,
+.placeholderText {
   font-family: 'Public Sans';
   font-weight: 300;
   font-size: 0.875rem;
@@ -97,7 +100,8 @@
   letter-spacing: 0;
 }
 
-.codeTextLarge, .codeTextLarge * {
+.codeTextLarge,
+.codeTextLarge * {
   font-family: 'Menlo';
   font-size: 0.875rem;
   font-weight: 400;
@@ -106,7 +110,8 @@
   color: var(--pachyderm-black);
 }
 
-.codeText, .codeText * {
+.codeText,
+.codeText * {
   font-family: 'Menlo';
   font-size: 0.75rem;
   font-weight: 400;

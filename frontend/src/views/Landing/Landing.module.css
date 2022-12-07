@@ -8,7 +8,7 @@
 .table {
   width: 100%;
   min-width: 25rem;
-  border-collapse: separate; 
+  border-collapse: separate;
   border-spacing: 0 1rem;
   table-layout: fixed;
 }

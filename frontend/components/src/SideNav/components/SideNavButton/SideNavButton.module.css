@@ -16,5 +16,5 @@
 
 .icon svg {
   color: var(--white);
-  transition: fill .2s;
+  transition: fill 0.2s;
 }

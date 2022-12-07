@@ -3,7 +3,8 @@
   overflow-y: hidden;
 }
 
-.commit, .empty {
+.commit,
+.empty {
   padding: 0 0.75rem;
 }
 
@@ -44,6 +45,7 @@
   opacity: 1;
 }
 
-.commitEnterActive.commit, .commitEnterDone.commit {
+.commitEnterActive.commit,
+.commitEnterDone.commit {
   border-left: 1px dashed var(--banner-green);
 }

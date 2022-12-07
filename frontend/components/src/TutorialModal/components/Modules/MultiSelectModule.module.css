@@ -26,11 +26,11 @@
 }
 
 .unchecked svg {
-  color: var(--grey-10)
+  color: var(--grey-10);
 }
 
 .checked svg {
-  color: var(--plum-7)
+  color: var(--plum-7);
 }
 
 .fileList {

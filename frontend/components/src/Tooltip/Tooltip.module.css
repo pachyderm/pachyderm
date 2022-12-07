@@ -1,7 +1,7 @@
-.base [class$="inner"] {
+.base [class$='inner'] {
   text-emphasis: center;
   color: var(--background-grey);
-  padding: .5rem 1rem;
+  padding: 0.5rem 1rem;
   border-radius: 3px;
   background-color: var(--pachyderm-black);
   box-shadow: 0 1px 2px 0 var(--table-head-dropshadow-grey);
@@ -9,32 +9,32 @@
   text-align: left;
 }
 
-.base.large [class$="inner"] {
+.base.large [class$='inner'] {
   padding: 1rem;
   max-width: 18.75rem;
 }
-.base.extraLarge [class$="inner"] {
+.base.extraLarge [class$='inner'] {
   padding: 1.25rem;
   max-width: 24.75rem;
 }
 
-.base.hasClose [class$="inner"] {
+.base.hasClose [class$='inner'] {
   padding-right: 2rem;
 }
 
-.base[x-placement^="top"] [class$="arrow"]::before {
+.base[x-placement^='top'] [class$='arrow']::before {
   border-top-color: var(--pachyderm-black);
 }
 
-.base[x-placement^="right"] [class$="arrow"]::before {
+.base[x-placement^='right'] [class$='arrow']::before {
   border-right-color: var(--pachyderm-black);
 }
 
-.base[x-placement^="left"] [class$="arrow"]::before {
+.base[x-placement^='left'] [class$='arrow']::before {
   border-left-color: var(--pachyderm-black);
 }
 
-.base[x-placement^="bottom"] [class$="arrow"]::before {
+.base[x-placement^='bottom'] [class$='arrow']::before {
   border-bottom-color: var(--pachyderm-black);
 }
 

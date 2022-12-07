@@ -9,18 +9,18 @@
 }
 
 @keyframes waveShimmer {
- 0% {
-   background-position: -400px 0;
- }
- 
- 100% {
-   background-position: 400px 0; 
- }
+  0% {
+    background-position: -400px 0;
+  }
+
+  100% {
+    background-position: 400px 0;
+  }
 }
 
 .skeletonBodyText {
-  height: .875rem;
-  margin: .4375rem 0;
+  height: 0.875rem;
+  margin: 0.4375rem 0;
   position: relative;
 }
 
@@ -54,6 +54,6 @@
     var(--line-grey) 100%
   );
   background-repeat: no-repeat;
-  background-size: 800px 100px; 
-  animation: waveShimmer 1s linear 0s infinite normal forwards
+  background-size: 800px 100px;
+  animation: waveShimmer 1s linear 0s infinite normal forwards;
 }

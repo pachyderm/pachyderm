@@ -21,8 +21,8 @@
   left: 0;
   top: 0;
   position: absolute;
-	width: 0.1px;
-	height: 0.1px;
+  width: 0.1px;
+  height: 0.1px;
   opacity: 0;
   overflow: hidden;
 }
@@ -97,7 +97,7 @@
     flex-direction: column;
   }
 
-  .base  > * {
+  .base > * {
     margin-top: 0.5rem;
   }
 

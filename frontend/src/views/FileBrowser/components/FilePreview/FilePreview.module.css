@@ -15,7 +15,8 @@
   margin: 0;
 }
 
-.download, .download:hover {
+.download,
+.download:hover {
   text-decoration: none;
   color: var(--white);
 }
@@ -25,5 +26,7 @@
   text-align: center;
   width: auto;
   min-height: 10rem;
-  max-height: calc(100vh - var(--header-height) - var(--subheader-height) - 8.25rem);
+  max-height: calc(
+    100vh - var(--header-height) - var(--subheader-height) - 8.25rem
+  );
 }

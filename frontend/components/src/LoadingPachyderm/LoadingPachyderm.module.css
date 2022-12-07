@@ -118,7 +118,7 @@
 }
 
 .logoWrapper::after {
-  content: "";
+  content: '';
   position: relative;
   display: block;
   width: 100%;
@@ -136,7 +136,7 @@
 }
 
 .bounce::after {
-  content: "";
+  content: '';
   position: relative;
   display: block;
   width: 100%;
@@ -179,7 +179,7 @@
 }
 
 .head::after {
-  content: "";
+  content: '';
   position: relative;
   display: block;
   width: 100%;

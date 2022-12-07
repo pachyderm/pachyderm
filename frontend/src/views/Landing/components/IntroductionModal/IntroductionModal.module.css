@@ -15,7 +15,6 @@
   margin-bottom: 0.25rem;
 }
 
-
 .details {
   padding: 2rem;
   background-color: var(--cyan-10);
@@ -36,7 +35,7 @@
 }
 
 .details li::before {
-  content: "\2022";
+  content: '\2022';
   color: var(--cyan-7);
   font-weight: bold;
   display: inline-block;
@@ -45,7 +44,6 @@
   vertical-align: sub;
   width: 1rem;
   margin-left: -1rem;
-
 }
 
 .icon {

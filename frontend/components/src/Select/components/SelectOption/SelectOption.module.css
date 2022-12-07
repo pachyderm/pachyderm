@@ -4,7 +4,7 @@
   padding-bottom: 0.75rem;
 }
 
-.base[aria-selected="true"] {
+.base[aria-selected='true'] {
   font-weight: 600;
   color: var(--pachyderm-plum);
 }

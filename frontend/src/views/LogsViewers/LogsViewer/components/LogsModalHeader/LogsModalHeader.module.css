@@ -19,7 +19,7 @@
 .switchItem {
   display: flex;
   align-items: center;
-  padding-right: .5rem;
+  padding-right: 0.5rem;
 }
 
 .switch {

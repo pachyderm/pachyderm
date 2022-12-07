@@ -6,11 +6,11 @@
   justify-content: center;
 }
 
-.buttonLink > div{
+.buttonLink > div {
   height: auto;
 }
 
-.buttonLink.light svg{
+.buttonLink.light svg {
   color: var(--pachyderm-plum);
   white-space: nowrap;
 }

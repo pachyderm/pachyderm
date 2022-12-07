@@ -21,7 +21,7 @@
 }
 
 .progressCheck > path {
-  fill: #000000
+  fill: #000000;
 }
 
 .text {
@@ -35,7 +35,7 @@
 }
 
 .wrapper {
-  border: 0.125rem solid rgba(0, 0, 0, 0.1); 
-  display: flex; 
+  border: 0.125rem solid rgba(0, 0, 0, 0.1);
+  display: flex;
   flex-direction: column;
 }

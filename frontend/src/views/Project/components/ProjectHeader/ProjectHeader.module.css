@@ -23,7 +23,8 @@
   margin-top: 0.75rem;
 }
 
-.divider, .dividerSearch {
+.divider,
+.dividerSearch {
   box-sizing: border-box;
   height: 2rem;
   width: 1px;

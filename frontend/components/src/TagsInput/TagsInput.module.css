@@ -26,7 +26,7 @@
 }
 
 .tag {
-  background-color: rgba(68,215,182,0.1);
+  background-color: rgba(68, 215, 182, 0.1);
   border-radius: 3px;
   margin-top: 0.40625rem;
   margin-right: 0.5rem;
@@ -35,7 +35,7 @@
 
 .tagError {
   background-color: var(--background-pink);
-  color: var(--error-red)
+  color: var(--error-red);
 }
 
 .tagError .close path:last-of-type {

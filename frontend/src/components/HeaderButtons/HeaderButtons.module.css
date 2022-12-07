@@ -8,7 +8,7 @@
 .responsiveShow {
   display: none !important;
 }
-  
+
 @media screen and (max-width: 1023px) {
   .responsiveShow {
     display: inline-flex !important;

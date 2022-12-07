@@ -4,7 +4,7 @@
   padding-bottom: 0.5rem;
 }
 
-.base a[aria-selected=true] {
+.base a[aria-selected='true'] {
   border-bottom: 2px solid var(--pachyderm-plum);
   color: var(--pachyderm-plum);
   font-weight: 600;
@@ -25,7 +25,6 @@
 .base a:focus:not([class$='focus-visible']) {
   outline: none;
 }
-
 
 @media (min-width: 600px) {
   .base {

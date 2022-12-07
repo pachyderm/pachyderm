@@ -18,6 +18,6 @@
   composes: label from '../Checkbox/Checkbox.module.css';
 }
 
-.disabled { 
+.disabled {
   composes: disabled from '../Checkbox/Checkbox.module.css';
 }

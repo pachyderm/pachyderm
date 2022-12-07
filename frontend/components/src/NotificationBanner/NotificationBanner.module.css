@@ -9,7 +9,7 @@
 
 .base {
   border-radius: 3px;
-  background-color: #FFFFFF;
+  background-color: #ffffff;
   box-shadow: 1px 1px 5px 0 var(--border-grey);
   position: fixed;
   align-self: center;

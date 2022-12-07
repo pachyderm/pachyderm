@@ -6,7 +6,7 @@
   padding-right: 1rem;
 }
 
-.base:hover{
+.base:hover {
   background-color: var(--hover-grey);
   color: var(--pachyderm-black);
   text-decoration: none;
@@ -21,7 +21,8 @@
   margin-bottom: 0.5rem;
 }
 
-.base.cardStyle:hover, .base.cardStyle.selected {
+.base.cardStyle:hover,
+.base.cardStyle.selected {
   background-color: var(--white);
   border: solid 1px var(--banner-green);
 }
@@ -33,7 +34,8 @@
   border-bottom-right-radius: 0;
 }
 
-.base.cardStyle.error:hover, .base.cardStyle.error.selected {
+.base.cardStyle.error:hover,
+.base.cardStyle.error.selected {
   border-color: var(--error-red);
 }
 

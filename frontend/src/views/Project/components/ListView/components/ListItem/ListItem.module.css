@@ -22,14 +22,16 @@
   border-bottom-right-radius: 4px;
 }
 
-.base:hover[href], .base:active[href], .base.selected {
+.base:hover[href],
+.base:active[href],
+.base.selected {
   border: solid 1px var(--banner-green);
   color: var(--pachyderm-black);
   padding-right: calc(1rem - 1px);
 }
 
 .nodeImage {
-  margin: 0 0.25rem; 
+  margin: 0 0.25rem;
 }
 
 .nodeName {
@@ -39,18 +41,24 @@
   display: inline-block;
 }
 
-.base:hover[href] .nodeName, .base:active[href] .nodeName, .base.selected .nodeName {
+.base:hover[href] .nodeName,
+.base:active[href] .nodeName,
+.base.selected .nodeName {
   margin-top: 0px;
 }
-.base:hover[href] .nodeImage, .base:active[href] .nodeImage, .base.selected .nodeImage {
-  margin-left: calc(0.25rem - 1px);   
+.base:hover[href] .nodeImage,
+.base:active[href] .nodeImage,
+.base.selected .nodeImage {
+  margin-left: calc(0.25rem - 1px);
 }
 
 .status {
   color: var(--pachyderm-black);
 }
 
-.base.selected,  .base.selected:hover[href], .base.selected:active[href]{
+.base.selected,
+.base.selected:hover[href],
+.base.selected:active[href] {
   border: solid 1px var(--banner-green);
   border-right-width: 6px;
   padding-right: calc(1rem - 5px);

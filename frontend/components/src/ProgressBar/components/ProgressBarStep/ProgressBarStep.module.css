@@ -61,27 +61,31 @@
 }
 
 .base::after {
-  content: "";
+  content: '';
   position: absolute;
   top: 10px;
   width: calc(100% - 6px);
   left: calc(50% + 6px);
   height: 2px;
   transition: all 1s linear;
-  background: linear-gradient(to right, var(--success-green) 50%, var(--dropshadow-grey) 50%);
+  background: linear-gradient(
+    to right,
+    var(--success-green) 50%,
+    var(--dropshadow-grey) 50%
+  );
   background-size: 200% 100%;
-  background-position:right bottom;
+  background-position: right bottom;
   border-radius: 5px;
   z-index: 1;
 }
 
-.visited > .button  .circle {
+.visited > .button .circle {
   animation: colorCircle 0.5s 1s forwards;
 }
 
 .base.visited.nextStepVisited::after {
   pointer-events: none;
-  background-position:left bottom;
+  background-position: left bottom;
   z-index: 1;
 }
 
@@ -92,7 +96,7 @@
 
 .base.vertical.visited.nextStepVisited::after {
   pointer-events: none;
-  background-position:left top;
+  background-position: left top;
   z-index: 1;
 }
 
@@ -110,9 +114,13 @@
   left: 11.25px;
   width: 2px;
   height: calc(100% - 8px);
-  background: linear-gradient(0deg, var(--dropshadow-grey) 50%, var(--success-green) 50%);
+  background: linear-gradient(
+    0deg,
+    var(--dropshadow-grey) 50%,
+    var(--success-green) 50%
+  );
   background-size: 100% 200%;
-  background-position:right bottom;
+  background-position: right bottom;
 }
 
 .vertical > .button .circle {

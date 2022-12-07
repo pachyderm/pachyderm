@@ -23,7 +23,6 @@
   background-color: var(--hover-grey);
 }
 
-
 .tertiary:hover,
 .tertiary:focus {
   background-color: var(--grey-9);

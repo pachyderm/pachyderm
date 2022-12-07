@@ -1,14 +1,14 @@
-.sticky tr:nth-child(1) th{
+.sticky tr:nth-child(1) th {
   position: sticky;
   top: 0;
   z-index: 1;
 }
 
-.sticky.stuck{
+.sticky.stuck {
   position: relative;
 }
 
-.sticky.stuck::after{
+.sticky.stuck::after {
   position: fixed;
   content: '';
   width: 100%;
@@ -17,6 +17,6 @@
   box-shadow: 0 3px 2px -2px var(--dropshadow-grey);
 }
 
-.sticky.stuck.absoluteTop::after{
+.sticky.stuck.absoluteTop::after {
   top: 4.2rem;
 }

@@ -33,7 +33,6 @@
   visibility: visible;
 }
 
-
 .base.clickable:hover {
   cursor: pointer;
 }

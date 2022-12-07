@@ -8,7 +8,9 @@
   align-items: center;
 }
 
-.copy, .copy:hover, .copy:focus {
+.copy,
+.copy:hover,
+.copy:focus {
   color: var(--pachyderm-black) !important;
 }
 

@@ -5,7 +5,7 @@
 }
 
 .base > path {
-  fill: var(--success-green);;
+  fill: var(--success-green);
   stroke: var(--success-green);
   stroke-width: 2;
   stroke-dasharray: 1000;

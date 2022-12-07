@@ -1,28 +1,28 @@
 .base {
-    width: 100%;
-    background-color: var(--background-grey);
-    flex: 1;
-    padding-right: 5rem;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+  width: 100%;
+  background-color: var(--background-grey);
+  flex: 1;
+  padding-right: 5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .dir {
-    display: inline-flex;
+  display: inline-flex;
 }
 
 .link {
-    margin: 0 0.25rem;
-    display: flex;
-    align-items: center;
+  margin: 0 0.25rem;
+  display: flex;
+  align-items: center;
 }
 
 .dir:last-child > .link {
-    pointer-events: none;
-    color: var(--pachyderm-black);
+  pointer-events: none;
+  color: var(--pachyderm-black);
 }
 
 .linkSeparator {
-    margin-right: 0.25rem;
+  margin-right: 0.25rem;
 }

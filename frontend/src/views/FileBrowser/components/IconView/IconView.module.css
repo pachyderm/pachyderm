@@ -9,7 +9,8 @@
   position: relative;
 }
 
-.base.ADDED, .base.UPDATED {
+.base.ADDED,
+.base.UPDATED {
   border-bottom: solid 4px var(--banner-green);
 }
 
@@ -26,7 +27,8 @@
   color: var(--icon-green);
 }
 
-.commitStatus.UPDATED, .commitStatus.UPDATED svg {
+.commitStatus.UPDATED,
+.commitStatus.UPDATED svg {
   background-color: var(--background-blue);
   color: var(--chart-dark-blue);
 }

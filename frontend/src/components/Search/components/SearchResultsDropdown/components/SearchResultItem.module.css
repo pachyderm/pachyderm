@@ -15,5 +15,5 @@
 
 .underline {
   border-bottom: 1px solid var(--pachyderm-black);
-  display:inline-block
+  display: inline-block;
 }

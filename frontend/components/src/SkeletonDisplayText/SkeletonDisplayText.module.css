@@ -2,9 +2,9 @@
   0% {
     background-position: -400px 0;
   }
-  
+
   100% {
-    background-position: 400px 0; 
+    background-position: 400px 0;
   }
 }
 
@@ -12,9 +12,9 @@
   0% {
     background-position: -100px 0;
   }
-  
+
   100% {
-    background-position: 100px 0; 
+    background-position: 100px 0;
   }
 }
 
@@ -26,7 +26,7 @@
 }
 
 .base::after {
-  content: "";
+  content: '';
   position: absolute;
   top: 0;
   right: 0;

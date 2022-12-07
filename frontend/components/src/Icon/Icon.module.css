@@ -11,47 +11,47 @@
   color: var(--pachyderm-black);
 }
 
-.disabled  {
+.disabled {
   color: var(--grey-7);
 }
 
-.white  {
+.white {
   color: var(--white);
 }
 
-.grey  {
+.grey {
   color: var(--grey-7);
 }
 
-.plum  {
+.plum {
   color: var(--pachyderm-plum);
 }
 
-.plum.disabled  {
+.plum.disabled {
   color: var(--disabled-plum);
 }
 
-.green  {
+.green {
   color: var(--icon-green);
 }
 
-.blue  {
+.blue {
   color: var(--chart-dark-blue);
 }
 
-.highlightGreen  {
+.highlightGreen {
   color: var(--banner-green);
 }
 
-.red  {
+.red {
   color: var(--pachyderm-red);
 }
 
-.yellow  {
+.yellow {
   color: var(--pachyderm-yellow);
 }
 
-.highlightOrange  {
+.highlightOrange {
   color: var(--highlight-orange);
 }
 
