@@ -495,7 +495,7 @@ func TestMount(t *testing.T) {
 	require.NoError(t, eg.Wait(), "goroutines failed")
 }
 
-func TestListRepo(t *testing.T) {
+func TestCmdListRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
