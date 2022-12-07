@@ -60,6 +60,12 @@ type CommitRequest struct {
 	Mount string `json:"mount"`
 }
 
+type AliasKey struct {
+	Project string
+	Repo    string
+	Branch  string
+}
+
 type MountDatumResponse struct {
 	Id        string `json:"id"`
 	Idx       int    `json:"idx"`
@@ -106,6 +112,7 @@ type MountManager struct {
 
 	Datums       []*pps.DatumInfo
 	DatumInput   *pps.Input
+	AliasMap     map[AliasKey]string
 	CurrDatumIdx int
 
 	// map from mount name onto mfc for that mount
@@ -180,8 +187,6 @@ func (mm *MountManager) ListByMounts(projectFilter string) (ListMountResponse, e
 		Mounted:   []MountState{},
 		Unmounted: []RepoResponse{},
 	}
-
-	// TODO: add verify project, repo, branch exists utility
 
 	for name, msm := range mm.States {
 		if msm.State == "mounted" {
@@ -631,7 +636,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 		mm.DatumInput = pipelineReq.Input
-		// FIXME: Are invalid projects caught here?
+		mm.sanitizeInputAndSetAliasMapping()
 		mm.Datums, err = mm.Client.ListDatumInputAll(mm.DatumInput)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -643,7 +648,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 
 		logrus.Infof("Mounting first datum (%s)", mm.Datums[0].Datum.ID)
-		mis := datumToMounts(mm.Datums[0])
+		mis := mm.datumToMounts(mm.Datums[0])
 		if err := mm.UnmountAll(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -713,7 +718,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		} else {
 			di = mm.Datums[idx]
 		}
-		mis := datumToMounts(di)
+		mis := mm.datumToMounts(di)
 		if err := mm.UnmountAll(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -1108,7 +1113,36 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 	return nil
 }
 
-func datumToMounts(d *pps.DatumInfo) []*MountInfo {
+func (mm *MountManager) sanitizeInputAndSetAliasMapping() error {
+	aliasMap := map[AliasKey]string{}
+	if err := pps.VisitInput(mm.DatumInput, func(input *pps.Input) error {
+		if input.Pfs == nil {
+			return nil
+		}
+
+		if input.Pfs.Project == "" {
+			input.Pfs.Project = pfs.DefaultProjectName
+		}
+		if input.Pfs.Branch == "" {
+			input.Pfs.Branch = "master"
+		}
+		if input.Pfs.Name != "" {
+			ak := AliasKey{Project: input.Pfs.Project, Repo: input.Pfs.Repo, Branch: input.Pfs.Branch}
+			aliasMap[ak] = input.Pfs.Name
+		}
+
+		return nil
+	}); err != nil {
+		return err
+	}
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+	mm.AliasMap = aliasMap
+
+	return nil
+}
+
+func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 	mounts := map[string]*MountInfo{}
 	files := map[string]map[string]bool{}
 	for _, fi := range d.Data {
@@ -1116,31 +1150,40 @@ func datumToMounts(d *pps.DatumInfo) []*MountInfo {
 		repo := fi.File.Commit.Branch.Repo.Name
 		branch := fi.File.Commit.Branch.Name
 		// TODO: add commit here
-		mount := project + "_" + repo
-		if branch != "master" {
-			mount = mount + "_" + branch
-		}
-		if _, ok := files[mount]; !ok {
-			files[mount] = map[string]bool{}
-		}
 
-		if mi, ok := mounts[mount]; ok {
-			if _, ok := files[mount][fi.File.Path]; !ok {
+		name := func() string {
+			ak := AliasKey{Project: project, Repo: repo, Branch: branch}
+			if name, ok := mm.AliasMap[ak]; ok {
+				return name
+			} else {
+				name := project + "_" + repo
+				if branch != "master" {
+					name = name + "_" + branch
+				}
+				return name
+			}
+		}()
+
+		if _, ok := files[name]; !ok {
+			files[name] = map[string]bool{}
+		}
+		if mi, ok := mounts[name]; ok {
+			if _, ok := files[name][fi.File.Path]; !ok {
 				mi.Files = append(mi.Files, fi.File.Path)
-				mounts[mount] = mi
+				mounts[name] = mi
 			}
 		} else {
 			mi := &MountInfo{
-				Name:    mount,
+				Name:    name,
 				Project: project,
 				Repo:    repo,
 				Branch:  branch,
 				Files:   []string{fi.File.Path},
 				Mode:    "ro",
 			}
-			mounts[mount] = mi
+			mounts[name] = mi
 		}
-		files[mount][fi.File.Path] = true
+		files[name][fi.File.Path] = true
 	}
 
 	mis := []*MountInfo{}
@@ -1159,10 +1202,8 @@ func createLocalOutDir(mm *MountManager) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
 	mm.root.repoOpts["out"] = &RepoOptions{
-		Name: "out",
-		// FIXME: need a project??
-		File: &pfs.File{Commit: &pfs.Commit{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: "out"}}}},
-		// File:  client.NewProjectFile("", "out", "", "", ""),
+		Name:  "out",
+		File:  client.NewProjectFile("", "out", "", "", ""),
 		Write: true}
 }
 
