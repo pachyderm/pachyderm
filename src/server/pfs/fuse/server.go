@@ -190,7 +190,9 @@ func (mm *MountManager) ListByMounts(projectFilter string) (ListMountResponse, e
 
 	for name, msm := range mm.States {
 		if msm.State == "mounted" {
-			// Check if a mounted repo/branch was deleted to remove it from state
+			// Check if a mounted repo/branch was deleted to remove it from state.
+			// In read-only mode, a branch must exist to mount. In read-write mode, it
+			// is not necessary for the branch to exist, as a new one
 			if msm.Mode == "ro" {
 				if exists, _ := mm.verifyProjectRepoBranchExist(msm.Project, msm.Repo, msm.Branch); !exists {
 					mm.unmountDeletedRepos(name)
@@ -1209,6 +1211,9 @@ func removeOutDir(mm *MountManager) error {
 func createLocalOutDir(mm *MountManager) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
+	// Creates folder "out" in mount directory when datums are mounted to
+	// simulate pipeline fs. Apart from name of repo (folder name), no other
+	// info is necessary.
 	mm.root.repoOpts["out"] = &RepoOptions{
 		Name:  "out",
 		File:  client.NewProjectFile("", "out", "", "", ""),
