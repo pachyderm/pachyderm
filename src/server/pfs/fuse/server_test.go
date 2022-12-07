@@ -226,9 +226,9 @@ func TestUnmountAll(t *testing.T) {
 		require.Equal(t, 200, resp.StatusCode)
 
 		defer resp.Body.Close()
-		unmountResp := &ListRepoResponse{}
+		unmountResp := &ListMountResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(unmountResp))
-		require.Equal(t, 2, len(*unmountResp))
+		require.Equal(t, 2, len((*unmountResp).Unmounted))
 
 		repos, err = os.ReadDir(mountPoint)
 		require.NoError(t, err)
@@ -380,7 +380,7 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 	// written to it results in a new commit with that data in it.
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
-	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
+
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
@@ -436,7 +436,7 @@ func TestRwCommitCreatesCommit(t *testing.T) {
 	// Commit operation creates a commit.
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
-	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
+
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
@@ -494,7 +494,7 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 	// correct files).
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
-	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
+
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
@@ -573,7 +573,7 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 	// one too.
 	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
-	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
+
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
@@ -898,7 +898,7 @@ func TestListMountsProjectFilter(t *testing.T) {
 				},
 				{
 					Name:    "p1_repo_p1_b2",
-					Project: "p1",
+					Project: projectName,
 					Repo:    "repo_p1",
 					Branch:  "b2",
 				},
@@ -927,16 +927,16 @@ func TestListMountsProjectFilter(t *testing.T) {
 		require.Equal(t, 200, resp.StatusCode)
 		require.Equal(t, 3, len((*mountsList).Mounted))
 		require.Equal(t, 1, len((*mountsList).Unmounted))
-		require.Equal(t, "repo", len((*mountsList).Unmounted[0].Repo))
-		require.Equal(t, pfs.DefaultProjectName, len((*mountsList).Unmounted[0].Project))
+		require.Equal(t, "repo", (*mountsList).Unmounted[0].Repo)
+		require.Equal(t, pfs.DefaultProjectName, (*mountsList).Unmounted[0].Project)
 
 		resp, err = get(fmt.Sprintf("mounts?project=%s", projectName))
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mountsList))
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 		require.Equal(t, 3, len((*mountsList).Mounted))
-		require.Equal(t, "repo_p1", len((*mountsList).Unmounted[0].Repo))
-		require.Equal(t, projectName, len((*mountsList).Unmounted[0].Project))
+		require.Equal(t, "repo_p1", (*mountsList).Unmounted[0].Repo)
+		require.Equal(t, projectName, (*mountsList).Unmounted[0].Project)
 
 		resp, err = get("mounts?project=invalid")
 		require.NoError(t, err)

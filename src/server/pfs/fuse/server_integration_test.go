@@ -419,6 +419,7 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 
 	projectName := tu.UniqueString("p1")
 	require.NoError(t, c.CreateProject(projectName))
+	require.NoError(t, c.CreateProjectRepo(projectName, "repo1"))
 	commit = client.NewProjectCommit(projectName, "repo1", "master", "")
 	err = c.PutFile(commit, "dir/file3", strings.NewReader("foo"))
 	require.NoError(t, err)

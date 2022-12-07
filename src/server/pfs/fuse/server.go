@@ -1199,6 +1199,9 @@ func (m *MountStateMachine) RefreshMountState() error {
 		// Don't have anything to calculate HowManyCommitsBehind from
 		m.Status = "unable to load current commit"
 		return nil
+	} else if commit == "" {
+		m.Status = "branch does not contain any commits"
+		return nil
 	}
 
 	m.ActualMountedCommit = commit
