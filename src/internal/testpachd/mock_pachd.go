@@ -1053,6 +1053,7 @@ func (mock *mockCreateRepo) Use(cb createRepoFunc)                 { mock.handle
 func (mock *mockInspectRepo) Use(cb inspectRepoFunc)               { mock.handler = cb }
 func (mock *mockListRepo) Use(cb listRepoFunc)                     { mock.handler = cb }
 func (mock *mockDeleteRepo) Use(cb deleteRepoFunc)                 { mock.handler = cb }
+func (mock *mockDeleteRepos) Use(cb deleteReposFunc)               { mock.handler = cb }
 func (mock *mockStartCommit) Use(cb startCommitFunc)               { mock.handler = cb }
 func (mock *mockFinishCommit) Use(cb finishCommitFunc)             { mock.handler = cb }
 func (mock *mockInspectCommit) Use(cb inspectCommitFunc)           { mock.handler = cb }

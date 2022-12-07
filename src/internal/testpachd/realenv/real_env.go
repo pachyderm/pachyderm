@@ -1,6 +1,7 @@
 package realenv
 
 import (
+	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -242,6 +243,9 @@ func linkServers(mockServerPtr interface{}, realServer interface{}) {
 			mockPtrValue.Set(mock.Addr())
 
 			useFn := mockPtrValue.MethodByName("Use")
+			if useFn.Kind() == reflect.Invalid {
+				panic(fmt.Sprintf("type *%v does not implement Use", mock.Type().Name()))
+			}
 			useFn.Call([]reflect.Value{realMethod})
 		}
 	}
