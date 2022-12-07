@@ -636,7 +636,11 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 		mm.DatumInput = pipelineReq.Input
-		mm.sanitizeInputAndSetAliasMapping()
+		err = mm.sanitizeInputAndSetAliasMapping()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		mm.Datums, err = mm.Client.ListDatumInputAll(mm.DatumInput)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -1114,6 +1118,10 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 }
 
 func (mm *MountManager) sanitizeInputAndSetAliasMapping() error {
+	if mm.DatumInput == nil {
+		return errors.New("Datum input is not specified")
+	}
+
 	aliasMap := map[AliasKey]string{}
 	if err := pps.VisitInput(mm.DatumInput, func(input *pps.Input) error {
 		if input.Pfs == nil {
