@@ -4,7 +4,7 @@ set -euxo pipefail
 
 pachctl_tag=$PACHD_VERSION 
 if [ "$PACHD_VERSION" == "latest" ]; then
-    pachctl_tag="v2.5.0-alpha.1" #$(git tag --sort=taggerdate | tail -1) Hard code for the moment until nightly docker images are deploying
+    pachctl_tag=$(git tag --sort=taggerdate | tail -1) # the latest tag should be the nightly
 fi
 image_tag=$(echo "$pachctl_tag" | sed s/v//) #removing v from the front for the image
 
@@ -30,6 +30,4 @@ pip3 install -r requirements.txt
 locust --version
 locust -f locustfile.py --headless --users 50 --spawn-rate 1 --run-time 3m \
     --csv /tmp/test-results/api-perf \
-    --html /tmp/test-results/api-perf-stats.html \
-    --exit-code-on-error 0 # we should remove this eventually, but for now closing the connnectioncauses an error if an rpc is currently running
-
+    --html /tmp/test-results/api-perf-stats.html 
