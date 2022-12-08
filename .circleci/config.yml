@@ -44,6 +44,9 @@ parameters:
   run-perf-tests:
     type: boolean
     default: false
+  pachd-latest-version:
+    type: string
+    default: ""
 # our defined job, and its steps
 jobs:
   setup:
@@ -132,7 +135,7 @@ jobs:
     environment:
       TEST_RESULTS: /tmp/test-results
       PACHD_VERSION: << parameters.version >>
-      PACHD_LATEST_VERSION: ""
+      PACHD_LATEST_VERSION: << pipeline.parameters.pachd-latest-version >>
     parallelism: 1
     steps:
       - checkout
