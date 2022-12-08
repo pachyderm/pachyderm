@@ -1,6 +1,7 @@
 # copied from
-# https://github.com/jaegertracing/jaeger-kubernetes/blob/bcca10c297b38c01d9d7c554172572ffa11944ce/all-in-one/jaeger-all-in-one-template.yml
-# with minor changes:
+# https://github.com/jaegertracing/jaeger-kubernetes/blob/23075ae25e54302d6dc4b6a19978eda8efa8425c/all-in-one/jaeger-all-in-one-template.yml
+# (the head of the 'master' branch as of 2022-12-08T11:45:13-08:00)
+# with the following minor changes:
 #   - apiVersion of the Jaeger deployment was changed to `apps/v1` (from `extensions/v1beta1`)
 #   - jaeger-agent service removed (it's unused--the jaeger-agent receives traces and forwards them
 #     to the collector, but our client sends traces directly to the collector. See
