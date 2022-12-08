@@ -132,6 +132,7 @@ jobs:
     environment:
       TEST_RESULTS: /tmp/test-results
       PACHD_VERSION: << parameters.version >>
+      PACHD_LATEST_VERSION: ""
     parallelism: 1
     steps:
       - checkout

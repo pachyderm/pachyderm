@@ -3,8 +3,14 @@
 set -euxo pipefail
 
 pachctl_tag=$PACHD_VERSION 
-if [ "$PACHD_VERSION" == "latest" ]; then
-    pachctl_tag=$(git tag --sort=taggerdate | tail -1) # the latest tag should be the nightly
+if [ "$PACHD_VERSION" == "latest" ]
+then 
+    if [ -n "$PACHD_LATEST_VERSION" ]
+    then 
+        pachctl_tag=$(git tag --sort=taggerdate | tail -1) # the latest tag should be the nightly
+    else
+        pachctl_tag="$PACHD_LATEST_VERSION"
+    fi
 fi
 image_tag=$(echo "$pachctl_tag" | sed s/v//) #removing v from the front for the image
 
