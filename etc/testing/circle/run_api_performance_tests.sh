@@ -37,3 +37,4 @@ locust --version
 locust -f locustfile.py --headless --users 50 --spawn-rate 1 --run-time 3m \
     --csv /tmp/test-results/api-perf \
     --html /tmp/test-results/api-perf-stats.html 
+    --exit-code-on-error 0 # errors are reported in the artifacts, if the test finishes the pipeline ran successfully
