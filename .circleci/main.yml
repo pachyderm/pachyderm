@@ -31,7 +31,7 @@ parameters:
     default: ubuntu-2004:2022.07.1
   go-version:
     type: string
-    default: "1.19"
+    default: "1.19.4"
   run_load_tests:
     type: boolean
     default: false
