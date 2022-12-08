@@ -5,7 +5,7 @@ set -euxo pipefail
 pachctl_tag=$PACHD_VERSION 
 if [ "$PACHD_VERSION" == "latest" ]
 then 
-    if [ -n "$PACHD_LATEST_VERSION" ]
+    if [ -z "$PACHD_LATEST_VERSION" ]
     then 
         pachctl_tag=$(git tag --sort=taggerdate | tail -1) # the latest tag should be the nightly
     else
