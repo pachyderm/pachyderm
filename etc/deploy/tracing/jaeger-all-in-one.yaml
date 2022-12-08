@@ -9,11 +9,12 @@
 #   - The jaeger-collector-tchannel and jaeger-collector-http ports are now exported from the
 #     container (AFAICT this manifest doesn't work otherwise--I think it's a bug in the original
 #     manifest in github.com/jaegertracing/jaeger-kubernetes)
+#   - jaeger-collector-zipkin service removed (IIUC, it's likewise unused; I think it's a
+#     compatibility feature that we don't need, as we don't have any existing zipkin clients in
+#     pachd/pachctl that need to be supported)
 #   - container version fixed at 1.39.0
 # Maybe also do:
-#   - Remove the Zipkin port from collector service, and remove the jaeger-collector-zipkin service
-#     - I don't think we use Zipkin at all. I think this is a compatibility feature that we don't
-#       need
+#   - Remove the Zipkin port from collector service
 #   - Remove the COLLECTOR_ZIPKIN_HTTP_PORT env var from the container, and remove port 9411
 #     from the jaeger-collector service (the zipkin collector port)
 ##################################################################################################
