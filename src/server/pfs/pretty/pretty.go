@@ -21,7 +21,7 @@ const (
 	// RepoAuthHeader is the header for repos with auth information attached.
 	RepoAuthHeader = "PROJECT\tNAME\tCREATED\tSIZE (MASTER)\tACCESS LEVEL\t\n"
 	// CommitHeader is the header for commits.
-	CommitHeader = "REPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tORIGIN\tDESCRIPTION\n"
+	CommitHeader = "PROJECT\tREPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tORIGIN\tDESCRIPTION\n"
 	// CommitSetHeader is the header for commitsets.
 	CommitSetHeader = "ID\tSUBCOMMITS\tPROGRESS\tCREATED\tMODIFIED\n"
 	// BranchHeader is the header for branches.
@@ -162,7 +162,13 @@ Description: {{ .Description}} {{end}}
 
 // PrintCommitInfo pretty-prints commit info.
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Repo)
+	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Repo.Project.GetName())
+	// Repo.String() returns "<project>/<repo>"" but we want to print the project name as a separate column.
+	if commitInfo.Commit.Branch.Repo.Type == pfs.UserRepoType {
+		fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Repo.Name)
+	} else {
+		fmt.Fprintf(w, "%s.%s\t", commitInfo.Commit.Branch.Repo.Name, commitInfo.Commit.Branch.Repo.Type)
+	}
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Name)
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
 	if commitInfo.Finished == nil {
