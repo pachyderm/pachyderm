@@ -869,7 +869,7 @@ proxy:
   replicas: 1
   # The envoy image to pull.
   image:
-    repository: "envoyproxy/envoy"
+    repository: "envoyproxy/envoy-distroless"
     tag: "v1.24.1"
     pullPolicy: "IfNotPresent"
   # Set up resources.  The proxy is configured to shed traffic before using 500MB of RAM, so that's
