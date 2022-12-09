@@ -1,14 +1,21 @@
 # copied from
-# https://github.com/jaegertracing/jaeger-kubernetes/blob/bcca10c297b38c01d9d7c554172572ffa11944ce/all-in-one/jaeger-all-in-one-template.yml
-# with minor changes:
-#   - jaeger-agent service removed (unused--our client sends traces directly to the collector. See
+# https://github.com/jaegertracing/jaeger-kubernetes/blob/23075ae25e54302d6dc4b6a19978eda8efa8425c/all-in-one/jaeger-all-in-one-template.yml
+# (the head of the 'master' branch as of 2022-12-08T11:45:13-08:00)
+# with the following minor changes:
+#   - apiVersion of the Jaeger deployment was changed to `apps/v1` (from `extensions/v1beta1`)
+#   - jaeger-agent service removed (it's unused--the jaeger-agent receives traces and forwards them
+#     to the collector, but our client sends traces directly to the collector. See
 #     https://github.com/jaegertracing/jaeger-client-csharp/issues/104
-#     - Associated ports (5775, 5778, 6831, 6832) were all removed from the container as well
-#   - The jaeger-collector-tchannel and jaeger-collector-http ports are exported from the container
-#     (AFAICT this YAML doesn't work as written in jaegertracing/jaeger-kubernetes)
-#   - container version fixed at 1.10.1
+#     - The associated ports (5775, 5778, 6831, 6832) were all removed from the container as well
+#   - The jaeger-collector-tchannel and jaeger-collector-http ports are now exported from the
+#     container (AFAICT this manifest doesn't work otherwise--I think it's a bug in the original
+#     manifest in github.com/jaegertracing/jaeger-kubernetes)
+#   - jaeger-collector-zipkin service removed (IIUC, it's likewise unused; I think it's a
+#     compatibility feature that we don't need, as we don't have any existing zipkin clients in
+#     pachd/pachctl that need to be supported)
+#   - container version fixed at 1.39.0
 # Maybe also do:
-#   - Zipkin port removed from collector service and jaeger-collector-zipkin service removed (unused)
+#   - Remove the Zipkin port from collector service
 #   - Remove the COLLECTOR_ZIPKIN_HTTP_PORT env var from the container, and remove port 9411
 #     from the jaeger-collector service (the zipkin collector port)
 ##################################################################################################
@@ -56,35 +63,26 @@ items:
           prometheus.io/port: "16686"
       spec:
           containers:
-          -   env:
-              - name: COLLECTOR_ZIPKIN_HTTP_PORT
-                value: "9411"
-              image: jaegertracing/all-in-one:1.15.1
-              name: jaeger
-              ports:
-#                 - containerPort: 5775
-#                   protocol: UDP
-#                 - containerPort: 6831
-#                   protocol: UDP
-#                 - containerPort: 6832
-#                   protocol: UDP
-#                 - containerPort: 5778
-#                   protocol: TCP
-                - containerPort: 16686
-                  protocol: TCP
-                - containerPort: 9411
-                  protocol: TCP
-                # These ports are referenced by the jaeger-collector service but
-                # aren't in the original manifest
-                - containerPort: 14267
-                  protocol: TCP
-                - containerPort: 14268
-                  protocol: TCP
-              readinessProbe:
-                httpGet:
-                  path: "/"
-                  port: 14269
-                initialDelaySeconds: 5
+          - name: jaeger
+            image: jaegertracing/all-in-one:1.39.0
+            ports:
+              - containerPort: 16686
+                protocol: TCP
+              - containerPort: 9411
+                protocol: TCP
+              # These ports are referenced by the jaeger-collector service but
+              # aren't in the original manifest
+              - containerPort: 14267
+                protocol: TCP
+              - containerPort: 14268
+                protocol: TCP
+            readinessProbe:
+              httpGet:
+                path: "/"
+                port: 14269
+            env:
+            - name: COLLECTOR_ZIPKIN_HTTP_PORT
+              value: "9411"  initialDelaySeconds: 5
 - apiVersion: v1
   kind: Service
   metadata:
@@ -129,51 +127,3 @@ items:
       app.kubernetes.io/name: jaeger
       app.kubernetes.io/component: all-in-one
     type: ClusterIP
-# - apiVersion: v1
-#   kind: Service
-#   metadata:
-#     name: jaeger-agent
-#     labels:
-#       app: jaeger
-#       app.kubernetes.io/name: jaeger
-#       app.kubernetes.io/component: agent
-#   spec:
-#     ports:
-#     - name: agent-zipkin-thrift
-#       port: 5775
-#       protocol: UDP
-#       targetPort: 5775
-#     - name: agent-compact
-#       port: 6831
-#       protocol: UDP
-#       targetPort: 6831
-#     - name: agent-binary
-#       port: 6832
-#       protocol: UDP
-#       targetPort: 6832
-#     - name: agent-configs
-#       port: 5778
-#       protocol: TCP
-#       targetPort: 5778
-#     clusterIP: None
-#     selector:
-#       app.kubernetes.io/name: jaeger
-#       app.kubernetes.io/component: all-in-one
-# - apiVersion: v1
-#   kind: Service
-#   metadata:
-#     name: zipkin
-#     labels:
-#       app: jaeger
-#       app.kubernetes.io/name: jaeger
-#       app.kubernetes.io/component: zipkin
-#   spec:
-#     ports:
-#     - name: jaeger-collector-zipkin
-#       port: 9411
-#       protocol: TCP
-#       targetPort: 9411
-#     clusterIP: None
-#     selector:
-#       app.kubernetes.io/name: jaeger
-#       app.kubernetes.io/component: all-in-one

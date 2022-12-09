@@ -705,8 +705,8 @@ func SetClusterRoleBindingCmd() *cobra.Command {
 func GetClusterRoleBindingCmd() *cobra.Command {
 	get := &cobra.Command{
 		Use:   "{{alias}}",
-		Short: "Get the role bindings for 'repo'",
-		Long:  "Get the role bindings for 'repo'",
+		Short: "Get the role bindings for 'cluster'",
+		Long:  "Get the role bindings for 'cluster'",
 		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {

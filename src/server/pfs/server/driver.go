@@ -274,22 +274,7 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 		}
 		repoInfo.SizeBytesUpperBound = size
 
-		// TODO cache the project check
-		// Check if the user can list repo within the project, otherwise check if they can read the repo.
-		if err := d.env.AuthServer.CheckProjectIsAuthorized(ctx, repoInfo.Repo.Project, auth.Permission_PROJECT_LIST_REPO); err != nil {
-			if errors.As(err, &auth.ErrNotAuthorized{}) {
-				if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, repoInfo.Repo, auth.Permission_REPO_READ); err != nil {
-					if errors.As(err, &auth.ErrNotAuthorized{}) {
-						return nil
-					}
-					return errors.Wrap(err, "could not check user is authorized to access repo")
-				}
-				// Here we know that the user does not have permission to list repos at the project level,
-				// but they should still see the repo because they have read permission.
-			} else {
-				return errors.Wrap(err, "could not check user is authorized to access project")
-			}
-		}
+		// TODO CORE-1111 check whether user has PROJECT_LIST_REPO on project or REPO_READ on repo.
 		if authSeemsActive && includeAuth {
 			permissions, roles, err := d.getPermissions(ctx, repoInfo.Repo)
 			if err != nil {
@@ -485,9 +470,20 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 }
 
 // TODO: delete all repos and pipelines within project
-func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *pfs.Project, force bool) error {
+func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *pfs.Project, _ bool) error {
+	if err := project.ValidateName(); err != nil {
+		return errors.Wrap(err, "invalid project name")
+	}
+	if err := d.env.AuthServer.CheckProjectIsAuthorizedInTransaction(txnCtx, project, auth.Permission_PROJECT_DELETE, auth.Permission_PROJECT_MODIFY_BINDINGS); err != nil {
+		return errors.Wrapf(err, "user is not authorized to delete project %q", project)
+	}
 	if err := d.projects.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.ProjectKey(project)); err != nil {
-		return errors.Wrapf(err, "delete project %q", project.Name)
+		return errors.Wrapf(err, "delete project %q", project)
+	}
+	if err := d.env.AuthServer.DeleteRoleBindingInTransaction(txnCtx, project.AuthResource()); err != nil {
+		if !errors.Is(err, auth.ErrNotActivated) {
+			return errors.Wrapf(err, "delete role binding for project %q", project)
+		}
 	}
 	return nil
 }
