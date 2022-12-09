@@ -64,3 +64,20 @@ and then visiting http://localhost in the browser (or grpc://localhost:80 with p
 Your deployment's security posture will improve by enabling the proxy.  It is hardened against
 malicious traffic, and writes out extensive audit logs for all requests to Pachyderm.
 {{- end -}}
+
+
+{{- if and .Values.proxy.enabled (ne .Values.proxy.service.type "ClusterIP") (ne .Values.proxy.host "")}}
+{{- if .Values.proxy.tls.enabled }}
+Start using your Pachyderm deployment by visiting the Console at https://{{.Values.proxy.host}} in you browser.
+
+Connect pachctl by running:
+
+    echo '{"pachd_address":"grpc://{{ .Values.proxy.host }}:443"}' | pachctl config set context {{ .Release.Name }} --overwrite && pachctl config set active-context {{ .Release.Name }}
+{{- else }}
+Start using your Pachyderm deployment by visiting the Console at http://{{.Values.proxy.host}} in your browser.
+
+Connect pachctl by running:
+
+    echo '{"pachd_address":"grpc://{{ .Values.proxy.host }}:80"}' | pachctl config set context {{ .Release.Name}} --overwrite && pachctl config set active-context {{ .Release.Name }}
+{{- end }}
+{{- end -}}
