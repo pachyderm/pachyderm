@@ -924,39 +924,32 @@ func TestListFileNils(t *testing.T) {
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 	repo := "foo"
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	var commit *pfs.Commit
-	if err := aliceClient.ListFile(commit, "/", func(fi *pfs.FileInfo) error {
-		return errors.New("should never get here")
-	}); err == nil {
-		t.Error("ListFile(nil, \"/\", …) should always be an error")
+	for _, test := range []*pfs.Commit{
+		nil,
+		&pfs.Commit{},
+		&pfs.Commit{Branch: &pfs.Branch{}},
+		&pfs.Commit{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: repo}}},
+		&pfs.Commit{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}}}},
+		&pfs.Commit{Branch: &pfs.Branch{
+			Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}},
+			Name: "master",
+		}},
+	} {
+		if err := aliceClient.ListFile(test, "/", func(fi *pfs.FileInfo) error {
+			t.Errorf("dead code ran")
+			return errors.New("should never get here")
+		}); err == nil {
+			t.Errorf("ListFile(nil, %q, …) succeeded where it should have failed", test)
+		}
 	}
-	commit = &pfs.Commit{}
-	if err := aliceClient.ListFile(commit, "/", func(fi *pfs.FileInfo) error {
-		return errors.New("should never get here")
-	}); err == nil {
-		t.Error("ListFile(&pfs.Commit{}, \"/\", …) should always be an error")
+	// this used to cause a core dump
+	var commit *pfs.Commit = &pfs.Commit{
+		Branch: &pfs.Branch{
+			Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}},
+			Name: "master",
+		},
+		ID: "0123456789ab40123456789abcdef012",
 	}
-	commit.Branch = &pfs.Branch{}
-	if err := aliceClient.ListFile(commit, "/", func(fi *pfs.FileInfo) error {
-		return errors.New("should never get here")
-	}); err == nil {
-		t.Error("ListFile(&pfs.Commit{Branch: &pfs.Branch{}}, \"/\", …) should always be an error")
-	}
-	commit.Branch.Repo = &pfs.Repo{}
-	if err := aliceClient.ListFile(commit, "/", func(fi *pfs.FileInfo) error {
-		return errors.New("should never get here")
-	}); err == nil {
-		t.Error("ListFile(&pfs.Commit{Branch: &pfs.Branch{Repo: &pfs.Repo{}}}, \"/\", …) should always be an error")
-	}
-	commit.Branch.Repo.Name = repo
-	commit.Branch.Repo.Project = &pfs.Project{}
-	if err := aliceClient.ListFile(commit, "/", func(fi *pfs.FileInfo) error {
-		return errors.New("should never get here")
-	}); err == nil {
-		t.Error("ListFile(&pfs.Commit{Branch: &pfs.Branch{Repo: &pfs.Repo{Project: &pfs.Project{}}}}, \"/\", …) should always be an error")
-	}
-	commit.Branch.Name = "master"
-	commit.ID = "0123456789ab40123456789abcdef012"
 	if err := aliceClient.ListFile(commit, "/", func(fi *pfs.FileInfo) error {
 		return errors.New("should never get here")
 	}); err == nil {
