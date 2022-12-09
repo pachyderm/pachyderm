@@ -926,14 +926,16 @@ func TestListFileNils(t *testing.T) {
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	for _, test := range []*pfs.Commit{
 		nil,
-		&pfs.Commit{},
-		&pfs.Commit{Branch: &pfs.Branch{}},
-		&pfs.Commit{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: repo}}},
-		&pfs.Commit{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}}}},
-		&pfs.Commit{Branch: &pfs.Branch{
-			Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}},
-			Name: "master",
-		}},
+		{},
+		{Branch: &pfs.Branch{}},
+		{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: repo}}},
+		{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}}}},
+		{
+			Branch: &pfs.Branch{
+				Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}},
+				Name: "master",
+			},
+		},
 	} {
 		if err := aliceClient.ListFile(test, "/", func(fi *pfs.FileInfo) error {
 			t.Errorf("dead code ran")
