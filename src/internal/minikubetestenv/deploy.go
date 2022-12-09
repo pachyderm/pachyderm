@@ -171,12 +171,15 @@ func withBase(namespace string) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
-			"pachd.clusterDeploymentID":       "dev",
-			"pachd.resources.requests.cpu":    "250m",
-			"pachd.resources.requests.memory": "512M",
-			"etcd.resources.requests.cpu":     "250m",
-			"etcd.resources.requests.memory":  "512M",
-			"console.enabled":                 "false",
+			"pachd.clusterDeploymentID":           "dev",
+			"pachd.resources.requests.cpu":        "250m",
+			"pachd.resources.requests.memory":     "512M",
+			"etcd.resources.requests.cpu":         "250m",
+			"etcd.resources.requests.memory":      "512M",
+			"pachd.defaultPipelineCPURequest":     "100m",
+			"pachd.defaultPipelineMemoryRequest":  "64M",
+			"pachd.defaultPipelineStorageRequest": "100Mi",
+			"console.enabled":                     "false",
 		},
 	}
 }

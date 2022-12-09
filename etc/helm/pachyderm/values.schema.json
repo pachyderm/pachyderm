@@ -782,6 +782,15 @@
                 "goMemLimit": {
                     "type": "string"
                 },
+                "defaultPipelineCPURequest": {
+                    "type": "string"
+                },
+                "defaultPipelineMemoryRequest": {
+                    "type": "string"
+                },
+                "defaultPipelineStorageRequest": {
+                    "type": "string"
+                },
                 "image": {
                     "type": "object",
                     "properties": {
