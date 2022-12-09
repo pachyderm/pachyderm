@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // loginAsUser sets the auth token in the pachctl config to a token for `user`
@@ -168,7 +169,7 @@ func TestWhoAmI(t *testing.T) {
 	).Run())
 }
 
-func TestCheckGetSet(t *testing.T) {
+func TestCheckGetSetRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -176,44 +177,46 @@ func TestCheckGetSet(t *testing.T) {
 	alice, bob := tu.UniqueString("robot:alice"), tu.UniqueString("robot:bob")
 	// Test both forms of the 'pachctl auth get' command, as well as 'pachctl auth check'
 
-	loginAsUser(t, c, alice)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl create repo {{.repo}}
-		pachctl auth check repo {{.repo}} \
-                        | match 'Roles: \[repoOwner\]'
-		pachctl auth get repo {{.repo}} \
-			| match {{.alice}}
-		`,
-		"alice", alice,
-		"bob", bob,
-		"repo", tu.UniqueString("TestGet-repo"),
-	).Run())
-
-	repo := tu.UniqueString("TestGet-repo")
-	// Test 'pachctl auth set'
-	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create repo {{.repo}}
-		pachctl auth set repo {{.repo}} repoReader {{.bob}}
-		pachctl auth get repo {{.repo}}\
-			| match "{{.bob}}: \[repoReader\]" \
-			| match "{{.alice}}: \[repoOwner\]"
-		`,
-		"alice", alice,
-		"bob", bob,
-		"repo", repo,
-	).Run())
-
-	// Test checking another user's permissions
 	loginAsUser(t, c, auth.RootUser)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl auth check repo {{.repo}} {{.alice}} \
-			| match "Roles: \[repoOwner\]"
-                pachctl auth check repo {{.repo}} {{.bob}} \
-			| match "Roles: \[repoReader\]"
+	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create project nonDefault`).Run())
+
+	for _, project := range []string{pfs.DefaultProjectName, "nonDefault"} {
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl config update context --project {{.project}}`, "project", project).Run())
+
+		loginAsUser(t, c, alice)
+		require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create repo {{.repo}}
+		pachctl auth check repo {{.repo}} | match 'Roles: \[repoOwner\]'
+		pachctl auth get repo {{.repo}} | match {{.alice}}
 		`,
-		"alice", alice,
-		"bob", bob,
-		"repo", repo,
-	).Run())
+			"alice", alice,
+			"bob", bob,
+			"repo", tu.UniqueString("TestGet-repo"),
+		).Run())
+
+		repo := tu.UniqueString("TestGet-repo")
+		// Test 'pachctl auth set'
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create repo {{.repo}}
+		pachctl auth set repo {{.repo}} repoReader {{.bob}}
+		pachctl auth get repo {{.repo}} | match "{{.bob}}: \[repoReader\]" | match "{{.alice}}: \[repoOwner\]"
+		`,
+			"alice", alice,
+			"bob", bob,
+			"repo", repo,
+		).Run())
+
+		// Test checking another user's permissions
+		loginAsUser(t, c, auth.RootUser)
+		require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl auth check repo {{.repo}} {{.alice}} | match "Roles: \[repoOwner\]"
+		pachctl auth check repo {{.repo}} {{.bob}} | match "Roles: \[repoReader\]"
+		`,
+			"alice", alice,
+			"bob", bob,
+			"repo", repo,
+		).Run())
+	}
+
 }
 
 func TestAdmins(t *testing.T) {

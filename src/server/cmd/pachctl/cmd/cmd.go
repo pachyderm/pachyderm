@@ -858,7 +858,7 @@ This resets the cluster to its initial state.`,
 
 	subcommands = append(subcommands, pfscmds.Cmds(pachCtx)...)
 	subcommands = append(subcommands, ppscmds.Cmds(pachCtx)...)
-	subcommands = append(subcommands, authcmds.Cmds()...)
+	subcommands = append(subcommands, authcmds.Cmds(pachCtx)...)
 	subcommands = append(subcommands, enterprisecmds.Cmds()...)
 	subcommands = append(subcommands, licensecmds.Cmds()...)
 	subcommands = append(subcommands, identitycmds.Cmds()...)

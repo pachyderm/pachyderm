@@ -559,8 +559,8 @@ func UseAuthTokenCmd() *cobra.Command {
 
 // CheckRepoCmd returns a cobra command that sends a GetPermissions request to
 // pachd to determine what permissions a user has on the repo.
-func CheckRepoCmd() *cobra.Command {
-	var project string
+func CheckRepoCmd(pachCtx *config.Context) *cobra.Command {
+	project := pachCtx.Project
 	check := &cobra.Command{
 		Use:   "{{alias}} <repo> [<user>]",
 		Short: "Check the permissions a user has on 'repo'",
@@ -591,13 +591,13 @@ func CheckRepoCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	check.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project containing the repo.")
+	check.Flags().StringVar(&project, "project", project, "The project containing the repo.")
 	return cmdutil.CreateAliases(check, "auth check repo", "repos")
 }
 
-// SetRepoRoleBindingCmd returns a cobra command that sets the roles for a user on a resource
-func SetRepoRoleBindingCmd() *cobra.Command {
-	var project string
+// SetRepoRoleBindingCmd returns a cobra command that sets the roles for a user on a repo
+func SetRepoRoleBindingCmd(pachCtx *config.Context) *cobra.Command {
+	project := pachCtx.Project
 	setScope := &cobra.Command{
 		Use:   "{{alias}} <repo> [role1,role2 | none ] <subject>",
 		Short: "Set the roles that 'username' has on 'repo'",
@@ -620,13 +620,13 @@ func SetRepoRoleBindingCmd() *cobra.Command {
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	setScope.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project containing the repo.")
+	setScope.Flags().StringVar(&project, "project", project, "The project containing the repo.")
 	return cmdutil.CreateAliases(setScope, "auth set repo", "repos")
 }
 
-// GetRepoRoleBindingCmd returns a cobra command that gets the role bindings for a resource
-func GetRepoRoleBindingCmd() *cobra.Command {
-	var project string
+// GetRepoRoleBindingCmd returns a cobra command that gets the role bindings for a repo
+func GetRepoRoleBindingCmd(pachCtx *config.Context) *cobra.Command {
+	project := pachCtx.Project
 	get := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Get the role bindings for 'repo'",
@@ -646,7 +646,7 @@ func GetRepoRoleBindingCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	get.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project containing the repo.")
+	get.Flags().StringVar(&project, "project", project, "The project containing the repo.")
 	return cmdutil.CreateAliases(get, "auth get repo", "repos")
 }
 
@@ -678,8 +678,8 @@ func GetProjectRoleBindingCmd() *cobra.Command {
 func SetClusterRoleBindingCmd() *cobra.Command {
 	setScope := &cobra.Command{
 		Use:   "{{alias}} [role1,role2 | none ] subject",
-		Short: "Set the roles that 'username' has on the cluster",
-		Long:  "Set the roles that 'username' has on the cluster",
+		Short: "Set the roles that 'username' has on the 'cluster'",
+		Long:  "Set the roles that 'username' has on the 'cluster'",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			var roles []string
 			if args[0] == "none" {
@@ -847,7 +847,7 @@ func RolesForPermissionCmd() *cobra.Command {
 
 // Cmds returns a list of cobra commands for authenticating and authorizing
 // users in an auth-enabled Pachyderm cluster.
-func Cmds() []*cobra.Command {
+func Cmds(pachCtx *config.Context) []*cobra.Command {
 	var commands []*cobra.Command
 
 	auth := &cobra.Command{
@@ -883,12 +883,12 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, UseAuthTokenCmd())
 	commands = append(commands, GetConfigCmd())
 	commands = append(commands, SetConfigCmd())
-	commands = append(commands, CheckRepoCmd())
+	commands = append(commands, CheckRepoCmd(pachCtx))
 	commands = append(commands, RevokeCmd())
 	commands = append(commands, GetGroupsCmd())
-	commands = append(commands, GetRepoRoleBindingCmd())
+	commands = append(commands, GetRepoRoleBindingCmd(pachCtx))
+	commands = append(commands, SetRepoRoleBindingCmd(pachCtx))
 	commands = append(commands, GetProjectRoleBindingCmd())
-	commands = append(commands, SetRepoRoleBindingCmd())
 	commands = append(commands, GetClusterRoleBindingCmd())
 	commands = append(commands, SetClusterRoleBindingCmd())
 	commands = append(commands, GetEnterpriseRoleBindingCmd())
