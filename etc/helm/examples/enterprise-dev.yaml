@@ -1,6 +1,6 @@
 oidc:
   mockIDP: true
-  issuerURI: "http://pach-enterprise.enterprise.svc.cluster.local:31658"
+  issuerURI: "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex"
   userAccessibleOauthIssuerHost: localhost:31658
 
 console:
