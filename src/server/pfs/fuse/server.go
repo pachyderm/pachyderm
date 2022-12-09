@@ -85,7 +85,6 @@ type MountInfo struct {
 	Branch  string   `json:"branch"`
 	Commit  string   `json:"commit"` // "" for no commit (commit as noun)
 	Files   []string `json:"files"`
-	Glob    string   `json:"glob"`
 	Mode    string   `json:"mode"` // "ro", "rw"
 }
 
@@ -1096,9 +1095,6 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 		if mi.Commit != "" {
 			// TODO: case of same commit id on diff branches
 			return errors.Wrapf(errors.New("don't support mounting commits yet"), "mount request %+v", mi)
-		}
-		if mi.Files != nil && mi.Glob != "" {
-			return errors.Wrapf(errors.New("can't specify both files and glob pattern"), "mount request %+v", mi)
 		}
 		if mi.Mode == "" {
 			mi.Mode = "ro"
