@@ -7,6 +7,14 @@ The following command will install dependencies in `./`, `./frontend`, and `./ba
 make install
 ```
 
+If you are on an M1 Mac, first run these commands or installation will fail:
+
+<!-- https://github.com/Automattic/node-canvas/issues/1733 -->
+
+```bash
+brew install pkg-config cairo pango libpng jpeg giflib librsvg
+```
+
 <br />
 
 ## Local Deploy
