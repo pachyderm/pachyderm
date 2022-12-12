@@ -8,17 +8,14 @@ import {
   LINEAGE_REPO_PATH,
 } from '@dash-frontend/views/Project/constants/projectPaths';
 import {
-  jobRoute,
   pipelineRoute,
   repoRoute,
 } from '@dash-frontend/views/Project/utils/routes';
 
 import deriveRouteParamFromNode from '../lib/deriveRepoNameFromNode';
 
-import useIsViewingJob from './useIsViewingJob';
 const useRouteController = () => {
-  const {projectId, repoId, pipelineId, jobId} = useUrlState();
-  const isViewingJob = useIsViewingJob();
+  const {projectId, repoId, pipelineId} = useUrlState();
   const browserHistory = useHistory();
 
   const navigateToNode = useCallback(
@@ -34,25 +31,15 @@ const useRouteController = () => {
       } else if (destination === 'pipeline') {
         const pipelineId = n.id;
 
-        if (isViewingJob) {
-          browserHistory.push(
-            jobRoute({
-              projectId,
-              pipelineId,
-              jobId,
-            }),
-          );
-        } else {
-          browserHistory.push(
-            pipelineRoute({
-              projectId,
-              pipelineId,
-            }),
-          );
-        }
+        browserHistory.push(
+          pipelineRoute({
+            projectId,
+            pipelineId,
+          }),
+        );
       }
     },
-    [projectId, browserHistory, jobId, isViewingJob],
+    [projectId, browserHistory],
   );
 
   const pipelinePathMatch = useRouteMatch({
