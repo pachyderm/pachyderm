@@ -912,3 +912,51 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	// Make sure DeleteAll() succeeds
 	require.NoError(t, aliceClient.DeleteAll())
 }
+
+func TestListFileNils(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
+	tu.ActivateAuthClient(t, c)
+	alice := tu.Robot(tu.UniqueString("alice"))
+	aliceClient := tu.AuthenticateClient(t, c, alice)
+	repo := "foo"
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	for _, test := range []*pfs.Commit{
+		nil,
+		{},
+		{Branch: &pfs.Branch{}},
+		{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: repo}}},
+		{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}}}},
+		{
+			Branch: &pfs.Branch{
+				Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}},
+				Name: "master",
+			},
+		},
+	} {
+		if err := aliceClient.ListFile(test, "/", func(fi *pfs.FileInfo) error {
+			t.Errorf("dead code ran")
+			return errors.New("should never get here")
+		}); err == nil {
+			t.Errorf("ListFile(nil, %q, …) succeeded where it should have failed", test)
+		}
+	}
+	// this used to cause a core dump
+	var commit *pfs.Commit = &pfs.Commit{
+		Branch: &pfs.Branch{
+			Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}},
+			Name: "master",
+		},
+		ID: "0123456789ab40123456789abcdef012",
+	}
+	if err := aliceClient.ListFile(commit, "/", func(fi *pfs.FileInfo) error {
+		return errors.New("should never get here")
+	}); err == nil {
+		t.Errorf("ListFile for a non-existent commit should always be an error")
+	} else if strings.Contains(err.Error(), "upstream connect error") {
+		t.Errorf("server error: %v", err)
+	}
+}

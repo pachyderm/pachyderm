@@ -124,14 +124,14 @@ func (r *Repo) EnsureProject() {
 // include the repo type string.
 func (r *Repo) AuthResource() *auth.Resource {
 	var t auth.ResourceType
-	if r.Type == SpecRepoType {
+	if r.GetType() == SpecRepoType {
 		t = auth.ResourceType_SPEC_REPO
 	} else {
 		t = auth.ResourceType_REPO
 	}
 	return &auth.Resource{
 		Type: t,
-		Name: fmt.Sprintf("%s/%s", r.Project.Name, r.Name),
+		Name: fmt.Sprintf("%s/%s", r.GetProject().GetName(), r.GetName()),
 	}
 }
 
