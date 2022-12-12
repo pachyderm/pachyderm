@@ -126,7 +126,6 @@
     "rollup-plugin-analyzer": "^4.0.0",
     "rollup-plugin-copy": "3.4.0",
     "serve": "14.1.2",
-    "splitting": "^1.0.6",
     "start-server-and-test": "1.14.0",
     "stylelint": "^14.11.0",
     "ts-jest": "^27.1.5",

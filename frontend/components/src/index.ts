@@ -11,13 +11,11 @@ export {default as useClipboardCopy} from './hooks/useClipboardCopy';
 export {default as useDebounce} from './hooks/useDebounce';
 export {default as useAnalytics} from './hooks/useAnalytics';
 export {default as usePreviousValue} from './hooks/usePreviousValue';
-export {default as useScrollDirection} from './hooks/useScrollDirection';
 
 export * from './hooks/useSort';
 
 export * from './Button';
 export * from './ButtonLink';
-export * from './Card';
 export * from './Circle';
 export * from './Checkbox';
 export * from './Chip';
@@ -36,7 +34,6 @@ export * from './Label';
 export * from './LegacyTable';
 export * from './Link';
 export * from './LoadingDots';
-export * from './LoadingPachyderm';
 export * from './Modal';
 export * from './NotificationBanner';
 export * from './PachctlConnectDetails';

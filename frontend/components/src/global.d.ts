@@ -16,8 +16,6 @@ declare module '*.webp' {
   export default src;
 }
 
-declare module 'splitting';
-
 declare interface Window {
   analyticsInitialized?: boolean;
   clusterIdentified?: boolean;
