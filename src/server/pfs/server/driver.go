@@ -2137,6 +2137,9 @@ func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Projec
 	}); err != nil {
 		return nil, err
 	}
+	if len(repos) == 0 {
+		return nil, nil
+	}
 
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// the list does not use the transaction

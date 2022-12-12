@@ -177,7 +177,7 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 
 // DeleteRepos implements the pfs.DeleteRepo RPC.  It deletes more than one repo at once.
 func (a *apiServer) DeleteRepos(ctx context.Context, request *pfs.DeleteReposRequest) (resp *pfs.DeleteReposResponse, err error) {
-	if request.Projects == nil {
+	if len(request.Projects) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "DeleteRepos must specify project(s) whose repos should be deleted.")
 	}
 	repos, err := a.driver.deleteProjectsRepos(ctx, request.Projects)
