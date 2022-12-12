@@ -12,7 +12,7 @@ then
         pachctl_tag="$PACHD_LATEST_VERSION"
     fi
 fi
-image_tag=$(echo "${pachctl_tag//v/}") #removing v from the front for the image
+image_tag="${pachctl_tag//v/}" #removing v from the front for the image
 
 # Install pachctl
 gh release download "$pachctl_tag" --pattern "pachctl_${image_tag}_amd64.deb" --repo pachyderm/pachyderm --output /tmp/pachctl.deb
