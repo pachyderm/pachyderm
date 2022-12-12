@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"mime/multipart"
 	"net"
 	"net/http"
@@ -106,7 +105,7 @@ func bench(f func(name string, r io.Reader, length uint64) error) error {
 
 		n, err := uuid.NewV4()
 		if err != nil {
-			panic(err)
+			log.Fatalf("new uuid: %v", err)
 		}
 		name := n.String()
 
@@ -234,7 +233,7 @@ func main() {
 
 			// Upload
 			ckSize := 50 * units.MB
-			nCk := int(math.Ceil(float64(length) / float64(ckSize)))
+			nCk := (int(length) + ckSize - 1) / ckSize
 			buf := make([]byte, units.MB)
 			for i := 1; i <= nCk; i++ { // chunks start at 1, not 0
 				uploadR, uploadW := io.Pipe()
