@@ -1215,6 +1215,7 @@ jobs:
             index=${#prefix}
             additional=${v:index}
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
+
 workflows:
   integration-tests:
     when:
