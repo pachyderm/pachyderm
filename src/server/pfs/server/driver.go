@@ -259,13 +259,17 @@ func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Per
 	return resp.Permissions, resp.Roles, nil
 }
 
-func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string, projectsFilter map[string]bool, cb func(*pfs.RepoInfo) error) error {
+func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string, projects []*pfs.Project, cb func(*pfs.RepoInfo) error) error {
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
+	projectsFilter := make(map[string]bool)
+	for _, project := range projects {
+		projectsFilter[project.String()] = true
+	}
 
 	processFunc := func(string) error {
 		// Assume the user meant all projects by not providing any projects to filter on.
-		if len(projectsFilter) > 0 && !projectsFilter[repoInfo.Repo.Project.Name] {
+		if len(projectsFilter) > 0 && !projectsFilter[repoInfo.Repo.Project.String()] {
 			return nil
 		}
 		size, err := d.repoSize(ctx, repoInfo.Repo)

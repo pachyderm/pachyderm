@@ -192,7 +192,7 @@ message ListRepoRequest {
   // an empty string requests all repos
   string type = 1;
   // projects filters out repos that do not belong in the list, while no projects means list all repos.
-  repeated string projects = 2;
+  repeated Project projects = 2;
 }
 
 message DeleteRepoRequest {
