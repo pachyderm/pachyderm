@@ -1114,11 +1114,12 @@ func TestPFS(suite *testing.T) {
 	suite.Run("DeleteRepos", func(t *testing.T) {
 		t.Parallel()
 		var (
-			ctx                           = context.Background()
-			env                           = realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-			projectName                   = tu.UniqueString("project")
-			untouchedProjectName          = tu.UniqueString("project")
-			reposToDelete, untouchedRepos []*pfs.Repo
+			ctx                  = context.Background()
+			env                  = realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+			projectName          = tu.UniqueString("project")
+			untouchedProjectName = tu.UniqueString("project")
+			reposToDelete        = make(map[string]bool)
+			untouchedRepos       []*pfs.Repo
 		)
 		_, err := env.PachClient.PfsAPIClient.CreateProject(ctx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: projectName}})
 		require.NoError(t, err)
@@ -1167,7 +1168,7 @@ func TestPFS(suite *testing.T) {
 		require.Len(t, resp.Repos, len(reposToDelete))
 		for _, repo := range resp.Repos {
 			if !reposToDelete[repo.String()] {
-				t.Errorf("deleted repo %v, which should not have been")
+				t.Errorf("deleted repo %v, which should not have been", repo)
 			}
 		}
 		repoStream, err := env.PachClient.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{Projects: []string{untouchedProjectName}})
