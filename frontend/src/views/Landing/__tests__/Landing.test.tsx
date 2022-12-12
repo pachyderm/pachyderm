@@ -246,19 +246,6 @@ describe('Landing', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('should display an all tab when viewing just the default project', async () => {
-    const error = createServiceError({code: status.UNIMPLEMENTED});
-    mockServer.setError(error);
-
-    const {findByRole} = render(<Landing />);
-
-    expect(
-      await findByRole('tab', {
-        name: /projects/i,
-      }),
-    ).toBeInTheDocument();
-  });
-
   it('should display the project details', async () => {
     const error = createServiceError({code: status.UNIMPLEMENTED});
     mockServer.setError(error);
