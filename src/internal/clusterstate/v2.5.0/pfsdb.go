@@ -236,3 +236,478 @@ func migratePFSDB(ctx context.Context, tx *pachsql.Tx) error {
 
 	return nil
 }
+
+func forEachCommit(ctx context.Context, tx *pachsql.Tx, ci *pfs.CommitInfo, f func(string) error) error {
+	rr, err := tx.QueryContext(ctx, `SELECT key, proto FROM collections.commits`)
+	if err != nil {
+		return errors.Wrap(err, "could not read table")
+	}
+	defer rr.Close()
+	for rr.Next() {
+		var (
+			oldKey string
+			pb     []byte
+		)
+		if err := rr.Err(); err != nil {
+			return errors.Wrap(err, "row error")
+		}
+		if err := rr.Scan(&oldKey, &pb); err != nil {
+			return errors.Wrap(err, "could not scan row")
+		}
+		if err := proto.Unmarshal(pb, ci); err != nil {
+			return errors.Wrapf(err, "could not unmarshal proto")
+		}
+		if err := f(oldKey); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func oldCommitKey(c *pfs.Commit) string {
+	return c.Repo.Project.Name + "/" + c.Repo.Name + "." + c.Repo.Type + "@" + c.Branch.Name + "=" + c.ID
+}
+
+func getCommitInfo(ctx context.Context, tx *pachsql.Tx, key string) (*pfs.CommitInfo, error) {
+	var pb []byte
+	if err := tx.GetContext(ctx, &pb, "SELECT proto FROM collections.commits WHERE key=$1", key); err != nil {
+		return nil, errors.Wrapf(err, "get collections.commits with key %q", key)
+	}
+	ci := &pfs.CommitInfo{}
+	if err := proto.Unmarshal(pb, ci); err != nil {
+		return nil, errors.Wrapf(err, "could not unmarshal proto")
+	}
+	return ci, nil
+}
+
+func updateCommitInfo(ctx context.Context, tx *pachsql.Tx, key string, ci *pfs.CommitInfo) error {
+	data, err := proto.Marshal(ci)
+	if err != nil {
+		return errors.Wrapf(err, "unmarshal commit info proto for commit key %q", key)
+	}
+	_, err = tx.ExecContext(ctx, `UPDATE collections.commits SET proto=$1  WHERE key=$2;`, data, key)
+	return err
+}
+
+func updateOldCommit(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit, f func(ci *pfs.CommitInfo)) error {
+	k := oldCommitKey(c)
+	ci, err := getCommitInfo(ctx, tx, k)
+	if err != nil {
+		return errors.Wrapf(err, "retrieve old commit %q", k)
+	}
+	f(ci)
+	return updateCommitInfo(ctx, tx, k, ci)
+}
+
+func resetOldCommitInfo(ctx context.Context, tx *pachsql.Tx, ci *pfs.CommitInfo) error {
+	data, err := proto.Marshal(ci)
+	if err != nil {
+		return errors.Wrapf(err, "unmarshal old commit %q", ci.Commit)
+	}
+	_, err = tx.ExecContext(ctx, `UPDATE collections.commits SET proto=$1  WHERE key=$2;`, data, oldCommitKey(ci.Commit))
+	return errors.Wrapf(err, "reset old commit info %q", ci.Commit)
+}
+
+func getCommitIntId(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (int, error) {
+	r := tx.QueryRowContext(ctx, "SELECT int_id FROM pfs.commit_provenance WHERE commit_id=$1", commitKey(commit))
+	var intId int
+	if err := r.Scan(&intId); err != nil {
+		return 0, err
+	}
+	return intId, nil
+}
+
+func forEachBranch(ctx context.Context, tx *pachsql.Tx, f func(key string, bi *pfs.BranchInfo)) error {
+	rr, err := tx.QueryContext(ctx, `SELECT key, proto FROM collections.branches`)
+	if err != nil {
+		return errors.Wrap(err, "could not read table")
+	}
+	defer rr.Close()
+	for rr.Next() {
+		var (
+			oldKey string
+			pb     []byte
+		)
+		if err := rr.Err(); err != nil {
+			return errors.Wrap(err, "row error")
+		}
+		if err := rr.Scan(&oldKey, &pb); err != nil {
+			return errors.Wrap(err, "could not scan row")
+		}
+		bi := &pfs.BranchInfo{}
+		if err := proto.Unmarshal(pb, bi); err != nil {
+			return errors.Wrapf(err, "could not unmarshal proto")
+		}
+		f(oldKey, bi)
+	}
+	return nil
+
+}
+func getBranchInfo(ctx context.Context, tx *pachsql.Tx, key string) (*pfs.BranchInfo, error) {
+	var pb []byte
+	if err := tx.GetContext(ctx, &pb, "SELECT proto FROM collections.branches WHERE key=$1", key); err != nil {
+		return nil, errors.Wrapf(err, "get branch with key %q", key)
+	}
+	bi := &pfs.BranchInfo{}
+	if err := proto.Unmarshal(pb, bi); err != nil {
+		return nil, errors.Wrapf(err, "could not unmarshal proto")
+	}
+	return bi, nil
+}
+
+func updateBranchInfo(ctx context.Context, tx *pachsql.Tx, key string, bi *pfs.BranchInfo) error {
+	data, err := proto.Marshal(bi)
+	if err != nil {
+		return errors.Wrapf(err, "unmarshal branch: %q, proto: %v", key, bi)
+	}
+	_, err = tx.ExecContext(ctx, `UPDATE collections.branches SET proto=$1  WHERE key=$2;`, data, key)
+	return err
+}
+
+func updateOldBranch(ctx context.Context, tx *pachsql.Tx, b *pfs.Branch, f func(bi *pfs.BranchInfo)) error {
+	k := branchKey(b)
+	bi, err := getBranchInfo(ctx, tx, k)
+	if err != nil {
+		return errors.Wrapf(err, "get branch info for branch: %q", b)
+	}
+	f(bi)
+	return updateBranchInfo(ctx, tx, k, bi)
+}
+
+func deleteCommit(ctx context.Context, tx *pachsql.Tx, ci *pfs.CommitInfo, ancestor *pfs.Commit) error {
+	key := commitKey(ci.Commit)
+	cId, err := getCommitIntId(ctx, tx, ci.Commit)
+	if err != nil {
+		return err
+	}
+	ancestorId, err := getCommitIntId(ctx, tx, ancestor)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_provenance SET from_id=$1 WHERE from_id=$2;`, ancestorId, cId); err != nil {
+		return errors.Wrapf(err, "update commit provenance for commit %q", ci.Commit)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_provenance SET to_id=$1 WHERE to_id=$2;`, ancestorId, cId); err != nil {
+		return errors.Wrapf(err, "update commit provenance for commit %q", ci.Commit)
+	}
+	// delete commit
+	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.commits WHERE int_id=$2;`, cId); err != nil {
+		return errors.Wrapf(err, "delete from pfs.commits for commit %q", ci.Commit)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM collections.commits WHERE key=$2;`, key); err != nil {
+		return errors.Wrapf(err, "delete from collections.commits for commit %q", ci.Commit)
+	}
+	if _, err = tx.ExecContext(ctx, `DELETE FROM pfs.commit_diffs WHERE commit_id=$2;`, key); err != nil {
+		return errors.Wrapf(err, "delete from pfs.commit_diffs for commit_id %q", key)
+	}
+	if _, err = tx.ExecContext(ctx, `DELETE FROM pfs.commit_totals WHERE commit_id=$2;`, key); err != nil {
+		return errors.Wrapf(err, "delete from pfs.commit_totals for commit_id %q", key)
+	}
+	// update parent and child commit links
+	if err := updateOldCommit(ctx, tx, ci.ParentCommit, func(parent *pfs.CommitInfo) {
+		for _, c := range ci.ChildCommits {
+			parent.ChildCommits = append(parent.ChildCommits, c)
+		}
+	}); err != nil {
+		return errors.Wrapf(err, "update parent commit %q", ci.ParentCommit)
+	}
+	for _, c := range ci.ChildCommits {
+		if err := updateOldCommit(ctx, tx, c, func(child *pfs.CommitInfo) {
+			child.ParentCommit = ci.ParentCommit
+		}); err != nil {
+			return errors.Wrapf(err, "update child commit %q", c)
+		}
+	}
+	return nil
+}
+
+func addCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error {
+	stmt := `INSERT INTO pfs.commits(commit_id, commit_set_id, branch) VALUES ($1, $2, $3)`
+	_, err := tx.ExecContext(ctx, stmt, commitKey(commit), commit.ID, branchKey(commit.GetBranch()))
+	return errors.EnsureStack(err)
+}
+
+// TODO:
+// - figure out how to determine whether the ALIAS should be converted to AUTO
+func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
+	ci := &pfs.CommitInfo{}
+	// first fill commit provenance to all the existing commit sets
+	if err := forEachCommit(ctx, tx, ci, func(string) error {
+		return addCommit(ctx, tx, ci.Commit)
+	}); err != nil {
+		return errors.Wrap(err, "populate the pfs.commits table")
+	}
+	deleteCommits := make(map[string]*pfs.CommitInfo)
+	if err := forEachCommit(ctx, tx, ci, func(key string) error {
+		for _, b := range ci.DirectProvenance {
+			if err := addCommitProvenance(ctx, tx, ci.Commit, b.NewCommit(ci.Commit.ID)); err != nil {
+				return errors.Wrapf(err, "add commit provenance from %q to %q", ci.Commit, b.NewCommit(ci.Commit.ID))
+			}
+		}
+		// collect all the ALIAS commits to be deleted
+		if ci.Origin.Kind == pfs.OriginKind_ALIAS && ci.ParentCommit != nil {
+			deleteCommits[key] = proto.Clone(ci).(*pfs.CommitInfo)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	for k := range deleteCommits {
+		// TODO(acohen4) fix this up
+		// check to see if ALIAS commits are legit, and if not convert them to AUTO COMMITS
+		if false {
+			delete(deleteCommits, k)
+			// toUpdate := &pfs.CommitInfo{}
+			// if err := commits.Update(ci.Commit, toUpdate, func() error {
+			// 	toUpdate.Origin.Kind = pfs.OriginKind_AUTO
+			// 	return nil
+			// }); err != nil {
+			// 	return err
+			// }
+		}
+	}
+	realAncestors := make(map[string]*pfs.CommitInfo)
+	childToNewParents := make(map[*pfs.Commit]*pfs.Commit)
+	for _, ci := range deleteCommits {
+		ans := oldestAncestor(ci, deleteCommits)
+		if _, ok := realAncestors[commitKey(ans)]; !ok {
+			ci, err := getCommitInfo(ctx, tx, oldCommitKey(ans))
+			if err != nil {
+				return errors.Wrapf(err, "get commit info with key %q", oldCommitKey(ans))
+			}
+			realAncestors[commitKey(ans)] = ci
+		}
+		ansCi := realAncestors[commitKey(ans)]
+		childSet := make(map[string]*pfs.Commit)
+		for _, ch := range ansCi.ChildCommits {
+			childSet[commitKey(ch)] = ch
+		}
+		delete(childSet, commitKey(ci.Commit))
+		newChildren := traverseToEdges(ci, deleteCommits, func(c *pfs.CommitInfo) []*pfs.Commit {
+			return c.ChildCommits
+		})
+		for _, nc := range newChildren {
+			childSet[commitKey(nc)] = nc
+			childToNewParents[nc] = ans
+		}
+		ansCi.ChildCommits = nil
+		for _, c := range childSet {
+			ansCi.ChildCommits = append(ansCi.ChildCommits, c)
+		}
+	}
+	for _, ci := range realAncestors {
+		if err := resetOldCommitInfo(ctx, tx, ci); err != nil {
+			return errors.Wrapf(err, "reset real ancestor %q", ci.Commit)
+		}
+	}
+	for child, parent := range childToNewParents {
+		if err := updateOldCommit(ctx, tx, child, func(ci *pfs.CommitInfo) {
+			ci.ParentCommit = parent
+		}); err != nil {
+			return errors.Wrapf(err, "update child commit %q", child)
+		}
+	}
+	// now write out realAncestors and childToNewParents
+	for _, ci := range deleteCommits {
+		realAncestor := oldestAncestor(ci, deleteCommits)
+		if err := deleteCommit(ctx, tx, ci, realAncestor); err != nil {
+			return errors.Wrapf(err, "delete real ancestor %q", ci.Commit)
+		}
+	}
+	// re-point branches if necessary
+	headlessBranches := make([]*pfs.BranchInfo, 0)
+	if err := forEachBranch(ctx, tx, func(key string, bi *pfs.BranchInfo) {
+		if _, ok := deleteCommits[commitKey(bi.Head)]; ok {
+			headlessBranches = append(headlessBranches, bi)
+		}
+	}); err != nil {
+		return errors.Wrap(err, "record headless branches")
+	}
+	for _, bi := range headlessBranches {
+		prevHead := deleteCommits[commitKey(bi.Head)]
+		updateBi := &pfs.BranchInfo{}
+		if err := updateOldBranch(ctx, tx, bi.Branch, func(bi *pfs.BranchInfo) {
+			updateBi.Head = oldestAncestor(prevHead, deleteCommits)
+		}); err != nil {
+			return errors.Wrap(err, "update headless branches")
+		}
+	}
+	return nil
+}
+
+func oldestAncestor(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.CommitInfo) *pfs.Commit {
+	oldest := traverseToEdges(startCommit, skipSet, func(commitInfo *pfs.CommitInfo) []*pfs.Commit {
+		return []*pfs.Commit{commitInfo.ParentCommit}
+	})
+	if len(oldest) == 0 {
+		return nil
+	}
+	return oldest[0]
+}
+
+// traverseToEdges does a breadth first search using a traverse function.
+// returns all of the commits that
+func traverseToEdges(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.CommitInfo, traverse func(*pfs.CommitInfo) []*pfs.Commit) []*pfs.Commit {
+	cs := []*pfs.Commit{startCommit.Commit}
+	result := make([]*pfs.Commit, 0)
+	var c *pfs.Commit
+	for len(cs) > 0 {
+		c, cs = cs[0], cs[1:]
+		if c == nil {
+			continue
+		}
+		ci, ok := skipSet[commitKey(c)]
+		if ok {
+			cs = append(cs, traverse(ci)...)
+		} else {
+			result = append(result, proto.Clone(c).(*pfs.Commit))
+		}
+	}
+	return result
+}
+
+func commitSubvenance(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit) ([]*pfs.Commit, error) {
+	key := commitKey(c)
+	query := `SELECT commit_id, branch FROM pfs.commits WHERE int_id IN (       
+            SELECT to_id FROM pfs.commits JOIN pfs.commit_provenance ON int_id = to_id WHERE commit_id = $1
+        );`
+	rows, err := tx.QueryxContext(ctx, query, key)
+	if err != nil {
+		return nil, errors.Wrapf(err, "query commit subvenance for commit %q", c)
+	}
+	commitSubvenance := make([]*pfs.Commit, 0)
+	for rows.Next() {
+		var commitId, branch string
+		if err := rows.Scan(&commitId, &branch); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		project, rest, _ := strings.Cut(commitId, "/")
+		repoName, rest, _ := strings.Cut(rest, ".")
+		repoType, rest, _ := strings.Cut(rest, "@")
+		branch, id, _ := strings.Cut(rest, "=")
+		repo := &pfs.Repo{
+			Name: repoName,
+			Type: repoType,
+			Project: &pfs.Project{
+				Name: project,
+			},
+		}
+		c := &pfs.Commit{
+			Repo:   repo,
+			Branch: &pfs.Branch{Name: branch, Repo: repo},
+			ID:     id,
+		}
+		// will there always be an origin branch? In theory the relationship is many to many between branches and commits
+		// if branch != "" {
+		// 	c.Branch = ParseBranch(branch)
+		// }
+		commitSubvenance = append(commitSubvenance, c)
+	}
+	return commitSubvenance, nil
+}
+
+// since the provenance relationship points from downstream to upstream, 'from' represents the commit subvenant to the 'to' commit
+func deleteCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to *pfs.Commit) error {
+	fromId, err := getCommitIntId(ctx, tx, from)
+	if err != nil {
+		return errors.Wrapf(err, "get commit int id for 'from' commit %q", from)
+	}
+	toId, err := getCommitIntId(ctx, tx, to)
+	if err != nil {
+		return errors.Wrapf(err, "get commit int id for 'to' commit %q", to)
+	}
+	_, err = tx.ExecContext(ctx, `DELETE FROM pfs.commit_provenance WHERE from_id=$1 AND to_id=$2;`, fromId, toId)
+	return errors.EnsureStack(err)
+}
+
+// since the provenance relationship points from downstream to upstream, 'from' represents the commit subvenant to the 'to' commit
+func addCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to *pfs.Commit) error {
+	fromId, err := getCommitIntId(ctx, tx, from)
+	if err != nil {
+		return err
+	}
+	toId, err := getCommitIntId(ctx, tx, to)
+	if err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, `INSERT INTO pfs.commit_provenance(from_id, to_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, fromId, toId)
+	return errors.EnsureStack(err)
+}
+
+// the goal of this migration is to migrate commits to be unqiuely indentified by a (repo, UUID), instead of by (repo, branch, UUID)
+//
+// 1) commits with equal (repo, UUID) pairs must be de-duplicated. This is primarily expected to happen in deferred processing cases.
+// In such cases, the deferred branch's commit is expected to be a child commit of the leading branch's commit. So to make the substitution,
+// we can simply delete the deferred branch's commit and repoint it's direct subvenant commits to point to the master commit as their
+// direct provenance commits.
+//
+// 2) assert that we didn't miss any duplicate commits, and error the migration if we did.
+// TODO(acohen4): prepare script for analyzing this situtation
+//
+// 3) commit keys can now be substituted from <project>/<repo>@<branch>=<id> -> <project>/<repo>@<id>
+func migrateToBranchlessCommits(ctx context.Context, tx *pachsql.Tx) error {
+	// 1) handle deferred branches
+	ci := &pfs.CommitInfo{}
+	if err := forEachCommit(ctx, tx, ci, func(string) error {
+		// TODO(acohen4): improve this condition check?
+		if ci.ParentCommit.Branch != ci.Commit.Branch {
+			subv, err := commitSubvenance(ctx, tx, ci.Commit)
+			if err != nil {
+				return err
+			}
+			for _, sc := range subv {
+				if err := deleteCommitProvenance(ctx, tx, sc, ci.Commit); err != nil {
+					return errors.Wrapf(err, "delete commit provenance for %q", ci.Commit)
+				}
+				if err := addCommitProvenance(ctx, tx, sc, ci.ParentCommit); err != nil {
+					return errors.Wrapf(err, "add commit provenance for %q", ci.ParentCommit)
+				}
+			}
+			if err := deleteCommit(ctx, tx, ci, ci.Commit); err != nil {
+				return errors.Wrapf(err, "delete commit %q", ci.Commit)
+			}
+			// if ci was the head of a branch, point the head to ci.Parent
+			if ci.Commit.Branch != nil {
+				bk := branchKey(ci.Commit.Branch)
+				bi, err := getBranchInfo(ctx, tx, bk)
+				if err != nil {
+					return errors.Wrapf(err, "get branch info for %q", bk)
+				}
+				if bi.Head.ID == ci.Commit.ID {
+					bi.Head = ci.ParentCommit
+					if err := updateBranchInfo(ctx, tx, bk, bi); err != nil {
+						return errors.Wrapf(err, "update branch info for %q", bk)
+					}
+				}
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	// 2) double check there are no duplicate (repo, UUID) commits remaining
+	// TODO(acohen4): implement check
+	// 3) migrate commit keys
+	if err := forEachCommit(ctx, tx, ci, func(oldKey string) error {
+		newKey := commitBranchlessKey(ci.Commit)
+		if _, err := tx.ExecContext(ctx, `UPDATE collections.commits SET key=$1 WHERE key=$2;`, newKey, oldKey); err != nil {
+			return errors.Wrapf(err, "update collections.commits for old key %q and new key %q", oldKey, newKey)
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE pfs.commits SET commit_id=$1 WHERE commit_id=$2;`, newKey, oldKey); err != nil {
+			return errors.Wrapf(err, "update pfs.commits for old key %q and new key %q", oldKey, newKey)
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_totals SET commit_id=$1 WHERE commit_id=$2;`, newKey, oldKey); err != nil {
+			return errors.Wrapf(err, "update pfs.commit_totals for old key %q and new key %q", oldKey, newKey)
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_diffs SET commit_id=$1 WHERE commit_id=$2;`, newKey, oldKey); err != nil {
+			return errors.Wrapf(err, "update pfs.commit_diffs for old key %q and new key %q", oldKey, newKey)
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE storage.tracker_objects SET str_id = regexp_replace(str_id, '^commit/$2/(.*)', 'commit/$1/\1') WHERE str_id LIKE 'commit/$2%';`, newKey, oldKey); err != nil {
+			return errors.Wrapf(err, "update storage.tracker_objects for old key %q and new key %q", oldKey, newKey)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return nil
+}
