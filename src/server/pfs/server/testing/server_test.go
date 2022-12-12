@@ -1158,12 +1158,12 @@ func TestPFS(suite *testing.T) {
 
 		// DeleteRepos with an invalid project should not error because
 		// there will simply be no repos to delete.
-		resp, err := env.PachClient.PfsAPIClient.DeleteRepos(ctx, &pfs.DeleteReposRequest{Projects: []*pfs.Project{&pfs.Project{Name: tu.UniqueString("noexist")}}})
+		resp, err := env.PachClient.PfsAPIClient.DeleteRepos(ctx, &pfs.DeleteReposRequest{Projects: []*pfs.Project{{Name: tu.UniqueString("noexist")}}})
 		require.NoError(t, err)
 		require.Len(t, resp.Repos, 0)
 
 		// DeleteRepos should delete all repos in the given project and none in other projects.
-		resp, err = env.PachClient.PfsAPIClient.DeleteRepos(ctx, &pfs.DeleteReposRequest{Projects: []*pfs.Project{&pfs.Project{Name: projectName}}})
+		resp, err = env.PachClient.PfsAPIClient.DeleteRepos(ctx, &pfs.DeleteReposRequest{Projects: []*pfs.Project{{Name: projectName}}})
 		require.NoError(t, err)
 		require.Len(t, resp.Repos, len(reposToDelete))
 		for _, repo := range resp.Repos {
