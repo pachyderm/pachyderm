@@ -12,7 +12,7 @@ then
         pachctl_tag="$PACHD_LATEST_VERSION"
     fi
 fi
-image_tag=$(echo "$pachctl_tag" | sed s/v//) #removing v from the front for the image
+image_tag=$(echo "${pachctl_tag//v/}") #removing v from the front for the image
 
 # Install pachctl
 gh release download "$pachctl_tag" --pattern "pachctl_${image_tag}_amd64.deb" --repo pachyderm/pachyderm --output /tmp/pachctl.deb
@@ -26,7 +26,7 @@ helm install pachyderm etc/helm/pachyderm \
 kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 
 pachctl config import-kube perftest
-echo $ENT_ACT_CODE | pachctl license activate
+echo "$ENT_ACT_CODE" | pachctl license activate
 pachctl version
 nohup pachctl port-forward &
 
