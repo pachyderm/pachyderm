@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // Decoder decodes an env file.
@@ -49,6 +50,13 @@ const (
 	invalidTagErr               = "invalid tag, must be KEY,{required},{default=DEFAULT_VALUE}"
 )
 
+// These are structs types that we unmarshal directly, without recursing into them.
+var knownStructs = map[reflect.Type]func(string) (any, error){
+	reflect.TypeOf(resource.Quantity{}): func(x string) (any, error) {
+		return resource.ParseQuantity(x) //nolint:wrapcheck
+	},
+}
+
 func populate(object interface{}, decoders []Decoder) error {
 	decoderMap, err := getDecoderMap(decoders)
 	if err != nil {
@@ -66,14 +74,17 @@ func populateInternal(reflectValue reflect.Value, decoderMap map[string]string, 
 	if reflectValue.Type().Kind() != reflect.Struct {
 		return errors.Errorf("%s: %v", expectedStructErr, reflectValue.Type())
 	}
+
 	for i := 0; i < reflectValue.NumField(); i++ {
 		structField := reflectValue.Type().Field(i)
 		ptrToStruct := structField.Type.Kind() == reflect.Ptr && structField.Type.Elem().Kind() == reflect.Struct
 		if structField.Type.Kind() == reflect.Struct || ptrToStruct {
-			if err := populateInternal(reflectValue.Field(i), decoderMap, true); err != nil {
-				return err
+			if _, ok := knownStructs[structField.Type]; !ok {
+				if err := populateInternal(reflectValue.Field(i), decoderMap, true); err != nil {
+					return err
+				}
+				continue
 			}
-			continue
 		}
 		envTag, err := getEnvTag(structField)
 		if err != nil {
@@ -114,14 +125,17 @@ func populateDefaultsInternal(reflectValue reflect.Value, recursive bool) error 
 	if reflectValue.Type().Kind() != reflect.Struct {
 		return errors.Errorf("%s: %v", expectedStructErr, reflectValue.Type())
 	}
+
 	for i := 0; i < reflectValue.NumField(); i++ {
 		structField := reflectValue.Type().Field(i)
 		ptrToStruct := structField.Type.Kind() == reflect.Ptr && structField.Type.Elem().Kind() == reflect.Struct
 		if structField.Type.Kind() == reflect.Struct || ptrToStruct {
-			if err := populateDefaultsInternal(reflectValue.Field(i), true); err != nil {
-				return err
+			if _, ok := knownStructs[structField.Type]; !ok {
+				if err := populateDefaultsInternal(reflectValue.Field(i), true); err != nil {
+					return err
+				}
+				continue
 			}
-			continue
 		}
 		envTag, err := getEnvTag(structField)
 		if err != nil {
@@ -287,8 +301,18 @@ func parseField(structField reflect.StructField, value string) (interface{}, err
 			return nil, errors.Wrapf(err, cannotParseErr)
 		}
 		return float64(parsedValue), nil
+
 	case reflect.String:
 		return value, nil
+
+	case reflect.Struct:
+		// Already checked by the caller.
+		parser := knownStructs[structField.Type]
+		v, err := parser(value)
+		if err != nil {
+			return nil, errors.Wrapf(err, cannotParseErr)
+		}
+		return v, nil
 	default:
 		return nil, errors.Errorf("%s: %v", fieldTypeNotAllowedErr, fieldKind)
 	}
