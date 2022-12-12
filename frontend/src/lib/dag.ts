@@ -117,13 +117,10 @@ const normalizeDAGData = async (
         // Elk doesn't, however, ignore order. Input nodes and edges need to be
         // based off stabalized (ordered) data (i.e. listRepo, listPipeline)
         'org.eclipse.elk.randomSeed': '1',
-        'org.eclipse.elk.algorithm': 'disco',
         'org.eclipse.elk.aspectRatio': horizontal ? '0.2' : '10',
         'org.eclipse.elk.mergeEdges': 'false',
         'org.eclipse.elk.direction': direction,
         'org.eclipse.elk.layered.layering.strategy': 'INTERACTIVE',
-        'org.eclipse.elk.disco.componentCompaction.componentLayoutAlgorithm':
-          'layered',
         'spacing.componentComponent': horizontal ? '75' : '150',
 
         'org.eclipse.elk.layered.spacing.edgeNodeBetweenLayers': '20',
@@ -174,51 +171,6 @@ const normalizeDAGData = async (
   };
 };
 
-// find offset needed to horizontally or vertically align dag
-const adjustDag = (
-  {nodes, links}: {nodes: Node[]; links: Link[]},
-  direction: DagDirection,
-) => {
-  const horizontal = direction === DagDirection.RIGHT;
-  const xValues = nodes.map((n) => n.x);
-  const yValues = nodes.map((n) => n.y);
-  const minY = Math.min(...yValues);
-  const minX = Math.min(...xValues);
-  const offsetX = horizontal ? -minX : 0;
-  const offsetY = !horizontal ? -minY : 0;
-
-  const adjustedNodes = nodes.map((node) => {
-    return {
-      ...node,
-      x: node.x + offsetX,
-      y: node.y + offsetY,
-    };
-  });
-
-  const adjustedLinks = links.map((link) => {
-    return {
-      ...link,
-      startPoint: {
-        x: link.startPoint.x + offsetX,
-        y: link.startPoint.y + offsetY,
-      },
-      bendPoints: link.bendPoints.map((point) => ({
-        x: point.x + offsetX,
-        y: point.y + offsetY,
-      })),
-      endPoint: {
-        x: link.endPoint.x + offsetX,
-        y: link.endPoint.y + offsetY,
-      },
-    };
-  });
-
-  return {
-    nodes: adjustedNodes,
-    links: adjustedLinks,
-  };
-};
-
 const buildDags = async (
   vertices: Vertex[],
   nodeWidth: number,
@@ -242,12 +194,10 @@ const buildDags = async (
       );
       const id = minBy(componentRepos, (r) => r.createdAt)?.name || uniqueId();
 
-      const adjustedComponent = adjustDag(component, direction);
-
       return {
         id,
-        nodes: adjustedComponent.nodes,
-        links: adjustedComponent.links,
+        nodes: component.nodes,
+        links: component.links,
       };
     });
     return dags;
