@@ -4,5 +4,6 @@
       "^[a-z][a-zA-Z0-9]+$",
       {"resolveNestedSelectors": true, "severity": "warning"}
     ]
-  }
+  },
+  "extends": ["stylelint-config-recommended", "stylelint-config-prettier"]
 }
