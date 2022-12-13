@@ -38,6 +38,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsload"
@@ -2523,7 +2524,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 	pipelineInfo := &pps.PipelineInfo{}
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(commit, pipelineInfo); err != nil {
 		if col.IsErrNotFound(err) {
-			return nil, errors.Errorf("pipeline %s not found", pipeline)
+			return nil, errors.Errorf("pipeline %s not found with spec commit %q", pipeline, pfsdb.CommitKey(commit))
 		}
 		return nil, errors.EnsureStack(err)
 	}

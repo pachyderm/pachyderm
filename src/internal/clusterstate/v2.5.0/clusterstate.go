@@ -44,7 +44,10 @@ func Migrate(state migrations.State) migrations.State {
 			return migrateAliasCommits(ctx, env.Tx)
 		}).
 		Apply("Remove branch from the Commit key", func(ctx context.Context, env migrations.Env) error {
-			return migrateToBranchlessCommits(ctx, env.Tx)
+			if err := migrateToBranchlessCommits(ctx, env.Tx); err != nil {
+				return err
+			}
+			return migrateBranchlessCommitsPPS(ctx, env.Tx)
 		})
 	// DO NOT MODIFY THIS STATE
 	// IT HAS ALREADY SHIPPED IN A RELEASE

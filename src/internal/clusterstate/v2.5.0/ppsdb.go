@@ -193,3 +193,36 @@ func migratePPSDB(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	return nil
 }
+
+func migrateBranchlessCommitsPPS(ctx context.Context, tx *pachsql.Tx) error {
+	var oldJob = new(pps.JobInfo)
+	if err := migratePostgreSQLCollection(ctx, tx, "jobs", jobsIndexes, oldJob, func(oldKey string) (newKey string, newVal proto.Message, err error) {
+		oldJob.OutputCommit.Repo = oldJob.OutputCommit.Branch.Repo
+		return jobKey(oldJob.Job), oldJob, nil
+	}); err != nil {
+		return errors.Wrap(err, "could not migrate jobs")
+	}
+	var oldPipeline = new(pps.PipelineInfo)
+	if err := migratePostgreSQLCollection(ctx, tx, "pipelines", pipelinesIndexes, oldPipeline, func(oldKey string) (newKey string, newVal proto.Message, err error) {
+		oldPipeline.SpecCommit.Repo = oldPipeline.SpecCommit.Branch.Repo
+		key, err := pipelineCommitKey(oldPipeline.SpecCommit)
+		if err != nil {
+			return "", nil, err
+		}
+		return key, oldPipeline, nil
+	},
+		withKeyGen(func(key interface{}) (string, error) {
+			if commit, ok := key.(*pfs.Commit); ok {
+				return commitBranchlessKey(commit), nil
+			}
+			return "", errors.New("must provide a spec commit")
+		}),
+		withKeyCheck(func(key string) error {
+			_, _, _, err := parsePipelineKey(key)
+			return err
+		}),
+	); err != nil {
+		return errors.Wrap(err, "could not migrate jobs")
+	}
+	return nil
+}

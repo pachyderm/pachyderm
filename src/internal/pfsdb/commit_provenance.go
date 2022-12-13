@@ -2,6 +2,7 @@ package pfsdb
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -183,7 +184,20 @@ func AddCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to *pfs.Comm
 		}
 	}
 	if count != 2 {
-		return errors.Errorf("expected two existing commits, got %v", count)
+		msg := fmt.Sprintf("expected two existing commits, got %v.", count)
+		if count == 1 {
+			var found *pfs.Commit
+			var missed *pfs.Commit
+			if fromId != 0 {
+				found = from
+				missed = to
+			} else {
+				found = to
+				missed = from
+			}
+			msg += fmt.Sprintf(" found %q, missed %q", CommitKey(found), CommitKey(missed))
+		}
+		return errors.Errorf(msg)
 	}
 	return addCommitProvenance(ctx, tx, fromId, toId)
 }

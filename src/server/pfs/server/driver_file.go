@@ -23,6 +23,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// TODO(acohen4): signature should accept a branch seperate from the commit
 func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
 	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		// Store the originally-requested parameters because they will be overwritten by inspectCommit
