@@ -1240,7 +1240,6 @@ workflows:
                 - MISC
                 - AUTH
                 - ENTERPRISE
-                - PFS
                 - S3_AUTH
                 - EXAMPLES
                 - CONNECTORS
@@ -1345,7 +1344,6 @@ workflows:
                 - MISC
                 - AUTH
                 - ENTERPRISE
-                - PFS
                 - S3_AUTH
                 - EXAMPLES
           filters: *only-release-tags
@@ -1488,7 +1486,6 @@ workflows:
                 - MISC
                 - AUTH
                 - ENTERPRISE
-                - PFS
                 - S3_AUTH
                 - EXAMPLES
           filters: *only-nightly-tags
