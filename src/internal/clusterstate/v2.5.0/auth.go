@@ -71,7 +71,7 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 		newEntries := make(map[string]*auth.Roles)
 		for principal, roles := range rb.Entries {
 			if strings.HasPrefix(principal, pipelinePrincipalKeyPrefix) {
-				principal = pipelinePrincipalKeyPrefix + defaultProjectName + "/" + principal[len(pipelinePrincipalKeyPrefix)+1:]
+				principal = pipelinePrincipalKeyPrefix + defaultProjectName + "/" + principal[len(pipelinePrincipalKeyPrefix):]
 			}
 			newEntries[principal] = roles
 		}
