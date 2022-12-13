@@ -38,7 +38,7 @@ describe('Project', () => {
     cy.findByTestId('DeletePipelineButton__link').click();
     cy.findByTestId('ModalFooter__confirm').click();
     cy.findByTestId('ModalFooter__confirm').should('not.exist');
-    cy.get('montage').should('not.exist');
+    cy.get("#GROUP_montage").should('not.exist');
     cy.url().should('not.contain', '/pipelines');
 
     cy.findByText('images').click({force: true});
@@ -50,7 +50,7 @@ describe('Project', () => {
     cy.findByTestId('DeletePipelineButton__link').click();
     cy.findByTestId('ModalFooter__confirm').click();
     cy.findByTestId('ModalFooter__confirm').should('not.exist');
-    cy.get('edges').should('not.exist');
+    cy.get("#GROUP_edges").should('not.exist');
     cy.waitUntil(() => cy.url().should('not.contain', '/pipelines'));
 
     cy.findByText('images').click({force: true});
