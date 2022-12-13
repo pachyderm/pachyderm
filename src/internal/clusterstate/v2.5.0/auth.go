@@ -13,13 +13,19 @@ import (
 )
 
 const (
-	projectAuthResourcePrefix = "PROJECT:"
-	pipelinePrincipalPrefix   = "pipeline:"
-	defaultProjectName        = "default"
+	defaultProjectName = "default"
+
+	clusterRoleBindingKey       = "CLUSTER:"
+	projectRoleBindingKeyPrefix = "PROJECT:"
+
+	allUsersPrincipalKey       = "allClusterUsers"
+	pipelinePrincipalKeyPrefix = "pipeline:"
+
+	projectCreatorRole = "projectCreator"
 )
 
 func authIsActive(c collection.PostgresReadWriteCollection) bool {
-	return !errors.Is(c.Get(auth.ClusterRoleBindingKey, &auth.RoleBinding{}), collection.ErrNotFound{})
+	return !errors.Is(c.Get(clusterRoleBindingKey, &auth.RoleBinding{}), collection.ErrNotFound{})
 }
 
 // migrateAuth migrates auth to be fully project-aware with a default project.
@@ -41,11 +47,11 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 
 	// Grant all users the ProjectCreator role at the cluster level
 	clusterRbs := &auth.RoleBinding{Entries: make(map[string]*auth.Roles)}
-	if err := roleBindingsCol.Upsert(auth.ClusterRoleBindingKey, clusterRbs, func() error {
-		if _, ok := clusterRbs.Entries[auth.AllClusterUsersSubject]; !ok {
-			clusterRbs.Entries[auth.AllClusterUsersSubject] = &auth.Roles{Roles: make(map[string]bool)}
+	if err := roleBindingsCol.Upsert(clusterRoleBindingKey, clusterRbs, func() error {
+		if _, ok := clusterRbs.Entries[allUsersPrincipalKey]; !ok {
+			clusterRbs.Entries[clusterRoleBindingKey] = &auth.Roles{Roles: make(map[string]bool)}
 		}
-		clusterRbs.Entries[auth.AllClusterUsersSubject].Roles[auth.ProjectCreator] = true
+		clusterRbs.Entries[allUsersPrincipalKey].Roles[projectCreatorRole] = true
 		return nil
 	}); err != nil {
 		return errors.Wrap(err, "could not update cluster level role bindings")
@@ -53,7 +59,7 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 
 	// TODO CORE-1048, grant all users the ProjectWriter role for default project
 	defaultProjectRbs := &auth.RoleBinding{Entries: make(map[string]*auth.Roles)}
-	if err := roleBindingsCol.Upsert(projectAuthResourcePrefix+defaultProjectName, defaultProjectRbs, func() error {
+	if err := roleBindingsCol.Upsert(projectRoleBindingKeyPrefix+defaultProjectName, defaultProjectRbs, func() error {
 		return nil
 	}); err != nil {
 		return errors.Wrap(err, "could not update default project's role bindings")
@@ -64,9 +70,8 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 	if err := migratePostgreSQLCollection(ctx, tx, "role_bindings", nil, rb, func(oldKey string) (newKey string, newVal proto.Message, err error) {
 		newEntries := make(map[string]*auth.Roles)
 		for principal, roles := range rb.Entries {
-			if strings.HasPrefix(principal, pipelinePrincipalPrefix) {
-				principal = pipelinePrincipalPrefix + defaultProjectName + "/" + principal[len(pipelinePrincipalPrefix)+1:]
-
+			if strings.HasPrefix(principal, pipelinePrincipalKeyPrefix) {
+				principal = pipelinePrincipalKeyPrefix + defaultProjectName + "/" + principal[len(pipelinePrincipalKeyPrefix)+1:]
 			}
 			newEntries[principal] = roles
 		}
