@@ -1,4 +1,4 @@
-//go:build k8s
+//go:build unit_test
 
 package cmds
 
@@ -8,23 +8,21 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/fsutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -50,14 +48,27 @@ const (
 	wait      = "wait"
 )
 
+func mockInspectCluster(env *realenv.RealEnv) {
+	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *types.Empty) (*admin.ClusterInfo, error) {
+		clusterInfo := admin.ClusterInfo{
+			ID:           "dev",
+			DeploymentID: "dev",
+		}
+		return &clusterInfo, nil
+	})
+}
+
 func TestCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t)
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+	c := env.PachClient
+
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create repo {{.repo}}
-
+		
 		# Create a commit and put some data in it
 		commit1=$(pachctl start commit {{.repo}}@master)
 		echo "file contents" | pachctl put file {{.repo}}@${commit1}:/file -f -
@@ -81,52 +92,14 @@ func TestCommit(t *testing.T) {
 	).Run())
 }
 
-func TestPutFileSplit(t *testing.T) {
-	// TODO: Need to implement put file split in V2.
-	t.Skip("Put file split not implemented in V2")
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl create repo {{.repo}}
-
-		pachctl put file {{.repo}}@master:/data --split=csv --header-records=1 <<EOF
-		name,job
-		alice,accountant
-		bob,baker
-		EOF
-
-		pachctl get file "{{.repo}}@master:/data/*0" \
-		  | match "name,job"
-		pachctl get file "{{.repo}}@master:/data/*0" \
-		  | match "alice,accountant"
-		pachctl get file "{{.repo}}@master:/data/*0" \
-		  | match -v "bob,baker"
-
-		pachctl get file "{{.repo}}@master:/data/*1" \
-		  | match "name,job"
-		pachctl get file "{{.repo}}@master:/data/*1" \
-		  | match "bob,baker"
-		pachctl get file "{{.repo}}@master:/data/*1" \
-		  | match -v "alice,accountant"
-
-		pachctl get file "{{.repo}}@master:/data/*" \
-		  | match "name,job"
-		pachctl get file "{{.repo}}@master:/data/*" \
-		  | match "alice,accountant"
-		pachctl get file "{{.repo}}@master:/data/*" \
-		  | match "bob,baker"
-		`,
-		"repo", tu.UniqueString("TestPutFileSplit-repo"),
-	).Run())
-}
-
 func TestPutFileTAR(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t)
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+	c := env.PachClient
+
 	// Test .tar file.
 	require.NoError(t, fsutil.WithTmpFile("pachyderm_test_put_file_tar", func(f *os.File) error {
 		require.NoError(t, tarutil.WithWriter(f, func(tw *tar.Writer) error {
@@ -136,6 +109,7 @@ func TestPutFileTAR(t *testing.T) {
 			}
 			return nil
 		}))
+
 		name := f.Name()
 		require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create repo {{.repo}}
@@ -179,7 +153,9 @@ func TestPutFileNonexistentRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t)
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+	c := env.PachClient
 	repoName := tu.UniqueString("TestPutFileNonexistentRepo-repo")
 	// This assumes that the file-existence check is after the
 	// repo-existence check.  If you are seeing this test fail after
@@ -227,18 +203,21 @@ func TestDiffFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t)
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+	c := env.PachClient
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl create repo {{.repo}}
+		pachctl create project {{.project}}
+		pachctl create repo {{.repo}} --project {{.project}}
 
-		echo "foo" | pachctl put file {{.repo}}@master:/data
+		echo "foo" | pachctl put file {{.repo}}@master:/data --project {{.project}}
 
-		echo "bar" | pachctl put file {{.repo}}@master:/data
+		echo "bar" | pachctl put file {{.repo}}@master:/data --project {{.project}}
 
-		pachctl diff file {{.repo}}@master:/data {{.repo}}@master^:/data \
+		pachctl diff file {{.repo}}@master:/data {{.repo}}@master^:/data --project {{.project}} --old-project {{.project}} \
 			| match -- '-foo'
 		`,
-		"repo", tu.UniqueString("TestDiffFile-repo"),
+		"repo", tu.UniqueString("TestDiffFile-repo"), "project", tu.UniqueString("TestDiffFile-project"),
 	).Run())
 }
 
@@ -246,7 +225,10 @@ func TestGetFileError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t)
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+	c := env.PachClient
+
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create repo {{.repo}}
@@ -336,10 +318,15 @@ func TestProject(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t)
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+	c := env.PachClient
+
+	// env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	// c := env.PachClient
 	// using xargs to trim newlines
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-                pachctl list project | xargs | match '^PROJECT DESCRIPTION$'
+                pachctl list project | xargs | match '^PROJECT DESCRIPTION default -$'
                 pachctl create project foo 
                 pachctl list project | match "foo     -"
 		`,
@@ -359,7 +346,7 @@ func TestProject(t *testing.T) {
                 `,
 	).Run())
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-                pachctl list project | xargs | match '^PROJECT DESCRIPTION$'
+                pachctl list project | xargs | match '^PROJECT DESCRIPTION default -$'
                 pachctl create project foo
                 `,
 	).Run())
@@ -386,120 +373,13 @@ func synonymsMap() map[string]string {
 // TestMount creates two projects, each containing a repo with same name.  It
 // mounts the repos and adds a single file to each, and verifies that the
 // expected file appears in each.
-func TestMount(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	ctx := context.Background()
-	// If the test has a deadline, cancel the context slightly before it in
-	// order to allow time for clean subprocess teardown.  Without this it
-	// is possible to leave filesystems mounted after test failure.
-	if deadline, ok := t.Deadline(); ok {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(float64(time.Until(deadline))*.99))
-		defer cancel()
-	}
-	eg, ctx := errgroup.WithContext(ctx)
-	repoName := tu.UniqueString("TestMount-repo")
-	configDir := t.TempDir()
-	p, err := tu.NewPachctl(ctx, c, filepath.Join(configDir, "config.json"))
-	require.NoError(t, err)
-	defer p.Close()
-	for _, projectName := range []string{tu.UniqueString("TestMount-project1"), tu.UniqueString("TestMount-project2")} {
-		projectName := projectName
-		mntDirPath := filepath.Join(t.TempDir())
-		fileName := tu.UniqueString("filename")
-		// TODO: Refactor tu.PachctlBashCmd to handle this a bit more
-		// elegantly, perhaps based on a context or something like that
-		// rather than on a name.  For now, though, this does work, even
-		// if the indirection through subtests which always succeed but
-		// spawn goroutines which may fail is a bit confusing.
-		eg.Go(func() error {
-			cmd, err := p.CommandTemplate(ctx, `
-					pachctl create project {{.projectName}}
-					pachctl create repo {{.repoName}} --project {{.projectName}}
-					# this needs to be execed in order for process killing to cleanly unmount
-					exec pachctl mount {{.mntDirPath}} -w --project {{.projectName}}
-					`,
-				map[string]string{
-					"projectName": projectName,
-					"repoName":    repoName,
-					"mntDirPath":  mntDirPath,
-				})
-			if err != nil {
-				return errors.Wrap(err, "could not create mount command")
-			}
-			if err := cmd.Run(); err != nil {
-				t.Log("stdout:", cmd.Stdout())
-				t.Log("stderr:", cmd.Stderr())
-				return errors.Wrap(err, "could not mount")
-			}
-			if cmd, err = p.CommandTemplate(ctx, `
-					pachctl list files {{.repoName}}@master --project {{.projectName}} | grep {{.fileName}} > /dev/null || exit "could not find {{.fileName}}"
-					# check that only one file is present
-					[[ $(pachctl list files {{.repoName}}@master --project {{.projectName}} | wc -l) -eq 2 ]] || exit "more than one file found in repo"
-					`,
-				map[string]string{
-					"projectName": projectName,
-					"repoName":    repoName,
-					"fileName":    fileName,
-				}); err != nil {
-				return errors.Wrap(err, "could not create validation command")
-			}
-			if err := cmd.Run(); err != nil {
-				t.Log("stdout:", cmd.Stdout())
-				t.Log("stderr:", cmd.Stderr())
-				return errors.Wrap(err, "could not validate")
-			}
-			return nil
-		})
-		eg.Go(func() error {
-			if err := backoff.Retry(func() error {
-				ff, err := os.ReadDir(mntDirPath)
-				if err != nil {
-					return errors.Wrapf(err, "could not read %s", mntDirPath)
-				}
-				if len(ff) == 0 {
-					return errors.Errorf("%s not yet mounted", mntDirPath)
-				}
-				select {
-				case <-ctx.Done():
-					return backoff.Permanent(ctx.Err())
-				default:
-				}
-				return nil
-			}, backoff.NewExponentialBackOff()); err != nil {
-				return errors.Wrapf(err, "%q never mounted", mntDirPath)
-			}
-			testFilePath := filepath.Join(mntDirPath, repoName, fileName)
-			cmd, err := p.CommandTemplate(ctx, `
-					echo "this is a test" > {{.testFilePath}}
-					fusermount -u {{.mntDirPath}}
-					`,
-				map[string]string{
-					"mntDirPath":   mntDirPath,
-					"testFilePath": testFilePath,
-				})
-			if err != nil {
-				return errors.Wrap(err, "could not create mutator")
-			}
-			if err := cmd.Run(); err != nil {
-				t.Log("stdout:", cmd.Stdout())
-				t.Log("stderr:", cmd.Stderr())
-				return errors.Wrap(err, "could not run mutator")
-			}
-			return nil
-		})
-	}
-	require.NoError(t, eg.Wait(), "goroutines failed")
-}
-
 func TestCmdListRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t)
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+	c := env.PachClient
 
 	project := tu.UniqueString("project")
 	repo1, repo2 := tu.UniqueString("repo1"), tu.UniqueString("repo2")
@@ -522,7 +402,9 @@ func TestBranchNotFound(t *testing.T) {
 		t.Skip("skipping test in short mode")
 	}
 
-	c, _ := minikubetestenv.AcquireCluster(t)
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+	c := env.PachClient
 
 	project := tu.UniqueString("project")
 	repo := tu.UniqueString("repo")
