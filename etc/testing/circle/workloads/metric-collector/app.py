@@ -34,7 +34,7 @@ def main():
 
             rows_to_insert = [{u"pachydermVersion": version, u"workloadName": "test", u"jobId": str(j.job.id),
               u"pipeline": j.job.pipeline.name, u"totalDatums": str(j.data_total), u"datumsProcessed": str(j.data_processed),
-              u"startTime": j.started, u"startTime": j.finished}]
+              u"startTime": j.started, u"endTime": j.finished}]
 
             errors = client.insert_rows_json(table, rows_to_insert)
             if errors == []:
