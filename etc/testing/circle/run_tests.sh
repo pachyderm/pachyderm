@@ -45,7 +45,6 @@ case "${BUCKET}" in
     ./etc/testing/examples.sh
     ;;
   PFS)
-    make test-pfs-server
     make test-fuse
     ;;
   S3_AUTH)
