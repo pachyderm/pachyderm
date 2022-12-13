@@ -43,8 +43,6 @@ case "${BUCKET}" in
   EXAMPLES)
     echo "Running the example test suite"
     ./etc/testing/examples.sh
-    ;;
-  PFS)
     make test-fuse
     ;;
   S3_AUTH)
