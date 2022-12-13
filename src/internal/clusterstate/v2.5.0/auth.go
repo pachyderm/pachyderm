@@ -2,12 +2,20 @@ package v2_5_0
 
 import (
 	"context"
+	"strings"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/authdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+)
+
+const (
+	projectAuthResourcePrefix = "PROJECT:"
+	pipelinePrincipalPrefix   = "pipeline:"
+	defaultProjectName        = "default"
 )
 
 func authIsActive(c collection.PostgresReadWriteCollection) bool {
@@ -45,10 +53,27 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 
 	// TODO CORE-1048, grant all users the ProjectWriter role for default project
 	defaultProjectRbs := &auth.RoleBinding{Entries: make(map[string]*auth.Roles)}
-	if err := roleBindingsCol.Upsert("PROJECT:default", defaultProjectRbs, func() error {
+	if err := roleBindingsCol.Upsert(projectAuthResourcePrefix+defaultProjectName, defaultProjectRbs, func() error {
 		return nil
 	}); err != nil {
 		return errors.Wrap(err, "could not update default project's role bindings")
+	}
+
+	// Rename pipeline users from "pipeline:<repo>" to "pipeline:default/<repo>"
+	rb := &auth.RoleBinding{}
+	if err := migratePostgreSQLCollection(ctx, tx, "role_bindings", nil, rb, func(oldKey string) (newKey string, newVal proto.Message, err error) {
+		newEntries := make(map[string]*auth.Roles)
+		for principal, roles := range rb.Entries {
+			if strings.HasPrefix(principal, pipelinePrincipalPrefix) {
+				principal = pipelinePrincipalPrefix + defaultProjectName + "/" + principal[len(pipelinePrincipalPrefix)+1:]
+
+			}
+			newEntries[principal] = roles
+		}
+		rb.Entries = newEntries
+		return oldKey, rb, nil
+	}); err != nil {
+		return errors.Wrap(err, "could not update pipeline subjects to be aware of default project")
 	}
 
 	return nil
