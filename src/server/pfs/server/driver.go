@@ -898,7 +898,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 				}
 				return nil
 			}); err != nil {
-				return errors.Wrapf(err, "update parent commit %q with child %q", pfsdb.CommitKey(parentCommitInfo.Commit), pfsdb.CommitKey(newCommit))
+				return errors.Wrapf(err, "update parent commit %q with child %q", pfsdb.CommitKey(newCommitInfo.ParentCommit), pfsdb.CommitKey(newCommit))
 			}
 		}
 		// add commit provenance
