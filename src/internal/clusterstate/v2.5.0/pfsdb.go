@@ -283,7 +283,7 @@ func updateCommitInfo(ctx context.Context, tx *pachsql.Tx, key string, ci *pfs.C
 		return errors.Wrapf(err, "unmarshal commit info proto for commit key %q", key)
 	}
 	_, err = tx.ExecContext(ctx, `UPDATE collections.commits SET proto=$1  WHERE key=$2;`, data, key)
-	return err
+	return errors.Wrapf(err, "update collections.commits with key %q", key)
 }
 
 func updateOldCommit(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit, f func(ci *pfs.CommitInfo)) error {
@@ -309,7 +309,7 @@ func getCommitIntId(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (in
 	r := tx.QueryRowContext(ctx, "SELECT int_id FROM pfs.commits WHERE commit_id=$1", commitKey(commit))
 	var intId int
 	if err := r.Scan(&intId); err != nil {
-		return 0, err
+		return 0, errors.Wrapf(err, "scan int_id for commit_id %q", commitKey(commit))
 	}
 	return intId, nil
 }
@@ -358,7 +358,7 @@ func updateBranchInfo(ctx context.Context, tx *pachsql.Tx, key string, bi *pfs.B
 		return errors.Wrapf(err, "unmarshal branch: %q, proto: %v", key, bi)
 	}
 	_, err = tx.ExecContext(ctx, `UPDATE collections.branches SET proto=$1  WHERE key=$2;`, data, key)
-	return err
+	return errors.Wrapf(err, "update collections.branches for key %q", key)
 }
 
 func updateOldBranch(ctx context.Context, tx *pachsql.Tx, b *pfs.Branch, f func(bi *pfs.BranchInfo)) error {
@@ -402,9 +402,7 @@ func deleteCommit(ctx context.Context, tx *pachsql.Tx, ci *pfs.CommitInfo, ances
 	}
 	// update parent and child commit links
 	if err := updateOldCommit(ctx, tx, ci.ParentCommit, func(parent *pfs.CommitInfo) {
-		for _, c := range ci.ChildCommits {
-			parent.ChildCommits = append(parent.ChildCommits, c)
-		}
+		parent.ChildCommits = append(parent.ChildCommits, ci.ChildCommits...)
 	}); err != nil {
 		return errors.Wrapf(err, "update parent commit %q", commitKey(ci.ParentCommit))
 	}

@@ -909,7 +909,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			} else {
 				provBranchInfo := &pfs.BranchInfo{}
 				if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(b), provBranchInfo); err != nil {
-					return errors.Wrapf(err, "get provenant branch %q", pfsdb.BranchKey(provBranchInfo.Branch))
+					return errors.Wrapf(err, "get provenant branch %q", pfsdb.BranchKey(b))
 				}
 				provCommit = provBranchInfo.Head
 			}

@@ -275,14 +275,13 @@ func JobInput(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, outp
 			} else {
 				// this is a HACK: instead InspectCommit should return multiple commits with different branches
 				for _, c := range ci.Details.CommitProvenance {
-					fmt.Printf("COMPARING %q AND %q\n", c.Repo.String(), client.NewProjectRepo(input.Pfs.Project, input.Pfs.Repo).String())
 					if c.Repo.String() == client.NewProjectRepo(input.Pfs.Project, input.Pfs.Repo).String() {
 						input.Pfs.Commit = c.ID
 						break
 					}
 				}
 				if input.Pfs.Commit == "" {
-					return errors.Errorf("could not find branch:: %q, in map: %v\n", b, branchToCommits)
+					return errors.Errorf("could not find branch %q, in map: %v\n", b, branchToCommits)
 				}
 			}
 		}
