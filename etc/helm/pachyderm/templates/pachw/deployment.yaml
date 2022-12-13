@@ -2,10 +2,13 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
+{{- if .Values.pachd.enabled -}}
+{{- if .Values.enterpriseServer.enabled -}}
+{{- fail "pachd and enterpriseServer shall not be enabled at the same time in the same namespace" -}}
+{{- end -}}
 {{- $randHostPath := printf "/var/pachyderm-%s/" (randAlphaNum 5) -}}
-{{- if .Values.pachw.enabled -}}
 apiVersion: apps/v1
-kind: ReplicaSet
+kind: Deployment
 metadata:
   labels:
     app: pachw
@@ -165,7 +168,9 @@ spec:
               - --readiness
           failureThreshold: 10
           timeoutSeconds: 30
-        {{- if .Values.pachd.resources }}
+        {{- if .Values.pachw.resources }}
+        resources: {{ toYaml .Values.pachw.resources | nindent 10 }}
+        {{- else if .Values.pachd.resources }}
         resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
         {{- end }}
         volumeMounts:

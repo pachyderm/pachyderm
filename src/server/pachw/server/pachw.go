@@ -5,148 +5,111 @@ import (
 	"path"
 	"time"
 
-	"golang.org/x/sync/errgroup"
+	"github.com/hashicorp/go-multierror"
+	"github.com/sirupsen/logrus"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
 
 const (
-	backOffPeriod    = 30 // backOffPeriod is how many seconds the master waits between scale down operations.
-	tickerSeconds    = 5
-	samplesPerMinute = 60 / tickerSeconds
+	tickerSeconds      = 5
+	scaleDownThreshold = 60 / tickerSeconds
+	period             = time.Second * time.Duration(tickerSeconds)
 )
 
 type pachW struct {
+	log *logrus.Logger
 	env Env
 }
 
-func NewMaster(ctx context.Context, env *Env) {
-	master := &pachW{
+func NewController(ctx context.Context, env *Env) {
+	controller := &pachW{
 		env: *env,
+		log: env.Logger,
 	}
-	go master.master(ctx)
+	go controller.run(ctx)
 }
 
-func (p *pachW) master(ctx context.Context) {
-	ctx = auth.AsInternalUser(ctx, "pfs-master")
-	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
-		eg, ctx := errgroup.WithContext(ctx)
-		eg.Go(func() error {
-			lock := dlock.NewDLock(p.env.EtcdClient, path.Join(p.env.EtcdPrefix, "pachw-master-lock"))
-			defer func() {
-				if err := lock.Unlock(ctx); err != nil {
-					p.env.Logger.Errorf("error unlocking in pfs master: %v", err)
+func (p *pachW) run(ctx context.Context) {
+	ctx = auth.AsInternalUser(ctx, "pachw-controller")
+	backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
+		lock := dlock.NewDLock(p.env.EtcdClient, path.Join(p.env.EtcdPrefix, "pachw-controller-lock"))
+		defer func() {
+			if err := lock.Unlock(ctx); err != nil {
+				retErr = multierror.Append(retErr, errors.Wrap(err, "error unlocking"))
+			}
+		}()
+		var replicas int
+		var scaleDownCount int
+		ticker := time.NewTicker(period)
+		defer ticker.Stop()
+		for {
+			numTasks, err := p.countTasks(ctx, []string{server.URLTaskNamespace, server.StorageTaskNamespace})
+			if err != nil {
+				return errors.Wrap(err, "error counting tasks")
+			}
+			scaleDownCount++
+			if numTasks > replicas/2 {
+				scaleDownCount = 0
+			}
+			if numTasks > replicas {
+				replicas = miscutil.Min(numTasks, p.env.MaxReplicas)
+				p.log.Infof("scaling up pachw workers to %d replicas", replicas)
+				if err := p.scalePachw(ctx, int32(replicas)); err != nil {
+					return errors.Wrap(err, "error scaling up pachw")
 				}
-			}()
-
-			scaleBackoff := 0 // scaleBackoff tracks the time until the next scale down operation can occur.
-			tasksPerMinute := float32(0)
-			var taskSamples []int
-			ticker := time.NewTicker(time.Second * time.Duration(tickerSeconds))
-			defer ticker.Stop()
-			for {
-				if scaleBackoff > 0 {
-					scaleBackoff -= tickerSeconds
-				}
-				totalTasks := p.countTasks(ctx, []string{server.URLTaskNamespace, server.StorageTaskNamespace})
-				taskSamples, tasksPerMinute = p.taskAverage(taskSamples, totalTasks, samplesPerMinute)
-				if tasksPerMinute == 0 && scaleBackoff <= 0 {
-					err := p.exponentialPachwScaleDown(ctx)
-					if err != nil {
-						p.env.Logger.Errorf("failed to scale down pachw: %v", err)
-					}
-					scaleBackoff = backOffPeriod
-				} else if totalTasks > 0 {
-					totalInstances := totalTasks
-					if p.env.MaxReplicas != 0 && totalInstances > p.env.MaxReplicas {
-						totalInstances = p.env.MaxReplicas
-					}
-					err := p.scalePachw(ctx, int32(totalInstances))
-					if err != nil {
-						p.env.Logger.Errorf("failed to scale up pachw: %v", err)
-					}
-				}
-				select {
-				case <-ctx.Done():
-					return errors.EnsureStack(ctx.Err())
-				case <-ticker.C:
+			} else if scaleDownCount == scaleDownThreshold {
+				replicas = miscutil.Max(replicas/2, p.env.MinReplicas)
+				scaleDownCount = 0
+				if err := p.scalePachw(ctx, int32(replicas)); err != nil {
+					return errors.Wrap(err, "error scaling down pachw")
 				}
 			}
-		})
-		return errors.EnsureStack(eg.Wait())
+			select {
+			case <-ticker.C:
+			case <-ctx.Done():
+				return errors.EnsureStack(ctx.Err())
+			}
+		}
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
-		p.env.Logger.Errorf("error in pachw master: %v", err)
+		p.log.Errorf("error in pachw run: %v", err)
 		return nil
 	})
 }
 
-func (p *pachW) taskAverage(taskSamples []int, tasks, numSamples int) ([]int, float32) {
-	taskSamples = append(taskSamples, tasks)
-	if len(taskSamples) > numSamples {
-		taskSamples = taskSamples[1:]
-	}
-	totalTasksLastMinute := 0
-	for _, taskCount := range taskSamples {
-		totalTasksLastMinute += taskCount
-	}
-	return taskSamples, float32(totalTasksLastMinute) / float32(numSamples)
-}
-
-func (p *pachW) countTasks(ctx context.Context, namespaces []string) int {
+func (p *pachW) countTasks(ctx context.Context, namespaces []string) (int, error) {
 	totalTasks := 0
 	for _, ns := range namespaces {
 		tasks, _, err := task.Count(ctx, p.env.TaskService, ns, "")
 		if err != nil {
-			p.env.Logger.Errorf("error counting tasks: %v", err)
+			return 0, errors.EnsureStack(err)
 		}
 		totalTasks += int(tasks)
 	}
-	return totalTasks
-}
-
-func (p *pachW) exponentialPachwScaleDown(ctx context.Context) error {
-	pachwRs, err := p.env.KubeClient.AppsV1().ReplicaSets(p.env.Namespace).Get(ctx,
-		"pachw", v1.GetOptions{})
-	if err != nil {
-		return errors.Wrap(err, "could not get pachw replicaSet")
-	}
-	replicas := *pachwRs.Spec.Replicas
-	replicas /= 2
-	if replicas < int32(p.env.MinReplicas) {
-		replicas = int32(p.env.MinReplicas)
-	}
-	*pachwRs.Spec.Replicas = replicas
-	_, err = p.env.KubeClient.AppsV1().ReplicaSets(p.env.Namespace).Update(
-		ctx,
-		pachwRs,
-		v1.UpdateOptions{},
-	)
-	if err != nil {
-		return errors.Wrap(err, "could not scale pachw replicaSet")
-	}
-	return nil
+	return totalTasks, nil
 }
 
 func (p *pachW) scalePachw(ctx context.Context, replicas int32) error {
-	pachwRs, err := p.env.KubeClient.AppsV1().ReplicaSets(p.env.Namespace).Get(ctx,
+	pachwRs, err := p.env.KubeClient.AppsV1().Deployments(p.env.Namespace).Get(ctx,
 		"pachw", v1.GetOptions{})
 	if err != nil {
-		return errors.Wrap(err, "could not get pachw replicaSet")
+		return errors.Wrap(err, "could not get pachw deployment")
 	}
 	pachwRs.Spec.Replicas = &replicas
-	_, err = p.env.KubeClient.AppsV1().ReplicaSets(p.env.Namespace).Update(
+	_, err = p.env.KubeClient.AppsV1().Deployments(p.env.Namespace).Update(
 		ctx,
 		pachwRs,
 		v1.UpdateOptions{},
 	)
 	if err != nil {
-		return errors.Wrap(err, "could not scale pachw replicaSet")
+		return errors.Wrap(err, "could not scale pachw deployment")
 	}
 	return nil
 }

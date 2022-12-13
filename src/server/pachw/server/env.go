@@ -12,14 +12,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 )
 
-// Env is the dependencies needed to run the pachW Master
+// Env is the dependencies needed to run the pachW Controller
 type Env struct {
 	EtcdPrefix        string
 	EtcdClient        *etcd.Client
 	TaskService       task.Service
 	KubeClient        kubernetes.Interface
 	Namespace         string
-	Enabled           bool
 	MaxReplicas       int
 	MinReplicas       int
 	BackgroundContext context.Context
@@ -37,7 +36,6 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv) (*Env, error) {
 		TaskService:       env.GetTaskService(etcdPrefix),
 		KubeClient:        env.GetKubeClient(),
 		Namespace:         env.Config().Namespace,
-		Enabled:           env.Config().PachwEnabled,
 		MinReplicas:       env.Config().PachwMinReplicas,
 		MaxReplicas:       env.Config().PachwMaxReplicas,
 		BackgroundContext: env.Context(),

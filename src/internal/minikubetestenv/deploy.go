@@ -243,7 +243,6 @@ func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Op
 
 func withEnterpriseServer(image, host string) *helm.Options {
 	return &helm.Options{SetValues: map[string]string{
-		"pachw.enabled":                      "false",
 		"pachd.enabled":                      "false",
 		"enterpriseServer.enabled":           "true",
 		"enterpriseServer.image.tag":         image,

@@ -691,7 +691,7 @@
         "pachw": {
             "type": "object",
             "properties": {
-                "enabled": {
+                "inSidecars": {
                     "type": "boolean"
                 },
                 "minReplicas": {
@@ -699,6 +699,30 @@
                 },
                 "maxReplicas": {
                     "type": "integer"
+                },
+                "resources": {
+                    "type": "object",
+                    "properties": {
+                        "limits": {
+                            "type": "object",
+                            "properties": {
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "requests": {
+                            "type": "object",
+                            "properties": {
+                                "cpu": {
+                                    "type": "string"
+                                },
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },

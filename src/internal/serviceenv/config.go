@@ -28,9 +28,9 @@ type GlobalConfiguration struct {
 	LokiPort                       string `env:"LOKI_SERVICE_PORT"`
 	OidcPort                       uint16 `env:"OIDC_PORT,default=1657"`
 	IsPachw                        bool   `env:"IS_PACHW,default=false"`
-	PachwEnabled                   bool   `env:"PACHW_ENABLED,default=true"`
-	PachwMinReplicas               int    `env:"PACHW_MIN_REPLICAS,default=0"`
-	PachwMaxReplicas               int    `env:"PACHW_MAX_REPLICAS"`
+	PachwInSidecars                bool   `env:"PACHW_IN_SIDECARS,default=false"`
+	PachwMinReplicas               int    `env:"PACHW_MIN_REPLICAS"`
+	PachwMaxReplicas               int    `env:"PACHW_MAX_REPLICAS,default=1"`
 	PGBouncerHost                  string `env:"PG_BOUNCER_HOST,required"`
 	PGBouncerPort                  int    `env:"PG_BOUNCER_PORT,required"`
 	PostgresSSL                    string `env:"POSTGRES_SSL,default=disable"`
