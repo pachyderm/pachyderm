@@ -45,7 +45,7 @@ func TestMount(t *testing.T) {
 		mntDirPath := filepath.Join(t.TempDir())
 		fileName := tu.UniqueString("filename")
 		// TODO: Refactor tu.PachctlBashCmd to handle this a bit more
-		// elegantly, perhaps based on a context or something like thatPermanent
+		// elegantly, perhaps based on a context or something like that
 		// rather than on a name.  For now, though, this does work, even
 		// if the indirection through subtests which always succeed but
 		// spawn goroutines which may fail is a bit confusing.
