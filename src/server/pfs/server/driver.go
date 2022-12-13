@@ -2122,7 +2122,7 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 }
 
 func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
-	var repos []*pfs.Repo
+	var repos, deleted []*pfs.Repo
 
 	var projectFilter = make(map[string]bool)
 	for _, project := range projects {
@@ -2144,15 +2144,19 @@ func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Projec
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// the list does not use the transaction
 		for _, repo := range repos {
-			if err := d.deleteRepo(txnCtx, repo, true); err != nil && !errors.As(err, &auth.ErrNotAuthorized{}) {
+			if err := d.deleteRepo(txnCtx, repo, true); err != nil {
+				if errors.As(err, &auth.ErrNotAuthorized{}) {
+					continue
+				}
 				return err
 			}
+			deleted = append(deleted, repo)
 		}
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	return repos, nil
+	return deleted, nil
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
