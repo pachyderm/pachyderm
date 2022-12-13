@@ -7,8 +7,9 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -18,21 +19,22 @@ import (
 // - No dash in pipeline name
 // - Input must have branch and glob
 func TestInvalidCreatePipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	c := env.PachClient
 
+	projectName := tu.UniqueString("prj-")
+	err := c.CreateProject(projectName)
+	require.NoError(t, err)
 	// Set up repo
 	dataRepo := tu.UniqueString("TestDuplicatedJob_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.CreateProjectRepo(projectName, dataRepo))
 
 	pipelineName := tu.UniqueString("pipeline")
 	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
 
 	// Create pipeline with input named "out"
-	err := c.CreateProjectPipeline(pfs.DefaultProjectName,
+	err = c.CreateProjectPipeline(projectName,
 		pipelineName,
 		"",
 		cmd,
@@ -40,7 +42,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInputOpts("out", pfs.DefaultProjectName, dataRepo, "", "/*", "", "", false, false, nil),
+		client.NewProjectPFSInputOpts("out", projectName, dataRepo, "", "/*", "", "", false, false, nil),
 		"master",
 		false,
 	)
@@ -48,7 +50,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	require.Matches(t, "out", err.Error())
 
 	// Create pipeline with no glob
-	err = c.CreateProjectPipeline(pfs.DefaultProjectName,
+	err = c.CreateProjectPipeline(projectName,
 		pipelineName,
 		"",
 		cmd,
@@ -56,7 +58,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInputOpts("input", pfs.DefaultProjectName, dataRepo, "", "", "", "", false, false, nil),
+		client.NewProjectPFSInputOpts("input", projectName, dataRepo, "", "", "", "", false, false, nil),
 		"master",
 		false,
 	)
@@ -66,11 +68,9 @@ func TestInvalidCreatePipeline(t *testing.T) {
 
 // Make sure that pipeline validation checks that all inputs exist
 func TestPipelineThatUseNonexistentInputs(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	c := env.PachClient
 	pipelineName := tu.UniqueString("pipeline")
 	require.YesError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipelineName,
@@ -88,16 +88,18 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 
 // Make sure that pipeline validation checks that all inputs exist
 func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	c := env.PachClient
+
+	projectName := tu.UniqueString("prj-")
+	err := c.CreateProject(projectName)
+	require.NoError(t, err)
 
 	dataRepo := tu.UniqueString("TestPipelineNamesThatContainUnderscoresAndHyphens")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.CreateProjectRepo(projectName, dataRepo))
 
-	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, c.CreateProjectPipeline(projectName,
 		tu.UniqueString("pipeline-hyphen"),
 		"",
 		[]string{"bash"},
@@ -105,12 +107,12 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		client.NewProjectPFSInput(projectName, dataRepo, "/*"),
 		"",
 		false,
 	))
 
-	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, c.CreateProjectPipeline(projectName,
 		tu.UniqueString("pipeline_underscore"),
 		"",
 		[]string{"bash"},
@@ -118,8 +120,48 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		client.NewProjectPFSInput(projectName, dataRepo, "/*"),
 		"",
 		false,
 	))
+}
+
+func TestProjectNameValidation(t *testing.T) {
+	t.Parallel()
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	c := env.PachClient
+	badFormatErr := "only alphanumeric characters"
+	testCases := []struct {
+		projectName string
+		errMatch    string // "" means no error
+	}{
+		{tu.UniqueString("my-PROJECT_0123456789"), ""},
+		// {tu.UniqueString("_project"), badFormatErr}, // Require CORE-1343
+		// {tu.UniqueString("project-"), badFormatErr},
+		{"default", "already exists"},
+		{tu.UniqueString("!project"), badFormatErr},
+		{tu.UniqueString("\""), badFormatErr},
+		{tu.UniqueString("\\"), badFormatErr},
+		{tu.UniqueString("'"), badFormatErr},
+		{tu.UniqueString("[]{}"), badFormatErr},
+		{tu.UniqueString("|"), badFormatErr},
+		{tu.UniqueString("new->project"), badFormatErr},
+		{tu.UniqueString("project?"), badFormatErr},
+		{tu.UniqueString("project:1"), badFormatErr},
+		{tu.UniqueString("project;"), badFormatErr},
+		{tu.UniqueString("project."), badFormatErr},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.projectName, func(t *testing.T) {
+			t.Parallel()
+			err := c.CreateProject(testCase.projectName)
+			if testCase.errMatch != "" {
+				require.YesError(t, err)
+				require.Matches(t, testCase.errMatch, err.Error())
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+
 }
