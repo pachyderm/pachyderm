@@ -76,6 +76,7 @@ or type (e.g. csv, binary, images, etc).`,
 	commands = append(commands, cmdutil.CreateDocsAliases(repoDocs, "repo", " repo$", repos))
 
 	var description string
+	var allProjects bool
 	project := pachCtx.Project
 	createRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
@@ -176,22 +177,25 @@ or type (e.g. csv, binary, images, etc).`,
 		Short: "Return a list of repos.",
 		Long:  "Return a list of repos. By default, hide system repos like pipeline metadata",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			if all && repoType != "" {
-				return errors.Errorf("cannot set a repo type with --all")
-			}
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
 
-			if repoType == "" && !all {
-				repoType = pfs.UserRepoType // default to user
+			// Call ListRepo RPC with sane defaults
+			if all {
+				repoType = ""
 			}
-			repoInfos, err := c.ListRepoByType(repoType)
+			projectsFilter := []string{project}
+			if allProjects {
+				projectsFilter = nil
+			}
+			repoInfos, err := c.ListProjectRepo(&pfs.ListRepoRequest{Type: repoType, Projects: projectsFilter})
 			if err != nil {
-				return err
+				return errors.Wrap(err, "cannot list repos")
 			}
+
 			if raw {
 				encoder := cmdutil.Encoder(output, os.Stdout)
 				for _, repoInfo := range repoInfos {
@@ -218,7 +222,9 @@ or type (e.g. csv, binary, images, etc).`,
 	listRepo.Flags().AddFlagSet(outputFlags)
 	listRepo.Flags().AddFlagSet(timestampFlags)
 	listRepo.Flags().BoolVar(&all, "all", false, "include system repos of all types")
-	listRepo.Flags().StringVar(&repoType, "type", "", "only include repos of the given type")
+	listRepo.Flags().StringVar(&repoType, "type", pfs.UserRepoType, "only include repos of the given type")
+	listRepo.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	listRepo.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Show repos from all projects.")
 	commands = append(commands, cmdutil.CreateAliases(listRepo, "list repo", repos))
 
 	var force bool

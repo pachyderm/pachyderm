@@ -642,6 +642,9 @@
                                     "type": "integer"
                                 }
                             }
+                        },
+                        "tolerations": {
+                            "type": "array"
                         }
                     }
                 }
@@ -777,6 +780,15 @@
                     "type": "integer"
                 },
                 "goMemLimit": {
+                    "type": "string"
+                },
+                "defaultPipelineCPURequest": {
+                    "type": "string"
+                },
+                "defaultPipelineMemoryRequest": {
+                    "type": "string"
+                },
+                "defaultPipelineStorageRequest": {
                     "type": "string"
                 },
                 "image": {

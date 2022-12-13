@@ -494,3 +494,44 @@ func TestMount(t *testing.T) {
 	}
 	require.NoError(t, eg.Wait(), "goroutines failed")
 }
+
+func TestCmdListRepo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	project := tu.UniqueString("project")
+	repo1, repo2 := tu.UniqueString("repo1"), tu.UniqueString("repo2")
+
+	require.NoError(t, tu.PachctlBashCmd(t, c, "pachctl create project {{.project}}", "project", project).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, "pachctl create repo --project default {{.repo}}", "repo", repo1).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, "pachctl create repo --project {{.project}} {{.repo}}", "project", project, "repo", repo2).Run())
+
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl list repo | match {{.repo1}}
+		pachctl list repo | match -v {{.repo2}}
+		pachctl list repo --project {{.project}} | match {{.repo2}}
+		pachctl list repo --all-projects | match {{.repo1}}
+		pachctl list repo --all-projects | match {{.repo2}}
+	`, "project", project, "repo1", repo1, "repo2", repo2).Run())
+}
+
+func TestBranchNotFound(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	project := tu.UniqueString("project")
+	repo := tu.UniqueString("repo")
+
+	if err := tu.PachctlBashCmd(t, c, `
+		pachctl create project {{.project}}
+		pachctl create repo {{.repo}} --project {{.project}}
+		(pachctl list file {{.repo}}@master --project {{.project}} 2>&1 && exit 1; true) | match 'branch "master" not found in repo {{.project}}/{{.repo}}'
+		`, "project", project, "repo", repo).Run(); err != nil {
+		t.Fatal(err)
+	}
+}

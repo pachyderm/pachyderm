@@ -424,15 +424,17 @@ export class MountPlugin implements IMountPlugin {
           this._poller.status.code !== 200,
       );
 
-      try {
-        const res = await requestAPI<CurrentDatumResponse>('datums', 'GET');
-        if (res['num_datums'] > 0) {
-          this._keepMounted = true;
-          this._currentDatumInfo = res;
-          await this.setShowDatum(true);
+      if (this._poller.status.code === 200) {
+        try {
+          const res = await requestAPI<CurrentDatumResponse>('datums', 'GET');
+          if (res['num_datums'] > 0) {
+            this._keepMounted = true;
+            this._currentDatumInfo = res;
+            await this.setShowDatum(true);
+          }
+        } catch (e) {
+          console.log(e);
         }
-      } catch (e) {
-        console.log(e);
       }
     }
     this._loader.setHidden(true);

@@ -20,7 +20,6 @@ type UnorderedWriter struct {
 	memAvailable, memThreshold int64
 	fileThreshold              int64
 	buffer                     *Buffer
-	subFileSet                 int64
 	ttl                        time.Duration
 	renewer                    *Renewer
 	ids                        []ID
@@ -136,7 +135,6 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 	// Reset fileset buffer.
 	uw.buffer = NewBuffer()
 	uw.memAvailable = uw.memThreshold
-	uw.subFileSet++
 	return nil
 }
 
@@ -188,6 +186,17 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, a
 		}
 		return nil
 	}, opts...)
+}
+
+func (uw *UnorderedWriter) AddFileSet(ctx context.Context, id ID) error {
+	if err := uw.serialize(ctx); err != nil {
+		return err
+	}
+	uw.ids = append(uw.ids, id)
+	if uw.renewer != nil {
+		return uw.renewer.Add(uw.ctx, id)
+	}
+	return nil
 }
 
 // Close closes the writer.

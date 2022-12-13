@@ -302,7 +302,7 @@ func jobDesc(ji *pps.JobInfo) string {
 func JobCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
 	var result []prompt.Suggest
-	if err := c.ListJobF("", nil, 0, false, func(ji *pps.JobInfo) error {
+	if err := c.ListProjectJobF("", "", nil, 0, false, func(ji *pps.JobInfo) error {
 		if maxCompletions > 0 {
 			maxCompletions--
 		} else {

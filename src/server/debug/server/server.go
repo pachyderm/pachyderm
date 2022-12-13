@@ -12,6 +12,7 @@ import (
 	runtimedebug "runtime/debug"
 	"runtime/pprof"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -212,7 +213,16 @@ func (s *debugServer) handlePipelineRedirect(
 	collectWorker collectWorkerFunc,
 	redirect redirectFunc,
 ) (retErr error) {
-	prefix := join(pipelinePrefix, pipelineInfo.Pipeline.Name)
+	if pipelineInfo == nil {
+		return errors.Errorf("nil pipeline info")
+	}
+	if pipelineInfo.Pipeline == nil {
+		return errors.Errorf("nil pipeline in pipeline info")
+	}
+	if pipelineInfo.Pipeline.Project == nil {
+		return errors.Errorf("nil project in pipeline %q", pipelineInfo.Pipeline.Name)
+	}
+	prefix := join(pipelinePrefix, pipelineInfo.Pipeline.Project.Name, pipelineInfo.Pipeline.Name)
 	defer func() {
 		if retErr != nil {
 			retErr = writeErrorFile(tw, retErr, prefix)
@@ -234,7 +244,7 @@ func (s *debugServer) forEachWorker(ctx context.Context, pipelineInfo *pps.Pipel
 		return err
 	}
 	if len(pods) == 0 {
-		return errors.Errorf("no worker pods found for pipeline %v", pipelineInfo.Pipeline.Name)
+		return errors.Errorf("no worker pods found for pipeline %v", pipelineInfo.Pipeline)
 	}
 	for _, pod := range pods {
 		if err := cb(&pod); err != nil {
@@ -256,6 +266,7 @@ func (s *debugServer) getWorkerPods(ctx context.Context, pipelineInfo *pps.Pipel
 				metav1.SetAsLabelSelector(
 					map[string]string{
 						"app":             "pipeline",
+						"pipelineProject": pipelineInfo.Pipeline.Project.Name,
 						"pipelineName":    pipelineInfo.Pipeline.Name,
 						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
 					},
@@ -507,10 +518,13 @@ func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pac
 	if err != nil {
 		return err
 	}
-	for _, repoInfo := range repoInfos {
-		if _, err := pachClient.InspectProjectPipeline(repoInfo.Repo.Project.GetName(), repoInfo.Repo.Name, true); err != nil {
+	for i, repoInfo := range repoInfos {
+		if err := validateRepoInfo(repoInfo); err != nil {
+			return errors.Wrapf(err, "invalid repo info %d from ListRepo", i)
+		}
+		if _, err := pachClient.InspectProjectPipeline(repoInfo.Repo.Project.Name, repoInfo.Repo.Name, true); err != nil {
 			if errutil.IsNotFoundError(err) {
-				repoPrefix := join("source-repos", repoInfo.Repo.Name)
+				repoPrefix := join("source-repos", repoInfo.Repo.Project.Name, repoInfo.Repo.Name)
 				return s.collectCommits(ctx, tw, pachClient, repoInfo.Repo, limit, repoPrefix)
 			}
 			return err
@@ -755,8 +769,11 @@ func collectDump(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefi
 
 func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
+		if err := validatePipelineInfo(pipelineInfo); err != nil {
+			return errors.Wrap(err, "collectPipelineDumpFunc: invalid pipeline info")
+		}
 		if err := collectDebugFile(tw, "spec", "json", func(w io.Writer) error {
-			fullPipelineInfos, err := pachClient.ListProjectPipelineHistory(pfs.DefaultProjectName, pipelineInfo.Pipeline.Name, -1, true)
+			fullPipelineInfos, err := pachClient.ListProjectPipelineHistory(pipelineInfo.Pipeline.Project.Name, pipelineInfo.Pipeline.Name, -1, true)
 			if err != nil {
 				return err
 			}
@@ -772,7 +789,7 @@ func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 		if err := s.collectCommits(ctx, tw, pachClient, client.NewProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
 			return err
 		}
-		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline.Name, limit, prefix...); err != nil {
+		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline, limit, prefix...); err != nil {
 			return err
 		}
 		if s.env.Config().LokiHost != "" {
@@ -815,6 +832,17 @@ func (s *debugServer) forEachWorkerLoki(ctx context.Context, pipelineInfo *pps.P
 	return nil
 }
 
+// quoteLogQLStreamSelector returns a string quoted as a LogQL stream selector.
+// The rules for quoting a LogQL stream selector are documented at
+// https://grafana.com/docs/loki/latest/logql/log_queries/#log-stream-selector
+// to be the same as for a Prometheus string literal, as documented at
+// https://prometheus.io/docs/prometheus/latest/querying/basics/#string-literals.
+// This happens to be the same as a Go string, with single or double quotes or
+// backticks allowed as enclosing characters.
+func quoteLogQLStreamSelector(s string) string {
+	return strconv.Quote(s)
+}
+
 func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.PipelineInfo) (map[string]struct{}, error) {
 	// This function uses the log querying API and not the label querying API, to bound the the
 	// number of workers for a pipeline that we return.  We'll get 30,000 of the most recent
@@ -822,7 +850,7 @@ func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.P
 	// logs for further inspection.  The alternative would be to get every worker that existed
 	// in some time interval, but that results in too much data to inspect.
 
-	queryStr := `{pipelineName="` + pipelineInfo.Pipeline.Name + `"}`
+	queryStr := fmt.Sprintf(`{pipelineProject=%s, pipelineName=%s}`, quoteLogQLStreamSelector(pipelineInfo.Pipeline.Project.Name), quoteLogQLStreamSelector(pipelineInfo.Pipeline.Name))
 	pods := make(map[string]struct{})
 	logs, err := s.queryLoki(ctx, queryStr)
 	if err != nil {
@@ -919,7 +947,7 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 	return result, nil
 }
 
-func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, pipelineName string, limit int64, prefix ...string) error {
+func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, pipeline *pps.Pipeline, limit int64, prefix ...string) error {
 	download := chart.ContinuousSeries{
 		Name: "download",
 		Style: chart.Style{
@@ -944,7 +972,7 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 	if err := collectDebugFile(tw, "jobs", "json", func(w io.Writer) error {
 		// TODO: The limiting should eventually be a feature of list job.
 		var count int64
-		return pachClient.ListJobF(pipelineName, nil, -1, false, func(ji *pps.JobInfo) error {
+		return pachClient.ListProjectJobF(pipeline.Project.Name, pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
 			if count >= limit {
 				return errutil.ErrBreak
 			}

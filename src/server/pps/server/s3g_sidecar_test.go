@@ -119,22 +119,17 @@ func TestS3PipelineErrors(t *testing.T) {
 	require.Matches(t, "join", err.Error())
 }
 
-func TestS3Input(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, userToken, ns := initPachClient(t)
-
-	repo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	masterCommit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+func testS3Input(t *testing.T, c *client.APIClient, accessKeyID, secretAccessKey, ns, projectName string) {
+	repo := tu.UniqueString("data")
+	require.NoError(t, c.CreateProjectRepo(projectName, repo))
+	masterCommit := client.NewProjectCommit(projectName, repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
 
 	pipeline := tu.UniqueString("Pipeline")
-	pipelineCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	pipelineCommit := client.NewProjectCommit(projectName, pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+		Pipeline: client.NewProjectPipeline(projectName, pipeline),
 		Transform: &pps.Transform{
 			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 			Cmd:   []string{"bash", "-x"},
@@ -144,14 +139,14 @@ func TestS3Input(t *testing.T) {
 				"aws --endpoint=${S3_ENDPOINT} s3 ls s3://input_repo >/pfs/out/s3_files",
 			},
 			Env: map[string]string{
-				"AWS_ACCESS_KEY_ID":     userToken,
-				"AWS_SECRET_ACCESS_KEY": userToken,
+				"AWS_ACCESS_KEY_ID":     accessKeyID,
+				"AWS_SECRET_ACCESS_KEY": secretAccessKey,
 			},
 		},
 		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 		Input: &pps.Input{
 			Pfs: &pps.PFSInput{
-				Project: pfs.DefaultProjectName,
+				Project: projectName,
 				Repo:    repo,
 				Name:    "input_repo",
 				Branch:  "master",
@@ -162,10 +157,10 @@ func TestS3Input(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit(projectName, pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitProjectJob(projectName, pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -210,27 +205,41 @@ func TestS3Input(t *testing.T) {
 	})
 }
 
-func TestS3Chain(t *testing.T) {
+func TestS3Input(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, userToken, _ := initPachClient(t)
+	c, userToken, ns := initPachClient(t)
+	if userToken == "" {
+		userToken = "abc123"
+	}
+	t.Run("ProjectUnaware", func(t *testing.T) {
+		testS3Input(t, c, userToken, userToken, ns, pfs.DefaultProjectName)
+	})
+	t.Run("ProjectAware", func(t *testing.T) {
+		accessKeyID := "PAC1" + userToken
+		projectName := tu.UniqueString("project")
+		require.NoError(t, c.CreateProject(projectName))
+		testS3Input(t, c, accessKeyID, userToken, ns, projectName)
+	})
+}
 
-	dataRepo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
-	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+func testS3Chain(t *testing.T, c *client.APIClient, accessKeyID, secretAccessKey, ns, projectName string) {
+	dataRepo := tu.UniqueString("data")
+	require.NoError(t, c.CreateProjectRepo(projectName, dataRepo))
+	dataCommit := client.NewProjectCommit(projectName, dataRepo, "master", "")
 
 	numPipelines := 5
 	pipelines := make([]string, numPipelines)
 	for i := 0; i < numPipelines; i++ {
-		pipelines[i] = tu.UniqueString(t.Name())
+		pipelines[i] = tu.UniqueString("pipeline")
 		input := dataRepo
 		if i > 0 {
 			input = pipelines[i-1]
 		}
 		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelines[i]),
+				Pipeline: client.NewProjectPipeline(projectName, pipelines[i]),
 				Transform: &pps.Transform{
 					Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 					Cmd:   []string{"bash", "-x"},
@@ -240,14 +249,14 @@ func TestS3Chain(t *testing.T) {
 						"aws --endpoint=${S3_ENDPOINT} s3 cp /tmp/s3in s3://out/file",
 					},
 					Env: map[string]string{
-						"AWS_ACCESS_KEY_ID":     userToken,
-						"AWS_SECRET_ACCESS_KEY": userToken,
+						"AWS_ACCESS_KEY_ID":     accessKeyID,
+						"AWS_SECRET_ACCESS_KEY": secretAccessKey,
 					},
 				},
 				ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 				Input: &pps.Input{
 					Pfs: &pps.PFSInput{
-						Project: pfs.DefaultProjectName,
+						Project: projectName,
 						Repo:    input,
 						Name:    "s3g_in",
 						Branch:  "master",
@@ -262,16 +271,35 @@ func TestS3Chain(t *testing.T) {
 	}
 
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("")))
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataCommit.Branch.Repo.Name, dataCommit.Branch.Name, "")
+	commitInfo, err := c.InspectProjectCommit(projectName, dataCommit.Branch.Repo.Name, dataCommit.Branch.Name, "")
 	require.NoError(t, err)
 
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 	for i := 0; i < numPipelines; i++ {
 		var buf bytes.Buffer
-		require.NoError(t, c.GetFile(client.NewProjectCommit(pfs.DefaultProjectName, pipelines[i], "master", ""), "/file", &buf))
+		require.NoError(t, c.GetFile(client.NewProjectCommit(projectName, pipelines[i], "master", ""), "/file", &buf))
 		require.Equal(t, i+1, strings.Count(buf.String(), "1\n"))
 	}
+}
+
+func TestS3Chain(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, userToken, ns := initPachClient(t)
+	if userToken == "" {
+		userToken = "abc123"
+	}
+	t.Run("ProjectUnaware", func(t *testing.T) {
+		testS3Chain(t, c, userToken, userToken, ns, pfs.DefaultProjectName)
+	})
+	t.Run("ProjectAware", func(t *testing.T) {
+		accessKeyID := "PAC1" + userToken
+		projectName := tu.UniqueString("project")
+		require.NoError(t, c.CreateProject(projectName))
+		testS3Chain(t, c, accessKeyID, userToken, ns, projectName)
+	})
 }
 
 func TestNamespaceInEndpoint(t *testing.T) {
@@ -323,22 +351,17 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	require.True(t, strings.Contains(buf.String(), "."+ns))
 }
 
-func TestS3Output(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, userToken, ns := initPachClient(t)
-
-	repo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	masterCommit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+func testS3Output(t *testing.T, c *client.APIClient, accessKeyID, secretAccessKey, ns, projectName string) {
+	repo := tu.UniqueString("data")
+	require.NoError(t, c.CreateProjectRepo(projectName, repo))
+	masterCommit := client.NewProjectCommit(projectName, repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
 
 	pipeline := tu.UniqueString("Pipeline")
-	pipelineCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	pipelineCommit := client.NewProjectCommit(projectName, pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+		Pipeline: client.NewProjectPipeline(projectName, pipeline),
 		Transform: &pps.Transform{
 			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 			Cmd:   []string{"bash", "-x"},
@@ -347,14 +370,14 @@ func TestS3Output(t *testing.T) {
 				"aws --endpoint=${S3_ENDPOINT} s3 ls | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/s3_buckets",
 			},
 			Env: map[string]string{
-				"AWS_ACCESS_KEY_ID":     userToken,
-				"AWS_SECRET_ACCESS_KEY": userToken,
+				"AWS_ACCESS_KEY_ID":     accessKeyID,
+				"AWS_SECRET_ACCESS_KEY": secretAccessKey,
 			},
 		},
 		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 		Input: &pps.Input{
 			Pfs: &pps.PFSInput{
-				Project: pfs.DefaultProjectName,
+				Project: projectName,
 				Repo:    repo,
 				Name:    "input_repo",
 				Branch:  "master",
@@ -365,10 +388,10 @@ func TestS3Output(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit(projectName, pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitProjectJob(projectName, pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -408,22 +431,36 @@ func TestS3Output(t *testing.T) {
 	})
 }
 
-func TestFullS3(t *testing.T) {
+func TestS3Output(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, userToken, ns := initPachClient(t)
+	if userToken == "" {
+		userToken = "abc123"
+	}
+	t.Run("ProjectUnaware", func(t *testing.T) {
+		testS3Output(t, c, userToken, userToken, ns, pfs.DefaultProjectName)
+	})
+	t.Run("ProjectAware", func(t *testing.T) {
+		accessKeyID := "PAC1" + userToken
+		projectName := tu.UniqueString("project")
+		require.NoError(t, c.CreateProject(projectName))
+		testS3Output(t, c, accessKeyID, userToken, ns, projectName)
+	})
+}
 
-	repo := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	masterCommit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+func testFullS3(t *testing.T, c *client.APIClient, accessKeyID, secretAccessKey, ns, projectName string) {
+	repo := tu.UniqueString("data")
+	require.NoError(t, c.CreateProjectRepo(projectName, repo))
+	masterCommit := client.NewProjectCommit(projectName, repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
 
 	pipeline := tu.UniqueString("Pipeline")
-	pipelineCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	pipelineCommit := client.NewProjectCommit(projectName, pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+		Pipeline: client.NewProjectPipeline(projectName, pipeline),
 		Transform: &pps.Transform{
 			Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 			Cmd:   []string{"bash", "-x"},
@@ -432,14 +469,14 @@ func TestFullS3(t *testing.T) {
 				"aws --endpoint=${S3_ENDPOINT} s3 ls | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/s3_buckets",
 			},
 			Env: map[string]string{
-				"AWS_ACCESS_KEY_ID":     userToken,
-				"AWS_SECRET_ACCESS_KEY": userToken,
+				"AWS_ACCESS_KEY_ID":     accessKeyID,
+				"AWS_SECRET_ACCESS_KEY": secretAccessKey,
 			},
 		},
 		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 		Input: &pps.Input{
 			Pfs: &pps.PFSInput{
-				Project: pfs.DefaultProjectName,
+				Project: projectName,
 				Repo:    repo,
 				Name:    "input_repo",
 				Branch:  "master",
@@ -451,10 +488,10 @@ func TestFullS3(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	commitInfo, err := c.InspectProjectCommit(projectName, pipeline, "master", "")
 	require.NoError(t, err)
 
-	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID, false)
+	jobInfo, err := c.WaitProjectJob(projectName, pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
@@ -494,35 +531,48 @@ func TestFullS3(t *testing.T) {
 	})
 }
 
-func TestS3SkippedDatums(t *testing.T) {
+func TestFullS3(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	name := t.Name()
-
 	c, userToken, ns := initPachClient(t)
+	if userToken == "" {
+		userToken = "abc123"
+	}
+	t.Run("ProjectUnaware", func(t *testing.T) {
+		testFullS3(t, c, userToken, userToken, ns, pfs.DefaultProjectName)
+	})
+	t.Run("ProjectAware", func(t *testing.T) {
+		accessKeyID := "PAC1" + userToken
+		projectName := tu.UniqueString("project")
+		require.NoError(t, c.CreateProject(projectName))
+		testFullS3(t, c, accessKeyID, userToken, ns, projectName)
+	})
+}
 
+// repoBucket returns the bucket name for a repo.
+func testS3SkippedDatums(t *testing.T, c *client.APIClient, accessKeyID, secretAccessKey, ns, projectName string, repoBucket func(project, repo string) string) {
 	t.Run("S3Inputs", func(t *testing.T) {
 		// TODO(2.0 optional): Duplicate file paths from different datums no longer allowed.
 		t.Skip("Duplicate file paths from different datums no longer allowed.")
-		s3in := tu.UniqueString(name + "_s3_data")
-		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, s3in))
-		pfsin := tu.UniqueString(name + "_pfs_data")
-		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, pfsin))
+		s3in := tu.UniqueString("s3_data")
+		require.NoError(t, c.CreateProjectRepo(projectName, s3in))
+		pfsin := tu.UniqueString("pfs_data")
+		require.NoError(t, c.CreateProjectRepo(projectName, pfsin))
 
-		s3Commit := client.NewProjectCommit(pfs.DefaultProjectName, s3in, "master", "")
+		s3Commit := client.NewProjectCommit(projectName, s3in, "master", "")
 		// Pipelines with S3 inputs should still skip datums, as long as the S3 input
 		// hasn't changed. We'll check this by reading from a repo that isn't a
 		// pipeline input
-		background := tu.UniqueString(name + "_bg_data")
-		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, background))
+		background := tu.UniqueString("bg_data")
+		require.NoError(t, c.CreateProjectRepo(projectName, background))
 
 		require.NoError(t, c.PutFile(s3Commit, "file", strings.NewReader("foo")))
 
 		pipeline := tu.UniqueString("Pipeline")
-		pipelineCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		pipelineCommit := client.NewProjectCommit(projectName, pipeline, "master", "")
 		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewProjectPipeline(projectName, pipeline),
 			Transform: &pps.Transform{
 				Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 				Cmd:   []string{"bash", "-x"},
@@ -531,29 +581,29 @@ func TestS3SkippedDatums(t *testing.T) {
 						// access background repo via regular s3g (not S3_ENDPOINT, which
 						// can only access inputs)
 						"aws --endpoint=http://pachd.%s:30600 s3 cp s3://master.%s/round /tmp/bg",
-						ns, background,
+						ns, repoBucket(projectName, background),
 					),
 					"aws --endpoint=${S3_ENDPOINT} s3 cp s3://s3g_in/file /tmp/s3in",
 					"cat /pfs/pfs_in/* >/tmp/pfsin",
 					"echo \"$(cat /tmp/bg) $(cat /tmp/pfsin) $(cat /tmp/s3in)\" >/pfs/out/out",
 				},
 				Env: map[string]string{
-					"AWS_ACCESS_KEY_ID":     userToken,
-					"AWS_SECRET_ACCESS_KEY": userToken,
+					"AWS_ACCESS_KEY_ID":     accessKeyID,
+					"AWS_SECRET_ACCESS_KEY": secretAccessKey,
 				},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 			Input: &pps.Input{
 				Cross: []*pps.Input{
 					{Pfs: &pps.PFSInput{
-						Project: pfs.DefaultProjectName,
+						Project: projectName,
 						Repo:    pfsin,
 						Name:    "pfs_in",
 						Branch:  "master",
 						Glob:    "/*",
 					}},
 					{Pfs: &pps.PFSInput{
-						Project: pfs.DefaultProjectName,
+						Project: projectName,
 						Repo:    s3in,
 						Name:    "s3g_in",
 						Branch:  "master",
@@ -564,7 +614,7 @@ func TestS3SkippedDatums(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		_, err = c.WaitProjectCommit(projectName, pipeline, "master", "")
 		require.NoError(t, err)
 
 		// Part 1: add files in pfs input w/o changing s3 input. Old files in
@@ -573,19 +623,19 @@ func TestS3SkippedDatums(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			// Increment "/round" in 'background'
 			iS := fmt.Sprintf("%d", i)
-			bgc, err := c.StartProjectCommit(pfs.DefaultProjectName, background, "master")
+			bgc, err := c.StartProjectCommit(projectName, background, "master")
 			require.NoError(t, err)
 			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
-			require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, background, bgc.Branch.Name, bgc.ID))
+			require.NoError(t, c.FinishProjectCommit(projectName, background, bgc.Branch.Name, bgc.ID))
 
 			//  Put new file in 'pfsin' to create a new datum and trigger a job
-			require.NoError(t, c.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, pfsin, "master", ""), iS, strings.NewReader(iS)))
+			require.NoError(t, c.PutFile(client.NewProjectCommit(projectName, pfsin, "master", ""), iS, strings.NewReader(iS)))
 
-			_, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+			_, err = c.WaitProjectCommit(projectName, pipeline, "master", "")
 			require.NoError(t, err)
 
-			jis, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, 0, false)
+			jis, err := c.ListProjectJob(projectName, pipeline, nil, 0, false)
 			require.NoError(t, err)
 			require.Equal(t, i+2, len(jis)) // one empty job w/ initial s3in commit
 			for j := 0; j < len(jis); j++ {
@@ -610,23 +660,23 @@ func TestS3SkippedDatums(t *testing.T) {
 		// Part 2: change s3 input. All old datums should get reprocessed
 		// --------------------------------------------------------------
 		// Increment "/round" in 'background'
-		bgc, err := c.StartProjectCommit(pfs.DefaultProjectName, background, "master")
+		bgc, err := c.StartProjectCommit(projectName, background, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(bgc, "/round"))
 		require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader("10")))
-		require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, background, bgc.Branch.Name, bgc.ID))
+		require.NoError(t, c.FinishProjectCommit(projectName, background, bgc.Branch.Name, bgc.ID))
 
 		//  Put new file in 's3in' to create a new datum and trigger a job
-		s3c, err := c.StartProjectCommit(pfs.DefaultProjectName, s3in, "master")
+		s3c, err := c.StartProjectCommit(projectName, s3in, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(s3Commit, "/file"))
 		require.NoError(t, c.PutFile(s3Commit, "/file", strings.NewReader("bar")))
-		require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, s3in, s3c.Branch.Name, s3c.ID))
+		require.NoError(t, c.FinishProjectCommit(projectName, s3in, s3c.Branch.Name, s3c.ID))
 
-		_, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		_, err = c.WaitProjectCommit(projectName, pipeline, "master", "")
 		require.NoError(t, err)
 
-		jis, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, 0, false)
+		jis, err := c.ListProjectJob(projectName, pipeline, nil, 0, false)
 		require.NoError(t, err)
 		require.Equal(t, 12, len(jis))
 		for j := 0; j < len(jis); j++ {
@@ -672,17 +722,17 @@ func TestS3SkippedDatums(t *testing.T) {
 	})
 
 	t.Run("S3Output", func(t *testing.T) {
-		repo := tu.UniqueString(name + "_pfs_data")
-		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
+		repo := tu.UniqueString("pfs_data")
+		require.NoError(t, c.CreateProjectRepo(projectName, repo))
 		// Pipelines with S3 output should not skip datums, as they have no way of
 		// tracking which output data should be associated with which input data.
 		// We'll check this by reading from a repo that isn't a pipeline input
-		background := tu.UniqueString(name + "_bg_data")
-		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, background))
+		background := tu.UniqueString("bg_data")
+		require.NoError(t, c.CreateProjectRepo(projectName, background))
 
 		pipeline := tu.UniqueString("Pipeline")
 		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewProjectPipeline(projectName, pipeline),
 			Transform: &pps.Transform{
 				Image: "pachyderm/ubuntu-with-s3-clients:v0.0.1",
 				Cmd:   []string{"bash", "-x"},
@@ -692,7 +742,7 @@ func TestS3SkippedDatums(t *testing.T) {
 						// can only access inputs)
 						// NOTE: in tests the S3G port is assigned dynamically in src/internal/minikubetestenv/deploy.go
 						"aws --endpoint=http://pachd.%s:%v s3 cp s3://master.%s/round /tmp/bg",
-						ns, c.GetAddress().Port+3, background,
+						ns, c.GetAddress().Port+3, repoBucket(projectName, background),
 					),
 					"cat /pfs/in/* >/tmp/pfsin",
 					// Write the "background" value to a new file in every datum. As
@@ -706,14 +756,14 @@ func TestS3SkippedDatums(t *testing.T) {
 					"aws --endpoint=${S3_ENDPOINT} s3 cp /tmp/bg s3://out/bg/\"$(cat /tmp/bg)\"",
 				},
 				Env: map[string]string{
-					"AWS_ACCESS_KEY_ID":     userToken,
-					"AWS_SECRET_ACCESS_KEY": userToken,
+					"AWS_ACCESS_KEY_ID":     accessKeyID,
+					"AWS_SECRET_ACCESS_KEY": secretAccessKey,
 				},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 			Input: &pps.Input{
 				Pfs: &pps.PFSInput{
-					Project: pfs.DefaultProjectName,
+					Project: projectName,
 					Repo:    repo,
 					Name:    "in",
 					Branch:  "master",
@@ -724,25 +774,25 @@ func TestS3SkippedDatums(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		masterCommit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
-		pipelineCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		masterCommit := client.NewProjectCommit(projectName, repo, "master", "")
+		pipelineCommit := client.NewProjectCommit(projectName, pipeline, "master", "")
 		// Add files to 'repo'. Old files in 'repo' should be reprocessed in every
 		// job, changing the 'background' field in the output
 		for i := 1; i <= 5; i++ {
 			// Increment "/round" in 'background'
 			iS := strconv.Itoa(i)
-			bgc, err := c.StartProjectCommit(pfs.DefaultProjectName, background, "master")
+			bgc, err := c.StartProjectCommit(projectName, background, "master")
 			require.NoError(t, err)
 			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
-			require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, background, bgc.Branch.Name, bgc.ID))
+			require.NoError(t, c.FinishProjectCommit(projectName, background, bgc.Branch.Name, bgc.ID))
 
 			// Put new file in 'repo' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(masterCommit, iS, strings.NewReader(iS)))
 
-			_, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+			_, err = c.WaitProjectCommit(projectName, pipeline, "master", "")
 			require.NoError(t, err)
-			jis, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, 0, false)
+			jis, err := c.ListProjectJob(projectName, pipeline, nil, 0, false)
 			require.NoError(t, err)
 			require.Equal(t, i+1, len(jis))
 			for j := 0; j < len(jis); j++ {
@@ -771,5 +821,24 @@ func TestS3SkippedDatums(t *testing.T) {
 			require.Equal(t, 1, len(fis))
 
 		}
+	})
+}
+
+func TestS3SkippedDatums(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, userToken, ns := initPachClient(t)
+	if userToken == "" {
+		userToken = "abc123"
+	}
+	t.Run("ProjectUnaware", func(t *testing.T) {
+		testS3SkippedDatums(t, c, userToken, userToken, ns, pfs.DefaultProjectName, func(p, r string) string { return r })
+	})
+	t.Run("ProjectAware", func(t *testing.T) {
+		accessKeyID := "PAC1" + userToken
+		projectName := tu.UniqueString("project")
+		require.NoError(t, c.CreateProject(projectName))
+		testS3SkippedDatums(t, c, accessKeyID, userToken, ns, projectName, func(p, r string) string { return r + "." + p })
 	})
 }

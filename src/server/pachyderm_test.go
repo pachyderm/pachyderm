@@ -10030,21 +10030,16 @@ func TestListDatumFilter(t *testing.T) {
 	require.Equal(t, 25, i)
 }
 
-func TestDebug(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+func testDebug(t *testing.T, c *client.APIClient, projectName, repoName string) {
+	t.Helper()
+	require.NoError(t, c.CreateProject(projectName))
+	require.NoError(t, c.CreateProjectRepo(projectName, repoName))
 
-	dataRepo := tu.UniqueString("TestDebug_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
-
-	expectedFiles, pipelines := tu.DebugFiles(t, dataRepo)
+	expectedFiles, pipelines := tu.DebugFiles(t, projectName, repoName)
 
 	for i, p := range pipelines {
 		cmdStdin := []string{
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repoName),
 			"sleep 45",
 		}
 		if i == 0 {
@@ -10052,7 +10047,7 @@ func TestDebug(t *testing.T) {
 			// Fail a pipeline on purpose to see if we can still generate debug dump.
 			cmdStdin = append(cmdStdin, "exit -1")
 		}
-		require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+		require.NoError(t, c.CreateProjectPipeline(projectName,
 			p,
 			"",
 			[]string{"bash"},
@@ -10060,15 +10055,15 @@ func TestDebug(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+			client.NewProjectPFSInput(projectName, repoName, "/*"),
 			"",
 			false,
 		))
 	}
-	commit1, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit1, err := c.StartProjectCommit(projectName, repoName, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.ID))
+	require.NoError(t, c.FinishProjectCommit(projectName, repoName, commit1.Branch.Name, commit1.ID))
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.ID)
 	require.NoError(t, err)
@@ -10104,10 +10099,23 @@ func TestDebug(t *testing.T) {
 			}
 		}
 		if len(expectedFiles) > 0 {
-			return errors.Errorf("Debug dump has produced %v of the exepcted files: %v", gotFiles, expectedFiles)
+			return errors.Errorf("Debug dump has produced %v of the expected files: %v", gotFiles, expectedFiles)
 		}
 		return nil
 	})
+}
+
+func TestDebug(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	for _, projectName := range []string{pfs.DefaultProjectName, tu.UniqueString("project")} {
+		t.Run(projectName, func(t *testing.T) {
+			testDebug(t, c, projectName, tu.UniqueString("TestDebug_data"))
+		})
+	}
 }
 
 func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {

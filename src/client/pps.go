@@ -420,6 +420,8 @@ func (c APIClient) ListProjectJob(projectName, pipelineName string, inputCommit 
 
 // ListJobF is a previous version of ListJobFilterF, returning info about all jobs
 // and calling f on each JobInfo
+//
+// Deprecated: Use ListProjectJobF instead.
 func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
 	history int64, details bool,
 	f func(*pps.JobInfo) error) error {

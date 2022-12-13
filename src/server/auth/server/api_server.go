@@ -472,23 +472,9 @@ func (a *apiServer) activateInTransaction(ctx context.Context, txCtx *txncontext
 		}); err != nil {
 			return errors.EnsureStack(err)
 		}
-		// If default project exists, grant allClusterUsers ProjectWriter role
-		defaultProjectKey := authdb.ResourceKey(&auth.Resource{Type: auth.ResourceType_PROJECT, Name: pfs.DefaultProjectName})
-		defaultProjectRoleBindings := &auth.RoleBinding{}
-		if err := roleBindings.Get(defaultProjectKey, defaultProjectRoleBindings); err != nil && !errors.Is(err, col.ErrNotFound{}) {
-			return errors.Wrap(err, "failed to get role bindings for default project")
-		}
-		if err == nil {
-			if len(defaultProjectRoleBindings.Entries) == 0 {
-				defaultProjectRoleBindings.Entries = make(map[string]*auth.Roles)
-			}
-			if _, ok := defaultProjectRoleBindings.Entries[auth.AllClusterUsersSubject]; !ok {
-				defaultProjectRoleBindings.Entries[auth.AllClusterUsersSubject] = &auth.Roles{Roles: make(map[string]bool)}
-			}
-			defaultProjectRoleBindings.Entries[auth.AllClusterUsersSubject].Roles[auth.ProjectWriter] = true
-			if err := roleBindings.Put(defaultProjectKey, defaultProjectRoleBindings); err != nil {
-				return errors.Wrap(err, "failed to add ProjectWriter to allClusterUsers for default project")
-			}
+		// TODO CORE-1048 make all users ProjectWriter for default project
+		if err := a.CreateRoleBindingInTransaction(txCtx, "", nil, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: pfs.DefaultProjectName}); err != nil {
+			return errors.Wrapf(err, "could not create role binding for project %q", pfs.DefaultProjectName)
 		}
 		return a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(pachToken), auth.RootUser)
 	}); err != nil {
@@ -694,14 +680,13 @@ func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txncontext.Transact
 		if err != nil {
 			return nil, err
 		}
-		projectKey := authdb.ResourceKey(&auth.Resource{Type: auth.ResourceType_PROJECT, Name: repo.Project.Name})
+		projectResource := &auth.Resource{Type: auth.ResourceType_PROJECT, Name: repo.Project.Name}
+		projectKey := authdb.ResourceKey(projectResource)
 		if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(projectKey, &roleBinding); err != nil {
 			if col.IsErrNotFound(err) {
-				return nil, &auth.ErrNoRoleBinding{
-					Resource: *resource,
-				}
+				return nil, &auth.ErrNoRoleBinding{Resource: *projectResource}
 			}
-			return nil, errors.Wrapf(err, "error getting role bindings for %s", repo.Project)
+			return nil, errors.Wrapf(err, "error getting role bindings for %s", projectKey)
 		}
 		if err := request.evaluateRoleBinding(txnCtx, &roleBinding); err != nil {
 			return nil, err
@@ -770,7 +755,7 @@ func (a *apiServer) Authorize(
 	return response, nil
 }
 
-func (a *apiServer) GetPermissionsForPrincipal(ctx context.Context, req *auth.GetPermissionsForPrincipalRequest) (resp *auth.GetPermissionsResponse, retErr error) {
+func (a *apiServer) GetPermissionsForPrincipal(ctx context.Context, req *auth.GetPermissionsForPrincipalRequest) (*auth.GetPermissionsResponse, error) {
 	permissions := make(map[auth.Permission]bool)
 	for p := range auth.Permission_name {
 		permissions[auth.Permission(p)] = true
@@ -782,24 +767,27 @@ func (a *apiServer) GetPermissionsForPrincipal(ctx context.Context, req *auth.Ge
 		request, err = a.evaluateRoleBindingInTransaction(txnCtx, req.Principal, req.Resource, permissions)
 		return err
 	}); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "cannot evaluate role binding")
 	}
 
 	return &auth.GetPermissionsResponse{
 		Roles:       request.rolesForResourceType(req.Resource.Type),
 		Permissions: request.satisfied(),
 	}, nil
-
 }
 
 // GetPermissions implements the protobuf auth.GetPermissions RPC
 func (a *apiServer) GetPermissions(ctx context.Context, req *auth.GetPermissionsRequest) (resp *auth.GetPermissionsResponse, retErr error) {
 	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "cannot get authenticated user")
 	}
 
-	return a.GetPermissionsForPrincipal(ctx, &auth.GetPermissionsForPrincipalRequest{Principal: callerInfo.Subject, Resource: req.Resource})
+	resp, err = a.GetPermissionsForPrincipal(ctx, &auth.GetPermissionsForPrincipalRequest{Principal: callerInfo.Subject, Resource: req.Resource})
+	if err != nil {
+		return nil, errors.Wrap(err, "canont get permissions for principal")
+	}
+	return resp, nil
 }
 
 func (a *apiServer) GetPermissionsInTransaction(txnCtx *txncontext.TransactionContext, req *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error) {

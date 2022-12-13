@@ -17,7 +17,7 @@ func (c *controller) SecretKey(r *http.Request, accessKey string, region *string
 	pc := c.clientFactory(r.Context())
 
 	if strings.HasPrefix(accessKey, "PAC1") {
-		mux.Vars(r)["isProjectAware"] = "yes"
+		mux.Vars(r)[isProjectAwareVar] = isProjectAwareValue
 		accessKey = accessKey[4:]
 	}
 	pc.SetAuthToken(accessKey)

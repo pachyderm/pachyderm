@@ -2016,7 +2016,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 	}()
-	extended.PersistAny(ctx, a.env.EtcdClient, request.Pipeline.Name)
+	extended.PersistAny(ctx, a.env.EtcdClient, request.Pipeline)
 
 	if err := a.validateEnterpriseChecks(ctx, request); err != nil {
 		return nil, err

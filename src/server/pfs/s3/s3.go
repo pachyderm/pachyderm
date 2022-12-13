@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	stdlog "log"
+	"math"
 	"net/http"
 	"strings"
 	"sync"
@@ -25,15 +26,18 @@ type ClientFactory = func(ctx context.Context) *client.APIClient
 const (
 	multipartRepo        = "_s3gateway_multipart_"
 	maxAllowedParts      = 10000
-	maxRequestBodyLength = 128 * 1024 * 1024 //128mb
-	requestTimeout       = 10 * time.Second
-	readBodyTimeout      = 5 * time.Second
+	maxRequestBodyLength = math.MaxUint32 // Unlimited
+	requestTimeout       = 5 * time.Minute
+	readBodyTimeout      = 5*time.Minute - 30*time.Second
 
 	// The S3 storage class that all PFS content will be reported to be stored in
 	globalStorageClass = "STANDARD"
 
 	// The S3 location served back
 	globalLocation = "PACHYDERM"
+
+	isProjectAwareVar   = "isProjectAware"
+	isProjectAwareValue = "yes"
 )
 
 // The S3 user associated with all PFS content
@@ -64,6 +68,10 @@ func (c *controller) requestClient(r *http.Request) *client.APIClient {
 	vars := mux.Vars(r)
 	if vars["s3gAuth"] != "disabled" {
 		accessKey := vars["authAccessKey"]
+		if strings.HasPrefix(accessKey, "PAC1") {
+			vars[isProjectAwareVar] = isProjectAwareValue
+			accessKey = accessKey[4:]
+		}
 		if accessKey != "" {
 			pc.SetAuthToken(accessKey)
 		}
