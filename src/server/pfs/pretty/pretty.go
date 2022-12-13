@@ -19,11 +19,11 @@ const (
 	// RepoHeader is the header for repos.
 	RepoHeader = "PROJECT\tNAME\tCREATED\tSIZE (MASTER)\tDESCRIPTION\t\n"
 	// RepoAuthHeader is the header for repos with auth information attached.
-	RepoAuthHeader = "NAME\tCREATED\tSIZE (MASTER)\tACCESS LEVEL\t\n"
+	RepoAuthHeader = "PROJECT\tNAME\tCREATED\tSIZE (MASTER)\tACCESS_LEVEL\tDESCRIPTION\t\n"
 	// CommitHeader is the header for commits.
-	CommitHeader = "REPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tORIGIN\tDESCRIPTION\n"
+	CommitHeader = "PROJECT\tREPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tORIGIN\tDESCRIPTION\t\n"
 	// CommitSetHeader is the header for commitsets.
-	CommitSetHeader = "ID\tSUBCOMMITS\tPROGRESS\tCREATED\tMODIFIED\n"
+	CommitSetHeader = "ID\tSUBCOMMITS\tPROGRESS\tCREATED\tMODIFIED\t\n"
 	// BranchHeader is the header for branches.
 	BranchHeader = "BRANCH\tHEAD\tTRIGGER\t\n"
 	// ProjectHeader is the header for the projects.
@@ -38,7 +38,13 @@ const (
 
 // PrintRepoInfo pretty-prints repo info.
 func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t%s\t", repoInfo.Repo.Project.GetName(), repoInfo.Repo.Name)
+	fmt.Fprintf(w, "%s\t", repoInfo.Repo.Project)
+	// Repo.String() returns "<project>/<repo>"" but we want to print the project name as a separate column.
+	if repoInfo.Repo.Type == pfs.UserRepoType {
+		fmt.Fprintf(w, "%s\t", repoInfo.Repo.Name)
+	} else {
+		fmt.Fprintf(w, "%s.%s\t", repoInfo.Repo.Name, repoInfo.Repo.Type)
+	}
 	if fullTimestamps {
 		fmt.Fprintf(w, "%s\t", repoInfo.Created.String())
 	} else {
@@ -162,7 +168,13 @@ Description: {{ .Description}} {{end}}
 
 // PrintCommitInfo pretty-prints commit info.
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Repo)
+	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Repo.Project)
+	// Repo.String() returns "<project>/<repo>"" but we want to print the project name as a separate column.
+	if commitInfo.Commit.Branch.Repo.Type == pfs.UserRepoType {
+		fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Repo.Name)
+	} else {
+		fmt.Fprintf(w, "%s.%s\t", commitInfo.Commit.Branch.Repo.Name, commitInfo.Commit.Branch.Repo.Type)
+	}
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Name)
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
 	if commitInfo.Finished == nil {
