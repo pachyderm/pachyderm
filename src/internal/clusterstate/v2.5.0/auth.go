@@ -49,7 +49,7 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 	clusterRbs := &auth.RoleBinding{Entries: make(map[string]*auth.Roles)}
 	if err := roleBindingsCol.Upsert(clusterRoleBindingKey, clusterRbs, func() error {
 		if _, ok := clusterRbs.Entries[allUsersPrincipalKey]; !ok {
-			clusterRbs.Entries[clusterRoleBindingKey] = &auth.Roles{Roles: make(map[string]bool)}
+			clusterRbs.Entries[allUsersPrincipalKey] = &auth.Roles{Roles: make(map[string]bool)}
 		}
 		clusterRbs.Entries[allUsersPrincipalKey].Roles[projectCreatorRole] = true
 		return nil
