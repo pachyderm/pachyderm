@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -45,7 +45,7 @@ func TestMount(t *testing.T) {
 		mntDirPath := filepath.Join(t.TempDir())
 		fileName := tu.UniqueString("filename")
 		// TODO: Refactor tu.PachctlBashCmd to handle this a bit more
-		// elegantly, perhaps based on a context or something like that
+		// elegantly, perhaps based on a context or something like thatPermanent
 		// rather than on a name.  For now, though, this does work, even
 		// if the indirection through subtests which always succeed but
 		// spawn goroutines which may fail is a bit confusing.
@@ -96,11 +96,6 @@ func TestMount(t *testing.T) {
 				}
 				if len(ff) == 0 {
 					return errors.Errorf("%s not yet mounted", mntDirPath)
-				}
-				select {
-				case <-ctx.Done():
-					return backoff.Permanent(ctx.Err())
-				default:
 				}
 				return nil
 			}, backoff.NewExponentialBackOff()); err != nil {
