@@ -31,13 +31,10 @@ def main():
         jobs = list(pachClient.list_job(p.pipeline.name))
 
         for j in jobs:
-            started = float((str(j.started.seconds) + "." + str(j.started.nanos)))
-            finished = float((str(j.finished.seconds) + "." + str(j.finished.nanos)))
-            elapsed = finished - started
 
             rows_to_insert = [{u"pachydermVersion": version, u"workloadName": "test", u"jobId": str(j.job.id),
               u"pipeline": j.job.pipeline.name, u"totalDatums": str(j.data_total), u"datumsProcessed": str(j.data_processed),
-              u"executionTime": str(elapsed)}]
+              u"startTime": j.started, u"startTime": j.finished}]
 
             errors = client.insert_rows_json(table, rows_to_insert)
             if errors == []:
