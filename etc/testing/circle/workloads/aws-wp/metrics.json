@@ -1,0 +1,20 @@
+{
+  "pipeline": {
+    "name": "metrics"
+  },
+  "description": "A pipeline that collects metrics",
+  "input": {
+    "pfs": {
+      "glob": "/*",
+      "repo": "width_estimation"
+    }
+  },
+  "transform": {
+    "cmd": [
+      "python3",
+      "/app/app.py"
+    ],
+    "image": "metric-collector:v1"
+  }
+}
+
