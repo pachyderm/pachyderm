@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -15,10 +16,11 @@ import (
 // its public interface only allows getting the status of a task and canceling
 // the currently-processing datum.
 type Status struct {
-	mutex       sync.Mutex
-	jobID       string
-	datumStatus *pps.DatumStatus
-	cancel      func()
+	mutex               sync.Mutex
+	jobID               string
+	datumStatus         *pps.DatumStatus
+	cancel              func()
+	nextChan, setupChan chan struct{}
 }
 
 func convertInputs(inputs []*common.Input) []*pps.InputFile {
@@ -97,4 +99,19 @@ func (s *Status) Cancel(jobID string, datumFilter []string) bool {
 		return true
 	}
 	return false
+}
+
+func (s *Status) NextDatum(ctx context.Context) error {
+	// TODO: Error if not set.
+	select {
+	case s.nextChan <- struct{}{}:
+	case <-ctx.Done():
+		return errors.EnsureStack(ctx.Err())
+	}
+	select {
+	case <-s.setupChan:
+	case <-ctx.Done():
+		return errors.EnsureStack(ctx.Err())
+	}
+	return nil
 }

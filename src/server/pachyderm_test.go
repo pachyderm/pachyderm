@@ -11272,3 +11272,56 @@ func TestZombieCheck(t *testing.T) {
 	require.Equal(t, 1, len(messages))
 	require.Matches(t, "zombie", messages[0])
 }
+
+func TestDatumBatching(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	c = c.WithDefaultTransformUser("1000")
+
+	dataRepo := tu.UniqueString("TestDatumBatching_data")
+	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	numFiles := 25
+	require.NoError(t, c.WithModifyFileClient(dataCommit, func(mfc client.ModifyFile) error {
+		for i := 0; i < numFiles; i++ {
+			require.NoError(t, mfc.PutFile(fmt.Sprintf("/file-%02d", i), strings.NewReader("")))
+		}
+		return nil
+	}))
+
+	script := fmt.Sprintf(`
+		while true
+		do
+			pachctl next datum
+			cp /pfs/%s/* /pfs/out/
+		done
+	`, dataRepo)
+	pipeline := tu.UniqueString("TestDatumBatchingPipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{
+				Cmd:   []string{"bash"},
+				Stdin: []string{script},
+			},
+			Input:        client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+			DatumSetSpec: &pps.DatumSetSpec{Number: 5},
+			Batching:     true,
+		})
+	require.NoError(t, err)
+
+	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	fileInfos, err := c.ListFileAll(commitInfo.Commit, "")
+	require.NoError(t, err)
+	require.Equal(t, 25, len(fileInfos))
+	for i := 0; i < numFiles; i++ {
+		require.Equal(t, fmt.Sprintf("/file-%02d", i), fileInfos[i].File.Path)
+	}
+}

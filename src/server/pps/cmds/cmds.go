@@ -36,6 +36,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
+	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 
 	prompt "github.com/c-bata/go-prompt"
 	docker "github.com/fsouza/go-dockerclient"
@@ -1300,6 +1301,22 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	runLoadTest.Flags().StringVarP(&podPatchFile, "pod-patch", "", "", "The pod patch file to use for the pipelines.")
 	runLoadTest.Flags().StringVar(&stateID, "state-id", "", "The ID of the base state to use for the load.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pps-load-test"))
+
+	nextDatum := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Used internally for datum batching",
+		Long:  "Used internally for datum batching",
+		Run: cmdutil.Run(func(_ []string) error {
+			c, err := workerserver.NewClient("127.0.0.1")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			_, err = c.NextDatum(context.Background(), &types.Empty{})
+			return err
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(nextDatum, "next datum"))
 
 	return commands
 }

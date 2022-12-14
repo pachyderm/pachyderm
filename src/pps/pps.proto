@@ -423,6 +423,7 @@ message PipelineInfo {
     int64 unclaimed_tasks = 31;
     string worker_rc = 32;
     bool autoscaling = 33;
+    bool batching = 34;
   }
   Details details = 12;
 }
@@ -660,6 +661,7 @@ message CreatePipelineRequest {
   Metadata metadata = 28;
   string reprocess_spec = 29;
   bool autoscaling = 30;
+  bool batching = 31;
 }
 
 message InspectPipelineRequest {
