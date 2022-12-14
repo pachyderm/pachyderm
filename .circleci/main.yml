@@ -192,7 +192,8 @@ jobs:
               -count=1 \
               -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
       - run:
-          name: Dump debugging info
+          name: Dump debugging info in case of failure
+          when: on_fail
           command: etc/testing/circle/kube_debug.sh
       - store_test_results: # upload test results for display in Test Summary
           path: /tmp/test-results
@@ -283,9 +284,9 @@ jobs:
           command: etc/testing/circle/upload_stats.sh
           when: always
       - run:
-          name: Dump debugging info
+          name: Dump debugging info in case of failure
+          when: on_fail
           command: etc/testing/circle/kube_debug.sh
-          when: always
       - store_test_results:
           path: /tmp/test-results
       - store_artifacts:
