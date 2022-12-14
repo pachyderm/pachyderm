@@ -522,7 +522,6 @@ func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		return errors.Wrap(err, "record headless branches")
 	}
 	for _, bi := range headlessBranches {
-		fmt.Printf("MIGRATING HEADLESS BRANCH::: %v. PREV HEAD:: %v. NEW HEAD:: %v\n", branchKey(bi.Branch), commitKey(bi.Head), commitKey(oldestAncestor(deleteCommits[commitKey(bi.Head)], deleteCommits)))
 		prevHead := deleteCommits[commitKey(bi.Head)]
 		if err := updateOldBranch(ctx, tx, bi.Branch, func(bi *pfs.BranchInfo) {
 			bi.Head = oldestAncestor(prevHead, deleteCommits)
