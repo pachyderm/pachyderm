@@ -604,7 +604,7 @@ func (d *driver) startCommit(
 		// Otherwise, we don't allow user code to start commits on output branches
 		return nil, pfsserver.ErrCommitOnOutputBranch{Branch: branch}
 	}
-	if err := d.addCommit(txnCtx, newCommitInfo, parent, branchInfo.DirectProvenance, true); err != nil {
+	if err := d.addCommit(txnCtx, newCommitInfo, parent, branchInfo.DirectProvenance, true /* needsFinishedParent */); err != nil {
 		return nil, err
 	}
 	// Defer propagation of the commit until the end of the transaction so we can
@@ -903,7 +903,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 
 // resolveCommit contains the essential implementation of inspectCommit:
 // it accepts an unqualified commit and returns the CommitInfo corresponding to the fully qualified commit.
-// An unqualified commit is a commit containing ancestry syntax and alias semantics that need
+// An unqualified commit is a commit containing ancestry syntax and/or alias semantics that need
 // to be resolved to a 'real' fully qualified commit.
 func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.CommitInfo, error) {
 	if userCommit == nil {
