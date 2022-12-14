@@ -1186,7 +1186,6 @@ jobs:
             jq --arg val "${CIRCLE_TAG:1}-${CIRCLE_SHA1}" '.pachyderm = $val' version.json > "$tmp" && mv "$tmp" version.json
             jq --arg val "${CIRCLE_SHA1}" '.pachReleaseCommit = $val' version.json > "$tmp" && mv "$tmp" version.json
             jq --arg val "${CIRCLE_TAG:1}" '.pachctl = $val' version.json > "$tmp" && mv "$tmp" version.json
-            jq --arg val "${CIRCLE_SHA1}" '.proto = $val' version.json > "$tmp" && mv "$tmp" version.json
             git commit -m "bump pachyderm version"
             git push
             PR=$(gh pr create --base $parentBranch --title "bump pach version for release ${CIRCLE_TAG:1}" --repo pachyderm/haberdashery)
