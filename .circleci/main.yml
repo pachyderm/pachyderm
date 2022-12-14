@@ -284,8 +284,7 @@ jobs:
           command: etc/testing/circle/upload_stats.sh
           when: always
       - run:
-          name: Dump debugging info in case of failure
-          when: on_fail
+          name: Dump debugging info 
           command: etc/testing/circle/kube_debug.sh
       - store_test_results:
           path: /tmp/test-results
