@@ -1215,7 +1215,7 @@ jobs:
       repo:
         type: string
         default: pachyderm/pachyderm
-      tag: 
+      tag:
         type: string
         default: ${CIRCLE_TAG}
     docker:
