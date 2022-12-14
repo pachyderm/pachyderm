@@ -15,6 +15,8 @@ If you are on an M1 Mac, first run these commands or installation will fail:
 brew install pkg-config cairo pango libpng jpeg giflib librsvg
 ```
 
+[You may also need to install rosetta to run the jq binary that `node-jq` installs.](https://github.com/stedolan/jq/issues/2386#issuecomment-1116727751)
+
 <br />
 
 ## Local Deploy
