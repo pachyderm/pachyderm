@@ -473,16 +473,10 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, aliceClient.CreateProjectRepo(project, repo))
 
-	// PROJECT_CREATE comes from cluster level all users having projectCreator role
-	// PROJECT_LIST_REPO and PROJECT_CREATE_REPO comes from all users having projectWriter role for default project
 	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		if info.Repo.Project.Name == pfs.DefaultProjectName {
-			require.ElementsEqual(t, []auth.Permission{auth.Permission_PROJECT_CREATE, auth.Permission_PROJECT_LIST_REPO, auth.Permission_PROJECT_CREATE_REPO}, info.AuthInfo.Permissions)
-		} else {
-			require.ElementsEqual(t, []auth.Permission{auth.Permission_PROJECT_CREATE}, info.AuthInfo.Permissions)
-		}
+		require.ElementsEqual(t, []auth.Permission{auth.Permission_PROJECT_CREATE}, info.AuthInfo.Permissions)
 	}
 
 	// admin calls ListRepo, and has OWNER access to all repos

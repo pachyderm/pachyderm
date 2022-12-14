@@ -472,23 +472,9 @@ func (a *apiServer) activateInTransaction(ctx context.Context, txCtx *txncontext
 		}); err != nil {
 			return errors.EnsureStack(err)
 		}
-		// If default project exists, grant allClusterUsers ProjectWriter role
-		defaultProjectKey := authdb.ResourceKey(&auth.Resource{Type: auth.ResourceType_PROJECT, Name: pfs.DefaultProjectName})
-		defaultProjectRoleBindings := &auth.RoleBinding{}
-		if err := roleBindings.Get(defaultProjectKey, defaultProjectRoleBindings); err != nil && !errors.Is(err, col.ErrNotFound{}) {
-			return errors.Wrap(err, "failed to get role bindings for default project")
-		}
-		if err == nil {
-			if len(defaultProjectRoleBindings.Entries) == 0 {
-				defaultProjectRoleBindings.Entries = make(map[string]*auth.Roles)
-			}
-			if _, ok := defaultProjectRoleBindings.Entries[auth.AllClusterUsersSubject]; !ok {
-				defaultProjectRoleBindings.Entries[auth.AllClusterUsersSubject] = &auth.Roles{Roles: make(map[string]bool)}
-			}
-			defaultProjectRoleBindings.Entries[auth.AllClusterUsersSubject].Roles[auth.ProjectWriter] = true
-			if err := roleBindings.Put(defaultProjectKey, defaultProjectRoleBindings); err != nil {
-				return errors.Wrap(err, "failed to add ProjectWriter to allClusterUsers for default project")
-			}
+		// TODO CORE-1048 make all users ProjectWriter for default project
+		if err := a.CreateRoleBindingInTransaction(txCtx, "", nil, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: pfs.DefaultProjectName}); err != nil {
+			return errors.Wrapf(err, "could not create role binding for project %q", pfs.DefaultProjectName)
 		}
 		return a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(pachToken), auth.RootUser)
 	}); err != nil {

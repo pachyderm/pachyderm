@@ -1,5 +1,7 @@
 package serviceenv
 
+import "k8s.io/apimachinery/pkg/api/resource"
+
 // Configuration is the generic configuration structure used to access configuration fields.
 type Configuration struct {
 	*GlobalConfiguration
@@ -76,10 +78,18 @@ type GlobalConfiguration struct {
 	// The number of concurrent requests that the PPS Master can make against kubernetes
 	PPSMaxConcurrentK8sRequests int `env:"PPS_MAX_CONCURRENT_K8S_REQUESTS,default=10"`
 
-	// These are automatically injected into pachd by Kubernetes.  They should not be set by
+	// These are automatically injected into pachd by Kubernetes so that Go's GC can be tuned to
+	// take advantage of the memory made available to the container.  They should not be set by
 	// users manually; use GOMEMLIMIT directly instead.
 	K8sMemoryLimit   int64 `env:"K8S_MEMORY_LIMIT,default=0"`
 	K8sMemoryRequest int64 `env:"K8S_MEMORY_REQUEST,default=0"`
+
+	// Users tend to have a bad experience when they request 0 resources from k8s.  These are
+	// the defaults for piplines that don't supply any requests or limits.  (As soon as you
+	// supply and request or limit, even an empty request or limit, then these are all ignored.)
+	PipelineDefaultMemoryRequest  resource.Quantity `env:"PIPELINE_DEFAULT_MEMORY_REQUEST,default=256Mi"`
+	PipelineDefaultCPURequest     resource.Quantity `env:"PIPELINE_DEFAULT_CPU_REQUEST,default=1"`
+	PipelineDefaultStorageRequest resource.Quantity `env:"PIPELINE_DEFAULT_STORAGE_REQUEST,default=1Gi"`
 }
 
 // PachdFullConfiguration contains the full pachd configuration.
