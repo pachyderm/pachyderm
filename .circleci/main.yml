@@ -1215,6 +1215,9 @@ jobs:
       repo:
         type: string
         default: pachyderm/pachyderm
+      tag: 
+        type: string
+        default: ${CIRCLE_TAG}
     docker:
       - image: cimg/base:stable
     steps:
@@ -1226,7 +1229,7 @@ jobs:
       - run:
           name: create github release
           command: |
-            gh release edit ${CIRCLE_TAG} --draft=false
+            gh release edit << parameters.tag >> --draft=false --repo << parameters.repo >>
   release-docker-hub:
     docker:
       - image: cimg/base:stable
@@ -1508,6 +1511,7 @@ workflows:
       - release-github:
           name: github-release-console
           repo: pachyderm/haberdashery
+          tag: ${CIRCLE_TAG:1}-1
           filters: *only-release-tags
           requires:
             - sign-off
