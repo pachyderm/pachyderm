@@ -184,7 +184,6 @@ func (a *apiServer) DeleteRepos(ctx context.Context, request *pfs.DeleteReposReq
 	if err != nil {
 		return nil, err
 	}
-
 	return &pfs.DeleteReposResponse{
 		Repos: repos,
 	}, nil
