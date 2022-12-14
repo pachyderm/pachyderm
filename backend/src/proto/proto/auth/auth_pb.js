@@ -13,7 +13,13 @@
 
 var jspb = require('google-protobuf');
 var goog = jspb;
-var global = Function('return this')();
+var global = (function() {
+  if (this) { return this; }
+  if (typeof window !== 'undefined') { return window; }
+  if (typeof global !== 'undefined') { return global; }
+  if (typeof self !== 'undefined') { return self; }
+  return Function('return this')();
+}.call(null));
 
 var gogoproto_gogo_pb = require('../gogoproto/gogo_pb.js');
 goog.object.extend(proto, gogoproto_gogo_pb);
@@ -9808,7 +9814,12 @@ proto.auth_v2.Permission = {
   REPO_ADD_PIPELINE_READER: 212,
   REPO_REMOVE_PIPELINE_READER: 213,
   REPO_ADD_PIPELINE_WRITER: 214,
-  PIPELINE_LIST_JOB: 301
+  PIPELINE_LIST_JOB: 301,
+  PROJECT_CREATE: 400,
+  PROJECT_DELETE: 401,
+  PROJECT_LIST_REPO: 402,
+  PROJECT_CREATE_REPO: 403,
+  PROJECT_MODIFY_BINDINGS: 404
 };
 
 /**
@@ -9818,7 +9829,8 @@ proto.auth_v2.ResourceType = {
   RESOURCE_TYPE_UNKNOWN: 0,
   CLUSTER: 1,
   REPO: 2,
-  SPEC_REPO: 3
+  SPEC_REPO: 3,
+  PROJECT: 4
 };
 
 goog.object.extend(exports, proto.auth_v2);

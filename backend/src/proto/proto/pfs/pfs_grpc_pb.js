@@ -188,6 +188,17 @@ function deserialize_pfs_v2_CreateFileSetResponse(buffer_arg) {
   return pfs_pfs_pb.CreateFileSetResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_v2_CreateProjectRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.CreateProjectRequest)) {
+    throw new Error('Expected argument of type pfs_v2.CreateProjectRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_CreateProjectRequest(buffer_arg) {
+  return pfs_pfs_pb.CreateProjectRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pfs_v2_CreateRepoRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.CreateRepoRequest)) {
     throw new Error('Expected argument of type pfs_v2.CreateRepoRequest');
@@ -208,6 +219,17 @@ function serialize_pfs_v2_DeleteBranchRequest(arg) {
 
 function deserialize_pfs_v2_DeleteBranchRequest(buffer_arg) {
   return pfs_pfs_pb.DeleteBranchRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_DeleteProjectRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.DeleteProjectRequest)) {
+    throw new Error('Expected argument of type pfs_v2.DeleteProjectRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_DeleteProjectRequest(buffer_arg) {
+  return pfs_pfs_pb.DeleteProjectRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pfs_v2_DeleteRepoRequest(arg) {
@@ -419,6 +441,17 @@ function deserialize_pfs_v2_InspectFileRequest(buffer_arg) {
   return pfs_pfs_pb.InspectFileRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_v2_InspectProjectRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.InspectProjectRequest)) {
+    throw new Error('Expected argument of type pfs_v2.InspectProjectRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_InspectProjectRequest(buffer_arg) {
+  return pfs_pfs_pb.InspectProjectRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pfs_v2_InspectRepoRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.InspectRepoRequest)) {
     throw new Error('Expected argument of type pfs_v2.InspectRepoRequest');
@@ -474,6 +507,17 @@ function deserialize_pfs_v2_ListFileRequest(buffer_arg) {
   return pfs_pfs_pb.ListFileRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_v2_ListProjectRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.ListProjectRequest)) {
+    throw new Error('Expected argument of type pfs_v2.ListProjectRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_ListProjectRequest(buffer_arg) {
+  return pfs_pfs_pb.ListProjectRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pfs_v2_ListRepoRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.ListRepoRequest)) {
     throw new Error('Expected argument of type pfs_v2.ListRepoRequest');
@@ -494,6 +538,17 @@ function serialize_pfs_v2_ModifyFileRequest(arg) {
 
 function deserialize_pfs_v2_ModifyFileRequest(buffer_arg) {
   return pfs_pfs_pb.ModifyFileRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_ProjectInfo(arg) {
+  if (!(arg instanceof pfs_pfs_pb.ProjectInfo)) {
+    throw new Error('Expected argument of type pfs_v2.ProjectInfo');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_ProjectInfo(buffer_arg) {
+  return pfs_pfs_pb.ProjectInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pfs_v2_PutCacheRequest(arg) {
@@ -1153,6 +1208,55 @@ egress: {
     requestDeserialize: deserialize_pfs_v2_EgressRequest,
     responseSerialize: serialize_pfs_v2_EgressResponse,
     responseDeserialize: deserialize_pfs_v2_EgressResponse,
+  },
+  // Project API
+// CreateProject creates a new project.
+createProject: {
+    path: '/pfs_v2.API/CreateProject',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.CreateProjectRequest,
+    responseType: google_protobuf_empty_pb.Empty,
+    requestSerialize: serialize_pfs_v2_CreateProjectRequest,
+    requestDeserialize: deserialize_pfs_v2_CreateProjectRequest,
+    responseSerialize: serialize_google_protobuf_Empty,
+    responseDeserialize: deserialize_google_protobuf_Empty,
+  },
+  // InspectProject returns info about a project.
+inspectProject: {
+    path: '/pfs_v2.API/InspectProject',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.InspectProjectRequest,
+    responseType: pfs_pfs_pb.ProjectInfo,
+    requestSerialize: serialize_pfs_v2_InspectProjectRequest,
+    requestDeserialize: deserialize_pfs_v2_InspectProjectRequest,
+    responseSerialize: serialize_pfs_v2_ProjectInfo,
+    responseDeserialize: deserialize_pfs_v2_ProjectInfo,
+  },
+  // ListProject returns info about all projects.
+listProject: {
+    path: '/pfs_v2.API/ListProject',
+    requestStream: false,
+    responseStream: true,
+    requestType: pfs_pfs_pb.ListProjectRequest,
+    responseType: pfs_pfs_pb.ProjectInfo,
+    requestSerialize: serialize_pfs_v2_ListProjectRequest,
+    requestDeserialize: deserialize_pfs_v2_ListProjectRequest,
+    responseSerialize: serialize_pfs_v2_ProjectInfo,
+    responseDeserialize: deserialize_pfs_v2_ProjectInfo,
+  },
+  // DeleteProject deletes a project.
+deleteProject: {
+    path: '/pfs_v2.API/DeleteProject',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.DeleteProjectRequest,
+    responseType: google_protobuf_empty_pb.Empty,
+    requestSerialize: serialize_pfs_v2_DeleteProjectRequest,
+    requestDeserialize: deserialize_pfs_v2_DeleteProjectRequest,
+    responseSerialize: serialize_google_protobuf_Empty,
+    responseDeserialize: deserialize_google_protobuf_Empty,
   },
 };
 

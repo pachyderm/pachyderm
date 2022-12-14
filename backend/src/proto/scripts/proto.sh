@@ -4,7 +4,7 @@
 PROTOC="$(npm bin)/grpc_tools_node_protoc"
 PROTOC_GEN_TS_PATH="$(npm bin)/protoc-gen-ts"
 PROTOC_GEN_GRPC_PATH="$(npm bin)/grpc_tools_node_protoc_plugin"
-PACHYDERM_VERSION="v$(jq -r .proto ../../../version.json)"
+PACHYDERM_VERSION="$(jq -r .proto ../../../version.json)"
 GOGO_VERSION="v1.3.2"
 OUT_DIR="proto"
 

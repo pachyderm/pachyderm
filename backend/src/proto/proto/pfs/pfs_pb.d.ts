@@ -20,6 +20,11 @@ export class Repo extends jspb.Message {
     getType(): string;
     setType(value: string): Repo;
 
+    hasProject(): boolean;
+    clearProject(): void;
+    getProject(): Project | undefined;
+    setProject(value?: Project): Repo;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Repo.AsObject;
     static toObject(includeInstance: boolean, msg: Repo): Repo.AsObject;
@@ -34,6 +39,7 @@ export namespace Repo {
     export type AsObject = {
         name: string,
         type: string,
+        project?: Project.AsObject,
     }
 }
 
@@ -521,6 +527,52 @@ export namespace FileInfo {
     }
 }
 
+export class Project extends jspb.Message { 
+    getName(): string;
+    setName(value: string): Project;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Project.AsObject;
+    static toObject(includeInstance: boolean, msg: Project): Project.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: Project, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Project;
+    static deserializeBinaryFromReader(message: Project, reader: jspb.BinaryReader): Project;
+}
+
+export namespace Project {
+    export type AsObject = {
+        name: string,
+    }
+}
+
+export class ProjectInfo extends jspb.Message { 
+
+    hasProject(): boolean;
+    clearProject(): void;
+    getProject(): Project | undefined;
+    setProject(value?: Project): ProjectInfo;
+    getDescription(): string;
+    setDescription(value: string): ProjectInfo;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ProjectInfo.AsObject;
+    static toObject(includeInstance: boolean, msg: ProjectInfo): ProjectInfo.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ProjectInfo, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ProjectInfo;
+    static deserializeBinaryFromReader(message: ProjectInfo, reader: jspb.BinaryReader): ProjectInfo;
+}
+
+export namespace ProjectInfo {
+    export type AsObject = {
+        project?: Project.AsObject,
+        description: string,
+    }
+}
+
 export class CreateRepoRequest extends jspb.Message { 
 
     hasRepo(): boolean;
@@ -576,6 +628,10 @@ export namespace InspectRepoRequest {
 export class ListRepoRequest extends jspb.Message { 
     getType(): string;
     setType(value: string): ListRepoRequest;
+    clearProjectsList(): void;
+    getProjectsList(): Array<string>;
+    setProjectsList(value: Array<string>): ListRepoRequest;
+    addProjects(value: string, index?: number): string;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListRepoRequest.AsObject;
@@ -590,6 +646,7 @@ export class ListRepoRequest extends jspb.Message {
 export namespace ListRepoRequest {
     export type AsObject = {
         type: string,
+        projectsList: Array<string>,
     }
 }
 
@@ -1029,6 +1086,101 @@ export class DeleteBranchRequest extends jspb.Message {
 export namespace DeleteBranchRequest {
     export type AsObject = {
         branch?: Branch.AsObject,
+        force: boolean,
+    }
+}
+
+export class CreateProjectRequest extends jspb.Message { 
+
+    hasProject(): boolean;
+    clearProject(): void;
+    getProject(): Project | undefined;
+    setProject(value?: Project): CreateProjectRequest;
+    getDescription(): string;
+    setDescription(value: string): CreateProjectRequest;
+    getUpdate(): boolean;
+    setUpdate(value: boolean): CreateProjectRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CreateProjectRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: CreateProjectRequest): CreateProjectRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CreateProjectRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CreateProjectRequest;
+    static deserializeBinaryFromReader(message: CreateProjectRequest, reader: jspb.BinaryReader): CreateProjectRequest;
+}
+
+export namespace CreateProjectRequest {
+    export type AsObject = {
+        project?: Project.AsObject,
+        description: string,
+        update: boolean,
+    }
+}
+
+export class InspectProjectRequest extends jspb.Message { 
+
+    hasProject(): boolean;
+    clearProject(): void;
+    getProject(): Project | undefined;
+    setProject(value?: Project): InspectProjectRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): InspectProjectRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: InspectProjectRequest): InspectProjectRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: InspectProjectRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InspectProjectRequest;
+    static deserializeBinaryFromReader(message: InspectProjectRequest, reader: jspb.BinaryReader): InspectProjectRequest;
+}
+
+export namespace InspectProjectRequest {
+    export type AsObject = {
+        project?: Project.AsObject,
+    }
+}
+
+export class ListProjectRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ListProjectRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ListProjectRequest): ListProjectRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ListProjectRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ListProjectRequest;
+    static deserializeBinaryFromReader(message: ListProjectRequest, reader: jspb.BinaryReader): ListProjectRequest;
+}
+
+export namespace ListProjectRequest {
+    export type AsObject = {
+    }
+}
+
+export class DeleteProjectRequest extends jspb.Message { 
+
+    hasProject(): boolean;
+    clearProject(): void;
+    getProject(): Project | undefined;
+    setProject(value?: Project): DeleteProjectRequest;
+    getForce(): boolean;
+    setForce(value: boolean): DeleteProjectRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DeleteProjectRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: DeleteProjectRequest): DeleteProjectRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DeleteProjectRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DeleteProjectRequest;
+    static deserializeBinaryFromReader(message: DeleteProjectRequest, reader: jspb.BinaryReader): DeleteProjectRequest;
+}
+
+export namespace DeleteProjectRequest {
+    export type AsObject = {
+        project?: Project.AsObject,
         force: boolean,
     }
 }

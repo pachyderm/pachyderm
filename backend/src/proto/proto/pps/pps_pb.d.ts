@@ -283,6 +283,8 @@ export namespace Spout {
 }
 
 export class PFSInput extends jspb.Message { 
+    getProject(): string;
+    setProject(value: string): PFSInput;
     getName(): string;
     setName(value: string): PFSInput;
     getRepo(): string;
@@ -325,6 +327,7 @@ export class PFSInput extends jspb.Message {
 
 export namespace PFSInput {
     export type AsObject = {
+        project: string,
         name: string,
         repo: string,
         repoType: string,
@@ -344,6 +347,8 @@ export namespace PFSInput {
 export class CronInput extends jspb.Message { 
     getName(): string;
     setName(value: string): CronInput;
+    getProject(): string;
+    setProject(value: string): CronInput;
     getRepo(): string;
     setRepo(value: string): CronInput;
     getCommit(): string;
@@ -371,6 +376,7 @@ export class CronInput extends jspb.Message {
 export namespace CronInput {
     export type AsObject = {
         name: string,
+        project: string,
         repo: string,
         commit: string,
         spec: string,
@@ -1061,6 +1067,11 @@ export namespace Worker {
 }
 
 export class Pipeline extends jspb.Message { 
+
+    hasProject(): boolean;
+    clearProject(): void;
+    getProject(): pfs_pfs_pb.Project | undefined;
+    setProject(value?: pfs_pfs_pb.Project): Pipeline;
     getName(): string;
     setName(value: string): Pipeline;
 
@@ -1076,6 +1087,7 @@ export class Pipeline extends jspb.Message {
 
 export namespace Pipeline {
     export type AsObject = {
+        project?: pfs_pfs_pb.Project.AsObject,
         name: string,
     }
 }
@@ -1381,6 +1393,10 @@ export namespace InspectJobSetRequest {
 export class ListJobSetRequest extends jspb.Message { 
     getDetails(): boolean;
     setDetails(value: boolean): ListJobSetRequest;
+    clearProjectsList(): void;
+    getProjectsList(): Array<string>;
+    setProjectsList(value: Array<string>): ListJobSetRequest;
+    addProjects(value: string, index?: number): string;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListJobSetRequest.AsObject;
@@ -1395,6 +1411,7 @@ export class ListJobSetRequest extends jspb.Message {
 export namespace ListJobSetRequest {
     export type AsObject = {
         details: boolean,
+        projectsList: Array<string>,
     }
 }
 
@@ -1428,6 +1445,10 @@ export namespace InspectJobRequest {
 }
 
 export class ListJobRequest extends jspb.Message { 
+    clearProjectsList(): void;
+    getProjectsList(): Array<string>;
+    setProjectsList(value: Array<string>): ListJobRequest;
+    addProjects(value: string, index?: number): string;
 
     hasPipeline(): boolean;
     clearPipeline(): void;
@@ -1456,6 +1477,7 @@ export class ListJobRequest extends jspb.Message {
 
 export namespace ListJobRequest {
     export type AsObject = {
+        projectsList: Array<string>,
         pipeline?: Pipeline.AsObject,
         inputCommitList: Array<pfs_pfs_pb.Commit.AsObject>,
         history: number,
@@ -1651,6 +1673,8 @@ export namespace GetLogsRequest {
 }
 
 export class LogMessage extends jspb.Message { 
+    getProjectName(): string;
+    setProjectName(value: string): LogMessage;
     getPipelineName(): string;
     setPipelineName(value: string): LogMessage;
     getJobId(): string;
@@ -1687,6 +1711,7 @@ export class LogMessage extends jspb.Message {
 
 export namespace LogMessage {
     export type AsObject = {
+        projectName: string,
         pipelineName: string,
         jobId: string,
         workerId: string,
