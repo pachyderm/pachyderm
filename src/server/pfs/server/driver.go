@@ -598,16 +598,9 @@ func (d *driver) startCommit(
 	newCommitInfo.DirectProvenance = branchInfo.DirectProvenance
 
 	// check if this is happening in a spout pipeline, and alias the spec commit
-	spoutName, ok1 := os.LookupEnv(client.PPSPipelineNameEnv)
-	spoutCommit, ok2 := os.LookupEnv("PPS_SPEC_COMMIT")
-	if ok1 && ok2 {
-		specBranch := client.NewSystemProjectRepo(branch.Repo.Project.GetName(), spoutName, pfs.SpecRepoType).NewBranch("master")
-		specCommit := specBranch.NewCommit(spoutCommit)
-		log.Infof("Adding spout spec commit to current commitset: %s", specCommit)
-		if _, err := d.aliasCommit(txnCtx, specCommit, specBranch); err != nil {
-			return nil, err
-		}
-	} else if len(branchInfo.Provenance) > 0 {
+	_, ok1 := os.LookupEnv(client.PPSPipelineNameEnv)
+	_, ok2 := os.LookupEnv("PPS_SPEC_COMMIT")
+	if !(ok1 && ok2) && len(branchInfo.Provenance) > 0 {
 		// Otherwise, we don't allow user code to start commits on output branches
 		return nil, pfsserver.ErrCommitOnOutputBranch{Branch: branch}
 	}
@@ -664,101 +657,6 @@ func (d *driver) resolveAlias(txnCtx *txncontext.TransactionContext, source *pfs
 		}
 	}
 	return baseInfo, nil
-}
-
-func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.Commit, branch *pfs.Branch) (*pfs.CommitInfo, error) {
-	// It is considered an error if the CommitSet attempts to use two different
-	// commits from the same branch.  Therefore, if there is already a row for the
-	// given branch and it doesn't reference the same parent commit, we fail.  In
-	// the future it might be useful to be able to start and finish multiple
-	// commits on the same branch within a transaction, but this should have the
-	// same end result as starting and finshing a single commit on that branch, so
-	// there isn't a clear use case, so it is treated like an error for now to
-	// simplify PFS logic.
-	commit := &pfs.Commit{
-		Branch: proto.Clone(branch).(*pfs.Branch),
-		ID:     txnCtx.CommitSetID,
-		Repo:   proto.Clone(branch.Repo).(*pfs.Repo),
-	}
-
-	// Update the branch head to point to the alias
-	// TODO(global ids): we likely want this behavior to be optional, like when
-	// doing a 'run pipeline' with explicit provenance (to make off-head commits
-	// in the branch).
-	branchInfo := &pfs.BranchInfo{}
-	if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(branch, branchInfo); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-
-	// Check if the alias already exists
-	commitInfo := &pfs.CommitInfo{}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(commit, commitInfo); err != nil {
-		if !col.IsErrNotFound(err) {
-			return nil, errors.EnsureStack(err)
-		}
-		// No commit already exists, create a new one
-		// First load the parent commit and update it to point to the child
-		parentCommitInfo := &pfs.CommitInfo{}
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(parent, parentCommitInfo, func() error {
-			parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, commit)
-			return nil
-		}); err != nil {
-			if col.IsErrNotFound(err) {
-				return nil, pfsserver.ErrCommitNotFound{Commit: parent}
-			}
-			return nil, errors.EnsureStack(err)
-		}
-
-		commitInfo = &pfs.CommitInfo{
-			Commit:           commit,
-			Origin:           &pfs.CommitOrigin{Kind: pfs.OriginKind_ALIAS},
-			ParentCommit:     parent,
-			ChildCommits:     []*pfs.Commit{},
-			Started:          txnCtx.Timestamp,
-			DirectProvenance: branchInfo.DirectProvenance,
-		}
-		if parentCommitInfo.Finishing != nil {
-			commitInfo.Finishing = txnCtx.Timestamp
-			if parentCommitInfo.Finished != nil {
-				commitInfo.Finished = txnCtx.Timestamp
-				commitInfo.Details = parentCommitInfo.Details
-				if parentCommitInfo.Error == "" {
-					total, err := d.commitStore.GetTotalFileSetTx(txnCtx.SqlTx, parentCommitInfo.Commit)
-					if err != nil {
-						return nil, errors.EnsureStack(err)
-					}
-					if err := d.commitStore.SetTotalFileSetTx(txnCtx.SqlTx, commitInfo.Commit, *total); err != nil {
-						return nil, errors.EnsureStack(err)
-					}
-				}
-			}
-			commitInfo.Error = parentCommitInfo.Error
-		}
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(commitInfo.Commit, commitInfo); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-	} else {
-		// A commit at the current transaction's ID already exists, make sure it is already compatible
-		parentRoot, err := d.resolveAlias(txnCtx, parent)
-		if err != nil {
-			return nil, err
-		}
-		prevRoot, err := d.resolveAlias(txnCtx, commitInfo.Commit)
-		if err != nil {
-			return nil, err
-		}
-		if !proto.Equal(parentRoot.Commit, prevRoot.Commit) {
-			return nil, errors.EnsureStack(pfsserver.ErrInconsistentCommit{Commit: parent})
-		}
-	}
-
-	// Update the branch head
-	branchInfo.Head = commit
-	if err := d.branches.ReadWrite(txnCtx.SqlTx).Put(branch, branchInfo); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-
-	return commitInfo, nil
 }
 
 func (d *driver) repoSize(ctx context.Context, repo *pfs.Repo) (int64, error) {
