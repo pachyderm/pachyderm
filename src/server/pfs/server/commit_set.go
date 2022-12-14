@@ -14,9 +14,8 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
-// returns CommitInfos in a commit set. A commit set will include all the commits that were created across repos for a run,
-// along with all of the commits that the run's commit's rely on.
-// The returned commits will be sorted topologically.
+// returns CommitInfos in a commit set, topologically sorted. A commit set will include all the commits that were created across repos for a run,
+// along with all of the commits that the run's commit's rely on (present in previous commit sets).
 func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, filterPassiveCommits bool) ([]*pfs.CommitInfo, error) {
 	var commitInfos []*pfs.CommitInfo
 	commitInfo := &pfs.CommitInfo{}
@@ -24,7 +23,6 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	if err != nil {
 		return nil, err
 	}
-	// TODO(acohen4): can there be multiple commits from the same repo in commitset subvenance?
 	for _, c := range cs {
 		ci := &pfs.CommitInfo{}
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(c, ci); err != nil {
@@ -39,13 +37,14 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 		return nil, err
 	}
 	totalCommits := len(commitInfos)
-	list := make([]*pfs.CommitInfo, 0)
+	result := make([]*pfs.CommitInfo, 0)
 	collected := make(map[string]struct{})
 	collectCount := 0
 	// O(n^2) sorting of commits
 	//
-	// FIXME acohen4: it's possible for a commit to have two branches from the same repo in its provenance.
+	// TODO(acohen4) FIXME: it's possible for a commit to have two branches from the same repo in its provenance.
 	// this must be keyed by branch
+	// COULD WE instead sort by created time? DOES CREATED TIME COMPLETELY IMPLY TOPOLOGICAL ORDERING?
 	for collectCount < totalCommits {
 		for i, ci := range commitInfos {
 			satisfied := true
@@ -61,7 +60,7 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 				collectCount++
 				collected[pfsdb.RepoKey(ci.Commit.Repo)] = struct{}{}
 				if !filterPassiveCommits || ci.Commit.ID == commitset.ID {
-					list = append(list, ci)
+					result = append(result, ci)
 				}
 				commitInfos[i] = commitInfos[len(commitInfos)-1]
 				commitInfos = commitInfos[:len(commitInfos)-1]
@@ -69,7 +68,7 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 			}
 		}
 	}
-	return list, nil
+	return result, nil
 }
 
 func (d *driver) inspectCommitSetImmediate(ctx context.Context, commitset *pfs.CommitSet, cb func(*pfs.CommitInfo) error) error {
@@ -104,31 +103,25 @@ func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet,
 
 	}
 	unfinishedCommits := make([]*pfs.Commit, 0)
-	// The commits in this CommitSet may change if any triggers or CreateBranches
-	// add more, so reload it after each wait.
-	// TODO(acohen4): can we scrap this?
-	repeat := true
-	for repeat {
-		repeat = false
-		if err := d.inspectCommitSetImmediate(ctx, commitset, func(ci *pfs.CommitInfo) error {
-			if ci.Finished != nil {
-				return send(ci)
-			}
-			unfinishedCommits = append(unfinishedCommits, proto.Clone(ci.Commit).(*pfs.Commit))
-			repeat = true
-			return nil
-		}); err != nil {
+	// NOTE: before 2.5, a triggered commits would be included as part of the same commit set as the triggering commit set,
+	// so we would wait for all of the current commit set to finish, then check if new previously unknown commits are added due to triggers.
+	if err := d.inspectCommitSetImmediate(ctx, commitset, func(ci *pfs.CommitInfo) error {
+		if ci.Finished != nil {
+			return send(ci)
+		}
+		unfinishedCommits = append(unfinishedCommits, proto.Clone(ci.Commit).(*pfs.Commit))
+		return nil
+	}); err != nil {
+		return err
+	}
+	for _, uc := range unfinishedCommits {
+		// TODO: make a dedicated call just for the blocking part, inspectCommit is a little heavyweight?
+		ci, err := d.inspectCommit(ctx, uc, pfs.CommitState_FINISHED)
+		if err != nil {
 			return err
 		}
-		for _, uc := range unfinishedCommits {
-			// TODO: make a dedicated call just for the blocking part, inspectCommit is a little heavyweight?
-			ci, err := d.inspectCommit(ctx, uc, pfs.CommitState_FINISHED)
-			if err != nil {
-				return err
-			}
-			if err := send(ci); err != nil {
-				return err
-			}
+		if err := send(ci); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -137,7 +130,6 @@ func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet,
 func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) error) error {
 	// Track the commitsets we've already processed
 	seen := map[string]struct{}{}
-
 	// Return commitsets by the newest commit in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
 	commitInfo := &pfs.CommitInfo{}
@@ -162,6 +154,7 @@ func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) 
 	return errors.EnsureStack(err)
 }
 
+// oldestAncestor returns the oldest ancestor commit of 'startCommit' leveraging the pool of known commits in the 'skipSet'
 func oldestAncestor(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.CommitInfo) *pfs.Commit {
 	oldest := traverseToEdges(startCommit, skipSet, func(commitInfo *pfs.CommitInfo) []*pfs.Commit {
 		return []*pfs.Commit{commitInfo.ParentCommit}
@@ -173,7 +166,7 @@ func oldestAncestor(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.CommitI
 }
 
 // traverseToEdges does a breadth first search using a traverse function.
-// returns all of the commits that
+// returns all of the commits that can not continue traversal within the skip set, hence returning the known 'leaves' of the skipSet graph
 func traverseToEdges(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.CommitInfo, traverse func(*pfs.CommitInfo) []*pfs.Commit) []*pfs.Commit {
 	cs := []*pfs.Commit{startCommit.Commit}
 	result := make([]*pfs.Commit, 0)
@@ -404,7 +397,7 @@ func (d *driver) dropCommitSets(txnCtx *txncontext.TransactionContext, commitset
 		if ci.Commit.Branch.Repo.Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {
 			return errors.Errorf("cannot squash commit %s because it updated a pipeline", ci.Commit)
 		}
-		// FIXME ALON
+		// TODO(acohen4): can drop commits & squash just be modeled the same for now?
 		// if len(ci.ChildCommits) > 0 {
 		// 	return &pfsserver.ErrDropWithChildren{Commit: ci.Commit}
 		// }
