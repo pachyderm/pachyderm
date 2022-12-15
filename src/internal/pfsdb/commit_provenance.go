@@ -139,12 +139,7 @@ func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commitKey string) error {
 	}
 	stmt := `DELETE FROM pfs.commits WHERE int_id = $1;`
 	_, err = tx.ExecContext(ctx, stmt, id)
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	stmt = `DELETE FROM pfs.commit_provenance WHERE from_id = $1 OR to_id = $1;`
-	_, err = tx.ExecContext(ctx, stmt, id)
-	return errors.EnsureStack(err)
+	return errors.Wrapf(err, "delete from pfs.commits")
 }
 
 func getCommitTableID(ctx context.Context, tx *pachsql.Tx, commitKey string) (int, error) {
@@ -223,9 +218,17 @@ var schema = `
 	);
 
 	CREATE TABLE pfs.commit_provenance (
-		from_id INT8 NOT NULL,
-		to_id INT8 NOT NULL,
-		PRIMARY KEY (from_id, to_id)
+		from_id BIGSERIAL NOT NULL,
+		to_id BIGSERIAL NOT NULL,
+		PRIMARY KEY (from_id, to_id),
+                CONSTRAINT fk_from_commit
+                  FOREIGN KEY(from_id) 
+	          REFERENCES pfs.commits(int_id)
+	          ON DELETE CASCADE,
+                CONSTRAINT fk_to_commit
+                  FOREIGN KEY(to_id) 
+	          REFERENCES pfs.commits(int_id)
+	          ON DELETE CASCADE
 	);
 
 	CREATE INDEX ON pfs.commit_provenance (
