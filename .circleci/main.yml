@@ -842,7 +842,7 @@ jobs:
 
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+          key: core-pip3.10-cache-v1-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -851,7 +851,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+          key: core-pip3.10-cache-v1-{{ checksum "ci-requirements.txt" }}
           paths:
             - "venv"
 
@@ -891,7 +891,7 @@ jobs:
           at: .
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+          key: core-pip3.10-cache-v1-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -900,7 +900,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+          key: core-pip3.10-cache-v1-{{ checksum "ci-requirements.txt" }}
           paths:
             - "venv"
       - run:
@@ -926,7 +926,7 @@ jobs:
           at: .
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+          key: core-pip3.10-cache-v1-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -935,7 +935,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+          key: core-pip3.10-cache-v1-{{ checksum "ci-requirements.txt" }}
           paths:
             - "venv"
       - run:
@@ -995,87 +995,6 @@ jobs:
       - run:
           name: Docker push
           command: docker push pachyderm/notebooks-user:$CIRCLE_TAG
-
-  # Needs the following Env Vars to be setup in the project:
-  # $GCLOUD_SERVICE_KEY_JUPYTER - with permissions to the google cloud project where the kubernetes cluster resides
-  # $AUTH0_CLIENT_ID - Used to authenticate jupyter with oauth
-  # $AUTH0_CLIENT_SECRET
-  # $AUTH0_DOMAIN the tenant subdomain without .auth0.com
-  # $PULUMI_ACCESS_TOKEN
-  # GH_ACCESS_TOKEN - build not personal access token to github with repo permissions (see onecomment)
-  jupyter-extension-preview:
-    parameters:
-      gcp-project:
-        type: string
-      gcp-compute-zone:
-        type: string
-      gcloud-sdk-version:
-        type: string
-      pulumi-version:
-        type: string
-    docker:
-      - image: cimg/go:1.17.5
-    working_directory: ~/project/jupyter-extension
-    steps:
-      - checkout:
-          path: ~/project
-      - run:
-          name: Set up pulumi
-          command: |
-            wget https://get.pulumi.com/releases/sdk/pulumi-<<parameters.pulumi-version>>-linux-x64.tar.gz
-            tar xvf pulumi-<<parameters.pulumi-version>>-linux-x64.tar.gz
-            # Add to PATH
-            echo 'export PATH=${PWD}/pulumi:$PATH' >> $BASH_ENV
-            source $BASH_ENV
-            pulumi login --non-interactive
-      - run:
-          name: Setup gcloud
-          command: |
-            # NOTE: Needed to enable cloud resource manager in the project
-            # https://console.cloud.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=pulumi-ci-334619
-            cd ~/
-            curl -Ss --retry 5 https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-<<parameters.gcloud-sdk-version>>-linux-x86_64.tar.gz | tar xz
-
-            ./google-cloud-sdk/install.sh -q
-            echo 'source ~/google-cloud-sdk/path.bash.inc' >> $BASH_ENV
-            source $BASH_ENV
-
-            # Initialize gcloud CLI
-            gcloud --quiet config set core/disable_usage_reporting true
-            gcloud --quiet config set component_manager/disable_update_check true
-            echo $GCLOUD_SERVICE_KEY_JUPYTER | gcloud auth activate-service-account --key-file=-
-            gcloud --quiet config set project <<parameters.gcp-project>>
-            gcloud --quiet config set compute/zone <<parameters.gcp-compute-zone>>
-
-      - run:
-          name: Preview Stack
-          command: |
-            cd infra
-            pulumi stack select -c $CIRCLE_BRANCH --non-interactive
-            pulumi config set gcp:zone <<parameters.gcp-compute-zone>>
-            pulumi config set gcp:project <<parameters.gcp-project>>
-            pulumi config set sha $CIRCLE_SHA1
-            pulumi config set branch $CIRCLE_BRANCH
-            pulumi config set --secret client_id $AUTH0_CLIENT_ID
-            pulumi config set --secret client_secret $AUTH0_CLIENT_SECRET
-            pulumi config set --secret auth0_domain $AUTH0_DOMAIN
-            # pulumi preview
-            pulumi up --yes
-            # pulumi destroy --yes
-      - run:
-          name: Comment on PR
-          command: |
-            wget https://github.com/chainlink/onecomment/releases/download/v0.2.0/onecomment_0.2.0_Linux_x86_64.tar.gz
-            tar xvf onecomment_0.2.0_Linux_x86_64.tar.gz
-
-            # Setup GH token env var in circle project
-            ./onecomment -pr-id ${CIRCLE_PULL_REQUEST##*/} \
-            -owner ${CIRCLE_PROJECT_USERNAME} -repo ${CIRCLE_PROJECT_REPONAME} \
-            -includes '<!-- Created by one-comment -->' \
-            -message "PR Preview available at [https://jh-$CIRCLE_BRANCH.clusters-ci.pachyderm.io](https://jh-$CIRCLE_BRANCH.clusters-ci.pachyderm.io)
-            Enter any username to login (Each user will be assigned a new workspace)
-            You may need to shutdown and relaunch your Jupyterlab instance if new code has been pushed since you last launched it.
-            You can connect to pach by entering grpc://pachd-peer:30653 into the extension connection screen."
 
   gcp-prerelease-testing:
     resource_class: large
@@ -1320,16 +1239,6 @@ workflows:
             - build-pachctl-bin
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
-      - jupyter-extension-preview:
-          gcp-project: pulumi-ci-334619
-          gcp-compute-zone: us-east1-b
-          gcloud-sdk-version: "363.0.0"
-          pulumi-version: v3.22.1
-          requires:
-            - jupyter-extension-docker-build
-          filters:
-            branches:
-              ignore: master
 
   release:
     jobs:
