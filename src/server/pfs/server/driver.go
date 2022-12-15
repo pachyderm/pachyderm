@@ -158,11 +158,17 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		repo.Type = pfs.UserRepoType
 	}
 
+	// Check that the repo’s project exists; if not, return an error.
+	var project pfs.ProjectInfo
+	if err = d.projects.ReadWrite(txnCtx.SqlTx).Get(repo.Project, &project); err != nil {
+		return errors.Wrapf(err, "cannot find project %q", repo.Project)
+	}
+
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 
-	// check if 'repo' already exists. If so, return that error. Otherwise,
+	// Check if 'repo' already exists. If so, return that error.  Otherwise,
 	// proceed with ACL creation (avoids awkward "access denied" error when
-	// calling "createRepo" on a repo that already exists)
+	// calling "createRepo" on a repo that already exists).
 	var existingRepoInfo pfs.RepoInfo
 	err = repos.Get(repo, &existingRepoInfo)
 	if err != nil && !col.IsErrNotFound(err) {
