@@ -23,7 +23,7 @@ describe('Project', () => {
 
     // wait for jobs to finish to reduce pachd strain
     cy.findByText('Jobs').click();
-    cy.waitUntil(() => cy.findAllByText('Success', {timeout: 30000}).then(jobs => jobs.length === 2), {timeout: 30000});
+    cy.findAllByText('Success', {timeout: 30000}).should('have.length', 2)
     cy.findByLabelText('Close').click();
 
     cy.findByText('images').click();
@@ -51,7 +51,7 @@ describe('Project', () => {
     cy.findByTestId('ModalFooter__confirm').click();
     cy.findByTestId('ModalFooter__confirm').should('not.exist');
     cy.get("#GROUP_edges").should('not.exist');
-    cy.waitUntil(() => cy.url().should('not.contain', '/pipelines'));
+    cy.url().should('not.contain', '/pipelines')
 
     cy.findByText('images').click({force: true});
     cy.findByTestId('DeleteRepoButton__link').should('not.be.disabled');
