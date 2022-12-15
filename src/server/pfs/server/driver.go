@@ -645,21 +645,6 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	return errors.EnsureStack(d.commits.ReadWrite(txnCtx.SqlTx).Put(commitInfo.Commit, commitInfo))
 }
 
-// resolveAlias finds the first ancestor of the source commit which is not an alias (possibly source itself)
-func (d *driver) resolveAlias(txnCtx *txncontext.TransactionContext, source *pfs.Commit) (*pfs.CommitInfo, error) {
-	baseInfo, err := d.resolveCommit(txnCtx.SqlTx, proto.Clone(source).(*pfs.Commit))
-	if err != nil {
-		return nil, err
-	}
-
-	for baseInfo.Origin.Kind == pfs.OriginKind_ALIAS {
-		if baseInfo, err = d.resolveCommit(txnCtx.SqlTx, baseInfo.ParentCommit); err != nil {
-			return nil, err
-		}
-	}
-	return baseInfo, nil
-}
-
 func (d *driver) repoSize(ctx context.Context, repo *pfs.Repo) (int64, error) {
 	repoInfo := new(pfs.RepoInfo)
 	if err := d.repos.ReadOnly(ctx).Get(repo, repoInfo); err != nil {

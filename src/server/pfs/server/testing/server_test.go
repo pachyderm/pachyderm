@@ -1665,7 +1665,16 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, bHead.ParentCommit)
 		// Now, dropping the head of A and B and C should leave each of them with just an empty head commit
-		_, err = env.PFSServer.DropCommitSets(context.TODO(), &pfs.DropCommitSetsRequest{CommitSets: []*pfs.CommitSet{&pfs.CommitSet{ID: aHead.Commit.ID}, &pfs.CommitSet{ID: cHead.Commit.ID}}})
+		_, err = env.PFSServer.DropCommitSets(context.TODO(), &pfs.DropCommitSetsRequest{
+			CommitSets: []*pfs.CommitSet{
+				&pfs.CommitSet{
+					ID: aHead.Commit.ID,
+				},
+				&pfs.CommitSet{
+					ID: cHead.Commit.ID,
+				},
+			},
+		})
 		require.NoError(t, err)
 		cHeadNew, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "output", "C", "")
 		require.NoError(t, err)
