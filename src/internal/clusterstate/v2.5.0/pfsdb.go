@@ -11,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
@@ -371,7 +372,7 @@ func updateOldBranch(ctx context.Context, tx *pachsql.Tx, b *pfs.Branch, f func(
 	return updateBranchInfo(ctx, tx, k, bi)
 }
 
-func deleteCommit(ctx context.Context, tx *pachsql.Tx, ci *pfs.CommitInfo, ancestor *pfs.Commit) error {
+func deleteCommit(ctx context.Context, tx *pachsql.Tx, ci *pfs.CommitInfo, ancestor *pfs.Commit, restoreLinks bool) error {
 	key := commitKey(ci.Commit)
 	cId, err := getCommitIntId(ctx, tx, ci.Commit)
 	if err != nil {
@@ -400,17 +401,19 @@ func deleteCommit(ctx context.Context, tx *pachsql.Tx, ci *pfs.CommitInfo, ances
 	if _, err = tx.ExecContext(ctx, `DELETE FROM pfs.commit_totals WHERE commit_id=$1;`, key); err != nil {
 		return errors.Wrapf(err, "delete from pfs.commit_totals for commit_id %q", key)
 	}
-	// update parent and child commit links
-	if err := updateOldCommit(ctx, tx, ci.ParentCommit, func(parent *pfs.CommitInfo) {
-		parent.ChildCommits = append(parent.ChildCommits, ci.ChildCommits...)
-	}); err != nil {
-		return errors.Wrapf(err, "update parent commit %q", commitKey(ci.ParentCommit))
-	}
-	for _, c := range ci.ChildCommits {
-		if err := updateOldCommit(ctx, tx, c, func(child *pfs.CommitInfo) {
-			child.ParentCommit = ci.ParentCommit
+	if restoreLinks {
+		// update parent and child commit links
+		if err := updateOldCommit(ctx, tx, ci.ParentCommit, func(parent *pfs.CommitInfo) {
+			parent.ChildCommits = append(parent.ChildCommits, ci.ChildCommits...)
 		}); err != nil {
-			return errors.Wrapf(err, "update child commit %q", c)
+			return errors.Wrapf(err, "update parent commit %q", commitKey(ci.ParentCommit))
+		}
+		for _, c := range ci.ChildCommits {
+			if err := updateOldCommit(ctx, tx, c, func(child *pfs.CommitInfo) {
+				child.ParentCommit = ci.ParentCommit
+			}); err != nil {
+				return errors.Wrapf(err, "update child commit %q", pfsdb.CommitKey(c))
+			}
 		}
 	}
 	return nil
@@ -467,17 +470,17 @@ func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	realAncestors := make(map[string]*pfs.CommitInfo)
 	childToNewParents := make(map[*pfs.Commit]*pfs.Commit)
 	for _, ci := range deleteCommits {
-		ans := oldestAncestor(ci, deleteCommits)
-		if _, ok := realAncestors[commitKey(ans)]; !ok {
-			ci, err := getCommitInfo(ctx, tx, commitKey(ans))
+		anctsr := oldestAncestor(ci, deleteCommits)
+		if _, ok := realAncestors[commitKey(anctsr)]; !ok {
+			ci, err := getCommitInfo(ctx, tx, commitKey(anctsr))
 			if err != nil {
-				return errors.Wrapf(err, "get commit info with key %q", commitKey(ans))
+				return errors.Wrapf(err, "get commit info with key %q", commitKey(anctsr))
 			}
-			realAncestors[commitKey(ans)] = ci
+			realAncestors[commitKey(anctsr)] = ci
 		}
-		ansCi := realAncestors[commitKey(ans)]
+		ancstrInfo := realAncestors[commitKey(anctsr)]
 		childSet := make(map[string]*pfs.Commit)
-		for _, ch := range ansCi.ChildCommits {
+		for _, ch := range ancstrInfo.ChildCommits {
 			childSet[commitKey(ch)] = ch
 		}
 		delete(childSet, commitKey(ci.Commit))
@@ -486,11 +489,11 @@ func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		})
 		for _, nc := range newChildren {
 			childSet[commitKey(nc)] = nc
-			childToNewParents[nc] = ans
+			childToNewParents[nc] = anctsr
 		}
-		ansCi.ChildCommits = nil
+		ancstrInfo.ChildCommits = nil
 		for _, c := range childSet {
-			ansCi.ChildCommits = append(ansCi.ChildCommits, c)
+			ancstrInfo.ChildCommits = append(ancstrInfo.ChildCommits, c)
 		}
 	}
 	for _, ci := range realAncestors {
@@ -507,9 +510,10 @@ func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	// now write out realAncestors and childToNewParents
 	for _, ci := range deleteCommits {
-		realAncestor := oldestAncestor(ci, deleteCommits)
-		if err := deleteCommit(ctx, tx, ci, realAncestor); err != nil {
-			return errors.Wrapf(err, "delete real ancestor %q", commitKey(ci.Commit))
+		ancstr := oldestAncestor(ci, deleteCommits)
+		// restoreLinks=false because we're already resetting parent/children relationships above
+		if err := deleteCommit(ctx, tx, ci, ancstr, false /* restoreLinks */); err != nil {
+			return errors.Wrapf(err, "delete real commit %q with ancestor", commitKey(ci.Commit), commitKey(ancstr))
 		}
 	}
 	// re-point branches if necessary
@@ -667,7 +671,7 @@ func migrateToBranchlessCommits(ctx context.Context, tx *pachsql.Tx) error {
 					return errors.Wrapf(err, "add commit provenance for %q", commitKey(ci.ParentCommit))
 				}
 			}
-			if err := deleteCommit(ctx, tx, ci, ci.Commit); err != nil {
+			if err := deleteCommit(ctx, tx, ci, ci.ParentCommit, true /* restoreLinks */); err != nil {
 				return errors.Wrapf(err, "delete commit %q", commitKey(ci.Commit))
 			}
 			// if ci was the head of a branch, point the head to ci.Parent
