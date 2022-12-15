@@ -247,7 +247,10 @@ func (a *apiServer) InspectCommitSet(request *pfs.InspectCommitSetRequest, serve
 
 // ListCommitSet implements the protobuf pfs.ListCommitSet RPC
 func (a *apiServer) ListCommitSet(request *pfs.ListCommitSetRequest, serv pfs.API_ListCommitSetServer) (retErr error) {
-	return a.driver.listCommitSet(serv.Context(), func(commitSetInfo *pfs.CommitSetInfo) error {
+	if request.Project == nil {
+		request.Project = &pfs.Project{Name: pfs.DefaultProjectName}
+	}
+	return a.driver.listCommitSet(serv.Context(), request.Project, func(commitSetInfo *pfs.CommitSetInfo) error {
 		return errors.EnsureStack(serv.Send(commitSetInfo))
 	})
 }
