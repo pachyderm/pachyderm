@@ -251,6 +251,7 @@ message InspectCommitSetRequest {
 }
 
 message ListCommitSetRequest {
+  Project project = 1;
 }
 
 message SquashCommitSetRequest {
