@@ -794,9 +794,6 @@ func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 		}
 		if s.env.Config().LokiHost != "" {
 			if err := s.forEachWorkerLoki(ctx, pipelineInfo, func(pod string) error {
-				// Loki requests can hang if the size of the log lines is too big, so we set a timeout
-				ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
-				defer cancel()
 				workerPrefix := join(podPrefix, pod)
 				if len(prefix) > 0 {
 					workerPrefix = join(prefix[0], workerPrefix)
@@ -876,7 +873,7 @@ func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.P
 // Loki seems to accept.
 const (
 	maxLogs       = 30000
-	serverMaxLogs = 5000
+	serverMaxLogs = 1000
 )
 
 type lokiLog struct {
@@ -905,10 +902,17 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 	start := time.Now().Add(-30 * 24 * time.Hour) // 30 days.  (Loki maximum range is 30 days + 1 hour.)
 
 	for numLogs := 0; (end.IsZero() || start.Before(end)) && numLogs < maxLogs; {
-		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, end, "BACKWARD", 0, 0, true)
+		// Loki requests can hang if the size of the log lines is too big
+		ctx, cancel := context.WithTimeout(ctx, time.Minute)
+		defer cancel()
+		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, end, "BACKWARD", 0 /* step */, 0 /* interval */, true /* quiet */)
 		if err != nil {
 			// Note: the error from QueryRange has a stack.
-			return nil, errors.Errorf("query range (query=%v, maxLogs=%v, start=%v, end=%v): %+v", queryStr, maxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
+			if errors.Is(err, context.DeadlineExceeded) {
+				log.Debugf("query range timed out (query=%v, limit=%v, start=%v, end=%v): %v", queryStr, serverMaxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
+				return result, nil
+			}
+			return nil, errors.Errorf("query range (query=%v, limit=%v, start=%v, end=%v): %+v", queryStr, serverMaxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
 		}
 
 		streams, ok := resp.Data.Result.(loki.Streams)
@@ -940,6 +944,7 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 		if readThisIteration == 0 {
 			break
 		}
+		cancel()
 	}
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].Entry.Timestamp.Before(result[j].Entry.Timestamp)
