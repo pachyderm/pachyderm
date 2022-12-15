@@ -320,6 +320,7 @@ func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContex
 	}
 	return nil
 }
+
 func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) error {
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 	repoInfo := &pfs.RepoInfo{}
@@ -777,11 +778,10 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			}
 			if multiParents {
 				return pfsserver.ErrPropagateMultipleCommitsInRepo{
-					Repo:            ci.Commit.Repo,
-					PreviousHead:    ci.ParentCommit,
-					InconsisentHead: newCommitInfo.ParentCommit,
-					CommitInfo:      ci,
-					ID:              txnCtx.CommitSetID,
+					Repo:       ci.Commit.Repo,
+					FirstHead:  ci.ParentCommit,
+					SecondHead: newCommitInfo.ParentCommit,
+					ID:         txnCtx.CommitSetID,
 				}
 			}
 		}
@@ -1352,7 +1352,7 @@ func (d *driver) computeBranchProvenance(txnCtx *txncontext.TransactionContext, 
 			}
 		}
 	}
-	// add branchInfo and it's subvenance to the subvenance of all of its provenance branches
+	// add branchInfo and its subvenance to the subvenance of all of its provenance branches
 	for _, p := range branchInfo.Provenance {
 		pbi, err := getBranchInfo(p)
 		if err != nil {
@@ -1458,7 +1458,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		}
 		commit = ci.Commit
 	}
-	// Retrieve the current version of this branch and set it's head if specified
+	// retrieve the current version of this branch and set its head if specified
 	var oldProvenance []*pfs.Branch
 	branchInfo := &pfs.BranchInfo{}
 	propagate := false
@@ -1495,8 +1495,8 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}); err != nil {
 		return errors.EnsureStack(err)
 	}
-	// Update the total provenance of this branch and all of its subvenant branches
-	// loads all branches in the complete closure once and saves all of them
+	// update the total provenance of this branch and all of its subvenant branches.
+	// load all branches in the complete closure once and saves all of them.
 	if err := d.computeBranchProvenance(txnCtx, branchInfo, oldProvenance); err != nil {
 		return err
 	}
@@ -1635,7 +1635,7 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		if col.IsErrNotFound(err) {
 			return nil
 		}
-		return errors.Wrapf(err, "branches.Get")
+		return errors.Wrapf(err, "get branch %q", pfsdb.BranchKey(branch))
 	}
 	if !force {
 		if len(branchInfo.Subvenance) > 0 {

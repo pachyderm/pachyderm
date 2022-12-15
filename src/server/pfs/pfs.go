@@ -153,14 +153,12 @@ type ErrDropWithChildren struct {
 	Commit *pfs.Commit
 }
 
+// ErrPropagateMultipleCommitsInRepo represents the error where a commit is attempted to propagate off of two heads in the same repo
 type ErrPropagateMultipleCommitsInRepo struct {
-	Repo            *pfs.Repo
-	PreviousHead    *pfs.Commit
-	InconsisentHead *pfs.Commit
-	Branches        []*pfs.Branch
-	BranchHeads     []*pfs.Commit
-	CommitInfo      *pfs.CommitInfo
-	ID              string
+	Repo       *pfs.Repo
+	FirstHead  *pfs.Commit
+	SecondHead *pfs.Commit
+	ID         string
 }
 
 const GetFileTARSuggestion = "Use GetFileTAR instead"
@@ -283,11 +281,11 @@ func (e ErrBaseCommitNotFinished) Error() string {
 }
 
 func (e ErrAmbiguousCommit) Error() string {
-	return fmt.Sprintf("commit %v is ambiguous. Possible resolutions are: %v", e.Commit, e.PossibleCommits)
+	return fmt.Sprintf("commit %v is ambiguous; possible resolutions are: %v", e.Commit, e.PossibleCommits)
 }
 
 func (e ErrInconsistentCommit) Error() string {
-	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s - repo (%s) already has a commit in this transaction", e.Commit, e.Commit.Repo.Name)
+	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s; repo (%s) already has a commit in this transaction", e.Commit, e.Commit.Repo.Name)
 }
 
 func (e ErrCommitOnOutputBranch) Error() string {
@@ -299,7 +297,7 @@ func (e ErrSquashWithoutChildren) Error() string {
 }
 
 func (e ErrDeleteWithDependentCommitSets) Error() string {
-	return fmt.Sprintf("the commit sets %v, cannot be squashed in isolation. To delete them, also squash: %v", e.RequestedDeleteCommitSets, e.MinimalCommitSets)
+	return fmt.Sprintf("the commit sets %v, cannot be squashed in isolation; to delete them also squash: %v", e.RequestedDeleteCommitSets, e.MinimalCommitSets)
 }
 
 func (e ErrDropWithChildren) Error() string {
@@ -307,7 +305,7 @@ func (e ErrDropWithChildren) Error() string {
 }
 
 func (e ErrPropagateMultipleCommitsInRepo) Error() string {
-	return fmt.Sprintf("cannot propgate multiple commits off of repo %q. Previous head: %q. InconsisentHead: %q. Branches: %q. BranchHeads: %q. CommitInfo: %q. ID: %q.", e.Repo, e.PreviousHead, e.InconsisentHead, e.Branches, e.BranchHeads, e.CommitInfo, e.ID)
+	return fmt.Sprintf("cannot propgate multiple commits off of repo %q; trying to create a commit %q from both heads: %q and %q", e.Repo, e.ID, e.FirstHead, e.SecondHead)
 }
 
 var (

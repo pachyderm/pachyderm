@@ -9775,7 +9775,6 @@ func TestMalformedPipeline(t *testing.T) {
 func TestTrigger(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-
 	dataRepo := tu.UniqueString("TestTrigger_data")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
@@ -9851,7 +9850,6 @@ func TestTrigger(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline2, "master", "")
 	require.NoError(t, err)
-
 	require.Equal(t, 1, len(commitInfos))
 	for i := 0; i < numFiles*2; i++ {
 		var buf bytes.Buffer
@@ -9867,7 +9865,6 @@ func TestTrigger(t *testing.T) {
 	commitInfos, err = c.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline2), client.NewProjectCommit(pfs.DefaultProjectName, pipeline2, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
-
 	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline2,
 		"",
@@ -9884,28 +9881,23 @@ func TestTrigger(t *testing.T) {
 		"",
 		true,
 	))
-
 	// Make sure that updating the pipeline reuses the previous branch name
 	// rather than creating a new one.
 	bis, err := c.ListProjectBranch(pfs.DefaultProjectName, pipeline1)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(bis))
-
 	commitInfos, err = c.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline2), client.NewProjectCommit(pfs.DefaultProjectName, pipeline2, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
-
 	// Another 30 100 byte files = 3K, so the last file should trigger both pipelines.
 	for i := 2 * numFiles; i < 5*numFiles; i++ {
 		require.NoError(t, c.PutFile(dataCommit, fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes)), client.WithAppendPutFile()))
 	}
-
 	commitInfo, err = c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 	require.NoError(t, err)
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
-
 	commitInfos, err = c.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline2), client.NewProjectCommit(pfs.DefaultProjectName, pipeline2, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
