@@ -2580,7 +2580,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 	}
 	projectsFilterSet := make(map[string]bool)
 	for _, project := range request.Projects {
-		projectsFilterSet[project] = true
+		projectsFilterSet[project.Name] = true
 	}
 	keepPipelineGivenProject := func(pipelineInfo *pps.PipelineInfo) bool {
 		if len(request.Projects) == 0 {

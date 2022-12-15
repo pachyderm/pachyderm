@@ -932,7 +932,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) > 0 {
 				pipeline = args[0]
 			}
-			projectsFilter := []string{project}
+			projectsFilter := []*pfs.Project{{Name: project}}
 			if allProjects {
 				projectsFilter = nil
 			}
