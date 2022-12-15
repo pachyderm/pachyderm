@@ -1181,15 +1181,16 @@ jobs:
                   parentBranch=${CIRCLE_TAG:1}
               fi
             git clone https://github.com/pachyderm/haberdashery.git haberdashery
-            git checkout -b "release-${CIRCLE_TAG:1}"
+            cd haberdashery
+            git checkout -b release-${CIRCLE_TAG:1} ${parentBranch}
             tmp=$(mktemp)
             jq --arg val "${CIRCLE_TAG:1}-${CIRCLE_SHA1}" '.pachyderm = $val' version.json > "$tmp" && mv "$tmp" version.json
             jq --arg val "${CIRCLE_SHA1}" '.pachReleaseCommit = $val' version.json > "$tmp" && mv "$tmp" version.json
             jq --arg val "${CIRCLE_TAG:1}" '.pachctl = $val' version.json > "$tmp" && mv "$tmp" version.json
             git add --all
             git commit -m "bump pachyderm version"
-            git push
-            PR=$(gh pr create --base $parentBranch --title "bump pach version for release ${CIRCLE_TAG:1}" --repo pachyderm/haberdashery)
+            git push origin release-${CIRCLE_TAG:1}
+            PR=$(gh pr create --base ${parentBranch} --title "bump pach version for release ${CIRCLE_TAG:1}" --repo pachyderm/haberdashery)
             gh pr merge ${PR} --auto --repo pachyderm/haberdashery
             gh pr checks ${PR} --watch --interval 10 --repo pachyderm/haberdashery
             sleep 2 # in case we create release to fast
