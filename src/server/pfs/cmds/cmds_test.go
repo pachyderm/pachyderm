@@ -87,8 +87,26 @@ func TestCommit(t *testing.T) {
 		pachctl list commit {{.repo}} \
 		  | match ${commit1} \
 		  | match ${commit2}
+
+		# Create a new project
+		pachctl create project {{.project}}
+
+		# Create a new repo with the same name
+		pachctl create repo {{.repo}} --project {{.project}}
+
+		# Create a commit and put some data in it
+		commit3=$(pachctl start commit {{.repo}}@master --project {{.project}})
+		echo "file contents" | pachctl put file {{.repo}}@${commit3}:/file -f - --project {{.project}}
+		pachctl finish commit {{.repo}}@${commit3} --project {{.project}}
+
+		# Set the current project
+		pachctl config update context --project {{.project}}
+
+		# The new commit should appear when using the new project
+		pachctl list commit | match ${commit3}
 		`,
 		"repo", tu.UniqueString("TestCommit-repo"),
+		"project", tu.UniqueString("project"),
 	).Run())
 }
 

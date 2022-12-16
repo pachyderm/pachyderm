@@ -11,9 +11,10 @@ import (
 )
 
 func Migrate(state migrations.State) migrations.State {
-	return state.Apply("Add projects collection", func(ctx context.Context, env migrations.Env) error {
-		return setupPostgresCollections(ctx, env.Tx, pfsCollections()...)
-	}).
+	return state.
+		Apply("Add projects collection", func(ctx context.Context, env migrations.Env) error {
+			return setupPostgresCollections(ctx, env.Tx, pfsCollections()...)
+		}).
 		Apply("Add default project", func(ctx context.Context, env migrations.Env) error {
 			var defaultProject = &pfs.ProjectInfo{
 				Project: &pfs.Project{

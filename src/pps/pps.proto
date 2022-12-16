@@ -690,6 +690,9 @@ message ListPipelineRequest {
 
   // If non-nil, will return all the pipeline infos at this commit set
   pfs_v2.CommitSet commit_set = 5;
+
+  // Projects to filter on. Empty list means no filter, so return all pipelines.
+  repeated pfs_v2.Project projects = 6;
 }
 
 message DeletePipelineRequest {

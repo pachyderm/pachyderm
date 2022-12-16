@@ -238,18 +238,48 @@ func TestPFS(suite *testing.T) {
 	suite.Run("InvalidProject", func(t *testing.T) {
 		t.Parallel()
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-
-		require.YesError(t, env.PachClient.CreateProject("/repo"))
-
-		require.NoError(t, env.PachClient.CreateProject("lenny"))
-		require.NoError(t, env.PachClient.CreateProject("lenny123"))
-		require.NoError(t, env.PachClient.CreateProject("lenny_123"))
-		require.NoError(t, env.PachClient.CreateProject("lenny-123"))
-
-		require.YesError(t, env.PachClient.CreateProject("lenny.123"))
-		require.YesError(t, env.PachClient.CreateProject("lenny:"))
-		require.YesError(t, env.PachClient.CreateProject("lenny,"))
-		require.YesError(t, env.PachClient.CreateProject("lenny#"))
+		c := env.PachClient
+		badFormatErr := "only alphanumeric characters"
+		testCases := []struct {
+			projectName string
+			errMatch    string // "" means no error
+		}{
+			{tu.UniqueString("my-PROJECT_0123456789"), ""},
+			{"lenny", ""},
+			{tu.UniqueString("lenny123"), ""},
+			{tu.UniqueString("lenny_123"), ""},
+			{tu.UniqueString("lenny-123"), ""},
+			// {tu.UniqueString("_project"), badFormatErr}, // Require CORE-1343
+			// {tu.UniqueString("project-"), badFormatErr},
+			{pfs.DefaultProjectName, "already exists"},
+			{tu.UniqueString("/repo"), badFormatErr},
+			{tu.UniqueString("lenny.123"), badFormatErr},
+			{tu.UniqueString("lenny:"), badFormatErr},
+			{tu.UniqueString("lenny,"), badFormatErr},
+			{tu.UniqueString("lenny#"), badFormatErr},
+			{tu.UniqueString("!project"), badFormatErr},
+			{tu.UniqueString("\""), badFormatErr},
+			{tu.UniqueString("\\"), badFormatErr},
+			{tu.UniqueString("'"), badFormatErr},
+			{tu.UniqueString("[]{}"), badFormatErr},
+			{tu.UniqueString("|"), badFormatErr},
+			{tu.UniqueString("new->project"), badFormatErr},
+			{tu.UniqueString("project?"), badFormatErr},
+			{tu.UniqueString("project:1"), badFormatErr},
+			{tu.UniqueString("project;"), badFormatErr},
+			{tu.UniqueString("project."), badFormatErr},
+		}
+		for _, tc := range testCases {
+			t.Run(tc.projectName, func(t *testing.T) {
+				err := c.CreateProject(tc.projectName)
+				if tc.errMatch != "" {
+					require.YesError(t, err)
+					require.Matches(t, tc.errMatch, err.Error())
+				} else {
+					require.NoError(t, err)
+				}
+			})
+		}
 	})
 
 	suite.Run("DefaultProject", func(t *testing.T) {
