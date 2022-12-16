@@ -883,6 +883,12 @@ type lokiLog struct {
 }
 
 func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog, error) {
+	sortLogs := func(logs []lokiLog) {
+		sort.Slice(logs, func(i, j int) bool {
+			return logs[i].Entry.Timestamp.Before(logs[j].Entry.Timestamp)
+		})
+	}
+
 	c, err := s.env.GetLokiClient()
 	if err != nil {
 		return nil, errors.EnsureStack(errors.Errorf("get loki client: %v", err))
@@ -911,6 +917,7 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 			// Note: the error from QueryRange has a stack.
 			if errors.Is(err, context.DeadlineExceeded) {
 				log.Debugf("query range timed out (query=%v, limit=%v, start=%v, end=%v): %+v", queryStr, serverMaxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
+				sortLogs(result)
 				return result, nil
 			}
 			return nil, errors.Errorf("query range (query=%v, limit=%v, start=%v, end=%v): %+v", queryStr, serverMaxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
@@ -947,9 +954,7 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 		}
 		cancel()
 	}
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].Entry.Timestamp.Before(result[j].Entry.Timestamp)
-	})
+	sortLogs(result)
 	return result, nil
 }
 

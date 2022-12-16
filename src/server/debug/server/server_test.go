@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -37,11 +38,27 @@ func mustParseQuerystringInt64(r *http.Request, field string) int64 {
 	return x
 }
 
+const (
+	queryTimeout = 2 * time.Second
+)
+
 type fakeLoki struct {
-	entries []loki.Entry // Must be sorted by time ascending.
+	entries     []loki.Entry // Must be sorted by time ascending.
+	page        int          // Keep track of the current page.
+	sleepAtPage int          // Which page to put the server to sleep. 0 means don't sleep.
 }
 
 func (l *fakeLoki) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Simulate the bug where Loki server hangs due to large logs.
+	l.page++
+	if l.sleepAtPage > 0 && l.page >= l.sleepAtPage {
+		log.Println("server sleeping")
+		time.Sleep(3 * queryTimeout)
+		log.Println("server finished sleeping")
+		http.Error(w, "server timed out", http.StatusInternalServerError)
+		return
+	}
+
 	var (
 		start, end time.Time
 		limit      int
@@ -135,6 +152,7 @@ func (l *fakeLoki) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func TestQueryLoki(t *testing.T) {
 	testData := []struct {
 		name         string
+		sleepAtPage  int
 		buildEntries func() []loki.Entry
 		buildWant    func() []int
 	}{
@@ -250,6 +268,46 @@ func TestQueryLoki(t *testing.T) {
 				return want
 			},
 		},
+		{
+			name:        "timeout on 1st page",
+			sleepAtPage: 1,
+			buildEntries: func() []loki.Entry {
+				var entries []loki.Entry
+				for i := -10000; i <= 0; i++ {
+					entries = append(entries, loki.Entry{
+						Timestamp: time.Now().Add(time.Duration(-1) * time.Second),
+						Line:      fmt.Sprintf("%v", i),
+					})
+				}
+				return entries
+			},
+			buildWant: func() []int {
+				// server should've timed out right away, so no results
+				return nil
+			},
+		},
+		{
+			name:        "timeout on 2nd page",
+			sleepAtPage: 2,
+			buildEntries: func() []loki.Entry {
+				var entries []loki.Entry
+				for i := -10000; i <= 0; i++ {
+					entries = append(entries, loki.Entry{
+						Timestamp: time.Now().Add(time.Duration(-1) * time.Second),
+						Line:      fmt.Sprintf("%v", i),
+					})
+				}
+				return entries
+			},
+			buildWant: func() []int {
+				// expect only the first page due to server timing out
+				var want []int
+				for i := -999; i <= 0; i++ {
+					want = append(want, i)
+				}
+				return want
+			},
+		},
 	}
 
 	for _, test := range testData {
@@ -257,7 +315,10 @@ func TestQueryLoki(t *testing.T) {
 			entries := test.buildEntries()
 			want := test.buildWant()
 
-			s := httptest.NewServer(&fakeLoki{entries: entries})
+			s := httptest.NewServer(&fakeLoki{
+				entries:     entries,
+				sleepAtPage: test.sleepAtPage,
+			})
 			d := &debugServer{
 				env: &serviceenv.TestServiceEnv{
 					LokiClient: &loki.Client{Address: s.URL},
@@ -265,10 +326,14 @@ func TestQueryLoki(t *testing.T) {
 			}
 
 			var got []int
-			out, err := d.queryLoki(context.Background(), `{foo="bar"}`)
+			ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+			defer cancel()
+			log.Println("querying loki")
+			out, err := d.queryLoki(ctx, `{foo="bar"}`)
 			if err != nil {
 				t.Fatalf("query loki: %v", err)
 			}
+			log.Println("finished querying loki")
 			for i, l := range out {
 				x, err := strconv.ParseInt(l.Entry.Line, 10, 64)
 				if err != nil {
