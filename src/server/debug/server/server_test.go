@@ -38,10 +38,20 @@ func mustParseQuerystringInt64(r *http.Request, field string) int64 {
 }
 
 type fakeLoki struct {
-	entries []loki.Entry // Must be sorted by time ascending.
+	entries     []loki.Entry // Must be sorted by time ascending.
+	page        int          // Keep track of the current page.
+	sleepAtPage int          // Which page to put the server to sleep. 0 means don't sleep.
 }
 
 func (l *fakeLoki) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Simulate the bug where Loki server hangs due to large logs.
+	l.page++
+	if l.sleepAtPage > 0 && l.page >= l.sleepAtPage {
+		// wait for request to time out on purpose
+		<-r.Context().Done()
+		return
+	}
+
 	var (
 		start, end time.Time
 		limit      int
@@ -135,6 +145,7 @@ func (l *fakeLoki) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func TestQueryLoki(t *testing.T) {
 	testData := []struct {
 		name         string
+		sleepAtPage  int
 		buildEntries func() []loki.Entry
 		buildWant    func() []int
 	}{
@@ -147,7 +158,7 @@ func TestQueryLoki(t *testing.T) {
 			name: "all logs",
 			buildEntries: func() []loki.Entry {
 				var entries []loki.Entry
-				for i := -99; i >= 0; i++ {
+				for i := -99; i <= 0; i++ {
 					entries = append(entries, loki.Entry{
 						Timestamp: time.Now().Add(time.Duration(-1) * time.Second),
 						Line:      fmt.Sprintf("%v", i),
@@ -157,7 +168,7 @@ func TestQueryLoki(t *testing.T) {
 			},
 			buildWant: func() []int {
 				var want []int
-				for i := -99; i >= 0; i++ {
+				for i := -99; i <= 0; i++ {
 					want = append(want, i)
 				}
 				return want
@@ -208,7 +219,7 @@ func TestQueryLoki(t *testing.T) {
 			buildWant: func() []int {
 				var want []int
 				want = append(want, -2)
-				for i := 0; i < 4999; i++ {
+				for i := 0; i < serverMaxLogs-1; i++ {
 					want = append(want, -1)
 				}
 				want = append(want, 0)
@@ -230,7 +241,7 @@ func TestQueryLoki(t *testing.T) {
 						Line:      "-1",
 					})
 				}
-				for i := 0; i < 5000; i++ {
+				for i := 0; i < serverMaxLogs; i++ {
 					entries = append(entries, loki.Entry{
 						Timestamp: start,
 						Line:      "0",
@@ -241,11 +252,51 @@ func TestQueryLoki(t *testing.T) {
 			buildWant: func() []int {
 				var want []int
 				want = append(want, -2)
-				for i := 0; i < 5000; i++ {
+				for i := 0; i < serverMaxLogs; i++ {
 					want = append(want, -1)
 				}
-				for i := 0; i < 5000; i++ {
+				for i := 0; i < serverMaxLogs; i++ {
 					want = append(want, 0)
+				}
+				return want
+			},
+		},
+		{
+			name:        "timeout on 1st page",
+			sleepAtPage: 1,
+			buildEntries: func() []loki.Entry {
+				var entries []loki.Entry
+				for i := -10000; i <= 0; i++ {
+					entries = append(entries, loki.Entry{
+						Timestamp: time.Now().Add(time.Duration(-1) * time.Second),
+						Line:      fmt.Sprintf("%v", i),
+					})
+				}
+				return entries
+			},
+			buildWant: func() []int {
+				// server should've timed out right away, so no results
+				return nil
+			},
+		},
+		{
+			name:        "timeout on 2nd page",
+			sleepAtPage: 2,
+			buildEntries: func() []loki.Entry {
+				var entries []loki.Entry
+				for i := -10000; i <= 0; i++ {
+					entries = append(entries, loki.Entry{
+						Timestamp: time.Now().Add(time.Duration(-1) * time.Second),
+						Line:      fmt.Sprintf("%v", i),
+					})
+				}
+				return entries
+			},
+			buildWant: func() []int {
+				// expect only the first page due to server timing out
+				var want []int
+				for i := -999; i <= 0; i++ {
+					want = append(want, i)
 				}
 				return want
 			},
@@ -257,7 +308,10 @@ func TestQueryLoki(t *testing.T) {
 			entries := test.buildEntries()
 			want := test.buildWant()
 
-			s := httptest.NewServer(&fakeLoki{entries: entries})
+			s := httptest.NewServer(&fakeLoki{
+				entries:     entries,
+				sleepAtPage: test.sleepAtPage,
+			})
 			d := &debugServer{
 				env: &serviceenv.TestServiceEnv{
 					LokiClient: &loki.Client{Address: s.URL},
@@ -265,7 +319,9 @@ func TestQueryLoki(t *testing.T) {
 			}
 
 			var got []int
-			out, err := d.queryLoki(context.Background(), `{foo="bar"}`)
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			out, err := d.queryLoki(ctx, `{foo="bar"}`)
 			if err != nil {
 				t.Fatalf("query loki: %v", err)
 			}
@@ -279,7 +335,7 @@ func TestQueryLoki(t *testing.T) {
 
 			if diff := cmp.Diff(got, want); diff != "" {
 				t.Errorf(`result differs:
-	      first |   last |    len
+          first |   last |    len
        +--------+--------+-------
    got | %6d | %6d | %6d
   want | %6d | %6d | %6d

@@ -794,9 +794,6 @@ func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 		}
 		if s.env.Config().LokiHost != "" {
 			if err := s.forEachWorkerLoki(ctx, pipelineInfo, func(pod string) error {
-				// Loki requests can hang if the size of the log lines is too big, so we set a timeout
-				ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
-				defer cancel()
 				workerPrefix := join(podPrefix, pod)
 				if len(prefix) > 0 {
 					workerPrefix = join(prefix[0], workerPrefix)
@@ -871,12 +868,13 @@ func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.P
 	return pods, nil
 }
 
-// This used to be 5,000 but a comment said this was too few logs, so now it's 30,000.  If it still
-// seems too small, bump it up again.  5,000 remains the maximum value of "limit" in queries that
-// Loki seems to accept.
 const (
-	maxLogs       = 30000
-	serverMaxLogs = 5000
+	// maxLogs used to be 5,000 but a comment said this was too few logs, so now it's 30,000.
+	// If it still seems too small, bump it up again.
+	maxLogs = 30000
+	// 5,000 is the maximum value of "limit" in queries that Loki seems to accept.
+	// We set serverMaxLogs below the actual limit because of a bug in Loki where it hangs when you request too much data from it.
+	serverMaxLogs = 1000
 )
 
 type lokiLog struct {
@@ -885,6 +883,12 @@ type lokiLog struct {
 }
 
 func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog, error) {
+	sortLogs := func(logs []lokiLog) {
+		sort.Slice(logs, func(i, j int) bool {
+			return logs[i].Entry.Timestamp.Before(logs[j].Entry.Timestamp)
+		})
+	}
+
 	c, err := s.env.GetLokiClient()
 	if err != nil {
 		return nil, errors.EnsureStack(errors.Errorf("get loki client: %v", err))
@@ -905,10 +909,18 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 	start := time.Now().Add(-30 * 24 * time.Hour) // 30 days.  (Loki maximum range is 30 days + 1 hour.)
 
 	for numLogs := 0; (end.IsZero() || start.Before(end)) && numLogs < maxLogs; {
-		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, end, "BACKWARD", 0, 0, true)
+		// Loki requests can hang if the size of the log lines is too big
+		ctx, cancel := context.WithTimeout(ctx, time.Minute)
+		defer cancel()
+		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, end, "BACKWARD", 0 /* step */, 0 /* interval */, true /* quiet */)
 		if err != nil {
 			// Note: the error from QueryRange has a stack.
-			return nil, errors.Errorf("query range (query=%v, maxLogs=%v, start=%v, end=%v): %+v", queryStr, maxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
+			if errors.Is(err, context.DeadlineExceeded) {
+				log.Debugf("query range timed out (query=%v, limit=%v, start=%v, end=%v): %+v", queryStr, serverMaxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
+				sortLogs(result)
+				return result, nil
+			}
+			return nil, errors.Errorf("query range (query=%v, limit=%v, start=%v, end=%v): %+v", queryStr, serverMaxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
 		}
 
 		streams, ok := resp.Data.Result.(loki.Streams)
@@ -940,10 +952,9 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 		if readThisIteration == 0 {
 			break
 		}
+		cancel()
 	}
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].Entry.Timestamp.Before(result[j].Entry.Timestamp)
-	})
+	sortLogs(result)
 	return result, nil
 }
 
