@@ -177,10 +177,7 @@ func ClaimCluster(t testing.TB) (string, uint16) {
 	return assigned, portOffset
 }
 
-var (
-	localLock       sync.Mutex
-	localLockHolder string
-)
+var localLock sync.Mutex
 
 // AcquireCluster returns a pachyderm APIClient from one of a pool of managed pachyderm
 // clusters deployed in separate namespace, along with the associated namespace
