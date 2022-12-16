@@ -484,7 +484,7 @@ func RevokeCmd() *cobra.Command {
 			defer c.Close()
 
 			// handle plurals properly
-			message.Set(language.English, "%d auth token(s) revoked", plural.Selectf(1, "",
+			_ = message.Set(language.English, "%d auth token(s) revoked", plural.Selectf(1, "",
 				plural.One, "1 auth token revoked",
 				plural.Other, "%d auth tokens revoked",
 			))
