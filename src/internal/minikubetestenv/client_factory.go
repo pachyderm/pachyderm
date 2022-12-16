@@ -16,7 +16,6 @@ import (
 	"golang.org/x/sync/semaphore"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -112,8 +111,6 @@ func deleteAll(t testing.TB, c *client.APIClient) {
 	tok := c.AuthToken()
 	c.SetAuthToken(testutil.RootToken)
 	require.NoError(t, c.DeleteAll())
-	// having deleted everything, need to recreate the default project
-	require.NoError(t, c.CreateProject(pfs.DefaultProjectName))
 	c.SetAuthToken(tok)
 }
 

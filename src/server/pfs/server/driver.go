@@ -2140,7 +2140,7 @@ func (d *driver) deleteAll(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// the list does not use the transaction
 		for _, repoInfo := range repoInfos {
 			if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
@@ -2153,7 +2153,11 @@ func (d *driver) deleteAll(ctx context.Context) error {
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	// now that the cluster is empty, recreate the default project
+	return d.createProject(ctx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: "default"}})
 }
 
 func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo) (*pfs.Commit, error) {
