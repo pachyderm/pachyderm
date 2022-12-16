@@ -198,7 +198,9 @@ func testDebug(t *testing.T, c *client.APIClient, projectName, repoName string) 
 	// change and recreates all the pods, which used to race with collecting logs.
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
-	require.NoError(t, aliceClient.CreateProject(projectName))
+	if projectName != "default" {
+		require.NoError(t, aliceClient.CreateProject(projectName))
+	}
 
 	require.NoError(t, aliceClient.CreateProjectRepo(projectName, repoName))
 
