@@ -24,7 +24,7 @@ import (
 
 const (
 	// PipelineHeader is the header for pipelines.
-	PipelineHeader = "NAME\tVERSION\tINPUT\tCREATED\tSTATE / LAST JOB\tDESCRIPTION\t\n"
+	PipelineHeader = "PROJECT\tNAME\tVERSION\tINPUT\tCREATED\tSTATE / LAST JOB\tDESCRIPTION\t\n"
 	// JobHeader is the header for jobs
 	JobHeader = "PIPELINE\tID\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// JobSetHeader is the header for jobsets
@@ -131,16 +131,15 @@ func PrintJobSetInfo(w io.Writer, jobSetInfo *ppsclient.JobSetInfo, fullTimestam
 
 // PrintPipelineInfo pretty-prints pipeline info.
 func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTimestamps bool) {
+	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Project.Name)
+	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
+	fmt.Fprintf(w, "%d\t", pipelineInfo.Version)
 	if pipelineInfo.Details == nil {
-		fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
-		fmt.Fprint(w, "-\t")
-		fmt.Fprint(w, "-\t")
-		fmt.Fprint(w, "-\t")
+		fmt.Fprint(w, "-\t") // INPUT
+		fmt.Fprint(w, "-\t") // CREATED
 		fmt.Fprintf(w, "%s / %s\t", pipelineState(pipelineInfo.State), JobState(pipelineInfo.LastJobState))
 		fmt.Fprint(w, "pipeline details unavailable\t")
 	} else {
-		fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
-		fmt.Fprintf(w, "%d\t", pipelineInfo.Version)
 		fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Details.Input))
 		if fullTimestamps {
 			fmt.Fprintf(w, "%s\t", pipelineInfo.Details.CreatedAt.String())
@@ -512,7 +511,7 @@ func ShorthandInput(input *ppsclient.Input) string {
 	case input == nil:
 		return "none"
 	case input.Pfs != nil:
-		return fmt.Sprintf("%s:%s", input.Pfs.Repo, input.Pfs.Glob)
+		return fmt.Sprintf("%s/%s:%s", input.Pfs.Project, input.Pfs.Repo, input.Pfs.Glob)
 	case input.Cross != nil:
 		var subInput []string
 		for _, input := range input.Cross {

@@ -7,8 +7,12 @@ setup: true
 orbs:
   continuation: circleci/continuation@0.1.2
   path-filtering: circleci/path-filtering@0.1.3
+  gh: circleci/github-cli@2.1
 
 parameters:
+  machine_image:
+    type: string
+    default: ubuntu-2004:2022.07.1
   run_load_tests:
     type: boolean
     default: false
@@ -37,6 +41,12 @@ parameters:
     # may not always be in sync with pgbouncer-base-image-version
     # i.e any entrypoint.sh wrapper updates
     default: "1.16.1"
+  run-perf-tests:
+    type: boolean
+    default: false
+  pachd-latest-version:
+    type: string
+    default: ""
 # our defined job, and its steps
 jobs:
   setup:
@@ -115,6 +125,62 @@ jobs:
             docker context create buildx-build
             docker buildx create --name pgb --driver docker-container --use buildx-build
             docker buildx build --builder pgb --build-arg VERSION=<< pipeline.parameters.pgbouncer-base-image-version >> --platform=linux/amd64,linux/arm64 -f Dockerfile.pgbouncer -t pachyderm/pgbouncer:<< pipeline.parameters.pgbouncer-image-tag >> --push ./etc/pgbouncer
+  api-performance-test:
+    resource_class: xlarge
+    parameters:
+      version:
+        type: string
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    environment:
+      TEST_RESULTS: /tmp/test-results
+      PACHD_VERSION: << parameters.version >>
+      PACHD_LATEST_VERSION: << pipeline.parameters.pachd-latest-version >>
+    parallelism: 1
+    steps:
+      - checkout
+      - run:
+          name: Collect node stats
+          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
+          background: true
+      - run: mkdir -p ${TEST_RESULTS}
+      - run:
+          name: Clone Locust tests
+          command: |
+            git clone https://github.com/pachyderm/locust-pachyderm.git locust-pachyderm
+      - run:
+          name: setup env vars
+          command: |
+            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
+            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+
+            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+      - restore_cache:
+          keys:
+            - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+      - run: etc/testing/circle/install.sh
+      - gh/setup:
+          version: 2.20.2
+      - run:
+          name: Start minikube
+          command: etc/testing/circle/start-minikube.sh
+          background: true
+      - run: etc/testing/circle/wait-minikube.sh
+      - run:
+          name: Install minio
+          command: kubectl apply -f etc/testing/minio.yaml
+      - run:
+          name: run api performance benchmark
+          no_output_timeout: 20m
+          command: |
+            etc/testing/circle/run_api_performance_tests.sh
+      - run:
+          name: Dump debugging info in case of failure
+          when: on_fail
+          command: etc/testing/circle/kube_debug.sh
+      - store_artifacts:
+          path: /tmp/test-results
 
 # our single workflow, that triggers the setup job defined above
 workflows:
@@ -124,6 +190,7 @@ workflows:
         - not: << pipeline.parameters.run_nightly_tag >>
         - not: << pipeline.parameters.release-pgbouncer >>
         - not: << pipeline.parameters.release-etcd >>
+        - not: << pipeline.parameters.run-perf-tests >>
     jobs:
       - path-filtering/filter:
           name: check-updated-files
@@ -159,3 +226,16 @@ workflows:
         - equal: [true, << pipeline.parameters.release-pgbouncer >>]
     jobs:
       - release-pgbouncer
+  nightly-api-performance:
+    when:
+      and:
+        - not: << pipeline.parameters.run_nightly_tag >>
+        - equal: [true, << pipeline.parameters.run-perf-tests >>]
+    jobs:
+      - api-performance-test:
+          matrix:
+            parameters:
+              version:
+                - v2.4.0
+                - v2.5.0-alpha.1
+                - latest

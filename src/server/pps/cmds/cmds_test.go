@@ -425,40 +425,79 @@ func TestListPipelineFilter(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
 	`).Run())
-	pipeline := tu.UniqueString("pipeline")
+	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
+		pachctl create project myProject
 		pachctl create repo input
 		pachctl create pipeline -f - <<EOF
 		{
-		"pipeline": {
-		  "name": "{{.pipeline}}"
-		},
-		"input": {
-		  "pfs": {
-		    "glob": "/*",
-		    "repo": "input"
-		  }
-		},
-		  "parallelism_spec": {
-		    "constant": "1"
-		  },
-		"transform": {
-		  "cmd": [ "/bin/bash" ],
-		  "stdin": [
-		    "cp /pfs/input/* /pfs/out"
-		  ]
+			"pipeline": {
+				"name": "{{.pipeline1}}"
+			},
+			"input": {
+				"pfs": {
+					"glob": "/*",
+					"repo": "input"
+				}
+			},
+			"parallelism_spec": {
+				"constant": "1"
+			},
+			"transform": {
+				"cmd": [
+					"/bin/bash"
+				],
+				"stdin": [
+					"cp /pfs/input/* /pfs/out"
+				]
+			}
 		}
+		EOF
+
+		pachctl create pipeline -f - <<EOF
+		{
+			"pipeline": {
+				"name": "{{.pipeline2}}",
+				"project": {
+					"name": "myProject"
+				}
+			},
+			"input": {
+				"pfs": {
+					"name": "in",
+					"glob": "/*",
+					"repo": "{{.pipeline1}}",
+					"project": "default"
+				}
+			},
+			"parallelism_spec": {
+				"constant": "1"
+			},
+			"transform": {
+				"cmd": [
+					"/bin/bash"
+				],
+				"stdin": [
+					"cp /pfs/in/* /pfs/out"
+				]
+			}
 		}
 		EOF
 
 		echo foo | pachctl put file input@master:/foo
-		pachctl wait commit {{.pipeline}}@master
+		pachctl wait commit {{.pipeline1}}@master
 		# make sure we see the pipeline with the appropriate state filters
-		pachctl list pipeline | match {{.pipeline}}
-		pachctl list pipeline --state crashing --state failure | match -v {{.pipeline}}
-		pachctl list pipeline --state starting --state running | match {{.pipeline}}
-	`, "pipeline", pipeline,
+		pachctl list pipeline | match {{.pipeline1}}
+		pachctl list pipeline | match -v {{.pipeline2}}
+		pachctl list pipeline --project myProject | match {{.pipeline2}}
+		pachctl list pipeline --all-projects | match {{.pipeline1}}
+		pachctl list pipeline --all-projects | match {{.pipeline2}}
+		pachctl list pipeline --state crashing --state failure | match -v {{.pipeline1}}
+		pachctl list pipeline --state starting --state running | match {{.pipeline1}}
+	`,
+		"pipeline1", pipeline1,
+		"pipeline2", pipeline2,
 	).Run())
 }
 
@@ -964,6 +1003,7 @@ func TestListJobWithProject(t *testing.T) {
 	pipelineName := tu.UniqueString("pipeline")
 	require.NoError(t, tu.PachctlBashCmd(t, c, "yes | pachctl delete all").Run())
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create project {{.project}}
 		pachctl create repo --project {{.project}} data
 		pachctl put file --project {{.project}} data@master:/file <<<"This is a test"
 		pachctl create pipeline <<EOF

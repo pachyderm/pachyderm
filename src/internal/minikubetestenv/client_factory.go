@@ -13,10 +13,12 @@ import (
 	"sync"
 	"testing"
 
+	"golang.org/x/sync/semaphore"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -29,6 +31,7 @@ var (
 	poolSize            *int  = flag.Int("clusters.pool", 3, "maximum size of managed pachyderm clusters")
 	useLeftoverClusters *bool = flag.Bool("clusters.reuse", false, "reuse leftover pachyderm clusters if available")
 	cleanupDataAfter    *bool = flag.Bool("clusters.data.cleanup", true, "cleanup the data following each test")
+	forceLocal          *bool = flag.Bool("clusters.local", false, "use whatever is in your pachyderm context as the target")
 )
 
 type acquireSettings struct {
@@ -176,9 +179,23 @@ func ClaimCluster(t testing.TB) (string, uint16) {
 	return assigned, portOffset
 }
 
+var localLock sync.Mutex
+
 // AcquireCluster returns a pachyderm APIClient from one of a pool of managed pachyderm
 // clusters deployed in separate namespace, along with the associated namespace
 func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
+	t.Helper()
+	if *forceLocal {
+		c, err := client.NewOnUserMachine("")
+		if err != nil {
+			t.Fatalf("create local client: %v", err)
+		}
+		t.Log("waiting for local cluster lock")
+		localLock.Lock()
+		t.Log("got local cluster lock")
+		t.Cleanup(localLock.Unlock)
+		return c, ""
+	}
 	setup.Do(func() {
 		clusterFactory = &ClusterFactory{
 			managedClusters:   map[string]*managedCluster{},
