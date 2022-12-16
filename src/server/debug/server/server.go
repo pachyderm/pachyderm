@@ -868,11 +868,12 @@ func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.P
 	return pods, nil
 }
 
-// This used to be 5,000 but a comment said this was too few logs, so now it's 30,000.  If it still
-// seems too small, bump it up again.  5,000 remains the maximum value of "limit" in queries that
-// Loki seems to accept.
 const (
-	maxLogs       = 30000
+	// maxLogs used to be 5,000 but a comment said this was too few logs, so now it's 30,000.
+	// If it still seems too small, bump it up again.
+	maxLogs = 30000
+	// 5,000 is the maximum value of "limit" in queries that Loki seems to accept.
+	// We set serverMaxLogs below the actual limit because of a bug in Loki where it hangs when you request too much data from it.
 	serverMaxLogs = 1000
 )
 
@@ -909,7 +910,7 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 		if err != nil {
 			// Note: the error from QueryRange has a stack.
 			if errors.Is(err, context.DeadlineExceeded) {
-				log.Debugf("query range timed out (query=%v, limit=%v, start=%v, end=%v): %v", queryStr, serverMaxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
+				log.Debugf("query range timed out (query=%v, limit=%v, start=%v, end=%v): %+v", queryStr, serverMaxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
 				return result, nil
 			}
 			return nil, errors.Errorf("query range (query=%v, limit=%v, start=%v, end=%v): %+v", queryStr, serverMaxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
