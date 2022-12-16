@@ -257,6 +257,8 @@ func TestPFS(suite *testing.T) {
 			{tu.UniqueString("lenny:"), badFormatErr},
 			{tu.UniqueString("lenny,"), badFormatErr},
 			{tu.UniqueString("lenny#"), badFormatErr},
+			{tu.UniqueString("_lenny"), badFormatErr},
+			{tu.UniqueString("-lenny"), badFormatErr},
 			{tu.UniqueString("!project"), badFormatErr},
 			{tu.UniqueString("\""), badFormatErr},
 			{tu.UniqueString("\\"), badFormatErr},
