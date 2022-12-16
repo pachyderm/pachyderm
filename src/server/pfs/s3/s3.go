@@ -179,7 +179,7 @@ func Server(port uint16, defaultRouter *mux.Router) *S3Server {
 			}
 		}),
 		// NOTE: this is not closed. If the standard logger gets customized, this will need to be fixed
-		ErrorLog: stdlog.New(logger.Writer(), "", 0),
+		ErrorLog: stdlog.New(logger.WriterLevel(logrus.DebugLevel), "", 0),
 	}
 	return &s3Server
 }
