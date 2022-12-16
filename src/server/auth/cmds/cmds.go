@@ -481,19 +481,17 @@ func RevokeCmd() *cobra.Command {
 			defer c.Close()
 
 			if token != "" {
-				_, err = c.RevokeAuthToken(c.Ctx(), &auth.RevokeAuthTokenRequest{
-					Token: token,
-				})
+				resp, err := c.RevokeAuthToken(c.Ctx(), &auth.RevokeAuthTokenRequest{Token: token})
 				if err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
 				}
+				fmt.Println("number of auth tokens revoked:", resp.Num)
 			} else {
-				_, err = c.RevokeAuthTokensForUser(c.Ctx(), &auth.RevokeAuthTokensForUserRequest{
-					Username: user,
-				})
+				resp, err := c.RevokeAuthTokensForUser(c.Ctx(), &auth.RevokeAuthTokensForUserRequest{Username: user})
 				if err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
 				}
+				fmt.Println("number of auth tokens revoked:", resp.Num)
 			}
 			return nil
 		}),

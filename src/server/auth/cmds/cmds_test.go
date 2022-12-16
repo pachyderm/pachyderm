@@ -473,8 +473,10 @@ func TestRevokeToken(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, aliceName, whoAmIResp.Username)
 
-	require.NoError(t, tu.PachctlBashCmd(t, root,
-		`pachctl auth revoke --token={{.alice_token}}`,
+	require.NoError(t, tu.PachctlBashCmd(t, root, `
+		pachctl auth revoke --token={{.alice_token}} | match 'number of auth tokens revoked: 1'
+		pachctl auth revoke --token={{.alice_token}} | match 'number of auth tokens revoked: 0'
+		`,
 		"alice_token", alice.AuthToken()).Run())
 
 	_, err = alice.WhoAmI(alice.Ctx(), &auth.WhoAmIRequest{})
@@ -502,8 +504,10 @@ func TestRevokeUser(t *testing.T) {
 		require.Equal(t, aliceName, whoAmIResp.Username)
 	}
 
-	require.NoError(t, tu.PachctlBashCmd(t, root,
-		`pachctl auth revoke --user={{.alice}}`,
+	require.NoError(t, tu.PachctlBashCmd(t, root, `
+		pachctl auth revoke --user={{.alice}} | match 'number of auth tokens revoked: 3'
+		pachctl auth revoke --user={{.alice}} | match 'number of auth tokens revoked: 0'
+		`,
 		"alice", aliceName).Run())
 
 	// See relevant comments in TestRevokeToken
