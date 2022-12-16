@@ -18,6 +18,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pkg/browser"
+	"golang.org/x/text/feature/plural"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 
 	"github.com/spf13/cobra"
 )
@@ -480,20 +483,25 @@ func RevokeCmd() *cobra.Command {
 			}
 			defer c.Close()
 
+			// handle plurals properly
+			_ = message.Set(language.English, "%d auth token(s) revoked", plural.Selectf(1, "",
+				plural.One, "1 auth token revoked",
+				plural.Other, "%d auth tokens revoked",
+			))
+			p := message.NewPrinter(language.English)
+
 			if token != "" {
-				_, err = c.RevokeAuthToken(c.Ctx(), &auth.RevokeAuthTokenRequest{
-					Token: token,
-				})
+				resp, err := c.RevokeAuthToken(c.Ctx(), &auth.RevokeAuthTokenRequest{Token: token})
 				if err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
 				}
+				fmt.Println(p.Sprintf("%d auth token(s) revoked", resp.Number))
 			} else {
-				_, err = c.RevokeAuthTokensForUser(c.Ctx(), &auth.RevokeAuthTokensForUserRequest{
-					Username: user,
-				})
+				resp, err := c.RevokeAuthTokensForUser(c.Ctx(), &auth.RevokeAuthTokensForUserRequest{Username: user})
 				if err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
 				}
+				fmt.Println(p.Sprintf("%d auth token(s) revoked", resp.Number))
 			}
 			return nil
 		}),
