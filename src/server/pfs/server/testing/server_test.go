@@ -396,6 +396,15 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, numGoros, successCount)
 	})
 
+	suite.Run("CreateRepoNonExistentProject", func(t *testing.T) {
+		t.Parallel()
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+
+		require.YesError(t, env.PachClient.CreateProjectRepo("foo", "bar"))
+		require.NoError(t, env.PachClient.CreateProject("foo"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("foo", "bar"))
+	})
+
 	suite.Run("CreateRepoDeleteRepoRace", func(t *testing.T) {
 		t.Parallel()
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))

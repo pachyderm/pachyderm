@@ -158,11 +158,17 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		repo.Type = pfs.UserRepoType
 	}
 
+	// Check that the repo’s project exists; if not, return an error.
+	var project pfs.ProjectInfo
+	if err = d.projects.ReadWrite(txnCtx.SqlTx).Get(repo.Project, &project); err != nil {
+		return errors.Wrapf(err, "cannot find project %q", repo.Project)
+	}
+
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 
-	// check if 'repo' already exists. If so, return that error. Otherwise,
+	// Check if 'repo' already exists. If so, return that error.  Otherwise,
 	// proceed with ACL creation (avoids awkward "access denied" error when
-	// calling "createRepo" on a repo that already exists)
+	// calling "createRepo" on a repo that already exists).
 	var existingRepoInfo pfs.RepoInfo
 	err = repos.Get(repo, &existingRepoInfo)
 	if err != nil && !col.IsErrNotFound(err) {
@@ -2138,7 +2144,7 @@ func (d *driver) deleteAll(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// the list does not use the transaction
 		for _, repoInfo := range repoInfos {
 			if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
@@ -2151,7 +2157,11 @@ func (d *driver) deleteAll(ctx context.Context) error {
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	// now that the cluster is empty, recreate the default project
+	return d.createProject(ctx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: "default"}})
 }
 
 func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo) (*pfs.Commit, error) {

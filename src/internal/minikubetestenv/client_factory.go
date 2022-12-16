@@ -13,10 +13,12 @@ import (
 	"sync"
 	"testing"
 
+	"golang.org/x/sync/semaphore"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"golang.org/x/sync/semaphore"
 )
 
 const (
