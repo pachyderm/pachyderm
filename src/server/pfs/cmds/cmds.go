@@ -476,7 +476,7 @@ $ {{alias}} foo@master --from XXX`,
 					return errors.Errorf("cannot specify --from when listing all commits")
 				}
 
-				listCommitSetClient, err := c.PfsAPIClient.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{})
+				listCommitSetClient, err := c.PfsAPIClient.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{Project: &pfs.Project{Name: project}})
 				if err != nil {
 					return grpcutil.ScrubGRPC(err)
 				}
@@ -642,7 +642,7 @@ $ {{alias}} foo@master --from XXX`,
 	listCommit.Flags().StringVar(&originStr, "origin", "", "only return commits of a specific type")
 	listCommit.Flags().AddFlagSet(outputFlags)
 	listCommit.Flags().AddFlagSet(timestampFlags)
-	listCommit.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	listCommit.Flags().StringVar(&project, "project", project, "Project in which commit is located.")
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listCommit, "list commit", commits))
 

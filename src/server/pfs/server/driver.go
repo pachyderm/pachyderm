@@ -1452,7 +1452,8 @@ reloadCommitSet:
 	}
 }
 
-func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) error) error {
+func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb func(*pfs.CommitSetInfo) error) error {
+	projectName := project.GetName()
 	// Track the commitsets we've already processed
 	seen := map[string]struct{}{}
 
@@ -1460,6 +1461,9 @@ func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) 
 	// timestamp due to triggers or deferred processing)
 	commitInfo := &pfs.CommitInfo{}
 	err := d.commits.ReadOnly(ctx).List(commitInfo, col.DefaultOptions(), func(string) error {
+		if commitInfo.GetCommit().GetBranch().GetRepo().GetProject().GetName() != projectName {
+			return nil
+		}
 		if _, ok := seen[commitInfo.Commit.ID]; ok {
 			return nil
 		}
