@@ -147,7 +147,7 @@ func TestQueryLoki(t *testing.T) {
 			name: "all logs",
 			buildEntries: func() []loki.Entry {
 				var entries []loki.Entry
-				for i := -99; i >= 0; i++ {
+				for i := -99; i <= 0; i++ {
 					entries = append(entries, loki.Entry{
 						Timestamp: time.Now().Add(time.Duration(-1) * time.Second),
 						Line:      fmt.Sprintf("%v", i),
@@ -157,7 +157,7 @@ func TestQueryLoki(t *testing.T) {
 			},
 			buildWant: func() []int {
 				var want []int
-				for i := -99; i >= 0; i++ {
+				for i := -99; i <= 0; i++ {
 					want = append(want, i)
 				}
 				return want
@@ -208,7 +208,7 @@ func TestQueryLoki(t *testing.T) {
 			buildWant: func() []int {
 				var want []int
 				want = append(want, -2)
-				for i := 0; i < 4999; i++ {
+				for i := 0; i < serverMaxLogs-1; i++ {
 					want = append(want, -1)
 				}
 				want = append(want, 0)
@@ -230,7 +230,7 @@ func TestQueryLoki(t *testing.T) {
 						Line:      "-1",
 					})
 				}
-				for i := 0; i < 5000; i++ {
+				for i := 0; i < serverMaxLogs; i++ {
 					entries = append(entries, loki.Entry{
 						Timestamp: start,
 						Line:      "0",
@@ -241,10 +241,10 @@ func TestQueryLoki(t *testing.T) {
 			buildWant: func() []int {
 				var want []int
 				want = append(want, -2)
-				for i := 0; i < 5000; i++ {
+				for i := 0; i < serverMaxLogs; i++ {
 					want = append(want, -1)
 				}
-				for i := 0; i < 5000; i++ {
+				for i := 0; i < serverMaxLogs; i++ {
 					want = append(want, 0)
 				}
 				return want
@@ -279,7 +279,7 @@ func TestQueryLoki(t *testing.T) {
 
 			if diff := cmp.Diff(got, want); diff != "" {
 				t.Errorf(`result differs:
-	      first |   last |    len
+          first |   last |    len
        +--------+--------+-------
    got | %6d | %6d | %6d
   want | %6d | %6d | %6d
