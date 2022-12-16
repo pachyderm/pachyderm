@@ -41,8 +41,8 @@ locust -f locustfile.py --headless --users 50 --spawn-rate 1 --run-time 3m \
 cd ..
 
 # Collect and export stats to bigquery
-PACHD_PERF_VERSION="$image_tag"
-API_PERF_RESULTS_FOLDER="/tmp/test-results"
+export PACHD_PERF_VERSION="$image_tag"
+export API_PERF_RESULTS_FOLDER="/tmp/test-results"
 cd etc/testing/circle/workloads/api-perf-collector
 pip3 install -r requirements.txt
 python3 app.py
