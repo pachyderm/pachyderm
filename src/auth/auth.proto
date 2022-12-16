@@ -393,7 +393,7 @@ message RevokeAuthTokenRequest {
 }
 
 message RevokeAuthTokenResponse {
-  int64 num = 1;
+  int64 number = 1;
 }
 
 message SetGroupsForUserRequest {
@@ -449,7 +449,7 @@ message RevokeAuthTokensForUserRequest {
 }
 
 message RevokeAuthTokensForUserResponse {
-  int64 num = 1;
+  int64 number = 1;
 }
 
 message DeleteExpiredAuthTokensRequest {}

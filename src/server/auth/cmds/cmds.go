@@ -495,13 +495,13 @@ func RevokeCmd() *cobra.Command {
 				if err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
 				}
-				fmt.Println(p.Sprintf("%d auth token(s) revoked", resp.Num))
+				fmt.Println(p.Sprintf("%d auth token(s) revoked", resp.Number))
 			} else {
 				resp, err := c.RevokeAuthTokensForUser(c.Ctx(), &auth.RevokeAuthTokensForUserRequest{Username: user})
 				if err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
 				}
-				fmt.Println(p.Sprintf("%d auth token(s) revoked", resp.Num))
+				fmt.Println(p.Sprintf("%d auth token(s) revoked", resp.Number))
 			}
 			return nil
 		}),

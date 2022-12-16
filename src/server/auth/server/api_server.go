@@ -1196,7 +1196,7 @@ func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txncontext.TransactionC
 	if err != nil {
 		return nil, err
 	}
-	return &auth.RevokeAuthTokenResponse{Num: n}, nil
+	return &auth.RevokeAuthTokenResponse{Number: n}, nil
 }
 
 // setGroupsForUserInternal is a helper function used by SetGroupsForUser, and
@@ -1615,7 +1615,7 @@ func (a *apiServer) RevokeAuthTokensForUser(ctx context.Context, req *auth.Revok
 	if err != nil {
 		return nil, err
 	}
-	return &auth.RevokeAuthTokensForUserResponse{Num: n}, nil
+	return &auth.RevokeAuthTokensForUserResponse{Number: n}, nil
 }
 
 func (a *apiServer) deleteExpiredTokensRoutine() error {
