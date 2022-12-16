@@ -13,7 +13,7 @@ def main():
     common_columns = {
         'Workflow_Id': os.getenv('CIRCLE_WORKFLOW_ID'),
         'Job_Id': os.getenv('CIRCLE_WORKFLOW_JOB_ID'),
-        'Version': normalize_version(os.getenv('PACHD_VERSION')),
+        'Version': normalize_version(os.getenv('PACHD_PERF_VERSION')),
         'Upload_Timestamp': time.time()
     }
     for key, value in common_columns.items():
