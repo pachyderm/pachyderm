@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -38,10 +37,6 @@ func mustParseQuerystringInt64(r *http.Request, field string) int64 {
 	return x
 }
 
-const (
-	queryTimeout = 2 * time.Second
-)
-
 type fakeLoki struct {
 	entries     []loki.Entry // Must be sorted by time ascending.
 	page        int          // Keep track of the current page.
@@ -52,10 +47,8 @@ func (l *fakeLoki) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Simulate the bug where Loki server hangs due to large logs.
 	l.page++
 	if l.sleepAtPage > 0 && l.page >= l.sleepAtPage {
-		log.Println("server sleeping")
-		time.Sleep(3 * queryTimeout)
-		log.Println("server finished sleeping")
-		http.Error(w, "server timed out", http.StatusInternalServerError)
+		// wait for request to time out on purpose
+		<-r.Context().Done()
 		return
 	}
 
@@ -326,14 +319,12 @@ func TestQueryLoki(t *testing.T) {
 			}
 
 			var got []int
-			ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
-			log.Println("querying loki")
 			out, err := d.queryLoki(ctx, `{foo="bar"}`)
 			if err != nil {
 				t.Fatalf("query loki: %v", err)
 			}
-			log.Println("finished querying loki")
 			for i, l := range out {
 				x, err := strconv.ParseInt(l.Entry.Line, 10, 64)
 				if err != nil {
