@@ -94,7 +94,7 @@ describe('Projects Resolver', () => {
       expect(projectDetails?.sizeDisplay).toBe('3 kB');
       expect(projectDetails?.repoCount).toBe(3);
       expect(projectDetails?.pipelineCount).toBe(2);
-      expect(projectDetails?.jobSets).toHaveLength(2);
+      expect(projectDetails?.jobSets).toHaveLength(4);
     });
   });
 });

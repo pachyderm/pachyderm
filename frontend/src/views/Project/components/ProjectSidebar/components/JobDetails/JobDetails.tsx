@@ -4,6 +4,7 @@ import {Helmet} from 'react-helmet';
 import {Redirect, Route} from 'react-router-dom';
 
 import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
+import InfoPanel from '@dash-frontend/components/InfoPanel';
 import {useJobSet} from '@dash-frontend/hooks/useJobSet';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
@@ -11,13 +12,12 @@ import {
   PROJECT_PIPELINE_JOB_PATH,
 } from '@dash-frontend/views/Project/constants/projectPaths';
 import {
-  jobsRoute,
   jobRoute,
+  jobsRoute,
   pipelineRoute,
 } from '@dash-frontend/views/Project/utils/routes';
 import {Link, LoadingDots} from '@pachyderm/components';
 
-import InfoPanel from './components/InfoPanel';
 import PipelineList from './components/PipelineList';
 import styles from './JobDetails.module.css';
 

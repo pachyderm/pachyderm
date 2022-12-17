@@ -343,12 +343,14 @@ const pps = ({
     getLogs: ({
       pipelineName,
       jobId,
+      datumId,
       since,
       follow = false,
     }: GetLogsRequestArgs) => {
       const getLogsRequest = getLogsRequestFromArgs({
         pipelineName,
         jobId,
+        datumId,
         since,
         follow,
       });
@@ -362,6 +364,7 @@ const pps = ({
     getLogsStream: ({
       pipelineName,
       jobId,
+      datumId,
       since,
       follow = false,
     }: GetLogsRequestArgs) => {
@@ -371,6 +374,7 @@ const pps = ({
             const getLogsRequest = getLogsRequestFromArgs({
               pipelineName,
               jobId,
+              datumId,
               since,
               follow,
             });
@@ -420,17 +424,27 @@ const pps = ({
       });
     },
 
-    listDatums: ({jobId, pipelineName, filter}: ListDatumsRequestArgs) => {
+    listDatums: ({
+      jobId,
+      pipelineName,
+      filter,
+      number,
+      cursor,
+    }: ListDatumsRequestArgs) => {
       const request = new ListDatumRequest().setJob(
         new Job()
           .setId(jobId)
           .setPipeline(new Pipeline().setName(pipelineName)),
       );
-
       if (filter) {
         request.setFilter(new ListDatumRequest.Filter().setStateList(filter));
       }
-
+      if (number) {
+        request.setNumber(number);
+      }
+      if (cursor) {
+        request.setPaginationmarker(cursor);
+      }
       const stream = client.listDatum(request, credentialMetadata);
 
       return streamToObjectArray<DatumInfo, DatumInfo.AsObject>(stream);

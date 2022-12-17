@@ -1,15 +1,14 @@
-import capitalize from 'lodash/capitalize';
+import {format, fromUnixTime} from 'date-fns';
 import React from 'react';
 import {Helmet} from 'react-helmet';
 
-import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
+import Description from '@dash-frontend/components/Description';
+import InfoPanel from '@dash-frontend/components/InfoPanel';
 import {SkeletonDisplayText, Tabs} from '@pachyderm/components';
 
-import InfoPanel from '../JobDetails/components/InfoPanel';
 import Title from '../Title';
 
 import PipelineInfo from './components/PipelineInfo';
-import PipelineJobs from './components/PipelineJobs';
 import PipelineSpec from './components/PipelineSpec';
 import {TAB_ID} from './constants/tabIds';
 import usePipelineDetails from './hooks/usePipelineDetails';
@@ -21,8 +20,7 @@ type PipelineDetailsProps = {
 };
 
 const PipelineDetails: React.FC<PipelineDetailsProps> = ({dagLinks}) => {
-  const {viewState} = useUrlQueryState();
-  const {loading, pipelineName, filteredTabIds, tabsBasePath} =
+  const {loading, pipeline, lastJob, isServiceOrSpout, tabsBasePath} =
     usePipelineDetails();
 
   return (
@@ -30,41 +28,54 @@ const PipelineDetails: React.FC<PipelineDetailsProps> = ({dagLinks}) => {
       <Helmet>
         <title>Pipeline - Pachyderm Console</title>
       </Helmet>
-      <div className={styles.title}>
-        {loading ? (
-          <SkeletonDisplayText data-testid="PipelineDetails__pipelineNameSkeleton" />
-        ) : (
-          <Title>{pipelineName}</Title>
-        )}
-      </div>
-      <Tabs.RouterTabs
-        basePathTabId={viewState.globalIdFilter ? TAB_ID.JOBS : TAB_ID.INFO}
-        basePath={tabsBasePath}
+      <div
+        className={styles.sidebarContent}
+        data-testid="PipelineDetails__scrollableContent"
       >
-        <Tabs.TabsHeader className={styles.tabsHeader}>
-          {filteredTabIds.map((tabId) => {
-            let text = capitalize(tabId);
-            if (viewState.globalIdFilter && text === 'Jobs') {
-              text = 'Job';
-            }
-            return (
-              <Tabs.Tab id={tabId} key={tabId}>
-                {text}
+        <div className={styles.title}>
+          {loading ? (
+            <SkeletonDisplayText data-testid="PipelineDetails__pipelineNameSkeleton" />
+          ) : (
+            <Title>{pipeline?.name}</Title>
+          )}
+          {pipeline?.description && (
+            <div className={styles.description}>{pipeline?.description}</div>
+          )}
+          <Description term="Most Recent Job Start" loading={loading}>
+            {lastJob?.createdAt
+              ? format(fromUnixTime(lastJob?.createdAt), 'MMM d, yyyy; h:mma')
+              : 'N/A'}
+          </Description>
+          <Description term="Most Recent Job ID" loading={loading}>
+            {lastJob?.id}
+          </Description>
+        </div>
+        <Tabs.RouterTabs basePathTabId={TAB_ID.JOB} basePath={tabsBasePath}>
+          <Tabs.TabsHeader className={styles.tabsHeader}>
+            {!loading && !isServiceOrSpout && (
+              <Tabs.Tab id={TAB_ID.JOB} key={TAB_ID.JOB}>
+                Job Overview
               </Tabs.Tab>
-            );
-          })}
-        </Tabs.TabsHeader>
+            )}
+            <Tabs.Tab id={TAB_ID.INFO} key={TAB_ID.INFO}>
+              Pipeline Info
+            </Tabs.Tab>
+            <Tabs.Tab id={TAB_ID.SPEC} key={TAB_ID.SPEC}>
+              Spec
+            </Tabs.Tab>
+          </Tabs.TabsHeader>
 
-        <Tabs.TabPanel id={TAB_ID.INFO}>
-          <PipelineInfo dagLinks={dagLinks} />
-        </Tabs.TabPanel>
-        <Tabs.TabPanel id={TAB_ID.SPEC}>
-          <PipelineSpec />
-        </Tabs.TabPanel>
-        <Tabs.TabPanel id={TAB_ID.JOBS}>
-          {viewState.globalIdFilter ? <InfoPanel /> : <PipelineJobs />}
-        </Tabs.TabPanel>
-      </Tabs.RouterTabs>
+          <Tabs.TabPanel id={TAB_ID.JOB}>
+            <InfoPanel lastPipelineJob={lastJob} pipelineLoading={loading} />
+          </Tabs.TabPanel>
+          <Tabs.TabPanel id={TAB_ID.INFO}>
+            <PipelineInfo dagLinks={dagLinks} />
+          </Tabs.TabPanel>
+          <Tabs.TabPanel id={TAB_ID.SPEC}>
+            <PipelineSpec />
+          </Tabs.TabPanel>
+        </Tabs.RouterTabs>
+      </div>
     </>
   );
 };

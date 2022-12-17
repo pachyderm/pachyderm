@@ -14,6 +14,7 @@ export type MakeOptional<T, K extends keyof T> = Omit<T, K> & {
 export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & {
   [SubKey in K]: Maybe<T[SubKey]>;
 };
+export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 export type RequireFields<T, K extends keyof T> = Omit<T, K> & {
   [P in K]-?: NonNullable<T[P]>;
 };
@@ -143,11 +144,14 @@ export type DagQueryArgs = {
 export type Datum = {
   __typename?: 'Datum';
   downloadBytes?: Maybe<Scalars['Float']>;
-  downloadTime?: Maybe<Scalars['Int']>;
+  downloadTimestamp?: Maybe<Timestamp>;
   id: Scalars['ID'];
-  processTime?: Maybe<Scalars['Int']>;
+  jobId?: Maybe<Scalars['ID']>;
+  processTimestamp?: Maybe<Timestamp>;
+  requestedJobId: Scalars['ID'];
   state: DatumState;
-  uploadTime?: Maybe<Scalars['Int']>;
+  uploadBytes?: Maybe<Scalars['Float']>;
+  uploadTimestamp?: Maybe<Timestamp>;
 };
 
 export type DatumQueryArgs = {
@@ -163,13 +167,14 @@ export enum DatumState {
   SKIPPED = 'SKIPPED',
   STARTING = 'STARTING',
   SUCCESS = 'SUCCESS',
-  UNKOWN = 'UNKOWN',
+  UNKNOWN = 'UNKNOWN',
 }
 
 export type DatumsQueryArgs = {
+  cursor?: InputMaybe<Scalars['String']>;
+  filter?: InputMaybe<Array<DatumState>>;
   jobId: Scalars['ID'];
   limit?: InputMaybe<Scalars['Int']>;
-  offset?: InputMaybe<Scalars['Int']>;
   pipelineId: Scalars['ID'];
   projectId: Scalars['String'];
 };
@@ -369,6 +374,7 @@ export type Log = {
 };
 
 export type LogsArgs = {
+  datumId?: InputMaybe<Scalars['String']>;
   jobId?: InputMaybe<Scalars['String']>;
   pipelineName: Scalars['String'];
   projectId: Scalars['String'];
@@ -489,6 +495,15 @@ export type Pach = {
   id: Scalars['ID'];
 };
 
+export type Pageable = Datum | File;
+
+export type PageableResponse = {
+  __typename?: 'PageableResponse';
+  cursor?: Maybe<Scalars['String']>;
+  hasNextPage?: Maybe<Scalars['Boolean']>;
+  items: Array<Pageable>;
+};
+
 export type Pipeline = {
   __typename?: 'Pipeline';
   createdAt: Scalars['Int'];
@@ -583,7 +598,8 @@ export type Query = {
   commits: Array<Commit>;
   dag: Array<Vertex>;
   datum: Datum;
-  datums?: Maybe<Array<Datum>>;
+  datumSearch?: Maybe<Datum>;
+  datums: PageableResponse;
   enterpriseInfo: EnterpriseInfo;
   files: FileQueryResponse;
   job: Job;
@@ -620,6 +636,10 @@ export type QueryDagArgs = {
 };
 
 export type QueryDatumArgs = {
+  args: DatumQueryArgs;
+};
+
+export type QueryDatumSearchArgs = {
   args: DatumQueryArgs;
 };
 
@@ -971,6 +991,10 @@ export type ResolversTypes = ResolversObject<{
   PFS: Pfs;
   PFSInput: ResolverTypeWrapper<PfsInput>;
   Pach: ResolverTypeWrapper<Pach>;
+  Pageable: ResolversTypes['Datum'] | ResolversTypes['File'];
+  PageableResponse: ResolverTypeWrapper<
+    Omit<PageableResponse, 'items'> & {items: Array<ResolversTypes['Pageable']>}
+  >;
   Pipeline: ResolverTypeWrapper<Pipeline>;
   PipelineQueryArgs: PipelineQueryArgs;
   PipelineState: PipelineState;
@@ -1054,6 +1078,10 @@ export type ResolversParentTypes = ResolversObject<{
   PFS: Pfs;
   PFSInput: PfsInput;
   Pach: Pach;
+  Pageable: ResolversParentTypes['Datum'] | ResolversParentTypes['File'];
+  PageableResponse: Omit<PageableResponse, 'items'> & {
+    items: Array<ResolversParentTypes['Pageable']>;
+  };
   Pipeline: Pipeline;
   PipelineQueryArgs: PipelineQueryArgs;
   PipelinesQueryArgs: PipelinesQueryArgs;
@@ -1175,15 +1203,30 @@ export type DatumResolvers<
     ParentType,
     ContextType
   >;
-  downloadTime?: Resolver<
-    Maybe<ResolversTypes['Int']>,
+  downloadTimestamp?: Resolver<
+    Maybe<ResolversTypes['Timestamp']>,
     ParentType,
     ContextType
   >;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  processTime?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  jobId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  processTimestamp?: Resolver<
+    Maybe<ResolversTypes['Timestamp']>,
+    ParentType,
+    ContextType
+  >;
+  requestedJobId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   state?: Resolver<ResolversTypes['DatumState'], ParentType, ContextType>;
-  uploadTime?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  uploadBytes?: Resolver<
+    Maybe<ResolversTypes['Float']>,
+    ParentType,
+    ContextType
+  >;
+  uploadTimestamp?: Resolver<
+    Maybe<ResolversTypes['Timestamp']>,
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1484,6 +1527,27 @@ export type PachResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type PageableResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Pageable'] = ResolversParentTypes['Pageable'],
+> = ResolversObject<{
+  __resolveType: TypeResolveFn<'Datum' | 'File', ParentType, ContextType>;
+}>;
+
+export type PageableResponseResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['PageableResponse'] = ResolversParentTypes['PageableResponse'],
+> = ResolversObject<{
+  cursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  hasNextPage?: Resolver<
+    Maybe<ResolversTypes['Boolean']>,
+    ParentType,
+    ContextType
+  >;
+  items?: Resolver<Array<ResolversTypes['Pageable']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type PipelineResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Pipeline'] = ResolversParentTypes['Pipeline'],
@@ -1590,8 +1654,14 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryDatumArgs, 'args'>
   >;
+  datumSearch?: Resolver<
+    Maybe<ResolversTypes['Datum']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryDatumSearchArgs, 'args'>
+  >;
   datums?: Resolver<
-    Maybe<Array<ResolversTypes['Datum']>>,
+    ResolversTypes['PageableResponse'],
     ParentType,
     ContextType,
     RequireFields<QueryDatumsArgs, 'args'>
@@ -1849,6 +1919,8 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   OpenCommit?: OpenCommitResolvers<ContextType>;
   PFSInput?: PfsInputResolvers<ContextType>;
   Pach?: PachResolvers<ContextType>;
+  Pageable?: PageableResolvers<ContextType>;
+  PageableResponse?: PageableResponseResolvers<ContextType>;
   Pipeline?: PipelineResolvers<ContextType>;
   Project?: ProjectResolvers<ContextType>;
   ProjectDetails?: ProjectDetailsResolvers<ContextType>;
@@ -1881,11 +1953,26 @@ export type CommitFragmentFragment = {
 export type DatumFragment = {
   __typename?: 'Datum';
   id: string;
+  jobId?: string | null;
+  requestedJobId: string;
   state: DatumState;
   downloadBytes?: number | null;
-  uploadTime?: number | null;
-  processTime?: number | null;
-  downloadTime?: number | null;
+  uploadBytes?: number | null;
+  downloadTimestamp?: {
+    __typename?: 'Timestamp';
+    seconds: number;
+    nanos: number;
+  } | null;
+  uploadTimestamp?: {
+    __typename?: 'Timestamp';
+    seconds: number;
+    nanos: number;
+  } | null;
+  processTimestamp?: {
+    __typename?: 'Timestamp';
+    seconds: number;
+    nanos: number;
+  } | null;
 };
 
 export type DiffFragmentFragment = {
@@ -2203,12 +2290,59 @@ export type DatumQuery = {
   datum: {
     __typename?: 'Datum';
     id: string;
+    jobId?: string | null;
+    requestedJobId: string;
     state: DatumState;
     downloadBytes?: number | null;
-    uploadTime?: number | null;
-    processTime?: number | null;
-    downloadTime?: number | null;
+    uploadBytes?: number | null;
+    downloadTimestamp?: {
+      __typename?: 'Timestamp';
+      seconds: number;
+      nanos: number;
+    } | null;
+    uploadTimestamp?: {
+      __typename?: 'Timestamp';
+      seconds: number;
+      nanos: number;
+    } | null;
+    processTimestamp?: {
+      __typename?: 'Timestamp';
+      seconds: number;
+      nanos: number;
+    } | null;
   };
+};
+
+export type DatumSearchQueryVariables = Exact<{
+  args: DatumQueryArgs;
+}>;
+
+export type DatumSearchQuery = {
+  __typename?: 'Query';
+  datumSearch?: {
+    __typename?: 'Datum';
+    id: string;
+    jobId?: string | null;
+    requestedJobId: string;
+    state: DatumState;
+    downloadBytes?: number | null;
+    uploadBytes?: number | null;
+    downloadTimestamp?: {
+      __typename?: 'Timestamp';
+      seconds: number;
+      nanos: number;
+    } | null;
+    uploadTimestamp?: {
+      __typename?: 'Timestamp';
+      seconds: number;
+      nanos: number;
+    } | null;
+    processTimestamp?: {
+      __typename?: 'Timestamp';
+      seconds: number;
+      nanos: number;
+    } | null;
+  } | null;
 };
 
 export type DatumsQueryVariables = Exact<{
@@ -2217,15 +2351,38 @@ export type DatumsQueryVariables = Exact<{
 
 export type DatumsQuery = {
   __typename?: 'Query';
-  datums?: Array<{
-    __typename?: 'Datum';
-    id: string;
-    state: DatumState;
-    downloadBytes?: number | null;
-    uploadTime?: number | null;
-    processTime?: number | null;
-    downloadTime?: number | null;
-  }> | null;
+  datums: {
+    __typename?: 'PageableResponse';
+    cursor?: string | null;
+    hasNextPage?: boolean | null;
+    items: Array<
+      | {
+          __typename?: 'Datum';
+          id: string;
+          jobId?: string | null;
+          requestedJobId: string;
+          state: DatumState;
+          downloadBytes?: number | null;
+          uploadBytes?: number | null;
+          downloadTimestamp?: {
+            __typename?: 'Timestamp';
+            seconds: number;
+            nanos: number;
+          } | null;
+          uploadTimestamp?: {
+            __typename?: 'Timestamp';
+            seconds: number;
+            nanos: number;
+          } | null;
+          processTimestamp?: {
+            __typename?: 'Timestamp';
+            seconds: number;
+            nanos: number;
+          } | null;
+        }
+      | {__typename?: 'File'}
+    >;
+  };
 };
 
 export type GetEnterpriseInfoQueryVariables = Exact<{[key: string]: never}>;
@@ -2359,6 +2516,10 @@ export type JobsQuery = {
     __typename?: 'Job';
     inputString?: string | null;
     inputBranch?: string | null;
+    outputBranch?: string | null;
+    outputCommit?: string | null;
+    reason?: string | null;
+    jsonDetails: string;
     transformString?: string | null;
     id: string;
     state: JobState;
@@ -2366,13 +2527,11 @@ export type JobsQuery = {
     startedAt?: number | null;
     finishedAt?: number | null;
     pipelineName: string;
-    reason?: string | null;
     dataProcessed: number;
     dataSkipped: number;
     dataFailed: number;
     dataTotal: number;
     dataRecovered: number;
-    outputCommit?: string | null;
     transform?: {
       __typename?: 'Transform';
       cmdList: Array<string>;

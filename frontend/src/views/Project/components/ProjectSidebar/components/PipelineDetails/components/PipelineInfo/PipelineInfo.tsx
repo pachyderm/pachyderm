@@ -20,6 +20,10 @@ const PipelineInfo: React.FC<PipelineDetailsProps> = ({dagLinks}) => {
 
   return (
     <dl className={styles.base}>
+      <Description term="" loading={loading}>
+        {pipeline && <PipelineStateComponent state={pipeline.state} />}
+      </Description>
+
       {dagLinks && dagLinks[pipeline?.name || ''] && (
         <Description loading={loading} term="Inputs">
           <div className={styles.repoGroup}>
@@ -34,10 +38,6 @@ const PipelineInfo: React.FC<PipelineDetailsProps> = ({dagLinks}) => {
         <div className={styles.repoGroup}>
           <RepoLink name={pipelineId} />
         </div>
-      </Description>
-
-      <Description term="Pipeline Status" loading={loading}>
-        {pipeline && <PipelineStateComponent state={pipeline.state} />}
       </Description>
 
       {pipeline?.reason && (

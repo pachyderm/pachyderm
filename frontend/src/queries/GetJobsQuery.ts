@@ -8,6 +8,10 @@ export const JOBS_QUERY = gql`
       ...JobOverview
       inputString
       inputBranch
+      outputBranch
+      outputCommit
+      reason
+      jsonDetails
       transformString
       transform {
         cmdList

@@ -171,6 +171,8 @@ const pps = () => {
               );
             } else {
               const jobId = call.request.getJob()?.getId();
+              const datumId = call.request.getDatum()?.getId();
+
               const pipelineJobName = call.request
                 .getJob()
                 ?.getPipeline()
@@ -183,6 +185,12 @@ const pps = () => {
                   pipelineJobName &&
                   log.getPipelineName() === pipelineJobName,
               );
+
+              if (datumId) {
+                filteredLogs = filteredLogs.filter(
+                  (log) => datumId && log.getDatumId() === datumId,
+                );
+              }
             }
 
             filteredLogs.slice(-call.request.getTail() || 0).forEach((log) => {
@@ -280,10 +288,34 @@ const pps = () => {
             MockState.state.datums[projectId.toString()] ||
             MockState.state.datums['default'];
 
-          const datums = projectDatums[pipelineName][jobId];
+          const filters = call.request.getFilter()?.toArray()[0];
 
-          datums.forEach((datum) => call.write(datum));
-          call.end();
+          let datums = projectDatums[pipelineName]
+            ? projectDatums[pipelineName][jobId]
+            : null;
+
+          if (!datums) {
+            call.end();
+          } else {
+            if (filters && filters.length !== 0) {
+              datums = datums.filter((datum) => {
+                return filters.includes(datum.getState());
+              });
+            }
+            const cursor = call.request.getPaginationmarker();
+            if (cursor) {
+              const cursorIndex = datums.findIndex(
+                (datum) => datum.getDatum()?.getId() === cursor,
+              );
+              datums = datums.slice(cursorIndex !== -1 ? cursorIndex + 1 : -1);
+            }
+            const number = call.request.getNumber();
+            if (number) {
+              datums = datums.slice(0, number);
+            }
+            datums.forEach((datum) => call.write(datum));
+            call.end();
+          }
         },
         inspectDatum: (call, callback) => {
           const [projectId] = call.metadata.get('project-id');

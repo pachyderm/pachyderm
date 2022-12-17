@@ -1,9 +1,9 @@
-import {render, waitFor, act, fireEvent} from '@testing-library/react';
+import {fireEvent, render, waitFor} from '@testing-library/react';
 import React, {useState} from 'react';
 
 import {click, type} from '@dash-frontend/testHelpers';
 
-import {DropdownItem, SearchableDropdown, DropdownProps} from '../';
+import {DropdownItem, DropdownProps, SearchableDropdown} from '../';
 
 describe('Dropdown', () => {
   const renderTestbed = ({

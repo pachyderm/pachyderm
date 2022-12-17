@@ -34,7 +34,7 @@ describe('Project', () => {
     cy.findByTestId('DeletePipelineButton__link').should('be.disabled');
     cy.findByLabelText('Close').click();
 
-    cy.get("#GROUP_montage").within(() => cy.findByText('Pipeline').click());
+    cy.get("#GROUP_montage").within(() => cy.findByText('Pipeline').click({force: true}));
     cy.findByTestId('DeletePipelineButton__link').click();
     cy.findByTestId('ModalFooter__confirm').click();
     cy.findByTestId('ModalFooter__confirm').should('not.exist');

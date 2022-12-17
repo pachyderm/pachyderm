@@ -14,10 +14,6 @@ import {
   LINEAGE_FILE_BROWSER_PATH,
   PROJECT_FILE_BROWSER_PATH,
   PROJECT_JOB_PATH,
-  LINEAGE_LOGS_VIEWER_JOB_PATH,
-  LINEAGE_LOGS_VIEWER_PIPELINE_PATH,
-  PROJECT_LOGS_VIEWER_JOB_PATH,
-  PROJECT_LOGS_VIEWER_PIPELINE_PATH,
   LINEAGE_JOBS_PATH,
   LINEAGE_JOB_PATH,
   LINEAGE_PIPELINE_JOB_PATH,
@@ -25,6 +21,14 @@ import {
   LINEAGE_PIPELINE_PATH,
   PROJECT_FILE_UPLOAD_PATH,
   LINEAGE_FILE_UPLOAD_PATH,
+  PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH,
+  PROJECT_PIPELINE_LOGS_VIEWER_DATUM_PATH,
+  LINEAGE_PIPELINE_LOGS_VIEWER_DATUM_PATH,
+  LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH,
+  PROJECT_JOB_LOGS_VIEWER_JOB_PATH,
+  LINEAGE_JOB_LOGS_VIEWER_JOB_PATH,
+  PROJECT_JOB_LOGS_VIEWER_DATUM_PATH,
+  LINEAGE_JOB_LOGS_VIEWER_DATUM_PATH,
 } from '../constants/projectPaths';
 
 const generateRouteFn = <S extends string>(path: S) => {
@@ -82,13 +86,51 @@ export const fileBrowserRoute = generateLineageOrProjectRouteFn(
   PROJECT_FILE_BROWSER_PATH,
   LINEAGE_FILE_BROWSER_PATH,
 );
-export const logsViewerJobRoute = generateLineageOrProjectRouteFn(
-  PROJECT_LOGS_VIEWER_JOB_PATH,
-  LINEAGE_LOGS_VIEWER_JOB_PATH,
+
+const generateLineageOrProjectLogsRouteFn = <S extends string>(
+  projectPipelinePath: S,
+  projectJobPath: S,
+  lineagePipelinePath: S,
+  lineageJobPath: S,
+) => {
+  return (params?: ExtractRouteParams<S>, withSearch = true) => {
+    const projectPath = matchPath(
+      window.location.pathname,
+      PROJECT_PIPELINE_PATH,
+    )
+      ? projectPipelinePath
+      : projectJobPath;
+
+    const lineagePath = matchPath(
+      window.location.pathname,
+      LINEAGE_PIPELINE_PATH,
+    )
+      ? lineagePipelinePath
+      : lineageJobPath;
+
+    if (matchPath(window.location.pathname, LINEAGE_PATH)) {
+      return withSearch
+        ? generatePathWithSearch(lineagePath, params)
+        : encodeURI(generatePath(lineagePath, params));
+    } else {
+      return withSearch
+        ? generatePathWithSearch(projectPath, params)
+        : encodeURI(generatePath(projectPath, params));
+    }
+  };
+};
+
+export const logsViewerJobRoute = generateLineageOrProjectLogsRouteFn(
+  PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH,
+  PROJECT_JOB_LOGS_VIEWER_JOB_PATH,
+  LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH,
+  LINEAGE_JOB_LOGS_VIEWER_JOB_PATH,
 );
-export const logsViewerPipelneRoute = generateLineageOrProjectRouteFn(
-  PROJECT_LOGS_VIEWER_PIPELINE_PATH,
-  LINEAGE_LOGS_VIEWER_PIPELINE_PATH,
+export const logsViewerDatumRoute = generateLineageOrProjectLogsRouteFn(
+  PROJECT_PIPELINE_LOGS_VIEWER_DATUM_PATH,
+  PROJECT_JOB_LOGS_VIEWER_DATUM_PATH,
+  LINEAGE_PIPELINE_LOGS_VIEWER_DATUM_PATH,
+  LINEAGE_JOB_LOGS_VIEWER_DATUM_PATH,
 );
 
 export const fileUploadRoute = generateLineageOrProjectRouteFn(

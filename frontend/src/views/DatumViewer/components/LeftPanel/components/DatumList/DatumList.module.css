@@ -1,0 +1,30 @@
+.base {
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  height: 100%;
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--border-grey);
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  height: 1.938rem;
+  padding-left: 1rem;
+  padding-right: 1.5rem;
+}
+
+.searchInput {
+  width: 100%;
+}
+
+.searchClose {
+  cursor: pointer;
+}

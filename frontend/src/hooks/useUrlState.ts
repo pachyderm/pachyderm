@@ -23,6 +23,7 @@ const useUrlState = () => {
   const commitId = getDecodedRouteParam(match, 'commitId');
   const filePath = getDecodedRouteParam(match, 'filePath');
   const jobId = getDecodedRouteParam(match, 'jobId');
+  const datumId = getDecodedRouteParam(match, 'datumId');
 
   return {
     branchId,
@@ -32,6 +33,7 @@ const useUrlState = () => {
     commitId,
     filePath,
     jobId,
+    datumId,
   };
 };
 

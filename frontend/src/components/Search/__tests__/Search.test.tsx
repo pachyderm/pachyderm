@@ -174,7 +174,7 @@ describe('Search', () => {
 
     searchBar.focus();
     assertDropdown().toBeShown();
-    await click(await findByRole('button', {name: 'All (2)'}));
+    await click(await findByRole('button', {name: 'All (4)'}));
     expect(window.location.pathname).toBe('/project/1/jobs');
     expect(getUrlState().jobFilters).toEqual([
       JobState.JOB_CREATED,

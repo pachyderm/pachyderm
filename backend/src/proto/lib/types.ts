@@ -55,6 +55,7 @@ export type JobQueryArgs = {
 export type GetLogsRequestArgs = {
   pipelineName?: string;
   jobId?: string;
+  datumId?: string;
   since?: number;
   follow?: boolean;
 };
@@ -140,6 +141,8 @@ export type ListDatumsRequestArgs = {
   jobId: string;
   pipelineName: string;
   filter?: DatumState[];
+  number?: number;
+  cursor?: string;
 };
 
 export type RenewFileSetRequestArgs = {

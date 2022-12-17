@@ -6,6 +6,8 @@ import {JOB_SETS} from './loadLimits';
 const tutorial = {
   '23b9af7d5d4343219bc8e02ff44cd55a': [jobs['1'][0], jobs['1'][1]],
   '33b9af7d5d4343219bc8e02ff44cd55a': [jobs['1'][2]],
+  '7798fhje5d4343219bc8e02ff4acd33a': [jobs['1'][3]],
+  o90du4js5d4343219bc8e02ff4acd33a: [jobs['1'][4]],
 };
 
 const cron = {

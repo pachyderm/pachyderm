@@ -84,6 +84,19 @@ const tutorial = [
       downloadBytes: 2896,
     },
   }),
+
+  jobInfoFromObject({
+    state: JobState.JOB_FINISHING,
+    createdAt: {seconds: 1614125000, nanos: 100},
+    startedAt: {seconds: 1614125000, nanos: 100},
+    job: {id: '7798fhje5d4343219bc8e02ff4acd33a', pipeline: {name: 'montage'}},
+  }),
+  jobInfoFromObject({
+    state: JobState.JOB_KILLED,
+    createdAt: {seconds: 1614123000, nanos: 100},
+    startedAt: {seconds: 1614123000, nanos: 100},
+    job: {id: 'o90du4js5d4343219bc8e02ff4acd33a', pipeline: {name: 'montage'}},
+  }),
 ];
 
 const cron = [

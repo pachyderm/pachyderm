@@ -1,3 +1,4 @@
+import classnames from 'classnames';
 import React, {HTMLAttributes} from 'react';
 
 import styles from './Text.module.css';
@@ -90,16 +91,43 @@ const CodeTextBlock: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   );
 };
 
-const CaptionText: React.FC<React.HTMLAttributes<HTMLSpanElement>> = (
-  props,
-) => {
-  return <SpanText fontStyle="captionText" {...props} />;
+const CaptionColors = {
+  black: 'black',
+  grey: 'captionGrey',
 };
 
-const CaptionTextSmall: React.FC<React.HTMLAttributes<HTMLSpanElement>> = (
-  props,
-) => {
-  return <SpanText fontStyle="captionTextSmall" {...props} />;
+const defaultCaptionColor = CaptionColors.grey;
+
+type CaptionColor = keyof typeof CaptionColors;
+
+export type CaptionProps = React.HTMLAttributes<HTMLSpanElement> & {
+  color?: CaptionColor;
+};
+
+const CaptionText: React.FC<CaptionProps> = ({color, className, ...rest}) => {
+  const actualColor = (color && CaptionColors[color]) || defaultCaptionColor;
+  return (
+    <SpanText
+      fontStyle="captionText"
+      className={classnames(className, styles[actualColor])}
+      {...rest}
+    />
+  );
+};
+
+const CaptionTextSmall: React.FC<CaptionProps> = ({
+  color,
+  className,
+  ...rest
+}) => {
+  const actualColor = (color && CaptionColors[color]) || defaultCaptionColor;
+  return (
+    <SpanText
+      fontStyle="captionTextSmall"
+      className={classnames(className, styles[actualColor])}
+      {...rest}
+    />
+  );
 };
 
 export {

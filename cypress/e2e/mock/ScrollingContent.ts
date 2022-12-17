@@ -15,7 +15,7 @@ describe(
   () => {
   beforeEach(() => {
     cy.visit('/');
-    cy.findByText('Skip tutorial').click();
+    cy.findByText('Skip tutorial').click({force: true});
   });
 
   // These tests ensure that scrollable content involving long lists of items don't cut off any items at the bottom when scrolling
@@ -94,41 +94,42 @@ describe(
     cy.findAllByText(/^View(\sProject)*$/).eq(1).click();
     cy.findByText('View List').click();
     cy.findByText('Pipelines').click();
+    cy.findByText('Pipeline Info').click();
     cy.get(`[aria-labelledby="info"]`).children().first().children().should('have.length', 22);
-    cy.get(`[aria-labelledby="info"]`).children().first().children().first().should('be.visible');
+    cy.get(`[aria-labelledby="info"]`).children().first().children().eq(1).should('be.visible');
     cy.get(`[aria-labelledby="info"]`).children().first().children().last().should('not.be.visible');
-    cy.get(`[aria-labelledby="info"]`).scrollTo('bottom')
+    cy.findByTestId("PipelineDetails__scrollableContent").scrollTo('bottom')
     cy.get(`[aria-labelledby="info"]`).children().first().children().last().should('be.visible');
     cy.isInViewport(() => cy.get(`[aria-labelledby="info"]`).children().first().children().last());
 
     cy.findByText('View DAG').click();
     cy.get(`[aria-labelledby="info"]`).children().first().children().should('have.length', 20);
-    cy.get(`[aria-labelledby="info"]`).children().first().children().first().should('be.visible');
+    cy.get(`[aria-labelledby="info"]`).children().first().children().eq(1).should('be.visible');
     cy.get(`[aria-labelledby="info"]`).children().first().children().last().should('not.be.visible');
-    cy.get(`[aria-labelledby="info"]`).scrollTo('bottom')
+    cy.findByTestId("PipelineDetails__scrollableContent").scrollTo('bottom')
     cy.get(`[aria-labelledby="info"]`).children().first().children().last().should('be.visible');
     cy.isInViewport(() => cy.get(`[aria-labelledby="info"]`).children().first().children().last());
   });
 
-  it('should display the last item properly when scrolling commits from repos in lineage and list view', () => {
-    cy.findAllByText(/^View(\sProject)*$/).eq(1).click();
-    cy.findByText('View List').click();
-    inspectListItemScrolling('CommitBrowser__commit', 6)
-
-    cy.findByText('View DAG').click();
-    inspectListItemScrolling('CommitBrowser__commit', 6)
-  });
-
-  it('should display the last item properly when scrolling jobs from pipelines in lineage and list view', () => {
+  it('should display the last item properly when scrolling job overview from pipelines in lineage and list view', () => {
     cy.findAllByText(/^View(\sProject)*$/).eq(1).click();
     cy.findByText('View List').click();
     cy.findByText('Pipelines').click();
-    cy.waitUntil(() => cy.findAllByText('Jobs').should('have.length', 2))
-    cy.findAllByText('Jobs').last().click();
-    inspectListItemScrolling('JobListItem__job', 9)
+  
+    cy.findByText('Most Recent Job ID').should('be.visible');
+    cy.findByText('dataTotal:').should('not.be.visible');
+    cy.findByTestId("PipelineDetails__scrollableContent").scrollTo('bottom')
+    cy.findByText('Most Recent Job ID').should('not.be.visible');
+    cy.findByText('dataTotal:').should('be.visible');
+    cy.isInViewport(() => cy.findByText('dataTotal:'));
 
-    cy.findByText('View DAG').click();
-    inspectListItemScrolling('JobListItem__job', 9)
+    cy.findByText('View DAG').click();    
+    cy.findByText('Most Recent Job ID').should('be.visible');
+    cy.findByText('dataTotal:').should('not.be.visible');
+    cy.findByTestId("PipelineDetails__scrollableContent").scrollTo('bottom')
+    cy.findByText('Most Recent Job ID').should('not.be.visible');
+    cy.findByText('dataTotal:').should('be.visible');
+    cy.isInViewport(() => cy.findByText('dataTotal:'));
   });
 
   it('should display the last item properly when scrolling pipeline specs in lineage and list view', () => {
@@ -137,7 +138,7 @@ describe(
     cy.findByText('Spec').click();
     cy.findByText('v4tech/imagemagick').should('be.visible');
     cy.findByText('priorityClassName:').should('not.be.visible');
-    cy.get(`[aria-labelledby="spec"]`).scrollTo('bottom')
+    cy.findByTestId("PipelineDetails__scrollableContent").scrollTo('bottom')
     cy.findByText('priorityClassName:').should('be.visible');
     cy.isInViewport(() => cy.findByText('priorityClassName:'));
 
@@ -145,7 +146,7 @@ describe(
     cy.findByText('Spec').click();
     cy.findByText('v4tech/imagemagick').should('be.visible');
     cy.findByText('priorityClassName:').should('not.be.visible');
-    cy.get(`[aria-labelledby="spec"]`).scrollTo('bottom')
+    cy.findByTestId("PipelineDetails__scrollableContent").scrollTo('bottom')
     cy.findByText('priorityClassName:').should('be.visible');
     cy.isInViewport(() => cy.findByText('priorityClassName:'));
   });

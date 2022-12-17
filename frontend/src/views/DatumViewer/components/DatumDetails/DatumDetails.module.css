@@ -1,0 +1,29 @@
+.base {
+  height: 100%;
+  overflow-y: auto;
+  padding: 0;
+  padding-top: 1rem;
+  min-width: 16rem;
+  box-sizing: border-box;
+}
+
+.section {
+  border-bottom: 1px solid var(--line-grey);
+  padding: 0 1rem;
+}
+
+.stateHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 1rem 1rem 1rem;
+}
+
+.state {
+  display: flex;
+  align-items: center;
+}
+
+.stateText {
+  margin-left: 0.5rem;
+}

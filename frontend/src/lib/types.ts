@@ -12,6 +12,7 @@ export interface ProjectRouteParams {
   filePath?: string;
   jobId?: string;
   pipelineJobId?: string;
+  datumId?: string;
 }
 
 export interface ConsoleRouteParams extends ProjectRouteParams {

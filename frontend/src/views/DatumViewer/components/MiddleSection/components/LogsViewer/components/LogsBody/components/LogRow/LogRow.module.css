@@ -1,0 +1,36 @@
+.odd {
+  background-color: var(--white);
+}
+.even {
+  background-color: var(--background-blue-table);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.row label {
+  margin-bottom: 0;
+}
+
+.timestampCol {
+  padding-left: 2rem;
+  text-align: top;
+}
+
+.timestampCheckbox span {
+  padding-left: 1rem;
+}
+
+.messageCol {
+  width: 100%;
+  white-space: pre-wrap;
+  line-break: anywhere;
+  padding: 0.25rem 0;
+}
+
+.mark {
+  background-color: var(--plum-2);
+  padding: 0;
+}

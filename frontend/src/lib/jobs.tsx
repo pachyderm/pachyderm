@@ -36,6 +36,31 @@ export const getJobStateIcon = (state: JobVisualState) => {
   }
 };
 
+export const getJobStateSVG = (state: JobVisualState) => {
+  switch (state) {
+    case 'ERROR':
+      return StatusWarningSVG;
+    case 'RUNNING':
+      return StatusDotsSVG;
+    case 'SUCCESS':
+      return StatusCheckmarkSVG;
+    default:
+      return null;
+  }
+};
+
+export const getJobStateColor = (state: JobVisualState) => {
+  switch (state) {
+    case 'ERROR':
+      return 'red';
+    case 'RUNNING':
+    case 'SUCCESS':
+      return 'green';
+    default:
+      return null;
+  }
+};
+
 export const readableJobState = (jobState: JobState | string) => {
   const state = jobState.toString().replace(/JOB_(STATE_)?/, '');
   return capitalize(state);

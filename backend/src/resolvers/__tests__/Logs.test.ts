@@ -49,7 +49,7 @@ describe('Logs resolver', () => {
       );
       const workspaceLogs = data?.logs;
       expect(errors.length).toBe(0);
-      expect(workspaceLogs?.length).toEqual(4);
+      expect(workspaceLogs?.length).toEqual(6);
       expect(workspaceLogs?.[0]?.message).toEqual('started datum task');
       expect(workspaceLogs?.[1]?.message).toEqual('beginning to run user code');
       expect(workspaceLogs?.[2]?.message).toContain(
@@ -63,18 +63,43 @@ describe('Logs resolver', () => {
         GET_LOGS_QUERY,
         {
           args: {
-            pipelineName: 'edges',
-            jobId: '23b9af7d5d4343219bc8e02ff4acd33a',
-            start: 1614126189,
+            pipelineName: 'montage',
+            jobId: '23b9af7d5d4343219bc8e02ff44cd55a',
+            start: 1616533099,
             projectId,
           },
         },
       );
       const workspaceLogs = data?.logs;
       expect(errors.length).toBe(0);
-      expect(workspaceLogs?.length).toEqual(2);
+      expect(workspaceLogs?.length).toEqual(6);
       expect(workspaceLogs?.[0]?.message).toEqual('started datum task');
-      expect(workspaceLogs?.[1]?.message).toEqual('finished datum task');
+      expect(workspaceLogs?.[0]?.timestamp?.seconds).toEqual(1616533099);
+      expect(workspaceLogs?.[5]?.message).toEqual('finished datum task');
+      expect(workspaceLogs?.[5]?.timestamp?.seconds).toEqual(1616533220);
+    });
+
+    it('should resolve datum logs', async () => {
+      const {data, errors = []} = await executeQuery<GetLogsQuery>(
+        GET_LOGS_QUERY,
+        {
+          args: {
+            pipelineName: 'montage',
+            jobId: '23b9af7d5d4343219bc8e02ff44cd55a',
+            datumId:
+              '0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
+            start: 1616533099,
+            projectId,
+          },
+        },
+      );
+      const workspaceLogs = data?.logs;
+      expect(errors.length).toBe(0);
+      expect(workspaceLogs?.length).toEqual(4);
+      expect(workspaceLogs?.[0]?.message).toEqual('started datum task');
+      expect(workspaceLogs?.[0]?.timestamp?.seconds).toEqual(1616533099);
+      expect(workspaceLogs?.[3]?.message).toEqual('finished datum task');
+      expect(workspaceLogs?.[3]?.timestamp?.seconds).toEqual(1616533106);
     });
 
     it('should reverse logs order', async () => {
@@ -82,8 +107,8 @@ describe('Logs resolver', () => {
         GET_LOGS_QUERY,
         {
           args: {
-            pipelineName: 'edges',
-            jobId: '23b9af7d5d4343219bc8e02ff4acd33a',
+            pipelineName: 'montage',
+            jobId: '33b9af7d5d4343219bc8e02ff44cd55a',
             start: 1614126189,
             projectId,
             reverse: true,

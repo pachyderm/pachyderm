@@ -36,6 +36,7 @@ import {
   JobInfo,
   GetLogsRequest,
   ProcessStats,
+  Datum,
 } from '../proto/pps/pps_pb';
 
 export type PipelineObject = {
@@ -745,13 +746,21 @@ export const processStatsFromObject = ({
 export const getLogsRequestFromArgs = ({
   pipelineName,
   jobId,
+  datumId,
   since,
   follow = false,
 }: GetLogsRequestArgs) => {
   const getLogsRequest = new GetLogsRequest();
   getLogsRequest.setFollow(follow);
-
-  if (pipelineName && jobId) {
+  if (pipelineName && jobId && datumId) {
+    getLogsRequest.setDatum(new Datum().setId(datumId));
+    getLogsRequest.setJob(
+      jobFromObject({
+        id: jobId,
+        pipeline: pipelineFromObject({name: pipelineName}),
+      }),
+    );
+  } else if (pipelineName && jobId) {
     getLogsRequest.setJob(
       jobFromObject({
         id: jobId,

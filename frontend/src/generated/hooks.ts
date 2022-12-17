@@ -21,11 +21,23 @@ export const CommitFragmentFragmentDoc = gql`
 export const DatumFragmentDoc = gql`
   fragment Datum on Datum {
     id
+    jobId
+    requestedJobId
     state
+    downloadTimestamp {
+      seconds
+      nanos
+    }
+    uploadTimestamp {
+      seconds
+      nanos
+    }
+    processTimestamp {
+      seconds
+      nanos
+    }
     downloadBytes
-    uploadTime
-    processTime
-    downloadTime
+    uploadBytes
   }
 `;
 export const DiffFragmentFragmentDoc = gql`
@@ -1048,10 +1060,73 @@ export type DatumQueryResult = Apollo.QueryResult<
   Types.DatumQuery,
   Types.DatumQueryVariables
 >;
+export const DatumSearchDocument = gql`
+  query datumSearch($args: DatumQueryArgs!) {
+    datumSearch(args: $args) {
+      ...Datum
+    }
+  }
+  ${DatumFragmentDoc}
+`;
+
+/**
+ * __useDatumSearchQuery__
+ *
+ * To run a query within a React component, call `useDatumSearchQuery` and pass it any options that fit your needs.
+ * When your component renders, `useDatumSearchQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useDatumSearchQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useDatumSearchQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.DatumSearchQuery,
+    Types.DatumSearchQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<
+    Types.DatumSearchQuery,
+    Types.DatumSearchQueryVariables
+  >(DatumSearchDocument, options);
+}
+export function useDatumSearchLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.DatumSearchQuery,
+    Types.DatumSearchQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.DatumSearchQuery,
+    Types.DatumSearchQueryVariables
+  >(DatumSearchDocument, options);
+}
+export type DatumSearchQueryHookResult = ReturnType<typeof useDatumSearchQuery>;
+export type DatumSearchLazyQueryHookResult = ReturnType<
+  typeof useDatumSearchLazyQuery
+>;
+export type DatumSearchQueryResult = Apollo.QueryResult<
+  Types.DatumSearchQuery,
+  Types.DatumSearchQueryVariables
+>;
 export const DatumsDocument = gql`
   query datums($args: DatumsQueryArgs!) {
     datums(args: $args) {
-      ...Datum
+      items {
+        ... on Datum {
+          ...Datum
+        }
+      }
+      cursor
+      hasNextPage
     }
   }
   ${DatumFragmentDoc}
@@ -1361,6 +1436,10 @@ export const JobsDocument = gql`
       ...JobOverview
       inputString
       inputBranch
+      outputBranch
+      outputCommit
+      reason
+      jsonDetails
       transformString
       transform {
         cmdList

@@ -1,7 +1,7 @@
 .base {
   height: 100vh;
   scrollbar-width: none;
-  padding-top: 2rem;
+  padding-top: 1rem;
   overflow: hidden;
   display: flex;
   flex-direction: column;

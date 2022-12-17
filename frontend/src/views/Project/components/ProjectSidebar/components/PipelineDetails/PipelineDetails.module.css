@@ -4,7 +4,8 @@
 }
 
 .title {
-  padding-top: 2rem;
+  padding-top: 1rem;
+  margin-bottom: 1rem;
 }
 
 section {
@@ -14,4 +15,19 @@ section {
 
 .tabsHeader {
   display: flex;
+  position: sticky;
+  top: 0rem;
+  background-color: var(--white);
+  padding-top: 1rem;
+  z-index: var(--z-index-sticky-header);
+}
+
+.description {
+  margin-top: -1rem;
+  margin-bottom: 1rem;
+}
+
+.sidebarContent {
+  overflow-y: scroll;
+  padding-bottom: 4rem;
 }

@@ -1,19 +1,30 @@
 import {useRouteMatch} from 'react-router';
 
 import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
+import {useJobs} from '@dash-frontend/hooks/useJobs';
+import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
   LINEAGE_PATH,
   LINEAGE_PIPELINE_PATH,
   PROJECT_PIPELINE_PATH,
 } from '@dash-frontend/views/Project/constants/projectPaths';
 
-import {TAB_ID} from '../constants/tabIds';
-
 const usePipelineDetails = () => {
-  const {loading, pipeline, isServiceOrSpout} = useCurrentPipeline();
-
-  const filteredTabIds = Object.values(TAB_ID).filter(
-    (tabId) => tabId !== TAB_ID.JOBS || (!loading && !isServiceOrSpout),
+  const {pipelineId, projectId} = useUrlState();
+  const {
+    loading: pipelineLoading,
+    pipeline,
+    isServiceOrSpout,
+  } = useCurrentPipeline();
+  const {jobs, loading: jobsLoading} = useJobs(
+    {
+      projectId,
+      pipelineId,
+      limit: 1,
+    },
+    {
+      skip: !pipeline || pipelineLoading,
+    },
   );
 
   const lineageMatch = useRouteMatch({
@@ -25,9 +36,9 @@ const usePipelineDetails = () => {
     : PROJECT_PIPELINE_PATH;
 
   return {
-    loading,
-    pipelineName: pipeline?.name,
-    filteredTabIds,
+    loading: pipelineLoading || jobsLoading,
+    pipeline,
+    lastJob: jobs[0],
     isServiceOrSpout,
     tabsBasePath,
   };

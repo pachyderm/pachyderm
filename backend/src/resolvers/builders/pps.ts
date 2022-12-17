@@ -2,31 +2,31 @@ import isEmpty from 'lodash/isEmpty';
 
 import formatBytes from '@dash-backend/lib/formatBytes';
 import {
+  toGQLDatumState,
   toGQLJobState,
   toGQLPipelineState,
-  toGQLDatumState,
 } from '@dash-backend/lib/gqlEnumMappers';
 import omitByDeep from '@dash-backend/lib/omitByDeep';
 import removeGeneratedSuffixes from '@dash-backend/lib/removeGeneratedSuffixes';
 import sortJobInfos from '@dash-backend/lib/sortJobInfos';
 import {
   Branch,
-  RepoInfo,
-  PipelineInfo,
-  LogMessage,
+  DatumInfo,
   JobInfo,
   JobSetInfo,
-  DatumInfo,
+  LogMessage,
+  PipelineInfo,
+  RepoInfo,
 } from '@dash-backend/proto';
 import {
+  Branch as GQLBranch,
+  Datum,
   Job,
+  JobSet,
+  JobState as GQLJobState,
   Pipeline,
   PipelineType,
-  JobState as GQLJobState,
   Repo,
-  Branch as GQLBranch,
-  JobSet,
-  Datum,
 } from '@graphqlTypes';
 
 const derivePipelineType = (pipelineInfo: PipelineInfo.AsObject) => {
@@ -209,13 +209,23 @@ export const logMessageToGQLLog = (logMessage: LogMessage.AsObject) => {
   };
 };
 
-export const datumInfoToGQLDatum = (datumInfo: DatumInfo.AsObject): Datum => {
+export const datumInfoToGQLDatum = (
+  datumInfo: DatumInfo.AsObject,
+  jobId: string,
+): Datum => {
   return {
     id: datumInfo.datum?.id || '',
+    requestedJobId: jobId,
+    jobId: datumInfo.datum?.job?.id,
+
     state: toGQLDatumState(datumInfo.state),
+
+    downloadTimestamp: datumInfo.stats?.downloadTime,
+    uploadTimestamp: datumInfo.stats?.uploadTime,
+    processTimestamp: datumInfo.stats?.processTime,
+
     downloadBytes: datumInfo.stats?.downloadBytes,
-    uploadTime: datumInfo.stats?.uploadTime?.seconds,
-    processTime: datumInfo.stats?.processTime?.seconds,
-    downloadTime: datumInfo.stats?.downloadTime?.seconds,
+    uploadBytes: datumInfo.stats?.uploadBytes,
+    __typename: 'Datum',
   };
 };

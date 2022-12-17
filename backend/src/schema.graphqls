@@ -68,7 +68,7 @@ enum NodeState {
 }
 
 enum DatumState {
-  UNKOWN
+  UNKNOWN
   FAILED
   SUCCESS
   SKIPPED
@@ -421,6 +421,7 @@ input LogsArgs {
   projectId: String!
   pipelineName: String!
   jobId: String
+  datumId: String
   start: Int
   reverse: Boolean
 }
@@ -511,11 +512,14 @@ type Log {
 
 type Datum {
   id: ID!
+  jobId: ID
+  requestedJobId: ID! # Needed for caching
   state: DatumState!
+  downloadTimestamp: Timestamp
+  uploadTimestamp: Timestamp
+  processTimestamp: Timestamp
   downloadBytes: Float
-  uploadTime: Int
-  processTime: Int
-  downloadTime: Int
+  uploadBytes: Float
 }
 
 input DatumsQueryArgs {
@@ -523,7 +527,8 @@ input DatumsQueryArgs {
   jobId: ID!
   pipelineId: ID!
   limit: Int
-  offset: Int
+  filter: [DatumState!]
+  cursor: String
 }
 
 input DatumQueryArgs {
@@ -541,6 +546,16 @@ type EnterpriseInfo {
 type AdminInfo {
   clusterId: String
 }
+
+type PageableResponse {
+  items: [Pageable!]!
+
+  # Add paging specific info here
+  cursor: String
+  hasNextPage: Boolean
+}
+
+union Pageable = Datum | File
 
 type Query {
   project(id: ID!): Project!
@@ -565,7 +580,8 @@ type Query {
   commits(args: CommitsQueryArgs!): [Commit!]!
   branch(args: BranchQueryArgs!): Branch!
   datum(args: DatumQueryArgs!): Datum!
-  datums(args: DatumsQueryArgs!): [Datum!]
+  datumSearch(args: DatumQueryArgs!): Datum
+  datums(args: DatumsQueryArgs!): PageableResponse!
   enterpriseInfo: EnterpriseInfo!
   adminInfo: AdminInfo!
 }

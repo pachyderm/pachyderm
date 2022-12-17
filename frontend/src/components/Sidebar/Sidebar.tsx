@@ -87,12 +87,14 @@ const Sidebar: React.FC<SidebarProps> = ({
         <Route path={[PROJECT_PATH, LINEAGE_PATH]}>
           <div className={styles.sideBarToolbar}>
             <ButtonGroup>
+              <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]}>
+                <ReadLogsButton buttonText="Inspect Jobs" />
+              </Route>
+            </ButtonGroup>
+            <ButtonGroup>
               <Route path={[PROJECT_REPO_PATH, LINEAGE_REPO_PATH]}>
                 <UploadFilesButton />
                 <DeleteRepoButton />
-              </Route>
-              <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]}>
-                <ReadLogsButton />
               </Route>
               <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]}>
                 <DeletePipelineButton />

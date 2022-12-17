@@ -4,8 +4,8 @@
 }
 
 .copy {
-  display: inline-flex;
-  align-items: center;
+  display: flex;
+  max-width: 100%;
 }
 
 .copy,
@@ -15,5 +15,9 @@
 }
 
 .icon {
-  /* color: var(--pachyderm-plum); */
+  min-width: 1rem;
+}
+
+.inline {
+  display: inline-flex;
 }

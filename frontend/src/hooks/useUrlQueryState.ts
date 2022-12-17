@@ -1,4 +1,4 @@
-import {JobState} from '@graphqlTypes';
+import {DatumState, JobState} from '@graphqlTypes';
 import isEqual from 'lodash/isEqual';
 import {useCallback, useMemo} from 'react';
 import {useHistory, useLocation} from 'react-router';
@@ -13,6 +13,7 @@ export interface UrlState {
   prevFileBrowserPath?: string;
   tutorialId?: string;
   globalIdFilter?: string;
+  datumFilters?: DatumState[];
 }
 
 const getViewStateFromSearchParams = (searchParams: URLSearchParams) => {

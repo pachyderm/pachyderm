@@ -56,12 +56,13 @@ const logsResolver: LogsResolver = {
     },
     logs: async (
       _field,
-      {args: {pipelineName, jobId, start, reverse = false}},
+      {args: {pipelineName, jobId, datumId, start, reverse = false}},
       {pachClient},
     ) => {
       const logs = await pachClient.pps().getLogs({
         pipelineName: pipelineName,
         jobId: jobId || undefined,
+        datumId: datumId || undefined,
         since: calculateSince(start),
       });
 

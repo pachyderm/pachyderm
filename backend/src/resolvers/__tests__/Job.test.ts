@@ -115,9 +115,11 @@ describe('Jobs', () => {
       );
 
       expect(errors.length).toBe(0);
-      expect(data?.jobSets.length).toBe(2);
+      expect(data?.jobSets.length).toBe(4);
       expect(data?.jobSets[0].id).toBe('23b9af7d5d4343219bc8e02ff44cd55a');
       expect(data?.jobSets[1].id).toBe('33b9af7d5d4343219bc8e02ff44cd55a');
+      expect(data?.jobSets[2].id).toBe('7798fhje5d4343219bc8e02ff4acd33a');
+      expect(data?.jobSets[3].id).toBe('o90du4js5d4343219bc8e02ff4acd33a');
     });
   });
 });

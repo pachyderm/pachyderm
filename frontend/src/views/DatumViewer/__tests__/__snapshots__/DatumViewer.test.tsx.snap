@@ -1,0 +1,528 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Datum Viewer Right Panel should render the root key of input spec 1`] = `
+<div
+  class="codeBody"
+  data-testid="ConfigFilePreview__codeElement"
+>
+  <div
+    class="codeSection"
+  >
+    <div>
+      <div
+        class="code language-yaml depth0 hljs"
+      />
+      <div
+        class="header"
+      >
+        <div
+          class="base chevron black small"
+        >
+          <svg-mock />
+        </div>
+        <div
+          class="code language-yaml depth0 hljs"
+        >
+          <span
+            class="hljs-attr"
+          >
+            input:
+          </span>
+        </div>
+      </div>
+      <div
+        class=""
+      >
+        <div
+          class="codeSection"
+        >
+          <div>
+            <div
+              class="code language-yaml depth1 hljs"
+            >
+              <span
+                class="hljs-attr"
+              >
+                join:
+              </span>
+               []
+
+              <span
+                class="hljs-attr"
+              >
+                group:
+              </span>
+               []
+
+            </div>
+            <div
+              class="header"
+            >
+              <div
+                class="base chevron black small"
+              >
+                <svg-mock />
+              </div>
+              <div
+                class="code language-yaml depth1 hljs"
+              >
+                <span
+                  class="hljs-attr"
+                >
+                  cross:
+                </span>
+              </div>
+            </div>
+            <div
+              class=""
+            >
+              <div
+                class="codeSection"
+              >
+                <div
+                  class="code language-yaml depth2 hljs"
+                >
+                  <span
+                    class="hljs-bullet"
+                  >
+                    -
+                  </span>
+                   
+                  <span
+                    class="hljs-attr"
+                  >
+                    pfs:
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    project:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    ''
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    name:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    edges
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    repo:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    edges
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    repoType:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    ''
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    branch:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    master
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    commit:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    ''
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    glob:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    ''
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    joinOn:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    ''
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    outerJoin:
+                  </span>
+                   
+                  <span
+                    class="hljs-literal"
+                  >
+                    false
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    groupBy:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    ''
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    lazy:
+                  </span>
+                   
+                  <span
+                    class="hljs-literal"
+                  >
+                    false
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    emptyFiles:
+                  </span>
+                   
+                  <span
+                    class="hljs-literal"
+                  >
+                    false
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    s3:
+                  </span>
+                   
+                  <span
+                    class="hljs-literal"
+                  >
+                    false
+                  </span>
+                  
+  
+                  <span
+                    class="hljs-attr"
+                  >
+                    join:
+                  </span>
+                   []
+  
+                  <span
+                    class="hljs-attr"
+                  >
+                    group:
+                  </span>
+                   []
+  
+                  <span
+                    class="hljs-attr"
+                  >
+                    cross:
+                  </span>
+                   []
+  
+                  <span
+                    class="hljs-attr"
+                  >
+                    union:
+                  </span>
+                   []
+
+                  <span
+                    class="hljs-bullet"
+                  >
+                    -
+                  </span>
+                   
+                  <span
+                    class="hljs-attr"
+                  >
+                    pfs:
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    project:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    ''
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    name:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    images
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    repo:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    images
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    repoType:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    ''
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    branch:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    master
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    commit:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    ''
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    glob:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    ''
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    joinOn:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    ''
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    outerJoin:
+                  </span>
+                   
+                  <span
+                    class="hljs-literal"
+                  >
+                    false
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    groupBy:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    ''
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    lazy:
+                  </span>
+                   
+                  <span
+                    class="hljs-literal"
+                  >
+                    false
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    emptyFiles:
+                  </span>
+                   
+                  <span
+                    class="hljs-literal"
+                  >
+                    false
+                  </span>
+                  
+    
+                  <span
+                    class="hljs-attr"
+                  >
+                    s3:
+                  </span>
+                   
+                  <span
+                    class="hljs-literal"
+                  >
+                    false
+                  </span>
+                  
+  
+                  <span
+                    class="hljs-attr"
+                  >
+                    join:
+                  </span>
+                   []
+  
+                  <span
+                    class="hljs-attr"
+                  >
+                    group:
+                  </span>
+                   []
+  
+                  <span
+                    class="hljs-attr"
+                  >
+                    cross:
+                  </span>
+                   []
+  
+                  <span
+                    class="hljs-attr"
+                  >
+                    union:
+                  </span>
+                   []
+
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="code language-yaml depth1 hljs"
+          >
+            <span
+              class="hljs-attr"
+            >
+              union:
+            </span>
+             []
+
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      class="code language-yaml depth0 hljs"
+    />
+  </div>
+</div>
+`;

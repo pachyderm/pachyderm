@@ -1,0 +1,5 @@
+.base {
+  height: 100%;
+  background-color: var(--background-grey);
+  overflow: hidden;
+}

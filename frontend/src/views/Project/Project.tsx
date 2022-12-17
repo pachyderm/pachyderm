@@ -5,10 +5,9 @@ import {Route, Redirect} from 'react-router';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {projectReposRoute} from '@dash-frontend/views/Project/utils/routes';
 
+import {JobDatumViewer, PipelineDatumViewer} from '../DatumViewer';
 import FileBrowser from '../FileBrowser';
 import FileUpload from '../FileUpload';
-import JobLogsViewer from '../LogsViewers/JobLogsViewer/JobLogsViewer';
-import PipelineLogsViewer from '../LogsViewers/PipelineLogsViewer';
 
 import ProjectDetails from './components/ProjectDetails';
 import ProjectHeader from './components/ProjectHeader';
@@ -21,13 +20,17 @@ import {
   PROJECT_PIPELINES_PATH,
   LINEAGE_FILE_BROWSER_PATH,
   PROJECT_FILE_BROWSER_PATH,
-  LINEAGE_LOGS_VIEWER_JOB_PATH,
-  LINEAGE_LOGS_VIEWER_PIPELINE_PATH,
-  PROJECT_LOGS_VIEWER_JOB_PATH,
-  PROJECT_LOGS_VIEWER_PIPELINE_PATH,
   LINEAGE_PATH,
   PROJECT_FILE_UPLOAD_PATH,
   LINEAGE_FILE_UPLOAD_PATH,
+  LINEAGE_PIPELINE_LOGS_VIEWER_DATUM_PATH,
+  LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH,
+  PROJECT_PIPELINE_LOGS_VIEWER_DATUM_PATH,
+  PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH,
+  LINEAGE_JOB_LOGS_VIEWER_DATUM_PATH,
+  LINEAGE_JOB_LOGS_VIEWER_JOB_PATH,
+  PROJECT_JOB_LOGS_VIEWER_DATUM_PATH,
+  PROJECT_JOB_LOGS_VIEWER_JOB_PATH,
 } from './constants/projectPaths';
 import {useProjectView} from './hooks/useProjectView';
 import styles from './Project.module.css';
@@ -66,17 +69,25 @@ const Project: React.FC = () => {
         </Route>
         <Route
           path={[
-            PROJECT_LOGS_VIEWER_PIPELINE_PATH,
-            LINEAGE_LOGS_VIEWER_PIPELINE_PATH,
+            PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH,
+            PROJECT_PIPELINE_LOGS_VIEWER_DATUM_PATH,
+            LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH,
+            LINEAGE_PIPELINE_LOGS_VIEWER_DATUM_PATH,
           ]}
         >
-          <PipelineLogsViewer />
+          <PipelineDatumViewer />
         </Route>
         <Route
-          path={[PROJECT_LOGS_VIEWER_JOB_PATH, LINEAGE_LOGS_VIEWER_JOB_PATH]}
+          path={[
+            PROJECT_JOB_LOGS_VIEWER_JOB_PATH,
+            PROJECT_JOB_LOGS_VIEWER_DATUM_PATH,
+            LINEAGE_JOB_LOGS_VIEWER_JOB_PATH,
+            LINEAGE_JOB_LOGS_VIEWER_DATUM_PATH,
+          ]}
         >
-          <JobLogsViewer />
+          <JobDatumViewer />
         </Route>
+
         <Route path={[PROJECT_FILE_UPLOAD_PATH, LINEAGE_FILE_UPLOAD_PATH]}>
           <FileUpload />
         </Route>

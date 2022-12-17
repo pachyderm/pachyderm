@@ -92,6 +92,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
     </div>
     <div
       class="codeBody"
+      data-testid="ConfigFilePreview__codeElement"
     >
       <div
         class="codeSection"

@@ -1,21 +1,22 @@
 import React from 'react';
 
-import {Button, UploadSVG} from '@pachyderm/components';
+import {Button, Tooltip, UploadSVG} from '@pachyderm/components';
 
 import useUploadFilesButton from './hooks/useUploadFilesButton';
 
 const UploadFilesButton: React.FC = () => {
   const {fileUploadPath, loading} = useUploadFilesButton();
   return (
-    <Button
-      buttonType="ghost"
-      to={fileUploadPath}
-      IconSVG={UploadSVG}
-      aria-label="Upload Files"
-      disabled={loading || !fileUploadPath}
-    >
-      Upload Files
-    </Button>
+    <Tooltip tooltipKey="upload" tooltipText="Upload Files">
+      <Button
+        disabled={loading || !fileUploadPath}
+        to={fileUploadPath}
+        data-testid="UploadFilesButton__button"
+        buttonType="ghost"
+        IconSVG={UploadSVG}
+        aria-label="Upload Files"
+      />
+    </Tooltip>
   );
 };
 

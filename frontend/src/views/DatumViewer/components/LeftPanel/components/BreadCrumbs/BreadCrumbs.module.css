@@ -1,0 +1,31 @@
+.base {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  width: 100%;
+  min-height: 3.375rem;
+
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--border-grey);
+}
+
+.crumbWrapper {
+  display: flex;
+  align-items: center;
+}
+
+.divider {
+  margin: 0 0.313rem;
+}
+
+.id {
+  max-width: 7.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expanded {
+  max-width: 12.5rem;
+}

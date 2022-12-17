@@ -65,9 +65,8 @@
 .sideBarToolbar {
   display: flex;
   padding: 1rem 1.375rem;
-  border-bottom: solid 1px var(--line-grey);
-  justify-content: flex-end;
   align-items: baseline;
+  justify-content: space-between;
 }
 
 .dragBar {

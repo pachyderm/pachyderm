@@ -9,16 +9,16 @@ import JobList from '@dash-frontend/components/JobList';
 import Sidebar from '@dash-frontend/components/Sidebar';
 
 import {
-  PROJECT_JOBS_PATH,
-  PROJECT_PIPELINE_PATH,
-  PROJECT_REPO_PATH,
-  PROJECT_REPOS_PATH,
-  PROJECT_PIPELINES_PATH,
-  PROJECT_JOB_PATH,
   LINEAGE_JOBS_PATH,
-  LINEAGE_REPO_PATH,
-  LINEAGE_PIPELINE_PATH,
   LINEAGE_JOB_PATH,
+  LINEAGE_PIPELINE_PATH,
+  LINEAGE_REPO_PATH,
+  PROJECT_JOBS_PATH,
+  PROJECT_JOB_PATH,
+  PROJECT_PIPELINES_PATH,
+  PROJECT_PIPELINE_PATH,
+  PROJECT_REPOS_PATH,
+  PROJECT_REPO_PATH,
 } from '../../constants/projectPaths';
 
 import JobDetails from './components/JobDetails';

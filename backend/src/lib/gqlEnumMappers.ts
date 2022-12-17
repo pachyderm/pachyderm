@@ -148,7 +148,26 @@ export const toGQLDatumState = (state: DatumState) => {
     case DatumState.SUCCESS:
       return GQLDatumState.SUCCESS;
     case DatumState.UNKNOWN:
-      return GQLDatumState.UNKOWN;
+      return GQLDatumState.UNKNOWN;
+    default:
+      throw new ApolloError(`Uknown datum state ${state}`);
+  }
+};
+
+export const toProtoDatumState = (state: GQLDatumState) => {
+  switch (state) {
+    case GQLDatumState.FAILED:
+      return DatumState.FAILED;
+    case GQLDatumState.RECOVERED:
+      return DatumState.RECOVERED;
+    case GQLDatumState.SKIPPED:
+      return DatumState.SKIPPED;
+    case GQLDatumState.STARTING:
+      return DatumState.STARTING;
+    case GQLDatumState.SUCCESS:
+      return DatumState.SUCCESS;
+    case GQLDatumState.UNKNOWN:
+      return DatumState.UNKNOWN;
     default:
       throw new ApolloError(`Uknown datum state ${state}`);
   }

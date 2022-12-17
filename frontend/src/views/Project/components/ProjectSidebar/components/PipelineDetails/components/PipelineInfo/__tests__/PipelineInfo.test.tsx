@@ -29,15 +29,13 @@ describe('PipelineInfo', () => {
       `/project/${projectId}/pipelines/${pipelineId}`,
     );
 
-    const {queryByTestId, getByText} = render(<PipelineInfo />);
+    const {queryByTestId, getByText, getByTestId} = render(<PipelineInfo />);
 
     await waitForElementToBeRemoved(
-      queryByTestId('Description__Pipeline StatusSkeleton'),
+      queryByTestId('Description__Pipeline TypeSkeleton'),
     );
 
-    expect(
-      getByText('Pipeline Status').parentElement?.nextElementSibling,
-    ).toHaveTextContent('Failure');
+    expect(getByTestId('PipelineState__state')).toHaveTextContent('Failure');
     expect(
       getByText('Pipeline Type').parentElement?.nextElementSibling,
     ).toHaveTextContent('Standard');

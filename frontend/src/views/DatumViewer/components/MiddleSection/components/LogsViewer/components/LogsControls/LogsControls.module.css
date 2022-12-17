@@ -1,0 +1,15 @@
+.dropdownMenu {
+  width: 12rem;
+}
+
+.heading {
+  padding-bottom: 1rem;
+}
+
+.group {
+  padding: 0.5rem 1rem;
+}
+
+.divider {
+  border-bottom: 1px solid var(--border-grey);
+}

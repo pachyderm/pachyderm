@@ -14,7 +14,7 @@ import {
   jobRoute,
 } from '@dash-frontend/views/Project/utils/routes';
 
-import JobDetails from '../';
+import JobDetails from '..';
 
 describe('Job Details', () => {
   const TestBed = withContextProviders(() => {
@@ -121,7 +121,7 @@ describe('Job Details', () => {
 
     expect(getByTestId('InfoPanel__pipeline')).toHaveTextContent('likelihoods');
     expect(getByTestId('InfoPanel__state')).toHaveTextContent('Failure');
-    expect(getByTestId('InfoPanel__started')).toHaveTextContent(
+    expect(getByTestId('RuntimeStats__started')).toHaveTextContent(
       formatDistanceToNowStrict(fromUnixTime(1614136190), {addSuffix: true}),
     );
     expect(getByTestId('InfoPanel__processed')).toHaveTextContent(/^0$/);
@@ -174,9 +174,9 @@ describe('Job Details', () => {
         queryByTestId('Description__InputsSkeleton'),
       ).not.toBeInTheDocument(),
     );
-    await click(await findByTestId('InfoPanel__duration'));
+    await click(await findByTestId('RuntimeStats__duration'));
 
-    expect(queryByTestId('InfoPanel__durationDetails')).toMatchSnapshot();
+    expect(queryByTestId('RuntimeStats__durationDetails')).toMatchSnapshot();
   });
 
   it('should display job failure', async () => {

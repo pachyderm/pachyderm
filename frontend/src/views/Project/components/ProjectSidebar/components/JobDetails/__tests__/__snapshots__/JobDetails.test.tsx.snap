@@ -93,6 +93,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
   </div>
   <div
     class="codeBody"
+    data-testid="ConfigFilePreview__codeElement"
   >
     <div
       class="codeSection"
@@ -960,7 +961,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
 exports[`Job Details should display job durations 1`] = `
 <div
   class="runtimeDetails"
-  data-testid="InfoPanel__durationDetails"
+  data-testid="RuntimeStats__durationDetails"
 >
   <div
     class="runtimeDetail"
@@ -990,7 +991,7 @@ exports[`Job Details should display job durations 1`] = `
         10.27 seconds
       </div>
       <span
-        class="captionTextSmall bytes"
+        class="captionTextSmall bytes captionGrey"
       >
         2.9 kB
       </span>

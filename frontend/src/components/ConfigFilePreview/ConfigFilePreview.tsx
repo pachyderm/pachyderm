@@ -59,7 +59,10 @@ const ConfigPreview: React.FC<ConfigFilePreviewProps> = ({
           </DefaultDropdown>
         </Group>
       </div>
-      <div className={styles.codeBody}>
+      <div
+        className={styles.codeBody}
+        data-testid="ConfigFilePreview__codeElement"
+      >
         <CodeElement element={config} format={Format.YAML} />
       </div>
     </div>

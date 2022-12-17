@@ -40,9 +40,39 @@ describe('ProjectSidebar', () => {
 
     it('should not display logs button', async () => {
       window.history.replaceState('', '', '/project/1/jobs');
-
       const {queryByText} = render(<Project />);
       expect(queryByText('Read Logs')).toBeNull();
+    });
+
+    it('should display logs button', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a',
+      );
+      const {findByRole} = render(<Project />);
+      const logsLink = await findByRole('link', {name: 'Read Logs'});
+      expect(logsLink as HTMLElement).toHaveAttribute(
+        'href',
+        '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/edges/logs?view=eyJkYXR1bUZpbHRlcnMiOltdfQ%3D%3D',
+      );
+    });
+
+    it('should display datum logs link with filter applied', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a',
+      );
+      const {findByRole} = render(<Project />);
+      const logsLink = await waitFor(
+        () => findByRole('link', {name: '0 Processed'}),
+        {timeout: 4000},
+      );
+      expect(logsLink as HTMLElement).toHaveAttribute(
+        'href',
+        '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/edges/logs/datum?view=eyJkYXR1bUZpbHRlcnMiOlsiU1VDQ0VTUyJdfQ%3D%3D',
+      );
     });
   });
 
@@ -61,14 +91,28 @@ describe('ProjectSidebar', () => {
       expect(pipelineName).toHaveTextContent('montage');
     });
 
-    it('should display pipeline logs button', async () => {
+    it('should display logs button', async () => {
       window.history.replaceState('', '', '/project/1/pipelines/montage');
 
-      const {getByRole} = render(<Project />);
-      const logsLink = getByRole('link', {name: 'Read Logs'});
+      const {findByRole} = render(<Project />);
+      const logsLink = await findByRole('link', {name: 'Inspect Jobs'});
       expect(logsLink as HTMLElement).toHaveAttribute(
         'href',
-        `/project/1/pipelines/montage/logs`,
+        '/project/1/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs?view=eyJkYXR1bUZpbHRlcnMiOltdfQ%3D%3D',
+      );
+    });
+
+    it('should display datum logs link with filter applied', async () => {
+      window.history.replaceState('', '', '/project/1/pipelines/montage');
+      const {findByRole} = render(<Project />);
+
+      const logsLink = await waitFor(
+        () => findByRole('link', {name: '0 Processed'}),
+        {timeout: 4000},
+      );
+      expect(logsLink as HTMLElement).toHaveAttribute(
+        'href',
+        '/project/1/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs/datum?view=eyJkYXR1bUZpbHRlcnMiOlsiU1VDQ0VTUyJdfQ%3D%3D',
       );
     });
 

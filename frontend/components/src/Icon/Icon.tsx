@@ -16,7 +16,7 @@ const Colors = {
   highlightOrange: 'highlightOrange',
 };
 
-type IconColor = keyof typeof Colors;
+export type IconColor = keyof typeof Colors;
 
 export type Props = React.HTMLAttributes<HTMLDivElement> & {
   color?: IconColor;
