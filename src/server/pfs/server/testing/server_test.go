@@ -1667,10 +1667,10 @@ func TestPFS(suite *testing.T) {
 		// Now, dropping the head of A and B and C should leave each of them with just an empty head commit
 		_, err = env.PFSServer.DropCommitSets(context.TODO(), &pfs.DropCommitSetsRequest{
 			CommitSets: []*pfs.CommitSet{
-				&pfs.CommitSet{
+				{
 					ID: aHead.Commit.ID,
 				},
-				&pfs.CommitSet{
+				{
 					ID: cHead.Commit.ID,
 				},
 			},
@@ -4610,7 +4610,7 @@ func TestPFS(suite *testing.T) {
 		require.Nil(t, fInfo.ChildCommits)
 
 		// Delete second commit in upstream2, which deletes b
-		_, err = env.PachClient.SquashCommitSets(env.PachClient.Ctx(), &pfs.SquashCommitSetsRequest{CommitSets: []*pfs.CommitSet{&pfs.CommitSet{ID: squashMeCommit.ID}}})
+		_, err = env.PachClient.SquashCommitSets(env.PachClient.Ctx(), &pfs.SquashCommitSetsRequest{CommitSets: []*pfs.CommitSet{{ID: squashMeCommit.ID}}})
 		require.NoError(t, err)
 
 		// Re-read commit info to get new parents/children
