@@ -1,6 +1,7 @@
 package v2_5_0
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
@@ -424,8 +426,66 @@ func addCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error {
 	return errors.Wrapf(err, "insert commit %q", commitKey(commit))
 }
 
-// TODO:
-// - figure out how to determine whether the ALIAS should be converted to AUTO
+func getFileSetMd(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit) (*fileset.Metadata, error) {
+	var id string
+	if err := tx.GetContext(ctx, &id, `SELECT fileset_id FROM pfs.commit_totals WHERE commit_id = $1`, commitKey(c)); err != nil {
+		return nil, err
+	}
+	var mdData []byte
+	if err := tx.GetContext(ctx, &mdData, `SELECT metadata_pb FROM storage.filesets WHERE id = $1`, id); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	md := &fileset.Metadata{}
+	if err := proto.Unmarshal(mdData, md); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return md, nil
+}
+
+func sameFileSets(ctx context.Context, tx *pachsql.Tx, c1 *pfs.Commit, c2 *pfs.Commit) (bool, error) {
+	md1, err := getFileSetMd(ctx, tx, c1)
+	if err != nil {
+		return false, err
+	}
+	md2, err := getFileSetMd(ctx, tx, c1)
+	if err != nil {
+		return false, err
+	}
+	if md1.GetPrimitive() != nil && md2.GetPrimitive() != nil {
+		if md1.GetPrimitive().SizeBytes != md2.GetPrimitive().SizeBytes {
+			return false, nil
+		}
+		if len(md1.GetPrimitive().Additive.File.DataRefs) != len(md2.GetPrimitive().Additive.File.DataRefs) {
+			return false, nil
+		}
+		for i, dr := range md1.GetPrimitive().Additive.File.DataRefs {
+			if res := bytes.Compare(dr.Hash, md2.GetPrimitive().Additive.File.DataRefs[i].Hash); res != 0 {
+				return false, nil
+			}
+		}
+		for i, dr := range md1.GetPrimitive().Deletive.File.DataRefs {
+			if res := bytes.Compare(dr.Hash, md2.GetPrimitive().Deletive.File.DataRefs[i].Hash); res != 0 {
+				return false, nil
+			}
+		}
+		return true, nil
+	} else if md1.GetComposite() != nil && md2.GetComposite() != nil {
+		comp1Layers := md1.GetComposite().Layers
+		comp2Layers := md2.GetComposite().Layers
+		if len(comp1Layers) != len(comp2Layers) {
+			return false, nil
+		}
+		for i, l := range comp1Layers {
+			if l != comp2Layers[i] {
+				return false, nil
+			}
+		}
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
 func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	cis := make([]*pfs.CommitInfo, 0)
 	ci := &pfs.CommitInfo{}
@@ -453,18 +513,18 @@ func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 			deleteCommits[commitKey(ci.Commit)] = proto.Clone(ci).(*pfs.CommitInfo)
 		}
 	}
-	for k := range deleteCommits {
-		// TODO(acohen4) fix this up
-		// check to see if ALIAS commits are legit, and if not convert them to AUTO COMMITS
-		if false {
+	for k, ci := range deleteCommits {
+		same, err := sameFileSets(ctx, tx, ci.Commit, ci.ParentCommit)
+		if err != nil {
+			return err
+		}
+		// this alias commit shouldn't be deleted, and instead should be converted to a AUTO commit
+		if !same {
 			delete(deleteCommits, k)
-			// toUpdate := &pfs.CommitInfo{}
-			// if err := commits.Update(ci.Commit, toUpdate, func() error {
-			// 	toUpdate.Origin.Kind = pfs.OriginKind_AUTO
-			// 	return nil
-			// }); err != nil {
-			// 	return err
-			// }
+			ci.Origin.Kind = pfs.OriginKind_AUTO
+			if err := updateCommitInfo(ctx, tx, commitKey(ci.Commit), ci); err != nil {
+				return err
+			}
 		}
 	}
 	realAncestors := make(map[string]*pfs.CommitInfo)
@@ -643,7 +703,7 @@ func addCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to *pfs.Comm
 // direct provenance commits.
 //
 // 2) assert that we didn't miss any duplicate commits, and error the migration if we did.
-// TODO(acohen4): prepare script for analyzing this situtation
+// TODO(acohen4): Write test to catch this
 //
 // 3) commit keys can now be substituted from <project>/<repo>@<branch>=<id> -> <project>/<repo>@<id>
 func migrateToBranchlessCommits(ctx context.Context, tx *pachsql.Tx) error {
@@ -690,9 +750,7 @@ func migrateToBranchlessCommits(ctx context.Context, tx *pachsql.Tx) error {
 			}
 		}
 	}
-	// 2) double check there are no duplicate (repo, UUID) commits remaining
-	// TODO(acohen4): implement check
-	// 3) migrate commit keys
+	// 2) migrate commit keys
 	var oldCommit = new(pfs.CommitInfo)
 	if err := migratePostgreSQLCollection(ctx, tx, "commits", commitsIndexes, oldCommit, func(oldKey string) (newKey string, newVal proto.Message, err error) {
 		if oldCommit.Commit.Repo == nil {
