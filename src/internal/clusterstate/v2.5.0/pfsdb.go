@@ -427,12 +427,8 @@ func addCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error {
 }
 
 func getFileSetMd(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit) (*fileset.Metadata, error) {
-	var id string
-	if err := tx.GetContext(ctx, &id, `SELECT fileset_id FROM pfs.commit_totals WHERE commit_id = $1`, commitKey(c)); err != nil {
-		return nil, err
-	}
 	var mdData []byte
-	if err := tx.GetContext(ctx, &mdData, `SELECT metadata_pb FROM storage.filesets WHERE id = $1`, id); err != nil {
+	if err := tx.GetContext(ctx, &mdData, `SELECT metadata_pb FROM storage.filesets JOIN pfs.commit_totals ON id = fileset_id WHERE commit_id = $1`, commitKey(c)); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	md := &fileset.Metadata{}
