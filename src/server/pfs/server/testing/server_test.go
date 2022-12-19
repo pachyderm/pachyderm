@@ -417,6 +417,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("CreateRepoDeleteRepoRace", func(t *testing.T) {
+		t.Skip()
 		t.Parallel()
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 		for i := 0; i < 100; i++ {
@@ -4545,7 +4546,7 @@ func TestPFS(suite *testing.T) {
 		// Create main repo (will have the commit graphs above)
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 		repoProto := client.NewProjectRepo(pfs.DefaultProjectName, "repo")
-		resp, err := env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
+		_, err := env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
 			Branch: client.NewProjectBranch(pfs.DefaultProjectName, "repo", "master"),
 		})
 		require.NoError(t, err)
@@ -4555,7 +4556,7 @@ func TestPFS(suite *testing.T) {
 		a := aInfo.Commit
 		require.NoError(t, finishCommit(env.PachClient, "repo", a.Branch.Name, a.ID))
 		// Create 'd'
-		resp, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
+		resp, err := env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
 			Branch: client.NewProjectBranch(pfs.DefaultProjectName, "repo", "fod"),
 			Parent: a,
 		})
@@ -5751,7 +5752,7 @@ func TestPFS(suite *testing.T) {
 				}
 				repo := tu.UniqueString("out")
 				require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-				outputRepos = append(outputRepos, repo)
+				// outputRepos = append(outputRepos, repo)
 				var provBranches []*pfs.Branch
 				for num, i := range r.Perm(len(inputBranches))[:r.Intn(len(inputBranches))] {
 					provBranches = append(provBranches, inputBranches[i])
@@ -5759,7 +5760,6 @@ func TestPFS(suite *testing.T) {
 						break
 					}
 				}
-
 				err = env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "master", "", "", provBranches)
 				if err != nil && !strings.Contains(err.Error(), "cannot be in the provenance of its own branch") {
 					require.NoError(t, err)
