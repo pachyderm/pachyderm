@@ -1571,7 +1571,8 @@ func (m *DeleteRepoRequest) GetForce() bool {
 
 // DeleteReposRequest is used to delete more than one repo at once.
 type DeleteReposRequest struct {
-	// All repos in each project will be deleted.
+	// All repos in each project will be deleted if the caller has
+	// permission.
 	Projects             []*Project `protobuf:"bytes,1,rep,name=projects,proto3" json:"projects,omitempty"`
 	Force                bool       `protobuf:"varint,2,opt,name=force,proto3" json:"force,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
@@ -5558,7 +5559,12 @@ type APIClient interface {
 	ListRepo(ctx context.Context, in *ListRepoRequest, opts ...grpc.CallOption) (API_ListRepoClient, error)
 	// DeleteRepo deletes a repo.
 	DeleteRepo(ctx context.Context, in *DeleteRepoRequest, opts ...grpc.CallOption) (*types.Empty, error)
-	// DeleteRepos deletes more than one repo at once.
+	// DeleteRepos deletes more than one repo at once.  It attempts to
+	// delete every repo matching the DeleteReposRequest.  When deleting
+	// all repos matching a project, any repos not deletable by the
+	// caller will remain, and the project will not be empty; this is
+	// not an error.  The returned DeleteReposResponse will contain a
+	// list of all actually-deleted repos.
 	DeleteRepos(ctx context.Context, in *DeleteReposRequest, opts ...grpc.CallOption) (*DeleteReposResponse, error)
 	// StartCommit creates a new write commit from a parent commit.
 	StartCommit(ctx context.Context, in *StartCommitRequest, opts ...grpc.CallOption) (*Commit, error)
@@ -6491,7 +6497,12 @@ type APIServer interface {
 	ListRepo(*ListRepoRequest, API_ListRepoServer) error
 	// DeleteRepo deletes a repo.
 	DeleteRepo(context.Context, *DeleteRepoRequest) (*types.Empty, error)
-	// DeleteRepos deletes more than one repo at once.
+	// DeleteRepos deletes more than one repo at once.  It attempts to
+	// delete every repo matching the DeleteReposRequest.  When deleting
+	// all repos matching a project, any repos not deletable by the
+	// caller will remain, and the project will not be empty; this is
+	// not an error.  The returned DeleteReposResponse will contain a
+	// list of all actually-deleted repos.
 	DeleteRepos(context.Context, *DeleteReposRequest) (*DeleteReposResponse, error)
 	// StartCommit creates a new write commit from a parent commit.
 	StartCommit(context.Context, *StartCommitRequest) (*Commit, error)
