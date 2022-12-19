@@ -41,9 +41,54 @@
       access_log: [
         {
           name: 'envoy.access_loggers.stdout',
+          filter: {
+            or_filter: {
+              filters: [
+                {
+                  or_filter: {
+                    filters: [
+                      {
+                        status_code_filter: {
+                          comparison: {
+                            op: 'le',
+                            value: {
+                              default_value: 199,
+                              runtime_key: 'invalid.ignore_kubeprobe_response_code',  // Required by the API spec, but unused in this configuration.
+                            },
+                          },
+                        },
+                      },
+                      {
+                        status_code_filter: {
+                          comparison: {
+                            op: 'ge',
+                            value: {
+                              default_value: 300,
+                              runtime_key: 'invalid.ignore_kubeprobe_response_code',  // Required by the API spec, but unused in this configuration.
+                            },
+                          },
+                        },
+                      },
+                    ],
+                  },
+                },
+                {
+                  header_filter: {
+                    header: {
+                      name: 'user-agent',
+                      string_match: {
+                        prefix: 'kube-probe/',
+                      },
+                      invert_match: true,
+                    },
+                  },
+                },
+              ],
+            },
+          },
           typed_config: {
             '@type': 'type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StderrAccessLog',
-            log_format: $.accessLogFormat { json_format+: { is_admin_request: 'true' } },
+            log_format: $.accessLogFormat { json_format+: { message: 'admin response' } },
           },
         },
       ],

@@ -2,6 +2,51 @@
    "admin": {
       "access_log": [
          {
+            "filter": {
+               "or_filter": {
+                  "filters": [
+                     {
+                        "or_filter": {
+                           "filters": [
+                              {
+                                 "status_code_filter": {
+                                    "comparison": {
+                                       "op": "le",
+                                       "value": {
+                                          "default_value": 199,
+                                          "runtime_key": "invalid.ignore_kubeprobe_response_code"
+                                       }
+                                    }
+                                 }
+                              },
+                              {
+                                 "status_code_filter": {
+                                    "comparison": {
+                                       "op": "ge",
+                                       "value": {
+                                          "default_value": 300,
+                                          "runtime_key": "invalid.ignore_kubeprobe_response_code"
+                                       }
+                                    }
+                                 }
+                              }
+                           ]
+                        }
+                     },
+                     {
+                        "header_filter": {
+                           "header": {
+                              "invert_match": true,
+                              "name": "user-agent",
+                              "string_match": {
+                                 "prefix": "kube-probe/"
+                              }
+                           }
+                        }
+                     }
+                  ]
+               }
+            },
             "name": "envoy.access_loggers.stdout",
             "typed_config": {
                "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StderrAccessLog",
@@ -14,8 +59,7 @@
                      "duration_ms": "%DURATION%",
                      "grpc_message": "%RESP(GRPC-MESSAGE):64%",
                      "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
-                     "is_admin_request": "true",
-                     "message": "http response",
+                     "message": "admin response",
                      "method": "%REQ(:method)%",
                      "pachctl_command": "%REQ(COMMAND):64%",
                      "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",

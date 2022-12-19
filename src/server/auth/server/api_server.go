@@ -502,7 +502,7 @@ func (a *apiServer) RotateRootToken(ctx context.Context, req *auth.RotateRootTok
 func (a *apiServer) rotateRootTokenInTransaction(txCtx *txncontext.TransactionContext, req *auth.RotateRootTokenRequest) (resp *auth.RotateRootTokenResponse, retErr error) {
 	var rootToken string
 	// First revoke root's existing auth token
-	if err := a.deleteAuthTokensForSubjectInTransaction(txCtx.SqlTx, auth.RootUser); err != nil {
+	if _, err := a.deleteAuthTokensForSubjectInTransaction(txCtx.SqlTx, auth.RootUser); err != nil {
 		return nil, err
 	}
 	// If the new token is in the request, use it.
@@ -1178,11 +1178,12 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 
 // RevokeAuthToken implements the protobuf auth.RevokeAuthToken RPC
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
-	//nolint:errcheck
-	a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		resp, retErr = a.RevokeAuthTokenInTransaction(txnCtx, req)
 		return retErr
-	})
+	}); err != nil {
+		return nil, err
+	}
 	return resp, retErr
 }
 
@@ -1191,10 +1192,11 @@ func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txncontext.TransactionC
 		return nil, err
 	}
 
-	if err := a.deleteAuthToken(txnCtx.SqlTx, auth.HashToken(req.Token)); err != nil {
+	n, err := a.deleteAuthToken(txnCtx.SqlTx, auth.HashToken(req.Token))
+	if err != nil {
 		return nil, err
 	}
-	return &auth.RevokeAuthTokenResponse{}, nil
+	return &auth.RevokeAuthTokenResponse{Number: n}, nil
 }
 
 // setGroupsForUserInternal is a helper function used by SetGroupsForUser, and
@@ -1609,10 +1611,11 @@ func (a *apiServer) RevokeAuthTokensForUser(ctx context.Context, req *auth.Revok
 	if strings.HasPrefix(req.Username, auth.PachPrefix) {
 		return nil, errors.New("cannot revoke tokens for pach: users")
 	}
-	if err := a.deleteAuthTokensForSubject(ctx, req.Username); err != nil {
+	n, err := a.deleteAuthTokensForSubject(ctx, req.Username)
+	if err != nil {
 		return nil, err
 	}
-	return &auth.RevokeAuthTokensForUserResponse{}, nil
+	return &auth.RevokeAuthTokensForUserResponse{Number: n}, nil
 }
 
 func (a *apiServer) deleteExpiredTokensRoutine() error {
@@ -1712,24 +1715,38 @@ func (a *apiServer) deleteAllAuthTokens(ctx context.Context, sqlTx *pachsql.Tx) 
 	return nil
 }
 
-func (a *apiServer) deleteAuthToken(sqlTx *pachsql.Tx, tokenHash string) error {
-	if _, err := sqlTx.Exec(`DELETE FROM auth.auth_tokens WHERE token_hash=$1`, tokenHash); err != nil {
-		return errors.Wrapf(err, "error deleting token")
+func (a *apiServer) deleteAuthToken(sqlTx *pachsql.Tx, tokenHash string) (int64, error) {
+	result, err := sqlTx.Exec(`DELETE FROM auth.auth_tokens WHERE token_hash=$1`, tokenHash)
+	if err != nil {
+		return 0, errors.Wrap(err, "error deleting token")
 	}
-	return nil
+	n, err := result.RowsAffected()
+	if err != nil {
+		return 0, errors.Wrap(err, "error getting rows affected")
+	}
+	return n, nil
 }
 
-func (a *apiServer) deleteAuthTokensForSubject(ctx context.Context, subject string) error {
-	return dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
-		return a.deleteAuthTokensForSubjectInTransaction(sqlTx, subject)
-	}, dbutil.WithIsolationLevel(sql.LevelRepeatableRead))
+func (a *apiServer) deleteAuthTokensForSubject(ctx context.Context, subject string) (n int64, retErr error) {
+	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
+		n, retErr = a.deleteAuthTokensForSubjectInTransaction(sqlTx, subject)
+		return retErr
+	}, dbutil.WithIsolationLevel(sql.LevelRepeatableRead)); err != nil {
+		return 0, errors.Wrap(err, "error deleting auth token for subject")
+	}
+	return n, retErr
 }
 
-func (a *apiServer) deleteAuthTokensForSubjectInTransaction(tx *pachsql.Tx, subject string) error {
-	if _, err := tx.Exec(`DELETE FROM auth.auth_tokens WHERE subject = $1`, subject); err != nil {
-		return errors.Wrapf(err, "error deleting all auth tokens")
+func (a *apiServer) deleteAuthTokensForSubjectInTransaction(tx *pachsql.Tx, subject string) (int64, error) {
+	result, err := tx.Exec(`DELETE FROM auth.auth_tokens WHERE subject = $1`, subject)
+	if err != nil {
+		return 0, errors.Wrap(err, "error deleting all auth tokens")
 	}
-	return nil
+	n, err := result.RowsAffected()
+	if err != nil {
+		return 0, errors.Wrap(err, "error getting rows affected")
+	}
+	return n, nil
 }
 
 func authRepoResourceToRepo(resource *auth.Resource) (*pfs.Repo, error) {

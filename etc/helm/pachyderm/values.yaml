@@ -889,6 +889,12 @@ proxy:
   labels: {}
   # Any additional annotations to add to the pods.
   annotations: {}
+  # A nodeSelector statement for each pod in the proxy Deployment, if desired.
+  nodeSelector: {}
+  # A tolerations statement for each pod in the proxy Deployment, if desired.
+  tolerations: []
+  # A priority class name for each pod in the proxy Deployment, if desired.
+  priorityClassName: ""
   # Configure the service that routes traffic to the proxy.
   service:
     # The type of service can be ClusterIP, NodePort, or LoadBalancer.
