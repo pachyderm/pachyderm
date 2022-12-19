@@ -391,6 +391,26 @@ func synonymsMap() map[string]string {
 // TestMount creates two projects, each containing a repo with same name.  It
 // mounts the repos and adds a single file to each, and verifies that the
 // expected file appears in each.
+
+func TestDeleteAllRepos(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+	c := env.PachClient
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create project {{.project}}
+		pachctl create repo {{.repo}}
+		pachctl create repo {{.repo}}a --project {{.project}}
+		pachctl delete repo --all
+		pachctl list repo --all-projects | match {{.repo}}a
+		`,
+		"project", tu.UniqueString("project"),
+		"repo", tu.UniqueString("repo"),
+	).Run())
+}
+
 func TestCmdListRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")

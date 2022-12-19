@@ -15,6 +15,8 @@ import (
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -2127,6 +2129,44 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 		return nil
 	})
 	return errors.EnsureStack(err)
+}
+
+func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
+	var repos, deleted []*pfs.Repo
+
+	var projectFilter = make(map[string]bool)
+	for _, project := range projects {
+		if project.Name == "" {
+			return nil, status.Error(codes.InvalidArgument, "empty project name")
+		}
+		projectFilter[project.Name] = true
+	}
+	if err := d.listRepo(ctx, false, "", projectFilter, func(repoInfo *pfs.RepoInfo) error {
+		repos = append(repos, repoInfo.Repo)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if len(repos) == 0 {
+		return nil, nil
+	}
+
+	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		// the list does not use the transaction
+		for _, repo := range repos {
+			if err := d.deleteRepo(txnCtx, repo, true); err != nil {
+				if errors.As(err, &auth.ErrNotAuthorized{}) {
+					continue
+				}
+				return err
+			}
+			deleted = append(deleted, repo)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return deleted, nil
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
