@@ -12,6 +12,7 @@ import (
 	runtimedebug "runtime/debug"
 	"runtime/pprof"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -212,7 +213,16 @@ func (s *debugServer) handlePipelineRedirect(
 	collectWorker collectWorkerFunc,
 	redirect redirectFunc,
 ) (retErr error) {
-	prefix := join(pipelinePrefix, pipelineInfo.Pipeline.Name)
+	if pipelineInfo == nil {
+		return errors.Errorf("nil pipeline info")
+	}
+	if pipelineInfo.Pipeline == nil {
+		return errors.Errorf("nil pipeline in pipeline info")
+	}
+	if pipelineInfo.Pipeline.Project == nil {
+		return errors.Errorf("nil project in pipeline %q", pipelineInfo.Pipeline.Name)
+	}
+	prefix := join(pipelinePrefix, pipelineInfo.Pipeline.Project.Name, pipelineInfo.Pipeline.Name)
 	defer func() {
 		if retErr != nil {
 			retErr = writeErrorFile(tw, retErr, prefix)
@@ -234,7 +244,7 @@ func (s *debugServer) forEachWorker(ctx context.Context, pipelineInfo *pps.Pipel
 		return err
 	}
 	if len(pods) == 0 {
-		return errors.Errorf("no worker pods found for pipeline %v", pipelineInfo.Pipeline.Name)
+		return errors.Errorf("no worker pods found for pipeline %v", pipelineInfo.Pipeline)
 	}
 	for _, pod := range pods {
 		if err := cb(&pod); err != nil {
@@ -256,6 +266,7 @@ func (s *debugServer) getWorkerPods(ctx context.Context, pipelineInfo *pps.Pipel
 				metav1.SetAsLabelSelector(
 					map[string]string{
 						"app":             "pipeline",
+						"pipelineProject": pipelineInfo.Pipeline.Project.Name,
 						"pipelineName":    pipelineInfo.Pipeline.Name,
 						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
 					},
@@ -507,10 +518,13 @@ func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pac
 	if err != nil {
 		return err
 	}
-	for _, repoInfo := range repoInfos {
-		if _, err := pachClient.InspectProjectPipeline(repoInfo.Repo.Project.GetName(), repoInfo.Repo.Name, true); err != nil {
+	for i, repoInfo := range repoInfos {
+		if err := validateRepoInfo(repoInfo); err != nil {
+			return errors.Wrapf(err, "invalid repo info %d from ListRepo", i)
+		}
+		if _, err := pachClient.InspectProjectPipeline(repoInfo.Repo.Project.Name, repoInfo.Repo.Name, true); err != nil {
 			if errutil.IsNotFoundError(err) {
-				repoPrefix := join("source-repos", repoInfo.Repo.Name)
+				repoPrefix := join("source-repos", repoInfo.Repo.Project.Name, repoInfo.Repo.Name)
 				return s.collectCommits(ctx, tw, pachClient, repoInfo.Repo, limit, repoPrefix)
 			}
 			return err
@@ -755,8 +769,11 @@ func collectDump(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefi
 
 func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
+		if err := validatePipelineInfo(pipelineInfo); err != nil {
+			return errors.Wrap(err, "collectPipelineDumpFunc: invalid pipeline info")
+		}
 		if err := collectDebugFile(tw, "spec", "json", func(w io.Writer) error {
-			fullPipelineInfos, err := pachClient.ListProjectPipelineHistory(pfs.DefaultProjectName, pipelineInfo.Pipeline.Name, -1, true)
+			fullPipelineInfos, err := pachClient.ListProjectPipelineHistory(pipelineInfo.Pipeline.Project.Name, pipelineInfo.Pipeline.Name, -1, true)
 			if err != nil {
 				return err
 			}
@@ -772,14 +789,11 @@ func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 		if err := s.collectCommits(ctx, tw, pachClient, client.NewProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
 			return err
 		}
-		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline.Name, limit, prefix...); err != nil {
+		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline, limit, prefix...); err != nil {
 			return err
 		}
 		if s.env.Config().LokiHost != "" {
 			if err := s.forEachWorkerLoki(ctx, pipelineInfo, func(pod string) error {
-				// Loki requests can hang if the size of the log lines is too big, so we set a timeout
-				ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
-				defer cancel()
 				workerPrefix := join(podPrefix, pod)
 				if len(prefix) > 0 {
 					workerPrefix = join(prefix[0], workerPrefix)
@@ -815,6 +829,17 @@ func (s *debugServer) forEachWorkerLoki(ctx context.Context, pipelineInfo *pps.P
 	return nil
 }
 
+// quoteLogQLStreamSelector returns a string quoted as a LogQL stream selector.
+// The rules for quoting a LogQL stream selector are documented at
+// https://grafana.com/docs/loki/latest/logql/log_queries/#log-stream-selector
+// to be the same as for a Prometheus string literal, as documented at
+// https://prometheus.io/docs/prometheus/latest/querying/basics/#string-literals.
+// This happens to be the same as a Go string, with single or double quotes or
+// backticks allowed as enclosing characters.
+func quoteLogQLStreamSelector(s string) string {
+	return strconv.Quote(s)
+}
+
 func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.PipelineInfo) (map[string]struct{}, error) {
 	// This function uses the log querying API and not the label querying API, to bound the the
 	// number of workers for a pipeline that we return.  We'll get 30,000 of the most recent
@@ -822,7 +847,7 @@ func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.P
 	// logs for further inspection.  The alternative would be to get every worker that existed
 	// in some time interval, but that results in too much data to inspect.
 
-	queryStr := `{pipelineName="` + pipelineInfo.Pipeline.Name + `"}`
+	queryStr := fmt.Sprintf(`{pipelineProject=%s, pipelineName=%s}`, quoteLogQLStreamSelector(pipelineInfo.Pipeline.Project.Name), quoteLogQLStreamSelector(pipelineInfo.Pipeline.Name))
 	pods := make(map[string]struct{})
 	logs, err := s.queryLoki(ctx, queryStr)
 	if err != nil {
@@ -843,12 +868,13 @@ func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.P
 	return pods, nil
 }
 
-// This used to be 5,000 but a comment said this was too few logs, so now it's 30,000.  If it still
-// seems too small, bump it up again.  5,000 remains the maximum value of "limit" in queries that
-// Loki seems to accept.
 const (
-	maxLogs       = 30000
-	serverMaxLogs = 5000
+	// maxLogs used to be 5,000 but a comment said this was too few logs, so now it's 30,000.
+	// If it still seems too small, bump it up again.
+	maxLogs = 30000
+	// 5,000 is the maximum value of "limit" in queries that Loki seems to accept.
+	// We set serverMaxLogs below the actual limit because of a bug in Loki where it hangs when you request too much data from it.
+	serverMaxLogs = 1000
 )
 
 type lokiLog struct {
@@ -857,6 +883,12 @@ type lokiLog struct {
 }
 
 func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog, error) {
+	sortLogs := func(logs []lokiLog) {
+		sort.Slice(logs, func(i, j int) bool {
+			return logs[i].Entry.Timestamp.Before(logs[j].Entry.Timestamp)
+		})
+	}
+
 	c, err := s.env.GetLokiClient()
 	if err != nil {
 		return nil, errors.EnsureStack(errors.Errorf("get loki client: %v", err))
@@ -877,10 +909,18 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 	start := time.Now().Add(-30 * 24 * time.Hour) // 30 days.  (Loki maximum range is 30 days + 1 hour.)
 
 	for numLogs := 0; (end.IsZero() || start.Before(end)) && numLogs < maxLogs; {
-		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, end, "BACKWARD", 0, 0, true)
+		// Loki requests can hang if the size of the log lines is too big
+		ctx, cancel := context.WithTimeout(ctx, time.Minute)
+		defer cancel()
+		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, end, "BACKWARD", 0 /* step */, 0 /* interval */, true /* quiet */)
 		if err != nil {
 			// Note: the error from QueryRange has a stack.
-			return nil, errors.Errorf("query range (query=%v, maxLogs=%v, start=%v, end=%v): %+v", queryStr, maxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
+			if errors.Is(err, context.DeadlineExceeded) {
+				log.Debugf("query range timed out (query=%v, limit=%v, start=%v, end=%v): %+v", queryStr, serverMaxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
+				sortLogs(result)
+				return result, nil
+			}
+			return nil, errors.Errorf("query range (query=%v, limit=%v, start=%v, end=%v): %+v", queryStr, serverMaxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
 		}
 
 		streams, ok := resp.Data.Result.(loki.Streams)
@@ -912,14 +952,13 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 		if readThisIteration == 0 {
 			break
 		}
+		cancel()
 	}
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].Entry.Timestamp.Before(result[j].Entry.Timestamp)
-	})
+	sortLogs(result)
 	return result, nil
 }
 
-func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, pipelineName string, limit int64, prefix ...string) error {
+func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, pipeline *pps.Pipeline, limit int64, prefix ...string) error {
 	download := chart.ContinuousSeries{
 		Name: "download",
 		Style: chart.Style{
@@ -944,7 +983,7 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 	if err := collectDebugFile(tw, "jobs", "json", func(w io.Writer) error {
 		// TODO: The limiting should eventually be a feature of list job.
 		var count int64
-		return pachClient.ListJobF(pipelineName, nil, -1, false, func(ji *pps.JobInfo) error {
+		return pachClient.ListProjectJobF(pipeline.Project.Name, pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
 			if count >= limit {
 				return errutil.ErrBreak
 			}

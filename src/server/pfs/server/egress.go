@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/sdata"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -24,8 +25,8 @@ func getEgressPassword() (string, error) {
 	return password, nil
 }
 
-func copyToObjectStorage(ctx context.Context, src Source, destURL string) (*pfs.EgressResponse_ObjectStorageResult, error) {
-	bytesWritten, err := getFileURL(ctx, destURL, src)
+func (d *driver) copyToObjectStorage(ctx context.Context, taskService task.Service, file *pfs.File, destURL string) (*pfs.EgressResponse_ObjectStorageResult, error) {
+	bytesWritten, err := d.getFileURL(ctx, taskService, destURL, file, nil)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}

@@ -212,14 +212,6 @@ $ {{alias}} -i foo@XXX -i bar@YYY
 # Return all sub-jobs in pipeline foo and whose input commits include bar@YYY
 $ {{alias}} -p foo -i bar@YYY`,
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			cfg, err := config.Read(false, false)
-			if err != nil {
-				return err
-			}
-			_, pachCtx, err := cfg.ActiveContext(true)
-			if err != nil {
-				return err
-			}
 			commits, err := cmdutil.ParseCommits(project, inputCommitStrs)
 			if err != nil {
 				return err
@@ -252,8 +244,6 @@ $ {{alias}} -p foo -i bar@YYY`,
 			projectsFilter := []string{project}
 			if allProjects {
 				projectsFilter = nil
-			} else if project == pfs.DefaultProjectName {
-				projectsFilter = []string{pachCtx.GetProject()}
 			}
 			if len(args) == 0 {
 				if pipelineName == "" && !expand {
@@ -351,7 +341,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
-	listJob.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Show jobs from all projects.")
+	listJob.Flags().BoolVar(&allProjects, "all-projects", false, "Show jobs from all projects.")
 	listJob.Flags().StringVar(&project, "project", project, "Limit to jobs in the project specified.")
 	listJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
 	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits. format: <repo>@<branch-or-commit>")
@@ -942,11 +932,16 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) > 0 {
 				pipeline = args[0]
 			}
+			projectsFilter := []*pfs.Project{{Name: project}}
+			if allProjects {
+				projectsFilter = nil
+			}
 			request := &ppsclient.ListPipelineRequest{
 				History:   history,
 				CommitSet: &pfs.CommitSet{ID: commit},
 				JqFilter:  filter,
 				Details:   true,
+				Projects:  projectsFilter,
 			}
 			if pipeline != "" {
 				request.Pipeline = pachdclient.NewProjectPipeline(project, pipeline)
@@ -996,6 +991,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().StringVarP(&commit, "commit", "c", "", "List the pipelines as they existed at this commit.")
 	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
 	listPipeline.Flags().StringVar(&project, "project", project, "Project containing pipelines.")
+	listPipeline.Flags().BoolVar(&allProjects, "all-projects", false, "Show pipelines form all projects.")
 	commands = append(commands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
 
 	var commitSet string

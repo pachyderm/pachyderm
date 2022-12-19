@@ -156,19 +156,24 @@ func (c APIClient) InspectProjectRepo(projectName, repoName string) (_ *pfs.Repo
 
 // ListRepo returns info about user Repos
 func (c APIClient) ListRepo() ([]*pfs.RepoInfo, error) {
-	return c.ListRepoByType(pfs.UserRepoType)
+	return c.ListProjectRepo(&pfs.ListRepoRequest{Type: pfs.UserRepoType})
 }
 
 // ListRepoByType returns info about Repos of the given type.
 //
 // The if repoType is empty, all Repos will be included
 func (c APIClient) ListRepoByType(repoType string) (_ []*pfs.RepoInfo, retErr error) {
+	return c.ListProjectRepo(&pfs.ListRepoRequest{Type: repoType})
+}
+
+// ListProjectRepo returns a list of RepoInfos given a ListRepoRequest, which can
+// include information about which projects to filter with.
+func (c APIClient) ListProjectRepo(r *pfs.ListRepoRequest) ([]*pfs.RepoInfo, error) {
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
-	request := &pfs.ListRepoRequest{Type: repoType}
 	client, err := c.PfsAPIClient.ListRepo(
 		ctx,
-		request,
+		r,
 	)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)

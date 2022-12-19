@@ -2578,7 +2578,20 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		// ensure field names and enum values match with --raw output
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
-	filterPipeline := func(pipelineInfo *pps.PipelineInfo) bool {
+	projectsFilterSet := make(map[string]bool)
+	for _, project := range request.Projects {
+		projectsFilterSet[project.Name] = true
+	}
+	keepPipelineGivenProject := func(pipelineInfo *pps.PipelineInfo) bool {
+		if len(request.Projects) == 0 {
+			return true
+		}
+		return projectsFilterSet[pipelineInfo.Pipeline.Project.Name]
+	}
+	keepPipeline := func(pipelineInfo *pps.PipelineInfo) bool {
+		if !keepPipelineGivenProject(pipelineInfo) {
+			return false
+		}
 		if jqCode != nil {
 			jsonBuffer.Reset()
 			// convert pipelineInfo to a map[string]interface{} for use with gojq
@@ -2617,7 +2630,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		})
 	}
 	return ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(pi *pps.PipelineInfo) error {
-		if !filterPipeline(pi) {
+		if !keepPipeline(pi) {
 			return nil
 		}
 		if request.GetCommitSet().GetID() != "" {
