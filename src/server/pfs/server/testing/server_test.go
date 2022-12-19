@@ -417,10 +417,8 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("CreateRepoDeleteRepoRace", func(t *testing.T) {
-		t.Skip("SKIPPING FOR NOW")
 		t.Parallel()
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-
 		for i := 0; i < 100; i++ {
 			require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "foo"))
 			require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "bar"))

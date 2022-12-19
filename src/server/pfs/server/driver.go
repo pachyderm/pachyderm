@@ -334,6 +334,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		if !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "error checking whether %q exists", repo)
 		}
+		return nil
 	}
 	return d.deleteRepos(txnCtx, []*pfs.RepoInfo{repoInfo}, force)
 }
