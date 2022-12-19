@@ -37,6 +37,9 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 		return nil, err
 	}
 	totalCommits := len(commitInfos)
+	if totalCommits == 0 {
+		return nil, pfsserver.ErrCommitSetNotFound{CommitSet: commitset}
+	}
 	result := make([]*pfs.CommitInfo, 0)
 	collected := make(map[string]struct{})
 	collectCount := 0
@@ -270,7 +273,6 @@ func (d *driver) deleteCommits(txnCtx *txncontext.TransactionContext, commitInfo
 		}); err != nil {
 			return errors.Wrapf(err, "error updating branch %s", bi.Branch)
 		}
-
 	}
 	// update parent/child relationships on commits where necessary.
 	// for each deleted commit, update its parent's children and childrens' parents.
@@ -428,10 +430,11 @@ func (d *driver) squashCommitSets(txnCtx *txncontext.TransactionContext, commits
 	var commitInfos []*pfs.CommitInfo
 	for _, commitset := range commitsets {
 		var err error
-		commitInfos, err = d.inspectCommitSetImmediateTx(txnCtx, commitset, true)
+		cis, err := d.inspectCommitSetImmediateTx(txnCtx, commitset, true)
 		if err != nil {
 			return err
 		}
+		commitInfos = append(commitInfos, cis...)
 	}
 	for _, ci := range commitInfos {
 		if ci.Commit.Branch.Repo.Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {

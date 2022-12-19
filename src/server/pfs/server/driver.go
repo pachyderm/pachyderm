@@ -830,11 +830,6 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 	if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, commit.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-
-	// TODO(global ids): it's possible the commit doesn't exist yet (but will,
-	// following a trigger).  If the commit isn't found, check if the associated
-	// commitset _could_ reach the requested branch or ID via a trigger and wait
-	// to find out.
 	// Resolve the commit in case it specifies a branch head or commit ancestry
 	var commitInfo *pfs.CommitInfo
 	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
