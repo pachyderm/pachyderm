@@ -257,6 +257,8 @@ func TestPFS(suite *testing.T) {
 			{tu.UniqueString("lenny:"), badFormatErr},
 			{tu.UniqueString("lenny,"), badFormatErr},
 			{tu.UniqueString("lenny#"), badFormatErr},
+			{tu.UniqueString("_lenny"), "must start with an alphanumeric character"},
+			{tu.UniqueString("-lenny"), "must start with an alphanumeric character"},
 			{tu.UniqueString("!project"), badFormatErr},
 			{tu.UniqueString("\""), badFormatErr},
 			{tu.UniqueString("\\"), badFormatErr},
@@ -1148,6 +1150,87 @@ func TestPFS(suite *testing.T) {
 
 		// Everything should be consistent
 		require.NoError(t, env.PachClient.FsckFastExit())
+	})
+
+	suite.Run("DeleteRepos", func(t *testing.T) {
+		t.Parallel()
+		var (
+			ctx                  = context.Background()
+			env                  = realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+			projectName          = tu.UniqueString("project")
+			untouchedProjectName = tu.UniqueString("project")
+			reposToDelete        = make(map[string]bool)
+			untouchedRepos       []*pfs.Repo
+		)
+		_, err := env.PachClient.PfsAPIClient.CreateProject(ctx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: projectName}})
+		require.NoError(t, err)
+		_, err = env.PachClient.PfsAPIClient.CreateProject(ctx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: untouchedProjectName}})
+		require.NoError(t, err)
+
+		numRepos := 12
+		for i := 0; i < numRepos; i++ {
+			repoName := fmt.Sprintf("repo%d", i)
+			repoToDelete := &pfs.Repo{
+				Project: &pfs.Project{Name: projectName},
+				Name:    repoName,
+				Type:    pfs.UserRepoType,
+			}
+			_, err := env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: repoToDelete})
+			require.NoError(t, err)
+			reposToDelete[repoToDelete.String()] = true
+
+			untouchedRepo := &pfs.Repo{
+				Project: &pfs.Project{Name: untouchedProjectName},
+				Name:    repoName,
+				Type:    pfs.UserRepoType,
+			}
+			_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: untouchedRepo})
+			require.NoError(t, err)
+			untouchedRepos = append(untouchedRepos, untouchedRepo)
+		}
+
+		// DeleteRepos with no projects should return an error.
+		_, err = env.PachClient.PfsAPIClient.DeleteRepos(ctx, &pfs.DeleteReposRequest{})
+		require.YesError(t, err)
+
+		// DeleteRepos with a non-nil, zero-length list of projects should still error.
+		_, err = env.PachClient.PfsAPIClient.DeleteRepos(ctx, &pfs.DeleteReposRequest{Projects: make([]*pfs.Project, 0)})
+		require.YesError(t, err)
+
+		// DeleteRepos with an invalid project should not error because
+		// there will simply be no repos to delete.
+		resp, err := env.PachClient.PfsAPIClient.DeleteRepos(ctx, &pfs.DeleteReposRequest{Projects: []*pfs.Project{{Name: tu.UniqueString("noexist")}}})
+		require.NoError(t, err)
+		require.Len(t, resp.Repos, 0)
+
+		// DeleteRepos should delete all repos in the given project and none in other projects.
+		resp, err = env.PachClient.PfsAPIClient.DeleteRepos(ctx, &pfs.DeleteReposRequest{Projects: []*pfs.Project{{Name: projectName}}})
+		require.NoError(t, err)
+		require.Len(t, resp.Repos, len(reposToDelete))
+		for _, repo := range resp.Repos {
+			if !reposToDelete[repo.String()] {
+				t.Errorf("deleted repo %v, which should not have been", repo)
+			}
+		}
+		repoStream, err := env.PachClient.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{Projects: []string{untouchedProjectName}})
+		require.NoError(t, err)
+		var repos = make(map[string]bool)
+		for {
+			repoInfo, err := repoStream.Recv()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+			if repoInfo.Repo.Project.Name != untouchedProjectName {
+				t.Errorf("ListProject({Projects: []string{%s}}) return repo in project %v", untouchedProjectName, repoInfo.Repo.Project)
+			}
+			repos[repoInfo.Repo.String()] = true
+		}
+		for _, repo := range untouchedRepos {
+			if !repos[repo.String()] {
+				t.Errorf("repo %v not found in repos %v", repo.String(), repos)
+			}
+		}
 	})
 
 	suite.Run("InspectCommit", func(t *testing.T) {

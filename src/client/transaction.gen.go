@@ -333,6 +333,10 @@ func (c *unsupportedPfsBuilderClient) DeleteRepo(_ context.Context, _ *pfs_v2.De
 	return nil, unsupportedError("DeleteRepo")
 }
 
+func (c *unsupportedPfsBuilderClient) DeleteRepos(_ context.Context, _ *pfs_v2.DeleteReposRequest, opts ...grpc.CallOption) (*pfs_v2.DeleteReposResponse, error) {
+	return nil, unsupportedError("DeleteRepos")
+}
+
 func (c *unsupportedPfsBuilderClient) DiffFile(_ context.Context, _ *pfs_v2.DiffFileRequest, opts ...grpc.CallOption) (pfs_v2.API_DiffFileClient, error) {
 	return nil, unsupportedError("DiffFile")
 }
