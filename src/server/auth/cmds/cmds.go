@@ -658,6 +658,42 @@ func GetRepoRoleBindingCmd(pachCtx *config.Context) *cobra.Command {
 	return cmdutil.CreateAliases(get, "auth get repo", "repos")
 }
 
+// CheckProjectCmd returns a cobra command that sends a GetPermissions request to
+// pachd to determine what permissions a user has on the project.
+func CheckProjectCmd() *cobra.Command {
+	check := &cobra.Command{
+		Use:   "{{alias}} <project> [user]",
+		Short: "Check the permissions a user has on 'project'",
+		Long:  "Check the permissions a user has on 'project'",
+		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
+			project := client.NewProject(args[0]).AuthResource()
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			var perms *auth.GetPermissionsResponse
+			if len(args) == 2 {
+				perms, err = c.GetPermissionsForPrincipal(c.Ctx(), &auth.GetPermissionsForPrincipalRequest{
+					Resource:  project,
+					Principal: args[1],
+				})
+			} else {
+				perms, err = c.GetPermissions(c.Ctx(), &auth.GetPermissionsRequest{
+					Resource: project,
+				})
+			}
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			fmt.Printf("Roles: %v\nPermissions: %v\n", perms.Roles, perms.Permissions)
+			return nil
+		}),
+	}
+	return cmdutil.CreateAliases(check, "auth check project")
+}
+
 // GetProjectRoleBindingCmd returns a cobra command that gets the role bindings for a resource
 func GetProjectRoleBindingCmd() *cobra.Command {
 	get := &cobra.Command{
@@ -891,6 +927,7 @@ func Cmds(pachCtx *config.Context) []*cobra.Command {
 	commands = append(commands, UseAuthTokenCmd())
 	commands = append(commands, GetConfigCmd())
 	commands = append(commands, SetConfigCmd())
+	commands = append(commands, CheckProjectCmd())
 	commands = append(commands, CheckRepoCmd(pachCtx))
 	commands = append(commands, RevokeCmd())
 	commands = append(commands, GetGroupsCmd())
