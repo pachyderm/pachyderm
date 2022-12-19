@@ -1641,7 +1641,7 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("CommitBranch", func(t *testing.T) {
-		t.Skip("FIXME acohen4. Rethink this one")
+		t.Skip("TODO(acohen4): FIXME - Rethink this one")
 		t.Parallel()
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "input"))
@@ -3336,7 +3336,6 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("WaitNonExistentBranch", func(t *testing.T) {
-		t.Skip()
 		t.Parallel()
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
@@ -3362,7 +3361,6 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("WaitNonExistentCommitSet", func(t *testing.T) {
-		t.Skip()
 		t.Parallel()
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 		_, err := env.PachClient.WaitCommitSetAll("fake-commitset")
@@ -5646,10 +5644,10 @@ func TestPFS(suite *testing.T) {
 			total += v
 		}
 		var (
-			inputRepos     []string
-			inputBranches  []*pfs.Branch
-			commits        []*pfs.Commit
-			outputRepos    []string
+			inputRepos    []string
+			inputBranches []*pfs.Branch
+			commits       []*pfs.Commit
+			// outputRepos    []string
 			outputBranches []*pfs.Branch
 		)
 	OpLoop:
