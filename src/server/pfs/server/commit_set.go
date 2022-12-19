@@ -38,7 +38,7 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	}
 	totalCommits := len(commitInfos)
 	if totalCommits == 0 {
-		return nil, pfsserver.ErrCommitSetNotFound{CommitSet: commitset}
+		return []*pfs.CommitInfo{}, nil
 	}
 	result := make([]*pfs.CommitInfo, 0)
 	collected := make(map[string]struct{})
