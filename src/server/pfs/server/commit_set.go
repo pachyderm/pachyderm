@@ -127,13 +127,16 @@ func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet,
 	return nil
 }
 
-func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) error) error {
+func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb func(*pfs.CommitSetInfo) error) error {
 	// Track the commitsets we've already processed
 	seen := map[string]struct{}{}
 	// Return commitsets by the newest commit in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
 	commitInfo := &pfs.CommitInfo{}
 	err := d.commits.ReadOnly(ctx).List(commitInfo, col.DefaultOptions(), func(string) error {
+		if commitInfo.GetCommit().GetBranch().GetRepo().GetProject().GetName() != project.GetName() {
+			return nil
+		}
 		if _, ok := seen[commitInfo.Commit.ID]; ok {
 			return nil
 		}
