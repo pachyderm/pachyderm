@@ -639,6 +639,13 @@ pachd:
     # values are strings
     compactionShardSizeThreshold: "0"
     compactionShardCountThreshold: "0"
+    memoryThreshold: 0
+    levelFactor: 0
+    maxFanIn: 10
+    maxOpenFileSets: 50
+    # diskCacheSize and memoryCacheSize are defined in units of 8 Mb chunks. The default is 100 chunks which is 800 Mb.
+    diskCacheSize: 100
+    memoryCacheSize: 100
   ppsWorkerGRPCPort: 1080
   # the number of seconds between pfs's garbage collection cycles.
   # if this value is set to 0, it will default to pachyderm's internal configuration.

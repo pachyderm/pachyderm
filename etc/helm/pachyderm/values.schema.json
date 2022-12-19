@@ -1096,6 +1096,24 @@
                         },
                         "uploadConcurrencyLimit": {
                             "type": "integer"
+                        },
+                        "memoryThreshold": {
+                            "type": "integer"
+                        },
+                        "levelFactor": {
+                            "type": "integer"
+                        },
+                        "maxFanIn": {
+                            "type": "integer"
+                        },
+                        "maxOpenFileSets": {
+                            "type": "integer"
+                        },
+                        "diskCacheSize": {
+                            "type": "integer"
+                        },
+                        "memoryCacheSize": {
+                            "type": "integer"
                         }
                     }
                 },
