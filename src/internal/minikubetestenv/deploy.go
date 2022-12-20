@@ -497,6 +497,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	if opts.EnterpriseServer {
 		helmOpts = union(helmOpts, withEnterpriseServer(version, pachAddress.Host))
+		helmOpts = union(helmOpts, withMinio())
 		pachAddress.Port = uint16(31650)
 	} else {
 		helmOpts = union(helmOpts, withPachd(version))

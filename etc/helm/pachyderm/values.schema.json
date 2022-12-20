@@ -688,6 +688,44 @@
                 }
             }
         },
+        "pachw": {
+            "type": "object",
+            "properties": {
+                "inSidecars": {
+                    "type": "boolean"
+                },
+                "minReplicas": {
+                    "type": "integer"
+                },
+                "maxReplicas": {
+                    "type": "integer"
+                },
+                "resources": {
+                    "type": "object",
+                    "properties": {
+                        "limits": {
+                            "type": "object",
+                            "properties": {
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "requests": {
+                            "type": "object",
+                            "properties": {
+                                "cpu": {
+                                    "type": "string"
+                                },
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "pachd": {
             "type": "object",
             "properties": {
