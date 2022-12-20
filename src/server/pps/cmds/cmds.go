@@ -881,6 +881,27 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				fmt.Println("Pipeline unchanged, no update will be performed.")
 				return nil
 			}
+			// May not change the project name, but if it is omitted
+			// then it is considered unchanged.
+			project := request.Pipeline.GetProject()
+			projectName := project.GetName()
+			if projectName == "" {
+				if project == nil {
+					project = new(pfs.Project)
+				}
+				project = pipelineInfo.Pipeline.GetProject()
+				request.Pipeline.Project = project
+			} else if projectName != pipelineInfo.Pipeline.GetProject().GetName() {
+				return errors.New("may not change project name")
+			}
+			// Likewise, may not change the pipeline name, but if it
+			// is omitted then it is considered unchanged.
+			pipelineName := request.Pipeline.GetName()
+			if pipelineName == "" {
+				request.Pipeline.Name = pipelineInfo.Pipeline.GetName()
+			} else if pipelineName != pipelineInfo.Pipeline.GetName() {
+				return errors.New("may not change pipeline name")
+			}
 			request.Update = true
 			request.Reprocess = reprocess
 			return txncmds.WithActiveTransaction(client, func(txClient *pachdclient.APIClient) error {
