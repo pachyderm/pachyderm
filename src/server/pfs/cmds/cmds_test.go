@@ -351,8 +351,8 @@ func TestProject(t *testing.T) {
 	// c := env.PachClient
 	// using xargs to trim newlines
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-                pachctl list project | xargs | match '^PROJECT DESCRIPTION default -$'
-                pachctl create project foo
+                pachctl list project | xargs | match '^PROJECT DESCRIPTION *default -$'
+                pachctl create project foo 
                 pachctl list project | match "foo     -"
 		`,
 	).Run())
