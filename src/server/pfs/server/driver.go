@@ -15,8 +15,6 @@ import (
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -2138,14 +2136,7 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
 	var repos, deleted []*pfs.Repo
 
-	var projectFilter = make(map[string]bool)
-	for _, project := range projects {
-		if project.Name == "" {
-			return nil, status.Error(codes.InvalidArgument, "empty project name")
-		}
-		projectFilter[project.Name] = true
-	}
-	if err := d.listRepo(ctx, false, "", projectFilter, func(repoInfo *pfs.RepoInfo) error {
+	if err := d.listRepo(ctx, false, "", projects, func(repoInfo *pfs.RepoInfo) error {
 		repos = append(repos, repoInfo.Repo)
 		return nil
 	}); err != nil {
