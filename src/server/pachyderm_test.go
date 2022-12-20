@@ -6272,35 +6272,38 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
+	project := tu.UniqueString("prj-")
+	require.NoError(t, c.CreateProject(project))
+
 	dataRepo := tu.UniqueString("TestPipelineWithStatsAcrossJobs_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.CreateProjectRepo(project, dataRepo))
 
 	numFiles := 10
-	commit1, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit1, err := c.StartProjectCommit(project, dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
 		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("foo-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)), client.WithAppendPutFile()))
 	}
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, "master", commit1.ID))
+	require.NoError(t, c.FinishProjectCommit(project, dataRepo, "master", commit1.ID))
 
 	pipeline := tu.UniqueString("StatsAcrossJobs")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewProjectPipeline(project, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input: client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+			Input: client.NewProjectPFSInput(project, dataRepo, "/*"),
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
 		})
 	require.NoError(t, err)
 
-	outputCommit, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	outputCommit, err := c.InspectProjectCommit(project, pipeline, "master", "")
 	require.NoError(t, err)
 	id := outputCommit.Commit.ID
 
@@ -6309,26 +6312,26 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	// input (alias), output, spec, meta
 	require.Equal(t, 4, len(commitInfos))
 
-	jobs, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1, true)
+	jobs, err := c.ListProjectJob(project, pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
-	resp, err := c.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, id)
+	resp, err := c.ListProjectDatumAll(project, pipeline, id)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp))
 
-	datum, err := c.InspectProjectDatum(pfs.DefaultProjectName, pipeline, id, resp[0].Datum.ID)
+	datum, err := c.InspectProjectDatum(project, pipeline, id, resp[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 
-	commit2, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit2, err := c.StartProjectCommit(project, dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
 		require.NoError(t, c.PutFile(commit2, fmt.Sprintf("bar-%d", i), strings.NewReader(strings.Repeat("bar\n", 100)), client.WithAppendPutFile()))
 	}
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, "master", commit2.ID))
+	require.NoError(t, c.FinishProjectCommit(project, dataRepo, "master", commit2.ID))
 
-	outputCommit, err = c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	outputCommit, err = c.InspectProjectCommit(project, pipeline, "master", "")
 	require.NoError(t, err)
 	id = outputCommit.Commit.ID
 
@@ -6337,11 +6340,13 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	// input (alias), output, spec, meta
 	require.Equal(t, 4, len(commitInfos))
 
-	jobs, err = c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1, true)
+	jobs, err = c.ListProjectJob(project, pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 
-	resp, err = c.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, id)
+	_, err = c.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, id)
+	require.YesError(t, err)
+	resp, err = c.ListProjectDatumAll(project, pipeline, id)
 	require.NoError(t, err)
 	// we should see all the datums from the first job (which should be skipped)
 	// in addition to all the new datums processed in this job
@@ -6353,7 +6358,9 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 		if info.State == pps.DatumState_SKIPPED {
 			skippedCount++
 		}
-		inspectedInfo, err := c.InspectProjectDatum(pfs.DefaultProjectName, pipeline, id, info.Datum.ID)
+		_, err := c.InspectProjectDatum(pfs.DefaultProjectName, pipeline, id, info.Datum.ID)
+		require.YesError(t, err)
+		inspectedInfo, err := c.InspectProjectDatum(project, pipeline, id, info.Datum.ID)
 		require.NoError(t, err)
 		require.Equal(t, info.State, inspectedInfo.State)
 	}

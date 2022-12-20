@@ -1239,8 +1239,9 @@ func TestPipelineWithSecret(t *testing.T) {
 	}, metav1.CreateOptions{})
 	require.NoError(t, err)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl create repo data
-		pachctl create pipeline 2>&1 <<EOF
+		pachctl create project myProject
+		pachctl create repo data --project myProject
+		pachctl create pipeline --project myProject 2>&1 <<EOF
 		{
 		    "pipeline": {"name": "{{.pipeline}}"},
 		    "input": {
