@@ -226,10 +226,10 @@ func TestCheckGetSetProject(t *testing.T) {
 	loginAsUser(t, c, auth.RootUser)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create project {{.project}}
-		pachctl auth check project {{.project}} | match "Roles: \[clusterAdmin projectOwner\]"
-		pachctl auth get project {{.project}} | match "pach:root: \[projectOwner\]"
+		pachctl auth check project {{.project}} | match clusterAdmin | match projectOwner
+		pachctl auth get project {{.project}} | match projectOwner
 		pachctl auth set project {{.project}} repoReader,projectOwner pach:root
-		pachctl auth get project {{.project}} | match "pach:root: \[repoReader projectOwner\]"
+		pachctl auth get project {{.project}} | match projectOwner | match repoReader
 	`,
 		"project", tu.UniqueString("project")).Run())
 }
