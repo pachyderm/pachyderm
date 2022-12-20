@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -20,7 +22,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	log "github.com/sirupsen/logrus"
 )
 
 func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
@@ -589,7 +590,7 @@ func (d *driver) renewFileSet(ctx context.Context, id fileset.ID, ttl time.Durat
 func (d *driver) composeFileSet(ctx context.Context, ids []fileset.ID, ttl time.Duration, compact bool) (*fileset.ID, error) {
 	if compact {
 		compactor := newCompactor(d.storage, log.NewEntry(log.StandardLogger()), d.env.StorageConfig.StorageCompactionMaxFanIn)
-		taskDoer := d.env.TaskService.NewDoer(storageTaskNamespace, uuid.NewWithoutDashes(), nil)
+		taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, uuid.NewWithoutDashes(), nil)
 		return compactor.Compact(ctx, taskDoer, ids, ttl)
 	}
 	return d.storage.Compose(ctx, ids, ttl)
