@@ -1121,7 +1121,7 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.ProjectHeader)
 			for _, pi := range pis {
-				pretty.PrintProjectInfo(writer, pi)
+				pretty.PrintProjectInfo(writer, pi, &pfs.Project{Name: pachCtx.Project})
 			}
 			return writer.Flush()
 		}),
