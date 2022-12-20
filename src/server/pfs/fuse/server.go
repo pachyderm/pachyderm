@@ -109,10 +109,10 @@ type MountManager struct {
 	// it. i.e. when we try to mount it for the first time.
 	States map[string]*MountStateMachine
 
-	Datums        []*pps.DatumInfo
-	DatumInput    *pps.Input
-	DatumAliasMap map[DatumAliasKey]string
-	CurrDatumIdx  int
+	Datums       []*pps.DatumInfo
+	DatumInput   *pps.Input
+	DatumAlias   map[DatumAliasKey]string
+	CurrDatumIdx int
 
 	// map from mount name onto mfc for that mount
 	mfcs     map[string]*client.ModifyFileClient
@@ -284,9 +284,7 @@ func (mm *MountManager) UnmountAll() error {
 			}
 		}
 	}
-	delete(mm.root.repoOpts, "out")
-
-	return nil
+	return removeOutDir(mm)
 }
 
 func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *MountManager, retErr error) {
@@ -556,10 +554,16 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if err := removeOutDir(mm); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+
+		func() {
+			mm.mu.Lock()
+			defer mm.mu.Unlock()
+
+			mm.Datums = nil
+			mm.DatumInput = nil
+			mm.CurrDatumIdx = -1
+			mm.DatumAlias = nil
+		}()
 
 		mountsList, err := mm.ListByMounts()
 		if err != nil {
@@ -572,10 +576,6 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 		w.Write(marshalled) //nolint:errcheck
-
-		mm.Datums = []*pps.DatumInfo{}
-		mm.DatumInput = &pps.Input{}
-		mm.CurrDatumIdx = -1
 	})
 	router.Methods("PUT").Path("/_mount_datums").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)
@@ -600,28 +600,27 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		mm.DatumInput = pipelineReq.Input
-		err = mm.sanitizeInputAndSetAliasMapping()
+		datumAlias, err := sanitizeInputAndGetAlias(pipelineReq.Input)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		mm.Datums, err = mm.Client.ListDatumInputAll(mm.DatumInput)
+		datums, err := mm.Client.ListDatumInputAll(pipelineReq.Input)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if len(mm.Datums) == 0 {
+		if len(datums) == 0 {
 			http.Error(w, "no datums match the given input spec", http.StatusBadRequest)
 			return
 		}
 
-		logrus.Infof("Mounting first datum (%s)", mm.Datums[0].Datum.ID)
-		mis := mm.datumToMounts(mm.Datums[0])
 		if err := mm.UnmountAll(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		logrus.Infof("Mounting first datum (%s)", datums[0].Datum.ID)
+		mis := mm.datumToMounts(datums[0], datumAlias)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -629,12 +628,21 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			}
 		}
 		createLocalOutDir(mm)
-		mm.CurrDatumIdx = 0
+
+		func() {
+			mm.mu.Lock()
+			defer mm.mu.Unlock()
+
+			mm.CurrDatumIdx = 0
+			mm.Datums = datums
+			mm.DatumInput = pipelineReq.Input
+			mm.DatumAlias = datumAlias
+		}()
 
 		resp := MountDatumResponse{
-			Id:        mm.Datums[0].Datum.ID,
+			Id:        datums[0].Datum.ID,
 			Idx:       0,
-			NumDatums: len(mm.Datums),
+			NumDatums: len(datums),
 		}
 		marshalled, err := jsonMarshal(resp)
 		if err != nil {
@@ -687,15 +695,11 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		} else {
 			di = mm.Datums[idx]
 		}
-		mis := mm.datumToMounts(di)
 		if err := mm.UnmountAll(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if err := removeOutDir(mm); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		mis := mm.datumToMounts(di, mm.DatumAlias)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -703,7 +707,13 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			}
 		}
 		createLocalOutDir(mm)
-		mm.CurrDatumIdx = idx
+
+		func() {
+			mm.mu.Lock()
+			defer mm.mu.Unlock()
+
+			mm.CurrDatumIdx = idx
+		}()
 
 		resp := MountDatumResponse{
 			Id:        di.Datum.ID,
@@ -1088,13 +1098,13 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 	return nil
 }
 
-func (mm *MountManager) sanitizeInputAndSetAliasMapping() error {
-	if mm.DatumInput == nil {
-		return errors.New("Datum input is not specified")
+func sanitizeInputAndGetAlias(datumInput *pps.Input) (map[DatumAliasKey]string, error) {
+	if datumInput == nil {
+		return nil, errors.New("datum input is not specified")
 	}
 
-	aliasMap := map[AliasKey]string{}
-	if err := pps.VisitInput(mm.DatumInput, func(input *pps.Input) error {
+	datumAlias := map[DatumAliasKey]string{}
+	if err := pps.VisitInput(datumInput, func(input *pps.Input) error {
 		if input.Pfs == nil {
 			return nil
 		}
@@ -1105,29 +1115,27 @@ func (mm *MountManager) sanitizeInputAndSetAliasMapping() error {
 		if input.Pfs.Branch == "" {
 			input.Pfs.Branch = "master"
 		}
-		ak := DatumAliasKey{Project: input.Pfs.Project, Repo: input.Pfs.Repo, Branch: input.Pfs.Branch}
-		if input.Pfs.Name != "" {
-			aliasMap[ak] = input.Pfs.Name
-		} else {
-			name := input.Pfs.Project + "_" + input.Pfs.Repo
+		if input.Pfs.Name == "" {
+			input.Pfs.Name = input.Pfs.Project + "_" + input.Pfs.Repo
 			if input.Pfs.Branch != "master" {
-				name = name + "_" + input.Pfs.Branch
+				input.Pfs.Name = input.Pfs.Name + "_" + input.Pfs.Branch
 			}
-			aliasMap[ak] = name
 		}
+		datumAlias[DatumAliasKey{
+			Project: input.Pfs.Project,
+			Repo:    input.Pfs.Repo,
+			Branch:  input.Pfs.Branch,
+		}] = input.Pfs.Name
 
 		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
-	mm.mu.Lock()
-	defer mm.mu.Unlock()
-	mm.AliasMap = aliasMap
 
-	return nil
+	return datumAlias, nil
 }
 
-func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
+func (mm *MountManager) datumToMounts(d *pps.DatumInfo, datumAlias map[DatumAliasKey]string) []*MountInfo {
 	mounts := map[string]*MountInfo{}
 	files := map[string]map[string]bool{}
 	for _, fi := range d.Data {
@@ -1136,8 +1144,7 @@ func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 		branch := fi.File.Commit.Branch.Name
 		// TODO: add commit here
 
-		ak := DatumAliasKey{Project: project, Repo: repo, Branch: branch}
-		name := mm.DatumAliasMap[ak]
+		name := datumAlias[DatumAliasKey{Project: project, Repo: repo, Branch: branch}]
 
 		if _, ok := files[name]; !ok {
 			files[name] = map[string]bool{}
@@ -1169,6 +1176,10 @@ func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 }
 
 func removeOutDir(mm *MountManager) error {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+
+	delete(mm.root.repoOpts, "out")
 	cleanPath := mm.root.rootPath + "/out"
 	return errors.EnsureStack(os.RemoveAll(cleanPath))
 }
@@ -1182,7 +1193,8 @@ func createLocalOutDir(mm *MountManager) {
 	mm.root.repoOpts["out"] = &RepoOptions{
 		Name:  "out",
 		File:  client.NewProjectFile("", "out", "", "", ""),
-		Write: true}
+		Write: true,
+	}
 }
 
 type MountState struct {
