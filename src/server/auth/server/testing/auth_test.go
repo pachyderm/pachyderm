@@ -1110,7 +1110,7 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		require.ElementsEqual(t, []auth.Permission{auth.Permission_PROJECT_CREATE}, info.AuthInfo.Permissions)
+		require.ElementsEqual(t, []auth.Permission{}, info.AuthInfo.Permissions)
 	}
 
 	// Deactivate auth
