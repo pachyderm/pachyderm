@@ -535,11 +535,10 @@ func TestInspectWaitJob(t *testing.T) {
 			},
 			"transform": {
 				"cmd": [
-					"/bin/bash",
-					"sleep 20"
+					"/bin/bash"
 				],
 				"stdin": [
-					"cp /pfs/input/* /pfs/out"
+					"sleep 15 && cp /pfs/input/* /pfs/out"
 				]
 			}
 		}
@@ -560,7 +559,7 @@ func TestInspectWaitJob(t *testing.T) {
 	`,
 		"pipeline1", pipeline1,
 		"project", project,
-		"job", jobs[1].Job.GetID(),
+		"job", jobs[0].Job.GetID(),
 	).Run())
 }
 
