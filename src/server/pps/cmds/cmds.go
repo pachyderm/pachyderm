@@ -889,7 +889,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				if project == nil {
 					project = new(pfs.Project)
 				}
-				project = pipelineInfo.Pipeline.GetProject()
+				project.Name = pipelineInfo.Pipeline.GetProject().GetName()
 				request.Pipeline.Project = project
 			} else if projectName != pipelineInfo.Pipeline.GetProject().GetName() {
 				return errors.New("may not change project name")
