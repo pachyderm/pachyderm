@@ -2481,3 +2481,51 @@ func TestDeleteProject(t *testing.T) {
 	require.ErrorContains(t, alice.DeleteProject(project, false), "not authorized")
 	require.NoError(t, c.DeleteProject(project, false))
 }
+
+// TestDeleteRepos tests that when a user requests to delete all repos in a
+// project, only those repos he may delete are deleted.
+func TestDeleteRepos(t *testing.T) {
+	t.Parallel()
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
+
+	projectName := tu.UniqueString("project")
+	require.NoError(t, aliceClient.CreateProject(projectName))
+
+	// create repoA, and check that alice is its owner
+	require.NoError(t, aliceClient.CreateProjectRepo(projectName, "repoA"))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, projectName, "repoA"))
+	// repoB will not be given to bob and should not be deleted
+	require.NoError(t, aliceClient.CreateProjectRepo(projectName, "repoB"))
+
+	//////////
+	/// alice adds bob to the ACL of repo1 as an owner
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(projectName, "repoA", bob, []string{auth.RepoOwnerRole}))
+
+	// repoC belongs to bob and should be deleted
+	require.NoError(t, bobClient.CreateProjectRepo(projectName, "repoC"))
+	resp, err := bobClient.PfsAPIClient.DeleteRepos(bobClient.Ctx(), &pfs.DeleteReposRequest{Projects: []*pfs.Project{{Name: projectName}}})
+	require.NoError(t, err)
+	var deleted = make(map[string]bool)
+	for _, repo := range resp.Repos {
+		require.Equal(t, repo.Project.GetName(), projectName)
+		deleted[repo.Name] = true
+	}
+	require.False(t, deleted["repoB"])
+	for _, name := range []string{"repoA", "repoC"} {
+		require.True(t, deleted[name])
+	}
+
+	// actually list repos and ensure that repoB is still present
+	repoInfos, err := aliceClient.ListRepo()
+	require.NoError(t, err)
+	seen := make(map[string]bool)
+	for _, repoInfo := range repoInfos {
+		if repoInfo.Repo.Project.GetName() == projectName {
+			seen[repoInfo.Repo.Name] = true
+		}
+	}
+	require.True(t, seen["repoB"])
+}

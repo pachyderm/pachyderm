@@ -392,7 +392,9 @@ message RevokeAuthTokenRequest {
   string token = 1;
 }
 
-message RevokeAuthTokenResponse {}
+message RevokeAuthTokenResponse {
+  int64 number = 1;
+}
 
 message SetGroupsForUserRequest {
   string username = 1;
@@ -446,7 +448,9 @@ message RevokeAuthTokensForUserRequest {
   string username = 1;
 }
 
-message RevokeAuthTokensForUserResponse {}
+message RevokeAuthTokensForUserResponse {
+  int64 number = 1;
+}
 
 message DeleteExpiredAuthTokensRequest {}
 

@@ -40,7 +40,7 @@ import (
 )
 
 const (
-	storageTaskNamespace = "storage"
+	StorageTaskNamespace = "storage"
 	fileSetsRepo         = client.FileSetsRepoName
 	defaultTTL           = client.DefaultTTL
 	maxTTL               = 30 * time.Minute
@@ -126,9 +126,6 @@ func newDriver(env Env) (*driver, error) {
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
 	chunkStorage := chunk.NewStorage(objClient, memCache, env.DB, tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, fileset.StorageOptions(&storageConfig)...)
-	// Set up compaction worker.
-	taskSource := env.TaskService.NewSource(storageTaskNamespace)
-	go compactionWorker(env.BackgroundContext, taskSource, d.storage) //nolint:errcheck
 	d.commitStore = newPostgresCommitStore(env.DB, tracker, d.storage)
 	// TODO: Make the cache max size configurable.
 	d.cache = fileset.NewCache(env.DB, tracker, 10000)
@@ -158,11 +155,17 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		repo.Type = pfs.UserRepoType
 	}
 
+	// Check that the repo’s project exists; if not, return an error.
+	var project pfs.ProjectInfo
+	if err = d.projects.ReadWrite(txnCtx.SqlTx).Get(repo.Project, &project); err != nil {
+		return errors.Wrapf(err, "cannot find project %q", repo.Project)
+	}
+
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 
-	// check if 'repo' already exists. If so, return that error. Otherwise,
+	// Check if 'repo' already exists. If so, return that error.  Otherwise,
 	// proceed with ACL creation (avoids awkward "access denied" error when
-	// calling "createRepo" on a repo that already exists)
+	// calling "createRepo" on a repo that already exists).
 	var existingRepoInfo pfs.RepoInfo
 	err = repos.Get(repo, &existingRepoInfo)
 	if err != nil && !col.IsErrNotFound(err) {
@@ -259,13 +262,17 @@ func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Per
 	return resp.Permissions, resp.Roles, nil
 }
 
-func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string, projectsFilter map[string]bool, cb func(*pfs.RepoInfo) error) error {
+func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string, projects []*pfs.Project, cb func(*pfs.RepoInfo) error) error {
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
+	projectsFilter := make(map[string]bool)
+	for _, project := range projects {
+		projectsFilter[project.String()] = true
+	}
 
 	processFunc := func(string) error {
 		// Assume the user meant all projects by not providing any projects to filter on.
-		if len(projectsFilter) > 0 && !projectsFilter[repoInfo.Repo.Project.Name] {
+		if len(projectsFilter) > 0 && !projectsFilter[repoInfo.Repo.Project.String()] {
 			return nil
 		}
 		size, err := d.repoSize(ctx, repoInfo.Repo)
@@ -1446,7 +1453,8 @@ reloadCommitSet:
 	}
 }
 
-func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) error) error {
+func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb func(*pfs.CommitSetInfo) error) error {
+	projectName := project.GetName()
 	// Track the commitsets we've already processed
 	seen := map[string]struct{}{}
 
@@ -1454,6 +1462,9 @@ func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) 
 	// timestamp due to triggers or deferred processing)
 	commitInfo := &pfs.CommitInfo{}
 	err := d.commits.ReadOnly(ctx).List(commitInfo, col.DefaultOptions(), func(string) error {
+		if commitInfo.GetCommit().GetBranch().GetRepo().GetProject().GetName() != projectName {
+			return nil
+		}
 		if _, ok := seen[commitInfo.Commit.ID]; ok {
 			return nil
 		}
@@ -2119,6 +2130,37 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 	return errors.EnsureStack(err)
 }
 
+func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
+	var repos, deleted []*pfs.Repo
+
+	if err := d.listRepo(ctx, false, "", projects, func(repoInfo *pfs.RepoInfo) error {
+		repos = append(repos, repoInfo.Repo)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if len(repos) == 0 {
+		return nil, nil
+	}
+
+	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		// the list does not use the transaction
+		for _, repo := range repos {
+			if err := d.deleteRepo(txnCtx, repo, true); err != nil {
+				if errors.As(err, &auth.ErrNotAuthorized{}) {
+					continue
+				}
+				return err
+			}
+			deleted = append(deleted, repo)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return deleted, nil
+}
+
 func (d *driver) deleteAll(ctx context.Context) error {
 	var repoInfos []*pfs.RepoInfo
 	if err := d.listRepo(ctx, false /* includeAuth */, "" /* repoType */, nil /* projectsFilter */, func(repoInfo *pfs.RepoInfo) error {
@@ -2134,7 +2176,7 @@ func (d *driver) deleteAll(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// the list does not use the transaction
 		for _, repoInfo := range repoInfos {
 			if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
@@ -2147,7 +2189,11 @@ func (d *driver) deleteAll(ctx context.Context) error {
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	// now that the cluster is empty, recreate the default project
+	return d.createProject(ctx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: "default"}})
 }
 
 func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo) (*pfs.Commit, error) {

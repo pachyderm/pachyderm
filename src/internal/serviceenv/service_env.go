@@ -194,7 +194,7 @@ func (env *NonblockingServiceEnv) Config() *Configuration {
 }
 
 func (env *NonblockingServiceEnv) isWorker() bool {
-	return env.config.PPSPipelineName != ""
+	return env.config.PPSPipelineName != "" || env.config.IsPachw
 }
 
 func (env *NonblockingServiceEnv) initClusterID() error {

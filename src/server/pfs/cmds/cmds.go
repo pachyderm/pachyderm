@@ -187,7 +187,7 @@ or type (e.g. csv, binary, images, etc).`,
 			if all {
 				repoType = ""
 			}
-			projectsFilter := []string{project}
+			projectsFilter := []*pfs.Project{{Name: project}}
 			if allProjects {
 				projectsFilter = nil
 			}
@@ -250,13 +250,19 @@ or type (e.g. csv, binary, images, etc).`,
 			} else if !all {
 				return errors.Errorf("either a repo name or the --all flag needs to be provided")
 			}
+			if all {
+				_, err := c.PfsAPIClient.DeleteRepos(c.Ctx(), &pfs.DeleteReposRequest{
+					Projects: []*pfs.Project{
+						{
+							Name: project,
+						},
+					},
+				})
+				return errors.EnsureStack(err)
+			}
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				if all {
-					_, err = c.PfsAPIClient.DeleteAll(c.Ctx(), &types.Empty{})
-				} else {
-					_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
-				}
+				_, err := c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
 				return errors.EnsureStack(err)
 			})
 			return grpcutil.ScrubGRPC(err)
@@ -476,7 +482,7 @@ $ {{alias}} foo@master --from XXX`,
 					return errors.Errorf("cannot specify --from when listing all commits")
 				}
 
-				listCommitSetClient, err := c.PfsAPIClient.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{})
+				listCommitSetClient, err := c.PfsAPIClient.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{Project: &pfs.Project{Name: project}})
 				if err != nil {
 					return grpcutil.ScrubGRPC(err)
 				}
@@ -642,7 +648,7 @@ $ {{alias}} foo@master --from XXX`,
 	listCommit.Flags().StringVar(&originStr, "origin", "", "only return commits of a specific type")
 	listCommit.Flags().AddFlagSet(outputFlags)
 	listCommit.Flags().AddFlagSet(timestampFlags)
-	listCommit.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	listCommit.Flags().StringVar(&project, "project", project, "Project in which commit is located.")
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listCommit, "list commit", commits))
 

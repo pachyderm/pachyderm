@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
+	"unicode"
 
 	"github.com/gogo/protobuf/proto"
 
@@ -105,7 +106,14 @@ func (p *Project) ValidateName() error {
 	if p.Name == DefaultProjectName {
 		return nil
 	}
-	return ancestry.ValidateName(p.Name)
+	if err := ancestry.ValidateName(p.Name); err != nil {
+		return err
+	}
+	first := rune(p.Name[0])
+	if !unicode.IsLetter(first) && !unicode.IsDigit(first) {
+		return errors.Errorf("project names must start with an alphanumeric character")
+	}
+	return nil
 }
 
 // EnsureProject ensures that repo.Project is set.  It does nothing if repo is
@@ -124,14 +132,14 @@ func (r *Repo) EnsureProject() {
 // include the repo type string.
 func (r *Repo) AuthResource() *auth.Resource {
 	var t auth.ResourceType
-	if r.Type == SpecRepoType {
+	if r.GetType() == SpecRepoType {
 		t = auth.ResourceType_SPEC_REPO
 	} else {
 		t = auth.ResourceType_REPO
 	}
 	return &auth.Resource{
 		Type: t,
-		Name: fmt.Sprintf("%s/%s", r.Project.Name, r.Name),
+		Name: fmt.Sprintf("%s/%s", r.GetProject().GetName(), r.GetName()),
 	}
 }
 
