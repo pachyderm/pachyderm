@@ -60,7 +60,7 @@ type CommitRequest struct {
 	Mount string `json:"mount"`
 }
 
-type AliasKey struct {
+type DatumAliasKey struct {
 	Project string
 	Repo    string
 	Branch  string
@@ -109,10 +109,10 @@ type MountManager struct {
 	// it. i.e. when we try to mount it for the first time.
 	States map[string]*MountStateMachine
 
-	Datums       []*pps.DatumInfo
-	DatumInput   *pps.Input
-	AliasMap     map[AliasKey]string
-	CurrDatumIdx int
+	Datums        []*pps.DatumInfo
+	DatumInput    *pps.Input
+	DatumAliasMap map[DatumAliasKey]string
+	CurrDatumIdx  int
 
 	// map from mount name onto mfc for that mount
 	mfcs     map[string]*client.ModifyFileClient
@@ -125,20 +125,13 @@ type MountManager struct {
 	Cleanup  chan struct{}
 }
 
-func (mm *MountManager) ListByRepos(projectFilter string) (ListRepoResponse, error) {
+func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 	// fetch list of available repos & branches from pachyderm, and overlay that
 	// with their mount states
 	lr := ListRepoResponse{}
-	filter := []string{projectFilter}
-	if projectFilter == "" {
-		filter = nil
-	}
-	repos, err := mm.Client.ListProjectRepo(&pfs.ListRepoRequest{
-		Type:     pfs.UserRepoType,
-		Projects: filter,
-	})
+	repos, err := mm.Client.ListRepo()
 	if err != nil {
-		logrus.Info("Error listing repos...")
+		logrus.Infof("Error listing repos: %s", err.Error())
 		return lr, err
 	}
 
@@ -178,7 +171,7 @@ func (mm *MountManager) ListByRepos(projectFilter string) (ListRepoResponse, err
 	return lr, nil
 }
 
-func (mm *MountManager) ListByMounts(projectFilter string) (ListMountResponse, error) {
+func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
 
@@ -190,18 +183,9 @@ func (mm *MountManager) ListByMounts(projectFilter string) (ListMountResponse, e
 	for name, msm := range mm.States {
 		if msm.State == "mounted" {
 			// Check if a mounted repo/branch was deleted to remove it from state.
-			// In read-only mode, a branch must exist to mount. In read-write mode, it
-			// is not necessary for the branch to exist, as a new one
-			if msm.Mode == "ro" {
-				if exists, _ := mm.verifyProjectRepoBranchExist(msm.Project, msm.Repo, msm.Branch); !exists {
-					mm.unmountDeletedRepos(name)
-					continue
-				}
-			} else {
-				if exists, _ := mm.verifyProjectRepoExist(msm.Project, msm.Repo); !exists {
-					mm.unmountDeletedRepos(name)
-					continue
-				}
+			if exists, _ := mm.verifyExistence(msm.Mode, msm.Project, msm.Repo, msm.Branch); !exists {
+				mm.unmountDeletedRepos(name)
+				continue
 			}
 
 			if err := msm.RefreshMountState(); err != nil {
@@ -213,7 +197,7 @@ func (mm *MountManager) ListByMounts(projectFilter string) (ListMountResponse, e
 		}
 	}
 
-	lr, err := mm.ListByRepos(projectFilter)
+	lr, err := mm.ListByRepos()
 	if err != nil {
 		return mr, err
 	}
@@ -420,17 +404,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
-		// Verify project in request
-		vs := req.URL.Query()
-		project := vs.Get("project")
-		if project != "" {
-			if _, err := mm.verifyProjectExists(project); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-		}
-
-		reposList, err := mm.ListByRepos(project)
+		reposList, err := mm.ListByRepos()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -449,17 +423,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
-		// Verify project in request
-		vs := req.URL.Query()
-		project := vs.Get("project")
-		if project != "" {
-			if _, err := mm.verifyProjectExists(project); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-		}
-
-		mountsList, err := mm.ListByMounts(project)
+		mountsList, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -501,7 +465,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			}
 		}
 
-		mountsList, err := mm.ListByMounts("")
+		mountsList, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -538,7 +502,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			}
 		}
 
-		mountsList, err := mm.ListByMounts("")
+		mountsList, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -569,7 +533,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
-		mountsList, err := mm.ListByMounts("")
+		mountsList, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -597,7 +561,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
-		mountsList, err := mm.ListByMounts("")
+		mountsList, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -1078,6 +1042,21 @@ func (mm *MountManager) verifyProjectRepoBranchExist(project, repo, branch strin
 	return true, nil
 }
 
+// In read-only mode, a branch must exist to mount. In read-write mode, it
+// is not necessary for the branch to exist, as a new one
+func (mm *MountManager) verifyExistence(mode, project, repo, branch string) (bool, error) {
+	if mode == "ro" {
+		if exists, err := mm.verifyProjectRepoBranchExist(project, repo, branch); !exists {
+			return false, err
+		}
+	} else {
+		if exists, err := mm.verifyProjectRepoExist(project, repo); !exists {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
 func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 	for _, mi := range mis {
 		if mi.Name == "" {
@@ -1101,14 +1080,8 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 		} else if mi.Mode != "ro" && mi.Mode != "rw" {
 			return errors.Wrapf(errors.New("mount mode can only be 'ro' or 'rw'"), "mount request %+v", mi)
 		}
-		if mi.Mode == "ro" {
-			if exists, err := mm.verifyProjectRepoBranchExist(mi.Project, mi.Repo, mi.Branch); !exists {
-				return errors.Wrapf(err, "mount request %+v", mi)
-			}
-		} else {
-			if exists, err := mm.verifyProjectRepoExist(mi.Project, mi.Repo); !exists {
-				return errors.Wrapf(err, "mount request %+v", mi)
-			}
+		if exists, err := mm.verifyExistence(mi.Mode, mi.Project, mi.Repo, mi.Branch); !exists {
+			return errors.Wrapf(err, "mount request %+v", mi)
 		}
 	}
 
@@ -1132,9 +1105,15 @@ func (mm *MountManager) sanitizeInputAndSetAliasMapping() error {
 		if input.Pfs.Branch == "" {
 			input.Pfs.Branch = "master"
 		}
+		ak := DatumAliasKey{Project: input.Pfs.Project, Repo: input.Pfs.Repo, Branch: input.Pfs.Branch}
 		if input.Pfs.Name != "" {
-			ak := AliasKey{Project: input.Pfs.Project, Repo: input.Pfs.Repo, Branch: input.Pfs.Branch}
 			aliasMap[ak] = input.Pfs.Name
+		} else {
+			name := input.Pfs.Project + "_" + input.Pfs.Repo
+			if input.Pfs.Branch != "master" {
+				name = name + "_" + input.Pfs.Branch
+			}
+			aliasMap[ak] = name
 		}
 
 		return nil
@@ -1157,18 +1136,8 @@ func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 		branch := fi.File.Commit.Branch.Name
 		// TODO: add commit here
 
-		name := func() string {
-			ak := AliasKey{Project: project, Repo: repo, Branch: branch}
-			if name, ok := mm.AliasMap[ak]; ok {
-				return name
-			} else {
-				name := project + "_" + repo
-				if branch != "master" {
-					name = name + "_" + branch
-				}
-				return name
-			}
-		}()
+		ak := DatumAliasKey{Project: project, Repo: repo, Branch: branch}
+		name := mm.DatumAliasMap[ak]
 
 		if _, ok := files[name]; !ok {
 			files[name] = map[string]bool{}
@@ -1524,6 +1493,7 @@ func mountedState(m *MountStateMachine) StateFn {
 			if req.Project != m.Project || req.Repo != m.Repo || req.Branch != m.Branch {
 				m.responses <- Response{
 					Repo:       req.Repo,
+					Project:    req.Project,
 					Branch:     req.Branch,
 					Commit:     req.Commit,
 					Name:       req.Name,
