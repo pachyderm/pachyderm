@@ -50,9 +50,7 @@ func (r *authorizeRequest) satisfiedForResourceType(rt auth.ResourceType) []auth
 	roles := r.rolesForResourceType(rt)
 	perms := make([]auth.Permission, 0)
 	for _, role := range roles {
-		for _, p := range r.roleMap[role].Permissions {
-			perms = append(perms, p)
-		}
+		perms = append(perms, r.roleMap[role].Permissions...)
 	}
 	return perms
 }

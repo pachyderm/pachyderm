@@ -982,7 +982,6 @@ func TestListAndInspectRepo(t *testing.T) {
 	require.NoError(t, err)
 	expectedPermissions := map[string][]auth.Permission{
 		repoOwner: {
-			auth.Permission_PROJECT_CREATE,
 			auth.Permission_PIPELINE_LIST_JOB,
 			auth.Permission_REPO_ADD_PIPELINE_READER,
 			auth.Permission_REPO_ADD_PIPELINE_WRITER,
@@ -1001,7 +1000,6 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_WRITE,
 		},
 		repoWriter: {
-			auth.Permission_PROJECT_CREATE,
 			auth.Permission_PIPELINE_LIST_JOB,
 			auth.Permission_REPO_ADD_PIPELINE_READER,
 			auth.Permission_REPO_ADD_PIPELINE_WRITER,
@@ -1018,7 +1016,6 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_WRITE,
 		},
 		repoReader: {
-			auth.Permission_PROJECT_CREATE,
 			auth.Permission_PIPELINE_LIST_JOB,
 			auth.Permission_REPO_ADD_PIPELINE_READER,
 			auth.Permission_REPO_INSPECT_COMMIT,
@@ -1029,9 +1026,7 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_READ,
 			auth.Permission_REPO_REMOVE_PIPELINE_READER,
 		},
-		repoNone: {
-			auth.Permission_PROJECT_CREATE,
-		},
+		repoNone: {},
 	}
 	for _, info := range repoInfos {
 		fmt.Println("qqq", info.Repo.Name)
