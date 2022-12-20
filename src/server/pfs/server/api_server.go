@@ -147,12 +147,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 
 // ListRepo implements the protobuf pfs.ListRepo RPC
 func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) (retErr error) {
-	projectsFilter := make(map[string]bool)
-	for _, project := range request.Projects {
-		projectsFilter[project] = true
-	}
-
-	return a.driver.listRepo(srv.Context(), true /* includeAuth */, request.Type, projectsFilter, srv.Send)
+	return a.driver.listRepo(srv.Context(), true /* includeAuth */, request.Type, request.Projects, srv.Send)
 }
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
