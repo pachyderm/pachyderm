@@ -52,6 +52,8 @@ func main() {
 		cmdutil.Main(ctx, pachd.EnterpriseMode, &serviceenv.EnterpriseServerConfiguration{})
 	case mode == "sidecar":
 		cmdutil.Main(ctx, pachd.SidecarMode, &serviceenv.PachdFullConfiguration{})
+	case mode == "pachw":
+		cmdutil.Main(ctx, pachd.PachwMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "paused":
 		cmdutil.Main(ctx, pachd.PausedMode, &serviceenv.PachdFullConfiguration{})
 	default:

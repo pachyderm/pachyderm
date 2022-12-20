@@ -5,13 +5,13 @@ import (
 	"path"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/consistenthashing"
-
 	"github.com/hashicorp/go-multierror"
 
 	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/consistenthashing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
@@ -183,7 +183,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 					return err
 				}
 				compactor := newCompactor(d.storage, logger, d.env.StorageConfig.StorageCompactionMaxFanIn)
-				taskDoer := d.env.TaskService.NewDoer(storageTaskNamespace, commit.ID, cache)
+				taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.ID, cache)
 				var totalId *fileset.ID
 				start := time.Now()
 				if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
