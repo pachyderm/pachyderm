@@ -23,11 +23,11 @@ import (
 // loginAsUser sets the auth token in the pachctl config to a token for `user`
 func loginAsUser(t *testing.T, c *client.APIClient, user string) {
 	configPath := executeCmdAndGetLastWord(t, tu.PachctlBashCmd(t, c, `echo $PACH_CONFIG`))
+	rootClient := tu.AuthenticatedPachClient(t, c, auth.RootUser)
 	if user == auth.RootUser {
 		require.NoError(t, config.WritePachTokenToConfigPath(tu.RootToken, configPath, false))
 		return
 	}
-	rootClient := tu.AuthenticatedPachClient(t, c, auth.RootUser)
 	robot := strings.TrimPrefix(user, auth.RobotPrefix)
 	token, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robot})
 	require.NoError(t, err)
@@ -216,7 +216,22 @@ func TestCheckGetSetRepo(t *testing.T) {
 			"repo", repo,
 		).Run())
 	}
+}
 
+func TestCheckGetSetProject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	loginAsUser(t, c, auth.RootUser)
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create project {{.project}}
+		pachctl auth check project {{.project}} | match "Roles: \[clusterAdmin projectOwner\]"
+		pachctl auth get project {{.project}} | match "pach:root: \[projectOwner\]"
+		pachctl auth set project {{.project}} repoReader,projectOwner pach:root
+		pachctl auth get project {{.project}} | match "pach:root: \[repoReader projectOwner\]"
+	`,
+		"project", tu.UniqueString("project")).Run())
 }
 
 func TestAdmins(t *testing.T) {
