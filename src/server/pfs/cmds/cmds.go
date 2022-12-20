@@ -187,7 +187,7 @@ or type (e.g. csv, binary, images, etc).`,
 			if all {
 				repoType = ""
 			}
-			projectsFilter := []string{project}
+			projectsFilter := []*pfs.Project{{Name: project}}
 			if allProjects {
 				projectsFilter = nil
 			}
