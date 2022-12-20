@@ -608,8 +608,8 @@ func SetRepoRoleBindingCmd(pachCtx *config.Context) *cobra.Command {
 	project := pachCtx.Project
 	setScope := &cobra.Command{
 		Use:   "{{alias}} <repo> [role1,role2 | none ] <subject>",
-		Short: "Set the roles that 'username' has on 'repo'",
-		Long:  "Set the roles that 'username' has on 'repo'",
+		Short: "Set the roles that 'subject' has on 'repo'",
+		Long:  "Set the roles that 'subject' has on 'repo'",
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
 			var roles []string
 			if args[1] == "none" {
@@ -629,7 +629,7 @@ func SetRepoRoleBindingCmd(pachCtx *config.Context) *cobra.Command {
 		}),
 	}
 	setScope.Flags().StringVar(&project, "project", project, "The project containing the repo.")
-	return cmdutil.CreateAliases(setScope, "auth set repo", "repos")
+	return cmdutil.CreateAliases(setScope, "auth set repo")
 }
 
 // GetRepoRoleBindingCmd returns a cobra command that gets the role bindings for a repo
@@ -694,6 +694,41 @@ func CheckProjectCmd() *cobra.Command {
 	return cmdutil.CreateAliases(check, "auth check project")
 }
 
+// SetProjectRoleBindingCmd returns a cobra command that sets the roles for a user on a project
+func SetProjectRoleBindingCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "{{alias}} <project> [role1,role2 | none ] <subject>",
+		Short: "Set the roles that 'subject' has on 'project'",
+		Long:  "Set the roles that 'subject' has on 'project'",
+		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			var (
+				project *auth.Resource
+				user    string
+				roles   []string
+			)
+			project = &auth.Resource{Type: auth.ResourceType_PROJECT, Name: args[0]}
+			user = args[2]
+			if args[1] != "none" {
+				roles = strings.Split(args[1], ",")
+			}
+
+			_, err = c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
+				Resource:  project,
+				Principal: user,
+				Roles:     roles,
+			})
+			return grpcutil.ScrubGRPC(err)
+		}),
+	}
+	return cmdutil.CreateAliases(cmd, "auth set project")
+}
+
 // GetProjectRoleBindingCmd returns a cobra command that gets the role bindings for a resource
 func GetProjectRoleBindingCmd() *cobra.Command {
 	get := &cobra.Command{
@@ -722,8 +757,8 @@ func GetProjectRoleBindingCmd() *cobra.Command {
 func SetClusterRoleBindingCmd() *cobra.Command {
 	setScope := &cobra.Command{
 		Use:   "{{alias}} [role1,role2 | none ] subject",
-		Short: "Set the roles that 'username' has on the 'cluster'",
-		Long:  "Set the roles that 'username' has on the 'cluster'",
+		Short: "Set the roles that 'subject' has on the 'cluster'",
+		Long:  "Set the roles that 'subject' has on the 'cluster'",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			var roles []string
 			if args[0] == "none" {
@@ -773,8 +808,8 @@ func GetClusterRoleBindingCmd() *cobra.Command {
 func SetEnterpriseRoleBindingCmd() *cobra.Command {
 	setScope := &cobra.Command{
 		Use:   "{{alias}} [role1,role2 | none ] subject",
-		Short: "Set the roles that 'username' has on the enterprise server",
-		Long:  "Set the roles that 'username' has on the enterprise server",
+		Short: "Set the roles that 'subject' has on the enterprise server",
+		Long:  "Set the roles that 'subject' has on the enterprise server",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			var roles []string
 			if args[0] == "none" {
@@ -934,6 +969,7 @@ func Cmds(pachCtx *config.Context) []*cobra.Command {
 	commands = append(commands, GetRepoRoleBindingCmd(pachCtx))
 	commands = append(commands, SetRepoRoleBindingCmd(pachCtx))
 	commands = append(commands, GetProjectRoleBindingCmd())
+	commands = append(commands, SetProjectRoleBindingCmd())
 	commands = append(commands, GetClusterRoleBindingCmd())
 	commands = append(commands, SetClusterRoleBindingCmd())
 	commands = append(commands, GetEnterpriseRoleBindingCmd())
