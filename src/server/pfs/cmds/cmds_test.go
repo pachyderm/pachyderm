@@ -237,10 +237,20 @@ func TestDiffFile(t *testing.T) {
 
 		echo "bar" | pachctl put file {{.repo}}@master:/data --project {{.project}}
 
-		pachctl diff file {{.repo}}@master:/data {{.repo}}@master^:/data --project {{.project}} --old-project {{.project}} \
+		pachctl diff file {{.repo}}@master:/data {{.repo}}@master^:/data --project {{.project}} \
 			| match -- '-foo'
-		`,
-		"repo", tu.UniqueString("TestDiffFile-repo"), "project", tu.UniqueString("TestDiffFile-project"),
+
+		pachctl create project {{.otherProject}}
+		pachctl create repo {{.repo}} --project {{.otherProject}}
+
+                echo "foo" | pachctl put file {{.repo}}@master:/data --project {{.otherProject}}
+
+                pachctl diff file {{.repo}}@master:/data {{.repo}}@master:/data --project {{.project}} \
+			--old-project {{.otherProject}} | match -- '-foo'                
+                `,
+		"repo", tu.UniqueString("TestDiffFile-repo"),
+		"project", tu.UniqueString("TestDiffFile-project"),
+		"otherProject", tu.UniqueString("TestDiffFile-project"),
 	).Run())
 }
 
@@ -351,8 +361,8 @@ func TestProject(t *testing.T) {
 	// c := env.PachClient
 	// using xargs to trim newlines
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-                pachctl list project | xargs | match '^PROJECT DESCRIPTION default -$'
-                pachctl create project foo
+                pachctl list project | xargs | match '^ACTIVE PROJECT DESCRIPTION \* default -$'
+                pachctl create project foo 
                 pachctl list project | match "foo     -"
 		`,
 	).Run())
@@ -371,7 +381,7 @@ func TestProject(t *testing.T) {
                 `,
 	).Run())
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-                pachctl list project | xargs | match '^PROJECT DESCRIPTION default -$'
+                pachctl list project | xargs | match '^ACTIVE PROJECT DESCRIPTION \* default -$'
                 pachctl create project foo
                 `,
 	).Run())

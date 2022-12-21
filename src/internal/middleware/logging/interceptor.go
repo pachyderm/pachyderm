@@ -376,7 +376,7 @@ func getCommonLogger(ctx context.Context, service, method string) context.Contex
 		// The health check logger is rate-limited to one unique message per hour.
 		ctx = log.HealthCheckLogger(ctx)
 	}
-	return pctx.Child(ctx, "", pctx.WithFields(f...))
+	return pctx.Child(ctx, service+"/"+method, pctx.WithFields(f...))
 }
 
 func getRequestLogger(ctx context.Context, req any) context.Context {
