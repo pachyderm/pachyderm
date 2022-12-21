@@ -331,7 +331,7 @@ func TestSpan(t *testing.T) {
 	}
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
-			ctx, h := testWithCapture(t, zap.Development())
+			ctx, h := testWithCaptureParallel(t, zap.Development())
 			test.f(ctx) //nolint:errcheck // We don't care if this fails; it's just to make errorp testing easier.
 			if diff := cmp.Diff(h.Logs(), test.want, formatLogs(simple)); diff != "" {
 				t.Errorf("logs (-got +want):\n%s", diff)

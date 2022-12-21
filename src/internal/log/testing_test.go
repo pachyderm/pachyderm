@@ -36,7 +36,7 @@ func TestTestParallel(t *testing.T) {
 
 func TestParallelTestLogging(t *testing.T) {
 	var ha, hb *history
-	_, hg := testWithCapture(t, zap.Development())
+	_, hg := TestWithCapture(t, zap.Development())
 	ch := make(chan struct{}) // channel to ensure tests actually run in parallel
 	doneCh := make(chan struct{})
 

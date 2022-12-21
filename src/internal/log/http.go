@@ -11,8 +11,10 @@ import (
 
 // AddLoggerToHTTPServer mutates the provided *http.Server so that (*http.Request).Context() returns
 // a context that can be logged to.
+//
+// TODO(jonathan): Move this to pctx.
 func AddLoggerToHTTPServer(rctx context.Context, name string, s *http.Server) {
-	ctx := Child(rctx, name, WithServerID())
+	ctx := ChildLogger(rctx, name, WithServerID())
 	s.BaseContext = func(l net.Listener) context.Context {
 		return ctx
 	}
@@ -27,7 +29,7 @@ func AddLoggerToHTTPServer(rctx context.Context, name string, s *http.Server) {
 			}
 			id := zap.Strings("x-request-id", requestID)
 			Info(ctx, "incoming http request", zap.Stringer("url", r.URL), zap.String("method", r.Method), zap.String("host", r.Host), id)
-			ctx = Child(ctx, "", WithFields(id))
+			ctx = ChildLogger(ctx, "", WithFields(id))
 			ctx = metadata.NewOutgoingContext(ctx, metadata.MD{"x-request-id": requestID})
 			r = r.WithContext(ctx)
 			orig.ServeHTTP(w, r)

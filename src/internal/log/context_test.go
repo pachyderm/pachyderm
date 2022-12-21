@@ -23,23 +23,11 @@ func TestCombineLogger(t *testing.T) {
 	h.HasALog(t)
 }
 
-func TestBackground(t *testing.T) {
-	_, h := testWithCapture(t)
-	Info(Background(""), "hi")
-	h.HasALog(t)
-}
-
-func TestTODO(t *testing.T) {
-	_, h := testWithCapture(t)
-	Info(TODO(), "hi")
-	h.HasALog(t)
-}
-
 func TestWithoutRatelimit(t *testing.T) {
 	ctx, h := testWithCaptureParallelRateLimited(t, zap.Development())
 
 	// Sanity check that the logger works and does rate limit.
-	ctx = Child(ctx, "withFields", WithFields(zap.Bool("user", true)))
+	ctx = ChildLogger(ctx, "withFields", WithFields(zap.Bool("user", true)))
 	for i := 0; i < 10000; i++ {
 		Info(ctx, "with a field")
 	}
@@ -48,7 +36,7 @@ func TestWithoutRatelimit(t *testing.T) {
 		t.Errorf("too few logs, even with rate limiting (got %v)", got)
 	}
 	log := logs[0]
-	if got, want := log.String(), "withFields: info: with a field caller=log/context_test.go:44 user=true"; got != want {
+	if got, want := log.String(), "withFields: info: with a field caller=log/context_test.go:32 user=true"; got != want {
 		t.Errorf("first rate-limited:\n  got: %v\n want: %v", got, want)
 	}
 	if got := len(logs); got >= 9999 {
@@ -57,7 +45,7 @@ func TestWithoutRatelimit(t *testing.T) {
 
 	// Ensure that the non-rate-limited logger has the fields/name from the parent.
 	h.Clear()
-	ctx = Child(ctx, "noLimit", WithoutRatelimit())
+	ctx = ChildLogger(ctx, "noLimit", WithoutRatelimit())
 	for i := 0; i < 10000; i++ {
 		Info(ctx, "not-ratelimited and with a field")
 	}
@@ -66,19 +54,19 @@ func TestWithoutRatelimit(t *testing.T) {
 		t.Errorf("non-rate-limited log count:\n  got: %v\n want: %v", got, want)
 	}
 	log = logs[0]
-	if got, want := log.String(), "withFields.noLimit: info: not-ratelimited and with a field caller=log/context_test.go:62 user=true"; got != want {
+	if got, want := log.String(), "withFields.noLimit: info: not-ratelimited and with a field caller=log/context_test.go:50 user=true"; got != want {
 		t.Errorf("first rate-limited:\n  got: %v\n want: %v", got, want)
 	}
 }
 
 func TestCloneOfWeirdCore(t *testing.T) {
-	ctx, h := testWithCapture(t)
+	ctx, h := TestWithCapture(t)
 	Info(ctx, "normal core")
-	ctx = Child(ctx, "", WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+	ctx = ChildLogger(ctx, "", WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 		return zapcore.NewCore(zapcore.NewJSONEncoder(pachdEncoder), h, zapcore.DebugLevel)
 	})))
 	Info(ctx, "weird core")
-	ctx = Child(ctx, "", WithoutRatelimit())
+	ctx = ChildLogger(ctx, "", WithoutRatelimit())
 	Info(ctx, "weird core without rate limit")
 
 	want := []string{

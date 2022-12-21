@@ -225,21 +225,21 @@ func (t failer) Write(p []byte) (int, error) {
 
 func (t failer) Sync() error { return nil }
 
-// testWithCapture returns a new Context appropriate for testing the logging system itself; in
+// TestWithCapture returns a new Context appropriate for testing the logging system itself; in
 // addition to a context, you also get a capture object that retains all logged message for
 // analysis.  The underling logger is not rate-limited as a production logger is.  Note: The logged
 // messages are not printed out to the test log.
 //
-// If you're here to make this function public, consider whether whatever logging functionality you
-// want to test should exist in this package.
-func testWithCapture(t testing.TB, opts ...zap.Option) (context.Context, *history) {
+// Most logging functionality that needs tests should be in this package; this function is only
+// public for the use of pctx.
+func TestWithCapture(t testing.TB, opts ...zap.Option) (context.Context, *history) {
 	l, h := newTestLogger(t, false, opts...)
 	t.Cleanup(zap.ReplaceGlobals(l))
 	t.Cleanup(zap.RedirectStdLog(l))
-	return Background(""), h
+	return withLogger(context.Background(), l.WithOptions(zap.AddCallerSkip(1))), h
 }
 
-// testWithCaptureParallel is the same as testWithCapture, but does not touch the global loggers,
+// testWithCaptureParallel is the same as TestWithCapture, but does not touch the global loggers,
 // allowing tests that want to run in parallel to capture logs for their test.  (At the cost of
 // missing zap.L() logs, etc.)
 func testWithCaptureParallel(t testing.TB, opts ...zap.Option) (context.Context, *history) {

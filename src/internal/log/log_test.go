@@ -11,7 +11,7 @@ import (
 )
 
 func TestBasics(t *testing.T) {
-	ctx, h := testWithCapture(t)
+	ctx, h := TestWithCapture(t)
 	var want []string
 	Debug(ctx, "hello")
 	want = append(want, "debug: hello")
@@ -84,7 +84,7 @@ func TestPanics(t *testing.T) {
 }
 
 func TestNoPanicsInProduction(t *testing.T) {
-	_, h := testWithCapture(t)
+	_, h := TestWithCapture(t)
 	Debug(nil, "this should use the global logger") //nolint:staticcheck // Intentional nil to test error handling.
 	want := []string{
 		"dpanic: log: internal error: nil context provided to ExtractLogger",
@@ -96,7 +96,7 @@ func TestNoPanicsInProduction(t *testing.T) {
 }
 
 func TestWrappedContext(t *testing.T) {
-	rootCtx, h := testWithCapture(t, zap.Development())
+	rootCtx, h := testWithCaptureParallel(t, zap.Development())
 	timeCtx, tc := context.WithTimeout(rootCtx, time.Minute)
 	t.Cleanup(tc)
 	ctx, cc := context.WithCancel(timeCtx)
@@ -110,7 +110,7 @@ func TestWrappedContext(t *testing.T) {
 }
 
 func TestEmptyContext(t *testing.T) {
-	_, h := testWithCapture(t)
+	_, h := TestWithCapture(t)
 	ctx := context.Background() // intentionally the wrong context
 	var want []string
 	Debug(ctx, "this is a debug log")

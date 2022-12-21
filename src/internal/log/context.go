@@ -17,17 +17,6 @@ import (
 
 type pachydermLogger struct{}
 
-// TODO returns a context that has a valid global logger.  It is not for use in new code.
-func TODO() context.Context {
-	return withLogger(context.TODO(), zap.L().WithOptions(zap.AddCallerSkip(1)))
-}
-
-// Background returns a context suitable for a long-running background job.
-func Background(name string) context.Context {
-	lctx := withLogger(context.Background(), zap.L().WithOptions(zap.AddCallerSkip(1)))
-	return Child(lctx, name)
-}
-
 // CombineLogger extracts a logger from loggerCtx, and associates the logger with ctx.  It's only
 // public until grpc interceptors move into this package.
 func CombineLogger(ctx, loggerCtx context.Context) context.Context {
@@ -106,8 +95,15 @@ func WithoutRatelimit() LogOption {
 	}
 }
 
-// Child returns a named child logger of the logger currently in the context.
-func Child(ctx context.Context, name string, opts ...LogOption) context.Context {
+// AddLogger is used by the pctx package to create empty contexts.  It should not be used outside of
+// the pctx package.
+func AddLogger(ctx context.Context) context.Context {
+	return withLogger(context.TODO(), zap.L().WithOptions(zap.AddCallerSkip(1)))
+}
+
+// ChildLogger is used by the pctx package to create child contexts.  It should not be used outside of the
+// pctx package.
+func ChildLogger(ctx context.Context, name string, opts ...LogOption) context.Context {
 	l := extractLogger(ctx)
 	for _, o := range opts {
 		l = o(l)
