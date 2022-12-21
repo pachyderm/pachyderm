@@ -52,28 +52,28 @@ parse_flags() {
 
   if [ -z "$CLOUDFRONT_KEYPAIR_ID" ]; then
 	echo "--cloudfront-keypair-id must be set"
-	exit 1	
+	exit 1
   fi
 
   if [ -z "$CLOUDFRONT_PRIVATE_KEY_FILE" ]; then
 	echo "--cloudfront-private-key-file must be set"
-	exit 1	
+	exit 1
   fi
 
   if [ -z "$BUCKET" ]; then
 	echo "--bucket must be set"
-	exit 1	
+	exit 1
   fi
 
   if [ -z "$CLOUDFRONT_DISTRIBUTION_ID" ]; then
 	echo "--cloudfront-distribution-id must be set"
-	exit 1	
+	exit 1
   fi
 
   set -euxo pipefail
 
   echo "Region: ${AWS_REGION}"
-  zone_suffix=${AWS_AVAILABILITY_ZONE#$AWS_REGION}
+  zone_suffix=${AWS_AVAILABILITY_ZONE#"$AWS_REGION"}
   if [[ ${#zone_suffix} -gt 3 ]]; then
     echo "Availability zone \"${AWS_AVAILABILITY_ZONE}\" may not be in region \"${AWS_REGION}\""
     echo "Try setting both --region and --zone"
@@ -87,7 +87,7 @@ parse_flags() {
 
 update_bucket_policy() {
     aws s3api delete-bucket-policy --bucket "$BUCKET" --region "$AWS_REGION"
-   
+
     # Create Origin Access Identity
     someuuid=$(uuid | cut -f 1 -d-)
     mkdir -p tmp
@@ -97,7 +97,7 @@ update_bucket_policy() {
     echo "Got Cloudfront Origin Access Identity Canonical user id : ${CLOUDFRONT_OAI_CANONICAL}"
     CLOUDFRONT_OAI_ID=$(jq -r ".CloudFrontOriginAccessIdentity.Id" < tmp/cloudfront-origin-access-identity-info.json)
     echo "Got Cloudfront Origin Access Identity ID : ${CLOUDFRONT_OAI_ID}"
-  
+
     # Create secure bucket policy w the new OAI
     jq ".Statement[0].Resource = \"arn:aws:s3:::$BUCKET/*\" | .Statement[0].Principal.CanonicalUser = \"$CLOUDFRONT_OAI_CANONICAL\"" < etc/deploy/cloudfront/bucket-policy-secure.json.template > tmp/bucket-policy-secure.json
     aws s3api put-bucket-policy --bucket "$BUCKET" --policy file://tmp/bucket-policy-secure.json --region="${AWS_REGION}"
@@ -154,4 +154,3 @@ date
 aws cloudfront wait distribution-deployed --id "$CLOUDFRONT_DISTRIBUTION_ID"
 echo "Cloudfront distribution ($CLOUDFRONT_DISTRIBUTION_ID) deployed"
 date
-

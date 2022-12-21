@@ -10,11 +10,11 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -29,9 +29,8 @@ import (
 
 const year = 365 * 24 * time.Hour
 
-func realEnvWithLicense(t *testing.T, expireTime ...time.Time) (*realenv.RealEnv, string) {
-	ctx := context.Background()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+func realEnvWithLicense(ctx context.Context, t *testing.T, expireTime ...time.Time) (*realenv.RealEnv, string) {
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	testutil.ActivateLicense(t, env.PachClient, peerPort, expireTime...)
 	_, err := env.PachClient.Enterprise.Activate(ctx,
@@ -52,7 +51,8 @@ func TestValidateActivationCode(t *testing.T) {
 
 func TestGetState(t *testing.T) {
 	t.Parallel()
-	env, peerPort := realEnvWithLicense(t, time.Now().Add(year+time.Hour*24))
+	ctx := pctx.TestContext(t)
+	env, peerPort := realEnvWithLicense(ctx, t, time.Now().Add(year+time.Hour*24))
 	client := env.PachClient
 
 	resp, err := client.Enterprise.GetState(client.Ctx(), &enterprise.GetStateRequest{})
@@ -101,7 +101,8 @@ func TestGetState(t *testing.T) {
 
 func TestGetActivationCode(t *testing.T) {
 	t.Parallel()
-	env, peerPort := realEnvWithLicense(t, time.Now().Add(year+time.Hour*24))
+	ctx := pctx.TestContext(t)
+	env, peerPort := realEnvWithLicense(ctx, t, time.Now().Add(year+time.Hour*24))
 	client := env.PachClient
 
 	resp, err := client.Enterprise.GetActivationCode(client.Ctx(), &enterprise.GetActivationCodeRequest{})
@@ -135,7 +136,8 @@ func TestGetActivationCode(t *testing.T) {
 
 func TestDeactivate(t *testing.T) {
 	t.Parallel()
-	env, _ := realEnvWithLicense(t)
+	ctx := pctx.TestContext(t)
+	env, _ := realEnvWithLicense(ctx, t)
 	client := env.PachClient
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
@@ -158,7 +160,8 @@ func TestDeactivate(t *testing.T) {
 // https://github.com/pachyderm/pachyderm/v2/issues/3013
 func TestDoubleDeactivate(t *testing.T) {
 	t.Parallel()
-	env, _ := realEnvWithLicense(t, time.Now().Add(year+time.Hour*24))
+	ctx := pctx.TestContext(t)
+	env, _ := realEnvWithLicense(ctx, t, time.Now().Add(year+time.Hour*24))
 	client := env.PachClient
 
 	// Deactivate cluster and make sure its state is NONE (enterprise might be
@@ -183,7 +186,8 @@ func TestDoubleDeactivate(t *testing.T) {
 
 func TestGetActivationCodeNotAdmin(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	aliceClient := testutil.AuthenticatedPachClient(t, c, "robot:alice", peerPort)
@@ -196,7 +200,8 @@ func TestGetActivationCodeNotAdmin(t *testing.T) {
 // deleted from the license server
 func TestHeartbeatDeleted(t *testing.T) {
 	t.Parallel()
-	env, peerPort := realEnvWithLicense(t, time.Now().Add(year+time.Hour*24))
+	ctx := pctx.TestContext(t)
+	env, peerPort := realEnvWithLicense(ctx, t, time.Now().Add(year+time.Hour*24))
 	client := env.PachClient
 
 	resp, err := client.Enterprise.GetState(client.Ctx(), &enterprise.GetStateRequest{})
@@ -249,8 +254,9 @@ func TestHeartbeatDeleted(t *testing.T) {
 
 func TestEnterpriseConfigMigration(t *testing.T) {
 	t.Parallel()
+	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
-	etcd := testetcd.NewEnv(t).EtcdClient
+	etcd := testetcd.NewEnv(ctx, t).EtcdClient
 
 	config := &enterprise.EnterpriseConfig{
 		Id:            "id",
@@ -259,7 +265,7 @@ func TestEnterpriseConfigMigration(t *testing.T) {
 	}
 
 	etcdConfigCol := col.NewEtcdCollection(etcd, "", nil, &enterprise.EnterpriseConfig{}, nil, nil)
-	_, err := col.NewSTM(context.Background(), etcd, func(stm col.STM) error {
+	_, err := col.NewSTM(ctx, etcd, func(stm col.STM) error {
 		return errors.EnsureStack(etcdConfigCol.ReadWrite(stm).Put("config", config))
 	})
 	require.NoError(t, err)
@@ -269,10 +275,10 @@ func TestEnterpriseConfigMigration(t *testing.T) {
 	state := migrations.InitialState().
 		// the following two state changes were shipped in v2.0.0
 		Apply("create collections schema", func(ctx context.Context, env migrations.Env) error {
-			return collection.CreatePostgresSchema(ctx, env.Tx)
+			return col.CreatePostgresSchema(ctx, env.Tx)
 		}).
 		Apply("create collections trigger functions", func(ctx context.Context, env migrations.Env) error {
-			return collection.SetupPostgresV0(ctx, env.Tx)
+			return col.SetupPostgresV0(ctx, env.Tx)
 		}).
 		// the following two state changes are shipped in v2.1.0 to migrate EnterpriseConfig from etcd -> postgres
 		Apply("Move EnterpriseConfig from etcd -> postgres", func(ctx context.Context, env migrations.Env) error {
@@ -282,19 +288,19 @@ func TestEnterpriseConfigMigration(t *testing.T) {
 			return server.DeleteEnterpriseConfigFromEtcd(ctx, env.EtcdClient)
 		})
 	// run the migration
-	err = migrations.ApplyMigrations(context.Background(), db, env, state)
+	err = migrations.ApplyMigrations(ctx, db, env, state)
 	require.NoError(t, err)
-	err = migrations.BlockUntil(context.Background(), db, state)
+	err = migrations.BlockUntil(ctx, db, state)
 	require.NoError(t, err)
 
 	pgCol := server.EnterpriseConfigCollection(db, nil)
 	result := &enterprise.EnterpriseConfig{}
-	require.NoError(t, pgCol.ReadOnly(context.Background()).Get("config", result))
+	require.NoError(t, pgCol.ReadOnly(ctx).Get("config", result))
 	require.Equal(t, config.Id, result.Id)
 	require.Equal(t, config.LicenseServer, result.LicenseServer)
 	require.Equal(t, config.Secret, result.Secret)
 
-	err = etcdConfigCol.ReadOnly(context.Background()).Get("config", &enterprise.EnterpriseConfig{})
+	err = etcdConfigCol.ReadOnly(ctx).Get("config", &enterprise.EnterpriseConfig{})
 	require.YesError(t, err)
-	require.True(t, collection.IsErrNotFound(err))
+	require.True(t, col.IsErrNotFound(err))
 }

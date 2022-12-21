@@ -5,12 +5,14 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	sf "github.com/snowflakedb/gosnowflake"
+	"go.uber.org/zap"
 )
 
 const (
@@ -32,6 +34,8 @@ const (
 		ORDER BY schemaname, tablename;
 	`
 )
+
+var fixMysqlLoggerOnce sync.Once
 
 // DB is an alias for sqlx.DB which is the standard database type used throughout the project
 type DB = sqlx.DB
@@ -65,6 +69,11 @@ func OpenURL(u URL, password string) (*DB, error) {
 	case ProtocolMySQL:
 		driver = "mysql"
 		dsn, err = mySQLDSN(u, password)
+		fixMysqlLoggerOnce.Do(func() {
+			l := zap.NewStdLog(zap.L().Named("mysql"))
+			l.Println("enabled global mysql logger")
+			mysql.SetLogger(l) //nolint:errcheck
+		})
 	case ProtocolSnowflake:
 		driver = "snowflake"
 		dsn, err = snowflakeDSN(u, password)

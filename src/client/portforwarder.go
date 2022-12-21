@@ -11,9 +11,11 @@ import (
 	"sync"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zapio"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -29,7 +31,7 @@ type PortForwarder struct {
 	client        rest.Interface
 	config        *rest.Config
 	namespace     string
-	logger        *io.PipeWriter
+	logger        io.WriteCloser
 	stopChansLock *sync.Mutex
 	stopChans     []chan struct{}
 	shutdown      bool
@@ -63,7 +65,7 @@ func NewPortForwarder(context *config.Context, namespace string) (*PortForwarder
 		client:        core.RESTClient(),
 		config:        kubeClientConfig,
 		namespace:     namespace,
-		logger:        log.StandardLogger().Writer(),
+		logger:        &zapio.Writer{Log: zap.L().Named("portforward"), Level: zapcore.InfoLevel},
 		stopChansLock: &sync.Mutex{},
 		stopChans:     []chan struct{}{},
 		shutdown:      false,

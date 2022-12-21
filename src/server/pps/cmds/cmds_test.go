@@ -900,8 +900,9 @@ func TestJsonnetPipelineTemplateMulti(t *testing.T) {
 		} ]
 		EOF
 		pachctl list pipeline | match foo-pipeline | match bar-pipeline
-		pachctl wait commit bar-pipeline@master
+		pachctl wait commit foo-pipeline@master
 		pachctl get file foo-pipeline@master:/baz-middle | match foo-data
+		pachctl wait commit bar-pipeline@master
 		pachctl get file bar-pipeline@master:/baz-final | match foo-data
 		`).Run())
 }

@@ -11,12 +11,13 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 const (
@@ -47,7 +48,7 @@ func (d *driver) URLWorker(ctx context.Context) {
 		})
 		return errors.EnsureStack(err)
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
-		log.Printf("error in URL worker: %v", err)
+		log.Error(ctx, "error in URL worker", zap.Error(err))
 		return nil
 	})
 }
@@ -57,13 +58,13 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 	if err != nil {
 		return nil, errors.Wrapf(err, "error parsing URL %v", task.URL)
 	}
-	objClient, err := obj.NewClientFromURLAndSecret(url, false)
+	objClient, err := obj.NewClientFromURLAndSecret(ctx, url, false)
 	if err != nil {
 		return nil, err
 	}
 	prefix := strings.TrimPrefix(url.Object, "/")
 	result := &PutFileURLTaskResult{}
-	if err := miscutil.LogStep(ctx, log.NewEntry(log.StandardLogger()), "processing put file URL task", func() error {
+	if err := log.LogStep(ctx, "putFileURLTask", func(ctx context.Context) error {
 		return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 			id, err := d.withUnorderedWriter(ctx, renewer, func(uw *fileset.UnorderedWriter) error {
 				for _, path := range task.Paths {
@@ -98,11 +99,11 @@ func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 	if err != nil {
 		return nil, errors.Wrapf(err, "error parsing URL %v", task.URL)
 	}
-	objClient, err := obj.NewClientFromURLAndSecret(url, false)
+	objClient, err := obj.NewClientFromURLAndSecret(ctx, url, false)
 	if err != nil {
 		return nil, err
 	}
-	if err := miscutil.LogStep(ctx, log.NewEntry(log.StandardLogger()), "processing get file URL task", func() error {
+	if err := log.LogStep(ctx, "getFileURLTask", func(ctx context.Context) error {
 		err := src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
 			if fi.FileType != pfs.FileType_FILE {
 				return nil

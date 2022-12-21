@@ -2,20 +2,20 @@ package task
 
 import (
 	"context"
-	"fmt"
 	"path"
 	"strings"
 	"sync/atomic"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
@@ -147,26 +147,28 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				}
 				if ed.cache != nil && err == nil {
 					if err := ed.cache.Put(ctx, task.ID, task.Output); err != nil {
-						fmt.Printf("errored putting task %v in cache: %v\n", key, err)
+						log.Info(ctx, "errored putting task in cache",
+							zap.String("taskType", task.GetInput().GetTypeUrl()),
+							zap.String("taskID", task.GetID()),
+							zap.Error(err))
 					}
 				}
-				log.WithFields(log.Fields{
-					"task-type": task.Input.TypeUrl,
-					"task-id":   task.ID,
-					"error":     err,
-				}).Print("task response received")
+
+				log.Debug(ctx, "task callback starting",
+					zap.String("taskType", task.GetInput().GetTypeUrl()),
+					zap.String("taskID", task.GetID()),
+					zap.Error(err))
 				if err := cb(task.Index, task.Output, err); err != nil {
-					log.WithFields(log.Fields{
-						"task-type": task.Input.TypeUrl,
-						"task-id":   task.ID,
-						"error":     err,
-					}).Print("task callback failed")
+					log.Debug(ctx, "task callback errored",
+						zap.String("taskType", task.GetInput().GetTypeUrl()),
+						zap.String("taskID", task.GetID()),
+						zap.Error(err))
 					return err
 				}
-				log.WithFields(log.Fields{
-					"task-type": task.Input.TypeUrl,
-					"task-id":   task.ID,
-				}).Print("task callback complete")
+				log.Debug(ctx, "task callback finished ok",
+					zap.String("taskType", task.GetInput().GetTypeUrl()),
+					zap.String("taskID", task.GetID()))
+
 				atomic.AddInt64(&count, -1)
 				select {
 				case <-done:
@@ -186,7 +188,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				}
 				return errors.EnsureStack(ed.claimCol.ReadWrite(stm).DeleteAllPrefix(prefix))
 			}); err != nil {
-				fmt.Printf("errored deleting tasks with the prefix %v: %v\n", prefix, err)
+				log.Info(ctx, "errored deleting tasks with the prefix", zap.String("prefix", prefix), zap.Error(err))
 			}
 		}()
 		var index int64
@@ -205,17 +207,16 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				if err != nil {
 					return err
 				}
-				log.WithFields(log.Fields{
-					"task-type": input.TypeUrl,
-					"task-id":   taskID,
-				}).Print("task created")
+
+				log.Debug(ctx, "task created",
+					zap.String("taskType", input.GetTypeUrl()),
+					zap.String("taskID", taskID))
 				if ed.cache != nil {
 					output, err := ed.cache.Get(ctx, taskID)
 					if err == nil {
-						log.WithFields(log.Fields{
-							"task-type": input.TypeUrl,
-							"task-id":   taskID,
-						}).Print("result cached")
+						log.Debug(ctx, "result cached",
+							zap.String("taskType", input.GetTypeUrl()),
+							zap.String("taskID", taskID))
 						if err := cb(index, output, nil); err != nil {
 							return err
 						}
@@ -234,10 +235,9 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				if err := renewer.Put(ctx, taskKey, task); err != nil {
 					return err
 				}
-				log.WithFields(log.Fields{
-					"task-type": input.TypeUrl,
-					"task-id":   taskID,
-				}).Print("task submitted")
+				log.Debug(ctx, "task submitted",
+					zap.String("taskType", input.GetTypeUrl()),
+					zap.String("taskID", taskID))
 				atomic.AddInt64(&count, 1)
 			case <-ctx.Done():
 				return errors.EnsureStack(ctx.Err())
@@ -253,7 +253,7 @@ func (ed *etcdDoer) withGroup(ctx context.Context, cb func(ctx context.Context, 
 			if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
 				return errors.EnsureStack(ed.groupCol.ReadWrite(stm).Delete(key))
 			}); err != nil {
-				fmt.Printf("errored deleting group key %v: %v\n", key, err)
+				log.Info(ctx, "errored deleting group key", zap.String("key", key), zap.Error(err))
 			}
 		}()
 		if err := renewer.Put(ctx, key, &Group{}); err != nil {
@@ -321,7 +321,7 @@ func (es *etcdSource) Iterate(ctx context.Context, cb ProcessFunc) error {
 					return errors.EnsureStack(ctx.Err())
 				}
 			}); err != nil && !errors.Is(ctx.Err(), context.Canceled) {
-				fmt.Printf("errored in group callback: %v\n", err)
+				log.Info(ctx, "errored in group callback", zap.String("group", group), zap.Error(err))
 			}
 		})
 	})
@@ -376,16 +376,15 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 				return nil
 			}
 			err := es.claimCol.Claim(ctx, taskKey, &Claim{}, func(ctx context.Context) error {
-				log.WithFields(log.Fields{
-					"task-type": task.Input.TypeUrl,
-					"task-id":   task.ID,
-				}).Println("task received")
+				log.Debug(ctx, "task received",
+					zap.String("taskType", task.GetInput().GetTypeUrl()),
+					zap.String("taskID", task.GetID()))
 				taskOutput, taskErr := cb(ctx, task.Input)
-				log.WithFields(log.Fields{
-					"task-type": task.Input.TypeUrl,
-					"task-id":   task.ID,
-					"error":     taskErr,
-				}).Println("task completed")
+				log.Debug(ctx, "task completed",
+					zap.String("taskType", task.GetInput().GetTypeUrl()),
+					zap.String("taskID", task.GetID()),
+					zap.Error(taskErr))
+
 				// If the task context was canceled or the claim was lost, just return with no error.
 				if errors.Is(ctx.Err(), context.Canceled) {
 					return nil
@@ -415,7 +414,7 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 				col.IsErrNotFound(err) || errors.Is(err, col.ErrNotClaimed) {
 				return
 			}
-			fmt.Printf("errored in task callback: %v\n", err)
+			log.Info(ctx, "errored in task callback", zap.Error(err), zap.String("taskKey", taskKey))
 		}
 	}
 }

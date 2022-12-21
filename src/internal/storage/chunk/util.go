@@ -15,8 +15,8 @@ import (
 
 // NewTestStorage creates a local storage instance for testing during the lifetime of
 // the callback.
-func NewTestStorage(t testing.TB, db *pachsql.DB, tr track.Tracker, opts ...StorageOption) (obj.Client, *Storage) {
-	objC := dockertestenv.NewTestObjClient(t)
+func NewTestStorage(ctx context.Context, t testing.TB, db *pachsql.DB, tr track.Tracker, opts ...StorageOption) (obj.Client, *Storage) {
+	objC := dockertestenv.NewTestObjClient(ctx, t)
 	db.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
 	require.NoError(t, dbutil.WithTx(context.Background(), db, SetupPostgresStoreV0))
 	return objC, NewStorage(objC, kv.NewMemCache(10), db, tr, opts...)

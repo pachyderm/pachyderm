@@ -10,14 +10,17 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
-	"github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 )
@@ -33,7 +36,6 @@ var (
 type Ring struct {
 	client    *etcd.Client
 	stateLock sync.Mutex
-	logger    *logrus.Logger
 	members   []member
 	node      node // node represents the member instance in a Ring that is local to the current process.
 	prefix    string
@@ -72,21 +74,24 @@ func (ring *Ring) MemberIds() []string {
 
 // WithRing instantiates a ring that lives for the duration of the callback 'cb'. While a ring instance is live,
 // it refreshes a lease in etcd and watches the ring prefix for add member and delete member events.
-func WithRing(ctx context.Context, client *etcd.Client, logger *logrus.Logger, prefix string, cb func(ctx context.Context, ring *Ring) error) error {
-	return withRing(ctx, client, logger, prefix, uuid.New(), cb)
+func WithRing(ctx context.Context, client *etcd.Client, prefix string, cb func(ctx context.Context, ring *Ring) error) error {
+	return withRing(ctx, client, prefix, uuid.New(), cb)
 }
 
-func withRing(ctx context.Context, client *etcd.Client, logger *logrus.Logger, prefix, id string, cb func(ctx context.Context, ring *Ring) error) error {
-	cancelCtx, cancel := context.WithCancel(ctx)
+func withRing(rctx context.Context, client *etcd.Client, prefix, id string, cb func(ctx context.Context, ring *Ring) error) error {
+	ring := ring(client, prefix, id)
+
+	cancelCtx, cancel := context.WithCancel(pctx.Child(rctx, "ring", pctx.WithFields(zap.Inline(ring))))
 	defer cancel()
+
 	eg, ctx := errgroup.WithContext(cancelCtx)
-	ring := ring(client, logger, prefix, id)
-	defer ring.logger.WithFields(ring.memberLogFields()).Infof("shutting down ring")
+	defer log.Info(ctx, "shutting down ring")
+
 	etcdCol := collection.NewEtcdCollection(ring.client, path.Join(ring.prefix, "nodes"), nil, nil, nil, nil)
 	eg.Go(func() error { return ring.watch(ctx, etcdCol) })
 	eg.Go(func() error { return ring.createNode(ctx, etcdCol, ring.node.Id) })
 	eg.Go(func() error {
-		ring.logger.WithFields(ring.memberLogFields()).Infof("started ring")
+		log.Info(ctx, "started ring")
 		if err := cb(ctx, ring); err != nil {
 			return err
 		}
@@ -100,14 +105,13 @@ func withRing(ctx context.Context, client *etcd.Client, logger *logrus.Logger, p
 	return errors.EnsureStack(err)
 }
 
-func ring(client *etcd.Client, logger *logrus.Logger, prefix string, id string) *Ring {
+func ring(client *etcd.Client, prefix string, id string) *Ring {
 	localMember := member{
 		Id:   id,
 		hash: hashFn([]byte(id)),
 	}
 	return &Ring{
 		client:  client,
-		logger:  logger,
 		members: []member{localMember},
 		node: node{
 			member: localMember,
@@ -125,7 +129,7 @@ func (ring *Ring) createNode(ctx context.Context, col collection.EtcdCollection,
 			<-ctx.Done()
 			return nil
 		}); err != nil {
-		ring.logger.WithFields(ring.memberLogFields()).Errorf("failed to renew etcd lease: %v", err)
+		log.Info(ctx, "failed to renew etcd lease", zap.Error(err))
 		return errors.EnsureStack(err)
 	}
 	return nil
@@ -142,12 +146,12 @@ func (ring *Ring) watch(ctx context.Context, col collection.EtcdCollection) erro
 		nodeKey := string(event.Key)
 		switch event.Type {
 		case watch.EventDelete:
-			ring.removeById(ring.etcdToMember(nodeKey))
+			ring.removeById(ctx, ring.etcdToMember(nodeKey))
 		case watch.EventPut:
-			ring.insertById(ring.etcdToMember(nodeKey))
+			ring.insertById(ctx, ring.etcdToMember(nodeKey))
 			// Need to release locks that no longer associate to the ring's node.
 			if err := ring.rebalance(); err != nil {
-				ring.logger.WithField("ring", ring.prefix).Errorf("failed rebalancing: %v", err)
+				log.Error(ctx, "failed rebalancing", zap.Error(err))
 				return err
 			}
 		}
@@ -156,7 +160,7 @@ func (ring *Ring) watch(ctx context.Context, col collection.EtcdCollection) erro
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return nil
 		}
-		ring.logger.WithFields(ring.memberLogFields()).Errorf("failed watch: %v", err)
+		log.Error(ctx, "failed watch", zap.Error(err))
 		return errors.EnsureStack(err)
 	}
 	return nil
@@ -181,7 +185,7 @@ func (ring *Ring) rebalance() error {
 			errs = multierror.Append(errs, errors.Wrapf(err, "error unlocking %v", key))
 		}
 		delete(ring.node.locks, key)
-		ring.logger.WithFields(ring.lockLogFields(key)).Info("rebalanced lock")
+		log.Info(lockInfo.ctx, "rebalanced lock")
 	}
 	return errors.EnsureStack(errs)
 }
@@ -204,24 +208,24 @@ func (ring *Ring) getIndex(key string) int {
 	return index
 }
 
-func (ring *Ring) insertById(id string) {
+func (ring *Ring) insertById(ctx context.Context, id string) {
 	member := member{
 		Id:   id,
 		hash: hashFn([]byte(id)),
 	}
-	ring.insert(member)
+	ring.insert(ctx, member)
 }
 
 // insert updates Ring.members, and sorts Ring.members by the member hash.
 // If the member already exists, insert is a no-op. The member can be mocked for testing purposes.
-func (ring *Ring) insert(member member) {
+func (ring *Ring) insert(ctx context.Context, member member) {
 	index := sort.Search(len(ring.members), func(i int) bool {
 		return ring.members[i].hash >= member.hash
 	})
 	if index < len(ring.members) && ring.members[index].hash == member.hash {
 		return // member already exists.
 	}
-	ring.logger.WithFields(ring.memberLogFields()).Infof("adding member %s to ring", member.Id)
+	log.Info(ctx, "adding member to ring", zap.String("memberID", member.Id))
 	if index >= len(ring.members) {
 		ring.members = append(ring.members, member)
 		return
@@ -230,23 +234,23 @@ func (ring *Ring) insert(member member) {
 	ring.members[index] = member
 }
 
-func (ring *Ring) removeById(id string) {
+func (ring *Ring) removeById(ctx context.Context, id string) {
 	member := member{
 		Id:   id,
 		hash: hashFn([]byte(id)),
 	}
-	ring.remove(member)
+	ring.remove(ctx, member)
 }
 
 // remove deletes the member from Ring.members if it exists.
-func (ring *Ring) remove(member member) {
+func (ring *Ring) remove(ctx context.Context, member member) {
 	index := sort.Search(len(ring.members), func(i int) bool {
 		return ring.members[i].hash >= member.hash
 	})
 	if ring.members == nil || index >= len(ring.members) || ring.members[index].Id != member.Id {
 		return // member doesn't exist.
 	}
-	ring.logger.WithFields(ring.memberLogFields()).Infof("deleting member %s from ring", member.Id)
+	log.Info(ctx, "deleting member from ring", zap.String("memberID", member.Id))
 	ring.members = append(ring.members[:index], ring.members[index+1:]...)
 }
 
@@ -271,11 +275,12 @@ func (ring *Ring) Lock(ctx context.Context, key string) (context.Context, error)
 				return nil, errors.EnsureStack(err)
 			}
 			if err == nil { // lock() must fallthrough in the case where err == concurrency.ErrLocked
-				ring.node.locks[key] = lockInfo{
+				l := lockInfo{
 					lock: nodeLock,
-					ctx:  ctx,
+					ctx:  pctx.Child(ctx, "lock", pctx.WithFields(zap.String("lock", key))),
 				}
-				ring.logger.WithFields(ring.lockLogFields(key)).Info("claimed lock")
+				ring.node.locks[key] = l
+				log.Info(l.ctx, "claimed lock")
 				return lockCtx, nil
 			}
 		}
@@ -304,21 +309,13 @@ func (ring *Ring) Unlock(key string) error {
 		return errors.EnsureStack(err)
 	}
 	delete(ring.node.locks, key)
-	ring.logger.WithFields(ring.lockLogFields(key)).Info("released lock")
+	log.Info(info.ctx, "released lock")
 	return nil
 }
 
-// memberLogFields are used by a ring logger to annotate log events with the ring and node.
-func (ring *Ring) memberLogFields() map[string]interface{} {
-	return map[string]interface{}{
-		"ring": ring.prefix,
-		"node": ring.node.Id,
-	}
-}
-
-// lockLogFields are used by a ring logger to annotate log events with info from memberLogFields and a lock.
-func (ring *Ring) lockLogFields(lock string) map[string]interface{} {
-	fields := ring.memberLogFields()
-	fields["lock"] = lock
-	return fields
+// MarshalLogObject implements zapcore.ObjectMarshaler.
+func (ring *Ring) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("ring", ring.prefix)
+	enc.AddString("node", ring.node.Id)
+	return nil
 }

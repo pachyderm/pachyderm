@@ -8,6 +8,7 @@ import (
 	"net"
 	"time"
 
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -17,9 +18,11 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 )
 
@@ -45,6 +48,7 @@ type Server struct {
 // over TLS. If either are missing this will serve GRPC traffic over
 // unencrypted HTTP,
 func NewServer(ctx context.Context, publicPortTLSAllowed bool, options ...grpc.ServerOption) (*Server, error) {
+	baseInterceptor := logging.NewBaseContextInterceptor(pctx.Child(ctx, "grpc", pctx.WithOptions(zap.WithCaller(false))))
 	opts := append([]grpc.ServerOption{
 		grpc.MaxConcurrentStreams(math.MaxUint32),
 		grpc.MaxRecvMsgSize(MaxMsgSize),
@@ -53,8 +57,8 @@ func NewServer(ctx context.Context, publicPortTLSAllowed bool, options ...grpc.S
 			MinTime:             5 * time.Second,
 			PermitWithoutStream: true,
 		}),
-		grpc.ChainUnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
-		grpc.ChainStreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+		grpc.ChainUnaryInterceptor(baseInterceptor.UnaryServerInterceptor, grpc_prometheus.UnaryServerInterceptor),
+		grpc.ChainStreamInterceptor(baseInterceptor.StreamServerInterceptor, grpc_prometheus.StreamServerInterceptor),
 	}, options...)
 
 	var cLoader *tls.CertLoader
@@ -62,7 +66,7 @@ func NewServer(ctx context.Context, publicPortTLSAllowed bool, options ...grpc.S
 		// Validate environment
 		certPath, keyPath, err := tls.GetCertPaths()
 		if err != nil {
-			log.Warnf("TLS disabled: %v", err)
+			log.Info(ctx, "TLS disabled", zap.Error(err))
 		} else {
 			cLoader = tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
 			// Read TLS cert and key

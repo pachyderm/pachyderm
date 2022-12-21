@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 )
@@ -53,8 +54,9 @@ func TestPostgresCollections(suite *testing.T) {
 
 // TODO: Add test for filling up watcher buffer.
 func TestPostgresCollectionsProxy(suite *testing.T) {
-	watchTests(suite, newCollectionFunc(func(_ context.Context, t *testing.T) (*pachsql.DB, col.PostgresListener) {
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(suite)
+	watchTests(ctx, suite, newCollectionFunc(func(_ context.Context, t *testing.T) (*pachsql.DB, col.PostgresListener) {
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 		listener := client.NewProxyPostgresListener(func() (proxy.APIClient, error) { return env.PachClient.ProxyClient, nil })
 		t.Cleanup(func() {
 			require.NoError(t, listener.Close())
@@ -87,7 +89,8 @@ func newCollectionFunc(setup func(context.Context, *testing.T) (*pachsql.DB, col
 }
 
 func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.Context, *testing.T, ...bool) (ReadCallback, WriteCallback)) {
-	collectionTests(suite, newCollection)
+	ctx := pctx.TestContext(suite)
+	collectionTests(ctx, suite, newCollection)
 
 	// Postgres collections support getting multiple rows by a secondary index,
 	// although it requires loading the entire result set into memory to prevent
@@ -95,12 +98,12 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 	// should only be used for small result sets.
 	suite.Run("ReadWriteGetByIndex", func(subsuite *testing.T) {
 		subsuite.Parallel()
-		emptyRead, emptyWriter := newCollection(context.Background(), subsuite)
-		defaultRead, defaultWriter := initCollection(subsuite, newCollection)
+		emptyRead, emptyWriter := newCollection(ctx, subsuite)
+		defaultRead, defaultWriter := initCollection(ctx, subsuite, newCollection)
 
 		subsuite.Run("Empty", func(t *testing.T) {
 			t.Parallel()
-			err := emptyWriter(context.Background(), func(rw col.ReadWriteCollection) error {
+			err := emptyWriter(ctx, func(rw col.ReadWriteCollection) error {
 				pgrw := rw.(col.PostgresReadWriteCollection)
 				err := pgrw.GetByIndex(TestSecondaryIndex, "foo", &col.TestItem{}, col.DefaultOptions(), func(string) error {
 					return errors.New("GetByIndex callback should not have been called for an empty collection")
@@ -108,7 +111,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 				return errors.EnsureStack(err)
 			})
 			require.NoError(t, err)
-			count, err := emptyRead(context.Background()).Count()
+			count, err := emptyRead(ctx).Count()
 			require.NoError(t, err)
 			require.Equal(t, int64(0), count)
 		})
@@ -116,7 +119,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 		subsuite.Run("Success", func(t *testing.T) {
 			t.Parallel()
 			keys := []string{}
-			err := defaultWriter(context.Background(), func(rw col.ReadWriteCollection) error {
+			err := defaultWriter(ctx, func(rw col.ReadWriteCollection) error {
 				testProto := &col.TestItem{}
 				pgrw := rw.(col.PostgresReadWriteCollection)
 				err := pgrw.GetByIndex(TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
@@ -137,7 +140,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 
 		subsuite.Run("NoResults", func(t *testing.T) {
 			t.Parallel()
-			err := defaultWriter(context.Background(), func(rw col.ReadWriteCollection) error {
+			err := defaultWriter(ctx, func(rw col.ReadWriteCollection) error {
 				testProto := &col.TestItem{}
 				pgrw := rw.(col.PostgresReadWriteCollection)
 				err := pgrw.GetByIndex(TestSecondaryIndex, changedValue, testProto, col.DefaultOptions(), func(string) error {
@@ -151,7 +154,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 
 		subsuite.Run("InvalidIndex", func(t *testing.T) {
 			t.Parallel()
-			err := defaultWriter(context.Background(), func(rw col.ReadWriteCollection) error {
+			err := defaultWriter(ctx, func(rw col.ReadWriteCollection) error {
 				pgrw := rw.(col.PostgresReadWriteCollection)
 				err := pgrw.GetByIndex(&col.Index{}, "", &col.TestItem{}, col.DefaultOptions(), func(key string) error {
 					return errors.New("GetByIndex callback should not have been called when using an invalid index")
@@ -168,7 +171,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 			outerKeys := []string{}
 			innerKeys := []string{}
 			innerID := makeID(3)
-			err := defaultWriter(context.Background(), func(rw col.ReadWriteCollection) error {
+			err := defaultWriter(ctx, func(rw col.ReadWriteCollection) error {
 				testProto := &col.TestItem{}
 				pgrw := rw.(col.PostgresReadWriteCollection)
 				err := pgrw.GetByIndex(TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
@@ -205,7 +208,8 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 }
 
 func PostgresCollectionWatchTests(suite *testing.T, newCollection func(context.Context, *testing.T, ...bool) (ReadCallback, WriteCallback)) {
-	watchTests(suite, newCollection)
+	ctx := pctx.TestContext(suite)
+	watchTests(ctx, suite, newCollection)
 }
 
 func newTestDB(t testing.TB) (*pachsql.DB, string) {

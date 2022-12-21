@@ -2,16 +2,19 @@ package server
 
 import (
 	"context"
+	"os"
 	"strconv"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	kube_err "k8s.io/apimachinery/pkg/api/errors"
 	kube_watch "k8s.io/apimachinery/pkg/watch"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -24,7 +27,7 @@ const pollBackoffTime = 2 * time.Second
 func (m *ppsMaster) startPipelinePoller() {
 	m.pollPipelinesMu.Lock()
 	defer m.pollPipelinesMu.Unlock()
-	m.pollCancel = startMonitorThread(m.masterCtx, "pollPipelines", m.pollPipelines)
+	m.pollCancel = startMonitorThread(pctx.Child(m.masterCtx, "pollPipelines"), m.pollPipelines)
 }
 
 func (m *ppsMaster) cancelPipelinePoller() {
@@ -40,7 +43,7 @@ func (m *ppsMaster) cancelPipelinePoller() {
 func (m *ppsMaster) startPipelinePodsPoller() {
 	m.pollPipelinesMu.Lock()
 	defer m.pollPipelinesMu.Unlock()
-	m.pollPodsCancel = startMonitorThread(m.masterCtx, "pollPipelinePods", m.pollPipelinePods)
+	m.pollPodsCancel = startMonitorThread(pctx.Child(m.masterCtx, "pollPipelinePods"), m.pollPipelinePods)
 }
 
 func (m *ppsMaster) cancelPipelinePodsPoller() {
@@ -56,7 +59,7 @@ func (m *ppsMaster) cancelPipelinePodsPoller() {
 func (m *ppsMaster) startPipelineWatcher() {
 	m.pollPipelinesMu.Lock()
 	defer m.pollPipelinesMu.Unlock()
-	m.watchCancel = startMonitorThread(m.masterCtx, "watchPipelines", m.watchPipelines)
+	m.watchCancel = startMonitorThread(pctx.Child(m.masterCtx, "watchPipelines"), m.watchPipelines)
 }
 
 func (m *ppsMaster) cancelPipelineWatcher() {
@@ -95,7 +98,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 			if err != nil {
 				// No sensible error recovery here (e.g .if we can't reach k8s). We'll
 				// keep going, and just won't delete any RCs this round.
-				log.Errorf("error polling pipeline RCs: %v", err)
+				log.Info(ctx, "error polling pipeline RCs", zap.Error(err))
 			}
 
 			// 2. Replenish 'dbPipelines' with the set of pipelines currently in the
@@ -123,6 +126,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 					}
 					pipeline := newPipeline(projectName, pipelineName)
 					if !dbPipelines[toKey(pipeline)] {
+						log.Debug(ctx, "generating pipelineEvent for orphaned RC", zap.Stringer("pipeline", pipeline))
 						m.eventCh <- &pipelineEvent{pipeline: pipeline}
 					}
 				}
@@ -150,7 +154,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 		delete(dbPipelines, pKey)
 
 		// generate a pipeline event for 'pipeline'
-		log.Debugf("PPS master: polling pipeline %q", pKey)
+		log.Debug(ctx, "polling pipeline", zap.String("pipeline", string(pKey)))
 		pipeline, err := fromKey(pKey)
 		if err != nil {
 			return errors.Wrapf(err, "invalid pipeline key %q in dbPipelines", pKey)
@@ -167,7 +171,8 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 	}), backoff.NewConstantBackOff(pollBackoffTime),
 		backoff.NotifyContinue("pollPipelines"),
 	); err != nil && ctx.Err() == nil {
-		log.Fatalf("pollPipelines is exiting prematurely which should not happen (error: %v); restarting container...", err)
+		log.Error(ctx, "pollPipelines is exiting prematurely which should not happen; restarting container...", zap.Error(err))
+		os.Exit(10)
 	}
 }
 
@@ -192,22 +197,27 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 				return nil
 			case event, ok := <-watch:
 				if !ok {
-					log.Warn("kubernetes pod watch unexpectedly ended - restarting watch")
+					log.Debug(ctx, "kubernetes pod watch unexpectedly ended; restarting watch")
 					return backoff.ErrContinue
 				}
 				// if we get an error we restart the watch
 				if event.Type == kube_watch.Error {
-					return errors.Wrap(kube_err.FromObject(event.Object), "error while watching kubernetes pods")
+					kerr := kube_err.FromObject(event.Object)
+					log.Debug(ctx, "kubernetes pod watch unexpectedly ended with error; restarting watch", zap.Error(err))
+					return errors.Wrap(kerr, "error while watching kubernetes pods")
 				}
 				pod, ok := event.Object.(*v1.Pod)
 				if !ok {
 					continue // irrelevant event
 				}
 				if pod.Status.Phase == v1.PodFailed {
-					log.Errorf("pod failed because: %s", pod.Status.Message)
+					// This is one of those log messages that is going to be
+					// unnecessarily alarming; there are lots of processes in
+					// place to restart the pod.  But it's good to have a
+					// record.
+					log.Info(ctx, "worker pod failed", zap.String("podName", pod.Name), zap.Any("podStatus", pod.Status))
 				}
 				crashPipeline := func(reason string) error {
-					// FIXME: should these use the labels rather than the annotations?
 					projectName := pod.ObjectMeta.Annotations[pipelineProjectAnnotation]
 					pipelineName := pod.ObjectMeta.Annotations[pipelineNameAnnotation]
 					pipelineVersion, versionErr := strconv.Atoi(pod.ObjectMeta.Annotations["pipelineVersion"])
@@ -245,7 +255,8 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 		}
 	}), backoff.NewInfiniteBackOff(), backoff.NotifyContinue("pollPipelinePods"),
 	); err != nil && ctx.Err() == nil {
-		log.Fatalf("pollPipelinePods is exiting prematurely which should not happen (error: %v); restarting container...", err)
+		log.Error(ctx, "pollPipelinePods is exiting prematurely which should not happen; restarting container...", zap.Error(err))
+		os.Exit(11)
 	}
 }
 
@@ -293,12 +304,13 @@ func (m *ppsMaster) watchPipelines(ctx context.Context) {
 					return errors.Wrap(err, "pipeline event arrived while master is restarting")
 				}
 			case watch.EventError:
-				log.Errorf("watchPipelines received an errored event from the pipelines watcher, %v", event.Err)
+				log.Error(ctx, "watchPipelines received an errored event from the pipelines watcher", zap.Error(event.Err))
 			}
 		}
 		return nil // reset until ctx is cancelled (RetryUntilCancel)
 	}), &backoff.ZeroBackOff{}, backoff.NotifyContinue("watchPipelines"),
 	); err != nil && ctx.Err() == nil {
-		log.Fatalf("watchPipelines is exiting prematurely which should not happen (error: %v); restarting container...", err)
+		log.Error(ctx, "watchPipelines is exiting prematurely which should not happen; restarting container...", zap.Error(err))
+		os.Exit(11)
 	}
 }

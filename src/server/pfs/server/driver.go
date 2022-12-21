@@ -12,11 +12,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/sirupsen/logrus"
-	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -29,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -42,7 +40,7 @@ import (
 )
 
 const (
-	storageTaskNamespace = "storage"
+	StorageTaskNamespace = "storage"
 	fileSetsRepo         = client.FileSetsRepoName
 	defaultTTL           = client.DefaultTTL
 	maxTTL               = 30 * time.Minute
@@ -67,7 +65,7 @@ type CommitStream interface {
 
 type driver struct {
 	env Env
-	log *logrus.Logger
+
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
 	txnEnv     *txnenv.TransactionEnv
@@ -111,7 +109,6 @@ func newDriver(env Env) (*driver, error) {
 		commits:    commits,
 		branches:   branches,
 		projects:   projects,
-		log:        env.Logger,
 	}
 	// Setup tracker and chunk / fileset storage.
 	tracker := track.NewPostgresTracker(env.DB)
@@ -128,9 +125,6 @@ func newDriver(env Env) (*driver, error) {
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
 	chunkStorage := chunk.NewStorage(objClient, memCache, env.DB, tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, fileset.StorageOptions(&storageConfig)...)
-	// Set up compaction worker.
-	taskSource := env.TaskService.NewSource(storageTaskNamespace)
-	go compactionWorker(env.BackgroundContext, taskSource, d.storage) //nolint:errcheck
 	d.commitStore = newPostgresCommitStore(env.DB, tracker, d.storage)
 	// TODO: Make the cache max size configurable.
 	d.cache = fileset.NewCache(env.DB, tracker, 10000)
@@ -267,13 +261,17 @@ func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Per
 	return resp.Permissions, resp.Roles, nil
 }
 
-func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string, projectsFilter map[string]bool, cb func(*pfs.RepoInfo) error) error {
+func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string, projects []*pfs.Project, cb func(*pfs.RepoInfo) error) error {
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
+	projectsFilter := make(map[string]bool)
+	for _, project := range projects {
+		projectsFilter[project.String()] = true
+	}
 
 	processFunc := func(string) error {
 		// Assume the user meant all projects by not providing any projects to filter on.
-		if len(projectsFilter) > 0 && !projectsFilter[repoInfo.Repo.Project.Name] {
+		if len(projectsFilter) > 0 && !projectsFilter[repoInfo.Repo.Project.String()] {
 			return nil
 		}
 		size, err := d.repoSize(ctx, repoInfo.Repo)
@@ -572,7 +570,7 @@ func (d *driver) startCommit(
 	if ok1 && ok2 {
 		specBranch := client.NewSystemProjectRepo(branch.Repo.Project.GetName(), spoutName, pfs.SpecRepoType).NewBranch("master")
 		specCommit := specBranch.NewCommit(spoutCommit)
-		log.Infof("Adding spout spec commit to current commitset: %s", specCommit)
+		log.Info(txnCtx.Context(), "Adding spout spec commit to current commitset", log.Proto("specCommit", specCommit))
 		if _, err := d.aliasCommit(txnCtx, specCommit, specBranch); err != nil {
 			return nil, err
 		}
@@ -1029,34 +1027,39 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 
 	if commitInfo.Finished == nil {
 		switch wait {
+		case pfs.CommitState_STARTED:
 		case pfs.CommitState_READY:
 			for _, branch := range commitInfo.DirectProvenance {
 				if _, err := d.inspectCommit(ctx, branch.NewCommit(commit.ID), pfs.CommitState_FINISHED); err != nil {
 					return nil, err
 				}
 			}
-		case pfs.CommitState_FINISHED:
-			// Watch the CommitInfo until the commit has been finished
+		case pfs.CommitState_FINISHING, pfs.CommitState_FINISHED:
 			if err := d.commits.ReadOnly(ctx).WatchOneF(commit, func(ev *watch.Event) error {
 				if ev.Type == watch.EventDelete {
 					return pfsserver.ErrCommitDeleted{Commit: commit}
 				}
-
 				var key string
 				newCommitInfo := &pfs.CommitInfo{}
 				if err := ev.Unmarshal(&key, newCommitInfo); err != nil {
 					return errors.Wrapf(err, "unmarshal")
 				}
-				if newCommitInfo.Finished != nil {
-					commitInfo = newCommitInfo
-					return errutil.ErrBreak
+				switch wait {
+				case pfs.CommitState_FINISHING:
+					if newCommitInfo.Finishing != nil {
+						commitInfo = newCommitInfo
+						return errutil.ErrBreak
+					}
+				case pfs.CommitState_FINISHED:
+					if newCommitInfo.Finished != nil {
+						commitInfo = newCommitInfo
+						return errutil.ErrBreak
+					}
 				}
 				return nil
 			}); err != nil {
 				return nil, errors.EnsureStack(err)
 			}
-		case pfs.CommitState_STARTED:
-			// Do nothing
 		}
 	}
 
@@ -2134,14 +2137,7 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
 	var repos, deleted []*pfs.Repo
 
-	var projectFilter = make(map[string]bool)
-	for _, project := range projects {
-		if project.Name == "" {
-			return nil, status.Error(codes.InvalidArgument, "empty project name")
-		}
-		projectFilter[project.Name] = true
-	}
-	if err := d.listRepo(ctx, false, "", projectFilter, func(repoInfo *pfs.RepoInfo) error {
+	if err := d.listRepo(ctx, false, "", projects, func(repoInfo *pfs.RepoInfo) error {
 		repos = append(repos, repoInfo.Repo)
 		return nil
 	}); err != nil {
@@ -2311,7 +2307,7 @@ func getOrCreateKey(ctx context.Context, keyStore chunk.KeyStore, name string) (
 	if _, err := rand.Read(secret); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	log.Infof("generated new secret: %q", name)
+	log.Info(ctx, "generated new secret", zap.String("name", name))
 	if err := keyStore.Create(ctx, name, secret); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
