@@ -148,7 +148,7 @@ func LinkOriginBranch(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit, b
 		return err
 	}
 	stmt := `INSERT INTO pfs.commits_origin_branches(commit_int_id, branch, repo, project)
-                 VALUES ($1, $2, $3 $4);`
+                 VALUES ($1, $2, $3, $4);`
 	_, err = tx.ExecContext(ctx, stmt, commitIntId, branch.Name, branch.Repo.Name, branch.Repo.Project.Name)
 	return errors.EnsureStack(err)
 }
