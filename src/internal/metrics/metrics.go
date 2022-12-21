@@ -46,7 +46,7 @@ func NewReporter(env serviceenv.ServiceEnv) *Reporter {
 		clusterID: env.ClusterID(),
 		env:       env,
 	}
-	go reporter.reportClusterMetrics()
+	go reporter.reportClusterMetrics(env.Context())
 	return reporter
 }
 
@@ -145,9 +145,15 @@ func FinishReportAndFlushUserAction(action string, err error, start time.Time) f
 	return wait
 }
 
-func (r *Reporter) reportClusterMetrics() {
+func (r *Reporter) reportClusterMetrics(ctx context.Context) {
+	ticker := time.NewTicker(reportingInterval)
+	defer ticker.Stop()
 	for {
-		time.Sleep(reportingInterval)
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 		metrics := &Metrics{}
 		r.internalMetrics(metrics)
 		externalMetrics(r.env.GetKubeClient(), metrics) //nolint:errcheck

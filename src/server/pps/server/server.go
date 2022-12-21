@@ -76,7 +76,7 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 	}
 	apiServer := (srv).(*apiServer)
 	if env.Config.EnablePreflightChecks {
-		apiServer.validateKube(pctx.Child(apiServer.env.BackgroundContext, "validateKube"))
+		apiServer.validateKube(env.BackgroundContext)
 	} else {
 		log.Error(env.BackgroundContext, "Preflight checks are disabled. This is not recommended.")
 	}

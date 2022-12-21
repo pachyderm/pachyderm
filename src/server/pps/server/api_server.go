@@ -39,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsload"
@@ -278,6 +279,7 @@ func validateTransform(transform *pps.Transform) error {
 }
 
 func (a *apiServer) validateKube(ctx context.Context) {
+	ctx = pctx.Child(ctx, "validateKube")
 	errors := false
 	kubeClient := a.env.KubeClient
 
