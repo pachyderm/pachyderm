@@ -3,6 +3,7 @@
 set -e
 
 version=$1
+stable=$3
 
 echo "--- Updating homebrew formula to use binaries at version $version"
 BRANCH=master
@@ -20,6 +21,10 @@ pushd homebrew-tap
     git checkout -b "$BRANCH" || git checkout "$BRANCH"
     VERSION=$version ./update-formula.sh
     git add "pachctl@$MAJOR_MINOR.rb"
+    if [[ $stable ]]; then
+        cp "pachctl@$MAJOR_MINOR.rb" pachctl.rb
+        git add pachctl.rb
+    fi;
     git commit -a -m "[Automated] Update formula to release version $version"
     git pull origin "$BRANCH" || true
     git push origin "$BRANCH"
