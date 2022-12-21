@@ -27,7 +27,7 @@ const (
 	// BranchHeader is the header for branches.
 	BranchHeader = "BRANCH\tHEAD\tTRIGGER\t\n"
 	// ProjectHeader is the header for the projects.
-	ProjectHeader = "PROJECT\tDESCRIPTION\t\n"
+	ProjectHeader = "ACTIVE\tPROJECT\tDESCRIPTION\t\n"
 	// FileHeader is the header for files.
 	FileHeader = "NAME\tTYPE\tSIZE\t\n"
 	// FileHeaderWithCommit is the header for files that includes a commit field.
@@ -130,8 +130,11 @@ func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
 }
 
 // PrintProjectInfo pretty-prints a project.
-func PrintProjectInfo(w io.Writer, projectInfo *pfs.ProjectInfo) {
-	fmt.Fprintf(w, "%s\t", projectInfo.Project.Name)
+func PrintProjectInfo(w io.Writer, projectInfo *pfs.ProjectInfo, currentProject *pfs.Project) {
+	if projectInfo.Project.Name == currentProject.Name {
+		fmt.Fprint(w, "*")
+	}
+	fmt.Fprintf(w, "\t%s\t", projectInfo.Project.Name)
 	if projectInfo.Description != "" {
 		fmt.Fprintf(w, "%s", projectInfo.Description)
 	} else {
