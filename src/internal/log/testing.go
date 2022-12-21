@@ -18,7 +18,8 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-// Test returns a new Context appropriate for use in tests.
+// Test returns a new Context appropriate for use in tests.  Unless you are for some reason reliant
+// upon the global logger, use pctx.TestContext(t).
 func Test(t testing.TB, opts ...zaptest.LoggerOption) context.Context {
 	l := zaptest.NewLogger(t, opts...)
 	t.Cleanup(zap.ReplaceGlobals(l))
@@ -28,7 +29,8 @@ func Test(t testing.TB, opts ...zaptest.LoggerOption) context.Context {
 }
 
 // Test returns a new Context appropriate for use in parallel tests, at the cost of not logging
-// messages sent to the global logger.
+// messages sent to the global logger.  This function is only public so that pctx.TestContext(t) can
+// call it, and you should use that.
 func TestParallel(t testing.TB, opts ...zaptest.LoggerOption) context.Context {
 	lvl := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	opts = append(opts,

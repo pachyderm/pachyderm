@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/server/identityutil"
 
@@ -34,7 +35,7 @@ func TestConnectorCreateListGetDelete(t *testing.T) {
 		},
 	}
 
-	ctx := log.Test(t)
+	ctx := pctx.TestContext(t)
 	logger := log.NewLogrus(ctx)
 	api := newDexAPI(dex_memory.New(logger))
 
@@ -115,7 +116,7 @@ func TestCreateConnector(t *testing.T) {
 		},
 	}
 
-	ctx := log.Test(t)
+	ctx := pctx.TestContext(t)
 	logger := log.NewLogrus(ctx)
 	api := newDexAPI(dex_memory.New(logger))
 
@@ -205,7 +206,7 @@ func TestCreateInvalidConnector(t *testing.T) {
 		},
 	}
 
-	ctx := log.Test(t)
+	ctx := pctx.TestContext(t)
 	logger := log.NewLogrus(ctx)
 	api := newDexAPI(dex_memory.New(logger))
 
@@ -358,7 +359,7 @@ func TestUpdateConnector(t *testing.T) {
 		},
 	}
 
-	ctx := log.Test(t)
+	ctx := pctx.TestContext(t)
 	logger := log.NewLogrus(ctx)
 	api := newDexAPI(dex_memory.New(logger))
 
@@ -399,7 +400,7 @@ func TestClientCreateListGetDelete(t *testing.T) {
 		RedirectUris: []string{"http://example.com/2"},
 	}
 
-	ctx := log.Test(t)
+	ctx := pctx.TestContext(t)
 	logger := log.NewLogrus(ctx)
 	api := newDexAPI(dex_memory.New(logger))
 
@@ -458,7 +459,7 @@ func TestCreateInvalidClient(t *testing.T) {
 		},
 	}
 
-	ctx := log.Test(t)
+	ctx := pctx.TestContext(t)
 	logger := log.NewLogrus(ctx)
 	api := newDexAPI(dex_memory.New(logger))
 
@@ -548,7 +549,7 @@ func TestUpdateClient(t *testing.T) {
 		},
 	}
 
-	ctx := log.Test(t)
+	ctx := pctx.TestContext(t)
 	logger := log.NewLogrus(ctx)
 	api := newDexAPI(dex_memory.New(logger))
 

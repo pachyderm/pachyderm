@@ -17,7 +17,7 @@ import (
 )
 
 func TestRetry(t *testing.T) {
-	ctx := log.Test(t)
+	ctx := pctx.TestContext(t)
 	const successOn = 3
 	var i = 0
 

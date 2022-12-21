@@ -36,7 +36,7 @@ func TestPortForwardError(t *testing.T) {
 // 'CreateAlias' was not used properly (or the command just needs to specify
 // its name).
 func TestCommandAliases(t *testing.T) {
-	log.Test(t)
+	log.Test(t) // Just to capture global log messages; prefer pctx.TestContext in newer code.
 	pachctlCmd, err := PachctlCmd()
 	if err != nil {
 		t.Fatal(err)
