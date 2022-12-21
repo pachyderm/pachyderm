@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -32,6 +33,8 @@ type TransactionContext struct {
 	// PpsJobStopper stops Jobs in any pipelines that are associated with a removed commitset
 	PpsJobStopper  PpsJobStopper
 	PpsJobFinisher PpsJobFinisher
+
+	ctx context.Context
 }
 
 type identifier interface {
@@ -58,11 +61,19 @@ func New(ctx context.Context, sqlTx *pachsql.Tx, authServer identifier) (*Transa
 		return nil, errors.Wrapf(err, "error getting transaction timestamp")
 	}
 	return &TransactionContext{
+		ctx:         ctx, // TODO(jonathan): Refactor this API to not capture a context.
 		SqlTx:       sqlTx,
 		CommitSetID: uuid.NewWithoutDashes(),
 		Timestamp:   ts,
 		username:    username,
 	}, nil
+}
+
+func (t *TransactionContext) Context() context.Context {
+	if t.ctx == nil {
+		return pctx.TODO()
+	}
+	return t.ctx
 }
 
 func (t *TransactionContext) WhoAmI() (*auth.WhoAmIResponse, error) {

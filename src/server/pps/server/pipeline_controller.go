@@ -12,6 +12,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -20,9 +22,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/task"
 	"github.com/pachyderm/pachyderm/v2/src/version"
+	"go.uber.org/zap"
 
 	opentracing "github.com/opentracing/opentracing-go"
-	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -239,7 +241,7 @@ var (
 
 func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.CancelFunc, pipeline *pps.Pipeline) *pipelineController {
 	pc := &pipelineController{
-		ctx:    ctx,
+		ctx:    pctx.Child(m.masterCtx, fmt.Sprintf("pipelineController(%s)", pipeline.String()), pctx.WithFields(zap.Stringer("pipeline", pipeline))),
 		cancel: cancel,
 		// pipeline name is recorded separately in the case we are running a delete operation and pipelineInfo isn't available in the DB
 		pipeline:        pipeline,
@@ -287,7 +289,7 @@ func (pc *pipelineController) Start(timestamp time.Time) {
 		case ts := <-pc.bumpChan:
 			// pc.step returns true if the pipeline was deleted, and the controller can try to shutdown
 			if isDelete, err := pc.step(ts); err != nil {
-				log.Errorf("PPS master: failed to run step for pipeline %s: %v", pc.pipeline, err)
+				log.Error(pc.ctx, "failed to run step", zap.Error(err))
 			} else if isDelete {
 				pc.tryFinish()
 			}
@@ -315,7 +317,7 @@ func (pc *pipelineController) tryFinish() {
 //
 // returns true if the pipeline is deleted, and the pipelineController can try to shutdown
 func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr error) {
-	log.Debugf("PPS master: processing event for %q", pc.pipeline)
+	log.Debug(pc.ctx, "processing event")
 	// Handle tracing
 	span, _ := extended.AddSpanToAnyPipelineTrace(pc.ctx, pc.env.EtcdClient, pc.pipeline, "/pps.Master/ProcessPipelineUpdate")
 	if !timestamp.IsZero() {
@@ -328,12 +330,12 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 	pi, ctx, err := pc.psDriver.FetchState(pc.ctx, pc.pipeline)
 	if err != nil {
 		// if we fail to create a new step, there was an error querying the pipeline info, and there's nothing we can do
-		log.Errorf("PPS master: failed to set up step data to handle event for pipeline '%s': %v", pc.pipeline, errors.Wrapf(err, "failing pipeline %q", pc.pipeline))
-		return false, errors.EnsureStack(err)
+		log.Error(pc.ctx, "failed to set up step data to handle event for pipeline", zap.Error(err))
+		return false, errors.Wrapf(err, "failing pipeline %q", pc.pipeline)
 	} else if pi == nil {
 		// interpret the event as a delete operation
 		if err := pc.deletePipelineResources(); err != nil {
-			log.Errorf("PPS master: error deleting pipelineController resources for pipeline '%s': %v", pc.pipeline, err)
+			log.Error(pc.ctx, "error deleting pipelineController resources for pipeline", zap.Error(err))
 			return true, errors.Wrapf(err, "error deleting pipelineController resources for pipeline '%s'", pc.pipeline)
 		}
 		return true, nil
@@ -363,8 +365,7 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 		errCount++
 		if errors.As(err, &stepErr) {
 			if stepErr.retry && errCount < maxErrCount {
-				log.Errorf("PPS master: error updating resources for pipeline %q: %v; retrying in %v",
-					pc.pipeline, err, d)
+				log.Error(pc.ctx, "error updating resources", zap.Error(err), zap.Duration("retryAfter", d))
 				return nil
 			}
 		}
@@ -377,8 +378,8 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 			fmt.Sprintf("could not update resources after %d attempts: %v", errCount, err),
 		)
 		if failError != nil {
-			log.Errorf("PPS master: error failing pipeline '%s' after step error (%v): %v", pc.pipeline, stepErr, failError)
-			return false, errors.Wrapf(failError, "error failing pipeline %q  after step error (%v)", pc.pipeline, stepErr)
+			log.Error(pc.ctx, "error failing pipeline after step error", zap.NamedError("stepError", stepErr), zap.NamedError("failError", failError))
+			return false, errors.Wrapf(failError, "error failing pipeline %q after step error (%v)", pc.pipeline, stepErr)
 		}
 	}
 	return false, err
@@ -483,9 +484,9 @@ func (pc *pipelineController) apply(ctx context.Context, pi *pps.PipelineInfo, r
 // rcIsFresh returns a boolean indicating whether rc has the right labels
 // corresponding to pipelineInfo. If this returns false, it likely means the
 // current RC is using e.g. an old spec commit or something.
-func rcIsFresh(pi *pps.PipelineInfo, rc *v1.ReplicationController) bool {
+func rcIsFresh(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationController) bool {
 	if rc == nil {
-		log.Errorf("PPS master: RC for %q is nil", pi.Pipeline)
+		log.Error(ctx, "RC is nil")
 		return false
 	}
 	expectedName := ppsutil.PipelineRcName(pi)
@@ -497,23 +498,19 @@ func rcIsFresh(pi *pps.PipelineInfo, rc *v1.ReplicationController) bool {
 	rcSpecCommit := rc.ObjectMeta.Annotations[pipelineSpecCommitAnnotation]
 	switch {
 	case rcPipelineVersion != strconv.FormatUint(pi.Version, 10):
-		log.Infof("PPS master: pipeline version in %q looks stale %s != %d",
-			pi.Pipeline, rcPipelineVersion, pi.Version)
+		log.Info(ctx, "pipeline version looks stale", zap.String("old", rcPipelineVersion), zap.Uint64("new", pi.Version))
 		return false
 	case rcSpecCommit != pi.SpecCommit.ID:
-		log.Infof("PPS master: pipeline spec commit in %q looks stale %s != %s",
-			pi.Pipeline, rcSpecCommit, pi.SpecCommit.ID)
+		log.Info(ctx, "pipeline spec commit looks stale", zap.String("old", rcSpecCommit), zap.String("new", pi.SpecCommit.ID))
 		return false
 	case rcPachVersion != version.PrettyVersion():
-		log.Infof("PPS master: %q is using stale pachd v%s != current v%s",
-			pi.Pipeline, rcPachVersion, version.PrettyVersion())
+		log.Info(ctx, "pipeline is using stale pachd", zap.String("old", rcPachVersion), zap.String("new", version.PrettyVersion()))
 		return false
 	case rcName != expectedName:
-		log.Infof("PPS master: %q has an unexpected (likely stale) name %q != %q",
-			pi.Pipeline, rcName, expectedName)
+		log.Info(ctx, "pipeline has an unexpected (likely stale) name", zap.String("old", rcName), zap.String("new", expectedName))
+		return false
 	case rcAuthTokenHash != hashAuthToken(pi.AuthToken):
-		log.Infof("PPS master: auth token in %q is stale %s != %s",
-			pi.Pipeline, rcAuthTokenHash, hashAuthToken(pi.AuthToken))
+		log.Info(ctx, "pipeline auth token is stale", zap.String("old", rcAuthTokenHash), zap.String("new", hashAuthToken(pi.AuthToken)))
 		return false
 	}
 	return true
@@ -562,7 +559,7 @@ func (pc *pipelineController) stopCrashingPipelineMonitor() {
 // event. This pipeline's output commits will stay open until another watch
 // event arrives for the pipeline and finishPipelineOutputCommits is retried.
 func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context, pi *pps.PipelineInfo) (retErr error) {
-	log.Infof("PPS master: finishing output commits for pipeline %q", pi.Pipeline)
+	log.Info(ctx, "finishing output commits")
 	pachClient := pc.env.GetPachClient(ctx)
 	if span, _ctx := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/FinishPipelineOutputCommits", "pipeline", pi.Pipeline); span != nil {
@@ -587,12 +584,12 @@ func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context, p
 // scaleUpPipeline edits the RC associated with pc's pipeline & spins up the
 // configured number of workers.
 func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.PipelineInfo, oldRC *v1.ReplicationController) (retErr error) {
-	log.Debugf("PPS master: ensuring correct k8s resources for %q", pi.Pipeline.Name)
+	log.Debug(ctx, "ensuring correct k8s resources")
 	span, _ := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/ScaleUpPipeline", "project", pi.Pipeline.Project, "pipeline", pi.Pipeline.Name)
 	defer func() {
 		if retErr != nil {
-			log.Errorf("PPS master: error scaling up: %v", retErr)
+			log.Info(ctx, "PPS master: error scaling up", zap.Error(retErr))
 		}
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
@@ -626,18 +623,13 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 				return nil
 			})
 			// Set parallelism
-			log.Debugf("PPS master: beginning scale-up check for %q, which has %d tasks and %d workers",
-				pi.Pipeline.Name, nTasks, curScale)
+			log.Debug(ctx, "beginning scale-up check", zap.Int32("currentTasks", nTasks), zap.Int32("currentScale", curScale))
 			switch {
 			case err != nil || nTasks == 0:
-				if err == nil {
-					log.Infof("PPS master: tasks remaining for %q not known (possibly still being calculated)",
-						pi.Pipeline.Name)
-				} else {
-					log.Errorf("PPS master: tasks remaining for %q not known (possibly still being calculated): %v", pi.Pipeline.Name, err)
-				}
+				log.Info(ctx, "tasks remaining not known, possibly still being calculated", zap.Error(err))
 				return curScale // leave pipeline alone until until nTasks is available
 			case nTasks <= curScale:
+				log.Debug(ctx, "can't scale down without dropping work")
 				return curScale // can't scale down w/o dropping work
 			case nTasks <= maxScale:
 				return nTasks
@@ -662,11 +654,11 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 			}()
 		}
 		if curScale == targetScale {
-			log.Debugf("PPS master: pipeline %q is at desired scale", pi.GetPipeline().GetName())
+			log.Debug(ctx, "pipeline is at desired scale", zap.Int32("scale", curScale))
 			return false // no changes necessary
 		}
 		// Update the # of replicas
-		log.Debugf("PPS master: scale pipeline %q from %d to %d replicas", pi.GetPipeline().GetName(), curScale, targetScale)
+		log.Debug(ctx, "pipeline scaling", zap.Int32("currentScale", curScale), zap.Int32("targetScale", targetScale))
 		rc.Spec.Replicas = &targetScale
 		return true
 	}))
@@ -675,12 +667,12 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 // scaleDownPipeline edits the RC associated with pc's pipeline & spins down the
 // configured number of workers.
 func (pc *pipelineController) scaleDownPipeline(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationController) (retErr error) {
-	log.Debugf("PPS master: scaling down workers for %q", pi.Pipeline)
+	log.Debug(ctx, "scaling down workers")
 	span, _ := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/ScaleDownPipeline", "project", pi.Pipeline.Project, "pipeline", pi.Pipeline.Name)
 	defer func() {
 		if retErr != nil {
-			log.Errorf("PPS master: error scaling down: %v", retErr)
+			log.Info(ctx, "error scaling down", zap.Error(retErr))
 		}
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
@@ -689,7 +681,7 @@ func (pc *pipelineController) scaleDownPipeline(ctx context.Context, pi *pps.Pip
 		if rc.Spec.Replicas != nil && *rc.Spec.Replicas == 0 {
 			return false // prior attempt succeeded
 		}
-		log.Debugf("PPS master: scale down pipline %q to 0 replicas", pi.GetPipeline().GetName())
+		log.Debug(ctx, "scale down pipeline to 0 replicas")
 		rc.Spec.Replicas = &zero
 		return true
 	}))
@@ -701,7 +693,7 @@ func (pc *pipelineController) scaleDownPipeline(ctx context.Context, pi *pps.Pip
 // loop deleting and recreating pc's RC if the cluster was busy and
 // the RC was taking too long to start.
 func (pc *pipelineController) restartPipeline(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationController) error {
-	if rc != nil && !rcIsFresh(pi, rc) {
+	if rc != nil && !rcIsFresh(ctx, pi, rc) {
 		// delete old RC, monitorPipeline goro, and worker service
 		if err := pc.deletePipelineResources(); err != nil {
 			return newRetriableError(err, "error deleting resources for restart")
@@ -755,12 +747,12 @@ func (pc *pipelineController) getRC(ctx context.Context, pi *pps.PipelineInfo) (
 			// select stale RC if possible, so that we delete it in restartPipeline
 			for i := range rcs.Items {
 				rc = &rcs.Items[i]
-				if !rcIsFresh(pi, rc) {
+				if !rcIsFresh(ctx, pi, rc) {
 					break
 				}
 			}
 			return errTooManyRCs
-		case !rcIsFresh(pi, rc):
+		case !rcIsFresh(ctx, pi, rc):
 			return errStaleRC
 		default:
 			return nil
@@ -788,7 +780,7 @@ func (pc *pipelineController) getRC(ctx context.Context, pi *pps.PipelineInfo) (
 			}
 			return err //return whatever the most recent error was
 		}
-		log.Warnf("PPS master: error retrieving RC for %q: %v; retrying in %v", pc.pipeline, err, d)
+		log.Info(ctx, "error retrieving RC; retrying", zap.Error(err), zap.Duration("retryAfter", d))
 		return nil
 	})
 	return rc, restart, err

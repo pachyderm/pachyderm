@@ -6,8 +6,9 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 var _ Client = &uniformClient{}
@@ -62,7 +63,7 @@ func (uc *uniformClient) Exists(ctx context.Context, p string) (_ bool, retErr e
 	}()
 	exists, err := uc.c.Exists(ctx, p)
 	if pacherr.IsNotExist(err) {
-		logrus.Warn("obj.Client Exists returned not exist error")
+		log.Info(ctx, "obj.Client Exists returned not exist error", zap.Error(err))
 		exists = false
 		err = nil
 	}

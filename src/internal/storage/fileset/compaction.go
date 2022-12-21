@@ -2,16 +2,16 @@ package fileset
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"time"
 
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -91,10 +91,10 @@ func (s *Storage) Compact(ctx context.Context, ids []ID, ttl time.Duration, opts
 }
 
 // CompactCallback is the standard callback signature for a compaction operation.
-type CompactCallback func(context.Context, *log.Entry, []ID, time.Duration) (*ID, error)
+type CompactCallback func(context.Context, []ID, time.Duration) (*ID, error)
 
 // CompactLevelBased performs a level-based compaction on the passed in file sets.
-func (s *Storage) CompactLevelBased(ctx context.Context, logger *log.Entry, ids []ID, maxFanIn int, ttl time.Duration, compact CompactCallback) (*ID, error) {
+func (s *Storage) CompactLevelBased(ctx context.Context, ids []ID, maxFanIn int, ttl time.Duration, compact CompactCallback) (*ID, error) {
 	ids, err := s.Flatten(ctx, ids)
 	if err != nil {
 		return nil, err
@@ -109,16 +109,16 @@ func (s *Storage) CompactLevelBased(ctx context.Context, logger *log.Entry, ids 
 	var id *ID
 	if err := s.WithRenewer(ctx, ttl, func(ctx context.Context, renewer *Renewer) error {
 		i := indexOfCompacted(s.compactionConfig.LevelFactor, prims)
-		if err := miscutil.LogStep(ctx, logger, fmt.Sprintf("compacting %v levels out of %v", len(ids)-i, len(ids)), func() error {
-			id, err = s.compactLevels(ctx, logger, ids[i:], maxFanIn, ttl, compact)
+		if err := log.LogStep(ctx, "compactLevels", func(ctx context.Context) error {
+			id, err = s.compactLevels(ctx, ids[i:], maxFanIn, ttl, compact)
 			if err != nil {
 				return err
 			}
 			return renewer.Add(ctx, *id)
-		}); err != nil {
+		}, zap.Int("indexOfCompacted", i), zap.Int("ids", len(ids))); err != nil {
 			return err
 		}
-		id, err = s.CompactLevelBased(ctx, logger, append(ids[:i], *id), maxFanIn, ttl, compact)
+		id, err = s.CompactLevelBased(ctx, append(ids[:i], *id), maxFanIn, ttl, compact)
 		return err
 	}); err != nil {
 		return nil, err
@@ -133,11 +133,11 @@ func (s *Storage) CompactLevelBased(ctx context.Context, logger *log.Entry, ids 
 // For each step, this process is repeated until there are no more ranges eligible for compaction in the step.
 // The file sets being compacted must be contiguous because the file operation order matters.
 // This algorithm ensures that we compact file sets with lower scores together first before compacting higher score file sets.
-func (s *Storage) compactLevels(ctx context.Context, logger *log.Entry, ids []ID, maxFanIn int, ttl time.Duration, compact CompactCallback) (*ID, error) {
+func (s *Storage) compactLevels(ctx context.Context, ids []ID, maxFanIn int, ttl time.Duration, compact CompactCallback) (*ID, error) {
 	var id *ID
 	if err := s.WithRenewer(ctx, ttl, func(ctx context.Context, renewer *Renewer) error {
 		for step := 0; len(ids) > maxFanIn; step++ {
-			if err := miscutil.LogStep(ctx, logger, fmt.Sprintf("processing step %v", step), func() error {
+			if err := log.LogStep(ctx, "compactLevels.step", func(ctx context.Context) error {
 				stepScore := s.stepScore(step)
 				var emptyStep bool
 				for !emptyStep {
@@ -162,11 +162,8 @@ func (s *Storage) compactLevels(ctx context.Context, logger *log.Entry, ids []ID
 							i := len(nextIds)
 							nextIds = append(nextIds, ID{})
 							eg.Go(func() error {
-								logger := logger.WithFields(log.Fields{
-									"batch": uuid.NewWithoutDashes(),
-								})
-								return miscutil.LogStep(ctx, logger, "compacting batch", func() error {
-									id, err := compact(ctx, logger, ids, ttl)
+								return log.LogStep(ctx, "compactBatch", func(ctx context.Context) error {
+									id, err := compact(ctx, ids, ttl)
 									if err != nil {
 										return err
 									}
@@ -175,7 +172,7 @@ func (s *Storage) compactLevels(ctx context.Context, logger *log.Entry, ids []ID
 									}
 									nextIds[i] = *id
 									return nil
-								})
+								}, zap.String("batch", uuid.NewWithoutDashes()))
 							})
 							compactIds = nil
 						}
@@ -187,7 +184,7 @@ func (s *Storage) compactLevels(ctx context.Context, logger *log.Entry, ids []ID
 					ids = nextIds
 				}
 				return nil
-			}); err != nil {
+			}, zap.Int("step", step)); err != nil {
 				return err
 			}
 		}
@@ -195,11 +192,8 @@ func (s *Storage) compactLevels(ctx context.Context, logger *log.Entry, ids []ID
 			id = &ids[0]
 			return nil
 		}
-		logger = logger.WithFields(log.Fields{
-			"batch": uuid.NewWithoutDashes(),
-		})
 		var err error
-		id, err = compact(ctx, logger, ids, ttl)
+		id, err = compact(pctx.Child(ctx, "compact", pctx.WithFields(zap.String("batch", uuid.NewWithoutDashes()))), ids, ttl)
 		return err
 	}); err != nil {
 		return nil, err

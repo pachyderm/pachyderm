@@ -6,9 +6,11 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
@@ -16,7 +18,6 @@ import (
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsiface "github.com/pachyderm/pachyderm/v2/src/server/pps"
-	logrus "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 	"k8s.io/client-go/kubernetes"
 )
@@ -42,7 +43,6 @@ type Env struct {
 
 	Reporter          *metrics.Reporter
 	BackgroundContext context.Context
-	Logger            *logrus.Logger
 	Config            serviceenv.Configuration
 }
 
@@ -63,8 +63,7 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv
 		GetPachClient: senv.GetPachClient,
 
 		Reporter:          reporter,
-		BackgroundContext: context.Background(),
-		Logger:            senv.Logger(),
+		BackgroundContext: pctx.Child(senv.Context(), "PPS"),
 		Config:            *senv.Config(),
 	}
 }
@@ -77,12 +76,12 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 	}
 	apiServer := (srv).(*apiServer)
 	if env.Config.EnablePreflightChecks {
-		apiServer.validateKube(apiServer.env.BackgroundContext)
+		apiServer.validateKube(pctx.Child(apiServer.env.BackgroundContext, "validateKube"))
 	} else {
-		logrus.Warning("Preflight checks are disabled. This is not recommended.")
+		log.Error(env.BackgroundContext, "Preflight checks are disabled. This is not recommended.")
 	}
-	go apiServer.master()
-	go apiServer.worker()
+	go apiServer.master(env.BackgroundContext)
+	go apiServer.worker(env.BackgroundContext)
 	return apiServer, nil
 }
 
@@ -135,6 +134,6 @@ func NewSidecarAPIServer(
 		workerGrpcPort: workerGrpcPort,
 		peerPort:       peerPort,
 	}
-	go apiServer.ServeSidecarS3G()
+	go apiServer.ServeSidecarS3G(pctx.Child(env.BackgroundContext, "s3gateway", pctx.WithServerID()))
 	return apiServer, nil
 }

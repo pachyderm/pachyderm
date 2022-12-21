@@ -12,9 +12,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/sirupsen/logrus"
-	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -27,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -65,7 +65,7 @@ type CommitStream interface {
 
 type driver struct {
 	env Env
-	log *logrus.Logger
+
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
 	txnEnv     *txnenv.TransactionEnv
@@ -109,7 +109,6 @@ func newDriver(env Env) (*driver, error) {
 		commits:    commits,
 		branches:   branches,
 		projects:   projects,
-		log:        env.Logger,
 	}
 	// Setup tracker and chunk / fileset storage.
 	tracker := track.NewPostgresTracker(env.DB)
@@ -571,7 +570,7 @@ func (d *driver) startCommit(
 	if ok1 && ok2 {
 		specBranch := client.NewSystemProjectRepo(branch.Repo.Project.GetName(), spoutName, pfs.SpecRepoType).NewBranch("master")
 		specCommit := specBranch.NewCommit(spoutCommit)
-		log.Infof("Adding spout spec commit to current commitset: %s", specCommit)
+		log.Info(txnCtx.Context(), "Adding spout spec commit to current commitset", log.Proto("specCommit", specCommit))
 		if _, err := d.aliasCommit(txnCtx, specCommit, specBranch); err != nil {
 			return nil, err
 		}
@@ -2303,7 +2302,7 @@ func getOrCreateKey(ctx context.Context, keyStore chunk.KeyStore, name string) (
 	if _, err := rand.Read(secret); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	log.Infof("generated new secret: %q", name)
+	log.Info(ctx, "generated new secret", zap.String("name", name))
 	if err := keyStore.Create(ctx, name, secret); err != nil {
 		return nil, errors.EnsureStack(err)
 	}

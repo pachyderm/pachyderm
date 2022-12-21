@@ -10,14 +10,15 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
-func write(tb testing.TB, chunks *chunk.Storage, fileNames []string) *Index {
-	iw := NewWriter(context.Background(), chunks, "test")
+func write(ctx context.Context, tb testing.TB, chunks *chunk.Storage, fileNames []string) *Index {
+	iw := NewWriter(pctx.Child(ctx, "write"), chunks, "test")
 	for _, fileName := range fileNames {
 		idx := &Index{
 			Path: fileName,
@@ -30,10 +31,10 @@ func write(tb testing.TB, chunks *chunk.Storage, fileNames []string) *Index {
 	return topIdx
 }
 
-func actualFiles(tb testing.TB, chunks *chunk.Storage, cache *Cache, topIdx *Index, opts ...Option) []string {
+func actualFiles(ctx context.Context, tb testing.TB, chunks *chunk.Storage, cache *Cache, topIdx *Index, opts ...Option) []string {
 	ir := NewReader(chunks, cache, topIdx, opts...)
 	result := []string{}
-	require.NoError(tb, ir.Iterate(context.Background(), func(idx *Index) error {
+	require.NoError(tb, ir.Iterate(pctx.Child(ctx, "actualFiles"), func(idx *Index) error {
 		result = append(result, idx.Path)
 		return nil
 	}))
@@ -58,63 +59,64 @@ func pathRange(fileNames []string) *PathRange {
 }
 
 func Check(t *testing.T, permString string) {
+	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
-	_, chunks := chunk.NewTestStorage(t, db, tr)
+	_, chunks := chunk.NewTestStorage(ctx, t, db, tr)
 	cache := NewCache(chunks, 5)
 	fileNames := Generate(permString)
-	topIdx := write(t, chunks, fileNames)
+	topIdx := write(ctx, t, chunks, fileNames)
 	t.Run("Full", func(t *testing.T) {
 		expected := fileNames
-		actual := actualFiles(t, chunks, cache, topIdx)
+		actual := actualFiles(ctx, t, chunks, cache, topIdx)
 		require.Equal(t, expected, actual)
 	})
 	t.Run("FirstFile", func(t *testing.T) {
 		prefix := fileNames[0]
 		expected := []string{prefix}
-		actual := actualFiles(t, chunks, cache, topIdx, WithPrefix(prefix))
+		actual := actualFiles(ctx, t, chunks, cache, topIdx, WithPrefix(prefix))
 		require.Equal(t, expected, actual)
-		actual = actualFiles(t, chunks, cache, topIdx, WithRange(pathRange(expected)))
+		actual = actualFiles(ctx, t, chunks, cache, topIdx, WithRange(pathRange(expected)))
 		require.Equal(t, expected, actual)
 	})
 	t.Run("FirstRange", func(t *testing.T) {
 		prefix := string(fileNames[0][0])
 		expected := expectedFiles(fileNames, prefix)
-		actual := actualFiles(t, chunks, cache, topIdx, WithPrefix(prefix))
+		actual := actualFiles(ctx, t, chunks, cache, topIdx, WithPrefix(prefix))
 		require.Equal(t, expected, actual)
-		actual = actualFiles(t, chunks, cache, topIdx, WithRange(pathRange(expected)))
+		actual = actualFiles(ctx, t, chunks, cache, topIdx, WithRange(pathRange(expected)))
 		require.Equal(t, expected, actual)
 	})
 	t.Run("MiddleFile", func(t *testing.T) {
 		prefix := fileNames[len(fileNames)/2]
 		expected := []string{prefix}
-		actual := actualFiles(t, chunks, cache, topIdx, WithPrefix(prefix))
+		actual := actualFiles(ctx, t, chunks, cache, topIdx, WithPrefix(prefix))
 		require.Equal(t, expected, actual)
-		actual = actualFiles(t, chunks, cache, topIdx, WithRange(pathRange(expected)))
+		actual = actualFiles(ctx, t, chunks, cache, topIdx, WithRange(pathRange(expected)))
 		require.Equal(t, expected, actual)
 	})
 	t.Run("MiddleRange", func(t *testing.T) {
 		prefix := string(fileNames[len(fileNames)/2][0])
 		expected := expectedFiles(fileNames, prefix)
-		actual := actualFiles(t, chunks, cache, topIdx, WithPrefix(prefix))
+		actual := actualFiles(ctx, t, chunks, cache, topIdx, WithPrefix(prefix))
 		require.Equal(t, expected, actual)
-		actual = actualFiles(t, chunks, cache, topIdx, WithRange(pathRange(expected)))
+		actual = actualFiles(ctx, t, chunks, cache, topIdx, WithRange(pathRange(expected)))
 		require.Equal(t, expected, actual)
 	})
 	t.Run("LastFile", func(t *testing.T) {
 		prefix := fileNames[len(fileNames)-1]
 		expected := []string{prefix}
-		actual := actualFiles(t, chunks, cache, topIdx, WithPrefix(prefix))
+		actual := actualFiles(ctx, t, chunks, cache, topIdx, WithPrefix(prefix))
 		require.Equal(t, expected, actual)
-		actual = actualFiles(t, chunks, cache, topIdx, WithRange(pathRange(expected)))
+		actual = actualFiles(ctx, t, chunks, cache, topIdx, WithRange(pathRange(expected)))
 		require.Equal(t, expected, actual)
 	})
 	t.Run("LastRange", func(t *testing.T) {
 		prefix := string(fileNames[len(fileNames)-1][0])
 		expected := expectedFiles(fileNames, prefix)
-		actual := actualFiles(t, chunks, cache, topIdx, WithPrefix(prefix))
+		actual := actualFiles(ctx, t, chunks, cache, topIdx, WithPrefix(prefix))
 		require.Equal(t, expected, actual)
-		actual = actualFiles(t, chunks, cache, topIdx, WithRange(pathRange(expected)))
+		actual = actualFiles(ctx, t, chunks, cache, topIdx, WithRange(pathRange(expected)))
 		require.Equal(t, expected, actual)
 	})
 }
@@ -128,10 +130,10 @@ func TestMultiLevel(t *testing.T) {
 }
 
 func TestConcatFuzz(t *testing.T) {
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
-	_, chunks := chunk.NewTestStorage(t, db, tr)
+	_, chunks := chunk.NewTestStorage(ctx, t, db, tr)
 	cache := NewCache(chunks, 5)
 	// Create ten file sets and concatenate them into one file set.
 	var topIdxs []*Index
@@ -175,10 +177,10 @@ func TestConcatFuzz(t *testing.T) {
 }
 
 func TestShard(t *testing.T) {
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
-	_, chunks := chunk.NewTestStorage(t, db, tr)
+	_, chunks := chunk.NewTestStorage(ctx, t, db, tr)
 	cache := NewCache(chunks, 5)
 	numFiles := 100000
 	iw := NewWriter(context.Background(), chunks, uuid.NewWithoutDashes())
@@ -213,10 +215,10 @@ func TestShard(t *testing.T) {
 }
 
 func TestShardFuzz(t *testing.T) {
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
-	_, chunks := chunk.NewTestStorage(t, db, tr)
+	_, chunks := chunk.NewTestStorage(ctx, t, db, tr)
 	cache := NewCache(chunks, 5)
 	numFiles := 100000
 	iw := NewWriter(ctx, chunks, uuid.NewWithoutDashes())
@@ -257,12 +259,13 @@ func TestShardFuzz(t *testing.T) {
 }
 
 func BenchmarkMultiLevel(b *testing.B) {
+	ctx := pctx.TestContext(b)
 	db := dockertestenv.NewTestDB(b)
 	tr := track.NewTestTracker(b, db)
-	_, chunks := chunk.NewTestStorage(b, db, tr)
+	_, chunks := chunk.NewTestStorage(ctx, b, db, tr)
 	cache := NewCache(chunks, 5)
 	fileNames := Generate("abcdefgh")
-	topIdx := write(b, chunks, fileNames)
+	topIdx := write(ctx, b, chunks, fileNames)
 	for i := 0; i < b.N; i++ {
 		for _, fileName := range fileNames {
 			ir := NewReader(chunks, cache, topIdx, WithPrefix(fileName))

@@ -50,6 +50,12 @@ func (pachwb *pachwBuilder) registerAuthServer(ctx context.Context) error {
 // buildAndRun builds & starts a pachw-mode pachd.
 func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 	return pachwb.apply(ctx,
+		pachwb.tweakResources,
+		pachwb.setupProfiling,
+		pachwb.printVersion,
+		pachwb.initJaeger,
+		pachwb.initKube,
+		pachwb.setupDB,
 		pachwb.initInternalServer,
 		pachwb.registerAuthServer,
 		pachwb.registerPFSServer, //PFS seems to need a non-nil auth server.

@@ -17,6 +17,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
@@ -26,7 +27,8 @@ import (
 
 func TestIterators(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	taskDoer := createTaskDoer(t, env)
 	c := env.PachClient
 	dataRepo := tu.UniqueString(t.Name() + "_data")
@@ -321,7 +323,8 @@ func createTaskDoer(t *testing.T, env *realenv.RealEnv) task.Doer {
 // the fix for https://github.com/pachyderm/pachyderm/issues/5365
 func TestJoinTrailingSlash(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	taskDoer := createTaskDoer(t, env)
 
 	c := env.PachClient

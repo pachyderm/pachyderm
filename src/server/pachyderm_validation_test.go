@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -20,7 +21,8 @@ import (
 // - Input must have branch and glob
 func TestInvalidCreatePipeline(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	c := env.PachClient
 
 	projectName := tu.UniqueString("prj-")
@@ -69,7 +71,8 @@ func TestInvalidCreatePipeline(t *testing.T) {
 // Make sure that pipeline validation checks that all inputs exist
 func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	c := env.PachClient
 	pipelineName := tu.UniqueString("pipeline")
 	require.YesError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
@@ -89,7 +92,8 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 // Make sure that pipeline validation checks that all inputs exist
 func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	c := env.PachClient
 
 	projectName := tu.UniqueString("prj-")
