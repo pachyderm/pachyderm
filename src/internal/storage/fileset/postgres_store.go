@@ -163,8 +163,7 @@ func SetupPostgresStoreV0(ctx context.Context, tx *pachsql.Tx) error {
 }
 
 // NewTestStore returns a Store scoped to the lifetime of the test.
-func NewTestStore(t testing.TB, db *pachsql.DB) MetadataStore {
-	ctx := context.Background()
+func NewTestStore(ctx context.Context, t testing.TB, db *pachsql.DB) MetadataStore {
 	tx := db.MustBegin()
 	tx.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
 	require.NoError(t, SetupPostgresStoreV0(ctx, tx))

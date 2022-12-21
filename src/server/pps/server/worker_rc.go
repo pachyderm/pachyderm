@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -114,7 +115,7 @@ func getTLSCertSecretVolumeAndMount(secret, mountPath string) (v1.Volume, v1.Vol
 		}
 }
 
-func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.PipelineInfo) (v1.PodSpec, error) {
+func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions, pipelineInfo *pps.PipelineInfo) (v1.PodSpec, error) {
 	pullPolicy := kd.config.WorkerImagePullPolicy
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
@@ -165,6 +166,9 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 	}, {
 		Name:  "LOKI_SERVICE_PORT",
 		Value: kd.config.LokiPort,
+	}, {
+		Name:  log.EnvLogLevel,
+		Value: kd.config.LogLevel,
 	},
 		// These are set explicitly below to prevent kubernetes from setting them to the service host and port.
 		{
@@ -381,7 +385,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 	} else if userStr != "" {
 		// This is to allow the user to be set in the pipeline spec.
 		if i, err := strconv.ParseInt(userStr, 10, 64); err != nil {
-			kd.logger.Warnf("could not parse user %q into int: %v", userStr, err)
+			log.Error(ctx, "could not parse user into int", zap.String("user", userStr), zap.Error(err))
 		} else {
 			// hard coded security settings besides uid/gid.
 			podSecurityContext = &v1.PodSecurityContext{
@@ -592,14 +596,14 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	var sidecarResourceLimits *v1.ResourceList
 	if pipelineInfo.Details.ResourceRequests != nil {
 		var err error
-		resourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(pipelineInfo)
+		resourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(ctx, pipelineInfo)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not determine resource request")
 		}
 	}
 	if pipelineInfo.Details.ResourceLimits != nil {
 		var err error
-		resourceLimits, err = ppsutil.GetLimitsResourceList(pipelineInfo.Details.ResourceLimits)
+		resourceLimits, err = ppsutil.GetLimitsResourceList(ctx, pipelineInfo.Details.ResourceLimits)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not determine resource limit")
 		}
@@ -615,11 +619,13 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 			v1.ResourceMemory:           kd.config.PipelineDefaultMemoryRequest,
 			v1.ResourceEphemeralStorage: kd.config.PipelineDefaultStorageRequest,
 		}
-		log.WithField("requests", resourceRequests).Infof("PPS master: setting default resource requests on pipeline %q; supply an empty resource request ('resource_requests: {}') to opt out", pipelineInfo.GetPipeline().GetName())
+		log.Info(ctx, "setting default resource requests on pipeline; supply an empty resource request ('resource_requests: {}') to opt out",
+			zap.String("pipeline", pipelineInfo.GetPipeline().GetName()),
+			zap.Reflect("requests", resourceRequests))
 	}
 	if pipelineInfo.Details.SidecarResourceLimits != nil {
 		var err error
-		sidecarResourceLimits, err = ppsutil.GetLimitsResourceList(pipelineInfo.Details.SidecarResourceLimits)
+		sidecarResourceLimits, err = ppsutil.GetLimitsResourceList(ctx, pipelineInfo.Details.SidecarResourceLimits)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not determine sidecar resource limit")
 		}
@@ -856,7 +862,7 @@ type noValidOptionsErr struct {
 }
 
 func (kd *kubeDriver) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
-	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
+	log.Info(ctx, "upserting workers for pipeline")
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC", // ctx never used, but we want the right one in scope for future uses
 		"project", pipelineInfo.Pipeline.Project.GetName(),
 		"pipeline", pipelineInfo.Pipeline.Name)
@@ -876,7 +882,7 @@ func (kd *kubeDriver) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pp
 	if err != nil {
 		return noValidOptionsErr{err}
 	}
-	podSpec, err := kd.workerPodSpec(options, pipelineInfo)
+	podSpec, err := kd.workerPodSpec(ctx, options, pipelineInfo)
 	if err != nil {
 		return err
 	}

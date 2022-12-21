@@ -6,16 +6,15 @@ import (
 	"os"
 	"os/signal"
 
-	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
-	"go.uber.org/automaxprocs/maxprocs"
+	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
-	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	_ "github.com/pachyderm/pachyderm/v2/src/internal/task/taskprotos"
-	"github.com/pachyderm/pachyderm/v2/src/version"
 )
 
 var (
@@ -31,13 +30,13 @@ func init() {
 }
 
 func main() {
-	log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
-	// set GOMAXPROCS to the container limit & log outcome to stdout
-	maxprocs.Set(maxprocs.Logger(log.Printf)) //nolint:errcheck
-	log.Infof("version info: %v", version.Version)
-	ctx, cancel := signal.NotifyContext(context.Background(), notifySignals...)
+	log.InitPachdLogger()
+	ctx, cancel := signal.NotifyContext(pctx.Background(""), notifySignals...)
 	defer cancel()
 
+	logMode := func(mode string) {
+		log.Info(ctx, "pachd: starting", zap.String("mode", mode))
+	}
 	switch {
 	case readiness:
 		cmdutil.Main(ctx, doReadinessCheck, &serviceenv.GlobalConfiguration{})
@@ -47,21 +46,26 @@ func main() {
 		// empty string, but instead the reference is passed unchanged;
 		// because of this, '$(MODE)' should be recognized as an unset —
 		// i.e., default — mode.
+		logMode("full")
 		cmdutil.Main(ctx, pachd.FullMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "enterprise":
+		logMode("enterprise")
 		cmdutil.Main(ctx, pachd.EnterpriseMode, &serviceenv.EnterpriseServerConfiguration{})
 	case mode == "sidecar":
+		logMode("sidecar")
 		cmdutil.Main(ctx, pachd.SidecarMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "pachw":
 		cmdutil.Main(ctx, pachd.PachwMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "paused":
+		logMode("paused")
 		cmdutil.Main(ctx, pachd.PausedMode, &serviceenv.PachdFullConfiguration{})
 	default:
+		log.Error(ctx, "pachd: unrecognized mode", zap.String("mode", mode))
 		fmt.Printf("unrecognized mode: %s\n", mode)
 	}
 }
 
 func doReadinessCheck(ctx context.Context, config interface{}) error {
-	env := serviceenv.InitPachOnlyEnv(serviceenv.NewConfiguration(config))
+	env := serviceenv.InitPachOnlyEnv(ctx, serviceenv.NewConfiguration(config))
 	return env.GetPachClient(ctx).Health()
 }

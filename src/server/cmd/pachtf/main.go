@@ -7,12 +7,14 @@ import (
 	"strconv"
 
 	_ "github.com/breml/rootcerts"
+	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/secrets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transforms"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -22,32 +24,36 @@ const (
 )
 
 func main() {
-	ctx := context.Background()
-	log := logrus.StandardLogger()
+	log.InitPachctlLogger()
+	ctx := pctx.Background("")
 	args := os.Args[1:]
 	if len(args) < 1 {
-		log.Fatal("at least 1 argument required")
+		log.Error(ctx, "at least 1 argument required")
+		os.Exit(1)
 	}
 	transformName := args[0]
 	transformArgs := args[1:]
 	entrypoint, ok := entrypoints[transformName]
 	if !ok {
-		log.Fatalf("unrecognized transform name %q", transformName)
+		log.Error(ctx, "unrecognized transform name", zap.String("name", transformName))
+		os.Exit(1)
 	}
 	ents, err := os.ReadDir(filepath.FromSlash(pfs))
 	if err != nil {
-		log.Fatal(err)
+		log.Error(ctx, "problem reading directory", zap.Error(err))
+		os.Exit(1)
 	}
-	log.Info("Listing /pfs")
+	log.Info(ctx, "Listing /pfs")
 	for _, ent := range ents {
-		log.Info("/pfs/" + ent.Name())
+		log.Info(ctx, "/pfs/"+ent.Name())
 	}
-	if err := entrypoint(ctx, log, transformArgs); err != nil {
-		log.Fatal(err)
+	if err := entrypoint(ctx, transformArgs); err != nil {
+		log.Error(ctx, "problem running job", zap.Error(err))
+		os.Exit(1)
 	}
 }
 
-type Entrypoint = func(ctx context.Context, log *logrus.Logger, args []string) error
+type Entrypoint = func(ctx context.Context, args []string) error
 
 // sql-gen-queries and sql-ingest are deprecated, and users should prefer sql-run instead.
 var entrypoints = map[string]Entrypoint{
@@ -56,7 +62,7 @@ var entrypoints = map[string]Entrypoint{
 	"sql-run":         sqlRun,
 }
 
-func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
+func sqlIngest(ctx context.Context, args []string) error {
 	if len(args) < 2 {
 		return errors.Errorf("must provide db url and format")
 	}
@@ -77,7 +83,7 @@ func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
 	if err != nil {
 		return err
 	}
-	log.Infof("DB protocol=%v host=%v port=%v database=%v\n", u.Protocol, u.Host, u.Port, u.Database)
+	log.Info(ctx, "ingesting from database", zap.Stringer("database", u))
 	inputDir, err := filepath.EvalSymlinks(filepath.FromSlash(pfs + "/in"))
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -87,11 +93,8 @@ func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
 		return errors.EnsureStack(err)
 	}
 	return transforms.SQLIngest(ctx, transforms.SQLIngestParams{
-		Logger: log,
-
 		InputDir:  inputDir,
 		OutputDir: outputDir,
-
 		URL:       *u,
 		Password:  secrets.Secret(password),
 		Format:    formatName,
@@ -99,7 +102,7 @@ func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
 	})
 }
 
-func sqlGenQueries(ctx context.Context, log *logrus.Logger, args []string) error {
+func sqlGenQueries(ctx context.Context, args []string) error {
 	if len(args) < 1 {
 		return errors.Errorf("must provide query")
 	}
@@ -113,14 +116,13 @@ func sqlGenQueries(ctx context.Context, log *logrus.Logger, args []string) error
 		return errors.EnsureStack(err)
 	}
 	return transforms.SQLQueryGeneration(ctx, transforms.SQLQueryGenerationParams{
-		Logger:    log,
 		InputDir:  inputDir,
 		OutputDir: outputDir,
 		Query:     query,
 	})
 }
 
-func sqlRun(ctx context.Context, log *logrus.Logger, args []string) error {
+func sqlRun(ctx context.Context, args []string) error {
 	if len(args) < 5 {
 		return errors.Errorf("must provide url fileFormat query outputFile and hasHeader")
 	}
@@ -140,7 +142,6 @@ func sqlRun(ctx context.Context, log *logrus.Logger, args []string) error {
 	}
 
 	params := transforms.SQLRunParams{
-		Logger:     log,
 		OutputDir:  pfsOut,
 		OutputFile: oFname,
 		Query:      query,

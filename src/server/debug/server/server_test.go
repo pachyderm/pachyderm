@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 )
 
@@ -305,6 +306,7 @@ func TestQueryLoki(t *testing.T) {
 
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
+			ctx := pctx.TestContext(t)
 			entries := test.buildEntries()
 			want := test.buildWant()
 
@@ -319,7 +321,7 @@ func TestQueryLoki(t *testing.T) {
 			}
 
 			var got []int
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 			defer cancel()
 			out, err := d.queryLoki(ctx, `{foo="bar"}`)
 			if err != nil {

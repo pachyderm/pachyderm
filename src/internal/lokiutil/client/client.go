@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 )
 
 // ** Why this is here **
@@ -22,6 +23,10 @@ var (
 // Client holds configuration for the loki
 type Client struct {
 	Address string
+}
+
+var lokiClient = &http.Client{
+	Transport: promutil.InstrumentRoundTripper("loki", http.DefaultTransport),
 }
 
 // QueryRange queries Loki in a given time range.
@@ -74,7 +79,7 @@ func (c *Client) doRequest(ctx context.Context, path, query string, quiet bool, 
 		return errors.EnsureStack(err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := lokiClient.Do(req)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}

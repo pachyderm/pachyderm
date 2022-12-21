@@ -10,8 +10,9 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 const (
@@ -127,19 +128,21 @@ func NewDB(opts ...Option) (*pachsql.DB, error) {
 
 // WaitUntilReady attempts to ping the database until the context is cancelled.
 // Progress information is written to log
-func WaitUntilReady(ctx context.Context, log *logrus.Logger, db *pachsql.DB) error {
+func WaitUntilReady(ctx context.Context, db *pachsql.DB) error {
+	ctx, end := log.SpanContextL(ctx, "WaitUntilReady", log.InfoLevel)
+	defer end()
 	const period = time.Second
 	const timeout = time.Second
-	log.Infof("waiting for db to be ready...")
+	log.Info(ctx, "waiting for db to be ready...")
 	return backoff.RetryUntilCancel(ctx, func() error {
-		log.Debugf("pinging db...")
+		log.Debug(ctx, "pinging db...")
 		ctx, cf := context.WithTimeout(ctx, timeout)
 		defer cf()
 		if err := db.PingContext(ctx); err != nil {
-			log.Infof("db is not ready: %v", err)
+			log.Info(ctx, "db is not ready", zap.NamedError("reason", err))
 			return errors.EnsureStack(err)
 		}
-		log.Infof("db is ready")
+		log.Info(ctx, "db is ready")
 		return nil
 	}, backoff.NewConstantBackOff(period), nil)
 }

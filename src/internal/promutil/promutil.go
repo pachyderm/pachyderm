@@ -7,10 +7,12 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 var (
@@ -38,32 +40,31 @@ type loggingRT struct {
 
 func (rt *loggingRT) RoundTrip(req *http.Request) (*http.Response, error) {
 	start := time.Now()
-	log := logrus.WithFields(logrus.Fields{
-		"name":   rt.name,
-		"method": req.Method,
-		"uri":    req.URL.String(),
-	})
+	ctx := pctx.Child(req.Context(), "outgoingHttp", pctx.WithFields([]log.Field{
+		zap.String("name", rt.name),
+		zap.String("method", req.Method),
+		zap.String("uri", req.URL.String()),
+	}...))
 
 	// Log the start of long HTTP requests.
 	timer := time.AfterFunc(10*time.Second, func() {
-		l := log
+		var ff []log.Field
 		if dl, ok := req.Context().Deadline(); ok {
-			l = l.WithField("deadline", time.Until(dl))
+			ff = append(ff, zap.Duration("deadline", time.Until(dl)))
 		}
-		l.WithField("duration", time.Since(start)).Info("ongoing long http request")
+		ff = append(ff, zap.Duration("duration", time.Since(start)))
+		log.Info(ctx, "ongoing long http request", ff...)
 	})
 	defer timer.Stop()
 
 	res, err := rt.underlying.RoundTrip(req)
 	if err != nil {
-		log.WithError(err).Info("outgoing http request completed with error")
+		log.Info(ctx, "outgoing http request completed with error", zap.Error(err))
 		return res, errors.EnsureStack(err)
 	}
 	if res != nil {
-		log.WithFields(logrus.Fields{
-			"duration": time.Since(start),
-			"status":   res.Status,
-		}).Debugf("outgoing http request complete")
+		log.Debug(ctx, "outgoing http request complete",
+			zap.Duration("duration", time.Since(start)), zap.String("status", res.Status))
 	}
 	return res, errors.EnsureStack(err)
 }

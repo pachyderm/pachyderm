@@ -5,19 +5,20 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/sirupsen/logrus"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"go.uber.org/multierr"
+	"go.uber.org/zap"
 )
 
 // GarbageCollector removes unused chunks from object storage
 type GarbageCollector struct {
 	s      *Storage
-	log    *logrus.Logger
 	period time.Duration
 }
 
 // NewGC returns a new garbage collector operating on s
-func NewGC(s *Storage, d time.Duration, log *logrus.Logger) *GarbageCollector {
-	return &GarbageCollector{s: s, log: log, period: d}
+func NewGC(s *Storage, d time.Duration) *GarbageCollector {
+	return &GarbageCollector{s: s, period: d}
 }
 
 // RunForever calls RunOnce until the context is cancelled, logging any errors.
@@ -31,7 +32,7 @@ func (gc *GarbageCollector) RunForever(ctx context.Context) error {
 				return err
 			default:
 			}
-			gc.log.Errorf("during chunk GC: %v", err)
+			log.Error(ctx, "error during chunk GC", zap.Error(err))
 		}
 		select {
 		case <-ctx.Done():
@@ -43,6 +44,8 @@ func (gc *GarbageCollector) RunForever(ctx context.Context) error {
 
 // RunOnce runs 1 cycle of garbage collection.
 func (gc *GarbageCollector) RunOnce(ctx context.Context) (retErr error) {
+	ctx, end := log.SpanContext(ctx, "RunOnce")
+	defer end(log.Errorp(&retErr))
 	rows, err := gc.s.db.QueryxContext(ctx, `
 	SELECT chunk_id, gen, uploaded FROM storage.chunk_objects
 	WHERE tombstone = true
@@ -52,7 +55,7 @@ func (gc *GarbageCollector) RunOnce(ctx context.Context) (retErr error) {
 	}
 	defer func() {
 		if err := rows.Close(); retErr == nil {
-			retErr = err
+			retErr = multierr.Append(retErr, err)
 		}
 	}()
 	for rows.Next() {
@@ -60,16 +63,14 @@ func (gc *GarbageCollector) RunOnce(ctx context.Context) (retErr error) {
 		if err := rows.StructScan(&ent); err != nil {
 			return errors.EnsureStack(err)
 		}
+		fields := []log.Field{zap.Stringer("chunkID", ent.ChunkID), zap.Uint64("gen", ent.Gen)}
 		if !ent.Uploaded {
-			gc.log.Warnf("possibility for untracked chunk %s", chunkPath(ent.ChunkID, ent.Gen))
+			log.Info(ctx, "possibility for untracked chunk", fields...)
 		}
 		if err := gc.deleteOne(ctx, ent); err != nil {
 			return err
 		}
-		gc.log.WithFields(logrus.Fields{
-			"chunk_id": ent.ChunkID,
-			"gen":      ent.Gen,
-		}).Infof("deleting object for chunk entry")
+		log.Info(ctx, "deleting object for chunk entry", fields...)
 	}
 	return errors.EnsureStack(rows.Err())
 }

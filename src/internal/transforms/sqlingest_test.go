@@ -2,7 +2,6 @@ package transforms
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -12,18 +11,18 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 )
 
 const outputName = "0000"
 
 func TestSQLIngest(t *testing.T) {
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
 	inputDir, outputDir := t.TempDir(), t.TempDir()
-	u := dockertestenv.NewMySQLURL(t)
+	u := dockertestenv.NewMySQLURL(ctx, t)
 	const N = 100
 	loadDB(t, u, N)
 
@@ -38,8 +37,6 @@ func TestSQLIngest(t *testing.T) {
 	}
 
 	err := SQLIngest(ctx, SQLIngestParams{
-		Logger: logrus.StandardLogger(),
-
 		InputDir:  inputDir,
 		OutputDir: outputDir,
 
@@ -59,9 +56,9 @@ func TestSQLIngest(t *testing.T) {
 }
 
 func TestCSVSQLIngest(t *testing.T) {
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
 	inputDir, outputDir := t.TempDir(), t.TempDir()
-	u := dockertestenv.NewMySQLURL(t)
+	u := dockertestenv.NewMySQLURL(ctx, t)
 	const N = 100
 	loadDB(t, u, N)
 
@@ -76,8 +73,6 @@ func TestCSVSQLIngest(t *testing.T) {
 	}
 
 	err := SQLIngest(ctx, SQLIngestParams{
-		Logger: logrus.StandardLogger(),
-
 		InputDir:  inputDir,
 		OutputDir: outputDir,
 
@@ -97,9 +92,9 @@ func TestCSVSQLIngest(t *testing.T) {
 }
 
 func TestCSVHeaderSQLIngest(t *testing.T) {
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
 	inputDir, outputDir := t.TempDir(), t.TempDir()
-	u := dockertestenv.NewMySQLURL(t)
+	u := dockertestenv.NewMySQLURL(ctx, t)
 	const N = 100
 	loadDB(t, u, N)
 
@@ -114,8 +109,6 @@ func TestCSVHeaderSQLIngest(t *testing.T) {
 	}
 
 	err := SQLIngest(ctx, SQLIngestParams{
-		Logger: logrus.StandardLogger(),
-
 		InputDir:  inputDir,
 		OutputDir: outputDir,
 
@@ -155,13 +148,11 @@ func countLinesInFile(t testing.TB, p string) int {
 }
 
 func TestSQLQueryGeneration(t *testing.T) {
-	ctx := context.Background()
-	log := logrus.StandardLogger()
+	ctx := pctx.TestContext(t)
 	inputDir, outputDir := t.TempDir(), t.TempDir()
 	writeCronFile(t, inputDir)
 
 	err := SQLQueryGeneration(ctx, SQLQueryGenerationParams{
-		Logger:    log,
 		InputDir:  inputDir,
 		OutputDir: outputDir,
 		Query:     "select * from test_data",
@@ -199,9 +190,8 @@ func loadDB(t testing.TB, u pachsql.URL, numRows int) {
 }
 
 func TestSQLChain(t *testing.T) {
-	ctx := context.Background()
-	log := logrus.StandardLogger()
-	u := dockertestenv.NewMySQLURL(t)
+	ctx := pctx.TestContext(t)
+	u := dockertestenv.NewMySQLURL(ctx, t)
 	const N = 100
 	loadDB(t, u, N)
 	inputDir, outputDir := t.TempDir(), t.TempDir()
@@ -211,7 +201,6 @@ func TestSQLChain(t *testing.T) {
 	runChain(t, inputDir, outputDir, []func(string, string) error{
 		func(inDir, outDir string) error {
 			return SQLQueryGeneration(ctx, SQLQueryGenerationParams{
-				Logger:    log,
 				InputDir:  inDir,
 				OutputDir: outDir,
 				Query:     "select * FROM test_data",
@@ -219,7 +208,6 @@ func TestSQLChain(t *testing.T) {
 		},
 		func(inDir, outDir string) error {
 			return SQLIngest(ctx, SQLIngestParams{
-				Logger:    log,
 				InputDir:  inDir,
 				OutputDir: outDir,
 				URL:       u,

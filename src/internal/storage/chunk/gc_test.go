@@ -11,17 +11,17 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
-	"github.com/sirupsen/logrus"
 )
 
 func TestGC(t *testing.T) {
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	tracker := track.NewTestTracker(t, db)
-	oc, s := NewTestStorage(t, db, tracker)
+	oc, s := NewTestStorage(ctx, t, db, tracker)
 
 	writeRandom(t, s)
 	count, err := countObjects(ctx, oc)
@@ -46,7 +46,7 @@ func TestGC(t *testing.T) {
 	require.NoError(t, tgc.RunUntilEmpty(ctx))
 
 	// run the chunk GC
-	gc := NewGC(s, time.Minute, logrus.StandardLogger())
+	gc := NewGC(s, time.Minute)
 	require.NoError(t, gc.RunOnce(ctx))
 
 	// make sure there are no objects
