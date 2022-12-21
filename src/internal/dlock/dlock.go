@@ -6,8 +6,11 @@ import (
 
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
+	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 )
 
 // DLock is a handle to a distributed lock.
@@ -40,7 +43,9 @@ func NewDLock(client *etcd.Client, prefix string) DLock {
 	}
 }
 
-func (d *etcdImpl) Lock(ctx context.Context) (context.Context, error) {
+func (d *etcdImpl) Lock(ctx context.Context) (_ context.Context, retErr error) {
+	defer log.Span(ctx, "DLock.Lock", zap.String("prefix", d.prefix))(log.Errorp(&retErr))
+
 	// The default TTL is 60 secs which means that if a node dies, it
 	// still holds the lock for 60 secs, which is too high.
 	session, err := concurrency.NewSession(d.client, concurrency.WithContext(ctx), concurrency.WithTTL(15))
@@ -52,12 +57,14 @@ func (d *etcdImpl) Lock(ctx context.Context) (context.Context, error) {
 	if err := mutex.Lock(ctx); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	log.Debug(ctx, "acquired lock ok", zap.String("prefix", d.prefix))
 
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(pctx.Child(ctx, "", pctx.WithFields(zap.String("withLock", d.prefix))))
 	go func() {
 		select {
 		case <-ctx.Done():
 		case <-session.Done():
+			log.Debug(ctx, "lock's session is done; cancelling associated context")
 			cancel()
 		}
 	}()
@@ -67,7 +74,9 @@ func (d *etcdImpl) Lock(ctx context.Context) (context.Context, error) {
 	return ctx, nil
 }
 
-func (d *etcdImpl) TryLock(ctx context.Context) (context.Context, error) {
+func (d *etcdImpl) TryLock(ctx context.Context) (_ context.Context, retErr error) {
+	defer log.Span(ctx, "DLock.TryLock", zap.String("prefix", d.prefix))(log.Errorp(&retErr))
+
 	session, err := concurrency.NewSession(d.client, concurrency.WithContext(ctx), concurrency.WithTTL(15))
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -77,12 +86,14 @@ func (d *etcdImpl) TryLock(ctx context.Context) (context.Context, error) {
 	if err := mutex.TryLock(ctx); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	log.Debug(ctx, "acquired lock ok", zap.String("prefix", d.prefix))
 
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(pctx.Child(ctx, "", pctx.WithFields(zap.String("withLock", d.prefix))))
 	go func() {
 		select {
 		case <-ctx.Done():
 		case <-session.Done():
+			log.Debug(ctx, "lock's session is done; cancelling associated context")
 			cancel()
 		}
 	}()
@@ -92,9 +103,15 @@ func (d *etcdImpl) TryLock(ctx context.Context) (context.Context, error) {
 	return ctx, nil
 }
 
-func (d *etcdImpl) Unlock(ctx context.Context) error {
+func (d *etcdImpl) Unlock(ctx context.Context) (retErr error) {
+	defer log.Span(ctx, "DLock.Unlock", zap.String("prefix", d.prefix))(log.Errorp(&retErr))
+
 	if err := d.mutex.Unlock(ctx); err != nil {
 		return errors.EnsureStack(err)
 	}
-	return errors.EnsureStack(d.session.Close())
+	if err := d.session.Close(); err != nil {
+		return errors.EnsureStack(err)
+	}
+	log.Debug(ctx, "relinquished lock ok", zap.String("prefix", d.prefix))
+	return nil
 }
