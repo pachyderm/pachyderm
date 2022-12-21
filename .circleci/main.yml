@@ -1115,7 +1115,7 @@ jobs:
     executor: docker-go
     parameters:
       stable:
-        type: int
+        type: integer
         default: 0
     environment:
       STABLE: << pipeline.parameters.stable >>
