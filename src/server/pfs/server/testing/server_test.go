@@ -1186,8 +1186,8 @@ func TestPFS(suite *testing.T) {
 	suite.Run("DeleteRepos", func(t *testing.T) {
 		t.Parallel()
 		var (
-			ctx                  = context.Background()
-			env                  = realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+			ctx                  = pctx.TestContext(t)
+			env                  = realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 			projectName          = tu.UniqueString("project")
 			untouchedProjectName = tu.UniqueString("project")
 			reposToDelete        = make(map[string]bool)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"path"
 
-	"github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 	"k8s.io/client-go/kubernetes"
 
@@ -22,7 +21,6 @@ type Env struct {
 	MaxReplicas       int
 	MinReplicas       int
 	BackgroundContext context.Context
-	Logger            *logrus.Logger
 }
 
 func EnvFromServiceEnv(env serviceenv.ServiceEnv) (*Env, error) {
@@ -39,6 +37,5 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv) (*Env, error) {
 		MinReplicas:       env.Config().PachwMinReplicas,
 		MaxReplicas:       env.Config().PachwMaxReplicas,
 		BackgroundContext: env.Context(),
-		Logger:            env.Logger(),
 	}, nil
 }

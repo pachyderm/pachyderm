@@ -403,7 +403,8 @@ func TestDeleteAllRepos(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	mockInspectCluster(env)
 	c := env.PachClient
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
