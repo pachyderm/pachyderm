@@ -73,12 +73,16 @@ func FileInfoToPath(fileInfo interface{}) interface{} {
 }
 
 func finishCommit(pachClient *client.APIClient, repo, branch, id string) error {
-	if err := pachClient.FinishProjectCommit(pfs.DefaultProjectName, repo, branch, id); err != nil {
+	return finishProjectCommit(pachClient, pfs.DefaultProjectName, repo, branch, id)
+}
+
+func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id string) error {
+	if err := pachClient.FinishProjectCommit(project, repo, branch, id); err != nil {
 		if !pfsserver.IsCommitFinishedErr(err) {
 			return err
 		}
 	}
-	_, err := pachClient.WaitProjectCommit(pfs.DefaultProjectName, repo, branch, id)
+	_, err := pachClient.WaitProjectCommit(project, repo, branch, id)
 	return err
 }
 
@@ -2856,17 +2860,20 @@ func TestPFS(suite *testing.T) {
 		ctx := pctx.TestContext(t)
 		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
+		project := tu.UniqueString("project")
+		require.NoError(t, env.PachClient.CreateProject(project))
+
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo(project, repo))
 
 		numCommits := 10
 
 		// create some commits that shouldn't affect the below SubscribeCommit call
 		// reproduces #2469
 		for i := 0; i < numCommits; i++ {
-			commit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master-v1")
+			commit, err := env.PachClient.StartProjectCommit(project, repo, "master-v1")
 			require.NoError(t, err)
-			require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+			require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit.Branch.Name, commit.ID))
 		}
 
 		require.NoErrorWithinT(t, 60*time.Second, func() error {
@@ -2874,7 +2881,7 @@ func TestPFS(suite *testing.T) {
 			nextCommitChan := make(chan *pfs.Commit, numCommits)
 			eg.Go(func() error {
 				var count int
-				err := env.PachClient.SubscribeCommit(client.NewProjectRepo(pfs.DefaultProjectName, repo), "master", "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+				err := env.PachClient.SubscribeCommit(client.NewProjectRepo(project, repo), "master", "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 					commit := <-nextCommitChan
 					require.Equal(t, commit, ci.Commit)
 					count++
@@ -2887,9 +2894,9 @@ func TestPFS(suite *testing.T) {
 			})
 			eg.Go(func() error {
 				for i := 0; i < numCommits; i++ {
-					commit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+					commit, err := env.PachClient.StartProjectCommit(project, repo, "master")
 					require.NoError(t, err)
-					require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+					require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit.Branch.Name, commit.ID))
 					nextCommitChan <- commit
 				}
 				return nil
