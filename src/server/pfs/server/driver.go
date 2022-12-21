@@ -1027,34 +1027,39 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 
 	if commitInfo.Finished == nil {
 		switch wait {
+		case pfs.CommitState_STARTED:
 		case pfs.CommitState_READY:
 			for _, branch := range commitInfo.DirectProvenance {
 				if _, err := d.inspectCommit(ctx, branch.NewCommit(commit.ID), pfs.CommitState_FINISHED); err != nil {
 					return nil, err
 				}
 			}
-		case pfs.CommitState_FINISHED:
-			// Watch the CommitInfo until the commit has been finished
+		case pfs.CommitState_FINISHING, pfs.CommitState_FINISHED:
 			if err := d.commits.ReadOnly(ctx).WatchOneF(commit, func(ev *watch.Event) error {
 				if ev.Type == watch.EventDelete {
 					return pfsserver.ErrCommitDeleted{Commit: commit}
 				}
-
 				var key string
 				newCommitInfo := &pfs.CommitInfo{}
 				if err := ev.Unmarshal(&key, newCommitInfo); err != nil {
 					return errors.Wrapf(err, "unmarshal")
 				}
-				if newCommitInfo.Finished != nil {
-					commitInfo = newCommitInfo
-					return errutil.ErrBreak
+				switch wait {
+				case pfs.CommitState_FINISHING:
+					if newCommitInfo.Finishing != nil {
+						commitInfo = newCommitInfo
+						return errutil.ErrBreak
+					}
+				case pfs.CommitState_FINISHED:
+					if newCommitInfo.Finished != nil {
+						commitInfo = newCommitInfo
+						return errutil.ErrBreak
+					}
 				}
 				return nil
 			}); err != nil {
 				return nil, errors.EnsureStack(err)
 			}
-		case pfs.CommitState_STARTED:
-			// Do nothing
 		}
 	}
 
