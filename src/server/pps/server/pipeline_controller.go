@@ -562,7 +562,7 @@ func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context, p
 	log.Info(ctx, "finishing output commits")
 	pachClient := pc.env.GetPachClient(ctx)
 	if span, _ctx := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/FinishPipelineOutputCommits", "pipeline", pi.Pipeline); span != nil {
+		"/pps.Master/FinishPipelineOutputCommits", "project", pi.Pipeline.GetProject().GetName(), "pipeline", pi.Pipeline.GetName()); span != nil {
 		pachClient = pachClient.WithCtx(_ctx) // copy span back into pachClient
 		defer func() {
 			tracing.TagAnySpan(span, "err", fmt.Sprintf("%v", retErr))
@@ -722,7 +722,7 @@ func (pc *pipelineController) deletePipelineResources() (retErr error) {
 // caller shouldn't continue with other operations
 func (pc *pipelineController) getRC(ctx context.Context, pi *pps.PipelineInfo) (rc *v1.ReplicationController, restart bool, retErr error) {
 	span, _ := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/GetRC", "pipeline", pc.pipeline)
+		"/pps.Master/GetRC", "project", pc.pipeline.GetProject().GetName(), "pipeline", pc.pipeline.GetName())
 	defer func(span opentracing.Span) {
 		tracing.TagAnySpan(span, "err", fmt.Sprintf("%v", retErr))
 		tracing.FinishAnySpan(span)
