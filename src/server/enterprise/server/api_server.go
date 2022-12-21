@@ -78,7 +78,7 @@ func NewEnterpriseServer(env *Env, heartbeat bool) (*apiServer, error) {
 	go s.enterpriseTokenCache.Watch()
 
 	if heartbeat {
-		go s.heartbeatRoutine()
+		go s.heartbeatRoutine(env.BackgroundContext)
 	}
 	return s, nil
 }
@@ -127,17 +127,25 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 
 // heartbeatRoutine should  be run in a goroutine and attempts to heartbeat to the license service.
 // If the attempt fails and the license server is configured it logs the error.
-func (a *apiServer) heartbeatRoutine() {
+func (a *apiServer) heartbeatRoutine(ctx context.Context) {
+	ctx = pctx.Child(ctx, "heartbeatRoutine")
 	heartbeat := func() {
-		ctx, cancel := context.WithTimeout(pctx.Child(pctx.TODO(), "heartbeat"), heartbeatTimeout)
+		ctx, cancel := context.WithTimeout(ctx, heartbeatTimeout)
 		defer cancel()
 		if err := a.heartbeatIfConfigured(ctx); err != nil && !lc.IsErrNotActivated(err) {
 			log.Error(ctx, "enterprise license heartbeat process failed", zap.Error(err))
 		}
 	}
-	heartbeat()
-	for range time.Tick(heartbeatFrequency) {
+	ticker := time.NewTicker(heartbeatFrequency)
+	defer ticker.Stop()
+	for {
+
 		heartbeat()
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }
 

@@ -137,10 +137,10 @@ func newMaster(ctx context.Context, env Env, etcdPrefix string, kd InfraDriver, 
 
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
-func (a *apiServer) master(rctx context.Context) {
+func (a *apiServer) master(ctx context.Context) {
 	masterLock := dlock.NewDLock(a.env.EtcdClient, path.Join(a.etcdPrefix, masterLockPath))
-	backoff.RetryNotify(func() error { //nolint:errcheck
-		ctx, cancel := context.WithCancel(pctx.Child(rctx, "master", pctx.WithServerID()))
+	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+		ctx, cancel := context.WithCancel(pctx.Child(ctx, "master", pctx.WithServerID()))
 		// set internal auth for basic operations
 		ctx = middleware_auth.AsInternalUser(ctx, "pps-master")
 		defer cancel()
@@ -156,12 +156,10 @@ func (a *apiServer) master(rctx context.Context) {
 		m.run()
 		return errors.Wrapf(ctx.Err(), "ppsMaster.Run() exited unexpectedly")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		log.Error(rctx, "PPS master: error running the master process; retrying",
+		log.Error(ctx, "PPS master: error running the master process; retrying",
 			zap.Error(err), zap.Duration("retryIn", d))
 		return nil
 	})
-	log.Error(rctx, "internal error: PPS master has somehow exited")
-	panic("internal error: PPS master has somehow exited. Restarting pod...")
 }
 
 func (m *ppsMaster) setPipelineCrashing(ctx context.Context, specCommit *pfs.Commit, reason string) error {

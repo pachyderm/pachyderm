@@ -121,7 +121,7 @@ func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bo
 		go s.clusterRoleBindingCache.Watch()
 	}
 
-	if err := s.deleteExpiredTokensRoutine(); err != nil {
+	if err := s.deleteExpiredTokensRoutine(env.BackgroundContext); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -1627,8 +1627,8 @@ func (a *apiServer) RevokeAuthTokensForUser(ctx context.Context, req *auth.Revok
 	return &auth.RevokeAuthTokensForUserResponse{Number: n}, nil
 }
 
-func (a *apiServer) deleteExpiredTokensRoutine() error {
-	ctx := pctx.Background("deleteExpiredAuthTokens")
+func (a *apiServer) deleteExpiredTokensRoutine(ctx context.Context) error {
+	ctx = pctx.Child(ctx, "deleteExpiredTokensRoutine")
 	if _, err := a.DeleteExpiredAuthTokens(ctx, &auth.DeleteExpiredAuthTokensRequest{}); err != nil {
 		return err
 	}
@@ -1636,9 +1636,15 @@ func (a *apiServer) deleteExpiredTokensRoutine() error {
 	go func(ctx context.Context) {
 		ticker := backoff.NewTicker(backoff.NewConstantBackOff(time.Duration(cleanupIntervalHours) * time.Hour))
 		defer ticker.Stop()
-		for range ticker.C {
+		for {
+
 			if _, err := a.DeleteExpiredAuthTokens(ctx, &auth.DeleteExpiredAuthTokensRequest{}); err != nil {
 				log.Error(ctx, "could not delete expired tokens", zap.Error(err))
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
 			}
 		}
 	}(ctx)
