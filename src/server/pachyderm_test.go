@@ -4765,7 +4765,7 @@ func TestDatumStatusRestart(t *testing.T) {
 	require.NoError(t, c.CreateProjectRepo(project, dataRepo))
 
 	pipeline := tu.UniqueString("pipeline")
-	// This pipeline sleeps for 20 secs per datum
+	// This pipeline sleeps for 30 secs per datum
 	require.NoError(t, c.CreateProjectPipeline(project,
 		pipeline,
 		"",
