@@ -3791,14 +3791,16 @@ func TestPFS(suite *testing.T) {
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
 		}
+		project := tu.UniqueString("prj-")
+		require.NoError(t, env.PachClient.CreateProject(project))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-		commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+		require.NoError(t, env.PachClient.CreateProjectRepo(project, repo))
+		commit := client.NewProjectCommit(project, repo, "master", "")
 
 		// Write foo
 		numFiles := 100
-		_, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		_, err := env.PachClient.StartProjectCommit(project, repo, "master")
 		require.NoError(t, err)
 
 		require.NoError(t, env.PachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
@@ -3887,7 +3889,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, finishCommit(env.PachClient, repo, "master", ""))
 		checks()
 
-		_, err = env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		_, err = env.PachClient.StartProjectCommit(project, repo, "master")
 		require.NoError(t, err)
 
 		err = env.PachClient.DeleteFile(commit, "/")
