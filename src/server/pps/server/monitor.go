@@ -15,7 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -189,18 +189,8 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 					running:
 						for {
 							pachClient := pc.env.GetPachClient(ctx)
-							// wait for both meta and output commits
-							if _, err := pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-								Commit: ci.Commit,
-								Wait:   pfs.CommitState_FINISHED,
-							}); err != nil {
-								return grpcutil.ScrubGRPC(err)
-							}
-							if _, err := pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-								Commit: ppsutil.MetaCommit(ci.Commit),
-								Wait:   pfs.CommitState_FINISHED,
-							}); err != nil {
-								return grpcutil.ScrubGRPC(err)
+							if err := pc.blockStandby(pachClient, ci.Commit); err != nil {
+								return err
 							}
 
 							tracing.FinishAnySpan(childSpan)
@@ -247,6 +237,34 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 	if err := eg.Wait(); err != nil {
 		log.Printf("error in monitorPipeline: %v", err)
 	}
+}
+
+func (pc *pipelineController) blockStandby(pachClient *client.APIClient, commit *pfs.Commit) error {
+	ctx := pachClient.Ctx()
+	if pc.env.PachwInSidecar {
+		if _, err := pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+			Commit: commit,
+			Wait:   pfs.CommitState_FINISHED,
+		}); err != nil {
+			return err
+		}
+		_, err := pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+			Commit: ppsutil.MetaCommit(commit),
+			Wait:   pfs.CommitState_FINISHED,
+		})
+		return err
+	}
+	if _, err := pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+		Commit: commit,
+		Wait:   pfs.CommitState_FINISHING,
+	}); err != nil {
+		return err
+	}
+	_, err := pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+		Commit: ppsutil.MetaCommit(commit),
+		Wait:   pfs.CommitState_FINISHING,
+	})
+	return err
 }
 
 func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {

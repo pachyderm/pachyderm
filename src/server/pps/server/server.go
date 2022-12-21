@@ -44,6 +44,7 @@ type Env struct {
 	BackgroundContext context.Context
 	Logger            *logrus.Logger
 	Config            serviceenv.Configuration
+	PachwInSidecar    bool
 }
 
 func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, reporter *metrics.Reporter) Env {
@@ -66,6 +67,7 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv
 		BackgroundContext: context.Background(),
 		Logger:            senv.Logger(),
 		Config:            *senv.Config(),
+		PachwInSidecar:    senv.Config().PachwInSidecars,
 	}
 }
 
