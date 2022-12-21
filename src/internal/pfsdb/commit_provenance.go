@@ -39,23 +39,33 @@ func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commi
 		Repo: repo,
 		ID:   commitSet,
 	})
-	query := `SELECT commit_id, branch FROM pfs.commits WHERE int_id IN (       
-            SELECT to_id FROM pfs.commits JOIN pfs.commit_provenance ON int_id = from_id WHERE commit_id = $1
-        );`
+	query := `SELECT commit_id, branch, repo, project FROM pfs.commits 
+                      JOIN pfs.commits_origin_branches ON int_id = commit_int_id
+                  WHERE int_id IN (       
+                      SELECT to_id FROM pfs.commits JOIN pfs.commit_provenance ON int_id = from_id WHERE commit_id = $1
+                  );`
 	rows, err := tx.QueryxContext(ctx, query, commitKey)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	commitProvenance := make([]*pfs.Commit, 0)
 	for rows.Next() {
-		var commitId, branch string
+		var commitId, branch, repo, project string
 		if err := rows.Scan(&commitId, &branch); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
 		c := ParseCommit(commitId)
 		// will there always be an origin branch? In theory the relationship is many to many between branches and commits
 		if branch != "" {
-			c.Branch = ParseBranch(branch)
+			c.Branch = &pfs.Branch{
+				Name: branch,
+				Repo: &pfs.Repo{
+					Name: repo,
+					Project: &pfs.Project{
+						Name: project,
+					},
+				},
+			}
 		}
 		commitProvenance = append(commitProvenance, c)
 	}
@@ -127,8 +137,19 @@ func CommitSetSubvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]*pfs
 }
 
 func AddCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error {
-	stmt := `INSERT INTO pfs.commits(commit_id, commit_set_id, branch) VALUES ($1, $2, $3)`
-	_, err := tx.ExecContext(ctx, stmt, CommitKey(commit), commit.ID, BranchKey(commit.GetBranch()))
+	stmt := `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES ($1, $2);`
+	_, err := tx.ExecContext(ctx, stmt, CommitKey(commit), commit.ID)
+	return errors.EnsureStack(err)
+}
+
+func LinkOriginBranch(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit, branch *pfs.Branch) error {
+	commitIntId, err := getCommitTableID(ctx, tx, CommitKey(commit))
+	if err != nil {
+		return err
+	}
+	stmt := `INSERT INTO pfs.commits_origin_branches(commit_int_id, branch, repo, project)
+                 VALUES ($1, $2, $3 $4);`
+	_, err = tx.ExecContext(ctx, stmt, commitIntId, branch.Name, branch.Repo.Name, branch.Repo.Project.Name)
 	return errors.EnsureStack(err)
 }
 
@@ -213,7 +234,6 @@ var schema = `
 		int_id BIGSERIAL PRIMARY KEY,
 		commit_id VARCHAR(4096) UNIQUE,
                 commit_set_id VARCHAR(4096),
-                branch VARCHAR(4096),
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 
@@ -235,4 +255,16 @@ var schema = `
 		to_id,
 		from_id
 	);
+
+        CREATE TABLE pfs.commits_origin_branches (
+                int_id BIGSERIAL PRIMARY KEY,
+                commit_int_id BIGSERIAL,
+		branch VARCHAR(4096),
+                repo VARCHAR(4096),
+                project VARCHAR(4096),
+                CONSTRAINT fk_to_commit
+                  FOREIGN KEY(commit_int_id) 
+	          REFERENCES pfs.commits(int_id)
+	          ON DELETE CASCADE
+        );
 `
