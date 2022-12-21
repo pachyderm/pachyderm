@@ -326,7 +326,7 @@ var (
 	commitOnOutputBranchRe    = regexp.MustCompile("cannot start a commit on an output branch")
 	squashWithoutChildrenRe   = regexp.MustCompile("cannot squash a commit that has no children")
 	dropWithChildrenRe        = regexp.MustCompile("cannot drop a commit that has children")
-	deleteWithDependentSetsRe = regexp.MustCompile("cannot be squashed in isolation. To delete them, also squash")
+	deleteWithDependentSetsRe = regexp.MustCompile("cannot be squashed in isolation; to delete them also squash")
 )
 
 // IsCommitNotFoundErr returns true if 'err' has an error message that matches
