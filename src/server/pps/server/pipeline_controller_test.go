@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
@@ -17,7 +18,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/task"
-	logrus "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -27,12 +27,12 @@ type pipelineTest struct {
 }
 
 func ppsMasterHandles(t *testing.T) (*mockStateDriver, *mockInfraDriver, *testpachd.MockPachd) {
+	ctx := pctx.TestContext(t)
 	sDriver := newMockStateDriver()
 	iDriver := newMockInfraDriver()
-	mockEnv := testpachd.NewMockEnv(t)
+	mockEnv := testpachd.NewMockEnv(ctx, t)
 	env := Env{
 		BackgroundContext: context.Background(),
-		Logger:            logrus.StandardLogger(),
 		EtcdClient:        mockEnv.EtcdClient,
 		GetPachClient: func(ctx context.Context) *client.APIClient {
 			return mockEnv.PachClient.WithCtx(ctx)
@@ -102,7 +102,7 @@ func validate(t testing.TB, sDriver *mockStateDriver, iDriver *mockInfraDriver, 
 		require.Equal(t, 1, len(iDriver.rcs))
 		rc, err := iDriver.ReadReplicationController(context.Background(), sDriver.currentPipelineInfo(test.key))
 		require.NoError(t, err)
-		require.True(t, rcIsFresh(sDriver.currentPipelineInfo(test.key), &rc.Items[0]))
+		require.True(t, rcIsFresh(context.TODO(), sDriver.currentPipelineInfo(test.key), &rc.Items[0]))
 	}
 }
 

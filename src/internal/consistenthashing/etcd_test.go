@@ -9,12 +9,14 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
-	"github.com/sirupsen/logrus"
 
 	etcd "go.etcd.io/etcd/client/v3"
 
@@ -44,8 +46,8 @@ type lockTestConfig struct {
 }
 
 func setupTest(t *testing.T) testRingConfig {
-	etcdEnv := testetcd.NewEnv(t)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(pctx.TestContext(t))
+	etcdEnv := testetcd.NewEnv(ctx, t)
 	return testRingConfig{
 		client: etcdEnv.EtcdClient,
 		ctx:    ctx,
@@ -55,13 +57,13 @@ func setupTest(t *testing.T) testRingConfig {
 
 func TestCleanShutdown(t *testing.T) {
 	config := setupTest(t)
-	err := WithRing(config.ctx, config.client, logrus.New(), "master", func(ctx context.Context, ring *Ring) error { return nil })
+	err := WithRing(config.ctx, config.client, "master", func(ctx context.Context, ring *Ring) error { return nil })
 	require.NoError(t, err, "should not fail")
 }
 
 func TestGracefulShutdown(t *testing.T) {
 	config := setupTest(t)
-	err := WithRing(config.ctx, config.client, logrus.New(), "master", func(ctx context.Context, ring *Ring) error {
+	err := WithRing(config.ctx, config.client, "master", func(ctx context.Context, ring *Ring) error {
 		return errors.EnsureStack(errors.New("fail test"))
 	})
 	require.YesError(t, err)
@@ -72,8 +74,8 @@ func TestWatch(t *testing.T) {
 	config := setupTest(t)
 	defer config.cancel()
 	collection.DefaultTTL = 1
-	err := WithRing(config.ctx, config.client, logrus.New(), "master", func(ctx context.Context, ring *Ring) error {
-		err := WithRing(config.ctx, config.client, logrus.New(), "master", func(ctx context.Context, innerRing *Ring) error {
+	err := WithRing(config.ctx, config.client, "master", func(ctx context.Context, ring *Ring) error {
+		err := WithRing(config.ctx, config.client, "master", func(ctx context.Context, innerRing *Ring) error {
 			time.Sleep(2 * time.Second)
 			require.Len(t, ring.MemberIds(), 2, "there should be 2 total members")
 			return nil
@@ -249,7 +251,7 @@ func (test *lockTestConfig) locksPerWorker() map[string]int {
 func (test *lockTestConfig) runWorker(ctx context.Context, t *testing.T, id string) {
 	collection.DefaultTTL = 1
 	eg, ctx := errgroup.WithContext(ctx)
-	err := withRing(ctx, test.ringConfig.client, logrus.New(), "master", id, func(ctx context.Context, ring *Ring) error {
+	err := withRing(ctx, test.ringConfig.client, "master", id, func(ctx context.Context, ring *Ring) error {
 		time.Sleep(time.Second * 1)
 		test.workersReady <- struct{}{}
 		<-test.beginLocking
@@ -285,7 +287,7 @@ func (test *lockTestConfig) lockAndUnlock(ctx context.Context, t *testing.T, rin
 		if errors.Is(err, context.Canceled) {
 			return nil
 		}
-		logrus.WithField("member", memberId).WithField("lock", key).Errorf("should be able to unlock key")
+		log.Error(ctx, "should be able to unlock key", zap.Error(err))
 	}
 	require.NoError(t, err, "should be able to unlock key")
 	test.doneUnlocking <- struct{}{}

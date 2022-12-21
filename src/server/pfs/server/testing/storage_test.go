@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 )
@@ -16,9 +17,9 @@ import (
 // TestCheckStorage checks that the CheckStorage rpc is wired up correctly.
 // An more extensive test lives in the `chunk` package.
 func TestCheckStorage(t *testing.T) {
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
 	t.Parallel()
-	client := newClient(t)
+	client := newClient(ctx, t)
 	res, err := client.CheckStorage(ctx, &pfs.CheckStorageRequest{
 		ReadChunkData: false,
 	})
@@ -26,7 +27,7 @@ func TestCheckStorage(t *testing.T) {
 	require.NotNil(t, res)
 }
 
-func newClient(t testing.TB) pfs.APIClient {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+func newClient(ctx context.Context, t testing.TB) pfs.APIClient {
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	return env.PachClient.PfsAPIClient
 }

@@ -21,11 +21,12 @@ const (
 	minioPort = 9000
 )
 
-func NewTestObjClient(t testing.TB) obj.Client {
+func NewTestObjClient(ctx context.Context, t testing.TB) obj.Client {
+	t.Helper()
 	dclient := newDockerClient()
 	defer dclient.Close()
 	err := backoff.Retry(func() error {
-		return ensureMinio(context.Background(), dclient)
+		return ensureMinio(ctx, dclient)
 	}, backoff.NewConstantBackOff(time.Second*3))
 	require.NoError(t, err)
 	endpoint := getMinioEndpoint()
@@ -36,15 +37,14 @@ func NewTestObjClient(t testing.TB) obj.Client {
 		Secure: false,
 	})
 	require.NoError(t, err)
-	bucketName := newTestMinioBucket(t, client)
+	bucketName := newTestMinioBucket(ctx, t, client)
 	oc, err := obj.NewMinioClient(endpoint, bucketName, id, secret, false, false)
 	require.NoError(t, err)
 	return obj.WrapWithTestURL(oc)
 }
 
 // newTestMinioBucket creates a new bucket, which will be cleaned up when the test finishes
-func newTestMinioBucket(t testing.TB, client *minio.Client) string {
-	ctx := context.Background()
+func newTestMinioBucket(ctx context.Context, t testing.TB, client *minio.Client) string {
 	bucketName := testBucketName(t)
 	t.Log("bucket:", bucketName)
 	err := client.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{})

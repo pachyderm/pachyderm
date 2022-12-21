@@ -1,31 +1,20 @@
 package logs
 
 import (
-	"bufio"
-	"bytes"
+	"context"
 	"fmt"
 	"io"
-	"log"
-	"os"
-	"strings"
-	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
-
-	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
+	"go.uber.org/zap"
 )
 
 // TaggedLogger is an interface providing logging functionality for use by the
 // worker, worker master, and user code processes
 type TaggedLogger interface {
-	// The TaggedLogger is usable as a io.Writer so that it can be set as the
-	// user code's subprocess stdout/stderr and still provide the same guarantees
-	io.Writer
-
 	// Logf logs to stdout and object storage (if stats are enabled), including
 	// metadata about the current pipeline and job
 	Logf(formatString string, args ...interface{})
@@ -43,139 +32,91 @@ type TaggedLogger interface {
 	WithUserCode() TaggedLogger
 
 	JobID() string
+	Writer(string) io.WriteCloser
 }
 
+// taggedLogger is a port of the legacy worker logger to one compatible with the rest of Pachyderm.
 type taggedLogger struct {
-	template  pps.LogMessage
-	stderrLog *log.Logger
-	marshaler *jsonpb.Marshaler
-
-	buffer bytes.Buffer
+	// Context ONLY FOR LOGGING.  This only exists because the worker predates context.Context,
+	// and we don't have enough tests for a safe refactor.
+	ctx   context.Context
+	jobID string // Yup, we also use the logger to pass around state.
 }
 
-func newLogger(pipelineInfo *pps.PipelineInfo) *taggedLogger {
-	pipeline := pipelineInfo.GetPipeline()
+// New adapts context-based logging to the worker.
+//
+// NOTE(jonathan): This is kind of a workaround to switch over to new logging without any risk of
+// breaking the worker.  The logging flow and context flow in the worker are not compatible with
+// each other; I tried to fix this, but each little tweak made a different test break in a different
+// way.  To properly fix the context situation in the worker to enable clean logging, we'll have to
+// get a lot more test coverage.
+func New(ctx context.Context) *taggedLogger {
+	// It is expected that this context come from the one created in NewWorker; it already
+	// contains projectId, pipelineName, and workerId.
 	return &taggedLogger{
-		template: pps.LogMessage{
-			ProjectName:  pipeline.GetProject().GetName(),
-			PipelineName: pipeline.GetName(),
-			WorkerID:     os.Getenv(client.PPSPodNameEnv),
-		},
-		stderrLog: log.New(os.Stderr, "", log.LstdFlags|log.Llongfile),
-		marshaler: &jsonpb.Marshaler{},
+		ctx: ctx,
 	}
 }
 
-// NewLogger constructs a TaggedLogger for the given pipeline, optionally
-// including mirroring log statements to object storage.
-//
-// If a pachClient is passed in and stats are enabled on the pipeline, log
-// statements will be chunked and written to the Object API on the given
-// client.
-//
-// TODO: the whole object api interface here is bad, there are a few shortcomings:
-//   - it's only used under the worker function when stats are enabled
-//   - 'Close' is used to end the object, but it must be explicitly called
-//   - the 'eg', 'putObjClient', 'msgCh', 'buffer', and 'objSize' don't play well
-//     with cloned loggers.
-//
-// Abstract this into a separate object with a more explicit lifetime?
-func NewLogger(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient) (TaggedLogger, error) {
-	result := newLogger(pipelineInfo)
-	return result, nil
-}
-
-// NewStatlessLogger constructs a TaggedLogger for the given pipeline.  This is
-// typically used outside of the worker/master main path.
-func NewStatlessLogger(pipelineInfo *pps.PipelineInfo) TaggedLogger {
-	return newLogger(pipelineInfo)
-}
-
-// NewMasterLogger constructs a TaggedLogger for the given pipeline that
-// includes the 'Master' flag.  This is typically used for all logging from the
-// worker master goroutine. The 'User' flag is set to false to maintain the
-// invariant that 'User' and 'Master' are mutually exclusive, which is done to
-// make it easier to query for specific logs.
-func NewMasterLogger(pipelineInfo *pps.PipelineInfo) TaggedLogger {
-	result := newLogger(pipelineInfo) // master loggers don't log stats
-	result.template.Master = true
-	result.template.User = false
-	return result
+// NewMasterLogger constructs a TaggedLogger for the given pipeline that includes the 'Master' flag.
+// The root context should come from worker.NewWorker, with projectId, pipelineName, and workerId
+// already set.
+func NewMasterLogger(ctx context.Context) TaggedLogger {
+	return &taggedLogger{
+		ctx: pctx.Child(ctx, "", pctx.WithFields(pps.MasterField(true))),
+	}
 }
 
 // WithJob clones the current logger and returns a new one that will include
 // the given job ID in log statement metadata.
+//
+// This is also where we turn off log rate limiting, though WithData actually seems like a slightly
+// more aggressive but still safe choice.  If there is a lot of log spam with jobId but not datumId,
+// move it down there.  We have tests that test this!
 func (logger *taggedLogger) WithJob(jobID string) TaggedLogger {
-	result := logger.clone()
-	result.template.JobID = jobID
-	return result
+	return &taggedLogger{
+		jobID: jobID,
+		ctx:   pctx.Child(logger.ctx, "", pctx.WithFields(pps.JobIDField(jobID)), pctx.WithoutRatelimit()),
+	}
 }
 
 // WithData clones the current logger and returns a new one that will include
 // the given data inputs in log statement metadata.
 func (logger *taggedLogger) WithData(data []*common.Input) TaggedLogger {
-	result := logger.clone()
-
-	// Add inputs' details to log metadata, so we can find these logs later
-	result.template.Data = []*pps.InputFile{}
+	var inputFiles []*pps.InputFile
 	for _, d := range data {
-		result.template.Data = append(result.template.Data, &pps.InputFile{
+		inputFiles = append(inputFiles, &pps.InputFile{
 			Path: d.FileInfo.File.Path,
 			Hash: d.FileInfo.Hash,
 		})
 	}
-
-	// This is the same ID used in the stats tree for the datum
-	result.template.DatumID = common.DatumID(data)
-	return result
+	return &taggedLogger{
+		jobID: logger.jobID,
+		ctx:   pctx.Child(logger.ctx, "", pctx.WithFields(pps.DataField(inputFiles), pps.DatumIDField(common.DatumID(data)))),
+	}
 }
 
 // WithUserCode clones the current logger and returns a new one that will
-// include the 'User' flag in log statement metadata. The 'Master' flag is set
-// to false to maintain the invariant that 'User' and 'Master' are mutually
-// exclusive, which is done to make it easier to query for specific logs.
+// include the 'User' flag in log statement metadata.
 func (logger *taggedLogger) WithUserCode() TaggedLogger {
-	result := logger.clone()
-	result.template.User = true
-	result.template.Master = false
-	return result
+	return &taggedLogger{
+		jobID: logger.jobID,
+		ctx:   pctx.Child(logger.ctx, "", pctx.WithFields(pps.UserField(true))),
+	}
 }
 
 // JobID returns the current job that the logger is configured with.
 func (logger *taggedLogger) JobID() string {
-	return logger.template.JobID
+	return logger.jobID
 }
 
-func (logger *taggedLogger) clone() *taggedLogger {
-	return &taggedLogger{
-		template:  logger.template,  // Copy struct
-		stderrLog: logger.stderrLog, // logger should be goroutine-safe
-		marshaler: &jsonpb.Marshaler{},
-	}
-}
-
-// Logf logs the line Sprintf(formatString, args...), but formatted as a json
-// message and annotated with all of the metadata stored in 'loginfo'.
-//
-// Note: this is not thread-safe, as it modifies fields of 'logger.template'
-func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
-	logger.template.Message = fmt.Sprintf(formatString, args...)
-	if ts, err := types.TimestampProto(time.Now()); err == nil {
-		logger.template.Ts = ts
-	} else {
-		logger.Errf("could not generate logging timestamp: %s\n", err)
-		return
-	}
-	msg, err := logger.marshaler.MarshalToString(&logger.template)
-	if err != nil {
-		logger.Errf("could not marshal %v for logging: %s\n", &logger.template, err)
-		return
-	}
-	fmt.Println(msg)
+// Logf logs the line Sprintf(formatString, args...), with any data added by previous WithXXX calls.
+func (logger *taggedLogger) Logf(formatString string, args ...any) {
+	log.Info(logger.ctx, fmt.Sprintf(formatString, args...))
 }
 
 // LogStep will log before and after the given callback function runs, using
-// the name provided
+// the name provided.
 func (logger *taggedLogger) LogStep(name string, cb func() error) (retErr error) {
 	logger.Logf("started %v", name)
 	defer func() {
@@ -188,33 +129,13 @@ func (logger *taggedLogger) LogStep(name string, cb func() error) (retErr error)
 	return cb()
 }
 
-// Errf writes the given line to the stderr of the worker process.  This does
-// not go to a persistent log.
-func (logger *taggedLogger) Errf(formatString string, args ...interface{}) {
-	logger.stderrLog.Printf(formatString, args...)
+// Errf writes the given line as an error.
+func (logger *taggedLogger) Errf(formatString string, args ...any) {
+	log.Error(logger.ctx, fmt.Sprintf(formatString, args...))
 }
 
-// This is provided so that taggedLogger can be used as a io.Writer for stdout
-// and stderr when running user code.
-func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
-	// never errors
-	logger.buffer.Write(p)
-	r := bufio.NewReader(&logger.buffer)
-	for {
-		message, err := r.ReadString('\n')
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				logger.buffer.Write([]byte(message))
-				return len(p), nil
-			}
-			// this shouldn't technically be possible to hit - io.EOF should be
-			// the only error bufio.Reader can return when using a buffer.
-			return 0, errors.Wrap(err, "ReadString")
-		}
-		// We don't want to make this call as:
-		// logger.Logf(message)
-		// because if the message has format characters like %s in it those
-		// will result in errors being logged.
-		logger.Logf("%s", strings.TrimSuffix(message, "\n"))
-	}
+// Writer returns an io.WriteCloser that logs each line to the logger.  The logs are NOT
+// rate-limited, even if the parent logger is.
+func (logger *taggedLogger) Writer(stream string) io.WriteCloser {
+	return log.WriterAt(pctx.Child(logger.ctx, "", pctx.WithFields(zap.String("stream", stream)), pctx.WithoutRatelimit()), log.InfoLevel)
 }

@@ -2,10 +2,13 @@
 package profileutil
 
 import (
+	"context"
+
 	"cloud.google.com/go/profiler"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/version"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // StartCloudProfiler enables Google Cloud Profiler and begins exporting profiles, if
@@ -16,16 +19,16 @@ import (
 // Service is the name of this binary (pachd, worker, etc.).
 //
 // If there is a problem starting the cloud profiler, it logs a message but we continue.
-func StartCloudProfiler(service string, config *serviceenv.Configuration) {
+func StartCloudProfiler(ctx context.Context, service string, config *serviceenv.Configuration) {
 	if config == nil {
-		log.Warn("nil configuration passed to StartCloudProfiler; profiling not enabled")
+		log.Error(ctx, "nil configuration passed to StartCloudProfiler; profiling not enabled")
 		return
 	}
 	p := config.GoogleCloudProfilerProject
 	if p == "" {
 		return
 	}
-	log.Infof("enabling google cloud profiler; sending profiles to project %q", p)
+	log.Info(ctx, "enabling google cloud profiler", zap.String("project", p))
 	err := profiler.Start(profiler.Config{
 		Service:        service,
 		ServiceVersion: version.PrettyPrintVersion(version.Version),
@@ -34,6 +37,6 @@ func StartCloudProfiler(service string, config *serviceenv.Configuration) {
 		ProjectID:      p,
 	})
 	if err != nil {
-		log.WithError(err).Error("failed to start cloud profiler; profiling not enabled")
+		log.Error(ctx, "failed to start cloud profiler; profiling not enabled", zap.Error(err))
 	}
 }

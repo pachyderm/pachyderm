@@ -7,11 +7,12 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/server/identityutil"
 
 	dex_memory "github.com/dexidp/dex/storage/memory"
-	logrus "github.com/sirupsen/logrus"
 )
 
 // TestConnectorCreateListGet tests creating, listing, getting and deleting IDP connectors.
@@ -34,7 +35,8 @@ func TestConnectorCreateListGetDelete(t *testing.T) {
 		},
 	}
 
-	logger := logrus.NewEntry(logrus.New())
+	ctx := pctx.TestContext(t)
+	logger := log.NewLogrus(ctx)
 	api := newDexAPI(dex_memory.New(logger))
 
 	// Create a new connector
@@ -114,7 +116,8 @@ func TestCreateConnector(t *testing.T) {
 		},
 	}
 
-	logger := logrus.NewEntry(logrus.New())
+	ctx := pctx.TestContext(t)
+	logger := log.NewLogrus(ctx)
 	api := newDexAPI(dex_memory.New(logger))
 
 	for _, c := range cases {
@@ -203,7 +206,8 @@ func TestCreateInvalidConnector(t *testing.T) {
 		},
 	}
 
-	logger := logrus.NewEntry(logrus.New())
+	ctx := pctx.TestContext(t)
+	logger := log.NewLogrus(ctx)
 	api := newDexAPI(dex_memory.New(logger))
 
 	for _, c := range cases {
@@ -355,7 +359,8 @@ func TestUpdateConnector(t *testing.T) {
 		},
 	}
 
-	logger := logrus.NewEntry(logrus.New())
+	ctx := pctx.TestContext(t)
+	logger := log.NewLogrus(ctx)
 	api := newDexAPI(dex_memory.New(logger))
 
 	// Create the initial  connector
@@ -395,7 +400,8 @@ func TestClientCreateListGetDelete(t *testing.T) {
 		RedirectUris: []string{"http://example.com/2"},
 	}
 
-	logger := logrus.NewEntry(logrus.New())
+	ctx := pctx.TestContext(t)
+	logger := log.NewLogrus(ctx)
 	api := newDexAPI(dex_memory.New(logger))
 
 	// Create a new connector
@@ -453,7 +459,8 @@ func TestCreateInvalidClient(t *testing.T) {
 		},
 	}
 
-	logger := logrus.NewEntry(logrus.New())
+	ctx := pctx.TestContext(t)
+	logger := log.NewLogrus(ctx)
 	api := newDexAPI(dex_memory.New(logger))
 
 	for _, c := range cases {
@@ -542,7 +549,8 @@ func TestUpdateClient(t *testing.T) {
 		},
 	}
 
-	logger := logrus.NewEntry(logrus.New())
+	ctx := pctx.TestContext(t)
+	logger := log.NewLogrus(ctx)
 	api := newDexAPI(dex_memory.New(logger))
 
 	// Create the initial  connector

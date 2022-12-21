@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"go.uber.org/zap"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -16,11 +17,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	dex_server "github.com/dexidp/dex/server"
 	dex_storage "github.com/dexidp/dex/storage"
-	logrus "github.com/sirupsen/logrus"
 )
 
 var (
@@ -77,7 +79,6 @@ type dexWeb struct {
 	server            *dex_server.Server
 	serverCancel      context.CancelFunc
 
-	logger          *logrus.Entry
 	storageProvider dex_storage.Storage
 	apiServer       identity.APIServer
 	assetsDir       string
@@ -85,10 +86,8 @@ type dexWeb struct {
 }
 
 func newDexWeb(env Env, apiServer identity.APIServer, options ...IdentityServerOption) *dexWeb {
-	logger := logrus.WithField("source", "dex-web")
 	web := &dexWeb{
 		env:             env,
-		logger:          logger,
 		storageProvider: env.DexStorage,
 		apiServer:       apiServer,
 		addr:            dexHTTPPort,
@@ -102,7 +101,8 @@ func newDexWeb(env Env, apiServer identity.APIServer, options ...IdentityServerO
 
 // stopWebServer must be called while holding the write mutex
 func (w *dexWeb) stopWebServer() {
-	w.logger.Info("stopping identity web server")
+	ctx := pctx.Background("dexWeb")
+	log.Info(ctx, "stopping identity web server")
 	// Stop the background jobs for the existing server
 	if w.serverCancel != nil {
 		w.serverCancel()
@@ -123,6 +123,7 @@ func (w *dexWeb) serverNeedsRestart(config *identity.IdentityServerConfig, conne
 
 // startWebServer starts a new web server with the appropriate configuration and connectors.
 func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connectors *identity.ListIDPConnectorsResponse) (*dex_server.Server, error) {
+	ctx := pctx.Background("dexWeb")
 	w.Lock()
 	defer w.Unlock()
 
@@ -133,14 +134,14 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 	}
 
 	w.stopWebServer()
-	w.logger.Info("starting identity web server")
+	log.Info(ctx, "starting identity web server")
 
 	storage := w.storageProvider
 
 	// If no connectors are configured, add a static placeholder which directs the user
 	// to configure a connector
 	if len(connectors.Connectors) == 0 {
-		w.logger.Info("no idp connectors configured, using placeholder")
+		log.Info(ctx, "no idp connectors configured, using placeholder")
 		dex_server.ConnectorsConfig["placeholder"] = func() dex_server.ConnectorConfig { return new(placeholderConfig) }
 		storage = dex_storage.WithStaticConnectors(storage, []dex_storage.Connector{
 			{
@@ -164,7 +165,7 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 
 	var refreshTokenPolicy *dex_server.RefreshTokenPolicy
 	if config.RotationTokenExpiry != "" {
-		refreshTokenPolicy, err = dex_server.NewRefreshTokenPolicy(w.logger, false, "", config.RotationTokenExpiry, "")
+		refreshTokenPolicy, err = dex_server.NewRefreshTokenPolicy(log.NewLogrus(pctx.Child(ctx, "NewRefreshTokenPolicy")), false, "", config.RotationTokenExpiry, "")
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}
@@ -180,12 +181,11 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 			Theme:   "pachyderm",
 			Dir:     w.assetsDir,
 		},
-		Logger:             w.logger,
 		RefreshTokenPolicy: refreshTokenPolicy,
+		Logger:             log.NewLogrus(ctx),
 	}
 
-	var ctx context.Context
-	ctx, w.serverCancel = context.WithCancel(context.Background())
+	ctx, w.serverCancel = context.WithCancel(ctx)
 	w.server, err = dex_server.NewServer(ctx, serverConfig)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -225,16 +225,17 @@ func (w *dexWeb) getServer(ctx context.Context) (*dex_server.Server, error) {
 // authenticated to the IDP but before they're redirected back to the OIDC server
 func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.ResponseWriter, *http.Request) {
 	return func(rw http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		authReq, err := w.storageProvider.GetAuthRequest(r.FormValue("req"))
 		if err != nil {
 			dexApprovalErrorCountMetric.Inc()
-			w.logger.WithError(err).Error("failed to get auth request")
+			log.Error(ctx, "failed to get auth request", zap.Error(err))
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		if !authReq.LoggedIn {
 			dexApprovalErrorCountMetric.Inc()
-			w.logger.Error("auth request does not have an identity for approval")
+			log.Error(ctx, "auth request does not have an identity for approval")
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -244,7 +245,7 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 		}); err != nil {
 			dexApprovalErrorCountMetric.Inc()
 			rw.WriteHeader(http.StatusInternalServerError)
-			w.logger.Error("while adding user in tx: ", err)
+			log.Error(ctx, "error while adding user in tx", zap.Error(err))
 			return
 		}
 
@@ -257,7 +258,7 @@ func (w *dexWeb) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	server, err := w.getServer(r.Context())
 	if server == nil {
 		dexStartupErrorCountMetric.Inc()
-		logrus.WithError(err).Error("unable to start Dex server")
+		log.Error(r.Context(), "unable to start Dex server", zap.Error(err))
 		http.Error(rw, "unable to start Dex server, check logs", http.StatusInternalServerError)
 		return
 	}

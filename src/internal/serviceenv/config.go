@@ -50,7 +50,7 @@ type GlobalConfiguration struct {
 
 	EtcdPrefix           string `env:"ETCD_PREFIX,default="`
 	DeploymentID         string `env:"CLUSTER_DEPLOYMENT_ID,default="`
-	LogLevel             string `env:"LOG_LEVEL,default=info"`
+	LogLevel             string `env:"LOG_LEVEL,default=info"` // Note: actually read in internal/log/loggers.go.
 	EnterpriseEtcdPrefix string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
 	Metrics              bool   `env:"METRICS,default=true"`
 	MetricsEndpoint      string `env:"METRICS_ENDPOINT,default="`

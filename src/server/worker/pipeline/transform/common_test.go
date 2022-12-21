@@ -2,7 +2,6 @@ package transform
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -10,6 +9,7 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
@@ -19,9 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
-
-// Set this to true to enable worker log statements to go to stdout
-const debug = false
 
 func defaultPipelineInfo() *pps.PipelineInfo {
 	name := "testPipeline"
@@ -55,7 +52,7 @@ func defaultPipelineInfo() *pps.PipelineInfo {
 
 type testEnv struct {
 	*realenv.RealEnv
-	logger *logs.MockLogger
+	logger logs.TaggedLogger
 	driver driver.Driver
 }
 
@@ -123,13 +120,11 @@ func (td *testDriver) GetContainerImageID(ctx context.Context, containerName str
 
 // newTestEnv provides a test env with etcd and pachd instances and connected
 // clients, plus a worker driver for performing worker operations.
-func newTestEnv(t *testing.T, pipelineInfo *pps.PipelineInfo, realEnv *realenv.RealEnv) *testEnv {
-	logger := logs.NewMockLogger()
-	if debug {
-		logger.Writer = os.Stdout
-	}
+func newTestEnv(ctx context.Context, t *testing.T, pipelineInfo *pps.PipelineInfo, realEnv *realenv.RealEnv) *testEnv {
+	logger := logs.New(pctx.Child(ctx, t.Name()))
 	workerDir := filepath.Join(realEnv.Directory, "worker")
 	driver, err := driver.NewDriver(
+		ctx,
 		realEnv.ServiceEnv,
 		realEnv.PachClient,
 		pipelineInfo,

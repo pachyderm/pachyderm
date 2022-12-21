@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -29,12 +30,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
-func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipelineInfo *pps.PipelineInfo) *testEnv {
+func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig serviceenv.ConfigOption, pipelineInfo *pps.PipelineInfo) *testEnv {
 	// We only support simple pfs input pipelines in this test suite at the moment
 	require.NotNil(t, pipelineInfo.Details.Input)
 	require.NotNil(t, pipelineInfo.Details.Input.Pfs)
 
-	env := realenv.NewRealEnvWithPPSTransactionMock(t, dbConfig)
+	env := realenv.NewRealEnvWithPPSTransactionMock(ctx, t, dbConfig)
 	eg, ctx := errgroup.WithContext(env.PachClient.Ctx())
 
 	// Set env vars that the object storage layer expects in the env
@@ -100,7 +101,7 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 	require.NoError(t, err)
 
 	pipelineInfo.SpecCommit = specCommit
-	testEnv := newTestEnv(t, pipelineInfo, env)
+	testEnv := newTestEnv(ctx, t, pipelineInfo, env)
 	testEnv.driver = testEnv.driver.WithContext(ctx)
 	testEnv.PachClient = testEnv.driver.PachClient()
 	// Put the pipeline info into the collection (which is read by the master)
@@ -296,18 +297,20 @@ func TestTransformPipeline(suite *testing.T) {
 
 	suite.Run("TestJobSuccess", func(t *testing.T) {
 		pi := defaultPipelineInfo()
-		env := setupPachAndWorker(t, dockertestenv.NewTestDBConfig(t), pi)
+		ctx := pctx.TestContext(t)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
 		testJobSuccess(t, env, pi, []tarutil.File{
 			tarutil.NewMemFile("/file", []byte("foobar")),
 		})
 	})
 
 	suite.Run("TestJobSuccessEgress", func(t *testing.T) {
-		objC := dockertestenv.NewTestObjClient(t)
+		ctx := pctx.TestContext(t)
+		objC := dockertestenv.NewTestObjClient(ctx, t)
 		pi := defaultPipelineInfo()
 		egressURL := objC.BucketURL().String()
 		pi.Details.Egress = &pps.Egress{URL: egressURL}
-		env := setupPachAndWorker(t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
 
 		files := []tarutil.File{
 			tarutil.NewMemFile("/file1", []byte("foo")),
@@ -330,18 +333,20 @@ func TestTransformPipeline(suite *testing.T) {
 	})
 
 	suite.Run("TestJobSuccessEgressEmpty", func(t *testing.T) {
-		objC := dockertestenv.NewTestObjClient(t)
+		ctx := pctx.TestContext(t)
+		objC := dockertestenv.NewTestObjClient(ctx, t)
 		pi := defaultPipelineInfo()
 		pi.Details.Input.Pfs.Glob = "/"
 		pi.Details.Egress = &pps.Egress{URL: objC.BucketURL().String()}
-		env := setupPachAndWorker(t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
 
 		testJobSuccess(t, env, pi, nil)
 	})
 
 	suite.Run("TestJobFailedDatum", func(t *testing.T) {
+		ctx := pctx.TestContext(t)
 		pi := defaultPipelineInfo()
-		env := setupPachAndWorker(t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
 
 		pi.Details.Transform.Cmd = []string{"bash", "-c", "(exit 1)"}
 		tarFiles := []tarutil.File{
@@ -356,8 +361,9 @@ func TestTransformPipeline(suite *testing.T) {
 	})
 
 	suite.Run("TestJobMultiDatum", func(t *testing.T) {
+		ctx := pctx.TestContext(t)
 		pi := defaultPipelineInfo()
-		env := setupPachAndWorker(t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
 
 		tarFiles := []tarutil.File{
 			tarutil.NewMemFile("/a", []byte("foobar")),
@@ -367,8 +373,9 @@ func TestTransformPipeline(suite *testing.T) {
 	})
 
 	suite.Run("TestJobSerial", func(t *testing.T) {
+		ctx := pctx.TestContext(t)
 		pi := defaultPipelineInfo()
-		env := setupPachAndWorker(t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
 
 		tarFiles := []tarutil.File{
 			tarutil.NewMemFile("/a", []byte("foobar")),
@@ -409,8 +416,9 @@ func TestTransformPipeline(suite *testing.T) {
 	})
 
 	suite.Run("TestJobSerialDelete", func(t *testing.T) {
+		ctx := pctx.TestContext(t)
 		pi := defaultPipelineInfo()
-		env := setupPachAndWorker(t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
 
 		tarFiles := []tarutil.File{
 			tarutil.NewMemFile("/a", []byte("foobar")),
