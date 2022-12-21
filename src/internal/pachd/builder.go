@@ -100,7 +100,7 @@ func newBuilder(config any, name string) (b builder) {
 }
 
 func (b *builder) printVersion(ctx context.Context) error {
-	log.Info(ctx, "version info", zap.Any("versionInfo", version.Version))
+	log.Info(ctx, "version info", log.Proto("versionInfo", version.Version))
 	return nil
 }
 

@@ -35,6 +35,7 @@ func main() {
 	log.InitWorkerLogger()
 	ctx := pctx.Child(pctx.Background(""), "", pctx.WithFields(pps.WorkerIDField(os.Getenv(client.PPSPodNameEnv))))
 	go log.WatchDroppedLogs(ctx, time.Minute)
+	log.Debug(ctx, "version info", log.Proto("versionInfo", version.Version))
 
 	// append pachyderm bins to path to allow use of pachctl
 	os.Setenv("PATH", os.Getenv("PATH")+":/pach-bin")
