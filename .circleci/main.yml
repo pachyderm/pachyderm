@@ -41,7 +41,9 @@ parameters:
   run-core-jobs:
     type: boolean
     default: false
-
+  stable-release:
+    type: integer
+    default: 0
 executors:
   docker-go:
     docker:
@@ -1113,12 +1115,8 @@ jobs:
             make UNDERLYING=$CIRCLE_SHA1 VERSION=${CIRCLE_TAG:1} docker-push
   release-hombrew-tap:
     executor: docker-go
-    parameters:
-      stable:
-        type: integer
-        default: 0
     environment:
-      STABLE: << pipeline.parameters.stable >>
+      STABLE: << pipeline.parameters.stable-release >>
     steps:
       - checkout
       - add_ssh_keys:
@@ -1366,7 +1364,6 @@ workflows:
           filters: *only-release-tags
           requires:
             - release-github #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
-          stable: 1
       - helm-publish:
           name: publish-helm-chart
           filters: *only-release-tags
@@ -1449,7 +1446,6 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - release-github #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
-          stable: 0
       - helm-publish:
           name: publish-helm-chart
           filters: *only-nightly-tags
