@@ -34,7 +34,7 @@
 //
 //	Debug(ctx, "did a thing", zap.String("thing", thing), zap.String("reason", "because"))
 //
-// over:
+// over a non-structured:
 //
 //	Debugf(ctx, "did a thing (%v) because %v", thing, "because")
 //
@@ -45,7 +45,7 @@
 //
 // It is conventional to name your fields with camelCase, not snake_case or whatever-this-is-case.
 // When unpacking a compound object into individual fields, object.key1, object.key2 are acceptable.
-// (Example: grpc.code, grpc.message in gRPC response messages.)
+// (Example: grpc.code, grpc.message in gRPC responses.)
 //
 // # SPANS
 //
@@ -108,25 +108,6 @@
 // That is all you need to know to start logging things!  The rest of the functionality is more
 // advanced.
 //
-// # CONTEXTS
-//
-// It goes without saying that it is perfectly safe to use context.WithTimeout, context.WithCancel,
-// context.WithValue, etc.  The derived context will inherit the logging capabilities of its parent.
-//
-// Sometimes you want to spin-off a long-running operation with a name and some fields.  The Child
-// function in this package takes care of this for you.  log.Child(parent, "loggerName",
-// [options...]).  The convention is to use oneCamelCaseWord for the logger name, and for parents to
-// name their children.  Instead of:
-//
-//	func worker(ctx context.Context) {
-//	    ctx = log.Child(ctx, "worker")
-//	    ...
-//	}
-//
-// Prefer:
-//
-// go s.worker(log.Child(ctx, "worker"))
-//
 // # SAMPLING
 //
 // Some subsystems can be pretty noisy.  The loggers we provide are configured to rate-limit
@@ -162,7 +143,7 @@
 // # GETTING A LOGGER
 //
 // By the time you read this, all code should have been converted to transmit loggers through the
-// context.  If you run into some code that can't accept contexts, use `log.TODO()` if you can't fix
+// context.  If you run into some code that can't accept contexts, use `pctx.TODO()` if you can't fix
 // the API today.  TODO uses the global logger, but doesn't warn about the logger not being
 // initialized, as Child() would do on an empty context.  (For saftey, there is no circumstance
 // where a log function will ever panic, or not log, but we do warn if the provided context doesn't
@@ -170,7 +151,7 @@
 // should let you track it down easily.)
 //
 // Top-level applications need to initialize the global logger, from which background services and
-// log.TODO() derive the global logger from.  We have three ways of doing this, InitPachdLogger,
+// pctx.TODO() derive the global logger from.  We have three ways of doing this, InitPachdLogger,
 // InitWorkerLogger, and InitPachctlLogger.  The Pachd Logger is designed for compatability with
 // third-party logging systems, like Stackdriver, and should be the default for any server-side
 // applications.  The Worker logger is designed to only emit messages that can be parsed by `pachctl
@@ -179,7 +160,7 @@
 // documentation.  (It also adds color if the terminal is capable and it's not disabled by pachctl
 // flags.)  If you're writing a new CLI utility, you probably want the Pachctl logger.
 //
-// The root context in applications is `log.Background()`.  Call it exactly once after
+// The root context in applications is `pctx.Background()`.  Call it exactly once after
 // Init(Pachd|Worker|Pachctl)Logger.
 //
 // In tests, use pctx.TestContext(t).  In the future we plan to add other accouterments to contexts

@@ -49,7 +49,7 @@ func TestSpan(t *testing.T) {
 				return nil
 			},
 			want:     []string{"x: debug: x: span start", "debug: running", "x: debug: x: span finished ok"},
-			wantKeys: []string{"caller", "caller", "caller,span_duration"},
+			wantKeys: []string{"caller", "caller", "caller,spanDuration"},
 		},
 		{
 			name: "leveled success",
@@ -59,7 +59,7 @@ func TestSpan(t *testing.T) {
 				return nil
 			},
 			want:     []string{"x: error: x: span start", "info: running", "x: error: x: span finished ok"},
-			wantKeys: []string{"caller", "caller", "caller,span_duration"},
+			wantKeys: []string{"caller", "caller", "caller,spanDuration"},
 		},
 		{
 			name: "span nesting",
@@ -88,7 +88,7 @@ func TestSpan(t *testing.T) {
 				"a.b.c: debug: c: span finished ok",
 				"a: info: a: span finished ok",
 			},
-			wantKeys: []string{"caller", "caller,ctx", "caller,ctx", "caller,ctx", "caller,ctx", "caller,ctx", "caller,ctx", "caller,ctx,span_duration", "caller,ctx,span_duration", "caller,ctx,span_duration"},
+			wantKeys: []string{"caller", "caller,ctx", "caller,ctx", "caller,ctx", "caller,ctx", "caller,ctx", "caller,ctx", "caller,ctx,spanDuration", "caller,ctx,spanDuration", "caller,ctx,spanDuration"},
 		},
 		{
 			name: "simple error",
@@ -101,7 +101,7 @@ func TestSpan(t *testing.T) {
 				"x: debug: x: span start",
 				"x: debug: x: span failed",
 			},
-			wantKeys: []string{"caller", "caller,error,span_duration"},
+			wantKeys: []string{"caller", "caller,error,spanDuration"},
 		},
 		{
 			name: "simple nil error",
@@ -114,7 +114,7 @@ func TestSpan(t *testing.T) {
 				"x: debug: x: span start",
 				"x: debug: x: span finished ok",
 			},
-			wantKeys: []string{"caller", "caller,span_duration"},
+			wantKeys: []string{"caller", "caller,spanDuration"},
 		},
 		{
 			name: "simple namederror",
@@ -127,7 +127,7 @@ func TestSpan(t *testing.T) {
 				"x: debug: x: span start",
 				"x: debug: x: span failed",
 			},
-			wantKeys: []string{"caller", "caller,span_duration,totally_not_a_failure"},
+			wantKeys: []string{"caller", "caller,spanDuration,totally_not_a_failure"},
 		},
 		{
 			name: "leveled error",
@@ -140,7 +140,7 @@ func TestSpan(t *testing.T) {
 				"x: debug: x: span start",
 				"x: error: x: span failed",
 			},
-			wantKeys: []string{"caller", "caller,error,span_duration"},
+			wantKeys: []string{"caller", "caller,error,spanDuration"},
 		},
 		{
 			name: "leveled nil error",
@@ -153,7 +153,7 @@ func TestSpan(t *testing.T) {
 				"x: debug: x: span start",
 				"x: debug: x: span finished ok",
 			},
-			wantKeys: []string{"caller", "caller,span_duration"},
+			wantKeys: []string{"caller", "caller,spanDuration"},
 		},
 		// { // This one causes zap to panic, so it's safe for us to not handle.
 		// 	name: "leveled nil error, injected sneakily",
@@ -183,7 +183,7 @@ func TestSpan(t *testing.T) {
 				"debug: hi",
 				"x: debug: x: span finished ok",
 			},
-			wantKeys: []string{"caller", "caller", "caller,span_duration"},
+			wantKeys: []string{"caller", "caller", "caller,spanDuration"},
 		},
 		{
 			name: "simple errorp; failure",
@@ -197,7 +197,7 @@ func TestSpan(t *testing.T) {
 				"debug: hi",
 				"x: debug: x: span failed",
 			},
-			wantKeys: []string{"caller", "caller", "caller,error,span_duration"},
+			wantKeys: []string{"caller", "caller", "caller,error,spanDuration"},
 		},
 		{
 			name: "leveled errorp; failure",
@@ -211,7 +211,7 @@ func TestSpan(t *testing.T) {
 				"debug: hi",
 				"x: error: x: span failed",
 			},
-			wantKeys: []string{"caller", "caller", "caller,error,span_duration"},
+			wantKeys: []string{"caller", "caller", "caller,error,spanDuration"},
 		},
 		{
 			name: "ensure nothing gets filtered",
@@ -325,7 +325,7 @@ func TestSpan(t *testing.T) {
 			},
 			wantKeys: []string{
 				"caller",
-				"any,array,binary,bool,boolp,bools,bytestring,bytestrings,caller,complex128,complex128p,complex128s,complex64,complex64p,complex64s,duration,durationp,durations,error,errors,float32,float32p,float32s,float64,float64p,float64s,inline,int,int16,int16p,int16s,int32,int32p,int32s,int64,int64p,int64s,int8,int8p,int8s,intp,ints,namederror,namespace,object,reflect,span_duration,stack,stack2,string,stringer,stringp,strings,timeX,timep,times,uint,uint16,uint16p,uint16s,uint32,uint32p,uint32s,uint64,uint64p,uint64s,uint8,uint8p,uint8s,uintp,uintptr,uintptrp,uintptrs,uints",
+				"any,array,binary,bool,boolp,bools,bytestring,bytestrings,caller,complex128,complex128p,complex128s,complex64,complex64p,complex64s,duration,durationp,durations,error,errors,float32,float32p,float32s,float64,float64p,float64s,inline,int,int16,int16p,int16s,int32,int32p,int32s,int64,int64p,int64s,int8,int8p,int8s,intp,ints,namederror,namespace,object,reflect,spanDuration,stack,stack2,string,stringer,stringp,strings,timeX,timep,times,uint,uint16,uint16p,uint16s,uint32,uint32p,uint32s,uint64,uint64p,uint64s,uint8,uint8p,uint8s,uintp,uintptr,uintptrp,uintptrs,uints",
 			},
 		},
 	}

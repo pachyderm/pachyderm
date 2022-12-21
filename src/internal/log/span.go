@@ -90,7 +90,7 @@ const (
 
 func makeSpanEndFunc(l *zap.Logger, event string, level Level, start time.Time) EndSpanFunc {
 	return func(rawFields ...Field) {
-		fields := []zap.Field{zap.Duration("span_duration", time.Since(start))}
+		fields := []zap.Field{zap.Duration("spanDuration", time.Since(start))}
 		msg := spanOK
 		for _, f := range rawFields {
 			if i := f.Interface; i != nil {
