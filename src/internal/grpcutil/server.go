@@ -48,7 +48,7 @@ type Server struct {
 // over TLS. If either are missing this will serve GRPC traffic over
 // unencrypted HTTP,
 func NewServer(ctx context.Context, publicPortTLSAllowed bool, options ...grpc.ServerOption) (*Server, error) {
-	baseInterceptor := logging.NewBaseContextInterceptor(pctx.Child(ctx, "grpc", pctx.WithOptions(zap.WithCaller(false))))
+	baseInterceptor := logging.NewBaseContextInterceptor(pctx.Child(ctx, "grpc"))
 	opts := append([]grpc.ServerOption{
 		grpc.MaxConcurrentStreams(math.MaxUint32),
 		grpc.MaxRecvMsgSize(MaxMsgSize),
