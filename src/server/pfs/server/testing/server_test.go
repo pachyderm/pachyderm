@@ -1212,7 +1212,7 @@ func TestPFS(suite *testing.T) {
 				t.Errorf("deleted repo %v, which should not have been", repo)
 			}
 		}
-		repoStream, err := env.PachClient.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{Projects: []string{untouchedProjectName}})
+		repoStream, err := env.PachClient.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{Projects: []*pfs.Project{{Name: untouchedProjectName}}})
 		require.NoError(t, err)
 		var repos = make(map[string]bool)
 		for {

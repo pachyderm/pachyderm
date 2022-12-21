@@ -15,8 +15,6 @@ import (
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -42,7 +40,7 @@ import (
 )
 
 const (
-	storageTaskNamespace = "storage"
+	StorageTaskNamespace = "storage"
 	fileSetsRepo         = client.FileSetsRepoName
 	defaultTTL           = client.DefaultTTL
 	maxTTL               = 30 * time.Minute
@@ -128,9 +126,6 @@ func newDriver(env Env) (*driver, error) {
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
 	chunkStorage := chunk.NewStorage(objClient, memCache, env.DB, tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, fileset.StorageOptions(&storageConfig)...)
-	// Set up compaction worker.
-	taskSource := env.TaskService.NewSource(storageTaskNamespace)
-	go compactionWorker(env.BackgroundContext, taskSource, d.storage) //nolint:errcheck
 	d.commitStore = newPostgresCommitStore(env.DB, tracker, d.storage)
 	// TODO: Make the cache max size configurable.
 	d.cache = fileset.NewCache(env.DB, tracker, 10000)
@@ -267,13 +262,17 @@ func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Per
 	return resp.Permissions, resp.Roles, nil
 }
 
-func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string, projectsFilter map[string]bool, cb func(*pfs.RepoInfo) error) error {
+func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string, projects []*pfs.Project, cb func(*pfs.RepoInfo) error) error {
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
+	projectsFilter := make(map[string]bool)
+	for _, project := range projects {
+		projectsFilter[project.String()] = true
+	}
 
 	processFunc := func(string) error {
 		// Assume the user meant all projects by not providing any projects to filter on.
-		if len(projectsFilter) > 0 && !projectsFilter[repoInfo.Repo.Project.Name] {
+		if len(projectsFilter) > 0 && !projectsFilter[repoInfo.Repo.Project.String()] {
 			return nil
 		}
 		size, err := d.repoSize(ctx, repoInfo.Repo)
@@ -2134,14 +2133,7 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
 	var repos, deleted []*pfs.Repo
 
-	var projectFilter = make(map[string]bool)
-	for _, project := range projects {
-		if project.Name == "" {
-			return nil, status.Error(codes.InvalidArgument, "empty project name")
-		}
-		projectFilter[project.Name] = true
-	}
-	if err := d.listRepo(ctx, false, "", projectFilter, func(repoInfo *pfs.RepoInfo) error {
+	if err := d.listRepo(ctx, false, "", projects, func(repoInfo *pfs.RepoInfo) error {
 		repos = append(repos, repoInfo.Repo)
 		return nil
 	}); err != nil {

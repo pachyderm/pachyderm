@@ -4,6 +4,9 @@ import (
 	"context"
 	"path"
 
+	"github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/client/v3"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -13,8 +16,6 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
-	"github.com/sirupsen/logrus"
-	etcd "go.etcd.io/etcd/client/v3"
 )
 
 // Env is the dependencies needed to run the PFS API server
@@ -37,6 +38,7 @@ type Env struct {
 	BackgroundContext context.Context
 	StorageConfig     serviceenv.StorageConfiguration
 	Logger            *logrus.Logger
+	PachwInSidecar    bool
 }
 
 func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*Env, error) {
@@ -65,5 +67,6 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 		BackgroundContext: env.Context(),
 		StorageConfig:     env.Config().StorageConfiguration,
 		Logger:            env.Logger(),
+		PachwInSidecar:    env.Config().PachwInSidecars,
 	}, nil
 }

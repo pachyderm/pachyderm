@@ -41,6 +41,7 @@ import (
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
+	pachw "github.com/pachyderm/pachyderm/v2/src/server/pachw/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
@@ -362,6 +363,15 @@ func (b *builder) maybeInitDexDB(ctx context.Context) error {
 		return nil
 	}
 	return b.initDexDB(ctx)
+}
+
+func (b *builder) initPachwController(ctx context.Context) error {
+	env, err := pachw.EnvFromServiceEnv(b.env)
+	if err != nil {
+		return err
+	}
+	pachw.NewController(ctx, env)
+	return nil
 }
 
 // setupMemoryLimit sets GOMEMLIMIT.  If not already set through the environment, set GOMEMLIMIT to
