@@ -1,0 +1,66 @@
+package versionpb
+
+import (
+	"errors"
+	fmt "fmt"
+	"strings"
+
+	"golang.org/x/mod/semver"
+)
+
+// Canonical returns the version in canonical semver form, according to golang.org/x/mod/semver.
+func (v *Version) Canonical() string {
+	// vMAJOR[.MINOR[.PATCH[-PRERELEASE][+BUILD]]]
+	b := new(strings.Builder)
+	fmt.Fprintf(b, "v%d.%d.%d", v.Major, v.Minor, v.Micro)
+	if additional := v.Additional; additional != "" {
+		// We seem to build the - into the additional field, at least for nightlies.  Trim
+		// it anyway.
+		additional = strings.TrimLeft(additional, "-.")
+		b.WriteByte('-')
+		b.WriteString(additional)
+	}
+	return semver.Canonical(b.String())
+}
+
+// IsDevelopment returns true if the version is from a local unreleased build.
+func (v *Version) IsDevelopment() bool {
+	return v.Major == 0 && v.Minor == 0 && v.Micro == 0
+}
+
+var (
+	ErrClientTooOld        = errors.New("client is outdated")
+	ErrServerTooOld        = errors.New("server is outdated")
+	ErrIncompatiblePreview = errors.New("client and server versions must match exactly")
+)
+
+// IsCompatible determines if two versions are compatible.
+func IsCompatible(rawClient, rawServer *Version) error {
+	if rawClient == nil {
+		return errors.New("client version is nil")
+	}
+	if rawServer == nil {
+		return errors.New("server version is nil")
+	}
+	if rawClient.IsDevelopment() || rawServer.IsDevelopment() {
+		return nil
+	}
+	s, c := rawServer.Canonical(), rawClient.Canonical()
+	if semver.Prerelease(s) != "" || semver.Prerelease(c) != "" {
+		// If either the client or the server are a prerelase, then the verions must match
+		// exactly.
+		if semver.Compare(c, s) != 0 {
+			return ErrIncompatiblePreview
+		}
+		return nil
+	}
+	switch semver.Compare(semver.MajorMinor(c), semver.MajorMinor(s)) {
+	case -1:
+		return ErrClientTooOld
+	case 0:
+		return nil
+	case 1:
+		return ErrServerTooOld
+	}
+	return errors.New("internal error: missing case in semver.Compare switch statement")
+}
