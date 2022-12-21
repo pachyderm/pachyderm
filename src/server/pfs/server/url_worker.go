@@ -9,6 +9,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"go.uber.org/zap"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -17,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"go.uber.org/zap"
 )
 
 const (
@@ -58,7 +59,7 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 	if err != nil {
 		return nil, errors.Wrapf(err, "error parsing URL %v", task.URL)
 	}
-	objClient, err := obj.NewClientFromURLAndSecret(ctx, url, false)
+	objClient, err := obj.NewClientFromURLAndSecretV2(url)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +100,7 @@ func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 	if err != nil {
 		return nil, errors.Wrapf(err, "error parsing URL %v", task.URL)
 	}
-	objClient, err := obj.NewClientFromURLAndSecret(ctx, url, false)
+	objClient, err := obj.NewClientFromURLAndSecretV2(url)
 	if err != nil {
 		return nil, err
 	}

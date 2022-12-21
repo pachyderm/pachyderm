@@ -375,6 +375,44 @@ func NewAmazonClientFromEnv(ctx context.Context) (Client, error) {
 	return NewAmazonClient(ctx, region, bucket, &creds, distribution, endpoint)
 }
 
+// NewGoCDKClient creates a client for use with aws, gcp, and azure using the go-cloud-sdk interface
+//
+//	endpoint - S3 compatible endpoint
+//	bucket - S3 bucket name
+//	id     - AWS access key id
+//	secret - AWS secret access key
+//	secure - Set to true if connection is secure.
+//	isS3V2 - Set to true if client follows S3V2
+func NewGoCDKClient(url *ObjectStoreURL) (c Client, err error) {
+	c = newGoCDKClient(url)
+	return newUniformClient(c), nil
+}
+
+// NewClientFromURLAndSecretV2 swaps out client backend implementation for s3, gcp, and azure with go-cloud-sdk.
+func NewClientFromURLAndSecretV2(url *ObjectStoreURL) (c Client, err error) {
+	switch url.Scheme {
+	case "s3", "gcs", "gs", "as", "wasb":
+		c, err = NewGoCDKClient(url)
+	case "test-minio":
+		parts := strings.SplitN(url.Bucket, "/", 2)
+		if len(parts) < 2 {
+			return nil, errors.Errorf("could not parse bucket %q from url", url.Bucket)
+		}
+		c, err = NewMinioClient(parts[0], parts[1], "minioadmin", "minioadmin", false, false)
+	case "local":
+		root := strings.ReplaceAll(url.Bucket, ".", "/")
+		c, err = NewLocalClient("/" + root)
+	}
+	switch {
+	case err != nil:
+		return nil, err
+	case c != nil:
+		return TracingObjClient(url.Scheme, c), nil
+	default:
+		return nil, errors.Errorf("unrecognized object store: %s", url.Scheme)
+	}
+}
+
 // NewClientFromURLAndSecret constructs a client by parsing `URL` and then
 // constructing the correct client for that URL using secrets.
 func NewClientFromURLAndSecret(ctx context.Context, url *ObjectStoreURL, reverse ...bool) (c Client, err error) {

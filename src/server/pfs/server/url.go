@@ -7,6 +7,8 @@ import (
 	"net/url"
 
 	"github.com/gogo/protobuf/types"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -15,7 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -56,7 +57,7 @@ func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.Unord
 		if err != nil {
 			return 0, errors.Wrapf(err, "error parsing url %v", src)
 		}
-		objClient, err := obj.NewClientFromURLAndSecret(ctx, url, false)
+		objClient, err := obj.NewClientFromURLAndSecretV2(url)
 		if err != nil {
 			return 0, err
 		}
@@ -95,7 +96,7 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 		if err != nil {
 			return errors.Wrapf(err, "error parsing url %v", src)
 		}
-		objClient, err := obj.NewClientFromURLAndSecret(ctx, url, false)
+		objClient, err := obj.NewClientFromURLAndSecretV2(url)
 		if err != nil {
 			return err
 		}
