@@ -1115,7 +1115,8 @@ jobs:
     executor: docker-go
     parameters:
       stable:
-        type: boolean      
+        type: int
+        default: 0
     environment:
       STABLE: << pipeline.parameters.stable >>
     steps:
@@ -1365,7 +1366,7 @@ workflows:
           filters: *only-release-tags
           requires:
             - release-github #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
-          stable: true
+          stable: 1
       - helm-publish:
           name: publish-helm-chart
           filters: *only-release-tags
