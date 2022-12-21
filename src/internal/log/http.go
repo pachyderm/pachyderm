@@ -18,7 +18,7 @@ func AddLoggerToHTTPServer(rctx context.Context, name string, s *http.Server) {
 	s.BaseContext = func(l net.Listener) context.Context {
 		return ctx
 	}
-	s.ErrorLog = NewStdLog(ctx)
+	s.ErrorLog = NewStdLogAt(ctx, DebugLevel)
 	if s.Handler != nil {
 		orig := s.Handler
 		s.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

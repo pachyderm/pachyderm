@@ -56,7 +56,7 @@ func newMySQLEphemeralURL(ctx context.Context, t testing.TB, name string) pachsq
 	db := testutil.OpenDBURL(t, u, MySQLPassword)
 	ctx, cf := context.WithTimeout(ctx, 30*time.Second)
 	defer cf()
-	mysql.SetLogger(log.NewStdLog(pctx.Child(pctx.TODO(), "ephemeral-mysql"))) //nolint:errcheck
+	mysql.SetLogger(log.NewStdLogAt(pctx.Child(pctx.TODO(), "ephemeral-mysql"), log.DebugLevel)) //nolint:errcheck
 	require.NoError(t, dbutil.WaitUntilReady(ctx, db))
 	testutil.CreateEphemeralDB(t, db, name)
 	u2 := u
