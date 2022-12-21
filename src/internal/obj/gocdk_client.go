@@ -17,6 +17,9 @@ import (
 	_ "gocloud.dev/blob/s3blob"
 )
 
+// We no longer want to use this obj.Client interface as it limits us, so we will have to write a new interface
+// when we do the full port.
+
 type goCDKClient struct {
 	url *ObjectStoreURL
 }
