@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	_ "github.com/pachyderm/pachyderm/v2/src/internal/task/taskprotos"
 )
@@ -30,7 +31,7 @@ func init() {
 
 func main() {
 	log.InitPachdLogger()
-	ctx, cancel := signal.NotifyContext(log.Background(""), notifySignals...)
+	ctx, cancel := signal.NotifyContext(pctx.Background(""), notifySignals...)
 	defer cancel()
 
 	logMode := func(mode string) {

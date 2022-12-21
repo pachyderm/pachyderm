@@ -28,6 +28,7 @@ import (
 	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
 	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
@@ -350,7 +351,7 @@ func (b *builder) externallyListen(ctx context.Context) error {
 
 func (b *builder) bootstrap(ctx context.Context) error {
 	for _, b := range b.bootstrappers {
-		if err := b.EnvBootstrap(log.Child(ctx, "EnvBootstrap")); err != nil {
+		if err := b.EnvBootstrap(pctx.Child(ctx, "EnvBootstrap")); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}

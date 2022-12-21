@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 )
 
@@ -47,7 +48,7 @@ type Server struct {
 // over TLS. If either are missing this will serve GRPC traffic over
 // unencrypted HTTP,
 func NewServer(ctx context.Context, publicPortTLSAllowed bool, options ...grpc.ServerOption) (*Server, error) {
-	baseInterceptor := logging.NewBaseContextInterceptor(log.Child(ctx, "grpc", log.WithOptions(zap.WithCaller(false))))
+	baseInterceptor := logging.NewBaseContextInterceptor(pctx.Child(ctx, "grpc", pctx.WithOptions(zap.WithCaller(false))))
 	opts := append([]grpc.ServerOption{
 		grpc.MaxConcurrentStreams(math.MaxUint32),
 		grpc.MaxRecvMsgSize(MaxMsgSize),

@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -55,7 +56,7 @@ func newMySQLEphemeralURL(ctx context.Context, t testing.TB, name string) pachsq
 	db := testutil.OpenDBURL(t, u, MySQLPassword)
 	ctx, cf := context.WithTimeout(ctx, 30*time.Second)
 	defer cf()
-	mysql.SetLogger(log.NewStdLog(log.Child(log.TODO(), "ephemeral-mysql"))) //nolint:errcheck
+	mysql.SetLogger(log.NewStdLog(pctx.Child(pctx.TODO(), "ephemeral-mysql"))) //nolint:errcheck
 	require.NoError(t, dbutil.WaitUntilReady(ctx, db))
 	testutil.CreateEphemeralDB(t, db, name)
 	u2 := u

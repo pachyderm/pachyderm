@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -39,7 +40,7 @@ type loggingRT struct {
 
 func (rt *loggingRT) RoundTrip(req *http.Request) (*http.Response, error) {
 	start := time.Now()
-	ctx := log.Child(req.Context(), "outgoingHttp", log.WithFields([]log.Field{
+	ctx := pctx.Child(req.Context(), "outgoingHttp", pctx.WithFields([]log.Field{
 		zap.String("name", rt.name),
 		zap.String("method", req.Method),
 		zap.String("uri", req.URL.String()),

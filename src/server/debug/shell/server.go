@@ -25,7 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -41,7 +41,7 @@ import (
 )
 
 func NewDumpServer(filePath string, port uint16) *debugDump {
-	ctx := log.Background("dumpserver")
+	ctx := pctx.Background("dumpserver")
 	mock, err := testpachd.NewMockPachd(ctx, port)
 	if err != nil {
 		panic(err)

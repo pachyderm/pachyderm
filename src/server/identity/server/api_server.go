@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/server/identityutil"
 )
 
@@ -44,7 +45,7 @@ func NewIdentityServer(env Env, public bool, options ...IdentityServerOption) *a
 	}
 
 	if public {
-		ctx := log.Background("identity")
+		ctx := pctx.Background("identity")
 		web := newDexWeb(env, server, options...)
 		go func() {
 			server := &http.Server{

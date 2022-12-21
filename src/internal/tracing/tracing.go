@@ -12,6 +12,7 @@ import (
 	otgrpc "github.com/opentracing-contrib/go-grpc"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/uber/jaeger-client-go"
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 	"go.uber.org/zap"
@@ -61,7 +62,7 @@ func TagAnySpan(spanBox interface{}, kvs ...interface{}) opentracing.Span {
 	case context.Context:
 		span = opentracing.SpanFromContext(v) // may return nil
 	default:
-		log.Error(log.TODO(), "invalid type passed to TagAnySpan", zap.Any("value", spanBox))
+		log.Error(pctx.TODO(), "invalid type passed to TagAnySpan", zap.Any("value", spanBox))
 	}
 	if span == nil {
 		return nil
@@ -153,11 +154,11 @@ func InstallJaegerTracerFromEnv() string {
 		// (below) and call 'Close()' on it there.
 		tracer, _, err := cfg.NewTracer(jaegercfg.Logger(logger))
 		if err != nil {
-			log.Error(log.TODO(), "jaeger-collector service is deployed, but Pachyderm could not install Jaeger tracer", zap.Error(err))
+			log.Error(pctx.TODO(), "jaeger-collector service is deployed, but Pachyderm could not install Jaeger tracer", zap.Error(err))
 			return
 		}
 		opentracing.SetGlobalTracer(tracer)
-		log.Info(log.TODO(), "jaeger setup ok")
+		log.Info(pctx.TODO(), "jaeger setup ok")
 	})
 	return jaegerEndpoint
 }
@@ -171,7 +172,7 @@ func addTraceIfTracingEnabled(
 	// Always trace if PACH_TRACE is on
 	if _, shortTracingOn := os.LookupEnv(ShortTraceEnvVar); shortTracingOn {
 		if !IsActive() {
-			log.Error(log.TODO(), "PACH_TRACE is set, indicating tracing is requested, but no connection to Jaeger has been established")
+			log.Error(pctx.TODO(), "PACH_TRACE is set, indicating tracing is requested, but no connection to Jaeger has been established")
 		}
 		return true
 	}

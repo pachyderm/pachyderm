@@ -8,8 +8,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -71,7 +71,7 @@ func New(ctx context.Context, sqlTx *pachsql.Tx, authServer identifier) (*Transa
 
 func (t *TransactionContext) Context() context.Context {
 	if t.ctx == nil {
-		return log.TODO()
+		return pctx.TODO()
 	}
 	return t.ctx
 }

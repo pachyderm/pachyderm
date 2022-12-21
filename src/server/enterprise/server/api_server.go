@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
 	"go.uber.org/zap"
@@ -128,7 +129,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 // If the attempt fails and the license server is configured it logs the error.
 func (a *apiServer) heartbeatRoutine() {
 	heartbeat := func() {
-		ctx, cancel := context.WithTimeout(log.Child(log.TODO(), "heartbeat"), heartbeatTimeout)
+		ctx, cancel := context.WithTimeout(pctx.Child(pctx.TODO(), "heartbeat"), heartbeatTimeout)
 		defer cancel()
 		if err := a.heartbeatIfConfigured(ctx); err != nil && !lc.IsErrNotActivated(err) {
 			log.Error(ctx, "enterprise license heartbeat process failed", zap.Error(err))

@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"go.uber.org/zap"
@@ -62,7 +63,7 @@ func New(ctx context.Context) *taggedLogger {
 // already set.
 func NewMasterLogger(ctx context.Context) TaggedLogger {
 	return &taggedLogger{
-		ctx: log.Child(ctx, "", log.WithFields(pps.MasterField(true))),
+		ctx: pctx.Child(ctx, "", pctx.WithFields(pps.MasterField(true))),
 	}
 }
 
@@ -75,7 +76,7 @@ func NewMasterLogger(ctx context.Context) TaggedLogger {
 func (logger *taggedLogger) WithJob(jobID string) TaggedLogger {
 	return &taggedLogger{
 		jobID: jobID,
-		ctx:   log.Child(logger.ctx, "", log.WithFields(pps.JobIDField(jobID)), log.WithoutRatelimit()),
+		ctx:   pctx.Child(logger.ctx, "", pctx.WithFields(pps.JobIDField(jobID)), pctx.WithoutRatelimit()),
 	}
 }
 
@@ -91,7 +92,7 @@ func (logger *taggedLogger) WithData(data []*common.Input) TaggedLogger {
 	}
 	return &taggedLogger{
 		jobID: logger.jobID,
-		ctx:   log.Child(logger.ctx, "", log.WithFields(pps.DataField(inputFiles), pps.DatumIDField(common.DatumID(data)))),
+		ctx:   pctx.Child(logger.ctx, "", pctx.WithFields(pps.DataField(inputFiles), pps.DatumIDField(common.DatumID(data)))),
 	}
 }
 
@@ -100,7 +101,7 @@ func (logger *taggedLogger) WithData(data []*common.Input) TaggedLogger {
 func (logger *taggedLogger) WithUserCode() TaggedLogger {
 	return &taggedLogger{
 		jobID: logger.jobID,
-		ctx:   log.Child(logger.ctx, "", log.WithFields(pps.UserField(true))),
+		ctx:   pctx.Child(logger.ctx, "", pctx.WithFields(pps.UserField(true))),
 	}
 }
 
@@ -136,5 +137,5 @@ func (logger *taggedLogger) Errf(formatString string, args ...any) {
 // Writer returns an io.WriteCloser that logs each line to the logger.  The logs are NOT
 // rate-limited, even if the parent logger is.
 func (logger *taggedLogger) Writer(stream string) io.WriteCloser {
-	return log.WriterAt(log.Child(logger.ctx, "", log.WithFields(zap.String("stream", stream)), log.WithoutRatelimit()), log.InfoLevel)
+	return log.WriterAt(pctx.Child(logger.ctx, "", pctx.WithFields(zap.String("stream", stream)), pctx.WithoutRatelimit()), log.InfoLevel)
 }

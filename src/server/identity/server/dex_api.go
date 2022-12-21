@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/server/identityutil"
 
 	dex_api "github.com/dexidp/dex/api/v2"
@@ -30,7 +31,7 @@ type dexAPI struct {
 }
 
 func newDexAPI(sp dex_storage.Storage) *dexAPI {
-	ctx := log.Background("dexAPI")
+	ctx := pctx.Background("dexAPI")
 	logger := log.NewLogrus(ctx)
 	return &dexAPI{
 		api:     dex_server.NewAPI(sp, logger, ""),

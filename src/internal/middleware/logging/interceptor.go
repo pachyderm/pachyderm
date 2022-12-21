@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	mauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -375,7 +376,7 @@ func getCommonLogger(ctx context.Context, service, method string) context.Contex
 		// The health check logger is rate-limited to one unique message per hour.
 		ctx = log.HealthCheckLogger(ctx)
 	}
-	return log.Child(ctx, "", log.WithFields(f...))
+	return pctx.Child(ctx, "", pctx.WithFields(f...))
 }
 
 func getRequestLogger(ctx context.Context, req any) context.Context {
@@ -390,7 +391,7 @@ func getRequestLogger(ctx context.Context, req any) context.Context {
 	if deadline, ok := ctx.Deadline(); ok {
 		f = append(f, zap.Duration("deadline", time.Until(deadline)))
 	}
-	return log.Child(ctx, "", log.WithFields(f...))
+	return pctx.Child(ctx, "", pctx.WithFields(f...))
 }
 
 func getResponseLogger(ctx context.Context, res any, sent, rcvd int, err error) context.Context {
@@ -420,7 +421,7 @@ func getResponseLogger(ctx context.Context, res any, sent, rcvd int, err error) 
 	if msg := s.Message(); msg != "" {
 		f = append(f, zap.String("grpc.message", msg))
 	}
-	return log.Child(ctx, "", log.WithFields(f...))
+	return pctx.Child(ctx, "", pctx.WithFields(f...))
 }
 
 func (li *LoggingInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, retErr error) {

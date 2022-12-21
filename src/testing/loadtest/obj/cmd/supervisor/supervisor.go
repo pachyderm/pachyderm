@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -61,7 +62,7 @@ func RandSeq(n int) []byte {
 
 func main() {
 	log.InitPachctlLogger()
-	ctx := log.Background("")
+	ctx := pctx.Background("")
 
 	flag.Parse()
 	PrintFlags(ctx)

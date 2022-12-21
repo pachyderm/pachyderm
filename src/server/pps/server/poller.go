@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -26,7 +27,7 @@ const pollBackoffTime = 2 * time.Second
 func (m *ppsMaster) startPipelinePoller() {
 	m.pollPipelinesMu.Lock()
 	defer m.pollPipelinesMu.Unlock()
-	m.pollCancel = startMonitorThread(log.Child(m.masterCtx, "pollPipelines"), m.pollPipelines)
+	m.pollCancel = startMonitorThread(pctx.Child(m.masterCtx, "pollPipelines"), m.pollPipelines)
 }
 
 func (m *ppsMaster) cancelPipelinePoller() {
@@ -42,7 +43,7 @@ func (m *ppsMaster) cancelPipelinePoller() {
 func (m *ppsMaster) startPipelinePodsPoller() {
 	m.pollPipelinesMu.Lock()
 	defer m.pollPipelinesMu.Unlock()
-	m.pollPodsCancel = startMonitorThread(log.Child(m.masterCtx, "pollPipelinePods"), m.pollPipelinePods)
+	m.pollPodsCancel = startMonitorThread(pctx.Child(m.masterCtx, "pollPipelinePods"), m.pollPipelinePods)
 }
 
 func (m *ppsMaster) cancelPipelinePodsPoller() {
@@ -58,7 +59,7 @@ func (m *ppsMaster) cancelPipelinePodsPoller() {
 func (m *ppsMaster) startPipelineWatcher() {
 	m.pollPipelinesMu.Lock()
 	defer m.pollPipelinesMu.Unlock()
-	m.watchCancel = startMonitorThread(log.Child(m.masterCtx, "watchPipelines"), m.watchPipelines)
+	m.watchCancel = startMonitorThread(pctx.Child(m.masterCtx, "watchPipelines"), m.watchPipelines)
 }
 
 func (m *ppsMaster) cancelPipelineWatcher() {

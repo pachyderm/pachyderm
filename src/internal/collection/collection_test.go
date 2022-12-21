@@ -10,7 +10,7 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
@@ -60,7 +60,7 @@ func putItem(item *col.TestItem) func(rw col.ReadWriteCollection) error {
 
 // canceledContext is a helper function to provide a context that is already canceled
 func canceledContext() context.Context {
-	ctx, cancel := context.WithCancel(log.Child(log.TODO(), "canceled"))
+	ctx, cancel := context.WithCancel(pctx.Child(pctx.TODO(), "canceled"))
 	cancel()
 	return ctx
 }
@@ -81,9 +81,9 @@ func initCollection(
 	t *testing.T,
 	newCollection func(context.Context, *testing.T, ...bool) (ReadCallback, WriteCallback),
 ) (col.ReadOnlyCollection, WriteCallback) {
-	reader, writer := newCollection(log.Child(ctx, "collection"), t)
-	require.NoError(t, writer(log.Child(ctx, "writer"), populateCollection))
-	return reader(log.Child(ctx, "reader")), writer
+	reader, writer := newCollection(pctx.Child(ctx, "collection"), t)
+	require.NoError(t, writer(pctx.Child(ctx, "writer"), populateCollection))
+	return reader(pctx.Child(ctx, "reader")), writer
 }
 
 // Helper function to turn an int ID into a string so we don't need to use string literals

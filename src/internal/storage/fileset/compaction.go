@@ -8,6 +8,7 @@ import (
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"go.uber.org/zap"
@@ -192,7 +193,7 @@ func (s *Storage) compactLevels(ctx context.Context, ids []ID, maxFanIn int, ttl
 			return nil
 		}
 		var err error
-		id, err = compact(log.Child(ctx, "compact", log.WithFields(zap.String("batch", uuid.NewWithoutDashes()))), ids, ttl)
+		id, err = compact(pctx.Child(ctx, "compact", pctx.WithFields(zap.String("batch", uuid.NewWithoutDashes()))), ids, ttl)
 		return err
 	}); err != nil {
 		return nil, err

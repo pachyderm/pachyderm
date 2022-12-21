@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
@@ -202,7 +203,7 @@ func NewMicrosoftClientFromEnv() (Client, error) {
 //	isS3V2 - Set to true if client follows S3V2
 func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (c Client, err error) {
 	if isS3V2 {
-		log.Error(log.TODO(), "DEPRECATED: Support for the S3V2 option is being deprecated. It will be removed in a future version")
+		log.Error(pctx.TODO(), "DEPRECATED: Support for the S3V2 option is being deprecated. It will be removed in a future version")
 		return newMinioClientV2(endpoint, bucket, id, secret, secure)
 	}
 	c, err = newMinioClient(endpoint, bucket, id, secret, secure)
@@ -227,7 +228,7 @@ func NewAmazonClient(ctx context.Context, region, bucket string, creds *AmazonCr
 	if err := cmdutil.Populate(advancedConfig); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	c, err = newAmazonClient(log.Child(ctx, "amazon"), region, bucket, creds, distribution, endpoint, advancedConfig)
+	c, err = newAmazonClient(pctx.Child(ctx, "amazon"), region, bucket, creds, distribution, endpoint, advancedConfig)
 	if err != nil {
 		return nil, err
 	}

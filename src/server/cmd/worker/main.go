@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -32,7 +33,7 @@ import (
 
 func main() {
 	log.InitWorkerLogger()
-	ctx := log.Child(log.Background(""), "", log.WithFields(pps.WorkerIDField(os.Getenv(client.PPSPodNameEnv))))
+	ctx := pctx.Child(pctx.Background(""), "", pctx.WithFields(pps.WorkerIDField(os.Getenv(client.PPSPodNameEnv))))
 	go log.WatchDroppedLogs(ctx, time.Minute)
 
 	// append pachyderm bins to path to allow use of pachctl
@@ -67,7 +68,7 @@ func do(ctx context.Context, config interface{}) error {
 	ctx = pachClient.AddMetadata(ctx)
 
 	// Construct worker API server.
-	workerInstance, err := worker.NewWorker(log.Child(ctx, ""), env, pachClient, pipelineInfo, "/")
+	workerInstance, err := worker.NewWorker(pctx.Child(ctx, ""), env, pachClient, pipelineInfo, "/")
 	if err != nil {
 		return err
 	}

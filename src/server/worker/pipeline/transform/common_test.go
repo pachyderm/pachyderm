@@ -8,8 +8,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
@@ -121,7 +121,7 @@ func (td *testDriver) GetContainerImageID(ctx context.Context, containerName str
 // newTestEnv provides a test env with etcd and pachd instances and connected
 // clients, plus a worker driver for performing worker operations.
 func newTestEnv(ctx context.Context, t *testing.T, pipelineInfo *pps.PipelineInfo, realEnv *realenv.RealEnv) *testEnv {
-	logger := logs.New(log.Child(ctx, t.Name()))
+	logger := logs.New(pctx.Child(ctx, t.Name()))
 	workerDir := filepath.Join(realEnv.Directory, "worker")
 	driver, err := driver.NewDriver(
 		ctx,

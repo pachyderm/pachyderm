@@ -6,6 +6,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"go.uber.org/zap"
 )
 
@@ -81,7 +82,7 @@ func NotifyContinue(inner interface{}) Notify {
 			case func(error, time.Duration) error:
 				return n(err, d)
 			default:
-				log.Info(log.TODO(), "NotifyContinue: error; retrying", zap.Any("inner", inner), zap.Error(err), zap.Duration("retryAfter", d))
+				log.Info(pctx.TODO(), "NotifyContinue: error; retrying", zap.Any("inner", inner), zap.Error(err), zap.Duration("retryAfter", d))
 				return nil
 			}
 		}

@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -240,7 +241,7 @@ var (
 
 func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.CancelFunc, pipeline *pps.Pipeline) *pipelineController {
 	pc := &pipelineController{
-		ctx:    log.Child(m.masterCtx, fmt.Sprintf("pipelineController(%s)", pipeline.String()), log.WithFields(zap.Stringer("pipeline", pipeline))),
+		ctx:    pctx.Child(m.masterCtx, fmt.Sprintf("pipelineController(%s)", pipeline.String()), pctx.WithFields(zap.Stringer("pipeline", pipeline))),
 		cancel: cancel,
 		// pipeline name is recorded separately in the case we are running a delete operation and pipelineInfo isn't available in the DB
 		pipeline:        pipeline,

@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 )
@@ -80,7 +81,7 @@ func WithRing(ctx context.Context, client *etcd.Client, prefix string, cb func(c
 func withRing(rctx context.Context, client *etcd.Client, prefix, id string, cb func(ctx context.Context, ring *Ring) error) error {
 	ring := ring(client, prefix, id)
 
-	cancelCtx, cancel := context.WithCancel(log.Child(rctx, "ring", log.WithFields(zap.Inline(ring))))
+	cancelCtx, cancel := context.WithCancel(pctx.Child(rctx, "ring", pctx.WithFields(zap.Inline(ring))))
 	defer cancel()
 
 	eg, ctx := errgroup.WithContext(cancelCtx)
@@ -276,7 +277,7 @@ func (ring *Ring) Lock(ctx context.Context, key string) (context.Context, error)
 			if err == nil { // lock() must fallthrough in the case where err == concurrency.ErrLocked
 				l := lockInfo{
 					lock: nodeLock,
-					ctx:  log.Child(ctx, "lock", log.WithFields(zap.String("lock", key))),
+					ctx:  pctx.Child(ctx, "lock", pctx.WithFields(zap.String("lock", key))),
 				}
 				ring.node.locks[key] = l
 				log.Info(l.ctx, "claimed lock")

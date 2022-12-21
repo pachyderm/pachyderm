@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
@@ -19,7 +18,7 @@ import (
 )
 
 func write(ctx context.Context, tb testing.TB, chunks *chunk.Storage, fileNames []string) *Index {
-	iw := NewWriter(log.Child(ctx, "write"), chunks, "test")
+	iw := NewWriter(pctx.Child(ctx, "write"), chunks, "test")
 	for _, fileName := range fileNames {
 		idx := &Index{
 			Path: fileName,
@@ -35,7 +34,7 @@ func write(ctx context.Context, tb testing.TB, chunks *chunk.Storage, fileNames 
 func actualFiles(ctx context.Context, tb testing.TB, chunks *chunk.Storage, cache *Cache, topIdx *Index, opts ...Option) []string {
 	ir := NewReader(chunks, cache, topIdx, opts...)
 	result := []string{}
-	require.NoError(tb, ir.Iterate(log.Child(ctx, "actualFiles"), func(idx *Index) error {
+	require.NoError(tb, ir.Iterate(pctx.Child(ctx, "actualFiles"), func(idx *Index) error {
 		result = append(result, idx.Path)
 		return nil
 	}))

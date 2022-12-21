@@ -9,6 +9,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	pachtls "github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 )
@@ -21,7 +22,7 @@ type s3Server struct {
 // listenAndServe listens until ctx is cancelled; it then gracefully shuts down
 // the server, returning once all requests have been handled.
 func (ss s3Server) listenAndServe(ctx context.Context, shutdownTimeout time.Duration) error {
-	ctx = log.Child(ctx, "s3", log.WithServerID())
+	ctx = pctx.Child(ctx, "s3", pctx.WithServerID())
 	var (
 		router = s3.Router(ctx, s3.NewMasterDriver(), ss.clientFactory)
 		srv    = s3.Server(ctx, ss.port, router)

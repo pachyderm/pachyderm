@@ -49,7 +49,7 @@ func WithOptions(opts ...zap.Option) Option {
 }
 
 // WithoutRatelimit returns a context that does not rate limit its logs.
-func WithoutRatlimit() Option {
+func WithoutRatelimit() Option {
 	return Option{
 		modifyLogger: log.WithoutRatelimit(),
 	}
@@ -62,6 +62,9 @@ func Child(ctx context.Context, name string, opts ...Option) context.Context {
 	for _, opt := range opts {
 		if o := opt.modifyLogger; o != nil {
 			logOptions = append(logOptions, o)
+		}
+		if o := opt.modifyContext; o != nil {
+			ctx = o(ctx)
 		}
 	}
 	ctx = log.ChildLogger(ctx, name, logOptions...)

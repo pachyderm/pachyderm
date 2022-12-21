@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
@@ -54,7 +55,7 @@ import (
 
 func RunLocal() (retErr error) {
 	log.InitPachctlLogger()
-	ctx := log.Background("local")
+	ctx := pctx.Background("local")
 
 	config := &serviceenv.PachdFullConfiguration{}
 	if err := cmdutil.Populate(config); err != nil {
@@ -100,7 +101,7 @@ func RunLocal() (retErr error) {
 	// Setup External Pachd GRPC Server.
 	authInterceptor := auth.NewInterceptor(env.AuthServer)
 	externalServer, err := grpcutil.NewServer(
-		log.Background("grpc.external"),
+		pctx.Background("grpc.external"),
 		true,
 		grpc.ChainUnaryInterceptor(
 			errorsmw.UnaryServerInterceptor,
@@ -250,7 +251,7 @@ func RunLocal() (retErr error) {
 		return err
 	}
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := grpcutil.NewServer(log.Background("grpc.internal"), false, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary), grpc.StreamInterceptor(authInterceptor.InterceptStream))
+	internalServer, err := grpcutil.NewServer(pctx.Background("grpc.internal"), false, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary), grpc.StreamInterceptor(authInterceptor.InterceptStream))
 	if err != nil {
 		return err
 	}

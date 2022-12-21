@@ -31,6 +31,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -331,7 +332,7 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	log.Info(log.TODO(), "Creating root directory", zap.String("path", rootDir))
+	log.Info(pctx.TODO(), "Creating root directory", zap.String("path", rootDir))
 	if err := os.MkdirAll(rootDir, 0777); err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -339,7 +340,7 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	log.Info(log.TODO(), "Loopback root created", zap.Stringer("path", root))
+	log.Info(pctx.TODO(), "Loopback root created", zap.Stringer("path", root))
 	return &MountManager{
 		Client:   c,
 		States:   map[string]*MountStateMachine{},
@@ -379,7 +380,7 @@ func CreateMount(c *client.APIClient, mountDir string) (*MountManager, error) {
 
 func (mm *MountManager) Start() {
 	if err := mm.Run(); err != nil {
-		log.Info(log.TODO(), "Error running mount manager", zap.Error(err))
+		log.Info(pctx.TODO(), "Error running mount manager", zap.Error(err))
 		os.Exit(1)
 	}
 }
@@ -417,7 +418,7 @@ func (mm *MountManager) FinishAll() (retErr error) {
 }
 
 func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
-	log.Info(log.TODO(), "Dynamically mounting pfs", zap.String("mountDir", sopts.MountDir))
+	log.Info(pctx.TODO(), "Dynamically mounting pfs", zap.String("mountDir", sopts.MountDir))
 
 	// This variable points to the MountManager for each connected cluster.
 	// Updated when the config is updated.
@@ -428,7 +429,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		if err != nil {
 			return err
 		}
-		log.Info(log.TODO(), "Connected to existing client", zap.String("address", existingClient.GetAddress().Qualified()))
+		log.Info(pctx.TODO(), "Connected to existing client", zap.String("address", existingClient.GetAddress().Qualified()))
 	}
 	router := mux.NewRouter()
 	router.Methods("GET").Path("/repos").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -649,7 +650,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
-		log.Info(log.TODO(), "Mounting first datum", zap.String("datumID", mm.Datums[0].Datum.ID))
+		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", mm.Datums[0].Datum.ID))
 		mis := datumToMounts(mm.Datums[0])
 		if err := mm.UnmountAll(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -824,7 +825,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				<-mm.Cleanup
 				mm.Client.Close()
 			}
-			log.Info(log.TODO(), "Updating pachd_address", zap.String("address", pachdAddress.Qualified()))
+			log.Info(pctx.TODO(), "Updating pachd_address", zap.String("address", pachdAddress.Qualified()))
 			if mm, err = CreateMount(newClient, sopts.MountDir); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -922,7 +923,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 	// TCP port (just for convenient manual testing with curl for now...)
 	// TODO: make port and bind ip parameterizable
 	srv := &http.Server{Addr: ":9002", Handler: router}
-	log.AddLoggerToHTTPServer(log.TODO(), "http", srv)
+	log.AddLoggerToHTTPServer(pctx.TODO(), "http", srv)
 
 	go func() {
 		sigChan := make(chan os.Signal, 1)
@@ -985,7 +986,7 @@ func isNewCluster(mm *MountManager, pachdAddress *grpcutil.PachdAddress) bool {
 		return true
 	}
 	if reflect.DeepEqual(pachdAddress, mm.Client.GetAddress()) {
-		log.Info(log.TODO(), "New endpoint is same as current endpoint", zap.String("address", pachdAddress.Qualified()))
+		log.Info(pctx.TODO(), "New endpoint is same as current endpoint", zap.String("address", pachdAddress.Qualified()))
 		return false
 	}
 	return true
@@ -1198,10 +1199,10 @@ func (m *MountStateMachine) RefreshMountState() error {
 	}
 
 	// iterate over non-alias commits in branch, calculating how many commits behind LatestCommit ActualMountedCommit is
-	log.Info(log.TODO(), "mounting", zap.String("name", m.Name))
+	log.Info(pctx.TODO(), "mounting", zap.String("name", m.Name))
 	indexOfCurrentCommit := -1
 	for i, commitInfo := range commitInfos {
-		log.Info(log.Child(log.TODO(), "", log.WithoutRatelimit()), "commitInfo dump", zap.Int("i", i), zap.String("commitID", commitInfo.Commit.ID), zap.String("actualMountedCommitID", m.ActualMountedCommit))
+		log.Info(pctx.Child(pctx.TODO(), "", pctx.WithoutRatelimit()), "commitInfo dump", zap.Int("i", i), zap.String("commitID", commitInfo.Commit.ID), zap.String("actualMountedCommitID", m.ActualMountedCommit))
 		if commitInfo.Commit.ID == m.ActualMountedCommit {
 			indexOfCurrentCommit = i
 			break
@@ -1281,7 +1282,7 @@ func (m *MountStateMachine) transitionedTo(state, status string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	log.Info(log.TODO(), "state transition", zap.Any("state", m), zap.String("state", state), zap.String("newStatus", status))
+	log.Info(pctx.TODO(), "state transition", zap.Any("state", m), zap.String("state", state), zap.String("newStatus", status))
 	m.manager.root.setState(m.Name, state)
 	m.State = state
 	m.Status = status
@@ -1536,7 +1537,7 @@ func committingState(m *MountStateMachine) StateFn {
 	m.transitionedTo("committing", "")
 
 	if err := m.maybeUploadFiles(); err != nil {
-		log.Info(log.TODO(), "Error while uploading!", zap.Error(err))
+		log.Info(pctx.TODO(), "Error while uploading!", zap.Error(err))
 		m.transitionedTo("error", err.Error())
 		m.responses <- Response{
 			MountState: m.MountState,
@@ -1561,7 +1562,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 	// lock which multiple fs operations can hold but only one "pauser" can.
 
 	if err := m.maybeUploadFiles(); err != nil {
-		log.Info(log.TODO(), "Error while uploading!", zap.Error(err))
+		log.Info(pctx.TODO(), "Error while uploading!", zap.Error(err))
 		m.transitionedTo("error", err.Error())
 		m.responses <- Response{
 			MountState: m.MountState,
@@ -1582,7 +1583,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 
 	// remove from loopback filesystem so that it actually disappears for the user
 	cleanPath := m.manager.root.rootPath + "/" + m.Name
-	log.Info(log.TODO(), "Removing path", zap.String("path", cleanPath))
+	log.Info(pctx.TODO(), "Removing path", zap.String("path", cleanPath))
 
 	err := os.RemoveAll(cleanPath)
 	m.responses <- Response{
@@ -1590,7 +1591,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 		Error:      err,
 	}
 	if err != nil {
-		log.Info(log.TODO(), "Error while cleaning!", zap.Error(err))
+		log.Info(pctx.TODO(), "Error while cleaning!", zap.Error(err))
 		m.transitionedTo("error", err.Error())
 		return errorState
 	}
@@ -1642,7 +1643,7 @@ func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 }
 
 func (mm *MountManager) uploadFiles(prefixFilter string) (retErr error) {
-	ctx, done := log.SpanContextL(log.TODO(), "uploadFiles", log.InfoLevel, zap.String("prefix-filter", prefixFilter))
+	ctx, done := log.SpanContextL(pctx.TODO(), "uploadFiles", log.InfoLevel, zap.String("prefix-filter", prefixFilter))
 	defer done(log.Errorp(&retErr))
 	log.Info(ctx, "Uploading files to Pachyderm...")
 

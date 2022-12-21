@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -280,10 +281,10 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 func waitForError(name string, required bool, cb func() error) {
 	if err := cb(); !errors.Is(err, http.ErrServerClosed) {
 		if required {
-			log.Error(log.TODO(), "error setting up and/or running server (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers)", zap.String("server", name), zap.Error(err))
+			log.Error(pctx.TODO(), "error setting up and/or running server (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers)", zap.String("server", name), zap.Error(err))
 			os.Exit(20)
 		}
-		log.Error(log.TODO(), "error setting up and/or running server", zap.String("server", name), zap.Error(err))
+		log.Error(pctx.TODO(), "error setting up and/or running server", zap.String("server", name), zap.Error(err))
 	}
 }
 
@@ -1627,7 +1628,7 @@ func (a *apiServer) RevokeAuthTokensForUser(ctx context.Context, req *auth.Revok
 }
 
 func (a *apiServer) deleteExpiredTokensRoutine() error {
-	ctx := log.Background("deleteExpiredAuthTokens")
+	ctx := pctx.Background("deleteExpiredAuthTokens")
 	if _, err := a.DeleteExpiredAuthTokens(ctx, &auth.DeleteExpiredAuthTokensRequest{}); err != nil {
 		return err
 	}

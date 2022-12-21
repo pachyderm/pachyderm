@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"go.uber.org/zap"
 )
 
@@ -67,7 +68,7 @@ func (l *CertLoader) reloadRoutine() {
 		case <-t.C:
 			err := l.loadCertificate()
 			if err != nil {
-				log.Error(log.TODO(), "Unable to load TLS certificate", zap.Error(err))
+				log.Error(pctx.TODO(), "Unable to load TLS certificate", zap.Error(err))
 			}
 		case <-l.stopChan:
 			return
@@ -76,7 +77,7 @@ func (l *CertLoader) reloadRoutine() {
 }
 
 func (l *CertLoader) loadCertificate() error {
-	log.Debug(log.TODO(), "Reloading TLS keypair", zap.String("certPath", l.certPath), zap.String("keyPath", l.keyPath))
+	log.Debug(pctx.TODO(), "Reloading TLS keypair", zap.String("certPath", l.certPath), zap.String("keyPath", l.keyPath))
 	cert, err := tls.LoadX509KeyPair(l.certPath, l.keyPath)
 	if err != nil {
 		return errors.Wrapf(err, "unable to load keypair")

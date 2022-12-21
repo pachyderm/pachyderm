@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/secrets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transforms"
 )
@@ -24,7 +25,7 @@ const (
 
 func main() {
 	log.InitPachctlLogger()
-	ctx := log.Background("")
+	ctx := pctx.Background("")
 	args := os.Args[1:]
 	if len(args) < 1 {
 		log.Error(ctx, "at least 1 argument required")

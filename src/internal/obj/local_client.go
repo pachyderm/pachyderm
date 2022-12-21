@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"go.uber.org/zap"
 )
@@ -142,7 +143,7 @@ func (c *fsClient) init() error {
 	if err := os.MkdirAll(filepath.Join(c.rootDir, "objects"), 0755); err != nil {
 		return errors.EnsureStack(err)
 	}
-	log.Info(log.TODO(), "successfully initialized fs-backed object store", zap.String("root", c.rootDir))
+	log.Info(pctx.TODO(), "successfully initialized fs-backed object store", zap.String("root", c.rootDir))
 	return nil
 }
 
@@ -162,7 +163,7 @@ func (c *fsClient) closeFile(retErr *error, f *os.File) {
 		if retErr == nil {
 			*retErr = err
 		} else {
-			log.Error(log.TODO(), "error closing file", zap.Error(err))
+			log.Error(pctx.TODO(), "error closing file", zap.Error(err))
 		}
 	}
 }
@@ -176,7 +177,7 @@ func (c *fsClient) removeFile(retErr *error, p string) {
 		if retErr == nil {
 			*retErr = err
 		} else {
-			log.Error(log.TODO(), "error deleting file", zap.Error(err))
+			log.Error(pctx.TODO(), "error deleting file", zap.Error(err))
 		}
 	}
 }

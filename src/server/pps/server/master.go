@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	middleware_auth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -139,7 +140,7 @@ func newMaster(ctx context.Context, env Env, etcdPrefix string, kd InfraDriver, 
 func (a *apiServer) master(rctx context.Context) {
 	masterLock := dlock.NewDLock(a.env.EtcdClient, path.Join(a.etcdPrefix, masterLockPath))
 	backoff.RetryNotify(func() error { //nolint:errcheck
-		ctx, cancel := context.WithCancel(log.Child(rctx, "master", log.WithServerID()))
+		ctx, cancel := context.WithCancel(pctx.Child(rctx, "master", pctx.WithServerID()))
 		// set internal auth for basic operations
 		ctx = middleware_auth.AsInternalUser(ctx, "pps-master")
 		defer cancel()

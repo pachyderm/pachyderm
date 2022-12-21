@@ -14,7 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -50,9 +50,9 @@ func NewWorker(
 	pipelineInfo *pps.PipelineInfo,
 	rootPath string,
 ) (*Worker, error) {
-	stats.InitPrometheus(log.Child(ctx, "prometheus"))
+	stats.InitPrometheus(pctx.Child(ctx, "prometheus"))
 
-	ctx = log.Child(ctx, "", log.WithFields(
+	ctx = pctx.Child(ctx, "", pctx.WithFields(
 		pps.ProjectNameField(pipelineInfo.GetPipeline().GetProject().GetName()),
 		pps.PipelineNameField(pipelineInfo.GetPipeline().GetName()),
 		pps.WorkerIDField(os.Getenv(client.PPSPodNameEnv)),

@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -257,7 +258,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 		TTL:   int64(reportingInterval.Seconds() / 2),
 	})
 	if err != nil && !auth_client.IsErrNotActivated(err) {
-		log.Error(log.TODO(), "Error getting metics auth token", zap.Error(err))
+		log.Error(pctx.TODO(), "Error getting metics auth token", zap.Error(err))
 		return // couldn't authorize, can't continue
 	}
 

@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -50,7 +51,7 @@ func (d *driver) master(ctx context.Context) {
 					}
 				}()
 				gc := d.storage.NewGC(trackerPeriod)
-				return gc.RunForever(log.Child(ctx, "storage-gc"))
+				return gc.RunForever(pctx.Child(ctx, "storage-gc"))
 			})
 		}
 		chunkPeriod := time.Second * time.Duration(d.env.StorageConfig.StorageChunkGCPeriod)
@@ -70,7 +71,7 @@ func (d *driver) master(ctx context.Context) {
 					}
 				}()
 				gc := chunk.NewGC(d.storage.ChunkStorage(), chunkPeriod)
-				return gc.RunForever(log.Child(ctx, "chunk-gc"))
+				return gc.RunForever(pctx.Child(ctx, "chunk-gc"))
 			})
 		}
 		eg.Go(func() error {

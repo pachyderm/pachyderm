@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 )
 
 // daemon is a Pachyderm daemon.
@@ -42,7 +43,7 @@ type daemon struct {
 }
 
 func (d *daemon) serve(ctx context.Context) (err error) {
-	eg, ctx := errgroup.WithContext(log.Child(ctx, "serve"))
+	eg, ctx := errgroup.WithContext(pctx.Child(ctx, "serve"))
 	go log.WatchDroppedLogs(ctx, time.Minute)
 	defer func() {
 		if err != nil {

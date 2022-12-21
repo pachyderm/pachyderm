@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	dex_server "github.com/dexidp/dex/server"
 	dex_storage "github.com/dexidp/dex/storage"
@@ -100,7 +101,7 @@ func newDexWeb(env Env, apiServer identity.APIServer, options ...IdentityServerO
 
 // stopWebServer must be called while holding the write mutex
 func (w *dexWeb) stopWebServer() {
-	ctx := log.Background("dexWeb")
+	ctx := pctx.Background("dexWeb")
 	log.Info(ctx, "stopping identity web server")
 	// Stop the background jobs for the existing server
 	if w.serverCancel != nil {
@@ -122,7 +123,7 @@ func (w *dexWeb) serverNeedsRestart(config *identity.IdentityServerConfig, conne
 
 // startWebServer starts a new web server with the appropriate configuration and connectors.
 func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connectors *identity.ListIDPConnectorsResponse) (*dex_server.Server, error) {
-	ctx := log.Background("dexWeb")
+	ctx := pctx.Background("dexWeb")
 	w.Lock()
 	defer w.Unlock()
 
@@ -164,7 +165,7 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 
 	var refreshTokenPolicy *dex_server.RefreshTokenPolicy
 	if config.RotationTokenExpiry != "" {
-		refreshTokenPolicy, err = dex_server.NewRefreshTokenPolicy(log.NewLogrus(log.Child(ctx, "NewRefreshTokenPolicy")), false, "", config.RotationTokenExpiry, "")
+		refreshTokenPolicy, err = dex_server.NewRefreshTokenPolicy(log.NewLogrus(pctx.Child(ctx, "NewRefreshTokenPolicy")), false, "", config.RotationTokenExpiry, "")
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}

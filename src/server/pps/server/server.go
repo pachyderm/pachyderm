@@ -10,6 +10,7 @@ import (
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
@@ -62,7 +63,7 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv
 		GetPachClient: senv.GetPachClient,
 
 		Reporter:          reporter,
-		BackgroundContext: log.Child(senv.Context(), "PPS"),
+		BackgroundContext: pctx.Child(senv.Context(), "PPS"),
 		Config:            *senv.Config(),
 	}
 }
@@ -75,7 +76,7 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 	}
 	apiServer := (srv).(*apiServer)
 	if env.Config.EnablePreflightChecks {
-		apiServer.validateKube(log.Child(apiServer.env.BackgroundContext, "validateKube"))
+		apiServer.validateKube(pctx.Child(apiServer.env.BackgroundContext, "validateKube"))
 	} else {
 		log.Error(env.BackgroundContext, "Preflight checks are disabled. This is not recommended.")
 	}
@@ -133,6 +134,6 @@ func NewSidecarAPIServer(
 		workerGrpcPort: workerGrpcPort,
 		peerPort:       peerPort,
 	}
-	go apiServer.ServeSidecarS3G(log.Child(env.BackgroundContext, "s3gateway", log.WithServerID()))
+	go apiServer.ServeSidecarS3G(pctx.Child(env.BackgroundContext, "s3gateway", pctx.WithServerID()))
 	return apiServer, nil
 }

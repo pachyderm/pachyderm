@@ -4,6 +4,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	"go.uber.org/zap"
@@ -42,7 +43,7 @@ func (a *APIServer) Listen(request *proxy.ListenRequest, server proxy.API_Listen
 
 	defer func() {
 		if err := listener.Unregister(notifier); err != nil {
-			log.Error(log.TODO(), "errored while unregistering notifier", zap.Error(err))
+			log.Error(pctx.TODO(), "errored while unregistering notifier", zap.Error(err))
 		}
 	}()
 	return <-notifier.errChan

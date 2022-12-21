@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -115,7 +116,7 @@ func fetchCachedConfig(p string) error {
 		}
 	} else if errors.Is(err, os.ErrNotExist) {
 		// File doesn't exist, so create a new config
-		log.Debug(log.TODO(), "No config detected. Generating new config...", zap.String("lookedIn", p))
+		log.Debug(pctx.TODO(), "No config detected. Generating new config...", zap.String("lookedIn", p))
 	} else {
 		return errors.Wrapf(err, "could not read config at %q", p)
 	}
@@ -129,13 +130,13 @@ func validateCachedConfig() (bool, error) {
 	var updated bool
 	if cachedConfig.UserID == "" {
 		updated = true
-		log.Debug(log.TODO(), "No UserID present in config - generating new one.")
+		log.Debug(pctx.TODO(), "No UserID present in config - generating new one.")
 		cachedConfig.UserID = uuid.NewWithoutDashes()
 	}
 
 	if cachedConfig.V2 == nil {
 		updated = true
-		log.Debug(log.TODO(), "No config V2 present in config - generating a new one.")
+		log.Debug(pctx.TODO(), "No config V2 present in config - generating a new one.")
 		if err := cachedConfig.InitV2(); err != nil {
 			return updated, err
 		}
@@ -150,7 +151,7 @@ func validateCachedConfig() (bool, error) {
 		} else {
 			if qualifiedPachdAddress := pachdAddress.Qualified(); qualifiedPachdAddress != context.PachdAddress {
 				updated = true
-				log.Debug(log.TODO(), "Non-qualified pachd address set for context; fixing", zap.String("context", contextName))
+				log.Debug(pctx.TODO(), "Non-qualified pachd address set for context; fixing", zap.String("context", contextName))
 				context.PachdAddress = qualifiedPachdAddress
 			}
 		}
@@ -174,7 +175,7 @@ func Read(ignoreCache, readOnly bool) (*Config, error) {
 		if updated, err := validateCachedConfig(); err != nil {
 			return nil, err
 		} else if updated && !readOnly {
-			log.Debug(log.TODO(), "Rewriting config.", zap.String("location", p))
+			log.Debug(pctx.TODO(), "Rewriting config.", zap.String("location", p))
 
 			if err := cachedConfig.write(p); err != nil {
 				return nil, errors.Wrapf(err, "could not rewrite config at %q", p)

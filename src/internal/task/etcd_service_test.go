@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
@@ -281,7 +280,7 @@ func TestListTask(t *testing.T) {
 	var groupEg errgroup.Group
 	workerCtx, workerCancel := context.WithCancel(rctx)
 	defer workerCancel()
-	workerEg, errCtx := errgroup.WithContext(log.Child(workerCtx, "worker"))
+	workerEg, errCtx := errgroup.WithContext(pctx.Child(workerCtx, "worker"))
 	for g := 0; g < numGroups; g++ {
 		g := g
 		groupEg.Go(func() error {

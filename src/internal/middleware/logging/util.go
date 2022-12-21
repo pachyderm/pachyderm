@@ -10,6 +10,7 @@ import (
 	"github.com/fatih/camelcase"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -107,7 +108,7 @@ func (li *LoggingInterceptor) getHistogram(service string, method string) *prome
 		if err := prometheus.Register(histVec); err != nil {
 			// metrics may be redundantly registered; ignore these errors
 			if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
-				log.Info(log.TODO(), "error registering prometheus metric", zap.String("histogramName", histogramName), zap.Error(err))
+				log.Info(pctx.TODO(), "error registering prometheus metric", zap.String("histogramName", histogramName), zap.Error(err))
 			}
 		} else {
 			li.histogram[fullyQualifiedName] = histVec
@@ -134,7 +135,7 @@ func (li *LoggingInterceptor) reportDuration(service string, method string, dura
 		state = "errored"
 	}
 	if hist, err := li.getHistogram(service, method).GetMetricWithLabelValues(state); err != nil {
-		log.Info(log.TODO(), "failed to get histogram for state", zap.String("state", state), zap.Error(err))
+		log.Info(pctx.TODO(), "failed to get histogram for state", zap.String("state", state), zap.Error(err))
 	} else {
 		hist.Observe(duration.Seconds())
 	}

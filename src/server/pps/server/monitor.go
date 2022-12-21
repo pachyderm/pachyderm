@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -37,8 +38,8 @@ import (
 // returns a cancel()
 func (pc *pipelineController) startMonitor(ctx context.Context, pipelineInfo *pps.PipelineInfo) func() {
 	return startMonitorThread(
-		log.Child(ctx, fmt.Sprintf("monitorPipeline(%s)", pipelineInfo.Pipeline),
-			log.WithFields(zap.Stringer("pipeline", pipelineInfo.Pipeline))),
+		pctx.Child(ctx, fmt.Sprintf("monitorPipeline(%s)", pipelineInfo.Pipeline),
+			pctx.WithFields(zap.Stringer("pipeline", pipelineInfo.Pipeline))),
 		func(ctx context.Context) {
 			// monitorPipeline needs auth privileges to call subscribeCommit and
 			// inspectCommit
@@ -57,8 +58,8 @@ func (pc *pipelineController) startMonitor(ctx context.Context, pipelineInfo *pp
 // returns a cancel for the crashing monitor
 func (pc *pipelineController) startCrashingMonitor(ctx context.Context, pipelineInfo *pps.PipelineInfo) func() {
 	return startMonitorThread(
-		log.Child(ctx, fmt.Sprintf("monitorCrashingPipeline(%s)", pipelineInfo.Pipeline),
-			log.WithFields(zap.Stringer("pipeline", pipelineInfo.Pipeline))),
+		pctx.Child(ctx, fmt.Sprintf("monitorCrashingPipeline(%s)", pipelineInfo.Pipeline),
+			pctx.WithFields(zap.Stringer("pipeline", pipelineInfo.Pipeline))),
 		func(ctx context.Context) {
 			pc.monitorCrashingPipeline(ctx, pipelineInfo)
 		})
@@ -96,7 +97,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 	pps.VisitInput(pipelineInfo.Details.Input, func(in *pps.Input) error { //nolint:errcheck
 		if in.Cron != nil {
 			eg.Go(func() error {
-				cctx := log.Child(ctx, "makeCronCommits")
+				cctx := pctx.Child(ctx, "makeCronCommits")
 				return backoff.RetryNotify(func() error {
 					return makeCronCommits(cctx, pc.env, in)
 				}, backoff.NewInfiniteBackOff(),

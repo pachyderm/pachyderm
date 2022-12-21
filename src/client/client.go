@@ -37,6 +37,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/license"
@@ -368,7 +369,7 @@ func getCertOptionsFromEnv() ([]Option, error) {
 			// Try to read all certs under 'p'--skip any that we can't read/stat
 			if err := filepath.Walk(p, func(p string, info os.FileInfo, err error) error {
 				if err != nil {
-					log.Error(log.TODO(), "skipping path, could not stat", zap.String("path", p), zap.Error(err))
+					log.Error(pctx.TODO(), "skipping path, could not stat", zap.String("path", p), zap.Error(err))
 					return nil // Don't try and fix any errors encountered by Walk() itself
 				}
 				if info.IsDir() {
@@ -376,7 +377,7 @@ func getCertOptionsFromEnv() ([]Option, error) {
 				}
 				pemBytes, err := os.ReadFile(p)
 				if err != nil {
-					log.Error(log.TODO(), "could not read server CA certs", zap.String("path", p), zap.Error(err))
+					log.Error(pctx.TODO(), "could not read server CA certs", zap.String("path", p), zap.Error(err))
 					return nil
 				}
 				options = append(options, WithAdditionalRootCAs(pemBytes))
@@ -466,7 +467,7 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	log.Debug(log.TODO(), "Implicit port forwarder listening", zap.Uint16("port", port))
+	log.Debug(pctx.TODO(), "Implicit port forwarder listening", zap.Uint16("port", port))
 
 	return fw, port, nil
 }
@@ -573,7 +574,7 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 	if pachdAddress == nil && context.PortForwarders != nil {
 		pachdLocalPort, ok := context.PortForwarders["pachd"]
 		if ok {
-			log.Debug(log.TODO(), "Connecting to explicitly port forwarded pachd instance", zap.Uint32("port", pachdLocalPort))
+			log.Debug(pctx.TODO(), "Connecting to explicitly port forwarded pachd instance", zap.Uint32("port", pachdLocalPort))
 			pachdAddress = &grpcutil.PachdAddress{
 				Secured: false,
 				Host:    "localhost",

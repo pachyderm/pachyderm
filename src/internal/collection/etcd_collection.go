@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"go.uber.org/zap"
@@ -150,7 +151,7 @@ func (c *etcdCollection) WithRenewer(ctx context.Context, cb func(context.Contex
 		return errors.EnsureStack(err)
 	}
 	var cancel context.CancelFunc
-	ctx, cancel = context.WithCancel(log.Child(ctx, "WithRenewer"))
+	ctx, cancel = context.WithCancel(pctx.Child(ctx, "WithRenewer"))
 	defer cancel()
 	keepAliveChan, err := c.etcdClient.KeepAlive(ctx, resp.ID)
 	if err != nil {
