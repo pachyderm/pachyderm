@@ -1,10 +1,10 @@
 package versionpb
 
 import (
-	"errors"
 	fmt "fmt"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"golang.org/x/mod/semver"
 )
 
