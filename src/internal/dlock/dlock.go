@@ -3,6 +3,7 @@ package dlock
 
 import (
 	"context"
+	"time"
 
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
@@ -44,7 +45,8 @@ func NewDLock(client *etcd.Client, prefix string) DLock {
 }
 
 func (d *etcdImpl) Lock(ctx context.Context) (_ context.Context, retErr error) {
-	defer log.Span(ctx, "DLock.Lock", zap.String("prefix", d.prefix))(log.Errorp(&retErr))
+	ctx = pctx.Child(ctx, "", pctx.WithFields(zap.String("withLock", d.prefix)))
+	defer log.Span(ctx, "DLock.Lock")(log.Errorp(&retErr))
 
 	// The default TTL is 60 secs which means that if a node dies, it
 	// still holds the lock for 60 secs, which is too high.
@@ -57,14 +59,16 @@ func (d *etcdImpl) Lock(ctx context.Context) (_ context.Context, retErr error) {
 	if err := mutex.Lock(ctx); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	log.Debug(ctx, "acquired lock ok", zap.String("prefix", d.prefix))
+	start := time.Now()
+	log.Debug(ctx, "acquired lock ok")
 
-	ctx, cancel := context.WithCancel(pctx.Child(ctx, "", pctx.WithFields(zap.String("withLock", d.prefix))))
+	ctx, cancel := context.WithCancel(pctx.Child(ctx, "", pctx.WithFields(zap.Bool("locked", true))))
 	go func() {
 		select {
 		case <-ctx.Done():
+			log.Debug(ctx, "lock's context is done", zap.Error(ctx.Err()), zap.Duration("lockLifetime", time.Since(start)))
 		case <-session.Done():
-			log.Debug(ctx, "lock's session is done; cancelling associated context")
+			log.Debug(ctx, "lock's session is done; cancelling associated context", zap.Duration("lockLifetime", time.Since(start)))
 			cancel()
 		}
 	}()
@@ -75,7 +79,8 @@ func (d *etcdImpl) Lock(ctx context.Context) (_ context.Context, retErr error) {
 }
 
 func (d *etcdImpl) TryLock(ctx context.Context) (_ context.Context, retErr error) {
-	defer log.Span(ctx, "DLock.TryLock", zap.String("prefix", d.prefix))(log.Errorp(&retErr))
+	ctx = pctx.Child(ctx, "", pctx.WithFields(zap.String("withLock", d.prefix)))
+	defer log.Span(ctx, "DLock.TryLock")(log.Errorp(&retErr))
 
 	session, err := concurrency.NewSession(d.client, concurrency.WithContext(ctx), concurrency.WithTTL(15))
 	if err != nil {
@@ -86,14 +91,16 @@ func (d *etcdImpl) TryLock(ctx context.Context) (_ context.Context, retErr error
 	if err := mutex.TryLock(ctx); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	log.Debug(ctx, "acquired lock ok", zap.String("prefix", d.prefix))
+	start := time.Now()
+	log.Debug(ctx, "acquired lock ok")
 
-	ctx, cancel := context.WithCancel(pctx.Child(ctx, "", pctx.WithFields(zap.String("withLock", d.prefix))))
+	ctx, cancel := context.WithCancel(pctx.Child(ctx, "", pctx.WithFields(zap.Bool("locked", true))))
 	go func() {
 		select {
 		case <-ctx.Done():
+			log.Debug(ctx, "lock's context is done", zap.Error(ctx.Err()), zap.Duration("lockLifetime", time.Since(start)))
 		case <-session.Done():
-			log.Debug(ctx, "lock's session is done; cancelling associated context")
+			log.Debug(ctx, "lock's session is done; cancelling associated context", zap.Duration("lockLifetime", time.Since(start)))
 			cancel()
 		}
 	}()
