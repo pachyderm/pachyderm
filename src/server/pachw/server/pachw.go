@@ -7,7 +7,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	autoscaling_v1 "k8s.io/api/autoscaling/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
@@ -40,10 +41,17 @@ func (p *pachW) run(ctx context.Context) {
 	ctx = auth.AsInternalUser(ctx, "pachw-controller")
 	backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
 		lock := dlock.NewDLock(p.env.EtcdClient, path.Join(p.env.EtcdPrefix, "pachw-controller-lock"))
+		log.Debug(ctx, "attempting to take pachw-controller lock")
+		ctx, err := lock.Lock(ctx)
+		if err != nil {
+			return errors.Wrap(err, "locking pachw-controller lock")
+		}
+		log.Debug(ctx, "got pachw-controller lock")
 		defer func() {
 			if err := lock.Unlock(ctx); err != nil {
 				retErr = multierror.Append(retErr, errors.Wrap(err, "error unlocking"))
 			}
+			log.Debug(ctx, "relinquished pachw-controller role", zap.Error(retErr))
 		}()
 		var replicas int
 		var scaleDownCount int
@@ -60,7 +68,6 @@ func (p *pachW) run(ctx context.Context) {
 			}
 			if numTasks > replicas {
 				replicas = miscutil.Min(numTasks, p.env.MaxReplicas)
-				log.Info(ctx, "scaling up pachw workers", zap.Int(replicas))
 				if err := p.scalePachw(ctx, int32(replicas)); err != nil {
 					return errors.Wrap(err, "error scaling up pachw")
 				}
@@ -77,8 +84,8 @@ func (p *pachW) run(ctx context.Context) {
 				return errors.EnsureStack(ctx.Err())
 			}
 		}
-	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
-		log.Error(ctx, "error in pachw run", zap.Error(err))
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		log.Error(ctx, "error in pachw run; will retry", zap.Error(err), zap.Duration("retryAfter", d))
 		return nil
 	})
 }
@@ -96,19 +103,39 @@ func (p *pachW) countTasks(ctx context.Context, namespaces []string) (int, error
 }
 
 func (p *pachW) scalePachw(ctx context.Context, replicas int32) error {
-	pachwRs, err := p.env.KubeClient.AppsV1().Deployments(p.env.Namespace).Get(ctx,
-		"pachw", v1.GetOptions{})
-	if err != nil {
-		return errors.Wrap(err, "could not get pachw deployment")
-	}
-	pachwRs.Spec.Replicas = &replicas
-	_, err = p.env.KubeClient.AppsV1().Deployments(p.env.Namespace).Update(
-		ctx,
-		pachwRs,
-		v1.UpdateOptions{},
+	// We call scalePachw and tell k8s the desired replica count regardless of whether or not
+	// there's a change in the number of desired replicas.  That way, we can't get out of sync
+	// between a read and a write; k8s always knows what scale we want at the same time we know
+	// we want it.  To cut down on log spam, this message is logged at DEBUG, but if the replica
+	// count changes between the current actual replica count and our new desired replica count,
+	// we log that at level INFO below.
+	log.Debug(ctx, "scaling pachw", zap.Int32("replicas", replicas))
+
+	scale, err := p.env.KubeClient.AppsV1().Deployments(p.env.Namespace).UpdateScale(
+		ctx, "pachw", &autoscaling_v1.Scale{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name: "pachw",
+			},
+			Spec: autoscaling_v1.ScaleSpec{
+				Replicas: replicas,
+			},
+		}, meta_v1.UpdateOptions{
+			FieldManager: "pachw-controller",
+		},
 	)
 	if err != nil {
 		return errors.Wrap(err, "could not scale pachw deployment")
+	}
+
+	// Report the change.
+	var existingReplicas int32
+	if scale != nil {
+		existingReplicas = scale.Status.Replicas
+	}
+	if replicas != existingReplicas {
+		log.Info(ctx, "scaled pachw ok", zap.Int32("replicas", replicas), zap.Int32("observedReplicas", existingReplicas))
+	} else {
+		log.Debug(ctx, "scaled pachw ok", zap.Int32("replicas", replicas), zap.Int32("observedReplicas", existingReplicas))
 	}
 	return nil
 }
