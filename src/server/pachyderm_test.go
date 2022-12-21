@@ -449,11 +449,14 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
+	project := tu.UniqueString("P_")
+	require.NoError(t, c.CreateProject(project))
+
 	dataRepo := tu.UniqueString("TestPipelineWithLargeFiles_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.CreateProjectRepo(project, dataRepo))
 
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, c.CreateProjectPipeline(project,
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -461,7 +464,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 		},
 		nil,
-		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		client.NewProjectPFSInput(project, dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -469,7 +472,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 	random.SeedRand(99)
 	numFiles := 10
 	var fileContents []string
-	commit1, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit1, err := c.StartProjectCommit(project, dataRepo, "master")
 	require.NoError(t, err)
 	chunkSize := int(pfs.ChunkSize / 32) // We used to use a full ChunkSize, but it was increased which caused this test to take too long.
 	for i := 0; i < numFiles; i++ {
@@ -477,13 +480,13 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("file-%d", i), strings.NewReader(fileContent), client.WithAppendPutFile()))
 		fileContents = append(fileContents, fileContent)
 	}
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.ID))
+	require.NoError(t, c.FinishProjectCommit(project, dataRepo, commit1.Branch.Name, commit1.ID))
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.ID)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
-	outputCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit1.ID)
+	outputCommit := client.NewProjectCommit(project, pipeline, "master", commit1.ID)
 
 	for i := 0; i < numFiles; i++ {
 		var buf bytes.Buffer

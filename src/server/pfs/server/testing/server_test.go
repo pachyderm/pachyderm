@@ -4640,46 +4640,49 @@ func TestPFS(suite *testing.T) {
 		ctx := pctx.TestContext(t)
 		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
-		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "upstream1"))
-		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "upstream2"))
+		project := tu.UniqueString("prj-")
+		require.NoError(t, env.PachClient.CreateProject(project))
+
+		require.NoError(t, env.PachClient.CreateProjectRepo(project, "upstream1"))
+		require.NoError(t, env.PachClient.CreateProjectRepo(project, "upstream2"))
 		// commit to both inputs
-		_, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "upstream1", "master")
+		_, err := env.PachClient.StartProjectCommit(project, "upstream1", "master")
 		require.NoError(t, err)
 		require.NoError(t, finishCommit(env.PachClient, "upstream1", "master", ""))
-		_, err = env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "upstream2", "master")
+		_, err = env.PachClient.StartProjectCommit(project, "upstream2", "master")
 		require.NoError(t, err)
 		require.NoError(t, finishCommit(env.PachClient, "upstream2", "master", ""))
 
 		// Create main repo (will have the commit graphs above)
-		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
-		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "repo", "master", "", "", []*pfs.Branch{
-			client.NewProjectBranch(pfs.DefaultProjectName, "upstream1", "master"),
-			client.NewProjectBranch(pfs.DefaultProjectName, "upstream2", "master"),
+		require.NoError(t, env.PachClient.CreateProjectRepo(project, "repo"))
+		require.NoError(t, env.PachClient.CreateProjectBranch(project, "repo", "master", "", "", []*pfs.Branch{
+			client.NewProjectBranch(project, "upstream1", "master"),
+			client.NewProjectBranch(project, "upstream2", "master"),
 		}))
-		repoProto := client.NewProjectRepo(pfs.DefaultProjectName, "repo")
+		repoProto := client.NewProjectRepo(project, "repo")
 
 		// Create commit 'a'
-		aInfo, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
+		aInfo, err := env.PachClient.InspectProjectCommit(project, "repo", "master", "")
 		require.NoError(t, err)
 		a := aInfo.Commit
 		require.NoError(t, finishCommit(env.PachClient, "repo", a.Branch.Name, a.ID))
 
 		// Create 'd'
 		resp, err := env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
-			Branch: client.NewProjectBranch(pfs.DefaultProjectName, "repo", "fod"),
+			Branch: client.NewProjectBranch(project, "repo", "fod"),
 			Parent: a,
 		})
 		require.NoError(t, err)
-		d := client.NewProjectCommit(pfs.DefaultProjectName, "repo", resp.Branch.Name, resp.ID)
+		d := client.NewProjectCommit(project, "repo", resp.Branch.Name, resp.ID)
 		require.NoError(t, finishCommit(env.PachClient, "repo", resp.Branch.Name, resp.ID))
 
 		// Create 'b'
 		// (a & b have same prov commit in upstream2, so this is the commit that will
 		// be deleted, as both b and c are provenant on it)
-		squashMeCommit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "upstream1", "master")
+		squashMeCommit, err := env.PachClient.StartProjectCommit(project, "upstream1", "master")
 		require.NoError(t, err)
 		require.NoError(t, finishCommit(env.PachClient, "upstream1", "master", ""))
-		bInfo, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
+		bInfo, err := env.PachClient.InspectProjectCommit(project, "repo", "master", "")
 		require.NoError(t, err)
 		b := bInfo.Commit
 		require.NoError(t, finishCommit(env.PachClient, "repo", b.Branch.Name, b.ID))
@@ -4687,46 +4690,46 @@ func TestPFS(suite *testing.T) {
 
 		// Create 'e'
 		resp, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
-			Branch: client.NewProjectBranch(pfs.DefaultProjectName, "repo", "foe"),
+			Branch: client.NewProjectBranch(project, "repo", "foe"),
 			Parent: b,
 		})
 		require.NoError(t, err)
-		e := client.NewProjectCommit(pfs.DefaultProjectName, "repo", resp.Branch.Name, resp.ID)
+		e := client.NewProjectCommit(project, "repo", resp.Branch.Name, resp.ID)
 		require.NoError(t, finishCommit(env.PachClient, "repo", resp.Branch.Name, resp.ID))
 
 		// Create 'c'
-		_, err = env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "upstream2", "master")
+		_, err = env.PachClient.StartProjectCommit(project, "upstream2", "master")
 		require.NoError(t, err)
 		require.NoError(t, finishCommit(env.PachClient, "upstream2", "master", ""))
-		cInfo, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
+		cInfo, err := env.PachClient.InspectProjectCommit(project, "repo", "master", "")
 		require.NoError(t, err)
 		c := cInfo.Commit
 		require.NoError(t, finishCommit(env.PachClient, "repo", c.Branch.Name, c.ID))
 
 		// Create 'f'
 		resp, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
-			Branch: client.NewProjectBranch(pfs.DefaultProjectName, "repo", "fof"),
+			Branch: client.NewProjectBranch(project, "repo", "fof"),
 			Parent: c,
 		})
 		require.NoError(t, err)
-		f := client.NewProjectCommit(pfs.DefaultProjectName, "repo", resp.Branch.Name, resp.ID)
+		f := client.NewProjectCommit(project, "repo", resp.Branch.Name, resp.ID)
 		require.NoError(t, finishCommit(env.PachClient, "repo", resp.Branch.Name, resp.ID))
 
 		// Make sure child/parent relationships are as shown in first diagram
 		commits, err := env.PachClient.ListCommit(repoProto, nil, nil, 0)
 		require.NoError(t, err)
 		require.Equal(t, 6, len(commits))
-		aInfo, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "repo", a.Branch.Name, a.ID)
+		aInfo, err = env.PachClient.InspectProjectCommit(project, "repo", a.Branch.Name, a.ID)
 		require.NoError(t, err)
-		bInfo, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "repo", b.Branch.Name, b.ID)
+		bInfo, err = env.PachClient.InspectProjectCommit(project, "repo", b.Branch.Name, b.ID)
 		require.NoError(t, err)
-		cInfo, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "repo", c.Branch.Name, c.ID)
+		cInfo, err = env.PachClient.InspectProjectCommit(project, "repo", c.Branch.Name, c.ID)
 		require.NoError(t, err)
-		dInfo, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "repo", d.Branch.Name, d.ID)
+		dInfo, err := env.PachClient.InspectProjectCommit(project, "repo", d.Branch.Name, d.ID)
 		require.NoError(t, err)
-		eInfo, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "repo", e.Branch.Name, e.ID)
+		eInfo, err := env.PachClient.InspectProjectCommit(project, "repo", e.Branch.Name, e.ID)
 		require.NoError(t, err)
-		fInfo, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "repo", f.Branch.Name, f.ID)
+		fInfo, err := env.PachClient.InspectProjectCommit(project, "repo", f.Branch.Name, f.ID)
 		require.NoError(t, err)
 
 		require.Nil(t, aInfo.ParentCommit)
@@ -4746,15 +4749,15 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.SquashCommitSet(squashMeCommit.ID))
 
 		// Re-read commit info to get new parents/children
-		aInfo, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "repo", a.Branch.Name, a.ID)
+		aInfo, err = env.PachClient.InspectProjectCommit(project, "repo", a.Branch.Name, a.ID)
 		require.NoError(t, err)
-		cInfo, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "repo", c.Branch.Name, c.ID)
+		cInfo, err = env.PachClient.InspectProjectCommit(project, "repo", c.Branch.Name, c.ID)
 		require.NoError(t, err)
-		dInfo, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "repo", d.Branch.Name, d.ID)
+		dInfo, err = env.PachClient.InspectProjectCommit(project, "repo", d.Branch.Name, d.ID)
 		require.NoError(t, err)
-		eInfo, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "repo", e.Branch.Name, e.ID)
+		eInfo, err = env.PachClient.InspectProjectCommit(project, "repo", e.Branch.Name, e.ID)
 		require.NoError(t, err)
-		fInfo, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "repo", f.Branch.Name, f.ID)
+		fInfo, err = env.PachClient.InspectProjectCommit(project, "repo", f.Branch.Name, f.ID)
 		require.NoError(t, err)
 
 		// The head of master should be 'c'
@@ -4762,7 +4765,7 @@ func TestPFS(suite *testing.T) {
 		// Make sure child/parent relationships are as shown in second diagram. Note
 		// that after 'b' is deleted, SquashCommitSet does not create a new commit (c has
 		// an alias for the deleted commit in upstream1)
-		commits, err = env.PachClient.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, "repo"), nil, nil, 0)
+		commits, err = env.PachClient.ListCommit(client.NewProjectRepo(project, "repo"), nil, nil, 0)
 		require.NoError(t, err)
 		require.Equal(t, 5, len(commits))
 		require.Nil(t, aInfo.ParentCommit)
@@ -4776,7 +4779,7 @@ func TestPFS(suite *testing.T) {
 		require.Nil(t, eInfo.ChildCommits)
 		require.Nil(t, fInfo.ChildCommits)
 
-		masterInfo, err := env.PachClient.InspectProjectBranch(pfs.DefaultProjectName, "repo", "master")
+		masterInfo, err := env.PachClient.InspectProjectBranch(project, "repo", "master")
 		require.NoError(t, err)
 		require.Equal(t, c.ID, masterInfo.Head.ID)
 	})
