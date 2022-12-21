@@ -4761,7 +4761,7 @@ func TestDatumStatusRestart(t *testing.T) {
 	project := tu.UniqueString("PROJECT")
 	require.NoError(t, c.CreateProject(project))
 
-	dataRepo := tu.UniqueString("TestDatumDedup_data")
+	dataRepo := tu.UniqueString("dataRepo")
 	require.NoError(t, c.CreateProjectRepo(project, dataRepo))
 
 	pipeline := tu.UniqueString("pipeline")
