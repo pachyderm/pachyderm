@@ -637,6 +637,11 @@ func TestEditPipeline(t *testing.T) {
 		| match 'cmd:' \
 		| match 'cp /pfs/data/\* /pfs/out'
 		`).Run())
+	// changing the pipeline name should be an error
+	require.YesError(t, tu.PachctlBashCmd(t, c, `EDITOR="sed -i -e s/my-pipeline/my-pipeline2/" pachctl edit pipeline my-pipeline -o yaml`).Run())
+	// changing the project name should be an error
+	require.YesError(t, tu.PachctlBashCmd(t, c, `EDITOR="sed -i -e s/default/default2/" pachctl edit pipeline my-pipeline -o yaml`).Run())
+
 }
 
 func TestMissingPipeline(t *testing.T) {
