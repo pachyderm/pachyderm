@@ -15,8 +15,9 @@ func (v *Version) Canonical() string {
 	fmt.Fprintf(b, "v%d.%d.%d", v.Major, v.Minor, v.Micro)
 	if additional := v.Additional; additional != "" {
 		// We seem to build the - into the additional field, at least for nightlies.  Trim
-		// it anyway.
-		additional = strings.TrimLeft(additional, "-.")
+		// it anyway.  We also seem to put + there in some build scripts, which isn't a
+		// format semver can parse.  We map all these to - to fit their spec.
+		additional = strings.TrimLeft(additional, "-.+")
 		b.WriteByte('-')
 		b.WriteString(additional)
 	}

@@ -15,6 +15,10 @@ func TestCanonical(t *testing.T) {
 			want:  "v0.0.0",
 		},
 		{
+			input: Version{Major: 0, Minor: 0, Micro: 0, Additional: "+12345"}, // local build,
+			want:  "v0.0.0-12345",
+		},
+		{
 			input: Version{Major: 0, Minor: 0, Micro: 0},
 			want:  "v0.0.0",
 		},
@@ -45,6 +49,10 @@ func TestCompare(t *testing.T) {
 		{
 			client: Version{Major: 2, Minor: 5},
 			server: Version{Major: 0, Minor: 0, Micro: 0},
+		},
+		{
+			client: Version{Major: 2, Minor: 5},
+			server: Version{Major: 0, Minor: 0, Micro: 0, Additional: "+12345"}, // local build
 		},
 		{
 			client: Version{Major: 2, Minor: 5, Micro: 1},
