@@ -40,9 +40,9 @@ func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commi
 		ID:   commitSet,
 	})
 	query := `SELECT commit_id, branch, repo, project FROM pfs.commits 
-                      JOIN pfs.commits_origin_branches ON int_id = commit_int_id
-                  WHERE int_id IN (       
-                      SELECT to_id FROM pfs.commits JOIN pfs.commit_provenance ON int_id = from_id WHERE commit_id = $1
+                      JOIN pfs.commits_origin_branches ON pfs.commits.int_id = commit_int_id
+                  WHERE pfs.commits.int_id IN (       
+                      SELECT to_id FROM pfs.commits JOIN pfs.commit_provenance ON pfs.commits.int_id = from_id WHERE commit_id = $1
                   );`
 	rows, err := tx.QueryxContext(ctx, query, commitKey)
 	if err != nil {
