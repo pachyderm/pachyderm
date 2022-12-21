@@ -1361,7 +1361,7 @@ workflows:
           requires:
             - release-github #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
           environment:
-            stable: 1
+            stable: true
       - helm-publish:
           name: publish-helm-chart
           filters: *only-release-tags
