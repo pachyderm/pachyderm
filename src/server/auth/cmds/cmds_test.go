@@ -231,8 +231,15 @@ func TestCheckGetSetProject(t *testing.T) {
 		pachctl auth get project {{.project}} | match projectOwner
 		pachctl auth set project {{.project}} repoReader,projectOwner pach:root
 		pachctl auth get project {{.project}} | match projectOwner | match repoReader
+	
+		pachctl auth get robot-auth-token {{.alice}}
+		pachctl auth check project {{.project}} {{.alice}} | match "Roles: \[\]"
+		pachctl auth set project {{.project}} projectOwner {{.alice}}
+		pachctl auth check project {{.project}} {{.alice}} | match "projectOwner"
 	`,
-		"project", tu.UniqueString("project")).Run())
+		"project", tu.UniqueString("project"),
+		"alice", tu.Robot(tu.UniqueString("alice")),
+	).Run())
 }
 
 func TestAdmins(t *testing.T) {
