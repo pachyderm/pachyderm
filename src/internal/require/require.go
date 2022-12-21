@@ -452,7 +452,7 @@ func NoErrorWithinTRetry(tb testing.TB, t time.Duration, f func() error, msgAndA
 	noErrorWithinTRetry(tb, t, f, backoff.NewExponentialBackOff(), msgAndArgs...)
 }
 
-// NoErrorWithinTRetry checks that 'f' finishes within time 't' and does not
+// NoErrorWithinTRetryConstant checks that 'f' finishes within time 't' and does not
 // emit an error. Will retry at a constant specified interval rather than using exponential backoff
 func NoErrorWithinTRetryConstant(tb testing.TB, t time.Duration, f func() error, interval time.Duration, msgAndArgs ...interface{}) {
 	tb.Helper()
