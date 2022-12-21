@@ -22,6 +22,7 @@ import (
 
 // loginAsUser sets the auth token in the pachctl config to a token for `user`
 func loginAsUser(t *testing.T, c *client.APIClient, user string) {
+	t.Helper()
 	configPath := executeCmdAndGetLastWord(t, tu.PachctlBashCmd(t, c, `echo $PACH_CONFIG`))
 	rootClient := tu.AuthenticatedPachClient(t, c, auth.RootUser)
 	if user == auth.RootUser {
