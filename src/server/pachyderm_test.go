@@ -10880,7 +10880,7 @@ func TestDatumSetCache(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
-		ticker := time.NewTimer(35 * time.Second)
+		ticker := time.NewTimer(50 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
@@ -10895,7 +10895,7 @@ func TestDatumSetCache(t *testing.T) {
 				case <-ctx.Done():
 					return
 				default:
-					ticker = time.NewTimer(35 * time.Second)
+					ticker = time.NewTimer(50 * time.Second)
 				}
 			}
 		}
