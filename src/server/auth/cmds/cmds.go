@@ -629,7 +629,7 @@ func SetRepoRoleBindingCmd(pachCtx *config.Context) *cobra.Command {
 		}),
 	}
 	setScope.Flags().StringVar(&project, "project", project, "The project containing the repo.")
-	return cmdutil.CreateAliases(setScope, "auth set repo")
+	return cmdutil.CreateAliases(setScope, "auth set repo", "repos")
 }
 
 // GetRepoRoleBindingCmd returns a cobra command that gets the role bindings for a repo
@@ -750,7 +750,7 @@ func GetProjectRoleBindingCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAliases(get, "auth get project", "projects")
+	return cmdutil.CreateAliases(get, "auth get project")
 }
 
 // SetClusterRoleBindingCmd returns a cobra command that sets the roles for a user on a resource
