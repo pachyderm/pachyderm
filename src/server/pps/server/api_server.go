@@ -2572,7 +2572,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 	pipelineInfo := &pps.PipelineInfo{}
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(commit, pipelineInfo); err != nil {
 		if col.IsErrNotFound(err) {
-			return nil, errors.Errorf("pipeline %s not found", pipeline)
+			return nil, ppsServer.ErrPipelineNotFound{Pipeline: pipeline}
 		}
 		return nil, errors.EnsureStack(err)
 	}
