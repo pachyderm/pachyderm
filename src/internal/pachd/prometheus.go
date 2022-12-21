@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 )
 
 type prometheusServer struct {
@@ -35,7 +36,7 @@ func (ps prometheusServer) listenAndServe(ctx context.Context, shutdownTimeout t
 	}()
 	select {
 	case <-ctx.Done():
-		log.Info("terminating Prometheus server due to cancelled context")
+		log.Info(ctx, "terminating Prometheus server due to cancelled context", zap.Error(ctx.Err()))
 		ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
 		return errors.EnsureStack(srv.Shutdown(ctx))

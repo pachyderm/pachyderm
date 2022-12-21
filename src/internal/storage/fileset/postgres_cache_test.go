@@ -1,7 +1,6 @@
 package fileset
 
 import (
-	"context"
 	"strconv"
 	"testing"
 	"time"
@@ -10,12 +9,13 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
 func newTestCache(t *testing.T, db *pachsql.DB, tr track.Tracker, maxSize int) *Cache {
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
 	tx := db.MustBegin()
 	tx.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
 	require.NoError(t, CreatePostgresCacheV1(ctx, tx))
@@ -24,10 +24,10 @@ func newTestCache(t *testing.T, db *pachsql.DB, tr track.Tracker, maxSize int) *
 }
 
 func TestPostgresCache(t *testing.T) {
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
-	storage := NewTestStorage(t, db, tr)
+	storage := NewTestStorage(ctx, t, db, tr)
 	maxSize := 5
 	cache := newTestCache(t, db, tr, maxSize)
 	ids := make([]ID, maxSize+1)

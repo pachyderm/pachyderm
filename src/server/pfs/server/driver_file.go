@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	log "github.com/sirupsen/logrus"
-
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -589,7 +587,7 @@ func (d *driver) renewFileSet(ctx context.Context, id fileset.ID, ttl time.Durat
 
 func (d *driver) composeFileSet(ctx context.Context, ids []fileset.ID, ttl time.Duration, compact bool) (*fileset.ID, error) {
 	if compact {
-		compactor := newCompactor(d.storage, log.NewEntry(log.StandardLogger()), d.env.StorageConfig.StorageCompactionMaxFanIn)
+		compactor := newCompactor(d.storage, d.env.StorageConfig.StorageCompactionMaxFanIn)
 		taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, uuid.NewWithoutDashes(), nil)
 		return compactor.Compact(ctx, taskDoer, ids, ttl)
 	}

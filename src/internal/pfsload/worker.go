@@ -10,9 +10,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 const namespace = "pfsload"
@@ -35,18 +35,18 @@ func Worker(pachClient *client.APIClient, taskService task.Service) error {
 		})
 		return errors.EnsureStack(err)
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
-		log.Printf("error in pfsload worker: %v", err)
+		log.Info(ctx, "error in pfsload worker", zap.Error(err))
 		return nil
 	})
 }
 
 func processPutFileTask(pachClient *client.APIClient, task *PutFileTask) (*types.Any, error) {
 	result := &PutFileTaskResult{}
-	if err := miscutil.LogStep(pachClient.Ctx(), log.NewEntry(log.StandardLogger()), "processing put file task", func() error {
+	if err := log.LogStep(pachClient.Ctx(), "putFileTask", func(ctx context.Context) error {
 		pachClient.SetAuthToken(task.AuthToken)
 		client := NewValidatorClient(NewPachClient(pachClient))
 		fileSource := NewFileSource(task.FileSource, rand.New(rand.NewSource(task.Seed)))
-		fileSetId, err := PutFile(pachClient.Ctx(), client, fileSource, int(task.Count))
+		fileSetId, err := PutFile(ctx, client, fileSource, int(task.Count))
 		if err != nil {
 			return err
 		}

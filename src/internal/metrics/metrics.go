@@ -9,13 +9,15 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	enterprisemetrics "github.com/pachyderm/pachyderm/v2/src/server/enterprise/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/version"
+	"go.uber.org/zap"
 
-	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/metadata"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
@@ -256,7 +258,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 		TTL:   int64(reportingInterval.Seconds() / 2),
 	})
 	if err != nil && !auth_client.IsErrNotActivated(err) {
-		log.Errorf("Error getting metics auth token: %v", err)
+		log.Error(pctx.TODO(), "Error getting metics auth token", zap.Error(err))
 		return // couldn't authorize, can't continue
 	}
 
@@ -267,7 +269,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 	// Pipeline info
 	infos, err := pachClient.ListPipeline(true)
 	if err != nil {
-		log.Errorf("Error getting pipeline metrics: %v", err)
+		log.Error(ctx, "Error getting pipeline metrics", zap.Error(err))
 	} else {
 		for _, pi := range infos {
 			metrics.Pipelines += 1
@@ -365,7 +367,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 	var sz, mbranch uint64
 	repos, err := pachClient.ListRepo()
 	if err != nil {
-		log.Errorf("Error getting repos: %v", err)
+		log.Error(ctx, "Error getting repos", zap.Error(err))
 	} else {
 		for _, ri := range repos {
 			count += 1

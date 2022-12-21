@@ -2,7 +2,6 @@ package fileset
 
 import (
 	"context"
-	"io"
 	"math"
 	"math/rand"
 	"testing"
@@ -10,16 +9,16 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
 
 func TestCompactLevelBasedFuzz(t *testing.T) {
-	ctx := context.Background()
-	s := newTestStorage(t, WithShardSizeThreshold(units.KB))
+	ctx := pctx.TestContext(t)
+	s := newTestStorage(ctx, t, WithShardSizeThreshold(units.KB))
 	numFileSets := 1000
 	maxFanIn := 10
 	numSteps := 3
@@ -50,7 +49,7 @@ func TestCompactLevelBasedFuzz(t *testing.T) {
 	}
 	// Simulate compaction by accumulating the number of files and byte size.
 	var count int
-	compact := func(ctx context.Context, _ *log.Entry, ids []ID, ttl time.Duration) (*ID, error) {
+	compact := func(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
 		if len(ids) > maxFanIn {
 			return nil, errors.Errorf("number of file sets being compacted (%v) greater than max fan-in (%v)", len(ids), maxFanIn)
 		}
@@ -70,9 +69,7 @@ func TestCompactLevelBasedFuzz(t *testing.T) {
 			Deletive: deletive,
 		}, ttl)
 	}
-	logger := log.StandardLogger()
-	logger.SetOutput(io.Discard)
-	id, err := s.CompactLevelBased(ctx, log.NewEntry(logger), ids, maxFanIn, time.Minute, compact)
+	id, err := s.CompactLevelBased(ctx, ids, maxFanIn, time.Minute, compact)
 	require.NoError(t, err)
 	// Check the compaction score of the final file set to ensure no file sets were lost.
 	prims, err := s.flattenPrimitives(ctx, []ID{*id})
@@ -88,8 +85,8 @@ func TestCompactLevelBasedFuzz(t *testing.T) {
 }
 
 func TestCompactLevelBasedRenewal(t *testing.T) {
-	ctx := context.Background()
-	s := newTestStorage(t)
+	ctx := pctx.TestContext(t)
+	s := newTestStorage(ctx, t)
 	ttl := 100 * time.Millisecond
 	gc := s.NewGC(ttl)
 	cancelCtx, cancel := context.WithCancel(ctx)
@@ -121,7 +118,7 @@ func TestCompactLevelBasedRenewal(t *testing.T) {
 			}
 			ids = append(ids, *id)
 		}
-		compact := func(ctx context.Context, _ *log.Entry, ids []ID, ttl time.Duration) (*ID, error) {
+		compact := func(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
 			time.Sleep(3 * ttl)
 			additive := &index.Index{}
 			for _, id := range ids {
@@ -135,14 +132,12 @@ func TestCompactLevelBasedRenewal(t *testing.T) {
 				Additive: additive,
 			}, ttl)
 		}
-		logger := log.StandardLogger()
-		logger.SetOutput(io.Discard)
 		var err error
-		id, err = s.CompactLevelBased(ctx, log.NewEntry(logger), ids, maxFanIn, ttl, compact)
+		id, err = s.CompactLevelBased(ctx, ids, maxFanIn, ttl, compact)
 		return err
 	})
 	require.NoError(t, eg.Wait())
-	ctx = context.Background()
+	ctx = pctx.TestContext(t)
 	prims, err := s.flattenPrimitives(ctx, []ID{*id})
 	require.NoError(t, err)
 	var numFiles int64

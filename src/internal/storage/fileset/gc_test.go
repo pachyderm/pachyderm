@@ -1,21 +1,21 @@
 package fileset
 
 import (
-	"context"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
 func TestGC(t *testing.T) {
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
-	s := NewTestStorage(t, db, tr)
+	s := NewTestStorage(ctx, t, db, tr)
 	gc := s.NewGC(time.Minute)
 	w := s.NewWriter(ctx, WithTTL(time.Hour))
 	require.NoError(t, w.Add("a.txt", "datum1", strings.NewReader("test data")))

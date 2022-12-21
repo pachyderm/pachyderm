@@ -7,8 +7,9 @@ import (
 	"unsafe"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-
-	log "github.com/sirupsen/logrus"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"go.uber.org/zap"
 )
 
 // CertLoader provides simple hot TLS certificate reloading by checking for a renewed certificate at a configurable interval
@@ -67,7 +68,7 @@ func (l *CertLoader) reloadRoutine() {
 		case <-t.C:
 			err := l.loadCertificate()
 			if err != nil {
-				log.Error("Unable to load TLS certificate", err)
+				log.Error(pctx.TODO(), "Unable to load TLS certificate", zap.Error(err))
 			}
 		case <-l.stopChan:
 			return
@@ -76,7 +77,7 @@ func (l *CertLoader) reloadRoutine() {
 }
 
 func (l *CertLoader) loadCertificate() error {
-	log.Debugf("Reloading TLS keypair - %q %q", l.certPath, l.keyPath)
+	log.Debug(pctx.TODO(), "Reloading TLS keypair", zap.String("certPath", l.certPath), zap.String("keyPath", l.keyPath))
 	cert, err := tls.LoadX509KeyPair(l.certPath, l.keyPath)
 	if err != nil {
 		return errors.Wrapf(err, "unable to load keypair")

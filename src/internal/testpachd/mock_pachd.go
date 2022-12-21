@@ -5,7 +5,6 @@ import (
 	"net"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
@@ -1946,7 +1945,7 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 		return &mock.Auth.api
 	}
 
-	loggingInterceptor := loggingmw.NewLoggingInterceptor(logrus.StandardLogger())
+	loggingInterceptor := loggingmw.NewLoggingInterceptor(ctx)
 	unaryOpts := []grpc.UnaryServerInterceptor{
 		errorsmw.UnaryServerInterceptor,
 		loggingInterceptor.UnaryServerInterceptor,

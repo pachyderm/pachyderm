@@ -3,11 +3,11 @@ package pachd
 import (
 	"context"
 	"math"
-	"os"
 	"runtime/debug"
 
 	"github.com/dustin/go-humanize"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/automaxprocs/maxprocs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -21,12 +21,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
 	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
@@ -63,6 +65,9 @@ type envBootstrapper interface {
 
 // builder provides the base daemon builder structure.
 type builder struct {
+	config *serviceenv.Configuration
+	name   string
+
 	env                serviceenv.ServiceEnv
 	daemon             daemon
 	txnEnv             *transactionenv.TransactionEnv
@@ -87,53 +92,66 @@ func (b *builder) apply(ctx context.Context, ff ...func(ctx context.Context) err
 	return nil
 }
 
-func newBuilder(config interface{}, service string) (b builder) {
-	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {
-	case "debug":
-		log.SetLevel(log.DebugLevel)
-	case "error":
-		log.SetLevel(log.ErrorLevel)
-	case "info", "":
-		log.SetLevel(log.InfoLevel)
-	default:
-		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", logLevel)
-		log.SetLevel(log.InfoLevel)
-	}
+func newBuilder(config any, name string) (b builder) {
+	b.name = name
+	b.config = serviceenv.NewConfiguration(config)
+	b.txnEnv = transactionenv.New()
+	return
+}
+
+func (b *builder) printVersion(ctx context.Context) error {
+	log.Info(ctx, "version info", log.Proto("versionInfo", version.Version))
+	return nil
+}
+
+func (b *builder) tweakResources(ctx context.Context) error {
+	// set GOMAXPROCS to the container limit & log outcome to stdout
+	maxprocs.Set(maxprocs.Logger(zap.S().Named("maxprocs").Infof)) //nolint:errcheck
+	debug.SetGCPercent(b.config.GCPercent)
+	log.Info(ctx, "gc: set gc percent", zap.Int("value", b.config.GCPercent))
+	setupMemoryLimit(ctx, *b.config.GlobalConfiguration)
+	return nil
+}
+
+func (b *builder) setupProfiling(ctx context.Context) error {
+	profileutil.StartCloudProfiler(ctx, b.name, b.config)
+	return nil
+}
+
+func (b *builder) initJaeger(ctx context.Context) error {
 	// must run InstallJaegerTracer before InitWithKube (otherwise InitWithKube
 	// may create a pach client before tracing is active, not install the Jaeger
 	// gRPC interceptor in the client, and not propagate traces)
 	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
-		log.Printf("connecting to Jaeger at %q", endpoint)
+		log.Info(ctx, "connecting to Jaeger", zap.String("endpoint", endpoint))
 	} else {
-		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
+		log.Info(ctx, "no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
-	b.env = serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	profileutil.StartCloudProfiler(service, b.env.Config())
+	return nil
+}
 
-	debug.SetGCPercent(b.env.Config().GCPercent)
-	log.Infof("gc: set gc percent to %v", b.env.Config().GCPercent)
-	setupMemoryLimit(*b.env.Config().GlobalConfiguration)
-
+func (b *builder) initKube(ctx context.Context) error {
+	b.env = serviceenv.InitWithKube(ctx, b.config)
 	if b.env.Config().EtcdPrefix == "" {
 		b.env.Config().EtcdPrefix = collection.DefaultPrefix
 	}
-
 	b.authInterceptor = authmw.NewInterceptor(b.env.AuthServer)
-	b.loggingInterceptor = loggingmw.NewLoggingInterceptor(b.env.Logger())
-	b.txnEnv = transactionenv.New()
-
-	return
+	b.loggingInterceptor = loggingmw.NewLoggingInterceptor(ctx)
+	if b.env.Config() != nil && b.env.Config().PachdSpecificConfiguration != nil {
+		b.daemon.criticalServersOnly = b.env.Config().RequireCriticalServersOnly
+	}
+	return nil
 }
 
 func (b *builder) setupDB(ctx context.Context) error {
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
-	if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), b.env.GetDBClient()); err != nil {
+	if err := dbutil.WaitUntilReady(ctx, b.env.GetDBClient()); err != nil {
 		return err
 	}
-	if err := migrations.ApplyMigrations(context.Background(), b.env.GetDBClient(), migrations.MakeEnv(nil, b.env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
+	if err := migrations.ApplyMigrations(ctx, b.env.GetDBClient(), migrations.MakeEnv(nil, b.env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
-	if err := migrations.BlockUntil(context.Background(), b.env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
+	if err := migrations.BlockUntil(ctx, b.env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
 	return nil
@@ -333,7 +351,7 @@ func (b *builder) externallyListen(ctx context.Context) error {
 
 func (b *builder) bootstrap(ctx context.Context) error {
 	for _, b := range b.bootstrappers {
-		if err := b.EnvBootstrap(ctx); err != nil {
+		if err := b.EnvBootstrap(pctx.Child(ctx, "EnvBootstrap")); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -377,9 +395,9 @@ func (b *builder) initPachwController(ctx context.Context) error {
 // setupMemoryLimit sets GOMEMLIMIT.  If not already set through the environment, set GOMEMLIMIT to
 // the container memory request, or if not set, the container memory limit minus some accounting for
 // the runtime (100MiB).
-func setupMemoryLimit(config serviceenv.GlobalConfiguration) {
+func setupMemoryLimit(ctx context.Context, config serviceenv.GlobalConfiguration) {
 	if memLimit := debug.SetMemoryLimit(-1); memLimit != math.MaxInt64 {
-		log.Infof("memlimit: using configured GOMEMLIMIT of %v", humanize.IBytes(uint64(memLimit)))
+		log.Info(ctx, "memlimit: using configured GOMEMLIMIT", zap.String("limit", humanize.IBytes(uint64(memLimit))))
 		return
 	}
 
@@ -403,10 +421,10 @@ func setupMemoryLimit(config serviceenv.GlobalConfiguration) {
 		source = "kubernetes limit"
 	}
 	if target <= 0 {
-		log.Warnf("memlimit: not setting GOMEMLIMIT; not configured explicitly, or as a kubernetes request, or as a kubernetes limit")
+		log.Info(ctx, "memlimit: not setting GOMEMLIMIT; not configured explicitly, or as a kubernetes request, or as a kubernetes limit")
 		return
 	}
 
-	log.Infof("memlimit: setting GOMEMLIMIT to %v, 95%% of the %v", humanize.IBytes(uint64(target)), source)
+	log.Info(ctx, "memlimit: setting GOMEMLIMIT (95% of the k8s value)", zap.String("limit", humanize.IBytes(uint64(target))), zap.String("setFrom", source))
 	debug.SetMemoryLimit(target)
 }

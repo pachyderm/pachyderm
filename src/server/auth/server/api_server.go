@@ -4,13 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
-	logrus "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -23,13 +23,16 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"go.uber.org/zap"
 )
 
 const (
@@ -128,7 +131,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	if !a.env.Config.ActivateAuth {
 		return nil
 	}
-	a.env.Logger.Info("Started to configure auth server via environment")
+	log.Info(ctx, "Started to configure auth server via environment")
 	ctx = internalauth.AsInternalUser(ctx, authdb.InternalUser)
 	if err := func() error {
 		// handle auth activation
@@ -172,7 +175,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 				return errors.Wrapf(err, "unmarshal identity clients: %q", a.env.Config.IdentityClients)
 			}
 			if a.env.Config.IdentityAdditionalClients != "" {
-				a.env.Logger.Info("Adding extra oidc clients configured via environment")
+				log.Info(ctx, "Adding extra oidc clients configured via environment")
 				var extras []identity.OIDCClient
 				if err := yaml.Unmarshal([]byte(a.env.Config.IdentityAdditionalClients), &extras); err != nil {
 					return errors.Wrapf(err, "unmarshal extra identity clients: %q", a.env.Config.IdentityAdditionalClients)
@@ -183,7 +186,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 				if c.Id == config.ClientID { // c represents pachd
 					c.Secret = config.ClientSecret
 					if a.env.Config.TrustedPeers != "" {
-						a.env.Logger.Info("Adding additional pachd trusted peers configured via environment")
+						log.Info(ctx, "Adding additional pachd trusted peers configured via environment")
 						var tps []string
 						if err := yaml.Unmarshal([]byte(a.env.Config.TrustedPeers), &tps); err != nil {
 							return errors.Wrapf(err, "unmarshal trusted peers: %q", a.env.Config.TrustedPeers)
@@ -271,16 +274,17 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	}(); err != nil {
 		return errors.Wrapf(errors.EnsureStack(err), "configure the auth server via environment")
 	}
-	a.env.Logger.Info("Successfully configured auth server via environment")
+	log.Info(ctx, "Successfully configured auth server via environment")
 	return nil
 }
 
 func waitForError(name string, required bool, cb func() error) {
 	if err := cb(); !errors.Is(err, http.ErrServerClosed) {
 		if required {
-			logrus.Fatalf("error setting up and/or running %v (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers): %v", name, err)
+			log.Error(pctx.TODO(), "error setting up and/or running server (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers)", zap.String("server", name), zap.Error(err))
+			os.Exit(20)
 		}
-		logrus.Errorf("error setting up and/or running %v: %v", name, err)
+		log.Error(pctx.TODO(), "error setting up and/or running server", zap.String("server", name), zap.Error(err))
 	}
 }
 
@@ -623,7 +627,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		return nil, errors.Errorf("unrecognized authentication mechanism (old pachd?)")
 	}
 
-	logrus.Info("Authentication checks successful, now returning pachToken")
+	log.Info(ctx, "Authentication checks successful, now returning pachToken")
 
 	// Return new pachyderm token to caller
 	return &auth.AuthenticateResponse{
@@ -1600,8 +1604,12 @@ func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthT
 
 // implements the protobuf auth.DeleteExpiredAuthTokens RPC
 func (a *apiServer) DeleteExpiredAuthTokens(ctx context.Context, req *auth.DeleteExpiredAuthTokensRequest) (*auth.DeleteExpiredAuthTokensResponse, error) {
-	if _, err := a.env.DB.Exec(`DELETE FROM auth.auth_tokens WHERE NOW() > expiration`); err != nil {
+	info, err := a.env.DB.Exec(`DELETE FROM auth.auth_tokens WHERE NOW() > expiration`)
+	if err != nil {
 		return nil, errors.Wrapf(err, "error deleting expired tokens")
+	}
+	if n, err := info.RowsAffected(); err == nil && n > 0 {
+		log.Debug(ctx, "deleted expired auth tokens", zap.Int64("n", n))
 	}
 	return &auth.DeleteExpiredAuthTokensResponse{}, nil
 }
@@ -1620,7 +1628,8 @@ func (a *apiServer) RevokeAuthTokensForUser(ctx context.Context, req *auth.Revok
 }
 
 func (a *apiServer) deleteExpiredTokensRoutine() error {
-	if _, err := a.DeleteExpiredAuthTokens(context.Background(), &auth.DeleteExpiredAuthTokensRequest{}); err != nil {
+	ctx := pctx.Background("deleteExpiredAuthTokens")
+	if _, err := a.DeleteExpiredAuthTokens(ctx, &auth.DeleteExpiredAuthTokensRequest{}); err != nil {
 		return err
 	}
 
@@ -1629,10 +1638,10 @@ func (a *apiServer) deleteExpiredTokensRoutine() error {
 		defer ticker.Stop()
 		for range ticker.C {
 			if _, err := a.DeleteExpiredAuthTokens(ctx, &auth.DeleteExpiredAuthTokensRequest{}); err != nil {
-				logrus.Errorf("could not delete expired tokens: %v", err)
+				log.Error(ctx, "could not delete expired tokens", zap.Error(err))
 			}
 		}
-	}(context.Background())
+	}(ctx)
 
 	return nil
 }
@@ -1652,7 +1661,7 @@ func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.TokenInfo, err
 	robotTokens := make([]*auth.TokenInfo, 0)
 	if err := a.env.DB.SelectContext(ctx, &robotTokens,
 		`SELECT token_hash, subject, expiration
-		FROM auth.auth_tokens 
+		FROM auth.auth_tokens
 		WHERE subject LIKE $1 || '%'`, auth.RobotPrefix); err != nil {
 		return nil, errors.Wrapf(err, "error querying token")
 	}
@@ -1679,7 +1688,7 @@ func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject
 // generates a token, and stores it's hash and supporting data in postgres
 func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subject string, ttlSeconds int64) error {
 	if _, err := a.env.DB.ExecContext(ctx,
-		`INSERT INTO auth.auth_tokens (token_hash, subject, expiration) 
+		`INSERT INTO auth.auth_tokens (token_hash, subject, expiration)
 		VALUES ($1, $2, NOW() + $3 * interval '1 sec')`, tokenHash, subject, ttlSeconds); err != nil {
 		if dbutil.IsUniqueViolation(err) {
 			return errors.New("cannot overwrite existing token with same hash")
@@ -1699,7 +1708,7 @@ func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, 
 
 func (a *apiServer) insertAuthTokenNoTTLInTransaction(txnCtx *txncontext.TransactionContext, tokenHash string, subject string) error {
 	if _, err := txnCtx.SqlTx.Exec(
-		`INSERT INTO auth.auth_tokens (token_hash, subject) 
+		`INSERT INTO auth.auth_tokens (token_hash, subject)
 		VALUES ($1, $2)`, tokenHash, subject); err != nil {
 		if dbutil.IsUniqueViolation(err) {
 			return errors.New("cannot overwrite existing token with same hash")

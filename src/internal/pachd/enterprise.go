@@ -54,6 +54,11 @@ func newEnterpriseBuilder(config any) *enterpriseBuilder {
 // buildAndRun builds and starts an enterprise-mode pachd.
 func (eb *enterpriseBuilder) buildAndRun(ctx context.Context) error {
 	return eb.apply(ctx,
+		eb.tweakResources,
+		eb.setupProfiling,
+		eb.printVersion,
+		eb.initJaeger,
+		eb.initKube,
 		eb.setupDB,
 		eb.maybeInitDexDB,
 		eb.initInternalServer,

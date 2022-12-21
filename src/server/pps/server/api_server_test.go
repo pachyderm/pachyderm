@@ -2,12 +2,12 @@ package server_test
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
@@ -17,8 +17,9 @@ import (
 )
 
 func TestListDatum(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	ctx := env.PachClient.Ctx()
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	ctx = env.Context
 	repo := "TestListDatum"
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
@@ -108,8 +109,8 @@ func TestListDatum(t *testing.T) {
 }
 
 func TestRenderTemplate(t *testing.T) {
-	ctx := context.Background()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	client := env.PachClient.PpsAPIClient
 	res, err := client.RenderTemplate(ctx, &pps.RenderTemplateRequest{
 		Args: map[string]string{
@@ -143,13 +144,18 @@ func TestParseLokiLine(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:        "useless json",
-			line:        "{}",
-			wantMessage: "",
+			name:    "useless json",
+			line:    "{}",
+			wantErr: true,
 		},
 		{
 			name:        "docker json",
 			line:        `{"log":"{\"message\":\"ok\"}"}`,
+			wantMessage: "ok",
+		},
+		{
+			name:        "docker json with extra fields",
+			line:        `{"log":"{\"message\":\"ok\",\"extraField\":42}"}`,
 			wantMessage: "ok",
 		},
 		{
@@ -163,8 +169,13 @@ func TestParseLokiLine(t *testing.T) {
 			wantMessage: "ok",
 		},
 		{
-			name:        "empty native json",
-			line:        `{"master":false}`,
+			name:        "native json with extra fields",
+			line:        `{"message":"ok","extraField":42}`,
+			wantMessage: "ok",
+		},
+		{
+			name:        "mostly empty native json",
+			line:        `{"master":false,"user":true}`,
 			wantMessage: "",
 		},
 		{
@@ -175,6 +186,16 @@ func TestParseLokiLine(t *testing.T) {
 		{
 			name:        "cri format without flags and valid message",
 			line:        `2022-01-01T00:00:00.1234 stdout {"message":"ok"}`,
+			wantMessage: "ok",
+		},
+		{
+			name:        "cri format with flags and valid message and extra fields",
+			line:        `2022-01-01T00:00:00.1234 stdout F {"message":"ok","extraField":42}`,
+			wantMessage: "ok",
+		},
+		{
+			name:        "cri format without flags and valid message and extra fields",
+			line:        `2022-01-01T00:00:00.1234 stdout {"message":"ok","extraField":42}`,
 			wantMessage: "ok",
 		},
 		{

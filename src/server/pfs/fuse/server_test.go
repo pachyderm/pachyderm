@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -39,7 +40,8 @@ Tests to write:
 */
 
 func TestBasicServerSameNames(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
@@ -90,7 +92,8 @@ func TestBasicServerSameNames(t *testing.T) {
 }
 
 func TestBasicServerNonMasterBranch(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "dev", "")
 	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
@@ -135,7 +138,8 @@ func TestBasicServerNonMasterBranch(t *testing.T) {
 }
 
 func TestBasicServerDifferingNames(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
@@ -180,7 +184,8 @@ func TestBasicServerDifferingNames(t *testing.T) {
 }
 
 func TestUnmountAll(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo1"))
 	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo1", "master", "")
@@ -231,7 +236,8 @@ func TestUnmountAll(t *testing.T) {
 }
 
 func TestMultipleMount(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	err := env.PachClient.PutFile(commit, "dir/file", strings.NewReader("foo"))
@@ -308,7 +314,8 @@ func TestMultipleMount(t *testing.T) {
 }
 
 func TestMountNonexistentRepo(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
@@ -328,9 +335,10 @@ func TestMountNonexistentRepo(t *testing.T) {
 }
 
 func TestRwUnmountCreatesCommit(t *testing.T) {
+	ctx := pctx.TestContext(t)
 	// Unmounting a mounted read-write filesystem which has had some data
 	// written to it results in a new commit with that data in it.
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
@@ -384,7 +392,8 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 
 func TestRwCommitCreatesCommit(t *testing.T) {
 	// Commit operation creates a commit.
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
@@ -440,7 +449,8 @@ func TestRwCommitCreatesCommit(t *testing.T) {
 func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 	// Two sequential commit operations create two commits (and they contain the
 	// correct files).
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
@@ -516,7 +526,8 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 	// Commit and then unmount results in two commits, since unmounting creates
 	// one too.
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 	client.NewProjectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
@@ -592,7 +603,8 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 }
 
 func TestHealth(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	_, err := get("health")
 	require.YesError(t, err)
 
@@ -604,7 +616,8 @@ func TestHealth(t *testing.T) {
 
 // Requires 'use_allow_other' to be enabled in /etc/fuse.conf
 func TestAuthLoginLogout(t *testing.T) {
-	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -637,7 +650,8 @@ func TestAuthLoginLogout(t *testing.T) {
 }
 
 func TestRepoAccess(t *testing.T) {
-	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -683,7 +697,8 @@ func TestRepoAccess(t *testing.T) {
 }
 
 func TestUnauthenticatedCode(t *testing.T) {
-	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -706,7 +721,8 @@ func TestUnauthenticatedCode(t *testing.T) {
 }
 
 func TestDeletingMountedRepo(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 
 	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "b1", "")

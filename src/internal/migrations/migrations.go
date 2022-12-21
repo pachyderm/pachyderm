@@ -3,14 +3,16 @@ package migrations
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/sirupsen/logrus"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 )
 
 // Env contains all the objects that can be manipulated during a migration.
@@ -81,7 +83,10 @@ func InitialState() State {
 
 // ApplyMigrations does the necessary work to actualize state.
 // It will manipulate the objects available in baseEnv, and use the migrations table in db.
-func ApplyMigrations(ctx context.Context, db *pachsql.DB, baseEnv Env, state State) error {
+func ApplyMigrations(ctx context.Context, db *pachsql.DB, baseEnv Env, state State) (retErr error) {
+	ctx, end := log.SpanContextL(ctx, "ApplyMigrations", log.InfoLevel)
+	defer end(log.Errorp(&retErr))
+
 	for _, state := range collectStates(make([]State, 0, state.n+1), state) {
 		if err := applyMigration(ctx, db, baseEnv, state); err != nil {
 			return err
@@ -119,24 +124,27 @@ func applyMigration(ctx context.Context, db *pachsql.DB, baseEnv Env, state Stat
 			return err
 		} else if finished {
 			// skip migration
-			logrus.Infof("migration %d already applied", state.n)
+			msg := fmt.Sprintf("migration %d already applied", state.n)
+			log.Info(ctx, msg) // avoid log rate limit
 			return nil
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO migrations (id, name, start_time) VALUES ($1, $2, CURRENT_TIMESTAMP)`, state.n, state.name); err != nil {
 			return errors.EnsureStack(err)
 		}
-		logrus.Infof("applying migration %d %s", state.n, state.name)
+		msg := fmt.Sprintf("applying migration %d: %s", state.n, state.name)
+		log.Info(ctx, msg) // avoid log rate limit
 		if err := state.change(ctx, env); err != nil {
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE migrations SET end_time = CURRENT_TIMESTAMP WHERE id = $1`, state.n); err != nil {
 			return errors.EnsureStack(err)
 		}
-		logrus.Infof("successfully applied migration %d", state.n)
+		msg = fmt.Sprintf("successfully applied migration %d", state.n)
+		log.Info(ctx, msg) // avoid log rate limit
 		return nil
 	}(); err != nil {
 		if err := tx.Rollback(); err != nil {
-			logrus.Error(err)
+			log.Error(ctx, "problem rolling back migrations", zap.Error(err))
 		}
 		return errors.EnsureStack(err)
 	}

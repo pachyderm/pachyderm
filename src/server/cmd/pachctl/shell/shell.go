@@ -2,7 +2,6 @@ package shell
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -115,7 +114,7 @@ func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 		var err error
 		cmd, _, err = s.rootCmd.Traverse(args[:len(args)-1])
 		if err != nil {
-			log.Fatal(err)
+			Fatal(err)
 		}
 		text = args[len(args)-1]
 	}
@@ -131,7 +130,7 @@ func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 		for _, suggestion := range suggestions {
 			cmd, _, err := cmd.Traverse([]string{suggestion})
 			if err != nil {
-				log.Fatal(err)
+				Fatal(err)
 			}
 			result = append(result, prompt.Suggest{
 				Text:        suggestion,
@@ -195,7 +194,7 @@ func (s *shell) run() {
 		}),
 	).Run()
 	if err := closePachClient(); err != nil {
-		log.Fatal(err)
+		Fatal(err)
 	}
 }
 
@@ -238,4 +237,9 @@ func ld(s, t string, ignoreCase bool) int {
 
 	}
 	return d[len(s)][len(t)]
+}
+
+func Fatal(args ...any) {
+	fmt.Fprint(os.Stderr, args...)
+	os.Exit(1)
 }

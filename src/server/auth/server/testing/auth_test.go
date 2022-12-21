@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -34,7 +35,8 @@ import (
 
 func envWithAuth(t *testing.T) *realenv.RealEnv {
 	t.Helper()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateLicense(t, env.PachClient, peerPort)
 	_, err := env.PachClient.Enterprise.Activate(env.PachClient.Ctx(),
@@ -2056,7 +2058,8 @@ func TestLoad(t *testing.T) {
 // TestGetPermissions tests that GetPermissions and GetPermissionsForPrincipal work for repos and the cluster itself
 func TestGetPermissions(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -2099,7 +2102,8 @@ func TestGetPermissions(t *testing.T) {
 // TestDeactivateFSAdmin tests that users with the FS admin role can't call Deactivate
 func TestDeactivateFSAdmin(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -2123,7 +2127,8 @@ func TestDeactivateFSAdmin(t *testing.T) {
 // TestExtractAuthToken tests that admins can extract hashed robot auth tokens
 func TestExtractAuthToken(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -2171,7 +2176,8 @@ func TestExtractAuthToken(t *testing.T) {
 // TestRestoreAuthToken tests that admins can restore hashed auth tokens that have been extracted
 func TestRestoreAuthToken(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -2244,7 +2250,8 @@ func TestRestoreAuthToken(t *testing.T) {
 // any other test
 func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -2294,7 +2301,8 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 // GetRobotToken
 func TestGetRobotTokenErrorNonAdminUser(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -2311,7 +2319,8 @@ func TestGetRobotTokenErrorNonAdminUser(t *testing.T) {
 // TestDeleteAll tests that you must be a cluster admin to call DeleteAll
 func TestDeleteAll(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -2419,8 +2428,8 @@ func TestModifyRoleBindingAccess(t *testing.T) {
 
 func TestPreAuthProjects(t *testing.T) {
 	t.Parallel()
-
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	c := env.PachClient
 	project := tu.UniqueString("project")
 	require.NoError(t, c.CreateProject(project))
