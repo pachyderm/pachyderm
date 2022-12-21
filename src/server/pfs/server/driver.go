@@ -780,6 +780,9 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(newCommit, newCommitInfo); err != nil {
 			return errors.Wrapf(err, "create new commit %q", pfsdb.CommitKey(newCommit))
 		}
+		if err := pfsdb.LinkOriginBranch(context.TODO(), txnCtx.SqlTx, newCommit, bi.Branch); err != nil {
+			return errors.Wrapf(err, "link commit %q branch origin %q", pfsdb.CommitKey(newCommit), pfsdb.BranchKey(bi.Branch))
+		}
 		if newCommitInfo.ParentCommit != nil {
 			parentCommitInfo := &pfs.CommitInfo{}
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(newCommitInfo.ParentCommit, parentCommitInfo, func() error {
