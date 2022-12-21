@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -69,9 +70,11 @@ func DeletePod(t testing.TB, app, ns string) {
 					map[string]string{"app": app, "suite": "pachyderm"},
 				)),
 			})
+		waitForPodEvent(t, app, ns, watch.Deleted)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
+
 		if len(podList.Items) == 0 {
 			return nil
 		}
@@ -99,7 +102,7 @@ func DeletePod(t testing.TB, app, ns string) {
 		return nil
 	})
 
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+	require.NoErrorWithinTRetry(t, 120*time.Second, func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
 			metav1.ListOptions{
@@ -159,8 +162,12 @@ func DeletePipelineRC(t testing.TB, pipeline, namespace string) {
 // PachdDeployment finds the corresponding deployment for pachd in the
 // kubernetes namespace and returns it.
 func PachdDeployment(t testing.TB, namespace string) *apps.Deployment {
+	return GetDeployment(t, "pachd", namespace)
+}
+
+func GetDeployment(t testing.TB, appName string, namespace string) *apps.Deployment {
 	k := GetKubeClient(t)
-	result, err := k.AppsV1().Deployments(namespace).Get(context.Background(), "pachd", metav1.GetOptions{})
+	result, err := k.AppsV1().Deployments(namespace).Get(context.Background(), appName, metav1.GetOptions{})
 	require.NoError(t, err)
 	return result
 }
@@ -173,14 +180,34 @@ func podRunningAndReady(e watch.Event) (bool, error) {
 	if !ok {
 		return false, errors.Errorf("unexpected object type in watch.Event")
 	}
-	return pod.Status.Phase == v1.PodRunning, nil
+	containersReady := true
+	for _, cs := range pod.Status.ContainerStatuses {
+		if !cs.Ready {
+			containersReady = false
+			break
+		}
+	}
+	podReady := true
+	for _, c := range pod.Status.Conditions {
+		if c.Type == v1.PodReady && c.Status != v1.ConditionTrue {
+			podReady = false
+			break
+		}
+	}
+	return pod.Status.Phase == v1.PodRunning && containersReady && podReady, nil
 }
 
 // WaitForPachdReady finds the pachd pods within the kubernetes namespace and
 // blocks until they are all ready.
+// WaitForPachdReady finds the pachd pods within the kubernetes namespace and
+// blocks until they are all ready.
 func WaitForPachdReady(t testing.TB, namespace string) {
+	WaitForDeploymentReady(t, "pachd", namespace)
+}
+
+func WaitForDeploymentReady(t testing.TB, appName string, namespace string) {
 	k := GetKubeClient(t)
-	deployment := PachdDeployment(t, namespace)
+	deployment := GetDeployment(t, appName, namespace)
 	for {
 		newDeployment, err := k.AppsV1().Deployments(namespace).Get(context.Background(), deployment.Name, metav1.GetOptions{})
 		require.NoError(t, err)
@@ -190,7 +217,7 @@ func WaitForPachdReady(t testing.TB, namespace string) {
 		time.Sleep(time.Second * 5)
 	}
 	watch, err := k.CoreV1().Pods(namespace).Watch(context.Background(), metav1.ListOptions{
-		LabelSelector: "app=pachd",
+		LabelSelector: fmt.Sprintf("app=%s", appName),
 	})
 	defer watch.Stop()
 	require.NoError(t, err)
@@ -207,6 +234,39 @@ func WaitForPachdReady(t testing.TB, namespace string) {
 			if len(readyPods) == int(*deployment.Spec.Replicas) {
 				break
 			}
+		}
+	}
+}
+
+// Wait deployment only works for deployments and checks every pod
+// This function is simpler and just unblocks as soon as 1 pod is read
+// Can be used on non-Deployment objects like StatefulSets
+func WaitForFirstPodReady(t testing.TB, appName string, namespace string) {
+	k := GetKubeClient(t)
+	watch, err := k.CoreV1().Pods(namespace).Watch(context.Background(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("app=%s", appName),
+	})
+	defer watch.Stop()
+	require.NoError(t, err)
+	for event := range watch.ResultChan() {
+		ready, err := podRunningAndReady(event)
+		require.NoError(t, err)
+		if ready {
+			break
+		}
+	}
+}
+
+func waitForPodEvent(t testing.TB, appName string, namespace string, eventType watch.EventType) {
+	k := GetKubeClient(t)
+	watch, err := k.CoreV1().Pods(namespace).Watch(context.Background(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("app=%s", appName),
+	})
+	defer watch.Stop()
+	require.NoError(t, err)
+	for event := range watch.ResultChan() {
+		if event.Type == eventType {
+			break
 		}
 	}
 }

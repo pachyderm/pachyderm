@@ -10880,14 +10880,23 @@ func TestDatumSetCache(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
-		ticker := time.NewTicker(time.Minute)
+		ticker := time.NewTimer(35 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				// ticker is too smart and will adjust to always go at 1 minute, even if etcd is slow.
+				// So, we pause the ticker while the pod restart occurs so we know how long the pod is executing for.
 				tu.DeletePod(t, "etcd", ns)
+				tu.WaitForFirstPodReady(t, "etcd", ns)
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					ticker = time.NewTimer(35 * time.Second)
+				}
 			}
 		}
 	}()
