@@ -46,8 +46,13 @@ func (r *authorizeRequest) rolesForResourceType(rt auth.ResourceType) []string {
 	return roles
 }
 
-func (r *authorizeRequest) satisfied() []auth.Permission {
-	return r.satisfiedPermissions
+func (r *authorizeRequest) satisfiedForResourceType(rt auth.ResourceType) []auth.Permission {
+	roles := r.rolesForResourceType(rt)
+	perms := make([]auth.Permission, 0)
+	for _, role := range roles {
+		perms = append(perms, r.roleMap[role].Permissions...)
+	}
+	return perms
 }
 
 // isSatisfied returns true if no permissions remain

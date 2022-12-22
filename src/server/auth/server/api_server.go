@@ -765,7 +765,6 @@ func (a *apiServer) GetPermissionsForPrincipal(ctx context.Context, req *auth.Ge
 	for p := range auth.Permission_name {
 		permissions[auth.Permission(p)] = true
 	}
-
 	var request *authorizeRequest
 	if err := a.env.TxnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
@@ -774,10 +773,9 @@ func (a *apiServer) GetPermissionsForPrincipal(ctx context.Context, req *auth.Ge
 	}); err != nil {
 		return nil, errors.Wrap(err, "cannot evaluate role binding")
 	}
-
 	return &auth.GetPermissionsResponse{
 		Roles:       request.rolesForResourceType(req.Resource.Type),
-		Permissions: request.satisfied(),
+		Permissions: request.satisfiedForResourceType(req.Resource.Type),
 	}, nil
 }
 
@@ -818,7 +816,7 @@ func (a *apiServer) getPermissionsForPrincipalInTransaction(txnCtx *txncontext.T
 
 	return &auth.GetPermissionsResponse{
 		Roles:       request.rolesForResourceType(req.Resource.Type),
-		Permissions: request.satisfied(),
+		Permissions: request.satisfiedForResourceType(req.Resource.Type),
 	}, nil
 
 }
