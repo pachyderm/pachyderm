@@ -8639,10 +8639,11 @@ func TestRapidUpdatePipelines(t *testing.T) {
 	}
 
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	pipeline := tu.UniqueString(t.Name() + "-pipeline-")
+	c, namespace := minikubetestenv.AcquireCluster(t)
+	pipeline := tu.UniqueString("pipeline-")
 	cronInput := client.NewCronInput("time", "@every 20s")
 	cronInput.Cron.Overwrite = true
+
 	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"",
@@ -8653,8 +8654,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 		"",
 		false,
 	))
-	// TODO(msteffen): remove all sleeps from tests
-	time.Sleep(10 * time.Second)
+	tu.WaitForFirstPodReady(t, "pipeline", namespace)
 
 	for i := 0; i < 20; i++ {
 		_, err := c.PpsAPIClient.CreatePipeline(
@@ -8672,7 +8672,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 		require.NoError(t, err)
 	}
 	// TODO ideally this test would not take 5 minutes (or even 3 minutes)
-	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
+	require.NoErrorWithinTRetryConstant(t, 5*time.Minute, func() error {
 		jis, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1, true)
 		if err != nil {
 			return err
@@ -8694,7 +8694,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 			}
 		}
 		return nil
-	})
+	}, time.Second*10)
 }
 
 func TestDatumTries(t *testing.T) {
