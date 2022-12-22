@@ -242,7 +242,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 			// To list jobs for all projects, user must be explicit about it.
 			// The --project filter takes precedence over everything else.
 			// By default use pfs.DefaultProjectName
-			projectsFilter := []string{project}
+			projectsFilter := []*pfs.Project{{Name: project}}
 			if allProjects {
 				projectsFilter = nil
 			}

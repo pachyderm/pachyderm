@@ -653,7 +653,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		} else {
 			filter := make(map[string]bool, len(request.GetProjects()))
 			for _, project := range request.GetProjects() {
-				filter[project] = true
+				filter[project.GetName()] = true
 			}
 			for _, ji := range jobInfos {
 				if filter[ji.Job.Pipeline.Project.GetName()] {
@@ -807,7 +807,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
 	filter := make(map[string]bool, len(request.GetProjects()))
 	for _, project := range request.GetProjects() {
-		filter[project] = true
+		filter[project.GetName()] = true
 	}
 	keep := func(j *pps.JobInfo) error {
 		if len(filter) == 0 || filter[j.Job.Pipeline.Project.GetName()] {
