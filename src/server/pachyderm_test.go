@@ -4758,37 +4758,37 @@ func TestDatumStatusRestart(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	// TODO: (CORE-1015) Fix flaky test
-	t.Skip("Skipping flaky test")
-
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
-	dataRepo := tu.UniqueString("TestDatumDedup_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	project := tu.UniqueString("PROJECT")
+	require.NoError(t, c.CreateProject(project))
+
+	dataRepo := tu.UniqueString("dataRepo")
+	require.NoError(t, c.CreateProjectRepo(project, dataRepo))
 
 	pipeline := tu.UniqueString("pipeline")
-	// This pipeline sleeps for 20 secs per datum
-	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+	// This pipeline sleeps for 30 secs per datum
+	require.NoError(t, c.CreateProjectPipeline(project,
 		pipeline,
 		"",
 		[]string{"bash"},
 		[]string{
-			"sleep 20",
+			"sleep 30",
 		},
 		nil,
-		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		client.NewProjectPFSInput(project, dataRepo, "/*"),
 		"",
 		false,
 	))
 
-	commit1, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit1, err := c.StartProjectCommit(project, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.ID))
+	require.NoError(t, c.FinishProjectCommit(project, dataRepo, commit1.Branch.Name, commit1.ID))
 
 	// get the job status
-	jobs, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1, true)
+	jobs, err := c.ListProjectJob(project, pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 
@@ -4797,8 +4797,9 @@ func TestDatumStatusRestart(t *testing.T) {
 	// it's called, the datum being processes was started at a new and later time
 	// (than the last time checkStatus was called)
 	checkStatus := func() {
-		require.NoErrorWithinTRetry(t, time.Minute, func() error {
-			jobInfo, err := c.InspectProjectJob(pfs.DefaultProjectName, pipeline, commit1.ID, true)
+		require.NoErrorWithinTRetryConstant(t, time.Minute, func() error {
+			jobInfo, err := c.InspectProjectJob(project, pipeline, commit1.ID, true)
+
 			require.NoError(t, err)
 			if len(jobInfo.Details.WorkerStatus) == 0 {
 				return errors.Errorf("no worker statuses")
@@ -4821,10 +4822,10 @@ func TestDatumStatusRestart(t *testing.T) {
 				return nil
 			}
 			return errors.Errorf("worker status from wrong job")
-		})
+		}, 500*time.Millisecond) // We need to check quickly. If we wait too long the datum might finish before we can restart it.
 	}
 	checkStatus()
-	require.NoError(t, c.RestartProjectDatum(pfs.DefaultProjectName, pipeline, commit1.ID, []string{"/file"}))
+	require.NoError(t, c.RestartProjectDatum(project, pipeline, commit1.ID, []string{"/file"}))
 	checkStatus()
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.ID)

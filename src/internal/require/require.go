@@ -447,8 +447,21 @@ func NoErrorWithinT(tb testing.TB, t time.Duration, f func() error, msgAndArgs .
 }
 
 // NoErrorWithinTRetry checks that 'f' finishes within time 't' and does not
-// emit an error. Unlike NoErrorWithinT if f does error, it will retry it.
+// emit an error. Unlike NoErrorWithinT if f does error, it will retry it. Uses an exponential backoff.
 func NoErrorWithinTRetry(tb testing.TB, t time.Duration, f func() error, msgAndArgs ...interface{}) {
+	tb.Helper()
+	noErrorWithinTRetry(tb, t, f, backoff.NewExponentialBackOff(), msgAndArgs...)
+}
+
+// NoErrorWithinTRetryConstant checks that 'f' finishes within time 't' and does not
+// emit an error. Will retry at a constant specified interval rather than using exponential backoff
+func NoErrorWithinTRetryConstant(tb testing.TB, t time.Duration, f func() error, interval time.Duration, msgAndArgs ...interface{}) {
+	tb.Helper()
+	noErrorWithinTRetry(tb, t, f, backoff.NewConstantBackOff(interval), msgAndArgs...)
+}
+
+// Same as NoErrorWithinTRetry but accepts a custom backoff
+func noErrorWithinTRetry(tb testing.TB, t time.Duration, f func() error, bo backoff.BackOff, msgAndArgs ...interface{}) {
 	tb.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), t)
 	defer cancel()
@@ -459,7 +472,7 @@ func NoErrorWithinTRetry(tb testing.TB, t time.Duration, f func() error, msgAndA
 			tb.Logf("retryable: %v", userError)
 		}
 		return userError
-	}, backoff.NewExponentialBackOff(), nil)
+	}, bo, nil)
 	if err != nil {
 		fatal(tb, msgAndArgs, "operation did not finish within %s - last error: %v", t.String(), userError)
 	}
