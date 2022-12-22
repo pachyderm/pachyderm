@@ -18,6 +18,6 @@ var _ aws.Logger = new(amazon)
 
 // NewAmazonLogger returns an aws.Logger.
 func NewAmazonLogger(ctx context.Context) aws.Logger {
-	a := amazon(*NewStdLog(ctx))
+	a := amazon(*NewStdLogAt(ctx, DebugLevel))
 	return &a
 }

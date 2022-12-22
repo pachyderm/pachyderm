@@ -200,14 +200,14 @@
 //
 // See:
 //
-//	NewAmazonLogger(ctx) # For the S3 client
-//	NewLogrus(ctx) # For logrus users, like dex and snowflake.
-//	NewStdLog(ctx) # For "log" users, like the net/http server.
-//	AddLoggerToEtcdServer(ctx, server) # To add a logger to an in-memory etcd.
-//	AddLoggerToHttpServer(ctx, name, server) # To add a logger to incoming requests in a net/http server.
+//	NewAmazonLogger(ctx)         # For the S3 client
+//	NewLogrus(ctx)               # For logrus users, like dex and snowflake.
+//	NewStdLogAt(ctx, level)      # For "log" users, like the net/http server.
+//	AddLoggerToEtcdServer(ctx, server)        # To add a logger to an in-memory etcd.
+//	AddLoggerToHttpServer(ctx, name, server)  # To add a logger to incoming requests in a net/http server.
 //
-// Do not use a NewLogrus or a NewStdLog in any code you're writing.  They are only for third-party
-// packages.
+// Do not use a NewLogrus or a NewStdLogAt as the primary logger in any code you're writing.  They
+// are only for adapting to the needs of third-party packages.
 //
 // # EXTENDING THE LOGGING PACKAGE
 //
