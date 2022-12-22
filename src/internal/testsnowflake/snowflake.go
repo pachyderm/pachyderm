@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -46,15 +45,13 @@ func getURLAndPassword(t testing.TB) (*pachsql.URL, string) {
 	return url, password
 }
 
-func NewEphemeralSnowflakeDB(t testing.TB) (*sqlx.DB, string) {
+func NewEphemeralSnowflakeDB(ctx context.Context, t testing.TB) (*sqlx.DB, string) {
 	name := testutil.GenerateEphemeralDBName(t)
 	url, password := getURLAndPassword(t)
 	db := testutil.OpenDBURL(t, *url, password)
-	ctx := context.Background()
-	log := logrus.StandardLogger()
 	ctx, cf := context.WithTimeout(ctx, 5*time.Second)
 	defer cf()
-	require.NoError(t, dbutil.WaitUntilReady(ctx, log, db))
+	require.NoError(t, dbutil.WaitUntilReady(ctx, db))
 
 	testutil.CreateEphemeralDB(t, db, name)
 	url.Database = name

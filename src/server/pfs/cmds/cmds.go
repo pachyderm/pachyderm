@@ -1121,7 +1121,7 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.ProjectHeader)
 			for _, pi := range pis {
-				pretty.PrintProjectInfo(writer, pi)
+				pretty.PrintProjectInfo(writer, pi, &pfs.Project{Name: pachCtx.Project})
 			}
 			return writer.Flush()
 		}),
@@ -1629,7 +1629,7 @@ $ {{alias}} "foo@master:data/*"
 	var shallow bool
 	var nameOnly bool
 	var diffCmdArg string
-	oldProject := project
+	var oldProject string
 	diffFile := &cobra.Command{
 		Use:   "{{alias}} <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-branch-or-commit>:<old-path>]",
 		Short: "Return a diff of two file trees stored in Pachyderm",
@@ -1646,6 +1646,9 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			newFile, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
+			}
+			if oldProject == "" {
+				oldProject = project
 			}
 			oldFile := &pfs.File{}
 			if len(args) == 2 {
@@ -1729,7 +1732,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 	diffFile.Flags().AddFlagSet(timestampFlags)
 	diffFile.Flags().AddFlagSet(pagerFlags)
 	diffFile.Flags().StringVar(&project, "project", project, "Project in which first repo is located.")
-	diffFile.Flags().StringVar(&oldProject, "old-project", oldProject, "Project in which second, older repo is located.")
+	diffFile.Flags().StringVar(&oldProject, "old-project", "", "Project in which second, older repo is located.")
 	shell.RegisterCompletionFunc(diffFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(diffFile, "diff file", files))
 

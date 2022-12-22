@@ -20,6 +20,7 @@ linters:
     - bidichk
     - exhaustive
     - goprintffuncname
+    - depguard
     # - bodyclose CORE-1317
     # - gocritic CORE-1318
     # - gosec CORE-1319
@@ -64,3 +65,11 @@ linters-settings:
     # Annotate your switch statement with //exhaustive:enforce to opt in.
     explicit-exhaustive-switch: true
     explicit-exhaustive-map: true
+  depguard:
+    include-go-root: true
+    packages-with-error-message:
+      - github.com/sirupsen/logrus: 'use the internal/log package'
+      - log: 'use the internal/log package'
+    ignore-file-rules:
+      - "**/src/internal/log/*.go"
+      - "**/etc/**/*.go" # /etc cannot import internal/log :(

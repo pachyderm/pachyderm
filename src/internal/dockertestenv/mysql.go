@@ -5,12 +5,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -19,21 +21,18 @@ const (
 	mysqlUser     = "root"
 )
 
-func NewEphemeralMySQLDB(t testing.TB) (*pachsql.DB, string) {
+func NewEphemeralMySQLDB(ctx context.Context, t testing.TB) (*pachsql.DB, string) {
 	name := testutil.GenerateEphemeralDBName(t)
-	return testutil.OpenDBURL(t, newMySQLEphemeralURL(t, name), MySQLPassword), name
+	return testutil.OpenDBURL(t, newMySQLEphemeralURL(ctx, t, name), MySQLPassword), name
 }
 
 // NewMySQLURL returns a pachsql.URL to an ephemeral database.
-func NewMySQLURL(t testing.TB) pachsql.URL {
+func NewMySQLURL(ctx context.Context, t testing.TB) pachsql.URL {
 	dbName := testutil.GenerateEphemeralDBName(t)
-	return newMySQLEphemeralURL(t, dbName)
+	return newMySQLEphemeralURL(ctx, t, dbName)
 }
 
-func newMySQLEphemeralURL(t testing.TB, name string) pachsql.URL {
-	ctx := context.Background()
-	log := logrus.StandardLogger()
-
+func newMySQLEphemeralURL(ctx context.Context, t testing.TB, name string) pachsql.URL {
 	dclient := newDockerClient()
 	err := backoff.Retry(func() error {
 		return ensureContainer(ctx, dclient, "pach_test_mysql", containerSpec{
@@ -57,7 +56,8 @@ func newMySQLEphemeralURL(t testing.TB, name string) pachsql.URL {
 	db := testutil.OpenDBURL(t, u, MySQLPassword)
 	ctx, cf := context.WithTimeout(ctx, 30*time.Second)
 	defer cf()
-	require.NoError(t, dbutil.WaitUntilReady(ctx, log, db))
+	mysql.SetLogger(log.NewStdLog(pctx.Child(pctx.TODO(), "ephemeral-mysql"))) //nolint:errcheck
+	require.NoError(t, dbutil.WaitUntilReady(ctx, db))
 	testutil.CreateEphemeralDB(t, db, name)
 	u2 := u
 	u2.Database = name

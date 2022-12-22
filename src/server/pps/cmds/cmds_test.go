@@ -501,6 +501,68 @@ func TestListPipelineFilter(t *testing.T) {
 	).Run())
 }
 
+func TestInspectWaitJob(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		yes | pachctl delete all
+	`).Run())
+	pipeline1 := tu.UniqueString("pipeline1-")
+	project := tu.UniqueString("myNewProject")
+
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create project {{ .project }}
+		pachctl create repo input --project {{ .project }}
+		pachctl create pipeline -f - <<EOF
+		{
+			"pipeline": {
+				"name": "{{.pipeline1}}",
+				"project": {
+					"name": "{{ .project }}"
+				}
+			},
+			"input": {
+				"pfs": {
+					"glob": "/*",
+					"project": "{{ .project }}",
+					"repo": "input"
+				}
+			},
+			"parallelism_spec": {
+				"constant": "1"
+			},
+			"transform": {
+				"cmd": [
+					"/bin/bash"
+				],
+				"stdin": [
+					"sleep 15 && cp /pfs/input/* /pfs/out"
+				]
+			}
+		}
+		EOF
+		echo foo | pachctl put file input@master:/foo --project {{ .project }}
+	`,
+		"pipeline1", pipeline1,
+		"project", project,
+	).Run())
+	jobs, err := c.ListProjectJob(project, pipeline1, nil, -1, false)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobs))
+
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl inspect job {{ .pipeline1 }}@{{ .job }} --project {{ .project }} | match {{ .job }}
+		pachctl wait job {{ .pipeline1 }}@{{ .job }} --project {{ .project }}
+		pachctl inspect job {{ .pipeline1 }}@{{ .job }} --project {{ .project }} --no-color | match "State: success"
+	`,
+		"pipeline1", pipeline1,
+		"project", project,
+		"job", jobs[0].Job.GetID(),
+	).Run())
+}
+
 // TestYAMLError tests that when creating pipelines using a YAML spec with an
 // error, you get an error indicating the problem in the YAML, rather than an
 // error complaining about multiple documents.
@@ -637,6 +699,11 @@ func TestEditPipeline(t *testing.T) {
 		| match 'cmd:' \
 		| match 'cp /pfs/data/\* /pfs/out'
 		`).Run())
+	// changing the pipeline name should be an error
+	require.YesError(t, tu.PachctlBashCmd(t, c, `EDITOR="sed -i -e s/my-pipeline/my-pipeline2/" pachctl edit pipeline my-pipeline -o yaml`).Run())
+	// changing the project name should be an error
+	require.YesError(t, tu.PachctlBashCmd(t, c, `EDITOR="sed -i -e s/default/default2/" pachctl edit pipeline my-pipeline -o yaml`).Run())
+
 }
 
 func TestMissingPipeline(t *testing.T) {
@@ -900,8 +967,9 @@ func TestJsonnetPipelineTemplateMulti(t *testing.T) {
 		} ]
 		EOF
 		pachctl list pipeline | match foo-pipeline | match bar-pipeline
-		pachctl wait commit bar-pipeline@master
+		pachctl wait commit foo-pipeline@master
 		pachctl get file foo-pipeline@master:/baz-middle | match foo-data
+		pachctl wait commit bar-pipeline@master
 		pachctl get file bar-pipeline@master:/baz-final | match foo-data
 		`).Run())
 }

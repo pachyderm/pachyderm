@@ -20,10 +20,12 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
@@ -45,13 +47,16 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func RunLocal() (retErr error) {
+	log.InitPachctlLogger()
+	ctx := pctx.Background("local")
+
 	config := &serviceenv.PachdFullConfiguration{}
 	if err := cmdutil.Populate(config); err != nil {
 		return err
@@ -59,38 +64,20 @@ func RunLocal() (retErr error) {
 
 	config.PostgresSSL = "disable"
 
-	f, err := os.OpenFile("/tmp/pach/pachd-log", os.O_WRONLY|os.O_CREATE, 0755)
-	if err != nil {
-		log.WithError(err).Error("unable to open log file")
-	}
-	defer f.Close()
-	log.SetOutput(f)
-
 	defer func() {
 		if retErr != nil {
-			log.Errorf("error: %v", retErr)
+			log.Error(ctx, "exiting with error", zap.Error(retErr))
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
 		}
 	}()
-	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {
-	case "debug":
-		log.SetLevel(log.DebugLevel)
-	case "error":
-		log.SetLevel(log.ErrorLevel)
-	case "info", "":
-		log.SetLevel(log.InfoLevel)
-	default:
-		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", logLevel)
-		log.SetLevel(log.InfoLevel)
-	}
 
 	// must run InstallJaegerTracer before InitWithKube/pach client initialization
 	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
-		log.Printf("connecting to Jaeger at %q", endpoint)
+		log.Debug(ctx, "connecting to Jaeger", zap.String("endpoint", endpoint))
 	} else {
-		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
+		log.Debug(ctx, "no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
-	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
+	env := serviceenv.InitWithKube(ctx, serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(env.Config().GCPercent)
 	env.InitDexDB()
 	if env.Config().EtcdPrefix == "" {
@@ -114,7 +101,7 @@ func RunLocal() (retErr error) {
 	// Setup External Pachd GRPC Server.
 	authInterceptor := auth.NewInterceptor(env.AuthServer)
 	externalServer, err := grpcutil.NewServer(
-		context.Background(),
+		pctx.Background("grpc.external"),
 		true,
 		grpc.ChainUnaryInterceptor(
 			errorsmw.UnaryServerInterceptor,
@@ -132,9 +119,9 @@ func RunLocal() (retErr error) {
 		return err
 	}
 
-	if err := logGRPCServerSetup("External Pachd", func() error {
+	if err := logGRPCServerSetup(ctx, "External Pachd", func() error {
 		txnEnv := txnenv.New()
-		if err := logGRPCServerSetup("PFS API", func() error {
+		if err := logGRPCServerSetup(ctx, "PFS API", func() error {
 			pfsAPIServer, err := pfs_server.NewAPIServer(pfs_server.Env{})
 			if err != nil {
 				return err
@@ -145,7 +132,7 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("PPS API", func() error {
+		if err := logGRPCServerSetup(ctx, "PPS API", func() error {
 			ppsAPIServer, err := pps_server.NewAPIServer(
 				pps_server.EnvFromServiceEnv(env, txnEnv, reporter),
 			)
@@ -159,7 +146,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 
-		if err := logGRPCServerSetup("Identity API", func() error {
+		if err := logGRPCServerSetup(ctx, "Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				identity_server.Env{},
 				true,
@@ -174,7 +161,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 
-		if err := logGRPCServerSetup("Auth API", func() error {
+		if err := logGRPCServerSetup(ctx, "Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
 				authserver.EnvFromServiceEnv(env, txnEnv),
 				true, requireNoncriticalServers, true)
@@ -188,7 +175,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		var transactionAPIServer txnserver.APIServer
-		if err := logGRPCServerSetup("Transaction API", func() error {
+		if err := logGRPCServerSetup(ctx, "Transaction API", func() error {
 			transactionAPIServer, err = txnserver.NewAPIServer(
 				env,
 				txnEnv,
@@ -201,7 +188,7 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("Enterprise API", func() error {
+		if err := logGRPCServerSetup(ctx, "Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv), true)
 			if err != nil {
@@ -212,7 +199,7 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("License API", func() error {
+		if err := logGRPCServerSetup(ctx, "License API", func() error {
 			licenseAPIServer, err := licenseserver.New(&licenseserver.Env{})
 			if err != nil {
 				return err
@@ -222,7 +209,7 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("Admin API", func() error {
+		if err := logGRPCServerSetup(ctx, "Admin API", func() error {
 			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(adminserver.Env{}))
 			return nil
 		}); err != nil {
@@ -230,19 +217,19 @@ func RunLocal() (retErr error) {
 		}
 		healthServer := health.NewServer()
 		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-		if err := logGRPCServerSetup("Health", func() error {
+		if err := logGRPCServerSetup(ctx, "Health", func() error {
 			grpc_health_v1.RegisterHealthServer(externalServer.Server, healthServer)
 			return nil
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("Version API", func() error {
+		if err := logGRPCServerSetup(ctx, "Version API", func() error {
 			versionpb.RegisterAPIServer(externalServer.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 			return nil
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("Debug", func() error {
+		if err := logGRPCServerSetup(ctx, "Debug", func() error {
 			debugclient.RegisterDebugServer(externalServer.Server, debugserver.NewDebugServer(
 				env,
 				env.Config().PachdPodName,
@@ -254,7 +241,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		txnEnv.Initialize(env, transactionAPIServer)
-		log.Printf("listening on %v", env.Config().Port)
+		log.Info(ctx, "listening on port", zap.Uint16("port", env.Config().Port))
 		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
 			return err
 		}
@@ -264,13 +251,13 @@ func RunLocal() (retErr error) {
 		return err
 	}
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := grpcutil.NewServer(context.Background(), false, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary), grpc.StreamInterceptor(authInterceptor.InterceptStream))
+	internalServer, err := grpcutil.NewServer(pctx.Background("grpc.internal"), false, grpc.ChainUnaryInterceptor(tracing.UnaryServerInterceptor(), authInterceptor.InterceptUnary), grpc.StreamInterceptor(authInterceptor.InterceptStream))
 	if err != nil {
 		return err
 	}
-	if err := logGRPCServerSetup("Internal Pachd", func() error {
+	if err := logGRPCServerSetup(ctx, "Internal Pachd", func() error {
 		txnEnv := txnenv.New()
-		if err := logGRPCServerSetup("PFS API", func() error {
+		if err := logGRPCServerSetup(ctx, "PFS API", func() error {
 			pfsAPIServer, err := pfs_server.NewAPIServer(
 				pfs_server.Env{},
 			)
@@ -282,7 +269,7 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("PPS API", func() error {
+		if err := logGRPCServerSetup(ctx, "PPS API", func() error {
 			ppsAPIServer, err := pps_server.NewAPIServer(
 				pps_server.EnvFromServiceEnv(env, txnEnv, reporter),
 			)
@@ -294,7 +281,7 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("Identity API", func() error {
+		if err := logGRPCServerSetup(ctx, "Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				identity_server.Env{},
 				false,
@@ -305,7 +292,7 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("Auth API", func() error {
+		if err := logGRPCServerSetup(ctx, "Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
 				authserver.EnvFromServiceEnv(env, txnEnv),
 				false,
@@ -321,7 +308,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		var transactionAPIServer txnserver.APIServer
-		if err := logGRPCServerSetup("Transaction API", func() error {
+		if err := logGRPCServerSetup(ctx, "Transaction API", func() error {
 			transactionAPIServer, err = txnserver.NewAPIServer(
 				env,
 				txnEnv,
@@ -334,7 +321,7 @@ func RunLocal() (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("Enterprise API", func() error {
+		if err := logGRPCServerSetup(ctx, "Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv), false)
 			if err != nil {
@@ -348,19 +335,19 @@ func RunLocal() (retErr error) {
 		healthServer := health.NewServer()
 		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 
-		if err := logGRPCServerSetup("Health", func() error {
+		if err := logGRPCServerSetup(ctx, "Health", func() error {
 			grpc_health_v1.RegisterHealthServer(internalServer.Server, healthServer)
 			return nil
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("Version API", func() error {
+		if err := logGRPCServerSetup(ctx, "Version API", func() error {
 			versionpb.RegisterAPIServer(internalServer.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 			return nil
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("Admin API", func() error {
+		if err := logGRPCServerSetup(ctx, "Admin API", func() error {
 			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(adminserver.Env{}))
 			return nil
 		}); err != nil {
@@ -379,22 +366,22 @@ func RunLocal() (retErr error) {
 	// Any server error is considered critical and will cause Pachd to exit.
 	// The first server that errors will have its error message logged.
 	errChan := make(chan error, 1)
-	go waitForError("External Pachd GRPC Server", errChan, true, func() error {
+	go waitForError(ctx, "External Pachd GRPC Server", errChan, true, func() error {
 		return externalServer.Wait()
 	})
-	go waitForError("Internal Pachd GRPC Server", errChan, true, func() error {
+	go waitForError(ctx, "Internal Pachd GRPC Server", errChan, true, func() error {
 		return internalServer.Wait()
 	})
-	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		router := s3.Router(s3.NewMasterDriver(), env.GetPachClient)
-		server := s3.Server(env.Config().S3GatewayPort, router)
+	go waitForError(ctx, "S3 Server", errChan, requireNoncriticalServers, func() error {
+		router := s3.Router(ctx, s3.NewMasterDriver(), env.GetPachClient)
+		server := s3.Server(ctx, env.Config().S3GatewayPort, router)
 
 		if err != nil {
 			return err
 		}
 		certPath, keyPath, err := tls.GetCertPaths()
 		if err != nil {
-			log.Warnf("s3gateway TLS disabled: %v", err)
+			log.Info(ctx, "s3gateway TLS disabled", zap.NamedError("reason", err))
 			return errors.EnsureStack(server.ListenAndServe())
 		}
 		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
@@ -406,7 +393,7 @@ func RunLocal() (retErr error) {
 		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
 		return errors.EnsureStack(server.ListenAndServeTLS(certPath, keyPath))
 	})
-	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
+	go waitForError(ctx, "Prometheus Server", errChan, requireNoncriticalServers, func() error {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
 		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), mux))
@@ -414,22 +401,22 @@ func RunLocal() (retErr error) {
 	return <-errChan
 }
 
-func logGRPCServerSetup(name string, f func() error) (retErr error) {
-	log.Printf("started setting up %v GRPC Server", name)
+func logGRPCServerSetup(ctx context.Context, name string, f func() error) (retErr error) {
+	log.Debug(ctx, "started setting up GRPC Server", zap.String("name", name))
 	defer func() {
 		if retErr != nil {
 			retErr = errors.Wrapf(retErr, "error setting up %v GRPC Server", name)
 		} else {
-			log.Printf("finished setting up %v GRPC Server", name)
+			log.Debug(ctx, "finished setting up GRPC Server", zap.String("name", name))
 		}
 	}()
 	return f()
 }
 
-func waitForError(name string, errChan chan error, required bool, f func() error) {
+func waitForError(ctx context.Context, name string, errChan chan error, required bool, f func() error) {
 	if err := f(); !errors.Is(err, http.ErrServerClosed) {
 		if !required {
-			log.Errorf("error setting up and/or running %v: %v", name, err)
+			log.Error(ctx, "error setting up and/or running server", zap.String("server", name), zap.Error(err))
 		} else {
 			errChan <- errors.Wrapf(err, "error setting up and/or running %v (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers)", name)
 		}

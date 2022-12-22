@@ -6,12 +6,16 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/cmd"
 	"github.com/spf13/pflag"
 )
 
 func main() {
+	log.InitPachctlLogger()
+	log.SetLevel(log.InfoLevel)
+
 	// Remove kubernetes client flags from the spf13 flag set
 	// (we link the kubernetes client, so otherwise they're in 'pachctl --help')
 	pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)

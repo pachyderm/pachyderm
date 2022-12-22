@@ -7,9 +7,8 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
-	log "github.com/sirupsen/logrus"
 )
 
 // UnorderedWriter allows writing Files, unordered by path, into multiple ordered filesets.
@@ -96,7 +95,7 @@ func (uw *UnorderedWriter) serialize(ctx context.Context) error {
 	if uw.buffer.Empty() {
 		return nil
 	}
-	return miscutil.LogStep(ctx, log.NewEntry(log.StandardLogger()), "UnorderedWriter.serialize", func() error {
+	return log.LogStep(ctx, "UnorderedWriter.serialize", func(_ context.Context) error {
 		return uw.withWriter(func(w *Writer) error {
 			if err := uw.buffer.WalkAdditive(func(path, datum string, r io.Reader) error {
 				return w.Add(path, datum, r)

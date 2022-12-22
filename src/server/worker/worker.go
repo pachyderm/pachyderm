@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"fmt"
+	"os"
 	"path"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -42,14 +44,22 @@ type Worker struct {
 //  3. an api server that serves requests for status or cross-worker communication
 //  4. a driver that provides common functionality between the above components
 func NewWorker(
+	ctx context.Context,
 	env serviceenv.ServiceEnv,
 	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
 	rootPath string,
 ) (*Worker, error) {
-	stats.InitPrometheus()
+	stats.InitPrometheus(pctx.Child(ctx, "prometheus"))
+
+	ctx = pctx.Child(ctx, "", pctx.WithFields(
+		pps.ProjectNameField(pipelineInfo.GetPipeline().GetProject().GetName()),
+		pps.PipelineNameField(pipelineInfo.GetPipeline().GetName()),
+		pps.WorkerIDField(os.Getenv(client.PPSPodNameEnv)),
+	))
 
 	driver, err := driver.NewDriver(
+		ctx,
 		env,
 		pachClient,
 		pipelineInfo,
@@ -77,14 +87,15 @@ func NewWorker(
 
 	worker.APIServer = server.NewAPIServer(driver, worker.status, env.Config().PodName)
 
-	go worker.master(env)
+	mlog := logs.NewMasterLogger(ctx)
+	go worker.master(mlog, env)
 	go worker.worker()
 	return worker, nil
 }
 
 func (w *Worker) worker() {
 	ctx := w.driver.PachClient().Ctx()
-	logger := logs.NewStatlessLogger(w.driver.PipelineInfo())
+	logger := logs.New(w.driver.PachClient().Ctx())
 	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 		eg, ctx := errgroup.WithContext(ctx)
 		driver := w.driver.WithContext(ctx)
@@ -105,9 +116,8 @@ func (w *Worker) worker() {
 	})
 }
 
-func (w *Worker) master(env serviceenv.ServiceEnv) {
+func (w *Worker) master(logger logs.TaggedLogger, env serviceenv.ServiceEnv) {
 	pipelineInfo := w.driver.PipelineInfo()
-	logger := logs.NewMasterLogger(pipelineInfo)
 	var projectName = pipelineInfo.Pipeline.Project.GetName()
 	lockPath := path.Join(env.Config().PPSEtcdPrefix, masterLockPath, projectName, pipelineInfo.Pipeline.Name, pipelineInfo.Details.Salt)
 	masterLock := dlock.NewDLock(env.GetEtcdClient(), lockPath)

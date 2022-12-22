@@ -1,6 +1,7 @@
 package realenv
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/url"
@@ -69,24 +70,24 @@ type RealEnv struct {
 // NewRealEnv constructs a MockEnv, then forwards all API calls to go to API
 // server instances for supported operations. PPS uses a fake clientset which allows
 // some PPS behavior to work.
-func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
-	return newRealEnv(t, false, testpachd.AuthMiddlewareInterceptor, customOpts...)
+func NewRealEnv(ctx context.Context, t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
+	return newRealEnv(ctx, t, false, testpachd.AuthMiddlewareInterceptor, customOpts...)
 }
 
 // NewRealEnvWithIdentity creates a new real Env and then activates an identity server with dex.
-func NewRealEnvWithIdentity(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
-	env := newRealEnv(t, false, testpachd.AuthMiddlewareInterceptor, customOpts...)
+func NewRealEnvWithIdentity(ctx context.Context, t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
+	env := newRealEnv(ctx, t, false, testpachd.AuthMiddlewareInterceptor, customOpts...)
 	env.ActivateIdentity(t)
 	return env
 }
 
 // NewRealEnvWithPPSTransactionMock constructs a MockEnv, then forwards all API calls to go to API
 // server instances for supported operations. A mock implementation of PPS Transactions are used.
-func NewRealEnvWithPPSTransactionMock(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
+func NewRealEnvWithPPSTransactionMock(ctx context.Context, t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	noInterceptor := func(mock *testpachd.MockPachd) grpcutil.Interceptor {
 		return grpcutil.Interceptor{}
 	}
-	return newRealEnv(t, true, noInterceptor, customOpts...)
+	return newRealEnv(ctx, t, true, noInterceptor, customOpts...)
 }
 
 func (realEnv *RealEnv) ActivateIdentity(t testing.TB) {
@@ -103,8 +104,8 @@ func (realEnv *RealEnv) ActivateIdentity(t testing.TB) {
 	linkServers(&realEnv.MockPachd.Identity, realEnv.IdentityServer)
 }
 
-func newRealEnv(t testing.TB, mockPPSTransactionServer bool, interceptor testpachd.InterceptorOption, customOpts ...serviceenv.ConfigOption) *RealEnv {
-	mockEnv := testpachd.NewMockEnv(t, interceptor)
+func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool, interceptor testpachd.InterceptorOption, customOpts ...serviceenv.ConfigOption) *RealEnv {
+	mockEnv := testpachd.NewMockEnv(ctx, t, interceptor)
 
 	realEnv := &RealEnv{MockEnv: *mockEnv}
 	etcdClientURL, err := url.Parse(realEnv.EtcdClient.Endpoints()[0])
@@ -122,7 +123,7 @@ func newRealEnv(t testing.TB, mockPPSTransactionServer bool, interceptor testpac
 		serviceenv.WithOidcPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port + 7)),
 	}
 	opts = append(opts, customOpts...) // Overwrite with any custom options
-	realEnv.ServiceEnv = serviceenv.InitServiceEnv(serviceenv.ConfigFromOptions(opts...))
+	realEnv.ServiceEnv = serviceenv.InitServiceEnv(ctx, serviceenv.ConfigFromOptions(opts...))
 
 	// Overwrite the mock pach client with the ServiceEnv's client so it gets closed earlier
 	realEnv.PachClient = realEnv.ServiceEnv.GetPachClient(realEnv.ServiceEnv.Context())

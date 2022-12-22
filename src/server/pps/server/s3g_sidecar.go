@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	logrus "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
@@ -39,13 +40,13 @@ type sidecarS3G struct {
 	server *s3.S3Server
 }
 
-func (a *apiServer) ServeSidecarS3G() {
+func (a *apiServer) ServeSidecarS3G(ctx context.Context) {
 	s := &sidecarS3G{
 		apiServer:  a,
-		pachClient: a.env.GetPachClient(context.Background()),
+		pachClient: a.env.GetPachClient(context.TODO()),
 	}
 	port := a.env.Config.S3GatewayPort
-	s.server = s3.Server(port, nil)
+	s.server = s3.Server(ctx, port, nil)
 
 	// Read spec commit for this sidecar's pipeline, and set auth token for pach
 	// client
@@ -66,13 +67,13 @@ func (a *apiServer) ServeSidecarS3G() {
 		)
 		return errors.Wrapf(err, "sidecar s3 gateway: could not find pipeline")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		logrus.Errorf("error starting sidecar s3 gateway: %v; retrying in %d", err, d)
+		log.Error(ctx, "error starting sidecar s3 gateway; retrying", zap.Error(err), zap.Duration("retryAfter", d))
 		return nil
 	}); err != nil {
 		// This code should never run, but I hesitate to introduce a panic to new
 		// code
-		logrus.Errorf("restarting startup of sidecar s3 gateway: %v", err)
-		a.ServeSidecarS3G()
+		log.Error(ctx, "restarting startup of sidecar s3 gateway", zap.Error(err))
+		a.ServeSidecarS3G(ctx)
 	}
 	if !ppsutil.ContainsS3Inputs(s.pipelineInfo.Details.Input) && !s.pipelineInfo.Details.S3Out {
 		return // break early (nothing to serve via S3 gateway)
@@ -84,21 +85,22 @@ func (a *apiServer) ServeSidecarS3G() {
 			if err == nil || errors.Is(err, http.ErrServerClosed) {
 				break // server was shutdown/closed
 			}
-			logrus.Errorf("error serving sidecar s3 gateway: %v; strike %d/2", err, i+1)
+			log.Error(ctx, "error serving sidecar s3 gateway", zap.Error(err), log.RetryAttempt(i, 2))
 		}
 	}()
 
 	// begin creating k8s services and s3 gateway instances for each job
 	done := make(chan string)
 	go func() {
-		s.createK8sServices()
+		s.createK8sServices(ctx)
 		done <- "createK8sServices"
 	}()
 	go func() {
-		s.serveS3Instances()
+		s.serveS3Instances(ctx)
 		done <- "serveS3Instances"
 	}()
 	finisher := <-done
+	log.Error(ctx, "process exited; this should never happen", zap.String("process", finisher))
 	panic(
 		fmt.Sprintf("sidecar s3 gateway: %s is exiting, which should never happen", finisher),
 	)
@@ -112,16 +114,17 @@ type jobHandler interface {
 	OnTerminate(ctx context.Context, job *pps.Job)
 }
 
-func (s *sidecarS3G) serveS3Instances() {
+func (s *sidecarS3G) serveS3Instances(ctx context.Context) {
 	// Watch for new jobs & initialize s3g for each new job
 	(&handleJobsCtx{
-		s: s,
-		h: &s3InstanceCreatingJobHandler{s},
+		ctx: ctx,
+		s:   s,
+		h:   &s3InstanceCreatingJobHandler{s},
 	}).start()
 }
 
-func (s *sidecarS3G) createK8sServices() {
-	logrus.Infof("Launching sidecar s3 gateway master process")
+func (s *sidecarS3G) createK8sServices(ctx context.Context) {
+	log.Info(ctx, "Launching sidecar s3 gateway master process")
 	// createK8sServices goes through master election so that only one k8s service
 	// is created per pachyderm job running sidecar s3 gateway
 	var projectName = s.pipelineInfo.Pipeline.Project.GetName()
@@ -140,8 +143,9 @@ func (s *sidecarS3G) createK8sServices() {
 
 		// Watch for new jobs & create kubernetes service for each new job
 		(&handleJobsCtx{
-			s: s,
-			h: &k8sServiceCreatingJobHandler{s},
+			ctx: ctx,
+			s:   s,
+			h:   &k8sServiceCreatingJobHandler{s},
 		}).start()
 
 		// Retry the unlock inside the larger retry as other sidecars may not be
@@ -149,14 +153,14 @@ func (s *sidecarS3G) createK8sServices() {
 		if err := backoff.RetryNotify(func() error {
 			return errors.EnsureStack(masterLock.Unlock(ctx))
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-			logrus.Errorf("Error releasing sidecar s3 gateway master lock: %v; retrying in %v", err, d)
+			log.Error(ctx, "Error releasing sidecar s3 gateway master lock; retrying", zap.Error(err), zap.Duration("retryAfter", d))
 			return nil // always retry
 		}); err != nil {
 			return errors.Wrapf(err, "permanent error releasing sidecar s3 gateway master lock")
 		}
 		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		logrus.Errorf("sidecar s3 gateway: %v; retrying in %v", err, d)
+		log.Error(ctx, "sidecar s3 gateway failed; retrying", zap.Error(err), zap.Duration("retryAfter", d))
 		return nil
 	})
 }
@@ -182,7 +186,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		}
 		return nil
 	})
-	logrus.Errorf("could not visit pps input: %v", err)
+	log.Error(ctx, "could not visit pps input", zap.Error(err))
 	var outputBucket *s3.Bucket
 	if s.s.pipelineInfo.Details.S3Out {
 		outputBucket = &s3.Bucket{
@@ -191,7 +195,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		}
 	}
 	driver := s3.NewWorkerDriver(inputBuckets, outputBucket)
-	router := s3.Router(driver, s.s.apiServer.env.GetPachClient)
+	router := s3.Router(ctx, driver, s.s.apiServer.env.GetPachClient)
 	s.s.server.AddRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.ID), router)
 }
 
@@ -261,11 +265,11 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		}
 		return errors.EnsureStack(err)
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		logrus.Errorf("error creating kubernetes service for s3 gateway sidecar: %v; retrying in %v", err, d)
+		log.Error(ctx, "error creating kubernetes service for s3 gateway sidecar; retrying", zap.Error(err), zap.Duration("retryAfter", d))
 		return nil
 	})
 	if err != nil {
-		logrus.Errorf("could not create service for job %q: %v", jobInfo.Job, err)
+		log.Error(ctx, "could not create service for job", zap.Stringer("job", jobInfo.Job), zap.Error(err))
 	}
 }
 
@@ -283,16 +287,17 @@ func (s *k8sServiceCreatingJobHandler) OnTerminate(ctx context.Context, job *pps
 		}
 		return errors.EnsureStack(err)
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		logrus.Errorf("error deleting kubernetes service for s3 %q gateway sidecar: %v; retrying in %v", job, err, d)
+		log.Info(ctx, "error deleting kubernetes service for s3 gateway sidecar; retrying", log.Proto("job", job), zap.Error(err), zap.Duration("retryAfter", d))
 		return nil
 	}); err != nil {
-		logrus.Errorf("permanent error deleting kubernetes service for %q s3 gateway sidecar: %v", job, err)
+		log.Error(ctx, "permanent error deleting kubernetes service", log.Proto("job", job), zap.Error(err))
 	}
 }
 
 type handleJobsCtx struct {
-	s *sidecarS3G
-	h jobHandler
+	ctx context.Context
+	s   *sidecarS3G
+	h   jobHandler
 }
 
 func (h *handleJobsCtx) start() {
@@ -313,14 +318,14 @@ func (h *handleJobsCtx) start() {
 
 		for e := range watcher.Watch() {
 			if e.Type == watch.EventError {
-				logrus.Errorf("sidecar s3 gateway watch error: %v", e.Err)
+				log.Error(h.ctx, "sidecar s3 gateway watch error", zap.Error(e.Err))
 				break // reestablish watch
 			}
 
 			var key string
 			jobInfo := &pps.JobInfo{}
 			if err := e.Unmarshal(&key, jobInfo); err != nil {
-				logrus.Errorf("sidecar s3 gateway watch unmarshal error: %v", err)
+				log.Error(h.ctx, "sidecar s3 gateway watch unmarshal error", zap.Error(err))
 			}
 
 			h.processJobEvent(context.Background(), e.Type, jobInfo.Job)
@@ -337,7 +342,7 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 	// 'e' is a Put event (new or updated job)
 	pachClient := h.s.pachClient.WithCtx(jobCtx)
 	// Inspect the job and make sure it's relevant, as this worker may be old
-	logrus.Infof("sidecar s3 gateway: inspecting job %q to begin serving inputs over s3 gateway", job)
+	log.Info(h.ctx, "sidecar s3 gateway: inspecting job to begin serving inputs over s3 gateway", log.Proto("job", job))
 
 	var jobInfo *pps.JobInfo
 	if err := backoff.RetryNotify(func() error {
@@ -348,28 +353,28 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 				// TODO(msteffen): I'm not sure what this means--maybe that the service
 				// was created and immediately deleted, and there's a pending deletion
 				// event? In any case, without a job that exists there's nothing to act on
-				logrus.Errorf("sidecar s3 gateway: job %q not found", job)
+				log.Error(h.ctx, "sidecar s3 gateway: job not found", log.Proto("job", job), zap.Error(err))
 				return nil
 			}
 			return err
 		}
 		return nil
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		logrus.Errorf("error inspecting job %q: %v; retrying in %v", job, err, d)
+		log.Error(h.ctx, "error inspecting job; retrying", log.Proto("job", job), zap.Error(err), zap.Duration("retryAfter", d))
 		return nil
 	}); err != nil {
-		logrus.Errorf("permanent error inspecting job %q: %v", job, err)
+		log.Error(h.ctx, "permanent error inspecting job", log.Proto("job", job), zap.Error(err))
 		return // leak the job; better than getting stuck?
 	}
 	if jobInfo.PipelineVersion < h.s.pipelineInfo.Version {
-		logrus.Infof("skipping job %v as it uses old pipeline version %d", job, jobInfo.PipelineVersion)
+		log.Info(h.ctx, "skipping job as it uses old pipeline version", log.Proto("job", job), zap.Uint64("jobVersion", jobInfo.PipelineVersion), zap.Uint64("ourVersion", h.s.pipelineInfo.Version))
 		return
 	}
 	if jobInfo.PipelineVersion > h.s.pipelineInfo.Version {
-		logrus.Infof("skipping job %q as its pipeline version version %d is "+
-			"greater than this worker's pipeline version (%d), this should "+
-			"automatically resolve when the worker is updated", job,
-			jobInfo.PipelineVersion, h.s.pipelineInfo.Version)
+		log.Info(h.ctx, "skipping job as its pipeline version version is "+
+			"greater than this worker's pipeline version; this should "+
+			"automatically resolve when the worker is updated",
+			log.Proto("job", job), zap.Uint64("jobVersion", jobInfo.PipelineVersion), zap.Uint64("ourVersion", h.s.pipelineInfo.Version))
 		return
 	}
 	if pps.IsTerminal(jobInfo.State) {

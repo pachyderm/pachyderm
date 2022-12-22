@@ -5,11 +5,12 @@ package s3
 import (
 	"net/http"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/s2"
 )
 
 func (c *controller) ListBuckets(r *http.Request) (*s2.ListBucketsResult, error) {
-	c.logger.Debugf("ListBuckets")
+	defer log.Span(r.Context(), "ListBuckets")()
 
 	pc := c.requestClient(r)
 	result := s2.ListBucketsResult{
