@@ -2311,7 +2311,8 @@ func TestDeletePipeline(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-
+	project := tu.UniqueString("prj")
+	require.NoError(t, c.CreateProject(project))
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	commit, err := c.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
@@ -2332,7 +2333,7 @@ func TestDeletePipeline(t *testing.T) {
 			"",
 			false,
 		))
-		require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+		require.NoError(t, c.CreateProjectPipeline(project,
 			pipelines[1],
 			"",
 			[]string{"sleep", "20"},
@@ -2360,7 +2361,7 @@ func TestDeletePipeline(t *testing.T) {
 				return errors.Errorf("Expected two pipelines, but got: %+v", names)
 			}
 			// make sure second pipeline is running
-			pipelineInfo, err := c.InspectProjectPipeline(pfs.DefaultProjectName, pipelines[1], false)
+			pipelineInfo, err := c.InspectProjectPipeline(project, pipelines[1], false)
 			if err != nil {
 				return err
 			}
@@ -2373,12 +2374,12 @@ func TestDeletePipeline(t *testing.T) {
 
 	createPipelines()
 
-	deletePipeline := func(pipeline string) {
-		require.NoError(t, c.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false))
+	deletePipeline := func(project, pipeline string) {
+		require.NoError(t, c.DeleteProjectPipeline(project, pipeline, false))
 		time.Sleep(5 * time.Second)
 		// Wait for the pipeline to disappear
 		require.NoError(t, backoff.Retry(func() error {
-			_, err := c.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
+			_, err := c.InspectProjectPipeline(project, pipeline, false)
 			if err == nil {
 				return errors.Errorf("expected pipeline to be missing, but it's still present")
 			}
@@ -2389,16 +2390,21 @@ func TestDeletePipeline(t *testing.T) {
 	// Can't delete a pipeline from the middle of the dag
 	require.YesError(t, c.DeleteProjectPipeline(pfs.DefaultProjectName, pipelines[0], false))
 
-	deletePipeline(pipelines[1])
-	deletePipeline(pipelines[0])
+	deletePipeline(project, pipelines[1])
+	deletePipeline(pfs.DefaultProjectName, pipelines[0])
 
 	// The jobs should be gone
 	jobs, err := c.ListProjectJob(pfs.DefaultProjectName, "", nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 0)
+	jobs, err = c.ListProjectJob(project, "", nil, -1, true)
+	require.NoError(t, err)
+	require.Equal(t, len(jobs), 0)
 
 	// Listing jobs for a deleted pipeline should error
 	_, err = c.ListProjectJob(pfs.DefaultProjectName, pipelines[0], nil, -1, true)
+	require.YesError(t, err)
+	_, err = c.ListProjectJob(project, pipelines[1], nil, -1, true)
 	require.YesError(t, err)
 
 	createPipelines()
@@ -4252,12 +4258,14 @@ func TestJobDeletion(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
+	project := tu.UniqueString("project")
+	require.NoError(t, c.CreateProject(project))
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, c.CreateProjectPipeline(project,
 		pipelineName,
 		"",
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
@@ -4279,6 +4287,8 @@ func TestJobDeletion(t *testing.T) {
 	require.NoError(t, err)
 
 	err = c.DeleteProjectJob(pfs.DefaultProjectName, pipelineName, commit.ID)
+	require.YesError(t, err) // Wrong project should error
+	err = c.DeleteProjectJob(project, pipelineName, commit.ID)
 	require.NoError(t, err)
 }
 

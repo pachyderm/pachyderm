@@ -45,6 +45,9 @@ func GetKubeClient(t testing.TB) *kube.Clientset {
 	return k
 }
 
+// Deletes a pod and then blocks until there is a delete event, and the pod is recreated and running.
+// However, the pod may not be in a "ready" state when control is unblocked. Use WaitForFirstPodReady
+// to block until the pod to begins accepting requests.
 func DeletePod(t testing.TB, app, ns string) {
 	kubeClient := GetKubeClient(t)
 	podList, err := kubeClient.CoreV1().Pods(ns).List(
@@ -78,7 +81,7 @@ func DeletePod(t testing.TB, app, ns string) {
 		if len(podList.Items) == 0 {
 			return nil
 		}
-		if time.Since(startTime) > 10*time.Second {
+		if time.Since(startTime) > 60*time.Second {
 			return nil
 		}
 		return errors.Errorf("waiting for old %v pod to be killed", app)
@@ -165,6 +168,7 @@ func PachdDeployment(t testing.TB, namespace string) *apps.Deployment {
 	return GetDeployment(t, "pachd", namespace)
 }
 
+// GetDeployment finds the deployment with the corresponding app name like "pachd"
 func GetDeployment(t testing.TB, appName string, namespace string) *apps.Deployment {
 	k := GetKubeClient(t)
 	result, err := k.AppsV1().Deployments(namespace).Get(context.Background(), appName, metav1.GetOptions{})
@@ -172,6 +176,9 @@ func GetDeployment(t testing.TB, appName string, namespace string) *apps.Deploym
 	return result
 }
 
+// podRunning AndReady takes a watch event returned by v1.PodInterface.Watch and
+// returns true iff the pod is in Running phase, all of the pod's containers statuses are Ready,
+// and the pod condition "Ready" is true.
 func podRunningAndReady(e watch.Event) (bool, error) {
 	if e.Type == watch.Deleted {
 		return false, errors.New("received DELETE while watching pods")
@@ -238,9 +245,9 @@ func WaitForDeploymentReady(t testing.TB, appName string, namespace string) {
 	}
 }
 
-// Wait deployment only works for deployments and checks every pod
-// This function is simpler and just unblocks as soon as 1 pod is read
-// Can be used on non-Deployment objects like StatefulSets
+// Wait deployment only works for deployments and checks every pod.
+// This function is simpler and just unblocks as soon as 1 pod is read.
+// It can be used on non-Deployment objects like StatefulSets.
 func WaitForFirstPodReady(t testing.TB, appName string, namespace string) {
 	k := GetKubeClient(t)
 	watch, err := k.CoreV1().Pods(namespace).Watch(context.Background(), metav1.ListOptions{
