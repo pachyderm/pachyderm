@@ -40,7 +40,7 @@ func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commi
 		ID:   commitSet,
 	})
 	query := `SELECT commit_id, branch, repo, project FROM pfs.commits 
-                      JOIN pfs.commits_origin_branches ON pfs.commits.int_id = commit_int_id
+                      LEFT JOIN pfs.commits_origin_branches ON pfs.commits.int_id = commit_int_id
                   WHERE pfs.commits.int_id IN (       
                       SELECT to_id FROM pfs.commits JOIN pfs.commit_provenance ON pfs.commits.int_id = from_id WHERE commit_id = $1
                   );`
@@ -51,7 +51,7 @@ func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commi
 	commitProvenance := make([]*pfs.Commit, 0)
 	for rows.Next() {
 		var commitId, branch, repo, project string
-		if err := rows.Scan(&commitId, &branch); err != nil {
+		if err := rows.Scan(&commitId, &branch, &repo, &project); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
 		c := ParseCommit(commitId)
@@ -139,7 +139,10 @@ func CommitSetSubvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]*pfs
 func AddCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error {
 	stmt := `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES ($1, $2);`
 	_, err := tx.ExecContext(ctx, stmt, CommitKey(commit), commit.ID)
-	return errors.EnsureStack(err)
+	if err != nil {
+
+	}
+	return LinkOriginBranch(ctx, tx, commit, commit.Branch)
 }
 
 func LinkOriginBranch(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit, branch *pfs.Branch) error {
@@ -147,8 +150,8 @@ func LinkOriginBranch(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit, b
 	if err != nil {
 		return err
 	}
-	stmt := `INSERT INTO pfs.commits_origin_branches(commit_int_id, branch, repo, project)
-                 VALUES ($1, $2, $3, $4);`
+	stmt := `INSERT INTO pfs.commits_origin_branches(commit_int_id, branch, repo, project) 
+                 VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;`
 	_, err = tx.ExecContext(ctx, stmt, commitIntId, branch.Name, branch.Repo.Name, branch.Repo.Project.Name)
 	return errors.EnsureStack(err)
 }
