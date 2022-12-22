@@ -429,7 +429,7 @@ func addCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error {
 	var commitIntId int
 	query := `SELECT int_id FROM pfs.commits WHERE commit_id = $1;`
 	if err := tx.GetContext(ctx, commitIntId, query, commitKey(commit)); err != nil {
-		return err
+		return errors.Wrapf(err, "get int_id of commit %q", commitKey(commit))
 	}
 	stmt := `INSERT INTO pfs.commits_origin_branches(commit_int_id, branch, repo, project) VALUES ($1, $2, $3, $4);`
 	_, err = tx.ExecContext(ctx, stmt, commitIntId, commit.Branch.Name, commit.Repo.Name, commit.Repo.Project.Name)

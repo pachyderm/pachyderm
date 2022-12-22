@@ -40,7 +40,7 @@ func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commi
 		ID:   commitSet,
 	})
 	query := `SELECT commit_id, branch, repo, project FROM pfs.commits 
-                      LEFT JOIN pfs.commits_origin_branches ON pfs.commits.int_id = commit_int_id
+                      JOIN pfs.commits_origin_branches ON pfs.commits.int_id = commit_int_id
                   WHERE pfs.commits.int_id IN (       
                       SELECT to_id FROM pfs.commits JOIN pfs.commit_provenance ON pfs.commits.int_id = from_id WHERE commit_id = $1
                   );`
@@ -140,7 +140,7 @@ func AddCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error {
 	stmt := `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES ($1, $2);`
 	_, err := tx.ExecContext(ctx, stmt, CommitKey(commit), commit.ID)
 	if err != nil {
-
+		return errors.Wrapf(err, "insert commit %q into pfs.commits", CommitKey(commit))
 	}
 	return LinkOriginBranch(ctx, tx, commit, commit.Branch)
 }
@@ -153,7 +153,7 @@ func LinkOriginBranch(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit, b
 	stmt := `INSERT INTO pfs.commits_origin_branches(commit_int_id, branch, repo, project) 
                  VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;`
 	_, err = tx.ExecContext(ctx, stmt, commitIntId, branch.Name, branch.Repo.Name, branch.Repo.Project.Name)
-	return errors.EnsureStack(err)
+	return errors.Wrapf(err, "link commit %q to origin branch %q", CommitKey(commit), BranchKey(branch))
 }
 
 func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commitKey string) error {
