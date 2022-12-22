@@ -422,8 +422,18 @@ func deleteCommit(ctx context.Context, tx *pachsql.Tx, ci *pfs.CommitInfo, ances
 }
 
 func addCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error {
-	_, err := tx.ExecContext(ctx, `INSERT INTO pfs.commits(commit_id, commit_set_id, branch) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;`, commitKey(commit), commit.ID, branchKey(commit.GetBranch()))
-	return errors.Wrapf(err, "insert commit %q", commitKey(commit))
+	_, err := tx.ExecContext(ctx, `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, commitKey(commit), commit.ID)
+	if err != nil {
+		return errors.Wrapf(err, "insert commit %q", commitKey(commit))
+	}
+	var commitIntId int
+	query := `SELECT int_id FROM pfs.commits WHERE commit_id = $1;`
+	if err := tx.GetContext(ctx, commitIntId, query, commitKey(commit)); err != nil {
+		return err
+	}
+	stmt := `INSERT INTO pfs.commits_origin_branches(commit_int_id, branch, repo, project) VALUES ($1, $2, $3, $4);`
+	_, err = tx.ExecContext(ctx, stmt, commitIntId, commit.Branch.Name, commit.Repo.Name, commit.Repo.Project.Name)
+	return errors.Wrapf(err, "link commit %q to origin branch", commitKey(commit), branchKey(commit.Branch))
 }
 
 func getFileSetMd(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit) (*fileset.Metadata, error) {
