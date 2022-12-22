@@ -30,6 +30,8 @@ for i in $(find src -name "*.proto"); do \
     protoc \
         "-I${GOPATH}/pkg/mod/github.com/gogo/protobuf@${GOGO_PROTO_VERSION}" \
         -Isrc \
+        --plugin=protoc-gen-zap="${GOPATH}/bin/protoc-gen-zap" \
+        --zap_out=":${GOPATH}/src" \
         --gogofast_out=plugins=grpc,\
 Mgoogle/protobuf/duration.proto=github.com/gogo/protobuf/types,\
 Mgoogle/protobuf/empty.proto=github.com/gogo/protobuf/types,\
