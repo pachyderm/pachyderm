@@ -424,6 +424,10 @@ func (s ObjectStoreURL) String() string {
 	return fmt.Sprintf("%s://%s/%s", s.Scheme, s.Bucket, s.Object)
 }
 
+func (s ObjectStoreURL) BucketString() string {
+	return fmt.Sprintf("%s://%s", s.Scheme, s.Bucket)
+}
+
 // ParseURL parses an URL into ObjectStoreURL.
 func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 	u, err := url.Parse(urlStr)
@@ -437,7 +441,7 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 			Bucket: u.Host,
 			Object: strings.Trim(u.Path, "/"),
 		}, nil
-	case "as", "wasb":
+	case "as", "wasb", "azblob":
 		// In Azure, the first part of the path is the container name.
 		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 		if len(parts) < 1 {
