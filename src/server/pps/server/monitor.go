@@ -9,7 +9,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/robfig/cron"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
