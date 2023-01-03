@@ -14,8 +14,9 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
-// returns CommitInfos in a commit set, topologically sorted. A commit set will include all the commits that were created across repos for a run,
-// along with all of the commits that the run's commit's rely on (present in previous commit sets).
+// returns CommitInfos in a commit set, topologically sorted.
+// A commit set will include all the commits that were created across repos for a run, along
+// with all of the commits that the run's commit's rely on (present in previous commit sets).
 func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, filterPassiveCommits bool) ([]*pfs.CommitInfo, error) {
 	var commitInfos []*pfs.CommitInfo
 	commitInfo := &pfs.CommitInfo{}

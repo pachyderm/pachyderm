@@ -272,6 +272,8 @@ func JobInput(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, outp
 			b := client.NewProjectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch).String()
 			if c, ok := branchToCommits[b]; ok {
 				input.Pfs.Commit = c.ID
+			} else {
+				return errors.Errorf("could not find input commit of %q on branch %q", outputCommit.String(), b)
 			}
 		}
 		if input.Cron != nil {
