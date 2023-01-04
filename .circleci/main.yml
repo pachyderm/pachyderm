@@ -50,6 +50,47 @@ executors:
       - image: cimg/python:3.10-node
 
 jobs:
+  test-obj-storage:
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    resource_class: xlarge
+    environment:
+      TEST_RESULTS: /tmp/test-results
+    steps:
+      - checkout
+      - go/install:
+          version: << pipeline.parameters.go-version >>
+      - run: mkdir ${TEST_RESULTS}
+      - run: go install gotest.tools/gotestsum@latest
+      - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
+      - run: go install ./src/testing/match
+      - restore_cache:
+          keys:
+            - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
+      - run: etc/testing/circle/install.sh
+      - run:
+          no_output_timeout: 20m
+          command: |-
+            GOMAXPROCS=8 CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
+            gotestsum \
+            --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
+            --rerun-fails \
+            --packages="./src/internal/obj/integrationtests" \
+            -- \
+            -tags=unit_test \
+            -count=1 \
+            -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
+      - store_artifacts: # upload test summary for display in Artifacts
+          path: /tmp/test-results
+          destination: raw-test-output
+      - store_test_results: # upload test results for display in Test Summary
+          path: /tmp/test-results
+      - codecov/upload:
+          file: /tmp/test-results/coverage.txt
+      - save_cache:
+          key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
+          paths:
+            - /home/circleci/go/pkg/mod
   test-go:
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -1149,6 +1190,7 @@ workflows:
       #    upload: true
       - check-prettier
       - jsonnet-lint
+      - test-obj-storage
       - test-go
       - govulncheck
       - test-envoy

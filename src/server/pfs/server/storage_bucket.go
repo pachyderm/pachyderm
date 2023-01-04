@@ -34,6 +34,7 @@ func openBucket(ctx context.Context, url *obj.ObjectStoreURL) (bucket *blob.Buck
 	}
 	switch url.Scheme {
 	case "s3", "gs", "azblob":
+		// TODO(Fahad): handle query parameters like disableSSL, endpoint, and others that we let our users configure
 		bucket, err = blob.OpenBucket(ctx, url.BucketString())
 		if err != nil {
 			return nil, errors.EnsureStack(errors.Wrapf(err, "error opening bucket %s", url.Bucket))

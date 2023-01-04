@@ -1,12 +1,20 @@
+//go:build unit_test
+
 package integrationtests
 
 import (
+	"fmt"
 	"testing"
+
+	"google.golang.org/api/option"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"google.golang.org/api/option"
 )
+
+func TestSanity(t *testing.T) {
+	fmt.Printf("fahad: hello, can anyone see this output?\n")
+}
 
 // NOTE: these tests require object storage credentials to be loaded in your
 // environment (see util.go for where they are loaded).
