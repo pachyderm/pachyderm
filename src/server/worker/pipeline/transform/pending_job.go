@@ -107,7 +107,8 @@ func (pj *pendingJob) load() error {
 				return errors.EnsureStack(err)
 			}
 			// both commits must have succeeded - a validation error will only show up in the output
-			if metaCI.Error == "" && outputCI.Error == "" {
+			// the commit must also not be of type ALIAS, to ensure that we have a corresponding job
+			if metaCI.Error == "" && outputCI.Error == "" && outputCI.Origin.Kind != pfs.OriginKind_ALIAS {
 				break
 			}
 		}
