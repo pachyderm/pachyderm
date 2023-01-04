@@ -158,18 +158,21 @@ def test_mount(pachyderm_resources, dev_server):
                 "name": repos[0],
                 "repo": repos[0],
                 "branch": "master",
+                "project": "default",
                 "mode": "ro",
             },
             {
                 "name": repos[0] + "_dev",
                 "repo": repos[0],
                 "branch": "dev",
+                "project": "default",
                 "mode": "ro",
             },
             {
                 "name": repos[1],
                 "repo": repos[1],
                 "branch": "master",
+                "project": "default",
                 "mode": "ro",
             },
         ]
@@ -180,7 +183,7 @@ def test_mount(pachyderm_resources, dev_server):
     resp = r.json()
     assert len(resp["mounted"]) == 3
     assert len(list(os.walk(PFS_MOUNT_DIR))[0][1]) == 3
-    for _, mount_info in resp["mounted"].items():
+    for mount_info in resp["mounted"]:
         assert sorted(
             list(os.walk(os.path.join(PFS_MOUNT_DIR, mount_info["name"])))[0][2]
         ) == sorted(files)
