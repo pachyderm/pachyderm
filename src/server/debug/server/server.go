@@ -127,7 +127,7 @@ func (s *debugServer) handleRedirect(
 						// Redirect to the storage container.
 						r, err := redirect(ctx, s.sidecarClient.DebugClient, filter)
 						if err != nil {
-							multierr.AppendInto(&errs, errors.Wrap(err, "collect user container"))
+							multierr.AppendInto(&errs, errors.Wrap(err, "collect storage container"))
 						}
 						if err := collectDebugStream(tw, r); err != nil {
 							multierr.AppendInto(&errs, errors.Wrap(err, "collect debug stream"))
@@ -368,11 +368,11 @@ func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_
 		pachClient,
 		server,
 		request.Filter,
-		collectProfileFunc(request.Profile),  // collectPachd
-		nil,                                  // collectPipeline
-		nil,                                  // collectWorker
-		redirectProfileFunc(request.Profile), // redirect
-		collectProfileFunc(request.Profile),  // collect
+		collectProfileFunc(request.Profile),  /* collectPachd */
+		nil,                                  /* collectPipeline */
+		nil,                                  /* collectWorker */
+		redirectProfileFunc(request.Profile), /* redirect */
+		collectProfileFunc(request.Profile),  /* collect */
 		false,
 		false,
 	)
@@ -441,11 +441,11 @@ func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_Bi
 		pachClient,
 		server,
 		request.Filter,
-		collectBinary,  // collectPachd
-		nil,            // collectPipeline
-		nil,            // collectWorker
-		redirectBinary, // redirect
-		collectBinary,  // collect
+		collectBinary,  /* collectPachd */
+		nil,            /* collectPipeline */
+		nil,            /* collectWorker */
+		redirectBinary, /* redirect */
+		collectBinary,  /* collect */
 		false,
 		false,
 	)
@@ -493,11 +493,11 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 		pachClient,
 		server,
 		request.Filter,
-		s.collectPachdDumpFunc(request.Limit),    // collectPachd
-		s.collectPipelineDumpFunc(request.Limit), // collectPipeline
-		s.collectWorkerDump,                      // collectWorker
-		redirectDump,                             // redirect
-		collectDump,                              // collect
+		s.collectPachdDumpFunc(request.Limit),    /* collectPachd */
+		s.collectPipelineDumpFunc(request.Limit), /* collectPipeline */
+		s.collectWorkerDump,                      /* collectWorker */
+		redirectDump,                             /* redirect */
+		collectDump,                              /* collect */
 		true,
 		true,
 	)
