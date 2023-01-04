@@ -27,10 +27,13 @@ import (
 // openBucket swaps out client backend implementation for s3, gcp, and azure with go-cloud-sdk.
 func openBucket(ctx context.Context, url *obj.ObjectStoreURL) (bucket *blob.Bucket, err error) {
 	switch url.Scheme {
+	case "as", "wasb":
+		url.Scheme = "azblob"
 	case "gcs": // assuming 'gcs' is an alias for 'gs'
 		url.Scheme = "gs"
-		fallthrough
-	case "s3", "gs", "as", "wasb", "azblob":
+	}
+	switch url.Scheme {
+	case "s3", "gs", "azblob":
 		bucket, err = blob.OpenBucket(ctx, url.BucketString())
 		if err != nil {
 			return nil, errors.EnsureStack(errors.Wrapf(err, "error opening bucket %s", url.Bucket))
@@ -56,10 +59,6 @@ func openBucket(ctx context.Context, url *obj.ObjectStoreURL) (bucket *blob.Buck
 			return nil, errors.EnsureStack(errors.Wrapf(err, "error opening bucket %s", url.Bucket))
 		}
 		return bucket, nil
-	}
-	switch {
-	case err != nil:
-		return nil, errors.EnsureStack(err)
 	default:
 		return nil, errors.Errorf("unrecognized object store: %s", url.Scheme)
 	}

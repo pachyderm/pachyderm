@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -441,18 +440,28 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 			Bucket: u.Host,
 			Object: strings.Trim(u.Path, "/"),
 		}, nil
-	case "as", "wasb", "azblob":
-		// In Azure, the first part of the path is the container name.
-		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-		if len(parts) < 1 {
-			// return nil, errors.Errorf("malformed Azure URI: %v", urlStr)
-			return nil, errors.Errorf("malformed Azure URI: %v", urlStr)
+	case "azblob", "as", "wasb":
+		bucketString := u.Host
+		if u.User != nil {
+			bucketString = u.User.Username()
 		}
 		return &ObjectStoreURL{
 			Scheme: u.Scheme,
-			Bucket: parts[0],
-			Object: strings.Trim(path.Join(parts[1:]...), "/"),
+			Bucket: bucketString,
+			Object: strings.Trim(u.Path, "/"),
 		}, nil
+	//case "as", "wasb":
+	//	// In Azure, the first part of the path is the container name.
+	//	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	//	if len(parts) < 1 {
+	//		// return nil, errors.Errorf("malformed Azure URI: %v", urlStr)
+	//		return nil, errors.Errorf("malformed Azure URI: %v", urlStr)
+	//	}
+	//	return &ObjectStoreURL{
+	//		Scheme: u.Scheme,
+	//		Bucket: parts[0],
+	//		Object: strings.Trim(path.Join(parts[1:]...), "/"),
+	//	}, nil
 	case "minio", "test-minio":
 		parts := strings.SplitN(strings.Trim(u.Path, "/"), "/", 2)
 		var key string
