@@ -209,12 +209,14 @@ def test_unmount(pachyderm_resources, dev_server):
                 "name": repos[0],
                 "repo": repos[0],
                 "branch": "master",
+                "project": "default",
                 "mode": "ro",
             },
             {
                 "name": repos[0] + "_dev",
                 "repo": repos[0],
                 "branch": "dev",
+                "project": "default",
                 "mode": "ro",
             },
         ]
