@@ -1,6 +1,7 @@
-//nolint:wrapcheck
 // TODO: the s2 library checks the type of the error to decide how to handle it,
 // which doesn't work properly with wrapped errors
+//
+//nolint:wrapcheck
 package s3
 
 import (
@@ -11,16 +12,17 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsClient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"go.uber.org/zap"
 
 	"github.com/pachyderm/s2"
 )
@@ -97,7 +99,7 @@ func (c *controller) ensureRepo(pc *client.APIClient) error {
 }
 
 func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploadIDMarker string, maxUploads int) (*s2.ListMultipartResult, error) {
-	c.logger.Debugf("ListMultipart: bucketName=%+v, keyMarker=%+v, uploadIDMarker=%+v, maxUploads=%+v", bucketName, keyMarker, uploadIDMarker, maxUploads)
+	defer log.Span(r.Context(), "ListMulitpart", zap.String("bucketName", bucketName), zap.String("keyMarker", keyMarker), zap.String("uploadIDMarker", uploadIDMarker), zap.Int("maxUploads", maxUploads))()
 
 	pc := c.requestClient(r)
 	if err := c.ensureRepo(pc); err != nil {
@@ -151,7 +153,7 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 }
 
 func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (string, error) {
-	c.logger.Debugf("InitMultipart: bucketName=%+v, key=%+v", bucketName, key)
+	defer log.Span(r.Context(), "InitMultipart", zap.String("bucketName", bucketName), zap.String("key", key))()
 
 	pc := c.requestClient(r)
 	if err := c.ensureRepo(pc); err != nil {
@@ -180,10 +182,7 @@ func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (str
 }
 
 func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID string) (retErr error) {
-	c.logger.Infof("AbortMultipart: bucketName=%+v, key=%+v, uploadID=%+v", bucketName, key, uploadID)
-	defer func(start time.Time) {
-		c.logger.Infof("AbortMultipart: duration=%v, error=%v", time.Since(start), retErr)
-	}(time.Now())
+	defer log.SpanL(r.Context(), "AbortMultipart", log.InfoLevel, zap.String("bucketName", bucketName), zap.String("key", key), zap.String("uploadID", uploadID))(log.Errorp(&retErr))
 
 	pc := c.requestClient(r)
 	if err := c.ensureRepo(pc); err != nil {
@@ -209,10 +208,8 @@ func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID s
 }
 
 func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadID string, parts []*s2.Part) (res *s2.CompleteMultipartResult, retErr error) {
-	c.logger.Debugf("CompleteMultipart: bucketName=%+v, key=%+v, uploadID=%+v, parts=%+v", bucketName, key, uploadID, parts)
-	defer func(start time.Time) {
-		c.logger.Infof("CompleteMultipart: duration=%v, result=%+v, error=%v", time.Since(start), res, retErr)
-	}(time.Now())
+	end := log.Span(r.Context(), "CompleteMultipart", zap.String("bucketName", bucketName), zap.String("key", key), zap.String("uploadID", uploadID), zap.Any("parts", parts))
+	defer end(zap.Any("result", &res), log.ErrorpL(&retErr, log.InfoLevel))
 
 	pc := c.requestClient(r)
 	if err := c.ensureRepo(pc); err != nil {
@@ -304,7 +301,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 }
 
 func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploadID string, partNumberMarker, maxParts int) (*s2.ListMultipartChunksResult, error) {
-	c.logger.Debugf("ListMultipartChunks: bucketName=%+v, key=%+v, uploadID=%+v, partNumberMarker=%+v, maxParts=%+v", bucketName, key, uploadID, partNumberMarker, maxParts)
+	defer log.Span(r.Context(), "ListMultipartChunks", zap.String("bucketName", bucketName), zap.String("key", key), zap.String("uploadID", uploadID), zap.Int("partNumberMarker", partNumberMarker), zap.Int("maxParts", maxParts))()
 
 	pc := c.requestClient(r)
 	if err := c.ensureRepo(pc); err != nil {
@@ -353,7 +350,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploa
 }
 
 func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uploadID string, partNumber int, reader io.Reader) (string, error) {
-	c.logger.Debugf("UploadMultipartChunk: bucketName=%+v, key=%+v, uploadID=%+v partNumber=%+v", bucketName, key, uploadID, partNumber)
+	defer log.Span(r.Context(), "UploadMultipartChunk", zap.String("bucketName", bucketName), zap.String("key", key), zap.String("uploadID", uploadID), zap.Int("partNumber", partNumber))()
 
 	pc := c.requestClient(r)
 	if err := c.ensureRepo(pc); err != nil {

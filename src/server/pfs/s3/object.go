@@ -1,4 +1,3 @@
-//nolint:wrapcheck
 // TODO: the s2 library checks the type of the error to decide how to handle it,
 // which doesn't work properly with wrapped errors
 package s3
@@ -11,13 +10,15 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/s2"
+	"go.uber.org/zap"
 )
 
 func (c *controller) GetObject(r *http.Request, bucketName, file, version string) (*s2.GetObjectResult, error) {
-	c.logger.Debugf("GetObject: bucketName=%+v, file=%+v, version=%+v", bucketName, file, version)
+	defer log.Span(r.Context(), "GetObject", zap.String("bucketName", bucketName), zap.String("file", file), zap.String("version", version))()
 
 	pc := c.requestClient(r)
 	file = strings.TrimSuffix(file, "/")
@@ -70,7 +71,7 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 
 	modTime, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
-		c.logger.Debugf("Warning: using nil timestamp (file probably in open commit), on error %s", err)
+		log.Debug(r.Context(), "Warning: using nil timestamp (file probably in open commit)", zap.Error(err))
 	}
 
 	content, err := pc.GetFileReadSeeker(bucket.Commit, file)
@@ -90,7 +91,7 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 }
 
 func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, srcObj *s2.GetObjectResult, destBucketName, destFile string) (string, error) {
-	c.logger.Tracef("CopyObject: srcBucketName=%+v, srcFile=%+v, srcObj=%+v, destBucketName=%+v, destFile=%+v", srcBucketName, srcFile, srcObj, destBucketName, destFile)
+	defer log.Span(r.Context(), "CopyObject", zap.String("srcBucketName", srcBucketName), zap.String("srcFile", srcFile), zap.Any("srcObj", srcObj), zap.String("destBucketName", destBucketName), zap.String("destFile", destFile))()
 
 	pc := c.requestClient(r)
 	destFile = strings.TrimSuffix(destFile, "/")
@@ -138,7 +139,7 @@ func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, 
 }
 
 func (c *controller) PutObject(r *http.Request, bucketName, file string, reader io.Reader) (*s2.PutObjectResult, error) {
-	c.logger.Debugf("PutObject: bucketName=%+v, file=%+v", bucketName, file)
+	defer log.Span(r.Context(), "PutObject", zap.String("bucketName", bucketName), zap.String("file", file))()
 
 	pc := c.requestClient(r)
 	file = strings.TrimSuffix(file, "/")
@@ -182,7 +183,7 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 }
 
 func (c *controller) DeleteObject(r *http.Request, bucketName, file, version string) (*s2.DeleteObjectResult, error) {
-	c.logger.Debugf("DeleteObject: bucketName=%+v, file=%+v, version=%+v", bucketName, file, version)
+	defer log.Span(r.Context(), "DeleteObject", zap.String("bucketName", bucketName), zap.String("file", file), zap.String("version", version))()
 
 	pc := c.requestClient(r)
 	file = strings.TrimSuffix(file, "/")

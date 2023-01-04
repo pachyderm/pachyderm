@@ -1,4 +1,3 @@
-//nolint:wrapcheck
 // TODO: the s2 library checks the type of the error to decide how to handle it,
 // which doesn't work properly with wrapped errors
 package s3
@@ -6,11 +5,12 @@ package s3
 import (
 	"net/http"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/s2"
 )
 
 func (c *controller) ListBuckets(r *http.Request) (*s2.ListBucketsResult, error) {
-	c.logger.Debugf("ListBuckets")
+	defer log.Span(r.Context(), "ListBuckets")()
 
 	pc := c.requestClient(r)
 	result := s2.ListBucketsResult{

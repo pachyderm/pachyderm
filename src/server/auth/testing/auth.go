@@ -220,3 +220,8 @@ func (a *InactiveAPIServer) CheckClusterIsAuthorizedInTransaction(*txncontext.Tr
 func (a *InactiveAPIServer) CheckRepoIsAuthorizedInTransaction(*txncontext.TransactionContext, *pfs.Repo, ...auth.Permission) error {
 	return nil
 }
+
+// CheckProjectIsAuthorizedInTransaction returns nil when auth is not activated
+func (a *InactiveAPIServer) CheckProjectIsAuthorizedInTransaction(*txncontext.TransactionContext, *pfs.Project, ...auth.Permission) error {
+	return nil
+}

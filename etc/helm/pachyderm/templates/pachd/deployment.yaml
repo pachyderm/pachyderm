@@ -53,6 +53,12 @@ spec:
         - --mode
         - "$(MODE)"
         env:
+        - name: PACHW_IN_SIDECARS
+          value: {{ .Values.pachw.inSidecars | quote }}
+        - name: PACHW_MIN_REPLICAS
+          value: {{ .Values.pachw.minReplicas | default 0 | quote }}
+        - name: PACHW_MAX_REPLICAS
+          value: {{ .Values.pachw.maxReplicas | default 0 | quote }}
         - name: POSTGRES_HOST
           value: {{ required "postgresql host required" .Values.global.postgresql.postgresqlHost | quote }}
         - name: POSTGRES_PORT
@@ -341,6 +347,18 @@ spec:
         {{- if and .Values.pachd.gcPercent (gt .Values.pachd.gcPercent 0.0)}}
         - name: GC_PERCENT
           value: {{ .Values.pachd.gcPercent | quote }}
+        {{- end }}
+        {{- if ne .Values.pachd.defaultPipelineCPURequest "" }}
+        - name: PIPELINE_DEFAULT_CPU_REQUEST
+          value: {{ .Values.pachd.defaultPipelineCPURequest | quote }}
+        {{- end }}
+        {{- if ne .Values.pachd.defaultPipelineMemoryRequest "" }}
+        - name: PIPELINE_DEFAULT_MEMORY_REQUEST
+          value: {{ .Values.pachd.defaultPipelineMemoryRequest | quote }}
+        {{- end }}
+        {{- if ne .Values.pachd.defaultPipelineStorageRequest "" }}
+        - name: PIPELINE_DEFAULT_STORAGE_REQUEST
+          value: {{ .Values.pachd.defaultPipelineStorageRequest | quote }}
         {{- end }}
         envFrom:
           - secretRef:

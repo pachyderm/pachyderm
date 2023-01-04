@@ -14,26 +14,28 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 
 	dex_storage "github.com/dexidp/dex/storage"
 	dex_memory "github.com/dexidp/dex/storage/memory"
-	logrus "github.com/sirupsen/logrus"
 )
 
 func getTestEnv(t *testing.T) serviceenv.ServiceEnv {
+	ctx := pctx.TestContext(t)
 	env := &serviceenv.TestServiceEnv{
 		DBClient:      dockertestenv.NewTestDB(t),
-		DexDB:         dex_memory.New(logrus.New()),
-		Log:           logrus.New(),
-		EtcdClient:    testetcd.NewEnv(t).EtcdClient,
+		DexDB:         dex_memory.New(log.NewLogrus(ctx)),
+		EtcdClient:    testetcd.NewEnv(ctx, t).EtcdClient,
 		Configuration: serviceenv.NewConfiguration(&serviceenv.PachdFullConfiguration{}),
+		Ctx:           ctx,
 	}
-	require.NoError(t, migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState))
-	require.NoError(t, migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState))
+	require.NoError(t, migrations.ApplyMigrations(ctx, env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState))
+	require.NoError(t, migrations.BlockUntil(ctx, env.GetDBClient(), clusterstate.DesiredClusterState))
 	return env
 }
 

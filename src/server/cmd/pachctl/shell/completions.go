@@ -2,7 +2,6 @@ package shell
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -57,7 +56,7 @@ func getPachClient() *client.APIClient {
 	pachClientOnce.Do(func() {
 		c, err := client.NewOnUserMachine("user-completion")
 		if err != nil {
-			log.Fatal(err)
+			Fatal(err)
 		}
 		pachClient = c
 	})
@@ -302,7 +301,7 @@ func jobDesc(ji *pps.JobInfo) string {
 func JobCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
 	var result []prompt.Suggest
-	if err := c.ListJobF("", nil, 0, false, func(ji *pps.JobInfo) error {
+	if err := c.ListProjectJobF("", "", nil, 0, false, func(ji *pps.JobInfo) error {
 		if maxCompletions > 0 {
 			maxCompletions--
 		} else {

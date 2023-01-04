@@ -5,7 +5,6 @@ import (
 	"net"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
@@ -83,9 +82,11 @@ type restoreAuthTokenFunc func(context.Context, *auth.RestoreAuthTokenRequest) (
 type deleteExpiredAuthTokensFunc func(context.Context, *auth.DeleteExpiredAuthTokensRequest) (*auth.DeleteExpiredAuthTokensResponse, error)
 type RotateRootTokenFunc func(context.Context, *auth.RotateRootTokenRequest) (*auth.RotateRootTokenResponse, error)
 
-type checkRepoIsAuthorizedFunc func(context.Context, *pfs.Repo, ...auth.Permission) error
 type checkClusterIsAuthorizedFunc func(context.Context, ...auth.Permission) error
+type checkProjectIsAuthorizedFunc func(context.Context, *pfs.Project, ...auth.Permission) error
+type checkRepoIsAuthorizedFunc func(context.Context, *pfs.Repo, ...auth.Permission) error
 type checkClusterIsAuthorizedInTransactionFunc func(*txncontext.TransactionContext, ...auth.Permission) error
+type checkProjectIsAuthorizedInTransactionFunc func(*txncontext.TransactionContext, *pfs.Project, ...auth.Permission) error
 type checkRepoIsAuthorizedInTransactionFunc func(*txncontext.TransactionContext, *pfs.Repo, ...auth.Permission) error
 type authorizeInTransactionFunc func(*txncontext.TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
 type modifyRoleBindingInTransactionFunc func(*txncontext.TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
@@ -129,14 +130,20 @@ type mockRestoreAuthToken struct{ handler restoreAuthTokenFunc }
 type mockDeleteExpiredAuthTokens struct{ handler deleteExpiredAuthTokensFunc }
 type mockRotateRootToken struct{ handler RotateRootTokenFunc }
 
-type mockCheckRepoIsAuthorized struct {
-	handler checkRepoIsAuthorizedFunc
-}
 type mockCheckClusterIsAuthorized struct {
 	handler checkClusterIsAuthorizedFunc
 }
+type mockCheckRepoIsAuthorized struct {
+	handler checkRepoIsAuthorizedFunc
+}
+type mockCheckProjectIsAuthorized struct {
+	handler checkProjectIsAuthorizedFunc
+}
 type mockCheckClusterIsAuthorizedInTransaction struct {
 	handler checkClusterIsAuthorizedInTransactionFunc
+}
+type mockCheckProjectIsAuthorizedInTransaction struct {
+	handler checkProjectIsAuthorizedInTransactionFunc
 }
 type mockCheckRepoIsAuthorizedInTransaction struct {
 	handler checkRepoIsAuthorizedInTransactionFunc
@@ -204,13 +211,19 @@ func (mock *mockRestoreAuthToken) Use(cb restoreAuthTokenFunc)                  
 func (mock *mockDeleteExpiredAuthTokens) Use(cb deleteExpiredAuthTokensFunc)       { mock.handler = cb }
 func (mock *mockRotateRootToken) Use(cb RotateRootTokenFunc)                       { mock.handler = cb }
 
-func (mock *mockCheckRepoIsAuthorized) Use(cb checkRepoIsAuthorizedFunc) {
-	mock.handler = cb
-}
 func (mock *mockCheckClusterIsAuthorized) Use(cb checkClusterIsAuthorizedFunc) {
 	mock.handler = cb
 }
+func (mock *mockCheckProjectIsAuthorized) Use(cb checkProjectIsAuthorizedFunc) {
+	mock.handler = cb
+}
+func (mock *mockCheckRepoIsAuthorized) Use(cb checkRepoIsAuthorizedFunc) {
+	mock.handler = cb
+}
 func (mock *mockCheckClusterIsAuthorizedInTransaction) Use(cb checkClusterIsAuthorizedInTransactionFunc) {
+	mock.handler = cb
+}
+func (mock *mockCheckProjectIsAuthorizedInTransaction) Use(cb checkProjectIsAuthorizedInTransactionFunc) {
 	mock.handler = cb
 }
 func (mock *mockCheckRepoIsAuthorizedInTransaction) Use(cb checkRepoIsAuthorizedInTransactionFunc) {
@@ -284,9 +297,11 @@ type mockAuthServer struct {
 	RestoreAuthToken                           mockRestoreAuthToken
 	DeleteExpiredAuthTokens                    mockDeleteExpiredAuthTokens
 	RotateRootToken                            mockRotateRootToken
-	CheckRepoIsAuthorized                      mockCheckRepoIsAuthorized
 	CheckClusterIsAuthorized                   mockCheckClusterIsAuthorized
+	CheckProjectIsAuthorized                   mockCheckProjectIsAuthorized
+	CheckRepoIsAuthorized                      mockCheckRepoIsAuthorized
 	CheckClusterIsAuthorizedInTransaction      mockCheckClusterIsAuthorizedInTransaction
+	CheckProjectIsAuthorizedInTransaction      mockCheckProjectIsAuthorizedInTransaction
 	CheckRepoIsAuthorizedInTransaction         mockCheckRepoIsAuthorizedInTransaction
 	AuthorizeInTransaction                     mockAuthorizeInTransaction
 	ModifyRoleBindingInTransaction             mockModifyRoleBindingInTransaction
@@ -457,13 +472,6 @@ func (api *authServerAPI) RotateRootToken(ctx context.Context, req *auth.RotateR
 	return nil, errors.Errorf("unhandled pachd mock auth.RotateRootToken")
 }
 
-func (api *authServerAPI) CheckRepoIsAuthorized(ctx context.Context, repo *pfs.Repo, permission ...auth.Permission) error {
-	if api.mock.CheckRepoIsAuthorized.handler != nil {
-		return api.mock.CheckRepoIsAuthorized.handler(ctx, repo, permission...)
-	}
-	return errors.Errorf("unhandled pachd mock auth.CheckRepoIsAuthorized")
-}
-
 func (api *authServerAPI) CheckClusterIsAuthorized(ctx context.Context, p ...auth.Permission) error {
 	if api.mock.CheckClusterIsAuthorized.handler != nil {
 		return api.mock.CheckClusterIsAuthorized.handler(ctx, p...)
@@ -471,18 +479,39 @@ func (api *authServerAPI) CheckClusterIsAuthorized(ctx context.Context, p ...aut
 	return errors.Errorf("unhandled pachd mock auth.CheckClusterIsAuthorized")
 }
 
+func (api *authServerAPI) CheckProjectIsAuthorized(ctx context.Context, project *pfs.Project, permission ...auth.Permission) error {
+	if api.mock.CheckProjectIsAuthorized.handler != nil {
+		return api.mock.CheckProjectIsAuthorized.handler(ctx, project, permission...)
+	}
+	return errors.Errorf("unhandled pachd mock auth.CheckProjectIsAuthorized")
+}
+
+func (api *authServerAPI) CheckRepoIsAuthorized(ctx context.Context, repo *pfs.Repo, permission ...auth.Permission) error {
+	if api.mock.CheckRepoIsAuthorized.handler != nil {
+		return api.mock.CheckRepoIsAuthorized.handler(ctx, repo, permission...)
+	}
+	return errors.Errorf("unhandled pachd mock auth.CheckRepoIsAuthorized")
+}
+
 func (api *authServerAPI) CheckClusterIsAuthorizedInTransaction(transactionContext *txncontext.TransactionContext, permission ...auth.Permission) error {
 	if api.mock.CheckClusterIsAuthorizedInTransaction.handler != nil {
 		return api.mock.CheckClusterIsAuthorizedInTransaction.handler(transactionContext, permission...)
 	}
-	return errors.Errorf("unhandled pachd mock auth.CheckClusterIsAuthorizedInTranscation")
+	return errors.Errorf("unhandled pachd mock auth.CheckClusterIsAuthorizedInTransaction")
 }
 
 func (api *authServerAPI) CheckRepoIsAuthorizedInTransaction(transactionContext *txncontext.TransactionContext, repo *pfs.Repo, permission ...auth.Permission) error {
 	if api.mock.CheckRepoIsAuthorizedInTransaction.handler != nil {
 		return api.mock.CheckRepoIsAuthorizedInTransaction.handler(transactionContext, repo, permission...)
 	}
-	return errors.Errorf("unhandled pachd mock auth.CheckRepoIsAuthorizedInTranscation")
+	return errors.Errorf("unhandled pachd mock auth.CheckRepoIsAuthorizedInTransaction")
+}
+
+func (api *authServerAPI) CheckProjectIsAuthorizedInTransaction(transactionContext *txncontext.TransactionContext, project *pfs.Project, permission ...auth.Permission) error {
+	if api.mock.CheckProjectIsAuthorizedInTransaction.handler != nil {
+		return api.mock.CheckProjectIsAuthorizedInTransaction.handler(transactionContext, project, permission...)
+	}
+	return errors.Errorf("unhandled pachd mock auth.CheckProjectIsAuthorizedInTransaction")
 }
 
 func (api *authServerAPI) AuthorizeInTransaction(transactionContext *txncontext.TransactionContext, request *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error) {
@@ -925,6 +954,7 @@ type createRepoFunc func(context.Context, *pfs.CreateRepoRequest) (*types.Empty,
 type inspectRepoFunc func(context.Context, *pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
 type listRepoFunc func(*pfs.ListRepoRequest, pfs.API_ListRepoServer) error
 type deleteRepoFunc func(context.Context, *pfs.DeleteRepoRequest) (*types.Empty, error)
+type deleteReposFunc func(context.Context, *pfs.DeleteReposRequest) (*pfs.DeleteReposResponse, error)
 type startCommitFunc func(context.Context, *pfs.StartCommitRequest) (*pfs.Commit, error)
 type finishCommitFunc func(context.Context, *pfs.FinishCommitRequest) (*types.Empty, error)
 type inspectCommitFunc func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error)
@@ -973,6 +1003,7 @@ type mockCreateRepo struct{ handler createRepoFunc }
 type mockInspectRepo struct{ handler inspectRepoFunc }
 type mockListRepo struct{ handler listRepoFunc }
 type mockDeleteRepo struct{ handler deleteRepoFunc }
+type mockDeleteRepos struct{ handler deleteReposFunc }
 type mockStartCommit struct{ handler startCommitFunc }
 type mockFinishCommit struct{ handler finishCommitFunc }
 type mockInspectCommit struct{ handler inspectCommitFunc }
@@ -1021,6 +1052,7 @@ func (mock *mockCreateRepo) Use(cb createRepoFunc)                 { mock.handle
 func (mock *mockInspectRepo) Use(cb inspectRepoFunc)               { mock.handler = cb }
 func (mock *mockListRepo) Use(cb listRepoFunc)                     { mock.handler = cb }
 func (mock *mockDeleteRepo) Use(cb deleteRepoFunc)                 { mock.handler = cb }
+func (mock *mockDeleteRepos) Use(cb deleteReposFunc)               { mock.handler = cb }
 func (mock *mockStartCommit) Use(cb startCommitFunc)               { mock.handler = cb }
 func (mock *mockFinishCommit) Use(cb finishCommitFunc)             { mock.handler = cb }
 func (mock *mockInspectCommit) Use(cb inspectCommitFunc)           { mock.handler = cb }
@@ -1075,6 +1107,7 @@ type mockPFSServer struct {
 	InspectRepo        mockInspectRepo
 	ListRepo           mockListRepo
 	DeleteRepo         mockDeleteRepo
+	DeleteRepos        mockDeleteRepos
 	StartCommit        mockStartCommit
 	FinishCommit       mockFinishCommit
 	InspectCommit      mockInspectCommit
@@ -1148,6 +1181,12 @@ func (api *pfsServerAPI) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequ
 		return api.mock.DeleteRepo.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.DeleteRepo")
+}
+func (api *pfsServerAPI) DeleteRepos(ctx context.Context, req *pfs.DeleteReposRequest) (*pfs.DeleteReposResponse, error) {
+	if api.mock.DeleteRepos.handler != nil {
+		return api.mock.DeleteRepos.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.DeleteRepos")
 }
 func (api *pfsServerAPI) StartCommit(ctx context.Context, req *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	if api.mock.StartCommit.handler != nil {
@@ -1906,7 +1945,7 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 		return &mock.Auth.api
 	}
 
-	loggingInterceptor := loggingmw.NewLoggingInterceptor(logrus.StandardLogger())
+	loggingInterceptor := loggingmw.NewLoggingInterceptor(ctx)
 	unaryOpts := []grpc.UnaryServerInterceptor{
 		errorsmw.UnaryServerInterceptor,
 		loggingInterceptor.UnaryServerInterceptor,

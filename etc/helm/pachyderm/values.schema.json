@@ -642,6 +642,9 @@
                                     "type": "integer"
                                 }
                             }
+                        },
+                        "tolerations": {
+                            "type": "array"
                         }
                     }
                 }
@@ -682,6 +685,44 @@
                 },
                 "userAccessibleOauthIssuerHost": {
                     "type": "string"
+                }
+            }
+        },
+        "pachw": {
+            "type": "object",
+            "properties": {
+                "inSidecars": {
+                    "type": "boolean"
+                },
+                "minReplicas": {
+                    "type": "integer"
+                },
+                "maxReplicas": {
+                    "type": "integer"
+                },
+                "resources": {
+                    "type": "object",
+                    "properties": {
+                        "limits": {
+                            "type": "object",
+                            "properties": {
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "requests": {
+                            "type": "object",
+                            "properties": {
+                                "cpu": {
+                                    "type": "string"
+                                },
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -770,14 +811,23 @@
                         }
                     }
                 },
+                "gcPercent": {
+                    "type": "integer"
+                },
                 "goMaxProcs": {
                     "type": "integer"
                 },
                 "goMemLimit": {
                     "type": "string"
                 },
-                "gcPercent": {
-                    "type": "integer"
+                "defaultPipelineCPURequest": {
+                    "type": "string"
+                },
+                "defaultPipelineMemoryRequest": {
+                    "type": "string"
+                },
+                "defaultPipelineStorageRequest": {
+                    "type": "string"
                 },
                 "image": {
                     "type": "object",
@@ -977,10 +1027,10 @@
                             "type": "string"
                         },
                         "compactionShardCountThreshold": {
-                            "type": "integer"
+                            "type": "string"
                         },
                         "compactionShardSizeThreshold": {
-                            "type": "integer"
+                            "type": "string"
                         },
                         "google": {
                             "type": "object",
@@ -1172,6 +1222,9 @@
                 "image": {
                     "type": "object",
                     "properties": {
+                        "repository": {
+                            "type": "string"
+                        },
                         "tag": {
                             "type": "string"
                         }

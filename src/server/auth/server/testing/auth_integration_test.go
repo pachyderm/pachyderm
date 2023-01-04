@@ -32,6 +32,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
+// works with global.postgresql.postgresqlAuthType: md5, which is default in values file.
+var defaultTestOptions = minikubetestenv.WithValueOverrides(map[string]string{
+	"global.postgresql.postgresqlPassword": "-strong-password!@#$%^&*(){}[]|\\:\"'<>?,./_+=0123A",
+})
+
 // TODO(Fahad): Potentially convert these to unit tests by using Jon's fake kube apiserver
 
 // TestListDatum tests that you must have READER access to all of job's
@@ -41,7 +46,7 @@ func TestListDatum(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -54,16 +59,17 @@ func TestListDatum(t *testing.T) {
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
+	input := client.NewCrossInput(
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repoA, "/*"),
+		client.NewProjectPFSInput(pfs.DefaultProjectName, repoB, "/*"),
+	)
 	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{"ls /pfs/*/*; cp /pfs/*/* /pfs/out/"},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewCrossInput(
-			client.NewProjectPFSInput(pfs.DefaultProjectName, repoA, "/*"),
-			client.NewProjectPFSInput(pfs.DefaultProjectName, repoB, "/*"),
-		),
+		input,
 		"", // default output branch: master
 		false,
 	))
@@ -120,9 +126,17 @@ func TestListDatum(t *testing.T) {
 		}
 	}
 	require.Equal(t, map[string]struct{}{
-		"file1": struct{}{},
-		"file2": struct{}{},
+		"file1": {},
+		"file2": {},
 	}, files)
+
+	// Test list datum input.
+	disInput, err := bobClient.ListDatumInputAll(input)
+	require.NoError(t, err)
+	require.Equal(t, len(dis), len(disInput))
+	for i, di := range dis {
+		require.Equal(t, di.Datum.ID, disInput[i].Datum.ID)
+	}
 }
 
 func TestS3GatewayAuthRequests(t *testing.T) {
@@ -130,7 +144,8 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	// generate auth credentials
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
@@ -175,48 +190,45 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 
 // Need to restructure testing such that we have the implementation of this
 // test in one place while still being able to test auth enabled and disabled clusters.
-func TestDebug(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
+func testDebug(t *testing.T, c *client.APIClient, projectName, repoName string) {
+	t.Helper()
 	// Get all the authenticated clients at the beginning of the test.
 	// GetAuthenticatedPachClient will always re-activate auth, which
 	// causes PPS to rotate all the pipeline tokens. This makes the RCs
 	// change and recreates all the pods, which used to race with collecting logs.
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
+	if projectName != "default" {
+		require.NoError(t, aliceClient.CreateProject(projectName))
+	}
 
-	dataRepo := tu.UniqueString("TestDebug_data")
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, aliceClient.CreateProjectRepo(projectName, repoName))
 
-	expectedFiles, pipelines := tu.DebugFiles(t, dataRepo)
+	expectedFiles, pipelines := tu.DebugFiles(t, projectName, repoName)
 
 	for _, p := range pipelines {
-		require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+		require.NoError(t, aliceClient.CreateProjectPipeline(projectName,
 			p,
 			"",
 			[]string{"bash"},
 			[]string{
-				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repoName),
 				"sleep 45",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+			client.NewProjectPFSInput(projectName, repoName, "/*"),
 			"",
 			false,
 		))
 	}
 
-	commit1, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit1, err := aliceClient.StartProjectCommit(projectName, repoName, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit1, "file", strings.NewReader("foo"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.ID))
+	require.NoError(t, aliceClient.FinishProjectCommit(projectName, repoName, commit1.Branch.Name, commit1.ID))
 
 	jobInfos, err := aliceClient.WaitJobSetAll(commit1.ID, false)
 	require.NoError(t, err)
@@ -259,13 +271,27 @@ func TestDebug(t *testing.T) {
 	})
 }
 
+func TestDebug(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
+	tu.ActivateAuthClient(t, c)
+	for _, projectName := range []string{pfs.DefaultProjectName, tu.UniqueString("project")} {
+		t.Run(projectName, func(t *testing.T) {
+			testDebug(t, c, projectName, tu.UniqueString("repo"))
+		})
+	}
+}
+
 // asserts that retrieval of Pachd logs requires additional permissions granted to the PachdLogReader role
 func TestGetPachdLogsRequiresPerm(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -487,7 +513,7 @@ func TestPipelineRevoke(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -602,7 +628,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, ns := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice := tu.Robot(tu.UniqueString("alice"))
 	c = tu.AuthenticateClient(t, c, alice)
@@ -662,7 +688,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
@@ -751,7 +777,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
@@ -773,7 +799,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		"",    // default output branch: master
 		false, // no update
 	))
-	require.OneOfEquals(t, pipeline, tu.PipelineNames(t, aliceClient))
+	require.OneOfEquals(t, pipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
 	// check that alice owns the output repo too,
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, pipeline))
 
@@ -839,7 +865,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
@@ -887,4 +913,52 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 
 	// Make sure DeleteAll() succeeds
 	require.NoError(t, aliceClient.DeleteAll())
+}
+
+func TestListFileNils(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
+	tu.ActivateAuthClient(t, c)
+	alice := tu.Robot(tu.UniqueString("alice"))
+	aliceClient := tu.AuthenticateClient(t, c, alice)
+	repo := "foo"
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	for _, test := range []*pfs.Commit{
+		nil,
+		{},
+		{Branch: &pfs.Branch{}},
+		{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: repo}}},
+		{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}}}},
+		{
+			Branch: &pfs.Branch{
+				Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}},
+				Name: "master",
+			},
+		},
+	} {
+		if err := aliceClient.ListFile(test, "/", func(fi *pfs.FileInfo) error {
+			t.Errorf("dead code ran")
+			return errors.New("should never get here")
+		}); err == nil {
+			t.Errorf("ListFile(nil, %q, …) succeeded where it should have failed", test)
+		}
+	}
+	// this used to cause a core dump
+	var commit *pfs.Commit = &pfs.Commit{
+		Branch: &pfs.Branch{
+			Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}},
+			Name: "master",
+		},
+		ID: "0123456789ab40123456789abcdef012",
+	}
+	if err := aliceClient.ListFile(commit, "/", func(fi *pfs.FileInfo) error {
+		return errors.New("should never get here")
+	}); err == nil {
+		t.Errorf("ListFile for a non-existent commit should always be an error")
+	} else if strings.Contains(err.Error(), "upstream connect error") {
+		t.Errorf("server error: %v", err)
+	}
 }

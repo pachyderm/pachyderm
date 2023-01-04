@@ -15,7 +15,7 @@ func (s *Storage) Shard(ctx context.Context, ids []ID, pathRange *index.PathRang
 	if err != nil {
 		return nil, err
 	}
-	return shard(ctx, fs, s.shardCountThreshold, s.shardSizeThreshold, pathRange)
+	return shard(ctx, fs, s.shardConfig.NumFiles, s.shardConfig.SizeBytes, pathRange)
 }
 
 // shard creates shards (path ranges) from the file set streams being merged.

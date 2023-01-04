@@ -225,6 +225,7 @@ enum Permission {
   PROJECT_DELETE = 401;
   PROJECT_LIST_REPO = 402;
   PROJECT_CREATE_REPO = 403;
+  PROJECT_MODIFY_BINDINGS = 404;
 }
 
 // ResourceType represents the type of a Resource
@@ -391,7 +392,9 @@ message RevokeAuthTokenRequest {
   string token = 1;
 }
 
-message RevokeAuthTokenResponse {}
+message RevokeAuthTokenResponse {
+  int64 number = 1;
+}
 
 message SetGroupsForUserRequest {
   string username = 1;
@@ -445,7 +448,9 @@ message RevokeAuthTokensForUserRequest {
   string username = 1;
 }
 
-message RevokeAuthTokensForUserResponse {}
+message RevokeAuthTokensForUserResponse {
+  int64 number = 1;
+}
 
 message DeleteExpiredAuthTokensRequest {}
 

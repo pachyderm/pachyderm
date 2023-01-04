@@ -5,15 +5,17 @@ import (
 	"os"
 	"time"
 
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	opentracing "github.com/opentracing/opentracing-go"
+	etcd "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/metadata"
+
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
-	opentracing "github.com/opentracing/opentracing-go"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	log "github.com/sirupsen/logrus"
-	etcd "go.etcd.io/etcd/client/v3"
-	"google.golang.org/grpc/metadata"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 )
 
 const (
@@ -55,7 +57,7 @@ func TracesCol(c *etcd.Client) col.EtcdCollection {
 // trace for future updates by the PPS master and workers.  This function is
 // best-effort, and therefore doesn't currently return an error. Any errors are
 // logged, and then the given context is returned.
-func PersistAny(ctx context.Context, c *etcd.Client, pipeline string) {
+func PersistAny(ctx context.Context, c *etcd.Client, pipeline *pps.Pipeline) {
 	if !tracing.IsActive() {
 		return
 	}
@@ -76,34 +78,33 @@ func PersistAny(ctx context.Context, c *etcd.Client, pipeline string) {
 		return // no extended trace attached to RPC
 	}
 	if len(vals) > 1 {
-		log.Warnf("Multiple durations attached to extended trace for %q, using %s", pipeline, vals[0])
+		log.Info(ctx, "multiple durations attached to extended trace", zap.String("pipeline", pipeline.GetName()), zap.String("usingDuration", vals[0]))
 	}
 
 	// Extended trace found, now create a span & persist it to etcd
 	duration, err := time.ParseDuration(vals[0])
 	if err != nil {
-		log.Errorf("could not parse extended span duration %q for pipeline %q: %v",
-			vals[0], pipeline, err)
+		log.Error(ctx, "could not parse extended span duration", zap.String("duration", vals[0]), zap.Error(err))
 		return // Ignore extended trace attached to RPC
 	}
 
 	// serialize extended trace & write to etcd
 	traceProto := &TraceProto{
 		SerializedTrace: map[string]string{}, // init map
-		Pipeline:        pipeline,
+		Project:         pipeline.GetProject().GetName(),
+		Pipeline:        pipeline.GetName(),
 	}
 	if err := opentracing.GlobalTracer().Inject(
 		span.Context(), opentracing.TextMap,
 		opentracing.TextMapCarrier(traceProto.SerializedTrace),
 	); err != nil {
-		log.Errorf("could not inject context into GlobalTracer: %v", err)
+		log.Info(ctx, "could not inject context into GlobalTracer", zap.Error(err))
 	}
 	if _, err := col.NewSTM(ctx, c, func(stm col.STM) error {
 		tracesCol := TracesCol(c).ReadWrite(stm)
-		return errors.EnsureStack(tracesCol.PutTTL(pipeline, traceProto, int64(duration.Seconds())))
+		return errors.EnsureStack(tracesCol.PutTTL(pipeline.String(), traceProto, int64(duration.Seconds())))
 	}); err != nil {
-		log.Errorf("could not persist extended trace for pipeline %q to etcd: %v",
-			pipeline, err)
+		log.Error(ctx, "could not persist extended trace for pipeline to etcd", zap.String("pipeline", pipeline.GetName()), zap.Error(err))
 	}
 }
 
@@ -124,7 +125,7 @@ func AddSpanToAnyPipelineTrace(ctx context.Context, c *etcd.Client,
 	tracesCol := TracesCol(c).ReadOnly(ctx)
 	if err := tracesCol.Get(pipeline, traceProto); err != nil {
 		if !col.IsErrNotFound(err) {
-			log.Errorf("error getting trace for pipeline %q: %v", pipeline, err)
+			log.Error(ctx, "error getting trace for pipeline", zap.String("pipeline", pipeline.GetName()), zap.Error(err))
 		}
 		return nil, ctx
 	}
@@ -136,7 +137,7 @@ func AddSpanToAnyPipelineTrace(ctx context.Context, c *etcd.Client,
 	spanCtx, err := opentracing.GlobalTracer().Extract(opentracing.TextMap,
 		opentracing.TextMapCarrier(traceProto.SerializedTrace))
 	if err != nil {
-		log.Errorf("could not extract span context from ExtendedTrace proto: %v", err)
+		log.Error(ctx, "could not extract span context from ExtendedTrace proto", zap.Error(err))
 		return nil, ctx
 	}
 

@@ -1,4 +1,3 @@
-//nolint:wrapcheck
 package client
 
 import (
@@ -421,6 +420,8 @@ func (c APIClient) ListProjectJob(projectName, pipelineName string, inputCommit 
 
 // ListJobF is a previous version of ListJobFilterF, returning info about all jobs
 // and calling f on each JobInfo
+//
+// Deprecated: Use ListProjectJobF instead.
 func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
 	history int64, details bool,
 	f func(*pps.JobInfo) error) error {
@@ -987,10 +988,10 @@ func (c APIClient) ListPipelineHistory(pipelineName string, history int64, detai
 //
 // `history` specifies how many historical revisions to return:
 
-//   - 0: Return the current version of the pipeline or pipelines.
-//   - 1: Return the above and the next most recent version
-//   - 2: etc.
-//   - -1: Return all historical versions.
+// - 0: Return the current version of the pipeline or pipelines.
+// - 1: Return the above and the next most recent version
+// - 2: etc.
+// - -1: Return all historical versions.
 func (c APIClient) ListProjectPipelineHistory(projectName, pipelineName string, history int64, details bool) ([]*pps.PipelineInfo, error) {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {

@@ -3,7 +3,6 @@
 package snowflake
 
 import (
-	"context"
 	"database/sql"
 	_ "embed"
 	"errors"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	sdataTU "github.com/pachyderm/pachyderm/v2/src/internal/sdata/testutil"
@@ -45,6 +45,7 @@ func TestSnowflakeReadWrite(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 	t.Parallel()
+	ctx := pctx.TestContext(t)
 	c, _ := minikubetestenv.AcquireCluster(t)
 
 	// create K8s secrets
@@ -64,9 +65,9 @@ func TestSnowflakeReadWrite(t *testing.T) {
 
 	// create ephemeral input and output databases
 	tableName := "test_table"
-	inDB, inDBName := testsnowflake.NewEphemeralSnowflakeDB(t)
+	inDB, inDBName := testsnowflake.NewEphemeralSnowflakeDB(ctx, t)
 	require.NoError(t, pachsql.CreateTestTable(inDB, tableName, &snowflakeRow{}))
-	outDB, outDBName := testsnowflake.NewEphemeralSnowflakeDB(t)
+	outDB, outDBName := testsnowflake.NewEphemeralSnowflakeDB(ctx, t)
 	require.NoError(t, pachsql.CreateTestTable(outDB, tableName, &snowflakeRow{}))
 
 	// load some example data into input table
@@ -74,7 +75,6 @@ func TestSnowflakeReadWrite(t *testing.T) {
 	require.NoError(t, sdataTU.GenerateTestData(inDB, tableName, nRows, &snowflakeRow{}))
 
 	// create read pipeline that reads data from input table and writes to output repo
-	ctx := context.Background()
 	readPipeline, writePipeline := "read", "write"
 	readPipelineTempl, err := c.RenderTemplate(ctx, &pps.RenderTemplateRequest{
 		Args: map[string]string{

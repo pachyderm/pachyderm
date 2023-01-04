@@ -3,9 +3,11 @@ package server
 import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // Env is the set of dependencies required for APIServer
@@ -41,7 +43,7 @@ func (a *APIServer) Listen(request *proxy.ListenRequest, server proxy.API_Listen
 
 	defer func() {
 		if err := listener.Unregister(notifier); err != nil {
-			logrus.Errorf("errored while unregistering notifier: %v", err)
+			log.Error(pctx.TODO(), "errored while unregistering notifier", zap.Error(err))
 		}
 	}()
 	return <-notifier.errChan

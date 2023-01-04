@@ -1,5 +1,5 @@
 <p align="center">
-	<img src='doc/docs/master/assets/images/Pachyderm_inline--1200w.png' height='225' title='Pachyderm'>
+	<img src='./Pachyderm_Icon-01.svg' height='225' title='Pachyderm'>
 </p>
 
 [![GitHub release](https://img.shields.io/github/release/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/releases)
@@ -29,7 +29,7 @@ To start deploying your end-to-end version-controlled data pipelines, run Pachyd
 You can also refer to our complete [documentation](https://docs.pachyderm.com) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
 
 If you'd like to see some examples and learn about core use cases for Pachyderm:
-- [Examples](https://docs.pachyderm.com/latest/examples/examples/)
+- [Examples](https://github.com/pachyderm/examples)
 - [Use Cases](https://www.pachyderm.com/use-cases/)
 - [Case Studies](https://www.pachyderm.com/case-studies/)
 

@@ -107,13 +107,15 @@ func (w *ChunkWriteCloser) Close() error {
 }
 
 // StreamingBytesServer represents a server for an rpc method of the form:
-//   rpc Foo(Bar) returns (stream google.protobuf.BytesValue) {}
+//
+//	rpc Foo(Bar) returns (stream google.protobuf.BytesValue) {}
 type StreamingBytesServer interface {
 	Send(bytesValue *types.BytesValue) error
 }
 
 // StreamingBytesClient represents a client for an rpc method of the form:
-//   rpc Foo(Bar) returns (stream google.protobuf.BytesValue) {}
+//
+//	rpc Foo(Bar) returns (stream google.protobuf.BytesValue) {}
 type StreamingBytesClient interface {
 	Recv() (*types.BytesValue, error)
 }

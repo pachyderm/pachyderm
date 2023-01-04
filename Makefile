@@ -228,7 +228,7 @@ proto: docker-build-proto
 	./etc/proto/build.sh
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
-test: clean-launch launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-cmds test-libs test-auth test-license test-enterprise test-worker test-admin test-pps
+test: clean-launch launch-dev lint enterprise-code-checkin-test docker-build test-cmds test-libs test-auth test-license test-enterprise test-worker test-admin test-pps
 
 enterprise-code-checkin-test:
 	@which ag || { printf "'ag' not found. Run:\n  sudo apt-get install -y silversearcher-ag\n  brew install the_silver_searcher\nto install it\n\n"; exit 1; }
@@ -239,9 +239,6 @@ enterprise-code-checkin-test:
 	  $$( which echo ) -e "\n*** It looks like Pachyderm Engineering's test activation code may be in this repo. Please remove it before committing! ***\n"; \
 	  false; \
 	fi
-
-test-pfs-server:
-	./etc/testing/pfs_server.sh $(TIMEOUT) $(TESTFLAGS)
 
 test-pps: launch-stats docker-build-spout-test
 	@# Use the count flag to disable test caching for this test suite.
@@ -259,6 +256,10 @@ test-cmds:
 	go test -v -count=1 -tags=k8s ./src/server/enterprise/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 	go test -v -count=1 -tags=k8s ./src/server/identity/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 	go test -v -count=1 -tags=k8s ./src/server/license/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+
+test-testutils:
+	go install -v ./src/testing/match
+	go test -v -count=1 -tags k8s ./src/internal/testutil
 
 test-transaction:
 	go test -count=1 -tags=k8s ./src/server/transaction/server/testing -timeout $(TIMEOUT) $(TESTFLAGS)
@@ -442,8 +443,6 @@ validate-circle:
 	proto \
 	test \
 	enterprise-code-checkin-test \
-	test-pfs-server \
-	test-pfs-storage \
 	test-pps \
 	test-cmds \
 	test-transaction \
