@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
 
-{{- if and (not .Values.ingress.enabled) (not .Values.pachd.externalService.enabled)  -}}
+{{- if and (not .Values.ingress.enabled) (not .Values.pachd.externalService.enabled) (not .Values.proxy.enabled) (eq .Values.proxy.service.type "ClusterIP") -}}
 To connect to your new pachyderm instance, run:
 pachctl config import-kube local --overwrite
 pachctl config set active-context local
@@ -18,3 +18,66 @@ WARNING: Your cluster is configured with a default login of admin:password
 WARNING: You have pachd.enterpriseRootToken or pachd.enterpriseRootTokenSecretName set. These values are being replaced by pachd.enterpriseServerToken and pachd.enterpriseServerTokenSecretName which you can set now. The deprecated values will be removed in version 2.4.0.
 {{- end -}}
 
+{{ if and .Values.pachd.externalService.enabled (eq .Values.proxy.service.type "ClusterIP")}}
+WARNING: pachd.externalService is deprecated in favor of proxy.enabled.  You can transparently
+migrate by exposing the proxy and removing the external service:
+
+  pachd:
+    externalService: false
+
+  proxy:
+    enabled: true
+    host: {{ or .Values.proxy.host "<the DNS name attached to the provided loadBalancerIP>" }}
+    service:
+      type: LoadBalancer
+      loadBalancerIP: "{{ or .Values.pachd.externalService.loadBalancerIP .Values.proxy.service.loadBalancerIP "<the IP provisioned for the load balancer; not setting this is OK if you don't know it>"}}"
+      legacyPorts:
+        grpc: {{ or .Values.pachd.externalService.apiGRPCPort 0 }}
+        s3Gateway: {{ or .Values.pachd.externalService.s3GatewayPort 0 }}
+        oidcPort: {{ or .Values.pachd.externalService.oidcPort 0 }}
+        identityPort: {{ or .Values.pachd.externalService.identityPort 0 }}
+
+Please see values.yaml for a full list of configuration options, including SSL/TLS/HTTPS support.
+
+The legacy ports are not strictly necessary except for compatability with your existing
+configuration.  The proxy inspects traffic arriving on normal http or https ports (80 and 443) and
+automatically routes it to the right service.  pachd, console, S3, oidc, and identity will be
+available on port 80 (grpc://<proxy.host>:80, http://<proxy.host>) if TLS is disabled, or port 443
+otherwise (grpcs://<proxy.host>:443, https://<proxy.host>).
+
+As of 2.5.0, the proxy is enabled by default, but not exposed to the Internet.  You can test it out
+with:
+{{- if .Values.proxy.tls.enabled }}
+
+    kubectl port-forward svc/pachyderm-proxy 443
+
+and then visiting https://localhost in the browser (or grpcs://localhost:443 with pachctl).  You may
+have to ignore certificate validation warnings until the URL you type into the browser contains the
+host that the TLS certificate was provisioned with.
+{{- else }}
+
+    kubectl port-forward svc/pachyderm-proxy 80
+
+and then visiting http://localhost in the browser (or grpc://localhost:80 with pachctl).
+{{- end }}
+
+Your deployment's security posture will improve by enabling the proxy.  It is hardened against
+malicious traffic, and writes out extensive audit logs for all requests to Pachyderm.
+{{- end -}}
+
+
+{{- if and .Values.proxy.enabled (ne .Values.proxy.service.type "ClusterIP") (ne .Values.proxy.host "")}}
+{{- if .Values.proxy.tls.enabled }}
+Start using your Pachyderm deployment by visiting the Console at https://{{.Values.proxy.host}} in you browser.
+
+Connect pachctl by running:
+
+    echo '{"pachd_address":"grpcs://{{ .Values.proxy.host }}:443"}' | pachctl config set context {{ .Release.Name }} --overwrite && pachctl config set active-context {{ .Release.Name }}
+{{- else }}
+Start using your Pachyderm deployment by visiting the Console at http://{{.Values.proxy.host}} in your browser.
+
+Connect pachctl by running:
+
+    echo '{"pachd_address":"grpc://{{ .Values.proxy.host }}:80"}' | pachctl config set context {{ .Release.Name}} --overwrite && pachctl config set active-context {{ .Release.Name }}
+{{- end }}
+{{- end -}}

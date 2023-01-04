@@ -876,7 +876,7 @@ proxy:
   # If enabled, create a proxy deployment (based on the Envoy proxy) and a service to expose it.  If
   # ingress is also enabled, any Ingress traffic will be routed through the proxy before being sent
   # to pachd or Console.
-  enabled: false
+  enabled: true
   # The external hostname (including port if nonstandard) that the proxy will be reachable at.
   # If you have ingress enabled and an ingress hostname defined, the proxy will use that.
   # Ingress will be deprecated in the future so configuring the proxy host instead is recommended.
@@ -889,8 +889,8 @@ proxy:
   replicas: 1
   # The envoy image to pull.
   image:
-    repository: "envoyproxy/envoy"
-    tag: "v1.24.0"
+    repository: "envoyproxy/envoy-distroless"
+    tag: "v1.24.1"
     pullPolicy: "IfNotPresent"
   # Set up resources.  The proxy is configured to shed traffic before using 500MB of RAM, so that's
   # a resonable memory limit.  It doesn't need much CPU.
