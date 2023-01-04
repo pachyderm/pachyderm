@@ -123,11 +123,12 @@ def test_list_mounts(pachyderm_resources, dev_server):
     assert r.status_code == 200
 
     assert len(r.json()["mounted"]) == 1
-    for _, mount_info in r.json()["mounted"].items():
+    for mount_info in r.json()["mounted"]:
         assert mount_info.keys() == {
             "name",
             "repo",
             "branch",
+            "project",
             "commit",
             "files",
             "glob",
@@ -140,9 +141,9 @@ def test_list_mounts(pachyderm_resources, dev_server):
             "how_many_commits_behind",
         }
 
-    for _, _repo_info in r.json()["unmounted"].items():
+    for _repo_info in r.json()["unmounted"]:
         assert _repo_info["repo"] in repos
-        assert _repo_info.keys() == {"authorization", "branches", "repo"}
+        assert _repo_info.keys() == {"authorization", "branches", "repo", "project"}
         for _branch in _repo_info["branches"]:
             assert _branch in branches
     assert len(r.json()["unmounted"]) == len(repos)
