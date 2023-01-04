@@ -114,6 +114,7 @@ func (pj *pendingJob) load() error {
 		}
 		pj.baseMetaCommit = metaCI.ParentCommit
 	}
+	pj.logger.Logf("base meta commit for job %q is %q", pj.ji.Job.String(), pj.baseMetaCommit.ID)
 	// Load the job info.
 	pj.ji, err = pachClient.InspectProjectJob(pj.ji.Job.Pipeline.Project.GetName(), pj.ji.Job.Pipeline.Name, pj.ji.Job.ID, true)
 	if err != nil {
