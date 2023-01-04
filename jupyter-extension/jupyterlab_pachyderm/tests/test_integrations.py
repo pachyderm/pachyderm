@@ -94,8 +94,8 @@ def test_list_repos(pachyderm_resources, dev_server):
     r = requests.get(f"{BASE_URL}/repos")
 
     assert r.status_code == 200
-    for _, repo_info in r.json().items():
-        assert repo_info.keys() == {"authorization", "branches", "repo"}
+    for repo_info in r.json():
+        assert repo_info.keys() == {"authorization", "branches", "repo", "project"}
         assert repo_info["repo"] in repos
         for _branch in repo_info["branches"]:
             assert _branch in branches
