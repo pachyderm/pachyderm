@@ -91,6 +91,10 @@ func TestCompare(t *testing.T) {
 			server:  Version{Major: 2, Minor: 5, Micro: 0, Additional: "-nightly.20230102"},
 			wantErr: ErrIncompatiblePreview,
 		},
+		{
+			client: Version{Major: 2, Minor: 5, Micro: 0, Additional: "-nightly.20230102"},
+			server: Version{Major: 2, Minor: 5, Micro: 0, Additional: "-nightly.20230102"},
+		},
 	}
 
 	for _, test := range testData {
