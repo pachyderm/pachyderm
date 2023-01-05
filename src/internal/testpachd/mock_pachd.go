@@ -31,7 +31,7 @@ import (
 
 /* Admin Server Mocks */
 
-type inspectClusterFunc func(context.Context, *types.Empty) (*admin.ClusterInfo, error)
+type inspectClusterFunc func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error)
 
 type mockInspectCluster struct{ handler inspectClusterFunc }
 
@@ -46,7 +46,7 @@ type mockAdminServer struct {
 	InspectCluster mockInspectCluster
 }
 
-func (api *adminServerAPI) InspectCluster(ctx context.Context, req *types.Empty) (*admin.ClusterInfo, error) {
+func (api *adminServerAPI) InspectCluster(ctx context.Context, req *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
 	if api.mock.InspectCluster.handler != nil {
 		return api.mock.InspectCluster.handler(ctx, req)
 	}
