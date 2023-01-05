@@ -1337,6 +1337,8 @@ workflows:
           filters: *only-release-tags
       - test-pps:
           filters: *only-release-tags
+      - test-go:
+          filters: *only-release-tags
       - integration-tests:
           matrix:
             parameters:
@@ -1347,6 +1349,7 @@ workflows:
                 - PFS
                 - S3_AUTH
                 - EXAMPLES
+                - CONNECTORS
           filters: *only-release-tags
       - helm-build:
           filters: *only-release-tags
