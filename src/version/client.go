@@ -45,7 +45,6 @@ type buildInfo struct {
 	platform        string
 }
 
-//
 func getBuildInfo() buildInfo {
 	info, ok := debug.ReadBuildInfo()
 	b := buildInfo{}

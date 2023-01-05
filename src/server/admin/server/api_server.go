@@ -7,7 +7,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/admin"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -64,19 +63,19 @@ func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectCl
 	serverVersion := version.Version
 	if serverVersion == nil {
 		// This is very much a "can't happen".
-		log.Error(ctx, "internal error: no version information set in version.Version; rebuild Pachyderm")
+		logrus.Error("internal error: no version information set in version.Version; rebuild Pachyderm")
 		return response, nil
 	}
 
 	clientVersion := request.GetClientVersion()
 	if clientVersion == nil {
-		log.Info(ctx, "version skew: client called InspectCluster without sending its version; it is probably outdated and needs to be upgraded")
+		logrus.Debug("version skew: client called InspectCluster without sending its version; it is probably outdated and needs to be upgraded")
 		response.VersionWarnings = append(response.VersionWarnings, msgNoVersionReq)
 		return response, nil
 	}
 
 	if err := versionpb.IsCompatible(clientVersion, serverVersion); err != nil {
-		log.Infof("version skew: client is using an incompatible version: %v, client=%v, server=%v", err, clientVersion.Canonical(), serverVersion.Canonical())
+		logrus.Infof("version skew: client is using an incompatible version: %v, client=%v, server=%v", err, clientVersion.Canonical(), serverVersion.Canonical())
 		if errors.Is(err, versionpb.ErrClientTooOld) {
 			response.VersionWarnings = append(response.VersionWarnings, msgClientTooOld)
 		}
