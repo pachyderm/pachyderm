@@ -856,6 +856,11 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
 
+	number := request.Number
+	// If number is not set, return all jobs that match the query
+	if number == 0 {
+		number = math.MaxInt64
+	}
 	// pipelineVersions holds the versions of pipelines that we're interested in
 	pipelineVersions := make(map[string]bool)
 	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, pipeline, request.GetHistory(),
@@ -869,6 +874,16 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 	jobs := a.jobs.ReadOnly(ctx)
 	jobInfo := &pps.JobInfo{}
 	_f := func(string) error {
+		if number == 0 {
+			return errutil.ErrBreak
+		}
+		if request.PaginationMarker != nil {
+			createdAt := time.Unix(int64(jobInfo.Created.GetSeconds()), int64(jobInfo.Created.GetNanos())).UTC()
+			fromTime := time.Unix(int64(request.PaginationMarker.GetSeconds()), int64(request.PaginationMarker.GetNanos())).UTC()
+			if createdAt.Equal(fromTime) || !request.Reverse && createdAt.After(fromTime) || request.Reverse && createdAt.Before(fromTime) {
+				return nil
+			}
+		}
 		if request.GetDetails() {
 			if err := a.getJobDetails(ctx, jobInfo); err != nil {
 				if auth.IsErrNotAuthorized(err) {
@@ -905,16 +920,25 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 				return nil
 			}
 		}
-
+		number--
 		return keep(jobInfo)
 	}
-	if pipeline != nil {
-		err := jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, col.DefaultOptions(), _f)
-		return errors.EnsureStack(err)
-	} else {
-		err := jobs.List(jobInfo, col.DefaultOptions(), _f)
-		return errors.EnsureStack(err)
+	opts := &col.Options{Target: col.SortByCreateRevision, Order: col.SortDescend}
+	if request.Reverse {
+		opts.Order = col.SortAscend
 	}
+	if pipeline != nil {
+		err := jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, opts, _f)
+		if err != nil && err != errutil.ErrBreak {
+			return errors.EnsureStack(err)
+		}
+	} else {
+		err := jobs.List(jobInfo, opts, _f)
+		if err != nil && err != errutil.ErrBreak {
+			return errors.EnsureStack(err)
+		}
+	}
+	return nil
 }
 
 // SubscribeJob implements the protobuf pps.SubscribeJob RPC

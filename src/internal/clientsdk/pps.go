@@ -90,3 +90,33 @@ func ListDatum(client pps.API_ListDatumClient) ([]*pps.DatumInfo, error) {
 	}
 	return results, nil
 }
+
+func ForEachJobInfo(client pps.API_ListJobClient, cb func(*pps.JobInfo) error) error {
+	for {
+		x, err := client.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return errors.EnsureStack(err)
+		}
+		if err := cb(x); err != nil {
+			if errors.Is(err, pacherr.ErrBreak) {
+				err = nil
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+func ListJob(client pps.API_ListJobClient) ([]*pps.JobInfo, error) {
+	var results []*pps.JobInfo
+	if err := ForEachJobInfo(client, func(x *pps.JobInfo) error {
+		results = append(results, x)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
