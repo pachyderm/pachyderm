@@ -3355,9 +3355,8 @@ func TestPFS(suite *testing.T) {
 	suite.Run("EmptyWait", func(t *testing.T) {
 		t.Parallel()
 		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-		cis, err := env.PachClient.WaitCommitSetAll("")
-		require.NoError(t, err)
-		require.Equal(t, 0, len(cis))
+		_, err := env.PachClient.WaitCommitSetAll("")
+		require.YesError(t, err)
 	})
 
 	suite.Run("WaitNonExistentCommitSet", func(t *testing.T) {
