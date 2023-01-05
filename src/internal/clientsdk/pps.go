@@ -110,9 +110,39 @@ func ForEachJobSetInfo(client pps.API_ListJobSetClient, cb func(*pps.JobSetInfo)
 	return nil
 }
 
+func ForEachJobInfo(client pps.API_ListJobClient, cb func(*pps.JobInfo) error) error {
+	for {
+		x, err := client.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return errors.EnsureStack(err)
+		}
+		if err := cb(x); err != nil {
+			if errors.Is(err, pacherr.ErrBreak) {
+				err = nil
+			}
+			return err
+		}
+	}
+	return nil
+}
+
 func ListJobSet(client pps.API_ListJobSetClient) ([]*pps.JobSetInfo, error) {
 	var results []*pps.JobSetInfo
 	if err := ForEachJobSetInfo(client, func(x *pps.JobSetInfo) error {
+		results = append(results, x)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+func ListJob(client pps.API_ListJobClient) ([]*pps.JobInfo, error) {
+	var results []*pps.JobInfo
+	if err := ForEachJobInfo(client, func(x *pps.JobInfo) error {
 		results = append(results, x)
 		return nil
 	}); err != nil {
