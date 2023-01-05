@@ -39,7 +39,7 @@ func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commi
 		Repo: repo,
 		ID:   commitSet,
 	})
-	query := `SELECT commit_id, branch, repo, project FROM pfs.commits 
+	query := `SELECT commit_id, branch, repo, repo_type, project FROM pfs.commits 
                       JOIN pfs.commits_origin_branches ON pfs.commits.int_id = commit_int_id
                   WHERE pfs.commits.int_id IN (       
                       SELECT to_id FROM pfs.commits JOIN pfs.commit_provenance ON pfs.commits.int_id = from_id WHERE commit_id = $1
@@ -50,8 +50,8 @@ func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commi
 	}
 	commitProvenance := make([]*pfs.Commit, 0)
 	for rows.Next() {
-		var commitId, branch, repo, project string
-		if err := rows.Scan(&commitId, &branch, &repo, &project); err != nil {
+		var commitId, branch, repo, repoType, project string
+		if err := rows.Scan(&commitId, &branch, &repo, &repoType, &project); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
 		c := ParseCommit(commitId)
@@ -64,6 +64,7 @@ func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commi
 					Project: &pfs.Project{
 						Name: project,
 					},
+					Type: repoType,
 				},
 			}
 		}
@@ -150,9 +151,9 @@ func LinkOriginBranch(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit, b
 	if err != nil {
 		return err
 	}
-	stmt := `INSERT INTO pfs.commits_origin_branches(commit_int_id, branch, repo, project) 
-                 VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;`
-	_, err = tx.ExecContext(ctx, stmt, commitIntId, branch.Name, branch.Repo.Name, branch.Repo.Project.Name)
+	stmt := `INSERT INTO pfs.commits_origin_branches(commit_int_id, branch, repo, repo_type, project) 
+                 VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING;`
+	_, err = tx.ExecContext(ctx, stmt, commitIntId, branch.Name, branch.Repo.Name, branch.Repo.Type, branch.Repo.Project.Name)
 	return errors.Wrapf(err, "link commit %q to origin branch %q", CommitKey(commit), BranchKey(branch))
 }
 
@@ -264,6 +265,7 @@ var schema = `
                 commit_int_id BIGSERIAL,
 		branch VARCHAR(4096),
                 repo VARCHAR(4096),
+                repo_type VARCHAR(4096),
                 project VARCHAR(4096),
                 CONSTRAINT fk_to_commit
                   FOREIGN KEY(commit_int_id) 
