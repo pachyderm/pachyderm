@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -83,6 +84,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(binary, "debug binary"))
 
 	var limit int64
+	var timeout time.Duration
 	dump := &cobra.Command{
 		Use:   "{{alias}} <file>",
 		Short: "Collect a standard set of debugging information.",
@@ -98,6 +100,11 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 			return withFile(args[0], func(f *os.File) error {
+				if timeout != 0 {
+					ctx, c := context.WithTimeout(client.Ctx(), timeout)
+					client = client.WithCtx(ctx)
+					defer c()
+				}
 				return client.Dump(filter, limit, f)
 			})
 		}),
@@ -107,6 +114,7 @@ func Cmds() []*cobra.Command {
 	dump.Flags().StringVarP(&pipeline, "pipeline", "p", "", "Only collect the dump from the worker pods for the given pipeline.")
 	dump.Flags().StringVarP(&worker, "worker", "w", "", "Only collect the dump from the given worker pod.")
 	dump.Flags().Int64VarP(&limit, "limit", "l", 0, "Limit sets the limit for the number of commits / jobs that are returned for each repo / pipeline in the dump.")
+	dump.Flags().DurationVar(&timeout, "timeout", 30*time.Minute, "Set an absolute timeout on the debug dump operation.")
 	commands = append(commands, cmdutil.CreateAlias(dump, "debug dump"))
 
 	var serverPort int
