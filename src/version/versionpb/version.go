@@ -35,7 +35,9 @@ var (
 	ErrIncompatiblePreview = errors.New("client and server versions must match exactly")
 )
 
-// IsCompatible determines if two versions are compatible.
+// IsCompatible determines if two versions are compatible.  Versions are compatible if the versions
+// are identical or one version is a development build, or if either the server or client are not
+// prereleases, then the major and minor numbers are identical.
 func IsCompatible(rawClient, rawServer *Version) error {
 	if rawClient == nil {
 		return errors.New("client version is nil")
