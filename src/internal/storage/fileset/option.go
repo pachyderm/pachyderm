@@ -23,7 +23,7 @@ func WithMemoryThreshold(threshold int64) StorageOption {
 // be met before a shard is created by the shard function.
 func WithShardSizeThreshold(threshold int64) StorageOption {
 	return func(s *Storage) {
-		s.shardSizeThreshold = threshold
+		s.shardConfig.SizeBytes = threshold
 	}
 }
 
@@ -31,7 +31,7 @@ func WithShardSizeThreshold(threshold int64) StorageOption {
 // be met before a shard is created by the shard function.
 func WithShardCountThreshold(threshold int64) StorageOption {
 	return func(s *Storage) {
-		s.shardCountThreshold = threshold
+		s.shardConfig.NumFiles = threshold
 	}
 }
 

@@ -3,6 +3,7 @@ package index
 import (
 	"bytes"
 	"context"
+	fmt "fmt"
 	"io"
 
 	"github.com/docker/go-units"
@@ -12,6 +13,15 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
+)
+
+const (
+	// DefaultShardNumThreshold is the default for the NumFiles threshold that must
+	// be met before a shard is created.
+	DefaultShardNumThreshold = 1000000
+	// DefaultShardSizeThreshold is the default for the SizeBytes threshold that must
+	// be met before a shard is created.
+	DefaultShardSizeThreshold = units.GB
 )
 
 // Reader is used for reading a multilevel index.
@@ -31,8 +41,8 @@ func NewReader(chunks *chunk.Storage, cache *Cache, topIdx *Index, opts ...Optio
 		cache:  cache,
 		topIdx: topIdx,
 		shardConfig: &ShardConfig{
-			NumFiles:  1000000,
-			SizeBytes: units.GB,
+			NumFiles:  DefaultShardNumThreshold,
+			SizeBytes: DefaultShardSizeThreshold,
 		},
 	}
 	for _, opt := range opts {
@@ -131,6 +141,13 @@ type pathFilter struct {
 // The range is inclusive, exclusive: [Lower, Upper).
 type PathRange struct {
 	Lower, Upper string
+}
+
+func (r *PathRange) String() string {
+	if r == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("[%s, %s)", r.Lower, r.Upper)
 }
 
 func (r *PathRange) atStart(path string) bool {

@@ -7,12 +7,14 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
 )
 
 func TestMigration(t *testing.T) {
+	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	state := InitialState().
 		Apply("test 1", func(ctx context.Context, env Env) error {
@@ -27,7 +29,6 @@ func TestMigration(t *testing.T) {
 			_, err := env.Tx.ExecContext(ctx, `CREATE TABLE test_table2 (id BIGSERIAL PRIMARY KEY, field1 TEXT, field2 TEXT);`)
 			return errors.EnsureStack(err)
 		})
-	ctx := context.Background()
 	func() {
 		eg, ctx := errgroup.WithContext(ctx)
 		const numWaiters = 10

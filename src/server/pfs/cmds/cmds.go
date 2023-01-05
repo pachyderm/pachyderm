@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -52,7 +53,7 @@ const (
 )
 
 // Cmds returns a slice containing pfs commands.
-func Cmds() []*cobra.Command {
+func Cmds(pachCtx *config.Context) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var raw bool
@@ -74,7 +75,9 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(repoDocs, "repo", " repo$", repos))
 
-	var description, project string
+	var description string
+	var allProjects bool
+	project := pachCtx.Project
 	createRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Create a new repo.",
@@ -100,7 +103,7 @@ or type (e.g. csv, binary, images, etc).`,
 		}),
 	}
 	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
-	createRepo.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "The project to create the repo in.")
+	createRepo.Flags().StringVar(&project, "project", project, "The project to create the repo in.")
 	commands = append(commands, cmdutil.CreateAliases(createRepo, "create repo", repos))
 
 	updateRepo := &cobra.Command{
@@ -129,7 +132,7 @@ or type (e.g. csv, binary, images, etc).`,
 		}),
 	}
 	updateRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
-	updateRepo.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	updateRepo.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(updateRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(updateRepo, "update repo", repos))
 
@@ -164,7 +167,7 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	inspectRepo.Flags().AddFlagSet(outputFlags)
 	inspectRepo.Flags().AddFlagSet(timestampFlags)
-	inspectRepo.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	inspectRepo.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(inspectRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectRepo, "inspect repo", repos))
 
@@ -174,22 +177,25 @@ or type (e.g. csv, binary, images, etc).`,
 		Short: "Return a list of repos.",
 		Long:  "Return a list of repos. By default, hide system repos like pipeline metadata",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			if all && repoType != "" {
-				return errors.Errorf("cannot set a repo type with --all")
-			}
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
 
-			if repoType == "" && !all {
-				repoType = pfs.UserRepoType // default to user
+			// Call ListRepo RPC with sane defaults
+			if all {
+				repoType = ""
 			}
-			repoInfos, err := c.ListRepoByType(repoType)
+			projectsFilter := []*pfs.Project{{Name: project}}
+			if allProjects {
+				projectsFilter = nil
+			}
+			repoInfos, err := c.ListProjectRepo(&pfs.ListRepoRequest{Type: repoType, Projects: projectsFilter})
 			if err != nil {
-				return err
+				return errors.Wrap(err, "cannot list repos")
 			}
+
 			if raw {
 				encoder := cmdutil.Encoder(output, os.Stdout)
 				for _, repoInfo := range repoInfos {
@@ -216,7 +222,9 @@ or type (e.g. csv, binary, images, etc).`,
 	listRepo.Flags().AddFlagSet(outputFlags)
 	listRepo.Flags().AddFlagSet(timestampFlags)
 	listRepo.Flags().BoolVar(&all, "all", false, "include system repos of all types")
-	listRepo.Flags().StringVar(&repoType, "type", "", "only include repos of the given type")
+	listRepo.Flags().StringVar(&repoType, "type", pfs.UserRepoType, "only include repos of the given type")
+	listRepo.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	listRepo.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Show repos from all projects.")
 	commands = append(commands, cmdutil.CreateAliases(listRepo, "list repo", repos))
 
 	var force bool
@@ -242,13 +250,19 @@ or type (e.g. csv, binary, images, etc).`,
 			} else if !all {
 				return errors.Errorf("either a repo name or the --all flag needs to be provided")
 			}
+			if all {
+				_, err := c.PfsAPIClient.DeleteRepos(c.Ctx(), &pfs.DeleteReposRequest{
+					Projects: []*pfs.Project{
+						{
+							Name: project,
+						},
+					},
+				})
+				return errors.EnsureStack(err)
+			}
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				if all {
-					_, err = c.PfsAPIClient.DeleteAll(c.Ctx(), &types.Empty{})
-				} else {
-					_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
-				}
+				_, err := c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
 				return errors.EnsureStack(err)
 			})
 			return grpcutil.ScrubGRPC(err)
@@ -256,7 +270,7 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
-	deleteRepo.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	deleteRepo.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(deleteRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteRepo, "delete repo", repos))
 
@@ -334,7 +348,7 @@ $ {{alias}} test@fork -p XXX`,
 	startCommit.MarkFlagCustom("parent", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	startCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents")
 	startCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
-	startCommit.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	startCommit.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(startCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(startCommit, "start commit", commits))
 
@@ -370,7 +384,7 @@ $ {{alias}} test@fork -p XXX`,
 	finishCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (overwrites any existing commit description)")
 	finishCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
 	finishCommit.Flags().BoolVarP(&force, "force", "f", false, "finish the commit even if it has provenance, which could break jobs; prefer 'stop job'")
-	finishCommit.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	finishCommit.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(finishCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(finishCommit, "finish commit", commits))
 
@@ -417,7 +431,7 @@ $ {{alias}} test@fork -p XXX`,
 	}
 	inspectCommit.Flags().AddFlagSet(outputFlags)
 	inspectCommit.Flags().AddFlagSet(timestampFlags)
-	inspectCommit.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	inspectCommit.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(inspectCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectCommit, "inspect commit", commits))
 
@@ -468,7 +482,7 @@ $ {{alias}} foo@master --from XXX`,
 					return errors.Errorf("cannot specify --from when listing all commits")
 				}
 
-				listCommitSetClient, err := c.PfsAPIClient.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{})
+				listCommitSetClient, err := c.PfsAPIClient.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{Project: &pfs.Project{Name: project}})
 				if err != nil {
 					return grpcutil.ScrubGRPC(err)
 				}
@@ -634,7 +648,7 @@ $ {{alias}} foo@master --from XXX`,
 	listCommit.Flags().StringVar(&originStr, "origin", "", "only return commits of a specific type")
 	listCommit.Flags().AddFlagSet(outputFlags)
 	listCommit.Flags().AddFlagSet(timestampFlags)
-	listCommit.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	listCommit.Flags().StringVar(&project, "project", project, "Project in which commit is located.")
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listCommit, "list commit", commits))
 
@@ -677,7 +691,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 	}
 	waitCommit.Flags().AddFlagSet(outputFlags)
 	waitCommit.Flags().AddFlagSet(timestampFlags)
-	waitCommit.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing commit.")
+	waitCommit.Flags().StringVar(&project, "project", project, "Project containing commit.")
 	commands = append(commands, cmdutil.CreateAliases(waitCommit, "wait commit", commits))
 
 	var newCommits bool
@@ -764,7 +778,7 @@ $ {{alias}} test@master --new`,
 	subscribeCommit.Flags().StringVar(&originStr, "origin", "", "only return commits of a specific type")
 	subscribeCommit.Flags().AddFlagSet(outputFlags)
 	subscribeCommit.Flags().AddFlagSet(timestampFlags)
-	subscribeCommit.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	subscribeCommit.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(subscribeCommit, "subscribe commit", commits))
 
@@ -888,7 +902,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	createBranch.Flags().StringVar(&trigger.Size_, "trigger-size", "", "The data size to use in triggering.")
 	createBranch.Flags().Int64Var(&trigger.Commits, "trigger-commits", 0, "The number of commits to use in triggering.")
 	createBranch.Flags().BoolVar(&trigger.All, "trigger-all", false, "Only trigger when all conditions are met, rather than when any are met.")
-	createBranch.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	createBranch.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	commands = append(commands, cmdutil.CreateAliases(createBranch, "create branch", branches))
 
 	inspectBranch := &cobra.Command{
@@ -924,7 +938,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	}
 	inspectBranch.Flags().AddFlagSet(outputFlags)
 	inspectBranch.Flags().AddFlagSet(timestampFlags)
-	inspectBranch.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	inspectBranch.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(inspectBranch, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectBranch, "inspect branch", branches))
 
@@ -964,7 +978,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 		}),
 	}
 	listBranch.Flags().AddFlagSet(outputFlags)
-	listBranch.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	listBranch.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(listBranch, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listBranch, "list branch", branches))
 
@@ -990,7 +1004,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 		}),
 	}
 	deleteBranch.Flags().BoolVarP(&force, "force", "f", false, "remove the branch regardless of errors; use with care")
-	deleteBranch.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	deleteBranch.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(deleteBranch, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteBranch, "delete branch", branches))
 
@@ -1107,7 +1121,7 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.ProjectHeader)
 			for _, pi := range pis {
-				pretty.PrintProjectInfo(writer, pi)
+				pretty.PrintProjectInfo(writer, pi, &pfs.Project{Name: pachCtx.Project})
 			}
 			return writer.Flush()
 		}),
@@ -1310,8 +1324,8 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
 	putFile.Flags().BoolVar(&fullPath, "full-path", false, "If true, use the entire path provided to -f as the target filename in PFS. By default only the base of the path is used.")
-	putFile.Flags().BoolVar(&untar, "untar", false, "If true, file(s) with the extension .tar are untarred and put as a separate file for each file within the tar stream(s). gzipped (.tar.gz) tar file(s) are handled as well")
-	putFile.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	putFile.Flags().BoolVar(&untar, "untar", false, "If true, file(s) with the extension .tar are untarred and put as a separate file for each file within the tar stream(s). gzipped (.tar.gz or .tgz) tar file(s) are handled as well")
+	putFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(putFile,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {
@@ -1356,7 +1370,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 		}),
 	}
 	copyFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
-	copyFile.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	copyFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(copyFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(copyFile, "copy file", files))
 
@@ -1465,7 +1479,7 @@ $ {{alias}} foo@master:XXX -r
 	getFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "{true|false} Whether or not to print the progress bars.")
 	getFile.Flags().Int64Var(&offsetBytes, "offset", 0, "The number of bytes in the file to skip ahead when reading.")
 	getFile.Flags().BoolVar(&retry, "retry", false, "{true|false} Whether to append the missing bytes to an existing file. No-op if the file doesn't exist.")
-	getFile.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	getFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(getFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(getFile, "get file", files))
 
@@ -1499,7 +1513,7 @@ $ {{alias}} foo@master:XXX -r
 		}),
 	}
 	inspectFile.Flags().AddFlagSet(outputFlags)
-	inspectFile.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	inspectFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(inspectFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectFile, "inspect file", files))
 
@@ -1556,7 +1570,7 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 	}
 	listFile.Flags().AddFlagSet(outputFlags)
 	listFile.Flags().AddFlagSet(timestampFlags)
-	listFile.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	listFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(listFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listFile, "list file", files))
 
@@ -1608,13 +1622,14 @@ $ {{alias}} "foo@master:data/*"
 	}
 	globFile.Flags().AddFlagSet(outputFlags)
 	globFile.Flags().AddFlagSet(timestampFlags)
-	globFile.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	globFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(globFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(globFile, "glob file", files))
 
 	var shallow bool
 	var nameOnly bool
 	var diffCmdArg string
+	var oldProject string
 	diffFile := &cobra.Command{
 		Use:   "{{alias}} <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-branch-or-commit>:<old-path>]",
 		Short: "Return a diff of two file trees stored in Pachyderm",
@@ -1632,9 +1647,12 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			if err != nil {
 				return err
 			}
+			if oldProject == "" {
+				oldProject = project
+			}
 			oldFile := &pfs.File{}
 			if len(args) == 2 {
-				oldFile, err = cmdutil.ParseFile(project, args[1])
+				oldFile, err = cmdutil.ParseFile(oldProject, args[1])
 				if err != nil {
 					return err
 				}
@@ -1713,7 +1731,8 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 	diffFile.Flags().StringVar(&diffCmdArg, "diff-command", "", "Use a program other than git to diff files.")
 	diffFile.Flags().AddFlagSet(timestampFlags)
 	diffFile.Flags().AddFlagSet(pagerFlags)
-	diffFile.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	diffFile.Flags().StringVar(&project, "project", project, "Project in which first repo is located.")
+	diffFile.Flags().StringVar(&oldProject, "old-project", "", "Project in which second, older repo is located.")
 	shell.RegisterCompletionFunc(diffFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(diffFile, "diff file", files))
 
@@ -1740,7 +1759,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 		}),
 	}
 	deleteFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively delete the files in a directory.")
-	deleteFile.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	deleteFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(deleteFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteFile, "delete file", files))
 
@@ -1803,7 +1822,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 	fsck.Flags().BoolVarP(&fix, "fix", "f", false, "Attempt to fix as many issues as possible.")
 	fsck.Flags().BoolVar(&zombieAll, "zombie-all", false, "Check all pipelines for zombie files: files corresponding to old inputs that were not properly deleted")
 	fsck.Flags().StringVar(&zombie, "zombie", "", "A single commit to check for zombie files")
-	fsck.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	fsck.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
 
 	var branchStr string
@@ -1875,7 +1894,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 	}
 	runLoadTest.Flags().StringVarP(&branchStr, "branch", "b", "", "The branch to use for generating the load.")
 	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
-	runLoadTest.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project in which repo is located.")
+	runLoadTest.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	runLoadTest.Flags().StringVar(&stateID, "state-id", "", "The ID of the base state to use for the load.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pfs-load-test"))
 
@@ -1937,7 +1956,7 @@ func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendF
 		switch {
 		case strings.HasSuffix(source, ".tar"):
 			return errors.EnsureStack(mf.PutFileTAR(f, opts...))
-		case strings.HasSuffix(source, ".tar.gz"):
+		case strings.HasSuffix(source, ".tar.gz"), strings.HasSuffix(source, ".tgz"):
 			r, err := gzip.NewReader(f)
 			if err != nil {
 				return errors.EnsureStack(err)

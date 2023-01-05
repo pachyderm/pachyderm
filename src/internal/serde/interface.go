@@ -5,10 +5,10 @@
 // Similar to https://github.com/ghodss/yaml, all implementations of the Format
 // interface marshal and unmarshal data using the following pipeline:
 //
-//    Go struct/map (fully structured)
-//      <-> JSON document
-//      <-> map[string]interface{}
-//      <-> target format document
+//	Go struct/map (fully structured)
+//	  <-> JSON document
+//	  <-> map[string]interface{}
+//	  <-> target format document
 //
 // Despite the redundant round of marshalling and unmarshalling, there are two
 // main advantages to this approach:
@@ -75,8 +75,10 @@ func WithIndent(numSpaces int) func(d Encoder) {
 // the decision about what kind of encoding to use until runtime, like so:
 //
 // enc, _ := GetEncoder(outputFlag, os.Stdout,
-//     ...options to use if json...,
-//     ...options to use if yaml...,
+//
+//	...options to use if json...,
+//	...options to use if yaml...,
+//
 // )
 // enc.Encode(obj)
 func GetEncoder(encoding string, w io.Writer, opts ...EncoderOption) (Encoder, error) {

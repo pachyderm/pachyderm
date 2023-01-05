@@ -19,15 +19,16 @@ import (
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	terraTest "github.com/gruntwork-io/terratest/modules/testing"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kube "k8s.io/client-go/kubernetes"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kube "k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -170,12 +171,15 @@ func withBase(namespace string) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
-			"pachd.clusterDeploymentID":       "dev",
-			"pachd.resources.requests.cpu":    "250m",
-			"pachd.resources.requests.memory": "512M",
-			"etcd.resources.requests.cpu":     "250m",
-			"etcd.resources.requests.memory":  "512M",
-			"console.enabled":                 "false",
+			"pachd.clusterDeploymentID":           "dev",
+			"pachd.resources.requests.cpu":        "250m",
+			"pachd.resources.requests.memory":     "512M",
+			"etcd.resources.requests.cpu":         "250m",
+			"etcd.resources.requests.memory":      "512M",
+			"pachd.defaultPipelineCPURequest":     "100m",
+			"pachd.defaultPipelineMemoryRequest":  "64M",
+			"pachd.defaultPipelineStorageRequest": "100Mi",
+			"console.enabled":                     "false",
 		},
 	}
 }
@@ -423,8 +427,9 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 		}
 		// Ensure that pachd is really ready to receive requests.
 		if _, err := c.InspectCluster(); err != nil {
-			t.Logf("retryable: failed to inspect cluster on port %v: %v", pachAddress.Port, err)
-			return errors.Wrapf(err, "failed to inspect cluster on port %v", pachAddress.Port)
+			scrubbedErr := grpcutil.ScrubGRPC(err)
+			t.Logf("retryable: failed to inspect cluster on port %v: %v", pachAddress.Port, scrubbedErr)
+			return errors.Wrapf(scrubbedErr, "failed to inspect cluster on port %v", pachAddress.Port)
 		}
 		return nil
 	}, backoff.RetryEvery(time.Second).For(50*time.Second)))
@@ -492,6 +497,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	if opts.EnterpriseServer {
 		helmOpts = union(helmOpts, withEnterpriseServer(version, pachAddress.Host))
+		helmOpts = union(helmOpts, withMinio())
 		pachAddress.Port = uint16(31650)
 	} else {
 		helmOpts = union(helmOpts, withPachd(version))

@@ -17,16 +17,18 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // loginAsUser sets the auth token in the pachctl config to a token for `user`
 func loginAsUser(t *testing.T, c *client.APIClient, user string) {
+	t.Helper()
 	configPath := executeCmdAndGetLastWord(t, tu.PachctlBashCmd(t, c, `echo $PACH_CONFIG`))
+	rootClient := tu.AuthenticatedPachClient(t, c, auth.RootUser)
 	if user == auth.RootUser {
 		require.NoError(t, config.WritePachTokenToConfigPath(tu.RootToken, configPath, false))
 		return
 	}
-	rootClient := tu.AuthenticatedPachClient(t, c, auth.RootUser)
 	robot := strings.TrimPrefix(user, auth.RobotPrefix)
 	token, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robot})
 	require.NoError(t, err)
@@ -168,7 +170,7 @@ func TestWhoAmI(t *testing.T) {
 	).Run())
 }
 
-func TestCheckGetSet(t *testing.T) {
+func TestCheckGetSetRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -176,43 +178,67 @@ func TestCheckGetSet(t *testing.T) {
 	alice, bob := tu.UniqueString("robot:alice"), tu.UniqueString("robot:bob")
 	// Test both forms of the 'pachctl auth get' command, as well as 'pachctl auth check'
 
-	loginAsUser(t, c, alice)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	loginAsUser(t, c, auth.RootUser)
+	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create project nonDefault`).Run())
+
+	for _, project := range []string{pfs.DefaultProjectName, "nonDefault"} {
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl config update context --project {{.project}}`, "project", project).Run())
+
+		loginAsUser(t, c, alice)
+		require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create repo {{.repo}}
-		pachctl auth check repo {{.repo}} \
-                        | match 'Roles: \[repoOwner\]'
-		pachctl auth get repo {{.repo}} \
-			| match {{.alice}}
+		pachctl auth check repo {{.repo}} | match 'Roles: \[repoOwner\]'
+		pachctl auth get repo {{.repo}} | match {{.alice}}
 		`,
-		"alice", alice,
-		"bob", bob,
-		"repo", tu.UniqueString("TestGet-repo"),
-	).Run())
+			"alice", alice,
+			"bob", bob,
+			"repo", tu.UniqueString("TestGet-repo"),
+		).Run())
 
-	repo := tu.UniqueString("TestGet-repo")
-	// Test 'pachctl auth set'
-	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create repo {{.repo}}
+		repo := tu.UniqueString("TestGet-repo")
+		// Test 'pachctl auth set'
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create repo {{.repo}}
 		pachctl auth set repo {{.repo}} repoReader {{.bob}}
-		pachctl auth get repo {{.repo}}\
-			| match "{{.bob}}: \[repoReader\]" \
-			| match "{{.alice}}: \[repoOwner\]"
+		pachctl auth get repo {{.repo}} | match "{{.bob}}: \[repoReader\]" | match "{{.alice}}: \[repoOwner\]"
 		`,
-		"alice", alice,
-		"bob", bob,
-		"repo", repo,
-	).Run())
+			"alice", alice,
+			"bob", bob,
+			"repo", repo,
+		).Run())
 
-	// Test checking another user's permissions
+		// Test checking another user's permissions
+		loginAsUser(t, c, auth.RootUser)
+		require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl auth check repo {{.repo}} {{.alice}} | match "Roles: \[repoOwner\]"
+		pachctl auth check repo {{.repo}} {{.bob}} | match "Roles: \[repoReader\]"
+		`,
+			"alice", alice,
+			"bob", bob,
+			"repo", repo,
+		).Run())
+	}
+}
+
+func TestCheckGetSetProject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
 	loginAsUser(t, c, auth.RootUser)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl auth check repo {{.repo}} {{.alice}} \
-			| match "Roles: \[repoOwner\]"
-                pachctl auth check repo {{.repo}} {{.bob}} \
-			| match "Roles: \[repoReader\]"
-		`,
-		"alice", alice,
-		"bob", bob,
-		"repo", repo,
+		pachctl create project {{.project}}
+		pachctl auth check project {{.project}} | match clusterAdmin | match projectOwner
+		pachctl auth get project {{.project}} | match projectOwner
+		pachctl auth set project {{.project}} repoReader,projectOwner pach:root
+		pachctl auth get project {{.project}} | match projectOwner | match repoReader
+	
+		pachctl auth get robot-auth-token {{.alice}}
+		pachctl auth check project {{.project}} {{.alice}} | match "Roles: \[\]"
+		pachctl auth set project {{.project}} projectOwner {{.alice}}
+		pachctl auth check project {{.project}} {{.alice}} | match "projectOwner"
+	`,
+		"project", tu.UniqueString("project"),
+		"alice", tu.Robot(tu.UniqueString("alice")),
 	).Run())
 }
 
@@ -470,8 +496,10 @@ func TestRevokeToken(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, aliceName, whoAmIResp.Username)
 
-	require.NoError(t, tu.PachctlBashCmd(t, root,
-		`pachctl auth revoke --token={{.alice_token}}`,
+	require.NoError(t, tu.PachctlBashCmd(t, root, `
+		pachctl auth revoke --token={{.alice_token}} | match '1 auth token revoked'
+		pachctl auth revoke --token={{.alice_token}} | match '0 auth tokens revoked'
+		`,
 		"alice_token", alice.AuthToken()).Run())
 
 	_, err = alice.WhoAmI(alice.Ctx(), &auth.WhoAmIRequest{})
@@ -499,8 +527,10 @@ func TestRevokeUser(t *testing.T) {
 		require.Equal(t, aliceName, whoAmIResp.Username)
 	}
 
-	require.NoError(t, tu.PachctlBashCmd(t, root,
-		`pachctl auth revoke --user={{.alice}}`,
+	require.NoError(t, tu.PachctlBashCmd(t, root, `
+		pachctl auth revoke --user={{.alice}} | match '3 auth tokens revoked'
+		pachctl auth revoke --user={{.alice}} | match '0 auth tokens revoked'
+		`,
 		"alice", aliceName).Run())
 
 	// See relevant comments in TestRevokeToken

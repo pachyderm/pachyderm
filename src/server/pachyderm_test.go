@@ -47,10 +47,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -162,6 +163,67 @@ func TestSimplePipeline(t *testing.T) {
 			require.Equal(t, "foo", buf.String())
 		}
 	}
+}
+
+func TestPipelineWithSubprocesses(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	c = c.WithDefaultTransformUser("1000")
+
+	projectName := tu.UniqueString("p")
+	require.NoError(t, c.CreateProject(projectName))
+	dataRepoName := tu.UniqueString("TestPipelineWithSubprocesses_data")
+	require.NoError(t, c.CreateProjectRepo(projectName, dataRepoName))
+
+	commit1, err := c.StartProjectCommit(projectName, dataRepoName, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit1, "foo", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(commit1, "bar", strings.NewReader("bar"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishProjectCommit(projectName, dataRepoName, commit1.Branch.Name, commit1.ID))
+
+	pipeline := tu.UniqueString("TestPipelineWS")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewProjectPipeline(projectName, pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"/bin/bash"},
+				Stdin: []string{
+					"sleep infinity &", // sleep holds onto stdout forever, meaning we have to explicitly kill it to make progress
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepoName),
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
+			Input:           client.NewProjectPFSInput(projectName, dataRepoName, "/*"),
+			DatumTimeout:    types.DurationProto(5 * time.Second),
+		},
+	)
+	require.NoError(t, err, "should create pipeline ok")
+
+	commitInfo, err := c.InspectProjectCommit(projectName, pipeline, "master", "")
+	require.NoError(t, err, "should inspect commit ok")
+	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err, "should wait commit ok")
+
+	var output *pfs.CommitInfo
+	for _, info := range commitInfos {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(projectName, pipeline)) {
+			output = info
+			break
+		}
+	}
+	require.NotNil(t, output, "output commit should have been found (got: %#v)", commitInfos)
+
+	buf := new(bytes.Buffer)
+	require.NoError(t, c.GetFile(output.Commit, "foo", buf), "should get foo without error")
+	require.Equal(t, "foo", buf.String(), "content should be correct")
+	buf.Reset()
+	require.NoError(t, c.GetFile(output.Commit, "bar", buf), "should get bar without error")
+	require.Equal(t, "bar", buf.String(), "content should be correct")
 }
 
 func TestCrossProjectPipeline(t *testing.T) {
@@ -4357,8 +4419,9 @@ func testGetLogs(t *testing.T, useLoki bool) {
 	require.NoError(t, backoff.Retry(func() error {
 		// Get logs from pipeline, using pipeline
 		iter = c.GetProjectLogs(pfs.DefaultProjectName, pipelineName, "", nil, "", false, false, 0)
-		var numLogs int
+		var numLogs, totalLogs int
 		for iter.Next() {
+			totalLogs++
 			if !iter.Message().User {
 				continue
 			}
@@ -4367,7 +4430,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 			require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
 		}
 		if numLogs < 2 {
-			return errors.Errorf("didn't get enough log lines")
+			return errors.Errorf("didn't get enough log lines (%d total logs, %d non-user logs)", totalLogs, numLogs)
 		}
 		if err := iter.Err(); err != nil {
 			return err
@@ -4550,8 +4613,9 @@ func TestManyLogs(t *testing.T) {
 
 	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
 		iter := c.GetProjectLogs(pfs.DefaultProjectName, pipelineName, jis[0].Job.ID, nil, "", false, false, 0)
-		logsReceived := 0
+		var logsReceived, totalLines int
 		for iter.Next() {
+			totalLines++
 			if iter.Message().User {
 				logsReceived++
 			}
@@ -4560,7 +4624,7 @@ func TestManyLogs(t *testing.T) {
 			return iter.Err()
 		}
 		if numLogs != logsReceived {
-			return errors.Errorf("received: %d log lines, expected: %d", logsReceived, numLogs)
+			return errors.Errorf("received: %d user log lines, expected: %d (%d total lines)", logsReceived, numLogs, totalLines)
 		}
 		return nil
 	})
@@ -4602,7 +4666,7 @@ func TestLokiLogs(t *testing.T) {
 	require.Equal(t, 1, len(jis))
 
 	// Follow the logs the make sure we get enough foos
-	require.NoErrorWithinT(t, time.Minute, func() error {
+	require.NoErrorWithinT(t, 2*time.Minute, func() error {
 		iter := c.GetLogsLoki(pipelineName, jis[0].Job.ID, nil, "", false, true, 0)
 		foundFoos := 0
 		for iter.Next() {
@@ -4694,37 +4758,37 @@ func TestDatumStatusRestart(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	// TODO: (CORE-1015) Fix flaky test
-	t.Skip("Skipping flaky test")
-
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
-	dataRepo := tu.UniqueString("TestDatumDedup_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	project := tu.UniqueString("PROJECT")
+	require.NoError(t, c.CreateProject(project))
+
+	dataRepo := tu.UniqueString("dataRepo")
+	require.NoError(t, c.CreateProjectRepo(project, dataRepo))
 
 	pipeline := tu.UniqueString("pipeline")
-	// This pipeline sleeps for 20 secs per datum
-	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+	// This pipeline sleeps for 30 secs per datum
+	require.NoError(t, c.CreateProjectPipeline(project,
 		pipeline,
 		"",
 		[]string{"bash"},
 		[]string{
-			"sleep 20",
+			"sleep 30",
 		},
 		nil,
-		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		client.NewProjectPFSInput(project, dataRepo, "/*"),
 		"",
 		false,
 	))
 
-	commit1, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit1, err := c.StartProjectCommit(project, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.ID))
+	require.NoError(t, c.FinishProjectCommit(project, dataRepo, commit1.Branch.Name, commit1.ID))
 
 	// get the job status
-	jobs, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1, true)
+	jobs, err := c.ListProjectJob(project, pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 
@@ -4733,8 +4797,9 @@ func TestDatumStatusRestart(t *testing.T) {
 	// it's called, the datum being processes was started at a new and later time
 	// (than the last time checkStatus was called)
 	checkStatus := func() {
-		require.NoErrorWithinTRetry(t, time.Minute, func() error {
-			jobInfo, err := c.InspectProjectJob(pfs.DefaultProjectName, pipeline, commit1.ID, true)
+		require.NoErrorWithinTRetryConstant(t, time.Minute, func() error {
+			jobInfo, err := c.InspectProjectJob(project, pipeline, commit1.ID, true)
+
 			require.NoError(t, err)
 			if len(jobInfo.Details.WorkerStatus) == 0 {
 				return errors.Errorf("no worker statuses")
@@ -4757,10 +4822,10 @@ func TestDatumStatusRestart(t *testing.T) {
 				return nil
 			}
 			return errors.Errorf("worker status from wrong job")
-		})
+		}, 500*time.Millisecond) // We need to check quickly. If we wait too long the datum might finish before we can restart it.
 	}
 	checkStatus()
-	require.NoError(t, c.RestartProjectDatum(pfs.DefaultProjectName, pipeline, commit1.ID, []string{"/file"}))
+	require.NoError(t, c.RestartProjectDatum(project, pipeline, commit1.ID, []string{"/file"}))
 	checkStatus()
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.ID)
@@ -7323,7 +7388,10 @@ func TestService(t *testing.T) {
 		[]string{"sh"},
 		[]string{
 			"cd /pfs",
-			"exec python -m SimpleHTTPServer 8000",
+			// Note: a correct shell script would "exec python ..." here, but we want to
+			// test that the server gets properly killed even if the user messes this
+			// up.
+			"python -m SimpleHTTPServer 8000",
 		},
 		&pps.ParallelismSpec{
 			Constant: 1,
@@ -8553,7 +8621,7 @@ func TestDatumTries(t *testing.T) {
 		iter := c.GetProjectLogs(pfs.DefaultProjectName, pipeline, jobInfos[0].Job.ID, nil, "", false, false, 0)
 		var observedTries int64
 		for iter.Next() {
-			if strings.Contains(iter.Message().Message, "errored running user code after") {
+			if strings.Contains(iter.Message().Message, "errored running user code") {
 				observedTries++
 			}
 		}
@@ -10074,21 +10142,18 @@ func TestListDatumFilter(t *testing.T) {
 	require.Equal(t, 25, i)
 }
 
-func TestDebug(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
+func testDebug(t *testing.T, c *client.APIClient, projectName, repoName string) {
+	t.Helper()
+	if projectName != "default" {
+		require.NoError(t, c.CreateProject(projectName))
 	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, c.CreateProjectRepo(projectName, repoName))
 
-	dataRepo := tu.UniqueString("TestDebug_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
-
-	expectedFiles, pipelines := tu.DebugFiles(t, dataRepo)
+	expectedFiles, pipelines := tu.DebugFiles(t, projectName, repoName)
 
 	for i, p := range pipelines {
 		cmdStdin := []string{
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repoName),
 			"sleep 45",
 		}
 		if i == 0 {
@@ -10096,7 +10161,7 @@ func TestDebug(t *testing.T) {
 			// Fail a pipeline on purpose to see if we can still generate debug dump.
 			cmdStdin = append(cmdStdin, "exit -1")
 		}
-		require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+		require.NoError(t, c.CreateProjectPipeline(projectName,
 			p,
 			"",
 			[]string{"bash"},
@@ -10104,15 +10169,15 @@ func TestDebug(t *testing.T) {
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+			client.NewProjectPFSInput(projectName, repoName, "/*"),
 			"",
 			false,
 		))
 	}
-	commit1, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit1, err := c.StartProjectCommit(projectName, repoName, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.ID))
+	require.NoError(t, c.FinishProjectCommit(projectName, repoName, commit1.Branch.Name, commit1.ID))
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.ID)
 	require.NoError(t, err)
@@ -10148,10 +10213,23 @@ func TestDebug(t *testing.T) {
 			}
 		}
 		if len(expectedFiles) > 0 {
-			return errors.Errorf("Debug dump has produced %v of the exepcted files: %v", gotFiles, expectedFiles)
+			return errors.Errorf("Debug dump has produced %v of the expected files: %v", gotFiles, expectedFiles)
 		}
 		return nil
 	})
+}
+
+func TestDebug(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	for _, projectName := range []string{pfs.DefaultProjectName, tu.UniqueString("project")} {
+		t.Run(projectName, func(t *testing.T) {
+			testDebug(t, c, projectName, tu.UniqueString("TestDebug_data"))
+		})
+	}
 }
 
 func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
@@ -10845,7 +10923,7 @@ func TestTemporaryDuplicatedPath(t *testing.T) {
 
 	// add an output file bigger than the sharding threshold so that two in a row
 	// will fall on either side of a naive shard division
-	bigSize := fileset.DefaultShardSizeThreshold * 5 / 4
+	bigSize := index.DefaultShardSizeThreshold * 5 / 4
 	require.NoError(t, c.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", ""), "a",
 		strings.NewReader(strconv.Itoa(bigSize/units.MB))))
 
@@ -10944,7 +11022,8 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
 
 	// create output database, and destination table
-	db, dbName := testsnowflake.NewEphemeralSnowflakeDB(t)
+	ctx := pctx.TestContext(t)
+	db, dbName := testsnowflake.NewEphemeralSnowflakeDB(ctx, t)
 	require.NoError(t, pachsql.CreateTestTable(db, "test_table", struct {
 		Id int    `column:"ID" dtype:"INT" constraint:"PRIMARY KEY"`
 		A  string `column:"A" dtype:"VARCHAR(100)"`

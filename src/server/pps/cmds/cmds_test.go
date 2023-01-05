@@ -425,40 +425,141 @@ func TestListPipelineFilter(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
 	`).Run())
-	pipeline := tu.UniqueString("pipeline")
+	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
+		pachctl create project myProject
 		pachctl create repo input
 		pachctl create pipeline -f - <<EOF
 		{
-		"pipeline": {
-		  "name": "{{.pipeline}}"
-		},
-		"input": {
-		  "pfs": {
-		    "glob": "/*",
-		    "repo": "input"
-		  }
-		},
-		  "parallelism_spec": {
-		    "constant": "1"
-		  },
-		"transform": {
-		  "cmd": [ "/bin/bash" ],
-		  "stdin": [
-		    "cp /pfs/input/* /pfs/out"
-		  ]
+			"pipeline": {
+				"name": "{{.pipeline1}}"
+			},
+			"input": {
+				"pfs": {
+					"glob": "/*",
+					"repo": "input"
+				}
+			},
+			"parallelism_spec": {
+				"constant": "1"
+			},
+			"transform": {
+				"cmd": [
+					"/bin/bash"
+				],
+				"stdin": [
+					"cp /pfs/input/* /pfs/out"
+				]
+			}
 		}
+		EOF
+
+		pachctl create pipeline -f - <<EOF
+		{
+			"pipeline": {
+				"name": "{{.pipeline2}}",
+				"project": {
+					"name": "myProject"
+				}
+			},
+			"input": {
+				"pfs": {
+					"name": "in",
+					"glob": "/*",
+					"repo": "{{.pipeline1}}",
+					"project": "default"
+				}
+			},
+			"parallelism_spec": {
+				"constant": "1"
+			},
+			"transform": {
+				"cmd": [
+					"/bin/bash"
+				],
+				"stdin": [
+					"cp /pfs/in/* /pfs/out"
+				]
+			}
 		}
 		EOF
 
 		echo foo | pachctl put file input@master:/foo
-		pachctl wait commit {{.pipeline}}@master
+		pachctl wait commit {{.pipeline1}}@master
 		# make sure we see the pipeline with the appropriate state filters
-		pachctl list pipeline | match {{.pipeline}}
-		pachctl list pipeline --state crashing --state failure | match -v {{.pipeline}}
-		pachctl list pipeline --state starting --state running | match {{.pipeline}}
-	`, "pipeline", pipeline,
+		pachctl list pipeline | match {{.pipeline1}}
+		pachctl list pipeline | match -v {{.pipeline2}}
+		pachctl list pipeline --project myProject | match {{.pipeline2}}
+		pachctl list pipeline --all-projects | match {{.pipeline1}}
+		pachctl list pipeline --all-projects | match {{.pipeline2}}
+		pachctl list pipeline --state crashing --state failure | match -v {{.pipeline1}}
+		pachctl list pipeline --state starting --state running | match {{.pipeline1}}
+	`,
+		"pipeline1", pipeline1,
+		"pipeline2", pipeline2,
+	).Run())
+}
+
+func TestInspectWaitJob(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		yes | pachctl delete all
+	`).Run())
+	pipeline1 := tu.UniqueString("pipeline1-")
+	project := tu.UniqueString("myNewProject")
+
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create project {{ .project }}
+		pachctl create repo input --project {{ .project }}
+		pachctl create pipeline -f - <<EOF
+		{
+			"pipeline": {
+				"name": "{{.pipeline1}}",
+				"project": {
+					"name": "{{ .project }}"
+				}
+			},
+			"input": {
+				"pfs": {
+					"glob": "/*",
+					"project": "{{ .project }}",
+					"repo": "input"
+				}
+			},
+			"parallelism_spec": {
+				"constant": "1"
+			},
+			"transform": {
+				"cmd": [
+					"/bin/bash"
+				],
+				"stdin": [
+					"sleep 15 && cp /pfs/input/* /pfs/out"
+				]
+			}
+		}
+		EOF
+		echo foo | pachctl put file input@master:/foo --project {{ .project }}
+	`,
+		"pipeline1", pipeline1,
+		"project", project,
+	).Run())
+	jobs, err := c.ListProjectJob(project, pipeline1, nil, -1, false)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobs))
+
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl inspect job {{ .pipeline1 }}@{{ .job }} --project {{ .project }} | match {{ .job }}
+		pachctl wait job {{ .pipeline1 }}@{{ .job }} --project {{ .project }}
+		pachctl inspect job {{ .pipeline1 }}@{{ .job }} --project {{ .project }} --no-color | match "State: success"
+	`,
+		"pipeline1", pipeline1,
+		"project", project,
+		"job", jobs[0].Job.GetID(),
 	).Run())
 }
 
@@ -598,6 +699,11 @@ func TestEditPipeline(t *testing.T) {
 		| match 'cmd:' \
 		| match 'cp /pfs/data/\* /pfs/out'
 		`).Run())
+	// changing the pipeline name should be an error
+	require.YesError(t, tu.PachctlBashCmd(t, c, `EDITOR="sed -i -e s/my-pipeline/my-pipeline2/" pachctl edit pipeline my-pipeline -o yaml`).Run())
+	// changing the project name should be an error
+	require.YesError(t, tu.PachctlBashCmd(t, c, `EDITOR="sed -i -e s/default/default2/" pachctl edit pipeline my-pipeline -o yaml`).Run())
+
 }
 
 func TestMissingPipeline(t *testing.T) {
@@ -861,8 +967,9 @@ func TestJsonnetPipelineTemplateMulti(t *testing.T) {
 		} ]
 		EOF
 		pachctl list pipeline | match foo-pipeline | match bar-pipeline
-		pachctl wait commit bar-pipeline@master
+		pachctl wait commit foo-pipeline@master
 		pachctl get file foo-pipeline@master:/baz-middle | match foo-data
+		pachctl wait commit bar-pipeline@master
 		pachctl get file bar-pipeline@master:/baz-final | match foo-data
 		`).Run())
 }
@@ -953,6 +1060,52 @@ pachctl list job -x | match ' / 1'
 pachctl list job -x | match ' / 2'
 `).Run()
 	}, "expected to see two datums")
+}
+
+func TestListJobWithProject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	projectName := tu.UniqueString("project")
+	pipelineName := tu.UniqueString("pipeline")
+	require.NoError(t, tu.PachctlBashCmd(t, c, "yes | pachctl delete all").Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create project {{.project}}
+		pachctl create repo --project {{.project}} data
+		pachctl put file --project {{.project}} data@master:/file <<<"This is a test"
+		pachctl create pipeline <<EOF
+		  {
+		    "pipeline": {
+				"name": "{{.pipeline}}",
+				"project": {
+					"name": "{{.project}}"
+				}
+			},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "data"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["cp /pfs/data/file /pfs/out"]
+		    }
+		  }
+		EOF
+		`,
+		"project", projectName, "pipeline", pipelineName).Run())
+	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+		return errors.Wrap(tu.PachctlBashCmd(t, c, `
+		pachctl list job --project {{.project}} -x | match {{.pipeline}}
+		pachctl list job --project notmyproject -x | match -v {{.pipeline}}
+		pachctl list job -x | match -v {{.pipeline}}
+		`,
+			"project", projectName,
+			"pipeline", pipelineName).Run(),
+			"failed to filter list jobs based on project")
+	}, "expected to see job")
 }
 
 func TestPipelineWithoutSecrets(t *testing.T) {

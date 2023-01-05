@@ -6,13 +6,13 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/sirupsen/logrus"
 
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/random"
@@ -47,7 +47,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	if a.env.Config.LicenseKey == "" || a.env.Config.EnterpriseSecret == "" {
 		return errors.New("License server failed to bootstrap via environment; Either both or neither of LICENSE_KEY and ENTERPRISE_SECRET must be set.")
 	}
-	logrus.Info("Started to configure license server via environment")
+	log.Info(ctx, "Started to configure license server via environment")
 	localhostPeerAddr := "grpc://localhost:" + fmt.Sprint(a.env.Config.PeerPort)
 	if err := func() error {
 		ctx = auth.AsInternalUser(ctx, "license-server")
@@ -88,7 +88,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	}(); err != nil {
 		return errors.Errorf("bootstrap license service from the environment: %v", err)
 	}
-	logrus.Info("Successfully configured license server via environment")
+	log.Info(ctx, "Successfully configured license server via environment")
 	return nil
 }
 
@@ -211,7 +211,7 @@ func (a *apiServer) AddCluster(ctx context.Context, req *lc.AddClusterRequest) (
 
 	// Register the pachd in the database
 	if _, err := a.env.DB.ExecContext(ctx,
-		`INSERT INTO license.clusters (id, address, secret, cluster_deployment_id, user_address, is_enterprise_server, version, auth_enabled) 
+		`INSERT INTO license.clusters (id, address, secret, cluster_deployment_id, user_address, is_enterprise_server, version, auth_enabled)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, req.Id, req.Address, secret, req.ClusterDeploymentId, req.UserAddress, req.EnterpriseServer, "unknown", false); err != nil {
 		// throw a unique error if the error is a primary key uniqueness violation
 		if dbutil.IsUniqueViolation(err) {

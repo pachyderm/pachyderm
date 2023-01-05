@@ -83,8 +83,8 @@ func (mr *MergeReader) IterateDeletes(ctx context.Context, cb func(File) error, 
 
 // TODO: Look at the sizes?
 // TODO: Come up with better heuristics for sharding.
-func (mr *MergeReader) Shards(ctx context.Context) ([]*index.PathRange, error) {
-	shards, err := mr.fileSets[0].Shards(ctx)
+func (mr *MergeReader) Shards(ctx context.Context, opts ...index.Option) ([]*index.PathRange, error) {
+	shards, err := mr.fileSets[0].Shards(ctx, opts...)
 	return shards, errors.EnsureStack(err)
 }
 

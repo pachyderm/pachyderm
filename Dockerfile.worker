@@ -7,7 +7,12 @@ COPY LICENSE /LICENSE
 COPY licenses /licenses
 
 WORKDIR /app
-COPY worker . 
+# etc/worker/init.go copies the dumb-init for the right architecture into the user container and
+# makes it executable.  This is to avoid needing a shell in this container to run
+# `if [ $TARGETPLATFORM = "linux/amd64 "]; ...`
+ADD --chown=1000:1000 https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_x86_64 /app/dumb-init-amd64
+ADD --chown=1000:1000 https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_aarch64 /app/dumb-init-arm64
+COPY worker .
 COPY worker_init init
 COPY pachctl .
 COPY pachtf .

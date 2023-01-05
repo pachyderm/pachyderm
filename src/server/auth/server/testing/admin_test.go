@@ -467,14 +467,16 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
-	repoWriter := tu.UniqueString("TestListRepoAdminIsOwnerOfAllRepos")
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoWriter))
+	project := tu.UniqueString("project")
+	require.NoError(t, aliceClient.CreateProject(project))
+	repo := tu.UniqueString("repo")
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, aliceClient.CreateProjectRepo(project, repo))
 
-	// bob calls ListRepo, but has NONE access to all repos
 	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		require.ElementsEqual(t, info.AuthInfo.Permissions, []auth.Permission{auth.Permission_PROJECT_CREATE})
+		require.ElementsEqual(t, []auth.Permission{}, info.AuthInfo.Permissions)
 	}
 
 	// admin calls ListRepo, and has OWNER access to all repos

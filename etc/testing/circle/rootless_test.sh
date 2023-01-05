@@ -28,7 +28,7 @@ kubectl apply -f etc/testing/gatekeeper.yaml
 kubectl -n gatekeeper-system wait --for=condition=ready pod -l control-plane=audit-controller --timeout=5m
 # install gatekeeper OPA Templates
 kubectl apply -f etc/testing/opa-policies/
-sleep 10
+sleep 20
 #Install gatekeeper OPA constraints 
 kubectl apply -f etc/testing/opa-constraints.yaml
 

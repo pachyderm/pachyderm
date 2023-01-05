@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
@@ -35,8 +36,8 @@ type testFile struct {
 	data  []byte
 }
 
-func writeFileSet(t *testing.T, s *Storage, files []*testFile) ID {
-	w := s.NewWriter(context.Background())
+func writeFileSet(ctx context.Context, t *testing.T, s *Storage, files []*testFile) ID {
+	w := s.NewWriter(ctx)
 	for _, file := range files {
 		require.NoError(t, w.Add(file.path, file.datum, bytes.NewReader(file.data)))
 	}
@@ -45,9 +46,9 @@ func writeFileSet(t *testing.T, s *Storage, files []*testFile) ID {
 	return *id
 }
 
-func checkFile(t *testing.T, f File, tf *testFile) {
+func checkFile(ctx context.Context, t *testing.T, f File, tf *testFile) {
 	require.NoError(t, miscutil.WithPipe(func(w io.Writer) error {
-		return errors.EnsureStack(f.Content(context.Background(), w))
+		return errors.EnsureStack(f.Content(ctx, w))
 	}, func(r io.Reader) error {
 		actual := make([]byte, len(tf.data))
 		_, err := io.ReadFull(r, actual)
@@ -57,15 +58,15 @@ func checkFile(t *testing.T, f File, tf *testFile) {
 
 // newTestStorage creates a storage object with a test db and test tracker
 // both of those components are kept hidden, so this is only appropriate for testing this package.
-func newTestStorage(tb testing.TB) *Storage {
+func newTestStorage(ctx context.Context, tb testing.TB, opts ...StorageOption) *Storage {
 	db := dockertestenv.NewTestDB(tb)
 	tr := track.NewTestTracker(tb, db)
-	return NewTestStorage(tb, db, tr)
+	return NewTestStorage(ctx, tb, db, tr, opts...)
 }
 
 func TestWriteThenRead(t *testing.T) {
-	ctx := context.Background()
-	storage := newTestStorage(t)
+	ctx := pctx.TestContext(t)
+	storage := newTestStorage(ctx, t)
 	seed := time.Now().UTC().UnixNano()
 	random := rand.New(rand.NewSource(seed))
 	fileNames := index.Generate("abc")
@@ -87,7 +88,7 @@ func TestWriteThenRead(t *testing.T) {
 	}
 
 	// Write the files to the fileset.
-	id := writeFileSet(t, storage, files)
+	id := writeFileSet(ctx, t, storage, files)
 
 	// Read the files from the fileset, checking against the recorded files.
 	fs, err := storage.Open(ctx, []ID{id})
@@ -96,15 +97,15 @@ func TestWriteThenRead(t *testing.T) {
 	err = fs.Iterate(ctx, func(f File) error {
 		tf := fileIter[0]
 		fileIter = fileIter[1:]
-		checkFile(t, f, tf)
+		checkFile(ctx, t, f, tf)
 		return nil
 	})
 	require.NoError(t, err)
 }
 
 func TestWriteThenReadFuzz(t *testing.T) {
-	ctx := context.Background()
-	storage := newTestStorage(t)
+	ctx := pctx.TestContext(t)
+	storage := newTestStorage(ctx, t)
 	seed := time.Now().UTC().UnixNano()
 	random := rand.New(rand.NewSource(seed))
 	fileNames := index.Generate("abc")
@@ -129,12 +130,12 @@ func TestWriteThenReadFuzz(t *testing.T) {
 	// Confirm that all of the content and hashes other than the changed file remain the same.
 	for i := 0; i < 10; i++ {
 		// Write the files to the fileset.
-		id := writeFileSet(t, storage, files)
+		id := writeFileSet(ctx, t, storage, files)
 		r, err := storage.Open(ctx, []ID{id})
 		require.NoError(t, err)
 		filesIter := files
 		require.NoError(t, r.Iterate(ctx, func(f File) error {
-			checkFile(t, f, filesIter[0])
+			checkFile(ctx, t, f, filesIter[0])
 			filesIter = filesIter[1:]
 			return nil
 		}))
@@ -150,8 +151,8 @@ func TestWriteThenReadFuzz(t *testing.T) {
 }
 
 func TestCopy(t *testing.T) {
-	ctx := context.Background()
-	fileSets := newTestStorage(t)
+	ctx := pctx.TestContext(t)
+	fileSets := newTestStorage(ctx, t)
 	seed := time.Now().UTC().UnixNano()
 	random := rand.New(rand.NewSource(seed))
 	fileNames := index.Generate("abc")
@@ -171,7 +172,7 @@ func TestCopy(t *testing.T) {
 			})
 		}
 	}
-	originalID := writeFileSet(t, fileSets, files)
+	originalID := writeFileSet(ctx, t, fileSets, files)
 
 	initialChunkCount := countChunks(t, fileSets)
 	// Copy intial fileset to a new copy fileset.
@@ -184,7 +185,7 @@ func TestCopy(t *testing.T) {
 	// Compare initial fileset and copy fileset.
 	rCopy := fileSets.newReader(*copyID)
 	require.NoError(t, rCopy.Iterate(ctx, func(f File) error {
-		checkFile(t, f, files[0])
+		checkFile(ctx, t, f, files[0])
 		files = files[1:]
 		return nil
 	}))
@@ -203,40 +204,41 @@ func countChunks(t *testing.T, s *Storage) (count int64) {
 
 // This test ensures that future changes do not affect the stable hashes of files since that would be a breaking change.
 func TestStableHash(t *testing.T) {
+	ctx := pctx.TestContext(t)
 	type testData struct {
 		seed     int64
 		expected []string
 	}
 	tds := []*testData{
-		&testData{
+		{
 			seed: 1648577872380609229,
 			expected: []string{
 				"27e12145099615b6bf0364a4472452dfe0e8105e6d58d7fbc5d0c038c7a50736",
 				"5672e6f3e1841f3f1e284c2d4b7c12dc213ffc88878c9d3e2302be8acd0198ef",
 			},
 		},
-		&testData{
+		{
 			seed: 1648742949150704545,
 			expected: []string{
 				"020e7fda5b3d81b000918ac4fa808a6569fc01000d15322247206aeeea1761a2",
 				"d1842da7cfdc60c4a63c8ab58bd8eee4fa765a270743f3aa36ece6cbef786423",
 			},
 		},
-		&testData{
+		{
 			seed: 1648742961991348032,
 			expected: []string{
 				"8a801a53ba2933cccea69fdb61eb3aa04b2019eea541aa848c6b42ef4c7262d5",
 				"d578bcae30c790722048f7d698a6279049012a42b339e802da07bca269831b30",
 			},
 		},
-		&testData{
+		{
 			seed: 1648742974827637769,
 			expected: []string{
 				"70e7271fc45251fcf788175df481ab6fd090f37860fcdc63b9f25c26834adf52",
 				"b480bf9cffce51b52615a59dc254647145c6376551cf864d2eb87c63bd11344d",
 			},
 		},
-		&testData{
+		{
 			seed: 1648742988445537518,
 			expected: []string{
 				"ca46ed3b9bc6a9b090d94a71d4d308ca05580ab467681cdb236b097206feba5a",
@@ -249,20 +251,21 @@ func TestStableHash(t *testing.T) {
 		output, err := pachhash.ParseHex([]byte(td.expected[0]))
 		require.NoError(t, err)
 		random := rand.New(rand.NewSource(td.seed))
-		testStableHash(t, oldRandomBytes(random, 100*units.KB), output[:], msg)
+		testStableHash(ctx, t, oldRandomBytes(random, 100*units.KB), output[:], msg)
 		output, err = pachhash.ParseHex([]byte(td.expected[1]))
 		require.NoError(t, err)
 		random = rand.New(rand.NewSource(td.seed))
-		testStableHash(t, oldRandomBytes(random, 100*units.MB), output[:], msg)
+		testStableHash(ctx, t, oldRandomBytes(random, 100*units.MB), output[:], msg)
 	}
 }
 
 func TestStableHashFuzz(t *testing.T) {
+	ctx := pctx.TestContext(t)
 	seed := time.Now().UTC().UnixNano()
 	msg := fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
 	random := rand.New(rand.NewSource(seed))
-	testStableHash(t, randutil.Bytes(random, 100*units.KB), nil, msg)
-	testStableHash(t, randutil.Bytes(random, 100*units.MB), nil, msg)
+	testStableHash(ctx, t, randutil.Bytes(random, 100*units.KB), nil, msg)
+	testStableHash(ctx, t, randutil.Bytes(random, 100*units.MB), nil, msg)
 }
 
 var letters = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -277,9 +280,8 @@ func oldRandomBytes(random *rand.Rand, n int) []byte {
 	return bs
 }
 
-func testStableHash(t *testing.T, data, expected []byte, msg string) {
-	ctx := context.Background()
-	storage := newTestStorage(t)
+func testStableHash(ctx context.Context, t *testing.T, data, expected []byte, msg string) {
+	storage := newTestStorage(ctx, t)
 	var ids []ID
 	write := func(data []byte) {
 		w := storage.NewWriter(ctx)

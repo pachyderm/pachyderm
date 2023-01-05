@@ -10,6 +10,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -22,7 +23,7 @@ func TestPortForwardError(t *testing.T) {
 	defer os.Remove(cfgFile.Name())
 	os.Setenv("PACH_CONFIG", cfgFile.Name())
 
-	c := tu.Cmd("pachctl", "version", "--timeout=1ns")
+	c := tu.Command("pachctl", "version", "--timeout=1ns")
 	var errMsg bytes.Buffer
 	c.Stdout = io.Discard
 	c.Stderr = &errMsg
@@ -35,7 +36,11 @@ func TestPortForwardError(t *testing.T) {
 // 'CreateAlias' was not used properly (or the command just needs to specify
 // its name).
 func TestCommandAliases(t *testing.T) {
-	pachctlCmd := PachctlCmd()
+	log.Test(t) // Just to capture global log messages; prefer pctx.TestContext in newer code.
+	pachctlCmd, err := PachctlCmd()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Replace the first component with 'pachctl' because it uses os.Args[0] by default
 	path := func(cmd *cobra.Command) string {
@@ -99,7 +104,7 @@ func testConfig(t *testing.T, pachdAddressStr string) *os.File {
 		V2: &config.ConfigV2{
 			ActiveContext: "test",
 			Contexts: map[string]*config.Context{
-				"test": &config.Context{
+				"test": {
 					PachdAddress: pachdAddress.Qualified(),
 				},
 			},

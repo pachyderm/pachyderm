@@ -33,6 +33,7 @@ case "${BUCKET}" in
     make test-transaction
     make test-s3gateway-unit
     make test-worker
+    make test-testutils
     bash -ceo pipefail "go test -p 1 -count 1 ./src/server/debug/... ${TESTFLAGS}"
     # these tests require secure env vars to run, which aren't available
     # when the PR is coming from an outside contributor - so we just
@@ -42,9 +43,6 @@ case "${BUCKET}" in
   EXAMPLES)
     echo "Running the example test suite"
     ./etc/testing/examples.sh
-    ;;
-  PFS)
-    make test-pfs-server
     make test-fuse
     ;;
   S3_AUTH)

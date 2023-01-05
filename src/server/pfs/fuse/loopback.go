@@ -16,11 +16,12 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
@@ -141,7 +142,7 @@ func (n *loopbackNode) path() string {
 
 func (n *loopbackNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
 	p := filepath.Join(n.path(), name)
-	if err := n.download(p, meta); err != nil {
+	if err := n.download(ctx, p, meta); err != nil {
 		return nil, fs.ToErrno(err)
 	}
 
@@ -186,7 +187,7 @@ func (n *loopbackNode) Mkdir(ctx context.Context, name string, mode uint32, out 
 	if errno := n.checkWrite(p); errno != 0 {
 		return nil, errno
 	}
-	if err := n.download(p, meta); err != nil {
+	if err := n.download(ctx, p, meta); err != nil {
 		return nil, fs.ToErrno(err)
 	}
 	err := os.Mkdir(p, os.FileMode(mode))
@@ -213,7 +214,7 @@ func (n *loopbackNode) Rmdir(ctx context.Context, name string) syscall.Errno {
 	if errno := n.checkWrite(p); errno != 0 {
 		return errno
 	}
-	if err := n.download(p, meta); err != nil {
+	if err := n.download(ctx, p, meta); err != nil {
 		return fs.ToErrno(err)
 	}
 	err := syscall.Rmdir(p)
@@ -225,7 +226,7 @@ func (n *loopbackNode) Unlink(ctx context.Context, name string) (errno syscall.E
 	if errno := n.checkWrite(p); errno != 0 {
 		return errno
 	}
-	if err := n.download(p, meta); err != nil {
+	if err := n.download(ctx, p, meta); err != nil {
 		return fs.ToErrno(err)
 	}
 	defer func() {
@@ -278,7 +279,7 @@ func (n *loopbackNode) Create(ctx context.Context, name string, flags uint32, mo
 	if errno := n.checkWrite(p); errno != 0 {
 		return nil, nil, 0, errno
 	}
-	if err := n.download(p, full); err != nil {
+	if err := n.download(ctx, p, full); err != nil {
 		return nil, nil, 0, fs.ToErrno(err)
 	}
 	defer func() {
@@ -311,11 +312,11 @@ func (n *loopbackNode) Symlink(ctx context.Context, target, name string, out *fu
 	if errno := n.checkWrite(p); errno != 0 {
 		return nil, errno
 	}
-	if err := n.download(p, full); err != nil {
+	if err := n.download(ctx, p, full); err != nil {
 		return nil, fs.ToErrno(err)
 	}
 	target = filepath.Join(n.root().rootPath, n.trimTargetPath(target))
-	if err := n.download(target, full); err != nil {
+	if err := n.download(ctx, target, full); err != nil {
 		return nil, fs.ToErrno(err)
 	}
 	defer func() {
@@ -345,11 +346,11 @@ func (n *loopbackNode) Link(ctx context.Context, target fs.InodeEmbedder, name s
 	if errno := n.checkWrite(p); errno != 0 {
 		return nil, errno
 	}
-	if err := n.download(p, full); err != nil {
+	if err := n.download(ctx, p, full); err != nil {
 		return nil, fs.ToErrno(err)
 	}
 	targetNode := toLoopbackNode(target)
-	if err := n.download(targetNode.path(), full); err != nil {
+	if err := n.download(ctx, targetNode.path(), full); err != nil {
 		return nil, fs.ToErrno(err)
 	}
 	err := syscall.Link(targetNode.path(), p)
@@ -399,7 +400,7 @@ func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle
 		}
 		state = dirty
 	}
-	if err := n.download(p, state); err != nil {
+	if err := n.download(ctx, p, state); err != nil {
 		return nil, 0, fs.ToErrno(err)
 	}
 	if isCreate(flags) {
@@ -418,7 +419,7 @@ func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle
 }
 
 func (n *loopbackNode) Opendir(ctx context.Context) syscall.Errno {
-	if err := n.download(n.path(), meta); err != nil {
+	if err := n.download(ctx, n.path(), meta); err != nil {
 		return fs.ToErrno(err)
 	}
 	fd, err := syscall.Open(n.path(), syscall.O_DIRECTORY, 0755)
@@ -430,7 +431,7 @@ func (n *loopbackNode) Opendir(ctx context.Context) syscall.Errno {
 }
 
 func (n *loopbackNode) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
-	if err := n.download(n.path(), meta); err != nil {
+	if err := n.download(ctx, n.path(), meta); err != nil {
 		return nil, fs.ToErrno(err)
 	}
 	return fs.NewLoopbackDirStream(n.path())
@@ -441,7 +442,7 @@ func (n *loopbackNode) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.A
 		return f.(fs.FileGetattrer).Getattr(ctx, out)
 	}
 	p := n.path()
-	if err := n.download(p, meta); err != nil {
+	if err := n.download(ctx, p, meta); err != nil {
 		return fs.ToErrno(err)
 	}
 
@@ -577,7 +578,7 @@ func (n *loopbackNode) mkdirMountNames() (retErr error) {
 // download files into the loopback filesystem, if meta is true then only the
 // directory structure will be created, no actual data will be downloaded,
 // files will be truncated to their actual sizes (but will be all zeros).
-func (n *loopbackNode) download(origPath string, state fileState) (retErr error) {
+func (n *loopbackNode) download(ctx context.Context, origPath string, state fileState) (retErr error) {
 	if n.getFileState(origPath) >= state {
 		// Already got this file, so we can just return
 		return nil
@@ -604,11 +605,7 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 	// direction) to stop the state machine changing state _during_ a download()
 	// NB: empty string case is to support pachctl mount as well as mount-server
 	if !(st == "" || st == "mounted") {
-		logrus.Infof(
-			"Skipping download('%s') because %s state was %s; "+
-				"getFileState(%s) -> %d, state=%d",
-			origPath, name, st, origPath, n.getFileState(origPath), state,
-		)
+		log.Info(ctx, "Skipping download because of state", zap.String("origPath", origPath), zap.String("name", name), zap.String("state", st), zap.Int32("getFileState(origPath)", int32(n.getFileState(origPath))), zap.Int32("state", int32(state)))
 		// return an error to stop an empty directory listing being cached by
 		// the OS
 		return errors.WithStack(fmt.Errorf("repo at %s is not mounted", name))
@@ -619,7 +616,7 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 		return err
 	}
 	// log the commit
-	logrus.Infof("Downloading %s from %s@%s", origPath, name, commit)
+	log.Info(ctx, "Downloading", zap.String("path", origPath), zap.String("from", fmt.Sprintf("%s@%s", name, commit)))
 	if commit == "" {
 		return nil
 	}

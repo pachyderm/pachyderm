@@ -12,11 +12,12 @@ import (
 	runtimedebug "runtime/debug"
 	"runtime/pprof"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/wcharczuk/go-chart"
+	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -187,7 +189,7 @@ func (s *debugServer) appLogs(ctx context.Context, tw *tar.Writer) error {
 	}
 	for _, pod := range pods.Items {
 		podPrefix := join(pod.Labels["app"], pod.Name)
-		if err := s.collectDescribe(tw, pod.Name, podPrefix); err != nil {
+		if err := s.collectDescribe(ctx, tw, pod.Name, podPrefix); err != nil {
 			return err
 		}
 		for _, container := range pod.Spec.Containers {
@@ -212,7 +214,16 @@ func (s *debugServer) handlePipelineRedirect(
 	collectWorker collectWorkerFunc,
 	redirect redirectFunc,
 ) (retErr error) {
-	prefix := join(pipelinePrefix, pipelineInfo.Pipeline.Name)
+	if pipelineInfo == nil {
+		return errors.Errorf("nil pipeline info")
+	}
+	if pipelineInfo.Pipeline == nil {
+		return errors.Errorf("nil pipeline in pipeline info")
+	}
+	if pipelineInfo.Pipeline.Project == nil {
+		return errors.Errorf("nil project in pipeline %q", pipelineInfo.Pipeline.Name)
+	}
+	prefix := join(pipelinePrefix, pipelineInfo.Pipeline.Project.Name, pipelineInfo.Pipeline.Name)
 	defer func() {
 		if retErr != nil {
 			retErr = writeErrorFile(tw, retErr, prefix)
@@ -234,7 +245,7 @@ func (s *debugServer) forEachWorker(ctx context.Context, pipelineInfo *pps.Pipel
 		return err
 	}
 	if len(pods) == 0 {
-		return errors.Errorf("no worker pods found for pipeline %v", pipelineInfo.Pipeline.Name)
+		return errors.Errorf("no worker pods found for pipeline %v", pipelineInfo.Pipeline)
 	}
 	for _, pod := range pods {
 		if err := cb(&pod); err != nil {
@@ -256,6 +267,7 @@ func (s *debugServer) getWorkerPods(ctx context.Context, pipelineInfo *pps.Pipel
 				metav1.SetAsLabelSelector(
 					map[string]string{
 						"app":             "pipeline",
+						"pipelineProject": pipelineInfo.Pipeline.Project.Name,
 						"pipelineName":    pipelineInfo.Pipeline.Name,
 						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
 					},
@@ -303,6 +315,10 @@ func (s *debugServer) handleWorkerRedirect(ctx context.Context, tw *tar.Writer, 
 	if len(prefix) > 0 {
 		workerPrefix = join(prefix[0], workerPrefix)
 	}
+
+	ctx, end := log.SpanContext(ctx, "handleWorkerRedirect", zap.String("pod", pod.Name))
+	defer end(log.Errorp(&retErr))
+
 	defer func() {
 		if retErr != nil {
 			retErr = writeErrorFile(tw, retErr, workerPrefix)
@@ -322,7 +338,7 @@ func (s *debugServer) handleWorkerRedirect(ctx context.Context, tw *tar.Writer, 
 	}
 	defer func() {
 		if err := c.Close(); err != nil {
-			log.Errorf("errored closing worker client: %v", err)
+			log.Error(ctx, "errored closing worker client", zap.Error(err))
 		}
 	}()
 	r, err := cb(ctx, c.DebugClient, &debug.Filter{
@@ -367,7 +383,8 @@ func collectProfile(ctx context.Context, tw *tar.Writer, profile *debug.Profile,
 	}, prefix...)
 }
 
-func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) error {
+func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) (retErr error) {
+	defer log.Span(ctx, "writeProfile", zap.String("profile", profile.GetName()))(log.Errorp(&retErr))
 	if profile.Name == "cpu" {
 		if err := pprof.StartCPUProfile(w); err != nil {
 			return errors.EnsureStack(err)
@@ -428,8 +445,9 @@ func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_Bi
 	)
 }
 
-func collectBinary(_ context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
+func collectBinary(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
 	return collectDebugFile(tw, "binary", "", func(w io.Writer) (retErr error) {
+		defer log.Span(ctx, "collectBinary", zap.String("binary", os.Args[0]))(log.Errorp(&retErr))
 		f, err := os.Open(os.Args[0])
 		if err != nil {
 			return errors.EnsureStack(err)
@@ -472,13 +490,15 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 }
 
 func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
-	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, prefix ...string) error {
+	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, prefix ...string) (retErr error) {
+		defer log.Span(ctx, "collectPachdDump")(log.Errorp(&retErr))
+
 		// Collect input repos.
 		if err := s.collectInputRepos(ctx, tw, pachClient, limit); err != nil {
 			return err
 		}
 		// Collect the pachd version.
-		if err := s.collectPachdVersion(tw, pachClient, prefix...); err != nil {
+		if err := s.collectPachdVersion(ctx, tw, pachClient, prefix...); err != nil {
 			return err
 		}
 		// Collect go info.
@@ -486,7 +506,7 @@ func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
 			return err
 		}
 		// Collect the pachd describe output.
-		if err := s.collectDescribe(tw, s.name, prefix...); err != nil {
+		if err := s.collectDescribe(ctx, tw, s.name, prefix...); err != nil {
 			return err
 		}
 		// Collect the pachd container logs.
@@ -494,7 +514,9 @@ func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
 			return err
 		}
 		// Collect the pachd container logs from loki.
-		if err := s.collectLogsLoki(ctx, tw, s.name, "pachd", prefix...); err != nil {
+		lctx, c := context.WithTimeout(ctx, time.Minute)
+		defer c()
+		if err := s.collectLogsLoki(lctx, tw, s.name, "pachd", prefix...); err != nil {
 			return err
 		}
 		// Collect the pachd container dump.
@@ -502,15 +524,19 @@ func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
 	}
 }
 
-func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, limit int64) error {
+func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, limit int64) (retErr error) {
+	defer log.Span(ctx, "collectInputRepos")(log.Errorp(&retErr))
 	repoInfos, err := pachClient.ListRepo()
 	if err != nil {
 		return err
 	}
-	for _, repoInfo := range repoInfos {
-		if _, err := pachClient.InspectProjectPipeline(repoInfo.Repo.Project.GetName(), repoInfo.Repo.Name, true); err != nil {
+	for i, repoInfo := range repoInfos {
+		if err := validateRepoInfo(repoInfo); err != nil {
+			return errors.Wrapf(err, "invalid repo info %d from ListRepo", i)
+		}
+		if _, err := pachClient.InspectProjectPipeline(repoInfo.Repo.Project.Name, repoInfo.Repo.Name, true); err != nil {
 			if errutil.IsNotFoundError(err) {
-				repoPrefix := join("source-repos", repoInfo.Repo.Name)
+				repoPrefix := join("source-repos", repoInfo.Repo.Project.Name, repoInfo.Repo.Name)
 				return s.collectCommits(ctx, tw, pachClient, repoInfo.Repo, limit, repoPrefix)
 			}
 			return err
@@ -653,8 +679,9 @@ func (s *debugServer) collectGoInfo(tw *tar.Writer, prefix ...string) error {
 	}, prefix...)
 }
 
-func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.APIClient, prefix ...string) error {
-	return collectDebugFile(tw, "version", "txt", func(w io.Writer) error {
+func (s *debugServer) collectPachdVersion(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, prefix ...string) error {
+	return collectDebugFile(tw, "version", "txt", func(w io.Writer) (retErr error) {
+		defer log.Span(ctx, "collectPachdVersion")(log.Errorp(&retErr))
 		version, err := pachClient.Version()
 		if err != nil {
 			return err
@@ -664,8 +691,9 @@ func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.API
 	}, prefix...)
 }
 
-func (s *debugServer) collectDescribe(tw *tar.Writer, pod string, prefix ...string) error {
-	return collectDebugFile(tw, "describe", "txt", func(w io.Writer) error {
+func (s *debugServer) collectDescribe(ctx context.Context, tw *tar.Writer, pod string, prefix ...string) error {
+	return collectDebugFile(tw, "describe", "txt", func(w io.Writer) (retErr error) {
+		defer log.Span(ctx, "collectDescribe")(log.Errorp(&retErr))
 		pd := describe.PodDescriber{
 			Interface: s.env.GetKubeClient(),
 		}
@@ -680,6 +708,7 @@ func (s *debugServer) collectDescribe(tw *tar.Writer, pod string, prefix ...stri
 
 func (s *debugServer) collectLogs(ctx context.Context, tw *tar.Writer, pod, container string, prefix ...string) error {
 	if err := collectDebugFile(tw, "logs", "txt", func(w io.Writer) (retErr error) {
+		defer log.Span(ctx, "collectLogs", zap.String("pod", pod), zap.String("container", container))(log.Errorp(&retErr))
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream(ctx)
 		if err != nil {
 			return errors.EnsureStack(err)
@@ -695,6 +724,7 @@ func (s *debugServer) collectLogs(ctx context.Context, tw *tar.Writer, pod, cont
 		return err
 	}
 	return collectDebugFile(tw, "logs-previous", "txt", func(w io.Writer) (retErr error) {
+		defer log.Span(ctx, "collectLogs.previous", zap.String("pod", pod), zap.String("container", container))(log.Errorp(&retErr))
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream(ctx)
 		if err != nil {
 			return errors.EnsureStack(err)
@@ -713,7 +743,8 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, tw *tar.Writer, pod, 
 	if s.env.Config().LokiHost == "" {
 		return nil
 	}
-	return collectDebugFile(tw, "logs-loki", "txt", func(w io.Writer) error {
+	return collectDebugFile(tw, "logs-loki", "txt", func(w io.Writer) (retErr error) {
+		defer log.Span(ctx, "collectLogsLoki", zap.String("pod", pod), zap.String("container", container))(log.Errorp(&retErr))
 		queryStr := `{pod="` + pod
 		if container != "" {
 			queryStr += `", container="` + container
@@ -746,7 +777,8 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, tw *tar.Writer, pod, 
 	}, prefix...)
 }
 
-func collectDump(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
+func collectDump(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) (retErr error) {
+	defer log.Span(ctx, "collectDump", zap.Strings("prefix", prefix))(log.Errorp(&retErr))
 	if err := collectProfile(ctx, tw, &debug.Profile{Name: "goroutine"}, prefix...); err != nil {
 		return err
 	}
@@ -754,9 +786,13 @@ func collectDump(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefi
 }
 
 func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
-	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
+	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, prefix ...string) (retErr error) {
+		defer log.Span(ctx, "collectPipelineDump", zap.Stringer("pipeline", pipelineInfo.GetPipeline()))(log.Errorp(&retErr))
+		if err := validatePipelineInfo(pipelineInfo); err != nil {
+			return errors.Wrap(err, "collectPipelineDumpFunc: invalid pipeline info")
+		}
 		if err := collectDebugFile(tw, "spec", "json", func(w io.Writer) error {
-			fullPipelineInfos, err := pachClient.ListProjectPipelineHistory(pfs.DefaultProjectName, pipelineInfo.Pipeline.Name, -1, true)
+			fullPipelineInfos, err := pachClient.ListProjectPipelineHistory(pipelineInfo.Pipeline.Project.Name, pipelineInfo.Pipeline.Name, -1, true)
 			if err != nil {
 				return err
 			}
@@ -772,14 +808,11 @@ func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
 		if err := s.collectCommits(ctx, tw, pachClient, client.NewProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
 			return err
 		}
-		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline.Name, limit, prefix...); err != nil {
+		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline, limit, prefix...); err != nil {
 			return err
 		}
 		if s.env.Config().LokiHost != "" {
 			if err := s.forEachWorkerLoki(ctx, pipelineInfo, func(pod string) error {
-				// Loki requests can hang if the size of the log lines is too big, so we set a timeout
-				ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
-				defer cancel()
 				workerPrefix := join(podPrefix, pod)
 				if len(prefix) > 0 {
 					workerPrefix = join(prefix[0], workerPrefix)
@@ -815,6 +848,17 @@ func (s *debugServer) forEachWorkerLoki(ctx context.Context, pipelineInfo *pps.P
 	return nil
 }
 
+// quoteLogQLStreamSelector returns a string quoted as a LogQL stream selector.
+// The rules for quoting a LogQL stream selector are documented at
+// https://grafana.com/docs/loki/latest/logql/log_queries/#log-stream-selector
+// to be the same as for a Prometheus string literal, as documented at
+// https://prometheus.io/docs/prometheus/latest/querying/basics/#string-literals.
+// This happens to be the same as a Go string, with single or double quotes or
+// backticks allowed as enclosing characters.
+func quoteLogQLStreamSelector(s string) string {
+	return strconv.Quote(s)
+}
+
 func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.PipelineInfo) (map[string]struct{}, error) {
 	// This function uses the log querying API and not the label querying API, to bound the the
 	// number of workers for a pipeline that we return.  We'll get 30,000 of the most recent
@@ -822,7 +866,7 @@ func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.P
 	// logs for further inspection.  The alternative would be to get every worker that existed
 	// in some time interval, but that results in too much data to inspect.
 
-	queryStr := `{pipelineName="` + pipelineInfo.Pipeline.Name + `"}`
+	queryStr := fmt.Sprintf(`{pipelineProject=%s, pipelineName=%s}`, quoteLogQLStreamSelector(pipelineInfo.Pipeline.Project.Name), quoteLogQLStreamSelector(pipelineInfo.Pipeline.Name))
 	pods := make(map[string]struct{})
 	logs, err := s.queryLoki(ctx, queryStr)
 	if err != nil {
@@ -843,12 +887,13 @@ func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.P
 	return pods, nil
 }
 
-// This used to be 5,000 but a comment said this was too few logs, so now it's 30,000.  If it still
-// seems too small, bump it up again.  5,000 remains the maximum value of "limit" in queries that
-// Loki seems to accept.
 const (
-	maxLogs       = 30000
-	serverMaxLogs = 5000
+	// maxLogs used to be 5,000 but a comment said this was too few logs, so now it's 30,000.
+	// If it still seems too small, bump it up again.
+	maxLogs = 30000
+	// 5,000 is the maximum value of "limit" in queries that Loki seems to accept.
+	// We set serverMaxLogs below the actual limit because of a bug in Loki where it hangs when you request too much data from it.
+	serverMaxLogs = 1000
 )
 
 type lokiLog struct {
@@ -857,6 +902,12 @@ type lokiLog struct {
 }
 
 func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog, error) {
+	sortLogs := func(logs []lokiLog) {
+		sort.Slice(logs, func(i, j int) bool {
+			return logs[i].Entry.Timestamp.Before(logs[j].Entry.Timestamp)
+		})
+	}
+
 	c, err := s.env.GetLokiClient()
 	if err != nil {
 		return nil, errors.EnsureStack(errors.Errorf("get loki client: %v", err))
@@ -877,10 +928,18 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 	start := time.Now().Add(-30 * 24 * time.Hour) // 30 days.  (Loki maximum range is 30 days + 1 hour.)
 
 	for numLogs := 0; (end.IsZero() || start.Before(end)) && numLogs < maxLogs; {
-		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, end, "BACKWARD", 0, 0, true)
+		// Loki requests can hang if the size of the log lines is too big
+		ctx, cancel := context.WithTimeout(ctx, time.Minute)
+		defer cancel()
+		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, end, "BACKWARD", 0 /* step */, 0 /* interval */, true /* quiet */)
 		if err != nil {
 			// Note: the error from QueryRange has a stack.
-			return nil, errors.Errorf("query range (query=%v, maxLogs=%v, start=%v, end=%v): %+v", queryStr, maxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
+			if errors.Is(err, context.DeadlineExceeded) {
+				log.Debug(ctx, "loki query range timed out", zap.String("query", queryStr), zap.Int("serverMaxLogs", serverMaxLogs), zap.Time("start", start), zap.Time("end", end), zap.Int("logs", len(result)))
+				sortLogs(result)
+				return result, nil
+			}
+			return nil, errors.Errorf("query range (query=%v, limit=%v, start=%v, end=%v): %+v", queryStr, serverMaxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
 		}
 
 		streams, ok := resp.Data.Result.(loki.Streams)
@@ -912,14 +971,13 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 		if readThisIteration == 0 {
 			break
 		}
+		cancel()
 	}
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].Entry.Timestamp.Before(result[j].Entry.Timestamp)
-	})
+	sortLogs(result)
 	return result, nil
 }
 
-func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, pipelineName string, limit int64, prefix ...string) error {
+func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, pipeline *pps.Pipeline, limit int64, prefix ...string) error {
 	download := chart.ContinuousSeries{
 		Name: "download",
 		Style: chart.Style{
@@ -944,7 +1002,7 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 	if err := collectDebugFile(tw, "jobs", "json", func(w io.Writer) error {
 		// TODO: The limiting should eventually be a feature of list job.
 		var count int64
-		return pachClient.ListJobF(pipelineName, nil, -1, false, func(ji *pps.JobInfo) error {
+		return pachClient.ListProjectJobF(pipeline.Project.Name, pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
 			if count >= limit {
 				return errutil.ErrBreak
 			}
@@ -980,9 +1038,9 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 	return collectGraph(tw, "jobs-chart.png", "number of jobs", []chart.Series{download, process, upload}, prefix...)
 }
 
-func (s *debugServer) collectWorkerDump(ctx context.Context, tw *tar.Writer, pod *v1.Pod, prefix ...string) error {
+func (s *debugServer) collectWorkerDump(ctx context.Context, tw *tar.Writer, pod *v1.Pod, prefix ...string) (retErr error) {
 	// Collect the worker describe output.
-	if err := s.collectDescribe(tw, pod.Name, prefix...); err != nil {
+	if err := s.collectDescribe(ctx, tw, pod.Name, prefix...); err != nil {
 		return err
 	}
 	// Collect go info.

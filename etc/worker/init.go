@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 )
 
 func cp(src, dst string) error {
@@ -31,13 +32,12 @@ func cp(src, dst string) error {
 	}
 	defer out.Close()
 
-	_, err = io.Copy(out, in)
-	if err != nil {
+	if _, err := io.Copy(out, in); err != nil {
 		return err
 	}
 
 	// make the file executable
-	if err = out.Chmod(os.ModePerm); err != nil {
+	if err := out.Chmod(os.ModePerm); err != nil {
 		return err
 	}
 
@@ -45,10 +45,15 @@ func cp(src, dst string) error {
 }
 
 func main() {
+	// Copy over pachyderm binaries.
 	for _, bin := range []string{"worker", "pachctl", "pachtf"} {
 		src, dst := fmt.Sprintf("/app/%s", bin), fmt.Sprintf("/pach-bin/%s", bin)
 		if err := cp(src, dst); err != nil {
 			panic(err)
 		}
+	}
+	// Copy over the correct variant of dumb-init.
+	if err := cp(fmt.Sprintf("/app/dumb-init-%s", runtime.GOARCH), "/pach-bin/dumb-init"); err != nil {
+		panic(err)
 	}
 }

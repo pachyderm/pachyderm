@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -20,7 +21,7 @@ import (
 // newClient should register cleanup of the returned object using testing.T.Cleanup
 // All of the subtests call t.Parallel, but the top level test does not.
 func TestSuite(t *testing.T, newClient func(t testing.TB) Client) {
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
 	t.Run("TestStorage", func(t *testing.T) {
 		t.Parallel()
 		c := newClient(t)
@@ -72,10 +73,11 @@ func TestEmptyWrite(t *testing.T, client Client) {
 
 // TestInterruption
 // Interruption is currently not implemented on the Amazon, Microsoft, and Minio clients
-//  Amazon client - use *WithContext methods
-//  Microsoft client - move to github.com/Azure/azure-storage-blob-go which supports contexts
-//  Minio client - upgrade to v7 which supports contexts in all APIs
-//  Local client - interruptible file operations are not a thing in the stdlib
+//
+//	Amazon client - use *WithContext methods
+//	Microsoft client - move to github.com/Azure/azure-storage-blob-go which supports contexts
+//	Minio client - upgrade to v7 which supports contexts in all APIs
+//	Local client - interruptible file operations are not a thing in the stdlib
 func TestInterruption(t *testing.T, client Client) {
 	// Make a canceled context
 	ctx, cancel := context.WithCancel(context.Background())

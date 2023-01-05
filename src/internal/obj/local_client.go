@@ -10,9 +10,11 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // NewLocalClient returns a Client that stores data on the local file system
@@ -141,7 +143,7 @@ func (c *fsClient) init() error {
 	if err := os.MkdirAll(filepath.Join(c.rootDir, "objects"), 0755); err != nil {
 		return errors.EnsureStack(err)
 	}
-	logrus.Infof("successfully initialized fs-backed object store at %s", c.rootDir)
+	log.Info(pctx.TODO(), "successfully initialized fs-backed object store", zap.String("root", c.rootDir))
 	return nil
 }
 
@@ -161,7 +163,7 @@ func (c *fsClient) closeFile(retErr *error, f *os.File) {
 		if retErr == nil {
 			*retErr = err
 		} else {
-			logrus.Errorf("error closing file: %v", err)
+			log.Error(pctx.TODO(), "error closing file", zap.Error(err))
 		}
 	}
 }
@@ -175,7 +177,7 @@ func (c *fsClient) removeFile(retErr *error, p string) {
 		if retErr == nil {
 			*retErr = err
 		} else {
-			logrus.Errorf("error deleting file: %v", err)
+			log.Error(pctx.TODO(), "error deleting file", zap.Error(err))
 		}
 	}
 }

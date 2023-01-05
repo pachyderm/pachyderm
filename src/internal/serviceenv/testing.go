@@ -16,7 +16,6 @@ import (
 
 	dex_storage "github.com/dexidp/dex/storage"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
-	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 	"golang.org/x/sync/errgroup"
 	kube "k8s.io/client-go/kubernetes"
@@ -33,7 +32,6 @@ type TestServiceEnv struct {
 	DBClient, DirectDBClient *pachsql.DB
 	PostgresListener         col.PostgresListener
 	DexDB                    dex_storage.Storage
-	Log                      *log.Logger
 	Ctx                      context.Context
 
 	// Auth is the registered auth APIServer
@@ -93,10 +91,6 @@ func (s *TestServiceEnv) Context() context.Context {
 
 func (s *TestServiceEnv) ClusterID() string {
 	return "testing"
-}
-
-func (s *TestServiceEnv) Logger() *log.Logger {
-	return s.Log
 }
 
 func (s *TestServiceEnv) GetDexDB() dex_storage.Storage {

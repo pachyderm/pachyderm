@@ -9,13 +9,17 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/status"
 
 	// Import registers the grpc GZIP encoder
 	_ "google.golang.org/grpc/encoding/gzip"
@@ -23,7 +27,6 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	types "github.com/gogo/protobuf/types"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -33,6 +36,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/license"
@@ -40,6 +45,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
+	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
 
@@ -363,7 +369,7 @@ func getCertOptionsFromEnv() ([]Option, error) {
 			// Try to read all certs under 'p'--skip any that we can't read/stat
 			if err := filepath.Walk(p, func(p string, info os.FileInfo, err error) error {
 				if err != nil {
-					log.Warnf("skipping \"%s\", could not stat path: %v", p, err)
+					log.Error(pctx.TODO(), "skipping path, could not stat", zap.String("path", p), zap.Error(err))
 					return nil // Don't try and fix any errors encountered by Walk() itself
 				}
 				if info.IsDir() {
@@ -371,7 +377,7 @@ func getCertOptionsFromEnv() ([]Option, error) {
 				}
 				pemBytes, err := os.ReadFile(p)
 				if err != nil {
-					log.Warnf("could not read server CA certs at %s: %v", p, err)
+					log.Error(pctx.TODO(), "could not read server CA certs", zap.String("path", p), zap.Error(err))
 					return nil
 				}
 				options = append(options, WithAdditionalRootCAs(pemBytes))
@@ -461,7 +467,7 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	log.Debugf("Implicit port forwarder listening on port %d", port)
+	log.Debug(pctx.TODO(), "Implicit port forwarder listening", zap.Uint16("port", port))
 
 	return fw, port, nil
 }
@@ -568,7 +574,7 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 	if pachdAddress == nil && context.PortForwarders != nil {
 		pachdLocalPort, ok := context.PortForwarders["pachd"]
 		if ok {
-			log.Debugf("Connecting to explicitly port forwarded pachd instance on port %d", pachdLocalPort)
+			log.Debug(pctx.TODO(), "Connecting to explicitly port forwarded pachd instance", zap.Uint32("port", pachdLocalPort))
 			pachdAddress = &grpcutil.PachdAddress{
 				Secured: false,
 				Host:    "localhost",
@@ -606,11 +612,21 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 	// Verify cluster deployment ID
 	clusterInfo, err := client.InspectCluster()
 	if err != nil {
-		if strings.Contains("unknown service admin_v2.API", err.Error()) {
-			return nil, errors.Errorf("this client is for pachyderm 2.x, but the server has a different version - please install the correct client for your server")
-
+		scrubbedErr := grpcutil.ScrubGRPC(err)
+		if status.Code(err) == codes.Unimplemented {
+			pachdVersion, versErr := client.Version()
+			if err != nil {
+				return nil, errors.Wrap(scrubbedErr, errors.Wrap(versErr, "could not determine pachd version").Error())
+			}
+			pachdMajVersion, convErr := strconv.Atoi(strings.Split(pachdVersion, ".")[0])
+			if convErr != nil {
+				return nil, errors.Wrap(scrubbedErr, errors.Wrap(convErr, "could not parse pachd major version").Error())
+			}
+			if pachdMajVersion != int(version.Version.Major) {
+				return nil, errors.Errorf("this client is for pachyderm %d.x, but the server has a version %d.x - please install the correct client for your server", version.Version.Major, pachdMajVersion)
+			}
 		}
-		return nil, errors.Wrap(err, "could not get cluster ID")
+		return nil, errors.Wrap(scrubbedErr, "could not get cluster ID")
 	}
 	if context.ClusterDeploymentID != clusterInfo.DeploymentID {
 		if context.ClusterDeploymentID == "" {
@@ -843,6 +859,9 @@ func (c *APIClient) AddMetadata(ctx context.Context) context.Context {
 	if c.metricsUserID != "" {
 		clientData["userid"] = c.metricsUserID
 		clientData["prefix"] = c.metricsPrefix
+	}
+	if len(os.Args) > 1 && os.Args[0] != "/pachd" {
+		clientData["command"] = strings.Join(os.Args, " ")
 	}
 
 	// Rescue any metadata pairs already in 'ctx' (otherwise
