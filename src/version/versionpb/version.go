@@ -48,7 +48,7 @@ func IsCompatible(rawClient, rawServer *Version) error {
 	}
 	s, c := rawServer.Canonical(), rawClient.Canonical()
 	if semver.Prerelease(s) != "" || semver.Prerelease(c) != "" {
-		// If either the client or the server are a prerelase, then the verions must match
+		// If either the client or the server are a prerelease, then the versions must match
 		// exactly.
 		if semver.Compare(c, s) != 0 {
 			return ErrIncompatiblePreview
