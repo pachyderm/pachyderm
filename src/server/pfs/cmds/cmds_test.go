@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -50,10 +49,11 @@ const (
 )
 
 func mockInspectCluster(env *realenv.RealEnv) {
-	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *types.Empty) (*admin.ClusterInfo, error) {
+	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
 		clusterInfo := admin.ClusterInfo{
-			ID:           "dev",
-			DeploymentID: "dev",
+			ID:                "dev",
+			DeploymentID:      "dev",
+			VersionWarningsOk: true,
 		}
 		return &clusterInfo, nil
 	})

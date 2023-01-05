@@ -307,7 +307,7 @@ func newClient(enterprise bool, options ...client.Option) (*client.APIClient, er
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
+		fmt.Fprintf(os.Stderr, "Using enterprise context: %v\n", c.ClientContextName())
 		return c, nil
 	}
 	return client.NewOnUserMachine("user", options...)
