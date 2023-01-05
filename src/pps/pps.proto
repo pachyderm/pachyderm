@@ -445,6 +445,12 @@ message ListJobSetRequest {
   bool details = 1;
   // A list of projects to filter jobs on, nil means don't filter.
   repeated pfs_v2.Project projects = 2;
+  // we return job sets created before or after this time based on the reverse flag
+  google.protobuf.Timestamp paginationMarker = 3;
+  // number of results to return 
+  int64 number = 4;
+  // if true, return results in reverse order
+  bool reverse = 5;
 }
 
 message InspectJobRequest {

@@ -7093,6 +7093,109 @@ func TestListJobTruncated(t *testing.T) {
 	require.NotNil(t, fullJobInfos[0].Details.Input)
 	require.Equal(t, pipeline, fullJobInfos[0].Job.Pipeline.Name)
 }
+func TestListJobSetPaged(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	dataRepo := tu.UniqueString("TestListJobPaged_data")
+	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+
+	pipeline1Name := tu.UniqueString("pipeline1")
+	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+		pipeline1Name,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		nil,
+		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	pipeline2Name := tu.UniqueString("pipeline2")
+	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+		pipeline2Name,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipeline1Name),
+		},
+		nil,
+		client.NewProjectPFSInput(pfs.DefaultProjectName, pipeline1Name, "/*"),
+		"",
+		false,
+	))
+
+	numFiles := 7
+	for i := 0; i < numFiles; i++ {
+		commit, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.PutFile(commit, fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)), client.WithAppendPutFile()))
+		require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
+		commitInfos, err := c.WaitCommitSetAll(commit.ID)
+		require.NoError(t, err)
+		require.Equal(t, 7, len(commitInfos))
+	}
+	jobInfos, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline1Name, nil, 0, true)
+	require.NoError(t, err)
+	require.Equal(t, 8, len(jobInfos))
+	jobInfos, err = c.ListProjectJob(pfs.DefaultProjectName, pipeline2Name, nil, 0, true)
+	require.NoError(t, err)
+	require.Equal(t, 8, len(jobInfos))
+	listJobSetRequest := &pps.ListJobSetRequest{}
+	client, err := c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
+	require.NoError(t, err)
+	allJobSetInfos, err := clientsdk.ListJobSet(client)
+	require.NoError(t, err)
+	require.Equal(t, 9, len(allJobSetInfos))
+
+	// Test pagination
+	var pagedJSIs []*pps.JobSetInfo
+	// get first page
+	listJobSetRequest = &pps.ListJobSetRequest{Number: 3}
+	client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
+	require.NoError(t, err)
+	jsis, err := clientsdk.ListJobSet(client)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(jsis))
+	pagedJSIs = append(pagedJSIs, jsis...)
+	// get next two pages
+	for i := 0; i < 2; i++ {
+		listJobSetRequest = &pps.ListJobSetRequest{Number: 3, PaginationMarker: jsis[len(jsis)-1].Jobs[1].Created}
+		client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
+		require.NoError(t, err)
+		jsis, err = clientsdk.ListJobSet(client)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(jsis))
+		pagedJSIs = append(pagedJSIs, jsis...)
+	}
+	require.Equal(t, len(allJobSetInfos), len(pagedJSIs))
+	var reverseJIs []*pps.JobSetInfo
+	// get last page
+	listJobSetRequest = &pps.ListJobSetRequest{Number: 3, Reverse: true}
+	client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
+	require.NoError(t, err)
+	jsis, err = clientsdk.ListJobSet(client)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(jsis))
+	reverseJIs = append(reverseJIs, jsis...)
+	// get previous two pages
+	for i := 0; i < 2; i++ {
+		listJobSetRequest = &pps.ListJobSetRequest{Number: 3, Reverse: true, PaginationMarker: jsis[2].Jobs[0].Created}
+		client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
+		require.NoError(t, err)
+		jsis, err = clientsdk.ListJobSet(client)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(jsis))
+		reverseJIs = append(reverseJIs, jsis...)
+	}
+	require.Equal(t, len(allJobSetInfos), len(reverseJIs))
+}
 
 func TestListJobPaged(t *testing.T) {
 	if testing.Short() {
