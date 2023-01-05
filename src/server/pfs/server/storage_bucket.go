@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -26,6 +27,18 @@ import (
 
 // openBucket swaps out client backend implementation for s3, gcp, and azure with go-cloud-sdk.
 func openBucket(ctx context.Context, url *obj.ObjectStoreURL) (bucket *blob.Bucket, err error) {
+	if os.Getenv("CUSTOM_ENDPOINT") != "" {
+		if url.Params != "" {
+			url.Params += "&"
+		}
+		url.Params += "endpoint=" + os.Getenv("CUSTOM_ENDPOINT")
+	}
+	if os.Getenv("DISABLE_SSL") != "" {
+		if url.Params != "" {
+			url.Params += "&"
+		}
+		url.Params += "disableSSL=" + os.Getenv("DISABLE_SSL")
+	}
 	switch url.Scheme {
 	case "as", "wasb":
 		url.Scheme = "azblob"
@@ -34,7 +47,6 @@ func openBucket(ctx context.Context, url *obj.ObjectStoreURL) (bucket *blob.Buck
 	}
 	switch url.Scheme {
 	case "s3", "gs", "azblob":
-		// TODO(Fahad): handle query parameters like disableSSL, endpoint, and others that we let our users configure
 		bucket, err = blob.OpenBucket(ctx, url.BucketString())
 		if err != nil {
 			return nil, errors.EnsureStack(errors.Wrapf(err, "error opening bucket %s", url.Bucket))

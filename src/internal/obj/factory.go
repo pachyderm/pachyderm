@@ -417,6 +417,8 @@ type ObjectStoreURL struct {
 	Bucket string
 	// The object itself.
 	Object string
+	// The query parameters if defined.
+	Params string
 }
 
 func (s ObjectStoreURL) String() string {
@@ -424,7 +426,11 @@ func (s ObjectStoreURL) String() string {
 }
 
 func (s ObjectStoreURL) BucketString() string {
-	return fmt.Sprintf("%s://%s", s.Scheme, s.Bucket)
+	bucket := fmt.Sprintf("%s://%s", s.Scheme, s.Bucket)
+	if s.Params != "" {
+		bucket += "?" + s.Params
+	}
+	return bucket
 }
 
 // ParseURL parses an URL into ObjectStoreURL.
@@ -439,6 +445,7 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 			Scheme: u.Scheme,
 			Bucket: u.Host,
 			Object: strings.Trim(u.Path, "/"),
+			Params: u.RawQuery,
 		}, nil
 	case "azblob", "as", "wasb":
 		bucketString := u.Host
@@ -449,6 +456,7 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 			Scheme: u.Scheme,
 			Bucket: bucketString,
 			Object: strings.Trim(u.Path, "/"),
+			Params: u.RawQuery,
 		}, nil
 	//case "as", "wasb":
 	//	// In Azure, the first part of the path is the container name.
@@ -472,6 +480,7 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 			Scheme: u.Scheme,
 			Bucket: u.Host + "/" + parts[0],
 			Object: key,
+			Params: u.RawQuery,
 		}, nil
 	}
 	// return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
