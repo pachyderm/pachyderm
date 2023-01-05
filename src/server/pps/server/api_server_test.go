@@ -3,12 +3,15 @@ package server_test
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -245,4 +248,107 @@ func TestParseLokiLine(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestListJobSetWithProjects(t *testing.T) {
+	env := realenv.NewRealEnv(pctx.TestContext(t), t, dockertestenv.NewTestDBConfig(t))
+
+	inputRepo := tu.UniqueString("repo")
+	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, inputRepo))
+
+	// pipeline1 is in default project and takes inputRepo as input
+	// pipeline2 is in a non-default project, and takes pipeline1 as input
+	project := tu.UniqueString("project-")
+	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
+	require.NoError(t, env.PachClient.CreateProject(project))
+	require.NoError(t, env.PachClient.CreateProjectPipeline(
+		pfs.DefaultProjectName,
+		pipeline1,
+		"", /* default image*/
+		[]string{"cp", "-r", "/pfs/in", "/pfs/out"},
+		nil, /* stdin */
+		nil, /* spec */
+		&pps.Input{Pfs: &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: inputRepo, Glob: "/*", Name: "in"}},
+		"",   /* output */
+		true, /* update */
+	))
+	require.NoError(t, env.PachClient.CreateProjectPipeline(
+		project,
+		pipeline2,
+		"", /* default image*/
+		[]string{"cp", "-r", "/pfs/in", "/pfs/out"},
+		nil, /* stdin */
+		nil, /* spec */
+		&pps.Input{Pfs: &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: pipeline1, Glob: "/*", Name: "in"}},
+		"",   /* output */
+		true, /* update */
+	))
+	require.NoError(t, env.PachClient.PutFile(
+		&pfs.Commit{Branch: &pfs.Branch{
+			Name: "master",
+			Repo: &pfs.Repo{
+				Name:    inputRepo,
+				Type:    pfs.UserRepoType,
+				Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			}}},
+		"/file",
+		strings.NewReader("test data"),
+	))
+	require.NoErrorWithinT(t, time.Minute, func() error {
+		_, err := env.PachClient.WaitProjectCommit(project, pipeline2, "master", "")
+		return err
+	})
+
+	ctx := env.Context
+
+	// don't filter on any projects
+	rpcClient, err := env.PachClient.ListJobSet(ctx, &pps.ListJobSetRequest{})
+	require.NoError(t, err)
+	gotPipelines := []string{}
+	require.NoError(t, clientsdk.ForEachJobSet(rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
+		for _, job := range jobSetInfo.Jobs {
+			gotPipelines = append(gotPipelines, job.Job.Pipeline.Name)
+		}
+		return nil
+	}))
+	require.OneOfEquals(t, pipeline1, gotPipelines)
+	require.OneOfEquals(t, pipeline2, gotPipelines)
+
+	// filter on default project
+	rpcClient, err = env.PachClient.ListJobSet(ctx, &pps.ListJobSetRequest{Projects: []*pfs.Project{{Name: pfs.DefaultProjectName}}})
+	require.NoError(t, err)
+	gotPipelines = []string{}
+	require.NoError(t, clientsdk.ForEachJobSet(rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
+		for _, job := range jobSetInfo.Jobs {
+			gotPipelines = append(gotPipelines, job.Job.Pipeline.Name)
+		}
+		return nil
+	}))
+	require.OneOfEquals(t, pipeline1, gotPipelines)
+	require.NoneEquals(t, pipeline2, gotPipelines)
+
+	// filter on non-default project
+	rpcClient, err = env.PachClient.ListJobSet(ctx, &pps.ListJobSetRequest{Projects: []*pfs.Project{{Name: project}}})
+	require.NoError(t, err)
+	gotPipelines = []string{}
+	require.NoError(t, clientsdk.ForEachJobSet(rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
+		for _, job := range jobSetInfo.Jobs {
+			gotPipelines = append(gotPipelines, job.Job.Pipeline.Name)
+		}
+		return nil
+	}))
+	require.OneOfEquals(t, pipeline2, gotPipelines)
+	require.NoneEquals(t, pipeline1, gotPipelines)
+
+	// filter on a bogus project
+	rpcClient, err = env.PachClient.ListJobSet(ctx, &pps.ListJobSetRequest{Projects: []*pfs.Project{{Name: "bogus"}}})
+	require.NoError(t, err)
+	gotPipelines = []string{}
+	require.NoError(t, clientsdk.ForEachJobSet(rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
+		for _, job := range jobSetInfo.Jobs {
+			gotPipelines = append(gotPipelines, job.Job.Pipeline.Name)
+		}
+		return nil
+	}))
+	require.Len(t, gotPipelines, 0)
 }

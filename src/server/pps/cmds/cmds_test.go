@@ -1127,15 +1127,15 @@ func TestListJobWithProject(t *testing.T) {
 
 	require.NoErrorWithinTRetry(t, time.Minute, func() error {
 		return errors.Wrap(tu.PachctlBashCmd(t, c, `
-			pachctl list job --all-projects --raw | match {{.pipeline1}} | match {{.pipeline2}}
+			pachctl list job --raw --all-projects | match {{.pipeline1}} | match {{.pipeline2}}
 			pachctl list job --raw | match {{.pipeline1}} | match -v {{.pipeline2}}
 			pachctl list job --raw --project {{.project}} | match {{.pipeline2}} | match -v {{.pipeline1}}
 			pachctl list job --raw --project notmyproject | match -v {{.pipeline1}} | match -v {{.pipeline2}}
 
+			pachctl list job -x --all-projects | match {{.pipeline1}} | match {{.pipeline2}}
 			pachctl list job -x | match {{.pipeline1}} | match -v {{.pipeline2}}
 			pachctl list job -x --project {{.project}} | match {{.pipeline2}} | match -v {{.pipeline1}}
 			pachctl list job -x --project notmyproject | match -v {{.pipeline1}} | match -v {{.pipeline2}}
-			pachctl list job -x --all-projects | match {{.pipeline1}} | match {{.pipeline2}}
 		`,
 			"project", projectName,
 			"pipeline1", pipeline1,
