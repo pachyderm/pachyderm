@@ -638,6 +638,12 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	}
 	paginationMarker := request.PaginationMarker
 
+	// For quickly filtering out jobs based on project
+	projectsFilter := make(map[string]bool, len(request.GetProjects()))
+	for _, project := range request.GetProjects() {
+		projectsFilter[project.GetName()] = true
+	}
+
 	// Return jobsets by the newest job in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
 	jobInfo := &pps.JobInfo{}
@@ -671,15 +677,11 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.
 		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
 		var jobInfosFiltered []*pps.JobInfo
-		if len(request.GetProjects()) == 0 {
+		if len(projectsFilter) == 0 {
 			jobInfosFiltered = jobInfos
 		} else {
-			filter := make(map[string]bool, len(request.GetProjects()))
-			for _, project := range request.GetProjects() {
-				filter[project.GetName()] = true
-			}
 			for _, ji := range jobInfos {
-				if filter[ji.Job.Pipeline.Project.GetName()] {
+				if projectsFilter[ji.Job.Pipeline.Project.GetName()] {
 					jobInfosFiltered = append(jobInfosFiltered, ji)
 				}
 			}
@@ -689,7 +691,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		}
 		return errors.EnsureStack(serv.Send(&pps.JobSetInfo{
 			JobSet: client.NewJobSet(id),
-			Jobs:   jobInfos,
+			Jobs:   jobInfosFiltered,
 		}))
 	}); err != nil && err != errutil.ErrBreak {
 		return errors.EnsureStack(err)
