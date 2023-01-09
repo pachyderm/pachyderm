@@ -1,14 +1,16 @@
 package stats
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 const (
@@ -213,12 +215,17 @@ var (
 
 // InitPrometheus sets up the default datum stats collectors for use by worker
 // code, and exposes the stats on an http endpoint.
-func InitPrometheus() {
+func InitPrometheus(ctx context.Context) {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%v", PrometheusPort),
+		Handler: mux,
+	}
+	log.AddLoggerToHTTPServer(ctx, "http", server)
 	go func() {
-		if err := http.ListenAndServe(fmt.Sprintf(":%v", PrometheusPort), mux); err != nil {
-			logrus.Errorf("error serving prometheus metrics: %v", err)
+		if err := server.ListenAndServe(); err != nil {
+			log.Error(ctx, "error serving prometheus metrics", zap.Error(err))
 		}
 	}()
 }

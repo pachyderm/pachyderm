@@ -10,11 +10,13 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	"go.uber.org/zap"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/sirupsen/logrus"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	etcd "go.etcd.io/etcd/client/v3"
 )
@@ -149,7 +151,7 @@ func (c *etcdCollection) WithRenewer(ctx context.Context, cb func(context.Contex
 		return errors.EnsureStack(err)
 	}
 	var cancel context.CancelFunc
-	ctx, cancel = context.WithCancel(ctx)
+	ctx, cancel = context.WithCancel(pctx.Child(ctx, "WithRenewer"))
 	defer cancel()
 	keepAliveChan, err := c.etcdClient.KeepAlive(ctx, resp.ID)
 	if err != nil {
@@ -160,7 +162,7 @@ func (c *etcdCollection) WithRenewer(ctx context.Context, cb func(context.Contex
 			_, more := <-keepAliveChan
 			if !more {
 				if ctx.Err() == nil {
-					logrus.Errorf("failed to renew etcd lease")
+					log.Error(ctx, "failed to renew etcd lease", zap.Stack("stacktrace"))
 					cancel()
 				}
 				return

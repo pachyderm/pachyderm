@@ -4,11 +4,12 @@ import (
 	"context"
 
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
+	"go.uber.org/zap"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/sirupsen/logrus"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -75,11 +76,11 @@ func List(ctx context.Context, svc Service, req *taskapi.ListTaskRequest, send f
 		if err := types.UnmarshalAny(data.Input, &input); err != nil {
 			// unmarshalling might fail due to the input type not being registered,
 			// don't let this interfere with fetching or counting tasks
-			logrus.Warnf("couldn't unmarshal task input: %v", err)
+			log.Error(ctx, "couldn't unmarshal task input", zap.Error(err), zap.String("taskType", data.GetInput().TypeUrl), zap.String("taskID", data.GetID()))
 		} else {
 			inputJSON, err = marshaler.MarshalToString(input.Message)
 			if err != nil {
-				logrus.Warnf("couldn't marshal task input: %v", err)
+				log.Error(ctx, "couldn't marahsl task input", zap.Error(err), zap.String("taskType", data.GetInput().TypeUrl), zap.String("taskID", data.GetID()))
 			}
 		}
 		info := &taskapi.TaskInfo{

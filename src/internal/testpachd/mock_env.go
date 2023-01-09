@@ -23,12 +23,12 @@ type MockEnv struct {
 
 // NewMockEnv constructs a MockEnv for testing, which will be destroyed at the
 // end of the test.
-func NewMockEnv(t testing.TB, options ...InterceptorOption) *MockEnv {
-	etcdEnv := testetcd.NewEnv(t)
+func NewMockEnv(rctx context.Context, t testing.TB, options ...InterceptorOption) *MockEnv {
+	etcdEnv := testetcd.NewEnv(rctx, t)
 
 	// Use an error group with a cancelable context to supervise every component
 	// and cancel everything if one fails
-	ctx, cancel := context.WithCancel(etcdEnv.Context)
+	ctx, cancel := context.WithCancel(rctx)
 	eg, ctx := errgroup.WithContext(ctx)
 	t.Cleanup(func() {
 		require.NoError(t, eg.Wait())

@@ -19,7 +19,7 @@ import (
 	"github.com/itchyny/gojq"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/robfig/cron"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
@@ -35,9 +35,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsload"
@@ -277,27 +279,38 @@ func validateTransform(transform *pps.Transform) error {
 }
 
 func (a *apiServer) validateKube(ctx context.Context) {
+	ctx = pctx.Child(ctx, "validateKube")
 	errors := false
 	kubeClient := a.env.KubeClient
+
+	log.Debug(ctx, "checking if a pod watch can be created")
 	_, err := kubeClient.CoreV1().Pods(a.namespace).Watch(ctx, metav1.ListOptions{Watch: true})
 	if err != nil {
 		errors = true
-		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but certain pipeline errors will result in pipelines being stuck indefinitely in \"starting\" state. error: %v", err)
+		log.Error(ctx, "unable to access kubernetes pods, Pachyderm will continue to work but certain pipeline errors will result in pipelines being stuck indefinitely in \"starting\" state.", zap.Error(err))
+	} else {
+		log.Debug(ctx, "pod watch ok")
 	}
+
+	log.Debug(ctx, "checking if pachd pods can be read")
 	pods, err := a.pachdPods(ctx)
 	if err != nil || len(pods) == 0 {
 		errors = true
-		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
+		log.Error(ctx, "unable to access kubernetes pods, Pachyderm will continue to work but 'pachctl logs' may not work", zap.Error(err))
 	} else {
+		log.Debug(ctx, "pachd pods found ok", zap.Int("count", len(pods)))
 		// No need to check all pods since we're just checking permissions.
 		pod := pods[0]
+		log.Debug(ctx, "checking if pod logs can be read", zap.String("target", pod.ObjectMeta.Name))
 		_, err = kubeClient.CoreV1().Pods(a.namespace).GetLogs(
 			pod.ObjectMeta.Name, &v1.PodLogOptions{
 				Container: "pachd",
 			}).Timeout(10 * time.Second).Do(ctx).Raw()
 		if err != nil {
 			errors = true
-			logrus.Errorf("unable to access kubernetes logs, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
+			log.Error(ctx, "unable to access kubernetes logs, Pachyderm will continue to work but 'pachctl logs' may not", zap.Error(err))
+		} else {
+			log.Debug(ctx, "pod logs read ok")
 		}
 	}
 	name := uuid.NewWithoutDashes()
@@ -331,20 +344,23 @@ func (a *apiServer) validateKube(ctx context.Context) {
 			},
 		},
 	}
+	log.Debug(ctx, "checking if replication controllers can be created", zap.String("rc", rc.ObjectMeta.Name))
 	if _, err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Create(ctx, rc, metav1.CreateOptions{}); err != nil {
-		if err != nil {
-			errors = true
-			logrus.Errorf("unable to create kubernetes replication controllers, Pachyderm will not function properly until this is fixed. error: %v", err)
-		}
+		errors = true
+		log.Error(ctx, "unable to create kubernetes replication controllers, Pachyderm will not function properly until this is fixed", zap.Error(err))
+	} else {
+		log.Debug(ctx, "rc creation ok")
 	}
+
+	log.Debug(ctx, "checking if replication controllers can be deleted", zap.String("rc", rc.ObjectMeta.Name))
 	if err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
-		if err != nil {
-			errors = true
-			logrus.Errorf("unable to delete kubernetes replication controllers, Pachyderm function properly but pipeline cleanup will not work. error: %v", err)
-		}
+		errors = true
+		log.Error(ctx, "unable to delete kubernetes replication controllers, Pachyderm function properly but pipeline cleanup will not work", zap.Error(err))
+	} else {
+		log.Debug(ctx, "rc deletion ok")
 	}
 	if !errors {
-		logrus.Infof("validating kubernetes access returned no errors")
+		log.Info(ctx, "validated kubernetes access ok")
 	}
 }
 
@@ -613,34 +629,59 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	// Track the jobsets we've already processed
 	seen := map[string]struct{}{}
 
+	number := request.Number
+	if number < 0 {
+		return errors.Errorf("number must be non-negative")
+	}
+	if number == 0 {
+		number = math.MaxInt64
+	}
+	paginationMarker := request.PaginationMarker
+
+	// For quickly filtering out jobs based on project
+	projectsFilter := make(map[string]bool, len(request.GetProjects()))
+	for _, project := range request.GetProjects() {
+		projectsFilter[project.GetName()] = true
+	}
+
 	// Return jobsets by the newest job in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
 	jobInfo := &pps.JobInfo{}
-	err := a.jobs.ReadOnly(serv.Context()).List(jobInfo, col.DefaultOptions(), func(string) error {
+	opts := &col.Options{Target: col.SortByCreateRevision, Order: col.SortDescend}
+	if request.Reverse {
+		opts.Order = col.SortAscend
+	}
+	if err := a.jobs.ReadOnly(serv.Context()).List(jobInfo, opts, func(string) error {
+		if number == 0 {
+			return errutil.ErrBreak
+		}
 		id := jobInfo.GetJob().GetID()
 		if _, ok := seen[id]; ok {
 			return nil
 		}
 		seen[id] = struct{}{}
-
+		if paginationMarker != nil {
+			createdAt := time.Unix(int64(jobInfo.Created.GetSeconds()), int64(jobInfo.Created.GetNanos())).UTC()
+			fromTime := time.Unix(int64(paginationMarker.GetSeconds()), int64(paginationMarker.GetNanos())).UTC()
+			if createdAt.Equal(fromTime) || !request.Reverse && createdAt.After(fromTime) || request.Reverse && createdAt.Before(fromTime) {
+				return nil
+			}
+		}
 		jobInfos, err := pachClient.InspectJobSet(id, request.Details)
 		if err != nil {
 			return err
 		}
+		number--
 
 		// Filter jobs based on projects.
 		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.
 		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
 		var jobInfosFiltered []*pps.JobInfo
-		if len(request.GetProjects()) == 0 {
+		if len(projectsFilter) == 0 {
 			jobInfosFiltered = jobInfos
 		} else {
-			filter := make(map[string]bool, len(request.GetProjects()))
-			for _, project := range request.GetProjects() {
-				filter[project] = true
-			}
 			for _, ji := range jobInfos {
-				if filter[ji.Job.Pipeline.Project.GetName()] {
+				if projectsFilter[ji.Job.Pipeline.Project.GetName()] {
 					jobInfosFiltered = append(jobInfosFiltered, ji)
 				}
 			}
@@ -648,13 +689,14 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		if len(jobInfosFiltered) == 0 {
 			return nil
 		}
-
 		return errors.EnsureStack(serv.Send(&pps.JobSetInfo{
 			JobSet: client.NewJobSet(id),
-			Jobs:   jobInfos,
+			Jobs:   jobInfosFiltered,
 		}))
-	})
-	return errors.EnsureStack(err)
+	}); err != nil && err != errutil.ErrBreak {
+		return errors.EnsureStack(err)
+	}
+	return nil
 }
 
 // intersectCommitSets finds all commitsets which involve the specified commits
@@ -770,7 +812,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 		}
 		workerStatus, err := workerserver.Status(ctx, pi, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
 		if err != nil {
-			logrus.Errorf("failed to get worker status with err: %s", err.Error())
+			log.Error(ctx, "failed to get worker status", zap.Error(err))
 		} else {
 			// It's possible that the workers might be working on datums for other
 			// jobs, we omit those since they're not part of the status for this
@@ -791,7 +833,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobServer) (retErr error) {
 	filter := make(map[string]bool, len(request.GetProjects()))
 	for _, project := range request.GetProjects() {
-		filter[project] = true
+		filter[project.GetName()] = true
 	}
 	keep := func(j *pps.JobInfo) error {
 		if len(filter) == 0 || filter[j.Job.Pipeline.Project.GetName()] {
@@ -840,6 +882,11 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
 
+	number := request.Number
+	// If number is not set, return all jobs that match the query
+	if number == 0 {
+		number = math.MaxInt64
+	}
 	// pipelineVersions holds the versions of pipelines that we're interested in
 	pipelineVersions := make(map[string]bool)
 	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, pipeline, request.GetHistory(),
@@ -853,6 +900,16 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 	jobs := a.jobs.ReadOnly(ctx)
 	jobInfo := &pps.JobInfo{}
 	_f := func(string) error {
+		if number == 0 {
+			return errutil.ErrBreak
+		}
+		if request.PaginationMarker != nil {
+			createdAt := time.Unix(int64(jobInfo.Created.GetSeconds()), int64(jobInfo.Created.GetNanos())).UTC()
+			fromTime := time.Unix(int64(request.PaginationMarker.GetSeconds()), int64(request.PaginationMarker.GetNanos())).UTC()
+			if createdAt.Equal(fromTime) || !request.Reverse && createdAt.After(fromTime) || request.Reverse && createdAt.Before(fromTime) {
+				return nil
+			}
+		}
 		if request.GetDetails() {
 			if err := a.getJobDetails(ctx, jobInfo); err != nil {
 				if auth.IsErrNotAuthorized(err) {
@@ -889,16 +946,25 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 				return nil
 			}
 		}
-
+		number--
 		return keep(jobInfo)
 	}
-	if pipeline != nil {
-		err := jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, col.DefaultOptions(), _f)
-		return errors.EnsureStack(err)
-	} else {
-		err := jobs.List(jobInfo, col.DefaultOptions(), _f)
-		return errors.EnsureStack(err)
+	opts := &col.Options{Target: col.SortByCreateRevision, Order: col.SortDescend}
+	if request.Reverse {
+		opts.Order = col.SortAscend
 	}
+	if pipeline != nil {
+		err := jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, opts, _f)
+		if err != nil && err != errutil.ErrBreak {
+			return errors.EnsureStack(err)
+		}
+	} else {
+		err := jobs.List(jobInfo, opts, _f)
+		if err != nil && err != errutil.ErrBreak {
+			return errors.EnsureStack(err)
+		}
+	}
+	return nil
 }
 
 // SubscribeJob implements the protobuf pps.SubscribeJob RPC
@@ -979,7 +1045,7 @@ func clearJobCache(pachClient *client.APIClient, tagPrefix string) {
 	if _, err := pachClient.PfsAPIClient.ClearCache(pachClient.Ctx(), &pfs.ClearCacheRequest{
 		TagPrefix: tagPrefix,
 	}); err != nil {
-		logrus.Errorf("errored clearing job cache: %v", err)
+		log.Error(pachClient.Ctx(), "errored clearing job cache", zap.Error(err))
 	}
 }
 
@@ -1277,6 +1343,8 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 }
 
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
+	ctx := apiGetLogsServer.Context()
+
 	// Set the default for the `Since` field.
 	if request.Since == nil || (request.Since.Seconds == 0 && request.Since.Nanos == 0) {
 		request.Since = types.DurationProto(DefaultLogsFrom)
@@ -1286,7 +1354,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	ensurePipelineProject(request.GetDatum().GetJob().GetPipeline())
 
 	if a.env.Config.LokiLogging || request.UseLokiBackend {
-		return a.getLogsLoki(request, apiGetLogsServer)
+		return a.getLogsLoki(ctx, request, apiGetLogsServer)
 	}
 
 	// Authorize request and get list of pods containing logs we're interested in
@@ -1423,7 +1491,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	return errors.EnsureStack(egErr)
 }
 
-func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
+func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	// Authorize request and get list of pods containing logs we're interested in
 	// (based on pipeline and job filters)
 	loki, err := a.env.GetLokiClient()
@@ -1491,10 +1559,10 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	for _, filter := range request.DataFilters {
 		query += contains(filter)
 	}
-	return lokiutil.QueryRange(apiGetLogsServer.Context(), loki, query, time.Now().Add(-since), time.Time{}, request.Follow, func(t time.Time, line string) error {
+	return lokiutil.QueryRange(ctx, loki, query, time.Now().Add(-since), time.Time{}, request.Follow, func(t time.Time, line string) error {
 		msg := new(pps.LogMessage)
 		if err := ParseLokiLine(line, msg); err != nil {
-			logrus.WithField("line", line).WithError(err).Debug("get logs (loki): unparseable log line")
+			log.Debug(ctx, "get logs (loki): unparseable log line", zap.String("line", line), zap.Error(err))
 			return nil
 		}
 
@@ -1527,7 +1595,43 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 // parseNativeLine receives a raw chunk of JSON from Loki, which is our logged
 // pps.LogMessage object.
 func parseNativeLine(s string, msg *pps.LogMessage) error {
-	return errors.EnsureStack(jsonpb.UnmarshalString(s, msg))
+	m := &jsonpb.Unmarshaler{
+		AllowUnknownFields: true,
+	}
+	if err := m.Unmarshal(strings.NewReader(s), msg); err != nil {
+		return errors.EnsureStack(err)
+	}
+	if proto.Equal(msg, &pps.LogMessage{}) {
+		// NOTE(jonathan): If the parsed proto is equal to an empty proto, we have to assume
+		// that the JSON is not native format.  A usable Docker-format message looks empty
+		// and valid to the Unmarshaler in this mode.  This is not strictly correct, as
+		// `{"master":false}` is a valid pps.LogMessage proto, but appears empty here, so we
+		// incorrectly reject it.  This is the price we pay for AllowUnknownFields, of which
+		// zap logs lots of.  (If we didn't allow unknown fields, then we couldn't ever log
+		// fields in the worker, which is difficult to enforce.)
+		//
+		// An alternative considered was to make zap put all of its fields in a
+		// zap.Namespace, and then put that key into the proto so it would be recognized
+		// here.  That would work, but it's difficult to then add optional fields to the zap
+		// logger, like workerId, jobId, etc.; we'd have to know the values in advance of
+		// creating the namespace.  The worker kind of incrementally learns about these
+		// things and adds them to log messages when it knows about them, not at the start
+		// of logging, so that doesn't work either.
+		//
+		// As an example:
+		// l = l.With(zap.String("known_field", ""), zap.Namespace("extraFields"))
+		// l.Info("1")
+		// l.With(zap.String("known_field", "the_value")).Info("2")
+		//
+		// logs:
+		// 1 {"known_field":""}
+		// 2 {"known_field":"", "extraFields":{"known_field":"the_value"}}
+		//
+		// Unfortunate.  If it knew how to "promote" known fields, we wouldn't have this
+		// problem.
+		return errors.New("parsed message is completely empty; assume invalid")
+	}
+	return nil
 }
 
 // parseDockerLine receives the raw Docker log line, which is a JSON object
@@ -2372,7 +2476,7 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 	pps.SortInput(input)
 	now := time.Now()
 	nCreatedBranches := make(map[string]int)
-	if err := pps.VisitInput(input, func(input *pps.Input) error {
+	pps.VisitInput(input, func(input *pps.Input) error { //nolint:errcheck
 		if input.Pfs != nil {
 			if input.Pfs.Branch == "" {
 				if input.Pfs.Trigger != nil {
@@ -2406,9 +2510,7 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 			}
 		}
 		return nil
-	}); err != nil {
-		logrus.Errorf("error while visiting inputs: %v", err)
-	}
+	})
 }
 
 func (a *apiServer) stopAllJobsInPipeline(txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline, reason string) error {
@@ -2484,7 +2586,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline,
 
 		workerStatus, err := workerserver.Status(ctx, info, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
 		if err != nil {
-			logrus.Errorf("failed to get worker status with err: %s", err.Error())
+			log.Error(ctx, "failed to get worker status", zap.Error(err))
 		} else {
 			info.Details.WorkersAvailable = int64(len(workerStatus))
 			info.Details.WorkersRequested = int64(info.Parallelism)
@@ -2520,7 +2622,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 	pipelineInfo := &pps.PipelineInfo{}
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(commit, pipelineInfo); err != nil {
 		if col.IsErrNotFound(err) {
-			return nil, errors.Errorf("pipeline %s not found", pipeline)
+			return nil, ppsServer.ErrPipelineNotFound{Pipeline: pipeline}
 		}
 		return nil, errors.EnsureStack(err)
 	}
@@ -2596,11 +2698,11 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 			jsonBuffer.Reset()
 			// convert pipelineInfo to a map[string]interface{} for use with gojq
 			if err := enc.EncodeProto(pipelineInfo); err != nil {
-				logrus.Errorf("error encoding pipelineInfo to JSON: %v", err)
+				log.Error(ctx, "error encoding pipelineInfo to JSON", zap.Error(err))
 			}
 			var pipelineInterface interface{}
 			if err := json.Unmarshal(jsonBuffer.Bytes(), &pipelineInterface); err != nil {
-				logrus.Errorf("error parsing JSON encoded pipeline info: %v", err)
+				log.Error(ctx, "error parsing JSON encoded pipeline info", zap.Error(err))
 			}
 			iter := jqCode.Run(pipelineInterface)
 			// treat either jq false-y value as rejection
@@ -2687,7 +2789,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	// stop the pipeline to avoid interference from new jobs
 	if _, err := a.StopPipeline(ctx,
 		&pps.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil && errutil.IsNotFoundError(err) {
-		logrus.Errorf("failed to stop pipeline, continuing with delete: %v", err)
+		log.Error(ctx, "failed to stop pipeline, continuing with delete", zap.Error(err))
 	} else if err != nil {
 		return errors.Wrapf(err, "error stopping pipeline %s", request.Pipeline)
 	}

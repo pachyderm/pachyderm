@@ -13,16 +13,15 @@ import (
 	"github.com/dlmiddlecote/sqlstats"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -73,7 +72,6 @@ type ServiceEnv interface {
 	GetDexDB() dex_storage.Storage
 	ClusterID() string
 	Context() context.Context
-	Logger() *log.Logger
 	Close() error
 }
 
@@ -143,17 +141,24 @@ type NonblockingServiceEnv struct {
 	cancel func()
 }
 
+func goCtx(eg *errgroup.Group, ctx context.Context, f func(context.Context) error) {
+	eg.Go(func() error {
+		return f(ctx)
+	})
+}
+
 // InitPachOnlyEnv initializes this service environment. This dials a GRPC
 // connection to pachd only (in a background goroutine), and creates the
 // template pachClient used by future calls to GetPachClient.
 //
 // This call returns immediately, but GetPachClient will block
 // until the client is ready.
-func InitPachOnlyEnv(config *Configuration) *NonblockingServiceEnv {
-	ctx, cancel := context.WithCancel(context.Background())
-	env := &NonblockingServiceEnv{config: config, ctx: ctx, cancel: cancel}
+func InitPachOnlyEnv(rctx context.Context, config *Configuration) *NonblockingServiceEnv {
+	sctx, end := log.SpanContext(rctx, "serviceenv")
+	ctx, cancel := context.WithCancel(sctx)
+	env := &NonblockingServiceEnv{config: config, ctx: ctx, cancel: func() { cancel(); end() }}
 	env.pachAddress = net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", env.config.PeerPort))
-	env.pachEg.Go(env.initPachClient)
+	goCtx(&env.pachEg, ctx, env.initPachClient)
 	return env // env is not ready yet
 }
 
@@ -163,14 +168,14 @@ func InitPachOnlyEnv(config *Configuration) *NonblockingServiceEnv {
 //
 // This call returns immediately, but GetPachClient and GetEtcdClient block
 // until their respective clients are ready.
-func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
-	env := InitPachOnlyEnv(config)
+func InitServiceEnv(ctx context.Context, config *Configuration) *NonblockingServiceEnv {
+	env := InitPachOnlyEnv(ctx, config)
 	env.etcdAddress = fmt.Sprintf("http://%s", net.JoinHostPort(env.config.EtcdHost, env.config.EtcdPort))
-	env.etcdEg.Go(env.initEtcdClient)
-	env.clusterIdEg.Go(env.initClusterID)
-	env.dbEg.Go(env.initDBClient)
+	goCtx(&env.etcdEg, env.ctx, env.initEtcdClient)
+	goCtx(&env.clusterIdEg, env.ctx, env.initClusterID)
+	goCtx(&env.dbEg, env.ctx, env.initDBClient)
 	if !env.isWorker() {
-		env.dbEg.Go(env.initDirectDBClient)
+		goCtx(&env.dbEg, env.ctx, env.initDirectDBClient)
 	}
 	env.listener = env.newListener()
 	if lokiHost, lokiPort := env.config.LokiHost, env.config.LokiPort; lokiHost != "" && lokiPort != "" {
@@ -183,9 +188,9 @@ func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 
 // InitWithKube is like InitNonblockingServiceEnv, but also assumes that it's run inside
 // a kubernetes cluster and tries to connect to the kubernetes API server.
-func InitWithKube(config *Configuration) *NonblockingServiceEnv {
-	env := InitServiceEnv(config)
-	env.kubeEg.Go(env.initKubeClient)
+func InitWithKube(ctx context.Context, config *Configuration) *NonblockingServiceEnv {
+	env := InitServiceEnv(ctx, config)
+	goCtx(&env.kubeEg, env.ctx, env.initKubeClient)
 	return env // env is not ready yet
 }
 
@@ -197,19 +202,26 @@ func (env *NonblockingServiceEnv) isWorker() bool {
 	return env.config.PPSPipelineName != "" || env.config.IsPachw
 }
 
-func (env *NonblockingServiceEnv) initClusterID() error {
+func (env *NonblockingServiceEnv) initClusterID(ctx context.Context) (retErr error) {
+	ctx, end := log.SpanContext(ctx, "initClusterID")
+	defer end(log.Errorp(&retErr))
 	client := env.GetEtcdClient()
 	for {
-		resp, err := client.Get(context.Background(), clusterIDKey)
-
-		// if it's a key not found error then we create the key
-		if resp.Count == 0 {
+		resp, err := client.Get(ctx, clusterIDKey)
+		switch {
+		case err != nil:
+			log.Debug(ctx, "potential race setting cluster id", zap.Error(err))
+			return errors.EnsureStack(err)
+		case resp.Count == 0:
 			// This might error if it races with another pachd trying to set the
 			// cluster id so we ignore the error.
-			client.Put(context.Background(), clusterIDKey, uuid.NewWithoutDashes()) //nolint:errcheck
-		} else if err != nil {
-			return errors.EnsureStack(err)
-		} else {
+			id := uuid.NewWithoutDashes()
+			done := log.Span(ctx, "putClusterID", zap.String("clusterID", id))
+			_, err := client.Put(ctx, clusterIDKey, id)
+			done(zap.Error(err))
+			// Now iterate again and make sure we read it back.
+		default:
+			log.Debug(ctx, "cluster id already set", zap.ByteString("clusterID", resp.Kvs[0].Value))
 			// We expect there to only be one value for this key
 			env.clusterId = string(resp.Kvs[0].Value)
 			return nil
@@ -217,13 +229,14 @@ func (env *NonblockingServiceEnv) initClusterID() error {
 	}
 }
 
-func (env *NonblockingServiceEnv) initPachClient() error {
+func (env *NonblockingServiceEnv) initPachClient(ctx context.Context) error {
 	// validate argument
 	if env.pachAddress == "" {
 		return errors.New("cannot initialize pach client with empty pach address")
 	}
 	// Initialize pach client
-	return backoff.Retry(func() error {
+	return backoff.Retry(func() (retErr error) {
+		defer log.Span(ctx, "initPachClient")(log.Errorp(&retErr))
 		pachClient, err := client.NewFromURI(
 			env.pachAddress,
 			client.WithAdditionalUnaryClientInterceptors(grpc_prometheus.UnaryClientInterceptor),
@@ -237,7 +250,7 @@ func (env *NonblockingServiceEnv) initPachClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
-func (env *NonblockingServiceEnv) initEtcdClient() error {
+func (env *NonblockingServiceEnv) initEtcdClient(ctx context.Context) error {
 	// validate argument
 	if env.etcdAddress == "" {
 		return errors.New("cannot initialize etcd client with empty etcd address")
@@ -248,29 +261,19 @@ func (env *NonblockingServiceEnv) initEtcdClient() error {
 		grpc.WithChainUnaryInterceptor(grpc_prometheus.UnaryClientInterceptor),
 		grpc.WithChainStreamInterceptor(grpc_prometheus.StreamClientInterceptor))
 
-	// Configure the etcd client logger to match Pachyderm's logging conventions
-	// as closely as possible (see src/internal/log/log.go)
-	logConfig := zap.NewProductionConfig()
-	logConfig.EncoderConfig.MessageKey = "message"
-	logConfig.EncoderConfig.LevelKey = "severity"
-	logConfig.EncoderConfig.TimeKey = "time"
-	logConfig.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
-	logConfig.EncoderConfig.LineEnding = zapcore.DefaultLineEnding
-	logConfig.EncoderConfig.EncodeLevel = zapcore.LowercaseLevelEncoder
-	logConfig.EncoderConfig.EncodeDuration = zapcore.SecondsDurationEncoder
+	return backoff.Retry(func() (retErr error) {
+		defer log.Span(ctx, "initEtcdClient")(log.Errorp(&retErr))
+		cfg := log.GetEtcdClientConfig(env.Context())
+		cfg.Endpoints = []string{env.etcdAddress}
+		// Use a long timeout with Etcd so that Pachyderm doesn't crash loop
+		// while waiting for etcd to come up (makes startup net faster)
+		cfg.DialTimeout = 3 * time.Minute
+		cfg.DialOptions = opts
+		cfg.MaxCallSendMsgSize = math.MaxInt32
+		cfg.MaxCallRecvMsgSize = math.MaxInt32
 
-	return backoff.Retry(func() error {
 		var err error
-		env.etcdClient, err = etcd.New(etcd.Config{
-			Endpoints: []string{env.etcdAddress},
-			// Use a long timeout with Etcd so that Pachyderm doesn't crash loop
-			// while waiting for etcd to come up (makes startup net faster)
-			DialTimeout:        3 * time.Minute,
-			DialOptions:        opts,
-			MaxCallSendMsgSize: math.MaxInt32,
-			MaxCallRecvMsgSize: math.MaxInt32,
-			LogConfig:          &logConfig,
-		})
+		env.etcdClient, err = etcd.New(cfg)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize etcd client")
 		}
@@ -278,15 +281,18 @@ func (env *NonblockingServiceEnv) initEtcdClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
-func (env *NonblockingServiceEnv) initKubeClient() error {
-	return backoff.Retry(func() error {
+func (env *NonblockingServiceEnv) initKubeClient(ctx context.Context) error {
+	return backoff.Retry(func() (retErr error) {
+		ctx, end := log.SpanContext(ctx, "initKubeClient")
+		defer end(log.Errorp(&retErr))
+
 		// Get secure in-cluster config
 		var kubeAddr string
 		var ok bool
 		cfg, err := rest.InClusterConfig()
 		if err != nil {
 			// InClusterConfig failed, fall back to insecure config
-			log.Errorf("falling back to insecure kube client due to error from NewInCluster: %s", err)
+			log.Info(ctx, "falling back to insecure kube client due to error from NewInCluster", zap.Error(err))
 			kubeAddr, ok = os.LookupEnv("KUBERNETES_PORT_443_TCP_ADDR")
 			if !ok {
 				return errors.Wrapf(err, "can't fall back to insecure kube client due to missing env var (failed to retrieve in-cluster config")
@@ -315,7 +321,10 @@ func (env *NonblockingServiceEnv) initKubeClient() error {
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
 
-func (env *NonblockingServiceEnv) initDirectDBClient() error {
+func (env *NonblockingServiceEnv) initDirectDBClient(ctx context.Context) error {
+	ctx, end := log.SpanContext(ctx, "initDirectDBClient")
+	defer end()
+
 	db, err := dbutil.NewDB(
 		dbutil.WithHostPort(env.config.PostgresHost, env.config.PostgresPort),
 		dbutil.WithDBName(env.config.PostgresDBName),
@@ -334,12 +343,15 @@ func (env *NonblockingServiceEnv) initDirectDBClient() error {
 		return err
 	}
 	if err := prometheus.Register(sqlstats.NewStatsCollector("direct", env.directDBClient.DB)); err != nil {
-		log.WithError(err).Warning("problem registering stats collector for direct db client")
+		log.Info(ctx, "problem registering stats collector for direct db client", zap.Error(err))
 	}
 	return nil
 }
 
-func (env *NonblockingServiceEnv) initDBClient() error {
+func (env *NonblockingServiceEnv) initDBClient(ctx context.Context) error {
+	ctx, end := log.SpanContext(ctx, "initDBClient")
+	defer end()
+
 	db, err := dbutil.NewDB(
 		dbutil.WithHostPort(env.config.PGBouncerHost, env.config.PGBouncerPort),
 		dbutil.WithDBName(env.config.PostgresDBName),
@@ -355,7 +367,7 @@ func (env *NonblockingServiceEnv) initDBClient() error {
 	}
 	env.dbClient = db
 	if err := prometheus.Register(sqlstats.NewStatsCollector("pg_bouncer", env.dbClient.DB)); err != nil {
-		log.WithError(err).Warning("problem registering stats collector for pg_bouncer db client")
+		log.Info(ctx, "problem registering stats collector for pg_bouncer db client", zap.Error(err))
 	}
 	return nil
 }
@@ -508,10 +520,6 @@ func (env *NonblockingServiceEnv) ClusterID() string {
 
 func (env *NonblockingServiceEnv) Context() context.Context {
 	return env.ctx
-}
-
-func (env *NonblockingServiceEnv) Logger() *log.Logger {
-	return log.StandardLogger()
 }
 
 func (env *NonblockingServiceEnv) Close() error {

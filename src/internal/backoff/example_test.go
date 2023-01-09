@@ -1,7 +1,7 @@
 package backoff_test
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 )
@@ -35,7 +35,7 @@ func ExampleTicker() {
 	// so operations that take a while to fail could run in quick succession.
 	for range ticker.C {
 		if err = operation(); err != nil {
-			log.Println(err, "will retry...")
+			fmt.Println(err, "will retry...")
 			continue
 		}
 

@@ -2,7 +2,7 @@ package version
 
 import (
 	"fmt"
-	"log"
+	"os"
 	"runtime/debug"
 
 	pb "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -72,7 +72,7 @@ func getVersions() (int, int, int) {
 	var major, minor, micro int
 	_, parseError := fmt.Sscanf(AppVersion, "%d.%d.%d", &major, &minor, &micro)
 	if parseError != nil {
-		log.Print(parseError)
+		fmt.Fprintln(os.Stderr, parseError)
 		return 0, 0, 0
 	}
 	return major, minor, micro

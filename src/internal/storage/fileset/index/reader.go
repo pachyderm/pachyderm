@@ -3,6 +3,7 @@ package index
 import (
 	"bytes"
 	"context"
+	fmt "fmt"
 	"io"
 
 	"github.com/docker/go-units"
@@ -140,6 +141,13 @@ type pathFilter struct {
 // The range is inclusive, exclusive: [Lower, Upper).
 type PathRange struct {
 	Lower, Upper string
+}
+
+func (r *PathRange) String() string {
+	if r == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("[%s, %s)", r.Lower, r.Upper)
 }
 
 func (r *PathRange) atStart(path string) bool {

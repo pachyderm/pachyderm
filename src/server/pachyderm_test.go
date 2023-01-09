@@ -47,6 +47,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -4418,8 +4419,9 @@ func testGetLogs(t *testing.T, useLoki bool) {
 	require.NoError(t, backoff.Retry(func() error {
 		// Get logs from pipeline, using pipeline
 		iter = c.GetProjectLogs(pfs.DefaultProjectName, pipelineName, "", nil, "", false, false, 0)
-		var numLogs int
+		var numLogs, totalLogs int
 		for iter.Next() {
+			totalLogs++
 			if !iter.Message().User {
 				continue
 			}
@@ -4428,7 +4430,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 			require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
 		}
 		if numLogs < 2 {
-			return errors.Errorf("didn't get enough log lines")
+			return errors.Errorf("didn't get enough log lines (%d total logs, %d non-user logs)", totalLogs, numLogs)
 		}
 		if err := iter.Err(); err != nil {
 			return err
@@ -4611,8 +4613,9 @@ func TestManyLogs(t *testing.T) {
 
 	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
 		iter := c.GetProjectLogs(pfs.DefaultProjectName, pipelineName, jis[0].Job.ID, nil, "", false, false, 0)
-		logsReceived := 0
+		var logsReceived, totalLines int
 		for iter.Next() {
+			totalLines++
 			if iter.Message().User {
 				logsReceived++
 			}
@@ -4621,7 +4624,7 @@ func TestManyLogs(t *testing.T) {
 			return iter.Err()
 		}
 		if numLogs != logsReceived {
-			return errors.Errorf("received: %d log lines, expected: %d", logsReceived, numLogs)
+			return errors.Errorf("received: %d user log lines, expected: %d (%d total lines)", logsReceived, numLogs, totalLines)
 		}
 		return nil
 	})
@@ -4663,7 +4666,7 @@ func TestLokiLogs(t *testing.T) {
 	require.Equal(t, 1, len(jis))
 
 	// Follow the logs the make sure we get enough foos
-	require.NoErrorWithinT(t, time.Minute, func() error {
+	require.NoErrorWithinT(t, 2*time.Minute, func() error {
 		iter := c.GetLogsLoki(pipelineName, jis[0].Job.ID, nil, "", false, true, 0)
 		foundFoos := 0
 		for iter.Next() {
@@ -4755,37 +4758,37 @@ func TestDatumStatusRestart(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	// TODO: (CORE-1015) Fix flaky test
-	t.Skip("Skipping flaky test")
-
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
-	dataRepo := tu.UniqueString("TestDatumDedup_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	project := tu.UniqueString("PROJECT")
+	require.NoError(t, c.CreateProject(project))
+
+	dataRepo := tu.UniqueString("dataRepo")
+	require.NoError(t, c.CreateProjectRepo(project, dataRepo))
 
 	pipeline := tu.UniqueString("pipeline")
-	// This pipeline sleeps for 20 secs per datum
-	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+	// This pipeline sleeps for 30 secs per datum
+	require.NoError(t, c.CreateProjectPipeline(project,
 		pipeline,
 		"",
 		[]string{"bash"},
 		[]string{
-			"sleep 20",
+			"sleep 30",
 		},
 		nil,
-		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		client.NewProjectPFSInput(project, dataRepo, "/*"),
 		"",
 		false,
 	))
 
-	commit1, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit1, err := c.StartProjectCommit(project, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.ID))
+	require.NoError(t, c.FinishProjectCommit(project, dataRepo, commit1.Branch.Name, commit1.ID))
 
 	// get the job status
-	jobs, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1, true)
+	jobs, err := c.ListProjectJob(project, pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 
@@ -4794,8 +4797,9 @@ func TestDatumStatusRestart(t *testing.T) {
 	// it's called, the datum being processes was started at a new and later time
 	// (than the last time checkStatus was called)
 	checkStatus := func() {
-		require.NoErrorWithinTRetry(t, time.Minute, func() error {
-			jobInfo, err := c.InspectProjectJob(pfs.DefaultProjectName, pipeline, commit1.ID, true)
+		require.NoErrorWithinTRetryConstant(t, time.Minute, func() error {
+			jobInfo, err := c.InspectProjectJob(project, pipeline, commit1.ID, true)
+
 			require.NoError(t, err)
 			if len(jobInfo.Details.WorkerStatus) == 0 {
 				return errors.Errorf("no worker statuses")
@@ -4818,10 +4822,10 @@ func TestDatumStatusRestart(t *testing.T) {
 				return nil
 			}
 			return errors.Errorf("worker status from wrong job")
-		})
+		}, 500*time.Millisecond) // We need to check quickly. If we wait too long the datum might finish before we can restart it.
 	}
 	checkStatus()
-	require.NoError(t, c.RestartProjectDatum(pfs.DefaultProjectName, pipeline, commit1.ID, []string{"/file"}))
+	require.NoError(t, c.RestartProjectDatum(project, pipeline, commit1.ID, []string{"/file"}))
 	checkStatus()
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.ID)
@@ -7089,6 +7093,203 @@ func TestListJobTruncated(t *testing.T) {
 	require.NotNil(t, fullJobInfos[0].Details.Input)
 	require.Equal(t, pipeline, fullJobInfos[0].Job.Pipeline.Name)
 }
+func TestListJobSetPaged(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	dataRepo := tu.UniqueString("TestListJobPaged_data")
+	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+
+	pipeline1Name := tu.UniqueString("pipeline1")
+	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+		pipeline1Name,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		nil,
+		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	pipeline2Name := tu.UniqueString("pipeline2")
+	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+		pipeline2Name,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipeline1Name),
+		},
+		nil,
+		client.NewProjectPFSInput(pfs.DefaultProjectName, pipeline1Name, "/*"),
+		"",
+		false,
+	))
+
+	numFiles := 7
+	for i := 0; i < numFiles; i++ {
+		commit, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.PutFile(commit, fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)), client.WithAppendPutFile()))
+		require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
+		commitInfos, err := c.WaitCommitSetAll(commit.ID)
+		require.NoError(t, err)
+		require.Equal(t, 7, len(commitInfos))
+	}
+	jobInfos, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline1Name, nil, 0, true)
+	require.NoError(t, err)
+	require.Equal(t, 8, len(jobInfos))
+	jobInfos, err = c.ListProjectJob(pfs.DefaultProjectName, pipeline2Name, nil, 0, true)
+	require.NoError(t, err)
+	require.Equal(t, 8, len(jobInfos))
+	listJobSetRequest := &pps.ListJobSetRequest{}
+	client, err := c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
+	require.NoError(t, err)
+	allJobSetInfos, err := clientsdk.ListJobSet(client)
+	require.NoError(t, err)
+	require.Equal(t, 9, len(allJobSetInfos))
+
+	// Test pagination
+	var pagedJSIs []*pps.JobSetInfo
+	// get first page
+	listJobSetRequest = &pps.ListJobSetRequest{Number: 3}
+	client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
+	require.NoError(t, err)
+	jsis, err := clientsdk.ListJobSet(client)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(jsis))
+	pagedJSIs = append(pagedJSIs, jsis...)
+	// get next two pages
+	for i := 0; i < 2; i++ {
+		listJobSetRequest = &pps.ListJobSetRequest{Number: 3, PaginationMarker: jsis[len(jsis)-1].Jobs[1].Created}
+		client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
+		require.NoError(t, err)
+		jsis, err = clientsdk.ListJobSet(client)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(jsis))
+		pagedJSIs = append(pagedJSIs, jsis...)
+	}
+	require.Equal(t, len(allJobSetInfos), len(pagedJSIs))
+	var reverseJIs []*pps.JobSetInfo
+	// get last page
+	listJobSetRequest = &pps.ListJobSetRequest{Number: 3, Reverse: true}
+	client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
+	require.NoError(t, err)
+	jsis, err = clientsdk.ListJobSet(client)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(jsis))
+	reverseJIs = append(reverseJIs, jsis...)
+	// get previous two pages
+	for i := 0; i < 2; i++ {
+		listJobSetRequest = &pps.ListJobSetRequest{Number: 3, Reverse: true, PaginationMarker: jsis[2].Jobs[0].Created}
+		client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
+		require.NoError(t, err)
+		jsis, err = clientsdk.ListJobSet(client)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(jsis))
+		reverseJIs = append(reverseJIs, jsis...)
+	}
+	require.Equal(t, len(allJobSetInfos), len(reverseJIs))
+}
+
+func TestListJobPaged(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	dataRepo := tu.UniqueString("TestListJobPaged_data")
+	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+
+	pipelineName := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		nil,
+		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	numFiles := 8
+	for i := 0; i < numFiles; i++ {
+		commit, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.PutFile(commit, fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)), client.WithAppendPutFile()))
+		require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.ID))
+		commitInfos, err := c.WaitCommitSetAll(commit.ID)
+		require.NoError(t, err)
+		require.Equal(t, 4, len(commitInfos))
+	}
+
+	jobInfos, err := c.ListProjectJob(pfs.DefaultProjectName, pipelineName, nil, 0, true)
+	require.NoError(t, err)
+	require.Equal(t, 9, len(jobInfos))
+
+	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
+	listJobRequest := &pps.ListJobRequest{Pipeline: pipeline}
+	client, err := c.PpsAPIClient.ListJob(c.Ctx(), listJobRequest)
+	require.NoError(t, err)
+	allJobInfos, err := clientsdk.ListJob(client)
+	require.NoError(t, err)
+	require.Equal(t, 9, len(allJobInfos))
+
+	// Test pagination
+	var pagedJIs []*pps.JobInfo
+	// get first page
+	listJobRequest = &pps.ListJobRequest{Pipeline: pipeline, Number: 3}
+	client, err = c.PpsAPIClient.ListJob(c.Ctx(), listJobRequest)
+	require.NoError(t, err)
+	jis, err := clientsdk.ListJob(client)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(jis))
+	pagedJIs = append(pagedJIs, jis...)
+	// get next two pages
+	for i := 0; i < 2; i++ {
+		listJobRequest = &pps.ListJobRequest{Pipeline: pipeline, Number: 3, PaginationMarker: jis[len(jis)-1].Created}
+		client, err = c.PpsAPIClient.ListJob(c.Ctx(), listJobRequest)
+		require.NoError(t, err)
+		jis, err = clientsdk.ListJob(client)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(jis))
+		pagedJIs = append(pagedJIs, jis...)
+	}
+	for i, ji := range allJobInfos {
+		require.Equal(t, ji.Job.ID, pagedJIs[i].Job.ID)
+	}
+	var reverseJIs []*pps.JobInfo
+	// get last page
+	listJobRequest = &pps.ListJobRequest{Pipeline: pipeline, Number: 3, Reverse: true}
+	client, err = c.PpsAPIClient.ListJob(c.Ctx(), listJobRequest)
+	require.NoError(t, err)
+	jis, err = clientsdk.ListJob(client)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(jis))
+	reverseJIs = append(reverseJIs, jis...)
+	// get previous two pages
+	for i := 0; i < 2; i++ {
+		listJobRequest = &pps.ListJobRequest{Pipeline: pipeline, Number: 3, Reverse: true, PaginationMarker: jis[2].Created}
+		client, err = c.PpsAPIClient.ListJob(c.Ctx(), listJobRequest)
+		require.NoError(t, err)
+		jis, err = clientsdk.ListJob(client)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(jis))
+		reverseJIs = append(reverseJIs, jis...)
+	}
+	for i, ji := range allJobInfos {
+		require.Equal(t, ji.Job.ID, reverseJIs[len(reverseJIs)-1-i].Job.ID)
+	}
+}
 
 func TestPipelineEnvVarAlias(t *testing.T) {
 	if testing.Short() {
@@ -8509,7 +8710,7 @@ func TestDatumTries(t *testing.T) {
 		iter := c.GetProjectLogs(pfs.DefaultProjectName, pipeline, jobInfos[0].Job.ID, nil, "", false, false, 0)
 		var observedTries int64
 		for iter.Next() {
-			if strings.Contains(iter.Message().Message, "errored running user code after") {
+			if strings.Contains(iter.Message().Message, "errored running user code") {
 				observedTries++
 			}
 		}
@@ -10910,7 +11111,8 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
 
 	// create output database, and destination table
-	db, dbName := testsnowflake.NewEphemeralSnowflakeDB(t)
+	ctx := pctx.TestContext(t)
+	db, dbName := testsnowflake.NewEphemeralSnowflakeDB(ctx, t)
 	require.NoError(t, pachsql.CreateTestTable(db, "test_table", struct {
 		Id int    `column:"ID" dtype:"INT" constraint:"PRIMARY KEY"`
 		A  string `column:"A" dtype:"VARCHAR(100)"`

@@ -8,9 +8,10 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type objectAdapter struct {
@@ -77,7 +78,7 @@ func (s *objectAdapter) Walk(ctx context.Context, prefix []byte, cb func(key []b
 func (s *objectAdapter) retry(ctx context.Context, cb func() error) error {
 	return backoff.RetryUntilCancel(ctx, cb, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		if errors.As(err, &pacherr.TransientError{}) {
-			log.Errorf("transient error in object adapter: %v, retrying in %v", err, d)
+			log.Info(ctx, "transient error in object adapter; retrying", zap.Error(err), zap.Duration("retryAfter", d))
 			return nil
 		}
 		return err

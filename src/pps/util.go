@@ -31,7 +31,8 @@ func init() {
 	errInvalidPipelineStateName = fmt.Sprintf("state %%s must be one of %s, or %s, etc", strings.Join(states, ", "), PipelineState_name[0])
 }
 
-// VisitInput visits each input recursively in ascending order (root last)
+// VisitInput visits each input recursively in ascending order (root last).  It cannot return an
+// error unless f returns an error.
 func VisitInput(input *Input, f func(*Input) error) error {
 	err := visitInput(input, f)
 	if err != nil && errors.Is(err, errutil.ErrBreak) {
