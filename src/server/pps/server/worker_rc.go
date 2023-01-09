@@ -53,6 +53,12 @@ const (
 	UploadConcurrencyLimitEnvVar               = "STORAGE_UPLOAD_CONCURRENCY_LIMIT"
 	StorageCompactionShardSizeThresholdEnvVar  = "STORAGE_COMPACTION_SHARD_SIZE_THRESHOLD"
 	StorageCompactionShardCountThresholdEnvVar = "STORAGE_COMPACTION_SHARD_COUNT_THRESHOLD"
+	StorageMemoryThresholdEnvVar               = "STORAGE_MEMORY_THRESHOLD"
+	StorageLevelFactorEnvVar                   = "STORAGE_LEVEL_FACTOR"
+	StorageMaxFanInEnvVar                      = "STORAGE_COMPACTION_MAX_FANIN"
+	StorageMaxOpenFileSetsEnvVar               = "STORAGE_FILESETS_MAX_OPEN"
+	StorageDiskCacheSizeEnvVar                 = "STORAGE_DISK_CACHE_SIZE"
+	StorageMemoryCacheSizeEnvVar               = "STORAGE_MEMORY_CACHE_SIZE"
 )
 
 // Parameters used when creating the kubernetes replication controller in charge
@@ -553,6 +559,42 @@ func (kd *kubeDriver) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.Env
 		vars = append(vars, v1.EnvVar{
 			Name:  StorageCompactionShardCountThresholdEnvVar,
 			Value: strconv.FormatInt(kd.config.StorageCompactionShardCountThreshold, 10),
+		})
+	}
+	if kd.config.StorageMemoryThreshold > 0 {
+		vars = append(vars, v1.EnvVar{
+			Name:  StorageMemoryThresholdEnvVar,
+			Value: strconv.FormatInt(kd.config.StorageMemoryThreshold, 10),
+		})
+	}
+	if kd.config.StorageLevelFactor > 0 {
+		vars = append(vars, v1.EnvVar{
+			Name:  StorageLevelFactorEnvVar,
+			Value: strconv.FormatInt(kd.config.StorageLevelFactor, 10),
+		})
+	}
+	if kd.config.StorageCompactionMaxFanIn != 10 {
+		vars = append(vars, v1.EnvVar{
+			Name:  StorageMaxFanInEnvVar,
+			Value: strconv.FormatInt(int64(kd.config.StorageCompactionMaxFanIn), 10),
+		})
+	}
+	if kd.config.StorageFileSetsMaxOpen != 50 {
+		vars = append(vars, v1.EnvVar{
+			Name:  StorageMaxOpenFileSetsEnvVar,
+			Value: strconv.FormatInt(int64(kd.config.StorageFileSetsMaxOpen), 10),
+		})
+	}
+	if kd.config.StorageDiskCacheSize != 100 {
+		vars = append(vars, v1.EnvVar{
+			Name:  StorageDiskCacheSizeEnvVar,
+			Value: strconv.FormatInt(int64(kd.config.StorageDiskCacheSize), 10),
+		})
+	}
+	if kd.config.StorageMemoryCacheSize != 100 {
+		vars = append(vars, v1.EnvVar{
+			Name:  StorageMemoryCacheSizeEnvVar,
+			Value: strconv.FormatInt(int64(kd.config.StorageMemoryCacheSize), 10),
 		})
 	}
 	return vars
