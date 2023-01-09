@@ -126,7 +126,6 @@ def test_list_mounts(pachyderm_resources, dev_server):
     resp = r.json()
     assert len(resp["mounted"]) == 1
     for mount_info in resp["mounted"]:
-        import pdb; pdb.set_trace()
         assert mount_info.keys() == {
             "name",
             "repo",
