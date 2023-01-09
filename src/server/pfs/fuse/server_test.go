@@ -343,7 +343,8 @@ func TestMountNonexistentRepo(t *testing.T) {
 
 func TestRwMountNonexistentBranch(t *testing.T) {
 	// Mounting a nonexistent branch fails for read-only mounts and succeeds for read-write mounts
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
@@ -382,9 +383,9 @@ func TestRwMountNonexistentBranch(t *testing.T) {
 }
 
 func TestRwUnmountCreatesCommit(t *testing.T) {
-	ctx := pctx.TestContext(t)
 	// Unmounting a mounted read-write filesystem which has had some data
 	// written to it results in a new commit with that data in it.
+	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 
@@ -848,7 +849,8 @@ func TestDeletingMountedRepo(t *testing.T) {
 }
 
 func TestMountWithProjects(t *testing.T) {
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 	commit := client.NewProjectCommit(pfs.DefaultProjectName, "repo", "b1", "")
