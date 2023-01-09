@@ -171,6 +171,30 @@ spec:
         - name: STORAGE_COMPACTION_SHARD_COUNT_THRESHOLD
           value: {{ .Values.pachd.storage.compactionShardCountThreshold | quote }}
         {{- end }}
+        {{- if .Values.pachd.storage.memoryThreshold }}
+        - name: STORAGE_MEMORY_THRESHOLD
+          value: {{ .Values.pachd.storage.memoryThreshold | quote }}
+        {{- end }}
+        {{- if .Values.pachd.storage.levelFactor }}
+        - name: STORAGE_LEVEL_FACTOR
+          value: {{ .Values.pachd.storage.levelFactor | quote }}
+        {{- end }}
+        {{- if .Values.pachd.storage.maxFanIn }}
+        - name: STORAGE_COMPACTION_MAX_FANIN
+          value: {{ .Values.pachd.storage.maxFanIn | quote }}
+        {{- end }}
+        {{- if .Values.pachd.storage.maxOpenFileSets }}
+        - name: STORAGE_FILESETS_MAX_OPEN
+          value: {{ .Values.pachd.storage.maxOpenFileSets | quote }}
+        {{- end }}
+        {{- if .Values.pachd.storage.diskCacheSize }}
+        - name: STORAGE_DISK_CACHE_SIZE
+          value: {{ .Values.pachd.storage.diskCacheSize | quote }}
+        {{- end }}
+        {{- if .Values.pachd.storage.memoryCacheSize }}
+        - name: STORAGE_MEMORY_CACHE_SIZE
+          value: {{ .Values.pachd.storage.memoryCacheSize | quote }}
+        {{- end }}
         {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - name: SSL_CERT_DIR
           value:  /pachd-tls-cert
