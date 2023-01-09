@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
-
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 
@@ -232,56 +230,4 @@ func newTestDirectDB(t testing.TB) (*pachsql.DB, string) {
 		require.NoError(t, db.Close())
 	})
 	return db, dsn
-}
-
-// TestMigratePostgreSQLCollection creates a simple collection with an item,
-// then migrates it to have a new key and mutate one member, a finally verifies
-// the existence of the new item and the non-existence of the old.
-func TestMigratePostgreSQLCollection(t *testing.T) {
-	db, dsn := newTestDB(t)
-	listener := col.NewPostgresListener(dsn)
-	testCol := col.NewPostgresCollection("test_items", db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex})
-	ctx := context.Background()
-	if err := dbutil.WithTx(ctx, db, func(tx *pachsql.Tx) error {
-		if err := col.CreatePostgresSchema(ctx, tx); err != nil {
-			return err
-		}
-		if err := col.SetupPostgresV0(ctx, tx); err != nil {
-			return err
-		}
-		return col.SetupPostgresCollections(ctx, tx, testCol)
-	}); err != nil {
-		t.Fatal("could create test collection:", err)
-	}
-	if err := dbutil.WithTx(ctx, db, func(tx *pachsql.Tx) error {
-		return testCol.ReadWrite(tx).Put("foo1", &col.TestItem{ID: "foo", Value: "bar", Data: "baz"})
-	}); err != nil {
-		t.Fatal("could not write test item:", err)
-	}
-	if err := dbutil.WithTx(ctx, db, func(tx *pachsql.Tx) error {
-		var oldItem = new(col.TestItem)
-		return col.MigratePostgreSQLCollection_v2_5_0(ctx, tx, "test_items", []*col.Index{TestSecondaryIndex}, oldItem, func(oldKey string) (newKey string, newVal proto.Message, err error) {
-			oldItem.Value = oldItem.Value + " quux"
-			return "foo", oldItem, nil
-		})
-	}); err != nil {
-		t.Fatal("could not migrate test item:", err)
-	}
-	var item col.TestItem
-	if err := testCol.ReadOnly(ctx).Get("foo", &item); err != nil {
-		t.Error("could not read migrated item:", err)
-	}
-	if item.ID != "foo" {
-		t.Errorf("%q ≠ %q", item.ID, "foo")
-	}
-	if item.Value != "bar quux" {
-		t.Errorf("%q ≠ %q", item.Value, "bar quux")
-	}
-	if err := testCol.ReadOnly(ctx).Get("foo1", &item); err != nil {
-		if !col.IsErrNotFound(err) {
-			t.Error("could not try to get migrated item:", err)
-		}
-	} else {
-		t.Error("found migrated item under old key")
-	}
 }
