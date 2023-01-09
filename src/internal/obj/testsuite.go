@@ -119,16 +119,16 @@ func TestStorage(ctx context.Context, c Client) error {
 		data := []byte("test")
 		return errors.EnsureStack(c.Put(ctx, testObj, bytes.NewReader(data)))
 	}(); err != nil {
-		return errors.Wrapf(err, "unable to write to object storage\n")
+		return errors.Wrapf(err, "unable to write to object storage")
 	}
 	if err := func() (retErr error) {
 		buf := bytes.NewBuffer(nil)
 		return errors.EnsureStack(c.Get(ctx, testObj, buf))
 	}(); err != nil {
-		return errors.Wrapf(err, "unable to read from object storage\n")
+		return errors.Wrapf(err, "unable to read from object storage")
 	}
 	if err := c.Delete(ctx, testObj); err != nil {
-		return errors.Wrapf(err, "unable to delete from object storage\n")
+		return errors.Wrapf(err, "unable to delete from object storage")
 	}
 	// Try reading a non-existent object to make sure our IsNotExist function
 	// works.
