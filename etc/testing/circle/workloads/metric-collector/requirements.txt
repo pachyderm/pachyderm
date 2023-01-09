@@ -1,0 +1,2 @@
+google-cloud-bigquery==3.3.6
+python-pachyderm==7.3.3

@@ -9,14 +9,15 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -38,7 +39,7 @@ func Status(ctx context.Context, pipelineInfo *pps.PipelineInfo, etcdClient *etc
 		defer cancel()
 		status, err := c.Status(ctx, &types.Empty{})
 		if err != nil {
-			log.Warnf("error getting worker status: %v", err)
+			log.Info(ctx, "error getting worker status", zap.Error(err))
 			return nil
 		}
 		result = append(result, status)

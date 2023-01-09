@@ -11,6 +11,8 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -145,12 +147,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 
 // ListRepo implements the protobuf pfs.ListRepo RPC
 func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) (retErr error) {
-	projectsFilter := make(map[string]bool)
-	for _, project := range request.Projects {
-		projectsFilter[project] = true
-	}
-
-	return a.driver.listRepo(srv.Context(), true /* includeAuth */, request.Type, projectsFilter, srv.Send)
+	return a.driver.listRepo(srv.Context(), true /* includeAuth */, request.Type, request.Projects, srv.Send)
 }
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
@@ -162,12 +159,29 @@ func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContex
 // DeleteRepo implements the protobuf pfs.DeleteRepo RPC
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
 	request.GetRepo().EnsureProject()
+	if request.GetRepo() == nil {
+		return nil, status.Error(codes.InvalidArgument, "no repo specified")
+	}
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.DeleteRepo(request))
 	}, nil); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+// DeleteRepos implements the pfs.DeleteRepo RPC.  It deletes more than one repo at once.
+func (a *apiServer) DeleteRepos(ctx context.Context, request *pfs.DeleteReposRequest) (resp *pfs.DeleteReposResponse, err error) {
+	if len(request.Projects) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "DeleteRepos must specify project(s) whose repos should be deleted.")
+	}
+	repos, err := a.driver.deleteProjectsRepos(ctx, request.Projects)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.DeleteReposResponse{
+		Repos: repos,
+	}, nil
 }
 
 // StartCommitInTransaction is identical to StartCommit except that it can run
@@ -247,7 +261,10 @@ func (a *apiServer) InspectCommitSet(request *pfs.InspectCommitSetRequest, serve
 
 // ListCommitSet implements the protobuf pfs.ListCommitSet RPC
 func (a *apiServer) ListCommitSet(request *pfs.ListCommitSetRequest, serv pfs.API_ListCommitSetServer) (retErr error) {
-	return a.driver.listCommitSet(serv.Context(), func(commitSetInfo *pfs.CommitSetInfo) error {
+	if request.Project == nil {
+		request.Project = &pfs.Project{Name: pfs.DefaultProjectName}
+	}
+	return a.driver.listCommitSet(serv.Context(), request.Project, func(commitSetInfo *pfs.CommitSetInfo) error {
 		return errors.EnsureStack(serv.Send(commitSetInfo))
 	})
 }

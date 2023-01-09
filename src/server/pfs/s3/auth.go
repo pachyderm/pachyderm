@@ -9,10 +9,12 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"go.uber.org/zap"
 )
 
 func (c *controller) SecretKey(r *http.Request, accessKey string, region *string) (*string, error) {
-	c.logger.Debugf("SecretKey: %+v", region)
+	log.Debug(r.Context(), "SecretKey", zap.Stringp("region", region))
 
 	pc := c.clientFactory(r.Context())
 
@@ -44,7 +46,7 @@ func (c *controller) SecretKey(r *http.Request, accessKey string, region *string
 }
 
 func (c *controller) CustomAuth(r *http.Request) (bool, error) {
-	c.logger.Debug("CustomAuth")
+	log.Debug(r.Context(), "CustomAuth")
 	pc := c.clientFactory(r.Context())
 	active, err := pc.IsAuthActive()
 	if err != nil {

@@ -3,32 +3,35 @@ package backoff_test
 import (
 	"bytes"
 	"context"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 func TestRetry(t *testing.T) {
+	ctx := pctx.TestContext(t)
 	const successOn = 3
 	var i = 0
 
 	// This function is successful on "successOn" calls.
 	f := func() error {
 		i++
-		log.Printf("function is called %d. time\n", i)
+		log.Info(ctx, "function is called", zap.Int("i", i))
 
 		if i == successOn {
-			log.Println("OK")
+			log.Info(ctx, "OK")
 			return nil
 		}
 
-		log.Println("error")
+		log.Info(ctx, "error")
 		return errors.New("error")
 	}
 
@@ -43,7 +46,7 @@ func TestRetry(t *testing.T) {
 
 func TestRetryUntilCancel(t *testing.T) {
 	var results []int
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(pctx.TestContext(t))
 	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 		results = append(results, len(results))
 		if len(results) >= 3 {
@@ -57,7 +60,7 @@ func TestRetryUntilCancel(t *testing.T) {
 }
 
 func TestRetryUntilCancelZeroBackoff(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(pctx.TestContext(t))
 	first := true
 	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 		if first {
@@ -95,7 +98,7 @@ func (m *mustResetBackOff) Reset() {
 func TestRetryUntilCancelResetsOnErrContinue(t *testing.T) {
 	var b mustResetBackOff = 0
 	var results []int
-	backoff.RetryUntilCancel(context.Background(), func() error { //nolint:errcheck
+	backoff.RetryUntilCancel(pctx.TestContext(t), func() error { //nolint:errcheck
 		results = append(results, len(results)+1)
 		if len(results) < 3 {
 			return backoff.ErrContinue
@@ -149,11 +152,12 @@ func TestNotifyContinue(t *testing.T) {
 	})
 
 	t.Run("NotifyContinueWithString", func(t *testing.T) {
-		var buf bytes.Buffer
-		log.SetOutput(&buf)
-		defer log.SetOutput(os.Stdout)
+		buf := new(bytes.Buffer)
+		l := zap.New(zapcore.NewCore(zapcore.NewJSONEncoder(zapcore.EncoderConfig{MessageKey: "m"}), zapcore.AddSync(buf), zap.InfoLevel))
+		t.Cleanup(zap.ReplaceGlobals(l))
+
 		var results []int
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(pctx.TestContext(t))
 		backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 			results = append(results, len(results))
 			if len(results) < 3 {
@@ -164,6 +168,7 @@ func TestNotifyContinue(t *testing.T) {
 			cancel() // actually breaks out
 			return nil
 		}, &backoff.ZeroBackOff{}, backoff.NotifyContinue(t.Name()))
+		t.Logf("logs:\n%s", buf.String())
 		require.Equal(t, []int{0, 1, 2, 3}, results)
 		require.Equal(t, 1, strings.Count(buf.String(), t.Name())) // logged once
 	})
@@ -171,7 +176,7 @@ func TestNotifyContinue(t *testing.T) {
 
 func TestMustLoop(t *testing.T) {
 	var results []int
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(pctx.TestContext(t))
 	backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error { //nolint:errcheck
 		results = append(results, len(results)+1)
 		switch len(results) {

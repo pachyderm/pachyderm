@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"go.uber.org/zap"
 )
 
 // Func is a function called to renew something for ttl time.
@@ -69,7 +69,7 @@ func (r *Renewer) renewLoop(ctx context.Context) (retErr error) {
 			defer cf()
 			return r.renewFunc(ctx, r.ttl)
 		}(); err != nil {
-			logrus.Errorf("error during renewal: %v", err)
+			log.Error(ctx, "error during renewal", zap.Error(err))
 			return err
 		}
 		select {

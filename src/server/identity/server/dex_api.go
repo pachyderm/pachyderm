@@ -11,12 +11,14 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/server/identityutil"
 
 	dex_api "github.com/dexidp/dex/api/v2"
+	dex_log "github.com/dexidp/dex/pkg/log"
 	dex_server "github.com/dexidp/dex/server"
 	dex_storage "github.com/dexidp/dex/storage"
-	logrus "github.com/sirupsen/logrus"
 )
 
 // dexAPI wraps an api.DexServer and extends it with CRUD operations
@@ -25,11 +27,12 @@ import (
 type dexAPI struct {
 	api     dex_api.DexServer
 	storage dex_storage.Storage
-	logger  *logrus.Entry
+	logger  dex_log.Logger
 }
 
 func newDexAPI(sp dex_storage.Storage) *dexAPI {
-	logger := logrus.WithField("source", "dex-api")
+	ctx := pctx.Background("dexAPI")
+	logger := log.NewLogrus(ctx)
 	return &dexAPI{
 		api:     dex_server.NewAPI(sp, logger, ""),
 		storage: sp,

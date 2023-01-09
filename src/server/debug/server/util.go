@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/fsutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"go.uber.org/multierr"
 )
 
 func join(names ...string) string {
@@ -21,15 +22,11 @@ func join(names ...string) string {
 func withDebugWriter(w io.Writer, cb func(*tar.Writer) error) (retErr error) {
 	gw := gzip.NewWriter(w)
 	defer func() {
-		if retErr == nil {
-			retErr = gw.Close()
-		}
+		multierr.AppendInto(&retErr, gw.Close())
 	}()
 	tw := tar.NewWriter(gw)
 	defer func() {
-		if retErr == nil {
-			retErr = tw.Close()
-		}
+		multierr.AppendInto(&retErr, tw.Close())
 	}()
 	return cb(tw)
 }
@@ -95,9 +92,7 @@ func collectDebugStream(tw *tar.Writer, r io.Reader, prefix ...string) (retErr e
 		return errors.EnsureStack(err)
 	}
 	defer func() {
-		if err := gr.Close(); retErr == nil {
-			retErr = err
-		}
+		multierr.AppendInto(&retErr, gr.Close())
 	}()
 	tr := tar.NewReader(gr)
 	return copyTar(tw, tr, prefix...)

@@ -10,65 +10,63 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // TODO: Move fan-in configuration to fileset.Storage.
 type compactor struct {
 	storage  *fileset.Storage
-	logger   *log.Entry
 	maxFanIn int
 }
 
-func newCompactor(storage *fileset.Storage, logger *log.Entry, maxFanIn int) *compactor {
+func newCompactor(storage *fileset.Storage, maxFanIn int) *compactor {
 	return &compactor{
 		storage:  storage,
-		logger:   logger,
 		maxFanIn: maxFanIn,
 	}
 }
 
 func (c *compactor) Compact(ctx context.Context, taskDoer task.Doer, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
-	return c.storage.CompactLevelBased(ctx, c.logger, ids, c.maxFanIn, defaultTTL, func(ctx context.Context, logger *log.Entry, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
-		return c.compact(ctx, taskDoer, logger, ids, ttl)
+	return c.storage.CompactLevelBased(ctx, ids, c.maxFanIn, defaultTTL, func(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
+		return c.compact(ctx, taskDoer, ids, ttl)
 	})
 }
 
-func (c *compactor) compact(ctx context.Context, taskDoer task.Doer, logger *log.Entry, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
+func (c *compactor) compact(ctx context.Context, taskDoer task.Doer, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
 	var tasks []*CompactTask
-	if err := miscutil.LogStep(ctx, logger, fmt.Sprintf("sharding %v file sets", len(ids)), func() error {
+	if err := log.LogStep(ctx, "shardFileSet", func(ctx context.Context) error {
 		var err error
-		tasks, err = c.createCompactTasks(ctx, taskDoer, logger, ids)
+		tasks, err = c.createCompactTasks(ctx, taskDoer, ids)
 		return err
-	}); err != nil {
+	}, zap.Int("filesets", len(ids))); err != nil {
 		return nil, err
 	}
 	var id *fileset.ID
 	if err := c.storage.WithRenewer(ctx, ttl, func(ctx context.Context, renewer *fileset.Renewer) error {
 		var results []fileset.ID
-		if err := miscutil.LogStep(ctx, logger, fmt.Sprintf("compacting %v tasks", len(tasks)), func() error {
+		if err := log.LogStep(ctx, "compactTasks", func(ctx context.Context) error {
 			var err error
 			results, err = c.processCompactTasks(ctx, taskDoer, renewer, tasks)
 			return err
-		}); err != nil {
+		}, zap.Int("tasks", len(tasks))); err != nil {
 			return err
 		}
-		return miscutil.LogStep(ctx, logger, fmt.Sprintf("concatenating %v file sets", len(results)), func() error {
+		return log.LogStep(ctx, "concatenateFileSets", func(ctx context.Context) error {
 			var err error
 			id, err = c.concat(ctx, taskDoer, renewer, results)
 			return err
-		})
+		}, zap.Int("filesets", len(results)))
 	}); err != nil {
 		return nil, err
 	}
 	return id, nil
 }
 
-func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, logger *log.Entry, ids []fileset.ID) ([]*CompactTask, error) {
+func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, ids []fileset.ID) ([]*CompactTask, error) {
 	fs, err := c.storage.Open(ctx, ids)
 	if err != nil {
 		return nil, err
@@ -78,7 +76,7 @@ func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, 
 		return nil, err
 	}
 	for _, shard := range shards {
-		logger.Infof("created file set shard [%v,%v)", shard.Lower, shard.Upper)
+		log.Info(ctx, "created file set shard", zap.Stringer("range", shard))
 	}
 	var inputs []*types.Any
 	for _, shard := range shards {
@@ -111,7 +109,7 @@ func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, 
 	var compactTasks []*CompactTask
 	for _, result := range results {
 		for _, task := range result {
-			logger.Infof("created compaction shard [%v,%v)", task.PathRange.Lower, task.PathRange.Upper)
+			log.Info(ctx, "created compaction shard", zap.Stringer("pathRange", task.PathRange))
 		}
 		compactTasks = append(compactTasks, result...)
 	}
@@ -263,14 +261,14 @@ func compactionWorker(ctx context.Context, taskSource task.Source, storage *file
 		})
 		return errors.EnsureStack(err)
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
-		log.Printf("error in compaction worker: %v", err)
+		log.Info(ctx, "error in compaction worker", zap.Error(err))
 		return nil
 	})
 }
 
 func processShardTask(ctx context.Context, storage *fileset.Storage, task *ShardTask) (*types.Any, error) {
 	result := &ShardTaskResult{}
-	if err := miscutil.LogStep(ctx, log.NewEntry(log.StandardLogger()), "processing shard task", func() error {
+	if err := log.LogStep(ctx, "processing shard task", func(ctx context.Context) error {
 		ids, err := fileset.HexStringsToIDs(task.Inputs)
 		if err != nil {
 			return err
@@ -301,7 +299,7 @@ func processShardTask(ctx context.Context, storage *fileset.Storage, task *Shard
 
 func processCompactTask(ctx context.Context, storage *fileset.Storage, task *CompactTask) (*types.Any, error) {
 	result := &CompactTaskResult{}
-	if err := miscutil.LogStep(ctx, log.NewEntry(log.StandardLogger()), "processing compact task", func() error {
+	if err := log.LogStep(ctx, "processCompactTask", func(ctx context.Context) error {
 		ids, err := fileset.HexStringsToIDs(task.Inputs)
 		if err != nil {
 			return err
@@ -324,7 +322,7 @@ func processCompactTask(ctx context.Context, storage *fileset.Storage, task *Com
 
 func processConcatTask(ctx context.Context, storage *fileset.Storage, task *ConcatTask) (*types.Any, error) {
 	result := &ConcatTaskResult{}
-	if err := miscutil.LogStep(ctx, log.NewEntry(log.StandardLogger()), "processing concat task", func() error {
+	if err := log.LogStep(ctx, "processConcatTask", func(ctx context.Context) error {
 		ids, err := fileset.HexStringsToIDs(task.Inputs)
 		if err != nil {
 			return err
@@ -345,7 +343,7 @@ func processConcatTask(ctx context.Context, storage *fileset.Storage, task *Conc
 // rather than a linear scan through all of the files.
 func processValidateTask(ctx context.Context, storage *fileset.Storage, task *ValidateTask) (*types.Any, error) {
 	result := &ValidateTaskResult{}
-	if err := miscutil.LogStep(ctx, log.NewEntry(log.StandardLogger()), "processing validate task", func() error {
+	if err := log.LogStep(ctx, "validateTask", func(ctx context.Context) error {
 		id, err := fileset.ParseID(task.Id)
 		if err != nil {
 			return err

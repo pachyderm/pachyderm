@@ -24,16 +24,16 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
@@ -63,18 +63,18 @@ func PipelineRcName(pi *pps.PipelineInfo) string {
 
 // GetRequestsResourceListFromPipeline returns a list of resources that the pipeline,
 // minimally requires.
-func GetRequestsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*v1.ResourceList, error) {
-	return getResourceListFromSpec(pipelineInfo.Details.ResourceRequests)
+func GetRequestsResourceListFromPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) (*v1.ResourceList, error) {
+	return getResourceListFromSpec(ctx, pipelineInfo.Details.ResourceRequests)
 }
 
-func getResourceListFromSpec(resources *pps.ResourceSpec) (*v1.ResourceList, error) {
+func getResourceListFromSpec(ctx context.Context, resources *pps.ResourceSpec) (*v1.ResourceList, error) {
 	result := make(v1.ResourceList)
 
 	if resources.Cpu != 0 {
 		cpuStr := fmt.Sprintf("%f", resources.Cpu)
 		cpuQuantity, err := resource.ParseQuantity(cpuStr)
 		if err != nil {
-			log.Warnf("error parsing cpu string: %s: %+v", cpuStr, err)
+			log.Info(ctx, "error parsing cpu string", zap.String("string", cpuStr), zap.Error(err))
 		} else {
 			result[v1.ResourceCPU] = cpuQuantity
 		}
@@ -83,7 +83,7 @@ func getResourceListFromSpec(resources *pps.ResourceSpec) (*v1.ResourceList, err
 	if resources.Memory != "" {
 		memQuantity, err := resource.ParseQuantity(resources.Memory)
 		if err != nil {
-			log.Warnf("error parsing memory string: %s: %+v", resources.Memory, err)
+			log.Info(ctx, "error parsing memory string", zap.String("string", resources.Memory), zap.Error(err))
 		} else {
 			result[v1.ResourceMemory] = memQuantity
 		}
@@ -92,7 +92,7 @@ func getResourceListFromSpec(resources *pps.ResourceSpec) (*v1.ResourceList, err
 	if resources.Disk != "" { // needed because not all versions of k8s support disk resources
 		diskQuantity, err := resource.ParseQuantity(resources.Disk)
 		if err != nil {
-			log.Warnf("error parsing disk string: %s: %+v", resources.Disk, err)
+			log.Info(ctx, "error parsing disk string", zap.String("string", resources.Disk), zap.Error(err))
 		} else {
 			result[v1.ResourceEphemeralStorage] = diskQuantity
 		}
@@ -102,7 +102,7 @@ func getResourceListFromSpec(resources *pps.ResourceSpec) (*v1.ResourceList, err
 		gpuStr := fmt.Sprintf("%d", resources.Gpu.Number)
 		gpuQuantity, err := resource.ParseQuantity(gpuStr)
 		if err != nil {
-			log.Warnf("error parsing gpu string: %s: %+v", gpuStr, err)
+			log.Info(ctx, "error parsing gpu string", zap.String("string", gpuStr), zap.Error(err))
 		} else {
 			result[v1.ResourceName(resources.Gpu.Type)] = gpuQuantity
 		}
@@ -113,8 +113,8 @@ func getResourceListFromSpec(resources *pps.ResourceSpec) (*v1.ResourceList, err
 
 // GetLimitsResourceList returns a list of resources from a pipeline
 // ResourceSpec that it is maximally limited to.
-func GetLimitsResourceList(limits *pps.ResourceSpec) (*v1.ResourceList, error) {
-	return getResourceListFromSpec(limits)
+func GetLimitsResourceList(ctx context.Context, limits *pps.ResourceSpec) (*v1.ResourceList, error) {
+	return getResourceListFromSpec(ctx, limits)
 }
 
 // FailPipeline updates the pipeline's state to failed and sets the failure reason
@@ -152,29 +152,8 @@ func (p PipelineTransitionError) Error() string {
 // SetPipelineState does a lot of conditional logging, and converts 'from' and
 // 'to' to strings, so the construction of its log message is factored into this
 // helper.
-func logSetPipelineState(pipeline *pps.Pipeline, from []pps.PipelineState, to pps.PipelineState, reason string) {
-	var logMsg strings.Builder
-	logMsg.Grow(300) // approx. max length of this log msg if len(from) <= ~2
-	logMsg.WriteString("SetPipelineState attempting to move \"")
-	logMsg.WriteString(pipeline.String())
-	logMsg.WriteString("\" ")
-	if len(from) > 0 {
-		logMsg.WriteString("from one of {")
-		logMsg.WriteString(from[0].String())
-		for _, s := range from[1:] {
-			logMsg.WriteByte(',')
-			logMsg.WriteString(s.String())
-		}
-		logMsg.WriteString("} ")
-	}
-	logMsg.WriteString("to ")
-	logMsg.WriteString(to.String())
-	if reason != "" {
-		logMsg.WriteString(" (reason: \"")
-		logMsg.WriteString(reason)
-		logMsg.WriteString("\")")
-	}
-	log.Info(logMsg.String())
+func logSetPipelineState(ctx context.Context, pipeline *pps.Pipeline, from []pps.PipelineState, to pps.PipelineState, reason string) {
+	log.Info(ctx, "attempting to set pipeline state", zap.String("pipeline", pipeline.GetName()), zap.Stringers("from", from), zap.Stringer("to", to), zap.String("reason", reason))
 }
 
 // SetPipelineState is a helper that moves the state of 'pipeline' from any of
@@ -188,7 +167,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 		Project: specCommit.Branch.Repo.Project,
 		Name:    specCommit.Branch.Repo.Name,
 	}
-	logSetPipelineState(pipeline, from, to, reason)
+	logSetPipelineState(ctx, pipeline, from, to, reason)
 	var resultMessage string
 	var warn bool
 	err := dbutil.WithTx(ctx, db, func(sqlTx *pachsql.Tx) error {
@@ -246,9 +225,9 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 	})
 	if resultMessage != "" {
 		if warn {
-			log.Warn(resultMessage)
+			log.Error(ctx, resultMessage)
 		} else {
-			log.Info(resultMessage)
+			log.Info(ctx, resultMessage)
 		}
 	}
 	return err
@@ -333,7 +312,10 @@ func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWrit
 	return errors.EnsureStack(jobs.Put(ppsdb.JobKey(jobInfo.Job), jobInfo))
 }
 
-func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
+func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.JobState, reason string) (retErr error) {
+	ctx, end := log.SpanContext(pachClient.Ctx(), "finishJob", zap.String("jobID", jobInfo.GetJob().GetID()), zap.Stringer("state", state), zap.String("reason", reason))
+	defer end(log.Errorp(&retErr))
+	pachClient = pachClient.WithCtx(ctx)
 	jobInfo.State = state
 	jobInfo.Reason = reason
 	// TODO: Leaning on the reason rather than state for commit errors seems a bit sketchy, but we don't
@@ -344,14 +326,17 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 	hasMeta := jobInfo.GetDetails().GetSpout() == nil && jobInfo.GetDetails().GetService() == nil
 	_, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
 		if hasMeta {
+			c := MetaCommit(jobInfo.OutputCommit)
+			log.Debug(ctx, "finishing meta commit", zap.Stringer("commit", c))
 			if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-				Commit: MetaCommit(jobInfo.OutputCommit),
+				Commit: c,
 				Error:  reason,
 				Force:  true,
 			}); err != nil {
 				return errors.EnsureStack(err)
 			}
 		}
+		log.Debug(ctx, "finishing output commit", zap.Stringer("commit", jobInfo.GetOutputCommit()))
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 			Commit: jobInfo.OutputCommit,
 			Error:  reason,
@@ -359,6 +344,7 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 		}); err != nil {
 			return errors.EnsureStack(err)
 		}
+		log.Debug(ctx, "writing job info", log.Proto("jobInfo", jobInfo))
 		return WriteJobInfo(&builder.APIClient, jobInfo)
 	})
 	return err
@@ -424,7 +410,7 @@ func ErrorState(s pps.PipelineState) bool {
 // GetWorkerPipelineInfo gets the PipelineInfo proto describing the pipeline that this
 // worker is part of.
 // getPipelineInfo has the side effect of adding auth to the passed pachClient
-func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l collection.PostgresListener, pipeline *pps.Pipeline, specCommitID string) (*pps.PipelineInfo, error) {
+func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l col.PostgresListener, pipeline *pps.Pipeline, specCommitID string) (*pps.PipelineInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	pipelines := ppsdb.Pipelines(db, l)
@@ -484,7 +470,7 @@ func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, 
 // ListPipelineInfo calls f on each pipeline in the database matching filter (on
 // all pipelines, if filter is nil).
 func ListPipelineInfo(ctx context.Context,
-	pipelines collection.PostgresCollection,
+	pipelines col.PostgresCollection,
 	filter *pps.Pipeline,
 	history int64,
 	f func(*pps.PipelineInfo) error) error {
@@ -532,6 +518,9 @@ func ListPipelineInfo(ctx context.Context,
 }
 
 func FilterLogLines(request *pps.GetLogsRequest, r io.Reader, plainText bool, send func(*pps.LogMessage) error) error {
+	m := &jsonpb.Unmarshaler{
+		AllowUnknownFields: true,
+	}
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		msg := new(pps.LogMessage)
@@ -539,10 +528,9 @@ func FilterLogLines(request *pps.GetLogsRequest, r io.Reader, plainText bool, se
 			msg.Message = scanner.Text()
 		} else {
 			logBytes := scanner.Bytes()
-			if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+			if err := m.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
 				continue
 			}
-
 			// Filter out log lines that don't match on pipeline or job
 			if request.Pipeline != nil && (request.Pipeline.Project.GetName() != msg.ProjectName || request.Pipeline.Name != msg.PipelineName) {
 				continue

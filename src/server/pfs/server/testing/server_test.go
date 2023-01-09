@@ -45,6 +45,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -72,12 +73,16 @@ func FileInfoToPath(fileInfo interface{}) interface{} {
 }
 
 func finishCommit(pachClient *client.APIClient, repo, branch, id string) error {
-	if err := pachClient.FinishProjectCommit(pfs.DefaultProjectName, repo, branch, id); err != nil {
+	return finishProjectCommit(pachClient, pfs.DefaultProjectName, repo, branch, id)
+}
+
+func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id string) error {
+	if err := pachClient.FinishProjectCommit(project, repo, branch, id); err != nil {
 		if !pfsserver.IsCommitFinishedErr(err) {
 			return err
 		}
 	}
-	_, err := pachClient.WaitProjectCommit(pfs.DefaultProjectName, repo, branch, id)
+	_, err := pachClient.WaitProjectCommit(project, repo, branch, id)
 	return err
 }
 
@@ -110,7 +115,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("ListFileTest", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -188,7 +194,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("ListCommitStartedTime", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 		err := env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "foo")
 		require.NoError(t, err)
 		// create three sequential commits
@@ -237,24 +244,59 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("InvalidProject", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
-		require.YesError(t, env.PachClient.CreateProject("/repo"))
-
-		require.NoError(t, env.PachClient.CreateProject("lenny"))
-		require.NoError(t, env.PachClient.CreateProject("lenny123"))
-		require.NoError(t, env.PachClient.CreateProject("lenny_123"))
-		require.NoError(t, env.PachClient.CreateProject("lenny-123"))
-
-		require.YesError(t, env.PachClient.CreateProject("lenny.123"))
-		require.YesError(t, env.PachClient.CreateProject("lenny:"))
-		require.YesError(t, env.PachClient.CreateProject("lenny,"))
-		require.YesError(t, env.PachClient.CreateProject("lenny#"))
+		c := env.PachClient
+		badFormatErr := "only alphanumeric characters"
+		testCases := []struct {
+			projectName string
+			errMatch    string // "" means no error
+		}{
+			{tu.UniqueString("my-PROJECT_0123456789"), ""},
+			{"lenny", ""},
+			{tu.UniqueString("lenny123"), ""},
+			{tu.UniqueString("lenny_123"), ""},
+			{tu.UniqueString("lenny-123"), ""},
+			// {tu.UniqueString("_project"), badFormatErr}, // Require CORE-1343
+			// {tu.UniqueString("project-"), badFormatErr},
+			{pfs.DefaultProjectName, "already exists"},
+			{tu.UniqueString("/repo"), badFormatErr},
+			{tu.UniqueString("lenny.123"), badFormatErr},
+			{tu.UniqueString("lenny:"), badFormatErr},
+			{tu.UniqueString("lenny,"), badFormatErr},
+			{tu.UniqueString("lenny#"), badFormatErr},
+			{tu.UniqueString("_lenny"), "must start with an alphanumeric character"},
+			{tu.UniqueString("-lenny"), "must start with an alphanumeric character"},
+			{tu.UniqueString("!project"), badFormatErr},
+			{tu.UniqueString("\""), badFormatErr},
+			{tu.UniqueString("\\"), badFormatErr},
+			{tu.UniqueString("'"), badFormatErr},
+			{tu.UniqueString("[]{}"), badFormatErr},
+			{tu.UniqueString("|"), badFormatErr},
+			{tu.UniqueString("new->project"), badFormatErr},
+			{tu.UniqueString("project?"), badFormatErr},
+			{tu.UniqueString("project:1"), badFormatErr},
+			{tu.UniqueString("project;"), badFormatErr},
+			{tu.UniqueString("project."), badFormatErr},
+		}
+		for _, tc := range testCases {
+			t.Run(tc.projectName, func(t *testing.T) {
+				err := c.CreateProject(tc.projectName)
+				if tc.errMatch != "" {
+					require.YesError(t, err)
+					require.Matches(t, tc.errMatch, err.Error())
+				} else {
+					require.NoError(t, err)
+				}
+			})
+		}
 	})
 
 	suite.Run("DefaultProject", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		// the default project should already exist
 		pp, err := env.PachClient.ListProject()
@@ -299,7 +341,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("InvalidRepo", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.YesError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "/repo"))
 
@@ -316,7 +359,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("CreateSameRepoInParallel", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		numGoros := 1000
 		errCh := make(chan error)
@@ -342,7 +386,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("CreateDifferentRepoInParallel", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		numGoros := 1000
 		errCh := make(chan error)
@@ -366,9 +411,20 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, numGoros, successCount)
 	})
 
+	suite.Run("CreateRepoNonExistentProject", func(t *testing.T) {
+		t.Parallel()
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+		require.YesError(t, env.PachClient.CreateProjectRepo("foo", "bar"))
+		require.NoError(t, env.PachClient.CreateProject("foo"))
+		require.NoError(t, env.PachClient.CreateProjectRepo("foo", "bar"))
+	})
+
 	suite.Run("CreateRepoDeleteRepoRace", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		for i := 0; i < 100; i++ {
 			require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "foo"))
@@ -393,7 +449,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("CreateRepoWithSameNameAndAuthInDifferentProjects", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 		// activate auth
 		peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 		tu.ActivateLicense(t, env.PachClient, peerPort)
@@ -438,7 +495,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("Branch", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -459,7 +517,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("ToggleBranchProvenance", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "in"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "out"))
@@ -513,7 +572,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("RecreateBranchProvenance", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "in"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "out"))
@@ -536,7 +596,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("RewindBranch", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "a"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "b"))
@@ -617,7 +678,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("RewindInput", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 		c := env.PachClient
 
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "A"))
@@ -691,7 +753,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("RewindProvenanceChange", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 		c := env.PachClient
 
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "A"))
@@ -734,7 +797,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("CreateAndInspectRepo", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -757,7 +821,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("CreateRepoWithoutProject", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo123"
 		_, err := env.PachClient.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
@@ -774,7 +839,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("CreateRepoWithEmptyProject", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo123"
 		_, err := env.PachClient.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
@@ -791,7 +857,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("ListRepo", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		numRepos := 10
 		var repoNames []string
@@ -809,7 +876,8 @@ func TestPFS(suite *testing.T) {
 	// Make sure that artifacts of deleted repos do not resurface
 	suite.Run("CreateDeletedRepo", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -859,7 +927,8 @@ func TestPFS(suite *testing.T) {
 	// Make sure that commits of deleted repos do not resurface
 	suite.Run("ListCommitLimit", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
 		commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
@@ -887,7 +956,8 @@ func TestPFS(suite *testing.T) {
 	// d1      d2
 	suite.Run("UpdateProvenance", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		prov1 := "prov1"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, prov1))
@@ -930,7 +1000,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PutFileIntoOpenCommit", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -952,7 +1023,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PutFileDirectoryTraversal", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 
@@ -986,7 +1058,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("CreateInvalidBranchName", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -998,7 +1071,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("CreateBranchHeadOnOtherRepo", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		// create two repos, and create a branch on one that tries to point on another's existing branch
 		repo := "test"
@@ -1037,7 +1111,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("DeleteRepo", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		numRepos := 10
 		repoNames := make(map[string]bool)
@@ -1069,7 +1144,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("DeleteRepoProvenance", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		// Create two repos, one as another's provenance
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
@@ -1111,9 +1187,91 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.FsckFastExit())
 	})
 
+	suite.Run("DeleteRepos", func(t *testing.T) {
+		t.Parallel()
+		var (
+			ctx                  = pctx.TestContext(t)
+			env                  = realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+			projectName          = tu.UniqueString("project")
+			untouchedProjectName = tu.UniqueString("project")
+			reposToDelete        = make(map[string]bool)
+			untouchedRepos       []*pfs.Repo
+		)
+		_, err := env.PachClient.PfsAPIClient.CreateProject(ctx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: projectName}})
+		require.NoError(t, err)
+		_, err = env.PachClient.PfsAPIClient.CreateProject(ctx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: untouchedProjectName}})
+		require.NoError(t, err)
+
+		numRepos := 12
+		for i := 0; i < numRepos; i++ {
+			repoName := fmt.Sprintf("repo%d", i)
+			repoToDelete := &pfs.Repo{
+				Project: &pfs.Project{Name: projectName},
+				Name:    repoName,
+				Type:    pfs.UserRepoType,
+			}
+			_, err := env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: repoToDelete})
+			require.NoError(t, err)
+			reposToDelete[repoToDelete.String()] = true
+
+			untouchedRepo := &pfs.Repo{
+				Project: &pfs.Project{Name: untouchedProjectName},
+				Name:    repoName,
+				Type:    pfs.UserRepoType,
+			}
+			_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: untouchedRepo})
+			require.NoError(t, err)
+			untouchedRepos = append(untouchedRepos, untouchedRepo)
+		}
+
+		// DeleteRepos with no projects should return an error.
+		_, err = env.PachClient.PfsAPIClient.DeleteRepos(ctx, &pfs.DeleteReposRequest{})
+		require.YesError(t, err)
+
+		// DeleteRepos with a non-nil, zero-length list of projects should still error.
+		_, err = env.PachClient.PfsAPIClient.DeleteRepos(ctx, &pfs.DeleteReposRequest{Projects: make([]*pfs.Project, 0)})
+		require.YesError(t, err)
+
+		// DeleteRepos with an invalid project should not error because
+		// there will simply be no repos to delete.
+		resp, err := env.PachClient.PfsAPIClient.DeleteRepos(ctx, &pfs.DeleteReposRequest{Projects: []*pfs.Project{{Name: tu.UniqueString("noexist")}}})
+		require.NoError(t, err)
+		require.Len(t, resp.Repos, 0)
+
+		// DeleteRepos should delete all repos in the given project and none in other projects.
+		resp, err = env.PachClient.PfsAPIClient.DeleteRepos(ctx, &pfs.DeleteReposRequest{Projects: []*pfs.Project{{Name: projectName}}})
+		require.NoError(t, err)
+		require.Len(t, resp.Repos, len(reposToDelete))
+		for _, repo := range resp.Repos {
+			if !reposToDelete[repo.String()] {
+				t.Errorf("deleted repo %v, which should not have been", repo)
+			}
+		}
+		repoStream, err := env.PachClient.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{Projects: []*pfs.Project{{Name: untouchedProjectName}}})
+		require.NoError(t, err)
+		var repos = make(map[string]bool)
+		for {
+			repoInfo, err := repoStream.Recv()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+			if repoInfo.Repo.Project.Name != untouchedProjectName {
+				t.Errorf("ListProject({Projects: []string{%s}}) return repo in project %v", untouchedProjectName, repoInfo.Repo.Project)
+			}
+			repos[repoInfo.Repo.String()] = true
+		}
+		for _, repo := range untouchedRepos {
+			if !repos[repo.String()] {
+				t.Errorf("repo %v not found in repos %v", repo.String(), repos)
+			}
+		}
+	})
+
 	suite.Run("InspectCommit", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1158,7 +1316,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("InspectCommitWait", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1180,7 +1339,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("DropCommitSet", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1219,7 +1379,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("DropCommitSetOnlyCommitInBranch", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1257,7 +1418,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("DropCommitSetFinished", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1294,7 +1456,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("BasicFile", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1315,7 +1478,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("SimpleFile", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1345,7 +1509,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("StartCommitWithUnfinishedParent", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1363,7 +1528,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("ProvenanceWithinSingleRepoDisallowed", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1375,7 +1541,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("AncestrySyntax", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1500,7 +1667,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("Provenance", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "B"))
@@ -1557,7 +1725,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("CommitBranch", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "input"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "output"))
@@ -1585,7 +1754,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("CommitOnTwoBranchesProvenance", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "input"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "output"))
@@ -1641,7 +1811,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("Branch1", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1697,7 +1868,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PutFileBig", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1723,7 +1895,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PutFile", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1745,7 +1918,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PutFile2", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1803,7 +1977,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PutFileBranchCommitID", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1814,7 +1989,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PutSameFileInParallel", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1837,7 +2013,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("InspectFile", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1888,7 +2065,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("InspectFile2", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1931,7 +2109,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("InspectFile3", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -1977,7 +2156,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("InspectDir", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2008,7 +2188,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("InspectDir2", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2049,7 +2230,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("ListFileTwoCommits", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2093,7 +2275,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("ListFile", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2122,7 +2305,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("ListFile2", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2164,7 +2348,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("ListFile3", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2216,7 +2401,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("ListFile4", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2248,7 +2434,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("RootDirectory", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2268,7 +2455,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("DeleteFile", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2332,7 +2520,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("DeleteFile2", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2370,7 +2559,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("DeleteFile3", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2423,7 +2613,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("DeleteDir", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2496,7 +2687,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("ListCommit", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2594,7 +2786,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("Branch2", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2654,7 +2847,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("DeleteNonexistentBranch", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2663,19 +2857,23 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("SubscribeCommit", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+		project := tu.UniqueString("project")
+		require.NoError(t, env.PachClient.CreateProject(project))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+		require.NoError(t, env.PachClient.CreateProjectRepo(project, repo))
 
 		numCommits := 10
 
 		// create some commits that shouldn't affect the below SubscribeCommit call
 		// reproduces #2469
 		for i := 0; i < numCommits; i++ {
-			commit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master-v1")
+			commit, err := env.PachClient.StartProjectCommit(project, repo, "master-v1")
 			require.NoError(t, err)
-			require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+			require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit.Branch.Name, commit.ID))
 		}
 
 		require.NoErrorWithinT(t, 60*time.Second, func() error {
@@ -2683,7 +2881,7 @@ func TestPFS(suite *testing.T) {
 			nextCommitChan := make(chan *pfs.Commit, numCommits)
 			eg.Go(func() error {
 				var count int
-				err := env.PachClient.SubscribeCommit(client.NewProjectRepo(pfs.DefaultProjectName, repo), "master", "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+				err := env.PachClient.SubscribeCommit(client.NewProjectRepo(project, repo), "master", "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 					commit := <-nextCommitChan
 					require.Equal(t, commit, ci.Commit)
 					count++
@@ -2696,9 +2894,9 @@ func TestPFS(suite *testing.T) {
 			})
 			eg.Go(func() error {
 				for i := 0; i < numCommits; i++ {
-					commit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+					commit, err := env.PachClient.StartProjectCommit(project, repo, "master")
 					require.NoError(t, err)
-					require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+					require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit.Branch.Name, commit.ID))
 					nextCommitChan <- commit
 				}
 				return nil
@@ -2710,7 +2908,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("InspectRepoSimple", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2735,7 +2934,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("InspectRepoComplex", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2790,7 +2990,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("GetFile", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := tu.UniqueString("test")
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2842,7 +3043,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("ManyPutsSingleFileSingleCommit", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		if testing.Short() {
 			t.Skip("Skipping long tests in short mode")
@@ -2888,7 +3090,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PutFileValidCharacters", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2916,7 +3119,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PutFileValidPaths", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 		// Duplicate paths, different tags.
@@ -2943,7 +3147,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("BigListFile", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 		commit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
@@ -2969,7 +3174,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("StartCommitLatestOnBranch", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -2994,7 +3200,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("CreateBranchTwice", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -3022,7 +3229,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("WaitCommitSet", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "B"))
@@ -3046,7 +3254,8 @@ func TestPFS(suite *testing.T) {
 	// A ─▶ B ─▶ C ─▶ D
 	suite.Run("WaitCommitSet2", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "B"))
@@ -3097,7 +3306,8 @@ func TestPFS(suite *testing.T) {
 	// B
 	suite.Run("WaitCommitSet3", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "B"))
@@ -3140,7 +3350,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("WaitCommitSetWithNoDownstreamRepos", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -3155,7 +3366,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("WaitOpenCommit", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "B"))
@@ -3188,7 +3400,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("WaitUninvolvedBranch", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "B"))
@@ -3203,7 +3416,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("WaitNonExistentBranch", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		commit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "A", "master")
@@ -3219,7 +3433,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("EmptyWait", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		_, err := env.PachClient.WaitCommitSetAll("")
 		require.YesError(t, err)
@@ -3227,7 +3442,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("WaitNonExistentCommitSet", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		_, err := env.PachClient.WaitCommitSetAll("fake-commitset")
 		require.YesError(t, err)
@@ -3467,7 +3683,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("DiffFile", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -3568,7 +3785,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("GlobFile", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
@@ -3686,7 +3904,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("GlobFile2", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
@@ -3722,7 +3941,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("GlobFile3", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -3753,7 +3973,8 @@ func TestPFS(suite *testing.T) {
 	// file matching 'glob', file2 is the next lowest, etc.
 	suite.Run("GetFileTARGlobOrder", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -3779,7 +4000,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("ApplyWriteOrder", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
@@ -3852,7 +4074,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("CopyFile", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -3891,7 +4114,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PropagateBranch", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo1 := "test1"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo1))
@@ -3917,7 +4141,8 @@ func TestPFS(suite *testing.T) {
 	// B ──▶ D
 	suite.Run("BackfillBranch", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "B"))
@@ -3956,7 +4181,8 @@ func TestPFS(suite *testing.T) {
 	//
 	suite.Run("UpdateBranch", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "B"))
@@ -4051,7 +4277,8 @@ func TestPFS(suite *testing.T) {
 		for i, test := range tests {
 			t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 				t.Parallel()
-				env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+				ctx := pctx.TestContext(t)
+				env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 				for _, repo := range []string{"A", "B", "C", "D", "E"} {
 					require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -4146,7 +4373,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("ChildCommits", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "A", "master", "", "", nil))
@@ -4232,7 +4460,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("StartCommitFork", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		commit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "A", "master")
@@ -4267,7 +4496,8 @@ func TestPFS(suite *testing.T) {
 	// C should create a new output commit to process its unprocessed inputs in B
 	suite.Run("UpdateBranchNewOutputCommit", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "B"))
@@ -4314,7 +4544,8 @@ func TestPFS(suite *testing.T) {
 	//   a
 	suite.Run("SquashCommitSetMultipleChildrenSingleCommit", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "repo", "master", "", "", nil))
@@ -4406,7 +4637,8 @@ func TestPFS(suite *testing.T) {
 	// if appropriate
 	suite.Run("SquashCommitSetMultiLevelChildren", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "upstream1"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "upstream2"))
@@ -4551,7 +4783,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("CommitState", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		// two input repos, one with many commits (logs), and one with few (schema)
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
@@ -4597,7 +4830,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("SubscribeStates", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "B"))
@@ -4648,7 +4882,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PutFileCommit", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		numFiles := 25
 		repo := "repo"
@@ -4704,7 +4939,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PutFileCommitNilBranch", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -4716,7 +4952,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PutFileCommitOverwrite", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		numFiles := 5
 		repo := "repo"
@@ -4734,7 +4971,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("WalkFile", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -4761,7 +4999,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("WalkFile2", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "WalkFile2"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -4787,7 +5026,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("WalkFileEmpty", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
 		latestCommit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
@@ -4844,7 +5084,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PutFileURL", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		if testing.Short() {
 			t.Skip("Skipping integration tests in short mode")
@@ -4867,7 +5108,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PutFilesURL", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
 		repoProto := client.NewProjectRepo(pfs.DefaultProjectName, repo)
@@ -4897,14 +5139,15 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PutFilesObjURL", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 		commit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
 		masterCommit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
 		require.NoError(t, err)
-		objC := dockertestenv.NewTestObjClient(t)
+		objC := dockertestenv.NewTestObjClient(env.Context, t)
 		paths := []string{"files/foo", "files/bar", "files/fizz"}
 		for _, path := range paths {
 			writeObj(t, objC, path, path)
@@ -4937,7 +5180,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("GetFilesObjURL", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
@@ -4948,7 +5192,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.PutFile(commit, path, strings.NewReader(path)))
 		}
 		check := func() {
-			objC := dockertestenv.NewTestObjClient(t)
+			objC := dockertestenv.NewTestObjClient(ctx, t)
 			bucketURL := objC.BucketURL().String()
 			for _, path := range paths {
 				require.NoError(t, env.PachClient.GetFileURL(commit, path, bucketURL))
@@ -4967,7 +5211,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PutFileOutputRepo", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		inputRepo, outputRepo := "input", "output"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, inputRepo))
@@ -5033,7 +5278,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("UpdateRepo", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		var err error
 		repo := "test"
@@ -5069,7 +5315,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("DeferredProcessing", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "input"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "output1"))
@@ -5125,7 +5372,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("SquashCommitEmptyChild", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "repo"
 		file := "foo"
@@ -5159,7 +5407,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("ListAll", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo1"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo2"))
@@ -5182,7 +5431,8 @@ func TestPFS(suite *testing.T) {
 	suite.Run("MonkeyObjectStorage", func(t *testing.T) {
 		// This test cannot be done in parallel because the monkey object client
 		// modifies global state.
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 		seedStr := func(seed int64) string {
 			return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
 		}
@@ -5256,7 +5506,8 @@ func TestPFS(suite *testing.T) {
 		// TODO(optional 2.0): force-deleting the repo no longer creates dangling references
 		t.Skip("this test no longer creates invalid metadata")
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		input := "input"
 		output1 := "output1"
@@ -5287,7 +5538,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PutFileAtomic", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		c := env.PachClient
 		test := "test"
@@ -5348,7 +5600,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("FuzzProvenance", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		seed := time.Now().UnixNano()
 		t.Log("Random seed is", seed)
@@ -5613,7 +5866,8 @@ func TestPFS(suite *testing.T) {
 	// TODO: This test can be refactored to remove a lot of the boilerplate.
 	suite.Run("Trigger", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 		c := env.PachClient
 
 		t.Run("Simple", func(t *testing.T) {
@@ -6058,7 +6312,8 @@ func TestPFS(suite *testing.T) {
 	// TriggerValidation tests branch trigger validation
 	suite.Run("TriggerValidation", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		c := env.PachClient
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
@@ -6114,7 +6369,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("RegressionOrphanedFile", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		fsclient, err := env.PachClient.NewCreateFileSetClient()
 		require.NoError(t, err)
@@ -6135,7 +6391,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("Compaction", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, func(config *serviceenv.Configuration) {
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, func(config *serviceenv.Configuration) {
 			config.StorageCompactionMaxFanIn = 10
 		}, dockertestenv.NewTestDBConfig(t))
 
@@ -6171,7 +6428,8 @@ func TestPFS(suite *testing.T) {
 
 		subsuite.Run("EmptyFile", func(t *testing.T) {
 			t.Parallel()
-			env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+			ctx := pctx.TestContext(t)
+			env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 			repo := "test"
 			require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 			c, err := env.PachClient.PfsAPIClient.ModifyFile(context.Background())
@@ -6204,7 +6462,8 @@ func TestPFS(suite *testing.T) {
 
 		subsuite.Run("SingleMessageFile", func(t *testing.T) {
 			t.Parallel()
-			env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+			ctx := pctx.TestContext(t)
+			env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 			repo := "test"
 			require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 			filePath := "file"
@@ -6234,7 +6493,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("TestPanicOnNilArgs", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 		c := env.PachClient
 		requireNoPanic := func(err error) {
 			t.Helper()
@@ -6294,7 +6554,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("ErroredCommits", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 		repo := "test"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 		checks := func(t *testing.T, branch string) {
@@ -6365,7 +6626,8 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("SystemRepoDependence", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		sysRepo := client.NewSystemProjectRepo(pfs.DefaultProjectName, "test", pfs.MetaRepoType)
 
@@ -6392,7 +6654,8 @@ func TestPFS(suite *testing.T) {
 		require.True(t, errutil.IsNotFoundError(err))
 	})
 	suite.Run("ErrorMessages", func(t *testing.T) {
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 		// don't show user .user suffix
 		_, err := env.PachClient.InspectProjectRepo(pfs.DefaultProjectName, "test")
 		require.YesError(t, err)
@@ -6510,7 +6773,8 @@ func TestPFS(suite *testing.T) {
 		}
 		for _, test := range tests {
 			_suite.Run(test.name, func(t *testing.T) {
-				env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+				ctx := pctx.TestContext(t)
+				env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 				// setup target database
 				dbName := tu.GenerateEphemeralDBName(t)
 				tu.CreateEphemeralDB(t, sqlx.NewDb(env.ServiceEnv.GetDBClient().DB, "postgres"), dbName)

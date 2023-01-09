@@ -94,6 +94,11 @@ func (sb *sidecarBuilder) registerEnterpriseServer(ctx context.Context) error {
 // buildAndRun builds & starts a sidecar-mode pachd.
 func (sb *sidecarBuilder) buildAndRun(ctx context.Context) error {
 	return sb.apply(ctx,
+		sb.printVersion,
+		sb.tweakResources,
+		sb.setupProfiling,
+		sb.initJaeger,
+		sb.initKube,
 		sb.initInternalServer,
 		sb.registerAuthServer,
 		sb.registerPFSServer,

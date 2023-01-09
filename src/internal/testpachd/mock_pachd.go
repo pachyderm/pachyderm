@@ -5,7 +5,6 @@ import (
 	"net"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
@@ -31,7 +30,7 @@ import (
 
 /* Admin Server Mocks */
 
-type inspectClusterFunc func(context.Context, *types.Empty) (*admin.ClusterInfo, error)
+type inspectClusterFunc func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error)
 
 type mockInspectCluster struct{ handler inspectClusterFunc }
 
@@ -46,7 +45,7 @@ type mockAdminServer struct {
 	InspectCluster mockInspectCluster
 }
 
-func (api *adminServerAPI) InspectCluster(ctx context.Context, req *types.Empty) (*admin.ClusterInfo, error) {
+func (api *adminServerAPI) InspectCluster(ctx context.Context, req *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
 	if api.mock.InspectCluster.handler != nil {
 		return api.mock.InspectCluster.handler(ctx, req)
 	}
@@ -955,6 +954,7 @@ type createRepoFunc func(context.Context, *pfs.CreateRepoRequest) (*types.Empty,
 type inspectRepoFunc func(context.Context, *pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
 type listRepoFunc func(*pfs.ListRepoRequest, pfs.API_ListRepoServer) error
 type deleteRepoFunc func(context.Context, *pfs.DeleteRepoRequest) (*types.Empty, error)
+type deleteReposFunc func(context.Context, *pfs.DeleteReposRequest) (*pfs.DeleteReposResponse, error)
 type startCommitFunc func(context.Context, *pfs.StartCommitRequest) (*pfs.Commit, error)
 type finishCommitFunc func(context.Context, *pfs.FinishCommitRequest) (*types.Empty, error)
 type inspectCommitFunc func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error)
@@ -1003,6 +1003,7 @@ type mockCreateRepo struct{ handler createRepoFunc }
 type mockInspectRepo struct{ handler inspectRepoFunc }
 type mockListRepo struct{ handler listRepoFunc }
 type mockDeleteRepo struct{ handler deleteRepoFunc }
+type mockDeleteRepos struct{ handler deleteReposFunc }
 type mockStartCommit struct{ handler startCommitFunc }
 type mockFinishCommit struct{ handler finishCommitFunc }
 type mockInspectCommit struct{ handler inspectCommitFunc }
@@ -1051,6 +1052,7 @@ func (mock *mockCreateRepo) Use(cb createRepoFunc)                 { mock.handle
 func (mock *mockInspectRepo) Use(cb inspectRepoFunc)               { mock.handler = cb }
 func (mock *mockListRepo) Use(cb listRepoFunc)                     { mock.handler = cb }
 func (mock *mockDeleteRepo) Use(cb deleteRepoFunc)                 { mock.handler = cb }
+func (mock *mockDeleteRepos) Use(cb deleteReposFunc)               { mock.handler = cb }
 func (mock *mockStartCommit) Use(cb startCommitFunc)               { mock.handler = cb }
 func (mock *mockFinishCommit) Use(cb finishCommitFunc)             { mock.handler = cb }
 func (mock *mockInspectCommit) Use(cb inspectCommitFunc)           { mock.handler = cb }
@@ -1105,6 +1107,7 @@ type mockPFSServer struct {
 	InspectRepo        mockInspectRepo
 	ListRepo           mockListRepo
 	DeleteRepo         mockDeleteRepo
+	DeleteRepos        mockDeleteRepos
 	StartCommit        mockStartCommit
 	FinishCommit       mockFinishCommit
 	InspectCommit      mockInspectCommit
@@ -1178,6 +1181,12 @@ func (api *pfsServerAPI) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequ
 		return api.mock.DeleteRepo.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.DeleteRepo")
+}
+func (api *pfsServerAPI) DeleteRepos(ctx context.Context, req *pfs.DeleteReposRequest) (*pfs.DeleteReposResponse, error) {
+	if api.mock.DeleteRepos.handler != nil {
+		return api.mock.DeleteRepos.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.DeleteRepos")
 }
 func (api *pfsServerAPI) StartCommit(ctx context.Context, req *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	if api.mock.StartCommit.handler != nil {
@@ -1936,7 +1945,7 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 		return &mock.Auth.api
 	}
 
-	loggingInterceptor := loggingmw.NewLoggingInterceptor(logrus.StandardLogger())
+	loggingInterceptor := loggingmw.NewLoggingInterceptor(ctx)
 	unaryOpts := []grpc.UnaryServerInterceptor{
 		errorsmw.UnaryServerInterceptor,
 		loggingInterceptor.UnaryServerInterceptor,

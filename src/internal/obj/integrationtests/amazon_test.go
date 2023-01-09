@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
@@ -11,23 +12,24 @@ import (
 // environment (see util.go for where they are loaded).
 func TestAmazonClient(t *testing.T) {
 	t.Parallel()
+	ctx := pctx.TestContext(t)
 
 	amazonTests := func(t *testing.T, backendType BackendType, id string, secret string, bucket string, region string, endpoint string) {
 		obj.TestSuite(t, func(t testing.TB) obj.Client {
 			creds := &obj.AmazonCreds{ID: id, Secret: secret}
-			client, err := obj.NewAmazonClient(region, bucket, creds, "", endpoint)
+			client, err := obj.NewAmazonClient(ctx, region, bucket, creds, "", endpoint)
 			require.NoError(t, err)
 			return client
 		})
 		t.Run("Interruption", func(t *testing.T) {
 			creds := &obj.AmazonCreds{ID: id, Secret: secret}
-			client, err := obj.NewAmazonClient(region, bucket, creds, "", endpoint)
+			client, err := obj.NewAmazonClient(ctx, region, bucket, creds, "", endpoint)
 			require.NoError(t, err)
 			obj.TestInterruption(t, client)
 		})
 		t.Run("EmptyWrite", func(t *testing.T) {
 			creds := &obj.AmazonCreds{ID: id, Secret: secret}
-			client, err := obj.NewAmazonClient(region, bucket, creds, "", endpoint)
+			client, err := obj.NewAmazonClient(ctx, region, bucket, creds, "", endpoint)
 			require.NoError(t, err)
 			obj.TestEmptyWrite(t, client)
 		})

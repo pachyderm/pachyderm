@@ -68,8 +68,12 @@ func (pb *pausedBuilder) maybeRegisterIdentityServer(ctx context.Context) error 
 
 // buildAndRun builds and starts a paused-mode pachd.
 func (pb *pausedBuilder) buildAndRun(ctx context.Context) error {
-	pb.daemon.criticalServersOnly = pb.env.Config().RequireCriticalServersOnly
 	return pb.apply(ctx,
+		pb.printVersion,
+		pb.tweakResources,
+		pb.setupProfiling,
+		pb.initJaeger,
+		pb.initKube,
 		pb.setupDB,
 		pb.maybeInitDexDB,
 		pb.initInternalServer,

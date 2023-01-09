@@ -21,7 +21,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/hanwen/go-fuse/v2/fs"
 	gofuse "github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -30,6 +30,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -60,7 +62,7 @@ type CommitRequest struct {
 	Mount string `json:"mount"`
 }
 
-type AliasKey struct {
+type DatumAliasKey struct {
 	Project string
 	Repo    string
 	Branch  string
@@ -111,7 +113,7 @@ type MountManager struct {
 
 	Datums       []*pps.DatumInfo
 	DatumInput   *pps.Input
-	AliasMap     map[AliasKey]string
+	DatumAlias   map[DatumAliasKey]string
 	CurrDatumIdx int
 
 	// map from mount name onto mfc for that mount
@@ -125,20 +127,13 @@ type MountManager struct {
 	Cleanup  chan struct{}
 }
 
-func (mm *MountManager) ListByRepos(projectFilter string) (ListRepoResponse, error) {
+func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 	// fetch list of available repos & branches from pachyderm, and overlay that
 	// with their mount states
 	lr := ListRepoResponse{}
-	filter := []string{projectFilter}
-	if projectFilter == "" {
-		filter = nil
-	}
-	repos, err := mm.Client.ListProjectRepo(&pfs.ListRepoRequest{
-		Type:     pfs.UserRepoType,
-		Projects: filter,
-	})
+	repos, err := mm.Client.ListRepo()
 	if err != nil {
-		logrus.Info("Error listing repos...")
+		log.Info(pctx.TODO(), "Error listing repos", zap.Error(err))
 		return lr, err
 	}
 
@@ -178,7 +173,7 @@ func (mm *MountManager) ListByRepos(projectFilter string) (ListRepoResponse, err
 	return lr, nil
 }
 
-func (mm *MountManager) ListByMounts(projectFilter string) (ListMountResponse, error) {
+func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
 
@@ -190,18 +185,9 @@ func (mm *MountManager) ListByMounts(projectFilter string) (ListMountResponse, e
 	for name, msm := range mm.States {
 		if msm.State == "mounted" {
 			// Check if a mounted repo/branch was deleted to remove it from state.
-			// In read-only mode, a branch must exist to mount. In read-write mode, it
-			// is not necessary for the branch to exist, as a new one
-			if msm.Mode == "ro" {
-				if exists, _ := mm.verifyProjectRepoBranchExist(msm.Project, msm.Repo, msm.Branch); !exists {
-					mm.unmountDeletedRepos(name)
-					continue
-				}
-			} else {
-				if exists, _ := mm.verifyProjectRepoExist(msm.Project, msm.Repo); !exists {
-					mm.unmountDeletedRepos(name)
-					continue
-				}
+			if exists, _ := mm.verifyExistence(msm.Mode, msm.Project, msm.Repo, msm.Branch); !exists {
+				mm.unmountDeletedRepos(name)
+				continue
 			}
 
 			if err := msm.RefreshMountState(); err != nil {
@@ -213,7 +199,7 @@ func (mm *MountManager) ListByMounts(projectFilter string) (ListMountResponse, e
 		}
 	}
 
-	lr, err := mm.ListByRepos(projectFilter)
+	lr, err := mm.ListByRepos()
 	if err != nil {
 		return mr, err
 	}
@@ -300,9 +286,7 @@ func (mm *MountManager) UnmountAll() error {
 			}
 		}
 	}
-	delete(mm.root.repoOpts, "out")
-
-	return nil
+	return removeOutDir(mm)
 }
 
 func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *MountManager, retErr error) {
@@ -313,7 +297,7 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	logrus.Infof("Creating %s", rootDir)
+	log.Info(pctx.TODO(), "Creating root directory", zap.String("path", rootDir))
 	if err := os.MkdirAll(rootDir, 0777); err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -321,7 +305,7 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	logrus.Infof("Loopback root at %s", rootDir)
+	log.Info(pctx.TODO(), "Loopback root created", zap.Stringer("path", root))
 	return &MountManager{
 		Client:   c,
 		States:   map[string]*MountStateMachine{},
@@ -361,7 +345,7 @@ func CreateMount(c *client.APIClient, mountDir string) (*MountManager, error) {
 
 func (mm *MountManager) Start() {
 	if err := mm.Run(); err != nil {
-		logrus.Infof("Error running mount manager: %s", err)
+		log.Info(pctx.TODO(), "Error running mount manager", zap.Error(err))
 		os.Exit(1)
 	}
 }
@@ -399,7 +383,7 @@ func (mm *MountManager) FinishAll() (retErr error) {
 }
 
 func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
-	logrus.Infof("Dynamically mounting pfs to %s", sopts.MountDir)
+	log.Info(pctx.TODO(), "Dynamically mounting pfs", zap.String("mountDir", sopts.MountDir))
 
 	// This variable points to the MountManager for each connected cluster.
 	// Updated when the config is updated.
@@ -410,7 +394,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		if err != nil {
 			return err
 		}
-		logrus.Infof("Connected to %s", existingClient.GetAddress().Qualified())
+		log.Info(pctx.TODO(), "Connected to existing client", zap.String("address", existingClient.GetAddress().Qualified()))
 	}
 	router := mux.NewRouter()
 	router.Methods("GET").Path("/repos").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -420,17 +404,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
-		// Verify project in request
-		vs := req.URL.Query()
-		project := vs.Get("project")
-		if project != "" {
-			if _, err := mm.verifyProjectExists(project); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-		}
-
-		reposList, err := mm.ListByRepos(project)
+		reposList, err := mm.ListByRepos()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -449,17 +423,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
-		// Verify project in request
-		vs := req.URL.Query()
-		project := vs.Get("project")
-		if project != "" {
-			if _, err := mm.verifyProjectExists(project); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-		}
-
-		mountsList, err := mm.ListByMounts(project)
+		mountsList, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -501,7 +465,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			}
 		}
 
-		mountsList, err := mm.ListByMounts("")
+		mountsList, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -538,7 +502,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			}
 		}
 
-		mountsList, err := mm.ListByMounts("")
+		mountsList, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -569,7 +533,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
-		mountsList, err := mm.ListByMounts("")
+		mountsList, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -592,12 +556,18 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if err := removeOutDir(mm); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
 
-		mountsList, err := mm.ListByMounts("")
+		func() {
+			mm.mu.Lock()
+			defer mm.mu.Unlock()
+
+			mm.Datums = nil
+			mm.DatumInput = nil
+			mm.CurrDatumIdx = -1
+			mm.DatumAlias = nil
+		}()
+
+		mountsList, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -608,10 +578,6 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 		w.Write(marshalled) //nolint:errcheck
-
-		mm.Datums = []*pps.DatumInfo{}
-		mm.DatumInput = &pps.Input{}
-		mm.CurrDatumIdx = -1
 	})
 	router.Methods("PUT").Path("/_mount_datums").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)
@@ -636,28 +602,27 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		mm.DatumInput = pipelineReq.Input
-		err = mm.sanitizeInputAndSetAliasMapping()
+		datumAlias, err := sanitizeInputAndGetAlias(pipelineReq.Input)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		mm.Datums, err = mm.Client.ListDatumInputAll(mm.DatumInput)
+		datums, err := mm.Client.ListDatumInputAll(pipelineReq.Input)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if len(mm.Datums) == 0 {
+		if len(datums) == 0 {
 			http.Error(w, "no datums match the given input spec", http.StatusBadRequest)
 			return
 		}
 
-		logrus.Infof("Mounting first datum (%s)", mm.Datums[0].Datum.ID)
-		mis := mm.datumToMounts(mm.Datums[0])
 		if err := mm.UnmountAll(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", datums[0].Datum.ID))
+		mis := mm.datumToMounts(datums[0], datumAlias)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -665,12 +630,21 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			}
 		}
 		createLocalOutDir(mm)
-		mm.CurrDatumIdx = 0
+
+		func() {
+			mm.mu.Lock()
+			defer mm.mu.Unlock()
+
+			mm.CurrDatumIdx = 0
+			mm.Datums = datums
+			mm.DatumInput = pipelineReq.Input
+			mm.DatumAlias = datumAlias
+		}()
 
 		resp := MountDatumResponse{
-			Id:        mm.Datums[0].Datum.ID,
+			Id:        datums[0].Datum.ID,
 			Idx:       0,
-			NumDatums: len(mm.Datums),
+			NumDatums: len(datums),
 		}
 		marshalled, err := jsonMarshal(resp)
 		if err != nil {
@@ -723,15 +697,11 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		} else {
 			di = mm.Datums[idx]
 		}
-		mis := mm.datumToMounts(di)
 		if err := mm.UnmountAll(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if err := removeOutDir(mm); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		mis := mm.datumToMounts(di, mm.DatumAlias)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -739,7 +709,13 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			}
 		}
 		createLocalOutDir(mm)
-		mm.CurrDatumIdx = idx
+
+		func() {
+			mm.mu.Lock()
+			defer mm.mu.Unlock()
+
+			mm.CurrDatumIdx = idx
+		}()
 
 		resp := MountDatumResponse{
 			Id:        di.Datum.ID,
@@ -827,7 +803,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				<-mm.Cleanup
 				mm.Client.Close()
 			}
-			logrus.Infof("Updating pachd_address to %s\n", pachdAddress.Qualified())
+			log.Info(pctx.TODO(), "Updating pachd_address", zap.String("address", pachdAddress.Qualified()))
 			if mm, err = CreateMount(newClient, sopts.MountDir); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -925,6 +901,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 	// TCP port (just for convenient manual testing with curl for now...)
 	// TODO: make port and bind ip parameterizable
 	srv := &http.Server{Addr: ":9002", Handler: router}
+	log.AddLoggerToHTTPServer(pctx.TODO(), "http", srv)
 
 	go func() {
 		sigChan := make(chan os.Signal, 1)
@@ -987,7 +964,7 @@ func isNewCluster(mm *MountManager, pachdAddress *grpcutil.PachdAddress) bool {
 		return true
 	}
 	if reflect.DeepEqual(pachdAddress, mm.Client.GetAddress()) {
-		logrus.Infof("New endpoint is same as current endpoint: %s, no change\n", pachdAddress.Qualified())
+		log.Info(pctx.TODO(), "New endpoint is same as current endpoint", zap.String("address", pachdAddress.Qualified()))
 		return false
 	}
 	return true
@@ -1078,6 +1055,21 @@ func (mm *MountManager) verifyProjectRepoBranchExist(project, repo, branch strin
 	return true, nil
 }
 
+// In read-only mode, a branch must exist to mount. In read-write mode, it
+// is not necessary for the branch to exist, as a new one
+func (mm *MountManager) verifyExistence(mode, project, repo, branch string) (bool, error) {
+	if mode == "ro" {
+		if exists, err := mm.verifyProjectRepoBranchExist(project, repo, branch); !exists {
+			return false, err
+		}
+	} else {
+		if exists, err := mm.verifyProjectRepoExist(project, repo); !exists {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
 func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 	for _, mi := range mis {
 		if mi.Name == "" {
@@ -1101,27 +1093,21 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 		} else if mi.Mode != "ro" && mi.Mode != "rw" {
 			return errors.Wrapf(errors.New("mount mode can only be 'ro' or 'rw'"), "mount request %+v", mi)
 		}
-		if mi.Mode == "ro" {
-			if exists, err := mm.verifyProjectRepoBranchExist(mi.Project, mi.Repo, mi.Branch); !exists {
-				return errors.Wrapf(err, "mount request %+v", mi)
-			}
-		} else {
-			if exists, err := mm.verifyProjectRepoExist(mi.Project, mi.Repo); !exists {
-				return errors.Wrapf(err, "mount request %+v", mi)
-			}
+		if exists, err := mm.verifyExistence(mi.Mode, mi.Project, mi.Repo, mi.Branch); !exists {
+			return errors.Wrapf(err, "mount request %+v", mi)
 		}
 	}
 
 	return nil
 }
 
-func (mm *MountManager) sanitizeInputAndSetAliasMapping() error {
-	if mm.DatumInput == nil {
-		return errors.New("Datum input is not specified")
+func sanitizeInputAndGetAlias(datumInput *pps.Input) (map[DatumAliasKey]string, error) {
+	if datumInput == nil {
+		return nil, errors.New("datum input is not specified")
 	}
 
-	aliasMap := map[AliasKey]string{}
-	if err := pps.VisitInput(mm.DatumInput, func(input *pps.Input) error {
+	datumAlias := map[DatumAliasKey]string{}
+	if err := pps.VisitInput(datumInput, func(input *pps.Input) error {
 		if input.Pfs == nil {
 			return nil
 		}
@@ -1132,23 +1118,27 @@ func (mm *MountManager) sanitizeInputAndSetAliasMapping() error {
 		if input.Pfs.Branch == "" {
 			input.Pfs.Branch = "master"
 		}
-		if input.Pfs.Name != "" {
-			ak := AliasKey{Project: input.Pfs.Project, Repo: input.Pfs.Repo, Branch: input.Pfs.Branch}
-			aliasMap[ak] = input.Pfs.Name
+		if input.Pfs.Name == "" {
+			input.Pfs.Name = input.Pfs.Project + "_" + input.Pfs.Repo
+			if input.Pfs.Branch != "master" {
+				input.Pfs.Name = input.Pfs.Name + "_" + input.Pfs.Branch
+			}
 		}
+		datumAlias[DatumAliasKey{
+			Project: input.Pfs.Project,
+			Repo:    input.Pfs.Repo,
+			Branch:  input.Pfs.Branch,
+		}] = input.Pfs.Name
 
 		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
-	mm.mu.Lock()
-	defer mm.mu.Unlock()
-	mm.AliasMap = aliasMap
 
-	return nil
+	return datumAlias, nil
 }
 
-func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
+func (mm *MountManager) datumToMounts(d *pps.DatumInfo, datumAlias map[DatumAliasKey]string) []*MountInfo {
 	mounts := map[string]*MountInfo{}
 	files := map[string]map[string]bool{}
 	for _, fi := range d.Data {
@@ -1157,18 +1147,7 @@ func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 		branch := fi.File.Commit.Branch.Name
 		// TODO: add commit here
 
-		name := func() string {
-			ak := AliasKey{Project: project, Repo: repo, Branch: branch}
-			if name, ok := mm.AliasMap[ak]; ok {
-				return name
-			} else {
-				name := project + "_" + repo
-				if branch != "master" {
-					name = name + "_" + branch
-				}
-				return name
-			}
-		}()
+		name := datumAlias[DatumAliasKey{Project: project, Repo: repo, Branch: branch}]
 
 		if _, ok := files[name]; !ok {
 			files[name] = map[string]bool{}
@@ -1200,6 +1179,10 @@ func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 }
 
 func removeOutDir(mm *MountManager) error {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+
+	delete(mm.root.repoOpts, "out")
 	cleanPath := mm.root.rootPath + "/out"
 	return errors.EnsureStack(os.RemoveAll(cleanPath))
 }
@@ -1213,7 +1196,8 @@ func createLocalOutDir(mm *MountManager) {
 	mm.root.repoOpts["out"] = &RepoOptions{
 		Name:  "out",
 		File:  client.NewProjectFile("", "out", "", "", ""),
-		Write: true}
+		Write: true,
+	}
 }
 
 type MountState struct {
@@ -1273,10 +1257,10 @@ func (m *MountStateMachine) RefreshMountState() error {
 	}
 
 	// iterate over non-alias commits in branch, calculating how many commits behind LatestCommit ActualMountedCommit is
-	logrus.Infof("mount: %s", m.Name)
+	log.Info(pctx.TODO(), "mounting", zap.String("name", m.Name))
 	indexOfCurrentCommit := -1
 	for i, commitInfo := range commitInfos {
-		logrus.Infof("%d: commitInfo.Commit.ID: %s, m.ActualMountedCommit: %s", i, commitInfo.Commit.ID, m.ActualMountedCommit)
+		log.Info(pctx.Child(pctx.TODO(), "", pctx.WithoutRatelimit()), "commitInfo dump", zap.Int("i", i), zap.String("commitID", commitInfo.Commit.ID), zap.String("actualMountedCommitID", m.ActualMountedCommit))
 		if commitInfo.Commit.ID == m.ActualMountedCommit {
 			indexOfCurrentCommit = i
 			break
@@ -1354,7 +1338,7 @@ func (m *MountStateMachine) transitionedTo(state, status string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	logrus.Infof("[%s] (%s, %s, %s, %s) %s -> %s", m.Name, m.Project, m.Repo, m.Branch, m.Commit, m.State, state)
+	log.Info(pctx.TODO(), "state transition", zap.Any("state machine", m), zap.String("new state", state))
 	m.manager.root.setState(m.Name, state)
 	m.State = state
 	m.Status = status
@@ -1524,6 +1508,7 @@ func mountedState(m *MountStateMachine) StateFn {
 			if req.Project != m.Project || req.Repo != m.Repo || req.Branch != m.Branch {
 				m.responses <- Response{
 					Repo:       req.Repo,
+					Project:    req.Project,
 					Branch:     req.Branch,
 					Commit:     req.Commit,
 					Name:       req.Name,
@@ -1613,7 +1598,7 @@ func committingState(m *MountStateMachine) StateFn {
 	m.transitionedTo("committing", "")
 
 	if err := m.maybeUploadFiles(); err != nil {
-		logrus.Infof("Error while uploading! %s", err)
+		log.Info(pctx.TODO(), "Error while uploading!", zap.Error(err))
 		m.transitionedTo("error", err.Error())
 		m.responses <- Response{
 			MountState: m.MountState,
@@ -1638,7 +1623,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 	// lock which multiple fs operations can hold but only one "pauser" can.
 
 	if err := m.maybeUploadFiles(); err != nil {
-		logrus.Infof("Error while uploading! %s", err)
+		log.Info(pctx.TODO(), "Error while uploading!", zap.Error(err))
 		m.transitionedTo("error", err.Error())
 		m.responses <- Response{
 			MountState: m.MountState,
@@ -1659,7 +1644,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 
 	// remove from loopback filesystem so that it actually disappears for the user
 	cleanPath := m.manager.root.rootPath + "/" + m.Name
-	logrus.Infof("Removing path %s", cleanPath)
+	log.Info(pctx.TODO(), "Removing path", zap.String("path", cleanPath))
 
 	err := os.RemoveAll(cleanPath)
 	m.responses <- Response{
@@ -1667,7 +1652,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 		Error:      err,
 	}
 	if err != nil {
-		logrus.Infof("Error while cleaning! %s", err)
+		log.Info(pctx.TODO(), "Error while cleaning!", zap.Error(err))
 		m.transitionedTo("error", err.Error())
 		return errorState
 	}
@@ -1711,8 +1696,11 @@ func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 	return mfc, nil
 }
 
-func (mm *MountManager) uploadFiles(prefixFilter string) error {
-	logrus.Info("Uploading files to Pachyderm...")
+func (mm *MountManager) uploadFiles(prefixFilter string) (retErr error) {
+	ctx, done := log.SpanContextL(pctx.TODO(), "uploadFiles", log.InfoLevel, zap.String("prefix-filter", prefixFilter))
+	defer done(log.Errorp(&retErr))
+	log.Info(ctx, "Uploading files to Pachyderm...")
+
 	// Rendering progress bars for thousands of files significantly slows down
 	// throughput. Disabling progress bars takes throughput from 1MB/sec to
 	// 200MB/sec on my system, when uploading 18K small files.
@@ -1747,6 +1735,6 @@ func (mm *MountManager) uploadFiles(prefixFilter string) error {
 			return err
 		}
 	}
-	logrus.Info("Done!")
+	log.Info(ctx, "Done!")
 	return nil
 }

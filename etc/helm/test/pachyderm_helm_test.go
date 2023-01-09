@@ -23,7 +23,7 @@ func TestConsoleImageAndConfigTag(t *testing.T) {
 
 	helmChartPath := "../pachyderm"
 
-	expectedIssuerURI := "http://foo.bar"
+	expectedIssuerURI := "http://foo.bar/dex"
 	expectedOauthRedirectURI := "http://foo.bar/oauth"
 	options := &helm.Options{
 		SetValues: map[string]string{

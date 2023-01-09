@@ -87,7 +87,7 @@ if [ "${1}" = "wp" ]; then
   git clone https://github.com/pachyderm/customer-success.git customer-success
   git checkout -b "bosterbuhr/wp-load-test"
   make wp-dag-test
-  #make wp-destroy
+  pachctl create pipeline -f ~/project/etc/testing/circle/workloads/aws-wp/metrics.json
 elif [ "${1}" = "btl" ]; then
   # cloning battelle workload test repo
   git clone https://github.com/pachyderm/customer-success.git customer-success
