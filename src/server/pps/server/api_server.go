@@ -629,34 +629,59 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	// Track the jobsets we've already processed
 	seen := map[string]struct{}{}
 
+	number := request.Number
+	if number < 0 {
+		return errors.Errorf("number must be non-negative")
+	}
+	if number == 0 {
+		number = math.MaxInt64
+	}
+	paginationMarker := request.PaginationMarker
+
+	// For quickly filtering out jobs based on project
+	projectsFilter := make(map[string]bool, len(request.GetProjects()))
+	for _, project := range request.GetProjects() {
+		projectsFilter[project.GetName()] = true
+	}
+
 	// Return jobsets by the newest job in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
 	jobInfo := &pps.JobInfo{}
-	err := a.jobs.ReadOnly(serv.Context()).List(jobInfo, col.DefaultOptions(), func(string) error {
+	opts := &col.Options{Target: col.SortByCreateRevision, Order: col.SortDescend}
+	if request.Reverse {
+		opts.Order = col.SortAscend
+	}
+	if err := a.jobs.ReadOnly(serv.Context()).List(jobInfo, opts, func(string) error {
+		if number == 0 {
+			return errutil.ErrBreak
+		}
 		id := jobInfo.GetJob().GetID()
 		if _, ok := seen[id]; ok {
 			return nil
 		}
 		seen[id] = struct{}{}
-
+		if paginationMarker != nil {
+			createdAt := time.Unix(int64(jobInfo.Created.GetSeconds()), int64(jobInfo.Created.GetNanos())).UTC()
+			fromTime := time.Unix(int64(paginationMarker.GetSeconds()), int64(paginationMarker.GetNanos())).UTC()
+			if createdAt.Equal(fromTime) || !request.Reverse && createdAt.After(fromTime) || request.Reverse && createdAt.Before(fromTime) {
+				return nil
+			}
+		}
 		jobInfos, err := pachClient.InspectJobSet(id, request.Details)
 		if err != nil {
 			return err
 		}
+		number--
 
 		// Filter jobs based on projects.
 		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.
 		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
 		var jobInfosFiltered []*pps.JobInfo
-		if len(request.GetProjects()) == 0 {
+		if len(projectsFilter) == 0 {
 			jobInfosFiltered = jobInfos
 		} else {
-			filter := make(map[string]bool, len(request.GetProjects()))
-			for _, project := range request.GetProjects() {
-				filter[project.GetName()] = true
-			}
 			for _, ji := range jobInfos {
-				if filter[ji.Job.Pipeline.Project.GetName()] {
+				if projectsFilter[ji.Job.Pipeline.Project.GetName()] {
 					jobInfosFiltered = append(jobInfosFiltered, ji)
 				}
 			}
@@ -664,13 +689,14 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		if len(jobInfosFiltered) == 0 {
 			return nil
 		}
-
 		return errors.EnsureStack(serv.Send(&pps.JobSetInfo{
 			JobSet: client.NewJobSet(id),
-			Jobs:   jobInfos,
+			Jobs:   jobInfosFiltered,
 		}))
-	})
-	return errors.EnsureStack(err)
+	}); err != nil && err != errutil.ErrBreak {
+		return errors.EnsureStack(err)
+	}
+	return nil
 }
 
 // intersectCommitSets finds all commitsets which involve the specified commits
@@ -856,6 +882,11 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
 
+	number := request.Number
+	// If number is not set, return all jobs that match the query
+	if number == 0 {
+		number = math.MaxInt64
+	}
 	// pipelineVersions holds the versions of pipelines that we're interested in
 	pipelineVersions := make(map[string]bool)
 	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, pipeline, request.GetHistory(),
@@ -869,6 +900,16 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 	jobs := a.jobs.ReadOnly(ctx)
 	jobInfo := &pps.JobInfo{}
 	_f := func(string) error {
+		if number == 0 {
+			return errutil.ErrBreak
+		}
+		if request.PaginationMarker != nil {
+			createdAt := time.Unix(int64(jobInfo.Created.GetSeconds()), int64(jobInfo.Created.GetNanos())).UTC()
+			fromTime := time.Unix(int64(request.PaginationMarker.GetSeconds()), int64(request.PaginationMarker.GetNanos())).UTC()
+			if createdAt.Equal(fromTime) || !request.Reverse && createdAt.After(fromTime) || request.Reverse && createdAt.Before(fromTime) {
+				return nil
+			}
+		}
 		if request.GetDetails() {
 			if err := a.getJobDetails(ctx, jobInfo); err != nil {
 				if auth.IsErrNotAuthorized(err) {
@@ -905,16 +946,25 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 				return nil
 			}
 		}
-
+		number--
 		return keep(jobInfo)
 	}
-	if pipeline != nil {
-		err := jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, col.DefaultOptions(), _f)
-		return errors.EnsureStack(err)
-	} else {
-		err := jobs.List(jobInfo, col.DefaultOptions(), _f)
-		return errors.EnsureStack(err)
+	opts := &col.Options{Target: col.SortByCreateRevision, Order: col.SortDescend}
+	if request.Reverse {
+		opts.Order = col.SortAscend
 	}
+	if pipeline != nil {
+		err := jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, opts, _f)
+		if err != nil && err != errutil.ErrBreak {
+			return errors.EnsureStack(err)
+		}
+	} else {
+		err := jobs.List(jobInfo, opts, _f)
+		if err != nil && err != errutil.ErrBreak {
+			return errors.EnsureStack(err)
+		}
+	}
+	return nil
 }
 
 // SubscribeJob implements the protobuf pps.SubscribeJob RPC
@@ -2572,7 +2622,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 	pipelineInfo := &pps.PipelineInfo{}
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(commit, pipelineInfo); err != nil {
 		if col.IsErrNotFound(err) {
-			return nil, errors.Errorf("pipeline %s not found", pipeline)
+			return nil, ppsServer.ErrPipelineNotFound{Pipeline: pipeline}
 		}
 		return nil, errors.EnsureStack(err)
 	}

@@ -610,10 +610,11 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 	}
 
 	// Verify cluster deployment ID
-	clusterInfo, err := client.InspectCluster()
+	clusterInfo, err := client.InspectClusterWithVersion(version.Version)
 	if err != nil {
 		scrubbedErr := grpcutil.ScrubGRPC(err)
 		if status.Code(err) == codes.Unimplemented {
+			// This is an older version check designed to detect 1.x vs. 2.x mismatch.
 			pachdVersion, versErr := client.Version()
 			if err != nil {
 				return nil, errors.Wrap(scrubbedErr, errors.Wrap(versErr, "could not determine pachd version").Error())
@@ -627,6 +628,16 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 			}
 		}
 		return nil, errors.Wrap(scrubbedErr, "could not get cluster ID")
+	}
+	if os.Getenv("PACHYDERM_IGNORE_VERSION_SKEW") == "" {
+		// Let people that Know What They're Doing disable the version warnings.
+		if !clusterInfo.GetVersionWarningsOk() {
+			log.Error(pctx.TODO(), "WARNING: The pachyderm server you're connected to is too old to validate compatibility with this client; please downgrade pachctl or upgrade pachd for the best experience.")
+		} else {
+			for _, w := range clusterInfo.GetVersionWarnings() {
+				log.Error(pctx.TODO(), w)
+			}
+		}
 	}
 	if context.ClusterDeploymentID != clusterInfo.DeploymentID {
 		if context.ClusterDeploymentID == "" {

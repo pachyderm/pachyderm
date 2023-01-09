@@ -78,8 +78,8 @@ func NewDumpServer(filePath string, port uint16) *debugDump {
 	mock.Auth.WhoAmI.Use(func(_ context.Context, _ *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error) {
 		return nil, auth.ErrNotActivated
 	})
-	mock.Admin.InspectCluster.Use(func(_ context.Context, _ *types.Empty) (*admin.ClusterInfo, error) {
-		return &admin.ClusterInfo{ID: "debug"}, nil
+	mock.Admin.InspectCluster.Use(func(_ context.Context, _ *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
+		return &admin.ClusterInfo{ID: "debug", VersionWarningsOk: true}, nil
 	})
 
 	return d
