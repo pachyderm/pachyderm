@@ -37,7 +37,7 @@
     "graphql": "16.6.0",
     "graphql-subscriptions": "2.0.0",
     "graphql-ws": "5.6.3",
-    "jsonwebtoken": "8.5.1",
+    "jsonwebtoken": "9.0.0",
     "lodash": "4.17.21",
     "mime-types": "2.1.35",
     "module-alias": "2.2.2",
