@@ -65,7 +65,7 @@ jobs:
       - checkout
       - add_ssh_keys:
           fingerprints:
-            - "4c:1c:ff:56:c1:d0:07:03:23:08:08:2e:e6:16:30:1d"
+            - "23:49:d3:11:ea:69:de:6f:c3:29:e3:09:ff:01:b1:f0"
       - run:
           name: setup pachydermbuildbot git
           command: |
