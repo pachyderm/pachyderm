@@ -1394,9 +1394,18 @@ export class ListJobSetRequest extends jspb.Message {
     getDetails(): boolean;
     setDetails(value: boolean): ListJobSetRequest;
     clearProjectsList(): void;
-    getProjectsList(): Array<string>;
-    setProjectsList(value: Array<string>): ListJobSetRequest;
-    addProjects(value: string, index?: number): string;
+    getProjectsList(): Array<pfs_pfs_pb.Project>;
+    setProjectsList(value: Array<pfs_pfs_pb.Project>): ListJobSetRequest;
+    addProjects(value?: pfs_pfs_pb.Project, index?: number): pfs_pfs_pb.Project;
+
+    hasPaginationmarker(): boolean;
+    clearPaginationmarker(): void;
+    getPaginationmarker(): google_protobuf_timestamp_pb.Timestamp | undefined;
+    setPaginationmarker(value?: google_protobuf_timestamp_pb.Timestamp): ListJobSetRequest;
+    getNumber(): number;
+    setNumber(value: number): ListJobSetRequest;
+    getReverse(): boolean;
+    setReverse(value: boolean): ListJobSetRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListJobSetRequest.AsObject;
@@ -1411,7 +1420,10 @@ export class ListJobSetRequest extends jspb.Message {
 export namespace ListJobSetRequest {
     export type AsObject = {
         details: boolean,
-        projectsList: Array<string>,
+        projectsList: Array<pfs_pfs_pb.Project.AsObject>,
+        paginationmarker?: google_protobuf_timestamp_pb.Timestamp.AsObject,
+        number: number,
+        reverse: boolean,
     }
 }
 
@@ -1446,9 +1458,9 @@ export namespace InspectJobRequest {
 
 export class ListJobRequest extends jspb.Message { 
     clearProjectsList(): void;
-    getProjectsList(): Array<string>;
-    setProjectsList(value: Array<string>): ListJobRequest;
-    addProjects(value: string, index?: number): string;
+    getProjectsList(): Array<pfs_pfs_pb.Project>;
+    setProjectsList(value: Array<pfs_pfs_pb.Project>): ListJobRequest;
+    addProjects(value?: pfs_pfs_pb.Project, index?: number): pfs_pfs_pb.Project;
 
     hasPipeline(): boolean;
     clearPipeline(): void;
@@ -1465,6 +1477,15 @@ export class ListJobRequest extends jspb.Message {
     getJqfilter(): string;
     setJqfilter(value: string): ListJobRequest;
 
+    hasPaginationmarker(): boolean;
+    clearPaginationmarker(): void;
+    getPaginationmarker(): google_protobuf_timestamp_pb.Timestamp | undefined;
+    setPaginationmarker(value?: google_protobuf_timestamp_pb.Timestamp): ListJobRequest;
+    getNumber(): number;
+    setNumber(value: number): ListJobRequest;
+    getReverse(): boolean;
+    setReverse(value: boolean): ListJobRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListJobRequest.AsObject;
     static toObject(includeInstance: boolean, msg: ListJobRequest): ListJobRequest.AsObject;
@@ -1477,12 +1498,15 @@ export class ListJobRequest extends jspb.Message {
 
 export namespace ListJobRequest {
     export type AsObject = {
-        projectsList: Array<string>,
+        projectsList: Array<pfs_pfs_pb.Project.AsObject>,
         pipeline?: Pipeline.AsObject,
         inputCommitList: Array<pfs_pfs_pb.Commit.AsObject>,
         history: number,
         details: boolean,
         jqfilter: string,
+        paginationmarker?: google_protobuf_timestamp_pb.Timestamp.AsObject,
+        number: number,
+        reverse: boolean,
     }
 }
 
@@ -2089,6 +2113,10 @@ export class ListPipelineRequest extends jspb.Message {
     clearCommitSet(): void;
     getCommitSet(): pfs_pfs_pb.CommitSet | undefined;
     setCommitSet(value?: pfs_pfs_pb.CommitSet): ListPipelineRequest;
+    clearProjectsList(): void;
+    getProjectsList(): Array<pfs_pfs_pb.Project>;
+    setProjectsList(value: Array<pfs_pfs_pb.Project>): ListPipelineRequest;
+    addProjects(value?: pfs_pfs_pb.Project, index?: number): pfs_pfs_pb.Project;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListPipelineRequest.AsObject;
@@ -2107,6 +2135,7 @@ export namespace ListPipelineRequest {
         details: boolean,
         jqfilter: string,
         commitSet?: pfs_pfs_pb.CommitSet.AsObject,
+        projectsList: Array<pfs_pfs_pb.Project.AsObject>,
     }
 }
 

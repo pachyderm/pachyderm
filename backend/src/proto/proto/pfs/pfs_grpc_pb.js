@@ -243,6 +243,28 @@ function deserialize_pfs_v2_DeleteRepoRequest(buffer_arg) {
   return pfs_pfs_pb.DeleteRepoRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_v2_DeleteReposRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.DeleteReposRequest)) {
+    throw new Error('Expected argument of type pfs_v2.DeleteReposRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_DeleteReposRequest(buffer_arg) {
+  return pfs_pfs_pb.DeleteReposRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_DeleteReposResponse(arg) {
+  if (!(arg instanceof pfs_pfs_pb.DeleteReposResponse)) {
+    throw new Error('Expected argument of type pfs_v2.DeleteReposResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_DeleteReposResponse(buffer_arg) {
+  return pfs_pfs_pb.DeleteReposResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pfs_v2_DiffFileRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.DiffFileRequest)) {
     throw new Error('Expected argument of type pfs_v2.DiffFileRequest');
@@ -743,6 +765,23 @@ deleteRepo: {
     requestDeserialize: deserialize_pfs_v2_DeleteRepoRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
+  },
+  // DeleteRepos deletes more than one repo at once.  It attempts to
+// delete every repo matching the DeleteReposRequest.  When deleting
+// all repos matching a project, any repos not deletable by the
+// caller will remain, and the project will not be empty; this is
+// not an error.  The returned DeleteReposResponse will contain a
+// list of all actually-deleted repos.
+deleteRepos: {
+    path: '/pfs_v2.API/DeleteRepos',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.DeleteReposRequest,
+    responseType: pfs_pfs_pb.DeleteReposResponse,
+    requestSerialize: serialize_pfs_v2_DeleteReposRequest,
+    requestDeserialize: deserialize_pfs_v2_DeleteReposRequest,
+    responseSerialize: serialize_pfs_v2_DeleteReposResponse,
+    responseDeserialize: deserialize_pfs_v2_DeleteReposResponse,
   },
   // StartCommit creates a new write commit from a parent commit.
 startCommit: {

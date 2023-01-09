@@ -7437,7 +7437,7 @@ proto.auth_v2.RevokeAuthTokenResponse.prototype.toObject = function(opt_includeI
  */
 proto.auth_v2.RevokeAuthTokenResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-
+    number: jspb.Message.getFieldWithDefault(msg, 1, 0)
   };
 
   if (includeInstance) {
@@ -7474,6 +7474,10 @@ proto.auth_v2.RevokeAuthTokenResponse.deserializeBinaryFromReader = function(msg
     }
     var field = reader.getFieldNumber();
     switch (field) {
+    case 1:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setNumber(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -7503,6 +7507,31 @@ proto.auth_v2.RevokeAuthTokenResponse.prototype.serializeBinary = function() {
  */
 proto.auth_v2.RevokeAuthTokenResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
+  f = message.getNumber();
+  if (f !== 0) {
+    writer.writeInt64(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional int64 number = 1;
+ * @return {number}
+ */
+proto.auth_v2.RevokeAuthTokenResponse.prototype.getNumber = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.auth_v2.RevokeAuthTokenResponse} returns this
+ */
+proto.auth_v2.RevokeAuthTokenResponse.prototype.setNumber = function(value) {
+  return jspb.Message.setProto3IntField(this, 1, value);
 };
 
 
@@ -9477,7 +9506,7 @@ proto.auth_v2.RevokeAuthTokensForUserResponse.prototype.toObject = function(opt_
  */
 proto.auth_v2.RevokeAuthTokensForUserResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-
+    number: jspb.Message.getFieldWithDefault(msg, 1, 0)
   };
 
   if (includeInstance) {
@@ -9514,6 +9543,10 @@ proto.auth_v2.RevokeAuthTokensForUserResponse.deserializeBinaryFromReader = func
     }
     var field = reader.getFieldNumber();
     switch (field) {
+    case 1:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setNumber(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -9543,6 +9576,31 @@ proto.auth_v2.RevokeAuthTokensForUserResponse.prototype.serializeBinary = functi
  */
 proto.auth_v2.RevokeAuthTokensForUserResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
+  f = message.getNumber();
+  if (f !== 0) {
+    writer.writeInt64(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional int64 number = 1;
+ * @return {number}
+ */
+proto.auth_v2.RevokeAuthTokensForUserResponse.prototype.getNumber = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.auth_v2.RevokeAuthTokensForUserResponse} returns this
+ */
+proto.auth_v2.RevokeAuthTokensForUserResponse.prototype.setNumber = function(value) {
+  return jspb.Message.setProto3IntField(this, 1, value);
 };
 
 

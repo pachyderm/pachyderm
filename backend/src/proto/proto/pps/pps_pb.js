@@ -1168,7 +1168,7 @@ if (goog.DEBUG && !COMPILED) {
  * @constructor
  */
 proto.pps_v2.ListPipelineRequest = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.pps_v2.ListPipelineRequest.repeatedFields_, null);
 };
 goog.inherits(proto.pps_v2.ListPipelineRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
@@ -12305,7 +12305,11 @@ proto.pps_v2.ListJobSetRequest.prototype.toObject = function(opt_includeInstance
 proto.pps_v2.ListJobSetRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     details: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
-    projectsList: (f = jspb.Message.getRepeatedField(msg, 2)) == null ? undefined : f
+    projectsList: jspb.Message.toObjectList(msg.getProjectsList(),
+    pfs_pfs_pb.Project.toObject, includeInstance),
+    paginationmarker: (f = msg.getPaginationmarker()) && google_protobuf_timestamp_pb.Timestamp.toObject(includeInstance, f),
+    number: jspb.Message.getFieldWithDefault(msg, 4, 0),
+    reverse: jspb.Message.getBooleanFieldWithDefault(msg, 5, false)
   };
 
   if (includeInstance) {
@@ -12347,8 +12351,22 @@ proto.pps_v2.ListJobSetRequest.deserializeBinaryFromReader = function(msg, reade
       msg.setDetails(value);
       break;
     case 2:
-      var value = /** @type {string} */ (reader.readString());
+      var value = new pfs_pfs_pb.Project;
+      reader.readMessage(value,pfs_pfs_pb.Project.deserializeBinaryFromReader);
       msg.addProjects(value);
+      break;
+    case 3:
+      var value = new google_protobuf_timestamp_pb.Timestamp;
+      reader.readMessage(value,google_protobuf_timestamp_pb.Timestamp.deserializeBinaryFromReader);
+      msg.setPaginationmarker(value);
+      break;
+    case 4:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setNumber(value);
+      break;
+    case 5:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setReverse(value);
       break;
     default:
       reader.skipField();
@@ -12388,8 +12406,31 @@ proto.pps_v2.ListJobSetRequest.serializeBinaryToWriter = function(message, write
   }
   f = message.getProjectsList();
   if (f.length > 0) {
-    writer.writeRepeatedString(
+    writer.writeRepeatedMessage(
       2,
+      f,
+      pfs_pfs_pb.Project.serializeBinaryToWriter
+    );
+  }
+  f = message.getPaginationmarker();
+  if (f != null) {
+    writer.writeMessage(
+      3,
+      f,
+      google_protobuf_timestamp_pb.Timestamp.serializeBinaryToWriter
+    );
+  }
+  f = message.getNumber();
+  if (f !== 0) {
+    writer.writeInt64(
+      4,
+      f
+    );
+  }
+  f = message.getReverse();
+  if (f) {
+    writer.writeBool(
+      5,
       f
     );
   }
@@ -12415,30 +12456,31 @@ proto.pps_v2.ListJobSetRequest.prototype.setDetails = function(value) {
 
 
 /**
- * repeated string projects = 2;
- * @return {!Array<string>}
+ * repeated pfs_v2.Project projects = 2;
+ * @return {!Array<!proto.pfs_v2.Project>}
  */
 proto.pps_v2.ListJobSetRequest.prototype.getProjectsList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 2));
+  return /** @type{!Array<!proto.pfs_v2.Project>} */ (
+    jspb.Message.getRepeatedWrapperField(this, pfs_pfs_pb.Project, 2));
 };
 
 
 /**
- * @param {!Array<string>} value
+ * @param {!Array<!proto.pfs_v2.Project>} value
  * @return {!proto.pps_v2.ListJobSetRequest} returns this
- */
+*/
 proto.pps_v2.ListJobSetRequest.prototype.setProjectsList = function(value) {
-  return jspb.Message.setField(this, 2, value || []);
+  return jspb.Message.setRepeatedWrapperField(this, 2, value);
 };
 
 
 /**
- * @param {string} value
+ * @param {!proto.pfs_v2.Project=} opt_value
  * @param {number=} opt_index
- * @return {!proto.pps_v2.ListJobSetRequest} returns this
+ * @return {!proto.pfs_v2.Project}
  */
-proto.pps_v2.ListJobSetRequest.prototype.addProjects = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 2, value, opt_index);
+proto.pps_v2.ListJobSetRequest.prototype.addProjects = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 2, opt_value, proto.pfs_v2.Project, opt_index);
 };
 
 
@@ -12448,6 +12490,79 @@ proto.pps_v2.ListJobSetRequest.prototype.addProjects = function(value, opt_index
  */
 proto.pps_v2.ListJobSetRequest.prototype.clearProjectsList = function() {
   return this.setProjectsList([]);
+};
+
+
+/**
+ * optional google.protobuf.Timestamp paginationMarker = 3;
+ * @return {?proto.google.protobuf.Timestamp}
+ */
+proto.pps_v2.ListJobSetRequest.prototype.getPaginationmarker = function() {
+  return /** @type{?proto.google.protobuf.Timestamp} */ (
+    jspb.Message.getWrapperField(this, google_protobuf_timestamp_pb.Timestamp, 3));
+};
+
+
+/**
+ * @param {?proto.google.protobuf.Timestamp|undefined} value
+ * @return {!proto.pps_v2.ListJobSetRequest} returns this
+*/
+proto.pps_v2.ListJobSetRequest.prototype.setPaginationmarker = function(value) {
+  return jspb.Message.setWrapperField(this, 3, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pps_v2.ListJobSetRequest} returns this
+ */
+proto.pps_v2.ListJobSetRequest.prototype.clearPaginationmarker = function() {
+  return this.setPaginationmarker(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pps_v2.ListJobSetRequest.prototype.hasPaginationmarker = function() {
+  return jspb.Message.getField(this, 3) != null;
+};
+
+
+/**
+ * optional int64 number = 4;
+ * @return {number}
+ */
+proto.pps_v2.ListJobSetRequest.prototype.getNumber = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 4, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pps_v2.ListJobSetRequest} returns this
+ */
+proto.pps_v2.ListJobSetRequest.prototype.setNumber = function(value) {
+  return jspb.Message.setProto3IntField(this, 4, value);
+};
+
+
+/**
+ * optional bool reverse = 5;
+ * @return {boolean}
+ */
+proto.pps_v2.ListJobSetRequest.prototype.getReverse = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 5, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.pps_v2.ListJobSetRequest} returns this
+ */
+proto.pps_v2.ListJobSetRequest.prototype.setReverse = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 5, value);
 };
 
 
@@ -12701,13 +12816,17 @@ proto.pps_v2.ListJobRequest.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pps_v2.ListJobRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    projectsList: (f = jspb.Message.getRepeatedField(msg, 7)) == null ? undefined : f,
+    projectsList: jspb.Message.toObjectList(msg.getProjectsList(),
+    pfs_pfs_pb.Project.toObject, includeInstance),
     pipeline: (f = msg.getPipeline()) && proto.pps_v2.Pipeline.toObject(includeInstance, f),
     inputCommitList: jspb.Message.toObjectList(msg.getInputCommitList(),
     pfs_pfs_pb.Commit.toObject, includeInstance),
     history: jspb.Message.getFieldWithDefault(msg, 4, 0),
     details: jspb.Message.getBooleanFieldWithDefault(msg, 5, false),
-    jqfilter: jspb.Message.getFieldWithDefault(msg, 6, "")
+    jqfilter: jspb.Message.getFieldWithDefault(msg, 6, ""),
+    paginationmarker: (f = msg.getPaginationmarker()) && google_protobuf_timestamp_pb.Timestamp.toObject(includeInstance, f),
+    number: jspb.Message.getFieldWithDefault(msg, 9, 0),
+    reverse: jspb.Message.getBooleanFieldWithDefault(msg, 10, false)
   };
 
   if (includeInstance) {
@@ -12745,7 +12864,8 @@ proto.pps_v2.ListJobRequest.deserializeBinaryFromReader = function(msg, reader) 
     var field = reader.getFieldNumber();
     switch (field) {
     case 7:
-      var value = /** @type {string} */ (reader.readString());
+      var value = new pfs_pfs_pb.Project;
+      reader.readMessage(value,pfs_pfs_pb.Project.deserializeBinaryFromReader);
       msg.addProjects(value);
       break;
     case 1:
@@ -12769,6 +12889,19 @@ proto.pps_v2.ListJobRequest.deserializeBinaryFromReader = function(msg, reader) 
     case 6:
       var value = /** @type {string} */ (reader.readString());
       msg.setJqfilter(value);
+      break;
+    case 8:
+      var value = new google_protobuf_timestamp_pb.Timestamp;
+      reader.readMessage(value,google_protobuf_timestamp_pb.Timestamp.deserializeBinaryFromReader);
+      msg.setPaginationmarker(value);
+      break;
+    case 9:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setNumber(value);
+      break;
+    case 10:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setReverse(value);
       break;
     default:
       reader.skipField();
@@ -12801,9 +12934,10 @@ proto.pps_v2.ListJobRequest.serializeBinaryToWriter = function(message, writer) 
   var f = undefined;
   f = message.getProjectsList();
   if (f.length > 0) {
-    writer.writeRepeatedString(
+    writer.writeRepeatedMessage(
       7,
-      f
+      f,
+      pfs_pfs_pb.Project.serializeBinaryToWriter
     );
   }
   f = message.getPipeline();
@@ -12843,34 +12977,57 @@ proto.pps_v2.ListJobRequest.serializeBinaryToWriter = function(message, writer) 
       f
     );
   }
+  f = message.getPaginationmarker();
+  if (f != null) {
+    writer.writeMessage(
+      8,
+      f,
+      google_protobuf_timestamp_pb.Timestamp.serializeBinaryToWriter
+    );
+  }
+  f = message.getNumber();
+  if (f !== 0) {
+    writer.writeInt64(
+      9,
+      f
+    );
+  }
+  f = message.getReverse();
+  if (f) {
+    writer.writeBool(
+      10,
+      f
+    );
+  }
 };
 
 
 /**
- * repeated string projects = 7;
- * @return {!Array<string>}
+ * repeated pfs_v2.Project projects = 7;
+ * @return {!Array<!proto.pfs_v2.Project>}
  */
 proto.pps_v2.ListJobRequest.prototype.getProjectsList = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 7));
+  return /** @type{!Array<!proto.pfs_v2.Project>} */ (
+    jspb.Message.getRepeatedWrapperField(this, pfs_pfs_pb.Project, 7));
 };
 
 
 /**
- * @param {!Array<string>} value
+ * @param {!Array<!proto.pfs_v2.Project>} value
  * @return {!proto.pps_v2.ListJobRequest} returns this
- */
+*/
 proto.pps_v2.ListJobRequest.prototype.setProjectsList = function(value) {
-  return jspb.Message.setField(this, 7, value || []);
+  return jspb.Message.setRepeatedWrapperField(this, 7, value);
 };
 
 
 /**
- * @param {string} value
+ * @param {!proto.pfs_v2.Project=} opt_value
  * @param {number=} opt_index
- * @return {!proto.pps_v2.ListJobRequest} returns this
+ * @return {!proto.pfs_v2.Project}
  */
-proto.pps_v2.ListJobRequest.prototype.addProjects = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 7, value, opt_index);
+proto.pps_v2.ListJobRequest.prototype.addProjects = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 7, opt_value, proto.pfs_v2.Project, opt_index);
 };
 
 
@@ -13009,6 +13166,79 @@ proto.pps_v2.ListJobRequest.prototype.getJqfilter = function() {
  */
 proto.pps_v2.ListJobRequest.prototype.setJqfilter = function(value) {
   return jspb.Message.setProto3StringField(this, 6, value);
+};
+
+
+/**
+ * optional google.protobuf.Timestamp paginationMarker = 8;
+ * @return {?proto.google.protobuf.Timestamp}
+ */
+proto.pps_v2.ListJobRequest.prototype.getPaginationmarker = function() {
+  return /** @type{?proto.google.protobuf.Timestamp} */ (
+    jspb.Message.getWrapperField(this, google_protobuf_timestamp_pb.Timestamp, 8));
+};
+
+
+/**
+ * @param {?proto.google.protobuf.Timestamp|undefined} value
+ * @return {!proto.pps_v2.ListJobRequest} returns this
+*/
+proto.pps_v2.ListJobRequest.prototype.setPaginationmarker = function(value) {
+  return jspb.Message.setWrapperField(this, 8, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pps_v2.ListJobRequest} returns this
+ */
+proto.pps_v2.ListJobRequest.prototype.clearPaginationmarker = function() {
+  return this.setPaginationmarker(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pps_v2.ListJobRequest.prototype.hasPaginationmarker = function() {
+  return jspb.Message.getField(this, 8) != null;
+};
+
+
+/**
+ * optional int64 number = 9;
+ * @return {number}
+ */
+proto.pps_v2.ListJobRequest.prototype.getNumber = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 9, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pps_v2.ListJobRequest} returns this
+ */
+proto.pps_v2.ListJobRequest.prototype.setNumber = function(value) {
+  return jspb.Message.setProto3IntField(this, 9, value);
+};
+
+
+/**
+ * optional bool reverse = 10;
+ * @return {boolean}
+ */
+proto.pps_v2.ListJobRequest.prototype.getReverse = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 10, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.pps_v2.ListJobRequest} returns this
+ */
+proto.pps_v2.ListJobRequest.prototype.setReverse = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 10, value);
 };
 
 
@@ -17589,6 +17819,13 @@ proto.pps_v2.InspectPipelineRequest.prototype.setDetails = function(value) {
 
 
 
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.pps_v2.ListPipelineRequest.repeatedFields_ = [6];
+
 
 
 if (jspb.Message.GENERATE_TO_OBJECT) {
@@ -17624,7 +17861,9 @@ proto.pps_v2.ListPipelineRequest.toObject = function(includeInstance, msg) {
     history: jspb.Message.getFieldWithDefault(msg, 2, 0),
     details: jspb.Message.getBooleanFieldWithDefault(msg, 3, false),
     jqfilter: jspb.Message.getFieldWithDefault(msg, 4, ""),
-    commitSet: (f = msg.getCommitSet()) && pfs_pfs_pb.CommitSet.toObject(includeInstance, f)
+    commitSet: (f = msg.getCommitSet()) && pfs_pfs_pb.CommitSet.toObject(includeInstance, f),
+    projectsList: jspb.Message.toObjectList(msg.getProjectsList(),
+    pfs_pfs_pb.Project.toObject, includeInstance)
   };
 
   if (includeInstance) {
@@ -17682,6 +17921,11 @@ proto.pps_v2.ListPipelineRequest.deserializeBinaryFromReader = function(msg, rea
       var value = new pfs_pfs_pb.CommitSet;
       reader.readMessage(value,pfs_pfs_pb.CommitSet.deserializeBinaryFromReader);
       msg.setCommitSet(value);
+      break;
+    case 6:
+      var value = new pfs_pfs_pb.Project;
+      reader.readMessage(value,pfs_pfs_pb.Project.deserializeBinaryFromReader);
+      msg.addProjects(value);
       break;
     default:
       reader.skipField();
@@ -17747,6 +17991,14 @@ proto.pps_v2.ListPipelineRequest.serializeBinaryToWriter = function(message, wri
       5,
       f,
       pfs_pfs_pb.CommitSet.serializeBinaryToWriter
+    );
+  }
+  f = message.getProjectsList();
+  if (f.length > 0) {
+    writer.writeRepeatedMessage(
+      6,
+      f,
+      pfs_pfs_pb.Project.serializeBinaryToWriter
     );
   }
 };
@@ -17877,6 +18129,44 @@ proto.pps_v2.ListPipelineRequest.prototype.clearCommitSet = function() {
  */
 proto.pps_v2.ListPipelineRequest.prototype.hasCommitSet = function() {
   return jspb.Message.getField(this, 5) != null;
+};
+
+
+/**
+ * repeated pfs_v2.Project projects = 6;
+ * @return {!Array<!proto.pfs_v2.Project>}
+ */
+proto.pps_v2.ListPipelineRequest.prototype.getProjectsList = function() {
+  return /** @type{!Array<!proto.pfs_v2.Project>} */ (
+    jspb.Message.getRepeatedWrapperField(this, pfs_pfs_pb.Project, 6));
+};
+
+
+/**
+ * @param {!Array<!proto.pfs_v2.Project>} value
+ * @return {!proto.pps_v2.ListPipelineRequest} returns this
+*/
+proto.pps_v2.ListPipelineRequest.prototype.setProjectsList = function(value) {
+  return jspb.Message.setRepeatedWrapperField(this, 6, value);
+};
+
+
+/**
+ * @param {!proto.pfs_v2.Project=} opt_value
+ * @param {number=} opt_index
+ * @return {!proto.pfs_v2.Project}
+ */
+proto.pps_v2.ListPipelineRequest.prototype.addProjects = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 6, opt_value, proto.pfs_v2.Project, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.pps_v2.ListPipelineRequest} returns this
+ */
+proto.pps_v2.ListPipelineRequest.prototype.clearProjectsList = function() {
+  return this.setProjectsList([]);
 };
 
 

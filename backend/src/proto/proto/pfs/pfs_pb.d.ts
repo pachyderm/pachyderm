@@ -629,9 +629,9 @@ export class ListRepoRequest extends jspb.Message {
     getType(): string;
     setType(value: string): ListRepoRequest;
     clearProjectsList(): void;
-    getProjectsList(): Array<string>;
-    setProjectsList(value: Array<string>): ListRepoRequest;
-    addProjects(value: string, index?: number): string;
+    getProjectsList(): Array<Project>;
+    setProjectsList(value: Array<Project>): ListRepoRequest;
+    addProjects(value?: Project, index?: number): Project;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListRepoRequest.AsObject;
@@ -646,7 +646,7 @@ export class ListRepoRequest extends jspb.Message {
 export namespace ListRepoRequest {
     export type AsObject = {
         type: string,
-        projectsList: Array<string>,
+        projectsList: Array<Project.AsObject>,
     }
 }
 
@@ -673,6 +673,53 @@ export namespace DeleteRepoRequest {
     export type AsObject = {
         repo?: Repo.AsObject,
         force: boolean,
+    }
+}
+
+export class DeleteReposRequest extends jspb.Message { 
+    clearProjectsList(): void;
+    getProjectsList(): Array<Project>;
+    setProjectsList(value: Array<Project>): DeleteReposRequest;
+    addProjects(value?: Project, index?: number): Project;
+    getForce(): boolean;
+    setForce(value: boolean): DeleteReposRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DeleteReposRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: DeleteReposRequest): DeleteReposRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DeleteReposRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DeleteReposRequest;
+    static deserializeBinaryFromReader(message: DeleteReposRequest, reader: jspb.BinaryReader): DeleteReposRequest;
+}
+
+export namespace DeleteReposRequest {
+    export type AsObject = {
+        projectsList: Array<Project.AsObject>,
+        force: boolean,
+    }
+}
+
+export class DeleteReposResponse extends jspb.Message { 
+    clearReposList(): void;
+    getReposList(): Array<Repo>;
+    setReposList(value: Array<Repo>): DeleteReposResponse;
+    addRepos(value?: Repo, index?: number): Repo;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DeleteReposResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: DeleteReposResponse): DeleteReposResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DeleteReposResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DeleteReposResponse;
+    static deserializeBinaryFromReader(message: DeleteReposResponse, reader: jspb.BinaryReader): DeleteReposResponse;
+}
+
+export namespace DeleteReposResponse {
+    export type AsObject = {
+        reposList: Array<Repo.AsObject>,
     }
 }
 
@@ -847,6 +894,11 @@ export namespace InspectCommitSetRequest {
 
 export class ListCommitSetRequest extends jspb.Message { 
 
+    hasProject(): boolean;
+    clearProject(): void;
+    getProject(): Project | undefined;
+    setProject(value?: Project): ListCommitSetRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListCommitSetRequest.AsObject;
     static toObject(includeInstance: boolean, msg: ListCommitSetRequest): ListCommitSetRequest.AsObject;
@@ -859,6 +911,7 @@ export class ListCommitSetRequest extends jspb.Message {
 
 export namespace ListCommitSetRequest {
     export type AsObject = {
+        project?: Project.AsObject,
     }
 }
 

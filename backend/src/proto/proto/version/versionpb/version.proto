@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package versionpb_v2;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/version/versionpb";
+
+message Version {
+  uint32 major = 1;
+  uint32 minor = 2;
+  uint32 micro = 3;
+  string additional = 4;
+  string git_commit = 5;
+  string git_tree_modified = 6;
+  string build_date = 7;
+  string go_version = 8;
+  string platform = 9;
+}
+
+service API {
+  rpc GetVersion(google.protobuf.Empty) returns (Version) {}
+}

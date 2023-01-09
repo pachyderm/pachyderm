@@ -904,6 +904,8 @@ export namespace RevokeAuthTokenRequest {
 }
 
 export class RevokeAuthTokenResponse extends jspb.Message { 
+    getNumber(): number;
+    setNumber(value: number): RevokeAuthTokenResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RevokeAuthTokenResponse.AsObject;
@@ -917,6 +919,7 @@ export class RevokeAuthTokenResponse extends jspb.Message {
 
 export namespace RevokeAuthTokenResponse {
     export type AsObject = {
+        number: number,
     }
 }
 
@@ -1210,6 +1213,8 @@ export namespace RevokeAuthTokensForUserRequest {
 }
 
 export class RevokeAuthTokensForUserResponse extends jspb.Message { 
+    getNumber(): number;
+    setNumber(value: number): RevokeAuthTokensForUserResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RevokeAuthTokensForUserResponse.AsObject;
@@ -1223,6 +1228,7 @@ export class RevokeAuthTokensForUserResponse extends jspb.Message {
 
 export namespace RevokeAuthTokensForUserResponse {
     export type AsObject = {
+        number: number,
     }
 }
 

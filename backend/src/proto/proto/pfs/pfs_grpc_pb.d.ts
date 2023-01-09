@@ -20,6 +20,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     inspectRepo: IAPIService_IInspectRepo;
     listRepo: IAPIService_IListRepo;
     deleteRepo: IAPIService_IDeleteRepo;
+    deleteRepos: IAPIService_IDeleteRepos;
     startCommit: IAPIService_IStartCommit;
     finishCommit: IAPIService_IFinishCommit;
     clearCommit: IAPIService_IClearCommit;
@@ -100,6 +101,15 @@ interface IAPIService_IDeleteRepo extends grpc.MethodDefinition<pfs_pfs_pb.Delet
     requestDeserialize: grpc.deserialize<pfs_pfs_pb.DeleteRepoRequest>;
     responseSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
+}
+interface IAPIService_IDeleteRepos extends grpc.MethodDefinition<pfs_pfs_pb.DeleteReposRequest, pfs_pfs_pb.DeleteReposResponse> {
+    path: "/pfs_v2.API/DeleteRepos";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.DeleteReposRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.DeleteReposRequest>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.DeleteReposResponse>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.DeleteReposResponse>;
 }
 interface IAPIService_IStartCommit extends grpc.MethodDefinition<pfs_pfs_pb.StartCommitRequest, pfs_pfs_pb.Commit> {
     path: "/pfs_v2.API/StartCommit";
@@ -496,6 +506,7 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     inspectRepo: grpc.handleUnaryCall<pfs_pfs_pb.InspectRepoRequest, pfs_pfs_pb.RepoInfo>;
     listRepo: grpc.handleServerStreamingCall<pfs_pfs_pb.ListRepoRequest, pfs_pfs_pb.RepoInfo>;
     deleteRepo: grpc.handleUnaryCall<pfs_pfs_pb.DeleteRepoRequest, google_protobuf_empty_pb.Empty>;
+    deleteRepos: grpc.handleUnaryCall<pfs_pfs_pb.DeleteReposRequest, pfs_pfs_pb.DeleteReposResponse>;
     startCommit: grpc.handleUnaryCall<pfs_pfs_pb.StartCommitRequest, pfs_pfs_pb.Commit>;
     finishCommit: grpc.handleUnaryCall<pfs_pfs_pb.FinishCommitRequest, google_protobuf_empty_pb.Empty>;
     clearCommit: grpc.handleUnaryCall<pfs_pfs_pb.ClearCommitRequest, google_protobuf_empty_pb.Empty>;
@@ -553,6 +564,9 @@ export interface IAPIClient {
     deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    deleteRepos(request: pfs_pfs_pb.DeleteReposRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteReposResponse) => void): grpc.ClientUnaryCall;
+    deleteRepos(request: pfs_pfs_pb.DeleteReposRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteReposResponse) => void): grpc.ClientUnaryCall;
+    deleteRepos(request: pfs_pfs_pb.DeleteReposRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteReposResponse) => void): grpc.ClientUnaryCall;
     startCommit(request: pfs_pfs_pb.StartCommitRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.Commit) => void): grpc.ClientUnaryCall;
     startCommit(request: pfs_pfs_pb.StartCommitRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.Commit) => void): grpc.ClientUnaryCall;
     startCommit(request: pfs_pfs_pb.StartCommitRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.Commit) => void): grpc.ClientUnaryCall;
@@ -685,6 +699,9 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public deleteRepo(request: pfs_pfs_pb.DeleteRepoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public deleteRepos(request: pfs_pfs_pb.DeleteReposRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteReposResponse) => void): grpc.ClientUnaryCall;
+    public deleteRepos(request: pfs_pfs_pb.DeleteReposRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteReposResponse) => void): grpc.ClientUnaryCall;
+    public deleteRepos(request: pfs_pfs_pb.DeleteReposRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DeleteReposResponse) => void): grpc.ClientUnaryCall;
     public startCommit(request: pfs_pfs_pb.StartCommitRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.Commit) => void): grpc.ClientUnaryCall;
     public startCommit(request: pfs_pfs_pb.StartCommitRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.Commit) => void): grpc.ClientUnaryCall;
     public startCommit(request: pfs_pfs_pb.StartCommitRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.Commit) => void): grpc.ClientUnaryCall;
