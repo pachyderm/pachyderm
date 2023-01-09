@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -52,29 +53,56 @@ func openBucket(ctx context.Context, url *obj.ObjectStoreURL) (bucket *blob.Buck
 			return nil, errors.EnsureStack(errors.Wrapf(err, "error opening bucket %s", url.Bucket))
 		}
 		return bucket, nil
-	case "test-minio":
-		parts := strings.SplitN(url.Bucket, "/", 2)
-		if len(parts) < 2 {
-			return nil, errors.Errorf("could not parse bucket %q from url", url.Bucket)
-		}
-		sess, err := session.NewSession(&aws.Config{
-			Region:           aws.String("dummy-region"),
-			Credentials:      credentials.NewStaticCredentials("minioadmin", "minioadmin", ""),
-			Endpoint:         aws.String(parts[0]),
-			DisableSSL:       aws.Bool(true),
-			S3ForcePathStyle: aws.Bool(true),
-		})
-		if err != nil {
-			return nil, errors.EnsureStack(errors.Wrapf(err, "error creating session s", url.Bucket))
-		}
-		bucket, err = s3blob.OpenBucket(ctx, sess, parts[1], nil)
-		if err != nil {
-			return nil, errors.EnsureStack(errors.Wrapf(err, "error opening bucket %s", url.Bucket))
-		}
-		return bucket, nil
+	case "test-minio", "minio":
+		return handleMinio(ctx, url)
 	default:
 		return nil, errors.Errorf("unrecognized object store: %s", url.Scheme)
 	}
+}
+
+func handleMinio(ctx context.Context, url *obj.ObjectStoreURL) (bucket *blob.Bucket, err error) {
+	endpoint := ""
+	id := "minioadmin"
+	secret := "minioadmin"
+	disableSSL := true
+	if os.Getenv("MINIO_ENDPOINT") != "" {
+		endpoint = os.Getenv("MINIO_ENDPOINT")
+	}
+	parts := strings.SplitN(url.Bucket, "/", 2)
+	if len(parts) < 2 && endpoint == "" {
+		return nil, errors.Errorf("could not parse bucket %q from url", url.Bucket)
+	}
+	if endpoint == "" {
+		endpoint = parts[0]
+	}
+	if os.Getenv("MINIO_ID") != "" {
+		id = os.Getenv("MINIO_ID")
+	}
+	if os.Getenv("MINIO_SECRET") != "" {
+		secret = os.Getenv("MINIO_SECRET")
+	}
+	if os.Getenv("MINIO_SECURE") != "" {
+		ssl, err := strconv.ParseBool(os.Getenv("MINIO_SECURE"))
+		if err != nil {
+			return nil, errors.EnsureStack(errors.Wrap(err, "error parsing MINIO_SECURE to bool"))
+		}
+		disableSSL = !ssl
+	}
+	sess, err := session.NewSession(&aws.Config{
+		Region:           aws.String("dummy-region"),
+		Credentials:      credentials.NewStaticCredentials(id, secret, ""),
+		Endpoint:         aws.String(endpoint),
+		DisableSSL:       aws.Bool(disableSSL),
+		S3ForcePathStyle: aws.Bool(true),
+	})
+	if err != nil {
+		return nil, errors.EnsureStack(errors.Wrapf(err, "error creating session s", url.Bucket))
+	}
+	bucket, err = s3blob.OpenBucket(ctx, sess, parts[1], nil)
+	if err != nil {
+		return nil, errors.EnsureStack(errors.Wrapf(err, "error opening bucket %s", url.Bucket))
+	}
+	return bucket, nil
 }
 
 func importObj(ctx context.Context, w io.Writer, name, bucketName string, bucket *blob.Bucket) (retErr error) {
