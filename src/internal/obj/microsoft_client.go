@@ -38,7 +38,6 @@ func newMicrosoftClient(container string, accountName string, accountKey string)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	fmt.Printf("fahad: newMicrosoftClient(): container %s accountName: %s\n", container, accountName)
 	client.HTTPClient.Transport = promutil.InstrumentRoundTripper("azure_storage", client.HTTPClient.Transport)
 	blobSvc := client.GetBlobService()
 	return &microsoftClient{container: (&blobSvc).GetContainerReference(container)}, nil
@@ -46,7 +45,6 @@ func newMicrosoftClient(container string, accountName string, accountKey string)
 
 // TODO: remove the writer, and respect the context.
 func (c *microsoftClient) Put(ctx context.Context, name string, r io.Reader) (retErr error) {
-	fmt.Printf("fahad: microsoftClient.Put(): %s\n", name)
 	defer func() { retErr = c.transformError(retErr, name) }()
 	w := newMicrosoftWriter(ctx, c, name)
 	if _, err := io.Copy(w, r); err != nil {
@@ -58,7 +56,6 @@ func (c *microsoftClient) Put(ctx context.Context, name string, r io.Reader) (re
 
 // TODO: should respect context
 func (c *microsoftClient) Get(_ context.Context, name string, w io.Writer) (retErr error) {
-	fmt.Printf("fahad: microsoftClient.Get(): %s\n", name)
 	defer func() { retErr = c.transformError(retErr, name) }()
 	r, err := c.container.GetBlobReference(name).Get(nil)
 	if err != nil {

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"fmt"
 	"io"
 	"path"
 	"testing"
@@ -118,20 +117,17 @@ func TestStorage(ctx context.Context, c Client) error {
 	testObj := "test/" + uuid.NewWithoutDashes()
 	if err := func() (retErr error) {
 		data := []byte("test")
-		fmt.Printf("fahad: putting %s %v\n", testObj, c.BucketURL().String())
 		return errors.EnsureStack(c.Put(ctx, testObj, bytes.NewReader(data)))
 	}(); err != nil {
 		return errors.Wrapf(err, "unable to write to object storage\n")
 	}
 	if err := func() (retErr error) {
 		buf := bytes.NewBuffer(nil)
-		fmt.Printf("fahad: getting %s %v\n", testObj, c.BucketURL().String())
 		return errors.EnsureStack(c.Get(ctx, testObj, buf))
 	}(); err != nil {
 		return errors.Wrapf(err, "unable to read from object storage\n")
 	}
 	if err := c.Delete(ctx, testObj); err != nil {
-		fmt.Printf("fahad: deleting %s %v\n", testObj, c.BucketURL().String())
 		return errors.Wrapf(err, "unable to delete from object storage\n")
 	}
 	// Try reading a non-existent object to make sure our IsNotExist function
@@ -156,7 +152,6 @@ func doWriteTest(t testing.TB, client Client, object string, data []byte) {
 
 	ctx := context.Background()
 	err := client.Put(ctx, object, bytes.NewReader(data))
-	fmt.Printf("fahad: write test: put %s %v \n", object, client.BucketURL().String())
 	require.NoError(t, err)
 
 	defer func() {
@@ -168,7 +163,6 @@ func doWriteTest(t testing.TB, client Client, object string, data []byte) {
 	expected := data
 	actualBuf := &bytes.Buffer{}
 	err = client.Get(context.Background(), object, actualBuf)
-	fmt.Printf("fahad: write test: get %s %v \n", object, client.BucketURL().String())
 	require.NoError(t, err)
 	if len(expected) > 0 {
 		require.Equal(t, expected, actualBuf.Bytes())
