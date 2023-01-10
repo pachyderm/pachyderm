@@ -11,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -19,7 +20,8 @@ import (
 )
 
 func BenchmarkDownload(b *testing.B) {
-	env := realenv.NewRealEnv(b, dockertestenv.NewTestDBConfig(b))
+	ctx := pctx.TestContext(b)
+	env := realenv.NewRealEnv(ctx, b, dockertestenv.NewTestDBConfig(b))
 	repo := "repo"
 	require.NoError(b, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	commit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")

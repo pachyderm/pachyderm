@@ -133,11 +133,11 @@ func fileHash(t *testing.T, name string) (int64, []byte) {
 	return fi.Size(), hashSum
 }
 
-func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver s3.Driver, runner func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client)) {
-	router := s3.Router(driver, func(_ctx context.Context) *client.APIClient {
-		return pachClient.WithCtx(context.Background())
+func testRunner(ctx context.Context, t *testing.T, pachClient *client.APIClient, group string, driver s3.Driver, runner func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client)) {
+	router := s3.Router(ctx, driver, func(ctx context.Context) *client.APIClient {
+		return pachClient.WithCtx(ctx)
 	})
-	server := s3.Server(0, router)
+	server := s3.Server(ctx, 0, router)
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
 
@@ -155,11 +155,11 @@ func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver
 	require.NoError(t, server.Shutdown(context.Background()))
 }
 
-func projectTestRunner(t *testing.T, pachClient *client.APIClient, group string, driver s3.Driver, runner func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client)) {
-	router := s3.Router(driver, func(_ctx context.Context) *client.APIClient {
-		return pachClient.WithCtx(context.Background())
+func projectTestRunner(ctx context.Context, t *testing.T, pachClient *client.APIClient, group string, driver s3.Driver, runner func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client)) {
+	router := s3.Router(ctx, driver, func(ctx context.Context) *client.APIClient {
+		return pachClient.WithCtx(ctx)
 	})
-	server := s3.Server(0, router)
+	server := s3.Server(ctx, 0, router)
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
 

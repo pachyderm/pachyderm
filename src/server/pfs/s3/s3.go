@@ -5,7 +5,6 @@ package s3
 import (
 	"context"
 	"fmt"
-	stdlog "log"
 	"math"
 	"net/http"
 	"strings"
@@ -14,9 +13,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 
 	"github.com/pachyderm/s2"
-	"github.com/sirupsen/logrus"
 )
 
 // ClientFactory is a function called by s3g to create request-scoped
@@ -44,8 +43,6 @@ const (
 var defaultUser = s2.User{ID: "00000000000000000000000000000000", DisplayName: "pachyderm"}
 
 type controller struct {
-	logger *logrus.Entry
-
 	// Project of the PFS repo holding the multipart content
 	project string
 	// Name of the PFS repo holding multipart content
@@ -92,22 +89,12 @@ func (c *controller) requestClient(r *http.Request) *client.APIClient {
 // This returns an `mux.Router` instance. It is the responsibility of the
 // caller to configure a server to use this Router.
 //
-// Note: server errors are redirected to logrus' standard log writer. The log
-// writer is never closed. This should not be a problem with logrus' default
-// configuration, which just writes to stdio. But if the standard logger is
-// overwritten (e.g. to write to a socket), it's possible for this to cause
-// problems.
-//
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
-func Router(driver Driver, clientFactory ClientFactory) *mux.Router {
-	logger := logrus.WithFields(logrus.Fields{
-		"source": "s3gateway",
-	})
-
+func Router(ctx context.Context, driver Driver, clientFactory ClientFactory) *mux.Router {
+	logger := log.NewLogrus(ctx).WithField("source", "s3gateway")
 	c := &controller{
-		logger:          logger,
 		repo:            multipartRepo,
 		maxAllowedParts: maxAllowedParts,
 		driver:          driver,
@@ -156,10 +143,7 @@ func (s *S3Server) RemoveRouter(k string) {
 
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
 // use s3 clients to access PFS contents.
-func Server(port uint16, defaultRouter *mux.Router) *S3Server {
-	logger := logrus.WithFields(logrus.Fields{
-		"source": "s3gateway",
-	})
+func Server(ctx context.Context, port uint16, defaultRouter *mux.Router) *S3Server {
 	s3Server := S3Server{routerMap: make(map[string]*mux.Router)}
 	s3Server.Server = &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
@@ -167,7 +151,6 @@ func Server(port uint16, defaultRouter *mux.Router) *S3Server {
 		WriteTimeout: requestTimeout,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Log that a request was made
-			logger.Infof("http request: %s %s", r.Method, r.RequestURI)
 			if strings.HasPrefix(r.Host, "s3-") {
 				s3Server.routersLock.RLock()
 				defer s3Server.routersLock.RUnlock()
@@ -187,8 +170,7 @@ func Server(port uint16, defaultRouter *mux.Router) *S3Server {
 				w.WriteHeader(http.StatusInternalServerError)
 			}
 		}),
-		// NOTE: this is not closed. If the standard logger gets customized, this will need to be fixed
-		ErrorLog: stdlog.New(logger.Writer(), "", 0),
 	}
+	log.AddLoggerToHTTPServer(ctx, "http", s3Server.Server)
 	return &s3Server
 }

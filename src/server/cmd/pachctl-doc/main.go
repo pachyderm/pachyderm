@@ -7,6 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/cmd"
 
 	"github.com/spf13/cobra/doc"
@@ -15,6 +16,7 @@ import (
 type appEnv struct{}
 
 func main() {
+	log.InitPachctlLogger()
 	cmdutil.Main(context.Background(), do, &appEnv{})
 }
 

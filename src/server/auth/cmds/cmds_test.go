@@ -22,12 +22,13 @@ import (
 
 // loginAsUser sets the auth token in the pachctl config to a token for `user`
 func loginAsUser(t *testing.T, c *client.APIClient, user string) {
+	t.Helper()
 	configPath := executeCmdAndGetLastWord(t, tu.PachctlBashCmd(t, c, `echo $PACH_CONFIG`))
+	rootClient := tu.AuthenticatedPachClient(t, c, auth.RootUser)
 	if user == auth.RootUser {
 		require.NoError(t, config.WritePachTokenToConfigPath(tu.RootToken, configPath, false))
 		return
 	}
-	rootClient := tu.AuthenticatedPachClient(t, c, auth.RootUser)
 	robot := strings.TrimPrefix(user, auth.RobotPrefix)
 	token, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robot})
 	require.NoError(t, err)
@@ -216,7 +217,29 @@ func TestCheckGetSetRepo(t *testing.T) {
 			"repo", repo,
 		).Run())
 	}
+}
 
+func TestCheckGetSetProject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	loginAsUser(t, c, auth.RootUser)
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create project {{.project}}
+		pachctl auth check project {{.project}} | match clusterAdmin | match projectOwner
+		pachctl auth get project {{.project}} | match projectOwner
+		pachctl auth set project {{.project}} repoReader,projectOwner pach:root
+		pachctl auth get project {{.project}} | match projectOwner | match repoReader
+	
+		pachctl auth get robot-auth-token {{.alice}}
+		pachctl auth check project {{.project}} {{.alice}} | match "Roles: \[\]"
+		pachctl auth set project {{.project}} projectOwner {{.alice}}
+		pachctl auth check project {{.project}} {{.alice}} | match "projectOwner"
+	`,
+		"project", tu.UniqueString("project"),
+		"alice", tu.Robot(tu.UniqueString("alice")),
+	).Run())
 }
 
 func TestAdmins(t *testing.T) {
@@ -473,8 +496,10 @@ func TestRevokeToken(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, aliceName, whoAmIResp.Username)
 
-	require.NoError(t, tu.PachctlBashCmd(t, root,
-		`pachctl auth revoke --token={{.alice_token}}`,
+	require.NoError(t, tu.PachctlBashCmd(t, root, `
+		pachctl auth revoke --token={{.alice_token}} | match '1 auth token revoked'
+		pachctl auth revoke --token={{.alice_token}} | match '0 auth tokens revoked'
+		`,
 		"alice_token", alice.AuthToken()).Run())
 
 	_, err = alice.WhoAmI(alice.Ctx(), &auth.WhoAmIRequest{})
@@ -502,8 +527,10 @@ func TestRevokeUser(t *testing.T) {
 		require.Equal(t, aliceName, whoAmIResp.Username)
 	}
 
-	require.NoError(t, tu.PachctlBashCmd(t, root,
-		`pachctl auth revoke --user={{.alice}}`,
+	require.NoError(t, tu.PachctlBashCmd(t, root, `
+		pachctl auth revoke --user={{.alice}} | match '3 auth tokens revoked'
+		pachctl auth revoke --user={{.alice}} | match '0 auth tokens revoked'
+		`,
 		"alice", aliceName).Run())
 
 	// See relevant comments in TestRevokeToken

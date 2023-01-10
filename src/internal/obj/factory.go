@@ -1,6 +1,7 @@
 package obj
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -12,8 +13,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 )
@@ -200,8 +202,8 @@ func NewMicrosoftClientFromEnv() (Client, error) {
 //	secure - Set to true if connection is secure.
 //	isS3V2 - Set to true if client follows S3V2
 func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (c Client, err error) {
-	log.Warnf("DEPRECATED: Support for the S3V2 option is being deprecated. It will be removed in a future version")
 	if isS3V2 {
+		log.Error(pctx.TODO(), "DEPRECATED: Support for the S3V2 option is being deprecated. It will be removed in a future version")
 		return newMinioClientV2(endpoint, bucket, id, secret, secure)
 	}
 	c, err = newMinioClient(endpoint, bucket, id, secret, secure)
@@ -221,12 +223,12 @@ func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (c
 //	region - AWS region
 //	endpoint - Custom endpoint (generally used for S3 compatible object stores)
 //	reverse - Reverse object storage paths (overwrites configured value)
-func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution string, endpoint string) (c Client, err error) {
+func NewAmazonClient(ctx context.Context, region, bucket string, creds *AmazonCreds, distribution string, endpoint string) (c Client, err error) {
 	advancedConfig := &AmazonAdvancedConfiguration{}
 	if err := cmdutil.Populate(advancedConfig); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	c, err = newAmazonClient(region, bucket, creds, distribution, endpoint, advancedConfig)
+	c, err = newAmazonClient(pctx.Child(ctx, "amazon"), region, bucket, creds, distribution, endpoint, advancedConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +309,7 @@ func NewMinioClientFromEnv() (Client, error) {
 // NewAmazonClientFromSecret constructs an amazon client by reading credentials
 // from a mounted AmazonSecret. You may pass "" for bucket in which case it
 // will read the bucket from the secret.
-func NewAmazonClientFromSecret(bucket string, reverse ...bool) (Client, error) {
+func NewAmazonClientFromSecret(ctx context.Context, bucket string, reverse ...bool) (Client, error) {
 	// Get AWS region (required for constructing an AWS client)
 	region, err := readSecretFile(fmt.Sprintf("/%s", AmazonRegionEnvVar))
 	if err != nil {
@@ -348,11 +350,11 @@ func NewAmazonClientFromSecret(bucket string, reverse ...bool) (Client, error) {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
-	return NewAmazonClient(region, bucket, &creds, distribution, endpoint)
+	return NewAmazonClient(ctx, region, bucket, &creds, distribution, endpoint)
 }
 
 // NewAmazonClientFromEnv creates a Amazon client based on environment variables.
-func NewAmazonClientFromEnv() (Client, error) {
+func NewAmazonClientFromEnv(ctx context.Context) (Client, error) {
 	region, ok := os.LookupEnv(AmazonRegionEnvVar)
 	if !ok {
 		return nil, errors.Errorf("%s not found", AmazonRegionEnvVar)
@@ -370,15 +372,15 @@ func NewAmazonClientFromEnv() (Client, error) {
 	distribution, _ := os.LookupEnv(AmazonDistributionEnvVar)
 	// Get endpoint for custom deployment (optional).
 	endpoint, _ := os.LookupEnv(CustomEndpointEnvVar)
-	return NewAmazonClient(region, bucket, &creds, distribution, endpoint)
+	return NewAmazonClient(ctx, region, bucket, &creds, distribution, endpoint)
 }
 
 // NewClientFromURLAndSecret constructs a client by parsing `URL` and then
 // constructing the correct client for that URL using secrets.
-func NewClientFromURLAndSecret(url *ObjectStoreURL, reverse ...bool) (c Client, err error) {
+func NewClientFromURLAndSecret(ctx context.Context, url *ObjectStoreURL, reverse ...bool) (c Client, err error) {
 	switch url.Scheme {
 	case "s3":
-		c, err = NewAmazonClientFromSecret(url.Bucket, reverse...)
+		c, err = NewAmazonClientFromSecret(ctx, url.Bucket, reverse...)
 	case "gcs":
 		fallthrough
 	case "gs":
@@ -464,14 +466,14 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 }
 
 // NewClientFromEnv creates a client based on environment variables.
-func NewClientFromEnv(storageRoot string) (c Client, err error) {
+func NewClientFromEnv(ctx context.Context, storageRoot string) (c Client, err error) {
 	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
 	if !ok {
 		return nil, errors.Errorf("storage backend environment variable not found")
 	}
 	switch storageBackend {
 	case Amazon:
-		c, err = NewAmazonClientFromEnv()
+		c, err = NewAmazonClientFromEnv(ctx)
 	case Google:
 		c, err = NewGoogleClientFromEnv()
 	case Microsoft:
@@ -496,7 +498,7 @@ func NewClientFromEnv(storageRoot string) (c Client, err error) {
 // TODO: Not sure if we want to keep the storage root configuration for
 // non-local deployments. If so, we will need to connect it to the object path
 // prefix for chunks.
-func NewClient(storageBackend string, storageRoot string) (Client, error) {
+func NewClient(ctx context.Context, storageBackend string, storageRoot string) (Client, error) {
 	var c Client
 	var err error
 	switch storageBackend {
@@ -513,7 +515,7 @@ func NewClient(storageBackend string, storageRoot string) (Client, error) {
 		//if len(dir) > 0 && dir[0] == '/' {
 		//	dir = dir[1:]
 		//}
-		c, err = NewAmazonClientFromSecret("")
+		c, err = NewAmazonClientFromSecret(ctx, "")
 	case Google:
 		// TODO figure out if google likes leading slashses
 		c, err = NewGoogleClientFromSecret("")

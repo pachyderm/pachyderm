@@ -19,7 +19,7 @@ gh release download "$pachctl_tag" --pattern "pachctl_${image_tag}_amd64.deb" --
 sudo dpkg -i /tmp/pachctl.deb
 
 kubectl config use-context minikube
-# create Pachyderm deployment
+# Create Pachyderm deployment
 helm install pachyderm etc/helm/pachyderm \
     -f etc/testing/circle/helm-values.yaml \
     --set pachd.image.tag="$image_tag"
@@ -38,3 +38,12 @@ locust -f locustfile.py --headless --users 50 --spawn-rate 1 --run-time 3m \
     --csv /tmp/test-results/api-perf \
     --html /tmp/test-results/api-perf-stats.html \
     --exit-code-on-error 0 # errors are reported in the artifacts, if the test finishes the pipeline ran successfully
+cd ..
+
+# Collect and export stats to bigquery
+export PACHD_PERF_VERSION="$image_tag"
+export API_PERF_RESULTS_FOLDER="/tmp/test-results"
+cd etc/testing/circle/workloads/api-perf-collector
+pip3 install -r requirements.txt
+python3 app.py
+cd ..

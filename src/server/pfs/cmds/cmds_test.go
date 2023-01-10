@@ -12,11 +12,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/fsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
@@ -49,10 +49,11 @@ const (
 )
 
 func mockInspectCluster(env *realenv.RealEnv) {
-	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *types.Empty) (*admin.ClusterInfo, error) {
+	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
 		clusterInfo := admin.ClusterInfo{
-			ID:           "dev",
-			DeploymentID: "dev",
+			ID:                "dev",
+			DeploymentID:      "dev",
+			VersionWarningsOk: true,
 		}
 		return &clusterInfo, nil
 	})
@@ -62,13 +63,14 @@ func TestCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	mockInspectCluster(env)
 	c := env.PachClient
 
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create repo {{.repo}}
-		
+
 		# Create a commit and put some data in it
 		commit1=$(pachctl start commit {{.repo}}@master)
 		echo "file contents" | pachctl put file {{.repo}}@${commit1}:/file -f -
@@ -87,8 +89,26 @@ func TestCommit(t *testing.T) {
 		pachctl list commit {{.repo}} \
 		  | match ${commit1} \
 		  | match ${commit2}
+
+		# Create a new project
+		pachctl create project {{.project}}
+
+		# Create a new repo with the same name
+		pachctl create repo {{.repo}} --project {{.project}}
+
+		# Create a commit and put some data in it
+		commit3=$(pachctl start commit {{.repo}}@master --project {{.project}})
+		echo "file contents" | pachctl put file {{.repo}}@${commit3}:/file -f - --project {{.project}}
+		pachctl finish commit {{.repo}}@${commit3} --project {{.project}}
+
+		# Set the current project
+		pachctl config update context --project {{.project}}
+
+		# The new commit should appear when using the new project
+		pachctl list commit | match ${commit3}
 		`,
 		"repo", tu.UniqueString("TestCommit-repo"),
+		"project", tu.UniqueString("project"),
 	).Run())
 }
 
@@ -96,7 +116,8 @@ func TestPutFileTAR(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	mockInspectCluster(env)
 	c := env.PachClient
 
@@ -153,7 +174,8 @@ func TestPutFileNonexistentRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	mockInspectCluster(env)
 	c := env.PachClient
 	repoName := tu.UniqueString("TestPutFileNonexistentRepo-repo")
@@ -203,7 +225,8 @@ func TestDiffFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	mockInspectCluster(env)
 	c := env.PachClient
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
@@ -214,10 +237,20 @@ func TestDiffFile(t *testing.T) {
 
 		echo "bar" | pachctl put file {{.repo}}@master:/data --project {{.project}}
 
-		pachctl diff file {{.repo}}@master:/data {{.repo}}@master^:/data --project {{.project}} --old-project {{.project}} \
+		pachctl diff file {{.repo}}@master:/data {{.repo}}@master^:/data --project {{.project}} \
 			| match -- '-foo'
-		`,
-		"repo", tu.UniqueString("TestDiffFile-repo"), "project", tu.UniqueString("TestDiffFile-project"),
+
+		pachctl create project {{.otherProject}}
+		pachctl create repo {{.repo}} --project {{.otherProject}}
+
+                echo "foo" | pachctl put file {{.repo}}@master:/data --project {{.otherProject}}
+
+                pachctl diff file {{.repo}}@master:/data {{.repo}}@master:/data --project {{.project}} \
+			--old-project {{.otherProject}} | match -- '-foo'                
+                `,
+		"repo", tu.UniqueString("TestDiffFile-repo"),
+		"project", tu.UniqueString("TestDiffFile-project"),
+		"otherProject", tu.UniqueString("TestDiffFile-project"),
 	).Run())
 }
 
@@ -225,7 +258,8 @@ func TestGetFileError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	mockInspectCluster(env)
 	c := env.PachClient
 
@@ -318,7 +352,8 @@ func TestProject(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	mockInspectCluster(env)
 	c := env.PachClient
 
@@ -326,7 +361,7 @@ func TestProject(t *testing.T) {
 	// c := env.PachClient
 	// using xargs to trim newlines
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-                pachctl list project | xargs | match '^PROJECT DESCRIPTION default -$'
+                pachctl list project | xargs | match '^ACTIVE PROJECT DESCRIPTION \* default -$'
                 pachctl create project foo 
                 pachctl list project | match "foo     -"
 		`,
@@ -346,7 +381,7 @@ func TestProject(t *testing.T) {
                 `,
 	).Run())
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-                pachctl list project | xargs | match '^PROJECT DESCRIPTION default -$'
+                pachctl list project | xargs | match '^ACTIVE PROJECT DESCRIPTION \* default -$'
                 pachctl create project foo
                 `,
 	).Run())
@@ -373,11 +408,33 @@ func synonymsMap() map[string]string {
 // TestMount creates two projects, each containing a repo with same name.  It
 // mounts the repos and adds a single file to each, and verifies that the
 // expected file appears in each.
+
+func TestDeleteAllRepos(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+	c := env.PachClient
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create project {{.project}}
+		pachctl create repo {{.repo}}
+		pachctl create repo {{.repo}}a --project {{.project}}
+		pachctl delete repo --all
+		pachctl list repo --all-projects | match {{.repo}}a
+		`,
+		"project", tu.UniqueString("project"),
+		"repo", tu.UniqueString("repo"),
+	).Run())
+}
+
 func TestCmdListRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	mockInspectCluster(env)
 	c := env.PachClient
 
@@ -401,8 +458,8 @@ func TestBranchNotFound(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
-
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	mockInspectCluster(env)
 	c := env.PachClient
 

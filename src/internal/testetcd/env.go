@@ -12,12 +12,11 @@ import (
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/server/v3/embed"
 	etcdwal "go.etcd.io/etcd/server/v3/wal"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
@@ -33,10 +32,10 @@ type Env struct {
 
 // NewEnv constructs a default Env for testing, which will be destroyed at the
 // end of the test.
-func NewEnv(t testing.TB) *Env {
+func NewEnv(rctx context.Context, t testing.TB) *Env {
 	// Use an error group with a cancelable context to supervise every component
 	// and cancel everything if one fails
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(rctx)
 	eg, ctx := errgroup.WithContext(ctx)
 	t.Cleanup(func() {
 		require.NoError(t, eg.Wait())
@@ -65,11 +64,7 @@ func NewEnv(t testing.TB) *Env {
 	etcdConfig.ElectionMs = 50
 
 	// Log to the test log.
-	baseLevel := zapcore.DebugLevel // The log level after startup (whose messages we try to suppress).
-	level := zap.NewAtomicLevelAt(baseLevel)
-	logger := zaptest.NewLogger(t, zaptest.Level(level))
-	etcdConfig.ZapLoggerBuilder = embed.NewZapLoggerBuilder(logger.Named("etcd-server"))
-
+	level := log.AddLoggerToEtcdServer(ctx, etcdConfig)
 	// We want to assign a random unused port to etcd, but etcd doesn't give us a
 	// way to read it back out later. We can work around this by creating our own
 	// listener on a random port, find out which port was used, close that
@@ -102,17 +97,18 @@ func NewEnv(t testing.TB) *Env {
 	// Wait for the server to become ready, then restore the log level.
 	select {
 	case <-env.Etcd.Server.ReadyNotify():
-		level.SetLevel(baseLevel)
+		// This used to be DebugLevel.  It's a lot of noise to sort through and I'm not sure
+		// anyone has ever wanted to read them.  Feel free to change this back to DebugLevel
+		// if it helps you, though.
+		level.SetLevel(zapcore.InfoLevel)
 	case <-time.After(30 * time.Second):
 		t.Fatal("etcd did not start after 30 seconds")
 	}
 
-	env.EtcdClient, err = etcd.New(etcd.Config{
-		Context:     env.Context,
-		Endpoints:   []string{clientURL.String()},
-		DialOptions: client.DefaultDialOptions(),
-		Logger:      logger.Named("etcd-client"),
-	})
+	cfg := log.GetEtcdClientConfig(env.Context)
+	cfg.Endpoints = []string{clientURL.String()}
+	cfg.DialOptions = client.DefaultDialOptions()
+	env.EtcdClient, err = etcd.New(cfg)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, env.EtcdClient.Close())
