@@ -2767,10 +2767,10 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 				// they could still show up in the list. Ignore them
 				return nil
 			}
-			// skip pipelines outside the default project.
-			if pipelineInfo.GetPipeline().GetProject().GetName() != pfs.DefaultProjectName {
-				return nil
-			}
+			// // skip pipelines outside the default project.
+			// if pipelineInfo.GetPipeline().GetProject().GetName() != pfs.DefaultProjectName {
+			// 	return nil
+			// }
 			request.Pipeline = pipelineInfo.Pipeline
 			err := a.deletePipeline(ctx, request)
 			if err == nil {
