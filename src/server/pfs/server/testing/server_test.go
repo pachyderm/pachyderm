@@ -2815,8 +2815,8 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, len(expectedBranches), len(branchInfos))
 		for i, branchInfo := range branchInfos {
 			// branches should return in newest-first order
-			require.Equal(t, expectedBranches[len(branchInfos)-i-1], branchInfo.Branch.Name)
-			require.Equal(t, project, branchInfo.Branch.Repo.Project.GetName())
+			require.Equal(t, expectedBranches[len(branchInfos)-i-1], branchInfo.GetBranch().GetName())
+			require.Equal(t, project, branchInfo.GetBranch().GetRepo().GetProject().GetName())
 			// each branch should have a different commit id (from the transaction
 			// that moved the branch head)
 			headCommit := expectedCommits[len(branchInfos)-i-1]

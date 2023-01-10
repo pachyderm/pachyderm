@@ -30,6 +30,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -102,6 +103,56 @@ func createTestCommits(t *testing.T, repoName, branchName string, numCommits int
 		err = c.FinishProjectCommit(pfs.DefaultProjectName, repoName, branchName, commit.ID)
 		require.NoError(t, err, "finishing a commit should succeed")
 	}
+}
+
+func deleteEtcd(t *testing.T, ctx context.Context, namespace string) {
+	kubeClient := tu.GetKubeClient(t)
+	label := "app=etcd"
+	etcd, err := kubeClient.CoreV1().Pods(namespace).
+		List(ctx, metav1.ListOptions{LabelSelector: label})
+	require.NoError(t, err, "Error attempting to find etcd pod.")
+	require.Equal(t, 1, len(etcd.Items), "etcd did not have the correct number of pods.")
+
+	watcher, err := kubeClient.CoreV1().Pods(namespace).
+		Watch(ctx, metav1.ListOptions{LabelSelector: label})
+	defer watcher.Stop()
+	require.NoError(t, err)
+
+	require.NoError(t, kubeClient.CoreV1().Pods(namespace).Delete(
+		context.Background(),
+		etcd.Items[0].ObjectMeta.Name, metav1.DeleteOptions{}))
+
+	for event := range watcher.ResultChan() {
+		if event.Type == watch.Deleted {
+			break
+		}
+	}
+}
+
+// Wait for at least one pod with the given selector to be running and ready.
+func waitForOnePodReady(t testing.TB, ctx context.Context, namespace string, label string) {
+	kubeClient := tu.GetKubeClient(t)
+	require.NoErrorWithinTRetryConstant(t, 1*time.Minute, func() error {
+		pods, err := kubeClient.CoreV1().Pods(namespace).
+			List(ctx, metav1.ListOptions{LabelSelector: label})
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+
+		if len(pods.Items) < 1 {
+			return errors.Errorf("pod with label %s has not yet been restarted.", label)
+		}
+		for _, item := range pods.Items {
+			if item.Status.Phase == v1.PodRunning {
+				for _, c := range item.Status.Conditions {
+					if c.Type == v1.PodReady && c.Status == v1.ConditionTrue {
+						return nil
+					}
+				}
+			}
+		}
+		return errors.Errorf("one pod with label %s is not yet running and ready.", label)
+	}, 5*time.Second)
 }
 
 func TestSimplePipeline(t *testing.T) {
@@ -2376,7 +2427,6 @@ func TestDeletePipeline(t *testing.T) {
 
 	deletePipeline := func(project, pipeline string) {
 		require.NoError(t, c.DeleteProjectPipeline(project, pipeline, false))
-		time.Sleep(5 * time.Second)
 		// Wait for the pipeline to disappear
 		require.NoError(t, backoff.Retry(func() error {
 			_, err := c.InspectProjectPipeline(project, pipeline, false)
@@ -8654,7 +8704,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 		"",
 		false,
 	))
-	tu.WaitForFirstPodReady(t, "pipeline", namespace)
+	waitForOnePodReady(t, context.Background(), namespace, fmt.Sprintf("pipelineName=%s", pipeline))
 
 	for i := 0; i < 20; i++ {
 		_, err := c.PpsAPIClient.CreatePipeline(
@@ -10905,10 +10955,9 @@ func TestDatumSetCache(t *testing.T) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				// ticker is too smart and will adjust to always go at 1 minute, even if etcd is slow.
-				// So, we pause the ticker while the pod restart occurs so we know how long the pod is executing for.
-				tu.DeletePod(t, "etcd", ns)
-				tu.WaitForFirstPodReady(t, "etcd", ns)
+				deleteEtcd(t, ctx, ns)
+				waitForOnePodReady(t, ctx, ns, "app=etcd")
+
 				select {
 				case <-ctx.Done():
 					return
