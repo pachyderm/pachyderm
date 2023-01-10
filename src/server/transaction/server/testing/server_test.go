@@ -280,7 +280,7 @@ func TestTransactions(suite *testing.T) {
 		_, err = txnClient.StartProjectCommit(project, "foo", "master")
 		require.YesError(t, err)
 		require.Matches(t, "already has a commit in this transaction", err.Error())
-		//Delete and verify deletion occurs as well
+		// Delete and verify deletion occurs as well
 		txns, err := env.PachClient.ListTransaction()
 		require.NoError(t, err)
 		require.Equal(t, 1, len(txns))

@@ -106,6 +106,7 @@ func createTestCommits(t *testing.T, repoName, branchName string, numCommits int
 }
 
 func deleteEtcd(t *testing.T, ctx context.Context, namespace string) {
+	t.Helper()
 	kubeClient := tu.GetKubeClient(t)
 	label := "app=etcd"
 	etcd, err := kubeClient.CoreV1().Pods(namespace).
@@ -116,11 +117,11 @@ func deleteEtcd(t *testing.T, ctx context.Context, namespace string) {
 	watcher, err := kubeClient.CoreV1().Pods(namespace).
 		Watch(ctx, metav1.ListOptions{LabelSelector: label})
 	defer watcher.Stop()
-	require.NoError(t, err)
+	require.NoError(t, err, "Starting etcd pod watch failed.")
 
 	require.NoError(t, kubeClient.CoreV1().Pods(namespace).Delete(
 		context.Background(),
-		etcd.Items[0].ObjectMeta.Name, metav1.DeleteOptions{}))
+		etcd.Items[0].ObjectMeta.Name, metav1.DeleteOptions{}), "Deleting etcd pod failed.")
 
 	for event := range watcher.ResultChan() {
 		if event.Type == watch.Deleted {
@@ -131,6 +132,7 @@ func deleteEtcd(t *testing.T, ctx context.Context, namespace string) {
 
 // Wait for at least one pod with the given selector to be running and ready.
 func waitForOnePodReady(t testing.TB, ctx context.Context, namespace string, label string) {
+	t.Helper()
 	kubeClient := tu.GetKubeClient(t)
 	require.NoErrorWithinTRetryConstant(t, 1*time.Minute, func() error {
 		pods, err := kubeClient.CoreV1().Pods(namespace).
