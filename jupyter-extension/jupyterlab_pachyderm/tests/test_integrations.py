@@ -159,21 +159,21 @@ def test_mount(pachyderm_resources, dev_server):
                 "name": repos[0],
                 "repo": repos[0],
                 "branch": "master",
-                "project": "default",
+                "project": DEFAULT_PROJECT,
                 "mode": "ro",
             },
             {
                 "name": repos[0] + "_dev",
                 "repo": repos[0],
                 "branch": "dev",
-                "project": "default",
+                "project": DEFAULT_PROJECT,
                 "mode": "ro",
             },
             {
                 "name": repos[1],
                 "repo": repos[1],
                 "branch": "master",
-                "project": "default",
+                "project": DEFAULT_PROJECT,
                 "mode": "ro",
             },
         ]
@@ -210,14 +210,14 @@ def test_unmount(pachyderm_resources, dev_server):
                 "name": repos[0],
                 "repo": repos[0],
                 "branch": "master",
-                "project": "default",
+                "project": DEFAULT_PROJECT,
                 "mode": "ro",
             },
             {
                 "name": repos[0] + "_dev",
                 "repo": repos[0],
                 "branch": "dev",
-                "project": "default",
+                "project": DEFAULT_PROJECT,
                 "mode": "ro",
             },
         ]
@@ -289,11 +289,11 @@ def test_mount_datums(pachyderm_resources, dev_server):
     assert len(list(os.walk(PFS_MOUNT_DIR))[0][1]) == 4
     datum0_id = r.json()["id"]
 
-    assert sorted(list(os.walk(os.path.join(PFS_MOUNT_DIR, DEFAULT_PROJECT+"_"+repos[0])))[0][2]) == sorted(
+    assert sorted(list(os.walk(os.path.join(PFS_MOUNT_DIR, "".join(DEFAULT_PROJECT, "_", repos[0]))))[0][2]) == sorted(
         files
     )
-    assert DEFAULT_PROJECT + "_" + repos[1] + "_dev" in list(os.walk(PFS_MOUNT_DIR))[0][1]
-    assert len(list(os.walk(os.path.join(PFS_MOUNT_DIR, DEFAULT_PROJECT+"_"+repos[2])))[0][2]) == 1
+    assert "".join(DEFAULT_PROJECT, "_", repos[1], "_dev") in list(os.walk(PFS_MOUNT_DIR))[0][1]
+    assert len(list(os.walk(os.path.join(PFS_MOUNT_DIR, "".join(DEFAULT_PROJECT, "_", repos[2]))))[0][2]) == 1
 
     r = requests.put(f"{BASE_URL}/_show_datum", params={"idx": "2"})
     assert r.status_code == 200
@@ -320,24 +320,27 @@ def test_mount_datums(pachyderm_resources, dev_server):
             {
                 "pfs": {
                     "repo": repos[0],
+                    "name": "".join(DEFAULT_PROJECT, "_", repos[0]),
                     "glob": "/",
-                    "project": "default",
+                    "project": DEFAULT_PROJECT,
                     "branch": "master",
                 }
             },
             {
                 "pfs": {
                     "repo": repos[1],
+                    "name": "".join(DEFAULT_PROJECT, "_", repos[1], "_dev"),
                     "branch": "dev",
                     "glob": "/*",
-                    "project": "default",
+                    "project": DEFAULT_PROJECT,
                 }
             },
             {
                 "pfs": {
                     "repo": repos[2],
+                    "name": "".join(DEFAULT_PROJECT, "_", repos[2]),
                     "glob": "/*",
-                    "project": "default",
+                    "project": DEFAULT_PROJECT,
                     "branch": "master",
                 }
             },
