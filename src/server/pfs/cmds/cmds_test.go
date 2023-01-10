@@ -474,3 +474,56 @@ func TestBranchNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestCopyFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+
+	// copy within default project
+	srcRepo, destRepo := tu.UniqueString("srcRepo"), tu.UniqueString("destRepo")
+	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
+		pachctl create repo {{.srcRepo}}
+		pachctl create repo {{.destRepo}}
+		echo "Lorem ipsum" | pachctl put file {{.srcRepo}}@master:/file
+
+		pachctl copy file {{.srcRepo}}@master:/file {{.destRepo}}@master:/file
+		pachctl get file {{.destRepo}}@master:/file | match "Lorem ipsum"
+	`,
+		"srcRepo", srcRepo,
+		"destRepo", destRepo).Run())
+
+	// copy within a user specified project
+	project := tu.UniqueString("project")
+	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
+		pachctl create project {{.project}}
+		pachctl create repo --project {{.project}} {{.srcRepo}}
+		pachctl create repo --project {{.project}} {{.destRepo}}
+		echo "Lorem ipsum" | pachctl put file --project {{.project}} {{.srcRepo}}@master:/file
+
+		pachctl copy file --project {{.project}} {{.srcRepo}}@master:/file {{.destRepo}}@master:/file
+		pachctl get file --project {{.project}} {{.destRepo}}@master:/file | match "Lorem ipsum"
+	`,
+		"project", project,
+		"srcRepo", srcRepo,
+		"destRepo", destRepo).Run())
+
+	// copy between projects
+	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
+		echo "Lorem ipsum" | pachctl put file {{.srcRepo}}@master:/file2
+		echo "Lorem ipsum" | pachctl put file {{.srcRepo}}@master:/file3
+	
+		pachctl copy file --dest-project {{.project}} {{.srcRepo}}@master:/file2 {{.destRepo}}@master:/file2
+		pachctl get file --project {{.project}} {{.destRepo}}@master:/file2 | match "Lorem ipsum"
+	
+		pachctl copy file --src-project default --dest-project {{.project}} {{.srcRepo}}@master:/file3 {{.destRepo}}@master:/file3
+		pachctl get file --project {{.project}} {{.destRepo}}@master:/file3 | match "Lorem ipsum"
+	`,
+		"project", project,
+		"srcRepo", srcRepo,
+		"destRepo", destRepo).Run())
+}

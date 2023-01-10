@@ -1339,16 +1339,23 @@ $ {{alias}} repo@branch -i http://host/path`,
 		})
 	commands = append(commands, cmdutil.CreateAliases(putFile, "put file", files))
 
+	var srcProject, destProject string
 	copyFile := &cobra.Command{
 		Use:   "{{alias}} <src-repo>@<src-branch-or-commit>:<src-path> <dst-repo>@<dst-branch-or-commit>:<dst-path>",
 		Short: "Copy files between pfs paths.",
 		Long:  "Copy files between pfs paths.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
-			srcFile, err := cmdutil.ParseFile(project, args[0])
+			if srcProject == "" {
+				srcProject = project
+			}
+			srcFile, err := cmdutil.ParseFile(srcProject, args[0])
 			if err != nil {
 				return err
 			}
-			destFile, err := cmdutil.ParseFile(project, args[1])
+			if destProject == "" {
+				destProject = project
+			}
+			destFile, err := cmdutil.ParseFile(destProject, args[1])
 			if err != nil {
 				return err
 			}
@@ -1371,6 +1378,8 @@ $ {{alias}} repo@branch -i http://host/path`,
 	}
 	copyFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	copyFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	copyFile.Flags().StringVar(&srcProject, "src-project", "", "Project in which the source repo is located.")
+	copyFile.Flags().StringVar(&destProject, "dest-project", "", "Project in which the destination repo is located.")
 	shell.RegisterCompletionFunc(copyFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(copyFile, "copy file", files))
 
