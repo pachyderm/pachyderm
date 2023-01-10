@@ -1362,8 +1362,7 @@ $ {{alias}} srcRepo@master:/file destRepo@master:/file --src-project myProject
 
 # copy between repos across two different projects
 # here, srcRepo is in project1, while destRepo is in project2
-$ {{alias}} srcRepo@master:/file destRepo@master:/file --src-project project1 --dest-project project2
-`,
+$ {{alias}} srcRepo@master:/file destRepo@master:/file --src-project project1 --dest-project project2`,
 		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
 			if srcProject == "" {
 				srcProject = project
