@@ -125,9 +125,10 @@ func TestRawFullPipelineInfo(t *testing.T) {
 		yes | pachctl delete all
 	`).Run())
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl create repo data
-		pachctl put file data@master:/file <<<"This is a test"
-		pachctl create pipeline <<EOF
+		pachctl create project my_project
+		pachctl create repo data --project my_project
+		pachctl put file data@master:/file <<<"This is a test" --project my_project
+		pachctl create pipeline --project my_project <<EOF
 		  {
 		    "pipeline": {"name": "{{.pipeline}}"},
 		    "input": {
@@ -145,10 +146,10 @@ func TestRawFullPipelineInfo(t *testing.T) {
 		`,
 		"pipeline", tu.UniqueString("p-")).Run())
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl wait commit data@master
+		pachctl wait commit data@master --project my_project
 
 		# make sure the results have the full pipeline info, including version
-		pachctl list job --raw \
+		pachctl list job --raw --project my_project \
 			| match "pipeline_version"
 		`).Run())
 }
@@ -380,14 +381,18 @@ func TestYAMLPipelineSpec(t *testing.T) {
 	// wouldn't parse otherwise)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
-		pachctl create repo input
+		pachctl create project P
+		pachctl create repo input --project P
 		pachctl create pipeline -f - <<EOF
 		pipeline:
 		  name: first
+		  project: 
+		    name: P
 		input:
 		  pfs:
 		    glob: /*
 		    repo: input
+		    project: P
 		transform:
 		  cmd: [ /bin/bash ]
 		  stdin:
@@ -399,16 +404,17 @@ func TestYAMLPipelineSpec(t *testing.T) {
 		  pfs:
 		    glob: /*
 		    repo: first
+		    project: P
 		transform:
 		  cmd: [ /bin/bash ]
 		  stdin:
 		    - "cp /pfs/first/* /pfs/out"
 		EOF
-		pachctl start commit input@master
-		echo foo | pachctl put file input@master:/foo
-		echo bar | pachctl put file input@master:/bar
-		echo baz | pachctl put file input@master:/baz
-		pachctl finish commit input@master
+		pachctl start commit input@master --project P
+		echo foo | pachctl put file input@master:/foo --project P
+		echo bar | pachctl put file input@master:/bar --project P
+		echo baz | pachctl put file input@master:/baz --project P
+		pachctl finish commit input@master --project P
 		pachctl wait commit second@master
 		pachctl get file second@master:/foo | match foo
 		pachctl get file second@master:/bar | match bar
@@ -1233,8 +1239,9 @@ func TestPipelineWithSecret(t *testing.T) {
 	}, metav1.CreateOptions{})
 	require.NoError(t, err)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl create repo data
-		pachctl create pipeline 2>&1 <<EOF
+		pachctl create project myProject
+		pachctl create repo data --project myProject
+		pachctl create pipeline --project myProject 2>&1 <<EOF
 		{
 		    "pipeline": {"name": "{{.pipeline}}"},
 		    "input": {
