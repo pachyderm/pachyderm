@@ -223,8 +223,8 @@ or type (e.g. csv, binary, images, etc).`,
 	listRepo.Flags().AddFlagSet(timestampFlags)
 	listRepo.Flags().BoolVar(&all, "all", false, "include system repos of all types")
 	listRepo.Flags().StringVar(&repoType, "type", pfs.UserRepoType, "only include repos of the given type")
-	listRepo.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
-	listRepo.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Show repos from all projects.")
+	listRepo.Flags().StringVar(&project, "project", project, "project in which repo is located")
+	listRepo.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "show repos from all projects")
 	commands = append(commands, cmdutil.CreateAliases(listRepo, "list repo", repos))
 
 	var force bool
@@ -242,22 +242,30 @@ or type (e.g. csv, binary, images, etc).`,
 			request := &pfs.DeleteRepoRequest{
 				Force: force,
 			}
+
 			if len(args) > 0 {
 				if all {
 					return errors.Errorf("cannot use the --all flag with an argument")
+				}
+				if allProjects {
+					return errors.Errorf("cannot use the --all-projects flag with an argument")
 				}
 				request.Repo = cmdutil.ParseRepo(project, args[0])
 			} else if !all {
 				return errors.Errorf("either a repo name or the --all flag needs to be provided")
 			}
 			if all {
-				_, err := c.PfsAPIClient.DeleteRepos(c.Ctx(), &pfs.DeleteReposRequest{
-					Projects: []*pfs.Project{
+				var req = new(pfs.DeleteReposRequest)
+				if allProjects {
+					req.All = true
+				} else {
+					req.Projects = []*pfs.Project{
 						{
 							Name: project,
 						},
-					},
-				})
+					}
+				}
+				_, err := c.PfsAPIClient.DeleteRepos(c.Ctx(), req)
 				return errors.EnsureStack(err)
 			}
 
@@ -270,7 +278,8 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
-	deleteRepo.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	deleteRepo.Flags().StringVar(&project, "project", project, "project in which repo is located")
+	deleteRepo.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "delete repos from all projects; only valid with --all")
 	shell.RegisterCompletionFunc(deleteRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteRepo, "delete repo", repos))
 
