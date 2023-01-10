@@ -1190,9 +1190,14 @@ jobs:
             git add --all
             git commit -m "bump pachyderm version"
             git push origin release-${CIRCLE_TAG:1}
-            PR=$(gh pr create --base ${parentBranch} --title "bump pach version for release ${CIRCLE_TAG:1}" --repo pachyderm/haberdashery)
+            PR=$(gh pr create --base ${parentBranch} --title "bump pach version for release ${CIRCLE_TAG:1}" --body "bump pach version" --repo pachyderm/haberdashery)
             gh pr merge ${PR} --auto --repo pachyderm/haberdashery
             gh pr checks ${PR} --watch --interval 10 --repo pachyderm/haberdashery
+            STATE=$(gh pr view ${PR} --json state --jq .state --repo pachyderm/haberdashery)
+            if [[ "${STATE}" != "MERGED" ]]; then
+              echo "review console PR ${PR} for failures. It is not merged"
+              exit 1
+            fi
             sleep 2 # in case we create release to fast
             if [[ $CIRCLE_TAG == *"-"* ]];
               then
