@@ -1339,16 +1339,42 @@ $ {{alias}} repo@branch -i http://host/path`,
 		})
 	commands = append(commands, cmdutil.CreateAliases(putFile, "put file", files))
 
+	var srcProject, destProject string
 	copyFile := &cobra.Command{
 		Use:   "{{alias}} <src-repo>@<src-branch-or-commit>:<src-path> <dst-repo>@<dst-branch-or-commit>:<dst-path>",
 		Short: "Copy files between pfs paths.",
 		Long:  "Copy files between pfs paths.",
+		Example: `
+# copy between repos within the current project defined by the pachyderm context
+# defaults to the "default" project
+$ {{alias}} srcRepo@master:/file destRepo@master:/file
+
+# copy within a specified project
+$ {{alias}} srcRepo@master:/file destRepo@master:/file --project myProject
+
+# copy from the current project to a different project
+# here, srcRepo is in the current project, while destRepo is in myProject
+$ {{alias}} srcRepo@master:/file destRepo@master:/file --dest-project myProject
+
+# copy from a different project to the current project
+# here, srcRepo is in myProject, while destRepo is in the current project
+$ {{alias}} srcRepo@master:/file destRepo@master:/file --src-project myProject
+
+# copy between repos across two different projects
+# here, srcRepo is in project1, while destRepo is in project2
+$ {{alias}} srcRepo@master:/file destRepo@master:/file --src-project project1 --dest-project project2`,
 		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
-			srcFile, err := cmdutil.ParseFile(project, args[0])
+			if srcProject == "" {
+				srcProject = project
+			}
+			srcFile, err := cmdutil.ParseFile(srcProject, args[0])
 			if err != nil {
 				return err
 			}
-			destFile, err := cmdutil.ParseFile(project, args[1])
+			if destProject == "" {
+				destProject = project
+			}
+			destFile, err := cmdutil.ParseFile(destProject, args[1])
 			if err != nil {
 				return err
 			}
@@ -1370,7 +1396,9 @@ $ {{alias}} repo@branch -i http://host/path`,
 		}),
 	}
 	copyFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
-	copyFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	copyFile.Flags().StringVar(&project, "project", project, "Project in which both source and destination repos are located.")
+	copyFile.Flags().StringVar(&srcProject, "src-project", "", "Project in which the source repo is located. This overrides --project.")
+	copyFile.Flags().StringVar(&destProject, "dest-project", "", "Project in which the destination repo is located. This overrides --project.")
 	shell.RegisterCompletionFunc(copyFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(copyFile, "copy file", files))
 
