@@ -14,7 +14,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -70,11 +69,16 @@ func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.Unord
 				retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing bucket %s", url.Bucket))
 			}
 		}()
-		return 0, miscutil.WithPipe(func(w io.Writer) error {
-			return importObj(ctx, w, url.Object, url.Bucket, bucket)
-		}, func(r io.Reader) error {
-			return uw.Put(ctx, dstPath, tag, true, r)
-		})
+		r, err := bucket.NewReader(ctx, url.Object, nil)
+		if err != nil {
+			return 0, errors.Wrapf(err, "error creating reader for key %s from bucket %s", url.Object, url.Bucket)
+		}
+		defer func() {
+			if err := r.Close(); err != nil {
+				retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing reader for  bucket %s", url.Bucket))
+			}
+		}()
+		return 0, uw.Put(ctx, dstPath, tag, true, r)
 	}
 }
 

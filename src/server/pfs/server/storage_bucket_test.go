@@ -5,11 +5,13 @@ package server
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path"
-	"strings"
 	"testing"
 	"time"
+
+	"gocloud.dev/blob"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj/integrationtests"
@@ -24,10 +26,10 @@ func TestMicrosoft(t *testing.T) {
 	bucketName := os.Getenv("MICROSOFT_CLIENT_CONTAINER")
 	url, err := obj.ParseURL("azblob://" + bucketName)
 	require.NoError(t, err, "should be able to parse url")
-	readWriteDelete(t, url, bucketName)
+	writeReadDelete(t, url)
 	url, err = obj.ParseURL("wasb://" + bucketName + "@" + os.Getenv("MICROSOFT_CLIENT_ID") + ".blob.core.windows.net")
 	require.NoError(t, err, "should be able to parse url")
-	readWriteDelete(t, url, bucketName)
+	writeReadDelete(t, url)
 }
 
 func TestGoogle(t *testing.T) {
@@ -38,7 +40,7 @@ func TestGoogle(t *testing.T) {
 	bucketName := os.Getenv("GOOGLE_CLIENT_BUCKET")
 	url, err := obj.ParseURL("gs://" + bucketName)
 	require.NoError(t, err, "should be able to parse url")
-	readWriteDelete(t, url, bucketName)
+	writeReadDelete(t, url)
 }
 
 func TestAmazon(t *testing.T) {
@@ -49,7 +51,7 @@ func TestAmazon(t *testing.T) {
 	bucketName := os.Getenv("AMAZON_CLIENT_BUCKET")
 	url, err := obj.ParseURL("s3://" + bucketName)
 	require.NoError(t, err, "should be able to parse url")
-	readWriteDelete(t, url, bucketName)
+	writeReadDelete(t, url)
 }
 
 func TestGoogleHMAC(t *testing.T) {
@@ -61,7 +63,7 @@ func TestGoogleHMAC(t *testing.T) {
 	bucketName := os.Getenv("GOOGLE_CLIENT_BUCKET")
 	url, err := obj.ParseURL("s3://" + bucketName)
 	require.NoError(t, err, "should be able to parse url")
-	readWriteDelete(t, url, bucketName)
+	writeReadDelete(t, url)
 }
 
 func TestAmazonECS(t *testing.T) {
@@ -75,10 +77,10 @@ func TestAmazonECS(t *testing.T) {
 	bucketName := os.Getenv("ECS_CLIENT_BUCKET")
 	url, err := obj.ParseURL("s3://" + bucketName)
 	require.NoError(t, err, "should be able to parse url")
-	readWriteDelete(t, url, bucketName)
+	writeReadDelete(t, url)
 }
 
-func readWriteDelete(t *testing.T, url *obj.ObjectStoreURL, bucketName string) {
+func writeReadDelete(t *testing.T, url *obj.ObjectStoreURL) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30000)
 	defer cancel()
 	bucket, err := openBucket(ctx, url)
@@ -87,13 +89,37 @@ func readWriteDelete(t *testing.T, url *obj.ObjectStoreURL, bucketName string) {
 	}()
 	require.NoError(t, err, "should be able to open bucket")
 	objName := randutil.UniqueString("test-object-")
-	r := strings.NewReader(objName)
-	err = exportObj(ctx, r, objName, bucketName, bucket)
-	require.NoError(t, err, "should be able to export object")
+	writeToObjStorage(ctx, t, bucket, objName)
 	buf := bytes.NewBuffer(make([]byte, 0))
-	err = importObj(ctx, buf, objName, bucketName, bucket)
-	require.NoError(t, err, "should be able to import object")
+	readFromObjStorage(ctx, t, bucket, objName, buf)
 	require.Equal(t, buf.String(), objName)
 	err = bucket.Delete(ctx, objName)
 	require.NoError(t, err, "should be able to delete object")
+}
+
+func writeToObjStorage(ctx context.Context, t *testing.T, bucket *blob.Bucket, objName string) {
+	exists, err := bucket.Exists(ctx, objName)
+	require.NoError(t, err, fmt.Sprintf("should be able to check if obj %s exists", objName))
+	require.Equal(t, false, exists)
+	w, err := bucket.NewWriter(ctx, objName, nil)
+	require.NoError(t, err, fmt.Sprintf("should be able to create writer for %s", objName))
+	defer func() {
+		if err := w.Close(); err != nil {
+			require.NoError(t, err, "should be able to close writer")
+		}
+	}()
+	_, err = w.Write([]byte(objName))
+	require.NoError(t, err, fmt.Sprintf("should be able to write to %s", objName))
+}
+
+func readFromObjStorage(ctx context.Context, t *testing.T, bucket *blob.Bucket, objName string, buf *bytes.Buffer) {
+	r, err := bucket.NewReader(ctx, objName, nil)
+	require.NoError(t, err, fmt.Sprintf("should be able to create reader for obj %s", objName))
+	defer func() {
+		if err := r.Close(); err != nil {
+			require.NoError(t, err, "should be able to close reader")
+		}
+	}()
+	_, err = r.WriteTo(buf)
+	require.NoError(t, err, fmt.Sprintf("should be able to read from obj %s", objName))
 }

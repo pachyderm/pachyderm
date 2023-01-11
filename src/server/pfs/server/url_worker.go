@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"io"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
@@ -16,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
-	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -75,11 +74,18 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 		return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 			id, err := d.withUnorderedWriter(ctx, renewer, func(uw *fileset.UnorderedWriter) error {
 				for _, path := range task.Paths {
-					if err := miscutil.WithPipe(func(w io.Writer) error {
-						return importObj(ctx, w, path, url.Bucket, bucket)
-					}, func(r io.Reader) error {
+					if err := func() error {
+						r, err := bucket.NewReader(ctx, path, nil)
+						if err != nil {
+							return errors.Wrapf(err, "error creating reader for key %s from bucket %s", url.Object, url.Bucket)
+						}
+						defer func() {
+							if err := r.Close(); err != nil {
+								retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing reader for bucket %s", url.Bucket))
+							}
+						}()
 						return uw.Put(ctx, filepath.Join(task.Dst, strings.TrimPrefix(path, prefix)), task.Datum, true, r)
-					}); err != nil {
+					}(); err != nil {
 						return err
 					}
 				}
@@ -120,11 +126,27 @@ func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 			if fi.FileType != pfs.FileType_FILE {
 				return nil
 			}
-			return miscutil.WithPipe(func(w io.Writer) error {
-				return errors.EnsureStack(file.Content(ctx, w))
-			}, func(r io.Reader) error {
-				return errors.EnsureStack(exportObj(ctx, r, filepath.Join(url.Object, fi.File.Path), url.Bucket, bucket))
-			})
+			exists, err := bucket.Exists(ctx, fi.File.Path)
+			if err != nil {
+				return errors.Wrapf(err, "error checking if key %s exists in bucket %s", fi.File.Path, url.Bucket)
+			}
+			if exists {
+				return errors.EnsureStack(fmt.Errorf("key %s already exists in bucket %s", fi.File.Path, url.Bucket))
+			}
+			w, err := bucket.NewWriter(ctx, fi.File.Path, nil)
+			if err != nil {
+				return errors.Wrapf(err, "error creating writer for bucket %s", url.Bucket)
+			}
+			defer func() {
+				if err := w.Close(); err != nil {
+					retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing writer for bucket %s", url.Bucket))
+				}
+			}()
+			err = file.Content(ctx, w)
+			if err != nil {
+				return errors.Wrapf(err, "error writing to bucket %s", url.Bucket)
+			}
+			return nil
 		})
 		return errors.EnsureStack(err)
 	}); err != nil {

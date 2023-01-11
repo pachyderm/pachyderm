@@ -2,8 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -11,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/hashicorp/go-multierror"
 	"gocloud.dev/blob/s3blob"
 
 	"gocloud.dev/blob"
@@ -103,45 +100,4 @@ func handleMinio(ctx context.Context, url *obj.ObjectStoreURL) (bucket *blob.Buc
 		return nil, errors.EnsureStack(errors.Wrapf(err, "error opening bucket %s", url.Bucket))
 	}
 	return bucket, nil
-}
-
-func importObj(ctx context.Context, w io.Writer, name, bucketName string, bucket *blob.Bucket) (retErr error) {
-	r, err := bucket.NewReader(ctx, name, nil)
-	if err != nil {
-		return errors.Wrapf(err, "error creating reader from bucket %s", bucketName)
-	}
-	defer func() {
-		if err := r.Close(); err != nil {
-			retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing reader for  bucket %s", bucketName))
-		}
-	}()
-	_, err = io.Copy(w, r)
-	if err != nil {
-		return errors.Wrapf(err, "error copying from reader to writer for bucket %s", bucketName)
-	}
-	return nil
-}
-
-func exportObj(ctx context.Context, r io.Reader, name, bucketName string, bucket *blob.Bucket) (retErr error) {
-	exists, err := bucket.Exists(ctx, name)
-	if err != nil {
-		return errors.Wrapf(err, "error checking if key %s exists in bucket %s", name, bucketName)
-	}
-	if exists {
-		return errors.EnsureStack(fmt.Errorf("key %s already exists in bucket %s", name, bucketName))
-	}
-	w, err := bucket.NewWriter(ctx, name, nil)
-	if err != nil {
-		return errors.Wrapf(err, "error creating writer for bucket %s", bucketName)
-	}
-	defer func() {
-		if err := w.Close(); err != nil {
-			retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing writer for bucket %s", bucketName))
-		}
-	}()
-	_, err = w.ReadFrom(r)
-	if err != nil {
-		return errors.Wrapf(err, "error writing to bucket %s", bucketName)
-	}
-	return nil
 }
