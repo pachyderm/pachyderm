@@ -23,7 +23,7 @@ describe('Pipeline resolver', () => {
         },
       );
 
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(data?.pipeline.id).toBe(id);
       expect(data?.pipeline.name).toBe(id);
       expect(data?.pipeline.description).toBe('Not my favorite pipeline');
@@ -41,7 +41,7 @@ describe('Pipeline resolver', () => {
         },
       );
 
-      expect(errors.length).toBe(1);
+      expect(errors).toHaveLength(1);
       expect(data).toBeNull();
       expect(errors[0].extensions.code).toBe('NOT_FOUND');
     });
@@ -53,7 +53,7 @@ describe('Pipeline resolver', () => {
         args: {projectId},
       });
 
-      expect(data?.pipelines.length).toBe(2);
+      expect(data?.pipelines).toHaveLength(2);
       expect(data?.pipelines[0]?.id).toBe('montage');
       expect(data?.pipelines[1]?.id).toBe('edges');
     });
@@ -63,7 +63,7 @@ describe('Pipeline resolver', () => {
         args: {projectId, jobSetId: '33b9af7d5d4343219bc8e02ff44cd55a'},
       });
 
-      expect(data?.pipelines.length).toBe(1);
+      expect(data?.pipelines).toHaveLength(1);
       expect(data?.pipelines[0]?.id).toBe('montage');
     });
   });
@@ -96,7 +96,7 @@ describe('Pipeline resolver', () => {
           },
         },
       );
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(data?.createPipeline.id).toBe('test');
       expect(data?.createPipeline.name).toBe('test');
     });
@@ -119,7 +119,7 @@ describe('Pipeline resolver', () => {
           },
         },
       );
-      expect(errors.length).toBe(1);
+      expect(errors).toHaveLength(1);
       expect(errors[0].extensions.grpcCode).toEqual(Status.ALREADY_EXISTS);
       expect(errors[0].extensions.details).toEqual(
         'pipeline processor already exists',
@@ -144,7 +144,7 @@ describe('Pipeline resolver', () => {
             },
           },
         );
-      expect(creationErrors.length).toBe(0);
+      expect(creationErrors).toHaveLength(0);
 
       const {data: pipeline} = await executeQuery<PipelineQuery>(
         GET_PIPELINE_QUERY,
@@ -174,7 +174,7 @@ describe('Pipeline resolver', () => {
           },
         },
       );
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(data?.createPipeline.name).toBe('processor');
       expect(data?.createPipeline.description).toBe('test');
     });

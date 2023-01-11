@@ -10,7 +10,7 @@ describe('Enterprise Resolver', () => {
         GET_ENTERPRISE_INFO_QUERY,
       );
 
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(data?.enterpriseInfo.state).toEqual(EnterpriseState.ACTIVE);
       expect(data?.enterpriseInfo.expiration).toEqual(50596369);
     });

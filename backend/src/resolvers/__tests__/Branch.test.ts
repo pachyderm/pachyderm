@@ -11,7 +11,7 @@ describe('createBranch', () => {
     const {data: response} = await executeQuery<RepoQuery>(GET_REPO_QUERY, {
       args: {id: 'cron', projectId},
     });
-    expect(response?.repo.branches.length).toBe(1);
+    expect(response?.repo.branches).toHaveLength(1);
 
     const {data, errors = []} = await executeMutation<CreateBranchMutation>(
       CREATE_BRANCH_MUTATION,
@@ -22,12 +22,12 @@ describe('createBranch', () => {
         },
       },
     );
-    expect(errors.length).toBe(0);
+    expect(errors).toHaveLength(0);
     expect(data?.createBranch?.name).toBe('dev');
     const {data: response2} = await executeQuery<RepoQuery>(GET_REPO_QUERY, {
       args: {id: 'cron', projectId},
     });
-    expect(response2?.repo.branches.length).toBe(2);
+    expect(response2?.repo.branches).toHaveLength(2);
   });
 
   it('should update a branch head', async () => {
@@ -37,7 +37,7 @@ describe('createBranch', () => {
         args: {repoName: 'cron', projectId},
       },
     );
-    expect(response?.commits.length).toBe(6);
+    expect(response?.commits).toHaveLength(6);
 
     const {data, errors = []} = await executeMutation<CreateBranchMutation>(
       CREATE_BRANCH_MUTATION,
@@ -49,7 +49,7 @@ describe('createBranch', () => {
         },
       },
     );
-    expect(errors.length).toBe(0);
+    expect(errors).toHaveLength(0);
     expect(data?.createBranch?.name).toBe('master');
     const {data: response2} = await executeQuery<GetCommitsQuery>(
       GET_COMMITS_QUERY,
@@ -57,6 +57,6 @@ describe('createBranch', () => {
         args: {repoName: 'cron', projectId},
       },
     );
-    expect(response2?.commits.length).toBe(2);
+    expect(response2?.commits).toHaveLength(2);
   });
 });

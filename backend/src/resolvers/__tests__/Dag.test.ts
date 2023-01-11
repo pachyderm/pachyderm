@@ -26,7 +26,7 @@ describe('Dag resolver', () => {
     });
 
     const vertices = data?.dag;
-    expect(vertices?.length).toBe(6);
+    expect(vertices).toHaveLength(6);
     expect(vertices?.[0].name).toEqual('montage_repo');
     expect(vertices?.[0].parents).toEqual(['montage']);
     expect(vertices?.[1].name).toEqual('edges_repo');
@@ -77,7 +77,7 @@ describe('Dag resolver', () => {
         next: (data: {data: {dags: Vertex[]}}) => {
           const vertices = data.data?.dags;
 
-          expect(vertices?.length).toBe(4);
+          expect(vertices).toHaveLength(4);
           expect(vertices?.[0].name).toEqual('edges_repo');
           expect(vertices?.[0].parents).toEqual([]);
           expect(vertices?.[1].name).toEqual('images_repo');

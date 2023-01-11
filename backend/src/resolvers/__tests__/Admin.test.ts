@@ -9,7 +9,7 @@ describe('Admin Resolver', () => {
       const {data, errors = []} = await executeQuery<GetAdminInfoQuery>(
         GET_ADMIN_INFO_QUERY,
       );
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(data?.adminInfo.clusterId).toEqual(
         '838327d0f477415799b6da3706d89310',
       );

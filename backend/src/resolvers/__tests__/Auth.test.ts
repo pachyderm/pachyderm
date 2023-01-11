@@ -34,7 +34,7 @@ describe('Auth resolver', () => {
       }>(EXCHANGE_CODE_MUTATION, variables);
 
       expect(data).toBeNull();
-      expect(errors.length).toBe(1);
+      expect(errors).toHaveLength(1);
       expect(errors[0].extensions.code).toBe('UNAUTHENTICATED');
     });
 
@@ -46,7 +46,7 @@ describe('Auth resolver', () => {
       }>(EXCHANGE_CODE_MUTATION, variables);
 
       expect(data).toBeNull();
-      expect(errors.length).toBe(1);
+      expect(errors).toHaveLength(1);
       expect(errors[0].extensions.code).toBe('UNAUTHENTICATED');
     });
   });
@@ -65,7 +65,7 @@ describe('Auth resolver', () => {
       );
 
       expect(data).toBeNull();
-      expect(errors.length).toBe(1);
+      expect(errors).toHaveLength(1);
       expect(errors[0].extensions.code).toBe('UNAUTHENTICATED');
     });
   });
@@ -80,7 +80,7 @@ describe('Auth resolver', () => {
       expect(data?.authConfig.pachdClientId).toBe(
         process.env.OAUTH_PACHD_CLIENT_ID,
       );
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
     });
 
     it('should return an error if the OIDC provider is misconfigured', async () => {

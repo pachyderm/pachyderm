@@ -23,7 +23,7 @@ describe('Datum resolver', () => {
         },
       });
 
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(data?.datum.state).toBe(DatumState.SUCCESS);
     });
   });
@@ -42,7 +42,7 @@ describe('Datum resolver', () => {
         },
       );
 
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(data?.datumSearch?.state).toBe(DatumState.SUCCESS);
     });
     it('should return null if datum does not exist', async () => {
@@ -58,7 +58,7 @@ describe('Datum resolver', () => {
         },
       );
 
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(data?.datumSearch).toBe(null);
     });
   });
@@ -76,8 +76,8 @@ describe('Datum resolver', () => {
         },
       );
       const datums = data?.datums.items as Datum[];
-      expect(errors.length).toBe(0);
-      expect(datums.length).toBe(4);
+      expect(errors).toHaveLength(0);
+      expect(datums).toHaveLength(4);
     });
 
     it('should return filtered datums for a given job & pipeline', async () => {
@@ -92,9 +92,9 @@ describe('Datum resolver', () => {
           },
         },
       );
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       const datums = data?.datums.items as Datum[];
-      expect(datums.length).toBe(1);
+      expect(datums).toHaveLength(1);
       expect(datums[0].id).toBe(
         '01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155',
       );
@@ -115,8 +115,8 @@ describe('Datum resolver', () => {
       );
       const datums = data?.datums.items as Datum[];
       console.log(datums);
-      expect(errors.length).toBe(0);
-      expect(datums.length).toBe(10);
+      expect(errors).toHaveLength(0);
+      expect(datums).toHaveLength(10);
       expect(data?.datums.cursor).toBe(
         '9a00000000000000000000000000000000000000000000000000000000000000',
       );
@@ -138,8 +138,8 @@ describe('Datum resolver', () => {
         },
       );
       const datums = data?.datums.items as Datum[];
-      expect(errors.length).toBe(0);
-      expect(datums.length).toBe(27);
+      expect(errors).toHaveLength(0);
+      expect(datums).toHaveLength(27);
       expect(data?.datums.cursor).toBe(
         '90a0000000000000000000000000000000000000000000000000000000000000',
       );
@@ -161,8 +161,8 @@ describe('Datum resolver', () => {
         },
       );
       const datums = data?.datums.items as Datum[];
-      expect(errors.length).toBe(0);
-      expect(datums.length).toBe(7);
+      expect(errors).toHaveLength(0);
+      expect(datums).toHaveLength(7);
       expect(data?.datums.cursor).toBe(null);
       expect(data?.datums.hasNextPage).toBe(false);
     });

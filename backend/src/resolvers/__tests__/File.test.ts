@@ -26,7 +26,7 @@ describe('File Resolver', () => {
       });
 
       const files = data?.files.files;
-      expect(errors?.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(files?.length).toEqual(17);
       expect(data?.files.diff?.size).toBe(58644);
       expect(data?.files.diff?.sizeDisplay).toBe('58.65 kB');
@@ -69,7 +69,7 @@ describe('File Resolver', () => {
       });
 
       const files = data?.files.files;
-      expect(errors?.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(files?.length).toEqual(1);
       expect(files?.[0]?.path).toEqual('/cats/kitten.png');
     });
@@ -88,7 +88,7 @@ describe('File Resolver', () => {
         },
       });
 
-      expect(errors?.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(data?.files.files.length).toEqual(17);
 
       const {errors: mutationErrors = []} =
@@ -108,7 +108,7 @@ describe('File Resolver', () => {
             },
           },
         );
-      expect(mutationErrors?.length).toBe(0);
+      expect(mutationErrors).toHaveLength(0);
 
       const {data: updatedFiles, errors: updatedErrors = []} =
         await executeQuery<{
@@ -122,7 +122,7 @@ describe('File Resolver', () => {
             repoName: 'images',
           },
         });
-      expect(updatedErrors.length).toBe(0);
+      expect(updatedErrors).toHaveLength(0);
       expect(updatedFiles?.files.files.length).toEqual(18);
     });
   });

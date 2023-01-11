@@ -16,7 +16,7 @@ describe('errorPlugin', () => {
     );
 
     expect(data).toBeNull();
-    expect(errors?.length).toBe(1);
+    expect(errors).toHaveLength(1);
     expect(errors?.[0].extensions?.code).toBe('UNAUTHENTICATED');
   });
 });

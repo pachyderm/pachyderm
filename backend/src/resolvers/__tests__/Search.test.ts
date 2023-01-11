@@ -12,10 +12,10 @@ describe('Search resolver', () => {
         args: {query: '', projectId},
       },
     );
-    expect(errors.length).toBe(0);
+    expect(errors).toHaveLength(0);
     const searchResults = data?.searchResults;
-    expect(searchResults?.pipelines?.length).toBe(0);
-    expect(searchResults?.repos?.length).toBe(0);
+    expect(searchResults?.pipelines).toHaveLength(0);
+    expect(searchResults?.repos).toHaveLength(0);
     expect(searchResults?.jobSet).toBe(null);
   });
 
@@ -28,9 +28,9 @@ describe('Search resolver', () => {
         },
       );
 
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       const searchResults = data?.searchResults;
-      expect(searchResults?.pipelines?.length).toBe(1);
+      expect(searchResults?.pipelines).toHaveLength(1);
       expect(searchResults?.pipelines[0]?.name).toBe('montage');
     });
 
@@ -41,9 +41,9 @@ describe('Search resolver', () => {
           args: {query: 'egg', projectId},
         },
       );
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       const searchResults = data?.searchResults;
-      expect(searchResults?.pipelines?.length).toBe(0);
+      expect(searchResults?.pipelines).toHaveLength(0);
     });
 
     it('should not return pipelines that the user does not have access to', async () => {
@@ -56,9 +56,9 @@ describe('Search resolver', () => {
         },
       );
 
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       const searchResults = data?.searchResults;
-      expect(searchResults?.pipelines?.length).toBe(0);
+      expect(searchResults?.pipelines).toHaveLength(0);
     });
 
     it('should return pipelines with matching jobset if globalId filter is set', async () => {
@@ -72,9 +72,9 @@ describe('Search resolver', () => {
           },
         },
       );
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       const searchResults = data?.searchResults;
-      expect(searchResults?.pipelines?.length).toBe(1);
+      expect(searchResults?.pipelines).toHaveLength(1);
       expect(searchResults?.pipelines[0]?.name).toBe('likelihoods');
     });
 
@@ -89,9 +89,9 @@ describe('Search resolver', () => {
           },
         },
       );
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       const searchResults = data?.searchResults;
-      expect(searchResults?.pipelines?.length).toBe(0);
+      expect(searchResults?.pipelines).toHaveLength(0);
     });
   });
 
@@ -103,7 +103,7 @@ describe('Search resolver', () => {
           args: {query: '23b9af7d5d4343219bc8e02ff44cd55a', projectId},
         },
       );
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       const searchResults = data?.searchResults;
       expect(searchResults?.jobSet?.id).toBe(
         '23b9af7d5d4343219bc8e02ff44cd55a',
@@ -117,7 +117,7 @@ describe('Search resolver', () => {
           args: {query: '23b9af7d5d4343219bc8e02ff44cd33a', projectId},
         },
       );
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       const searchResults = data?.searchResults;
       expect(searchResults?.jobSet).toBe(null);
     });
@@ -131,9 +131,9 @@ describe('Search resolver', () => {
           args: {query: 'edg', projectId},
         },
       );
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       const searchResults = data?.searchResults;
-      expect(searchResults?.repos?.length).toBe(1);
+      expect(searchResults?.repos).toHaveLength(1);
       expect(searchResults?.repos[0]?.name).toBe('edges');
     });
 
@@ -144,9 +144,9 @@ describe('Search resolver', () => {
           args: {query: 'lemon', projectId},
         },
       );
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       const searchResults = data?.searchResults;
-      expect(searchResults?.repos?.length).toBe(0);
+      expect(searchResults?.repos).toHaveLength(0);
     });
 
     it('should not return repos that the user does not have access to', async () => {
@@ -158,9 +158,9 @@ describe('Search resolver', () => {
           args: {query: 'montage', projectId},
         },
       );
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       const searchResults = data?.searchResults;
-      expect(searchResults?.repos?.length).toBe(0);
+      expect(searchResults?.repos).toHaveLength(0);
     });
 
     it('should return repos with matching jobset if globalId filter is set', async () => {
@@ -174,9 +174,9 @@ describe('Search resolver', () => {
           },
         },
       );
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       const searchResults = data?.searchResults;
-      expect(searchResults?.repos?.length).toBe(1);
+      expect(searchResults?.repos).toHaveLength(1);
       expect(searchResults?.repos[0]?.name).toBe('likelihoods');
     });
 
@@ -191,9 +191,9 @@ describe('Search resolver', () => {
           },
         },
       );
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       const searchResults = data?.searchResults;
-      expect(searchResults?.repos?.length).toBe(0);
+      expect(searchResults?.repos).toHaveLength(0);
     });
   });
 });

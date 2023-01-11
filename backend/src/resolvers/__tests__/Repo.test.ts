@@ -19,7 +19,7 @@ describe('resolvers/Repo', () => {
         },
       );
 
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(data?.repo.id).toBe(id);
       expect(data?.repo.name).toBe(id);
       expect(data?.repo.description).toBe('');
@@ -35,7 +35,7 @@ describe('resolvers/Repo', () => {
         },
       );
 
-      expect(errors.length).toBe(1);
+      expect(errors).toHaveLength(1);
       expect(data).toBeNull();
       expect(errors[0].extensions.code).toBe('NOT_FOUND');
     });
@@ -47,7 +47,7 @@ describe('resolvers/Repo', () => {
         args: {projectId},
       });
 
-      expect(data?.repos.length).toBe(2);
+      expect(data?.repos).toHaveLength(2);
       expect(data?.repos[0]?.id).toBe('cron');
       expect(data?.repos[1]?.id).toBe('processor');
     });
@@ -56,7 +56,7 @@ describe('resolvers/Repo', () => {
       const {data} = await executeQuery<ReposQuery>(GET_REPOS_QUERY, {
         args: {projectId: '1'},
       });
-      expect(data?.repos.length).toBe(3);
+      expect(data?.repos).toHaveLength(3);
       expect(data?.repos[0]?.id).toBe('montage');
       expect(data?.repos[1]?.id).toBe('edges');
       expect(data?.repos[2]?.id).toBe('images');
@@ -68,7 +68,7 @@ describe('resolvers/Repo', () => {
         },
       );
 
-      expect(filteredData?.repos.length).toBe(1);
+      expect(filteredData?.repos).toHaveLength(1);
       expect(filteredData?.repos[0]?.id).toBe('montage');
     });
   });
@@ -94,7 +94,7 @@ describe('resolvers/Repo', () => {
         },
       );
 
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(data?.createRepo.id).toBe('test');
       expect(data?.createRepo.name).toBe('test');
       expect(data?.createRepo.description).toBe('test repo');
@@ -112,7 +112,7 @@ describe('resolvers/Repo', () => {
           },
         },
       );
-      expect(errors.length).toBe(1);
+      expect(errors).toHaveLength(1);
       expect(errors[0].extensions.grpcCode).toEqual(Status.ALREADY_EXISTS);
       expect(errors[0].extensions.details).toEqual('repo cron already exists');
     });
@@ -133,7 +133,7 @@ describe('resolvers/Repo', () => {
           },
         },
       );
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(data?.createRepo.id).toBe('cron');
       expect(data?.createRepo.name).toBe('cron');
       expect(data?.createRepo.description).toBe('test repo');

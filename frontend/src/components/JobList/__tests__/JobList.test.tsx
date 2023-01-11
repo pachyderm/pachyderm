@@ -66,13 +66,13 @@ describe('JobList', () => {
       getByRole('list'),
     );
 
-    expect(queryAllByRole('listitem').length).toBe(jobs['2'].length);
+    expect(queryAllByRole('listitem')).toHaveLength(jobs['2'].length);
     expect(queryByText('Failure')).toBeInTheDocument();
     expect(queryByText('Egressing')).toBeInTheDocument();
     expect(queryByText('Killed')).toBeInTheDocument();
     expect(queryByText('Running')).toBeInTheDocument();
     expect(queryByText('Starting')).toBeInTheDocument();
-    expect(queryAllByText('See Details').length).toBe(0);
+    expect(queryAllByText('See Details')).toHaveLength(0);
   });
 
   it('should display a list of jobs for a pipeline', async () => {
@@ -93,7 +93,7 @@ describe('JobList', () => {
 
     const {queryAllByRole, queryByText} = within(getByRole('list'));
 
-    expect(queryAllByRole('listitem').length).toBe(
+    expect(queryAllByRole('listitem')).toHaveLength(
       jobs['1'].filter(
         (job) => job.getJob()?.getPipeline()?.getName() === 'montage',
       ).length,
@@ -113,7 +113,7 @@ describe('JobList', () => {
 
     const seeDetailsButtons = await findAllByText('See Details');
 
-    expect(seeDetailsButtons.length).toBe(jobs['2'].length);
+    expect(seeDetailsButtons).toHaveLength(jobs['2'].length);
   });
 
   it('should allow user to filter on job state', async () => {
@@ -221,7 +221,7 @@ describe('JobList', () => {
 
       const {queryAllByRole} = within(getByRole('list'));
 
-      expect(queryAllByRole('listitem').length).toBe(
+      expect(queryAllByRole('listitem')).toHaveLength(
         Object.keys(jobSets['2']).length,
       );
     });

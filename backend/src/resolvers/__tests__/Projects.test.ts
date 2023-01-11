@@ -21,7 +21,7 @@ describe('Projects Resolver', () => {
         {id: '1'},
       );
 
-      expect(errors?.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(data?.project.name).toBe(projects['1'].getName());
     });
 
@@ -32,7 +32,7 @@ describe('Projects Resolver', () => {
       );
 
       expect(data).toBeFalsy();
-      expect(errors?.length).toBe(1);
+      expect(errors).toHaveLength(1);
       expect(errors[0].extensions.code).toBe('NOT_FOUND');
     });
 
@@ -42,7 +42,7 @@ describe('Projects Resolver', () => {
         {id: DEFAULT_PROJECT_ID},
       );
 
-      expect(errors?.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(data?.project.name).toBe('Default');
     });
   });

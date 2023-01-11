@@ -29,7 +29,7 @@ describe('resolvers/Commits', () => {
         },
       );
 
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(data?.commit.id).toBe(id);
       expect(data?.commit.repoName).toBe(repoName);
       expect(data?.commit.branch?.name).toBe('master');
@@ -53,8 +53,8 @@ describe('resolvers/Commits', () => {
         },
       );
 
-      expect(errors.length).toBe(0);
-      expect(data?.commits.length).toBe(6);
+      expect(errors).toHaveLength(0);
+      expect(data?.commits).toHaveLength(6);
       expect(data?.commits[0].hasLinkedJob).toBeFalsy();
     });
 
@@ -69,8 +69,8 @@ describe('resolvers/Commits', () => {
         },
       );
 
-      expect(errors.length).toBe(0);
-      expect(data?.commits.length).toBe(1);
+      expect(errors).toHaveLength(0);
+      expect(data?.commits).toHaveLength(1);
     });
   });
   describe('startCommit', () => {
@@ -85,7 +85,7 @@ describe('resolvers/Commits', () => {
         },
       );
 
-      expect(initialCommits?.commits.length).toBe(6);
+      expect(initialCommits?.commits).toHaveLength(6);
 
       const {errors = []} = await executeMutation<StartCommitMutation>(
         START_COMMIT_MUTATION,
@@ -103,7 +103,7 @@ describe('resolvers/Commits', () => {
         },
       );
 
-      expect(updatedCommits?.commits.length).toBe(7);
+      expect(updatedCommits?.commits).toHaveLength(7);
     });
   });
 

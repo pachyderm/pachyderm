@@ -18,7 +18,7 @@ describe('Logs resolver', () => {
         },
       );
       const workspaceLogs = data?.workspaceLogs;
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(workspaceLogs?.length).toEqual(5);
       expect(workspaceLogs?.[0]?.message).toContain(
         'auth.API.GetPermissionsForPrincipal',
@@ -48,7 +48,7 @@ describe('Logs resolver', () => {
         },
       );
       const workspaceLogs = data?.logs;
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(workspaceLogs?.length).toEqual(6);
       expect(workspaceLogs?.[0]?.message).toEqual('started datum task');
       expect(workspaceLogs?.[1]?.message).toEqual('beginning to run user code');
@@ -71,7 +71,7 @@ describe('Logs resolver', () => {
         },
       );
       const workspaceLogs = data?.logs;
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(workspaceLogs?.length).toEqual(6);
       expect(workspaceLogs?.[0]?.message).toEqual('started datum task');
       expect(workspaceLogs?.[0]?.timestamp?.seconds).toEqual(1616533099);
@@ -94,7 +94,7 @@ describe('Logs resolver', () => {
         },
       );
       const workspaceLogs = data?.logs;
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(workspaceLogs?.length).toEqual(4);
       expect(workspaceLogs?.[0]?.message).toEqual('started datum task');
       expect(workspaceLogs?.[0]?.timestamp?.seconds).toEqual(1616533099);
@@ -116,7 +116,7 @@ describe('Logs resolver', () => {
         },
       );
       const workspaceLogs = data?.logs;
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(workspaceLogs?.length).toEqual(2);
       expect(workspaceLogs?.[0]?.message).toEqual('finished datum task');
       expect(workspaceLogs?.[1]?.message).toEqual('started datum task');

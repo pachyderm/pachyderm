@@ -15,8 +15,8 @@ describe('Jobs', () => {
         },
       });
 
-      expect(errors.length).toBe(0);
-      expect(data?.jobs.length).toBe(jobs['1'].length);
+      expect(errors).toHaveLength(0);
+      expect(data?.jobs).toHaveLength(jobs['1'].length);
     });
 
     it('should return a specified number of jobs when a limit is given', async () => {
@@ -27,8 +27,8 @@ describe('Jobs', () => {
         },
       });
 
-      expect(errors.length).toBe(0);
-      expect(data?.jobs.length).toBe(1);
+      expect(errors).toHaveLength(0);
+      expect(data?.jobs).toHaveLength(1);
     });
 
     it('should find jobs for a given pipelineId', async () => {
@@ -43,8 +43,8 @@ describe('Jobs', () => {
         (jobs) => jobs.getJob()?.getPipeline()?.getName() === 'montage',
       );
 
-      expect(errors.length).toBe(0);
-      expect(data?.jobs.length).toBe(expectedJobs.length);
+      expect(errors).toHaveLength(0);
+      expect(data?.jobs).toHaveLength(expectedJobs.length);
       expect(data?.jobs[0].id).toBe(expectedJobs[0].getJob()?.getId());
     });
 
@@ -56,8 +56,8 @@ describe('Jobs', () => {
         },
       });
 
-      expect(errors.length).toBe(0);
-      expect(data?.jobs.length).toBe(0);
+      expect(errors).toHaveLength(0);
+      expect(data?.jobs).toHaveLength(0);
     });
   });
 
@@ -73,7 +73,7 @@ describe('Jobs', () => {
         },
       );
 
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(data?.jobSet.createdAt).toBe(1614136189);
       expect(data?.jobSet.id).toBe('23b9af7d5d4343219bc8e02ff4acd33a');
       expect(data?.jobSet.state).toBe(JobState.JOB_FAILURE);
@@ -97,11 +97,11 @@ describe('Jobs', () => {
         },
       );
 
-      expect(errors.length).toBe(0);
+      expect(errors).toHaveLength(0);
       expect(data?.jobSet.createdAt).toBe(null);
       expect(data?.jobSet.id).toBe('bogus');
       expect(data?.jobSet.state).toBe(JobState.JOB_SUCCESS);
-      expect(data?.jobSet.jobs.length).toBe(0);
+      expect(data?.jobSet.jobs).toHaveLength(0);
     });
 
     it('should return all jobsets for a given project', async () => {
@@ -114,8 +114,8 @@ describe('Jobs', () => {
         },
       );
 
-      expect(errors.length).toBe(0);
-      expect(data?.jobSets.length).toBe(4);
+      expect(errors).toHaveLength(0);
+      expect(data?.jobSets).toHaveLength(4);
       expect(data?.jobSets[0].id).toBe('23b9af7d5d4343219bc8e02ff44cd55a');
       expect(data?.jobSets[1].id).toBe('33b9af7d5d4343219bc8e02ff44cd55a');
       expect(data?.jobSets[2].id).toBe('7798fhje5d4343219bc8e02ff4acd33a');
