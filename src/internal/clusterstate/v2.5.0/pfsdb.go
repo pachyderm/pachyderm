@@ -457,10 +457,13 @@ func sameFileSets(ctx context.Context, tx *pachsql.Tx, c1 *pfs.Commit, c2 *pfs.C
 	if err != nil {
 		return false, err
 	}
+	// add another utility ref that builds a composite hash
 	if md1.GetPrimitive() != nil && md2.GetPrimitive() != nil {
 		if md1.GetPrimitive().SizeBytes != md2.GetPrimitive().SizeBytes {
 			return false, nil
 		}
+		// TODO(acohen4): check whether to use .File.DataRefs or .Range.DataRef.
+		// Add a string to hashing that distinguishes additive from deletive
 		if len(md1.GetPrimitive().Additive.File.DataRefs) != len(md2.GetPrimitive().Additive.File.DataRefs) {
 			return false, nil
 		}
@@ -524,6 +527,7 @@ func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		if err != nil {
 			return err
 		}
+		// TODO(acohen4): don't magically fix this
 		// this alias commit shouldn't be deleted, and instead should be converted to a AUTO commit
 		if !same {
 			delete(deleteCommits, k)
@@ -705,7 +709,7 @@ func addCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to *pfs.Comm
 //
 // 1) commits with equal (repo, UUID) pairs must be de-duplicated. This is primarily expected to happen in deferred processing cases.
 // In such cases, the deferred branch's commit is expected to be a child commit of the leading branch's commit. So to make the substitution,
-// we can simply delete the deferred branch's commit and repoint it's direct subvenant commits to point to the master commit as their
+// we can simply delete the deferred branch's commit and re-point it's direct subvenant commits to point to the master commit as their
 // direct provenance commits.
 //
 // 2) assert that we didn't miss any duplicate commits, and error the migration if we did.
@@ -771,7 +775,6 @@ func migrateToBranchlessCommits(ctx context.Context, tx *pachsql.Tx) error {
 			}
 		}
 		return commitBranchlessKey(oldCommit.Commit), oldCommit, nil
-
 	}, withKeyGen(func(key interface{}) (string, error) {
 		if commit, ok := key.(*pfs.Commit); !ok {
 			return "", errors.New("key must be a commit")

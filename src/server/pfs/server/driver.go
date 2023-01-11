@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"fmt"
 	"math"
 	"os"
 	"sort"
@@ -874,6 +875,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 			// Do nothing
 		}
 	}
+	// load CommitInfo.Details.CommitProvenance
 	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		provCommits, err := pfsdb.CommitProvenance(context.TODO(), txnCtx.SqlTx, commit.Repo, commitInfo.Commit.ID)
@@ -884,6 +886,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 			commitInfo.Details = &pfs.CommitInfo_Details{}
 		}
 		commitInfo.Details.CommitProvenance = provCommits
+		fmt.Printf("Commit PROVENANCE of %q: %v\n", commitInfo.Commit.String(), provCommits)
 		return nil
 	}); err != nil {
 		return nil, err
@@ -1408,6 +1411,9 @@ func newUserCommitInfo(txnCtx *txncontext.TransactionContext, branch *pfs.Branch
 //
 // This invariant is assumed to hold for all branches upstream of 'branch', but not
 // for 'branch' itself once 'b.Provenance' has been set.
+//
+// TODO(acohen4): consider validating DAG structure to prevent more than one branch in a repo from being reachable...
+// i.e. up to one branch in a repo can be present within a DAG
 func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch, trigger *pfs.Trigger) error {
 	// Validate arguments
 	if branch == nil {
@@ -1466,6 +1472,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		if commit != nil {
 			branchInfo.Head = commit
 			propagate = true
+			pfsdb.LinkOriginBranch(context.TODO(), txnCtx.SqlTx, commit, branch)
 		}
 		// if we don't have a branch head, or the provenance has changed, add a new commit to the branch to capture the changed structure
 		// the one edge case here, is that it's undesirable to add a commit in the case where provenance is completely removed...
