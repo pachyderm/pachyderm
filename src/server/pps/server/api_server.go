@@ -3131,6 +3131,11 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 			continue
 		}
 
+		// Don't create jobs for commits not on the output branch.
+		if commitInfo.Commit.Branch.Name != pipelineInfo.Details.OutputBranch {
+			continue
+		}
+
 		// Check if there is an existing job for the output commit
 		job := client.NewProjectJob(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, txnCtx.CommitSetID)
 		jobInfo := &pps.JobInfo{}
