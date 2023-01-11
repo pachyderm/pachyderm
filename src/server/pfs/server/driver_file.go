@@ -374,8 +374,7 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 	s := NewSource(commitInfo, fs, opts...)
 	s = NewErrOnEmpty(s, newFileNotFound(commitInfo.Commit.ID, p))
 	if reverse {
-		// call diff fn
-		return nil
+		return d.walkFileReverse(ctx, s, number, cb)
 	}
 	err = s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		if number == 0 {
@@ -388,6 +387,42 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 		err = nil
 	}
 	return err
+}
+
+func (d *driver) walkFileReverse(ctx context.Context, s Source, number int64, cb func(*pfs.FileInfo) error) error {
+	// use a fixed size slice since we know the number of files we want
+	fis := make([]*pfs.FileInfo, number)
+	index := 0
+	if err := s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
+		// wrap around to the start of the slice
+		if index == int(number) {
+			index = 0
+		}
+		fis[index] = fi
+		index++
+		return nil
+	}); err != nil {
+		return errors.EnsureStack(err)
+	}
+	if index == 0 {
+		// no files were found
+		return nil
+	}
+	index--
+	for i := 0; i < len(fis); i++ {
+		if fis[index] == nil {
+			break
+		}
+		if err := cb(fis[index]); err != nil {
+			return errors.EnsureStack(err)
+		}
+		fis[index] = nil
+		index--
+		if index < 0 {
+			index = int(number) - 1
+		}
+	}
+	return nil
 }
 
 func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, pathRange *pfs.PathRange, cb func(*pfs.FileInfo) error) error {
