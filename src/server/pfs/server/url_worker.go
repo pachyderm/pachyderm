@@ -54,7 +54,7 @@ func (d *driver) URLWorker(ctx context.Context) {
 	})
 }
 
-func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask) (any *types.Any, retErr error) {
+func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask) (_ *types.Any, retErr error) {
 	url, err := obj.ParseURL(task.URL)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error parsing URL %v", task.URL)
@@ -103,7 +103,7 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 	return serializePutFileURLTaskResult(result)
 }
 
-func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask) (any *types.Any, retErr error) {
+func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask) (_ *types.Any, retErr error) {
 	src, err := d.getFile(ctx, task.File, task.PathRange)
 	if err != nil {
 		return nil, err

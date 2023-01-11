@@ -75,7 +75,7 @@ func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.Unord
 		}
 		defer func() {
 			if err := r.Close(); err != nil {
-				retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing reader for  bucket %s", url.Bucket))
+				retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing reader for bucket %s", url.Bucket))
 			}
 		}()
 		return 0, uw.Put(ctx, dstPath, tag, true, r)
@@ -114,8 +114,8 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 			return err
 		}
 		defer func() {
-			if err := bucket.Close(); err != nil {
-				retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing bucket %s", url.Bucket))
+			if closeErr := bucket.Close(); closeErr != nil {
+				retErr = multierror.Append(err, errors.Wrapf(closeErr, "error closing bucket %s", url.Bucket))
 			}
 		}()
 		var paths []string
@@ -149,7 +149,7 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 			log.Debug(ctx, "object stats", zap.String("object", listObj.Key), zap.Int64("size", listObj.Size))
 			if len(paths) >= defaultURLTaskSize {
 				if err := createTask(); err != nil {
-					return errors.Wrapf(err, "error from callback on key %s in bucket %s", listObj.Key, url.Bucket)
+					return errors.Wrap(err, "error from callback")
 				}
 				paths = nil
 			}
