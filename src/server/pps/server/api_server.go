@@ -2767,10 +2767,10 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 				// they could still show up in the list. Ignore them
 				return nil
 			}
-			// // skip pipelines outside the default project.
-			// if pipelineInfo.GetPipeline().GetProject().GetName() != pfs.DefaultProjectName {
-			// 	return nil
-			// }
+			// skip pipelines outside the default project.
+			if pipelineInfo.GetPipeline().GetProject().GetName() != pfs.DefaultProjectName {
+				return nil
+			}
 			request.Pipeline = pipelineInfo.Pipeline
 			err := a.deletePipeline(ctx, request)
 			if err == nil {
@@ -3294,7 +3294,7 @@ func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *
 
 // DeleteAll implements the protobuf pps.DeleteAll RPC
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
-	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {
+	if _, err := a.DeletePipelines(ctx, &pps.DeletePipelinesRequest{All: true, Force: true}); err != nil {
 		return nil, err
 	}
 
