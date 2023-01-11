@@ -120,3 +120,18 @@ func readFromObjStorage(ctx context.Context, t *testing.T, bucket *blob.Bucket, 
 	_, err = r.WriteTo(buf)
 	require.NoError(t, err, fmt.Sprintf("should be able to read from obj %s", objName))
 }
+
+func TestTaskBatching(t *testing.T) {
+	ctx := context.Background()
+	createTask := func(startOffset, endOffset int64, startPath, endPath string) error {
+		task := &PutFileURLTask{
+			StartPath:   startPath,
+			EndPath:     endPath,
+			StartOffset: startOffset,
+			EndOffset:   endOffset,
+		}
+		fmt.Printf("task: %+v\n", task)
+		return nil
+	}
+	require.NoError(t, coordinateTasks(ctx, "gs://fahad-test-bucket/test", createTask))
+}

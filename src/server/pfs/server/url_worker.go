@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 	"time"
@@ -10,6 +12,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
+	"gocloud.dev/blob"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -70,11 +73,40 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 	prefix := strings.TrimPrefix(url.Object, "/")
 	result := &PutFileURLTaskResult{}
 	if err := log.LogStep(ctx, "putFileURLTask", func(ctx context.Context) error {
+		var paths []string
+		shouldAppend := false
+		list := bucket.List(&blob.ListOptions{Prefix: url.Object})
+		for {
+			listObj, err := list.Next(ctx)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				return errors.EnsureStack(err)
+			}
+			if listObj.Key == task.StartPath {
+				shouldAppend = true
+			}
+			if shouldAppend {
+				paths = append(paths, listObj.Key)
+			}
+			if listObj.Key == task.EndPath {
+				break
+			}
+		}
 		return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 			id, err := d.withUnorderedWriter(ctx, renewer, func(uw *fileset.UnorderedWriter) error {
-				for _, path := range task.Paths {
+				startOffset := task.StartOffset
+				length := int64(-1) // -1 means to read until end of file.
+				for i, path := range paths {
+					if i != 0 {
+						startOffset = 0
+					}
+					if i == len(task.Paths)-1 && task.EndOffset != int64(-1) {
+						length = task.EndOffset - startOffset
+					}
 					if err := func() error {
-						r, err := bucket.NewReader(ctx, path, nil)
+						r, err := bucket.NewRangeReader(ctx, path, startOffset, length, nil)
 						if err != nil {
 							return errors.EnsureStack(err)
 						}
@@ -144,6 +176,7 @@ func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 }
 
 func serializePutFileURLTask(task *PutFileURLTask) (*types.Any, error) {
+	fmt.Printf("task: %+v\n", task)
 	data, err := proto.Marshal(task)
 	if err != nil {
 		return nil, errors.EnsureStack(err)

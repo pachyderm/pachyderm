@@ -104,27 +104,16 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 		})
 		return errors.EnsureStack(err)
 	})
-	eg.Go(func() (retErr error) {
-		url, err := obj.ParseURL(src.URL)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		bucket, err := openBucket(ctx, url)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := bucket.Close(); err != nil {
-				retErr = multierror.Append(retErr, errors.EnsureStack(err))
-			}
-		}()
-		var paths []string
-		createTask := func() error {
+	eg.Go(func() error {
+		createTask := func(startOffset, endOffset int64, startPath, endPath string) error {
 			input, err := serializePutFileURLTask(&PutFileURLTask{
-				Dst:   dst,
-				Datum: tag,
-				URL:   src.URL,
-				Paths: paths,
+				Dst:         dst,
+				Datum:       tag,
+				URL:         src.URL,
+				StartOffset: startOffset,
+				EndOffset:   endOffset,
+				StartPath:   startPath,
+				EndPath:     endPath,
 			})
 			if err != nil {
 				return err
@@ -136,29 +125,8 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 			}
 			return nil
 		}
-		list := bucket.List(&blob.ListOptions{Prefix: url.Object})
-		var listObj *blob.ListObject
-		for {
-			listObj, err = list.Next(ctx)
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				return errors.Wrapf(err, "error listing bucket %s", url.Bucket)
-			}
-			log.Debug(ctx, "object stats", zap.String("object", listObj.Key), zap.Int64("size", listObj.Size))
-			if len(paths) >= defaultURLTaskSize {
-				if err := createTask(); err != nil {
-					return errors.EnsureStack(err)
-				}
-				paths = nil
-			}
-			paths = append(paths, listObj.Key)
-		}
-		if len(paths) > 0 {
-			if err := createTask(); err != nil {
-				return err
-			}
+		if err := coordinateTasks(ctx, src.URL, createTask); err != nil {
+			return err
 		}
 		close(inputChan)
 		return nil
@@ -236,4 +204,86 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 		return 0, errors.EnsureStack(err)
 	}
 	return bytesWritten, nil
+}
+
+func coordinateTasks(ctx context.Context, URL string, createTask func(startOffset, endOffset int64, startPath, endPath string) error) (retErr error) {
+	url, err := obj.ParseURL(URL)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	bucket, err := openBucket(ctx, url)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := bucket.Close(); err != nil {
+			retErr = multierror.Append(retErr, errors.EnsureStack(err))
+		}
+	}()
+	startPath, endPath := "", ""
+	var paths []string
+	list := bucket.List(&blob.ListOptions{Prefix: url.Object})
+	var listObj *blob.ListObject
+	listObj, err = list.Next(ctx)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return errors.Wrapf(err, "no objects were listed")
+		}
+	}
+	paths = append(paths, listObj.Key)
+	startPath = listObj.Key
+	remainingObjSize := listObj.Size
+	bytesInBatch := int64(0)
+	filePos := int64(0)
+	batchSize := int64(5)
+	shouldBreak := false
+	for {
+		if bytesInBatch+remainingObjSize == 0 && listObj.Size != 0 {
+			paths = nil
+			startPath = ""
+			endPath = ""
+			filePos = 0
+		}
+		for bytesInBatch+remainingObjSize < batchSize {
+			bytesInBatch += remainingObjSize
+			listObj, err = list.Next(ctx)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					if err := createTask(filePos, batchSize-bytesInBatch, startPath, endPath); err != nil {
+						return errors.EnsureStack(err)
+					}
+					shouldBreak = true
+					break
+				}
+				return errors.Wrapf(err, "error listing bucket %s", url.Bucket)
+			}
+			log.Debug(ctx, "object stats", zap.String("object", listObj.Key), zap.Int64("size", listObj.Size))
+			remainingObjSize = listObj.Size
+			paths = append(paths, listObj.Key)
+			if startPath == "" {
+				startPath = listObj.Key
+			}
+			endPath = listObj.Key
+		}
+		if shouldBreak {
+			break
+		}
+		remainingObjSize -= batchSize - bytesInBatch
+		if err := createTask(filePos, batchSize-bytesInBatch, startPath, endPath); err != nil {
+			return errors.EnsureStack(err)
+		}
+		paths = []string{listObj.Key}
+		startPath = listObj.Key
+		endPath = listObj.Key
+		filePos = batchSize - bytesInBatch
+		bytesInBatch = 0
+		for remainingObjSize >= batchSize {
+			if err := createTask(filePos, filePos+batchSize, startPath, endPath); err != nil {
+				return errors.EnsureStack(err)
+			}
+			filePos += batchSize
+			remainingObjSize -= batchSize
+		}
+	}
+	return nil
 }

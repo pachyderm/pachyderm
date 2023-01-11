@@ -3416,7 +3416,7 @@ type ListJobRequest struct {
 	// 0: Return jobs from the current version of the pipeline or pipelines.
 	// 1: Return the above and jobs from the next most recent version
 	// 2: etc.
-	// -1: Return jobs from all historical versions.
+	//-1: Return jobs from all historical versions.
 	History int64 `protobuf:"varint,4,opt,name=history,proto3" json:"history,omitempty"`
 	// Details indicates whether the result should include all pipeline details in
 	// each JobInfo, or limited information including name and status, but
@@ -4177,7 +4177,7 @@ type ListDatumRequest struct {
 	// with the provided input.
 	Input  *Input                   `protobuf:"bytes,2,opt,name=input,proto3" json:"input,omitempty"`
 	Filter *ListDatumRequest_Filter `protobuf:"bytes,3,opt,name=filter,proto3" json:"filter,omitempty"`
-	// datum id to start from. we do not include this datum in the response
+	//datum id to start from. we do not include this datum in the response
 	PaginationMarker string `protobuf:"bytes,4,opt,name=paginationMarker,proto3" json:"paginationMarker,omitempty"`
 	// Number of datums to return
 	Number int64 `protobuf:"varint,5,opt,name=number,proto3" json:"number,omitempty"`
@@ -4786,7 +4786,7 @@ type ListPipelineRequest struct {
 	// 0: Return the current version of the pipeline or pipelines.
 	// 1: Return the above and the next most recent version
 	// 2: etc.
-	// -1: Return all historical versions.
+	//-1: Return all historical versions.
 	History int64 `protobuf:"varint,2,opt,name=history,proto3" json:"history,omitempty"`
 	// When true, return PipelineInfos with the details field, which requires
 	// loading the pipeline spec from PFS.
