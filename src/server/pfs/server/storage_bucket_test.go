@@ -25,6 +25,9 @@ func TestMicrosoft(t *testing.T) {
 	url, err := obj.ParseURL("azblob://" + bucketName)
 	require.NoError(t, err, "should be able to parse url")
 	readWriteDelete(t, url, bucketName)
+	url, err = obj.ParseURL("wasb://" + bucketName + "@" + os.Getenv("MICROSOFT_CLIENT_ID") + ".blob.core.windows.net")
+	require.NoError(t, err, "should be able to parse url")
+	readWriteDelete(t, url, bucketName)
 }
 
 func TestGoogle(t *testing.T) {

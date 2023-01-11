@@ -41,7 +41,7 @@ func openBucket(ctx context.Context, url *obj.ObjectStoreURL) (bucket *blob.Buck
 		url.Params += "disableSSL=" + os.Getenv("DISABLE_SSL")
 	}
 	switch url.Scheme {
-	case "as", "wasb":
+	case "wasb":
 		url.Scheme = "azblob"
 	case "gcs": // assuming 'gcs' is an alias for 'gs'
 		url.Scheme = "gs"

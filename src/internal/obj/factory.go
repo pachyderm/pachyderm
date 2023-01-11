@@ -440,21 +440,20 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 		return nil, errors.Wrapf(err, "error parsing url %v", urlStr)
 	}
 	switch u.Scheme {
-	case "s3", "gcs", "gs", "local":
+	case "azblob", "gcs", "gs", "local", "s3":
 		return &ObjectStoreURL{
 			Scheme: u.Scheme,
 			Bucket: u.Host,
 			Object: strings.Trim(u.Path, "/"),
 			Params: u.RawQuery,
 		}, nil
-	case "azblob", "as", "wasb":
-		bucketString := u.Host
-		if u.User != nil {
-			bucketString = u.User.Username()
-		}
+	// wasb is an hdfs protocol supported by azure
+	// the format is wasb://<container_name>@<storage_account_name>.blob.core.windows.net/dir/file
+	// another supported format is wasb://<container_name>@<storage_account_name>/dir/file
+	case "wasb":
 		return &ObjectStoreURL{
 			Scheme: u.Scheme,
-			Bucket: bucketString,
+			Bucket: u.User.Username(),
 			Object: strings.Trim(u.Path, "/"),
 			Params: u.RawQuery,
 		}, nil
