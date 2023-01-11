@@ -30,6 +30,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -102,6 +103,58 @@ func createTestCommits(t *testing.T, repoName, branchName string, numCommits int
 		err = c.FinishProjectCommit(pfs.DefaultProjectName, repoName, branchName, commit.ID)
 		require.NoError(t, err, "finishing a commit should succeed")
 	}
+}
+
+func deleteEtcd(t *testing.T, ctx context.Context, namespace string) {
+	t.Helper()
+	kubeClient := tu.GetKubeClient(t)
+	label := "app=etcd"
+	etcd, err := kubeClient.CoreV1().Pods(namespace).
+		List(ctx, metav1.ListOptions{LabelSelector: label})
+	require.NoError(t, err, "Error attempting to find etcd pod.")
+	require.Equal(t, 1, len(etcd.Items), "etcd did not have the correct number of pods.")
+
+	watcher, err := kubeClient.CoreV1().Pods(namespace).
+		Watch(ctx, metav1.ListOptions{LabelSelector: label})
+	defer watcher.Stop()
+	require.NoError(t, err, "Starting etcd pod watch failed.")
+
+	require.NoError(t, kubeClient.CoreV1().Pods(namespace).Delete(
+		context.Background(),
+		etcd.Items[0].ObjectMeta.Name, metav1.DeleteOptions{}), "Deleting etcd pod failed.")
+
+	for event := range watcher.ResultChan() {
+		if event.Type == watch.Deleted {
+			break
+		}
+	}
+}
+
+// Wait for at least one pod with the given selector to be running and ready.
+func waitForOnePodReady(t testing.TB, ctx context.Context, namespace string, label string) {
+	t.Helper()
+	kubeClient := tu.GetKubeClient(t)
+	require.NoErrorWithinTRetryConstant(t, 1*time.Minute, func() error {
+		pods, err := kubeClient.CoreV1().Pods(namespace).
+			List(ctx, metav1.ListOptions{LabelSelector: label})
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+
+		if len(pods.Items) < 1 {
+			return errors.Errorf("pod with label %s has not yet been restarted.", label)
+		}
+		for _, item := range pods.Items {
+			if item.Status.Phase == v1.PodRunning {
+				for _, c := range item.Status.Conditions {
+					if c.Type == v1.PodReady && c.Status == v1.ConditionTrue {
+						return nil
+					}
+				}
+			}
+		}
+		return errors.Errorf("one pod with label %s is not yet running and ready.", label)
+	}, 5*time.Second)
 }
 
 func TestSimplePipeline(t *testing.T) {
@@ -449,11 +502,14 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
+	project := tu.UniqueString("P_")
+	require.NoError(t, c.CreateProject(project))
+
 	dataRepo := tu.UniqueString("TestPipelineWithLargeFiles_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.CreateProjectRepo(project, dataRepo))
 
 	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, c.CreateProjectPipeline(project,
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -461,7 +517,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 		},
 		nil,
-		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		client.NewProjectPFSInput(project, dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -469,7 +525,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 	random.SeedRand(99)
 	numFiles := 10
 	var fileContents []string
-	commit1, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit1, err := c.StartProjectCommit(project, dataRepo, "master")
 	require.NoError(t, err)
 	chunkSize := int(pfs.ChunkSize / 32) // We used to use a full ChunkSize, but it was increased which caused this test to take too long.
 	for i := 0; i < numFiles; i++ {
@@ -477,13 +533,13 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("file-%d", i), strings.NewReader(fileContent), client.WithAppendPutFile()))
 		fileContents = append(fileContents, fileContent)
 	}
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.ID))
+	require.NoError(t, c.FinishProjectCommit(project, dataRepo, commit1.Branch.Name, commit1.ID))
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.ID)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
-	outputCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit1.ID)
+	outputCommit := client.NewProjectCommit(project, pipeline, "master", commit1.ID)
 
 	for i := 0; i < numFiles; i++ {
 		var buf bytes.Buffer
@@ -2308,7 +2364,8 @@ func TestDeletePipeline(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-
+	project := tu.UniqueString("prj")
+	require.NoError(t, c.CreateProject(project))
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	commit, err := c.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
@@ -2329,7 +2386,7 @@ func TestDeletePipeline(t *testing.T) {
 			"",
 			false,
 		))
-		require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+		require.NoError(t, c.CreateProjectPipeline(project,
 			pipelines[1],
 			"",
 			[]string{"sleep", "20"},
@@ -2357,7 +2414,7 @@ func TestDeletePipeline(t *testing.T) {
 				return errors.Errorf("Expected two pipelines, but got: %+v", names)
 			}
 			// make sure second pipeline is running
-			pipelineInfo, err := c.InspectProjectPipeline(pfs.DefaultProjectName, pipelines[1], false)
+			pipelineInfo, err := c.InspectProjectPipeline(project, pipelines[1], false)
 			if err != nil {
 				return err
 			}
@@ -2370,12 +2427,11 @@ func TestDeletePipeline(t *testing.T) {
 
 	createPipelines()
 
-	deletePipeline := func(pipeline string) {
-		require.NoError(t, c.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false))
-		time.Sleep(5 * time.Second)
+	deletePipeline := func(project, pipeline string) {
+		require.NoError(t, c.DeleteProjectPipeline(project, pipeline, false))
 		// Wait for the pipeline to disappear
 		require.NoError(t, backoff.Retry(func() error {
-			_, err := c.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
+			_, err := c.InspectProjectPipeline(project, pipeline, false)
 			if err == nil {
 				return errors.Errorf("expected pipeline to be missing, but it's still present")
 			}
@@ -2386,16 +2442,21 @@ func TestDeletePipeline(t *testing.T) {
 	// Can't delete a pipeline from the middle of the dag
 	require.YesError(t, c.DeleteProjectPipeline(pfs.DefaultProjectName, pipelines[0], false))
 
-	deletePipeline(pipelines[1])
-	deletePipeline(pipelines[0])
+	deletePipeline(project, pipelines[1])
+	deletePipeline(pfs.DefaultProjectName, pipelines[0])
 
 	// The jobs should be gone
 	jobs, err := c.ListProjectJob(pfs.DefaultProjectName, "", nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 0)
+	jobs, err = c.ListProjectJob(project, "", nil, -1, true)
+	require.NoError(t, err)
+	require.Equal(t, len(jobs), 0)
 
 	// Listing jobs for a deleted pipeline should error
 	_, err = c.ListProjectJob(pfs.DefaultProjectName, pipelines[0], nil, -1, true)
+	require.YesError(t, err)
+	_, err = c.ListProjectJob(project, pipelines[1], nil, -1, true)
 	require.YesError(t, err)
 
 	createPipelines()
@@ -3123,11 +3184,13 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	// create repo & pipeline
+	project := tu.UniqueString("project")
+	require.NoError(t, c.CreateProject(project))
 	dataRepo := tu.UniqueString("TestUpdateStoppedPipeline_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
-	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	require.NoError(t, c.CreateProjectRepo(project, dataRepo))
+	dataCommit := client.NewProjectCommit(project, dataRepo, "master", "")
 	pipelineName := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, c.CreateProjectPipeline(project,
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -3135,19 +3198,19 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		client.NewProjectPFSInput(project, dataRepo, "/*"),
 		"",
 		false,
 	))
 
-	commits, err := c.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipelineName), client.NewProjectCommit(pfs.DefaultProjectName, pipelineName, "master", ""), nil, 0)
+	commits, err := c.ListCommit(client.NewProjectRepo(project, pipelineName), client.NewProjectCommit(project, pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commits))
 
 	// Add input data
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 
-	commits, err = c.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipelineName), client.NewProjectCommit(pfs.DefaultProjectName, pipelineName, "master", ""), nil, 0)
+	commits, err = c.ListCommit(client.NewProjectRepo(project, pipelineName), client.NewProjectCommit(project, pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
 
@@ -3155,14 +3218,13 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	commitInfos, err := c.WaitCommitSetAll(commits[0].Commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
-
 	// Stop the pipeline (and confirm that it's stopped)
-	require.NoError(t, c.StopProjectPipeline(pfs.DefaultProjectName, pipelineName))
-	pipelineInfo, err := c.InspectProjectPipeline(pfs.DefaultProjectName, pipelineName, false)
+	require.NoError(t, c.StopProjectPipeline(project, pipelineName))
+	pipelineInfo, err := c.InspectProjectPipeline(project, pipelineName, false)
 	require.NoError(t, err)
 	require.Equal(t, true, pipelineInfo.Stopped)
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err = c.InspectProjectPipeline(pfs.DefaultProjectName, pipelineName, false)
+		pipelineInfo, err = c.InspectProjectPipeline(project, pipelineName, false)
 		if err != nil {
 			return err
 		}
@@ -3173,12 +3235,12 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		return nil
 	}, backoff.NewTestingBackOff()))
 
-	commits, err = c.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipelineName), client.NewProjectCommit(pfs.DefaultProjectName, pipelineName, "master", ""), nil, 0)
+	commits, err = c.ListCommit(client.NewProjectRepo(project, pipelineName), client.NewProjectCommit(project, pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
 
 	// Update shouldn't restart it (wait for version to increment)
-	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, c.CreateProjectPipeline(project,
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -3186,13 +3248,13 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		client.NewProjectPFSInput(project, dataRepo, "/*"),
 		"",
 		true,
 	))
 	time.Sleep(10 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err = c.InspectProjectPipeline(pfs.DefaultProjectName, pipelineName, false)
+		pipelineInfo, err = c.InspectProjectPipeline(project, pipelineName, false)
 		if err != nil {
 			return err
 		}
@@ -3207,27 +3269,28 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		return nil
 	}, backoff.NewTestingBackOff()))
 
-	commits, err = c.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipelineName), client.NewProjectCommit(pfs.DefaultProjectName, pipelineName, "master", ""), nil, 0)
+	commits, err = c.ListCommit(client.NewProjectRepo(project, pipelineName), client.NewProjectCommit(project, pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
 
 	// Create a commit (to give the pipeline pending work), then start the pipeline
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("bar"), client.WithAppendPutFile()))
-	require.NoError(t, c.StartProjectPipeline(pfs.DefaultProjectName, pipelineName))
+	require.YesError(t, c.StartProjectPipeline(pfs.DefaultProjectName, pipelineName)) // negative project testing
+	require.NoError(t, c.StartProjectPipeline(project, pipelineName))
 
 	// Pipeline should start and create a job should succeed -- fix
 	// https://github.com/pachyderm/pachyderm/v2/issues/3934)
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit(project, dataRepo, "master", "")
 	require.NoError(t, err)
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
-	commits, err = c.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipelineName), client.NewProjectCommit(pfs.DefaultProjectName, pipelineName, "master", ""), nil, 0)
+	commits, err = c.ListCommit(client.NewProjectRepo(project, pipelineName), client.NewProjectCommit(project, pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commits))
 
 	var buf bytes.Buffer
-	outputCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipelineName, "master", commitInfo.Commit.ID)
+	outputCommit := client.NewProjectCommit(project, pipelineName, "master", commitInfo.Commit.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file", &buf))
 	require.Equal(t, "foobar", buf.String())
 }
@@ -4247,12 +4310,14 @@ func TestJobDeletion(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
+	project := tu.UniqueString("project")
+	require.NoError(t, c.CreateProject(project))
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, c.CreateProjectPipeline(project,
 		pipelineName,
 		"",
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
@@ -4274,6 +4339,8 @@ func TestJobDeletion(t *testing.T) {
 	require.NoError(t, err)
 
 	err = c.DeleteProjectJob(pfs.DefaultProjectName, pipelineName, commit.ID)
+	require.YesError(t, err) // Wrong project should error
+	err = c.DeleteProjectJob(project, pipelineName, commit.ID)
 	require.NoError(t, err)
 }
 
@@ -4284,13 +4351,16 @@ func TestStopJob(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
+	// create project
+	project := tu.UniqueString("project")
+	require.NoError(t, c.CreateProject((project)))
 	// create repos
 	dataRepo := tu.UniqueString("TestStopJob")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.CreateProjectRepo(project, dataRepo))
 
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline-stop-job")
-	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, c.CreateProjectPipeline(project,
 		pipelineName,
 		"",
 		[]string{"sleep", "10"},
@@ -4298,7 +4368,7 @@ func TestStopJob(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/"),
+		client.NewProjectPFSInput(project, dataRepo, "/"),
 		"",
 		false,
 	))
@@ -4306,22 +4376,22 @@ func TestStopJob(t *testing.T) {
 	// Create three input commits to trigger jobs.
 	// We will stop the second job midway through, and assert that the
 	// last job finishes.
-	commit1, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit1, err := c.StartProjectCommit(project, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.ID))
+	require.NoError(t, c.FinishProjectCommit(project, dataRepo, commit1.Branch.Name, commit1.ID))
 
-	commit2, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit2, err := c.StartProjectCommit(project, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit2, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit2.Branch.Name, commit2.ID))
+	require.NoError(t, c.FinishProjectCommit(project, dataRepo, commit2.Branch.Name, commit2.ID))
 
-	commit3, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit3, err := c.StartProjectCommit(project, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit3, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commit3.Branch.Name, commit3.ID))
+	require.NoError(t, c.FinishProjectCommit(project, dataRepo, commit3.Branch.Name, commit3.ID))
 
-	jobInfos, err := c.ListProjectJob(pfs.DefaultProjectName, pipelineName, nil, -1, true)
+	jobInfos, err := c.ListProjectJob(project, pipelineName, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(jobInfos))
 	require.Equal(t, commit3.ID, jobInfos[0].Job.ID)
@@ -4329,7 +4399,7 @@ func TestStopJob(t *testing.T) {
 	require.Equal(t, commit1.ID, jobInfos[2].Job.ID)
 
 	require.NoError(t, backoff.Retry(func() error {
-		jobInfo, err := c.InspectProjectJob(pfs.DefaultProjectName, pipelineName, commit1.ID, false)
+		jobInfo, err := c.InspectProjectJob(project, pipelineName, commit1.ID, false)
 		require.NoError(t, err)
 		if jobInfo.State != pps.JobState_JOB_RUNNING {
 			return errors.Errorf("first job has the wrong state")
@@ -4338,14 +4408,14 @@ func TestStopJob(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// Now stop the second job
-	err = c.StopProjectJob(pfs.DefaultProjectName, pipelineName, commit2.ID)
+	err = c.StopProjectJob(project, pipelineName, commit2.ID)
 	require.NoError(t, err)
-	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipelineName, commit2.ID, false)
+	jobInfo, err := c.WaitProjectJob(project, pipelineName, commit2.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_KILLED, jobInfo.State)
 
 	// Check that the third job completes
-	jobInfo, err = c.WaitProjectJob(pfs.DefaultProjectName, pipelineName, commit3.ID, false)
+	jobInfo, err = c.WaitProjectJob(project, pipelineName, commit3.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
@@ -6272,35 +6342,38 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
+	project := tu.UniqueString("prj-")
+	require.NoError(t, c.CreateProject(project))
+
 	dataRepo := tu.UniqueString("TestPipelineWithStatsAcrossJobs_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.CreateProjectRepo(project, dataRepo))
 
 	numFiles := 10
-	commit1, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit1, err := c.StartProjectCommit(project, dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
 		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("foo-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)), client.WithAppendPutFile()))
 	}
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, "master", commit1.ID))
+	require.NoError(t, c.FinishProjectCommit(project, dataRepo, "master", commit1.ID))
 
 	pipeline := tu.UniqueString("StatsAcrossJobs")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Pipeline: client.NewProjectPipeline(project, pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
-			Input: client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+			Input: client.NewProjectPFSInput(project, dataRepo, "/*"),
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
 		})
 	require.NoError(t, err)
 
-	outputCommit, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	outputCommit, err := c.InspectProjectCommit(project, pipeline, "master", "")
 	require.NoError(t, err)
 	id := outputCommit.Commit.ID
 
@@ -6309,26 +6382,26 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	// input (alias), output, spec, meta
 	require.Equal(t, 4, len(commitInfos))
 
-	jobs, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1, true)
+	jobs, err := c.ListProjectJob(project, pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
-	resp, err := c.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, id)
+	resp, err := c.ListProjectDatumAll(project, pipeline, id)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp))
 
-	datum, err := c.InspectProjectDatum(pfs.DefaultProjectName, pipeline, id, resp[0].Datum.ID)
+	datum, err := c.InspectProjectDatum(project, pipeline, id, resp[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 
-	commit2, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
+	commit2, err := c.StartProjectCommit(project, dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
 		require.NoError(t, c.PutFile(commit2, fmt.Sprintf("bar-%d", i), strings.NewReader(strings.Repeat("bar\n", 100)), client.WithAppendPutFile()))
 	}
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, "master", commit2.ID))
+	require.NoError(t, c.FinishProjectCommit(project, dataRepo, "master", commit2.ID))
 
-	outputCommit, err = c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	outputCommit, err = c.InspectProjectCommit(project, pipeline, "master", "")
 	require.NoError(t, err)
 	id = outputCommit.Commit.ID
 
@@ -6337,11 +6410,13 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	// input (alias), output, spec, meta
 	require.Equal(t, 4, len(commitInfos))
 
-	jobs, err = c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1, true)
+	jobs, err = c.ListProjectJob(project, pipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 
-	resp, err = c.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, id)
+	_, err = c.ListProjectDatumAll(pfs.DefaultProjectName, pipeline, id)
+	require.YesError(t, err)
+	resp, err = c.ListProjectDatumAll(project, pipeline, id)
 	require.NoError(t, err)
 	// we should see all the datums from the first job (which should be skipped)
 	// in addition to all the new datums processed in this job
@@ -6353,7 +6428,9 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 		if info.State == pps.DatumState_SKIPPED {
 			skippedCount++
 		}
-		inspectedInfo, err := c.InspectProjectDatum(pfs.DefaultProjectName, pipeline, id, info.Datum.ID)
+		_, err := c.InspectProjectDatum(pfs.DefaultProjectName, pipeline, id, info.Datum.ID)
+		require.YesError(t, err)
+		inspectedInfo, err := c.InspectProjectDatum(project, pipeline, id, info.Datum.ID)
 		require.NoError(t, err)
 		require.Equal(t, info.State, inspectedInfo.State)
 	}
@@ -8614,10 +8691,11 @@ func TestRapidUpdatePipelines(t *testing.T) {
 	}
 
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	pipeline := tu.UniqueString(t.Name() + "-pipeline-")
+	c, namespace := minikubetestenv.AcquireCluster(t)
+	pipeline := tu.UniqueString("pipeline-")
 	cronInput := client.NewCronInput("time", "@every 20s")
 	cronInput.Cron.Overwrite = true
+
 	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"",
@@ -8628,8 +8706,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 		"",
 		false,
 	))
-	// TODO(msteffen): remove all sleeps from tests
-	time.Sleep(10 * time.Second)
+	waitForOnePodReady(t, context.Background(), namespace, fmt.Sprintf("pipelineName=%s", pipeline))
 
 	for i := 0; i < 20; i++ {
 		_, err := c.PpsAPIClient.CreatePipeline(
@@ -8647,7 +8724,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 		require.NoError(t, err)
 	}
 	// TODO ideally this test would not take 5 minutes (or even 3 minutes)
-	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
+	require.NoErrorWithinTRetryConstant(t, 5*time.Minute, func() error {
 		jis, err := c.ListProjectJob(pfs.DefaultProjectName, pipeline, nil, -1, true)
 		if err != nil {
 			return err
@@ -8669,7 +8746,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 			}
 		}
 		return nil
-	})
+	}, time.Second*10)
 }
 
 func TestDatumTries(t *testing.T) {
@@ -10873,14 +10950,22 @@ func TestDatumSetCache(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
-		ticker := time.NewTicker(time.Minute)
+		ticker := time.NewTimer(50 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				tu.DeletePod(t, "etcd", ns)
+				deleteEtcd(t, ctx, ns)
+				waitForOnePodReady(t, ctx, ns, "app=etcd")
+
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					ticker = time.NewTimer(50 * time.Second)
+				}
 			}
 		}
 	}()

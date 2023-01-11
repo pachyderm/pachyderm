@@ -170,7 +170,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 						if !ok {
 							return nil // subscribeCommit exited, nothing left to do
 						}
-						if ci.Finishing != nil {
+						if ci.Finished != nil {
 							continue
 						}
 						childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
