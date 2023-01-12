@@ -739,10 +739,6 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 		pipelineInfo); err != nil {
 		return errors.EnsureStack(err)
 	}
-	input, err := ppsutil.JobInput(a.env.GetPachClient(ctx), pipelineInfo, jobInfo.OutputCommit)
-	if err != nil {
-		return err
-	}
 	details := &pps.JobInfo_Details{}
 	details.Transform = pipelineInfo.Details.Transform
 	details.ParallelismSpec = pipelineInfo.Details.ParallelismSpec
@@ -752,7 +748,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 	details.ResourceRequests = pipelineInfo.Details.ResourceRequests
 	details.ResourceLimits = pipelineInfo.Details.ResourceLimits
 	details.SidecarResourceLimits = pipelineInfo.Details.SidecarResourceLimits
-	details.Input = input
+	details.Input = ppsutil.JobInput(pipelineInfo, jobInfo.OutputCommit)
 	details.Salt = pipelineInfo.Details.Salt
 	details.DatumSetSpec = pipelineInfo.Details.DatumSetSpec
 	details.DatumTimeout = pipelineInfo.Details.DatumTimeout

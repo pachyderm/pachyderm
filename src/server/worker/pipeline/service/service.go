@@ -31,11 +31,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		}
 		// TODO: Add cache?
 		taskDoer := driver.NewTaskDoer(jobInfo.Job.ID, nil)
-		jobInput, err := ppsutil.JobInput(pachClient, pipelineInfo, jobInfo.OutputCommit)
-		if err != nil {
-			return err
-		}
-		di, err := datum.NewIterator(pachClient, taskDoer, jobInput)
+		di, err := datum.NewIterator(pachClient, taskDoer, ppsutil.JobInput(pipelineInfo, jobInfo.OutputCommit))
 		if err != nil {
 			return err
 		}

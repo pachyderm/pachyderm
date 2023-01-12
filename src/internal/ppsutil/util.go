@@ -255,35 +255,19 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 }
 
 // JobInput fills in the commits for an Input
-func JobInput(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) (*pps.Input, error) {
+func JobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Input {
 	commitsetID := outputCommit.ID
-	// can we just set all the branch heads?
 	jobInput := proto.Clone(pipelineInfo.Details.Input).(*pps.Input)
-	ci, err := pachClient.InspectProjectCommit(outputCommit.Repo.Project.Name, outputCommit.Repo.Name, "", outputCommit.ID)
-	if err != nil {
-		return nil, err
-	}
-	branchToCommits := make(map[string]*pfs.Commit)
-	for _, c := range ci.Details.CommitProvenance {
-		branchToCommits[c.Branch.String()] = c
-	}
-	if err := pps.VisitInput(jobInput, func(input *pps.Input) error {
+	pps.VisitInput(jobInput, func(input *pps.Input) error { //nolint:errcheck
 		if input.Pfs != nil {
-			b := client.NewProjectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch).String()
-			if c, ok := branchToCommits[b]; ok {
-				input.Pfs.Commit = c.ID
-			} else {
-				return errors.Errorf("could not find input commit of %q on branch %q", outputCommit.String(), b)
-			}
+			input.Pfs.Commit = commitsetID
 		}
 		if input.Cron != nil {
 			input.Cron.Commit = commitsetID
 		}
 		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return jobInput, nil
+	})
+	return jobInput
 }
 
 // PipelineReqFromInfo converts a PipelineInfo into a CreatePipelineRequest.

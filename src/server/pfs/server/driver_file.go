@@ -524,7 +524,7 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 			if baseCommitInfo.Finished == nil {
 				return nil, pfsserver.ErrBaseCommitNotFinished{
 					BaseCommit: baseCommit,
-					Commit:     commit,
+					Commit:     commitInfo.Commit,
 				}
 			}
 			// ¯\_(ツ)_/¯

@@ -31,18 +31,16 @@ func ResolveCommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo
 	return matches[0], nil
 }
 
-// pps wants to know for each output commit that needs to be filled, what are all the commits that correspond to the input branches
-// this means that we need some mapping between and the branch that they were spawned off of.
-// Can we get in a weird situation
 func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commitSet string) ([]*pfs.Commit, error) {
 	commitKey := CommitKey(&pfs.Commit{
 		Repo: repo,
 		ID:   commitSet,
 	})
-	query := `SELECT commit_id, branch, repo, repo_type, project FROM pfs.commits 
-                      JOIN pfs.commits_origin_branches ON pfs.commits.int_id = commit_int_id
-                  WHERE pfs.commits.int_id IN (       
-                      SELECT to_id FROM pfs.commits JOIN pfs.commit_provenance ON pfs.commits.int_id = from_id WHERE commit_id = $1
+	query := `SELECT commit_id FROM pfs.commits 
+                  WHERE int_id IN (       
+                      SELECT to_id FROM pfs.commits JOIN pfs.commit_provenance 
+                        ON int_id = from_id 
+                      WHERE commit_id = $1
                   );`
 	rows, err := tx.QueryxContext(ctx, query, commitKey)
 	if err != nil {
@@ -50,25 +48,11 @@ func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commi
 	}
 	commitProvenance := make([]*pfs.Commit, 0)
 	for rows.Next() {
-		var commitId, branch, repo, repoType, project string
-		if err := rows.Scan(&commitId, &branch, &repo, &repoType, &project); err != nil {
+		var commitId string
+		if err := rows.Scan(&commitId); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
-		c := ParseCommit(commitId)
-		// will there always be an origin branch? In theory the relationship is many to many between branches and commits
-		if branch != "" {
-			c.Branch = &pfs.Branch{
-				Name: branch,
-				Repo: &pfs.Repo{
-					Name: repo,
-					Project: &pfs.Project{
-						Name: project,
-					},
-					Type: repoType,
-				},
-			}
-		}
-		commitProvenance = append(commitProvenance, c)
+		commitProvenance = append(commitProvenance, ParseCommit(commitId))
 	}
 	return commitProvenance, nil
 }
@@ -140,21 +124,7 @@ func CommitSetSubvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]*pfs
 func AddCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error {
 	stmt := `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES ($1, $2);`
 	_, err := tx.ExecContext(ctx, stmt, CommitKey(commit), commit.ID)
-	if err != nil {
-		return errors.Wrapf(err, "insert commit %q into pfs.commits", CommitKey(commit))
-	}
-	return LinkOriginBranch(ctx, tx, commit, commit.Branch)
-}
-
-func LinkOriginBranch(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit, branch *pfs.Branch) error {
-	commitIntId, err := getCommitTableID(ctx, tx, CommitKey(commit))
-	if err != nil {
-		return err
-	}
-	stmt := `INSERT INTO pfs.commits_origin_branches(commit_int_id, branch, repo, repo_type, project) 
-                 VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING;`
-	_, err = tx.ExecContext(ctx, stmt, commitIntId, branch.Name, branch.Repo.Name, branch.Repo.Type, branch.Repo.Project.Name)
-	return errors.Wrapf(err, "link commit %q to origin branch %q", CommitKey(commit), BranchKey(branch))
+	return errors.Wrapf(err, "insert commit %q into pfs.commits", CommitKey(commit))
 }
 
 func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commitKey string) error {
@@ -259,17 +229,4 @@ var schema = `
 		to_id,
 		from_id
 	);
-
-        CREATE TABLE pfs.commits_origin_branches (
-                int_id BIGSERIAL PRIMARY KEY,
-                commit_int_id BIGSERIAL,
-		branch VARCHAR(4096),
-                repo VARCHAR(4096),
-                repo_type VARCHAR(4096),
-                project VARCHAR(4096),
-                CONSTRAINT fk_to_commit
-                  FOREIGN KEY(commit_int_id) 
-	          REFERENCES pfs.commits(int_id)
-	          ON DELETE CASCADE
-        );
 `

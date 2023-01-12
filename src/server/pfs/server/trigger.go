@@ -32,10 +32,6 @@ func (d *driver) triggerCommit(
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
 			return errors.EnsureStack(err)
 		}
-		// already triggered - TODO(acohen4): research whether this is necessary
-		if newHead.Commit.ID == bi.Head.ID || bi.Trigger == nil {
-			continue
-		}
 		oldHead := &pfs.CommitInfo{}
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(bi.Head, oldHead); err != nil {
 			return errors.EnsureStack(err)

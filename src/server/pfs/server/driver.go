@@ -781,9 +781,6 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(newCommit, newCommitInfo); err != nil {
 			return errors.Wrapf(err, "create new commit %q", pfsdb.CommitKey(newCommit))
 		}
-		if err := pfsdb.LinkOriginBranch(context.TODO(), txnCtx.SqlTx, newCommit, bi.Branch); err != nil {
-			return errors.Wrapf(err, "link commit %q branch origin %q", pfsdb.CommitKey(newCommit), pfsdb.BranchKey(bi.Branch))
-		}
 		if newCommitInfo.ParentCommit != nil {
 			parentCommitInfo := &pfs.CommitInfo{}
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(newCommitInfo.ParentCommit, parentCommitInfo, func() error {
@@ -1472,7 +1469,6 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		if commit != nil {
 			branchInfo.Head = commit
 			propagate = true
-			pfsdb.LinkOriginBranch(context.TODO(), txnCtx.SqlTx, commit, branch)
 		}
 		// if we don't have a branch head, or the provenance has changed, add a new commit to the branch to capture the changed structure
 		// the one edge case here, is that it's undesirable to add a commit in the case where provenance is completely removed...
@@ -1496,11 +1492,6 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	// load all branches in the complete closure once and saves all of them.
 	if err := d.computeBranchProvenance(txnCtx, branchInfo, oldProvenance); err != nil {
 		return err
-	}
-	if commit != nil && ci.Finished != nil {
-		if err = d.triggerCommit(txnCtx, branchInfo.Head); err != nil {
-			return err
-		}
 	}
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its
