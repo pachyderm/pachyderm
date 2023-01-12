@@ -57,7 +57,7 @@ describe('Projects Resolver', () => {
 
       const projects = data?.projects;
 
-      expect(projects?.length).toEqual(1);
+      expect(projects).toHaveLength(1);
       expect(projects?.[0]?.name).toEqual('Default');
       expect(projects?.[0]?.id).toEqual('default');
       expect(projects?.[0]?.description).toEqual('Default Pachyderm project.');
@@ -70,7 +70,7 @@ describe('Projects Resolver', () => {
 
       const projects = data?.projects;
 
-      expect(projects?.length).toEqual(7);
+      expect(projects).toHaveLength(7);
       expect(projects?.[0]?.name).toEqual('Solar Panel Data Sorting');
       expect(projects?.[1]?.name).toEqual('Data Cleaning Process');
       expect(projects?.[2]?.name).toEqual(

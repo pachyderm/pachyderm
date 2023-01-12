@@ -139,7 +139,7 @@ describe('File Upload', () => {
     ]);
 
     expect(await findByText('hello.png', {}, {timeout: 10000})).not.toBeNull();
-    expect(fileInput.files?.length).toEqual(1);
+    expect(fileInput.files).toHaveLength(1);
   });
 
   it('should not allow a user to upload a file with regex metacharacters', async () => {

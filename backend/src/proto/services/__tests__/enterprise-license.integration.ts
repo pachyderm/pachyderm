@@ -21,7 +21,7 @@ describe('enterprise', () => {
     await enterprise.activate('localhost:1650', 'localhost', 'secret');
     const clusterList = await license.listClusters();
     const userClusterList = await license.listUserClusters();
-    expect(clusterList.clustersList.length).toEqual(
+    expect(clusterList.clustersList).toHaveLength(
       userClusterList.clustersList.length,
     );
     const state = await enterprise.getState();

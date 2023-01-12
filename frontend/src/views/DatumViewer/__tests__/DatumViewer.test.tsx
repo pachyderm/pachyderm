@@ -246,13 +246,13 @@ describe('Datum Viewer', () => {
       );
 
       const jobs = await findAllByTestId('JobList__listItem');
-      expect(jobs.length).toEqual(4);
+      expect(jobs).toHaveLength(4);
 
       await click(jobs[0]);
-      expect((await findAllByTestId('DatumList__listItem')).length).toEqual(4);
+      expect(await findAllByTestId('DatumList__listItem')).toHaveLength(4);
 
       await click(jobs[2]);
-      expect((await findAllByTestId('DatumList__listItem')).length).toEqual(2);
+      expect(await findAllByTestId('DatumList__listItem')).toHaveLength(2);
 
       await click(jobs[0]);
       await click(await findByText('Filter'));
@@ -268,7 +268,7 @@ describe('Datum Viewer', () => {
 
       await click(jobs[0]);
       await click(await findByTestId('Filter__STARTINGChip'));
-      expect((await findAllByTestId('DatumList__listItem')).length).toEqual(4);
+      expect(await findAllByTestId('DatumList__listItem')).toHaveLength(4);
     });
 
     it('should sort jobs by status', async () => {
@@ -280,7 +280,7 @@ describe('Datum Viewer', () => {
 
       const {findByText, findAllByTestId} = render(<JobDatumViewer />);
       let jobs = await findAllByTestId('JobList__listItem');
-      expect(jobs.length).toEqual(4);
+      expect(jobs).toHaveLength(4);
 
       expect(jobs[0]).toHaveTextContent('23b9af7d5d4343219bc8e02ff44cd55a');
       expect(jobs[1]).toHaveTextContent('33b9af7d5d4343219bc8e02ff44cd55a');
@@ -291,7 +291,7 @@ describe('Datum Viewer', () => {
       await click(await findByText('Job status'));
 
       jobs = await findAllByTestId('JobList__listItem');
-      expect(jobs.length).toEqual(4);
+      expect(jobs).toHaveLength(4);
       expect(jobs[0]).toHaveTextContent('33b9af7d5d4343219bc8e02ff44cd55a');
       expect(jobs[1]).toHaveTextContent('o90du4js5d4343219bc8e02ff4acd33a');
       expect(jobs[2]).toHaveTextContent('7798fhje5d4343219bc8e02ff4acd33a');
@@ -316,11 +316,11 @@ describe('Datum Viewer', () => {
           'Job: 23b9af7d5d4343219bc8e02ff44cd55a',
         );
         const jobs = await findAllByTestId('JobList__listItem');
-        expect(jobs.length).toEqual(4);
+        expect(jobs).toHaveLength(4);
         expect(jobs[0]).toHaveClass('selected');
         expect(jobs[0]).toHaveTextContent('23b9af7d5d4343219bc8e02ff44cd55a');
 
-        expect(queryAllByTestId('DatumList__listItem').length).toEqual(0);
+        expect(queryAllByTestId('DatumList__listItem')).toHaveLength(0);
       });
     });
 
@@ -346,7 +346,7 @@ describe('Datum Viewer', () => {
         expect((await findByTestId('BreadCrumbs__base')).textContent).toEqual(
           '.../Datum: 0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
         );
-        expect(queryAllByTestId('JobList__listItem').length).toEqual(0);
+        expect(queryAllByTestId('JobList__listItem')).toHaveLength(0);
         await click(selectedDatum);
 
         expect((await findByTestId('BreadCrumbs__base')).textContent).toEqual(

@@ -27,7 +27,7 @@ describe('File Resolver', () => {
 
       const files = data?.files.files;
       expect(errors).toHaveLength(0);
-      expect(files?.length).toEqual(17);
+      expect(files).toHaveLength(17);
       expect(data?.files.diff?.size).toBe(58644);
       expect(data?.files.diff?.sizeDisplay).toBe('58.65 kB');
       expect(data?.files.diff?.filesAdded).toBe(1);
@@ -70,7 +70,7 @@ describe('File Resolver', () => {
 
       const files = data?.files.files;
       expect(errors).toHaveLength(0);
-      expect(files?.length).toEqual(1);
+      expect(files).toHaveLength(1);
       expect(files?.[0]?.path).toEqual('/cats/kitten.png');
     });
   });
@@ -89,7 +89,7 @@ describe('File Resolver', () => {
       });
 
       expect(errors).toHaveLength(0);
-      expect(data?.files.files.length).toEqual(17);
+      expect(data?.files.files).toHaveLength(17);
 
       const {errors: mutationErrors = []} =
         await executeMutation<PutFilesFromUrLsMutation>(
@@ -123,7 +123,7 @@ describe('File Resolver', () => {
           },
         });
       expect(updatedErrors).toHaveLength(0);
-      expect(updatedFiles?.files.files.length).toEqual(18);
+      expect(updatedFiles?.files.files).toHaveLength(18);
     });
   });
 });
