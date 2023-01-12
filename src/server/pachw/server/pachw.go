@@ -114,7 +114,8 @@ func (p *pachW) scalePachw(ctx context.Context, replicas int32) error {
 	scale, err := p.env.KubeClient.AppsV1().Deployments(p.env.Namespace).UpdateScale(
 		ctx, "pachw", &autoscaling_v1.Scale{
 			ObjectMeta: meta_v1.ObjectMeta{
-				Name: "pachw",
+				Name:      "pachw",
+				Namespace: p.env.Namespace,
 			},
 			Spec: autoscaling_v1.ScaleSpec{
 				Replicas: replicas,

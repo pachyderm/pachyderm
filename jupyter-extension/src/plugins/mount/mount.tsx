@@ -303,10 +303,14 @@ export class MountPlugin implements IMountPlugin {
     for (let i = 0; i < mounted.length; i++) {
       const pfsInput: PfsInput = {
         pfs: {
+          name: `${mounted[i].project}_${mounted[i].repo}`,
           ...(mounted[i].branch !== 'master' && {
-            name: `${mounted[i].repo}_${mounted[i].branch}`,
+            name: `${mounted[i].project}_${mounted[i].repo}_${mounted[i].branch}`,
           }),
           repo: mounted[i].repo,
+          ...(mounted[i].project !== 'default' && {
+            project: mounted[i].project,
+          }),
           ...(mounted[i].branch !== 'master' && {branch: mounted[i].branch}),
           glob: '/',
         },
@@ -342,6 +346,7 @@ export class MountPlugin implements IMountPlugin {
         mounts.push({
           name: pfsInput.name ? pfsInput.name : pfsInput.repo,
           repo: pfsInput.repo,
+          project: pfsInput.project ? pfsInput.project : 'default',
           branch: pfsInput.branch ? pfsInput.branch : 'master',
           mode: 'ro',
         });
@@ -355,6 +360,7 @@ export class MountPlugin implements IMountPlugin {
       mounts.push({
         name: pfsInput.name ? pfsInput.name : pfsInput.repo,
         repo: pfsInput.repo,
+        project: pfsInput.project ? pfsInput.project : 'default',
         branch: pfsInput.branch ? pfsInput.branch : 'master',
         mode: 'ro',
       });
