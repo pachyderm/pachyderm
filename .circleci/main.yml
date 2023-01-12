@@ -41,9 +41,6 @@ parameters:
   run-core-jobs:
     type: boolean
     default: false
-  stable-release:
-    type: integer
-    default: 0
 executors:
   docker-go:
     docker:
@@ -1115,8 +1112,6 @@ jobs:
             make UNDERLYING=$CIRCLE_SHA1 VERSION=${CIRCLE_TAG:1} docker-push
   release-hombrew-tap:
     executor: docker-go
-    environment:
-      STABLE: << pipeline.parameters.stable-release >>
     steps:
       - checkout
       - add_ssh_keys:
@@ -1132,13 +1127,14 @@ jobs:
           description: updates homebrew after determining release type.
           # this checks if it is a custom, pre, or alpha release and passes that additional string so homebrew knows to create new homebrew index.
           # $additional is currently just a flag, that value itself is not used.
-          # $STABLE instructs update_homebrew.sh to release this version as default pachctl installation
+          # $stable instructs update_homebrew.sh to release this version as default pachctl installation
           command: |
             v=${CIRCLE_TAG}
             prefix=${v%%-*}
             index=${#prefix}
             additional=${v:index}
-            ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional} ${STABLE}
+            stable=$(if [[ "$CIRCLE_TAG" == *"-"* ]]; then echo 0; else echo 1; fi;)
+            ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional} ${stable}
 
 workflows:
   integration-tests:
