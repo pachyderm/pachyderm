@@ -53,6 +53,38 @@ func deduceActiveEnterpriseContext(cfg *config.Config) (string, error) {
 	return activeEnterpriseContext, nil
 }
 
+func ConnectCmds() []*cobra.Command {
+	var commands []*cobra.Command
+
+	connect := &cobra.Command{
+		Short: "Connect to a Pachyderm Cluster",
+		Long:  "Connect to a Pachyderm Cluster",
+		Run: cmdutil.Run(func(args []string) (retErr error) {
+			address := args[0]
+			cfg, err := config.Read(false, false)
+			if err != nil {
+				return err
+			}
+			var context config.Context
+			pachdAddress, err := grpcutil.ParsePachdAddress(address)
+			if err != nil {
+				if !errors.Is(err, grpcutil.ErrNoPachdAddress) {
+					return err
+				}
+			} else {
+				context.PachdAddress = pachdAddress.Qualified()
+			}
+			name := "local"
+			cfg.V2.Contexts[name] = &context
+			cfg.V2.ActiveContext = name
+			return cfg.Write()
+
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(connect, "connect"))
+	return commands
+}
+
 // Cmds returns a slice containing admin commands.
 func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
