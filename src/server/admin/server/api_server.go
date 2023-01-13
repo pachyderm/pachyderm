@@ -69,7 +69,8 @@ func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectCl
 
 	clientVersion := request.GetClientVersion()
 	if clientVersion == nil {
-		logrus.Debug("version skew: client called InspectCluster without sending its version; it is probably outdated and needs to be upgraded")
+		// In 2.4.x, this doesn't log anything on the server side.  In 2.5.x, this logs a
+		// message that the client didn't include any version info.
 		response.VersionWarnings = append(response.VersionWarnings, msgNoVersionReq)
 		return response, nil
 	}
