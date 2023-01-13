@@ -29,7 +29,7 @@ func unsupportedError(name string) error {
 
 type unsupportedAdminBuilderClient struct{}
 
-func (c *unsupportedAdminBuilderClient) InspectCluster(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*admin_v2.ClusterInfo, error) {
+func (c *unsupportedAdminBuilderClient) InspectCluster(_ context.Context, _ *admin_v2.InspectClusterRequest, opts ...grpc.CallOption) (*admin_v2.ClusterInfo, error) {
 	return nil, unsupportedError("InspectCluster")
 }
 
