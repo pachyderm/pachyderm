@@ -33,7 +33,10 @@ const ListUnmount: React.FC<ListUnmountProps> = ({
 
   useEffect(() => {
     const branchMounted = mountedItems.find(
-      (mount) => mount.repo === item.repo && mount.branch === selectedBranch,
+      (mount) =>
+        mount.repo === item.repo &&
+        mount.project === item.project &&
+        mount.branch === selectedBranch,
     );
     setSelectedBranchMounted(branchMounted ? true : false);
   }, [mountedItems, selectedBranch]);
