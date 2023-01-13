@@ -383,7 +383,7 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 		number--
 		return cb(fi)
 	})
-	if (p == "" && pacherr.IsNotExist(err)) || err == errutil.ErrBreak {
+	if (p == "" && pacherr.IsNotExist(err)) || errors.Is(err, errutil.ErrBreak) {
 		err = nil
 	}
 	return err
