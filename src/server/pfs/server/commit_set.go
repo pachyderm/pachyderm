@@ -46,8 +46,6 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	collectCount := 0
 	// O(n^2) sorting of commits
 	//
-	// TODO(acohen4) FIXME: it's possible for a commit to have two branches from the same repo in its provenance.
-	// this must be keyed by branch
 	// COULD WE instead sort by created time? DOES CREATED TIME COMPLETELY IMPLY TOPOLOGICAL ORDERING?
 	for collectCount < totalCommits {
 		for i, ci := range commitInfos {

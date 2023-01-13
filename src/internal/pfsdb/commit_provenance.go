@@ -16,19 +16,12 @@ func ResolveCommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo
 	if err != nil {
 		return nil, err
 	}
-	matches := make([]*pfs.Commit, 0)
 	for _, c := range cs {
 		if RepoKey(c.Repo) == RepoKey(repo) {
-			matches = append(matches, c)
+			return c, nil
 		}
 	}
-	if len(matches) == 0 {
-		return nil, pfsserver.ErrCommitNotFound{Commit: &pfs.Commit{Repo: repo, ID: commitSet}}
-	}
-	if len(matches) > 1 {
-		return nil, pfsserver.ErrAmbiguousCommit{Commit: &pfs.Commit{Repo: repo, ID: commitSet}, PossibleCommits: matches}
-	}
-	return matches[0], nil
+	return nil, pfsserver.ErrCommitNotFound{Commit: &pfs.Commit{Repo: repo, ID: commitSet}}
 }
 
 func CommitProvenance(ctx context.Context, tx *pachsql.Tx, repo *pfs.Repo, commitSet string) ([]*pfs.Commit, error) {
@@ -195,7 +188,7 @@ func AddCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to *pfs.Comm
 func addCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to int) error {
 	stmt := `INSERT INTO pfs.commit_provenance(from_id, to_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`
 	_, err := tx.ExecContext(ctx, stmt, from, to)
-	return errors.EnsureStack(err)
+	return errors.Wrapf(err, "add commit provenance")
 }
 
 func SetupCommitProvenanceV0(ctx context.Context, tx *pachsql.Tx) error {

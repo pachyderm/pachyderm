@@ -59,6 +59,9 @@ func (d *driver) triggerCommit(
 // isTriggered checks to see if a branch should be updated from oldHead to
 // newHead based on a trigger.
 func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
+	if t == nil {
+		return false, nil
+	}
 	result := t.All
 	merge := func(cond bool) {
 		if t.All {
