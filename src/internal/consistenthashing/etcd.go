@@ -298,7 +298,6 @@ func (ring *Ring) Lock(ctx context.Context, key string) (context.Context, error)
 					ctx:  pctx.Child(lockCtx, "lock", pctx.WithFields(zap.String("lock", key))),
 				}
 				ring.node.locks[key] = l
-				log.Info(l.ctx, "claimed lock")
 				return lockCtx, nil
 			}
 		}
