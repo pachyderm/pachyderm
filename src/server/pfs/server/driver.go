@@ -12,9 +12,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/sirupsen/logrus"
-	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -27,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -40,12 +40,7 @@ import (
 )
 
 const (
-	// Makes calls to ListRepo and InspectRepo more legible
-	includeAuth = true
-)
-
-const (
-	storageTaskNamespace = "storage"
+	StorageTaskNamespace = "storage"
 	fileSetsRepo         = client.FileSetsRepoName
 	defaultTTL           = client.DefaultTTL
 	maxTTL               = 30 * time.Minute
@@ -70,7 +65,7 @@ type CommitStream interface {
 
 type driver struct {
 	env Env
-	log *logrus.Logger
+
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
 	txnEnv     *txnenv.TransactionEnv
@@ -114,7 +109,6 @@ func newDriver(env Env) (*driver, error) {
 		commits:    commits,
 		branches:   branches,
 		projects:   projects,
-		log:        env.Logger,
 	}
 	// Setup tracker and chunk / fileset storage.
 	tracker := track.NewPostgresTracker(env.DB)
@@ -131,9 +125,6 @@ func newDriver(env Env) (*driver, error) {
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
 	chunkStorage := chunk.NewStorage(objClient, memCache, env.DB, tracker, chunkStorageOpts...)
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, fileset.StorageOptions(&storageConfig)...)
-	// Set up compaction worker.
-	taskSource := env.TaskService.NewSource(storageTaskNamespace)
-	go compactionWorker(env.BackgroundContext, taskSource, d.storage) //nolint:errcheck
 	d.commitStore = newPostgresCommitStore(env.DB, tracker, d.storage)
 	// TODO: Make the cache max size configurable.
 	d.cache = fileset.NewCache(env.DB, tracker, 10000)
@@ -163,11 +154,17 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		repo.Type = pfs.UserRepoType
 	}
 
+	// Check that the repo’s project exists; if not, return an error.
+	var project pfs.ProjectInfo
+	if err = d.projects.ReadWrite(txnCtx.SqlTx).Get(repo.Project, &project); err != nil {
+		return errors.Wrapf(err, "cannot find project %q", repo.Project)
+	}
+
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 
-	// check if 'repo' already exists. If so, return that error. Otherwise,
+	// Check if 'repo' already exists. If so, return that error.  Otherwise,
 	// proceed with ACL creation (avoids awkward "access denied" error when
-	// calling "createRepo" on a repo that already exists)
+	// calling "createRepo" on a repo that already exists).
 	var existingRepoInfo pfs.RepoInfo
 	err = repos.Get(repo, &existingRepoInfo)
 	if err != nil && !col.IsErrNotFound(err) {
@@ -256,9 +253,7 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 }
 
 func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Permission, []string, error) {
-	resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{
-		Resource: repo.AuthResource(),
-	})
+	resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: repo.AuthResource()})
 	if err != nil {
 		return nil, nil, errors.EnsureStack(err)
 	}
@@ -266,36 +261,46 @@ func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Per
 	return resp.Permissions, resp.Roles, nil
 }
 
-func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string, cb func(*pfs.RepoInfo) error) error {
+func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string, projects []*pfs.Project, cb func(*pfs.RepoInfo) error) error {
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
+	projectsFilter := make(map[string]bool)
+	for _, project := range projects {
+		projectsFilter[project.String()] = true
+	}
 
 	processFunc := func(string) error {
+		// Assume the user meant all projects by not providing any projects to filter on.
+		if len(projectsFilter) > 0 && !projectsFilter[repoInfo.Repo.Project.String()] {
+			return nil
+		}
 		size, err := d.repoSize(ctx, repoInfo.Repo)
 		if err != nil {
 			return err
 		}
 		repoInfo.SizeBytesUpperBound = size
-		if includeAuth && authSeemsActive {
+
+		// TODO CORE-1111 check whether user has PROJECT_LIST_REPO on project or REPO_READ on repo.
+		if authSeemsActive && includeAuth {
 			permissions, roles, err := d.getPermissions(ctx, repoInfo.Repo)
-			if err == nil {
-				repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions, Roles: roles}
-			} else if auth.IsErrNotActivated(err) {
-				authSeemsActive = false
-			} else {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for %q", repoInfo.Repo)
+			if err != nil {
+				if errors.Is(err, auth.ErrNotActivated) {
+					authSeemsActive = false
+					return cb(proto.Clone(repoInfo).(*pfs.RepoInfo))
+				} else {
+					return errors.Wrapf(err, "error getting access level for %q", repoInfo.Repo)
+				}
 			}
+			repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions, Roles: roles}
 		}
 		return cb(proto.Clone(repoInfo).(*pfs.RepoInfo))
 	}
 
 	if repoType == "" {
 		// blank type means return all
-		return errors.EnsureStack(d.repos.ReadOnly(ctx).List(repoInfo, col.DefaultOptions(), processFunc))
-	} else {
-		err := d.repos.ReadOnly(ctx).GetByIndex(pfsdb.ReposTypeIndex, repoType, repoInfo, col.DefaultOptions(), processFunc)
-		return errors.EnsureStack(err)
+		return errors.Wrap(d.repos.ReadOnly(ctx).List(repoInfo, col.DefaultOptions(), processFunc), "could not list repos of all types")
 	}
+	return errors.Wrapf(d.repos.ReadOnly(ctx).GetByIndex(pfsdb.ReposTypeIndex, repoType, repoInfo, col.DefaultOptions(), processFunc), "could not get repos of type %q: ERROR FROM GetByIndex", repoType)
 }
 
 func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContext, repos []pfs.RepoInfo, force bool) error {
@@ -471,9 +476,20 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 }
 
 // TODO: delete all repos and pipelines within project
-func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *pfs.Project, force bool) error {
+func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *pfs.Project, _ bool) error {
+	if err := project.ValidateName(); err != nil {
+		return errors.Wrap(err, "invalid project name")
+	}
+	if err := d.env.AuthServer.CheckProjectIsAuthorizedInTransaction(txnCtx, project, auth.Permission_PROJECT_DELETE, auth.Permission_PROJECT_MODIFY_BINDINGS); err != nil {
+		return errors.Wrapf(err, "user is not authorized to delete project %q", project)
+	}
 	if err := d.projects.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.ProjectKey(project)); err != nil {
-		return errors.Wrapf(err, "delete project %q", project.Name)
+		return errors.Wrapf(err, "delete project %q", project)
+	}
+	if err := d.env.AuthServer.DeleteRoleBindingInTransaction(txnCtx, project.AuthResource()); err != nil {
+		if !errors.Is(err, auth.ErrNotActivated) {
+			return errors.Wrapf(err, "delete role binding for project %q", project)
+		}
 	}
 	return nil
 }
@@ -554,7 +570,7 @@ func (d *driver) startCommit(
 	if ok1 && ok2 {
 		specBranch := client.NewSystemProjectRepo(branch.Repo.Project.GetName(), spoutName, pfs.SpecRepoType).NewBranch("master")
 		specCommit := specBranch.NewCommit(spoutCommit)
-		log.Infof("Adding spout spec commit to current commitset: %s", specCommit)
+		log.Info(txnCtx.Context(), "Adding spout spec commit to current commitset", log.Proto("specCommit", specCommit))
 		if _, err := d.aliasCommit(txnCtx, specCommit, specBranch); err != nil {
 			return nil, err
 		}
@@ -1011,34 +1027,39 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 
 	if commitInfo.Finished == nil {
 		switch wait {
+		case pfs.CommitState_STARTED:
 		case pfs.CommitState_READY:
 			for _, branch := range commitInfo.DirectProvenance {
 				if _, err := d.inspectCommit(ctx, branch.NewCommit(commit.ID), pfs.CommitState_FINISHED); err != nil {
 					return nil, err
 				}
 			}
-		case pfs.CommitState_FINISHED:
-			// Watch the CommitInfo until the commit has been finished
+		case pfs.CommitState_FINISHING, pfs.CommitState_FINISHED:
 			if err := d.commits.ReadOnly(ctx).WatchOneF(commit, func(ev *watch.Event) error {
 				if ev.Type == watch.EventDelete {
 					return pfsserver.ErrCommitDeleted{Commit: commit}
 				}
-
 				var key string
 				newCommitInfo := &pfs.CommitInfo{}
 				if err := ev.Unmarshal(&key, newCommitInfo); err != nil {
 					return errors.Wrapf(err, "unmarshal")
 				}
-				if newCommitInfo.Finished != nil {
-					commitInfo = newCommitInfo
-					return errutil.ErrBreak
+				switch wait {
+				case pfs.CommitState_FINISHING:
+					if newCommitInfo.Finishing != nil {
+						commitInfo = newCommitInfo
+						return errutil.ErrBreak
+					}
+				case pfs.CommitState_FINISHED:
+					if newCommitInfo.Finished != nil {
+						commitInfo = newCommitInfo
+						return errutil.ErrBreak
+					}
 				}
 				return nil
 			}); err != nil {
 				return nil, errors.EnsureStack(err)
 			}
-		case pfs.CommitState_STARTED:
-			// Do nothing
 		}
 	}
 
@@ -1436,7 +1457,8 @@ reloadCommitSet:
 	}
 }
 
-func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) error) error {
+func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb func(*pfs.CommitSetInfo) error) error {
+	projectName := project.GetName()
 	// Track the commitsets we've already processed
 	seen := map[string]struct{}{}
 
@@ -1444,6 +1466,9 @@ func (d *driver) listCommitSet(ctx context.Context, cb func(*pfs.CommitSetInfo) 
 	// timestamp due to triggers or deferred processing)
 	commitInfo := &pfs.CommitInfo{}
 	err := d.commits.ReadOnly(ctx).List(commitInfo, col.DefaultOptions(), func(string) error {
+		if commitInfo.GetCommit().GetBranch().GetRepo().GetProject().GetName() != projectName {
+			return nil
+		}
 		if _, ok := seen[commitInfo.Commit.ID]; ok {
 			return nil
 		}
@@ -2109,9 +2134,40 @@ func (d *driver) addBranchProvenance(txnCtx *txncontext.TransactionContext, bran
 	return errors.EnsureStack(err)
 }
 
+func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
+	var repos, deleted []*pfs.Repo
+
+	if err := d.listRepo(ctx, false, "", projects, func(repoInfo *pfs.RepoInfo) error {
+		repos = append(repos, repoInfo.Repo)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if len(repos) == 0 {
+		return nil, nil
+	}
+
+	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		// the list does not use the transaction
+		for _, repo := range repos {
+			if err := d.deleteRepo(txnCtx, repo, true); err != nil {
+				if errors.As(err, &auth.ErrNotAuthorized{}) {
+					continue
+				}
+				return err
+			}
+			deleted = append(deleted, repo)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return deleted, nil
+}
+
 func (d *driver) deleteAll(ctx context.Context) error {
 	var repoInfos []*pfs.RepoInfo
-	if err := d.listRepo(ctx, !includeAuth, "", func(repoInfo *pfs.RepoInfo) error {
+	if err := d.listRepo(ctx, false /* includeAuth */, "" /* repoType */, nil /* projectsFilter */, func(repoInfo *pfs.RepoInfo) error {
 		repoInfos = append(repoInfos, repoInfo)
 		return nil
 	}); err != nil {
@@ -2124,7 +2180,7 @@ func (d *driver) deleteAll(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// the list does not use the transaction
 		for _, repoInfo := range repoInfos {
 			if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
@@ -2137,7 +2193,11 @@ func (d *driver) deleteAll(ctx context.Context) error {
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	// now that the cluster is empty, recreate the default project
+	return d.createProject(ctx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: "default"}})
 }
 
 func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo) (*pfs.Commit, error) {
@@ -2247,7 +2307,7 @@ func getOrCreateKey(ctx context.Context, keyStore chunk.KeyStore, name string) (
 	if _, err := rand.Read(secret); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	log.Infof("generated new secret: %q", name)
+	log.Info(ctx, "generated new secret", zap.String("name", name))
 	if err := keyStore.Create(ctx, name, secret); err != nil {
 		return nil, errors.EnsureStack(err)
 	}

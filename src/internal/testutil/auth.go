@@ -164,3 +164,8 @@ func PipelineNames(t *testing.T, c *client.APIClient, project string) []string {
 func Group(group string) string {
 	return auth.GroupPrefix + group
 }
+
+func RandomRobot(t *testing.T, c *client.APIClient, name string) (string, *client.APIClient) {
+	name = Robot(UniqueString(name))
+	return name, AuthenticateClient(t, c, name)
+}

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 
@@ -24,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -36,13 +36,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
+	"go.uber.org/zap"
 
 	prompt "github.com/c-bata/go-prompt"
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/itchyny/gojq"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -164,7 +165,7 @@ If the job fails, the output commit will not be populated with data.`,
 				if err != nil {
 					return err
 				}
-				jobInfo, err := client.WaitProjectJob(pfs.DefaultProjectName, job.Pipeline.Name, job.ID, true)
+				jobInfo, err := client.WaitProjectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, true)
 				if err != nil {
 					return errors.Wrap(err, "error from InspectJob")
 				}
@@ -212,14 +213,6 @@ $ {{alias}} -i foo@XXX -i bar@YYY
 # Return all sub-jobs in pipeline foo and whose input commits include bar@YYY
 $ {{alias}} -p foo -i bar@YYY`,
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			cfg, err := config.Read(false, false)
-			if err != nil {
-				return err
-			}
-			_, pachCtx, err := cfg.ActiveContext(true)
-			if err != nil {
-				return err
-			}
 			commits, err := cmdutil.ParseCommits(project, inputCommitStrs)
 			if err != nil {
 				return err
@@ -249,11 +242,9 @@ $ {{alias}} -p foo -i bar@YYY`,
 			// To list jobs for all projects, user must be explicit about it.
 			// The --project filter takes precedence over everything else.
 			// By default use pfs.DefaultProjectName
-			projectsFilter := []string{project}
+			projectsFilter := []*pfs.Project{{Name: project}}
 			if allProjects {
 				projectsFilter = nil
-			} else if project == pfs.DefaultProjectName {
-				projectsFilter = []string{pachCtx.GetProject()}
 			}
 			if len(args) == 0 {
 				if pipelineName == "" && !expand {
@@ -351,7 +342,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
-	listJob.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Show jobs from all projects.")
+	listJob.Flags().BoolVar(&allProjects, "all-projects", false, "Show jobs from all projects.")
 	listJob.Flags().StringVar(&project, "project", project, "Limit to jobs in the project specified.")
 	listJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
 	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits. format: <repo>@<branch-or-commit>")
@@ -672,11 +663,11 @@ each datum.`,
 			// Issue RPC
 			iter := client.GetProjectLogs(project, pipelineName, jobID, data, datumID, master, follow, since)
 			var buf bytes.Buffer
-			encoder := json.NewEncoder(&buf)
+			m := &jsonpb.Marshaler{}
 			for iter.Next() {
 				if raw {
 					buf.Reset()
-					if err := encoder.Encode(iter.Message()); err != nil {
+					if err := m.Marshal(&buf, iter.Message()); err != nil {
 						fmt.Fprintf(os.Stderr, "error marshalling \"%v\": %s\n", iter.Message(), err)
 					}
 					fmt.Println(buf.String())
@@ -891,6 +882,21 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				fmt.Println("Pipeline unchanged, no update will be performed.")
 				return nil
 			}
+			// May not change the project name, but if it is omitted
+			// then it is considered unchanged.
+			project := request.Pipeline.GetProject()
+			projectName := project.GetName()
+			if projectName != "" && projectName != pipelineInfo.Pipeline.GetProject().GetName() {
+				return errors.New("may not change project name")
+			}
+			request.Pipeline.Project = pipelineInfo.Pipeline.GetProject() // in case of empty project
+			// Likewise, may not change the pipeline name, but if it
+			// is omitted then it is considered unchanged.
+			pipelineName := request.Pipeline.GetName()
+			if pipelineName != "" && pipelineName != pipelineInfo.Pipeline.GetName() {
+				return errors.New("may not change pipeline name")
+			}
+			request.Pipeline.Name = pipelineInfo.Pipeline.GetName() // in case of empty pipeline name
 			request.Update = true
 			request.Reprocess = reprocess
 			return txncmds.WithActiveTransaction(client, func(txClient *pachdclient.APIClient) error {
@@ -942,11 +948,16 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) > 0 {
 				pipeline = args[0]
 			}
+			projectsFilter := []*pfs.Project{{Name: project}}
+			if allProjects {
+				projectsFilter = nil
+			}
 			request := &ppsclient.ListPipelineRequest{
 				History:   history,
 				CommitSet: &pfs.CommitSet{ID: commit},
 				JqFilter:  filter,
 				Details:   true,
+				Projects:  projectsFilter,
 			}
 			if pipeline != "" {
 				request.Pipeline = pachdclient.NewProjectPipeline(project, pipeline)
@@ -996,6 +1007,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().StringVarP(&commit, "commit", "c", "", "List the pipelines as they existed at this commit.")
 	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
 	listPipeline.Flags().StringVar(&project, "project", project, "Project containing pipelines.")
+	listPipeline.Flags().BoolVar(&allProjects, "all-projects", false, "Show pipelines form all projects.")
 	commands = append(commands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
 
 	var commitSet string
@@ -1418,7 +1430,7 @@ func pipelineHelper(reprocess bool, pushImages bool, registry, username, project
 		ctx, err := extended.EmbedAnyDuration(pc.Ctx())
 		pc = pc.WithCtx(ctx)
 		if err != nil {
-			logrus.Warning(err)
+			log.Error(ctx, "problem adding trace data", zap.Error(err))
 		}
 
 		if update {

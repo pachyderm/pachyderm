@@ -4,16 +4,18 @@ import (
 	"bytes"
 	"context"
 	"flag"
-	"fmt"
-	"log"
 	"math/rand"
+	"os"
 	"strconv"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -43,10 +45,8 @@ func init() {
 
 // PrintFlags just prints the flag values, set above, to stdout. Useful for
 // comparing benchmark runs
-func PrintFlags() {
-	fmt.Printf("num-objects: %v\n", numObjects)
-	fmt.Printf("object-size: %v\n", objectSize)
-	fmt.Printf("concurrency: %v\n", concurrency)
+func PrintFlags(ctx context.Context) {
+	log.Debug(ctx, "flags", zap.Int("num-objects", numObjects), zap.Int("object-size", objectSize), zap.Int("concurrency", concurrency))
 }
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -61,28 +61,34 @@ func RandSeq(n int) []byte {
 }
 
 func main() {
+	log.InitPachctlLogger()
+	ctx := pctx.Background("")
+
 	flag.Parse()
-	PrintFlags()
+	PrintFlags(ctx)
 	// Setup client.
-	c, err := obj.NewClientFromEnv(prefix)
+	c, err := obj.NewClientFromEnv(ctx, prefix)
 	if err != nil {
-		log.Fatalf("Error creating client (%v)", err)
+		log.Error(ctx, "Error creating client", zap.Error(err))
+		os.Exit(1)
 	}
 	// (bryce) It might make sense to clean up the bucket here before running the tests.
 	// Run basic test.
 	start := time.Now()
-	fmt.Printf("Basic test started.\n")
+	log.Info(ctx, "Basic test started.")
 	if err := basicTest(c); err != nil {
-		log.Fatalf("Basic test error: %v", err)
+		log.Error(ctx, "Basic test error", zap.Error(err))
+		os.Exit(1)
 	}
-	fmt.Printf("Basic test completed. Total time: %.3f\n", time.Since(start).Seconds())
+	log.Info(ctx, "Basic test completed.", zap.Duration("time", time.Since(start)))
 	// Run load test.
 	start = time.Now()
-	fmt.Printf("Load test started.\n")
+	log.Info(ctx, "Load test started.")
 	if err := loadTest(c); err != nil {
-		log.Fatalf("Load test error: %v", err)
+		log.Error(ctx, "Load test error", zap.Error(err))
+		os.Exit(1)
 	}
-	fmt.Printf("Load test completed. Total time: %.3f\n", time.Since(start).Seconds())
+	log.Info(ctx, "Load test completed.", zap.Duration("time", time.Since(start)))
 }
 
 func basicTest(c obj.Client) error {

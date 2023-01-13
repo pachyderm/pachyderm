@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -21,14 +23,16 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	logrus "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 const (
@@ -117,7 +121,7 @@ func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bo
 		go s.clusterRoleBindingCache.Watch()
 	}
 
-	if err := s.deleteExpiredTokensRoutine(); err != nil {
+	if err := s.deleteExpiredTokensRoutine(env.BackgroundContext); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -127,7 +131,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	if !a.env.Config.ActivateAuth {
 		return nil
 	}
-	a.env.Logger.Info("Started to configure auth server via environment")
+	log.Info(ctx, "Started to configure auth server via environment")
 	ctx = internalauth.AsInternalUser(ctx, authdb.InternalUser)
 	if err := func() error {
 		// handle auth activation
@@ -171,7 +175,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 				return errors.Wrapf(err, "unmarshal identity clients: %q", a.env.Config.IdentityClients)
 			}
 			if a.env.Config.IdentityAdditionalClients != "" {
-				a.env.Logger.Info("Adding extra oidc clients configured via environment")
+				log.Info(ctx, "Adding extra oidc clients configured via environment")
 				var extras []identity.OIDCClient
 				if err := yaml.Unmarshal([]byte(a.env.Config.IdentityAdditionalClients), &extras); err != nil {
 					return errors.Wrapf(err, "unmarshal extra identity clients: %q", a.env.Config.IdentityAdditionalClients)
@@ -182,7 +186,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 				if c.Id == config.ClientID { // c represents pachd
 					c.Secret = config.ClientSecret
 					if a.env.Config.TrustedPeers != "" {
-						a.env.Logger.Info("Adding additional pachd trusted peers configured via environment")
+						log.Info(ctx, "Adding additional pachd trusted peers configured via environment")
 						var tps []string
 						if err := yaml.Unmarshal([]byte(a.env.Config.TrustedPeers), &tps); err != nil {
 							return errors.Wrapf(err, "unmarshal trusted peers: %q", a.env.Config.TrustedPeers)
@@ -270,16 +274,17 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	}(); err != nil {
 		return errors.Wrapf(errors.EnsureStack(err), "configure the auth server via environment")
 	}
-	a.env.Logger.Info("Successfully configured auth server via environment")
+	log.Info(ctx, "Successfully configured auth server via environment")
 	return nil
 }
 
 func waitForError(name string, required bool, cb func() error) {
 	if err := cb(); !errors.Is(err, http.ErrServerClosed) {
 		if required {
-			logrus.Fatalf("error setting up and/or running %v (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers): %v", name, err)
+			log.Error(pctx.TODO(), "error setting up and/or running server (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers)", zap.String("server", name), zap.Error(err))
+			os.Exit(20)
 		}
-		logrus.Errorf("error setting up and/or running %v: %v", name, err)
+		log.Error(pctx.TODO(), "error setting up and/or running server", zap.String("server", name), zap.Error(err))
 	}
 }
 
@@ -472,23 +477,9 @@ func (a *apiServer) activateInTransaction(ctx context.Context, txCtx *txncontext
 		}); err != nil {
 			return errors.EnsureStack(err)
 		}
-		// If default project exists, grant allClusterUsers ProjectWriter role
-		defaultProjectKey := authdb.ResourceKey(&auth.Resource{Type: auth.ResourceType_PROJECT, Name: pfs.DefaultProjectName})
-		defaultProjectRoleBindings := &auth.RoleBinding{}
-		if err := roleBindings.Get(defaultProjectKey, defaultProjectRoleBindings); err != nil && !errors.Is(err, col.ErrNotFound{}) {
-			return errors.Wrap(err, "failed to get role bindings for default project")
-		}
-		if err == nil {
-			if len(defaultProjectRoleBindings.Entries) == 0 {
-				defaultProjectRoleBindings.Entries = make(map[string]*auth.Roles)
-			}
-			if _, ok := defaultProjectRoleBindings.Entries[auth.AllClusterUsersSubject]; !ok {
-				defaultProjectRoleBindings.Entries[auth.AllClusterUsersSubject] = &auth.Roles{Roles: make(map[string]bool)}
-			}
-			defaultProjectRoleBindings.Entries[auth.AllClusterUsersSubject].Roles[auth.ProjectWriter] = true
-			if err := roleBindings.Put(defaultProjectKey, defaultProjectRoleBindings); err != nil {
-				return errors.Wrap(err, "failed to add ProjectWriter to allClusterUsers for default project")
-			}
+		// TODO CORE-1048 make all users ProjectWriter for default project
+		if err := a.CreateRoleBindingInTransaction(txCtx, "", nil, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: pfs.DefaultProjectName}); err != nil {
+			return errors.Wrapf(err, "could not create role binding for project %q", pfs.DefaultProjectName)
 		}
 		return a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(pachToken), auth.RootUser)
 	}); err != nil {
@@ -516,7 +507,7 @@ func (a *apiServer) RotateRootToken(ctx context.Context, req *auth.RotateRootTok
 func (a *apiServer) rotateRootTokenInTransaction(txCtx *txncontext.TransactionContext, req *auth.RotateRootTokenRequest) (resp *auth.RotateRootTokenResponse, retErr error) {
 	var rootToken string
 	// First revoke root's existing auth token
-	if err := a.deleteAuthTokensForSubjectInTransaction(txCtx.SqlTx, auth.RootUser); err != nil {
+	if _, err := a.deleteAuthTokensForSubjectInTransaction(txCtx.SqlTx, auth.RootUser); err != nil {
 		return nil, err
 	}
 	// If the new token is in the request, use it.
@@ -636,7 +627,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		return nil, errors.Errorf("unrecognized authentication mechanism (old pachd?)")
 	}
 
-	logrus.Info("Authentication checks successful, now returning pachToken")
+	log.Info(ctx, "Authentication checks successful, now returning pachToken")
 
 	// Return new pachyderm token to caller
 	return &auth.AuthenticateResponse{
@@ -694,14 +685,13 @@ func (a *apiServer) evaluateRoleBindingInTransaction(txnCtx *txncontext.Transact
 		if err != nil {
 			return nil, err
 		}
-		projectKey := authdb.ResourceKey(&auth.Resource{Type: auth.ResourceType_PROJECT, Name: repo.Project.Name})
+		projectResource := &auth.Resource{Type: auth.ResourceType_PROJECT, Name: repo.Project.Name}
+		projectKey := authdb.ResourceKey(projectResource)
 		if err := a.roleBindings.ReadWrite(txnCtx.SqlTx).Get(projectKey, &roleBinding); err != nil {
 			if col.IsErrNotFound(err) {
-				return nil, &auth.ErrNoRoleBinding{
-					Resource: *resource,
-				}
+				return nil, &auth.ErrNoRoleBinding{Resource: *projectResource}
 			}
-			return nil, errors.Wrapf(err, "error getting role bindings for %s", repo.Project)
+			return nil, errors.Wrapf(err, "error getting role bindings for %s", projectKey)
 		}
 		if err := request.evaluateRoleBinding(txnCtx, &roleBinding); err != nil {
 			return nil, err
@@ -770,36 +760,37 @@ func (a *apiServer) Authorize(
 	return response, nil
 }
 
-func (a *apiServer) GetPermissionsForPrincipal(ctx context.Context, req *auth.GetPermissionsForPrincipalRequest) (resp *auth.GetPermissionsResponse, retErr error) {
+func (a *apiServer) GetPermissionsForPrincipal(ctx context.Context, req *auth.GetPermissionsForPrincipalRequest) (*auth.GetPermissionsResponse, error) {
 	permissions := make(map[auth.Permission]bool)
 	for p := range auth.Permission_name {
 		permissions[auth.Permission(p)] = true
 	}
-
 	var request *authorizeRequest
 	if err := a.env.TxnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		request, err = a.evaluateRoleBindingInTransaction(txnCtx, req.Principal, req.Resource, permissions)
 		return err
 	}); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "cannot evaluate role binding")
 	}
-
 	return &auth.GetPermissionsResponse{
 		Roles:       request.rolesForResourceType(req.Resource.Type),
-		Permissions: request.satisfied(),
+		Permissions: request.satisfiedForResourceType(req.Resource.Type),
 	}, nil
-
 }
 
 // GetPermissions implements the protobuf auth.GetPermissions RPC
 func (a *apiServer) GetPermissions(ctx context.Context, req *auth.GetPermissionsRequest) (resp *auth.GetPermissionsResponse, retErr error) {
 	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "cannot get authenticated user")
 	}
 
-	return a.GetPermissionsForPrincipal(ctx, &auth.GetPermissionsForPrincipalRequest{Principal: callerInfo.Subject, Resource: req.Resource})
+	resp, err = a.GetPermissionsForPrincipal(ctx, &auth.GetPermissionsForPrincipalRequest{Principal: callerInfo.Subject, Resource: req.Resource})
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot get permissions for principal")
+	}
+	return resp, nil
 }
 
 func (a *apiServer) GetPermissionsInTransaction(txnCtx *txncontext.TransactionContext, req *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error) {
@@ -825,7 +816,7 @@ func (a *apiServer) getPermissionsForPrincipalInTransaction(txnCtx *txncontext.T
 
 	return &auth.GetPermissionsResponse{
 		Roles:       request.rolesForResourceType(req.Resource.Type),
-		Permissions: request.satisfied(),
+		Permissions: request.satisfiedForResourceType(req.Resource.Type),
 	}, nil
 
 }
@@ -1190,11 +1181,12 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 
 // RevokeAuthToken implements the protobuf auth.RevokeAuthToken RPC
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
-	//nolint:errcheck
-	a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		resp, retErr = a.RevokeAuthTokenInTransaction(txnCtx, req)
 		return retErr
-	})
+	}); err != nil {
+		return nil, err
+	}
 	return resp, retErr
 }
 
@@ -1203,10 +1195,11 @@ func (a *apiServer) RevokeAuthTokenInTransaction(txnCtx *txncontext.TransactionC
 		return nil, err
 	}
 
-	if err := a.deleteAuthToken(txnCtx.SqlTx, auth.HashToken(req.Token)); err != nil {
+	n, err := a.deleteAuthToken(txnCtx.SqlTx, auth.HashToken(req.Token))
+	if err != nil {
 		return nil, err
 	}
-	return &auth.RevokeAuthTokenResponse{}, nil
+	return &auth.RevokeAuthTokenResponse{Number: n}, nil
 }
 
 // setGroupsForUserInternal is a helper function used by SetGroupsForUser, and
@@ -1609,8 +1602,12 @@ func (a *apiServer) RestoreAuthToken(ctx context.Context, req *auth.RestoreAuthT
 
 // implements the protobuf auth.DeleteExpiredAuthTokens RPC
 func (a *apiServer) DeleteExpiredAuthTokens(ctx context.Context, req *auth.DeleteExpiredAuthTokensRequest) (*auth.DeleteExpiredAuthTokensResponse, error) {
-	if _, err := a.env.DB.Exec(`DELETE FROM auth.auth_tokens WHERE NOW() > expiration`); err != nil {
+	info, err := a.env.DB.Exec(`DELETE FROM auth.auth_tokens WHERE NOW() > expiration`)
+	if err != nil {
 		return nil, errors.Wrapf(err, "error deleting expired tokens")
+	}
+	if n, err := info.RowsAffected(); err == nil && n > 0 {
+		log.Debug(ctx, "deleted expired auth tokens", zap.Int64("n", n))
 	}
 	return &auth.DeleteExpiredAuthTokensResponse{}, nil
 }
@@ -1621,26 +1618,34 @@ func (a *apiServer) RevokeAuthTokensForUser(ctx context.Context, req *auth.Revok
 	if strings.HasPrefix(req.Username, auth.PachPrefix) {
 		return nil, errors.New("cannot revoke tokens for pach: users")
 	}
-	if err := a.deleteAuthTokensForSubject(ctx, req.Username); err != nil {
+	n, err := a.deleteAuthTokensForSubject(ctx, req.Username)
+	if err != nil {
 		return nil, err
 	}
-	return &auth.RevokeAuthTokensForUserResponse{}, nil
+	return &auth.RevokeAuthTokensForUserResponse{Number: n}, nil
 }
 
-func (a *apiServer) deleteExpiredTokensRoutine() error {
-	if _, err := a.DeleteExpiredAuthTokens(context.Background(), &auth.DeleteExpiredAuthTokensRequest{}); err != nil {
+func (a *apiServer) deleteExpiredTokensRoutine(ctx context.Context) error {
+	ctx = pctx.Child(ctx, "deleteExpiredTokensRoutine")
+	if _, err := a.DeleteExpiredAuthTokens(ctx, &auth.DeleteExpiredAuthTokensRequest{}); err != nil {
 		return err
 	}
 
 	go func(ctx context.Context) {
 		ticker := backoff.NewTicker(backoff.NewConstantBackOff(time.Duration(cleanupIntervalHours) * time.Hour))
 		defer ticker.Stop()
-		for range ticker.C {
+		for {
+
 			if _, err := a.DeleteExpiredAuthTokens(ctx, &auth.DeleteExpiredAuthTokensRequest{}); err != nil {
-				logrus.Errorf("could not delete expired tokens: %v", err)
+				log.Error(ctx, "could not delete expired tokens", zap.Error(err))
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
 			}
 		}
-	}(context.Background())
+	}(ctx)
 
 	return nil
 }
@@ -1660,7 +1665,7 @@ func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.TokenInfo, err
 	robotTokens := make([]*auth.TokenInfo, 0)
 	if err := a.env.DB.SelectContext(ctx, &robotTokens,
 		`SELECT token_hash, subject, expiration
-		FROM auth.auth_tokens 
+		FROM auth.auth_tokens
 		WHERE subject LIKE $1 || '%'`, auth.RobotPrefix); err != nil {
 		return nil, errors.Wrapf(err, "error querying token")
 	}
@@ -1687,7 +1692,7 @@ func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject
 // generates a token, and stores it's hash and supporting data in postgres
 func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subject string, ttlSeconds int64) error {
 	if _, err := a.env.DB.ExecContext(ctx,
-		`INSERT INTO auth.auth_tokens (token_hash, subject, expiration) 
+		`INSERT INTO auth.auth_tokens (token_hash, subject, expiration)
 		VALUES ($1, $2, NOW() + $3 * interval '1 sec')`, tokenHash, subject, ttlSeconds); err != nil {
 		if dbutil.IsUniqueViolation(err) {
 			return errors.New("cannot overwrite existing token with same hash")
@@ -1707,7 +1712,7 @@ func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, 
 
 func (a *apiServer) insertAuthTokenNoTTLInTransaction(txnCtx *txncontext.TransactionContext, tokenHash string, subject string) error {
 	if _, err := txnCtx.SqlTx.Exec(
-		`INSERT INTO auth.auth_tokens (token_hash, subject) 
+		`INSERT INTO auth.auth_tokens (token_hash, subject)
 		VALUES ($1, $2)`, tokenHash, subject); err != nil {
 		if dbutil.IsUniqueViolation(err) {
 			return errors.New("cannot overwrite existing token with same hash")
@@ -1724,24 +1729,38 @@ func (a *apiServer) deleteAllAuthTokens(ctx context.Context, sqlTx *pachsql.Tx) 
 	return nil
 }
 
-func (a *apiServer) deleteAuthToken(sqlTx *pachsql.Tx, tokenHash string) error {
-	if _, err := sqlTx.Exec(`DELETE FROM auth.auth_tokens WHERE token_hash=$1`, tokenHash); err != nil {
-		return errors.Wrapf(err, "error deleting token")
+func (a *apiServer) deleteAuthToken(sqlTx *pachsql.Tx, tokenHash string) (int64, error) {
+	result, err := sqlTx.Exec(`DELETE FROM auth.auth_tokens WHERE token_hash=$1`, tokenHash)
+	if err != nil {
+		return 0, errors.Wrap(err, "error deleting token")
 	}
-	return nil
+	n, err := result.RowsAffected()
+	if err != nil {
+		return 0, errors.Wrap(err, "error getting rows affected")
+	}
+	return n, nil
 }
 
-func (a *apiServer) deleteAuthTokensForSubject(ctx context.Context, subject string) error {
-	return dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
-		return a.deleteAuthTokensForSubjectInTransaction(sqlTx, subject)
-	}, dbutil.WithIsolationLevel(sql.LevelRepeatableRead))
+func (a *apiServer) deleteAuthTokensForSubject(ctx context.Context, subject string) (n int64, retErr error) {
+	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
+		n, retErr = a.deleteAuthTokensForSubjectInTransaction(sqlTx, subject)
+		return retErr
+	}, dbutil.WithIsolationLevel(sql.LevelRepeatableRead)); err != nil {
+		return 0, errors.Wrap(err, "error deleting auth token for subject")
+	}
+	return n, retErr
 }
 
-func (a *apiServer) deleteAuthTokensForSubjectInTransaction(tx *pachsql.Tx, subject string) error {
-	if _, err := tx.Exec(`DELETE FROM auth.auth_tokens WHERE subject = $1`, subject); err != nil {
-		return errors.Wrapf(err, "error deleting all auth tokens")
+func (a *apiServer) deleteAuthTokensForSubjectInTransaction(tx *pachsql.Tx, subject string) (int64, error) {
+	result, err := tx.Exec(`DELETE FROM auth.auth_tokens WHERE subject = $1`, subject)
+	if err != nil {
+		return 0, errors.Wrap(err, "error deleting all auth tokens")
 	}
-	return nil
+	n, err := result.RowsAffected()
+	if err != nil {
+		return 0, errors.Wrap(err, "error getting rows affected")
+	}
+	return n, nil
 }
 
 func authRepoResourceToRepo(resource *auth.Resource) (*pfs.Repo, error) {

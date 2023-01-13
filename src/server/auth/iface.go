@@ -15,8 +15,9 @@ import (
 type APIServer interface {
 	auth.APIServer
 
-	CheckRepoIsAuthorized(context.Context, *pfs.Repo, ...auth.Permission) error
 	CheckClusterIsAuthorized(ctx context.Context, p ...auth.Permission) error
+	CheckProjectIsAuthorized(context.Context, *pfs.Project, ...auth.Permission) error
+	CheckRepoIsAuthorized(context.Context, *pfs.Repo, ...auth.Permission) error
 	CheckClusterIsAuthorizedInTransaction(*txncontext.TransactionContext, ...auth.Permission) error
 	CheckProjectIsAuthorizedInTransaction(*txncontext.TransactionContext, *pfs.Project, ...auth.Permission) error
 	CheckRepoIsAuthorizedInTransaction(*txncontext.TransactionContext, *pfs.Repo, ...auth.Permission) error

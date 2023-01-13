@@ -16,10 +16,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
-	logrus "github.com/sirupsen/logrus"
+	"go.uber.org/multierr"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	v1 "k8s.io/api/core/v1"
@@ -76,7 +79,7 @@ func NewEnterpriseServer(env *Env, heartbeat bool) (*apiServer, error) {
 	go s.enterpriseTokenCache.Watch()
 
 	if heartbeat {
-		go s.heartbeatRoutine()
+		go s.heartbeatRoutine(env.BackgroundContext)
 	}
 	return s, nil
 }
@@ -85,7 +88,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	if !a.env.Config.EnterpriseMember {
 		return nil
 	}
-	a.env.Logger.Info("Started to configure enterprise member cluster via environment")
+	log.Info(ctx, "Started to configure enterprise member cluster via environment")
 	var cluster *lc.AddClusterRequest
 	if err := yaml.Unmarshal([]byte(a.env.Config.EnterpriseMemberConfig), &cluster); err != nil {
 		return errors.Wrapf(err, "unmarshal enterprise cluster %q", a.env.Config.EnterpriseMemberConfig)
@@ -119,23 +122,31 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	}); err != nil {
 		return errors.Wrap(err, "activate enterprise service")
 	}
-	a.env.Logger.Info("Successfully configured enterprise member cluster via environment")
+	log.Info(ctx, "Successfully configured enterprise member cluster via environment")
 	return nil
 }
 
 // heartbeatRoutine should  be run in a goroutine and attempts to heartbeat to the license service.
 // If the attempt fails and the license server is configured it logs the error.
-func (a *apiServer) heartbeatRoutine() {
+func (a *apiServer) heartbeatRoutine(ctx context.Context) {
+	ctx = pctx.Child(ctx, "heartbeatRoutine")
 	heartbeat := func() {
-		ctx, cancel := context.WithTimeout(context.Background(), heartbeatTimeout)
+		ctx, cancel := context.WithTimeout(ctx, heartbeatTimeout)
 		defer cancel()
 		if err := a.heartbeatIfConfigured(ctx); err != nil && !lc.IsErrNotActivated(err) {
-			logrus.WithError(err).Error("enterprise license heartbeat process failed")
+			log.Error(ctx, "enterprise license heartbeat process failed", zap.Error(err))
 		}
 	}
-	heartbeat()
-	for range time.Tick(heartbeatFrequency) {
+	ticker := time.NewTicker(heartbeatFrequency)
+	defer ticker.Stop()
+	for {
+
 		heartbeat()
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }
 
@@ -158,7 +169,7 @@ func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 	resp, err := a.heartbeatToServer(ctx, config.LicenseServer, config.Id, config.Secret)
 	if err != nil {
 		if lc.IsErrInvalidIDOrSecret(err) {
-			logrus.WithError(err).Error("enterprise license heartbeat had invalid id or secret, disabling enterprise")
+			log.Error(ctx, "enterprise license heartbeat had invalid id or secret; disabling enterprise", zap.Error(err))
 			_, err = col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 				e := a.enterpriseTokenCol.ReadWrite(stm)
 				err := e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
@@ -516,18 +527,20 @@ func scaleDownWorkers(ctx context.Context, kc kubernetes.Interface, namespace st
 	if err != nil {
 		return errors.Errorf("could not list workers: %v", err)
 	}
+	var errs error
 	for _, w := range ww.Items {
 		if _, err := rc.UpdateScale(ctx, w.GetName(), &autoscalingv1.Scale{
+			ObjectMeta: w.ObjectMeta,
 			Spec: autoscalingv1.ScaleSpec{
 				Replicas: 0,
 			},
 		}, metav1.UpdateOptions{
 			FieldManager: "enterprise-server",
 		}); err != nil {
-			return errors.Errorf("could not scale down %s: %v", w.GetName(), err)
+			multierr.AppendInto(&errs, errors.Errorf("could not scale down %s: %v", w.GetName(), err))
 		}
 	}
-	return nil
+	return errs
 }
 
 func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *ec.UnpauseResponse, retErr error) {

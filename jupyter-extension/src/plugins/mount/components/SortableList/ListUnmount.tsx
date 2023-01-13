@@ -59,10 +59,11 @@ const ListUnmount: React.FC<ListUnmountProps> = ({
             {
               name:
                 selectedBranch === 'master'
-                  ? item.repo
-                  : `${item.repo}_${selectedBranch}`,
+                  ? `${item.project}_${item.repo}`
+                  : `${item.project}_${item.repo}_${selectedBranch}`,
               repo: item.repo,
               branch: selectedBranch,
+              project: item.project,
               mode: 'ro',
             },
           ],
@@ -83,8 +84,11 @@ const ListUnmount: React.FC<ListUnmountProps> = ({
         title="You don't have the correct permissions to access this repository"
       >
         <span className="pachyderm-mount-list-item-name-branch-wrapper pachyderm-mount-sortableList-disabled">
-          <span className="pachyderm-mount-list-item-name" title={item.repo}>
-            {item.repo}
+          <span
+            className="pachyderm-mount-list-item-name"
+            title={`${item.project}_${item.repo}`}
+          >
+            {`${item.project}_${item.repo}`}
           </span>
           <span className="pachyderm-mount-list-item-branch">
             No read access
@@ -102,8 +106,11 @@ const ListUnmount: React.FC<ListUnmountProps> = ({
         title="Repo doesn't have a branch"
       >
         <span className="pachyderm-mount-list-item-name-branch-wrapper pachyderm-mount-sortableList-disabled">
-          <span className="pachyderm-mount-list-item-name" title={item.repo}>
-            {item.repo}
+          <span
+            className="pachyderm-mount-list-item-name"
+            title={`${item.project}_${item.repo}`}
+          >
+            {`${item.project}_${item.repo}`}
           </span>
 
           <span className="pachyderm-mount-list-item-branch">No branches</span>
@@ -122,8 +129,11 @@ const ListUnmount: React.FC<ListUnmountProps> = ({
           disabled ? 'pachyderm-mount-sortableList-disabled' : ''
         }`}
       >
-        <span className="pachyderm-mount-list-item-name" title={item.repo}>
-          {item.repo}
+        <span
+          className="pachyderm-mount-list-item-name"
+          title={`${item.project}_${item.repo}`}
+        >
+          {`${item.project}_${item.repo}`}
         </span>
         <span className="pachyderm-mount-list-item-branch">
           {

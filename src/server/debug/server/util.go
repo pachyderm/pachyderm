@@ -10,6 +10,9 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/fsutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"go.uber.org/multierr"
 )
 
 func join(names ...string) string {
@@ -19,15 +22,11 @@ func join(names ...string) string {
 func withDebugWriter(w io.Writer, cb func(*tar.Writer) error) (retErr error) {
 	gw := gzip.NewWriter(w)
 	defer func() {
-		if retErr == nil {
-			retErr = gw.Close()
-		}
+		multierr.AppendInto(&retErr, gw.Close())
 	}()
 	tw := tar.NewWriter(gw)
 	defer func() {
-		if retErr == nil {
-			retErr = tw.Close()
-		}
+		multierr.AppendInto(&retErr, tw.Close())
 	}()
 	return cb(tw)
 }
@@ -93,9 +92,7 @@ func collectDebugStream(tw *tar.Writer, r io.Reader, prefix ...string) (retErr e
 		return errors.EnsureStack(err)
 	}
 	defer func() {
-		if err := gr.Close(); retErr == nil {
-			retErr = err
-		}
+		multierr.AppendInto(&retErr, gr.Close())
 	}()
 	tr := tar.NewReader(gr)
 	return copyTar(tw, tr, prefix...)
@@ -131,4 +128,60 @@ func copyTar(tw *tar.Writer, tr *tar.Reader, prefix ...string) error {
 			return err
 		}
 	}
+}
+
+func validateProject(p *pfs.Project) error {
+	if p == nil {
+		return errors.Errorf("nil project")
+	}
+	if p.Name == "" {
+		return errors.Errorf("empty project name")
+	}
+	return nil
+}
+
+func validateRepo(r *pfs.Repo) error {
+	if r == nil {
+		return errors.Errorf("nil repo")
+	}
+	if r.Name == "" {
+		return errors.Errorf("empty repo name")
+	}
+	if err := validateProject(r.Project); err != nil {
+		return errors.Wrapf(err, "invalid project in repo %q", r.Name)
+	}
+	return nil
+}
+
+func validateRepoInfo(pi *pfs.RepoInfo) error {
+	if pi == nil {
+		return errors.Errorf("nil repo info")
+	}
+	if err := validateRepo(pi.Repo); err != nil {
+		return errors.Wrap(err, "invalid repo:")
+	}
+	return nil
+}
+
+func validatePipeline(p *pps.Pipeline) error {
+	if p == nil {
+		return errors.Errorf("nil pipeline")
+	}
+	if p.Name == "" {
+		return errors.Errorf("empty pipeline name")
+	}
+	if err := validateProject(p.Project); err != nil {
+		return errors.Wrapf(err, "invalid project in pipeline %q", p.Name)
+	}
+	return nil
+}
+
+func validatePipelineInfo(pi *pps.PipelineInfo) error {
+	if pi == nil {
+		return errors.Errorf("nil pipeline info")
+	}
+	if err := validatePipeline(pi.Pipeline); err != nil {
+		return errors.Wrap(err, "invalid pipeline:")
+	}
+	return nil
 }

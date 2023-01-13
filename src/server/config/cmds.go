@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"sort"
 	"time"
@@ -508,11 +507,11 @@ func Cmds() []*cobra.Command {
 func contextCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
-		log.Fatal(err)
+		shell.Fatal(err)
 	}
 	activeContext, _, err := cfg.ActiveContext(false)
 	if err != nil {
-		log.Fatal(err)
+		shell.Fatal(err)
 	}
 	var result []prompt.Suggest
 	for name, ctx := range cfg.V2.Contexts {

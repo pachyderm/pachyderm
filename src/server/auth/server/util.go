@@ -32,8 +32,11 @@ func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.Transa
 // CheckResourceIsAuthorizedInTransaction returns an error if the subject/user doesn't have permission in `p` on the `resource`
 func (a *apiServer) checkResourceIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, resource *auth.Resource, p ...auth.Permission) error {
 	me, err := txnCtx.WhoAmI()
-	if errors.Is(err, auth.ErrNotActivated) {
-		return nil
+	if err != nil {
+		if errors.Is(err, auth.ErrNotActivated) {
+			return nil
+		}
+		return err
 	}
 
 	req := &auth.AuthorizeRequest{Resource: resource, Permissions: p}
@@ -47,16 +50,31 @@ func (a *apiServer) checkResourceIsAuthorizedInTransaction(txnCtx *txncontext.Tr
 	return nil
 }
 
-// CheckRepoIsAuthorized returns an error if the current user doesn't have
-// the permissions in `p` on the repo `r`
-func (a *apiServer) CheckRepoIsAuthorized(ctx context.Context, r *pfs.Repo, p ...auth.Permission) error {
-	me, err := a.WhoAmI(ctx, &auth.WhoAmIRequest{})
-	if auth.IsErrNotActivated(err) {
-		return nil
-	}
+// CheckClusterIsAuthorized returns an error if the current user doesn't have
+// the permissions in `p` on the cluster
+func (a *apiServer) CheckClusterIsAuthorized(ctx context.Context, p ...auth.Permission) error {
+	return a.checkResourceIsAuthorized(ctx, &auth.Resource{Type: auth.ResourceType_CLUSTER}, p...)
+}
 
-	// Handle spec commits differently from stats and user commits
-	resource := r.AuthResource()
+// CheckProjectIsAuthorized returns an error if the current user doesn't have permissiosn in `p` on `project`
+func (a *apiServer) CheckProjectIsAuthorized(ctx context.Context, project *pfs.Project, p ...auth.Permission) error {
+	return a.checkResourceIsAuthorized(ctx, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project.Name}, p...)
+}
+
+// CheckRepoIsAuthorized returns an error if the current user doesn't have
+// the permissions in `p` on `repo`
+func (a *apiServer) CheckRepoIsAuthorized(ctx context.Context, repo *pfs.Repo, p ...auth.Permission) error {
+	return a.checkResourceIsAuthorized(ctx, repo.AuthResource(), p...)
+}
+
+func (a *apiServer) checkResourceIsAuthorized(ctx context.Context, resource *auth.Resource, p ...auth.Permission) error {
+	me, err := a.WhoAmI(ctx, &auth.WhoAmIRequest{})
+	if err != nil {
+		if errors.Is(err, auth.ErrNotActivated) {
+			return nil
+		}
+		return err
+	}
 
 	req := &auth.AuthorizeRequest{Resource: resource, Permissions: p}
 	resp, err := a.Authorize(ctx, req)
@@ -65,25 +83,6 @@ func (a *apiServer) CheckRepoIsAuthorized(ctx context.Context, r *pfs.Repo, p ..
 	}
 	if !resp.Authorized {
 		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: *resource, Required: p}
-	}
-	return nil
-}
-
-// CheckClusterIsAuthorized returns an error if the current user doesn't have
-// the permissions in `p` on the cluster
-func (a *apiServer) CheckClusterIsAuthorized(ctx context.Context, p ...auth.Permission) error {
-	me, err := a.WhoAmI(ctx, &auth.WhoAmIRequest{})
-	if auth.IsErrNotActivated(err) {
-		return nil
-	}
-
-	req := &auth.AuthorizeRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}, Permissions: p}
-	resp, err := a.Authorize(ctx, req)
-	if err != nil {
-		return err
-	}
-	if !resp.Authorized {
-		return &auth.ErrNotAuthorized{Subject: me.Username, Resource: auth.Resource{Type: auth.ResourceType_CLUSTER}, Required: p}
 	}
 	return nil
 }
