@@ -58,7 +58,7 @@ func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.Unord
 		}
 		url, err := obj.ParseURL(src.URL)
 		if err != nil {
-			return 0, errors.Wrapf(err, "error parsing url %v", src)
+			return 0, errors.EnsureStack(err)
 		}
 		bucket, err := openBucket(ctx, url)
 		if err != nil {
@@ -66,12 +66,12 @@ func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.Unord
 		}
 		defer func() {
 			if err := bucket.Close(); err != nil {
-				retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing bucket %s", url.Bucket))
+				retErr = multierror.Append(retErr, errors.EnsureStack(err))
 			}
 		}()
 		r, err := bucket.NewReader(ctx, url.Object, nil)
 		if err != nil {
-			return 0, errors.Wrapf(err, "error creating reader for key %s from bucket %s", url.Object, url.Bucket)
+			return 0, errors.EnsureStack(err)
 		}
 		defer func() {
 			if err := r.Close(); err != nil {
@@ -104,18 +104,18 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 		})
 		return errors.EnsureStack(err)
 	})
-	eg.Go(func() error {
+	eg.Go(func() (retErr error) {
 		url, err := obj.ParseURL(src.URL)
 		if err != nil {
-			return errors.Wrapf(err, "error parsing url %v", src)
+			return errors.EnsureStack(err)
 		}
 		bucket, err := openBucket(ctx, url)
 		if err != nil {
 			return err
 		}
 		defer func() {
-			if closeErr := bucket.Close(); closeErr != nil {
-				retErr = multierror.Append(err, errors.Wrapf(closeErr, "error closing bucket %s", url.Bucket))
+			if err := bucket.Close(); err != nil {
+				retErr = multierror.Append(retErr, errors.EnsureStack(err))
 			}
 		}()
 		var paths []string
@@ -141,15 +141,15 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 		for {
 			listObj, err = list.Next(ctx)
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
-				return errors.Wrapf(err, "error iterating through list for bucket %s", url.Bucket)
+				return errors.Wrapf(err, "error listing bucket %s", url.Bucket)
 			}
 			log.Debug(ctx, "object stats", zap.String("object", listObj.Key), zap.Int64("size", listObj.Size))
 			if len(paths) >= defaultURLTaskSize {
 				if err := createTask(); err != nil {
-					return errors.Wrap(err, "error from callback")
+					return errors.EnsureStack(err)
 				}
 				paths = nil
 			}

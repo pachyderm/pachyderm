@@ -81,7 +81,7 @@ func TestAmazonECS(t *testing.T) {
 }
 
 func writeReadDelete(t *testing.T, url *obj.ObjectStoreURL) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30000)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 	bucket, err := openBucket(ctx, url)
 	defer func() {
@@ -90,7 +90,7 @@ func writeReadDelete(t *testing.T, url *obj.ObjectStoreURL) {
 	require.NoError(t, err, "should be able to open bucket")
 	objName := randutil.UniqueString("test-object-")
 	writeToObjStorage(ctx, t, bucket, objName)
-	buf := bytes.NewBuffer(make([]byte, 0))
+	buf := &bytes.Buffer{}
 	readFromObjStorage(ctx, t, bucket, objName, buf)
 	require.Equal(t, buf.String(), objName)
 	err = bucket.Delete(ctx, objName)

@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
@@ -57,7 +56,7 @@ func (d *driver) URLWorker(ctx context.Context) {
 func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask) (_ *types.Any, retErr error) {
 	url, err := obj.ParseURL(task.URL)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error parsing URL %v", task.URL)
+		return nil, errors.EnsureStack(err)
 	}
 	bucket, err := openBucket(ctx, url)
 	if err != nil {
@@ -65,7 +64,7 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 	}
 	defer func() {
 		if err := bucket.Close(); err != nil {
-			retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing bucket %s", url.Bucket))
+			retErr = multierror.Append(retErr, errors.EnsureStack(err))
 		}
 	}()
 	prefix := strings.TrimPrefix(url.Object, "/")
@@ -77,7 +76,7 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 					if err := func() error {
 						r, err := bucket.NewReader(ctx, path, nil)
 						if err != nil {
-							return errors.Wrapf(err, "error creating reader for key %s from bucket %s", url.Object, url.Bucket)
+							return errors.EnsureStack(err)
 						}
 						defer func() {
 							if err := r.Close(); err != nil {
@@ -110,7 +109,7 @@ func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 	}
 	url, err := obj.ParseURL(task.URL)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error parsing URL %v", task.URL)
+		return nil, errors.EnsureStack(err)
 	}
 	bucket, err := openBucket(ctx, url)
 	if err != nil {
@@ -118,7 +117,7 @@ func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 	}
 	defer func() {
 		if err := bucket.Close(); err != nil {
-			retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing bucket %s", url.Bucket))
+			retErr = multierror.Append(retErr, errors.EnsureStack(err))
 		}
 	}()
 	if err := log.LogStep(ctx, "getFileURLTask", func(ctx context.Context) error {
@@ -126,16 +125,9 @@ func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 			if fi.FileType != pfs.FileType_FILE {
 				return nil
 			}
-			exists, err := bucket.Exists(ctx, fi.File.Path)
-			if err != nil {
-				return errors.Wrapf(err, "error checking if key %s exists in bucket %s", fi.File.Path, url.Bucket)
-			}
-			if exists {
-				return errors.EnsureStack(fmt.Errorf("key %s already exists in bucket %s", fi.File.Path, url.Bucket))
-			}
 			w, err := bucket.NewWriter(ctx, fi.File.Path, nil)
 			if err != nil {
-				return errors.Wrapf(err, "error creating writer for bucket %s", url.Bucket)
+				return errors.EnsureStack(err)
 			}
 			defer func() {
 				if err := w.Close(); err != nil {
@@ -144,7 +136,7 @@ func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 			}()
 			err = file.Content(ctx, w)
 			if err != nil {
-				return errors.Wrapf(err, "error writing to bucket %s", url.Bucket)
+				return errors.EnsureStack(err)
 			}
 			return nil
 		})

@@ -23,8 +23,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 )
 
-// openBucket swaps out client backend implementation for s3, gcp, and azure with go-cloud-sdk.
-func openBucket(ctx context.Context, url *obj.ObjectStoreURL) (bucket *blob.Bucket, err error) {
+// openBucket handles connection to s3-compatible buckets, gcp buckets, and azure containers using the go-cdk library.
+func openBucket(ctx context.Context, url *obj.ObjectStoreURL) (*blob.Bucket, error) {
 	if os.Getenv("CUSTOM_ENDPOINT") != "" {
 		if url.Params != "" {
 			url.Params += "&"
@@ -38,14 +38,8 @@ func openBucket(ctx context.Context, url *obj.ObjectStoreURL) (bucket *blob.Buck
 		url.Params += "disableSSL=" + os.Getenv("DISABLE_SSL")
 	}
 	switch url.Scheme {
-	case "wasb":
-		url.Scheme = "azblob"
-	case "gcs": // assuming 'gcs' is an alias for 'gs'
-		url.Scheme = "gs"
-	}
-	switch url.Scheme {
 	case "s3", "gs", "azblob":
-		bucket, err = blob.OpenBucket(ctx, url.BucketString())
+		bucket, err := blob.OpenBucket(ctx, url.BucketString())
 		if err != nil {
 			return nil, errors.EnsureStack(errors.Wrapf(err, "error opening bucket %s", url.Bucket))
 		}
@@ -57,7 +51,8 @@ func openBucket(ctx context.Context, url *obj.ObjectStoreURL) (bucket *blob.Buck
 	}
 }
 
-func handleMinio(ctx context.Context, url *obj.ObjectStoreURL) (bucket *blob.Bucket, err error) {
+// handleMinio opens a minio bucket using pachyderm minio environment variables if defined.
+func handleMinio(ctx context.Context, url *obj.ObjectStoreURL) (*blob.Bucket, error) {
 	endpoint := ""
 	id := "minioadmin"
 	secret := "minioadmin"
@@ -81,7 +76,7 @@ func handleMinio(ctx context.Context, url *obj.ObjectStoreURL) (bucket *blob.Buc
 	if os.Getenv("MINIO_SECURE") != "" {
 		ssl, err := strconv.ParseBool(os.Getenv("MINIO_SECURE"))
 		if err != nil {
-			return nil, errors.EnsureStack(errors.Wrap(err, "error parsing MINIO_SECURE to bool"))
+			return nil, errors.EnsureStack(err)
 		}
 		disableSSL = !ssl
 	}
@@ -93,11 +88,11 @@ func handleMinio(ctx context.Context, url *obj.ObjectStoreURL) (bucket *blob.Buc
 		S3ForcePathStyle: aws.Bool(true),
 	})
 	if err != nil {
-		return nil, errors.EnsureStack(errors.Wrapf(err, "error creating session s", url.Bucket))
+		return nil, errors.EnsureStack(err)
 	}
-	bucket, err = s3blob.OpenBucket(ctx, sess, parts[1], nil)
+	bucket, err := s3blob.OpenBucket(ctx, sess, parts[1], nil)
 	if err != nil {
-		return nil, errors.EnsureStack(errors.Wrapf(err, "error opening bucket %s", url.Bucket))
+		return nil, errors.EnsureStack(err)
 	}
 	return bucket, nil
 }

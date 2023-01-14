@@ -439,39 +439,49 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "error parsing url %v", urlStr)
 	}
+	objStoreUrl := &ObjectStoreURL{}
 	switch u.Scheme {
-	case "azblob", "gcs", "gs", "local", "s3":
-		return &ObjectStoreURL{
+	// gcs seems to be unused, but is left here in case it is used by customers.
+	case "azblob", "gs", "local", "s3":
+		objStoreUrl = &ObjectStoreURL{
 			Scheme: u.Scheme,
 			Bucket: u.Host,
 			Object: strings.Trim(u.Path, "/"),
 			Params: u.RawQuery,
-		}, nil
+		}
 	// wasb is an hdfs protocol supported by azure
 	// the format is wasb://<container_name>@<storage_account_name>.blob.core.windows.net/dir/file
 	// another supported format is wasb://<container_name>@<storage_account_name>/dir/file
 	case "wasb":
-		return &ObjectStoreURL{
+		objStoreUrl = &ObjectStoreURL{
 			Scheme: u.Scheme,
 			Bucket: u.User.Username(),
 			Object: strings.Trim(u.Path, "/"),
 			Params: u.RawQuery,
-		}, nil
+		}
 	case "minio", "test-minio":
 		parts := strings.SplitN(strings.Trim(u.Path, "/"), "/", 2)
 		var key string
 		if len(parts) == 2 {
 			key = parts[1]
 		}
-		return &ObjectStoreURL{
+		objStoreUrl = &ObjectStoreURL{
 			Scheme: u.Scheme,
 			Bucket: u.Host + "/" + parts[0],
 			Object: key,
 			Params: u.RawQuery,
-		}, nil
+		}
+	default:
+		// return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
+		return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
 	}
-	// return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
-	return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
+	switch objStoreUrl.Scheme {
+	case "wasb":
+		objStoreUrl.Scheme = "azblob"
+	case "gcs": // assuming 'gcs' is an alias for 'gs'
+		objStoreUrl.Scheme = "gs"
+	}
+	return objStoreUrl, nil
 }
 
 // NewClientFromEnv creates a client based on environment variables.
