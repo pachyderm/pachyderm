@@ -20,7 +20,6 @@ import styles from './ProjectHeader.module.css';
 
 const ProjectHeader = () => {
   const {projectName, loading, error} = useProjectHeader();
-  const {projectId} = useUrlState();
   const [showTooltip, setShowTooltip] = useState(false);
 
   const setProjectNameRef: React.RefCallback<HTMLHeadingElement> = useCallback(
@@ -77,8 +76,7 @@ const ProjectHeader = () => {
       <Search />
       <Group align="center">
         <GlobalFilter />
-        <div className={styles.divider} />
-        <HeaderButtons projectId={projectId} />
+        {/* Tutorial is temporarily disabled because of "Project" Console Support */}
       </Group>
     </Header>
   );

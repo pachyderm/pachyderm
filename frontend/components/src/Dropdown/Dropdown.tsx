@@ -129,6 +129,7 @@ interface DefaultDropdownProps extends DropdownProps {
   items: DropdownItem[];
   buttonOpts?: DropdownButtonProps;
   menuOpts?: DropdownMenuProps;
+  'aria-label'?: string;
 }
 
 export const DefaultDropdown: React.FC<DefaultDropdownProps> = ({
@@ -136,11 +137,14 @@ export const DefaultDropdown: React.FC<DefaultDropdownProps> = ({
   children,
   buttonOpts,
   menuOpts,
+  'aria-label': ariaLabel,
   ...rest
 }) => {
   return (
     <Dropdown {...rest}>
-      <DropdownButton {...buttonOpts}>{children}</DropdownButton>
+      <DropdownButton aria-label={ariaLabel} {...buttonOpts}>
+        {children}
+      </DropdownButton>
 
       <DropdownMenu {...menuOpts}>
         {items.map(({id, content, ...props}) => (

@@ -14,7 +14,9 @@ describe('HeaderButtons', () => {
     window.localStorage.removeItem('pachyderm-console-default');
   });
 
-  it('should start the tutorial when clicked', async () => {
+  /* eslint-disable jest/no-disabled-tests */
+  /* Tutorial is temporarily disabled because of "Project" Console Support */
+  it.skip('should start the tutorial when clicked', async () => {
     expect(
       window.localStorage.getItem('pachyderm-console-default'),
     ).toBeFalsy();
@@ -33,7 +35,8 @@ describe('HeaderButtons', () => {
     );
   });
 
-  it('should show progress dots when tutorial progress is available', async () => {
+  /* Tutorial is temporarily disabled because of "Project" Console Support */
+  it.skip('should show progress dots when tutorial progress is available', async () => {
     window.localStorage.setItem(
       'pachyderm-console-default',
       '{"tutorial_progress":{"image-processing":{"story":2,"task":1}}}',
@@ -52,7 +55,8 @@ describe('HeaderButtons', () => {
     expect(await findByText('Story 4 of 5')).toBeInTheDocument();
   });
 
-  it('should allow the user to delete tutorial progress', async () => {
+  /* Tutorial is temporarily disabled because of "Project" Console Support */
+  it.skip('should allow the user to delete tutorial progress', async () => {
     window.localStorage.setItem(
       'pachyderm-console-default',
       '{"tutorial_progress":{"image-processing":{"story":3,"task":0}}}',
@@ -68,4 +72,5 @@ describe('HeaderButtons', () => {
       `{"tutorial_progress":{"image-processing":null},"active_tutorial":null}`,
     );
   });
+  /* eslint-enable jest/no-disabled-tests */
 });

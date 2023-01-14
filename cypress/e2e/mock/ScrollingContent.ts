@@ -14,8 +14,7 @@ describe(
   },
   () => {
   beforeEach(() => {
-    cy.visit('/');
-    cy.findByText('Skip tutorial').click({force: true});
+    cy.visit('/')
   });
 
   // These tests ensure that scrollable content involving long lists of items don't cut off any items at the bottom when scrolling
@@ -133,6 +132,16 @@ describe(
   });
 
   it('should display the last item properly when scrolling pipeline specs in lineage and list view', () => {
+    /* 
+    The app seems to require a full loading of `/`. Otherwise it will redirect
+    when visiting '/project/1/pipelines/montage'. This was happening when
+    Cypress had to do a full page load to skip the tutorial.
+
+    Since that is temporarily disabled, we can get the same behavior by just
+    waiting for some page text to render. I think this is happening because the
+    app needs to load an auth token and put it in local storage.
+    */
+    cy.findByText("Projects")
     cy.visit('/project/1/pipelines/montage')
 
     cy.findByText('Spec').click();

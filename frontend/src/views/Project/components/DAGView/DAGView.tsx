@@ -155,6 +155,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
                   color: 'black',
                 }}
                 menuOpts={{pin: 'left'}}
+                aria-label="Open DAG controls menu"
               />
             </ButtonGroup>
           )}

@@ -5,7 +5,6 @@ import Sidebar from '@dash-frontend/components/Sidebar';
 import View from '@dash-frontend/components/View';
 import {Group, TableView, DefaultDropdown} from '@pachyderm/components';
 
-import IntroductionModal from './components/IntroductionModal';
 import LandingHeader from './components/LandingHeader';
 import LandingSkeleton from './components/LandingSkeleton';
 import ProjectPreview from './components/ProjectPreview';
@@ -28,8 +27,6 @@ const Landing: React.FC = () => {
     selectedProject,
     setSelectedProject,
     sortDropdown,
-    introductionEligible,
-    onIntroductionClose,
   } = useLandingView();
 
   if (loading) return <LandingSkeleton />;
@@ -40,12 +37,7 @@ const Landing: React.FC = () => {
         <title>Landing - Pachyderm Console</title>
       </Helmet>
       <LandingHeader projects={projects} />
-      {introductionEligible && projects.length > 0 ? (
-        <IntroductionModal
-          projectId={projects[0].id}
-          onClose={onIntroductionClose}
-        />
-      ) : null}
+      {/* Tutorial is temporarily disabled because of "Project" Console Support */}
       <div className={styles.base}>
         <View data-testid="Landing__view">
           <TableView title="Projects" errorMessage="Error loading projects">

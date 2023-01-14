@@ -4,7 +4,6 @@ describe('Repos', () => {
   })
 
   beforeEach(() => {
-    cy.findByText('Skip tutorial').click();
     cy.findAllByText(/^View(\sProject)*$/).eq(0).click();
     cy.findByText('Create Repo', {timeout: 12000}).click();
     cy.findByLabelText('Repo Name', {exact: false, timeout: 12000}).type("TestRepo")

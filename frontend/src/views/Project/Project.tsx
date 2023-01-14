@@ -34,7 +34,6 @@ import {
 } from './constants/projectPaths';
 import {useProjectView} from './hooks/useProjectView';
 import styles from './Project.module.css';
-import ProjectTutorial from './tutorials/ProjectTutorial';
 
 const Project: React.FC = () => {
   const {projectId} = useUrlState();
@@ -91,7 +90,7 @@ const Project: React.FC = () => {
         <Route path={[PROJECT_FILE_UPLOAD_PATH, LINEAGE_FILE_UPLOAD_PATH]}>
           <FileUpload />
         </Route>
-        <ProjectTutorial />
+        {/* Tutorial is temporarily disabled because of "Project" Console Support */}
       </div>
     </>
   );

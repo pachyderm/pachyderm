@@ -22,11 +22,7 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({projects = []}) => {
             <h5 className={styles.dashboard}>Console</h5>
           </a>
         </Group>
-        <HeaderButtons
-          showSupport
-          showAccount
-          projectId={projects.length > 0 ? projects[0].id : undefined}
-        />
+        <HeaderButtons showSupport showAccount />
       </Group>
     </Header>
   );

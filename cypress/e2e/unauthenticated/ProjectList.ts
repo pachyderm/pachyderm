@@ -4,7 +4,6 @@ describe('Project List', () => {
   })
 
   beforeEach(() => {
-    cy.findByText('Skip tutorial').click();
     cy.findAllByText(/^View(\sProject)*$/, {timeout: 6000}).eq(0).click();
     cy.findByText('View List', {timeout: 12000}).click();
   });
@@ -39,7 +38,7 @@ describe('Project List', () => {
     cy.findByText('View DAG').click();
 
     cy.findByText('Jobs');
-    cy.findAllByTestId('DropdownButton__button').eq(1).click();
+    cy.findByRole('button', {name: 'Open DAG controls menu'}).click();
     cy.findByText('Reset Canvas');
     cy.findByText('Flip Canvas');
     cy.findByText('Center Selections');

@@ -7,46 +7,34 @@ import {
   HamburgerSVG,
   DropdownItem,
   SupportSVG,
-  EducationSVG,
 } from '@pachyderm/components';
 
 import Account from './components/Account';
-import TutorialsMenu from './components/TutorialsMenu';
 import styles from './HeaderButtons.module.css';
 
 type HeaderButtonsProps = {
-  projectId?: string;
   showSupport?: boolean;
   showAccount?: boolean;
 };
 
 const HeaderButtons: React.FC<HeaderButtonsProps> = ({
-  projectId,
   showSupport = false,
   showAccount = false,
 }) => {
-  const [tutorialsMenuVisible, setTutorialsMenu] = useState(false);
-  const [stickTutorialsMenu, setStickTutorialsMenu] = useState(false);
+  /* Tutorial is temporarily disabled because of "Project" Console Support */
 
   const onDropdownMenuSelect = (id: string) => {
     switch (id) {
       case 'support':
         return window.open('mailto:support@pachyderm.com');
-      case 'tutorial':
-        return setTutorialsMenu(true);
+      /* Tutorial is temporarily disabled because of "Project" Console Support */
       default:
         return null;
     }
   };
 
   let menuItems: DropdownItem[] = [
-    {
-      id: 'tutorial',
-      content: 'Learn Pachyderm',
-      closeOnClick: true,
-      buttonStyle: 'tertiary',
-      IconSVG: EducationSVG,
-    },
+    /* Tutorial is temporarily disabled because of "Project" Console Support */
   ];
 
   if (showSupport) {
@@ -65,14 +53,7 @@ const HeaderButtons: React.FC<HeaderButtonsProps> = ({
   return (
     <>
       <Group spacing={16} align="center" className={styles.responsiveHide}>
-        <Button
-          onClick={() => setTutorialsMenu(true)}
-          buttonType="tertiary"
-          IconSVG={EducationSVG}
-          iconPosition="start"
-        >
-          Learn Pachyderm
-        </Button>
+        {/* Tutorial is temporarily disabled because of "Project" Console Support */}
         {showSupport && (
           <Button
             buttonType="tertiary"
@@ -108,14 +89,7 @@ const HeaderButtons: React.FC<HeaderButtonsProps> = ({
           menuOpts={{pin: 'right'}}
         />
       </Group>
-      {tutorialsMenuVisible && (
-        <TutorialsMenu
-          projectId={projectId}
-          setTutorialsMenu={setTutorialsMenu}
-          stickTutorialsMenu={stickTutorialsMenu}
-          setStickTutorialsMenu={setStickTutorialsMenu}
-        />
-      )}
+      {/* Tutorial is temporarily disabled because of "Project" Console Support */}
     </>
   );
 };

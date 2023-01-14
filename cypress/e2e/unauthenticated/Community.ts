@@ -1,7 +1,6 @@
 describe('Community Edition', () => {
     beforeEach(() => {
       cy.visit('/');
-      cy.findByText('Skip tutorial', {timeout: 12000}).click();
     });
 
     afterEach(() => {

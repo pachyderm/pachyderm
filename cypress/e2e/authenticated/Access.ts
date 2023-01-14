@@ -17,7 +17,6 @@ describe('Access', () => {
 
   describe('Lineage View', () => {
     it('should let non-admins see the DAG', () => {
-      cy.findByText('Skip tutorial').click();
       cy.findAllByText(/^View(\sProject)*$/).eq(0).click();
       const edgeNodes = cy.findAllByText('edges', {timeout: 16000});
       edgeNodes.should('have.length', 1);
@@ -32,7 +31,6 @@ describe('Access', () => {
 
   describe('List View', () => {
     beforeEach(() => {
-      cy.findByText('Skip tutorial', {timeout: 8000}).click();
       cy.findAllByText(/^View(\sProject)*$/).eq(0).click();
       cy.findByText('View List').click();
     })
