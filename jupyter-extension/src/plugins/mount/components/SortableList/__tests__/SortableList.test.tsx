@@ -22,6 +22,7 @@ describe('sortable list components', () => {
     const items: Repo[] = [
       {
         repo: 'images',
+        project: 'default',
         authorization: 'off',
         branches: [],
       },
@@ -45,6 +46,7 @@ describe('sortable list components', () => {
     const items: Repo[] = [
       {
         repo: 'images',
+        project: 'default',
         authorization: 'none',
         branches: [],
       },
@@ -71,11 +73,13 @@ describe('sortable list components', () => {
     const items: Repo[] = [
       {
         repo: 'images',
+        project: 'default',
         authorization: 'off',
         branches: [],
       },
       {
         repo: 'data',
+        project: 'default',
         authorization: 'off',
         branches: [],
       },
@@ -106,6 +110,7 @@ describe('sortable list components', () => {
     const items: Repo[] = [
       {
         repo: 'images',
+        project: 'default',
         authorization: 'off',
         branches: ['master'],
       },
@@ -130,7 +135,8 @@ describe('sortable list components', () => {
       expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith('_mount', 'PUT', {
         mounts: [
           {
-            name: 'images',
+            name: 'default_images',
+            project: 'default',
             repo: 'images',
             branch: 'master',
             mode: 'ro',
@@ -147,6 +153,7 @@ describe('sortable list components', () => {
       {
         name: 'images',
         repo: 'images',
+        project: 'default',
         branch: 'master',
         commit: null,
         glob: null,
@@ -194,6 +201,7 @@ describe('sortable list components', () => {
       {
         name: 'images',
         repo: 'images',
+        project: 'default',
         branch: 'master',
         commit: null,
         glob: null,
@@ -223,6 +231,7 @@ describe('sortable list components', () => {
     const items: Repo[] = [
       {
         repo: 'images',
+        project: 'default',
         authorization: 'off',
         branches: ['master', 'develop'],
       },
@@ -245,8 +254,9 @@ describe('sortable list components', () => {
     expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith('_mount', 'PUT', {
       mounts: [
         {
-          name: 'images_develop',
+          name: 'default_images_develop',
           repo: 'images',
+          project: 'default',
           branch: 'develop',
           mode: 'ro',
         },
@@ -259,6 +269,7 @@ describe('sortable list components', () => {
       {
         name: 'edges',
         repo: 'edges',
+        project: 'default',
         branch: 'master',
         commit: null,
         glob: null,
@@ -292,6 +303,7 @@ describe('sortable list components', () => {
       {
         name: '1',
         repo: '1',
+        project: 'default',
         branch: 'master',
         commit: null,
         glob: null,
@@ -306,6 +318,7 @@ describe('sortable list components', () => {
       {
         name: '2',
         repo: '2',
+        project: 'default',
         branch: 'master',
         commit: null,
         glob: null,
@@ -320,6 +333,7 @@ describe('sortable list components', () => {
       {
         name: '3',
         repo: '3',
+        project: 'default',
         branch: 'master',
         commit: null,
         glob: null,
@@ -351,6 +365,7 @@ describe('sortable list components', () => {
       {
         name: 'edges',
         repo: 'edges',
+        project: 'default',
         branch: 'master',
         commit: null,
         glob: null,
@@ -382,6 +397,7 @@ describe('sortable list components', () => {
       {
         name: 'edges',
         repo: 'edges',
+        project: 'default',
         branch: 'master',
         commit: null,
         glob: null,
@@ -413,6 +429,7 @@ describe('sortable list components', () => {
       {
         name: 'edges',
         repo: 'edges',
+        project: 'default',
         branch: 'master',
         commit: null,
         glob: null,
@@ -444,6 +461,7 @@ describe('sortable list components', () => {
       {
         name: 'edges',
         repo: 'edges',
+        project: 'default',
         branch: 'mounted_branch',
         commit: null,
         glob: null,
@@ -460,6 +478,7 @@ describe('sortable list components', () => {
     const items: Repo[] = [
       {
         repo: 'edges',
+        project: 'default',
         authorization: 'off',
         branches: ['dev', 'master', 'mounted_branch'],
       },

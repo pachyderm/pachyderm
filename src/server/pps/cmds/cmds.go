@@ -117,7 +117,7 @@ If the job fails, the output commit will not be populated with data.`,
 	}
 	inspectJob.Flags().AddFlagSet(outputFlags)
 	inspectJob.Flags().AddFlagSet(timestampFlags)
-	inspectJob.Flags().StringVar(&project, "project", project, "Project containing job.")
+	inspectJob.Flags().StringVar(&project, "project", project, "project containing job")
 	shell.RegisterCompletionFunc(inspectJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectJob, "inspect job", jobs))
 
@@ -177,7 +177,7 @@ If the job fails, the output commit will not be populated with data.`,
 	}
 	waitJob.Flags().AddFlagSet(outputFlags)
 	waitJob.Flags().AddFlagSet(timestampFlags)
-	waitJob.Flags().StringVar(&project, "project", project, "Project containing job.")
+	waitJob.Flags().StringVar(&project, "project", project, "project containing job")
 	shell.RegisterCompletionFunc(waitJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(waitJob, "wait job", jobs))
 
@@ -1071,8 +1071,19 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) == 0 && !all {
 				return errors.Errorf("either a pipeline name or the --all flag needs to be provided")
 			}
+			if all {
+				if _, err := client.PpsAPIClient.DeletePipelines(client.Ctx(), &ppsclient.DeletePipelinesRequest{
+					Projects: []*pfs.Project{{Name: project}},
+					All:      allProjects,
+				}); err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
+				return nil
+			}
+			if allProjects {
+				return errors.Errorf("--allProjects only valid with --all")
+			}
 			req := &ppsclient.DeletePipelineRequest{
-				All:      all,
 				Force:    force,
 				KeepRepo: keepRepo,
 			}
@@ -1088,7 +1099,8 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
 	deletePipeline.Flags().BoolVarP(&force, "force", "f", false, "delete the pipeline regardless of errors; use with care")
 	deletePipeline.Flags().BoolVar(&keepRepo, "keep-repo", false, "delete the pipeline, but keep the output repo data around (the pipeline cannot be recreated later with the same name unless the repo is deleted)")
-	deletePipeline.Flags().StringVar(&project, "project", project, "Project containing project.")
+	deletePipeline.Flags().StringVar(&project, "project", project, "project containing project")
+	deletePipeline.Flags().BoolVar(&allProjects, "all-projects", false, "delete pipelines from all projects; only valid with --all")
 	commands = append(commands, cmdutil.CreateAliases(deletePipeline, "delete pipeline", pipelines))
 
 	startPipeline := &cobra.Command{

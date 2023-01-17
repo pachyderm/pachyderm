@@ -11561,3 +11561,49 @@ func TestZombieCheck(t *testing.T) {
 	require.Equal(t, 1, len(messages))
 	require.Matches(t, "zombie", messages[0])
 }
+
+func TestJobPropagationOnlyOutputBranch(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	c = c.WithDefaultTransformUser("1000")
+
+	project := tu.UniqueString("project")
+	require.NoError(t, c.CreateProject(project))
+	dataRepo := tu.UniqueString("JobPropagationOnlyOutputBranch_data")
+	require.NoError(t, c.CreateProjectRepo(project, dataRepo))
+
+	pipeline := tu.UniqueString("JobPropagationOnlyOutputBranch")
+	outputBranch := client.NewProjectBranch(project, pipeline, "output")
+	require.NoError(t, c.CreateProjectPipeline(project,
+		pipeline,
+		tu.DefaultTransformImage,
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewProjectPFSInput(project, dataRepo, "/*"),
+		outputBranch.Name,
+		false,
+	))
+
+	require.NoError(t, c.CreateProjectBranch(project, pipeline, "test", "", "", nil))
+
+	commit := client.NewProjectCommit(project, dataRepo, "master", "")
+	for i := 0; i < 3; i++ {
+		require.NoError(t, c.PutFile(commit, "file", strings.NewReader("")))
+	}
+
+	jobInfos, err := c.ListProjectJob(project, pipeline, nil, -1, false)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(jobInfos))
+	for _, jobInfo := range jobInfos {
+		require.Equal(t, outputBranch, jobInfo.OutputCommit.Branch)
+	}
+}

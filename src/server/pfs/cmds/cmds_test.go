@@ -429,6 +429,29 @@ func TestDeleteAllRepos(t *testing.T) {
 	).Run())
 }
 
+func TestDeleteAllReposAllProjects(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+	c := env.PachClient
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create project {{.project}}
+		pachctl create repo {{.repo}}
+		pachctl create repo {{.repo}}a --project {{.project}}
+		pachctl create project {{.project2}}
+		pachctl create repo {{.repo}} --project {{.project2}}
+		pachctl delete repo --all --all-projects
+		if [ $(pachctl list repo --all-projects | wc -l) -ne 1]; then exit 1; fi
+		`,
+		"project", tu.UniqueString("project"),
+		"project2", tu.UniqueString("project2"),
+		"repo", tu.UniqueString("repo"),
+	).Run())
+}
+
 func TestCmdListRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -473,4 +496,57 @@ func TestBranchNotFound(t *testing.T) {
 		`, "project", project, "repo", repo).Run(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestCopyFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+
+	// copy within default project
+	srcRepo, destRepo := tu.UniqueString("srcRepo"), tu.UniqueString("destRepo")
+	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
+		pachctl create repo {{.srcRepo}}
+		pachctl create repo {{.destRepo}}
+		echo "Lorem ipsum" | pachctl put file {{.srcRepo}}@master:/file
+
+		pachctl copy file {{.srcRepo}}@master:/file {{.destRepo}}@master:/file
+		pachctl get file {{.destRepo}}@master:/file | match "Lorem ipsum"
+	`,
+		"srcRepo", srcRepo,
+		"destRepo", destRepo).Run())
+
+	// copy within a user specified project
+	project := tu.UniqueString("project")
+	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
+		pachctl create project {{.project}}
+		pachctl create repo --project {{.project}} {{.srcRepo}}
+		pachctl create repo --project {{.project}} {{.destRepo}}
+		echo "Lorem ipsum" | pachctl put file --project {{.project}} {{.srcRepo}}@master:/file
+
+		pachctl copy file --project {{.project}} {{.srcRepo}}@master:/file {{.destRepo}}@master:/file
+		pachctl get file --project {{.project}} {{.destRepo}}@master:/file | match "Lorem ipsum"
+	`,
+		"project", project,
+		"srcRepo", srcRepo,
+		"destRepo", destRepo).Run())
+
+	// copy between projects
+	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
+		echo "Lorem ipsum" | pachctl put file {{.srcRepo}}@master:/file2
+		echo "Lorem ipsum" | pachctl put file {{.srcRepo}}@master:/file3
+	
+		pachctl copy file --dest-project {{.project}} {{.srcRepo}}@master:/file2 {{.destRepo}}@master:/file2
+		pachctl get file --project {{.project}} {{.destRepo}}@master:/file2 | match "Lorem ipsum"
+	
+		pachctl copy file --src-project default --dest-project {{.project}} {{.srcRepo}}@master:/file3 {{.destRepo}}@master:/file3
+		pachctl get file --project {{.project}} {{.destRepo}}@master:/file3 | match "Lorem ipsum"
+	`,
+		"project", project,
+		"srcRepo", srcRepo,
+		"destRepo", destRepo).Run())
 }
