@@ -239,18 +239,18 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	return ret, nil
 }
 
-func checkPaginationParams(number int64, reverse bool) error {
+func validatePagination(number int64, reverse bool) error {
 	if number == 0 && reverse {
 		return errors.Errorf("number must be > 0 when reverse is true")
 	}
 	if number > 100000 {
-		return errors.Errorf("cannot list more than 100000 files at a time")
+		return errors.Errorf("cannot return more than 100000 files at a time")
 	}
 	return nil
 }
 
 func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker *pfs.File, number int64, reverse bool, cb func(*pfs.FileInfo) error) error {
-	if err := checkPaginationParams(number, reverse); err != nil {
+	if err := validatePagination(number, reverse); err != nil {
 		return err
 	}
 	commitInfo, fs, err := d.openCommit(ctx, file.Commit)
@@ -299,10 +299,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 		}); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := fis.iterateReverse(cb); err != nil {
-			return errors.EnsureStack(err)
-		}
-		return nil
+		return fis.iterateReverse(cb)
 	}
 	if err = s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 		if number == 0 {
@@ -329,42 +326,36 @@ type circularList struct {
 }
 
 func newCircularList(size int64) *circularList {
-	r := &circularList{}
-	r.buffer = make([]*pfs.FileInfo, size)
-	r.index = 0
-	r.size = 0
-	return r
+	return &circularList{
+		buffer: make([]*pfs.FileInfo, size),
+	}
 }
 
 func (r *circularList) add(fi *pfs.FileInfo) {
 	r.buffer[r.index] = fi
 	r.index++
-	r.size++
 	// if we are at the end of the buffer, wrap around
 	if r.index == len(r.buffer) {
 		r.index = 0
 	}
-	if r.size > len(r.buffer) {
+	if r.size < len(r.buffer) {
+		r.size++
+	} else {
 		r.size = len(r.buffer)
 	}
 }
 
-// returns the last element added to the ring
-func (r *circularList) get() *pfs.FileInfo {
-	if r.size == 0 {
-		return nil
-	}
-	r.index--
-	// if we are at the beginning of the buffer, wrap around
-	if r.index < 0 {
-		r.index = len(r.buffer) - 1
-	}
-	return r.buffer[r.index]
-}
-
 func (r *circularList) iterateReverse(cb func(*pfs.FileInfo) error) error {
+	// last element to be inserted
+	idx := r.index
+
 	for i := 0; i < r.size; i++ {
-		if err := cb(r.get()); err != nil {
+		idx--
+		// if we are at the beginning of the buffer, wrap around
+		if idx < 0 {
+			idx = len(r.buffer) - 1
+		}
+		if err := cb(r.buffer[idx]); err != nil {
 			return err
 		}
 	}
@@ -372,7 +363,7 @@ func (r *circularList) iterateReverse(cb func(*pfs.FileInfo) error) error {
 }
 
 func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker *pfs.File, number int64, reverse bool, cb func(*pfs.FileInfo) error) (retErr error) {
-	if err := checkPaginationParams(number, reverse); err != nil {
+	if err := validatePagination(number, reverse); err != nil {
 		return err
 	}
 	commitInfo, fs, err := d.openCommit(ctx, file.Commit)
@@ -414,10 +405,7 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 		}); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := fis.iterateReverse(cb); err != nil {
-			return errors.EnsureStack(err)
-		}
-		return nil
+		return fis.iterateReverse(cb)
 	}
 	err = s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		if number == 0 {
