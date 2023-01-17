@@ -239,12 +239,19 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	return ret, nil
 }
 
-func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker *pfs.File, number int64, reverse bool, cb func(*pfs.FileInfo) error) error {
+func checkPaginationParams(number int64, reverse bool) error {
 	if number == 0 && reverse {
 		return errors.Errorf("number must be > 0 when reverse is true")
 	}
 	if number > 100000 {
 		return errors.Errorf("cannot list more than 100000 files at a time")
+	}
+	return nil
+}
+
+func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker *pfs.File, number int64, reverse bool, cb func(*pfs.FileInfo) error) error {
+	if err := checkPaginationParams(number, reverse); err != nil {
+		return err
 	}
 	commitInfo, fs, err := d.openCommit(ctx, file.Commit)
 	if err != nil {
@@ -300,45 +307,79 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 	return errors.EnsureStack(err)
 }
 
-func (d *driver) listFileReverse(ctx context.Context, filename string, s Source, number int64, cb func(*pfs.FileInfo) error) error {
+func (d *driver) listFileReverse(tx context.Context, filename string, s Source, number int64, cb func(*pfs.FileInfo) error) error {
 	// use a fixed size slice since we know the number of files we want
-	fis := make([]*pfs.FileInfo, number)
-	index := 0
-	if err := s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
+	fis := newCircularList(number)
+	if err := s.Iterate(tx, func(fi *pfs.FileInfo, _ fileset.File) error {
 		if pathIsChild(filename, pfsfile.CleanPath(fi.File.Path)) {
-			// wrap around to the start of the slice
-			if index == int(number) {
-				index = 0
-			}
-			fis[index] = fi
-			index++
+			fis.add(fi)
 		}
 		return nil
 	}); err != nil {
 		return errors.EnsureStack(err)
 	}
-	if index == 0 {
-		// no files were found
+	if err := fis.iterateReverse(cb); err != nil {
+		return errors.EnsureStack(err)
+	}
+	return nil
+}
+
+type circularList struct {
+	// a circular buffer of file infos
+	buffer []*pfs.FileInfo
+	// next index to be populated
+	index int
+	// size is the number of file infos in the ring
+	size int
+}
+
+func newCircularList(size int64) *circularList {
+	r := &circularList{}
+	r.buffer = make([]*pfs.FileInfo, size)
+	r.index = 0
+	r.size = 0
+	return r
+}
+
+func (r *circularList) add(fi *pfs.FileInfo) {
+	r.buffer[r.index] = fi
+	r.index++
+	r.size++
+	// if we are at the end of the buffer, wrap around
+	if r.index == len(r.buffer) {
+		r.index = 0
+	}
+	if r.size > len(r.buffer) {
+		r.size = len(r.buffer)
+	}
+}
+
+// returns the last element added to the ring
+func (r *circularList) get() *pfs.FileInfo {
+	if r.size == 0 {
 		return nil
 	}
-	index--
-	for i := 0; i < len(fis); i++ {
-		if fis[index] == nil {
-			break
-		}
-		if err := cb(fis[index]); err != nil {
-			return errors.EnsureStack(err)
-		}
-		fis[index] = nil
-		index--
-		if index < 0 {
-			index = int(number) - 1
+	r.index--
+	// if we are at the beginning of the buffer, wrap around
+	if r.index < 0 {
+		r.index = len(r.buffer) - 1
+	}
+	return r.buffer[r.index]
+}
+
+func (r *circularList) iterateReverse(cb func(*pfs.FileInfo) error) error {
+	for i := 0; i < r.size; i++ {
+		if err := cb(r.get()); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
 func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker *pfs.File, number int64, reverse bool, cb func(*pfs.FileInfo) error) (retErr error) {
+	if err := checkPaginationParams(number, reverse); err != nil {
+		return err
+	}
 	commitInfo, fs, err := d.openCommit(ctx, file.Commit)
 	if err != nil {
 		return err
@@ -346,12 +387,6 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 	p := pfsfile.CleanPath(file.Path)
 	if p == "/" {
 		p = ""
-	}
-	if number == 0 {
-		if reverse {
-			return errors.Errorf("number must be > 0 when reverse is true")
-		}
-		number = math.MaxInt64
 	}
 	opts := []SourceOption{
 		WithPrefix(p),
@@ -373,6 +408,9 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 	}
 	s := NewSource(commitInfo, fs, opts...)
 	s = NewErrOnEmpty(s, newFileNotFound(commitInfo.Commit.ID, p))
+	if number == 0 {
+		number = math.MaxInt64
+	}
 	if reverse {
 		return d.walkFileReverse(ctx, s, number, cb)
 	}
@@ -389,38 +427,17 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 	return err
 }
 
-func (d *driver) walkFileReverse(ctx context.Context, s Source, number int64, cb func(*pfs.FileInfo) error) error {
+func (d *driver) walkFileReverse(tx context.Context, s Source, number int64, cb func(*pfs.FileInfo) error) error {
 	// use a fixed size slice since we know the number of files we want
-	fis := make([]*pfs.FileInfo, number)
-	index := 0
-	if err := s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
-		// wrap around to the start of the slice
-		if index == int(number) {
-			index = 0
-		}
-		fis[index] = fi
-		index++
+	fis := newCircularList(number)
+	if err := s.Iterate(tx, func(fi *pfs.FileInfo, _ fileset.File) error {
+		fis.add(fi)
 		return nil
 	}); err != nil {
 		return errors.EnsureStack(err)
 	}
-	if index == 0 {
-		// no files were found
-		return nil
-	}
-	index--
-	for i := 0; i < len(fis); i++ {
-		if fis[index] == nil {
-			break
-		}
-		if err := cb(fis[index]); err != nil {
-			return errors.EnsureStack(err)
-		}
-		fis[index] = nil
-		index--
-		if index < 0 {
-			index = int(number) - 1
-		}
+	if err := fis.iterateReverse(cb); err != nil {
+		return errors.EnsureStack(err)
 	}
 	return nil
 }

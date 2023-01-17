@@ -163,6 +163,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 		require.ElementsEqual(t, []string{"/dir/dir3/file3.1", "/dir/dir3/file3.2"}, finfosToPaths(fis))
+		require.Equal(t, true, fis[0].File.Path > fis[1].File.Path)
 
 		request = &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), Reverse: true}
 		walkFileClient, err = env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
@@ -257,6 +258,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(fis))
+		require.Equal(t, true, fis[0].File.Path > fis[1].File.Path)
 	})
 
 	suite.Run("ListCommitStartedTime", func(t *testing.T) {
