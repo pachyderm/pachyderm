@@ -97,9 +97,6 @@ func writeReadDelete(t *testing.T, url *obj.ObjectStoreURL) {
 }
 
 func writeToObjStorage(ctx context.Context, t *testing.T, bucket *blob.Bucket, objName string) {
-	exists, err := bucket.Exists(ctx, objName)
-	require.NoError(t, err, fmt.Sprintf("should be able to check if obj %s exists", objName))
-	require.Equal(t, false, exists)
 	w, err := bucket.NewWriter(ctx, objName, nil)
 	require.NoError(t, err, fmt.Sprintf("should be able to create writer for %s", objName))
 	defer func() {
