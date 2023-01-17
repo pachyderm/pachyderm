@@ -825,30 +825,10 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	var tolerations []v1.Toleration
 	var tolErr error
 	for i, in := range pipelineInfo.GetDetails().GetTolerations() {
-		var out v1.Toleration
-		out.Key = in.GetKey()
-		out.Value = in.GetValue()
-		if ts := in.GetTolerationSeconds(); ts != nil {
-			out.TolerationSeconds = &ts.Value
-		}
-		switch in.GetEffect() { //exhaustive:enforce
-		case pps.TaintEffect_ALL_EFFECTS:
-			out.Effect = ""
-		case pps.TaintEffect_NO_EXECUTE:
-			out.Effect = v1.TaintEffectNoExecute
-		case pps.TaintEffect_NO_SCHEDULE:
-			out.Effect = v1.TaintEffectNoSchedule
-		case pps.TaintEffect_PREFER_NO_SCHEDULE:
-			out.Effect = v1.TaintEffectPreferNoSchedule
-		}
-		switch in.GetOperator() { //exhaustive:enforce
-		case pps.TolerationOperator_EMPTY:
-			multierr.AppendInto(&tolErr, errors.Errorf("toleration %d/%d: cannot omit key/value comparison operator; specify EQUAL or EXISTS", i+1, len(pipelineInfo.GetDetails().GetTolerations())))
+		out, err := transformToleration(in)
+		if err != nil {
+			multierr.AppendInto(&tolErr, errors.Errorf("toleration %d/%d: %v", i+1, len(pipelineInfo.GetDetails().GetTolerations()), err))
 			continue
-		case pps.TolerationOperator_EXISTS:
-			out.Operator = v1.TolerationOpExists
-		case pps.TolerationOperator_EQUAL:
-			out.Operator = v1.TolerationOpEqual
 		}
 		tolerations = append(tolerations, out)
 	}
@@ -879,6 +859,38 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 		podPatch:              pipelineInfo.Details.PodPatch,
 		tolerations:           tolerations,
 	}, nil
+}
+
+// transformToleration transofrms a pps.Toleration into a k8s Toleration.  It's used while creating
+// the RC, and at pipeline submission to validate the provided tolerations before saving the
+// pipeline.  It's in here and not in src/pps/pps.go so that the protobuf library doesn't depend on
+// k8s.
+func transformToleration(in *pps.Toleration) (v1.Toleration, error) {
+	var out v1.Toleration
+	out.Key = in.GetKey()
+	out.Value = in.GetValue()
+	if ts := in.GetTolerationSeconds(); ts != nil {
+		out.TolerationSeconds = &ts.Value
+	}
+	switch in.GetEffect() { //exhaustive:enforce
+	case pps.TaintEffect_ALL_EFFECTS:
+		out.Effect = ""
+	case pps.TaintEffect_NO_EXECUTE:
+		out.Effect = v1.TaintEffectNoExecute
+	case pps.TaintEffect_NO_SCHEDULE:
+		out.Effect = v1.TaintEffectNoSchedule
+	case pps.TaintEffect_PREFER_NO_SCHEDULE:
+		out.Effect = v1.TaintEffectPreferNoSchedule
+	}
+	switch in.GetOperator() { //exhaustive:enforce
+	case pps.TolerationOperator_EMPTY:
+		return out, errors.New("cannot omit key/value comparison operator; specify EQUAL or EXISTS")
+	case pps.TolerationOperator_EXISTS:
+		out.Operator = v1.TolerationOpExists
+	case pps.TolerationOperator_EQUAL:
+		out.Operator = v1.TolerationOpEqual
+	}
+	return out, nil
 }
 
 func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
