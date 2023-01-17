@@ -191,20 +191,24 @@ func (kd *kubeDriver) WatchPipelinePods(ctx context.Context) (<-chan watch.Event
 	return kubePipelineWatch.ResultChan(), kubePipelineWatch.Stop, nil
 }
 
-func (kd *kubeDriver) GetKubeEventTail(ctx context.Context) error {
+func (kd *kubeDriver) GetKubeEventTail(ctx context.Context) (string, error) {
 	// get logs from kubernetes
 	pod, err := kd.kubeClient.CoreV1().Pods(kd.namespace).Get(ctx, "kube-event-tail", metav1.GetOptions{})
 	if err != nil {
-		return errors.Wrap(err, "failed to get kube-event-tail pod")
+		return "", errors.Wrap(err, "failed to get kube-event-tail pod")
 	}
 	logStream, err := kd.kubeClient.CoreV1().Pods("kube-system").GetLogs(pod.Name, &v1.PodLogOptions{}).Stream(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to get kube-event-tail logs")
+		return "", errors.Wrap(err, "failed to get kube-event-tail logs")
 	}
 	defer func() {
 		if closeErr := logStream.Close(); err == nil {
 			err = closeErr
 		}
 	}()
-	_, err = io.Copy(std, logStream)
+	bytes, err := io.ReadAll(logStream)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to parse kube-event-tail logs")
+	}
+	return string(bytes), nil
 }

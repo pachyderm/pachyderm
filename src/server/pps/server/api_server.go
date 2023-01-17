@@ -1343,6 +1343,16 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 	return errors.EnsureStack(err)
 }
 
+func (a *apiServer) GetKubeEventTail(ctx context.Context, _ *types.Empty) (response *pps.GetKubeEventTailResponse, retErr error) {
+	kd := newKubeDriver(a.env.KubeClient, a.env.Config)
+	logs, err := kd.GetKubeEventTail(ctx)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return &pps.GetKubeEventTailResponse{
+		Logs: logs,
+	}, nil
+}
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	ctx := apiGetLogsServer.Context()
 

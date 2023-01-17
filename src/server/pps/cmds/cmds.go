@@ -539,6 +539,26 @@ each datum.`,
 	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listDatum, "list datum", datums))
 
+	kubeEvents := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Return the kubernetes events.",
+		Long:  "Return the kubernetes events.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			events, err := client.GetKubeEventTail()
+			if err != nil {
+				return err
+			}
+			fmt.Println(events)
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(kubeEvents, "kube-events"))
+
 	inspectDatum := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job> <datum>",
 		Short: "Display detailed info about a single datum.",

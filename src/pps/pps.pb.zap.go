@@ -1047,3 +1047,11 @@ func (x *RenderTemplateResponse) MarshalLogObject(enc zapcore.ObjectEncoder) err
 	enc.AddArray("specs", zapcore.ArrayMarshalerFunc(specsArrMarshaller))
 	return nil
 }
+
+func (x *GetKubeEventTailResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("logs", x.Logs)
+	return nil
+}
