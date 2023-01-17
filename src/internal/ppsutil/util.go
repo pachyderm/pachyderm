@@ -276,6 +276,7 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 		Metadata:              pipelineInfo.Details.Metadata,
 		ReprocessSpec:         pipelineInfo.Details.ReprocessSpec,
 		Autoscaling:           pipelineInfo.Details.Autoscaling,
+		Tolerations:           pipelineInfo.Details.Tolerations,
 	}
 }
 
