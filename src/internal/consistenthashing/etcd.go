@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -176,18 +176,15 @@ func (ring *Ring) keyWithRingPrefix(key string) string {
 
 // rebalance iterates through held locks and releases locks that no longer associate to a ring's node.
 func (ring *Ring) rebalance() error {
-	var errs error
-	for key, lockInfo := range ring.node.locks {
+	for key := range ring.node.locks {
 		if ring.get(key).Id == ring.node.Id {
 			continue
 		}
-		if err := lockInfo.lock.Unlock(lockInfo.ctx); err != nil {
-			errs = multierror.Append(errs, errors.Wrapf(err, "error unlocking %v", key))
+		if err := ring.releaseLock(key); err != nil {
+			return err
 		}
-		delete(ring.node.locks, key)
-		log.Info(lockInfo.ctx, "rebalanced lock")
 	}
-	return errors.EnsureStack(errs)
+	return nil
 }
 
 func (ring *Ring) get(key string) member {
@@ -206,6 +203,27 @@ func (ring *Ring) getIndex(key string) int {
 		index = 0
 	}
 	return index
+}
+
+func (ring *Ring) releaseLock(key string) error {
+	lockInfo, exists := ring.node.locks[key]
+	if !exists {
+		return nil
+	}
+	delete(ring.node.locks, key)
+	// The lock is released when either:
+	// - The lock context is canceled.
+	// - The unlock call completes successfully.
+	ctx := lockInfo.ctx
+	return backoff.RetryNotify(func() error {
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return nil
+		}
+		return lockInfo.lock.Unlock(ctx)
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		log.Error(ctx, "releasing lock; retrying", zap.Error(err), zap.Duration("retryAfter", d))
+		return nil
+	})
 }
 
 func (ring *Ring) insertById(ctx context.Context, id string) {
@@ -277,10 +295,9 @@ func (ring *Ring) Lock(ctx context.Context, key string) (context.Context, error)
 			if err == nil { // lock() must fallthrough in the case where err == concurrency.ErrLocked
 				l := lockInfo{
 					lock: nodeLock,
-					ctx:  pctx.Child(ctx, "lock", pctx.WithFields(zap.String("lock", key))),
+					ctx:  pctx.Child(lockCtx, "lock", pctx.WithFields(zap.String("lock", key))),
 				}
 				ring.node.locks[key] = l
-				log.Info(l.ctx, "claimed lock")
 				return lockCtx, nil
 			}
 		}
@@ -298,19 +315,10 @@ func (ring *Ring) Lock(ctx context.Context, key string) (context.Context, error)
 // Unlock attempts to unlock a key in etcd if and only if a ring's node owns a lock reference to it.
 // Remote member instances must give up their own locks.
 func (ring *Ring) Unlock(key string) error {
+	key = ring.keyWithRingPrefix(key)
 	ring.stateLock.Lock()
 	defer ring.stateLock.Unlock()
-	key = ring.keyWithRingPrefix(key)
-	info, exists := ring.node.locks[key]
-	if !exists {
-		return nil // lock does not exist in this local process.
-	}
-	if err := info.lock.Unlock(info.ctx); err != nil {
-		return errors.EnsureStack(err)
-	}
-	delete(ring.node.locks, key)
-	log.Info(info.ctx, "released lock")
-	return nil
+	return ring.releaseLock(key)
 }
 
 // MarshalLogObject implements zapcore.ObjectMarshaler.
