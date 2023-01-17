@@ -93,8 +93,7 @@ func writeReadDelete(t *testing.T, url *obj.ObjectStoreURL) {
 	buf := &bytes.Buffer{}
 	readFromObjStorage(ctx, t, bucket, objName, buf)
 	require.Equal(t, buf.String(), objName)
-	err = bucket.Delete(ctx, objName)
-	require.NoError(t, err, "should be able to delete object")
+	require.NoError(t, bucket.Delete(ctx, objName), "should be able to delete object")
 }
 
 func writeToObjStorage(ctx context.Context, t *testing.T, bucket *blob.Bucket, objName string) {
