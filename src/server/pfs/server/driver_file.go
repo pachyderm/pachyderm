@@ -340,8 +340,6 @@ func (r *circularList) add(fi *pfs.FileInfo) {
 	}
 	if r.size < len(r.buffer) {
 		r.size++
-	} else {
-		r.size = len(r.buffer)
 	}
 }
 
