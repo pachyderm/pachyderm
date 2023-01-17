@@ -154,6 +154,122 @@ func TestRawFullPipelineInfo(t *testing.T) {
 		`).Run())
 }
 
+func TestDeletePipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	pipelineName := tu.UniqueString("p-")
+	projectName := tu.UniqueString("proj")
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create repo data
+		pachctl put file data@master:/file <<<"This is a test"
+		pachctl create pipeline <<EOF
+		  {
+		    "pipeline": {"name": "{{.pipeline}}"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "data"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["cp /pfs/data/file /pfs/out"]
+		    }
+		  }
+		EOF
+		pachctl create pipeline <<EOF
+		  {
+		    "pipeline": {"name": "{{.pipeline}}2"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "data"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["cp /pfs/data/file /pfs/out"]
+		    }
+		  }
+		EOF
+		pachctl create project {{.project}}
+		pachctl create pipeline --project {{.project}}<<EOF
+		  {
+		    "pipeline": {"name": "{{.pipeline}}"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "data",
+			"project": "default"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["cp /pfs/data/file /pfs/out"]
+		    }
+		  }
+		EOF
+		pachctl create pipeline --project {{.project}} <<EOF
+		  {
+		    "pipeline": {"name": "{{.pipeline}}2"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "data",
+			"project": "default"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["cp /pfs/data/file /pfs/out"]
+		    }
+		  }
+		EOF
+		`,
+		"pipeline", pipelineName,
+		"project", projectName,
+	).Run())
+	// Deleting the first default project pipeline should not error, leaving
+	// three remaining.
+	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl delete pipeline {{.pipeline}}`, "pipeline", pipelineName).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		if [ $(pachctl list pipeline --raw --all-projects | grep '"transform"' | wc -l) -ne 3 ]
+		then
+			exit 1
+		fi
+	`).Run())
+	// Deleting all in the default project should delete one pipeline, leaving two.
+	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl delete pipeline --all`).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		if [ $(pachctl list pipeline --raw --all-projects | grep '"transform"' | wc -l) -ne 2 ]
+		then
+			exit 1
+		fi
+	`).Run())
+	// Deleting the first non-default project pipeline should not error, leaving
+	// one remaining.
+	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl delete pipeline {{.pipeline}} --project {{.project}}`,
+		"pipeline", pipelineName,
+		"project", projectName,
+	).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		if [ $(pachctl list pipeline --raw --all-projects | grep '"transform"' | wc -l) -ne 1 ]
+		then
+			exit 1
+		fi
+	`).Run())
+	// Deleting all in all projects should delete one pipeline, leaving two.
+	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl delete pipeline --all --all-projects`).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		if [ $(pachctl list pipeline --raw --all-projects | grep '"transform"' | wc -l) -ne 0 ]
+		then
+			exit 1
+		fi
+	`).Run())
+}
+
 func TestUnrunnableJobInfo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

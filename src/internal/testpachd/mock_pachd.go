@@ -1458,6 +1458,7 @@ type createPipelineFunc func(context.Context, *pps.CreatePipelineRequest) (*type
 type inspectPipelineFunc func(context.Context, *pps.InspectPipelineRequest) (*pps.PipelineInfo, error)
 type listPipelineFunc func(*pps.ListPipelineRequest, pps.API_ListPipelineServer) error
 type deletePipelineFunc func(context.Context, *pps.DeletePipelineRequest) (*types.Empty, error)
+type deletePipelinesFunc func(context.Context, *pps.DeletePipelinesRequest) (*pps.DeletePipelinesResponse, error)
 type startPipelineFunc func(context.Context, *pps.StartPipelineRequest) (*types.Empty, error)
 type stopPipelineFunc func(context.Context, *pps.StopPipelineRequest) (*types.Empty, error)
 type runPipelineFunc func(context.Context, *pps.RunPipelineRequest) (*types.Empty, error)
@@ -1489,6 +1490,7 @@ type mockCreatePipeline struct{ handler createPipelineFunc }
 type mockInspectPipeline struct{ handler inspectPipelineFunc }
 type mockListPipeline struct{ handler listPipelineFunc }
 type mockDeletePipeline struct{ handler deletePipelineFunc }
+type mockDeletePipelines struct{ handler deletePipelinesFunc }
 type mockStartPipeline struct{ handler startPipelineFunc }
 type mockStopPipeline struct{ handler stopPipelineFunc }
 type mockRunPipeline struct{ handler runPipelineFunc }
@@ -1520,6 +1522,7 @@ func (mock *mockCreatePipeline) Use(cb createPipelineFunc)               { mock.
 func (mock *mockInspectPipeline) Use(cb inspectPipelineFunc)             { mock.handler = cb }
 func (mock *mockListPipeline) Use(cb listPipelineFunc)                   { mock.handler = cb }
 func (mock *mockDeletePipeline) Use(cb deletePipelineFunc)               { mock.handler = cb }
+func (mock *mockDeletePipelines) Use(cb deletePipelinesFunc)             { mock.handler = cb }
 func (mock *mockStartPipeline) Use(cb startPipelineFunc)                 { mock.handler = cb }
 func (mock *mockStopPipeline) Use(cb stopPipelineFunc)                   { mock.handler = cb }
 func (mock *mockRunPipeline) Use(cb runPipelineFunc)                     { mock.handler = cb }
@@ -1557,6 +1560,7 @@ type mockPPSServer struct {
 	InspectPipeline    mockInspectPipeline
 	ListPipeline       mockListPipeline
 	DeletePipeline     mockDeletePipeline
+	DeletePipelines    mockDeletePipelines
 	StartPipeline      mockStartPipeline
 	StopPipeline       mockStopPipeline
 	RunPipeline        mockRunPipeline
@@ -1663,6 +1667,12 @@ func (api *ppsServerAPI) DeletePipeline(ctx context.Context, req *pps.DeletePipe
 		return api.mock.DeletePipeline.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.DeletePipeline")
+}
+func (api *ppsServerAPI) DeletePipelines(ctx context.Context, req *pps.DeletePipelinesRequest) (*pps.DeletePipelinesResponse, error) {
+	if api.mock.DeletePipeline.handler != nil {
+		return api.mock.DeletePipelines.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pps.DeletePipelines")
 }
 func (api *ppsServerAPI) StartPipeline(ctx context.Context, req *pps.StartPipelineRequest) (*types.Empty, error) {
 	if api.mock.StartPipeline.handler != nil {

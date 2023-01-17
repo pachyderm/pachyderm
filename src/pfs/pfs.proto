@@ -206,6 +206,9 @@ message DeleteReposRequest {
   // permission.
   repeated Project projects = 1;
   bool force = 2;
+  // If all is set, then all repos in all projects will be deleted if the caller
+  // has permission.
+  bool all = 3;
 }
 
 message DeleteReposResponse {

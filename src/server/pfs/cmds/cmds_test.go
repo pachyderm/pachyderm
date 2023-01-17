@@ -429,6 +429,29 @@ func TestDeleteAllRepos(t *testing.T) {
 	).Run())
 }
 
+func TestDeleteAllReposAllProjects(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+	c := env.PachClient
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create project {{.project}}
+		pachctl create repo {{.repo}}
+		pachctl create repo {{.repo}}a --project {{.project}}
+		pachctl create project {{.project2}}
+		pachctl create repo {{.repo}} --project {{.project2}}
+		pachctl delete repo --all --all-projects
+		if [ $(pachctl list repo --all-projects | wc -l) -ne 1]; then exit 1; fi
+		`,
+		"project", tu.UniqueString("project"),
+		"project2", tu.UniqueString("project2"),
+		"repo", tu.UniqueString("repo"),
+	).Run())
+}
+
 func TestCmdListRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")

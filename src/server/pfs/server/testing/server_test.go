@@ -1293,13 +1293,13 @@ func TestPFS(suite *testing.T) {
 			untouchedRepos = append(untouchedRepos, untouchedRepo)
 		}
 
-		// DeleteRepos with no projects should return an error.
+		// DeleteRepos with no projects should not return an error.
 		_, err = env.PachClient.PfsAPIClient.DeleteRepos(ctx, &pfs.DeleteReposRequest{})
-		require.YesError(t, err)
+		require.NoError(t, err)
 
-		// DeleteRepos with a non-nil, zero-length list of projects should still error.
+		// DeleteRepos with a non-nil, zero-length list of projects should also not error.
 		_, err = env.PachClient.PfsAPIClient.DeleteRepos(ctx, &pfs.DeleteReposRequest{Projects: make([]*pfs.Project, 0)})
-		require.YesError(t, err)
+		require.NoError(t, err)
 
 		// DeleteRepos with an invalid project should not error because
 		// there will simply be no repos to delete.
@@ -1335,6 +1335,24 @@ func TestPFS(suite *testing.T) {
 				t.Errorf("repo %v not found in repos %v", repo.String(), repos)
 			}
 		}
+
+		// DeleteRepos with all set should delete every single repo.
+		resp, err = env.PachClient.PfsAPIClient.DeleteRepos(ctx, &pfs.DeleteReposRequest{All: true})
+		require.NoError(t, err)
+		require.Len(t, resp.Repos, len(untouchedRepos))
+
+		repoStream, err = env.PachClient.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{})
+		require.NoError(t, err)
+		var count int
+		for {
+			_, err := repoStream.Recv()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+			count++
+		}
+		require.Equal(t, count, 0)
 	})
 
 	suite.Run("InspectCommit", func(t *testing.T) {

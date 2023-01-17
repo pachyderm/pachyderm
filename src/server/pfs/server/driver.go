@@ -328,6 +328,37 @@ func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContex
 	return nil
 }
 
+func (d *driver) deleteAllRepos(ctx context.Context) ([]*pfs.Repo, error) {
+	var repos, deleted []*pfs.Repo
+
+	if err := d.listRepo(ctx, false, "", nil, func(repoInfo *pfs.RepoInfo) error {
+		repos = append(repos, repoInfo.Repo)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if len(repos) == 0 {
+		return nil, nil
+	}
+
+	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		// the list does not use the transaction
+		for _, repo := range repos {
+			if err := d.deleteRepo(txnCtx, repo, true); err != nil {
+				if errors.As(err, &auth.ErrNotAuthorized{}) {
+					continue
+				}
+				return err
+			}
+			deleted = append(deleted, repo)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return deleted, nil
+}
+
 func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) error {
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 
