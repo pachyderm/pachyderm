@@ -2767,6 +2767,10 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 				// they could still show up in the list. Ignore them
 				return nil
 			}
+			// skip pipelines outside the default project.
+			if pipelineInfo.GetPipeline().GetProject().GetName() != pfs.DefaultProjectName {
+				return nil
+			}
 			request.Pipeline = pipelineInfo.Pipeline
 			err := a.deletePipeline(ctx, request)
 			if err == nil {
@@ -2953,6 +2957,46 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	}
 
 	return nil
+}
+
+// DeletePipelines implements the protobuf pps.DeletePipelines RPC.  It deletes
+// multiple pipelines at once.  If all is set, then all pipelines in all
+// projects are deleted; otherwise the requested pipelines are deleted.
+func (a *apiServer) DeletePipelines(ctx context.Context, request *pps.DeletePipelinesRequest) (response *pps.DeletePipelinesResponse, retErr error) {
+	var (
+		projects = make(map[string]bool)
+		dr       = &pps.DeletePipelineRequest{
+			Force:    request.Force,
+			KeepRepo: request.KeepRepo,
+		}
+		pp []*pps.Pipeline
+	)
+	for _, p := range request.GetProjects() {
+		projects[p.String()] = true
+	}
+	dr.Pipeline = &pps.Pipeline{}
+	pipelineInfo := &pps.PipelineInfo{}
+	deleted := make(map[string]struct{})
+	if err := a.pipelines.ReadOnly(ctx).List(pipelineInfo, col.DefaultOptions(), func(string) error {
+		if _, ok := deleted[pipelineInfo.Pipeline.String()]; ok {
+			// while the delete pipeline call will delete historical versions,
+			// they could still show up in the list.  Ignore them.
+			return nil
+		}
+		if !request.GetAll() && !projects[pipelineInfo.GetPipeline().GetProject().GetName()] {
+			return nil
+		}
+		dr.Pipeline = pipelineInfo.Pipeline
+		err := a.deletePipeline(ctx, dr)
+		if err == nil {
+			deleted[pipelineInfo.Pipeline.String()] = struct{}{}
+			pp = append(pp, pipelineInfo.Pipeline)
+		}
+		return err
+	}); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return &pps.DeletePipelinesResponse{Pipelines: pp}, nil
 }
 
 // StartPipeline implements the protobuf pps.StartPipeline RPC
@@ -3255,7 +3299,7 @@ func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *
 
 // DeleteAll implements the protobuf pps.DeleteAll RPC
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
-	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {
+	if _, err := a.DeletePipelines(ctx, &pps.DeletePipelinesRequest{All: true, Force: true}); err != nil {
 		return nil, err
 	}
 
