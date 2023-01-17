@@ -94,8 +94,8 @@ module.exports = {
     ],
     'no-useless-return': 'off',
     'jest/prefer-to-be': 'warn',
-    'testing-library/no-node-access': 'warn',
-    'testing-library/no-unnecessary-act': 'warn',
+    'testing-library/no-node-access': 'off',
+    'testing-library/no-unnecessary-act': 'off',
   },
   settings: {
     react: {
