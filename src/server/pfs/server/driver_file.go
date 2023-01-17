@@ -290,7 +290,19 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 		number = math.MaxInt64
 	}
 	if reverse {
-		return d.listFileReverse(ctx, name, s, number, cb)
+		fis := newCircularList(number)
+		if err := s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
+			if pathIsChild(name, pfsfile.CleanPath(fi.File.Path)) {
+				fis.add(fi)
+			}
+			return nil
+		}); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := fis.iterateReverse(cb); err != nil {
+			return errors.EnsureStack(err)
+		}
+		return nil
 	}
 	if err = s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 		if number == 0 {
@@ -305,23 +317,6 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker 
 		return errors.EnsureStack(err)
 	}
 	return errors.EnsureStack(err)
-}
-
-func (d *driver) listFileReverse(tx context.Context, filename string, s Source, number int64, cb func(*pfs.FileInfo) error) error {
-	// use a fixed size slice since we know the number of files we want
-	fis := newCircularList(number)
-	if err := s.Iterate(tx, func(fi *pfs.FileInfo, _ fileset.File) error {
-		if pathIsChild(filename, pfsfile.CleanPath(fi.File.Path)) {
-			fis.add(fi)
-		}
-		return nil
-	}); err != nil {
-		return errors.EnsureStack(err)
-	}
-	if err := fis.iterateReverse(cb); err != nil {
-		return errors.EnsureStack(err)
-	}
-	return nil
 }
 
 type circularList struct {
@@ -412,7 +407,17 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 		number = math.MaxInt64
 	}
 	if reverse {
-		return d.walkFileReverse(ctx, s, number, cb)
+		fis := newCircularList(number)
+		if err := s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
+			fis.add(fi)
+			return nil
+		}); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := fis.iterateReverse(cb); err != nil {
+			return errors.EnsureStack(err)
+		}
+		return nil
 	}
 	err = s.Iterate(ctx, func(fi *pfs.FileInfo, f fileset.File) error {
 		if number == 0 {
@@ -425,21 +430,6 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 		err = nil
 	}
 	return err
-}
-
-func (d *driver) walkFileReverse(tx context.Context, s Source, number int64, cb func(*pfs.FileInfo) error) error {
-	// use a fixed size slice since we know the number of files we want
-	fis := newCircularList(number)
-	if err := s.Iterate(tx, func(fi *pfs.FileInfo, _ fileset.File) error {
-		fis.add(fi)
-		return nil
-	}); err != nil {
-		return errors.EnsureStack(err)
-	}
-	if err := fis.iterateReverse(cb); err != nil {
-		return errors.EnsureStack(err)
-	}
-	return nil
 }
 
 func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, pathRange *pfs.PathRange, cb func(*pfs.FileInfo) error) error {
