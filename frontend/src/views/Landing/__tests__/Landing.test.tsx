@@ -110,12 +110,12 @@ describe('Landing', () => {
   it('should allow a user to view a project based in default lineage view', async () => {
     const {findAllByRole} = render(<Landing />);
 
-    expect(window.location.pathname).not.toEqual('/lineage/2');
+    expect(window.location.pathname).not.toBe('/lineage/2');
     const viewProjectButtons = await findAllByRole('button', {
       name: 'View Project',
     });
     await click(viewProjectButtons[0]);
-    expect(window.location.pathname).toEqual('/lineage/2');
+    expect(window.location.pathname).toBe('/lineage/2');
   });
 
   it('should allow a user to view a project based on the preferred view', async () => {
@@ -126,12 +126,12 @@ describe('Landing', () => {
 
     const {findAllByRole} = render(<Landing />);
 
-    expect(window.location.pathname).not.toEqual('/project/2/repos');
+    expect(window.location.pathname).not.toBe('/project/2/repos');
     const viewProjectButtons = await findAllByRole('button', {
       name: 'View Project',
     });
     await click(viewProjectButtons[0]);
-    expect(window.location.pathname).toEqual('/project/2/repos');
+    expect(window.location.pathname).toBe('/project/2/repos');
 
     localStorage.removeItem('pachyderm-console-2');
   });
@@ -141,8 +141,8 @@ describe('Landing', () => {
 
     const projectCreations = await findAllByTestId('ProjectRow__created');
 
-    expect(projectCreations[0].textContent).toEqual('02/28/2021');
-    expect(projectCreations[6].textContent).toEqual('02/22/2021');
+    expect(projectCreations[0].textContent).toBe('02/28/2021');
+    expect(projectCreations[6].textContent).toBe('02/22/2021');
   });
 
   it('should allow the user to sort by name', async () => {
@@ -155,16 +155,16 @@ describe('Landing', () => {
       level: 5,
     });
 
-    expect(projectNames[1].textContent).toEqual('Data Cleaning Process');
-    expect(projectNames[2].textContent).toEqual(
+    expect(projectNames[1].textContent).toBe('Data Cleaning Process');
+    expect(projectNames[2].textContent).toBe(
       'Solar Power Data Logger Team Collab',
     );
-    expect(projectNames[3].textContent).toEqual('Solar Price Prediction Modal');
-    expect(projectNames[4].textContent).toEqual('Egress Examples');
-    expect(projectNames[5].textContent).toEqual('Empty Project');
-    expect(projectNames[6].textContent).toEqual('Trait Discovery');
+    expect(projectNames[3].textContent).toBe('Solar Price Prediction Modal');
+    expect(projectNames[4].textContent).toBe('Egress Examples');
+    expect(projectNames[5].textContent).toBe('Empty Project');
+    expect(projectNames[6].textContent).toBe('Trait Discovery');
 
-    expect(projectNames[7].textContent).toEqual('Solar Panel Data Sorting');
+    expect(projectNames[7].textContent).toBe('Solar Panel Data Sorting');
 
     const sortDropdown = await findByRole('button', {
       name: 'Sort by: Newest',
@@ -175,21 +175,19 @@ describe('Landing', () => {
 
     const nameSortedProjectNames = await findAllByRole('heading', {level: 5});
 
-    expect(nameSortedProjectNames[1].textContent).toEqual(
-      'Data Cleaning Process',
-    );
-    expect(nameSortedProjectNames[2].textContent).toEqual('Egress Examples');
-    expect(nameSortedProjectNames[3].textContent).toEqual('Empty Project');
-    expect(nameSortedProjectNames[4].textContent).toEqual(
+    expect(nameSortedProjectNames[1].textContent).toBe('Data Cleaning Process');
+    expect(nameSortedProjectNames[2].textContent).toBe('Egress Examples');
+    expect(nameSortedProjectNames[3].textContent).toBe('Empty Project');
+    expect(nameSortedProjectNames[4].textContent).toBe(
       'Solar Panel Data Sorting',
     );
-    expect(nameSortedProjectNames[5].textContent).toEqual(
+    expect(nameSortedProjectNames[5].textContent).toBe(
       'Solar Power Data Logger Team Collab',
     );
-    expect(nameSortedProjectNames[6].textContent).toEqual(
+    expect(nameSortedProjectNames[6].textContent).toBe(
       'Solar Price Prediction Modal',
     );
-    expect(nameSortedProjectNames[7].textContent).toEqual('Trait Discovery');
+    expect(nameSortedProjectNames[7].textContent).toBe('Trait Discovery');
   });
 
   it('should allow the user to filter projects by status', async () => {

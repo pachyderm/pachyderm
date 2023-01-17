@@ -8,6 +8,7 @@ module.exports = {
     'plugin:import/warnings',
     'plugin:import/typescript',
     'plugin:jest/recommended',
+    'plugin:jest/style',
   ],
   plugins: ['lodash', 'prefer-arrow', 'testing-library', 'jest'],
   env: {

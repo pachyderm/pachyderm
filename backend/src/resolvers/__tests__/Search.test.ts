@@ -16,7 +16,7 @@ describe('Search resolver', () => {
     const searchResults = data?.searchResults;
     expect(searchResults?.pipelines).toHaveLength(0);
     expect(searchResults?.repos).toHaveLength(0);
-    expect(searchResults?.jobSet).toBe(null);
+    expect(searchResults?.jobSet).toBeNull();
   });
 
   describe('Pipeline search', () => {
@@ -119,7 +119,7 @@ describe('Search resolver', () => {
       );
       expect(errors).toHaveLength(0);
       const searchResults = data?.searchResults;
-      expect(searchResults?.jobSet).toBe(null);
+      expect(searchResults?.jobSet).toBeNull();
     });
   });
 

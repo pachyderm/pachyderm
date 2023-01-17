@@ -27,17 +27,17 @@ describe('Dag resolver', () => {
 
     const vertices = data?.dag;
     expect(vertices).toHaveLength(6);
-    expect(vertices?.[0].name).toEqual('montage_repo');
+    expect(vertices?.[0].name).toBe('montage_repo');
     expect(vertices?.[0].parents).toEqual(['montage']);
-    expect(vertices?.[1].name).toEqual('edges_repo');
+    expect(vertices?.[1].name).toBe('edges_repo');
     expect(vertices?.[1].parents).toEqual(['edges']);
-    expect(vertices?.[2].name).toEqual('images_repo');
+    expect(vertices?.[2].name).toBe('images_repo');
     expect(vertices?.[2].parents).toEqual([]);
-    expect(vertices?.[3].name).toEqual('montage');
+    expect(vertices?.[3].name).toBe('montage');
     expect(vertices?.[3].parents).toEqual(['edges', 'images']);
-    expect(vertices?.[4].name).toEqual('https://egress.com');
+    expect(vertices?.[4].name).toBe('https://egress.com');
     expect(vertices?.[4].parents).toEqual(['montage_repo']);
-    expect(vertices?.[5].name).toEqual('edges');
+    expect(vertices?.[5].name).toBe('edges');
     expect(vertices?.[5].parents).toEqual(['images']);
   });
 
@@ -78,13 +78,13 @@ describe('Dag resolver', () => {
           const vertices = data.data?.dags;
 
           expect(vertices).toHaveLength(4);
-          expect(vertices?.[0].name).toEqual('edges_repo');
+          expect(vertices?.[0].name).toBe('edges_repo');
           expect(vertices?.[0].parents).toEqual([]);
-          expect(vertices?.[1].name).toEqual('images_repo');
+          expect(vertices?.[1].name).toBe('images_repo');
           expect(vertices?.[1].parents).toEqual([]);
-          expect(vertices?.[2].name).toEqual('montage_repo');
+          expect(vertices?.[2].name).toBe('montage_repo');
           expect(vertices?.[2].parents).toEqual(['montage']);
-          expect(vertices?.[3].name).toEqual('montage');
+          expect(vertices?.[3].name).toBe('montage');
           expect(vertices?.[3].parents).toEqual(['edges', 'images']);
 
           resolve();

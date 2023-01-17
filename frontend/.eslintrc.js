@@ -13,6 +13,7 @@ module.exports = {
     'plugin:import/warnings',
     'plugin:import/typescript',
     'plugin:jest/recommended',
+    'plugin:jest/style',
   ],
   plugins: ['lodash', 'prefer-arrow', 'testing-library', 'jest'],
   env: {
@@ -90,6 +91,7 @@ module.exports = {
       },
     ],
     'no-useless-return': 'off',
+    'jest/prefer-to-be': 'warn',
   },
   settings: {
     react: {

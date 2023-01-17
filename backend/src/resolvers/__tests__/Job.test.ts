@@ -98,7 +98,7 @@ describe('Jobs', () => {
       );
 
       expect(errors).toHaveLength(0);
-      expect(data?.jobSet.createdAt).toBe(null);
+      expect(data?.jobSet.createdAt).toBeNull();
       expect(data?.jobSet.id).toBe('bogus');
       expect(data?.jobSet.state).toBe(JobState.JOB_SUCCESS);
       expect(data?.jobSet.jobs).toHaveLength(0);

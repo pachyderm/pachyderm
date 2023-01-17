@@ -17,7 +17,7 @@ describe('IntroductionModal', () => {
 
   it('should set an active tutorial on confirm', async () => {
     const {findByTestId} = render(<IntroductionModal projectId="6" />);
-    expect(localStorage.getItem('pachyderm-console-6')).toBe(null);
+    expect(localStorage.getItem('pachyderm-console-6')).toBeNull();
 
     await click(await findByTestId('ModalFooter__confirm'));
     await click(await findByTestId('ModalFooter__confirm'));

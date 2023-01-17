@@ -58,9 +58,9 @@ describe('Projects Resolver', () => {
       const projects = data?.projects;
 
       expect(projects).toHaveLength(1);
-      expect(projects?.[0]?.name).toEqual('Default');
-      expect(projects?.[0]?.id).toEqual('default');
-      expect(projects?.[0]?.description).toEqual('Default Pachyderm project.');
+      expect(projects?.[0]?.name).toBe('Default');
+      expect(projects?.[0]?.id).toBe('default');
+      expect(projects?.[0]?.description).toBe('Default Pachyderm project.');
     });
 
     it('should return projects when the project service is implemented', async () => {
@@ -71,15 +71,13 @@ describe('Projects Resolver', () => {
       const projects = data?.projects;
 
       expect(projects).toHaveLength(7);
-      expect(projects?.[0]?.name).toEqual('Solar Panel Data Sorting');
-      expect(projects?.[1]?.name).toEqual('Data Cleaning Process');
-      expect(projects?.[2]?.name).toEqual(
-        'Solar Power Data Logger Team Collab',
-      );
-      expect(projects?.[3]?.name).toEqual('Solar Price Prediction Modal');
-      expect(projects?.[4]?.name).toEqual('Egress Examples');
-      expect(projects?.[5]?.name).toEqual('Empty Project');
-      expect(projects?.[6]?.name).toEqual('Trait Discovery');
+      expect(projects?.[0]?.name).toBe('Solar Panel Data Sorting');
+      expect(projects?.[1]?.name).toBe('Data Cleaning Process');
+      expect(projects?.[2]?.name).toBe('Solar Power Data Logger Team Collab');
+      expect(projects?.[3]?.name).toBe('Solar Price Prediction Modal');
+      expect(projects?.[4]?.name).toBe('Egress Examples');
+      expect(projects?.[5]?.name).toBe('Empty Project');
+      expect(projects?.[6]?.name).toBe('Trait Discovery');
     });
   });
 

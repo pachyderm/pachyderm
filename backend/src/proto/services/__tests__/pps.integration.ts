@@ -50,7 +50,7 @@ describe('services/pps', () => {
       const pipelines = await pachClient.pps().listPipeline();
 
       expect(pipelines).toHaveLength(1);
-      expect(pipelines[0].pipeline?.name).toEqual('listPipeline');
+      expect(pipelines[0].pipeline?.name).toBe('listPipeline');
     });
   });
 
@@ -73,7 +73,7 @@ describe('services/pps', () => {
         .pps()
         .inspectPipeline('inspectPipeline');
 
-      expect(pipeline.pipeline?.name).toEqual('inspectPipeline');
+      expect(pipeline.pipeline?.name).toBe('inspectPipeline');
       expect(pipeline.state).toEqual(PipelineState.PIPELINE_STARTING);
       expect(pipeline.details?.input?.pfs?.repo).toEqual(inputRepoName);
     });
@@ -207,8 +207,8 @@ describe('services/pps', () => {
       const datumObject = datum.toObject();
 
       expect(datumObject.state).toEqual(DatumState.SUCCESS);
-      expect(datumObject.dataList[0]?.file?.path).toEqual('/dummyData.csv');
-      expect(datumObject.dataList[0]?.sizeBytes).toEqual(5);
+      expect(datumObject.dataList[0]?.file?.path).toBe('/dummyData.csv');
+      expect(datumObject.dataList[0]?.sizeBytes).toBe(5);
     });
 
     it('should list datums for a pipeline job', async () => {
@@ -244,8 +244,8 @@ describe('services/pps', () => {
 
       expect(datums).toHaveLength(1);
       expect(datums[0].state).toEqual(DatumState.SUCCESS);
-      expect(datums[0].dataList[0]?.file?.path).toEqual('/dummyData.csv');
-      expect(datums[0].dataList[0]?.sizeBytes).toEqual(5);
+      expect(datums[0].dataList[0]?.file?.path).toBe('/dummyData.csv');
+      expect(datums[0].dataList[0]?.sizeBytes).toBe(5);
     });
 
     it('should filter datum list', async () => {

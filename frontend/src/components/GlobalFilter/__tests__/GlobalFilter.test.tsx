@@ -60,7 +60,7 @@ describe('Global ID Filter', () => {
     await waitFor(() =>
       expect(queryByText('Global ID: 23b9af7d')).toBeInTheDocument(),
     );
-    expect(window.location.search).toEqual(
+    expect(window.location.search).toBe(
       '?view=eyJnbG9iYWxJZEZpbHRlciI6IjIzYjlhZjdkNWQ0MzQzMjE5YmM4ZTAyZmY0NGNkNTVhIn0%3D',
     );
   });
@@ -87,6 +87,6 @@ describe('Global ID Filter', () => {
     await waitFor(() =>
       expect(queryByText('Filter by Global ID')).toBeInTheDocument(),
     );
-    expect(window.location.search).toEqual('?view=e30%3D');
+    expect(window.location.search).toBe('?view=e30%3D');
   });
 });

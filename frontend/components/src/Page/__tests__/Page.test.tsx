@@ -7,8 +7,6 @@ describe('Page', () => {
   it('should change the document title', async () => {
     render(<Page title="Hello Page" />);
 
-    await waitFor(() =>
-      expect(document.title).toEqual('Hello Page - Pachyderm'),
-    );
+    await waitFor(() => expect(document.title).toBe('Hello Page - Pachyderm'));
   });
 });

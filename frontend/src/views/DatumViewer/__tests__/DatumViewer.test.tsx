@@ -211,9 +211,7 @@ describe('Datum Viewer', () => {
         '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/edges/logs',
       );
       const {findAllByTestId} = render(<JobDatumViewer />);
-      expect(
-        (await findAllByTestId('JobList__listItem'))[0].textContent,
-      ).toEqual(
+      expect((await findAllByTestId('JobList__listItem'))[0].textContent).toBe(
         `${format(
           fromUnixTime(1614126189),
           JOB_DATE_FORMAT,
@@ -235,7 +233,7 @@ describe('Datum Viewer', () => {
 
       const datums = await findAllByTestId('DatumList__listItem');
       const datum = datums[0];
-      expect(datum.textContent).toEqual(
+      expect(datum.textContent).toBe(
         '01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155',
       );
     });
@@ -259,7 +257,7 @@ describe('Datum Viewer', () => {
       await click(await findByText('Starting'));
 
       const datum = await findByTestId('DatumList__listItem');
-      expect(datum.textContent).toEqual(
+      expect(datum.textContent).toBe(
         '01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155',
       );
 
@@ -340,16 +338,16 @@ describe('Datum Viewer', () => {
 
         const selectedDatum = (await findAllByTestId('DatumList__listItem'))[0];
         expect(selectedDatum).toHaveClass('selected');
-        expect(selectedDatum.textContent).toEqual(
+        expect(selectedDatum.textContent).toBe(
           '0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
         );
-        expect((await findByTestId('BreadCrumbs__base')).textContent).toEqual(
+        expect((await findByTestId('BreadCrumbs__base')).textContent).toBe(
           '.../Datum: 0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
         );
         expect(queryAllByTestId('JobList__listItem')).toHaveLength(0);
         await click(selectedDatum);
 
-        expect((await findByTestId('BreadCrumbs__base')).textContent).toEqual(
+        expect((await findByTestId('BreadCrumbs__base')).textContent).toBe(
           '.../Datum: 0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
         );
       });
@@ -369,14 +367,14 @@ describe('Datum Viewer', () => {
         );
         await findByText('No matching datums found');
         await click(await findByTestId('DatumList__searchClear'));
-        expect(search.textContent).toEqual('');
+        expect(search.textContent).toBe('');
         await type(
           search,
           '006fdb9ba8a1afa805823336f4a280fd5c0b5c169ec48af78d07cecb96f8f14f',
         );
 
         const selectedDatum = await findByTestId('DatumList__listItem');
-        expect(selectedDatum.textContent).toEqual(
+        expect(selectedDatum.textContent).toBe(
           '006fdb9ba8a1afa805823336f4a280fd5c0b5c169ec48af78d07cecb96f8f14f',
         );
         expect(queryByText('No matching datums found')).not.toBeInTheDocument();
@@ -477,13 +475,13 @@ describe('Datum Viewer', () => {
 
       const rows = await findAllByTestId('LogRow__base');
       expect(rows).toHaveLength(2);
-      expect(rows[0].textContent).toEqual(
+      expect(rows[0].textContent).toBe(
         `${format(
           fromUnixTime(1614126189),
           LOGS_DATE_FORMAT,
         )} started datum task`,
       );
-      expect(rows[1].textContent).toEqual(
+      expect(rows[1].textContent).toBe(
         `${format(
           fromUnixTime(1614126190),
           LOGS_DATE_FORMAT,
@@ -512,8 +510,8 @@ describe('Datum Viewer', () => {
 
       const rows = await findAllByTestId('RawLogRow__base');
       expect(rows).toHaveLength(2);
-      expect(rows[0].textContent).toEqual('started datum task');
-      expect(rows[1].textContent).toEqual('finished datum task');
+      expect(rows[0].textContent).toBe('started datum task');
+      expect(rows[1].textContent).toBe('finished datum task');
     });
 
     it('should highlight raw user logs', async () => {
@@ -576,24 +574,24 @@ describe('Datum Viewer', () => {
         const {findByTestId} = render(<MiddleSection />);
         expect(
           (await findByTestId('DatumHeaderBreadCrumbs__path')).textContent,
-        ).toEqual('Pipeline.../Job: 23b9af7d5d4343219bc8e02ff44cd55a');
+        ).toBe('Pipeline.../Job: 23b9af7d5d4343219bc8e02ff44cd55a');
 
-        expect(
-          (await findByTestId('MiddleSection__title')).textContent,
-        ).toEqual('Job Logs for23b9af7d5d4343219bc8e02ff44cd55a');
+        expect((await findByTestId('MiddleSection__title')).textContent).toBe(
+          'Job Logs for23b9af7d5d4343219bc8e02ff44cd55a',
+        );
       });
 
       it('should display all logs for a job', async () => {
         const {findAllByTestId} = render(<MiddleSection />);
         const rows = await findAllByTestId('LogRow__base');
         expect(rows).toHaveLength(6);
-        expect(rows[0].textContent).toEqual(
+        expect(rows[0].textContent).toBe(
           `${format(
             fromUnixTime(1616533099),
             LOGS_DATE_FORMAT,
           )} started datum task`,
         );
-        expect(rows[5].textContent).toEqual(
+        expect(rows[5].textContent).toBe(
           `${format(
             fromUnixTime(1616533220),
             LOGS_DATE_FORMAT,
@@ -615,13 +613,11 @@ describe('Datum Viewer', () => {
         const {findByTestId, findByText} = render(<MiddleSection />);
         expect(
           (await findByTestId('DatumHeaderBreadCrumbs__path')).textContent,
-        ).toEqual(
+        ).toBe(
           'Pipeline.../Job.../Datum: 0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
         );
 
-        expect(
-          (await findByTestId('MiddleSection__title')).textContent,
-        ).toEqual(
+        expect((await findByTestId('MiddleSection__title')).textContent).toBe(
           'Datum Logs for0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
         );
 
@@ -629,20 +625,20 @@ describe('Datum Viewer', () => {
 
         expect(
           (await findByTestId('DatumHeaderBreadCrumbs__path')).textContent,
-        ).toEqual('Pipeline.../Job: 23b9af7d5d4343219bc8e02ff44cd55a');
+        ).toBe('Pipeline.../Job: 23b9af7d5d4343219bc8e02ff44cd55a');
       });
 
       it('should display logs for a given datum', async () => {
         const {findAllByTestId} = render(<MiddleSection />);
         const rows = await findAllByTestId('LogRow__base');
         expect(rows).toHaveLength(4);
-        expect(rows[0].textContent).toEqual(
+        expect(rows[0].textContent).toBe(
           `${format(
             fromUnixTime(1616533099),
             LOGS_DATE_FORMAT,
           )} started datum task`,
         );
-        expect(rows[3].textContent).toEqual(
+        expect(rows[3].textContent).toBe(
           `${format(
             fromUnixTime(1616533106),
             LOGS_DATE_FORMAT,

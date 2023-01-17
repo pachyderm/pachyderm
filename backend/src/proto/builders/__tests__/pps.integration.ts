@@ -69,10 +69,10 @@ describe('grpc/builders/pps', () => {
     expect(transform.getImage()).toBe('pachyderm/opencv');
     expect(transform.getCmdList()).toStrictEqual(['python3', '/edges.py']);
     expect(transform.getErrCmdList()).toStrictEqual(['python3', '/error.py']);
-    expect(transform.getSecretsList()[0]?.getName()).toEqual('testSecret');
-    expect(transform.getSecretsList()[0]?.getKey()).toEqual('test');
-    expect(transform.getSecretsList()[0]?.getMountPath()).toEqual('/test');
-    expect(transform.getSecretsList()[0]?.getEnvVar()).toEqual('testVar');
+    expect(transform.getSecretsList()[0]?.getName()).toBe('testSecret');
+    expect(transform.getSecretsList()[0]?.getKey()).toBe('test');
+    expect(transform.getSecretsList()[0]?.getMountPath()).toBe('/test');
+    expect(transform.getSecretsList()[0]?.getEnvVar()).toBe('testVar');
     expect(transform.getImagePullSecretsList()).toStrictEqual(['asdkldsfsdf']);
     expect(transform.getStdinList()).toStrictEqual(['python2', '/test.py']);
     expect(transform.getErrStdinList()).toStrictEqual(['python2', '/error.py']);
@@ -397,29 +397,29 @@ describe('grpc/builders/pps', () => {
     expect(pipelineInfo.getState()).toBe(0);
     expect(pipelineInfo.getStopped()).toBe(false);
     expect(pipelineInfo.getLastJobState()).toBe(0);
-    expect(pipelineInfo.getDetails()?.getTransform()).toBe(undefined);
-    expect(pipelineInfo.getDetails()?.getTfJob()).toBe(undefined);
-    expect(pipelineInfo.getDetails()?.getParallelismSpec()).toBe(undefined);
-    expect(pipelineInfo.getDetails()?.getEgress()).toBe(undefined);
-    expect(pipelineInfo.getDetails()?.getCreatedAt()).toBe(undefined);
+    expect(pipelineInfo.getDetails()?.getTransform()).toBeUndefined();
+    expect(pipelineInfo.getDetails()?.getTfJob()).toBeUndefined();
+    expect(pipelineInfo.getDetails()?.getParallelismSpec()).toBeUndefined();
+    expect(pipelineInfo.getDetails()?.getEgress()).toBeUndefined();
+    expect(pipelineInfo.getDetails()?.getCreatedAt()).toBeUndefined();
     expect(pipelineInfo.getDetails()?.getRecentError()).toBe('');
     expect(pipelineInfo.getDetails()?.getWorkersRequested()).toBe(0);
     expect(pipelineInfo.getDetails()?.getWorkersAvailable()).toBe(0);
     expect(pipelineInfo.getDetails()?.getOutputBranch()).toBe('master');
-    expect(pipelineInfo.getDetails()?.getResourceRequests()).toBe(undefined);
-    expect(pipelineInfo.getDetails()?.getResourceLimits()).toBe(undefined);
-    expect(pipelineInfo.getDetails()?.getSidecarResourceLimits()).toBe(
-      undefined,
-    );
-    expect(pipelineInfo.getDetails()?.getInput()).toBe(undefined);
+    expect(pipelineInfo.getDetails()?.getResourceRequests()).toBeUndefined();
+    expect(pipelineInfo.getDetails()?.getResourceLimits()).toBeUndefined();
+    expect(
+      pipelineInfo.getDetails()?.getSidecarResourceLimits(),
+    ).toBeUndefined();
+    expect(pipelineInfo.getDetails()?.getInput()).toBeUndefined();
     expect(pipelineInfo.getDetails()?.getDescription()).toBe('');
     expect(pipelineInfo.getDetails()?.getSalt()).toBe('');
     expect(pipelineInfo.getDetails()?.getReason()).toBe('');
-    expect(pipelineInfo.getDetails()?.getService()).toBe(undefined);
-    expect(pipelineInfo.getDetails()?.getSpout()).toBe(undefined);
-    expect(pipelineInfo.getDetails()?.getDatumSetSpec()).toBe(undefined);
-    expect(pipelineInfo.getDetails()?.getDatumTimeout()).toBe(undefined);
-    expect(pipelineInfo.getDetails()?.getJobTimeout()).toBe(undefined);
+    expect(pipelineInfo.getDetails()?.getService()).toBeUndefined();
+    expect(pipelineInfo.getDetails()?.getSpout()).toBeUndefined();
+    expect(pipelineInfo.getDetails()?.getDatumSetSpec()).toBeUndefined();
+    expect(pipelineInfo.getDetails()?.getDatumTimeout()).toBeUndefined();
+    expect(pipelineInfo.getDetails()?.getJobTimeout()).toBeUndefined();
     expect(pipelineInfo.getDetails()?.getDatumTries()).toBe(0);
     expect(pipelineInfo.getDetails()?.getPodSpec()).toBe('');
     expect(pipelineInfo.getDetails()?.getPodPatch()).toBe('');
@@ -687,7 +687,7 @@ it('should create getLogsRequest from a pipeline request', () => {
   });
 
   expect(getLogsRequest.getPipeline()?.getName()).toBe('PipelineName');
-  expect(getLogsRequest.getJob()).toBe(undefined);
+  expect(getLogsRequest.getJob()).toBeUndefined();
   expect(getLogsRequest.getSince()?.getSeconds()).toBe(564645);
   expect(getLogsRequest.getFollow()).toBe(true);
 });
@@ -700,7 +700,7 @@ it('should create getLogsRequest from a job request', () => {
     follow: true,
   });
 
-  expect(getLogsRequest.getPipeline()).toBe(undefined);
+  expect(getLogsRequest.getPipeline()).toBeUndefined();
   expect(getLogsRequest.getJob()?.getId()).toBe('2222222');
   expect(getLogsRequest.getJob()?.getPipeline()?.getName()).toBe(
     'PipelineName',

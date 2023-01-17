@@ -30,7 +30,7 @@ describe('HeaderButtons', () => {
     getByText('Image processing at scale with pachyderm').click();
 
     expect(window.location.pathname).toBe('/lineage/default');
-    expect(window.localStorage.getItem('pachyderm-console-default')).toEqual(
+    expect(window.localStorage.getItem('pachyderm-console-default')).toBe(
       `{"active_tutorial":"image-processing"}`,
     );
   });
@@ -68,7 +68,7 @@ describe('HeaderButtons', () => {
     getByTestId('TutorialItem__deleteProgress').click();
     (await findByText('Delete Tutorial Content')).click();
 
-    expect(window.localStorage.getItem('pachyderm-console-default')).toEqual(
+    expect(window.localStorage.getItem('pachyderm-console-default')).toBe(
       `{"tutorial_progress":{"image-processing":null},"active_tutorial":null}`,
     );
   });

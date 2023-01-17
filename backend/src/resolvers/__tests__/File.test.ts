@@ -31,9 +31,9 @@ describe('File Resolver', () => {
       expect(data?.files.diff?.size).toBe(58644);
       expect(data?.files.diff?.sizeDisplay).toBe('58.65 kB');
       expect(data?.files.diff?.filesAdded).toBe(1);
-      expect(files?.[0]?.path).toEqual('/AT-AT.png');
-      expect(files?.[1]?.path).toEqual('/liberty.png');
-      expect(files?.[2]?.path).toEqual('/cats/');
+      expect(files?.[0]?.path).toBe('/AT-AT.png');
+      expect(files?.[1]?.path).toBe('/liberty.png');
+      expect(files?.[2]?.path).toBe('/cats/');
 
       expect(files?.[0]?.commitId).toBe('d350c8d08a644ed5b2ee98c035ab6b33');
       expect(files?.[0]?.committed).toStrictEqual({
@@ -71,7 +71,7 @@ describe('File Resolver', () => {
       const files = data?.files.files;
       expect(errors).toHaveLength(0);
       expect(files).toHaveLength(1);
-      expect(files?.[0]?.path).toEqual('/cats/kitten.png');
+      expect(files?.[0]?.path).toBe('/cats/kitten.png');
     });
   });
   describe('putFilesFromURLs', () => {

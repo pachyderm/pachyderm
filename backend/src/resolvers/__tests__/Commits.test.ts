@@ -130,7 +130,7 @@ describe('resolvers/Commits', () => {
         (commit) => commit.id === data?.startCommit.id,
       );
 
-      expect(startCommit?.finished).toEqual(-1);
+      expect(startCommit?.finished).toBe(-1);
 
       const {errors = []} = await executeMutation<FinishCommitMutation>(
         FINISH_COMMIT_MUTATION,
@@ -164,7 +164,7 @@ describe('resolvers/Commits', () => {
         (commit) => commit.id === data?.startCommit.id,
       );
 
-      expect(finishedCommit?.finished).not.toEqual(-1);
+      expect(finishedCommit?.finished).not.toBe(-1);
     });
   });
 });

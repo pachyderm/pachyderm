@@ -10,7 +10,7 @@ describe('Admin Resolver', () => {
         GET_ADMIN_INFO_QUERY,
       );
       expect(errors).toHaveLength(0);
-      expect(data?.adminInfo.clusterId).toEqual(
+      expect(data?.adminInfo.clusterId).toBe(
         '838327d0f477415799b6da3706d89310',
       );
     });

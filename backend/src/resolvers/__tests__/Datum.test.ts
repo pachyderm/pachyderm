@@ -59,7 +59,7 @@ describe('Datum resolver', () => {
       );
 
       expect(errors).toHaveLength(0);
-      expect(data?.datumSearch).toBe(null);
+      expect(data?.datumSearch).toBeNull();
     });
   });
 
@@ -163,7 +163,7 @@ describe('Datum resolver', () => {
       const datums = data?.datums.items as Datum[];
       expect(errors).toHaveLength(0);
       expect(datums).toHaveLength(7);
-      expect(data?.datums.cursor).toBe(null);
+      expect(data?.datums.cursor).toBeNull();
       expect(data?.datums.hasNextPage).toBe(false);
     });
   });

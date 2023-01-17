@@ -80,8 +80,8 @@ describe('grpc/builders/pfs', () => {
     expect(fileInfo.getFileType()).toBe(2);
     expect(fileInfo.getHash()).toBe('abcde12345');
     expect(fileInfo.getSizeBytes()).toBe(123);
-    expect(fileInfo.getCommitted()?.getSeconds()).toBe(undefined);
-    expect(fileInfo.getCommitted()?.getNanos()).toBe(undefined);
+    expect(fileInfo.getCommitted()?.getSeconds()).toBeUndefined();
+    expect(fileInfo.getCommitted()?.getNanos()).toBeUndefined();
   });
 
   it('should create Trigger from an object', () => {
@@ -136,12 +136,12 @@ describe('grpc/builders/pfs', () => {
 
     expect(commitInfo.getDescription()).toBe('');
     expect(commitInfo.getDetails()?.getSizeBytes()).toBe(0);
-    expect(commitInfo.getStarted()?.getSeconds()).toBe(undefined);
-    expect(commitInfo.getStarted()?.getNanos()).toBe(undefined);
-    expect(commitInfo.getFinishing()?.getSeconds()).toBe(undefined);
-    expect(commitInfo.getFinishing()?.getNanos()).toBe(undefined);
-    expect(commitInfo.getFinished()?.getSeconds()).toBe(undefined);
-    expect(commitInfo.getFinished()?.getNanos()).toBe(undefined);
+    expect(commitInfo.getStarted()?.getSeconds()).toBeUndefined();
+    expect(commitInfo.getStarted()?.getNanos()).toBeUndefined();
+    expect(commitInfo.getFinishing()?.getSeconds()).toBeUndefined();
+    expect(commitInfo.getFinishing()?.getNanos()).toBeUndefined();
+    expect(commitInfo.getFinished()?.getSeconds()).toBeUndefined();
+    expect(commitInfo.getFinished()?.getNanos()).toBeUndefined();
     expect(commitInfo.getSizeBytesUpperBound()).toBe(0);
     expect(commitInfo.getOrigin()?.getKind()).toBe(2);
   });

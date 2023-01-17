@@ -92,7 +92,7 @@ describe('Auth resolver', () => {
         {'id-token': ''},
       );
 
-      expect(data).toBe(null);
+      expect(data).toBeNull();
       expect(errors[0].extensions.code).toBe('UNAUTHENTICATED');
     });
   });

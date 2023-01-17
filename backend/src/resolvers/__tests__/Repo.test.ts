@@ -80,7 +80,7 @@ describe('resolvers/Repo', () => {
           args: {id: 'test', projectId},
         });
       expect(repo).toBeNull();
-      expect(repoErrors[0].extensions.code).toEqual('NOT_FOUND');
+      expect(repoErrors[0].extensions.code).toBe('NOT_FOUND');
 
       const {data, errors = []} = await executeMutation<CreateRepoMutation>(
         CREATE_REPO_MUTATION,
@@ -114,13 +114,13 @@ describe('resolvers/Repo', () => {
       );
       expect(errors).toHaveLength(1);
       expect(errors[0].extensions.grpcCode).toEqual(Status.ALREADY_EXISTS);
-      expect(errors[0].extensions.details).toEqual('repo cron already exists');
+      expect(errors[0].extensions.details).toBe('repo cron already exists');
     });
     it('should update a repo', async () => {
       const {data: repo} = await executeQuery<RepoQuery>(GET_REPO_QUERY, {
         args: {id: 'cron', projectId},
       });
-      expect(repo?.repo.description).toEqual('');
+      expect(repo?.repo.description).toBe('');
 
       const {data, errors = []} = await executeMutation<CreateRepoMutation>(
         CREATE_REPO_MUTATION,

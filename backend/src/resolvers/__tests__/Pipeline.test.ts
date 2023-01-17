@@ -77,7 +77,7 @@ describe('Pipeline resolver', () => {
         });
 
       expect(pipeline).toBeNull();
-      expect(pipelineErrors[0].extensions.code).toEqual('NOT_FOUND');
+      expect(pipelineErrors[0].extensions.code).toBe('NOT_FOUND');
 
       const {data, errors = []} = await executeMutation<CreatePipelineMutation>(
         CREATE_PIPELINE_MUTATION,
@@ -121,7 +121,7 @@ describe('Pipeline resolver', () => {
       );
       expect(errors).toHaveLength(1);
       expect(errors[0].extensions.grpcCode).toEqual(Status.ALREADY_EXISTS);
-      expect(errors[0].extensions.details).toEqual(
+      expect(errors[0].extensions.details).toBe(
         'pipeline processor already exists',
       );
     });
@@ -153,7 +153,7 @@ describe('Pipeline resolver', () => {
         },
       );
 
-      expect(pipeline?.pipeline.description).toEqual('');
+      expect(pipeline?.pipeline.description).toBe('');
 
       const {data, errors = []} = await executeMutation<CreatePipelineMutation>(
         CREATE_PIPELINE_MUTATION,

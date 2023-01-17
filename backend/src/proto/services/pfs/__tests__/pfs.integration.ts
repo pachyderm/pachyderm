@@ -59,7 +59,7 @@ describe('services/pfs', () => {
         path: '/at-at.png',
         branch: {name: 'master', repo: {name: 'getFile'}},
       });
-      expect(file.byteLength).toEqual(80588);
+      expect(file.byteLength).toBe(80588);
     });
 
     it('should return a file TAR from a repo', async () => {
@@ -80,7 +80,7 @@ describe('services/pfs', () => {
         path: '/at-at.png',
         branch: {name: 'master', repo: {name: 'getFile'}},
       });
-      expect(file.byteLength).toEqual(82432);
+      expect(file.byteLength).toBe(82432);
     });
   });
 
@@ -104,10 +104,10 @@ describe('services/pfs', () => {
         branch: {name: 'master', repo: {name: 'inspectRepo'}},
       });
 
-      expect(file.file?.commit?.branch?.name).toEqual('master');
+      expect(file.file?.commit?.branch?.name).toBe('master');
       expect(file.file?.commit?.id).toEqual(commit.id);
       expect(file.fileType).toEqual(FileType.FILE);
-      expect(file.sizeBytes).toEqual(80588);
+      expect(file.sizeBytes).toBe(80588);
     });
   });
   describe('listCommit', () => {
@@ -157,7 +157,7 @@ describe('services/pfs', () => {
 
       expect(commitSet).toHaveLength(1);
       expect(commitSet[0].error).toBeFalsy();
-      expect(commitSet[0].details?.sizeBytes).toEqual(0);
+      expect(commitSet[0].details?.sizeBytes).toBe(0);
     });
   });
   describe('listCommitSet', () => {
@@ -251,7 +251,7 @@ describe('services/pfs', () => {
         .listBranch({repo: {name: 'createBranch'}});
 
       expect(updatedBranches).toHaveLength(2);
-      expect(updatedBranches[0].branch?.name).toEqual('test');
+      expect(updatedBranches[0].branch?.name).toBe('test');
     });
   });
   describe('inspectBranch', () => {
@@ -264,8 +264,8 @@ describe('services/pfs', () => {
         .pfs()
         .inspectBranch({name: 'master', repo: {name: 'inspectBranch'}});
 
-      expect(branch.branch?.name).toEqual('master');
-      expect(branch.head?.branch?.name).toEqual('master');
+      expect(branch.branch?.name).toBe('master');
+      expect(branch.head?.branch?.name).toBe('master');
       expect(branch.provenanceList).toHaveLength(0);
       expect(branch.subvenanceList).toHaveLength(0);
       expect(branch.directProvenanceList).toHaveLength(0);
@@ -283,7 +283,7 @@ describe('services/pfs', () => {
       expect(branches).toHaveLength(1);
 
       expect(branches).toHaveLength(1);
-      expect(branches[0].branch?.name).toEqual('master');
+      expect(branches[0].branch?.name).toBe('master');
       expect(branches[0].provenanceList).toHaveLength(0);
       expect(branches[0].subvenanceList).toHaveLength(0);
     });
@@ -330,8 +330,8 @@ describe('services/pfs', () => {
       const client = await createSandbox('inspectRepo');
       const repo = await client.pfs().inspectRepo('inspectRepo');
 
-      expect(repo.repo?.name).toEqual('inspectRepo');
-      expect(repo.repo?.type).toEqual('user');
+      expect(repo.repo?.name).toBe('inspectRepo');
+      expect(repo.repo?.type).toBe('user');
       expect(repo.branchesList).toHaveLength(0);
     });
   });
@@ -390,13 +390,13 @@ describe('services/pfs', () => {
         .pfs()
         .inspectCommitSet({commitSet: commit1});
 
-      expect(commitSet1[0].details?.sizeBytes).toEqual(80588);
+      expect(commitSet1[0].details?.sizeBytes).toBe(80588);
 
       const commitSet2 = await client
         .pfs()
         .inspectCommitSet({commitSet: commit2});
 
-      expect(commitSet2[0].details?.sizeBytes).toEqual(139232);
+      expect(commitSet2[0].details?.sizeBytes).toBe(139232);
 
       const fileDiff1 = await client.pfs().diffFile({
         commitId: commit2.id,
@@ -410,7 +410,7 @@ describe('services/pfs', () => {
         path: '/',
         branch: {name: 'master', repo: {name: 'diffFile'}},
       });
-      expect(fileDiff2[1].newFile?.sizeBytes).toEqual(80588);
+      expect(fileDiff2[1].newFile?.sizeBytes).toBe(80588);
     });
   });
 });

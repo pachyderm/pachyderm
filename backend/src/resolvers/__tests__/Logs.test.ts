@@ -23,19 +23,19 @@ describe('Logs resolver', () => {
       expect(workspaceLogs?.[0]?.message).toContain(
         'auth.API.GetPermissionsForPrincipal',
       );
-      expect(workspaceLogs?.[0]?.timestamp?.seconds).toEqual(1623264952);
+      expect(workspaceLogs?.[0]?.timestamp?.seconds).toBe(1623264952);
       expect(workspaceLogs?.[1]?.message).toContain(
         'pfs-over-HTTP - TLS disabled',
       );
-      expect(workspaceLogs?.[1]?.timestamp?.seconds).toEqual(1623264953);
+      expect(workspaceLogs?.[1]?.timestamp?.seconds).toBe(1623264953);
       expect(workspaceLogs?.[2]?.message).toContain('auth.API.WhoAmI');
-      expect(workspaceLogs?.[2]?.timestamp?.seconds).toEqual(1623264954);
+      expect(workspaceLogs?.[2]?.timestamp?.seconds).toBe(1623264954);
       expect(workspaceLogs?.[3]?.message).toContain('pps.API.GetLogs');
-      expect(workspaceLogs?.[3]?.timestamp?.seconds).toEqual(1623264955);
-      expect(workspaceLogs?.[4]?.message).toEqual(
+      expect(workspaceLogs?.[3]?.timestamp?.seconds).toBe(1623264955);
+      expect(workspaceLogs?.[4]?.message).toBe(
         'PPS master: processing event for "edges"',
       );
-      expect(workspaceLogs?.[4]?.timestamp).toBe(null);
+      expect(workspaceLogs?.[4]?.timestamp).toBeNull();
     });
   });
 
@@ -50,12 +50,12 @@ describe('Logs resolver', () => {
       const workspaceLogs = data?.logs;
       expect(errors).toHaveLength(0);
       expect(workspaceLogs).toHaveLength(6);
-      expect(workspaceLogs?.[0]?.message).toEqual('started datum task');
-      expect(workspaceLogs?.[1]?.message).toEqual('beginning to run user code');
+      expect(workspaceLogs?.[0]?.message).toBe('started datum task');
+      expect(workspaceLogs?.[1]?.message).toBe('beginning to run user code');
       expect(workspaceLogs?.[2]?.message).toContain(
         'UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment.',
       );
-      expect(workspaceLogs?.[3]?.message).toEqual('finished datum task');
+      expect(workspaceLogs?.[3]?.message).toBe('finished datum task');
     });
 
     it('should resolve job logs', async () => {
@@ -73,10 +73,10 @@ describe('Logs resolver', () => {
       const workspaceLogs = data?.logs;
       expect(errors).toHaveLength(0);
       expect(workspaceLogs).toHaveLength(6);
-      expect(workspaceLogs?.[0]?.message).toEqual('started datum task');
-      expect(workspaceLogs?.[0]?.timestamp?.seconds).toEqual(1616533099);
-      expect(workspaceLogs?.[5]?.message).toEqual('finished datum task');
-      expect(workspaceLogs?.[5]?.timestamp?.seconds).toEqual(1616533220);
+      expect(workspaceLogs?.[0]?.message).toBe('started datum task');
+      expect(workspaceLogs?.[0]?.timestamp?.seconds).toBe(1616533099);
+      expect(workspaceLogs?.[5]?.message).toBe('finished datum task');
+      expect(workspaceLogs?.[5]?.timestamp?.seconds).toBe(1616533220);
     });
 
     it('should resolve datum logs', async () => {
@@ -96,10 +96,10 @@ describe('Logs resolver', () => {
       const workspaceLogs = data?.logs;
       expect(errors).toHaveLength(0);
       expect(workspaceLogs).toHaveLength(4);
-      expect(workspaceLogs?.[0]?.message).toEqual('started datum task');
-      expect(workspaceLogs?.[0]?.timestamp?.seconds).toEqual(1616533099);
-      expect(workspaceLogs?.[3]?.message).toEqual('finished datum task');
-      expect(workspaceLogs?.[3]?.timestamp?.seconds).toEqual(1616533106);
+      expect(workspaceLogs?.[0]?.message).toBe('started datum task');
+      expect(workspaceLogs?.[0]?.timestamp?.seconds).toBe(1616533099);
+      expect(workspaceLogs?.[3]?.message).toBe('finished datum task');
+      expect(workspaceLogs?.[3]?.timestamp?.seconds).toBe(1616533106);
     });
 
     it('should reverse logs order', async () => {
@@ -118,8 +118,8 @@ describe('Logs resolver', () => {
       const workspaceLogs = data?.logs;
       expect(errors).toHaveLength(0);
       expect(workspaceLogs).toHaveLength(2);
-      expect(workspaceLogs?.[0]?.message).toEqual('finished datum task');
-      expect(workspaceLogs?.[1]?.message).toEqual('started datum task');
+      expect(workspaceLogs?.[0]?.message).toBe('finished datum task');
+      expect(workspaceLogs?.[1]?.message).toBe('started datum task');
     });
   });
 });
