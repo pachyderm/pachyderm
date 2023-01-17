@@ -693,63 +693,11 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	buf.Reset()
 	outputCommit = client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit3.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file", &buf))
-	require.Equal(t, "foo\nbar\nfoo\nbuzz\n", buf.String())
+	require.Equal(t, "foo\nbar\nfoo\nbuzz\n", buf.String()
 
 	commitInfos, err = c.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline), client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
-}
-
-func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-
-	dataRepo := tu.UniqueString("TestMultipleInputsFromTheSameRepoDifferentBranches_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
-
-	branchA := "branchA"
-	branchB := "branchB"
-
-	pipeline := tu.UniqueString("pipeline")
-	// Creating this pipeline should error, because the two inputs are
-	// from the same repo but they don't specify different names.
-	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			"cat /pfs/branch-a/file >> /pfs/out/file",
-			"cat /pfs/branch-b/file >> /pfs/out/file",
-		},
-		nil,
-		client.NewCrossInput(
-			client.NewProjectPFSInputOpts("branch-a", pfs.DefaultProjectName, dataRepo, branchA, "/*", "", "", false, false, nil),
-			client.NewProjectPFSInputOpts("branch-b", pfs.DefaultProjectName, dataRepo, branchB, "/*", "", "", false, false, nil),
-		),
-		"",
-		false,
-	))
-
-	commitA, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, branchA)
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commitA, "/file", strings.NewReader("data A\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commitA.Branch.Name, commitA.ID))
-
-	commitB, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, branchB)
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commitB, "/file", strings.NewReader("data B\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commitB.Branch.Name, commitB.ID))
-
-	commitInfos, err := c.WaitCommitSetAll(commitB.ID)
-	require.NoError(t, err)
-	require.Equal(t, 5, len(commitInfos))
-	buffer := bytes.Buffer{}
-	outputCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", commitB.ID)
-	require.NoError(t, c.GetFile(outputCommit, "file", &buffer))
-	require.Equal(t, "data A\ndata B\n", buffer.String())
 }
 
 func TestRunPipeline(t *testing.T) {
@@ -8702,90 +8650,6 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 	//			require.Equal(t, int64(0), jobInfo.DataSkipped)
 	//			return nil
 	//		})
-}
-
-// TestDeferredCross is a repro for https://github.com/pachyderm/pachyderm/v2/issues/5172
-func TestDeferredCross(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	// make repo for our dataset
-	dataSet := tu.UniqueString("dataset")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataSet))
-	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataSet, "master", "")
-	downstreamPipeline := tu.UniqueString("downstream")
-	_, err := c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, downstreamPipeline),
-			Transform: &pps.Transform{
-				Cmd: []string{"bash"},
-				Stdin: []string{
-					fmt.Sprintf("cp /pfs/%v/* /pfs/out", dataSet),
-				},
-			},
-			Input: client.NewProjectPFSInput(pfs.DefaultProjectName, dataSet, "master"),
-
-			OutputBranch: "master",
-		})
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(dataCommit, "file1", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.PutFile(dataCommit, "file2", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.PutFile(dataCommit, "file3", strings.NewReader("foo"), client.WithAppendPutFile()))
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataSet, "master", "")
-	require.NoError(t, err)
-	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
-	require.NoError(t, err)
-
-	err = c.CreateProjectBranch(pfs.DefaultProjectName, downstreamPipeline, "other", "", "master^", nil)
-	require.NoError(t, err)
-
-	// next, create an imputation pipeline which is a cross of the dataset with the union of two different freeze branches
-	impPipeline := tu.UniqueString("imputed")
-	_, err = c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, impPipeline),
-			Transform: &pps.Transform{
-				Cmd: []string{"bash"},
-				Stdin: []string{
-					"true",
-				},
-			},
-			Input: client.NewCrossInput(
-				client.NewUnionInput(
-					client.NewProjectPFSInputOpts("a", pfs.DefaultProjectName, downstreamPipeline, "master", "/", "", "", false, false, nil),
-					client.NewProjectPFSInputOpts("b", pfs.DefaultProjectName, downstreamPipeline, "other", "/", "", "", false, false, nil),
-				),
-				client.NewProjectPFSInput(pfs.DefaultProjectName, dataSet, "/"),
-			),
-			OutputBranch: "master",
-		})
-	require.NoError(t, err)
-
-	// after all this, the imputation job should be using the master commit of the dataset repo
-	commitInfo, err = c.WaitProjectCommit(pfs.DefaultProjectName, impPipeline, "master", "")
-	require.NoError(t, err)
-
-	jobs, err := c.ListProjectJob(pfs.DefaultProjectName, impPipeline, nil, 0, true)
-	require.NoError(t, err)
-	require.Equal(t, len(jobs), 1)
-
-	jobInfo, err := c.InspectProjectJob(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, true)
-	require.NoError(t, err)
-
-	headCommit, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataSet, "master", "")
-	require.NoError(t, err)
-
-	require.NoError(t, pps.VisitInput(jobInfo.Details.Input, func(i *pps.Input) error {
-		if i.Pfs != nil && i.Pfs.Repo == dataSet {
-			require.Equal(t, i.Pfs.Commit, headCommit.Commit.ID)
-			require.NotEqual(t, i.Pfs.Commit, commitInfo.Commit.ID)
-		}
-		return nil
-	}))
 }
 
 func TestDeferredProcessing(t *testing.T) {

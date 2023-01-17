@@ -1310,7 +1310,7 @@ func (d *driver) computeBranchProvenance(txnCtx *txncontext.TransactionContext, 
 		}
 		bi := &pfs.BranchInfo{}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
-			return nil, errors.Wrapf(err, "error getting branch")
+			return nil, errors.Wrapf(err, "get branch info")
 		}
 		branchInfoCache[pfsdb.BranchKey(b)] = bi
 		return bi, nil
@@ -1387,6 +1387,53 @@ func (d *driver) computeBranchProvenance(txnCtx *txncontext.TransactionContext, 
 	return nil
 }
 
+// for a DAG to be valid, it may not have a multiple branches from the same repo
+// reachable by traveling edges bidirectionally. The reason is that this would complicate resolving
+func (d *driver) validateDAGStructure(txnCtx *txncontext.TransactionContext, bi *pfs.BranchInfo) error {
+	branchInfoCache := map[string]*pfs.BranchInfo{pfsdb.BranchKey(bi.Branch): bi}
+	getBranchInfo := func(b *pfs.Branch) (*pfs.BranchInfo, error) {
+		if bi, ok := branchInfoCache[pfsdb.BranchKey(b)]; ok {
+			return bi, nil
+		}
+		bi := &pfs.BranchInfo{}
+		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
+			return nil, errors.Wrapf(err, "get branch info")
+		}
+		branchInfoCache[pfsdb.BranchKey(b)] = bi
+		return bi, nil
+	}
+	expanded := make(map[string]struct{}) // expanded branches
+	for {
+		lastExpansion := len(branchInfoCache)
+		bis := make([]*pfs.BranchInfo, 0)
+		for _, bi := range branchInfoCache {
+			bis = append(bis, bi)
+		}
+		for _, bi := range bis {
+			if _, ok := expanded[bi.Branch.String()]; ok {
+				continue
+			}
+			expanded[bi.Branch.String()] = struct{}{}
+			for _, b := range append(bi.Provenance, bi.Subvenance...) {
+				if _, err := getBranchInfo(b); err != nil {
+					return err
+				}
+			}
+		}
+		if lastExpansion == len(branchInfoCache) {
+			break
+		}
+	}
+	foundRepos := make(map[string]struct{})
+	for _, bi := range branchInfoCache {
+		if _, ok := foundRepos[bi.Branch.Repo.String()]; ok {
+			return errors.Errorf("multiple branches from the same repo, %q, cannot participate in a DAG", bi.Branch.Repo.String())
+		}
+		foundRepos[bi.Branch.Repo.String()] = struct{}{}
+	}
+	return nil
+}
+
 func newUserCommitInfo(txnCtx *txncontext.TransactionContext, branch *pfs.Branch) *pfs.CommitInfo {
 	return &pfs.CommitInfo{
 		Commit: &pfs.Commit{
@@ -1409,7 +1456,6 @@ func newUserCommitInfo(txnCtx *txncontext.TransactionContext, branch *pfs.Branch
 // This invariant is assumed to hold for all branches upstream of 'branch', but not
 // for 'branch' itself once 'b.Provenance' has been set.
 //
-// TODO(acohen4): consider validating DAG structure to prevent more than one branch in a repo from being reachable...
 // i.e. up to one branch in a repo can be present within a DAG
 func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch, trigger *pfs.Trigger) error {
 	// Validate arguments
@@ -1492,6 +1538,10 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	// load all branches in the complete closure once and saves all of them.
 	if err := d.computeBranchProvenance(txnCtx, branchInfo, oldProvenance); err != nil {
 		return err
+	}
+	// validate the DAG now that it's updated
+	if err := d.validateDAGStructure(txnCtx, branchInfo); err != nil {
+		return errors.Wrapf(err, "validate DAG with branch %q", branchInfo.Branch.String())
 	}
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its
