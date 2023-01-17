@@ -62,22 +62,26 @@ func CommitSetProvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]*pfs
             FROM prov p, pfs.commit_provenance cp
             WHERE cp.from_id = p.to_id
           )
-          SELECT DISTINCT commit_id, min(created_at) as ca
+          SELECT commit_id
           FROM pfs.commits, prov 
           WHERE int_id = prov.to_id AND commit_set_id != $2
-          GROUP BY commit_id
-          ORDER BY ca ASC;`
+          ORDER BY created_at ASC;`
 	rows, err := tx.QueryxContext(ctx, q, id, id)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	defer rows.Close()
 	cs := make([]*pfs.Commit, 0)
+	seen := make(map[string]struct{})
 	for rows.Next() {
 		var commit string
 		if err := rows.Scan(&commit); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
+		if _, ok := seen[commit]; ok {
+			continue
+		}
+		seen[commit] = struct{}{}
 		cs = append(cs, ParseCommit(commit))
 	}
 	return cs, nil
