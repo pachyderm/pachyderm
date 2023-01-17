@@ -102,7 +102,7 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 					if i != 0 {
 						startOffset = 0
 					}
-					if i == len(task.Paths)-1 && task.EndOffset != int64(-1) {
+					if i == len(paths)-1 && task.EndOffset != int64(-1) {
 						length = task.EndOffset - startOffset
 					}
 					if err := func() error {

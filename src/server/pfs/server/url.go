@@ -26,6 +26,10 @@ const (
 	defaultURLTaskSize = 1000
 )
 
+var (
+	batchSize = int64(1000) // batchSize is overridden when testing
+)
+
 func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.UnorderedWriter, dstPath, tag string, src *pfs.AddFile_URLSource) (n int64, retErr error) {
 	url, err := url.Parse(src.URL)
 	if err != nil {
@@ -235,7 +239,6 @@ func coordinateTasks(ctx context.Context, URL string, createTask func(startOffse
 	remainingObjSize := listObj.Size
 	bytesInBatch := int64(0)
 	filePos := int64(0)
-	batchSize := int64(5)
 	shouldBreak := false
 	for {
 		if bytesInBatch+remainingObjSize == 0 && listObj.Size != 0 {
