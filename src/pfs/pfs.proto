@@ -115,9 +115,9 @@ message CommitOrigin {
 message Commit {
   option (gogoproto.goproto_stringer) = false;
   Repo repo = 3;
-  // deprecated
-  Branch branch = 1;
-  string id = 2 [(gogoproto.customname) = "ID"];  
+  string id = 2 [(gogoproto.customname) = "ID"];
+  // only used by the client 
+  Branch branch = 1;  
 }
 
 // CommitInfo is the main data structure representing a commit in etcd

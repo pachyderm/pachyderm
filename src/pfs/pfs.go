@@ -68,8 +68,8 @@ func (r *Repo) NewBranch(name string) *Branch {
 
 func (r *Repo) NewCommit(branch, id string) *Commit {
 	return &Commit{
-		ID:     id,
 		Repo:   r,
+		ID:     id,
 		Branch: r.NewBranch(branch),
 	}
 }

@@ -153,14 +153,6 @@ type ErrDropWithChildren struct {
 	Commit *pfs.Commit
 }
 
-// ErrPropagateMultipleCommitsInRepo represents the error where a commit is attempted to propagate off of two heads in the same repo
-type ErrPropagateMultipleCommitsInRepo struct {
-	Repo       *pfs.Repo
-	FirstHead  *pfs.Commit
-	SecondHead *pfs.Commit
-	ID         string
-}
-
 const GetFileTARSuggestion = "Use GetFileTAR instead"
 
 var (
@@ -302,10 +294,6 @@ func (e ErrDeleteWithDependentCommitSets) Error() string {
 
 func (e ErrDropWithChildren) Error() string {
 	return fmt.Sprintf("cannot drop a commit that has children: %s", e.Commit)
-}
-
-func (e ErrPropagateMultipleCommitsInRepo) Error() string {
-	return fmt.Sprintf("cannot propgate multiple commits off of repo %q; trying to create a commit %q from both heads: %q and %q", e.Repo, e.ID, e.FirstHead, e.SecondHead)
 }
 
 var (

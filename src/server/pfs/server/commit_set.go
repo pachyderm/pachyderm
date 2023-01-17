@@ -17,60 +17,33 @@ import (
 // returns CommitInfos in a commit set, topologically sorted.
 // A commit set will include all the commits that were created across repos for a run, along
 // with all of the commits that the run's commit's rely on (present in previous commit sets).
-func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, filterPassiveCommits bool) ([]*pfs.CommitInfo, error) {
+func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, filterAliases bool) ([]*pfs.CommitInfo, error) {
 	var commitInfos []*pfs.CommitInfo
-	commitInfo := &pfs.CommitInfo{}
-	cs, err := pfsdb.CommitSetProvenance(context.TODO(), txnCtx.SqlTx, commitset.ID)
-	if err != nil {
-		return nil, err
-	}
-	for _, c := range cs {
-		ci := &pfs.CommitInfo{}
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(c, ci); err != nil {
+	if !filterAliases {
+		cs, err := pfsdb.CommitSetProvenance(context.TODO(), txnCtx.SqlTx, commitset.ID)
+		if err != nil {
 			return nil, err
 		}
-		commitInfos = append(commitInfos, ci)
+		for _, c := range cs {
+			ci := &pfs.CommitInfo{}
+			if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(c, ci); err != nil {
+				return nil, err
+			}
+			commitInfos = append(commitInfos, ci)
+		}
 	}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitset.ID, commitInfo, col.DefaultOptions(), func(string) error {
-		commitInfos = append(commitInfos, proto.Clone(commitInfo).(*pfs.CommitInfo))
+	opts := col.DefaultOptions()
+	opts.Order = col.SortAscend
+	ci := &pfs.CommitInfo{}
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitset.ID, ci, opts, func(string) error {
+		commitInfos = append(commitInfos, proto.Clone(ci).(*pfs.CommitInfo))
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	totalCommits := len(commitInfos)
-	if totalCommits == 0 {
-		return []*pfs.CommitInfo{}, nil
-	}
-	result := make([]*pfs.CommitInfo, 0)
-	collected := make(map[string]struct{})
-	collectCount := 0
-	// O(n^2) sorting of commits
-	//
-	// COULD WE instead sort by created time? DOES CREATED TIME COMPLETELY IMPLY TOPOLOGICAL ORDERING?
-	for collectCount < totalCommits {
-		for i, ci := range commitInfos {
-			satisfied := true
-			if _, ok := collected[pfsdb.RepoKey(ci.Commit.Repo)]; !ok {
-				for _, p := range ci.DirectProvenance {
-					if _, ok := collected[pfsdb.RepoKey(p.Repo)]; !ok {
-						satisfied = false
-						break
-					}
-				}
-			}
-			if satisfied {
-				collectCount++
-				collected[pfsdb.RepoKey(ci.Commit.Repo)] = struct{}{}
-				if !filterPassiveCommits || ci.Commit.ID == commitset.ID {
-					result = append(result, ci)
-				}
-				commitInfos[i] = commitInfos[len(commitInfos)-1]
-				commitInfos = commitInfos[:len(commitInfos)-1]
-				break
-			}
-		}
-	}
-	return result, nil
+	// since both CommitSetProvenance() and the collections reads return commits sorted
+	// by created time ascending, it's guaranteed that commitInfos will be topologically sorted
+	return commitInfos, nil
 }
 
 func (d *driver) inspectCommitSetImmediate(ctx context.Context, commitset *pfs.CommitSet, cb func(*pfs.CommitInfo) error) error {
@@ -157,38 +130,6 @@ func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb fun
 		})
 	})
 	return errors.EnsureStack(err)
-}
-
-// oldestAncestor returns the oldest ancestor commit of 'startCommit' leveraging the pool of known commits in the 'skipSet'
-func oldestAncestor(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.CommitInfo) *pfs.Commit {
-	oldest := traverseToEdges(startCommit, skipSet, func(commitInfo *pfs.CommitInfo) []*pfs.Commit {
-		return []*pfs.Commit{commitInfo.ParentCommit}
-	})
-	if len(oldest) == 0 {
-		return nil
-	}
-	return oldest[0]
-}
-
-// traverseToEdges does a breadth first search using a traverse function.
-// returns all of the commits that can not continue traversal within the skip set, hence returning the known 'leaves' of the skipSet graph
-func traverseToEdges(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.CommitInfo, traverse func(*pfs.CommitInfo) []*pfs.Commit) []*pfs.Commit {
-	cs := []*pfs.Commit{startCommit.Commit}
-	result := make([]*pfs.Commit, 0)
-	var c *pfs.Commit
-	for len(cs) > 0 {
-		c, cs = cs[0], cs[1:]
-		if c == nil {
-			continue
-		}
-		ci, ok := skipSet[pfsdb.CommitKey(c)]
-		if ok {
-			cs = append(cs, traverse(ci)...)
-		} else {
-			result = append(result, proto.Clone(c).(*pfs.Commit))
-		}
-	}
-	return result
 }
 
 // deleteCommits accepts commitInfos that may span commit sets.
@@ -335,6 +276,38 @@ func (d *driver) deleteCommits(txnCtx *txncontext.TransactionContext, commitInfo
 		}
 	}
 	return nil
+}
+
+// oldestAncestor returns the oldest ancestor commit of 'startCommit' leveraging the pool of known commits in the 'skipSet'
+func oldestAncestor(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.CommitInfo) *pfs.Commit {
+	oldest := traverseToEdges(startCommit, skipSet, func(commitInfo *pfs.CommitInfo) []*pfs.Commit {
+		return []*pfs.Commit{commitInfo.ParentCommit}
+	})
+	if len(oldest) == 0 {
+		return nil
+	}
+	return oldest[0]
+}
+
+// traverseToEdges does a breadth first search using a traverse function.
+// returns all of the commits that can not continue traversal within the skip set, hence returning the known 'leaves' of the skipSet graph
+func traverseToEdges(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.CommitInfo, traverse func(*pfs.CommitInfo) []*pfs.Commit) []*pfs.Commit {
+	cs := []*pfs.Commit{startCommit.Commit}
+	result := make([]*pfs.Commit, 0)
+	var c *pfs.Commit
+	for len(cs) > 0 {
+		c, cs = cs[0], cs[1:]
+		if c == nil {
+			continue
+		}
+		ci, ok := skipSet[pfsdb.CommitKey(c)]
+		if ok {
+			cs = append(cs, traverse(ci)...)
+		} else {
+			result = append(result, proto.Clone(c).(*pfs.Commit))
+		}
+	}
+	return result
 }
 
 func (d *driver) checkSubvenantCommitSets(txnCtx *txncontext.TransactionContext, commitsets []*pfs.CommitSet) error {

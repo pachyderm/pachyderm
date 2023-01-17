@@ -2,7 +2,6 @@ package pfsdb
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -63,9 +62,11 @@ func CommitSetProvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]*pfs
             FROM prov p, pfs.commit_provenance cp
             WHERE cp.from_id = p.to_id
           )
-          SELECT DISTINCT commit_id 
+          SELECT DISTINCT commit_id, min(created_at) as ca
           FROM pfs.commits, prov 
-          WHERE int_id = prov.to_id AND commit_set_id != $2;`
+          WHERE int_id = prov.to_id AND commit_set_id != $2
+          GROUP BY commit_id
+          ORDER BY ca ASC;`
 	rows, err := tx.QueryxContext(ctx, q, id, id)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -146,41 +147,13 @@ func getCommitTableID(ctx context.Context, tx *pachsql.Tx, commitKey string) (in
 }
 
 func AddCommitProvenance(ctx context.Context, tx *pachsql.Tx, from, to *pfs.Commit) error {
-	query := `SELECT int_id, commit_id FROM pfs.commits WHERE commit_id = $1 OR commit_id = $2;`
-	rows, err := tx.QueryxContext(ctx, query, CommitKey(from), CommitKey(to))
+	fromId, err := getCommitTableID(ctx, tx, CommitKey(from))
 	if err != nil {
-		return errors.EnsureStack(err)
+		return errors.Wrapf(err, "get int id for 'from' commit, %q", CommitKey(from))
 	}
-	var fromId, toId int
-	var count int
-	for rows.Next() {
-		count++
-		var tmp int
-		var commitId string
-		if err := rows.Scan(&tmp, &commitId); err != nil {
-			return errors.EnsureStack(err)
-		}
-		if commitId == CommitKey(from) {
-			fromId = tmp
-		} else {
-			toId = tmp
-		}
-	}
-	if count != 2 {
-		msg := fmt.Sprintf("expected two existing commits, got %v.", count)
-		if count == 1 {
-			var found *pfs.Commit
-			var missed *pfs.Commit
-			if fromId != 0 {
-				found = from
-				missed = to
-			} else {
-				found = to
-				missed = from
-			}
-			msg += fmt.Sprintf(" found %q, missed %q", CommitKey(found), CommitKey(missed))
-		}
-		return errors.Errorf(msg)
+	toId, err := getCommitTableID(ctx, tx, CommitKey(to))
+	if err != nil {
+		return errors.Wrapf(err, "get int id for 'to' commit, %q", CommitKey(to))
 	}
 	return addCommitProvenance(ctx, tx, fromId, toId)
 }

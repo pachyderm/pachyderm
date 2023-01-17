@@ -710,14 +710,14 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
 			return errors.EnsureStack(err)
 		}
-		for _, sb := range bi.Subvenance {
-			if _, ok := seen[pfsdb.BranchKey(sb)]; !ok {
-				sbi := &pfs.BranchInfo{}
-				if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(sb, sbi); err != nil {
-					return errors.Wrapf(err, "get subvenant branch %q", pfsdb.BranchKey(sb))
+		for _, b := range bi.Subvenance {
+			if _, ok := seen[pfsdb.BranchKey(b)]; !ok {
+				bi := &pfs.BranchInfo{}
+				if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
+					return errors.Wrapf(err, "get subvenant branch %q", pfsdb.BranchKey(b))
 				}
-				seen[pfsdb.BranchKey(sb)] = sbi
-				propagatedBranches = append(propagatedBranches, seen[pfsdb.BranchKey(sb)])
+				seen[pfsdb.BranchKey(b)] = bi
+				propagatedBranches = append(propagatedBranches, bi)
 			}
 		}
 	}
@@ -756,29 +756,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		}
 		// create open 'commit'.
 		// it's possible that this commit has already been created if there are two branches with the same head that are propagated.
-		ci := &pfs.CommitInfo{}
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(newCommit, ci); err != nil && !col.IsErrNotFound(err) {
-			return errors.Wrapf(err, "get commit %q", pfsdb.CommitKey(newCommit))
-		}
-		if ci.Commit != nil {
-			multiParents := false
-			if ci.ParentCommit != nil && newCommitInfo.ParentCommit != nil {
-				if pfsdb.CommitKey(ci.ParentCommit) != pfsdb.CommitKey(newCommitInfo.ParentCommit) {
-					multiParents = true
-				}
-			} else if !(ci.ParentCommit == nil && newCommitInfo.ParentCommit == nil) {
-				multiParents = true
-			}
-			if multiParents {
-				return pfsserver.ErrPropagateMultipleCommitsInRepo{
-					Repo:       ci.Commit.Repo,
-					FirstHead:  ci.ParentCommit,
-					SecondHead: newCommitInfo.ParentCommit,
-					ID:         txnCtx.CommitSetID,
-				}
-			}
-		}
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(newCommit, newCommitInfo); err != nil {
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(newCommit, newCommitInfo); err != nil {
 			return errors.Wrapf(err, "create new commit %q", pfsdb.CommitKey(newCommit))
 		}
 		if newCommitInfo.ParentCommit != nil {
