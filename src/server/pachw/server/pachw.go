@@ -41,17 +41,14 @@ func (p *pachW) run(ctx context.Context) {
 	ctx = auth.AsInternalUser(ctx, "pachw-controller")
 	backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
 		lock := dlock.NewDLock(p.env.EtcdClient, path.Join(p.env.EtcdPrefix, "pachw-controller-lock"))
-		log.Debug(ctx, "attempting to take pachw-controller lock")
 		ctx, err := lock.Lock(ctx)
 		if err != nil {
 			return errors.Wrap(err, "locking pachw-controller lock")
 		}
-		log.Debug(ctx, "got pachw-controller lock")
 		defer func() {
 			if err := lock.Unlock(ctx); err != nil {
 				retErr = multierror.Append(retErr, errors.Wrap(err, "error unlocking"))
 			}
-			log.Debug(ctx, "relinquished pachw-controller role", zap.Error(retErr))
 		}()
 		var replicas int
 		var scaleDownCount int
