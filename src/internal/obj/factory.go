@@ -439,7 +439,7 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "error parsing url %v", urlStr)
 	}
-	objStoreUrl := &ObjectStoreURL{}
+	var objStoreUrl *ObjectStoreURL
 	switch u.Scheme {
 	// gcs seems to be unused, but is left here in case it is used by customers.
 	case "azblob", "gs", "local", "s3":
