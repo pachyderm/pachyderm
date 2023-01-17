@@ -693,7 +693,7 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	buf.Reset()
 	outputCommit = client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit3.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file", &buf))
-	require.Equal(t, "foo\nbar\nfoo\nbuzz\n", buf.String()
+	require.Equal(t, "foo\nbar\nfoo\nbuzz\n", buf.String())
 
 	commitInfos, err = c.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline), client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
