@@ -439,6 +439,10 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "error parsing url %v", urlStr)
 	}
+	// TODO: remove once we remove support for non-existing schemes.
+	if u.Scheme == "gcs" {
+		u.Scheme = "gs"
+	}
 	var objStoreUrl *ObjectStoreURL
 	switch u.Scheme {
 	// gcs seems to be unused, but is left here in case it is used by customers.
@@ -454,7 +458,7 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 	// another supported format is wasb://<container_name>@<storage_account_name>/dir/file
 	case "wasb":
 		objStoreUrl = &ObjectStoreURL{
-			Scheme: u.Scheme,
+			Scheme: "azblob",
 			Bucket: u.User.Username(),
 			Object: strings.Trim(u.Path, "/"),
 			Params: u.RawQuery,
@@ -474,12 +478,6 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 	default:
 		// return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
 		return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
-	}
-	switch objStoreUrl.Scheme {
-	case "wasb":
-		objStoreUrl.Scheme = "azblob"
-	case "gcs": // assuming 'gcs' is an alias for 'gs'
-		objStoreUrl.Scheme = "gs"
 	}
 	return objStoreUrl, nil
 }

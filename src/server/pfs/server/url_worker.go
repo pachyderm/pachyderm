@@ -134,11 +134,7 @@ func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 					retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing writer for bucket %s", url.Bucket))
 				}
 			}()
-			err = file.Content(ctx, w)
-			if err != nil {
-				return errors.EnsureStack(err)
-			}
-			return nil
+			return errors.EnsureStack(file.Content(ctx, w))
 		})
 		return errors.EnsureStack(err)
 	}); err != nil {

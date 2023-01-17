@@ -82,7 +82,7 @@ func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.Unord
 	}
 }
 
-func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *fileset.UnorderedWriter, dst, tag string, src *pfs.AddFile_URLSource) (retErr error) {
+func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *fileset.UnorderedWriter, dst, tag string, src *pfs.AddFile_URLSource) error {
 	inputChan := make(chan *types.Any)
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
