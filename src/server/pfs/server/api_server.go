@@ -614,7 +614,7 @@ func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFi
 // WalkFile implements the protobuf pfs.WalkFile RPC
 func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFileServer) (retErr error) {
 	request.GetFile().GetCommit().GetBranch().GetRepo().EnsureProject()
-	return a.driver.walkFile(server.Context(), request.File, func(fi *pfs.FileInfo) error {
+	return a.driver.walkFile(server.Context(), request.File, request.PaginationMarker, request.Number, request.Reverse, func(fi *pfs.FileInfo) error {
 		return errors.EnsureStack(server.Send(fi))
 	})
 }
