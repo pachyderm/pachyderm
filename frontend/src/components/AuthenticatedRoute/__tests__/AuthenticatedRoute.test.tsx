@@ -1,5 +1,5 @@
 import {createServiceError, status} from '@dash-backend/testHelpers';
-import {render, waitFor} from '@testing-library/react';
+import {render, waitFor, screen} from '@testing-library/react';
 import React from 'react';
 
 import AuthenticatedRoute from '@dash-frontend/components/AuthenticatedRoute';
@@ -19,18 +19,18 @@ describe('AuthenticatedRoute', () => {
   it('should allow logged in users to reach authenticated routes', async () => {
     window.localStorage.setItem('auth-token', '123');
 
-    const {findByText} = render(<TestBed />);
+    render(<TestBed />);
 
-    expect(await findByText('Authenticated!')).toBeVisible();
+    expect(await screen.findByText('Authenticated!')).toBeVisible();
   });
 
   it('should show an error page if there is an issue in the oauth flow', async () => {
     window.localStorage.setItem('oauthError', 'error');
 
-    const {findByText} = render(<TestBed />);
+    render(<TestBed />);
 
     expect(
-      await findByText(`Looks like this API call can't be completed.`),
+      await screen.findByText(`Looks like this API call can't be completed.`),
     ).toBeInTheDocument();
   });
 
@@ -39,19 +39,19 @@ describe('AuthenticatedRoute', () => {
     mockServer.setError(error);
     window.localStorage.setItem('oauthCode', 'code');
 
-    const {findByText} = render(<TestBed />);
+    render(<TestBed />);
 
     expect(
-      await findByText('Unable to authenticate. Try again later.'),
+      await screen.findByText('Unable to authenticate. Try again later.'),
     ).toBeInTheDocument();
   });
 
   it('should exchange the oauth code for users returning from the oauth flow', async () => {
     window.localStorage.setItem('oauthCode', 'code');
 
-    const {findByText} = render(<TestBed />);
+    render(<TestBed />);
 
-    expect(await findByText('Authenticated!')).toBeVisible();
+    expect(await screen.findByText('Authenticated!')).toBeVisible();
   });
 
   it('should show an error page if the OIDC provider is misconfigured', async () => {
@@ -59,10 +59,10 @@ describe('AuthenticatedRoute', () => {
     window.localStorage.removeItem('id-token');
     mockServer.setAuthConfigurationError(true);
 
-    const {findByText} = render(<TestBed />);
+    render(<TestBed />);
 
     expect(
-      await findByText('Unable to authenticate. Try again later.'),
+      await screen.findByText('Unable to authenticate. Try again later.'),
     ).toBeInTheDocument();
   });
 

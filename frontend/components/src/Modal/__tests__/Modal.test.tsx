@@ -1,4 +1,4 @@
-import {render, waitFor, act} from '@testing-library/react';
+import {render, waitFor, act, screen} from '@testing-library/react';
 import React from 'react';
 
 import {click} from '@dash-frontend/testHelpers';
@@ -40,66 +40,64 @@ const runTimers = () =>
 
 describe('Modal', () => {
   it('should be able to open and close the modal', async () => {
-    const {findByText, getByText, queryByText} = render(<TestComponent />);
+    render(<TestComponent />);
 
-    const openButton = getByText('Open');
-    const closeButton = getByText('Close');
+    const openButton = screen.getByText('Open');
+    const closeButton = screen.getByText('Close');
 
     await click(openButton);
     runTimers();
-    await findByText('Header');
+    await screen.findByText('Header');
 
     await click(closeButton);
 
     runTimers();
 
-    await waitFor(() => expect(queryByText('Header')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Header')).toBeNull());
   });
 
   it('clicking the header close button should close the modal', async () => {
-    const {findByText, getByText, findByTestId, queryByText} = render(
-      <TestComponent />,
-    );
+    render(<TestComponent />);
 
-    const openButton = getByText('Open');
+    const openButton = screen.getByText('Open');
     await click(openButton);
     runTimers();
 
-    await findByText('Header');
+    await screen.findByText('Header');
 
-    const closeIcon = await findByTestId('Modal__close');
+    const closeIcon = await screen.findByTestId('Modal__close');
     await click(closeIcon);
 
     runTimers();
 
-    await waitFor(() => expect(queryByText('Header')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Header')).toBeNull());
   });
 
   it('clicking the Cancel button should close the modal', async () => {
-    const {findByText, getByText, queryByText} = render(<TestComponent />);
+    render(<TestComponent />);
 
-    const openButton = getByText('Open');
+    const openButton = screen.getByText('Open');
     await click(openButton);
     runTimers();
 
-    await findByText('Header');
+    await screen.findByText('Header');
 
-    const cancelButton = await findByText('Skip');
+    const cancelButton = await screen.findByText('Skip');
     await click(cancelButton);
 
     runTimers();
 
-    await waitFor(() => expect(queryByText('Header')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Header')).toBeNull());
   });
 
   it('should call the confimation function when the confirm button is clicked', async () => {
-    const {findByText, getByText} = render(<TestComponent />);
+    render(<TestComponent />);
 
-    const openButton = getByText('Open');
+    const openButton = screen.getByText('Open');
     await click(openButton);
     runTimers();
 
-    const confirmButton = await findByText('Confirm');
+    const confirmButton = await screen.findByText('Confirm');
 
     await click(confirmButton);
 

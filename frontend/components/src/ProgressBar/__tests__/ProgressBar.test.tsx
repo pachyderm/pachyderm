@@ -1,4 +1,4 @@
-import {render, waitFor} from '@testing-library/react';
+import {render, screen} from '@testing-library/react';
 import React, {useCallback} from 'react';
 
 import {click} from '@dash-frontend/testHelpers';
@@ -36,50 +36,52 @@ describe('ProgressBar', () => {
   };
 
   it('should indicate a visited step', async () => {
-    const {findByText, findByTestId} = render(<ProgressBarComponent />);
+    render(<ProgressBarComponent />);
 
-    const unvisitedStepWrapper = await findByTestId('ProgressBarStep__div');
+    const unvisitedStepWrapper = await screen.findByTestId(
+      'ProgressBarStep__div',
+    );
 
     expect(unvisitedStepWrapper).not.toHaveClass('visited');
 
-    const visitButton = await findByText('Visit');
+    const visitButton = await screen.findByText('Visit');
     await click(visitButton);
 
-    const visitedStepWrapper = await findByTestId('ProgressBarStep__div');
+    const visitedStepWrapper = await screen.findByTestId(
+      'ProgressBarStep__div',
+    );
 
     expect(visitedStepWrapper).toHaveClass('visited');
   });
 
   it('should indicate a completed step', async () => {
-    const {findByText, queryByTestId} = render(<ProgressBarComponent />);
+    render(<ProgressBarComponent />);
 
-    const incomplete = queryByTestId('ProgressBarStep__successCheckmark');
+    const incomplete = screen.queryByTestId(
+      'ProgressBarStep__successCheckmark',
+    );
 
     expect(incomplete).toBeNull();
 
-    const completeButton = await findByText('Complete');
+    const completeButton = await screen.findByText('Complete');
     await click(completeButton);
 
-    await waitFor(() =>
-      expect(queryByTestId('ProgressBarStep__successCheckmark')).not.toBeNull(),
-    );
+    await screen.findByTestId('ProgressBarStep__successCheckmark');
   });
 
   it('should disable onClick when it has not been visited yet', async () => {
     const clickMock = jest.fn();
-    const {findByText, findByTestId} = render(
-      <ProgressBarComponent onClick={clickMock} />,
-    );
+    render(<ProgressBarComponent onClick={clickMock} />);
 
-    const unVisitedButton = await findByTestId('ProgressBarStep__group');
+    const unVisitedButton = await screen.findByTestId('ProgressBarStep__group');
     await click(unVisitedButton);
 
     expect(clickMock).not.toHaveBeenCalled();
 
-    const visitButton = await findByText('Visit');
+    const visitButton = await screen.findByText('Visit');
     await click(visitButton);
 
-    const visitedButton = await findByTestId('ProgressBarStep__group');
+    const visitedButton = await screen.findByTestId('ProgressBarStep__group');
 
     await click(visitedButton);
     expect(clickMock).toHaveBeenCalled();

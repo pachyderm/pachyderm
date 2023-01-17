@@ -1,4 +1,4 @@
-import {fireEvent, render} from '@testing-library/react';
+import {fireEvent, render, screen} from '@testing-library/react';
 import React from 'react';
 
 import {click} from '@dash-frontend/testHelpers';
@@ -6,8 +6,8 @@ import {click} from '@dash-frontend/testHelpers';
 import {Tabs} from '../';
 
 describe('Tabs', () => {
-  const renderTestBed = () => {
-    const testUtils = render(
+  const renderTestbed = () => {
+    render(
       <Tabs initialActiveTabId={'one'}>
         <Tabs.TabsHeader>
           <Tabs.Tab id="one">One</Tabs.Tab>
@@ -26,32 +26,26 @@ describe('Tabs', () => {
         </Tabs.TabPanel>
       </Tabs>,
     );
+  };
 
-    const assertTab = (id: string) => {
-      const tabPanel = testUtils.getByTestId(`panel-${id}`);
-
-      return {
-        toBeShown: () => expect(tabPanel).toBeVisible(),
-        toBeHidden: () => expect(tabPanel).not.toBeVisible(),
-      };
-    };
-
-    const activateTab = async (id: string) => {
-      const tab = testUtils.getByTestId(`Tab__${id}`);
-
-      await click(tab);
-    };
+  const assertTab = (id: string) => {
+    const tabPanel = screen.getByTestId(`panel-${id}`);
 
     return {
-      assertTab,
-      activateTab,
-      ...testUtils,
+      toBeShown: () => expect(tabPanel).toBeVisible(),
+      toBeHidden: () => expect(tabPanel).not.toBeVisible(),
     };
+  };
+
+  const activateTab = async (id: string) => {
+    const tab = screen.getByTestId(`Tab__${id}`);
+
+    await click(tab);
   };
 
   /* eslint-disable-next-line jest/expect-expect */
   it('should initially display the correct active tab', () => {
-    const {assertTab} = renderTestBed();
+    renderTestbed();
 
     assertTab('one').toBeShown();
     assertTab('two').toBeHidden();
@@ -60,7 +54,7 @@ describe('Tabs', () => {
 
   /* eslint-disable-next-line jest/expect-expect */
   it('should be able to navigate between tabs', async () => {
-    const {activateTab, assertTab} = renderTestBed();
+    renderTestbed();
 
     await activateTab('two');
 
@@ -71,16 +65,16 @@ describe('Tabs', () => {
 
   describe('keyboard behavior', () => {
     it('should allow users to navigate between tabs using the right arrow key', () => {
-      const {getByTestId} = renderTestBed();
+      renderTestbed();
 
-      const tab1 = getByTestId('Tab__one');
-      const panel1 = getByTestId('panel-one');
+      const tab1 = screen.getByTestId('Tab__one');
+      const panel1 = screen.getByTestId('panel-one');
 
-      const tab2 = getByTestId('Tab__two');
-      const panel2 = getByTestId('panel-two');
+      const tab2 = screen.getByTestId('Tab__two');
+      const panel2 = screen.getByTestId('panel-two');
 
-      const tab3 = getByTestId('Tab__three');
-      const panel3 = getByTestId('panel-three');
+      const tab3 = screen.getByTestId('Tab__three');
+      const panel3 = screen.getByTestId('panel-three');
 
       tab1.focus();
 
@@ -101,16 +95,16 @@ describe('Tabs', () => {
     });
 
     it('should allow users to navigate between tabs using the left arrow key', () => {
-      const {getByTestId} = renderTestBed();
+      renderTestbed();
 
-      const tab1 = getByTestId('Tab__one');
-      const panel1 = getByTestId('panel-one');
+      const tab1 = screen.getByTestId('Tab__one');
+      const panel1 = screen.getByTestId('panel-one');
 
-      const tab2 = getByTestId('Tab__two');
-      const panel2 = getByTestId('panel-two');
+      const tab2 = screen.getByTestId('Tab__two');
+      const panel2 = screen.getByTestId('panel-two');
 
-      const tab3 = getByTestId('Tab__three');
-      const panel3 = getByTestId('panel-three');
+      const tab3 = screen.getByTestId('Tab__three');
+      const panel3 = screen.getByTestId('panel-three');
 
       tab1.focus();
 
@@ -131,10 +125,10 @@ describe('Tabs', () => {
     });
 
     it('should allow users to navigate to the active panel using the down arrow key', async () => {
-      const {getByTestId} = renderTestBed();
+      renderTestbed();
 
-      const tab1 = getByTestId('Tab__one');
-      const panel1 = getByTestId('panel-one');
+      const tab1 = screen.getByTestId('Tab__one');
+      const panel1 = screen.getByTestId('panel-one');
 
       await click(tab1);
 

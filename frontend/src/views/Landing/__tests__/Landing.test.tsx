@@ -3,7 +3,7 @@ import {
   mockServer,
   status,
 } from '@dash-backend/testHelpers';
-import {render, waitFor, within} from '@testing-library/react';
+import {render, waitFor, within, screen} from '@testing-library/react';
 import React from 'react';
 
 import {withContextProviders, click, type} from '@dash-frontend/testHelpers';
@@ -27,59 +27,64 @@ describe('Landing', () => {
   });
 
   it('should display all projects with only a single tab', async () => {
-    const {findAllByRole, findByRole, getAllByRole} = render(<Landing />);
+    render(<Landing />);
 
     expect(
-      await findByRole('heading', {name: 'Data Cleaning Process', level: 5}),
+      await screen.findByRole('heading', {
+        name: 'Data Cleaning Process',
+        level: 5,
+      }),
     ).toBeInTheDocument();
 
-    expect(await findAllByRole('row', {})).toHaveLength(7);
+    expect(await screen.findAllByRole('row', {})).toHaveLength(7);
 
     expect(
-      await findByRole('tab', {
+      await screen.findByRole('tab', {
         name: /projects/i,
       }),
     ).toBeInTheDocument();
 
-    expect(getAllByRole('tab')).toHaveLength(1);
+    expect(screen.getAllByRole('tab')).toHaveLength(1);
   });
 
   it('should allow users to non-case sensitive search for projects by name', async () => {
-    const {queryByRole, findByRole} = render(<Landing />);
+    render(<Landing />);
 
     expect(
-      await findByRole('heading', {name: 'Data Cleaning Process', level: 5}),
+      await screen.findByRole('heading', {
+        name: 'Data Cleaning Process',
+        level: 5,
+      }),
     ).toBeInTheDocument();
     expect(
-      await findByRole('heading', {
+      await screen.findByRole('heading', {
         name: 'Solar Power Data Logger Team Collab',
         level: 5,
       }),
     ).toBeInTheDocument();
 
-    const searchBox = await findByRole('searchbox');
+    const searchBox = await screen.findByRole('searchbox');
 
     await type(searchBox, 'data CLeaning process');
 
     await waitFor(() =>
       expect(
-        queryByRole('heading', {
+        screen.queryByRole('heading', {
           name: 'Solar Power Data Logger Team Collab',
           level: 5,
         }),
       ).not.toBeInTheDocument(),
     );
-    await waitFor(() =>
-      expect(
-        queryByRole('heading', {name: 'Data Cleaning Process', level: 5}),
-      ).toBeInTheDocument(),
-    );
+    await screen.findByRole('heading', {
+      name: 'Data Cleaning Process',
+      level: 5,
+    });
   });
 
   it('should display the project names', async () => {
-    const {findByRole} = render(<Landing />);
+    render(<Landing />);
     expect(
-      await findByRole('heading', {
+      await screen.findByRole('heading', {
         name: 'Solar Power Data Logger Team Collab',
         level: 5,
       }),
@@ -87,31 +92,35 @@ describe('Landing', () => {
   });
 
   it('should display the project status', async () => {
-    const {findAllByTestId} = render(<Landing />);
+    render(<Landing />);
 
-    expect(await findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(5);
-    expect(await findAllByTestId('ProjectStatus__UNHEALTHY')).toHaveLength(2);
+    expect(await screen.findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(
+      5,
+    );
+    expect(
+      await screen.findAllByTestId('ProjectStatus__UNHEALTHY'),
+    ).toHaveLength(2);
   });
 
   it('should display project creation date in MM/DD/YYY format', async () => {
-    const {findByText} = render(<Landing />);
-    expect(await findByText('02/28/2021')).toBeInTheDocument();
+    render(<Landing />);
+    expect(await screen.findByText('02/28/2021')).toBeInTheDocument();
   });
 
   it('should display project descriptions', async () => {
-    const {findAllByText} = render(<Landing />);
+    render(<Landing />);
     expect(
-      await findAllByText(
+      await screen.findAllByText(
         'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
       ),
     ).toHaveLength(6);
   });
 
   it('should allow a user to view a project based in default lineage view', async () => {
-    const {findAllByRole} = render(<Landing />);
+    render(<Landing />);
 
     expect(window.location.pathname).not.toBe('/lineage/2');
-    const viewProjectButtons = await findAllByRole('button', {
+    const viewProjectButtons = await screen.findAllByRole('button', {
       name: 'View Project',
     });
     await click(viewProjectButtons[0]);
@@ -124,10 +133,10 @@ describe('Landing', () => {
       '{"list_view_default": true}',
     );
 
-    const {findAllByRole} = render(<Landing />);
+    render(<Landing />);
 
     expect(window.location.pathname).not.toBe('/project/2/repos');
-    const viewProjectButtons = await findAllByRole('button', {
+    const viewProjectButtons = await screen.findAllByRole('button', {
       name: 'View Project',
     });
     await click(viewProjectButtons[0]);
@@ -137,21 +146,26 @@ describe('Landing', () => {
   });
 
   it('should initially sort the projects by creation', async () => {
-    const {findAllByTestId} = render(<Landing />);
+    render(<Landing />);
 
-    const projectCreations = await findAllByTestId('ProjectRow__created');
+    const projectCreations = await screen.findAllByTestId(
+      'ProjectRow__created',
+    );
 
     expect(projectCreations[0].textContent).toBe('02/28/2021');
     expect(projectCreations[6].textContent).toBe('02/22/2021');
   });
 
   it('should allow the user to sort by name', async () => {
-    const {findAllByRole, findByRole} = render(<Landing />);
+    render(<Landing />);
 
     expect(
-      await findByRole('heading', {name: 'Data Cleaning Process', level: 5}),
+      await screen.findByRole('heading', {
+        name: 'Data Cleaning Process',
+        level: 5,
+      }),
     ).toBeInTheDocument();
-    const projectNames = await findAllByRole('heading', {
+    const projectNames = await screen.findAllByRole('heading', {
       level: 5,
     });
 
@@ -166,14 +180,16 @@ describe('Landing', () => {
 
     expect(projectNames[7].textContent).toBe('Solar Panel Data Sorting');
 
-    const sortDropdown = await findByRole('button', {
+    const sortDropdown = await screen.findByRole('button', {
       name: 'Sort by: Newest',
     });
     await click(sortDropdown);
-    const nameSort = await findByRole('menuitem', {name: 'Name A-Z'});
+    const nameSort = await screen.findByRole('menuitem', {name: 'Name A-Z'});
     await click(nameSort);
 
-    const nameSortedProjectNames = await findAllByRole('heading', {level: 5});
+    const nameSortedProjectNames = await screen.findAllByRole('heading', {
+      level: 5,
+    });
 
     expect(nameSortedProjectNames[1].textContent).toBe('Data Cleaning Process');
     expect(nameSortedProjectNames[2].textContent).toBe('Egress Examples');
@@ -191,8 +207,8 @@ describe('Landing', () => {
   });
 
   it('should allow the user to filter projects by status', async () => {
-    const {findByRole, findByTestId, findByLabelText} = render(<Landing />);
-    const projects = await findByTestId('Landing__view');
+    render(<Landing />);
+    const projects = await screen.findByTestId('Landing__view');
     expect(
       await within(projects).findAllByTestId('ProjectStatus__HEALTHY'),
     ).toHaveLength(5);
@@ -200,13 +216,15 @@ describe('Landing', () => {
       await within(projects).findAllByTestId('ProjectStatus__UNHEALTHY'),
     ).toHaveLength(2);
 
-    const filterDropdown = await findByRole('button', {name: 'Show: All'});
+    const filterDropdown = await screen.findByRole('button', {
+      name: 'Show: All',
+    });
     await click(filterDropdown);
-    const healthyButton = await findByLabelText('Healthy');
+    const healthyButton = await screen.findByLabelText('Healthy');
     await click(healthyButton);
 
     expect(
-      await findByRole('button', {name: 'Show: Unhealthy'}),
+      await screen.findByRole('button', {name: 'Show: Unhealthy'}),
     ).toBeInTheDocument();
 
     expect(
@@ -216,11 +234,11 @@ describe('Landing', () => {
       within(projects).queryByTestId('ProjectStatus__HEALTHY'),
     ).not.toBeInTheDocument();
 
-    const unHealthyButton = await findByLabelText('Unhealthy');
+    const unHealthyButton = await screen.findByLabelText('Unhealthy');
     await click(unHealthyButton);
 
     expect(
-      await findByRole('button', {name: 'Show: None'}),
+      await screen.findByRole('button', {name: 'Show: None'}),
     ).toBeInTheDocument();
 
     expect(
@@ -233,7 +251,7 @@ describe('Landing', () => {
     await click(healthyButton);
 
     expect(
-      await findByRole('button', {name: 'Show: Healthy'}),
+      await screen.findByRole('button', {name: 'Show: Healthy'}),
     ).toBeInTheDocument();
 
     expect(
@@ -248,18 +266,18 @@ describe('Landing', () => {
     const error = createServiceError({code: status.UNIMPLEMENTED});
     mockServer.setError(error);
 
-    const {findByText} = render(<Landing />);
+    render(<Landing />);
 
-    expect(await findByText('17/10')).toBeInTheDocument();
-    expect(await findByText('3 kB')).toBeInTheDocument();
+    expect(await screen.findByText('17/10')).toBeInTheDocument();
+    expect(await screen.findByText('3 kB')).toBeInTheDocument();
   });
 
   it('should not display the project details when the project is empty', async () => {
-    const {findByText} = render(<Landing />);
-    await click(await findByText('Empty Project'));
+    render(<Landing />);
+    await click(await screen.findByText('Empty Project'));
 
     expect(
-      await findByText('Create your first repo/pipeline!'),
+      await screen.findByText('Create your first repo/pipeline!'),
     ).toBeInTheDocument();
   });
 });

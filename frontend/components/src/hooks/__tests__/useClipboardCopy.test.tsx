@@ -1,4 +1,4 @@
-import {render} from '@testing-library/react';
+import {render, screen} from '@testing-library/react';
 import {mocked} from 'jest-mock';
 import React from 'react';
 
@@ -24,9 +24,9 @@ const ClipboardComponent: React.FC = () => {
 
 describe('useClipboardCopy', () => {
   it('should return a function that copies the text to the clipboard', async () => {
-    const {findByText} = render(<ClipboardComponent />);
+    render(<ClipboardComponent />);
 
-    const copyButton = await findByText('Copy');
+    const copyButton = await screen.findByText('Copy');
 
     await click(copyButton);
 
@@ -35,40 +35,40 @@ describe('useClipboardCopy', () => {
   });
 
   it('should return a value indicating that the text has been copied', async () => {
-    const {findByText} = render(<ClipboardComponent />);
+    render(<ClipboardComponent />);
 
-    const copyButton = await findByText('Copy');
-    const notCopied = await findByText('not copied');
+    const copyButton = await screen.findByText('Copy');
+    const notCopied = await screen.findByText('not copied');
     expect(notCopied).toBeInTheDocument();
 
     await click(copyButton);
 
-    const copied = await findByText('copied');
+    const copied = await screen.findByText('copied');
     expect(copied).toBeInTheDocument();
   });
 
   it('should return a function to reset the copied state', async () => {
-    const {findByText} = render(<ClipboardComponent />);
+    render(<ClipboardComponent />);
 
-    const copyButton = await findByText('Copy');
-    const resetButton = await findByText('Reset');
+    const copyButton = await screen.findByText('Copy');
+    const resetButton = await screen.findByText('Reset');
 
     await click(copyButton);
 
-    const copied = await findByText('copied');
+    const copied = await screen.findByText('copied');
     expect(copied).toBeInTheDocument();
 
     await click(resetButton);
-    const notCopied = await findByText('not copied');
+    const notCopied = await screen.findByText('not copied');
     expect(notCopied).toBeInTheDocument();
   });
 
   it('should return a value indicating if the copy command is supported', async () => {
     queryCommandMock.mockReturnValueOnce(false);
 
-    const {findByText} = render(<ClipboardComponent />);
+    render(<ClipboardComponent />);
 
-    const notSupported = await findByText('Not Supported');
+    const notSupported = await screen.findByText('Not Supported');
     expect(notSupported).toBeInTheDocument();
   });
 });

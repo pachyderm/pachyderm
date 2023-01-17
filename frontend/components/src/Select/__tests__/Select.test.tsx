@@ -1,4 +1,4 @@
-import {render, fireEvent, waitFor} from '@testing-library/react';
+import {render, fireEvent, waitFor, screen} from '@testing-library/react';
 import React from 'react';
 import {useForm} from 'react-hook-form';
 
@@ -28,16 +28,12 @@ describe('Select', () => {
     );
   };
 
-  const renderTestBed = () => {
-    return render(<TestBed />);
-  };
-
   it('should allow users to select an option via click', async () => {
-    const {getAllByRole, getByRole} = renderTestBed();
+    render(<TestBed />);
 
-    const comboBox = getByRole('combobox');
-    const submitButton = getByRole('button');
-    const options = getAllByRole('option');
+    const comboBox = screen.getByRole('combobox');
+    const submitButton = screen.getByRole('button');
+    const options = screen.getAllByRole('option');
 
     await click(comboBox);
 
@@ -52,10 +48,10 @@ describe('Select', () => {
   });
 
   it('should allow users to select an option via keyboard', async () => {
-    const {getByRole} = renderTestBed();
+    render(<TestBed />);
 
-    const comboBox = getByRole('combobox');
-    const submitButton = getByRole('button');
+    const comboBox = screen.getByRole('combobox');
+    const submitButton = screen.getByRole('button');
 
     fireEvent.keyDown(comboBox, {key: 'Enter'});
 

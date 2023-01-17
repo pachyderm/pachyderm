@@ -1,7 +1,7 @@
 import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
 import classNames from 'classnames';
 import {fromUnixTime, format} from 'date-fns';
-import React, {useCallback, useEffect} from 'react';
+import React, {useCallback} from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
 import {

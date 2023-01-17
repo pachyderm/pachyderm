@@ -1,4 +1,4 @@
-import {render, act} from '@testing-library/react';
+import {render, act, screen} from '@testing-library/react';
 import React from 'react';
 import {useForm} from 'react-hook-form';
 
@@ -45,10 +45,10 @@ describe('useFormField', () => {
   };
 
   it('should correctly generate error messages, and apply aria attributes', async () => {
-    const {findByLabelText, findByRole, queryByRole} = render(<TestBed />);
+    render(<TestBed />);
 
-    const submitButton = await findByRole('button');
-    const testInput = await findByLabelText('Test');
+    const submitButton = await screen.findByRole('button');
+    const testInput = await screen.findByLabelText('Test');
 
     await act(async () => {
       await click(submitButton);
@@ -56,7 +56,7 @@ describe('useFormField', () => {
 
     expect(testInput).toHaveAttribute('aria-invalid', 'true');
     expect(testInput).toHaveAttribute('aria-describedby', 'test-error');
-    expect(await findByRole('alert')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
 
     await type(testInput, 'a');
     await act(async () => {
@@ -65,6 +65,6 @@ describe('useFormField', () => {
 
     expect(testInput).toHaveAttribute('aria-invalid', 'false');
     expect(testInput).not.toHaveAttribute('aria-describedby');
-    expect(queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });

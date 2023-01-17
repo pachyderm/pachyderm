@@ -2,6 +2,7 @@ import {
   render,
   waitForElementToBeRemoved,
   within,
+  screen,
 } from '@testing-library/react';
 import React from 'react';
 import {Route} from 'react-router';
@@ -29,25 +30,27 @@ describe('PipelineInfo', () => {
       `/project/${projectId}/pipelines/${pipelineId}`,
     );
 
-    const {queryByTestId, getByText, getByTestId} = render(<PipelineInfo />);
+    render(<PipelineInfo />);
 
     await waitForElementToBeRemoved(
-      queryByTestId('Description__Pipeline TypeSkeleton'),
+      screen.queryByTestId('Description__Pipeline TypeSkeleton'),
     );
 
-    expect(getByTestId('PipelineState__state')).toHaveTextContent('Failure');
+    expect(screen.getByTestId('PipelineState__state')).toHaveTextContent(
+      'Failure',
+    );
     expect(
-      getByText('Pipeline Type').parentElement?.nextElementSibling,
+      screen.getByText('Pipeline Type').parentElement?.nextElementSibling,
     ).toHaveTextContent('Standard');
     expect(
-      getByText('Failure Reason').parentElement?.nextElementSibling,
+      screen.getByText('Failure Reason').parentElement?.nextElementSibling,
     ).toHaveTextContent('failed');
     expect(
-      getByText('Description').parentElement?.nextElementSibling,
+      screen.getByText('Description').parentElement?.nextElementSibling,
     ).toHaveTextContent('Not my favorite pipeline');
 
     const outputRepo =
-      getByText('Output Repo').parentElement?.nextElementSibling;
+      screen.getByText('Output Repo').parentElement?.nextElementSibling;
     expect(outputRepo).toHaveTextContent(pipelineId);
     expect(within(outputRepo as HTMLElement).getByRole('link')).toHaveAttribute(
       'href',
@@ -55,22 +58,22 @@ describe('PipelineInfo', () => {
     );
 
     expect(
-      getByText('Datum Timeout').parentElement?.nextElementSibling,
+      screen.getByText('Datum Timeout').parentElement?.nextElementSibling,
     ).toHaveTextContent('N/A');
     expect(
-      getByText('Datum Tries').parentElement?.nextElementSibling,
+      screen.getByText('Datum Tries').parentElement?.nextElementSibling,
     ).toHaveTextContent('0');
     expect(
-      getByText('Job Timeout').parentElement?.nextElementSibling,
+      screen.getByText('Job Timeout').parentElement?.nextElementSibling,
     ).toHaveTextContent('N/A');
     expect(
-      getByText('Output Branch').parentElement?.nextElementSibling,
+      screen.getByText('Output Branch').parentElement?.nextElementSibling,
     ).toHaveTextContent('master');
     expect(
-      getByText('Egress').parentElement?.nextElementSibling,
+      screen.getByText('Egress').parentElement?.nextElementSibling,
     ).toHaveTextContent('Yes');
     expect(
-      getByText('S3 Output Repo').parentElement?.nextElementSibling,
+      screen.getByText('S3 Output Repo').parentElement?.nextElementSibling,
     ).toHaveTextContent(`s3//${pipelineId}`);
   });
 });

@@ -1,4 +1,4 @@
-import {render, waitFor, within} from '@testing-library/react';
+import {render, waitFor, within, screen} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {format, fromUnixTime} from 'date-fns';
 import React from 'react';
@@ -74,9 +74,9 @@ describe('Datum Viewer', () => {
         '',
         '/lineage/1/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs',
       );
-      const {findByTestId} = render(<PipelineDatumViewer />);
+      render(<PipelineDatumViewer />);
 
-      await click(await findByTestId('SidePanel__closeModal'));
+      await click(await screen.findByTestId('SidePanel__closeModal'));
 
       await waitFor(() =>
         expect(window.location.pathname).toBe('/lineage/1/pipelines/montage'),
@@ -90,9 +90,9 @@ describe('Datum Viewer', () => {
         '/lineage/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
       );
 
-      const {findByTestId} = render(<JobDatumViewer />);
+      render(<JobDatumViewer />);
 
-      await click(await findByTestId('SidePanel__closeModal'));
+      await click(await screen.findByTestId('SidePanel__closeModal'));
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
@@ -110,20 +110,20 @@ describe('Datum Viewer', () => {
         '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
       );
 
-      const {findByText} = render(<JobDatumViewer />);
+      render(<JobDatumViewer />);
 
-      expect(await findByText('Success')).toBeVisible();
+      expect(await screen.findByText('Success')).toBeVisible();
 
-      const runtimeDropDown = await findByText('6.15 seconds');
+      const runtimeDropDown = await screen.findByText('6.15 seconds');
       expect(runtimeDropDown).toBeVisible();
 
       userEvent.click(runtimeDropDown);
 
-      expect(await findByText('1.12 seconds')).toBeVisible();
-      expect(await findByText('1 kB')).toBeVisible();
-      expect(await findByText('3 seconds')).toBeVisible();
-      expect(await findByText('2.02 seconds')).toBeVisible();
-      expect(await findByText('2 kB')).toBeVisible();
+      expect(await screen.findByText('1.12 seconds')).toBeVisible();
+      expect(await screen.findByText('1 kB')).toBeVisible();
+      expect(await screen.findByText('3 seconds')).toBeVisible();
+      expect(await screen.findByText('2.02 seconds')).toBeVisible();
+      expect(await screen.findByText('2 kB')).toBeVisible();
     });
 
     it('should render the root key of input spec', async () => {
@@ -133,9 +133,9 @@ describe('Datum Viewer', () => {
         '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
       );
 
-      const {getByTestId} = render(<JobDatumViewer />);
+      render(<JobDatumViewer />);
 
-      const yamlSpec = getByTestId('ConfigFilePreview__codeElement');
+      const yamlSpec = screen.getByTestId('ConfigFilePreview__codeElement');
       expect(await within(yamlSpec).findAllByText('edges')).toHaveLength(2); // Allow code element to load
       expect(yamlSpec).toMatchSnapshot();
     });
@@ -147,15 +147,15 @@ describe('Datum Viewer', () => {
         '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/006fdb9ba8a1afa805823336f4a280fd5c0b5c169ec48af78d07cecb96f8f14f',
       );
 
-      const {findByText, findAllByText} = render(<JobDatumViewer />);
+      render(<JobDatumViewer />);
 
-      const runtimeDropDown = await findByText('N/A');
+      const runtimeDropDown = await screen.findByText('N/A');
       expect(runtimeDropDown).toBeVisible();
 
       userEvent.click(runtimeDropDown);
 
-      await findByText('Download'); // Allow dropdown to finish loading
-      expect(await findAllByText('N/A')).toHaveLength(4);
+      await screen.findByText('Download'); // Allow dropdown to finish loading
+      expect(await screen.findAllByText('N/A')).toHaveLength(4);
     });
 
     it('should render a skipped datums details', async () => {
@@ -165,21 +165,21 @@ describe('Datum Viewer', () => {
         '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/1112b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
       );
 
-      const {findByText} = render(<JobDatumViewer />);
+      render(<JobDatumViewer />);
 
-      expect(await findByText('Skipped')).toBeVisible();
+      expect(await screen.findByText('Skipped')).toBeVisible();
       expect(
-        await findByText(
+        await screen.findByText(
           'This datum has been successfully processed in a previous job, has not changed since then, and therefore, it was skipped in the current job.',
         ),
       ).toBeVisible();
-      expect(await findByText('Previous Job')).toBeVisible();
+      expect(await screen.findByText('Previous Job')).toBeVisible();
       expect(
-        await findByText(
+        await screen.findByText(
           '2222b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
         ),
       ).toBeVisible();
-      expect(await findByText('6.15 seconds')).toBeVisible();
+      expect(await screen.findByText('6.15 seconds')).toBeVisible();
     });
   });
 
@@ -198,10 +198,12 @@ describe('Datum Viewer', () => {
         '',
         '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/edges/logs',
       );
-      const {findByText, findAllByTestId} = render(<JobDatumViewer />);
+      render(<JobDatumViewer />);
 
-      await click((await findAllByTestId('JobList__listItem'))[0]);
-      expect(await findByText('No datums found for this job.')).toBeVisible();
+      await click((await screen.findAllByTestId('JobList__listItem'))[0]);
+      expect(
+        await screen.findByText('No datums found for this job.'),
+      ).toBeVisible();
     });
 
     it('should format job timestamp correctly', async () => {
@@ -210,8 +212,10 @@ describe('Datum Viewer', () => {
         '',
         '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/edges/logs',
       );
-      const {findAllByTestId} = render(<JobDatumViewer />);
-      expect((await findAllByTestId('JobList__listItem'))[0].textContent).toBe(
+      render(<JobDatumViewer />);
+      expect(
+        (await screen.findAllByTestId('JobList__listItem'))[0].textContent,
+      ).toBe(
         `${format(
           fromUnixTime(1614126189),
           JOB_DATE_FORMAT,
@@ -226,12 +230,12 @@ describe('Datum Viewer', () => {
         '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155?view=eyJkYXR1bUZpbHRlcnMiOlsiU1RBUlRJTkciLCJTS0lQUEVEIl19',
       );
 
-      const {findAllByTestId, findByTestId} = render(<JobDatumViewer />);
+      render(<JobDatumViewer />);
 
-      await findByTestId('Filter__STARTINGChip');
-      await findByTestId('Filter__SKIPPEDChip');
+      await screen.findByTestId('Filter__STARTINGChip');
+      await screen.findByTestId('Filter__SKIPPEDChip');
 
-      const datums = await findAllByTestId('DatumList__listItem');
+      const datums = await screen.findAllByTestId('DatumList__listItem');
       const datum = datums[0];
       expect(datum.textContent).toBe(
         '01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155',
@@ -239,34 +243,40 @@ describe('Datum Viewer', () => {
     });
 
     it('should allow users to set and remove the datum filters', async () => {
-      const {findByText, findAllByTestId, findByTestId} = render(
-        <JobDatumViewer />,
-      );
+      render(<JobDatumViewer />);
 
-      const jobs = await findAllByTestId('JobList__listItem');
+      const jobs = await screen.findAllByTestId('JobList__listItem');
       expect(jobs).toHaveLength(4);
 
       await click(jobs[0]);
-      expect(await findAllByTestId('DatumList__listItem')).toHaveLength(4);
+      expect(await screen.findAllByTestId('DatumList__listItem')).toHaveLength(
+        4,
+      );
 
       await click(jobs[2]);
-      expect(await findAllByTestId('DatumList__listItem')).toHaveLength(2);
+      expect(await screen.findAllByTestId('DatumList__listItem')).toHaveLength(
+        2,
+      );
 
       await click(jobs[0]);
-      await click(await findByText('Filter'));
-      await click(await findByText('Starting'));
+      await click(await screen.findByText('Filter'));
+      await click(await screen.findByText('Starting'));
 
-      const datum = await findByTestId('DatumList__listItem');
+      const datum = await screen.findByTestId('DatumList__listItem');
       expect(datum.textContent).toBe(
         '01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155',
       );
 
       await click(jobs[2]);
-      expect(await findByText('No datums found for this job.')).toBeVisible();
+      expect(
+        await screen.findByText('No datums found for this job.'),
+      ).toBeVisible();
 
       await click(jobs[0]);
-      await click(await findByTestId('Filter__STARTINGChip'));
-      expect(await findAllByTestId('DatumList__listItem')).toHaveLength(4);
+      await click(await screen.findByTestId('Filter__STARTINGChip'));
+      expect(await screen.findAllByTestId('DatumList__listItem')).toHaveLength(
+        4,
+      );
     });
 
     it('should sort jobs by status', async () => {
@@ -276,8 +286,8 @@ describe('Datum Viewer', () => {
         '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
       );
 
-      const {findByText, findAllByTestId} = render(<JobDatumViewer />);
-      let jobs = await findAllByTestId('JobList__listItem');
+      render(<JobDatumViewer />);
+      let jobs = await screen.findAllByTestId('JobList__listItem');
       expect(jobs).toHaveLength(4);
 
       expect(jobs[0]).toHaveTextContent('23b9af7d5d4343219bc8e02ff44cd55a');
@@ -285,10 +295,10 @@ describe('Datum Viewer', () => {
       expect(jobs[2]).toHaveTextContent('7798fhje5d4343219bc8e02ff4acd33a');
       expect(jobs[3]).toHaveTextContent('o90du4js5d4343219bc8e02ff4acd33a');
 
-      await click(await findByText('Filter'));
-      await click(await findByText('Job status'));
+      await click(await screen.findByText('Filter'));
+      await click(await screen.findByText('Job status'));
 
-      jobs = await findAllByTestId('JobList__listItem');
+      jobs = await screen.findAllByTestId('JobList__listItem');
       expect(jobs).toHaveLength(4);
       expect(jobs[0]).toHaveTextContent('33b9af7d5d4343219bc8e02ff44cd55a');
       expect(jobs[1]).toHaveTextContent('o90du4js5d4343219bc8e02ff4acd33a');
@@ -306,19 +316,17 @@ describe('Datum Viewer', () => {
       });
 
       it('should load jobs and select job from url', async () => {
-        const {findAllByTestId, findByTestId, queryAllByTestId} = render(
-          <JobDatumViewer />,
-        );
+        render(<JobDatumViewer />);
 
-        expect(await findByTestId('BreadCrumbs__base')).toHaveTextContent(
-          'Job: 23b9af7d5d4343219bc8e02ff44cd55a',
-        );
-        const jobs = await findAllByTestId('JobList__listItem');
+        expect(
+          await screen.findByTestId('BreadCrumbs__base'),
+        ).toHaveTextContent('Job: 23b9af7d5d4343219bc8e02ff44cd55a');
+        const jobs = await screen.findAllByTestId('JobList__listItem');
         expect(jobs).toHaveLength(4);
         expect(jobs[0]).toHaveClass('selected');
         expect(jobs[0]).toHaveTextContent('23b9af7d5d4343219bc8e02ff44cd55a');
 
-        expect(queryAllByTestId('DatumList__listItem')).toHaveLength(0);
+        expect(screen.queryAllByTestId('DatumList__listItem')).toHaveLength(0);
       });
     });
 
@@ -332,64 +340,68 @@ describe('Datum Viewer', () => {
       });
 
       it('should load datums and select datum from url', async () => {
-        const {findAllByTestId, queryAllByTestId, findByTestId} = render(
-          <JobDatumViewer />,
-        );
+        render(<JobDatumViewer />);
 
-        const selectedDatum = (await findAllByTestId('DatumList__listItem'))[0];
+        const selectedDatum = (
+          await screen.findAllByTestId('DatumList__listItem')
+        )[0];
         expect(selectedDatum).toHaveClass('selected');
         expect(selectedDatum.textContent).toBe(
           '0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
         );
-        expect((await findByTestId('BreadCrumbs__base')).textContent).toBe(
+        expect(
+          (await screen.findByTestId('BreadCrumbs__base')).textContent,
+        ).toBe(
           '.../Datum: 0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
         );
-        expect(queryAllByTestId('JobList__listItem')).toHaveLength(0);
+        expect(screen.queryAllByTestId('JobList__listItem')).toHaveLength(0);
         await click(selectedDatum);
 
-        expect((await findByTestId('BreadCrumbs__base')).textContent).toBe(
+        expect(
+          (await screen.findByTestId('BreadCrumbs__base')).textContent,
+        ).toBe(
           '.../Datum: 0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
         );
       });
 
       it('should allow users to search for a datum', async () => {
-        const {findByTestId, queryByText, findByText} = render(
-          <JobDatumViewer />,
-        );
+        render(<JobDatumViewer />);
 
-        const search = await findByTestId('DatumList__search');
+        const search = await screen.findByTestId('DatumList__search');
 
-        expect(queryByText('No matching datums found')).not.toBeInTheDocument();
+        expect(
+          screen.queryByText('No matching datums found'),
+        ).not.toBeInTheDocument();
 
         await type(
           search,
           '006fdb9ba8a1afa805823336f4a280fd5c0b5c169ec48af78d07cecb96f8f333',
         );
-        await findByText('No matching datums found');
-        await click(await findByTestId('DatumList__searchClear'));
+        await screen.findByText('No matching datums found');
+        await click(await screen.findByTestId('DatumList__searchClear'));
         expect(search.textContent).toBe('');
         await type(
           search,
           '006fdb9ba8a1afa805823336f4a280fd5c0b5c169ec48af78d07cecb96f8f14f',
         );
 
-        const selectedDatum = await findByTestId('DatumList__listItem');
+        const selectedDatum = await screen.findByTestId('DatumList__listItem');
         expect(selectedDatum.textContent).toBe(
           '006fdb9ba8a1afa805823336f4a280fd5c0b5c169ec48af78d07cecb96f8f14f',
         );
-        expect(queryByText('No matching datums found')).not.toBeInTheDocument();
+        expect(
+          screen.queryByText('No matching datums found'),
+        ).not.toBeInTheDocument();
       });
 
       it('should load the job list if the back button is pressed', async () => {
-        const {findByTestId, queryByTestId, findByText} = render(
-          <JobDatumViewer />,
-        );
+        render(<JobDatumViewer />);
 
-        await findByTestId('DatumList__list');
-        expect(queryByTestId('JobList__list')).not.toBeInTheDocument();
-        await click(await findByText('Back'));
-        await findByTestId('JobList__list');
-        expect(queryByTestId('DatumList__list')).not.toBeInTheDocument();
+        await screen.findByTestId('DatumList__list');
+        expect(screen.queryByTestId('JobList__list')).not.toBeInTheDocument();
+        await click(await screen.findByText('Back'));
+        await screen.findByTestId('JobList__list');
+        expect(screen.queryByTestId('DatumList__list')).not.toBeInTheDocument();
       });
     });
   });
@@ -408,37 +420,33 @@ describe('Datum Viewer', () => {
     });
 
     it('should display empty state when there are no logs', async () => {
-      const {findByTestId, getByText, findAllByTestId, findByText} = render(
-        <MiddleSection />,
-      );
+      render(<MiddleSection />);
 
-      expect(await findAllByTestId('LogRow__checkbox')).toHaveLength(2);
+      expect(await screen.findAllByTestId('LogRow__checkbox')).toHaveLength(2);
 
-      const filterButton = await findByTestId('DropdownButton__button');
+      const filterButton = await screen.findByTestId('DropdownButton__button');
       await click(filterButton);
 
-      const otherOption = getByText('Last 30 Minutes');
+      const otherOption = screen.getByText('Last 30 Minutes');
       await click(otherOption);
       expect(
-        await findByText('No logs found for this time range.'),
+        await screen.findByText('No logs found for this time range.'),
       ).toBeInTheDocument();
     });
 
     it('export options should download and copy selected logs', async () => {
-      const {findByTestId, findAllByTestId, findByRole} = render(
-        <MiddleSection />,
-      );
+      render(<MiddleSection />);
 
-      const selectAll = await findByTestId('LogsListHeader__select_all');
-      const downloadButton = await findByRole('button', {
+      const selectAll = await screen.findByTestId('LogsListHeader__select_all');
+      const downloadButton = await screen.findByRole('button', {
         name: 'Download selected logs',
       });
 
-      const copyButton = await findByRole('button', {
+      const copyButton = await screen.findByRole('button', {
         name: 'Copy selected logs',
       });
 
-      await findAllByTestId('LogRow__checkbox');
+      await screen.findAllByTestId('LogRow__checkbox');
 
       expect(copyButton).toBeDisabled();
       expect(downloadButton).toBeDisabled();
@@ -471,9 +479,9 @@ describe('Datum Viewer', () => {
     });
 
     it('should display logs', async () => {
-      const {findAllByTestId} = render(<MiddleSection />);
+      render(<MiddleSection />);
 
-      const rows = await findAllByTestId('LogRow__base');
+      const rows = await screen.findAllByTestId('LogRow__base');
       expect(rows).toHaveLength(2);
       expect(rows[0].textContent).toBe(
         `${format(
@@ -490,59 +498,56 @@ describe('Datum Viewer', () => {
     });
 
     it('should highlight user logs', async () => {
-      const {queryAllByTestId, findAllByTestId, findByTestId, getByText} =
-        render(<MiddleSection />);
-      expect(queryAllByTestId('LogRow__user_log')).toHaveLength(0);
+      render(<MiddleSection />);
+      expect(screen.queryAllByTestId('LogRow__user_log')).toHaveLength(0);
 
-      await click(await findByTestId('DropdownButton__button'));
-      await click(getByText('Highlight User Logs'));
+      await click(await screen.findByTestId('DropdownButton__button'));
+      await click(screen.getByText('Highlight User Logs'));
 
-      expect(await findAllByTestId('LogRow__user_log')).toHaveLength(1);
+      expect(await screen.findAllByTestId('LogRow__user_log')).toHaveLength(1);
     });
 
     it('should display raw logs', async () => {
-      const {findAllByTestId, findByTestId, getByText} = render(
-        <MiddleSection />,
-      );
+      render(<MiddleSection />);
 
-      await click(await findByTestId('DropdownButton__button'));
-      await click(getByText('Raw Logs'));
+      await click(await screen.findByTestId('DropdownButton__button'));
+      await click(screen.getByText('Raw Logs'));
 
-      const rows = await findAllByTestId('RawLogRow__base');
+      const rows = await screen.findAllByTestId('RawLogRow__base');
       expect(rows).toHaveLength(2);
       expect(rows[0].textContent).toBe('started datum task');
       expect(rows[1].textContent).toBe('finished datum task');
     });
 
     it('should highlight raw user logs', async () => {
-      const {queryAllByTestId, findAllByTestId, findByTestId, getByText} =
-        render(<MiddleSection />);
+      render(<MiddleSection />);
 
-      await click(await findByTestId('DropdownButton__button'));
-      await click(getByText('Raw Logs'));
-      expect(queryAllByTestId('RawLogRow__user_log')).toHaveLength(0);
-      await click(getByText('Highlight User Logs'));
-      expect(await findAllByTestId('RawLogRow__user_log')).toHaveLength(1);
+      await click(await screen.findByTestId('DropdownButton__button'));
+      await click(screen.getByText('Raw Logs'));
+      expect(screen.queryAllByTestId('RawLogRow__user_log')).toHaveLength(0);
+      await click(screen.getByText('Highlight User Logs'));
+      expect(await screen.findAllByTestId('RawLogRow__user_log')).toHaveLength(
+        1,
+      );
     });
 
     it('should store logs view preference on refresh', async () => {
-      const {findAllByTestId, queryAllByTestId, findByTestId, getByText} =
-        render(<MiddleSection />);
+      render(<MiddleSection />);
 
-      expect(await findAllByTestId('LogRow__base')).toHaveLength(2);
-      expect(queryAllByTestId('RawLogRow__base')).toHaveLength(0);
-      await click(await findByTestId('DropdownButton__button'));
-      await click(getByText('Raw Logs'));
-      expect(queryAllByTestId('LogRow__base')).toHaveLength(0);
-      expect(await findAllByTestId('RawLogRow__base')).toHaveLength(2);
+      expect(await screen.findAllByTestId('LogRow__base')).toHaveLength(2);
+      expect(screen.queryAllByTestId('RawLogRow__base')).toHaveLength(0);
+      await click(await screen.findByTestId('DropdownButton__button'));
+      await click(screen.getByText('Raw Logs'));
+      expect(screen.queryAllByTestId('LogRow__base')).toHaveLength(0);
+      expect(await screen.findAllByTestId('RawLogRow__base')).toHaveLength(2);
 
       window.history.replaceState(
         {},
         '',
         '/project/1/jobs/33b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
       );
-      expect(queryAllByTestId('LogRow__base')).toHaveLength(0);
-      expect(await findAllByTestId('RawLogRow__base')).toHaveLength(2);
+      expect(screen.queryAllByTestId('LogRow__base')).toHaveLength(0);
+      expect(await screen.findAllByTestId('RawLogRow__base')).toHaveLength(2);
     });
 
     it('should scroll to the latest log on first load', async () => {
@@ -551,14 +556,12 @@ describe('Datum Viewer', () => {
         '',
         '/project/2/jobs/23b9af7d5d4343219bc8e02ff4acd33a/pipeline/likelihoods/logs',
       );
-      const {queryByText, findAllByTestId} = render(<MiddleSection />);
+      render(<MiddleSection />);
       expect(
-        (await findAllByTestId('LogRow__checkbox')).length,
+        (await screen.findAllByTestId('LogRow__checkbox')).length,
       ).toBeGreaterThan(2);
 
-      await waitFor(() =>
-        expect(queryByText(/last message/)).toBeInTheDocument(),
-      );
+      await screen.findByText(/last message/);
     });
 
     describe('Job Logs Viewer', () => {
@@ -571,19 +574,20 @@ describe('Datum Viewer', () => {
       });
 
       it('should show the correct breadcrumbs and title for job logs', async () => {
-        const {findByTestId} = render(<MiddleSection />);
+        render(<MiddleSection />);
         expect(
-          (await findByTestId('DatumHeaderBreadCrumbs__path')).textContent,
+          (await screen.findByTestId('DatumHeaderBreadCrumbs__path'))
+            .textContent,
         ).toBe('Pipeline.../Job: 23b9af7d5d4343219bc8e02ff44cd55a');
 
-        expect((await findByTestId('MiddleSection__title')).textContent).toBe(
-          'Job Logs for23b9af7d5d4343219bc8e02ff44cd55a',
-        );
+        expect(
+          (await screen.findByTestId('MiddleSection__title')).textContent,
+        ).toBe('Job Logs for23b9af7d5d4343219bc8e02ff44cd55a');
       });
 
       it('should display all logs for a job', async () => {
-        const {findAllByTestId} = render(<MiddleSection />);
-        const rows = await findAllByTestId('LogRow__base');
+        render(<MiddleSection />);
+        const rows = await screen.findAllByTestId('LogRow__base');
         expect(rows).toHaveLength(6);
         expect(rows[0].textContent).toBe(
           `${format(
@@ -610,27 +614,31 @@ describe('Datum Viewer', () => {
       });
 
       it('should show the correct breadcrumbs and title for datum logs', async () => {
-        const {findByTestId, findByText} = render(<MiddleSection />);
+        render(<MiddleSection />);
         expect(
-          (await findByTestId('DatumHeaderBreadCrumbs__path')).textContent,
+          (await screen.findByTestId('DatumHeaderBreadCrumbs__path'))
+            .textContent,
         ).toBe(
           'Pipeline.../Job.../Datum: 0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
         );
 
-        expect((await findByTestId('MiddleSection__title')).textContent).toBe(
+        expect(
+          (await screen.findByTestId('MiddleSection__title')).textContent,
+        ).toBe(
           'Datum Logs for0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
         );
 
-        await click(await findByText('Job...'));
+        await click(await screen.findByText('Job...'));
 
         expect(
-          (await findByTestId('DatumHeaderBreadCrumbs__path')).textContent,
+          (await screen.findByTestId('DatumHeaderBreadCrumbs__path'))
+            .textContent,
         ).toBe('Pipeline.../Job: 23b9af7d5d4343219bc8e02ff44cd55a');
       });
 
       it('should display logs for a given datum', async () => {
-        const {findAllByTestId} = render(<MiddleSection />);
-        const rows = await findAllByTestId('LogRow__base');
+        render(<MiddleSection />);
+        const rows = await screen.findAllByTestId('LogRow__base');
         expect(rows).toHaveLength(4);
         expect(rows[0].textContent).toBe(
           `${format(
@@ -652,9 +660,9 @@ describe('Datum Viewer', () => {
           '',
           '/project/1/jobs/7798fhje5d4343219bc8e02ff4acd33a/pipeline/montage/logs/datum/987654321dbb460a649a72bf1a1147159737c785f622c0c149ff89d7fcb66747',
         );
-        const {findByText} = render(<MiddleSection />);
+        render(<MiddleSection />);
         expect(
-          await findByText(
+          await screen.findByText(
             'This datum has been successfully processed in a previous job.',
           ),
         ).toBeInTheDocument();

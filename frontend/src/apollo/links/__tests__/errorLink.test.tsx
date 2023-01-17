@@ -1,5 +1,5 @@
 import {createServiceError} from '@dash-backend/testHelpers';
-import {render, waitFor} from '@testing-library/react';
+import {render, waitFor, screen} from '@testing-library/react';
 import Cookies from 'js-cookie';
 import React from 'react';
 
@@ -71,10 +71,10 @@ describe('errorLink', () => {
     });
 
     it('should redirect the user to /not-found if a resource does not exist', async () => {
-      const {findByText} = render(<TestBed />);
+      render(<TestBed />);
 
       expect(
-        await findByText(
+        await screen.findByText(
           `Unable to locate this resource, are you sure it exists?`,
         ),
       ).toBeInTheDocument();
@@ -93,10 +93,10 @@ describe('errorLink', () => {
 
     it('should show an error page if the project query is unsuccessful', async () => {
       mockServer.setError(createServiceError({code: 13}));
-      const {findByText} = render(<TestBed />);
+      render(<TestBed />);
 
       expect(
-        await findByText(`Looks like this API call can't be completed.`),
+        await screen.findByText(`Looks like this API call can't be completed.`),
       ).toBeInTheDocument();
     });
   });

@@ -1,4 +1,4 @@
-import {render, waitFor} from '@testing-library/react';
+import {render, waitFor, screen} from '@testing-library/react';
 import React from 'react';
 
 import {
@@ -21,80 +21,74 @@ describe('File Upload', () => {
   });
 
   it('should require a path', async () => {
-    const {findByText, findByLabelText, getByLabelText} = render(
-      <FileUpload />,
-    );
+    render(<FileUpload />);
 
     await waitFor(() =>
-      expect(getByLabelText('Attach Files')).not.toBeDisabled(),
+      expect(screen.getByLabelText('Attach Files')).not.toBeDisabled(),
     );
 
-    const pathInput = await findByLabelText('File Path');
+    const pathInput = await screen.findByLabelText('File Path');
     await waitFor(() => expect(pathInput).not.toBeDisabled());
     await clear(pathInput);
 
-    expect(await findByText('A path is required')).toBeInTheDocument();
+    expect(await screen.findByText('A path is required')).toBeInTheDocument();
   });
 
   it('should allow users to enter paths with only alphanumeric characters', async () => {
-    const {findByLabelText, queryByText, findByText, getByLabelText} = render(
-      <FileUpload />,
-    );
+    render(<FileUpload />);
 
     await waitFor(() =>
-      expect(getByLabelText('Attach Files')).not.toBeDisabled(),
+      expect(screen.getByLabelText('Attach Files')).not.toBeDisabled(),
     );
 
-    const pathInput = await findByLabelText('File Path');
+    const pathInput = await screen.findByLabelText('File Path');
     await waitFor(() => expect(pathInput).not.toBeDisabled());
     await type(pathInput, '$');
 
     expect(
-      queryByText(
+      screen.getByText(
         'Paths can only contain alphanumeric characters and must start with a forward slash',
       ),
-    ).not.toBeNull();
+    ).toBeInTheDocument();
 
     await clear(pathInput);
-    expect(await findByText('A path is required')).toBeInTheDocument();
+    expect(await screen.findByText('A path is required')).toBeInTheDocument();
 
     expect(
-      queryByText(
+      screen.queryByText(
         'Paths can only contain alphanumeric characters and must start with a forward slash',
       ),
-    ).toBeNull();
-    expect(queryByText('A path is required')).not.toBeNull();
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('A path is required')).toBeInTheDocument();
 
     await type(pathInput, '^');
 
     expect(
-      queryByText(
+      screen.getByText(
         'Paths can only contain alphanumeric characters and must start with a forward slash',
       ),
-    ).not.toBeNull();
+    ).toBeInTheDocument();
 
     await clear(pathInput);
-    expect(await findByText('A path is required')).toBeInTheDocument();
+    expect(await screen.findByText('A path is required')).toBeInTheDocument();
 
     await type(pathInput, '/test123');
 
     expect(
-      queryByText(
+      screen.queryByText(
         'Paths can only contain alphanumeric characters and must start with a forward slash',
       ),
-    ).toBeNull();
+    ).not.toBeInTheDocument();
   });
 
   it('should require paths start with a forward slash', async () => {
-    const {findByLabelText, queryByText, findByText, getByLabelText} = render(
-      <FileUpload />,
-    );
+    render(<FileUpload />);
 
     await waitFor(() =>
-      expect(getByLabelText('Attach Files')).not.toBeDisabled(),
+      expect(screen.getByLabelText('Attach Files')).not.toBeDisabled(),
     );
 
-    const pathInput = await findByLabelText('File Path');
+    const pathInput = await screen.findByLabelText('File Path');
     await waitFor(() => expect(pathInput).not.toBeDisabled());
 
     await clear(pathInput);
@@ -102,33 +96,31 @@ describe('File Upload', () => {
     await type(pathInput, 't');
 
     expect(
-      await queryByText(
+      screen.getByText(
         'Paths can only contain alphanumeric characters and must start with a forward slash',
       ),
-    ).not.toBeNull();
+    ).toBeInTheDocument();
 
     await clear(pathInput);
-    expect(await findByText('A path is required')).toBeInTheDocument();
+    expect(await screen.findByText('A path is required')).toBeInTheDocument();
 
     await type(pathInput, '/test');
 
     expect(
-      await queryByText(
+      screen.queryByText(
         'Paths can only contain alphanumeric characters and must start with a forward slash',
       ),
-    ).toBeNull();
+    ).not.toBeInTheDocument();
   });
 
   it('should allow a user to input a file with the file input', async () => {
-    const {findByLabelText, findByText, getByLabelText} = render(
-      <FileUpload />,
-    );
+    render(<FileUpload />);
 
     await waitFor(() =>
-      expect(getByLabelText('Attach Files')).not.toBeDisabled(),
+      expect(screen.getByLabelText('Attach Files')).not.toBeDisabled(),
     );
 
-    const fileInput = (await findByLabelText(
+    const fileInput = (await screen.findByLabelText(
       'Attach Files',
     )) as HTMLInputElement;
 
@@ -138,20 +130,20 @@ describe('File Upload', () => {
       new File(['hello'], 'hello.png', {type: 'image/png'}),
     ]);
 
-    expect(await findByText('hello.png', {}, {timeout: 10000})).not.toBeNull();
+    expect(
+      await screen.findByText('hello.png', {}, {timeout: 10000}),
+    ).toBeInTheDocument();
     expect(fileInput.files).toHaveLength(1);
   });
 
   it('should not allow a user to upload a file with regex metacharacters', async () => {
-    const {findByLabelText, findByText, getByLabelText} = render(
-      <FileUpload />,
-    );
+    render(<FileUpload />);
 
     await waitFor(() =>
-      expect(getByLabelText('Attach Files')).not.toBeDisabled(),
+      expect(screen.getByLabelText('Attach Files')).not.toBeDisabled(),
     );
 
-    const fileInput = (await findByLabelText(
+    const fileInput = (await screen.findByLabelText(
       'Attach Files',
     )) as HTMLInputElement;
 
@@ -159,11 +151,11 @@ describe('File Upload', () => {
       new File(['hello'], 'hel^lo.png', {type: 'image/png'}),
     ]);
 
-    expect(await findByText('hel^lo.png')).toBeInTheDocument();
+    expect(await screen.findByText('hel^lo.png')).toBeInTheDocument();
     expect(
-      await findByText(
+      await screen.findByText(
         `Below file names cannot contain ${GLOB_CHARACTERS}. Please rename or re-upload.`,
       ),
-    ).not.toBeNull();
+    ).toBeInTheDocument();
   });
 });

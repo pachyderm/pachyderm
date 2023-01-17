@@ -1,4 +1,4 @@
-import {render} from '@testing-library/react';
+import {render, screen} from '@testing-library/react';
 import React from 'react';
 
 import {click} from '@dash-frontend/testHelpers';
@@ -19,9 +19,9 @@ describe('CommitIdCopy', () => {
   });
 
   it('should copy path on action click', async () => {
-    const {findByTestId} = render(Commit);
+    render(Commit);
 
-    const copyAction = await findByTestId('CommitIdCopy_copy');
+    const copyAction = await screen.findByTestId('CommitIdCopy_copy');
     await click(copyAction);
 
     expect(window.document.execCommand).toHaveBeenCalledWith('copy');

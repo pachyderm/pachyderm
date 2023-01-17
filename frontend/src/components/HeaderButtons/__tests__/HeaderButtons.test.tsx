@@ -1,4 +1,4 @@
-import {render} from '@testing-library/react';
+import {render, screen} from '@testing-library/react';
 import React from 'react';
 
 import {withContextProviders} from '@dash-frontend/testHelpers';
@@ -21,13 +21,13 @@ describe('HeaderButtons', () => {
       window.localStorage.getItem('pachyderm-console-default'),
     ).toBeFalsy();
 
-    const {getByText, getAllByText, findByText} = render(<HeaderButtons />);
+    render(<HeaderButtons />);
 
-    getAllByText('Learn Pachyderm')[0].click();
+    screen.getAllByText('Learn Pachyderm')[0].click();
 
-    expect(await findByText('Start Tutorial')).toBeInTheDocument();
+    expect(await screen.findByText('Start Tutorial')).toBeInTheDocument();
 
-    getByText('Image processing at scale with pachyderm').click();
+    screen.getByText('Image processing at scale with pachyderm').click();
 
     expect(window.location.pathname).toBe('/lineage/default');
     expect(window.localStorage.getItem('pachyderm-console-default')).toBe(
@@ -42,17 +42,15 @@ describe('HeaderButtons', () => {
       '{"tutorial_progress":{"image-processing":{"story":2,"task":1}}}',
     );
 
-    const {getAllByText, findByText, findByTestId, queryByText} = render(
-      <HeaderButtons />,
-    );
+    render(<HeaderButtons />);
 
-    getAllByText('Learn Pachyderm')[0].click();
+    screen.getAllByText('Learn Pachyderm')[0].click();
 
-    expect(queryByText('Start Tutorial')).not.toBeInTheDocument();
+    expect(screen.queryByText('Start Tutorial')).not.toBeInTheDocument();
     expect(
-      await findByTestId('StoryProgressDots__progress'),
+      await screen.findByTestId('StoryProgressDots__progress'),
     ).toBeInTheDocument();
-    expect(await findByText('Story 4 of 5')).toBeInTheDocument();
+    expect(await screen.findByText('Story 4 of 5')).toBeInTheDocument();
   });
 
   /* Tutorial is temporarily disabled because of "Project" Console Support */
@@ -62,11 +60,11 @@ describe('HeaderButtons', () => {
       '{"tutorial_progress":{"image-processing":{"story":3,"task":0}}}',
     );
 
-    const {getByTestId, findByText, getAllByText} = render(<HeaderButtons />);
+    render(<HeaderButtons />);
 
-    getAllByText('Learn Pachyderm')[0].click();
-    getByTestId('TutorialItem__deleteProgress').click();
-    (await findByText('Delete Tutorial Content')).click();
+    screen.getAllByText('Learn Pachyderm')[0].click();
+    screen.getByTestId('TutorialItem__deleteProgress').click();
+    (await screen.findByText('Delete Tutorial Content')).click();
 
     expect(window.localStorage.getItem('pachyderm-console-default')).toBe(
       `{"tutorial_progress":{"image-processing":null},"active_tutorial":null}`,

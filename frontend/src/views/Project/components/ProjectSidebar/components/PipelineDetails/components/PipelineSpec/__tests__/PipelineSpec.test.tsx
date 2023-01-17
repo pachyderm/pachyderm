@@ -1,4 +1,8 @@
-import {render, waitForElementToBeRemoved} from '@testing-library/react';
+import {
+  render,
+  waitForElementToBeRemoved,
+  screen,
+} from '@testing-library/react';
 import React from 'react';
 import {Route} from 'react-router';
 
@@ -20,9 +24,11 @@ describe('PipelineSpec', () => {
       pipelineRoute({projectId: '1', pipelineId: 'montage'}),
     );
 
-    const {container, queryByTestId} = render(<PipelineSpec />);
+    const {container} = render(<PipelineSpec />);
 
-    await waitForElementToBeRemoved(queryByTestId('PipelineSpec__loader'));
+    await waitForElementToBeRemoved(
+      screen.queryByTestId('PipelineSpec__loader'),
+    );
 
     expect(container.firstChild).toMatchSnapshot();
   });

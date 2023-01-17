@@ -1,4 +1,4 @@
-import {render} from '@testing-library/react';
+import {render, screen} from '@testing-library/react';
 import noop from 'lodash/noop';
 import React from 'react';
 
@@ -16,11 +16,11 @@ describe('IntroductionModal', () => {
   });
 
   it('should set an active tutorial on confirm', async () => {
-    const {findByTestId} = render(<IntroductionModal projectId="6" />);
+    render(<IntroductionModal projectId="6" />);
     expect(localStorage.getItem('pachyderm-console-6')).toBeNull();
 
-    await click(await findByTestId('ModalFooter__confirm'));
-    await click(await findByTestId('ModalFooter__confirm'));
+    await click(await screen.findByTestId('ModalFooter__confirm'));
+    await click(await screen.findByTestId('ModalFooter__confirm'));
 
     const settings = localStorage.getItem('pachyderm-console-6');
     expect(settings).not.toBeNull();

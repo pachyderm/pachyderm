@@ -1,4 +1,4 @@
-import {render, waitFor} from '@testing-library/react';
+import {render, waitFor, screen} from '@testing-library/react';
 import React from 'react';
 import xhrMock from 'xhr-mock';
 
@@ -28,7 +28,7 @@ describe('FeatureFlags', () => {
       status: 200,
     });
 
-    const {queryByText} = render(
+    render(
       <FeatureFlagsProvider>
         <Experiment name="testFlag">
           <span>Static Component</span>
@@ -38,10 +38,12 @@ describe('FeatureFlags', () => {
       </FeatureFlagsProvider>,
     );
 
-    expect(queryByText('Static Component')).toBeInTheDocument();
+    expect(screen.getByText('Static Component')).toBeInTheDocument();
     await waitFor(() => {
-      expect(queryByText('Test Flag On')).toBeInTheDocument();
-      expect(queryByText('Test Flag Off')).not.toBeInTheDocument();
+      expect(screen.getByText('Test Flag On')).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText('Test Flag Off')).not.toBeInTheDocument();
     });
   });
 
@@ -54,7 +56,7 @@ describe('FeatureFlags', () => {
       status: 200,
     });
 
-    const {queryByText} = render(
+    render(
       <FeatureFlagsProvider>
         <Experiment name="testFlag">
           <span>Static Component</span>
@@ -64,10 +66,12 @@ describe('FeatureFlags', () => {
       </FeatureFlagsProvider>,
     );
 
-    expect(queryByText('Static Component')).toBeInTheDocument();
+    expect(screen.getByText('Static Component')).toBeInTheDocument();
     await waitFor(() => {
-      expect(queryByText('Test Flag On')).not.toBeInTheDocument();
-      expect(queryByText('Test Flag Off')).toBeInTheDocument();
+      expect(screen.queryByText('Test Flag On')).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Test Flag Off')).toBeInTheDocument();
     });
   });
 
@@ -80,7 +84,7 @@ describe('FeatureFlags', () => {
       status: 200,
     });
 
-    const {queryByText} = render(
+    render(
       <FeatureFlagsProvider>
         <Experiment name="testFlag">
           <Variation value={true}>Test Flag On</Variation>
@@ -94,10 +98,19 @@ describe('FeatureFlags', () => {
     );
 
     await waitFor(() => {
-      expect(queryByText('Test Flag On')).toBeInTheDocument();
-      expect(queryByText('Test Flag Off')).not.toBeInTheDocument();
-      expect(queryByText('Test Bad Flag On')).not.toBeInTheDocument();
-      expect(queryByText('Test Bad Flag Off')).not.toBeInTheDocument();
+      expect(screen.getByText('Test Flag On')).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Test Flag Off')).not.toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Test Bad Flag On')).not.toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Test Bad Flag Off')).not.toBeInTheDocument();
     });
   });
 });

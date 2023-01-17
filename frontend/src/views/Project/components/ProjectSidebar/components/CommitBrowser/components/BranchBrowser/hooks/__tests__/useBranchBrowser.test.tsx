@@ -1,4 +1,4 @@
-import {render} from '@testing-library/react';
+import {render, screen} from '@testing-library/react';
 import React from 'react';
 
 import {withContextProviders} from '@dash-frontend/testHelpers';
@@ -23,8 +23,8 @@ describe('BranchBrowser/hooks/useBranchBrowser', () => {
   it('should sort branches with master on top', () => {
     window.history.replaceState('', '', '/project/3/repos/cron/branch/master');
 
-    const {getByText} = render(<BranchBrowserComponent />);
-    const items = getByText('master-alpha-develop-feature');
+    render(<BranchBrowserComponent />);
+    const items = screen.getByText('master-alpha-develop-feature');
 
     expect(items).toBeInTheDocument();
   });

@@ -1,4 +1,4 @@
-import {render, waitFor} from '@testing-library/react';
+import {render, waitFor, screen} from '@testing-library/react';
 import React from 'react';
 import {useForm} from 'react-hook-form';
 
@@ -19,114 +19,114 @@ const TagsInput = ({...props}) => {
 
 describe('components/TagsInput', () => {
   it('should show a tag after comma press', async () => {
-    const {getByTestId, getByText} = render(<TagsInput />);
-    const input = getByTestId('TagsInput__input');
+    render(<TagsInput />);
+    const input = screen.getByTestId('TagsInput__input');
 
     await type(input, 'hello');
     expect(input).toHaveValue('hello');
     await type(input, ',');
     expect(input).toHaveValue('');
 
-    const helloTag = getByText('hello');
+    const helloTag = screen.getByText('hello');
 
     expect(helloTag).toBeInTheDocument();
     expect(helloTag).toHaveClass('tag');
   });
 
   it('should show a tag after space press', async () => {
-    const {getByTestId, getByText} = render(<TagsInput />);
-    const input = getByTestId('TagsInput__input');
+    render(<TagsInput />);
+    const input = screen.getByTestId('TagsInput__input');
 
     await type(input, 'hello');
     expect(input).toHaveValue('hello');
     await type(input, ' ');
     expect(input).toHaveValue('');
 
-    const helloTag = getByText('hello');
+    const helloTag = screen.getByText('hello');
 
     expect(helloTag).toBeInTheDocument();
     expect(helloTag).toHaveClass('tag');
   });
 
   it('should show a tag after tab press', async () => {
-    const {getByTestId, getByText} = render(<TagsInput />);
-    const input = getByTestId('TagsInput__input');
+    render(<TagsInput />);
+    const input = screen.getByTestId('TagsInput__input');
 
     await type(input, 'hello');
     expect(input).toHaveValue('hello');
     await tab();
     expect(input).toHaveValue('');
 
-    const helloTag = getByText('hello');
+    const helloTag = screen.getByText('hello');
 
     expect(helloTag).toBeInTheDocument();
     expect(helloTag).toHaveClass('tag');
   });
 
   it('should show a tag after Enter press', async () => {
-    const {getByTestId, getByText} = render(<TagsInput />);
-    const input = getByTestId('TagsInput__input');
+    render(<TagsInput />);
+    const input = screen.getByTestId('TagsInput__input');
 
     await type(input, 'hello');
     expect(input).toHaveValue('hello');
     await type(input, '{enter}');
     expect(input).toHaveValue('');
 
-    const helloTag = getByText('hello');
+    const helloTag = screen.getByText('hello');
 
     expect(helloTag).toBeInTheDocument();
     expect(helloTag).toHaveClass('tag');
   });
 
   it('should remove tag via close button', async () => {
-    const {getByTestId, getByLabelText, queryByText} = render(<TagsInput />);
-    const input = getByTestId('TagsInput__input');
+    render(<TagsInput />);
+    const input = screen.getByTestId('TagsInput__input');
 
     await type(input, 'hello');
     await type(input, ' ');
     await type(input, 'world');
     await type(input, ' ');
 
-    expect(queryByText('hello')).toBeInTheDocument();
-    expect(queryByText('world')).toBeInTheDocument();
+    expect(screen.getByText('hello')).toBeInTheDocument();
+    expect(screen.getByText('world')).toBeInTheDocument();
 
-    const removeHelloButton = getByLabelText('Remove hello');
+    const removeHelloButton = screen.getByLabelText('Remove hello');
 
     await click(removeHelloButton);
-    expect(queryByText('hello')).not.toBeInTheDocument();
-    expect(queryByText('world')).toBeInTheDocument();
+    expect(screen.queryByText('hello')).not.toBeInTheDocument();
+    expect(screen.getByText('world')).toBeInTheDocument();
   });
 
   it('should remove tag via backspace', async () => {
-    const {getByTestId, queryByText} = render(<TagsInput />);
-    const input = getByTestId('TagsInput__input');
+    render(<TagsInput />);
+    const input = screen.getByTestId('TagsInput__input');
 
     await type(input, 'hello');
     await type(input, ' ');
     await type(input, 'world');
     await type(input, ' ');
 
-    expect(queryByText('hello')).toBeInTheDocument();
-    expect(queryByText('world')).toBeInTheDocument();
+    expect(screen.getByText('hello')).toBeInTheDocument();
+    expect(screen.getByText('world')).toBeInTheDocument();
 
     await type(input, '{backspace}');
-    expect(queryByText('hello')).toBeInTheDocument();
-    expect(queryByText('world')).not.toBeInTheDocument();
+    expect(screen.getByText('hello')).toBeInTheDocument();
+    expect(screen.queryByText('world')).not.toBeInTheDocument();
   });
 
   it('should render tags for default values', () => {
     const defaultValues = ['hello'];
-    const {getByText} = render(<TagsInput defaultValues={defaultValues} />);
-    const helloTag = getByText('hello');
+    render(<TagsInput defaultValues={defaultValues} />);
+    const helloTag = screen.getByText('hello');
 
     expect(helloTag).toBeInTheDocument();
     expect(helloTag).toHaveClass('tag');
   });
 
   it('should set and clear focus', () => {
-    const {getByTestId} = render(<TagsInput />);
-    const container = getByTestId('TagsInput__container');
-    const input = getByTestId('TagsInput__input');
+    render(<TagsInput />);
+    const container = screen.getByTestId('TagsInput__container');
+    const input = screen.getByTestId('TagsInput__input');
 
     expect(container).not.toHaveClass('focused');
     input.focus();
@@ -137,11 +137,9 @@ describe('components/TagsInput', () => {
 
   it('should validate tags', async () => {
     const validate = (v: string) => v === 'world';
-    const {getByLabelText, getByTestId, queryByText} = render(
-      <TagsInput validate={validate} />,
-    );
-    const container = getByTestId('TagsInput__container');
-    const input = getByTestId('TagsInput__input');
+    render(<TagsInput validate={validate} />);
+    const container = screen.getByTestId('TagsInput__container');
+    const input = screen.getByTestId('TagsInput__input');
 
     await type(input, 'hello');
     await type(input, ' ');
@@ -151,12 +149,12 @@ describe('components/TagsInput', () => {
     await waitFor(() => {
       expect(container).toHaveClass('errors');
     });
-    expect(queryByText('hello')).toHaveClass('tag');
-    expect(queryByText('hello')).toHaveClass('tagError');
-    expect(queryByText('world')).toHaveClass('tag');
-    expect(queryByText('world')).not.toHaveClass('tagError');
+    expect(screen.queryByText('hello')).toHaveClass('tag');
+    expect(screen.queryByText('hello')).toHaveClass('tagError');
+    expect(screen.queryByText('world')).toHaveClass('tag');
+    expect(screen.queryByText('world')).not.toHaveClass('tagError');
 
-    const removeHelloButton = getByLabelText('Remove hello');
+    const removeHelloButton = screen.getByLabelText('Remove hello');
 
     await click(removeHelloButton);
     await waitFor(() => {
@@ -165,19 +163,19 @@ describe('components/TagsInput', () => {
   });
 
   it('should show and hide aria-describedby ids', async () => {
-    const {getByTestId, getByText} = render(<TagsInput />);
-    const input = getByTestId('TagsInput__input');
+    render(<TagsInput />);
+    const input = screen.getByTestId('TagsInput__input');
 
     expect(input).toHaveAttribute('aria-describedby', '');
 
     await type(input, 'hello');
     await type(input, ' ');
-    expect(getByText('hello')).toHaveAttribute('id', 'tag-hello-0');
+    expect(screen.getByText('hello')).toHaveAttribute('id', 'tag-hello-0');
     expect(input).toHaveAttribute('aria-describedby', 'tag-hello-0');
 
     await type(input, 'world');
     await type(input, ' ');
-    expect(getByText('world')).toHaveAttribute('id', 'tag-world-1');
+    expect(screen.getByText('world')).toHaveAttribute('id', 'tag-world-1');
     expect(input).toHaveAttribute(
       'aria-describedby',
       'tag-hello-0 tag-world-1',
@@ -190,8 +188,8 @@ describe('components/TagsInput', () => {
   });
 
   it('should show tags for a pasted list of tags separated by commas and spaces', async () => {
-    const {getByTestId, getByText} = render(<TagsInput />);
-    const input = getByTestId('TagsInput__input');
+    render(<TagsInput />);
+    const input = screen.getByTestId('TagsInput__input');
     input.focus();
 
     await paste(
@@ -199,64 +197,64 @@ describe('components/TagsInput', () => {
     );
     await type(input, '{enter}');
 
-    const testTag1 = getByText('test1@test.com');
+    const testTag1 = screen.getByText('test1@test.com');
     expect(testTag1).toBeInTheDocument();
     expect(testTag1).toHaveClass('tag');
 
-    const testTag2 = getByText('test2@test.com');
+    const testTag2 = screen.getByText('test2@test.com');
     expect(testTag2).toBeInTheDocument();
     expect(testTag2).toHaveClass('tag');
 
-    const testTag3 = getByText('test3@test.com');
+    const testTag3 = screen.getByText('test3@test.com');
     expect(testTag3).toBeInTheDocument();
     expect(testTag3).toHaveClass('tag');
 
-    const testTag4 = getByText('test4@test.com');
+    const testTag4 = screen.getByText('test4@test.com');
     expect(testTag4).toBeInTheDocument();
     expect(testTag4).toHaveClass('tag');
 
-    const testTag5 = getByText('test5@test.com');
+    const testTag5 = screen.getByText('test5@test.com');
     expect(testTag5).toBeInTheDocument();
     expect(testTag5).toHaveClass('tag');
   });
 
   it('should show a clear button after 2 entries', async () => {
-    const {getByTestId, queryByText} = render(<TagsInput />);
-    const input = getByTestId('TagsInput__input');
+    render(<TagsInput />);
+    const input = screen.getByTestId('TagsInput__input');
     input.focus();
 
     await paste('hello');
     await type(input, '{enter}');
 
-    let clearButton = queryByText('Clear Tagsinput');
+    let clearButton = screen.queryByText('Clear Tagsinput');
     expect(clearButton).not.toBeInTheDocument();
 
     input.focus();
     await paste('world');
     await type(input, '{enter}');
 
-    clearButton = queryByText('Clear Tagsinput');
+    clearButton = screen.queryByText('Clear Tagsinput');
     expect(clearButton).toBeInTheDocument();
   });
 
   it('should clear form input on clear button press', async () => {
-    const {getByTestId, getByText, queryByText} = render(<TagsInput />);
-    const input = getByTestId('TagsInput__input');
+    render(<TagsInput />);
+    const input = screen.getByTestId('TagsInput__input');
     input.focus();
 
     await paste('hello,world');
     await type(input, '{enter}');
 
-    const helloTag = getByText('hello');
-    const worldTag = getByText('world');
+    const helloTag = screen.getByText('hello');
+    const worldTag = screen.getByText('world');
 
     expect(helloTag).toBeInTheDocument();
     expect(worldTag).toBeInTheDocument();
 
-    const clearButton = getByText('Clear Tagsinput');
+    const clearButton = screen.getByText('Clear Tagsinput');
     await click(clearButton);
 
-    const text = queryByText('hello');
+    const text = screen.queryByText('hello');
     expect(text).not.toBeInTheDocument();
   });
 });

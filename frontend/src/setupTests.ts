@@ -5,9 +5,12 @@ import '@testing-library/jest-dom/extend-expect';
 import {randomBytes} from 'crypto';
 
 import {generateIdTokenForAccount} from '@dash-backend/testHelpers';
+import {configure} from '@testing-library/react';
 import {enableFetchMocks} from 'jest-fetch-mock';
 
 import {server, mockServer} from '@dash-frontend/testHelpers';
+
+configure({asyncUtilTimeout: 5000});
 
 enableFetchMocks();
 

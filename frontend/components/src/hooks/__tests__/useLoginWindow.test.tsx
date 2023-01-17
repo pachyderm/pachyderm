@@ -1,4 +1,4 @@
-import {render, act, waitFor} from '@testing-library/react';
+import {render, act, waitFor, screen} from '@testing-library/react';
 import React, {useState} from 'react';
 
 import useLoginWindow from '../useLoginWindow';
@@ -70,9 +70,9 @@ describe('useLoginWindow', () => {
       })),
     });
 
-    const {getByText} = render(<Login />);
+    render(<Login />);
 
-    const loginWithGoogle = getByText('Login with google');
+    const loginWithGoogle = screen.getByText('Login with google');
     loginWithGoogle.click();
 
     expect(window.open).toHaveBeenCalledWith(
@@ -115,9 +115,9 @@ describe('useLoginWindow', () => {
     // the code on-mount
     window.localStorage.setItem('oauthCode', oauthCode);
 
-    const {getByText} = render(<Login />);
+    render(<Login />);
 
-    const loginWithOidc = getByText('Login with username/password');
+    const loginWithOidc = screen.getByText('Login with username/password');
     loginWithOidc.click();
 
     expect(window.location.assign).toHaveBeenCalledWith(
@@ -146,9 +146,9 @@ describe('useLoginWindow', () => {
     const oauthError = 'Error!';
     window.localStorage.setItem('oauthError', oauthError);
 
-    const {getByText, findByText} = render(<Login />);
+    render(<Login />);
 
-    const loginWithOidc = getByText('Login with username/password');
+    const loginWithOidc = screen.getByText('Login with username/password');
     loginWithOidc.click();
 
     expect(window.location.assign).toHaveBeenCalledWith(
@@ -164,16 +164,16 @@ describe('useLoginWindow', () => {
       ].join(''),
     );
 
-    expect(await findByText(`Error: ${oauthError}`)).toBeVisible();
+    expect(await screen.findByText(`Error: ${oauthError}`)).toBeVisible();
   });
 
   it('should set succeeded and error flags on first render', () => {
     window.localStorage.setItem('oauthCode', 'code');
     window.localStorage.setItem('oauthError', 'error');
 
-    const {getByText} = render(<Login />);
+    render(<Login />);
 
-    expect(getByText('First render succeeded')).toBeVisible();
-    expect(getByText('First render error: error')).toBeVisible();
+    expect(screen.getByText('First render succeeded')).toBeVisible();
+    expect(screen.getByText('First render error: error')).toBeVisible();
   });
 });

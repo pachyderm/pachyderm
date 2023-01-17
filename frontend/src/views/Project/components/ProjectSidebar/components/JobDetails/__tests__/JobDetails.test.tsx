@@ -1,4 +1,4 @@
-import {render, waitFor, within} from '@testing-library/react';
+import {render, waitFor, within, screen} from '@testing-library/react';
 import {fromUnixTime, formatDistanceToNowStrict} from 'date-fns';
 import React from 'react';
 import {Route} from 'react-router';
@@ -29,18 +29,20 @@ describe('Job Details', () => {
   });
 
   it('should display the list of pipelines that produced jobs in the set', async () => {
-    const {queryByTestId, getByRole} = render(<TestBed />);
+    render(<TestBed />);
 
     await waitFor(() =>
-      expect(queryByTestId('JobDetails__loading')).not.toBeInTheDocument(),
+      expect(
+        screen.queryByTestId('JobDetails__loading'),
+      ).not.toBeInTheDocument(),
     );
     await waitFor(() =>
       expect(
-        queryByTestId('Description__InputsSkeleton'),
+        screen.queryByTestId('Description__InputsSkeleton'),
       ).not.toBeInTheDocument(),
     );
 
-    const withinNavList = within(getByRole('list'));
+    const withinNavList = within(screen.getByRole('list'));
 
     const likelihoodsLink = withinNavList.getByRole('link', {
       name: `likelihoods`,
@@ -91,7 +93,7 @@ describe('Job Details', () => {
 
     await waitFor(() =>
       expect(
-        queryByTestId('Description__InputsSkeleton'),
+        screen.queryByTestId('Description__InputsSkeleton'),
       ).not.toBeInTheDocument(),
     );
 
@@ -101,14 +103,16 @@ describe('Job Details', () => {
   });
 
   it('should default to the first job in the set if not specified', async () => {
-    const {queryByTestId, getByTestId} = render(<TestBed />);
+    render(<TestBed />);
 
     await waitFor(() =>
-      expect(queryByTestId('JobDetails__loading')).not.toBeInTheDocument(),
+      expect(
+        screen.queryByTestId('JobDetails__loading'),
+      ).not.toBeInTheDocument(),
     );
     await waitFor(() =>
       expect(
-        queryByTestId('Description__InputsSkeleton'),
+        screen.queryByTestId('Description__InputsSkeleton'),
       ).not.toBeInTheDocument(),
     );
 
@@ -116,19 +120,23 @@ describe('Job Details', () => {
       jobRoute({projectId, jobId, pipelineId: 'likelihoods'}, false),
     );
     await waitFor(() =>
-      expect(queryByTestId('InfoPanel__loading')).not.toBeInTheDocument(),
+      expect(
+        screen.queryByTestId('InfoPanel__loading'),
+      ).not.toBeInTheDocument(),
     );
 
-    expect(getByTestId('InfoPanel__pipeline')).toHaveTextContent('likelihoods');
-    expect(getByTestId('InfoPanel__state')).toHaveTextContent('Failure');
-    expect(getByTestId('RuntimeStats__started')).toHaveTextContent(
+    expect(screen.getByTestId('InfoPanel__pipeline')).toHaveTextContent(
+      'likelihoods',
+    );
+    expect(screen.getByTestId('InfoPanel__state')).toHaveTextContent('Failure');
+    expect(screen.getByTestId('RuntimeStats__started')).toHaveTextContent(
       formatDistanceToNowStrict(fromUnixTime(1614136190), {addSuffix: true}),
     );
-    expect(getByTestId('InfoPanel__processed')).toHaveTextContent(/^0$/);
-    expect(getByTestId('InfoPanel__failed')).toHaveTextContent(/^100$/);
-    expect(getByTestId('InfoPanel__skipped')).toHaveTextContent(/^0$/);
-    expect(getByTestId('InfoPanel__recovered')).toHaveTextContent(/^0$/);
-    expect(getByTestId('InfoPanel__total')).toHaveTextContent(/^100$/);
+    expect(screen.getByTestId('InfoPanel__processed')).toHaveTextContent(/^0$/);
+    expect(screen.getByTestId('InfoPanel__failed')).toHaveTextContent(/^100$/);
+    expect(screen.getByTestId('InfoPanel__skipped')).toHaveTextContent(/^0$/);
+    expect(screen.getByTestId('InfoPanel__recovered')).toHaveTextContent(/^0$/);
+    expect(screen.getByTestId('InfoPanel__total')).toHaveTextContent(/^100$/);
   });
 
   it('should display correct pipeline job based on url', async () => {
@@ -138,18 +146,20 @@ describe('Job Details', () => {
       jobRoute({projectId, jobId, pipelineId: 'models'}),
     );
 
-    const {getByTestId, queryByTestId} = render(<TestBed />);
+    render(<TestBed />);
 
     await waitFor(() =>
-      expect(queryByTestId('JobDetails__loading')).not.toBeInTheDocument(),
+      expect(
+        screen.queryByTestId('JobDetails__loading'),
+      ).not.toBeInTheDocument(),
     );
     await waitFor(() =>
       expect(
-        queryByTestId('Description__InputsSkeleton'),
+        screen.queryByTestId('Description__InputsSkeleton'),
       ).not.toBeInTheDocument(),
     );
 
-    const pipelineName = getByTestId('InfoPanel__pipeline');
+    const pipelineName = await screen.findByTestId('InfoPanel__pipeline');
     expect(pipelineName).toHaveTextContent('models');
   });
 
@@ -164,19 +174,23 @@ describe('Job Details', () => {
       }),
     );
 
-    const {queryByTestId, findByTestId} = render(<TestBed />);
+    render(<TestBed />);
 
     await waitFor(() =>
-      expect(queryByTestId('JobDetails__loading')).not.toBeInTheDocument(),
+      expect(
+        screen.queryByTestId('JobDetails__loading'),
+      ).not.toBeInTheDocument(),
     );
     await waitFor(() =>
       expect(
-        queryByTestId('Description__InputsSkeleton'),
+        screen.queryByTestId('Description__InputsSkeleton'),
       ).not.toBeInTheDocument(),
     );
-    await click(await findByTestId('RuntimeStats__duration'));
+    await click(await screen.findByTestId('RuntimeStats__duration'));
 
-    expect(queryByTestId('RuntimeStats__durationDetails')).toMatchSnapshot();
+    expect(
+      screen.queryByTestId('RuntimeStats__durationDetails'),
+    ).toMatchSnapshot();
   });
 
   it('should display job failure', async () => {
@@ -190,18 +204,24 @@ describe('Job Details', () => {
       }),
     );
 
-    const {queryByTestId, getByTestId} = render(<TestBed />);
+    render(<TestBed />);
 
     await waitFor(() =>
-      expect(queryByTestId('JobDetails__loading')).not.toBeInTheDocument(),
+      expect(
+        screen.queryByTestId('JobDetails__loading'),
+      ).not.toBeInTheDocument(),
     );
     await waitFor(() =>
       expect(
-        queryByTestId('Description__InputsSkeleton'),
+        screen.queryByTestId('Description__InputsSkeleton'),
       ).not.toBeInTheDocument(),
     );
-    expect(getByTestId('InfoPanel__state')).toHaveTextContent('Failure');
-    expect(getByTestId('InfoPanel__reason')).toHaveTextContent('failed');
+    expect(await screen.findByTestId('InfoPanel__state')).toHaveTextContent(
+      'Failure',
+    );
+    expect(await screen.findByTestId('InfoPanel__reason')).toHaveTextContent(
+      'failed',
+    );
   });
 
   it('should correctly render extra details in JSON blob', async () => {
@@ -215,18 +235,20 @@ describe('Job Details', () => {
       }),
     );
 
-    const {queryByTestId} = render(<TestBed />);
+    render(<TestBed />);
 
     await waitFor(() =>
-      expect(queryByTestId('JobDetails__loading')).not.toBeInTheDocument(),
+      expect(
+        screen.queryByTestId('JobDetails__loading'),
+      ).not.toBeInTheDocument(),
     );
     await waitFor(() =>
       expect(
-        queryByTestId('Description__InputsSkeleton'),
+        screen.queryByTestId('Description__InputsSkeleton'),
       ).not.toBeInTheDocument(),
     );
 
-    expect(queryByTestId('InfoPanel__details')).toMatchSnapshot();
+    expect(screen.queryByTestId('InfoPanel__details')).toMatchSnapshot();
   });
 
   it('should fallback to first job if pipeline job cannot be found', async () => {
@@ -236,14 +258,16 @@ describe('Job Details', () => {
       jobRoute({projectId, jobId, pipelineId: 'bogus'}),
     );
 
-    const {queryByTestId} = render(<TestBed />);
+    render(<TestBed />);
 
     await waitFor(() =>
-      expect(queryByTestId('JobDetails__loading')).not.toBeInTheDocument(),
+      expect(
+        screen.queryByTestId('JobDetails__loading'),
+      ).not.toBeInTheDocument(),
     );
     await waitFor(() =>
       expect(
-        queryByTestId('Description__InputsSkeleton'),
+        screen.queryByTestId('Description__InputsSkeleton'),
       ).not.toBeInTheDocument(),
     );
 
@@ -259,21 +283,21 @@ describe('Job Details', () => {
       jobRoute({projectId, jobId, pipelineId: 'models'}),
     );
 
-    const {queryByTestId, getByTestId} = render(<TestBed />);
+    render(<TestBed />);
 
     await waitFor(() =>
-      expect(queryByTestId('JobDetails__loading')).not.toBeInTheDocument(),
-    );
-    await waitFor(() =>
       expect(
-        queryByTestId('Description__InputsSkeleton'),
+        screen.queryByTestId('JobDetails__loading'),
       ).not.toBeInTheDocument(),
     );
     await waitFor(() =>
-      expect(queryByTestId('InfoPanel__commitLink')).toBeInTheDocument(),
+      expect(
+        screen.queryByTestId('Description__InputsSkeleton'),
+      ).not.toBeInTheDocument(),
     );
+    await screen.findByTestId('InfoPanel__commitLink');
 
-    const outputCommitLink = getByTestId('InfoPanel__commitLink');
+    const outputCommitLink = screen.getByTestId('InfoPanel__commitLink');
 
     await click(outputCommitLink);
 

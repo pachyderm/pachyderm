@@ -14,6 +14,8 @@ module.exports = {
     'plugin:import/typescript',
     'plugin:jest/recommended',
     'plugin:jest/style',
+    'plugin:testing-library/dom',
+    'plugin:testing-library/react',
   ],
   plugins: ['lodash', 'prefer-arrow', 'testing-library', 'jest'],
   env: {
@@ -92,6 +94,8 @@ module.exports = {
     ],
     'no-useless-return': 'off',
     'jest/prefer-to-be': 'warn',
+    'testing-library/no-node-access': 'warn',
+    'testing-library/no-unnecessary-act': 'warn',
   },
   settings: {
     react: {

@@ -2,6 +2,7 @@ import {
   render,
   waitFor,
   waitForElementToBeRemoved,
+  screen,
 } from '@testing-library/react';
 import React from 'react';
 
@@ -23,25 +24,31 @@ describe('ProjectSidebar', () => {
   it('should not display the sidebar if not on a sidebar route', async () => {
     window.history.replaceState('', '', '/project/1');
 
-    const {queryByTestId} = render(<Project />);
+    render(<Project />);
 
-    expect(queryByTestId('ProjectSidebar__sidebar')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('ProjectSidebar__sidebar'),
+    ).not.toBeInTheDocument();
   });
 
   describe('jobs', () => {
     it('should display job list', async () => {
       window.history.replaceState('', '', '/lineage/1/jobs');
 
-      const {queryByTestId, findByTestId} = render(<Project />);
+      render(<Project />);
 
-      expect(queryByTestId('JobListStatic__loadingdots')).toBeInTheDocument();
-      expect(await findByTestId('JobList__project1')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('JobListStatic__loadingdots'),
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByTestId('JobList__project1'),
+      ).toBeInTheDocument();
     });
 
     it('should not display logs button', async () => {
       window.history.replaceState('', '', '/project/1/jobs');
-      const {queryByText} = render(<Project />);
-      expect(queryByText('Read Logs')).toBeNull();
+      render(<Project />);
+      expect(screen.queryByText('Read Logs')).not.toBeInTheDocument();
     });
 
     it('should display logs button', async () => {
@@ -50,8 +57,8 @@ describe('ProjectSidebar', () => {
         '',
         '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a',
       );
-      const {findByRole} = render(<Project />);
-      const logsLink = await findByRole('link', {name: 'Read Logs'});
+      render(<Project />);
+      const logsLink = await screen.findByRole('link', {name: 'Read Logs'});
       expect(logsLink as HTMLElement).toHaveAttribute(
         'href',
         '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/edges/logs?view=eyJkYXR1bUZpbHRlcnMiOltdfQ%3D%3D',
@@ -64,9 +71,9 @@ describe('ProjectSidebar', () => {
         '',
         '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a',
       );
-      const {findByRole} = render(<Project />);
+      render(<Project />);
       const logsLink = await waitFor(
-        () => findByRole('link', {name: '0 Processed'}),
+        () => screen.findByRole('link', {name: '0 Processed'}),
         {timeout: 4000},
       );
       expect(logsLink as HTMLElement).toHaveAttribute(
@@ -80,13 +87,13 @@ describe('ProjectSidebar', () => {
     it('should display pipeline details', async () => {
       window.history.replaceState('', '', '/project/1/pipelines/montage');
 
-      const {queryByTestId, findByTestId} = render(<Project />);
+      render(<Project />);
 
       expect(
-        queryByTestId('PipelineDetails__pipelineNameSkeleton'),
+        screen.getByTestId('PipelineDetails__pipelineNameSkeleton'),
       ).toBeInTheDocument();
 
-      const pipelineName = await findByTestId('Title__name');
+      const pipelineName = await screen.findByTestId('Title__name');
 
       expect(pipelineName).toHaveTextContent('montage');
     });
@@ -94,8 +101,8 @@ describe('ProjectSidebar', () => {
     it('should display logs button', async () => {
       window.history.replaceState('', '', '/project/1/pipelines/montage');
 
-      const {findByRole} = render(<Project />);
-      const logsLink = await findByRole('link', {name: 'Inspect Jobs'});
+      render(<Project />);
+      const logsLink = await screen.findByRole('link', {name: 'Inspect Jobs'});
       expect(logsLink as HTMLElement).toHaveAttribute(
         'href',
         '/project/1/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs?view=eyJkYXR1bUZpbHRlcnMiOltdfQ%3D%3D',
@@ -104,10 +111,10 @@ describe('ProjectSidebar', () => {
 
     it('should display datum logs link with filter applied', async () => {
       window.history.replaceState('', '', '/project/1/pipelines/montage');
-      const {findByRole} = render(<Project />);
+      render(<Project />);
 
       const logsLink = await waitFor(
-        () => findByRole('link', {name: '0 Processed'}),
+        () => screen.findByRole('link', {name: '0 Processed'}),
         {timeout: 4000},
       );
       expect(logsLink as HTMLElement).toHaveAttribute(
@@ -119,8 +126,10 @@ describe('ProjectSidebar', () => {
     it('should disable the delete button when there are downstream pipelines', async () => {
       window.history.replaceState('', '', '/lineage/5/pipelines/edges');
 
-      const {findByTestId} = render(<Project />);
-      const deleteButton = await findByTestId('DeletePipelineButton__link');
+      render(<Project />);
+      const deleteButton = await screen.findByTestId(
+        'DeletePipelineButton__link',
+      );
       expect(deleteButton).toBeDisabled();
     });
 
@@ -130,12 +139,14 @@ describe('ProjectSidebar', () => {
         .pipelines['8'].push(mockServer.getState().pipelines['1'][0]);
       window.history.replaceState('', '', '/lineage/8/pipelines/montage');
 
-      const {findByTestId} = render(<Project />);
+      render(<Project />);
       expect(mockServer.getState().pipelines['8']).toHaveLength(1);
-      const deleteButton = await findByTestId('DeletePipelineButton__link');
+      const deleteButton = await screen.findByTestId(
+        'DeletePipelineButton__link',
+      );
       await waitFor(() => expect(deleteButton).not.toBeDisabled());
       await click(deleteButton);
-      const confirmButton = await findByTestId('ModalFooter__confirm');
+      const confirmButton = await screen.findByTestId('ModalFooter__confirm');
       await click(confirmButton);
 
       await waitFor(() =>
@@ -150,12 +161,10 @@ describe('ProjectSidebar', () => {
         '/project/2/pipelines/likelihoods?view=eyJnbG9iYWxJZEZpbHRlciI6IjIzYjlhZjdkNWQ0MzQzMjE5YmM4ZTAyZmY0YWNkMzNhIn0%3D',
       );
 
-      const {getByTestId} = render(<Project />);
+      render(<Project />);
 
-      await waitFor(() =>
-        expect(getByTestId('InfoPanel__pipeline')).toBeInTheDocument(),
-      );
-      expect(getByTestId('InfoPanel__pipeline')).toHaveTextContent(
+      await screen.findByTestId('InfoPanel__pipeline');
+      expect(screen.getByTestId('InfoPanel__pipeline')).toHaveTextContent(
         'likelihoods',
       );
     });
@@ -169,18 +178,14 @@ describe('ProjectSidebar', () => {
         '/project/3/repos/cron/branch/master',
       );
 
-      const {findByTestId, getByText} = render(<Project />);
+      render(<Project />);
 
-      const repoName = await findByTestId('Title__name');
-      const size = getByText('621.86 kB');
+      const repoName = await screen.findByTestId('Title__name');
+      const size = screen.getByText('621.86 kB');
 
       expect(repoName).toHaveTextContent('cron');
       expect(size).toBeInTheDocument();
-      await waitFor(() =>
-        expect(
-          getByText('9d5daa0918ac4c43a476b86e3bb5e88e'),
-        ).toBeInTheDocument(),
-      );
+      await screen.findByText('9d5daa0918ac4c43a476b86e3bb5e88e');
     });
 
     it('should not show a linked job when there is no job for the commit', async () => {
@@ -190,18 +195,20 @@ describe('ProjectSidebar', () => {
         '/project/3/repos/cron/branch/master',
       );
 
-      const {findByTestId, queryByRole, getByTestId} = render(<Project />);
+      render(<Project />);
 
       await waitForElementToBeRemoved(() =>
-        getByTestId('RepoDetails__repoNameSkeleton'),
+        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
       );
       await waitForElementToBeRemoved(() =>
-        getByTestId('CommitBrowser__loadingdots'),
+        screen.queryByTestId('CommitBrowser__loadingdots'),
       );
 
-      await findByTestId('Title__name');
+      await screen.findByTestId('Title__name');
 
-      expect(queryByRole('link', {name: 'Linked Job'})).toBeNull();
+      expect(
+        screen.queryByRole('link', {name: 'Linked Job'}),
+      ).not.toBeInTheDocument();
     });
 
     it('should show a linked job for a commit', async () => {
@@ -211,18 +218,18 @@ describe('ProjectSidebar', () => {
         '/project/2/repos/models/branch/master/commits',
       );
 
-      const {queryByRole, getByTestId} = render(<Project />);
+      render(<Project />);
 
       await waitForElementToBeRemoved(() =>
-        getByTestId('RepoDetails__repoNameSkeleton'),
+        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
       );
       await waitForElementToBeRemoved(() =>
-        getByTestId('CommitBrowser__loadingdots'),
+        screen.queryByTestId('CommitBrowser__loadingdots'),
       );
 
-      await waitFor(() =>
-        expect(queryByRole('link', {name: 'Linked Job'})).toBeInTheDocument(),
-      );
+      expect(
+        await screen.findByRole('link', {name: 'Linked Job'}),
+      ).toBeInTheDocument();
     });
 
     it('should show a linked job for a input repo commit', async () => {
@@ -232,18 +239,18 @@ describe('ProjectSidebar', () => {
         '/project/2/repos/training/branch/master/commits',
       );
 
-      const {queryByRole, getByTestId} = render(<Project />);
+      render(<Project />);
 
       await waitForElementToBeRemoved(() =>
-        getByTestId('RepoDetails__repoNameSkeleton'),
+        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
       );
       await waitForElementToBeRemoved(() =>
-        getByTestId('CommitBrowser__loadingdots'),
+        screen.queryByTestId('CommitBrowser__loadingdots'),
       );
 
-      await waitFor(() =>
-        expect(queryByRole('link', {name: 'Linked Job'})).toBeInTheDocument(),
-      );
+      expect(
+        await screen.findByRole('link', {name: 'Linked Job'}),
+      ).toBeInTheDocument();
     });
 
     it('should show no commits when the branch has no commits', async () => {
@@ -253,16 +260,16 @@ describe('ProjectSidebar', () => {
         '/project/2/repos/training/branch/develop',
       );
 
-      const {findByText, getByTestId} = render(<Project />);
+      render(<Project />);
 
       await waitForElementToBeRemoved(() =>
-        getByTestId('RepoDetails__repoNameSkeleton'),
+        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
       );
       await waitForElementToBeRemoved(() =>
-        getByTestId('CommitBrowser__loadingdots'),
+        screen.queryByTestId('CommitBrowser__loadingdots'),
       );
 
-      const emptyMessage = await findByText(
+      const emptyMessage = await screen.findByText(
         'There are no commits for this branch',
       );
 
@@ -276,13 +283,13 @@ describe('ProjectSidebar', () => {
         '/project/2/repos/test/branch/default',
       );
 
-      const {findByText, getByTestId} = render(<Project />);
+      render(<Project />);
 
       await waitForElementToBeRemoved(() =>
-        getByTestId('RepoDetails__repoNameSkeleton'),
+        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
       );
 
-      const emptyMessage = await findByText(
+      const emptyMessage = await screen.findByText(
         'There are no branches on this repo!',
       );
 
@@ -296,16 +303,16 @@ describe('ProjectSidebar', () => {
         '/project/2/repos/model/branch/default',
       );
 
-      const {findByText, getByTestId} = render(<Project />);
+      render(<Project />);
 
       await waitForElementToBeRemoved(() =>
-        getByTestId('RepoDetails__repoNameSkeleton'),
+        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
       );
       await waitForElementToBeRemoved(() =>
-        getByTestId('CommitBrowser__loadingdots'),
+        screen.queryByTestId('CommitBrowser__loadingdots'),
       );
 
-      expect(await findByText('Branch: develop')).toBeInTheDocument();
+      expect(await screen.findByText('Branch: develop')).toBeInTheDocument();
     });
 
     it('should show a single commit with diff with a globalId filter', async () => {
@@ -315,16 +322,16 @@ describe('ProjectSidebar', () => {
         '/project/2/repos/likelihoods/branch/master?view=eyJnbG9iYWxJZEZpbHRlciI6IjIzYjlhZjdkNWQ0MzQzMjE5YmM4ZTAyZmY0YWNkMzNhIn0%3D',
       );
 
-      const {getByTestId} = render(<Project />);
+      render(<Project />);
 
       await waitFor(() =>
-        expect(getByTestId('CommitDetails__id')).toHaveTextContent(
+        expect(screen.getByTestId('CommitDetails__id')).toHaveTextContent(
           '23b9af7d5d4343219bc8e02ff4acd33a',
         ),
       );
-      expect(getByTestId('CommitDetails__fileUpdates')).toHaveTextContent(
-        '1 File updated',
-      );
+      expect(
+        screen.getByTestId('CommitDetails__fileUpdates'),
+      ).toHaveTextContent('1 File updated');
     });
 
     it('should show empty repo message when repo has no commits', async () => {
@@ -334,16 +341,16 @@ describe('ProjectSidebar', () => {
         '/project/2/repos/select/branch/master',
       );
 
-      const {findByText, getByTestId} = render(<Project />);
+      render(<Project />);
 
       await waitForElementToBeRemoved(() =>
-        getByTestId('RepoDetails__repoNameSkeleton'),
+        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
       );
       await waitForElementToBeRemoved(() =>
-        getByTestId('CommitBrowser__loadingdots'),
+        screen.queryByTestId('CommitBrowser__loadingdots'),
       );
 
-      const emptyMessage = await findByText(
+      const emptyMessage = await screen.findByText(
         'There are no commits for this branch',
       );
 
@@ -357,8 +364,8 @@ describe('ProjectSidebar', () => {
         '/project/3/repos/cron/branch/master',
       );
 
-      const {queryByText} = render(<Project />);
-      expect(queryByText('Read Logs')).toBeNull();
+      render(<Project />);
+      expect(screen.queryByText('Read Logs')).not.toBeInTheDocument();
     });
 
     it('should disable the delete button when there are associated pipelines', async () => {
@@ -368,8 +375,8 @@ describe('ProjectSidebar', () => {
         '/project/3/repos/cron/branch/master',
       );
 
-      const {findByTestId} = render(<Project />);
-      const deleteButton = await findByTestId('DeleteRepoButton__link');
+      render(<Project />);
+      const deleteButton = await screen.findByTestId('DeleteRepoButton__link');
       expect(deleteButton).toBeDisabled();
     });
 
@@ -380,12 +387,12 @@ describe('ProjectSidebar', () => {
         '/project/8/repos/montage/branch/master',
       );
 
-      const {findByTestId} = render(<Project />);
+      render(<Project />);
       expect(mockServer.getState().repos['8']).toHaveLength(3);
-      const deleteButton = await findByTestId('DeleteRepoButton__link');
+      const deleteButton = await screen.findByTestId('DeleteRepoButton__link');
       await waitFor(() => expect(deleteButton).not.toBeDisabled());
       await click(deleteButton);
-      const confirmButton = await findByTestId('ModalFooter__confirm');
+      const confirmButton = await screen.findByTestId('ModalFooter__confirm');
       await click(confirmButton);
 
       await waitFor(() =>
@@ -400,7 +407,7 @@ describe('ProjectSidebar', () => {
         '/project/5/repos/egress_sql/branch/master/info',
       );
 
-      const {findByText} = render(
+      render(
         <Project
           dagLinks={{
             egress_sql_repo: [
@@ -409,7 +416,7 @@ describe('ProjectSidebar', () => {
           }}
         />,
       );
-      const egress = await findByText(
+      const egress = await screen.findByText(
         'snowflake://pachyderm@WHMUWUD-CJ80657/PACH_DB/PUBLIC?warehouse=COMPUTE_WH',
       );
       await click(egress);
@@ -423,16 +430,16 @@ describe('ProjectSidebar', () => {
         '/project/2/repos/models/branch/master/commits',
       );
 
-      const {queryByText, getByTestId} = render(<Project />);
+      render(<Project />);
 
       await waitForElementToBeRemoved(() =>
-        getByTestId('RepoDetails__repoNameSkeleton'),
+        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
       );
       await waitForElementToBeRemoved(() =>
-        getByTestId('CommitBrowser__loadingdots'),
+        screen.queryByTestId('CommitBrowser__loadingdots'),
       );
-      expect(queryByText('View Files')).toBeInTheDocument();
-      expect(queryByText('View Files')).not.toBeDisabled();
+      expect(await screen.findByText('View Files')).toBeInTheDocument();
+      expect(screen.getByText('View Files')).not.toBeDisabled();
     });
 
     it('should show a link to view files while filtering for a global id', async () => {
@@ -442,27 +449,29 @@ describe('ProjectSidebar', () => {
         '/lineage/2/repos/likelihoods/branch/default?view=eyJnbG9iYWxJZEZpbHRlciI6IjIzYjlhZjdkNWQ0MzQzMjE5YmM4ZTAyZmY0YWNkMzNhIn0%3D',
       );
 
-      const {queryByText, getByTestId} = render(<Project />);
+      render(<Project />);
 
       await waitForElementToBeRemoved(() =>
-        getByTestId('RepoDetails__repoNameSkeleton'),
+        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
       );
       await waitForElementToBeRemoved(() =>
-        getByTestId('CommitDetails__loadingdots'),
+        screen.queryByTestId('CommitDetails__loadingdots'),
       );
-      expect(queryByText('View Files')).toBeInTheDocument();
-      expect(queryByText('View Files')).not.toBeDisabled();
+      expect(await screen.findByText('View Files')).toBeInTheDocument();
+      expect(screen.getByText('View Files')).not.toBeDisabled();
     });
   });
 
   it('should filter commits by auto origin', async () => {
     window.history.replaceState('', '', '/project/3/repos/cron/branch/master');
 
-    const {findByLabelText, queryAllByText} = render(<Project />);
+    render(<Project />);
 
-    const hideAutoCommits = await findByLabelText('Auto Commits');
-    expect(queryAllByText('View Files')).toHaveLength(6);
+    const hideAutoCommits = await screen.findByLabelText('Auto Commits');
+    expect(screen.queryAllByText('View Files')).toHaveLength(6);
     await click(hideAutoCommits);
-    await waitFor(() => expect(queryAllByText('View Files')).toHaveLength(2));
+    await waitFor(() =>
+      expect(screen.queryAllByText('View Files')).toHaveLength(2),
+    );
   });
 });

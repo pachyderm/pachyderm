@@ -1,4 +1,4 @@
-import {render} from '@testing-library/react';
+import {render, screen} from '@testing-library/react';
 import React from 'react';
 import {BrowserRouter} from 'react-router-dom';
 
@@ -35,28 +35,28 @@ describe('RouterTabs', () => {
   });
 
   it('should display the basePathTabId at the basePath', () => {
-    const {getByTestId} = render(<TabsComponent />);
+    render(<TabsComponent />);
 
-    const panel1 = getByTestId('panel-one');
+    const panel1 = screen.getByTestId('panel-one');
     expect(panel1).toBeVisible();
   });
 
   it('should display the correct tab based on the url', () => {
     window.history.replaceState('', '', '/two');
-    const {getByTestId} = render(<TabsComponent />);
+    render(<TabsComponent />);
 
-    const panel2 = getByTestId('panel-two');
+    const panel2 = screen.getByTestId('panel-two');
     expect(panel2).toBeVisible();
   });
 
   it('should navigate the browser, and display the correct tab on selection', async () => {
-    const {getByTestId} = render(<TabsComponent />);
+    render(<TabsComponent />);
 
-    const tab = getByTestId('Tab__three');
+    const tab = screen.getByTestId('Tab__three');
 
     await click(tab);
 
-    expect(getByTestId('panel-three')).toBeVisible();
+    expect(screen.getByTestId('panel-three')).toBeVisible();
     expect(window.location.pathname).toBe('/three');
   });
 });

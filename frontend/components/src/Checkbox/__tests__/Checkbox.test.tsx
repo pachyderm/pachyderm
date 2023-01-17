@@ -1,4 +1,4 @@
-import {render, waitFor, act} from '@testing-library/react';
+import {render, waitFor, act, screen} from '@testing-library/react';
 import React from 'react';
 import {useForm} from 'react-hook-form';
 
@@ -31,7 +31,7 @@ describe('Checkbox', () => {
   it('should be interactive', async () => {
     const onSubmit = jest.fn();
 
-    const {getByLabelText, getByText} = render(
+    render(
       <TestBed
         id="test"
         name="test"
@@ -40,8 +40,8 @@ describe('Checkbox', () => {
       />,
     );
 
-    const checkbox = getByLabelText('Test Checkbox Label');
-    const submit = getByText('Submit');
+    const checkbox = screen.getByLabelText('Test Checkbox Label');
+    const submit = screen.getByText('Submit');
 
     await click(checkbox);
     await click(submit);
@@ -63,7 +63,7 @@ describe('Checkbox', () => {
   it('should accept validation options', async () => {
     const onSubmit = jest.fn();
 
-    const {getByLabelText, getByText} = render(
+    render(
       <TestBed
         id="test"
         name="test"
@@ -73,8 +73,8 @@ describe('Checkbox', () => {
       />,
     );
 
-    const checkbox = getByLabelText('Test Checkbox Label');
-    const submit = getByText('Submit');
+    const checkbox = screen.getByLabelText('Test Checkbox Label');
+    const submit = screen.getByText('Submit');
 
     await click(submit);
     await click(checkbox);
@@ -87,7 +87,7 @@ describe('Checkbox', () => {
   it('should be disabled', async () => {
     const onSubmit = jest.fn();
 
-    const {getByLabelText, getByText} = render(
+    render(
       <TestBed
         id="test"
         name="test"
@@ -97,8 +97,8 @@ describe('Checkbox', () => {
       />,
     );
 
-    const checkbox = getByLabelText('Test Checkbox Label');
-    const submit = getByText('Submit');
+    const checkbox = screen.getByLabelText('Test Checkbox Label');
+    const submit = screen.getByText('Submit');
 
     await click(checkbox);
     await click(submit);

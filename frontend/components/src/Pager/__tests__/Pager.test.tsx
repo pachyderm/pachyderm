@@ -1,4 +1,4 @@
-import {render} from '@testing-library/react';
+import {render, screen} from '@testing-library/react';
 import React, {useState} from 'react';
 
 import {click} from '@dash-frontend/testHelpers';
@@ -33,24 +33,22 @@ describe('Pager', () => {
   };
 
   it('should display paged data', async () => {
-    const {queryByText} = render(<PagerComponent intialPage={2} />);
+    render(<PagerComponent intialPage={2} />);
 
-    expect(queryByText('5 6 7 8 9')).toBeInTheDocument();
-    expect(queryByText('Page 2 of 21')).toBeInTheDocument();
+    expect(screen.getByText('5 6 7 8 9')).toBeInTheDocument();
+    expect(screen.getByText('Page 2 of 21')).toBeInTheDocument();
   });
 
   it('should navigate through pages within boundaries', async () => {
-    const {queryByText, getByTestId} = render(
-      <PagerComponent defaultPageSize={20} />,
-    );
+    render(<PagerComponent defaultPageSize={20} />);
 
-    const forwards = getByTestId('Pager__forward');
-    const backwards = getByTestId('Pager__backward');
+    const forwards = screen.getByTestId('Pager__forward');
+    const backwards = screen.getByTestId('Pager__backward');
 
     expect(
-      queryByText('0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19'),
+      screen.getByText('0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19'),
     ).toBeInTheDocument();
-    expect(queryByText('Page 1 of 6')).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 6')).toBeInTheDocument();
     expect(backwards).toBeDisabled();
 
     await click(forwards);
@@ -59,34 +57,32 @@ describe('Pager', () => {
     await click(forwards);
     await click(forwards);
 
-    expect(queryByText('100 101 102')).toBeInTheDocument();
-    expect(queryByText('Page 6 of 6')).toBeInTheDocument();
+    expect(screen.getByText('100 101 102')).toBeInTheDocument();
+    expect(screen.getByText('Page 6 of 6')).toBeInTheDocument();
     expect(forwards).toBeDisabled();
   });
 
   it('should allow users to change the page size', async () => {
-    const {queryByText, getAllByText, getByText, getByTestId} = render(
-      <PagerComponent />,
-    );
+    render(<PagerComponent />);
 
-    expect(queryByText('0 1 2 3 4')).toBeInTheDocument();
-    expect(queryByText('Page 1 of 21')).toBeInTheDocument();
+    expect(screen.getByText('0 1 2 3 4')).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 21')).toBeInTheDocument();
 
-    await click(getAllByText('5')[0]);
-    await click(getByText('20'));
+    await click(screen.getAllByText('5')[0]);
+    await click(screen.getByText('20'));
 
     expect(
-      queryByText('0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19'),
+      screen.getByText('0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19'),
     ).toBeInTheDocument();
-    expect(queryByText('Page 1 of 6')).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 6')).toBeInTheDocument();
 
-    await click(getByTestId('Pager__forward'));
+    await click(screen.getByTestId('Pager__forward'));
 
     expect(
-      queryByText(
+      screen.getByText(
         '20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39',
       ),
     ).toBeInTheDocument();
-    expect(queryByText('Page 2 of 6')).toBeInTheDocument();
+    expect(screen.getByText('Page 2 of 6')).toBeInTheDocument();
   });
 });

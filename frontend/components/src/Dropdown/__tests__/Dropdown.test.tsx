@@ -1,4 +1,4 @@
-import {fireEvent, render, waitFor} from '@testing-library/react';
+import {fireEvent, render, waitFor, screen} from '@testing-library/react';
 import React, {useState} from 'react';
 
 import {click, type} from '@dash-frontend/testHelpers';
@@ -18,7 +18,7 @@ describe('Dropdown', () => {
       {id: 'link2', content: 'Link 2', closeOnClick},
     ];
 
-    const renderResults = render(
+    render(
       <>
         <div>Outside</div>
 
@@ -34,43 +34,44 @@ describe('Dropdown', () => {
     );
 
     return {
-      ...renderResults,
       onSelect,
     };
   };
 
   it('should toggle dropdown when DropdownButton is clicked', async () => {
-    const {queryByRole, getByText} = renderTestbed();
+    renderTestbed();
 
-    const button = getByText('Button');
+    const button = screen.getByText('Button');
 
-    expect(queryByRole('menu')).toBeNull();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     await click(button);
-    expect(queryByRole('menu')).not.toBeNull();
+    expect(screen.getByRole('menu')).toBeInTheDocument();
     await click(button);
-    expect(queryByRole('menu')).toBeNull();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
   it('should close the dropdown if a user clicks away from the menu', async () => {
-    const {queryByRole, getByText} = renderTestbed();
+    renderTestbed();
 
-    const button = getByText('Button');
-    const outside = getByText('Outside');
+    const button = screen.getByText('Button');
+    const outside = screen.getByText('Outside');
 
     await click(button);
-    await waitFor(() => expect(queryByRole('menu')).not.toBeNull());
+    await screen.findByRole('menu');
 
     await click(outside);
 
-    await waitFor(() => expect(queryByRole('menu')).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument(),
+    );
   });
 
   it('should invoke onSelect callback with the selected element', async () => {
-    const {onSelect, getByText} = renderTestbed();
+    const {onSelect} = renderTestbed();
 
-    const button = getByText('Button');
-    const link1 = getByText('Link 1');
-    const link2 = getByText('Link 2');
+    const button = screen.getByText('Button');
+    const link1 = screen.getByText('Link 1');
+    const link2 = screen.getByText('Link 2');
 
     await click(button);
     await click(link1);
@@ -80,67 +81,69 @@ describe('Dropdown', () => {
   });
 
   it('should optionally close the dropdown menu on click of an item', async () => {
-    const {getByText, queryByRole, getByTestId} = renderTestbed({
+    renderTestbed({
       closeOnClick: true,
     });
 
-    const button = getByText('Button');
-    const link1 = getByText('Link 1');
+    const button = screen.getByText('Button');
+    const link1 = screen.getByText('Link 1');
 
     await click(button);
     await click(link1);
 
-    await waitFor(() => expect(queryByRole('menu')).toBeNull());
-    expect(getByTestId('DropdownButton__button')).toHaveFocus();
+    await waitFor(() =>
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByTestId('DropdownButton__button')).toHaveFocus();
   });
 
   it('should disable the dropdown when buttonOpts disabled is true', async () => {
-    const {getByText, queryByRole} = renderTestbed({
+    renderTestbed({
       disabled: true,
     });
 
-    const button = getByText('Button');
-    expect(queryByRole('menu')).toBeNull();
+    const button = screen.getByText('Button');
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     await click(button);
-    expect(queryByRole('menu')).toBeNull();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
   describe('keyboard interactions', () => {
     it('should allow users to open the dropdown with the down key', () => {
-      const {queryByRole, getByText} = renderTestbed();
+      renderTestbed();
 
-      const button = getByText('Button');
+      const button = screen.getByText('Button');
 
       fireEvent.keyDown(button, {key: 'ArrowDown'});
-      expect(queryByRole('menu')).not.toBeNull();
+      expect(screen.getByRole('menu')).toBeInTheDocument();
     });
 
     it('should allow users to close the dropdown with the up key', async () => {
-      const {queryByRole, getByText} = renderTestbed();
+      renderTestbed();
 
-      const button = getByText('Button');
+      const button = screen.getByText('Button');
 
       await click(button);
 
       fireEvent.keyDown(button, {key: 'ArrowUp'});
-      expect(queryByRole('menu')).toBeNull();
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
 
     it('should allow users to close the dropdown with the escape key', async () => {
-      const {queryByRole, getByText} = renderTestbed();
+      renderTestbed();
 
-      const button = getByText('Button');
+      const button = screen.getByText('Button');
 
       await click(button);
 
       fireEvent.keyDown(button, {key: 'Escape'});
-      expect(queryByRole('menu')).toBeNull();
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
 
     it('should allow users to navigate to the search bar with the down key', async () => {
-      const {getByText} = renderTestbed();
+      renderTestbed();
 
-      const button = getByText('Button');
+      const button = screen.getByText('Button');
 
       fireEvent.keyDown(button, {key: 'ArrowDown'});
       fireEvent.keyDown(button, {key: 'ArrowDown'});
@@ -149,14 +152,14 @@ describe('Dropdown', () => {
     });
 
     it('should allow users to navigate to the first active item with the down key', async () => {
-      const {onSelect, getByText, getByLabelText} = renderTestbed();
+      const {onSelect} = renderTestbed();
 
-      const button = getByText('Button');
+      const button = screen.getByText('Button');
 
       fireEvent.keyDown(button, {key: 'ArrowDown'});
       fireEvent.keyDown(button, {key: 'ArrowDown'});
 
-      const searchBar = getByLabelText('Search');
+      const searchBar = screen.getByLabelText('Search');
       fireEvent.keyDown(searchBar, {key: 'ArrowDown'});
 
       await type(document.activeElement as HTMLElement, '{enter}');
@@ -164,14 +167,14 @@ describe('Dropdown', () => {
     });
 
     it('should allow users to descend through active menu items with the down key', async () => {
-      const {onSelect, getByText, getByLabelText} = renderTestbed();
+      const {onSelect} = renderTestbed();
 
-      const button = getByText('Button');
+      const button = screen.getByText('Button');
 
       fireEvent.keyDown(button, {key: 'ArrowDown'});
       fireEvent.keyDown(button, {key: 'ArrowDown'});
 
-      const searchBar = getByLabelText('Search');
+      const searchBar = screen.getByLabelText('Search');
       fireEvent.keyDown(searchBar, {key: 'ArrowDown'});
 
       await click(document.activeElement as HTMLElement);
@@ -192,9 +195,9 @@ describe('Dropdown', () => {
     });
 
     it('should allow users to ascend through active menu items with the up key', async () => {
-      const {onSelect, getByText} = renderTestbed();
+      const {onSelect} = renderTestbed();
 
-      const button = getByText('Button');
+      const button = screen.getByText('Button');
 
       fireEvent.keyDown(button, {key: 'ArrowDown'});
       fireEvent.keyDown(button, {key: 'ArrowDown'});
@@ -215,9 +218,9 @@ describe('Dropdown', () => {
     });
 
     it('should allow users to close the menu from an item by pressing escape', async () => {
-      const {getByText, queryByRole, getByTestId} = renderTestbed();
+      renderTestbed();
 
-      const button = getByText('Button');
+      const button = screen.getByText('Button');
 
       fireEvent.keyDown(button, {key: 'ArrowDown'});
       fireEvent.keyDown(button, {key: 'ArrowDown'});
@@ -226,8 +229,8 @@ describe('Dropdown', () => {
         key: 'Escape',
       });
 
-      expect(queryByRole('menu')).toBeNull();
-      expect(getByTestId('DropdownButton__button')).toHaveFocus();
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+      expect(screen.getByTestId('DropdownButton__button')).toHaveFocus();
     });
   });
 
@@ -255,42 +258,40 @@ describe('Dropdown', () => {
     };
 
     it('should filter results when search bar is present', async () => {
-      const {getByText, getByLabelText, queryByText} = render(<TestBed />);
+      render(<TestBed />);
 
-      await click(getByText('Select branch'));
+      await click(screen.getByText('Select branch'));
 
-      const searchBar = getByLabelText('Search');
+      const searchBar = screen.getByLabelText('Search');
 
       await type(searchBar, 'mas');
 
-      expect(queryByText('master')).toBeInTheDocument();
-      expect(queryByText('staging')).toBeNull();
-      expect(queryByText('development')).toBeNull();
+      expect(screen.getByText('master')).toBeInTheDocument();
+      expect(screen.queryByText('staging')).not.toBeInTheDocument();
+      expect(screen.queryByText('development')).not.toBeInTheDocument();
     });
 
     it('should allow users to pass a custom filter', async () => {
-      const {getByText, getByLabelText, queryByText} = render(
-        <TestBed filter={({id}, value) => id === value} />,
-      );
+      render(<TestBed filter={({id}, value) => id === value} />);
 
-      await click(getByText('Select branch'));
+      await click(screen.getByText('Select branch'));
 
-      const searchBar = getByLabelText('Search');
+      const searchBar = screen.getByLabelText('Search');
 
       await type(searchBar, '2');
 
-      expect(queryByText('development')).toBeInTheDocument();
-      expect(queryByText('master')).toBeNull();
-      expect(queryByText('staging')).toBeNull();
+      expect(screen.getByText('development')).toBeInTheDocument();
+      expect(screen.queryByText('master')).not.toBeInTheDocument();
+      expect(screen.queryByText('staging')).not.toBeInTheDocument();
     });
 
     it('should allow user to clear search input with clear button', async () => {
-      const {getByText, getByLabelText} = render(<TestBed />);
+      render(<TestBed />);
 
-      await click(getByText('Select branch'));
+      await click(screen.getByText('Select branch'));
 
-      const searchBar = getByLabelText('Search');
-      const clearButton = getByLabelText('Clear');
+      const searchBar = screen.getByLabelText('Search');
+      const clearButton = screen.getByLabelText('Clear');
 
       await type(searchBar, 'stuff');
       expect(searchBar).toHaveValue('stuff');
@@ -301,15 +302,15 @@ describe('Dropdown', () => {
     });
 
     it('should display empty result component when all results are filtered', async () => {
-      const {getByText, getByLabelText, queryByText} = render(<TestBed />);
+      render(<TestBed />);
 
-      await click(getByText('Select branch'));
+      await click(screen.getByText('Select branch'));
 
-      const searchBar = getByLabelText('Search');
+      const searchBar = screen.getByLabelText('Search');
 
       await type(searchBar, 'what');
 
-      expect(queryByText('No results found.')).toBeInTheDocument();
+      expect(screen.getByText('No results found.')).toBeInTheDocument();
     });
   });
 });

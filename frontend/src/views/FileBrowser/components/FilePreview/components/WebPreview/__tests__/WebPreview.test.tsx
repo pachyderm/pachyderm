@@ -1,4 +1,4 @@
-import {render} from '@testing-library/react';
+import {render, screen} from '@testing-library/react';
 import React from 'react';
 
 import {withContextProviders} from '@dash-frontend/testHelpers';
@@ -15,9 +15,9 @@ describe('Web Preview', () => {
       '',
       '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/html_pachyderm.html',
     );
-    const {findByTestId} = render(<FileBrowser />);
+    render(<FileBrowser />);
 
-    const iframe = await findByTestId(
+    const iframe = await screen.findByTestId(
       'WebPreview__iframe',
       {},
       {timeout: 10000},

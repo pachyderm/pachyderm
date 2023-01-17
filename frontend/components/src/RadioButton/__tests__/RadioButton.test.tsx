@@ -1,4 +1,4 @@
-import {render} from '@testing-library/react';
+import {render, screen} from '@testing-library/react';
 import React from 'react';
 import {useForm, RegisterOptions} from 'react-hook-form';
 
@@ -47,11 +47,11 @@ describe('Radio Button', () => {
   });
 
   it('should allow user to select an option from the radio group', async () => {
-    const {getByLabelText, getByRole} = render(<TestBed />);
+    render(<TestBed />);
 
-    const yes = getByLabelText('Yes');
-    const no = getByLabelText('No');
-    const submit = getByRole('button');
+    const yes = screen.getByLabelText('Yes');
+    const no = screen.getByLabelText('No');
+    const submit = screen.getByRole('button');
 
     await click(yes);
     await click(submit);
@@ -65,12 +65,10 @@ describe('Radio Button', () => {
   });
 
   it('should accept validation options', async () => {
-    const {getByLabelText, getByRole} = render(
-      <TestBed validationOptions={{required: true}} />,
-    );
+    render(<TestBed validationOptions={{required: true}} />);
 
-    const yes = getByLabelText('Yes');
-    const submit = getByRole('button');
+    const yes = screen.getByLabelText('Yes');
+    const submit = screen.getByRole('button');
 
     await click(submit);
 

@@ -1,5 +1,5 @@
 import {mockServer} from '@dash-backend/testHelpers';
-import {render, waitFor} from '@testing-library/react';
+import {render, waitFor, screen} from '@testing-library/react';
 import React from 'react';
 
 import {withContextProviders, click, type} from '@dash-frontend/testHelpers';
@@ -12,37 +12,42 @@ describe('project sidenav', () => {
   it('should display notification badge if the project has unhealthy jobs', async () => {
     window.history.replaceState('', '', '/project/2');
 
-    const {findByLabelText} = render(<ProjectSideNav />);
+    render(<ProjectSideNav />);
 
-    expect(await findByLabelText('Number of failed jobs')).toHaveTextContent(
-      '1',
-    );
+    expect(
+      await screen.findByLabelText('Number of failed jobs'),
+    ).toHaveTextContent('1');
   });
 
   it('should not display notification badge for projects with no unhealthy jobs', async () => {
     window.history.replaceState('', '', '/project/3');
 
-    const {queryByLabelText, queryByTestId} = render(<ProjectSideNav />);
+    render(<ProjectSideNav />);
 
     await waitFor(() =>
-      expect(queryByTestId('ProjectHeader__projectNameLoader')).toBeNull(),
+      expect(
+        screen.queryByTestId('ProjectHeader__projectNameLoader'),
+      ).toBeNull(),
     );
-    expect(queryByLabelText('Number of failed')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Number of failed')).not.toBeInTheDocument();
   });
 
   it('should allow users to create new repos', async () => {
     window.history.replaceState('', '', '/project/6');
 
-    const {findByLabelText, getByText} = render(<ProjectSideNav />);
+    render(<ProjectSideNav />);
 
-    const createButton = getByText('Create Repo');
+    const createButton = screen.getByText('Create Repo');
     await click(createButton);
 
-    const nameInput = await findByLabelText('Repo Name', {exact: false});
-    const descriptionInput = await findByLabelText('Description (optional)', {
-      exact: false,
-    });
-    const submitButton = getByText('Create');
+    const nameInput = await screen.findByLabelText('Repo Name', {exact: false});
+    const descriptionInput = await screen.findByLabelText(
+      'Description (optional)',
+      {
+        exact: false,
+      },
+    );
+    const submitButton = screen.getByText('Create');
 
     await type(nameInput, 'newRepo');
     await type(descriptionInput, 'newRepo Description');

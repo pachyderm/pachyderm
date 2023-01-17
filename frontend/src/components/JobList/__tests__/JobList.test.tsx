@@ -1,6 +1,6 @@
 import jobs from '@dash-backend/mock/fixtures/jobs';
 import jobSets from '@dash-backend/mock/fixtures/jobSets';
-import {render, waitFor, within} from '@testing-library/react';
+import {render, waitFor, within, screen} from '@testing-library/react';
 import React from 'react';
 
 import {useJobs} from '@dash-frontend/hooks/useJobs';
@@ -48,7 +48,7 @@ describe('JobList', () => {
   });
 
   it('should display the list of jobs for a project', async () => {
-    const {getByRole, queryByTestId} = render(
+    render(
       <JobList
         projectId="2"
         emptyStateTitle="Empty State Title"
@@ -58,25 +58,25 @@ describe('JobList', () => {
 
     await waitFor(() =>
       expect(
-        queryByTestId('JobListStatic__loadingdots'),
+        screen.queryByTestId('JobListStatic__loadingdots'),
       ).not.toBeInTheDocument(),
     );
 
-    const {queryAllByRole, queryByText, queryAllByText} = within(
-      getByRole('list'),
+    const {queryAllByRole, getByText, queryAllByText} = within(
+      screen.getByRole('list'),
     );
 
     expect(queryAllByRole('listitem')).toHaveLength(jobs['2'].length);
-    expect(queryByText('Failure')).toBeInTheDocument();
-    expect(queryByText('Egressing')).toBeInTheDocument();
-    expect(queryByText('Killed')).toBeInTheDocument();
-    expect(queryByText('Running')).toBeInTheDocument();
-    expect(queryByText('Starting')).toBeInTheDocument();
+    expect(getByText('Failure')).toBeInTheDocument();
+    expect(getByText('Egressing')).toBeInTheDocument();
+    expect(getByText('Killed')).toBeInTheDocument();
+    expect(getByText('Running')).toBeInTheDocument();
+    expect(getByText('Starting')).toBeInTheDocument();
     expect(queryAllByText('See Details')).toHaveLength(0);
   });
 
   it('should display a list of jobs for a pipeline', async () => {
-    const {getByRole, queryByTestId} = render(
+    render(
       <JobList
         projectId="1"
         pipelineId="montage"
@@ -87,22 +87,22 @@ describe('JobList', () => {
 
     await waitFor(() =>
       expect(
-        queryByTestId('JobListStatic__loadingdots'),
+        screen.queryByTestId('JobListStatic__loadingdots'),
       ).not.toBeInTheDocument(),
     );
 
-    const {queryAllByRole, queryByText} = within(getByRole('list'));
+    const {queryAllByRole, getByText} = within(screen.getByRole('list'));
 
     expect(queryAllByRole('listitem')).toHaveLength(
       jobs['1'].filter(
         (job) => job.getJob()?.getPipeline()?.getName() === 'montage',
       ).length,
     );
-    expect(queryByText('Success')).toBeInTheDocument();
+    expect(getByText('Success')).toBeInTheDocument();
   });
 
   it('should display a list of actions', async () => {
-    const {findAllByText} = render(
+    render(
       <JobList
         projectId="2"
         expandActions
@@ -111,13 +111,13 @@ describe('JobList', () => {
       />,
     );
 
-    const seeDetailsButtons = await findAllByText('See Details');
+    const seeDetailsButtons = await screen.findAllByText('See Details');
 
     expect(seeDetailsButtons).toHaveLength(jobs['2'].length);
   });
 
   it('should allow user to filter on job state', async () => {
-    const {getByText, findByText, getByRole} = render(
+    render(
       <JobList
         projectId="2"
         showStatusFilter
@@ -127,16 +127,18 @@ describe('JobList', () => {
     );
 
     expect(
-      await findByText(`Last ${jobs['2'].length} Jobs`),
+      await screen.findByText(`Last ${jobs['2'].length} Jobs`),
     ).toBeInTheDocument();
 
-    const startingButton = getByText(/Starting \(\d\)/);
-    const runningButton = getByText(/Running \(\d\)/);
-    const failureButton = getByText(/Failure \(\d\)/);
-    const killedButton = getByText(/Killed \(\d\)/);
-    const egressingButton = getByText(/Egressing \(\d\)/);
+    const startingButton = screen.getByText(/Starting \(\d\)/);
+    const runningButton = screen.getByText(/Running \(\d\)/);
+    const failureButton = screen.getByText(/Failure \(\d\)/);
+    const killedButton = screen.getByText(/Killed \(\d\)/);
+    const egressingButton = screen.getByText(/Egressing \(\d\)/);
 
-    const {queryByText: queryByTextWithinList} = within(getByRole('list'));
+    const {queryByText: queryByTextWithinList} = within(
+      screen.getByRole('list'),
+    );
 
     await click(startingButton);
     expect(queryByTextWithinList('Starting')).not.toBeInTheDocument();
@@ -165,7 +167,7 @@ describe('JobList', () => {
   });
 
   it('should display the filter empty state message if no filters are selected', async () => {
-    const {getByText, findByText} = render(
+    render(
       <JobList
         projectId="3"
         showStatusFilter
@@ -175,23 +177,25 @@ describe('JobList', () => {
     );
 
     expect(
-      await findByText(`Last ${jobs['3'].length} Jobs`),
+      await screen.findByText(`Last ${jobs['3'].length} Jobs`),
     ).toBeInTheDocument();
 
-    const successButton = getByText(/Success \(\d\)/);
+    const successButton = screen.getByText(/Success \(\d\)/);
     await click(successButton);
 
-    const failureButton = getByText(/Failure \(\d\)/);
+    const failureButton = screen.getByText(/Failure \(\d\)/);
     await click(failureButton);
 
-    const killedButton = getByText(/Killed \(\d\)/);
+    const killedButton = screen.getByText(/Killed \(\d\)/);
     await click(killedButton);
 
-    expect(await findByText('Select Job Filters Above :)')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Select Job Filters Above :)'),
+    ).toBeInTheDocument();
   });
 
   it('should display an empty state if there are no jobs', async () => {
-    const {findByText, queryByRole} = render(
+    render(
       <JobList
         projectId="5"
         emptyStateTitle="Empty State Title"
@@ -199,13 +203,13 @@ describe('JobList', () => {
       />,
     );
 
-    expect(await findByText('Empty State Title')).toBeInTheDocument();
-    expect(queryByRole('list')).not.toBeInTheDocument();
+    expect(await screen.findByText('Empty State Title')).toBeInTheDocument();
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
   });
 
   describe('JobSets', () => {
     it('should display the list of jobSets for a given project', async () => {
-      const {getByRole, queryByTestId} = render(
+      render(
         <JobSetList
           projectId="2"
           emptyStateTitle="Empty State Title"
@@ -215,11 +219,11 @@ describe('JobList', () => {
 
       await waitFor(() =>
         expect(
-          queryByTestId('JobListStatic__loadingdots'),
+          screen.queryByTestId('JobListStatic__loadingdots'),
         ).not.toBeInTheDocument(),
       );
 
-      const {queryAllByRole} = within(getByRole('list'));
+      const {queryAllByRole} = within(screen.getByRole('list'));
 
       expect(queryAllByRole('listitem')).toHaveLength(
         Object.keys(jobSets['2']).length,

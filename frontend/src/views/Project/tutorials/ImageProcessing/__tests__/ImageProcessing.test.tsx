@@ -1,5 +1,5 @@
 import {mockServer} from '@dash-backend/testHelpers';
-import {render, waitFor} from '@testing-library/react';
+import {render, waitFor, screen} from '@testing-library/react';
 import React from 'react';
 
 import {
@@ -34,49 +34,48 @@ describe('Image Processing', () => {
   });
 
   it('should start the tutorial from the url param', async () => {
-    const {findByText} = render(<Tutorial />);
-    const tutorialTitle = await findByText('Create a pipeline');
+    render(<Tutorial />);
+    const tutorialTitle = await screen.findByText('Create a pipeline');
     expect(tutorialTitle).toBeInTheDocument();
   });
 
   it('should allow the user to pause the tutorial', async () => {
-    const {findByTestId, container} = render(<Tutorial />);
+    const {container} = render(<Tutorial />);
 
-    await click(await findByTestId('TutorialModalBody__closeTutorial'));
+    await click(await screen.findByTestId('TutorialModalBody__closeTutorial'));
 
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 
   it('should allow the user to complete the tutorial', async () => {
-    const {
-      findByRole,
-      findByText,
-      findAllByRole,
-      findByLabelText,
-      findByTestId,
-      container,
-    } = render(<Tutorial />);
+    const {container} = render(<Tutorial />);
 
     const minimize = async () => {
-      const minimizeButton = await findByTestId('TutorialModalBody__minimize');
+      const minimizeButton = await screen.findByTestId(
+        'TutorialModalBody__minimize',
+      );
 
       await click(minimizeButton);
     };
 
     const maximize = async () => {
-      const maximizeButton = await findByTestId('TutorialModalBody__maximize');
+      const maximizeButton = await screen.findByTestId(
+        'TutorialModalBody__maximize',
+      );
       await click(maximizeButton);
     };
 
     const nextStory = async () => {
-      const nextStoryButton = await findByRole('button', {name: 'Next Story'});
+      const nextStoryButton = await screen.findByRole('button', {
+        name: 'Next Story',
+      });
 
       await waitFor(() => expect(nextStoryButton).not.toBeDisabled());
       await click(nextStoryButton);
     };
 
     const addTheseImages = async () => {
-      const imageUploadButton = await findByRole('button', {
+      const imageUploadButton = await screen.findByRole('button', {
         name: 'Add these images',
       });
 
@@ -88,25 +87,27 @@ describe('Image Processing', () => {
     expect(mockServer.getState().repos['6']).toHaveLength(0);
     expect(mockServer.getState().pipelines['6']).toHaveLength(0);
 
-    const repoCreationButton = await findByRole('button', {
+    const repoCreationButton = await screen.findByRole('button', {
       name: 'Create the images repo',
     });
 
     await waitFor(() => expect(repoCreationButton).not.toBeDisabled());
     await click(repoCreationButton);
 
-    expect(await findByText('Task Completed!')).toBeInTheDocument();
+    expect(await screen.findByText('Task Completed!')).toBeInTheDocument();
 
     expect(mockServer.getState().repos['6']).toHaveLength(1);
 
     const pipelineCreationButton = (
-      await findAllByRole('button', {
+      await screen.findAllByRole('button', {
         name: 'Create the edges pipeline',
       })
     )[1];
 
     await click(pipelineCreationButton);
-    const nextStoryButton = await findByRole('button', {name: 'Next Story'});
+    const nextStoryButton = await screen.findByRole('button', {
+      name: 'Next Story',
+    });
 
     await waitFor(() => expect(nextStoryButton).not.toBeDisabled());
 
@@ -116,16 +117,16 @@ describe('Image Processing', () => {
     await nextStory();
 
     expect(
-      await findByText('Add files to the images repo you created'),
+      await screen.findByText('Add files to the images repo you created'),
     ).toBeInTheDocument();
 
     expect(mockServer.getState().files['6']).toBeUndefined();
-    const checkbox1 = await findByLabelText('birthday-cake.jpg');
+    const checkbox1 = await screen.findByLabelText('birthday-cake.jpg');
     await click(checkbox1);
 
     await addTheseImages();
 
-    expect(await findByText('Task Completed!')).toBeInTheDocument();
+    expect(await screen.findByText('Task Completed!')).toBeInTheDocument();
     expect(mockServer.getState().files['6']['/']).toHaveLength(1);
 
     await minimize();
@@ -134,19 +135,19 @@ describe('Image Processing', () => {
     await nextStory();
 
     expect(
-      await findByText(
+      await screen.findByText(
         'Add a pipeline called "montage" that uses "edges" as its input',
       ),
     ).toBeInTheDocument();
 
     const montagePipelineCreationButton = (
-      await findAllByRole('button', {
+      await screen.findAllByRole('button', {
         name: 'Create the montage pipeline',
       })
     )[0];
 
     await click(montagePipelineCreationButton);
-    expect(await findByText('Task Completed!')).toBeInTheDocument();
+    expect(await screen.findByText('Task Completed!')).toBeInTheDocument();
     expect(mockServer.getState().pipelines['6']).toHaveLength(2);
 
     await minimize();
@@ -155,7 +156,9 @@ describe('Image Processing', () => {
     await nextStory();
 
     expect(
-      await findByText('Global identifiers tie together commits and code'),
+      await screen.findByText(
+        'Global identifiers tie together commits and code',
+      ),
     ).toBeInTheDocument();
 
     await minimize();
@@ -164,13 +167,13 @@ describe('Image Processing', () => {
     await nextStory();
 
     // expect(
-    //   await findByText('Basic reproducibility concepts'),
+    //   await screen.findByText('Basic reproducibility concepts'),
     // ).toBeInTheDocument();
 
     // await minimize();
     // await maximize();
 
-    // const kitten = await findByLabelText('kitten.jpg');
+    // const kitten = await screen.findByLabelText('kitten.jpg');
     //await click(kitten);
 
     // await addTheseImages();
@@ -180,7 +183,7 @@ describe('Image Processing', () => {
     // await minimize();
     // await maximize();
 
-    // const moveBranchButton = await findByRole('button', {
+    // const moveBranchButton = await screen.findByRole('button', {
     //   name: 'Move images branch',
     // });
 
@@ -189,7 +192,7 @@ describe('Image Processing', () => {
     // await waitFor(() => expect(moveBranchButton).not.toBeInTheDocument());
 
     // expect(
-    //   await findByText(
+    //   await screen.findByText(
     //     "Confirm that the montage's original version is restored",
     //   ),
     // ).toBeInTheDocument();
@@ -200,15 +203,15 @@ describe('Image Processing', () => {
     // await nextStory();
 
     expect(
-      await findByText('About Incremental Scalability'),
+      await screen.findByText('About Incremental Scalability'),
     ).toBeInTheDocument();
 
-    const checkbox2 = await findByLabelText('pooh.jpg');
+    const checkbox2 = await screen.findByLabelText('pooh.jpg');
     await click(checkbox2);
 
     await addTheseImages();
 
-    expect(await findByText('Task Completed!')).toBeInTheDocument();
+    expect(await screen.findByText('Task Completed!')).toBeInTheDocument();
 
     // expect(mockServer.getState().files['6']['/']).toHaveLength(3);
     expect(mockServer.getState().files['6']['/']).toHaveLength(2);
@@ -216,7 +219,7 @@ describe('Image Processing', () => {
     await minimize();
     await maximize();
 
-    const completeStoryButton = await findByRole('button', {
+    const completeStoryButton = await screen.findByRole('button', {
       name: 'Close Tutorial',
     });
 

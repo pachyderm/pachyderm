@@ -114,7 +114,6 @@ describe('Datum resolver', () => {
         },
       );
       const datums = data?.datums.items as Datum[];
-      console.log(datums);
       expect(errors).toHaveLength(0);
       expect(datums).toHaveLength(10);
       expect(data?.datums.cursor).toBe(

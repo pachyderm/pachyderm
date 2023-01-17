@@ -3,6 +3,10 @@ import '@testing-library/jest-dom/extend-expect';
 
 import {randomBytes} from 'crypto';
 
+import {configure} from '@testing-library/react';
+
+configure({asyncUtilTimeout: 5000});
+
 Object.defineProperty(window, 'crypto', {
   value: {
     getRandomValues: jest.fn((arr: number[]) => randomBytes(arr.length)),

@@ -1,4 +1,4 @@
-import {render} from '@testing-library/react';
+import {render, screen} from '@testing-library/react';
 import React from 'react';
 
 import {withContextProviders} from '@dash-frontend/testHelpers';
@@ -37,19 +37,19 @@ const ProjectsComponent = withContextProviders(() => {
 
 describe('useProjects', () => {
   it('should get projects', async () => {
-    const {findByText} = render(<ProjectsComponent />);
-    const project0Id = await findByText('0 project id: 1');
-    const project1Id = await findByText('1 project id: 2');
-    const project0Name = await findByText(
+    render(<ProjectsComponent />);
+    const project0Id = await screen.findByText('0 project id: 1');
+    const project1Id = await screen.findByText('1 project id: 2');
+    const project0Name = await screen.findByText(
       '0 project name: Solar Panel Data Sorting',
     );
-    const projectDescription = await findByText(
+    const projectDescription = await screen.findByText(
       '0 project description: Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
     );
-    const projectCreationDate = await findByText(
+    const projectCreationDate = await screen.findByText(
       '0 project createdAt: 1614026189',
     );
-    const projectStatus = await findByText('0 project status: HEALTHY');
+    const projectStatus = await screen.findByText('0 project status: HEALTHY');
 
     expect(project0Id).toBeInTheDocument();
     expect(project1Id).toBeInTheDocument();
