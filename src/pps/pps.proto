@@ -556,8 +556,6 @@ message UpdateJobStateRequest {
   ProcessStats stats = 11;
 }
 
-message GetKubeEventTailLogsRequest()
-
 message GetLogsRequest {
   // The pipeline from which we want to get logs (required if the job in 'job'
   // was created as part of a pipeline. To get logs from a non-orphan job
@@ -842,6 +840,10 @@ message RenderTemplateResponse {
   repeated CreatePipelineRequest specs = 2;
 }
 
+message GetKubeEventTailResponse {
+  string logs = 1;
+}
+
 service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
@@ -892,4 +894,7 @@ service API {
 
   // ListTask lists PPS tasks
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
+
+  // GetKubeEventTail returns a stream of kubernetes events
+  rpc GetKubeEventTail(google.protobuf.Empty) returns (GetKubeEventTailResponse) {}
 }

@@ -849,6 +849,15 @@ func (c APIClient) getLogs(projectName, pipelineName, jobID string, data []strin
 	return resp
 }
 
+func (c APIClient) GetKubeEventTail() (string, error) {
+	resp, err := c.PpsAPIClient.GetKubeEventTail(c.Ctx(), &types.Empty{})
+	err = grpcutil.ScrubGRPC(err)
+	if err != nil {
+		return "", err
+	}
+	return resp.Logs, err
+}
+
 // CreatePipeline creates a new pipeline, pipelines are the main computation
 // object in PPS they create a flow of data from a set of input Repos to an
 // output Repo (which has the same name as the pipeline).  Whenever new data is

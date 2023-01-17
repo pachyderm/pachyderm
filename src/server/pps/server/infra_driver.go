@@ -29,6 +29,7 @@ type InfraDriver interface {
 	UpdateReplicationController(ctx context.Context, old *v1.ReplicationController, update func(rc *v1.ReplicationController) bool) error
 	ListReplicationControllers(ctx context.Context) (*v1.ReplicationControllerList, error)
 	WatchPipelinePods(ctx context.Context) (<-chan watch.Event, func(), error)
+	GetKubeEventTail(ctx context.Context) (string, error)
 }
 
 type mockInfraOp int32
@@ -112,6 +113,10 @@ func (d *mockInfraDriver) ListReplicationControllers(ctx context.Context) (*v1.R
 func (d *mockInfraDriver) WatchPipelinePods(ctx context.Context) (<-chan watch.Event, func(), error) {
 	ch := make(chan watch.Event)
 	return ch, func() {}, nil
+}
+
+func (d *mockInfraDriver) GetKubeEventTail(ctx context.Context) (string, error) {
+	return "", nil
 }
 
 ////////////////////////////////////
