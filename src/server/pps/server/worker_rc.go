@@ -374,8 +374,8 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 	pachSecurityCtx := &v1.SecurityContext{
 		RunAsUser:                int64Ptr(1000),
 		RunAsGroup:               int64Ptr(1000),
-		AllowPrivilegeEscalation: pointer.BoolPtr(false),
-		ReadOnlyRootFilesystem:   pointer.BoolPtr(true),
+		AllowPrivilegeEscalation: pointer.Bool(false),
+		ReadOnlyRootFilesystem:   pointer.Bool(true),
 		Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"all"}},
 	}
 	var userSecurityCtx *v1.SecurityContext
@@ -398,15 +398,15 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 				RunAsUser:    int64Ptr(i),
 				RunAsGroup:   int64Ptr(i),
 				FSGroup:      int64Ptr(i),
-				RunAsNonRoot: pointer.BoolPtr(true),
+				RunAsNonRoot: pointer.Bool(true),
 				SeccompProfile: &v1.SeccompProfile{
 					Type: v1.SeccompProfileType("RuntimeDefault"),
 				}}
 			userSecurityCtx = &v1.SecurityContext{
 				RunAsUser:                int64Ptr(i),
 				RunAsGroup:               int64Ptr(i),
-				AllowPrivilegeEscalation: pointer.BoolPtr(false),
-				ReadOnlyRootFilesystem:   pointer.BoolPtr(true),
+				AllowPrivilegeEscalation: pointer.Bool(false),
+				ReadOnlyRootFilesystem:   pointer.Bool(true),
 				Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"all"}},
 			}
 		}
@@ -469,7 +469,7 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 			},
 		},
 		ServiceAccountName:            workerServiceAccountName,
-		AutomountServiceAccountToken:  pointer.BoolPtr(true),
+		AutomountServiceAccountToken:  pointer.Bool(true),
 		RestartPolicy:                 "Always",
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -418,10 +417,20 @@ type ObjectStoreURL struct {
 	Bucket string
 	// The object itself.
 	Object string
+	// The query parameters if defined.
+	Params string
 }
 
 func (s ObjectStoreURL) String() string {
 	return fmt.Sprintf("%s://%s/%s", s.Scheme, s.Bucket, s.Object)
+}
+
+func (s ObjectStoreURL) BucketString() string {
+	bucket := fmt.Sprintf("%s://%s", s.Scheme, s.Bucket)
+	if s.Params != "" {
+		bucket += "?" + s.Params
+	}
+	return bucket
 }
 
 // ParseURL parses an URL into ObjectStoreURL.
@@ -430,39 +439,46 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "error parsing url %v", urlStr)
 	}
+	// TODO: remove once we remove support for non-existing schemes.
+	if u.Scheme == "gcs" {
+		u.Scheme = "gs"
+	}
+	var objStoreUrl *ObjectStoreURL
 	switch u.Scheme {
-	case "s3", "gcs", "gs", "local":
-		return &ObjectStoreURL{
+	case "azblob", "gs", "local", "s3":
+		objStoreUrl = &ObjectStoreURL{
 			Scheme: u.Scheme,
 			Bucket: u.Host,
 			Object: strings.Trim(u.Path, "/"),
-		}, nil
-	case "as", "wasb":
-		// In Azure, the first part of the path is the container name.
-		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-		if len(parts) < 1 {
-			// return nil, errors.Errorf("malformed Azure URI: %v", urlStr)
-			return nil, errors.Errorf("malformed Azure URI: %v", urlStr)
+			Params: u.RawQuery,
 		}
-		return &ObjectStoreURL{
-			Scheme: u.Scheme,
-			Bucket: parts[0],
-			Object: strings.Trim(path.Join(parts[1:]...), "/"),
-		}, nil
+	// wasb is an hdfs protocol supported by azure
+	// the format is wasb://<container_name>@<storage_account_name>.blob.core.windows.net/dir/file
+	// another supported format is wasb://<container_name>@<storage_account_name>/dir/file
+	case "wasb":
+		objStoreUrl = &ObjectStoreURL{
+			Scheme: "azblob",
+			Bucket: u.User.Username(),
+			Object: strings.Trim(u.Path, "/"),
+			Params: u.RawQuery,
+		}
 	case "minio", "test-minio":
 		parts := strings.SplitN(strings.Trim(u.Path, "/"), "/", 2)
 		var key string
 		if len(parts) == 2 {
 			key = parts[1]
 		}
-		return &ObjectStoreURL{
+		objStoreUrl = &ObjectStoreURL{
 			Scheme: u.Scheme,
 			Bucket: u.Host + "/" + parts[0],
 			Object: key,
-		}, nil
+			Params: u.RawQuery,
+		}
+	default:
+		// return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
+		return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
 	}
-	// return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
-	return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
+	return objStoreUrl, nil
 }
 
 // NewClientFromEnv creates a client based on environment variables.
