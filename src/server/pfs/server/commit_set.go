@@ -32,18 +32,43 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 			commitInfos = append(commitInfos, ci)
 		}
 	}
-	opts := col.DefaultOptions()
-	opts.Order = col.SortAscend
 	ci := &pfs.CommitInfo{}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitset.ID, ci, opts, func(string) error {
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitset.ID, ci, col.DefaultOptions(), func(string) error {
 		commitInfos = append(commitInfos, proto.Clone(ci).(*pfs.CommitInfo))
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	// since both CommitSetProvenance() and the collections reads return commits sorted
-	// by created time ascending, it's guaranteed that commitInfos will be topologically sorted
-	return commitInfos, nil
+	sorted := make([]*pfs.CommitInfo, 0)
+	seenRepos := make(map[string]struct{})
+	for _, ci := range commitInfos {
+		var err error
+		ci.Details = &pfs.CommitInfo_Details{}
+		ci.Details.CommitProvenance, err = pfsdb.CommitProvenance(context.TODO(), txnCtx.SqlTx, ci.Commit.Repo, ci.Commit.ID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// O(n^2) sorting of commits
+	for len(sorted) < len(commitInfos) {
+		for _, ci := range commitInfos {
+			if _, ok := seenRepos[pfsdb.RepoKey(ci.Commit.Repo)]; ok {
+				continue
+			}
+			satisfied := true
+			for _, p := range ci.Details.CommitProvenance {
+				if _, ok := seenRepos[pfsdb.RepoKey(p.Repo)]; !ok {
+					satisfied = false
+					break
+				}
+			}
+			if satisfied {
+				seenRepos[pfsdb.RepoKey(ci.Commit.Repo)] = struct{}{}
+				sorted = append(sorted, ci)
+			}
+		}
+	}
+	return sorted, nil
 }
 
 func (d *driver) inspectCommitSetImmediate(ctx context.Context, commitset *pfs.CommitSet, cb func(*pfs.CommitInfo) error) error {

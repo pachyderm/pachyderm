@@ -64,8 +64,7 @@ func CommitSetProvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]*pfs
           )
           SELECT commit_id
           FROM pfs.commits, prov 
-          WHERE int_id = prov.to_id AND commit_set_id != $2
-          ORDER BY created_at ASC;`
+          WHERE int_id = prov.to_id AND commit_set_id != $2;`
 	rows, err := tx.QueryxContext(ctx, q, id, id)
 	if err != nil {
 		return nil, errors.EnsureStack(err)

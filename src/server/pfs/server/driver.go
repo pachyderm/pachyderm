@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
-	"fmt"
 	"math"
 	"os"
 	"sort"
@@ -861,7 +860,6 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 			commitInfo.Details = &pfs.CommitInfo_Details{}
 		}
 		commitInfo.Details.CommitProvenance = provCommits
-		fmt.Printf("Commit PROVENANCE of %q: %v\n", commitInfo.Commit.String(), provCommits)
 		return nil
 	}); err != nil {
 		return nil, err
