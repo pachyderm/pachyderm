@@ -27,7 +27,7 @@ const (
 )
 
 var (
-	batchSize = int64(1000) // batchSize is overridden when testing
+	batchSize = int64(1000000) // batchSize is overridden when testing. Default is 1 Mb
 )
 
 func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.UnorderedWriter, dstPath, tag string, src *pfs.AddFile_URLSource) (n int64, retErr error) {
@@ -225,7 +225,6 @@ func coordinateTasks(ctx context.Context, URL string, createTask func(startOffse
 		}
 	}()
 	startPath, endPath := "", ""
-	var paths []string
 	list := bucket.List(&blob.ListOptions{Prefix: url.Object})
 	var listObj *blob.ListObject
 	listObj, err = list.Next(ctx)
@@ -234,7 +233,6 @@ func coordinateTasks(ctx context.Context, URL string, createTask func(startOffse
 			return errors.Wrapf(err, "no objects were listed")
 		}
 	}
-	paths = append(paths, listObj.Key)
 	startPath = listObj.Key
 	remainingObjSize := listObj.Size
 	bytesInBatch := int64(0)
@@ -242,7 +240,6 @@ func coordinateTasks(ctx context.Context, URL string, createTask func(startOffse
 	shouldBreak := false
 	for {
 		if bytesInBatch+remainingObjSize == 0 && listObj.Size != 0 {
-			paths = nil
 			startPath = ""
 			endPath = ""
 			filePos = 0
@@ -262,7 +259,6 @@ func coordinateTasks(ctx context.Context, URL string, createTask func(startOffse
 			}
 			log.Debug(ctx, "object stats", zap.String("object", listObj.Key), zap.Int64("size", listObj.Size))
 			remainingObjSize = listObj.Size
-			paths = append(paths, listObj.Key)
 			if startPath == "" {
 				startPath = listObj.Key
 			}
@@ -275,7 +271,6 @@ func coordinateTasks(ctx context.Context, URL string, createTask func(startOffse
 		if err := createTask(filePos, batchSize-bytesInBatch, startPath, endPath); err != nil {
 			return errors.EnsureStack(err)
 		}
-		paths = []string{listObj.Key}
 		startPath = listObj.Key
 		endPath = listObj.Key
 		filePos = batchSize - bytesInBatch
