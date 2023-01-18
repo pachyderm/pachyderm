@@ -7,15 +7,19 @@ import (
 	"net/url"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/hashicorp/go-multierror"
+	"go.uber.org/zap"
+	"gocloud.dev/blob"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -54,17 +58,27 @@ func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.Unord
 		}
 		url, err := obj.ParseURL(src.URL)
 		if err != nil {
-			return 0, errors.Wrapf(err, "error parsing url %v", src)
+			return 0, errors.EnsureStack(err)
 		}
-		objClient, err := obj.NewClientFromURLAndSecret(ctx, url, false)
+		bucket, err := openBucket(ctx, url)
 		if err != nil {
 			return 0, err
 		}
-		return 0, miscutil.WithPipe(func(w io.Writer) error {
-			return errors.EnsureStack(objClient.Get(ctx, url.Object, w))
-		}, func(r io.Reader) error {
-			return uw.Put(ctx, dstPath, tag, true, r)
-		})
+		defer func() {
+			if err := bucket.Close(); err != nil {
+				retErr = multierror.Append(retErr, errors.EnsureStack(err))
+			}
+		}()
+		r, err := bucket.NewReader(ctx, url.Object, nil)
+		if err != nil {
+			return 0, errors.EnsureStack(err)
+		}
+		defer func() {
+			if err := r.Close(); err != nil {
+				retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing reader for bucket %s", url.Bucket))
+			}
+		}()
+		return 0, uw.Put(ctx, dstPath, tag, true, r)
 	}
 }
 
@@ -90,15 +104,20 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 		})
 		return errors.EnsureStack(err)
 	})
-	eg.Go(func() error {
+	eg.Go(func() (retErr error) {
 		url, err := obj.ParseURL(src.URL)
 		if err != nil {
-			return errors.Wrapf(err, "error parsing url %v", src)
+			return errors.EnsureStack(err)
 		}
-		objClient, err := obj.NewClientFromURLAndSecret(ctx, url, false)
+		bucket, err := openBucket(ctx, url)
 		if err != nil {
 			return err
 		}
+		defer func() {
+			if err := bucket.Close(); err != nil {
+				retErr = multierror.Append(retErr, errors.EnsureStack(err))
+			}
+		}()
 		var paths []string
 		createTask := func() error {
 			input, err := serializePutFileURLTask(&PutFileURLTask{
@@ -117,17 +136,24 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 			}
 			return nil
 		}
-		if err := objClient.Walk(ctx, url.Object, func(p string) error {
+		list := bucket.List(&blob.ListOptions{Prefix: url.Object})
+		var listObj *blob.ListObject
+		for {
+			listObj, err = list.Next(ctx)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				return errors.Wrapf(err, "error listing bucket %s", url.Bucket)
+			}
+			log.Debug(ctx, "object stats", zap.String("object", listObj.Key), zap.Int64("size", listObj.Size))
 			if len(paths) >= defaultURLTaskSize {
 				if err := createTask(); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				paths = nil
 			}
-			paths = append(paths, p)
-			return nil
-		}); err != nil {
-			return errors.EnsureStack(err)
+			paths = append(paths, listObj.Key)
 		}
 		if len(paths) > 0 {
 			if err := createTask(); err != nil {

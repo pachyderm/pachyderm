@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -87,6 +88,7 @@ type workerOptions struct {
 	// s3)
 	imagePullSecrets []v1.LocalObjectReference
 	service          *pps.Service
+	tolerations      []v1.Toleration
 }
 
 // getPachctlSecretVolumeAndMount returns a Volume and
@@ -374,8 +376,8 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 	pachSecurityCtx := &v1.SecurityContext{
 		RunAsUser:                int64Ptr(1000),
 		RunAsGroup:               int64Ptr(1000),
-		AllowPrivilegeEscalation: pointer.BoolPtr(false),
-		ReadOnlyRootFilesystem:   pointer.BoolPtr(true),
+		AllowPrivilegeEscalation: pointer.Bool(false),
+		ReadOnlyRootFilesystem:   pointer.Bool(true),
 		Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"all"}},
 	}
 	var userSecurityCtx *v1.SecurityContext
@@ -398,15 +400,15 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 				RunAsUser:    int64Ptr(i),
 				RunAsGroup:   int64Ptr(i),
 				FSGroup:      int64Ptr(i),
-				RunAsNonRoot: pointer.BoolPtr(true),
+				RunAsNonRoot: pointer.Bool(true),
 				SeccompProfile: &v1.SeccompProfile{
 					Type: v1.SeccompProfileType("RuntimeDefault"),
 				}}
 			userSecurityCtx = &v1.SecurityContext{
 				RunAsUser:                int64Ptr(i),
 				RunAsGroup:               int64Ptr(i),
-				AllowPrivilegeEscalation: pointer.BoolPtr(false),
-				ReadOnlyRootFilesystem:   pointer.BoolPtr(true),
+				AllowPrivilegeEscalation: pointer.Bool(false),
+				ReadOnlyRootFilesystem:   pointer.Bool(true),
 				Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"all"}},
 			}
 		}
@@ -469,12 +471,13 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 			},
 		},
 		ServiceAccountName:            workerServiceAccountName,
-		AutomountServiceAccountToken:  pointer.BoolPtr(true),
+		AutomountServiceAccountToken:  pointer.Bool(true),
 		RestartPolicy:                 "Always",
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
 		TerminationGracePeriodSeconds: int64Ptr(0),
 		SecurityContext:               podSecurityContext,
+		Tolerations:                   options.tolerations,
 	}
 	if options.schedulingSpec != nil {
 		podSpec.NodeSelector = options.schedulingSpec.NodeSelector
@@ -818,6 +821,21 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 		return nil, errors.New("could not load the existing postgres secret reference from kubernetes")
 	}
 
+	// Setup tolerations
+	var tolerations []v1.Toleration
+	var tolErr error
+	for i, in := range pipelineInfo.GetDetails().GetTolerations() {
+		out, err := transformToleration(in)
+		if err != nil {
+			multierr.AppendInto(&tolErr, errors.Errorf("toleration %d/%d: %v", i+1, len(pipelineInfo.GetDetails().GetTolerations()), err))
+			continue
+		}
+		tolerations = append(tolerations, out)
+	}
+	if tolErr != nil {
+		return nil, tolErr
+	}
+
 	// Generate options for new RC
 	return &workerOptions{
 		rcName:                ppsutil.PipelineRcName(pipelineInfo),
@@ -839,7 +857,40 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 		schedulingSpec:        pipelineInfo.Details.SchedulingSpec,
 		podSpec:               pipelineInfo.Details.PodSpec,
 		podPatch:              pipelineInfo.Details.PodPatch,
+		tolerations:           tolerations,
 	}, nil
+}
+
+// transformToleration transforms a pps.Toleration into a k8s Toleration.  It's used while creating
+// the RC, and at pipeline submission to validate the provided tolerations before saving the
+// pipeline.  It's in here and not in src/pps/pps.go so that the protobuf library doesn't depend on
+// k8s.
+func transformToleration(in *pps.Toleration) (v1.Toleration, error) {
+	var out v1.Toleration
+	out.Key = in.GetKey()
+	out.Value = in.GetValue()
+	if ts := in.GetTolerationSeconds(); ts != nil {
+		out.TolerationSeconds = &ts.Value
+	}
+	switch in.GetEffect() { //exhaustive:enforce
+	case pps.TaintEffect_ALL_EFFECTS:
+		out.Effect = ""
+	case pps.TaintEffect_NO_EXECUTE:
+		out.Effect = v1.TaintEffectNoExecute
+	case pps.TaintEffect_NO_SCHEDULE:
+		out.Effect = v1.TaintEffectNoSchedule
+	case pps.TaintEffect_PREFER_NO_SCHEDULE:
+		out.Effect = v1.TaintEffectPreferNoSchedule
+	}
+	switch in.GetOperator() { //exhaustive:enforce
+	case pps.TolerationOperator_EMPTY:
+		return out, errors.New("cannot omit key/value comparison operator; specify EQUAL or EXISTS")
+	case pps.TolerationOperator_EXISTS:
+		out.Operator = v1.TolerationOpExists
+	case pps.TolerationOperator_EQUAL:
+		out.Operator = v1.TolerationOpEqual
+	}
+	return out, nil
 }
 
 func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
