@@ -177,7 +177,7 @@ var schema = `
 	CREATE TABLE pfs.commits (
 		int_id BIGSERIAL PRIMARY KEY,
 		commit_id VARCHAR(4096) UNIQUE,
-                commit_set_id VARCHAR(4096),
+                commit_set_id VARCHAR(4096) NOT NULL,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 

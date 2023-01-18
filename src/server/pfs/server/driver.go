@@ -756,7 +756,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		}
 		// create open 'commit'.
 		// it's possible that this commit has already been created if there are two branches with the same head that are propagated.
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(newCommit, newCommitInfo); err != nil {
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(newCommit, newCommitInfo); err != nil {
 			return errors.Wrapf(err, "create new commit %q", pfsdb.CommitKey(newCommit))
 		}
 		if newCommitInfo.ParentCommit != nil {
