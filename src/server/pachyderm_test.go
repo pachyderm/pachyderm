@@ -10404,19 +10404,13 @@ func TestMoveBranchTrigger(t *testing.T) {
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
-				Cmd: []string{"bash"},
-				Stdin: []string{
-					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-					"cp /pfs/trigger/* /pfs/out/",
-				},
+				Cmd:   []string{"bash"},
+				Stdin: []string{"cp /pfs/trigger/* /pfs/out/"},
 			},
-			Input: client.NewCrossInput(
-				client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
-				client.NewProjectPFSInputOpts("trigger", pfs.DefaultProjectName, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
-					Branch:  "toMove",
-					Commits: 1,
-				}),
-			),
+			Input: client.NewProjectPFSInputOpts("trigger", pfs.DefaultProjectName, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+				Branch:  "toMove",
+				Commits: 1,
+			}),
 		})
 	require.NoError(t, err)
 
