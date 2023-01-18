@@ -67,6 +67,7 @@ func TestGoogleHMAC(t *testing.T) {
 }
 
 func TestAmazonECS(t *testing.T) {
+	t.Skip("Skip until ECS is available and stable.")
 	integrationtests.LoadECSParameters(t)
 	require.NoError(t, os.Setenv("AWS_REGION", "dummy-region"))
 	require.NoError(t, os.Setenv("AWS_SECRET_ACCESS_KEY", os.Getenv("ECS_CLIENT_SECRET")))
