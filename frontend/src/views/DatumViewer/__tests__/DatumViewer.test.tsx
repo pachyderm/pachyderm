@@ -227,12 +227,12 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155?view=eyJkYXR1bUZpbHRlcnMiOlsiU1RBUlRJTkciLCJTS0lQUEVEIl19',
+        '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155?view=eyJkYXR1bUZpbHRlcnMiOlsiU0tJUFBFRCIsIkZBSUxFRCJdfQ',
       );
 
       render(<JobDatumViewer />);
 
-      await screen.findByTestId('Filter__STARTINGChip');
+      await screen.findByTestId('Filter__FAILEDChip');
       await screen.findByTestId('Filter__SKIPPEDChip');
 
       const datums = await screen.findAllByTestId('DatumList__listItem');
@@ -260,7 +260,7 @@ describe('Datum Viewer', () => {
 
       await click(jobs[0]);
       await click(await screen.findByText('Filter'));
-      await click(await screen.findByText('Starting'));
+      await click(await screen.findByText('Failed'));
 
       const datum = await screen.findByTestId('DatumList__listItem');
       expect(datum.textContent).toBe(
@@ -273,7 +273,7 @@ describe('Datum Viewer', () => {
       ).toBeVisible();
 
       await click(jobs[0]);
-      await click(await screen.findByTestId('Filter__STARTINGChip'));
+      await click(await screen.findByTestId('Filter__FAILEDChip'));
       expect(await screen.findAllByTestId('DatumList__listItem')).toHaveLength(
         4,
       );
@@ -402,6 +402,78 @@ describe('Datum Viewer', () => {
         await click(await screen.findByText('Back'));
         await screen.findByTestId('JobList__list');
         expect(screen.queryByTestId('DatumList__list')).not.toBeInTheDocument();
+      });
+
+      it('should allow a user to page through the datum list', async () => {
+        window.history.replaceState(
+          {},
+          '',
+          '/project/2/pipelines/likelihoods/jobs/23b9af7d5d4343219bc8e02ff4acd33a/logs/datum',
+        );
+        render(<JobDatumViewer />);
+        const forwards = await screen.findByTestId('Pager__forward');
+        const backwards = await screen.findByTestId('Pager__backward');
+
+        expect(
+          await screen.findByText('Datums 1 - 50 of 100'),
+        ).toBeInTheDocument();
+        expect(backwards).toBeDisabled();
+        let datums = await screen.findAllByTestId('DatumList__listItem');
+        expect(datums[0].textContent).toEqual(
+          '0a00000000000000000000000000000000000000000000000000000000000000',
+        );
+        expect(datums[49].textContent).toEqual(
+          '49a0000000000000000000000000000000000000000000000000000000000000',
+        );
+        await click(forwards);
+        expect(
+          await screen.findByText('Datums 51 - 100 of 100'),
+        ).toBeInTheDocument();
+        expect(forwards).toBeDisabled();
+        datums = await screen.findAllByTestId('DatumList__listItem');
+        expect(datums[0].textContent).toEqual(
+          '50a0000000000000000000000000000000000000000000000000000000000000',
+        );
+        expect(datums[49].textContent).toEqual(
+          '99a0000000000000000000000000000000000000000000000000000000000000',
+        );
+      });
+
+      it('should calculate total numper of datums for filtered datum list', async () => {
+        window.history.replaceState(
+          '',
+          '',
+          '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum',
+        );
+        render(<JobDatumViewer />);
+        expect(
+          await screen.findByText('Datums 1 - 4 of 4'),
+        ).toBeInTheDocument();
+
+        await click(await screen.findByText('Filter'));
+        await click((await screen.findAllByText('Failed'))[0]);
+        expect(
+          await screen.findByText('Datums 1 - 1 of 1'),
+        ).toBeInTheDocument();
+
+        await click(await screen.findByText('Filter'));
+        await click((await screen.findAllByText('Success'))[0]);
+        expect(
+          await screen.findByText('Datums 1 - 3 of 3'),
+        ).toBeInTheDocument();
+      });
+
+      it('should display loading message for datum info if job is not finshed', async () => {
+        window.history.replaceState(
+          '',
+          '',
+          '/project/1/jobs/7798fhje5d4343219bc8e02ff4acd33a/pipeline/montage/logs/datum',
+        );
+
+        render(<JobDatumViewer />);
+        expect(
+          await screen.findByTestId('DatumList__processing'),
+        ).toHaveTextContent('Processing — datums are being processed.');
       });
     });
   });

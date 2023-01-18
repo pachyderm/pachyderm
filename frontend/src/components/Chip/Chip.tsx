@@ -7,23 +7,43 @@ import styles from './Chip.module.css';
 
 export interface ChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   LeftIconSVG?: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
+  LeftIconSmall?: boolean;
   RightIconSVG?: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
+  isButton?: boolean;
 }
+
+type ChipGroupProps = {
+  className?: string;
+};
 
 export const Chip = ({
   LeftIconSVG,
+  LeftIconSmall = true,
   RightIconSVG,
   className,
   children,
+  isButton = true,
   ...rest
 }: React.PropsWithChildren<ChipProps>) => {
   const classes = classNames(styles.base, className);
 
+  const ChipWrapper: React.FC = ({children}) => {
+    if (isButton) {
+      return (
+        <button className={classes} {...rest}>
+          {children}
+        </button>
+      );
+    } else {
+      return <div className={classes}>{children}</div>;
+    }
+  };
+
   return (
-    <button className={classes} {...rest}>
+    <ChipWrapper>
       <Group spacing={8} align="center" justify="center">
         {LeftIconSVG && (
-          <Icon small>
+          <Icon small={LeftIconSmall}>
             <LeftIconSVG />
           </Icon>
         )}
@@ -34,10 +54,10 @@ export const Chip = ({
           </Icon>
         )}
       </Group>
-    </button>
+    </ChipWrapper>
   );
 };
 
-export const ChipGroup: React.FC = ({children}) => {
-  return <div className={styles.group}>{children}</div>;
+export const ChipGroup: React.FC<ChipGroupProps> = ({className, children}) => {
+  return <div className={classNames(styles.group, className)}>{children}</div>;
 };

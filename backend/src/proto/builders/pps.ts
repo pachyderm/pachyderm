@@ -207,6 +207,8 @@ export type JobInfoObject = {
   pipelineVersion?: PipelineInfo.AsObject['version'];
   dataTotal?: JobInfo.AsObject['dataTotal'];
   dataFailed?: JobInfo.AsObject['dataFailed'];
+  dataSkipped?: JobInfo.AsObject['dataSkipped'];
+  dataProcessed?: JobInfo.AsObject['dataProcessed'];
   stats?: ProcessStatsFromObject;
   salt?: JobInfo.Details.AsObject['salt'];
   datumTries?: JobInfo.Details.AsObject['datumTries'];
@@ -655,6 +657,8 @@ export const jobInfoFromObject = ({
   pipelineVersion,
   dataTotal,
   dataFailed,
+  dataSkipped,
+  dataProcessed,
   stats,
   salt = '',
   datumTries = 0,
@@ -718,6 +722,13 @@ export const jobInfoFromObject = ({
 
   if (dataFailed) {
     jobInfo.setDataFailed(dataFailed);
+  }
+
+  if (dataSkipped) {
+    jobInfo.setDataSkipped(dataSkipped);
+  }
+  if (dataProcessed) {
+    jobInfo.setDataProcessed(dataProcessed);
   }
 
   if (stats) {

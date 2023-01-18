@@ -132,7 +132,7 @@ describe('Job Details', () => {
     expect(screen.getByTestId('RuntimeStats__started')).toHaveTextContent(
       formatDistanceToNowStrict(fromUnixTime(1614136190), {addSuffix: true}),
     );
-    expect(screen.getByTestId('InfoPanel__processed')).toHaveTextContent(/^0$/);
+    expect(screen.getByTestId('InfoPanel__success')).toHaveTextContent(/^0$/);
     expect(screen.getByTestId('InfoPanel__failed')).toHaveTextContent(/^100$/);
     expect(screen.getByTestId('InfoPanel__skipped')).toHaveTextContent(/^0$/);
     expect(screen.getByTestId('InfoPanel__recovered')).toHaveTextContent(/^0$/);

@@ -33,13 +33,24 @@
   margin: 1rem 0;
 }
 
+.datumsProcessing {
+  width: 100%;
+}
+
 .datumCardHeader {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
   background-color: var(--white);
   border-radius: 3px 0 0 3px;
   padding: 0.5rem 1rem;
+}
+
+.datumCardRow {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  width: 100%;
 }
 
 .datumCardBody {

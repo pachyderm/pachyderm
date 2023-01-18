@@ -23,8 +23,11 @@ import {
   Icon,
   Link,
   LoadingDots,
+  SpinnerSVG,
   Tooltip,
 } from '@pachyderm/components';
+
+import {Chip} from '../Chip';
 
 import useInfoPanel from './hooks/useInfoPanel';
 import styles from './InfoPanel.module.css';
@@ -86,18 +89,33 @@ const InfoPanel: React.FC<InfoPanelProps> = ({
         ) : (
           <div className={styles.datumCard}>
             <div className={styles.datumCardHeader}>
-              <div>
-                <span data-testid="InfoPanel__total" className={styles.number}>
-                  {job?.dataTotal}
-                </span>
-                <CaptionTextSmall>Total Datums</CaptionTextSmall>
+              <div className={styles.datumCardRow}>
+                <div>
+                  <span
+                    data-testid="InfoPanel__total"
+                    className={styles.number}
+                  >
+                    {job?.dataTotal}
+                  </span>
+                  <CaptionTextSmall>Total Datums</CaptionTextSmall>
+                </div>
+                <Tooltip
+                  tooltipText="Pipeline Version"
+                  tooltipKey="Pipeline Version"
+                >
+                  <div>v: {jobDetails.pipelineVersion}</div>
+                </Tooltip>
               </div>
-              <Tooltip
-                tooltipText="Pipeline Version"
-                tooltipKey="Pipeline Version"
-              >
-                <div>v: {jobDetails.pipelineVersion}</div>
-              </Tooltip>
+              {!job?.finishedAt && (
+                <Chip
+                  LeftIconSVG={SpinnerSVG}
+                  LeftIconSmall={false}
+                  isButton={false}
+                  className={styles.datumsProcessing}
+                >
+                  Processing datums
+                </Chip>
+              )}
             </div>
             <div className={styles.datumCardBody}>
               {datumMetrics.map(({label, value, filter}) => (

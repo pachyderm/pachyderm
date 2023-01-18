@@ -1,7 +1,6 @@
 .base {
   width: 100%;
   display: inline-flex;
-  border-top: solid 1px var(--border-grey);
   justify-content: space-between;
   align-items: center;
   height: 3.5rem;

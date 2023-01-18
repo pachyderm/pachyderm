@@ -25,8 +25,10 @@ const tutorial = [
         },
       },
     },
-    dataFailed: 0,
-    dataTotal: 100,
+    dataFailed: 1,
+    dataProcessed: 2,
+    dataSkipped: 1,
+    dataTotal: 4,
   }),
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,

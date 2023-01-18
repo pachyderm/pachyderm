@@ -16,6 +16,7 @@ import {
   JobState as GQLJobState,
   OriginKind as GQLOriginKind,
   DatumState as GQLDatumState,
+  DatumFilter as GQLDatumFilter,
   EnterpriseState as GQLEnterpriseState,
 } from '@graphqlTypes';
 
@@ -154,20 +155,16 @@ export const toGQLDatumState = (state: DatumState) => {
   }
 };
 
-export const toProtoDatumState = (state: GQLDatumState) => {
+export const toProtoDatumState = (state: GQLDatumFilter) => {
   switch (state) {
-    case GQLDatumState.FAILED:
+    case GQLDatumFilter.FAILED:
       return DatumState.FAILED;
-    case GQLDatumState.RECOVERED:
+    case GQLDatumFilter.RECOVERED:
       return DatumState.RECOVERED;
-    case GQLDatumState.SKIPPED:
+    case GQLDatumFilter.SKIPPED:
       return DatumState.SKIPPED;
-    case GQLDatumState.STARTING:
-      return DatumState.STARTING;
-    case GQLDatumState.SUCCESS:
+    case GQLDatumFilter.SUCCESS:
       return DatumState.SUCCESS;
-    case GQLDatumState.UNKNOWN:
-      return DatumState.UNKNOWN;
     default:
       throw new ApolloError(`Uknown datum state ${state}`);
   }

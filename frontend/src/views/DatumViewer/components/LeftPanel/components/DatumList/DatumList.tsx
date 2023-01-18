@@ -1,12 +1,17 @@
 import React from 'react';
 
+import {SimplePager} from '@dash-frontend/../components/src/Pager';
+import {Chip} from '@dash-frontend/components/Chip/Chip';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import {getDatumStateColor, getDatumStateSVG} from '@dash-frontend/lib/datums';
+import {DATUM_LIST_PAGE_SIZE} from '@dash-frontend/views/DatumViewer/constants/DatumViewer';
 import {
+  ButtonLink,
   CloseSVG,
   Icon,
   LoadingDots,
   Search,
+  SpinnerSVG,
   StatusStopSVG,
 } from '@pachyderm/components';
 
@@ -29,19 +34,42 @@ const DatumList: React.FC<DatumListProps> = ({setIsExpanded}) => {
     setSearchValue,
     clearSearch,
     showNoSearchResults,
+    page,
+    setPage,
+    hasNextPage,
+    pageCount,
+    isProcessing,
+    contentLength,
+    refresh,
   } = useDatumList(setIsExpanded);
-
-  if (loading) {
-    return <LoadingDots />;
-  }
-
-  if (!loading && datums.length === 0) {
-    return <EmptyState title="No datums found for this job." />;
-  }
 
   return (
     <div className={styles.base} data-testid="DatumList__list">
       <div className={styles.header}>
+        <SimplePager
+          page={page}
+          updatePage={setPage}
+          nextPageDisabled={!hasNextPage}
+          pageCount={pageCount}
+          pageSize={DATUM_LIST_PAGE_SIZE}
+          contentLength={contentLength}
+          elementName="Datum"
+        />
+
+        {isProcessing && (
+          <Chip
+            LeftIconSVG={SpinnerSVG}
+            LeftIconSmall={false}
+            isButton={false}
+            className={styles.loadingMessage}
+          >
+            <div data-testid="DatumList__processing">
+              Processing — datums are being processed.{' '}
+              <ButtonLink onClick={() => refresh()}>Refresh</ButtonLink>
+            </div>
+          </Chip>
+        )}
+
         <div className={styles.search}>
           <Search
             data-testid="DatumList__search"
@@ -67,8 +95,9 @@ const DatumList: React.FC<DatumListProps> = ({setIsExpanded}) => {
           />
         )}
       </div>
-
-      {datums &&
+      {loading ? (
+        <LoadingDots />
+      ) : datums.length !== 0 ? (
         datums.map((datum) => (
           <ListItem
             data-testid="DatumList__listItem"
@@ -79,7 +108,10 @@ const DatumList: React.FC<DatumListProps> = ({setIsExpanded}) => {
             text={datum.id}
             onClick={() => onDatumClick(datum.id)}
           />
-        ))}
+        ))
+      ) : (
+        <EmptyState title="" message="No datums found for this job." />
+      )}
     </div>
   );
 };

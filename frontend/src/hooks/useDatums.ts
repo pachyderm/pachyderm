@@ -1,12 +1,10 @@
 import {Datum, DatumsQueryArgs, DatumsQuery} from '@graphqlTypes';
 
-import {DATUMS_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
 import {useDatumsQuery} from '@dash-frontend/generated/hooks';
 
 const useDatums = (args: DatumsQueryArgs) => {
-  const {data, error, loading} = useDatumsQuery({
+  const {data, error, loading, refetch} = useDatumsQuery({
     variables: {args},
-    pollInterval: DATUMS_POLL_INTERVAL_MS,
   });
 
   // This is to assure that the types coming back are all of type Datum
@@ -26,6 +24,7 @@ const useDatums = (args: DatumsQueryArgs) => {
     cursor: data?.datums.cursor,
     hasNextPage: data?.datums.hasNextPage,
     loading,
+    refetch,
   };
 };
 

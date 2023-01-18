@@ -45,7 +45,7 @@ const allDatums = {
             .setSizeBytes(0),
         ]),
       new DatumInfo()
-        .setState(DatumState.STARTING)
+        .setState(DatumState.FAILED)
         .setDatum(
           new Datum().setId(
             '01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155',

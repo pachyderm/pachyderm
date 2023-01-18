@@ -76,6 +76,15 @@ enum DatumState {
   RECOVERED
 }
 
+# UNKNOWN and STARTING statuses are not being used in core.
+# There is no need to allow users to filter on these two statuses
+enum DatumFilter {
+  FAILED
+  SUCCESS
+  SKIPPED
+  RECOVERED
+}
+
 enum OriginKind {
   USER
   AUTO
@@ -527,7 +536,7 @@ input DatumsQueryArgs {
   jobId: ID!
   pipelineId: ID!
   limit: Int
-  filter: [DatumState!]
+  filter: [DatumFilter!]
   cursor: String
 }
 

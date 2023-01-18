@@ -154,6 +154,13 @@ export type Datum = {
   uploadTimestamp?: Maybe<Timestamp>;
 };
 
+export enum DatumFilter {
+  FAILED = 'FAILED',
+  RECOVERED = 'RECOVERED',
+  SKIPPED = 'SKIPPED',
+  SUCCESS = 'SUCCESS',
+}
+
 export type DatumQueryArgs = {
   id: Scalars['ID'];
   jobId: Scalars['ID'];
@@ -172,7 +179,7 @@ export enum DatumState {
 
 export type DatumsQueryArgs = {
   cursor?: InputMaybe<Scalars['String']>;
-  filter?: InputMaybe<Array<DatumState>>;
+  filter?: InputMaybe<Array<DatumFilter>>;
   jobId: Scalars['ID'];
   limit?: InputMaybe<Scalars['Int']>;
   pipelineId: Scalars['ID'];
@@ -949,6 +956,7 @@ export type ResolversTypes = ResolversObject<{
   CronInput: ResolverTypeWrapper<CronInput>;
   DagQueryArgs: DagQueryArgs;
   Datum: ResolverTypeWrapper<Datum>;
+  DatumFilter: DatumFilter;
   DatumQueryArgs: DatumQueryArgs;
   DatumState: DatumState;
   DatumsQueryArgs: DatumsQueryArgs;

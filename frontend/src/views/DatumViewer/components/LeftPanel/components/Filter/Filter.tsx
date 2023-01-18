@@ -1,4 +1,4 @@
-import {DatumState} from '@graphqlTypes';
+import {DatumFilter} from '@graphqlTypes';
 import classnames from 'classnames';
 import capitalize from 'lodash/capitalize';
 import xor from 'lodash/xor';
@@ -22,20 +22,20 @@ import {DatumFilterFormValues} from '../../hooks/useLeftPanel';
 
 import styles from './Filter.module.css';
 
-export const datumStates = Object.values(DatumState);
+export const datumFilters = Object.values(DatumFilter);
 
 export type FilterProps = {
   formCtx: UseFormReturn<DatumFilterFormValues>;
 };
 
 export type stateOptions = {
-  id: DatumState;
+  id: DatumFilter;
   name: string;
 };
 
 export const Filter: React.FC<FilterProps> = ({formCtx}) => {
   const {viewState, updateViewState} = useUrlQueryState();
-  const datumFilters = viewState.datumFilters || [];
+  const filters = viewState.datumFilters || [];
 
   const {watch, setValue} = formCtx;
   const jobsSort = watch('jobs');
@@ -46,9 +46,9 @@ export const Filter: React.FC<FilterProps> = ({formCtx}) => {
     }
   };
 
-  const updateDatumSelection = (datumState: DatumState) => {
+  const updateDatumSelection = (datumState: DatumFilter) => {
     updateViewState({
-      datumFilters: xor<DatumState>(datumFilters, [datumState]),
+      datumFilters: xor<DatumFilter>(filters, [datumState]),
     });
   };
 
@@ -81,7 +81,7 @@ export const Filter: React.FC<FilterProps> = ({formCtx}) => {
               <div className={styles.heading}>
                 <CaptionTextSmall>Filter Datums by Status</CaptionTextSmall>
               </div>
-              {datumStates.map((state) => (
+              {datumFilters.map((state) => (
                 <PureCheckbox
                   small
                   id={state}
@@ -89,7 +89,7 @@ export const Filter: React.FC<FilterProps> = ({formCtx}) => {
                   name={state}
                   label={readableDatumState(state)}
                   onClick={() => updateDatumSelection(state)}
-                  selected={datumFilters.includes(state)}
+                  selected={filters.includes(state)}
                 />
               ))}
             </div>
@@ -103,8 +103,8 @@ export const Filter: React.FC<FilterProps> = ({formCtx}) => {
         >
           {capitalize(jobsSort)}
         </Chip>
-        {datumFilters &&
-          datumFilters.map((item) => (
+        {filters &&
+          filters.map((item) => (
             <Chip
               data-testid={`Filter__${item}Chip`}
               key={item}

@@ -5,6 +5,7 @@ import {DATUMS_QUERY} from '@dash-frontend/queries/GetDatumsQuery';
 import {executeQuery} from '@dash-backend/testHelpers';
 import {
   Datum,
+  DatumFilter,
   DatumQuery,
   DatumSearchQuery,
   DatumsQuery,
@@ -88,7 +89,7 @@ describe('Datum resolver', () => {
             projectId: '1',
             jobId: '23b9af7d5d4343219bc8e02ff44cd55a',
             pipelineId: 'montage',
-            filter: [DatumState.STARTING],
+            filter: [DatumFilter.FAILED],
           },
         },
       );

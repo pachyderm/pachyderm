@@ -73,13 +73,24 @@ describe('ProjectSidebar', () => {
       );
       render(<Project />);
       const logsLink = await waitFor(
-        () => screen.findByRole('link', {name: '0 Processed'}),
+        () => screen.findByRole('link', {name: '0 Success'}),
         {timeout: 4000},
       );
       expect(logsLink as HTMLElement).toHaveAttribute(
         'href',
         '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/edges/logs/datum?view=eyJkYXR1bUZpbHRlcnMiOlsiU1VDQ0VTUyJdfQ%3D%3D',
       );
+    });
+
+    it('should display loading message for datum info if job is not finshed', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/project/1/jobs/7798fhje5d4343219bc8e02ff4acd33a',
+      );
+
+      render(<Project />);
+      expect(await screen.findByText('Processing datums')).toBeInTheDocument();
     });
   });
 
@@ -114,7 +125,7 @@ describe('ProjectSidebar', () => {
       render(<Project />);
 
       const logsLink = await waitFor(
-        () => screen.findByRole('link', {name: '0 Processed'}),
+        () => screen.findByRole('link', {name: '2 Success'}),
         {timeout: 4000},
       );
       expect(logsLink as HTMLElement).toHaveAttribute(

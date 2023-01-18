@@ -1,4 +1,4 @@
-import {JobQuery, DatumState} from '@graphqlTypes';
+import {JobQuery, DatumFilter} from '@graphqlTypes';
 import {
   formatDistanceStrict,
   formatDistanceToNowStrict,
@@ -44,7 +44,7 @@ const useInfoPanel = ({
           addSuffix: true,
         })
       : 'N/A';
-  }, [job?.startedAt]);
+  }, [job]);
 
   const duration = useMemo(() => {
     return job?.finishedAt && job?.startedAt
@@ -75,23 +75,23 @@ const useInfoPanel = ({
     return [
       {
         value: job?.dataProcessed,
-        label: 'Processed',
-        filter: DatumState.SUCCESS,
+        label: 'Success',
+        filter: DatumFilter.SUCCESS,
       },
       {
         value: job?.dataSkipped,
         label: 'Skipped',
-        filter: DatumState.SKIPPED,
+        filter: DatumFilter.SKIPPED,
       },
       {
         value: job?.dataFailed,
         label: 'Failed',
-        filter: DatumState.FAILED,
+        filter: DatumFilter.FAILED,
       },
       {
         value: job?.dataRecovered,
         label: 'Recovered',
-        filter: DatumState.RECOVERED,
+        filter: DatumFilter.RECOVERED,
       },
     ];
   }, [job]);
@@ -109,7 +109,7 @@ const useInfoPanel = ({
   }
 
   const addLogsQueryParams = useCallback(
-    (path: string, filter: DatumState) => {
+    (path: string, filter: DatumFilter) => {
       return `${path}?${getUpdatedSearchParams({
         datumFilters: [filter],
       })}`;

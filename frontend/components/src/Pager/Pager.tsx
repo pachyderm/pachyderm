@@ -102,10 +102,11 @@ export const SimplePager: React.FC<SimplePagerProps> = ({
   return (
     <div className={styles.base}>
       <div className={styles.navigation}>
-        {page && pageCount && (
+        {page && contentLength !== 0 && (
           <span>
             {elementName || 'Item'}s {(page - 1) * pageSize + 1} -{' '}
-            {Math.min(contentLength, page * pageSize)} of {contentLength}
+            {Math.min(contentLength, page * pageSize)}{' '}
+            {pageCount ? `of  ${contentLength}` : ''}
           </span>
         )}
       </div>
