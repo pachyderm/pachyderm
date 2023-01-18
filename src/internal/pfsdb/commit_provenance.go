@@ -120,7 +120,7 @@ func CommitSetSubvenance(ctx context.Context, tx *pachsql.Tx, id string) ([]*pfs
 }
 
 func AddCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error {
-	stmt := `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES ($1, $2);`
+	stmt := `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`
 	_, err := tx.ExecContext(ctx, stmt, CommitKey(commit), commit.ID)
 	return errors.Wrapf(err, "insert commit %q into pfs.commits", CommitKey(commit))
 }

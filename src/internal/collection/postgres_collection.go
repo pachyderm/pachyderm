@@ -37,7 +37,7 @@ type postgresCollection struct {
 	notFound           func(interface{}) string
 	exists             func(interface{}) string
 	listBufferCapacity int
-	createHook         func(*pachsql.Tx, interface{}) error
+	putHook            func(*pachsql.Tx, interface{}) error
 	deleteHook         func(*pachsql.Tx, string) error
 	deleteJoinHook     func() (hookJoinTable string, colJoinColumn string, hookJoinColumn string)
 }
@@ -86,9 +86,9 @@ func WithListBufferCapacity(cap int) Option {
 	}
 }
 
-func WithCreateHook(createHook func(*pachsql.Tx, interface{}) error) Option {
+func WithPutHook(putHook func(*pachsql.Tx, interface{}) error) Option {
 	return func(c *postgresCollection) {
-		c.createHook = createHook
+		c.putHook = putHook
 	}
 }
 
@@ -821,7 +821,11 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 	if err != nil {
 		return c.mapSQLError(err, key)
 	}
-
+	if c.putHook != nil {
+		if err := c.putHook(c.tx, val); err != nil {
+			return c.mapSQLError(err, key)
+		}
+	}
 	if !upsert {
 		count, err := result.RowsAffected()
 		if err != nil {
@@ -830,11 +834,6 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 
 		if count != int64(1) {
 			return errors.WithStack(ErrExists{Type: c.table, Key: key})
-		}
-		if c.createHook != nil {
-			if err := c.createHook(c.tx, val); err != nil {
-				return c.mapSQLError(err, key)
-			}
 		}
 	}
 	return nil

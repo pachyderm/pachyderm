@@ -145,7 +145,7 @@ func Commits(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollecti
 		col.WithExistsMessage(func(key interface{}) string {
 			return pfsserver.ErrCommitExists{Commit: key.(*pfs.Commit)}.Error()
 		}),
-		col.WithCreateHook(func(tx *pachsql.Tx, commitInfo interface{}) error {
+		col.WithPutHook(func(tx *pachsql.Tx, commitInfo interface{}) error {
 			ci := commitInfo.(*pfs.CommitInfo)
 			if ci.Commit.Repo == nil {
 				return errors.New("Commits must have the repo field populated")
