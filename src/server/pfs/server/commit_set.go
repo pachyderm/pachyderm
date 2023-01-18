@@ -39,8 +39,7 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	}); err != nil {
 		return nil, err
 	}
-	sorted := make([]*pfs.CommitInfo, 0)
-	seenRepos := make(map[string]struct{})
+	totalRepos := make(map[string]struct{})
 	for _, ci := range commitInfos {
 		var err error
 		ci.Details = &pfs.CommitInfo_Details{}
@@ -48,22 +47,29 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 		if err != nil {
 			return nil, err
 		}
+		totalRepos[pfsdb.RepoKey(ci.Commit.Repo)] = struct{}{}
 	}
+	sorted := make([]*pfs.CommitInfo, 0)
+	seenRepos := make(map[string]struct{})
+	sortedCommits := make(map[string]struct{})
 	// O(n^2) sorting of commits
 	for len(sorted) < len(commitInfos) {
 		for _, ci := range commitInfos {
-			if _, ok := seenRepos[pfsdb.RepoKey(ci.Commit.Repo)]; ok {
+			if _, ok := sortedCommits[pfsdb.CommitKey(ci.Commit)]; ok {
 				continue
 			}
 			satisfied := true
 			for _, p := range ci.Details.CommitProvenance {
-				if _, ok := seenRepos[pfsdb.RepoKey(p.Repo)]; !ok {
+				_, needsRepoCommit := totalRepos[pfsdb.RepoKey(p.Repo)]
+				_, processedRepoCommit := seenRepos[pfsdb.RepoKey(p.Repo)]
+				if needsRepoCommit && !processedRepoCommit {
 					satisfied = false
 					break
 				}
 			}
 			if satisfied {
 				seenRepos[pfsdb.RepoKey(ci.Commit.Repo)] = struct{}{}
+				sortedCommits[pfsdb.CommitKey(ci.Commit)] = struct{}{}
 				sorted = append(sorted, ci)
 			}
 		}
