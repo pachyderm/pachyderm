@@ -3,15 +3,46 @@ package task
 import (
 	"context"
 
-	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 	"go.uber.org/zap"
+	"golang.org/x/sync/semaphore"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
+	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"golang.org/x/sync/errgroup"
 )
+
+// DoOrdered returns objects of type Any in order on channel out.
+func DoOrdered(ctx context.Context, doer Doer, inputs, out chan *types.Any, parallelism int) error {
+	taskChain := taskchain.NewTaskChain(ctx, semaphore.NewWeighted(int64(parallelism)))
+	for {
+		select {
+		case input, ok := <-inputs:
+			if !ok {
+				return taskChain.Wait()
+			}
+			if err := taskChain.CreateTask(func(context.Context) (serCB func() error, err error) {
+				result, err := DoOne(ctx, doer, input)
+				if err != nil {
+					return nil, errors.EnsureStack(err)
+				}
+				return func() error {
+					out <- result
+					return nil
+				}, nil
+			}); err != nil {
+				return errors.EnsureStack(err)
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
 
 // DoOne executes one task.
 // NOTE: This interface is much less performant than the stream / batch interfaces for many tasks.

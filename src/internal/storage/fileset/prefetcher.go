@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+
 	"golang.org/x/sync/semaphore"
 )
 
@@ -34,7 +37,7 @@ func NewPrefetcher(storage *Storage, fileSet FileSet) FileSet {
 func (p *prefetcher) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	taskChain := chunk.NewTaskChain(ctx, semaphore.NewWeighted(int64(p.storage.prefetchLimit)))
+	taskChain := taskchain.NewTaskChain(ctx, semaphore.NewWeighted(int64(p.storage.prefetchLimit)))
 	fetchChunk := func(ref *chunk.DataRef, files []File) error {
 		return taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
 			if ref != nil {

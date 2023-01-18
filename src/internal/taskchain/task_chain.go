@@ -1,12 +1,13 @@
-package chunk
+package taskchain
 
 import (
 	"context"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // TaskChain manages a chain of tasks that have a parallel and serial part.

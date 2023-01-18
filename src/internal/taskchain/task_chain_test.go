@@ -1,4 +1,4 @@
-package chunk
+package taskchain
 
 import (
 	"context"
@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/semaphore"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"golang.org/x/sync/semaphore"
 )
 
 func TestTaskChain(t *testing.T) {
