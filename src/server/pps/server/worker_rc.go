@@ -861,7 +861,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	}, nil
 }
 
-// transformToleration transofrms a pps.Toleration into a k8s Toleration.  It's used while creating
+// transformToleration transforms a pps.Toleration into a k8s Toleration.  It's used while creating
 // the RC, and at pipeline submission to validate the provided tolerations before saving the
 // pipeline.  It's in here and not in src/pps/pps.go so that the protobuf library doesn't depend on
 // k8s.
