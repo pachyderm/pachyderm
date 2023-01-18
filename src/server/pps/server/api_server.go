@@ -19,6 +19,7 @@ import (
 	"github.com/itchyny/gojq"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/robfig/cron"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -1774,6 +1775,15 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	if request.Spout != nil && request.Autoscaling {
 		return errors.Errorf("autoscaling can't be used with spouts (spouts aren't triggered externally)")
 	}
+	var tolErrs error
+	for i, t := range request.GetTolerations() {
+		if _, err := transformToleration(t); err != nil {
+			multierr.AppendInto(&tolErrs, errors.Errorf("toleration %d/%d: %v", i+1, len(request.GetTolerations()), err))
+		}
+	}
+	if tolErrs != nil {
+		return tolErrs
+	}
 	return nil
 }
 
@@ -2176,6 +2186,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			Metadata:              request.Metadata,
 			ReprocessSpec:         request.ReprocessSpec,
 			Autoscaling:           request.Autoscaling,
+			Tolerations:           request.Tolerations,
 		},
 	}
 
