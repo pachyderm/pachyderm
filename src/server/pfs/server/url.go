@@ -91,9 +91,9 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 	outputChan := make(chan *types.Any)
 	eg, ctx := errgroup.WithContext(ctx)
 	doer := taskService.NewDoer(URLTaskNamespace, uuid.NewWithoutDashes(), nil)
-	// load
+	// Create tasks.
 	eg.Go(func() error {
-		createTask := func(startOffset, endOffset int64, startPath, endPath string) error {
+		if err := coordinateTasks(ctx, src.URL, func(startOffset, endOffset int64, startPath, endPath string) error {
 			input, err := serializePutFileURLTask(&PutFileURLTask{
 				Dst:         dst,
 				Datum:       tag,
@@ -112,20 +112,19 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 				return errors.EnsureStack(ctx.Err())
 			}
 			return nil
-		}
-		if err := coordinateTasks(ctx, src.URL, createTask); err != nil {
+		}); err != nil {
 			return err
 		}
 		close(inputChan)
 		return nil
 	})
-	// input -> ordered output
+	// Order output from input channel.
 	eg.Go(func() error {
 		// TODO: Add cache?
 		defer close(outputChan)
 		return task.DoOrdered(ctx, doer, inputChan, outputChan, 100)
 	})
-	// deserialize output
+	// Deserialize output.
 	eg.Go(func() error {
 		for output := range outputChan {
 			result, err := deserializePutFileURLTaskResult(output)
