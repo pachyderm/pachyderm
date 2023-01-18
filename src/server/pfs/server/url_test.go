@@ -29,6 +29,7 @@ func TestTaskBatching(t *testing.T) {
 	files := make(map[string]string)
 	testDir := "./testing/testdata/urlCoordination"
 	dir, err := os.ReadDir(testDir)
+	objStoreDir := randutil.UniqueString("url-coord-")
 	require.NoError(t, err, "should be able to read dir")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
@@ -36,7 +37,6 @@ func TestTaskBatching(t *testing.T) {
 	defer func() {
 		require.NoError(t, bucket.Close())
 	}()
-	objStoreDir := randutil.UniqueString("url-coord-")
 	for _, file := range dir {
 		fileData, err := os.ReadFile(path.Join(testDir, file.Name()))
 		require.NoError(t, err, "should be able to read file")
@@ -61,11 +61,11 @@ func TestTaskBatching(t *testing.T) {
 			tasks = append(tasks, task)
 			return nil
 		}))
-	verifiedFiles := processTasks(ctx, t, tasks, dir, bucket, objStoreDir)
+	processedFiles := processTasks(ctx, t, tasks, dir, bucket, objStoreDir)
 	for file, data := range files {
-		require.Equal(t, data, verifiedFiles[file], "files should match")
+		require.Equal(t, data, processedFiles[file], "files should match")
 	}
-	for file := range verifiedFiles {
+	for file := range processedFiles {
 		if _, ok := files[file]; !ok {
 			t.Fatalf("unknown file %s was added by tasks", file)
 		}
