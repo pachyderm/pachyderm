@@ -192,12 +192,20 @@ func (kd *kubeDriver) WatchPipelinePods(ctx context.Context) (<-chan watch.Event
 }
 
 func (kd *kubeDriver) GetKubeEventTail(ctx context.Context) (string, error) {
-	// get logs from kubernetes
-	pod, err := kd.kubeClient.CoreV1().Pods(kd.namespace).Get(ctx, "kube-event-tail", metav1.GetOptions{})
+	// find kube-event-tail pod
+	pods, err := kd.kubeClient.CoreV1().Pods(kd.namespace).List(ctx, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
+		map[string]string{"app": "pachyderm-kube-event-tail"},
+	))})
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get kube-event-tail pod")
 	}
-	logStream, err := kd.kubeClient.CoreV1().Pods("kube-system").GetLogs(pod.Name, &v1.PodLogOptions{}).Stream(ctx)
+	if len(pods.Items) == 0 {
+		return "", errors.New("no kube-event-tail pods found")
+	} else if len(pods.Items) > 1 {
+		return "", errors.New("multiple kube-event-tail pods found")
+	}
+	pod := pods.Items[0]
+	logStream, err := kd.kubeClient.CoreV1().Pods(kd.namespace).GetLogs(pod.Name, &v1.PodLogOptions{}).Stream(ctx)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get kube-event-tail logs")
 	}
