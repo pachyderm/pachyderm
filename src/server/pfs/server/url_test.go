@@ -34,6 +34,7 @@ func TestTaskBatching(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 	bucket, err := openBucket(ctx, url)
+	require.NoError(t, err, "should be able to open bucket")
 	defer func() {
 		require.NoError(t, bucket.Close())
 	}()
@@ -44,7 +45,7 @@ func TestTaskBatching(t *testing.T) {
 		writeToObjStorage(ctx, t, bucket, path.Join(objStoreDir, file.Name()), string(fileData))
 	}
 	defer func() {
-		for file, _ := range files {
+		for file := range files {
 			require.NoError(t, bucket.Delete(ctx, path.Join(objStoreDir, file)), "should be able to delete file")
 		}
 	}()

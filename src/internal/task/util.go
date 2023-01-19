@@ -39,7 +39,7 @@ func DoOrdered(ctx context.Context, doer Doer, inputs, out chan *types.Any, para
 				return errors.EnsureStack(err)
 			}
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.EnsureStack(ctx.Err())
 		}
 	}
 }
