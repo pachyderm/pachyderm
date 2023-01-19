@@ -125,7 +125,7 @@ const ListUnmount: React.FC<ListUnmountProps> = ({
   return (
     <li
       className="pachyderm-mount-sortableList-item"
-      data-testid="ListItem__branches"
+      data-testid="ListItem__repo"
     >
       <span
         className={`pachyderm-mount-list-item-name-branch-wrapper ${
