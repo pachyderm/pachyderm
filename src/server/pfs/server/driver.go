@@ -731,10 +731,6 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		if len(bi.Provenance) == 1 && bi.Provenance[0].Repo.Type == pfs.SpecRepoType {
 			continue
 		}
-		// TODO(acohen4): understand why this is necessary
-		if bi.GetHead().GetID() == txnCtx.CommitSetID {
-			continue
-		}
 		newCommit := &pfs.Commit{
 			Repo:   bi.Branch.Repo,
 			Branch: bi.Branch,
