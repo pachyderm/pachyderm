@@ -1,6 +1,7 @@
 describe('Download Canvas', () => {
   beforeEach(() => {
     cy.visit('/');
+    cy.findByText('Projects');
   });
 
   it("should download a Project's canvas correctly", () => {
