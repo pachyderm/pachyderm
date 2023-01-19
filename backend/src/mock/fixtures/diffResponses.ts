@@ -61,14 +61,14 @@ export type Diffs = {
 };
 
 const files: Diffs = {
-  '1': customer,
-  '2': tutorial,
-  '3': customer,
-  '4': emptyDiffResponse,
-  '5': emptyDiffResponse,
-  '6': emptyDiffResponse,
-  '7': emptyDiffResponse,
-  '8': emptyDiffResponse,
+  'Solar-Panel-Data-Sorting': customer,
+  'Data-Cleaning-Process': tutorial,
+  'Solar-Power-Data-Logger-Team-Collab': customer,
+  'Solar-Price-Prediction-Modal': emptyDiffResponse,
+  'Egress-Examples': emptyDiffResponse,
+  'Empty-Project': emptyDiffResponse,
+  'Trait-Discovery': emptyDiffResponse,
+  'OpenCV-Tutorial': emptyDiffResponse,
   default: emptyDiffResponse,
 };
 

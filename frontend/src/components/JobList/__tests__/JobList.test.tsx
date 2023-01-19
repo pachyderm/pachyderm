@@ -50,7 +50,7 @@ describe('JobList', () => {
   it('should display the list of jobs for a project', async () => {
     render(
       <JobList
-        projectId="2"
+        projectId="Data-Cleaning-Process"
         emptyStateTitle="Empty State Title"
         emptyStatemessage="Empty State Message"
       />,
@@ -66,7 +66,9 @@ describe('JobList', () => {
       screen.getByRole('list'),
     );
 
-    expect(queryAllByRole('listitem')).toHaveLength(jobs['2'].length);
+    expect(queryAllByRole('listitem')).toHaveLength(
+      jobs['Data-Cleaning-Process'].length,
+    );
     expect(getByText('Failure')).toBeInTheDocument();
     expect(getByText('Egressing')).toBeInTheDocument();
     expect(getByText('Killed')).toBeInTheDocument();
@@ -78,7 +80,7 @@ describe('JobList', () => {
   it('should display a list of jobs for a pipeline', async () => {
     render(
       <JobList
-        projectId="1"
+        projectId="Solar-Panel-Data-Sorting"
         pipelineId="montage"
         emptyStateTitle="Empty State Title"
         emptyStatemessage="Empty State Message"
@@ -94,7 +96,7 @@ describe('JobList', () => {
     const {queryAllByRole, getByText} = within(screen.getByRole('list'));
 
     expect(queryAllByRole('listitem')).toHaveLength(
-      jobs['1'].filter(
+      jobs['Solar-Panel-Data-Sorting'].filter(
         (job) => job.getJob()?.getPipeline()?.getName() === 'montage',
       ).length,
     );
@@ -104,7 +106,7 @@ describe('JobList', () => {
   it('should display a list of actions', async () => {
     render(
       <JobList
-        projectId="2"
+        projectId="Data-Cleaning-Process"
         expandActions
         emptyStateTitle="Empty State Title"
         emptyStatemessage="Empty State Message"
@@ -113,13 +115,15 @@ describe('JobList', () => {
 
     const seeDetailsButtons = await screen.findAllByText('See Details');
 
-    expect(seeDetailsButtons).toHaveLength(jobs['2'].length);
+    expect(seeDetailsButtons).toHaveLength(
+      jobs['Data-Cleaning-Process'].length,
+    );
   });
 
   it('should allow user to filter on job state', async () => {
     render(
       <JobList
-        projectId="2"
+        projectId="Data-Cleaning-Process"
         showStatusFilter
         emptyStateTitle="Empty State Title"
         emptyStatemessage="Empty State Message"
@@ -127,7 +131,9 @@ describe('JobList', () => {
     );
 
     expect(
-      await screen.findByText(`Last ${jobs['2'].length} Jobs`),
+      await screen.findByText(
+        `Last ${jobs['Data-Cleaning-Process'].length} Jobs`,
+      ),
     ).toBeInTheDocument();
 
     const startingButton = screen.getByText(/Starting \(\d\)/);
@@ -169,7 +175,7 @@ describe('JobList', () => {
   it('should display the filter empty state message if no filters are selected', async () => {
     render(
       <JobList
-        projectId="3"
+        projectId="Solar-Power-Data-Logger-Team-Collab"
         showStatusFilter
         emptyStateTitle="Empty State Title"
         emptyStatemessage="Empty State Message"
@@ -177,7 +183,9 @@ describe('JobList', () => {
     );
 
     expect(
-      await screen.findByText(`Last ${jobs['3'].length} Jobs`),
+      await screen.findByText(
+        `Last ${jobs['Solar-Power-Data-Logger-Team-Collab'].length} Jobs`,
+      ),
     ).toBeInTheDocument();
 
     const successButton = screen.getByText(/Success \(\d\)/);
@@ -197,7 +205,7 @@ describe('JobList', () => {
   it('should display an empty state if there are no jobs', async () => {
     render(
       <JobList
-        projectId="5"
+        projectId="Egress-Examples"
         emptyStateTitle="Empty State Title"
         emptyStatemessage="Empty State Message"
       />,
@@ -211,7 +219,7 @@ describe('JobList', () => {
     it('should display the list of jobSets for a given project', async () => {
       render(
         <JobSetList
-          projectId="2"
+          projectId="Data-Cleaning-Process"
           emptyStateTitle="Empty State Title"
           emptyStateMessage="Empty State Message"
         />,
@@ -226,7 +234,7 @@ describe('JobList', () => {
       const {queryAllByRole} = within(screen.getByRole('list'));
 
       expect(queryAllByRole('listitem')).toHaveLength(
-        Object.keys(jobSets['2']).length,
+        Object.keys(jobSets['Data-Cleaning-Process']).length,
       );
     });
   });

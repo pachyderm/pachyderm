@@ -71,7 +71,10 @@ const attachFileHandlers = (app: Express) => {
 
   app.use(cookieParser());
   app.use('/upload', uploadsRouter);
-  app.get('/download/:repoName/:branchName/:commitId/*', handleFileDownload);
+  app.get(
+    '/download/:projectId/:repoName/:branchName/:commitId/*',
+    handleFileDownload,
+  );
 };
 
 const attachAnalytics = async () => {

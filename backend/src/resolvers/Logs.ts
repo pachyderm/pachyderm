@@ -47,19 +47,20 @@ const calculateSince = (startTime?: Maybe<number>) => {
 
 const logsResolver: LogsResolver = {
   Query: {
-    workspaceLogs: async (_field, {args: {start}}, {pachClient}) => {
+    workspaceLogs: async (_field, {args: {projectId, start}}, {pachClient}) => {
       const logs = await pachClient
         .pps()
-        .getLogs({since: calculateSince(start)});
+        .getLogs({projectId, since: calculateSince(start)});
 
       return logs.map(parseWorkspaceLog);
     },
     logs: async (
       _field,
-      {args: {pipelineName, jobId, datumId, start, reverse = false}},
+      {args: {projectId, pipelineName, jobId, datumId, start, reverse = false}},
       {pachClient},
     ) => {
       const logs = await pachClient.pps().getLogs({
+        projectId,
         pipelineName: pipelineName,
         jobId: jobId || undefined,
         datumId: datumId || undefined,
@@ -74,10 +75,10 @@ const logsResolver: LogsResolver = {
 
   Subscription: {
     workspaceLogs: {
-      subscribe: async (_field, {args: {start}}, {pachClient}) => {
+      subscribe: async (_field, {args: {projectId, start}}, {pachClient}) => {
         const stream = await pachClient
           .pps()
-          .getLogsStream({since: calculateSince(start)});
+          .getLogsStream({projectId, since: calculateSince(start)});
 
         return {
           [Symbol.asyncIterator]: () =>
@@ -96,10 +97,11 @@ const logsResolver: LogsResolver = {
     logs: {
       subscribe: async (
         _field,
-        {args: {pipelineName, jobId, start}},
+        {args: {projectId, pipelineName, jobId, start}},
         {pachClient},
       ) => {
         const stream = await pachClient.pps().getLogsStream({
+          projectId,
           pipelineName: pipelineName,
           jobId: jobId || undefined,
           since: calculateSince(start),

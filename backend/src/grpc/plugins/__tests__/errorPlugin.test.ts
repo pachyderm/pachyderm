@@ -9,7 +9,7 @@ describe('errorPlugin', () => {
       GET_DAG_QUERY,
       {
         args: {
-          projectId: '1',
+          projectId: 'Solar-Panel-Data-Sorting',
         },
       },
       {'auth-token': 'expired'},

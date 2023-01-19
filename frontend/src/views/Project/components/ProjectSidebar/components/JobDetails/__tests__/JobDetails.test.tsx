@@ -21,7 +21,7 @@ describe('Job Details', () => {
     return <Route path={PROJECT_JOB_PATH} component={JobDetails} />;
   });
 
-  const projectId = '2';
+  const projectId = 'Data-Cleaning-Process';
   const jobId = '23b9af7d5d4343219bc8e02ff4acd33a';
 
   beforeEach(() => {
@@ -50,7 +50,7 @@ describe('Job Details', () => {
     expect(likelihoodsLink).toBeInTheDocument();
     expect(likelihoodsLink).toHaveAttribute(
       'href',
-      jobRoute({projectId, jobId, pipelineId: 'likelihoods'}, false),
+      decodeURI(jobRoute({projectId, jobId, pipelineId: 'likelihoods'}, false)),
     );
 
     const modelsLink = withinNavList.getByRole('link', {
@@ -59,7 +59,7 @@ describe('Job Details', () => {
     expect(modelsLink).toBeInTheDocument();
     expect(modelsLink).toHaveAttribute(
       'href',
-      jobRoute({projectId, jobId, pipelineId: 'models'}, false),
+      decodeURI(jobRoute({projectId, jobId, pipelineId: 'models'}, false)),
     );
 
     const jointCallLink = withinNavList.getByRole('link', {
@@ -68,7 +68,7 @@ describe('Job Details', () => {
     expect(jointCallLink).toBeInTheDocument();
     expect(jointCallLink).toHaveAttribute(
       'href',
-      jobRoute({projectId, jobId, pipelineId: 'joint_call'}, false),
+      decodeURI(jobRoute({projectId, jobId, pipelineId: 'joint_call'}, false)),
     );
 
     const splitLink = withinNavList.getByRole('link', {
@@ -77,7 +77,7 @@ describe('Job Details', () => {
     expect(splitLink).toBeInTheDocument();
     expect(splitLink).toHaveAttribute(
       'href',
-      jobRoute({projectId, jobId, pipelineId: 'split'}, false),
+      decodeURI(jobRoute({projectId, jobId, pipelineId: 'split'}, false)),
     );
 
     const testLink = withinNavList.getByRole('link', {
@@ -86,7 +86,7 @@ describe('Job Details', () => {
     expect(testLink).toBeInTheDocument();
     expect(testLink).toHaveAttribute(
       'href',
-      jobRoute({projectId, jobId, pipelineId: 'test'}, false),
+      decodeURI(jobRoute({projectId, jobId, pipelineId: 'test'}, false)),
     );
 
     await click(testLink);
@@ -168,7 +168,7 @@ describe('Job Details', () => {
       '',
       '',
       jobRoute({
-        projectId: '1',
+        projectId: 'Solar-Panel-Data-Sorting',
         jobId: '33b9af7d5d4343219bc8e02ff44cd55a',
         pipelineId: 'montage',
       }),
@@ -229,7 +229,7 @@ describe('Job Details', () => {
       '',
       '',
       jobRoute({
-        projectId: '1',
+        projectId: 'Solar-Panel-Data-Sorting',
         jobId: '33b9af7d5d4343219bc8e02ff44cd55a',
         pipelineId: 'montage',
       }),
@@ -314,9 +314,8 @@ describe('Job Details', () => {
     );
 
     expect(getUrlState()).toMatchObject({
-      prevFileBrowserPath: jobRoute(
-        {projectId, jobId, pipelineId: 'models'},
-        false,
+      prevFileBrowserPath: decodeURI(
+        jobRoute({projectId, jobId, pipelineId: 'models'}, false),
       ),
     });
   });

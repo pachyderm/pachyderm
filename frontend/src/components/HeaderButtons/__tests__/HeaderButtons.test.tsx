@@ -11,7 +11,7 @@ describe('HeaderButtons', () => {
   });
 
   afterEach(() => {
-    window.localStorage.removeItem('pachyderm-console-default');
+    window.localStorage.removeItem('pachyderm-console-Default');
   });
   
   /* eslint-disable jest/no-disabled-tests */

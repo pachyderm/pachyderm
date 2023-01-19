@@ -144,11 +144,11 @@ export type Datums = {
 };
 
 const datums: Datums = {
-  '1': allDatums,
-  '2': lotsOfDatums,
-  '3': allDatums,
-  '4': allDatums,
-  '5': allDatums,
+  'Solar-Panel-Data-Sorting': allDatums,
+  'Data-Cleaning-Process': lotsOfDatums,
+  'Solar-Power-Data-Logger-Team-Collab': allDatums,
+  'Solar-Price-Prediction-Modal': allDatums,
+  'Egress-Examples': allDatums,
   default: allDatums,
 };
 

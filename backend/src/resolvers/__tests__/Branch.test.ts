@@ -6,7 +6,7 @@ import {executeMutation, executeQuery} from '@dash-backend/testHelpers';
 import {RepoQuery, CreateBranchMutation, GetCommitsQuery} from '@graphqlTypes';
 
 describe('createBranch', () => {
-  const projectId = '3';
+  const projectId = 'Solar-Power-Data-Logger-Team-Collab';
   it('should create a branch', async () => {
     const {data: response} = await executeQuery<RepoQuery>(GET_REPO_QUERY, {
       args: {id: 'cron', projectId},

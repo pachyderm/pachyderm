@@ -7,12 +7,7 @@ import {useForm} from 'react-hook-form';
 
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import {useProjects} from '@dash-frontend/hooks/useProjects';
-import {
-  SortableItem,
-  useSort,
-  stringComparator,
-  numberComparator,
-} from '@pachyderm/components';
+import {SortableItem, useSort, stringComparator} from '@pachyderm/components';
 
 type sortOptionsType = {
   [key: string]: SortableItem<Project>;
@@ -23,27 +18,16 @@ type statusFormType = {
 };
 
 const sortOptions: sortOptionsType = {
-  Newest: {
-    name: 'Newest',
-    reverse: true,
-    func: numberComparator,
-    accessor: (project: Project) => project.createdAt,
-  },
-  Oldest: {
-    name: 'Oldest',
-    func: numberComparator,
-    accessor: (project: Project) => project.createdAt,
-  },
   'Name A-Z': {
     name: 'Name A-Z',
     func: stringComparator,
-    accessor: (project: Project) => project.name,
+    accessor: (project: Project) => project.id,
   },
   'Name Z-A': {
     name: 'Name Z-A',
     reverse: true,
     func: stringComparator,
-    accessor: (project: Project) => project.name,
+    accessor: (project: Project) => project.id,
   },
 };
 
@@ -55,8 +39,7 @@ export const useLandingView = () => {
     comparatorName,
   } = useSort({
     data: projects,
-    initialSort: sortOptions.Newest,
-    initialDirection: -1,
+    initialSort: sortOptions['Name A-Z'],
   });
 
   const [tutorialIntroSeen, setTutorialIntroSeen] = useLocalProjectSettings({
@@ -65,7 +48,7 @@ export const useLandingView = () => {
   });
 
   const [searchValue, setSearchValue] = useState('');
-  const [sortButtonText, setSortButtonText] = useState('Newest');
+  const [sortButtonText, setSortButtonText] = useState('Name A-Z');
   const [selectedProject, setSelectedProject] = useState<Project>();
   const [projectsLoaded, setProjectsLoaded] = useState(false);
 
@@ -133,7 +116,7 @@ export const useLandingView = () => {
 
   const filteredProjects = useMemo(() => {
     return sortedProjects.filter((project) => {
-      const projectName = project.name.toLowerCase();
+      const projectName = project.id.toLowerCase();
       return (
         filters[project.status] &&
         projectName.includes(searchValue.toLowerCase())

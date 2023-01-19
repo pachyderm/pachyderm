@@ -36,7 +36,7 @@ const handleFileDownload = async (req: Request, res: Response) => {
     }
   }
 
-  const {commitId, repoName, branchName} = req.params;
+  const {commitId, repoName, branchName, projectId} = req.params;
   const path = req.params['0'];
   let data;
 
@@ -49,6 +49,7 @@ const handleFileDownload = async (req: Request, res: Response) => {
     })
       .pfs()
       .getFile({
+        projectId,
         commitId,
         path,
         branch: {name: branchName, repo: {name: repoName}},

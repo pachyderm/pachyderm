@@ -21,7 +21,7 @@ describe('Dag resolver', () => {
   it('should resolve dag data', async () => {
     const {data} = await executeQuery<{dag: Vertex[]}>(GET_DAG_QUERY, {
       args: {
-        projectId: '1',
+        projectId: 'Solar-Panel-Data-Sorting',
       },
     });
 
@@ -46,7 +46,7 @@ describe('Dag resolver', () => {
 
     const {data} = await executeQuery<{dag: Vertex[]}>(GET_DAG_QUERY, {
       args: {
-        projectId: '1',
+        projectId: 'Solar-Panel-Data-Sorting',
       },
     });
 
@@ -67,7 +67,7 @@ describe('Dag resolver', () => {
       data: {dags: Vertex[]};
     }>(GET_DAGS_QUERY, {
       args: {
-        projectId: '1',
+        projectId: 'Solar-Panel-Data-Sorting',
         jobSetId: '33b9af7d5d4343219bc8e02ff44cd55a',
       },
     });

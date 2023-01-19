@@ -17,7 +17,7 @@ describe('Datum resolver', () => {
     it('should return a datum for a given job & pipeline & id', async () => {
       const {data, errors = []} = await executeQuery<DatumQuery>(DATUM_QUERY, {
         args: {
-          projectId: '1',
+          projectId: 'Solar-Panel-Data-Sorting',
           id: '0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
           jobId: '23b9af7d5d4343219bc8e02ff44cd55a',
           pipelineId: 'montage',
@@ -35,7 +35,7 @@ describe('Datum resolver', () => {
         DATUM_SEARCH_QUERY,
         {
           args: {
-            projectId: '1',
+            projectId: 'Solar-Panel-Data-Sorting',
             id: '0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
             jobId: '23b9af7d5d4343219bc8e02ff44cd55a',
             pipelineId: 'montage',
@@ -51,7 +51,7 @@ describe('Datum resolver', () => {
         DATUM_SEARCH_QUERY,
         {
           args: {
-            projectId: '1',
+            projectId: 'Solar-Panel-Data-Sorting',
             id: '0752b20131461a62943112579333667000000fff4a01406021603bbc98b4255d',
             jobId: '23b9af7d5d4343219bc8e02ff44cd55a',
             pipelineId: 'montage',
@@ -70,7 +70,7 @@ describe('Datum resolver', () => {
         DATUMS_QUERY,
         {
           args: {
-            projectId: '1',
+            projectId: 'Solar-Panel-Data-Sorting',
             jobId: '23b9af7d5d4343219bc8e02ff44cd55a',
             pipelineId: 'montage',
           },
@@ -86,7 +86,7 @@ describe('Datum resolver', () => {
         DATUMS_QUERY,
         {
           args: {
-            projectId: '1',
+            projectId: 'Solar-Panel-Data-Sorting',
             jobId: '23b9af7d5d4343219bc8e02ff44cd55a',
             pipelineId: 'montage',
             filter: [DatumFilter.FAILED],
@@ -107,7 +107,7 @@ describe('Datum resolver', () => {
         DATUMS_QUERY,
         {
           args: {
-            projectId: '2',
+            projectId: 'Data-Cleaning-Process',
             jobId: '23b9af7d5d4343219bc8e02ff4acd33a',
             pipelineId: 'likelihoods',
             limit: 10,
@@ -128,7 +128,7 @@ describe('Datum resolver', () => {
         DATUMS_QUERY,
         {
           args: {
-            projectId: '2',
+            projectId: 'Data-Cleaning-Process',
             jobId: '23b9af7d5d4343219bc8e02ff4acd33a',
             pipelineId: 'likelihoods',
             limit: 27,
@@ -151,7 +151,7 @@ describe('Datum resolver', () => {
         DATUMS_QUERY,
         {
           args: {
-            projectId: '2',
+            projectId: 'Data-Cleaning-Process',
             jobId: '23b9af7d5d4343219bc8e02ff4acd33a',
             pipelineId: 'likelihoods',
             limit: 10,

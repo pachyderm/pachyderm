@@ -557,15 +557,13 @@ export enum PipelineType {
 
 export type PipelinesQueryArgs = {
   jobSetId?: InputMaybe<Scalars['ID']>;
-  projectId: Scalars['String'];
+  projectIds: Array<Scalars['String']>;
 };
 
 export type Project = {
   __typename?: 'Project';
-  createdAt: Scalars['Int'];
-  description: Scalars['String'];
-  id: Scalars['ID'];
-  name: Scalars['String'];
+  description?: Maybe<Scalars['String']>;
+  id: Scalars['String'];
   status: ProjectStatus;
 };
 
@@ -718,6 +716,7 @@ export type Repo = {
   id: Scalars['ID'];
   linkedPipeline?: Maybe<Pipeline>;
   name: Scalars['ID'];
+  projectId: Scalars['String'];
   sizeBytes: Scalars['Float'];
   sizeDisplay: Scalars['String'];
 };
@@ -825,6 +824,7 @@ export type Vertex = {
 };
 
 export type WorkspaceLogsArgs = {
+  projectId: Scalars['String'];
   start?: InputMaybe<Scalars['Int']>;
 };
 
@@ -1605,10 +1605,12 @@ export type ProjectResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Project'] = ResolversParentTypes['Project'],
 > = ResolversObject<{
-  createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  description?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   status?: Resolver<ResolversTypes['ProjectStatus'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -1785,6 +1787,7 @@ export type RepoResolvers<
     ContextType
   >;
   name?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  projectId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
@@ -2760,9 +2763,7 @@ export type ProjectQuery = {
   project: {
     __typename?: 'Project';
     id: string;
-    name: string;
-    description: string;
-    createdAt: number;
+    description?: string | null;
     status: ProjectStatus;
   };
 };
@@ -2774,9 +2775,7 @@ export type ProjectsQuery = {
   projects: Array<{
     __typename?: 'Project';
     id: string;
-    name: string;
-    description: string;
-    createdAt: number;
+    description?: string | null;
     status: ProjectStatus;
   }>;
 };

@@ -268,12 +268,12 @@ export type Files = {
 };
 
 const files: Files = {
-  '1': allFiles,
-  '2': tutorial,
-  '3': allFiles,
-  '4': tutorial,
-  '5': nestedFolders,
-  '9': getLoadFiles(FILES),
+  'Solar-Panel-Data-Sorting': allFiles,
+  'Data-Cleaning-Process': tutorial,
+  'Solar-Power-Data-Logger-Team-Collab': allFiles,
+  'Solar-Price-Prediction-Modal': tutorial,
+  'Egress-Examples': nestedFolders,
+  'Load-Project': getLoadFiles(FILES),
   default: tutorial,
 };
 

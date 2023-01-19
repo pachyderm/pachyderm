@@ -30,14 +30,16 @@ describe('Search', () => {
   };
 
   beforeEach(() => {
-    window.history.replaceState({}, '', '/project/1');
+    window.history.replaceState({}, '', '/project/Solar-Panel-Data-Sorting');
   });
   afterEach(() => {
-    window.localStorage.removeItem('pachyderm-console-1');
+    window.localStorage.removeItem(
+      'pachyderm-console-Solar-Panel-Data-Sorting',
+    );
   });
 
   it('should display empty state messages', async () => {
-    window.history.replaceState({}, '', '/project/6');
+    window.history.replaceState({}, '', '/project/Empty-Project');
     renderTestbed();
 
     const searchBar = await screen.findByRole('searchbox');
@@ -135,7 +137,7 @@ describe('Search', () => {
 
     assertDropdown().toBeHidden();
     expect(window.location.pathname).toBe(
-      '/project/1/repos/images/branch/default',
+      '/project/Solar-Panel-Data-Sorting/repos/images/branch/default',
     );
   });
 
@@ -147,7 +149,9 @@ describe('Search', () => {
     await type(searchBar, 'edges');
     assertDropdown().toBeShown();
     await click(await screen.findByRole('button', {name: 'See Jobs'}));
-    expect(window.location.pathname).toBe('/project/1/pipelines/edges/jobs');
+    expect(window.location.pathname).toBe(
+      '/project/Solar-Panel-Data-Sorting/pipelines/edges/jobs',
+    );
     assertDropdown().toBeHidden();
 
     searchBar.focus();
@@ -156,7 +160,9 @@ describe('Search', () => {
     await click(await screen.queryAllByText('edges')[1]);
 
     assertDropdown().toBeHidden();
-    expect(window.location.pathname).toBe('/project/1/pipelines/edges');
+    expect(window.location.pathname).toBe(
+      '/project/Solar-Panel-Data-Sorting/pipelines/edges',
+    );
   });
 
   it('should route to jobs for selected id', async () => {
@@ -171,7 +177,7 @@ describe('Search', () => {
 
     assertDropdown().toBeHidden();
     expect(window.location.pathname).toBe(
-      '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a',
+      '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a',
     );
   });
 
@@ -184,7 +190,9 @@ describe('Search', () => {
     searchBar.focus();
     assertDropdown().toBeShown();
     await click(await screen.findByRole('button', {name: 'All (4)'}));
-    expect(window.location.pathname).toBe('/project/1/jobs');
+    expect(window.location.pathname).toBe(
+      '/project/Solar-Panel-Data-Sorting/jobs',
+    );
     expect(getUrlState().jobFilters).toEqual([
       JobState.JOB_CREATED,
       JobState.JOB_EGRESSING,

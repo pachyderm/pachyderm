@@ -336,15 +336,15 @@ const getLoadRepos = (count: number) => {
 };
 
 const repos: {[projectId: string]: RepoInfo[]} = {
-  '1': tutorial,
-  '2': customerTeam,
-  '3': cron,
-  '4': customerTeam,
-  '5': egress,
-  '6': [],
-  '7': traitDiscovery,
-  '8': tutorial,
-  '9': getLoadRepos(DAGS),
+  'Solar-Panel-Data-Sorting': tutorial,
+  'Data-Cleaning-Process': customerTeam,
+  'Solar-Power-Data-Logger-Team-Collab': cron,
+  'Solar-Price-Prediction-Modal': customerTeam,
+  'Egress-Examples': egress,
+  'Empty-Project': [],
+  'Trait-Discovery': traitDiscovery,
+  'OpenCV-Tutorial': tutorial,
+  'Load-Project': getLoadRepos(DAGS),
   default: [...tutorial, ...customerTeam],
 };
 

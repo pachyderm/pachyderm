@@ -10,7 +10,7 @@ describe('project sidenav', () => {
   const ProjectSideNav = withContextProviders(ProjectSideNavComponent);
 
   it('should display notification badge if the project has unhealthy jobs', async () => {
-    window.history.replaceState('', '', '/project/2');
+    window.history.replaceState('', '', '/project/Data-Cleaning-Process');
 
     render(<ProjectSideNav />);
 
@@ -20,7 +20,11 @@ describe('project sidenav', () => {
   });
 
   it('should not display notification badge for projects with no unhealthy jobs', async () => {
-    window.history.replaceState('', '', '/project/3');
+    window.history.replaceState(
+      '',
+      '',
+      '/project/Solar-Power-Data-Logger-Team-Collab',
+    );
 
     render(<ProjectSideNav />);
 
@@ -33,7 +37,7 @@ describe('project sidenav', () => {
   });
 
   it('should allow users to create new repos', async () => {
-    window.history.replaceState('', '', '/project/6');
+    window.history.replaceState('', '', '/project/Empty-Project');
 
     render(<ProjectSideNav />);
 
@@ -52,12 +56,12 @@ describe('project sidenav', () => {
     await type(nameInput, 'newRepo');
     await type(descriptionInput, 'newRepo Description');
 
-    expect(mockServer.getState().repos['6']).toHaveLength(0);
+    expect(mockServer.getState().repos['Empty-Project']).toHaveLength(0);
 
     await click(submitButton);
 
     await waitFor(() =>
-      expect(mockServer.getState().repos['6']).toHaveLength(1),
+      expect(mockServer.getState().repos['Empty-Project']).toHaveLength(1),
     );
   });
 });

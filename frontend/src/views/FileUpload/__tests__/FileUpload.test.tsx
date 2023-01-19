@@ -13,7 +13,11 @@ import {GLOB_CHARACTERS} from '../lib/constants';
 
 describe('File Upload', () => {
   beforeEach(() => {
-    window.history.replaceState({}, '', '/lineage/3/repos/cron/upload');
+    window.history.replaceState(
+      {},
+      '',
+      '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/upload',
+    );
   });
 
   const FileUpload = withContextProviders(() => {

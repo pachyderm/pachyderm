@@ -35,7 +35,7 @@ import MockState from './MockState';
 
 const setAuthInfoForRepo = (repo: RepoInfo, accountId = '') => {
   const repoName = repo.getRepo()?.getName();
-  const authInfo = repoAuthInfos[accountId] || repoAuthInfos['default'];
+  const authInfo = repoAuthInfos[accountId] || repoAuthInfos.default;
 
   repo.setAuthInfo(
     repoName && authInfo[repoName]
@@ -74,15 +74,20 @@ const pfs = () => {
       | 'deleteRepo'
       | 'createFileSet'
       | 'addFileSet'
+      | 'listProject'
+      | 'inspectProject'
     > => {
       return {
         listRepo: (call) => {
+          // TODO: implement finding all repos across all given projects.
+          // If no projects are supplied, search all projects.
+          // If projects are supplied, only search those projects.
           const [projectId] = call.metadata.get('project-id');
           const [accountId] = call.metadata.get('authn-token');
           const projectRepos = setAuthInfoForRepos(
             projectId
               ? MockState.state.repos[projectId.toString()]
-              : MockState.state.repos['1'],
+              : MockState.state.repos['Solar-Panel-Data-Sorting'],
             accountId.toString(),
           );
 
@@ -121,7 +126,7 @@ const pfs = () => {
           ).find((c) => c.getCommit()?.getId() === commitId);
 
           const authInfo =
-            repoAuthInfos[accountId.toString()] || repoAuthInfos['default'];
+            repoAuthInfos[accountId.toString()] || repoAuthInfos.default;
 
           if (repo && accountId) {
             const authRepoInfo = authInfo[repo.getName()];
@@ -171,7 +176,7 @@ const pfs = () => {
           }
 
           const authInfo =
-            repoAuthInfos[accountId.toString()] || repoAuthInfos['default'];
+            repoAuthInfos[accountId.toString()] || repoAuthInfos.default;
 
           if (repoName && accountId) {
             const authRepoInfo = authInfo[repoName];
@@ -194,7 +199,7 @@ const pfs = () => {
 
           const allCommits =
             MockState.state.commits[projectId.toString()] ||
-            MockState.state.commits['1'];
+            MockState.state.commits['Solar-Panel-Data-Sorting'];
 
           allCommits.forEach((commit) => {
             if (
@@ -215,7 +220,7 @@ const pfs = () => {
           const path = call.request.getFile()?.getPath() || '/';
           const directories = projectId
             ? MockState.state.files[projectId.toString()]
-            : MockState.state.files['1'];
+            : MockState.state.files['Solar-Panel-Data-Sorting'];
           const replyFiles = directories[path] || directories['/'];
           replyFiles.forEach((file) => call.write(file));
           call.end();
@@ -235,7 +240,7 @@ const pfs = () => {
           const path = '/';
           const diff = projectId
             ? MockState.state.diffResponses[projectId.toString()]
-            : MockState.state.diffResponses['default'];
+            : MockState.state.diffResponses.default;
 
           call.write(diff[path]);
           call.end();
@@ -247,7 +252,7 @@ const pfs = () => {
           const description = call.request.getDescription();
           const projectRepos = projectId
             ? MockState.state.repos[projectId.toString()]
-            : MockState.state.repos['1'];
+            : MockState.state.repos['Solar-Panel-Data-Sorting'];
           if (repoName) {
             const existingRepo = projectRepos.find(
               (repo) => repo.getRepo()?.getName() === repoName,
@@ -762,6 +767,26 @@ const pfs = () => {
                 .getCommit()
                 ?.getId()} does not exist`,
             });
+          }
+        },
+        listProject: (call) => {
+          Object.entries(MockState.state.projects).forEach(
+            ([_projectId, project]) => {
+              call.write(project);
+            },
+          );
+          call.end();
+        },
+        inspectProject: (call, callback) => {
+          const projectName = call.request.getProject()?.getName();
+          const project = Object.values(MockState.state.projects).find(
+            (project) => project.getProject()?.getName() === projectName,
+          );
+
+          if (project) {
+            callback(null, project);
+          } else {
+            callback({code: Status.NOT_FOUND, details: 'Project not found'});
           }
         },
       };

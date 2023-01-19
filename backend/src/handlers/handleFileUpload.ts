@@ -33,6 +33,7 @@ type FileUploadStartBody = {
   path: string;
   repo: string;
   branch: string;
+  projectId: string;
 };
 
 const BUSBOY_CHUNK_SIZE = 1024 * 64; // 64 KiB
@@ -53,7 +54,7 @@ const uploadStart = async (
   next: NextFunction,
 ) => {
   const authToken = req.cookies.dashAuthToken;
-  const {path, branch, repo} = req.body;
+  const {path, branch, repo, projectId} = req.body;
 
   if (!PACHD_ADDRESS) {
     res.status(401);
@@ -87,7 +88,7 @@ const uploadStart = async (
     next('Path must be specified');
   }
 
-  const id = FileUploads.addUpload(path, repo, branch);
+  const id = FileUploads.addUpload(path, repo, branch, projectId);
 
   return res.send({uploadId: id});
 };
@@ -131,6 +132,7 @@ const uploadFinish = async (
         .pfs()
         .composeFileSet(FileUploads.getFileSetIds(req.body.uploadId));
       commit = await pachClient.pfs().startCommit({
+        projectId: upload.projectId,
         branch: {
           name: upload.branch,
           repo: {
@@ -138,8 +140,14 @@ const uploadFinish = async (
           },
         },
       });
-      await pachClient.pfs().addFileSet({fileSetId: composedFileSet, commit});
-      await pachClient.pfs().finishCommit({commit});
+      await pachClient.pfs().addFileSet({
+        projectId: upload.projectId,
+        fileSetId: composedFileSet,
+        commit,
+      });
+      await pachClient
+        .pfs()
+        .finishCommit({projectId: upload.projectId, commit});
       FileUploads.removeUpload(req.body.uploadId);
       return res.send({commitId: commit.id});
     } catch (err) {

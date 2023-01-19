@@ -25,7 +25,7 @@ describe('Image Processing', () => {
     window.history.replaceState(
       {},
       '',
-      `/lineage/6?view=${generateTutorialView('image-processing')}`,
+      `/lineage/Empty-Project?view=${generateTutorialView('image-processing')}`,
     );
   });
 
@@ -84,8 +84,8 @@ describe('Image Processing', () => {
       return waitFor(() => expect(imageUploadButton).not.toBeInTheDocument());
     };
 
-    expect(mockServer.getState().repos['6']).toHaveLength(0);
-    expect(mockServer.getState().pipelines['6']).toHaveLength(0);
+    expect(mockServer.getState().repos['Empty-Project']).toHaveLength(0);
+    expect(mockServer.getState().pipelines['Empty-Project']).toHaveLength(0);
 
     const repoCreationButton = await screen.findByRole('button', {
       name: 'Create the images repo',
@@ -96,7 +96,7 @@ describe('Image Processing', () => {
 
     expect(await screen.findByText('Task Completed!')).toBeInTheDocument();
 
-    expect(mockServer.getState().repos['6']).toHaveLength(1);
+    expect(mockServer.getState().repos['Empty-Project']).toHaveLength(1);
 
     const pipelineCreationButton = (
       await screen.findAllByRole('button', {
@@ -111,8 +111,8 @@ describe('Image Processing', () => {
 
     await waitFor(() => expect(nextStoryButton).not.toBeDisabled());
 
-    expect(mockServer.getState().repos['6']).toHaveLength(2);
-    expect(mockServer.getState().pipelines['6']).toHaveLength(1);
+    expect(mockServer.getState().repos['Empty-Project']).toHaveLength(2);
+    expect(mockServer.getState().pipelines['Empty-Project']).toHaveLength(1);
 
     await nextStory();
 
@@ -120,14 +120,14 @@ describe('Image Processing', () => {
       await screen.findByText('Add files to the images repo you created'),
     ).toBeInTheDocument();
 
-    expect(mockServer.getState().files['6']).toBeUndefined();
+    expect(mockServer.getState().files['Empty-Project']).toBeUndefined();
     const checkbox1 = await screen.findByLabelText('birthday-cake.jpg');
     await click(checkbox1);
 
     await addTheseImages();
 
     expect(await screen.findByText('Task Completed!')).toBeInTheDocument();
-    expect(mockServer.getState().files['6']['/']).toHaveLength(1);
+    expect(mockServer.getState().files['Empty-Project']['/']).toHaveLength(1);
 
     await minimize();
     await maximize();
@@ -148,7 +148,7 @@ describe('Image Processing', () => {
 
     await click(montagePipelineCreationButton);
     expect(await screen.findByText('Task Completed!')).toBeInTheDocument();
-    expect(mockServer.getState().pipelines['6']).toHaveLength(2);
+    expect(mockServer.getState().pipelines['Empty-Project']).toHaveLength(2);
 
     await minimize();
     await maximize();
@@ -178,7 +178,7 @@ describe('Image Processing', () => {
 
     // await addTheseImages();
 
-    // expect(mockServer.getState().files['6']['/']).toHaveLength(2);
+    // expect(mockServer.getState().files['Empty-Project']['/']).toHaveLength(2);
 
     // await minimize();
     // await maximize();
@@ -213,8 +213,8 @@ describe('Image Processing', () => {
 
     expect(await screen.findByText('Task Completed!')).toBeInTheDocument();
 
-    // expect(mockServer.getState().files['6']['/']).toHaveLength(3);
-    expect(mockServer.getState().files['6']['/']).toHaveLength(2);
+    // expect(mockServer.getState().files['Empty-Project']['/']).toHaveLength(3);
+    expect(mockServer.getState().files['Empty-Project']['/']).toHaveLength(2);
 
     await minimize();
     await maximize();

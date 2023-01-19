@@ -8,6 +8,7 @@ export type upload = {
   repo: string;
   branch: string;
   expiration: number;
+  projectId: string;
 };
 
 class FileUploads {
@@ -25,7 +26,7 @@ class FileUploads {
     return this.fileUploads[uploadId];
   }
 
-  addUpload(path: string, repo: string, branch: string) {
+  addUpload(path: string, repo: string, branch: string, projectId: string) {
     const id = uniqueId();
 
     this.fileUploads[id] = {
@@ -34,6 +35,7 @@ class FileUploads {
       repo: repo,
       branch: branch,
       expiration: Date.now() + FILE_UPLOAD_EXPIRATION_TIMEOUT,
+      projectId,
     };
 
     return id;

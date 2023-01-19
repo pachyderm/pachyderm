@@ -12,7 +12,7 @@ import {
 
 describe('Pipeline resolver', () => {
   const id = 'montage';
-  const projectId = '1';
+  const projectId = 'Solar-Panel-Data-Sorting';
 
   describe('pipeline', () => {
     it('should return a pipeline for a given id and projectId', async () => {
@@ -50,7 +50,7 @@ describe('Pipeline resolver', () => {
   describe('pipelines', () => {
     it('should return pipeline list', async () => {
       const {data} = await executeQuery<PipelinesQuery>(GET_PIPELINES_QUERY, {
-        args: {projectId},
+        args: {projectIds: [projectId]},
       });
 
       expect(data?.pipelines).toHaveLength(2);
@@ -60,7 +60,10 @@ describe('Pipeline resolver', () => {
 
     it('should return pipeline list filtered by globalId', async () => {
       const {data} = await executeQuery<PipelinesQuery>(GET_PIPELINES_QUERY, {
-        args: {projectId, jobSetId: '33b9af7d5d4343219bc8e02ff44cd55a'},
+        args: {
+          projectIds: [projectId],
+          jobSetId: '33b9af7d5d4343219bc8e02ff44cd55a',
+        },
       });
 
       expect(data?.pipelines).toHaveLength(1);
@@ -69,7 +72,7 @@ describe('Pipeline resolver', () => {
   });
 
   describe('createPipeline', () => {
-    const projectId = '3';
+    const projectId = 'Solar-Power-Data-Logger-Team-Collab';
     it('should create a pipeline', async () => {
       const {data: pipeline, errors: pipelineErrors = []} =
         await executeQuery<PipelineQuery>(GET_PIPELINE_QUERY, {

@@ -13,7 +13,7 @@ describe('Text Preview', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/txt_spec.txt',
+      '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/txt_spec.txt',
     );
     render(<FileBrowser />);
     expect(await screen.findByText('name: visualizations')).toBeInTheDocument();
@@ -26,7 +26,7 @@ describe('Text Preview', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/jsonl_people.jsonl',
+      '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/jsonl_people.jsonl',
     );
     render(<FileBrowser />);
     expect(
@@ -45,7 +45,7 @@ describe('Text Preview', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/carriers_list.textpb',
+      '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/carriers_list.textpb',
     );
     render(<FileBrowser />);
     expect(

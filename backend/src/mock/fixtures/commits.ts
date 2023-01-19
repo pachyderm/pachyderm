@@ -10,7 +10,12 @@ const tutorial = [
       id: '9d5daa0918ac4c43a476b86e3bb5e88e',
       branch: {
         name: 'master',
-        repo: {name: repos['3'][0].getRepo()?.getName() || ''},
+        repo: {
+          name:
+            repos['Solar-Power-Data-Logger-Team-Collab'][0]
+              .getRepo()
+              ?.getName() || '',
+        },
       },
     },
     description: 'added shinra hq building specs',
@@ -30,7 +35,12 @@ const tutorial = [
       id: '0918ac4c43a476b86e3bb5e88e9d5daa',
       branch: {
         name: 'master',
-        repo: {name: repos['3'][0].getRepo()?.getName() || ''},
+        repo: {
+          name:
+            repos['Solar-Power-Data-Logger-Team-Collab'][0]
+              .getRepo()
+              ?.getName() || '',
+        },
       },
     },
     description: 'added fire materia',
@@ -50,7 +60,12 @@ const tutorial = [
       id: '0918ac9d5daa76b86e3bb5e88e4c43a4',
       branch: {
         name: 'master',
-        repo: {name: repos['3'][0].getRepo()?.getName() || ''},
+        repo: {
+          name:
+            repos['Solar-Power-Data-Logger-Team-Collab'][0]
+              .getRepo()
+              ?.getName() || '',
+        },
       },
     },
     description: 'added mako',
@@ -69,7 +84,12 @@ const tutorial = [
       id: '0918ac9d5daa76b86e3bb5e88e4c43a5',
       branch: {
         name: 'master',
-        repo: {name: repos['3'][0].getRepo()?.getName() || ''},
+        repo: {
+          name:
+            repos['Solar-Power-Data-Logger-Team-Collab'][0]
+              .getRepo()
+              ?.getName() || '',
+        },
       },
     },
     description: 'in progress',
@@ -84,7 +104,12 @@ const tutorial = [
       id: '0218ac9d5daa76b86e3bb5e88e4c43a5',
       branch: {
         name: 'master',
-        repo: {name: repos['3'][0].getRepo()?.getName() || ''},
+        repo: {
+          name:
+            repos['Solar-Power-Data-Logger-Team-Collab'][0]
+              .getRepo()
+              ?.getName() || '',
+        },
       },
     },
     description: 'in progress 2',
@@ -99,7 +124,12 @@ const tutorial = [
       id: '0518ac9d5daa76b86e3bb5e88e4c43a5',
       branch: {
         name: 'master',
-        repo: {name: repos['3'][0].getRepo()?.getName() || ''},
+        repo: {
+          name:
+            repos['Solar-Power-Data-Logger-Team-Collab'][0]
+              .getRepo()
+              ?.getName() || '',
+        },
       },
     },
     description: 'in progress 3',
@@ -114,7 +144,12 @@ const tutorial = [
       id: 'f4e23cf347c342d98bd9015e4c3ad52a',
       branch: {
         name: 'master',
-        repo: {name: repos['3'][1].getRepo()?.getName() || ''},
+        repo: {
+          name:
+            repos['Solar-Power-Data-Logger-Team-Collab'][1]
+              .getRepo()
+              ?.getName() || '',
+        },
       },
     },
     description: 'done',
@@ -315,14 +350,14 @@ const getLoadCommits = (repoCount: number, commitCount: number) => {
 };
 
 const commits: {[projectId: string]: CommitInfo[]} = {
-  '1': tutorial,
-  '2': customerTeam,
-  '3': tutorial,
-  '5': nestedFolderCommits,
+  'Solar-Panel-Data-Sorting': tutorial,
+  'Data-Cleaning-Process': customerTeam,
+  'Solar-Power-Data-Logger-Team-Collab': tutorial,
+  'Egress-Examples': nestedFolderCommits,
+  'Trait-Discovery': [],
+  'Empty-Project': [],
+  'Load-Project': getLoadCommits(1, COMMITS),
   default: [...tutorial],
-  '7': [],
-  '6': [],
-  '9': getLoadCommits(1, COMMITS),
 };
 
 export default commits;

@@ -12,6 +12,7 @@ import {
   OriginKind,
   CommitOrigin,
   DeleteFile,
+  Project,
 } from '../proto/pfs/pfs_pb';
 
 export type FileObject = {
@@ -38,6 +39,7 @@ export type TriggerObject = {
 
 export type RepoObject = {
   name: Repo.AsObject['name'];
+  project?: Project.AsObject;
 };
 
 export type BranchObject = {
@@ -67,6 +69,12 @@ export type DeleteFileObject = {
 
 export type CommitSetObject = {
   id: CommitSet.AsObject['id'];
+};
+
+export const projectFromObject = ({name = ''}: Project.AsObject) => {
+  const projectObject = new Project();
+  projectObject.setName(name);
+  return projectObject;
 };
 
 export const fileFromObject = ({
@@ -136,10 +144,16 @@ export const triggerFromObject = ({
   return trigger;
 };
 
-export const repoFromObject = ({name}: RepoObject) => {
-  const repo = new Repo();
-  repo.setName(name);
-  repo.setType('user');
+export const repoFromObject = ({
+  projectId,
+  name,
+}: {
+  projectId: string;
+} & RepoObject) => {
+  const repo = new Repo()
+    .setName(name)
+    .setType('user')
+    .setProject(new Project().setName(projectId));
 
   return repo;
 };

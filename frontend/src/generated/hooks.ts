@@ -1954,9 +1954,7 @@ export const ProjectDocument = gql`
   query project($id: ID!) {
     project(id: $id) {
       id
-      name
       description
-      createdAt
       status
     }
   }
@@ -2012,9 +2010,7 @@ export const ProjectsDocument = gql`
   query projects {
     projects {
       id
-      name
       description
-      createdAt
       status
     }
   }

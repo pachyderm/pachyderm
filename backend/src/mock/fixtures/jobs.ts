@@ -403,15 +403,15 @@ const getLoadJobs = (jobCount: number) => {
 };
 
 const jobs: {[projectId: string]: JobInfo[]} = {
-  '1': tutorial,
-  '2': customerTeam,
-  '3': cron,
-  '4': customerTeam,
-  '5': [],
-  '6': [],
-  '7': [],
-  '8': tutorial,
-  '9': getLoadJobs(JOBS),
+  'Solar-Panel-Data-Sorting': tutorial,
+  'Data-Cleaning-Process': customerTeam,
+  'Solar-Power-Data-Logger-Team-Collab': cron,
+  'Solar-Price-Prediction-Modal': customerTeam,
+  'Egress-Examples': [],
+  'Empty-Project': [],
+  'Trait-Discovery': [],
+  'OpenCV-Tutorial': tutorial,
+  'Load-Project': getLoadJobs(JOBS),
   default: [...tutorial, ...customerTeam],
 };
 

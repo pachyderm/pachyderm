@@ -11,18 +11,18 @@ describe('Jobs', () => {
     it('should find jobs for a given project', async () => {
       const {data, errors = []} = await executeQuery<JobsQuery>(JOBS_QUERY, {
         args: {
-          projectId: '1',
+          projectId: 'Solar-Panel-Data-Sorting',
         },
       });
 
       expect(errors).toHaveLength(0);
-      expect(data?.jobs).toHaveLength(jobs['1'].length);
+      expect(data?.jobs).toHaveLength(jobs['Solar-Panel-Data-Sorting'].length);
     });
 
     it('should return a specified number of jobs when a limit is given', async () => {
       const {data, errors = []} = await executeQuery<JobsQuery>(JOBS_QUERY, {
         args: {
-          projectId: '1',
+          projectId: 'Solar-Panel-Data-Sorting',
           limit: 1,
         },
       });
@@ -34,12 +34,12 @@ describe('Jobs', () => {
     it('should find jobs for a given pipelineId', async () => {
       const {data, errors = []} = await executeQuery<JobsQuery>(JOBS_QUERY, {
         args: {
-          projectId: '1',
+          projectId: 'Solar-Panel-Data-Sorting',
           pipelineId: 'montage',
         },
       });
 
-      const expectedJobs = jobs['1'].filter(
+      const expectedJobs = jobs['Solar-Panel-Data-Sorting'].filter(
         (jobs) => jobs.getJob()?.getPipeline()?.getName() === 'montage',
       );
 
@@ -51,7 +51,7 @@ describe('Jobs', () => {
     it('should return an empty set if no records exist', async () => {
       const {data, errors = []} = await executeQuery<JobsQuery>(JOBS_QUERY, {
         args: {
-          projectId: '1',
+          projectId: 'Solar-Panel-Data-Sorting',
           pipelineId: 'bogus',
         },
       });
@@ -67,7 +67,7 @@ describe('Jobs', () => {
         JOB_SET_QUERY,
         {
           args: {
-            projectId: '2',
+            projectId: 'Data-Cleaning-Process',
             id: '23b9af7d5d4343219bc8e02ff4acd33a',
           },
         },
@@ -91,7 +91,7 @@ describe('Jobs', () => {
         JOB_SET_QUERY,
         {
           args: {
-            projectId: '2',
+            projectId: 'Data-Cleaning-Process',
             id: 'bogus',
           },
         },
@@ -109,7 +109,7 @@ describe('Jobs', () => {
         JOB_SETS_QUERY,
         {
           args: {
-            projectId: '1',
+            projectId: 'Solar-Panel-Data-Sorting',
           },
         },
       );

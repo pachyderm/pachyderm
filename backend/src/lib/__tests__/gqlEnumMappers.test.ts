@@ -2,7 +2,6 @@ import {
   FileType,
   JobState,
   PipelineState,
-  ProjectStatus,
   OriginKind,
   DatumState,
   State,
@@ -13,7 +12,6 @@ import {
   toGQLFileType,
   toGQLJobState,
   toGQLPipelineState,
-  toGQLProjectStatus,
   toGQLCommitOrigin,
   toProtoCommitOrigin,
   toGQLDatumState,
@@ -44,15 +42,6 @@ describe('gqlEnumMappers', () => {
       Object.values(FileType).forEach((val) => {
         if (typeof val === 'string') return;
         expect(() => toGQLFileType(val)).not.toThrow();
-      });
-    });
-  });
-
-  describe('toGQLProjectStatus', () => {
-    it('should not return an error for any proto project status', () => {
-      Object.values(ProjectStatus).forEach((val) => {
-        if (typeof val === 'string') return;
-        expect(() => toGQLProjectStatus(val)).not.toThrow();
       });
     });
   });

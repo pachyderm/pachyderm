@@ -1,6 +1,5 @@
 import {Project} from '@graphqlTypes';
 import classNames from 'classnames';
-import {format, fromUnixTime} from 'date-fns';
 import noop from 'lodash/noop';
 import React, {useCallback} from 'react';
 import {useHistory} from 'react-router';
@@ -38,8 +37,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
     listDefaultView
       ? browserHistory.push(projectReposRoute({projectId: project.id}))
       : browserHistory.push(lineageRoute({projectId: project.id}));
-  }, [browserHistory, listDefaultView, project.id]);
-  const date = format(fromUnixTime(project.createdAt), 'MM/d/yyyy');
+  }, [browserHistory, listDefaultView, project]);
 
   return (
     <tr
@@ -54,7 +52,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
       <td>
         <Group vertical spacing={16}>
           <Group justify="between" align="baseline" spacing={16}>
-            <h5>{project.name}</h5>
+            <h5>{project.id}</h5>
             <Button
               buttonType="secondary"
               onClick={onClick}
@@ -71,15 +69,12 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
                 data-testid="ProjectRow__status"
               />
             </Info>
-            <Info header="Created On" headerId="project-creation">
-              <span data-testid="ProjectRow__created">{date}</span>
-            </Info>
             <Info
               header="Description"
               headerId="project-description"
               className={styles.responsiveHide}
             >
-              {project.description}
+              {project.description || 'N/A'}
             </Info>
           </Group>
         </Group>

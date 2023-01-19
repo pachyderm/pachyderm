@@ -21,7 +21,11 @@ const BranchBrowserComponent: React.FC = withContextProviders(() => {
 
 describe('BranchBrowser/hooks/useBranchBrowser', () => {
   it('should sort branches with master on top', () => {
-    window.history.replaceState('', '', '/project/3/repos/cron/branch/master');
+    window.history.replaceState(
+      '',
+      '',
+      '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
+    );
 
     render(<BranchBrowserComponent />);
     const items = screen.getByText('master-alpha-develop-feature');

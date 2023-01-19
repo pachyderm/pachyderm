@@ -162,6 +162,7 @@ export const repoInfoToGQLRepo = (repoInfo: RepoInfo.AsObject): Repo => {
     id: repoInfo?.repo?.name || '',
     branches: repoInfo.branchesList.map(branchInfoToGQLBranch),
     sizeDisplay: formatBytes(repoInfo.details?.sizeBytes || 0),
+    projectId: repoInfo.repo?.project?.name || '',
   };
 };
 

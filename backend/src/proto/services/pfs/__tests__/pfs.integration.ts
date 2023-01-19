@@ -11,7 +11,7 @@ describe('services/pfs', () => {
     const pachClient = client({ssl: false, pachdAddress: 'localhost:30650'});
     const pfs = pachClient.pfs();
     await pfs.deleteAll();
-    await pfs.createRepo({repo: {name}});
+    await pfs.createRepo({projectId: 'default', repo: {name}});
 
     return pachClient;
   };
@@ -19,6 +19,7 @@ describe('services/pfs', () => {
     it('should return a list of files in the directory', async () => {
       const client = await createSandbox('listFile');
       const commit = await client.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: 'listFile'}},
       });
 
@@ -29,9 +30,10 @@ describe('services/pfs', () => {
         .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
         .end();
 
-      await client.pfs().finishCommit({commit});
+      await client.pfs().finishCommit({projectId: 'default', commit});
 
       const files = await client.pfs().listFile({
+        projectId: 'default',
         commitId: commit.id,
         branch: {name: 'master', repo: {name: 'listFile'}},
       });
@@ -44,6 +46,7 @@ describe('services/pfs', () => {
     it('should return a file from a repo', async () => {
       const client = await createSandbox('getFile');
       const commit = await client.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: 'getFile'}},
       });
       const fileClient = await client.pfs().modifyFile();
@@ -53,8 +56,9 @@ describe('services/pfs', () => {
         .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
         .end();
 
-      await client.pfs().finishCommit({commit});
+      await client.pfs().finishCommit({projectId: 'default', commit});
       const file = await client.pfs().getFile({
+        projectId: 'default',
         commitId: commit.id,
         path: '/at-at.png',
         branch: {name: 'master', repo: {name: 'getFile'}},
@@ -65,6 +69,7 @@ describe('services/pfs', () => {
     it('should return a file TAR from a repo', async () => {
       const client = await createSandbox('getFile');
       const commit = await client.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: 'getFile'}},
       });
       const fileClient = await client.pfs().modifyFile();
@@ -74,8 +79,9 @@ describe('services/pfs', () => {
         .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
         .end();
 
-      await client.pfs().finishCommit({commit});
+      await client.pfs().finishCommit({projectId: 'default', commit});
       const file = await client.pfs().getFileTAR({
+        projectId: 'default',
         commitId: commit.id,
         path: '/at-at.png',
         branch: {name: 'master', repo: {name: 'getFile'}},
@@ -88,6 +94,7 @@ describe('services/pfs', () => {
     it('should return details about the specified file', async () => {
       const client = await createSandbox('inspectRepo');
       const commit = await client.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: 'inspectRepo'}},
       });
       const fileClient = await client.pfs().modifyFile();
@@ -97,8 +104,9 @@ describe('services/pfs', () => {
         .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
         .end();
 
-      await client.pfs().finishCommit({commit});
+      await client.pfs().finishCommit({projectId: 'default', commit});
       const file = await client.pfs().inspectFile({
+        projectId: 'default',
         commitId: commit.id,
         path: '/at-at.png',
         branch: {name: 'master', repo: {name: 'inspectRepo'}},
@@ -113,33 +121,39 @@ describe('services/pfs', () => {
   describe('listCommit', () => {
     it('should list the commits for the specified repo', async () => {
       const client = await createSandbox('listCommit');
-      const commit = await client
-        .pfs()
-        .startCommit({branch: {name: 'master', repo: {name: 'listCommit'}}});
-      await client.pfs().finishCommit({commit});
-      await client
-        .pfs()
-        .startCommit({branch: {name: 'master', repo: {name: 'listCommit'}}});
+      const commit = await client.pfs().startCommit({
+        projectId: 'default',
+        branch: {name: 'master', repo: {name: 'listCommit'}},
+      });
+      await client.pfs().finishCommit({projectId: 'default', commit});
+      await client.pfs().startCommit({
+        projectId: 'default',
+        branch: {name: 'master', repo: {name: 'listCommit'}},
+      });
 
       const commits = await client
         .pfs()
-        .listCommit({repo: {name: 'listCommit'}});
+        .listCommit({projectId: 'default', repo: {name: 'listCommit'}});
 
       expect(commits).toHaveLength(2);
     });
     it('should return only the specified number of commits if number is specified', async () => {
       const client = await createSandbox('listCommit');
-      const commit = await client
-        .pfs()
-        .startCommit({branch: {name: 'master', repo: {name: 'listCommit'}}});
-      await client.pfs().finishCommit({commit});
-      await client
-        .pfs()
-        .startCommit({branch: {name: 'master', repo: {name: 'listCommit'}}});
+      const commit = await client.pfs().startCommit({
+        projectId: 'default',
+        branch: {name: 'master', repo: {name: 'listCommit'}},
+      });
+      await client.pfs().finishCommit({projectId: 'default', commit});
+      await client.pfs().startCommit({
+        projectId: 'default',
+        branch: {name: 'master', repo: {name: 'listCommit'}},
+      });
 
-      const commits = await client
-        .pfs()
-        .listCommit({repo: {name: 'listCommit'}, number: 1});
+      const commits = await client.pfs().listCommit({
+        projectId: 'default',
+        repo: {name: 'listCommit'},
+        number: 1,
+      });
 
       expect(commits).toHaveLength(1);
     });
@@ -148,9 +162,10 @@ describe('services/pfs', () => {
     it('should return details about a commit set', async () => {
       const client = await createSandbox('inspectCommitSet');
       const commit = await client.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: 'inspectCommitSet'}},
       });
-      await client.pfs().finishCommit({commit});
+      await client.pfs().finishCommit({projectId: 'default', commit});
       const commitSet = await client
         .pfs()
         .inspectCommitSet({commitSet: commit});
@@ -164,9 +179,10 @@ describe('services/pfs', () => {
     it('should list the commit sets', async () => {
       const client = await createSandbox('listCommitSet');
       const commit = await client.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: 'listCommitSet'}},
       });
-      await client.pfs().finishCommit({commit});
+      await client.pfs().finishCommit({projectId: 'default', commit});
 
       const commitSets = await client.pfs().listCommitSet();
       expect(commitSets).toHaveLength(1);
@@ -176,23 +192,29 @@ describe('services/pfs', () => {
     it('should squash commits', async () => {
       const client = await createSandbox('squashCommitSet');
       const commit1 = await client.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: 'squashCommitSet'}},
       });
-      await client.pfs().finishCommit({commit: commit1});
+      await client.pfs().finishCommit({projectId: 'default', commit: commit1});
       const commit2 = await client.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: 'squashCommitSet'}},
       });
-      await client.pfs().finishCommit({commit: commit2});
-      await client
-        .pfs()
-        .inspectCommit({commit: commit1, wait: CommitState.FINISHED});
-      await client
-        .pfs()
-        .inspectCommit({commit: commit2, wait: CommitState.FINISHED});
+      await client.pfs().finishCommit({projectId: 'default', commit: commit2});
+      await client.pfs().inspectCommit({
+        projectId: 'default',
+        commit: commit1,
+        wait: CommitState.FINISHED,
+      });
+      await client.pfs().inspectCommit({
+        projectId: 'default',
+        commit: commit2,
+        wait: CommitState.FINISHED,
+      });
 
       const commits = await client
         .pfs()
-        .listCommit({repo: {name: 'squashCommitSet'}});
+        .listCommit({projectId: 'default', repo: {name: 'squashCommitSet'}});
 
       expect(commits).toHaveLength(2);
 
@@ -200,7 +222,7 @@ describe('services/pfs', () => {
 
       const updatedCommits = await client
         .pfs()
-        .listCommit({repo: {name: 'squashCommitSet'}});
+        .listCommit({projectId: 'default', repo: {name: 'squashCommitSet'}});
 
       expect(updatedCommits).toHaveLength(1);
     });
@@ -209,17 +231,19 @@ describe('services/pfs', () => {
     it('should remove the commit set', async () => {
       const client = await createSandbox('dropCommitSet');
       const commit1 = await client.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: 'dropCommitSet'}},
       });
-      await client.pfs().finishCommit({commit: commit1});
+      await client.pfs().finishCommit({projectId: 'default', commit: commit1});
 
       const commit2 = await client.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: 'dropCommitSet'}},
       });
 
       const commits = await client
         .pfs()
-        .listCommit({repo: {name: 'dropCommitSet'}});
+        .listCommit({projectId: 'default', repo: {name: 'dropCommitSet'}});
 
       expect(commits).toHaveLength(2);
 
@@ -227,7 +251,7 @@ describe('services/pfs', () => {
 
       const updatedCommits = await client
         .pfs()
-        .listCommit({repo: {name: 'dropCommitSet'}});
+        .listCommit({projectId: 'default', repo: {name: 'dropCommitSet'}});
 
       expect(updatedCommits).toHaveLength(1);
     });
@@ -236,9 +260,10 @@ describe('services/pfs', () => {
     it('should create a branch', async () => {
       const client = await createSandbox('createBranch');
 
-      const commit = await client
-        .pfs()
-        .startCommit({branch: {name: 'master', repo: {name: 'createBranch'}}});
+      const commit = await client.pfs().startCommit({
+        projectId: 'default',
+        branch: {name: 'master', repo: {name: 'createBranch'}},
+      });
 
       await client.pfs().createBranch({
         newCommitSet: false,
@@ -257,12 +282,15 @@ describe('services/pfs', () => {
   describe('inspectBranch', () => {
     it('should return details about a branch', async () => {
       const client = await createSandbox('inspectBranch');
-      await client
-        .pfs()
-        .startCommit({branch: {name: 'master', repo: {name: 'inspectBranch'}}});
-      const branch = await client
-        .pfs()
-        .inspectBranch({name: 'master', repo: {name: 'inspectBranch'}});
+      await client.pfs().startCommit({
+        projectId: 'default',
+        branch: {name: 'master', repo: {name: 'inspectBranch'}},
+      });
+      const branch = await client.pfs().inspectBranch({
+        projectId: 'default',
+        name: 'master',
+        repo: {name: 'inspectBranch'},
+      });
 
       expect(branch.branch?.name).toBe('master');
       expect(branch.head?.branch?.name).toBe('master');
@@ -274,9 +302,10 @@ describe('services/pfs', () => {
   describe('listBranch', () => {
     it('should return a list of branches', async () => {
       const client = await createSandbox('listBranch');
-      await client
-        .pfs()
-        .startCommit({branch: {name: 'master', repo: {name: 'listBranch'}}});
+      await client.pfs().startCommit({
+        projectId: 'default',
+        branch: {name: 'master', repo: {name: 'listBranch'}},
+      });
       const branches = await client
         .pfs()
         .listBranch({repo: {name: 'listBranch'}});
@@ -296,9 +325,10 @@ describe('services/pfs', () => {
         .listBranch({repo: {name: 'deleteBranch'}});
       expect(initialBranches).toHaveLength(0);
 
-      await client
-        .pfs()
-        .startCommit({branch: {name: 'master', repo: {name: 'deleteBranch'}}});
+      await client.pfs().startCommit({
+        projectId: 'default',
+        branch: {name: 'master', repo: {name: 'deleteBranch'}},
+      });
 
       const updatedBranches = await client
         .pfs()
@@ -320,7 +350,7 @@ describe('services/pfs', () => {
   describe('listRepo', () => {
     it('should return a list of all repos in the cluster', async () => {
       const client = await createSandbox('listRepo');
-      const repos = await client.pfs().listRepo();
+      const repos = await client.pfs().listRepo({projectIds: []});
 
       expect(repos).toHaveLength(1);
     });
@@ -328,7 +358,9 @@ describe('services/pfs', () => {
   describe('inspectRepo', () => {
     it('should return information about the specified', async () => {
       const client = await createSandbox('inspectRepo');
-      const repo = await client.pfs().inspectRepo('inspectRepo');
+      const repo = await client
+        .pfs()
+        .inspectRepo({projectId: 'default', name: 'inspectRepo'});
 
       expect(repo.repo?.name).toBe('inspectRepo');
       expect(repo.repo?.type).toBe('user');
@@ -339,12 +371,14 @@ describe('services/pfs', () => {
     it('should create a repo', async () => {
       const client = await createSandbox('createRepo');
 
-      const initialRepos = await client.pfs().listRepo();
+      const initialRepos = await client.pfs().listRepo({projectIds: []});
       expect(initialRepos).toHaveLength(1);
 
-      await client.pfs().createRepo({repo: {name: 'anotherRepo'}});
+      await client
+        .pfs()
+        .createRepo({projectId: 'default', repo: {name: 'anotherRepo'}});
 
-      const udatedRepos = await client.pfs().listRepo();
+      const udatedRepos = await client.pfs().listRepo({projectIds: []});
       expect(udatedRepos).toHaveLength(2);
     });
   });
@@ -352,12 +386,14 @@ describe('services/pfs', () => {
     it('should delete a repo', async () => {
       const client = await createSandbox('deleteRepo');
 
-      const initialRepos = await client.pfs().listRepo();
+      const initialRepos = await client.pfs().listRepo({projectIds: []});
       expect(initialRepos).toHaveLength(1);
 
-      await client.pfs().deleteRepo({repo: {name: 'deleteRepo'}});
+      await client
+        .pfs()
+        .deleteRepo({projectId: 'default', repo: {name: 'deleteRepo'}});
 
-      const updatedRepos = await client.pfs().listRepo();
+      const updatedRepos = await client.pfs().listRepo({projectIds: []});
       expect(updatedRepos).toHaveLength(0);
     });
   });
@@ -366,6 +402,7 @@ describe('services/pfs', () => {
       const client = await createSandbox('diffFile');
 
       const commit1 = await client.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: 'diffFile'}},
       });
 
@@ -374,9 +411,10 @@ describe('services/pfs', () => {
         .setCommit(commit1)
         .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
         .end();
-      await client.pfs().finishCommit({commit: commit1});
+      await client.pfs().finishCommit({projectId: 'default', commit: commit1});
 
       const commit2 = await client.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: 'diffFile'}},
       });
       const fileClient2 = await client.pfs().modifyFile();
@@ -384,7 +422,7 @@ describe('services/pfs', () => {
         .setCommit(commit2)
         .putFileFromURL('liberty.png', 'http://imgur.com/46Q8nDz.png')
         .end();
-      await client.pfs().finishCommit({commit: commit2});
+      await client.pfs().finishCommit({projectId: 'default', commit: commit2});
 
       const commitSet1 = await client
         .pfs()
@@ -399,18 +437,44 @@ describe('services/pfs', () => {
       expect(commitSet2[0].details?.sizeBytes).toBe(139232);
 
       const fileDiff1 = await client.pfs().diffFile({
-        commitId: commit2.id,
-        path: '/',
-        branch: {name: 'master', repo: {name: 'diffFile'}},
+        projectId: 'default',
+        newFileObject: {
+          commitId: commit2.id,
+          path: '/',
+          branch: {name: 'master', repo: {name: 'diffFile'}},
+        },
       });
       expect(fileDiff1[1].newFile?.sizeBytes).toEqual(139232 - 80588);
 
       const fileDiff2 = await client.pfs().diffFile({
-        commitId: commit1.id,
-        path: '/',
-        branch: {name: 'master', repo: {name: 'diffFile'}},
+        projectId: 'default',
+        newFileObject: {
+          commitId: commit1.id,
+          path: '/',
+          branch: {name: 'master', repo: {name: 'diffFile'}},
+        },
       });
       expect(fileDiff2[1].newFile?.sizeBytes).toBe(80588);
+    });
+  });
+
+  describe('listProject', () => {
+    it('should return a list of projects in the pachyderm cluster', async () => {
+      const client = await createSandbox('listProject');
+
+      const projects = await client.pfs().listProject();
+
+      expect(projects).toHaveLength(1);
+    });
+  });
+
+  describe('inspectProject', () => {
+    it('should return information about the specified', async () => {
+      const client = await createSandbox('inspectProject');
+      const projectInfo = await client.pfs().inspectProject('default');
+
+      expect(projectInfo?.project?.name).toBe('default');
+      expect(projectInfo?.description).toBe('');
     });
   });
 });

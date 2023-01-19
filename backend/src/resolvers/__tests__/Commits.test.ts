@@ -14,7 +14,7 @@ import {
 describe('resolvers/Commits', () => {
   describe('commit', () => {
     it('should inspect a given commit id', async () => {
-      const projectId = '3';
+      const projectId = 'Solar-Power-Data-Logger-Team-Collab';
       const repoName = 'cron';
       const id = '0918ac9d5daa76b86e3bb5e88e4c43a4';
       const {data, errors = []} = await executeQuery<CommitQuery>(
@@ -44,7 +44,7 @@ describe('resolvers/Commits', () => {
   });
   describe('commits', () => {
     it('should return commits for a given repo', async () => {
-      const projectId = '3';
+      const projectId = 'Solar-Power-Data-Logger-Team-Collab';
       const repo = 'cron';
       const {data, errors = []} = await executeQuery<GetCommitsQuery>(
         GET_COMMITS_QUERY,
@@ -59,7 +59,7 @@ describe('resolvers/Commits', () => {
     });
 
     it('should return commits for a given branch', async () => {
-      const projectId = '2';
+      const projectId = 'Data-Cleaning-Process';
       const repo = 'training';
       const branch = 'master';
       const {data, errors = []} = await executeQuery<GetCommitsQuery>(
@@ -75,7 +75,7 @@ describe('resolvers/Commits', () => {
   });
   describe('startCommit', () => {
     it('should start a commit', async () => {
-      const projectId = '3';
+      const projectId = 'Solar-Power-Data-Logger-Team-Collab';
       const repo = 'cron';
 
       const {data: initialCommits} = await executeQuery<GetCommitsQuery>(
@@ -109,7 +109,7 @@ describe('resolvers/Commits', () => {
 
   describe('finishCommit', () => {
     it('should finish a commit', async () => {
-      const projectId = '3';
+      const projectId = 'Solar-Power-Data-Logger-Team-Collab';
       const repo = 'cron';
 
       const {data} = await executeMutation<StartCommitMutation>(

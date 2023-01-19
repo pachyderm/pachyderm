@@ -53,6 +53,7 @@ export type JobQueryArgs = {
 };
 
 export type GetLogsRequestArgs = {
+  projectId: string;
   pipelineName?: string;
   jobId?: string;
   datumId?: string;
@@ -68,6 +69,7 @@ export type ListCommitArgs = {
   originKind?: OriginKind;
   from?: CommitObject;
   to?: CommitObject;
+  projectId: string;
 };
 
 export type InspectCommitSetArgs = {
@@ -92,11 +94,13 @@ export type CreateRepoRequestArgs = {
   repo: RepoObject;
   description?: CreateRepoRequest.AsObject['description'];
   update?: CreateRepoRequest.AsObject['update'];
+  projectId: string;
 };
 
 export type DeleteRepoRequestArgs = {
   repo: RepoObject;
   force?: DeleteRepoRequest.AsObject['force'];
+  projectId: string;
 };
 
 export type InspectCommitRequestArgs = {
@@ -111,6 +115,7 @@ export type SubscribeCommitRequestArgs = {
   all?: SubscribeCommitRequest.AsObject['all'];
   originKind?: OriginKind;
   from?: CommitObject;
+  projectId: string;
 };
 
 export type ListBranchRequestArgs = {
@@ -135,6 +140,7 @@ export type InspectDatumRequestArgs = {
   id: string;
   jobId: string;
   pipelineName: string;
+  projectId: string;
 };
 
 export type ListDatumsRequestArgs = {
@@ -143,6 +149,7 @@ export type ListDatumsRequestArgs = {
   filter?: DatumState[];
   number?: number;
   cursor?: string;
+  projectId: string;
 };
 
 export type RenewFileSetRequestArgs = {

@@ -108,8 +108,8 @@ const dagResolver: DagResolver = {
     dag: async (_field, {args: {projectId}}, {pachClient, log}) => {
       // TODO: Error handling
       const [repos, pipelines] = await Promise.all([
-        pachClient.pfs().listRepo(),
-        pachClient.pps().listPipeline(),
+        pachClient.pfs().listRepo({projectIds: [projectId]}),
+        pachClient.pps().listPipeline({projectIds: [projectId]}),
       ]);
 
       log.info({
@@ -194,8 +194,8 @@ const dagResolver: DagResolver = {
             data = uniqBy(vertices, (v) => v.name);
           } else {
             const [repos, pipelines] = await Promise.all([
-              pachClient.pfs().listRepo(),
-              pachClient.pps().listPipeline(),
+              pachClient.pfs().listRepo({projectIds: [projectId]}),
+              pachClient.pps().listPipeline({projectIds: [projectId]}),
             ]);
 
             log.info({

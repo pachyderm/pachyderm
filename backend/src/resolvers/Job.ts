@@ -27,10 +27,15 @@ const pipelineJobResolver: PipelineJobResolver = {
         await pachClient.pps().inspectJob({id, pipelineName, projectId}),
       );
     },
-    jobs: async (_parent, {args: {limit, pipelineId}}, {pachClient}) => {
+    jobs: async (
+      _parent,
+      {args: {limit, pipelineId, projectId}},
+      {pachClient},
+    ) => {
       const jobs = await pachClient.pps().listJobs({
         limit,
         pipelineId,
+        projectId,
       });
 
       return jobs.map(jobInfoToGQLJob);
@@ -47,9 +52,11 @@ const pipelineJobResolver: PipelineJobResolver = {
         id,
       );
     },
-    jobSets: async (_parent, _args, {pachClient}) => {
+    jobSets: async (_parent, {args: {projectId}}, {pachClient}) => {
       return jobSetsToGQLJobSets(
-        await pachClient.pps().listJobSets({details: false}),
+        await pachClient
+          .pps()
+          .listJobSets({projectIds: [projectId], details: false}),
       );
     },
   },

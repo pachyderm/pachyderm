@@ -377,7 +377,7 @@ export const useDAGView = (
     skipCenterOnSelect,
     handleChangeCenterOnSelect,
     graphExtents,
-    projectName: currentProject?.name,
+    projectName: currentProject?.id,
     viewState,
   };
 };

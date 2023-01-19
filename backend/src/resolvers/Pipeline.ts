@@ -15,20 +15,30 @@ interface PipelineResolver {
 
 const pipelineResolver: PipelineResolver = {
   Query: {
-    pipeline: async (_field, {args: {id}}, {pachClient}) => {
-      const pipeline = await pachClient.pps().inspectPipeline(id);
+    pipeline: async (
+      _field,
+      {args: {id: pipelineId, projectId}},
+      {pachClient},
+    ) => {
+      const pipeline = await pachClient
+        .pps()
+        .inspectPipeline({pipelineId, projectId});
 
       return pipelineInfoToGQLPipeline(pipeline);
     },
-    pipelines: async (_parent, {args: {jobSetId, projectId}}, {pachClient}) => {
+    pipelines: async (
+      _parent,
+      {args: {jobSetId, projectIds}},
+      {pachClient},
+    ) => {
       let jq = '';
 
       if (jobSetId) {
         const jobs = await getJobsFromJobSet({
           jobSet: await pachClient
             .pps()
-            .inspectJobSet({id: jobSetId, projectId}),
-          projectId,
+            .inspectJobSet({id: jobSetId, projectId: projectIds[0] || ''}),
+          projectId: projectIds[0] || '',
           pachClient,
         });
 
@@ -37,15 +47,15 @@ const pipelineResolver: PipelineResolver = {
           .join(' or ')})`;
       }
 
-      return (await pachClient.pps().listPipeline(jq)).map((pipeline) =>
-        pipelineInfoToGQLPipeline(pipeline),
+      return (await pachClient.pps().listPipeline({jq, projectIds})).map(
+        (pipeline) => pipelineInfoToGQLPipeline(pipeline),
       );
     },
   },
   Mutation: {
     createPipeline: async (
       _field,
-      {args: {name, transform, pfs, crossList, description, update}},
+      {args: {name, transform, pfs, crossList, description, update, projectId}},
       {pachClient},
     ) => {
       const crossListInputs = (crossList || []).map((input) => {
@@ -68,7 +78,7 @@ const pipelineResolver: PipelineResolver = {
         : undefined;
 
       await pachClient.pps().createPipeline({
-        pipeline: {name},
+        pipeline: {name, project: {name: projectId}},
         transform: {
           cmdList: transform.cmdList,
           image: transform.image,
@@ -85,11 +95,13 @@ const pipelineResolver: PipelineResolver = {
         update: update || undefined,
       });
 
-      const pipeline = await pachClient.pps().inspectPipeline(name);
+      const pipeline = await pachClient
+        .pps()
+        .inspectPipeline({pipelineId: name, projectId});
       return pipelineInfoToGQLPipeline(pipeline);
     },
-    deletePipeline: async (_field, {args: {name}}, {pachClient}) => {
-      await pachClient.pps().deletePipeline({pipeline: {name}});
+    deletePipeline: async (_field, {args: {projectId, name}}, {pachClient}) => {
+      await pachClient.pps().deletePipeline({projectId, pipeline: {name}});
       return true;
     },
   },

@@ -25,7 +25,7 @@ describe('services/pps', () => {
     await pps.deleteAll();
     await pfs.deleteAll();
     const inputRepoName = crypto.randomBytes(5).toString('hex');
-    await pfs.createRepo({repo: {name: inputRepoName}});
+    await pfs.createRepo({projectId: 'default', repo: {name: inputRepoName}});
     const transform = new Transform()
       .setCmdList(['sh'])
       .setImage('alpine')
@@ -47,7 +47,7 @@ describe('services/pps', () => {
     it('should return a list of pipelines in the pachyderm cluster', async () => {
       const {pachClient} = await createSandBox('listPipeline');
 
-      const pipelines = await pachClient.pps().listPipeline();
+      const pipelines = await pachClient.pps().listPipeline({projectIds: []});
 
       expect(pipelines).toHaveLength(1);
       expect(pipelines[0].pipeline?.name).toBe('listPipeline');
@@ -58,7 +58,7 @@ describe('services/pps', () => {
     it('should return a list of jobs', async () => {
       const {pachClient} = await createSandBox('listJobs');
 
-      const jobs = await pachClient.pps().listJobs();
+      const jobs = await pachClient.pps().listJobs({projectId: 'default'});
       expect(jobs).toHaveLength(1);
     });
   });
@@ -71,7 +71,7 @@ describe('services/pps', () => {
 
       const pipeline = await pachClient
         .pps()
-        .inspectPipeline('inspectPipeline');
+        .inspectPipeline({pipelineId: 'inspectPipeline', projectId: ''});
 
       expect(pipeline.pipeline?.name).toBe('inspectPipeline');
       expect(pipeline.state).toEqual(PipelineState.PIPELINE_STARTING);
@@ -91,7 +91,7 @@ describe('services/pps', () => {
   describe('inspectJob', () => {
     it('should return details about the specified job', async () => {
       const {pachClient} = await createSandBox('inspectJob');
-      const jobs = await pachClient.pps().listJobs();
+      const jobs = await pachClient.pps().listJobs({projectId: 'default'});
       const job = await pachClient.pps().inspectJob({
         id: jobs[0].job?.id || '',
         pipelineName: 'inspectJob',
@@ -105,7 +105,7 @@ describe('services/pps', () => {
   describe('getLogs', () => {
     it('should return logs about the cluster', async () => {
       const {pachClient} = await createSandBox('getLogs');
-      const logs = await pachClient.pps().getLogs({});
+      const logs = await pachClient.pps().getLogs({projectId: 'default'});
       logs.map((log) =>
         expect(log).toEqual(
           expect.objectContaining({
@@ -126,7 +126,7 @@ describe('services/pps', () => {
   describe('createPipeline', () => {
     it('should create a pipeline', async () => {
       const {pachClient, inputRepoName} = await createSandBox('createPipeline');
-      const pipelines = await pachClient.pps().listPipeline();
+      const pipelines = await pachClient.pps().listPipeline({projectIds: []});
       expect(pipelines).toHaveLength(1);
 
       const transform = new Transform()
@@ -142,7 +142,9 @@ describe('services/pps', () => {
         transform: transform.toObject(),
         input: input.toObject(),
       });
-      const updatedPipelines = await pachClient.pps().listPipeline();
+      const updatedPipelines = await pachClient
+        .pps()
+        .listPipeline({projectIds: []});
       expect(updatedPipelines).toHaveLength(2);
     });
   });
@@ -150,14 +152,17 @@ describe('services/pps', () => {
   describe('deletePipeline', () => {
     it('should delete a pipeline', async () => {
       const {pachClient} = await createSandBox('deletePipeline');
-      const pipelines = await pachClient.pps().listPipeline();
+      const pipelines = await pachClient.pps().listPipeline({projectIds: []});
       expect(pipelines).toHaveLength(1);
 
       await pachClient.pps().deletePipeline({
+        projectId: 'default',
         pipeline: {name: 'deletePipeline'},
       });
 
-      const updatedPipelines = await pachClient.pps().listPipeline();
+      const updatedPipelines = await pachClient
+        .pps()
+        .listPipeline({projectIds: []});
       expect(updatedPipelines).toHaveLength(0);
     });
   });
@@ -168,6 +173,7 @@ describe('services/pps', () => {
     it('should inspect a datum for a pipeline job', async () => {
       const {pachClient, inputRepoName} = await createSandBox('listDatums');
       const commit = await pachClient.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: inputRepoName}},
       });
 
@@ -178,8 +184,8 @@ describe('services/pps', () => {
         .putFileFromBytes('dummyData.csv', Buffer.from('a,b,c'))
         .end();
 
-      await pachClient.pfs().finishCommit({commit});
-      const jobs = await pachClient.pps().listJobs();
+      await pachClient.pfs().finishCommit({projectId: 'default', commit});
+      const jobs = await pachClient.pps().listJobs({projectId: 'default'});
 
       const jobId = jobs[0]?.job?.id;
       expect(jobId).toBeDefined();
@@ -188,10 +194,11 @@ describe('services/pps', () => {
         id: jobId || '',
         pipelineName: 'listDatums',
         wait: true,
-        projectId: 'default',
+        projectId: '',
       });
 
       const datums = await pachClient.pps().listDatums({
+        projectId: 'default',
         jobId: jobId || '',
         pipelineName: 'listDatums',
       });
@@ -199,6 +206,7 @@ describe('services/pps', () => {
       expect(datums).toHaveLength(1);
 
       const datum = await pachClient.pps().inspectDatum({
+        projectId: 'default',
         id: datums[0]?.datum?.id || '',
         jobId: jobId || '',
         pipelineName: 'listDatums',
@@ -214,6 +222,7 @@ describe('services/pps', () => {
     it('should list datums for a pipeline job', async () => {
       const {pachClient, inputRepoName} = await createSandBox('listDatums');
       const commit = await pachClient.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: inputRepoName}},
       });
 
@@ -224,8 +233,8 @@ describe('services/pps', () => {
         .putFileFromBytes('dummyData.csv', Buffer.from('a,b,c'))
         .end();
 
-      await pachClient.pfs().finishCommit({commit});
-      const jobs = await pachClient.pps().listJobs();
+      await pachClient.pfs().finishCommit({projectId: 'default', commit});
+      const jobs = await pachClient.pps().listJobs({projectId: 'default'});
 
       const jobId = jobs[0]?.job?.id;
       expect(jobId).toBeDefined();
@@ -234,10 +243,11 @@ describe('services/pps', () => {
         id: jobId || '',
         pipelineName: 'listDatums',
         wait: true,
-        projectId: 'default',
+        projectId: '',
       });
 
       const datums = await pachClient.pps().listDatums({
+        projectId: 'default',
         jobId: jobId || '',
         pipelineName: 'listDatums',
       });
@@ -251,6 +261,7 @@ describe('services/pps', () => {
     it('should filter datum list', async () => {
       const {pachClient, inputRepoName} = await createSandBox('listDatums');
       const commit = await pachClient.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: inputRepoName}},
       });
 
@@ -261,8 +272,8 @@ describe('services/pps', () => {
         .putFileFromBytes('dummyData.csv', Buffer.from('a,b,c'))
         .end();
 
-      await pachClient.pfs().finishCommit({commit});
-      const jobs = await pachClient.pps().listJobs();
+      await pachClient.pfs().finishCommit({projectId: 'default', commit});
+      const jobs = await pachClient.pps().listJobs({projectId: 'default'});
 
       const jobId = jobs[0]?.job?.id;
       expect(jobId).toBeDefined();
@@ -271,10 +282,11 @@ describe('services/pps', () => {
         id: jobId || '',
         pipelineName: 'listDatums',
         wait: true,
-        projectId: 'default',
+        projectId: '',
       });
 
       let datums = await pachClient.pps().listDatums({
+        projectId: 'default',
         jobId: jobId || '',
         pipelineName: 'listDatums',
         filter: [DatumState.FAILED],
@@ -283,6 +295,7 @@ describe('services/pps', () => {
       expect(datums).toHaveLength(0);
 
       datums = await pachClient.pps().listDatums({
+        projectId: 'default',
         jobId: jobId || '',
         pipelineName: 'listDatums',
         filter: [DatumState.FAILED, DatumState.SUCCESS],

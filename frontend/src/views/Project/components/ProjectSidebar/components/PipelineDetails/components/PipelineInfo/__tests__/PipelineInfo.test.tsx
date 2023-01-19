@@ -21,7 +21,7 @@ describe('PipelineInfo', () => {
   });
 
   it('should display information about the pipeline', async () => {
-    const projectId = '1';
+    const projectId = 'Solar-Panel-Data-Sorting';
     const pipelineId = 'montage';
 
     window.history.replaceState(

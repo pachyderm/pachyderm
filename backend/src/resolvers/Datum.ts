@@ -24,15 +24,19 @@ interface DatumResolver {
 
 const datumResolver: DatumResolver = {
   Query: {
-    datum: async (_parent, {args: {id, jobId, pipelineId}}, {pachClient}) => {
+    datum: async (
+      _parent,
+      {args: {projectId, id, jobId, pipelineId}},
+      {pachClient},
+    ) => {
       const datum = await pachClient
         .pps()
-        .inspectDatum({id, jobId, pipelineName: pipelineId});
+        .inspectDatum({projectId, id, jobId, pipelineName: pipelineId});
       return datumInfoToGQLDatum(datum.toObject(), jobId);
     },
     datums: async (
       _parent,
-      {args: {jobId, pipelineId, limit, filter, cursor}},
+      {args: {projectId, jobId, pipelineId, limit, filter, cursor}},
       {pachClient},
     ) => {
       limit = limit || DEFAULT_LIMIT;
@@ -42,6 +46,7 @@ const datumResolver: DatumResolver = {
         : DEFAULT_FILTERS;
 
       const datums = await pachClient.pps().listDatums({
+        projectId,
         jobId,
         pipelineName: pipelineId,
         filter: enumFilter,
@@ -65,7 +70,7 @@ const datumResolver: DatumResolver = {
     },
     datumSearch: async (
       _parent,
-      {args: {id, jobId, pipelineId}},
+      {args: {projectId, id, jobId, pipelineId}},
       {pachClient},
     ) => {
       //TODO: Update once we get regex
@@ -75,7 +80,7 @@ const datumResolver: DatumResolver = {
       try {
         const datum = await pachClient
           .pps()
-          .inspectDatum({id, jobId, pipelineName: pipelineId});
+          .inspectDatum({projectId, id, jobId, pipelineName: pipelineId});
         return datumInfoToGQLDatum(datum.toObject(), jobId);
       } catch (e) {
         if (e instanceof NotFoundError) {

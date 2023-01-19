@@ -13,7 +13,7 @@ describe('CSV Preview', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/3/repos/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/csv_commas.csv',
+      '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/csv_commas.csv',
     );
     render(<FileBrowser />);
 
@@ -30,7 +30,7 @@ describe('CSV Preview', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/3/repos/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/csv_tabs.csv',
+      '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/csv_tabs.csv',
     );
     render(<FileBrowser />);
 
@@ -47,7 +47,7 @@ describe('CSV Preview', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/3/repos/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/tsv_tabs.tsv',
+      '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/tsv_tabs.tsv',
     );
     render(<FileBrowser />);
 

@@ -81,21 +81,25 @@ const searchResolver: SearchResolver = {
             ),
           );
 
-          repos = (await pachClient.pfs().listRepo()).filter(
+          repos = (
+            await pachClient.pfs().listRepo({projectIds: [projectId]})
+          ).filter(
             (repo) =>
               repo.repo?.name &&
               (pipelineMap[repo.repo?.name] ||
                 inputRepos.includes(repo.repo?.name)),
           );
 
-          pipelines = (await pachClient.pps().listPipeline()).filter(
+          pipelines = (
+            await pachClient.pps().listPipeline({projectIds: [projectId]})
+          ).filter(
             (pipeline) =>
               pipeline.pipeline?.name && pipelineMap[pipeline.pipeline?.name],
           );
         } else {
           [repos, pipelines] = await Promise.all([
-            pachClient.pfs().listRepo(),
-            pachClient.pps().listPipeline(),
+            pachClient.pfs().listRepo({projectIds: [projectId]}),
+            pachClient.pps().listPipeline({projectIds: [projectId]}),
           ]);
         }
 

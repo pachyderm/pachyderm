@@ -40,7 +40,10 @@ const pps = () => {
     > => {
       return {
         listPipeline: async (call) => {
-          const [projectId] = call.metadata.get('project-id');
+          // TODO: implement finding all pipelines across all given projects.
+          // If no projects are supplied, search all projects.
+          // If projects are supplied, only search those projects.
+          const projects = call.request.getProjectsList();
           const [authToken] = call.metadata.get('authn-token');
           if (authToken && authToken === 'expired') {
             call.emit(
@@ -51,9 +54,10 @@ const pps = () => {
               }),
             );
           }
-          let replyPipelines = projectId
-            ? MockState.state.pipelines[projectId.toString()]
-            : MockState.state.pipelines['1'];
+
+          let replyPipelines = projects[0]
+            ? MockState.state.pipelines[projects[0].toString()]
+            : MockState.state.pipelines.default;
 
           if (call.request.getJqfilter()) {
             replyPipelines = await runJQFilter({
@@ -65,14 +69,14 @@ const pps = () => {
             });
           }
 
-          replyPipelines.forEach((pipeline) => call.write(pipeline));
+          replyPipelines?.forEach((pipeline) => call.write(pipeline));
           call.end();
         },
         listJob: async (call) => {
           const [projectId] = call.metadata.get('project-id');
           let replyJobs = projectId
             ? MockState.state.jobs[projectId.toString()]
-            : MockState.state.jobs['1'];
+            : MockState.state.jobs['Solar-Panel-Data-Sorting'];
 
           const pipeline = call.request.getPipeline();
           if (pipeline) {
@@ -89,7 +93,7 @@ const pps = () => {
           const [projectId] = call.metadata.get('project-id');
           const replyJobs = projectId
             ? MockState.state.jobs[projectId.toString()]
-            : MockState.state.jobs['1'];
+            : MockState.state.jobs['Solar-Panel-Data-Sorting'];
 
           const foundJob = replyJobs.find(
             (job) =>
@@ -107,7 +111,7 @@ const pps = () => {
           const [projectId] = call.metadata.get('project-id');
           const projectPipelines = projectId
             ? MockState.state.pipelines[projectId.toString()]
-            : MockState.state.pipelines['1'];
+            : MockState.state.pipelines.default;
           const foundPipeline = projectPipelines.find((pipeline) => {
             return (
               pipeline.getPipeline()?.getName() ===
@@ -125,7 +129,7 @@ const pps = () => {
           const [projectId] = call.metadata.get('project-id');
           const projectJobSets =
             MockState.state.jobSets[projectId.toString()] ||
-            MockState.state.jobSets['default'];
+            MockState.state.jobSets.default;
 
           const foundJobSet =
             projectJobSets[call.request.getJobSet()?.getId() || ''];
@@ -139,7 +143,7 @@ const pps = () => {
           const [projectId] = call.metadata.get('project-id');
           const projectJobSets =
             MockState.state.jobSets[projectId.toString()] ||
-            MockState.state.jobSets['default'];
+            MockState.state.jobSets.default;
 
           Object.keys(projectJobSets).forEach((jobId) =>
             call.write(
@@ -162,7 +166,7 @@ const pps = () => {
             const [projectId] = call.metadata.get('project-id');
             const projectLogs = projectId
               ? MockState.state.pipelineAndJobLogs[projectId.toString()]
-              : MockState.state.pipelineAndJobLogs['1'];
+              : MockState.state.pipelineAndJobLogs['Solar-Panel-Data-Sorting'];
 
             const pipelineName = call.request.getPipeline()?.getName();
             if (pipelineName) {
@@ -216,7 +220,7 @@ const pps = () => {
           const description = call.request.getDescription();
           const projectPipelines = projectId
             ? MockState.state.pipelines[projectId.toString()]
-            : MockState.state.pipelines['1'];
+            : MockState.state.pipelines['Solar-Panel-Data-Sorting'];
 
           if (pipelineName) {
             const existingPipeline = projectPipelines.find(
@@ -247,7 +251,7 @@ const pps = () => {
 
               const projectRepos = projectId
                 ? MockState.state.repos[projectId.toString()]
-                : MockState.state.repos['1'];
+                : MockState.state.repos['Solar-Panel-Data-Sorting'];
               const newRepo = new RepoInfo()
                 .setRepo(new Repo().setName(pipelineName).setType('user'))
                 .setDetails(new RepoInfo.Details().setSizeBytes(0))
@@ -270,7 +274,7 @@ const pps = () => {
 
           const projectPipelines = projectId
             ? MockState.state.pipelines[projectId.toString()]
-            : MockState.state.pipelines['1'];
+            : MockState.state.pipelines['Solar-Panel-Data-Sorting'];
 
           MockState.state.pipelines[projectId.toString()] =
             projectPipelines.filter((pipelineInfo) => {
@@ -286,7 +290,7 @@ const pps = () => {
           const jobId = call.request.getJob()?.getId() || '';
           const projectDatums =
             MockState.state.datums[projectId.toString()] ||
-            MockState.state.datums['default'];
+            MockState.state.datums.default;
 
           const filters = call.request.getFilter()?.toArray()[0];
 
@@ -325,7 +329,7 @@ const pps = () => {
           const datumId = call.request.getDatum()?.getId();
           const projectDatums =
             MockState.state.datums[projectId.toString()] ||
-            MockState.state.datums['default'];
+            MockState.state.datums.default;
 
           const datums = projectDatums[pipelineName][jobId];
 

@@ -7,14 +7,14 @@ import {executeQuery} from '@dash-backend/testHelpers';
 import {GetLogsQuery, GetWorkspaceLogsQuery} from '@graphqlTypes';
 
 describe('Logs resolver', () => {
-  const projectId = '1';
+  const projectId = 'Solar-Panel-Data-Sorting';
 
   describe('workspace query resolver', () => {
     it('should resolve workspace logs', async () => {
       const {data, errors = []} = await executeQuery<GetWorkspaceLogsQuery>(
         GET_WORKSPACE_LOGS_QUERY,
         {
-          args: {},
+          args: {projectId: 'default'},
         },
       );
       const workspaceLogs = data?.workspaceLogs;

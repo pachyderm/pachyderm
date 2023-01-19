@@ -13,6 +13,7 @@ import {
 } from '@dash-backend/proto';
 import {
   ObjectStorageEgress,
+  Project,
   SQLDatabaseEgress,
 } from '@dash-backend/proto/proto/pfs/pfs_pb';
 
@@ -27,7 +28,11 @@ schedulingSpec.getNodeSelectorMap().set('disktype', 'ssd');
 
 const tutorial = [
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('montage'))
+    .setPipeline(
+      new Pipeline()
+        .setName('montage')
+        .setProject(new Project().setName('Solar-Panel-Data-Sorting')),
+    )
     .setLastJobState(JobState.JOB_CREATED)
     .setDetails(
       new PipelineInfo.Details()
@@ -58,7 +63,11 @@ const tutorial = [
     .setState(PipelineState.PIPELINE_FAILURE),
 
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('edges'))
+    .setPipeline(
+      new Pipeline()
+        .setName('edges')
+        .setProject(new Project().setName('Solar-Panel-Data-Sorting')),
+    )
     .setLastJobState(JobState.JOB_CREATED)
     .setDetails(
       new PipelineInfo.Details()
@@ -76,7 +85,11 @@ const tutorial = [
 
 const egress = [
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('egress_s3'))
+    .setPipeline(
+      new Pipeline()
+        .setName('egress_s3')
+        .setProject(new Project().setName('Egress-Examples')),
+    )
     .setLastJobState(JobState.JOB_CREATED)
     .setDetails(
       new PipelineInfo.Details()
@@ -104,7 +117,11 @@ const egress = [
     .setState(PipelineState.PIPELINE_FAILURE),
 
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('egress_sql'))
+    .setPipeline(
+      new Pipeline()
+        .setName('egress_sql')
+        .setProject(new Project().setName('Egress-Examples')),
+    )
     .setLastJobState(JobState.JOB_CREATED)
     .setDetails(
       new PipelineInfo.Details()
@@ -144,7 +161,11 @@ const egress = [
     .setState(PipelineState.PIPELINE_FAILURE),
 
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('egress_object'))
+    .setPipeline(
+      new Pipeline()
+        .setName('egress_object')
+        .setProject(new Project().setName('Egress-Examples')),
+    )
     .setLastJobState(JobState.JOB_CREATED)
     .setDetails(
       new PipelineInfo.Details()
@@ -178,7 +199,11 @@ const egress = [
     .setState(PipelineState.PIPELINE_FAILURE),
 
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('edges'))
+    .setPipeline(
+      new Pipeline()
+        .setName('edges')
+        .setProject(new Project().setName('Egress-Examples')),
+    )
     .setLastJobState(JobState.JOB_CREATED)
     .setDetails(
       new PipelineInfo.Details()
@@ -196,7 +221,11 @@ const egress = [
 
 const customerTeam = [
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('likelihoods'))
+    .setPipeline(
+      new Pipeline()
+        .setName('likelihoods')
+        .setProject(new Project().setName('three-projects')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_STANDBY)
     .setDetails(
@@ -211,7 +240,11 @@ const customerTeam = [
         .setOutputBranch('master'),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('models'))
+    .setPipeline(
+      new Pipeline()
+        .setName('models')
+        .setProject(new Project().setName('three-projects')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_RUNNING)
     .setDetails(
@@ -222,7 +255,11 @@ const customerTeam = [
     ),
 
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('joint_call'))
+    .setPipeline(
+      new Pipeline()
+        .setName('joint_call')
+        .setProject(new Project().setName('three-projects')),
+    )
     .setLastJobState(JobState.JOB_KILLED)
     .setState(PipelineState.PIPELINE_FAILURE)
     .setDetails(
@@ -238,7 +275,11 @@ const customerTeam = [
     ),
 
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('split'))
+    .setPipeline(
+      new Pipeline()
+        .setName('split')
+        .setProject(new Project().setName('three-projects')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_RUNNING)
     .setDetails(
@@ -249,7 +290,11 @@ const customerTeam = [
     ),
 
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('model'))
+    .setPipeline(
+      new Pipeline()
+        .setName('model')
+        .setProject(new Project().setName('three-projects')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_PAUSED)
     .setDetails(
@@ -269,7 +314,11 @@ const customerTeam = [
     ),
 
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('test'))
+    .setPipeline(
+      new Pipeline()
+        .setName('test')
+        .setProject(new Project().setName('three-projects')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_RUNNING)
     .setDetails(
@@ -285,7 +334,11 @@ const customerTeam = [
     ),
 
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('select'))
+    .setPipeline(
+      new Pipeline()
+        .setName('select')
+        .setProject(new Project().setName('three-projects')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_RUNNING)
     .setDetails(
@@ -302,7 +355,9 @@ const customerTeam = [
 
   new PipelineInfo()
     .setPipeline(
-      new Pipeline().setName('detect_pachyderm_repo_version_alternate'),
+      new Pipeline()
+        .setName('detect_pachyderm_repo_version_alternate')
+        .setProject(new Project().setName('three-projects')),
     )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_RUNNING)
@@ -321,7 +376,13 @@ const customerTeam = [
 
 const cron = [
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('processor'))
+    .setPipeline(
+      new Pipeline()
+        .setName('processor')
+        .setProject(
+          new Project().setName('Solar-Power-Data-Logger-Team-Collab'),
+        ),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details()
@@ -332,7 +393,11 @@ const cron = [
 
 const traitDiscovery = [
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_orfs_blastdb'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_orfs_blastdb')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -340,7 +405,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_refseqfasta'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_refseqfasta')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -348,7 +417,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_search'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_search')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -359,7 +432,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_candidates'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_candidates')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -367,7 +444,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_atg_fasta'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_atg_fasta')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -375,7 +456,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_completeness'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_completeness')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -383,7 +468,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_candidate_fasta'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_candidate_fasta')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -391,7 +480,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_group_candidate_bam'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_group_candidate_bam')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -402,7 +495,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_clustering'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_clustering')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -415,7 +512,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_quality_downselect'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_quality_downselect')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -423,7 +524,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_group_contig_candidates'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_group_contig_candidates')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -434,7 +539,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_quality'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_quality')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -444,7 +553,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_neighbors'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_neighbors')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(
@@ -453,7 +566,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_domainscan'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_domainscan')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -466,7 +583,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_quality_check'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_quality_check')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -474,7 +595,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_hmmscan'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_hmmscan')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -487,7 +612,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_promotion_status'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_promotion_status')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -495,7 +624,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_group_geneclass_data'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_group_geneclass_data')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -506,7 +639,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_patent_search'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_patent_search')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -519,7 +656,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_geneclass'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_geneclass')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -529,7 +670,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_patent_check'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_patent_check')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -537,7 +682,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_group_promo_data'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_group_promo_data')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -558,7 +707,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_promotionfilter'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_promotionfilter')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -566,7 +719,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_group_promo_clstr'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_group_promo_clstr')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -581,7 +738,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_promoclstr_filter'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_promoclstr_filter')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -589,7 +750,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_promotion'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_promotion')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -599,7 +764,11 @@ const traitDiscovery = [
       ),
     ),
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('pachy_trait_atgs'))
+    .setPipeline(
+      new Pipeline()
+        .setName('pachy_trait_atgs')
+        .setProject(new Project().setName('Trait-Discovery')),
+    )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
@@ -611,7 +780,11 @@ const traitDiscovery = [
 const getLoadPipelines = (count: number) => {
   return [...new Array(count).keys()].map((i) => {
     return new PipelineInfo()
-      .setPipeline(new Pipeline().setName(`load-pipeline-${i}`))
+      .setPipeline(
+        new Pipeline()
+          .setName(`load-pipeline-${i}`)
+          .setProject(new Project().setName('Load-Project')),
+      )
       .setDetails(
         new PipelineInfo.Details().setInput(
           new Input().setPfs(new PFSInput().setRepo(`load-repo-${i}`)),
@@ -621,15 +794,15 @@ const getLoadPipelines = (count: number) => {
 };
 
 const pipelines: {[projectId: string]: PipelineInfo[]} = {
-  '1': tutorial,
-  '2': customerTeam,
-  '3': cron,
-  '4': customerTeam,
-  '5': egress,
-  '6': [],
-  '7': traitDiscovery,
-  '8': [],
-  '9': getLoadPipelines(DAGS),
+  'Solar-Panel-Data-Sorting': tutorial,
+  'Data-Cleaning-Process': customerTeam,
+  'Solar-Power-Data-Logger-Team-Collab': cron,
+  'Solar-Price-Prediction-Modal': customerTeam,
+  'Egress-Examples': egress,
+  'Empty-Project': [],
+  'Trait-Discovery': traitDiscovery,
+  'OpenCV-Tutorial': [],
+  'Load-Project': getLoadPipelines(DAGS),
   default: [...tutorial, ...customerTeam],
 };
 

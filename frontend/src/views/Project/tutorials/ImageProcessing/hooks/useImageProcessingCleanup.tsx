@@ -12,7 +12,7 @@ import useOnCloseTutorial from '../../hooks/useCloseTutorial';
 const useImageProcessingCleanup = () => {
   const {projectId} = useUrlState();
   const {repos} = useRepos({projectId});
-  const {pipelines} = usePipelines({projectId});
+  const {pipelines} = usePipelines({projectIds: [projectId]});
   const onCloseTutorial = useOnCloseTutorial({clearProgress: true});
   const [tutorialProgress] = useLocalProjectSettings({
     projectId,

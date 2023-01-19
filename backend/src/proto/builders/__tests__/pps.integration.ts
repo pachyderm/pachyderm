@@ -681,6 +681,7 @@ it('should create JobInfo from an object', () => {
 
 it('should create getLogsRequest from a pipeline request', () => {
   const getLogsRequest = getLogsRequestFromArgs({
+    projectId: 'default',
     pipelineName: 'PipelineName',
     since: 564645,
     follow: true,
@@ -694,6 +695,7 @@ it('should create getLogsRequest from a pipeline request', () => {
 
 it('should create getLogsRequest from a job request', () => {
   const getLogsRequest = getLogsRequestFromArgs({
+    projectId: 'default',
     pipelineName: 'PipelineName',
     jobId: '2222222',
     since: 564645,

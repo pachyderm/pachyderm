@@ -21,7 +21,10 @@ describe('PipelineSpec', () => {
     window.history.replaceState(
       '',
       '',
-      pipelineRoute({projectId: '1', pipelineId: 'montage'}),
+      pipelineRoute({
+        projectId: 'Solar-Panel-Data-Sorting',
+        pipelineId: 'montage',
+      }),
     );
 
     const {container} = render(<PipelineSpec />);

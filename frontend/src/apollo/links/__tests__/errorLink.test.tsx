@@ -14,7 +14,7 @@ describe('errorLink', () => {
   describe('unauthenticated', () => {
     const TestBed = withContextProviders(() => {
       useDAGData({
-        projectId: '1',
+        projectId: 'Solar-Panel-Data-Sorting',
         nodeHeight: 60,
         nodeWidth: 120,
         direction: DagDirection.RIGHT,
@@ -77,26 +77,6 @@ describe('errorLink', () => {
         await screen.findByText(
           `Unable to locate this resource, are you sure it exists?`,
         ),
-      ).toBeInTheDocument();
-    });
-  });
-
-  describe('generic error', () => {
-    const TestBed = withContextProviders(() => {
-      useProject({id: 'bogus'});
-      return <>test</>;
-    });
-
-    afterEach(() => {
-      window.history.replaceState('', '', '/');
-    });
-
-    it('should show an error page if the project query is unsuccessful', async () => {
-      mockServer.setError(createServiceError({code: 13}));
-      render(<TestBed />);
-
-      expect(
-        await screen.findByText(`Looks like this API call can't be completed.`),
       ).toBeInTheDocument();
     });
   });

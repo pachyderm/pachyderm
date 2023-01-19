@@ -15,10 +15,12 @@ interface BranchResolver {
 
 const branchResolver: BranchResolver = {
   Query: {
-    branch: async (_field, {args: {branch}}, {pachClient}) => {
-      const branchInfo = await pachClient
-        .pfs()
-        .inspectBranch({name: branch.name, repo: branch.repo || undefined});
+    branch: async (_field, {args: {projectId, branch}}, {pachClient}) => {
+      const branchInfo = await pachClient.pfs().inspectBranch({
+        projectId,
+        name: branch.name,
+        repo: branch.repo || undefined,
+      });
 
       if (branchInfo.branch) {
         return branchInfoToGQLBranch(branchInfo.branch);
@@ -30,7 +32,7 @@ const branchResolver: BranchResolver = {
   Mutation: {
     createBranch: async (
       _field,
-      {args: {head, branch, provenance, newCommitSet}},
+      {args: {projectId, head, branch, provenance, newCommitSet}},
       {pachClient},
     ) => {
       if (branch) {
@@ -65,7 +67,9 @@ const branchResolver: BranchResolver = {
           newCommitSet: newCommitSet || false,
         });
 
-        const created = await pachClient.pfs().inspectBranch(branchObject);
+        const created = await pachClient
+          .pfs()
+          .inspectBranch({projectId, ...branchObject});
         if (created.branch) {
           return branchInfoToGQLBranch(created.branch);
         }

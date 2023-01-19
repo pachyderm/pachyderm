@@ -17,7 +17,7 @@ describe('File Browser', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4',
+      '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4',
     );
   });
   const FileBrowser = withContextProviders(() => {
@@ -179,7 +179,7 @@ describe('File Browser', () => {
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
-          '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/cats%2F',
+          '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/cats%2F',
         ),
       );
 
@@ -194,7 +194,7 @@ describe('File Browser', () => {
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
-          '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/AT-AT.png',
+          '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/AT-AT.png',
         ),
       );
     });
@@ -214,7 +214,9 @@ describe('File Browser', () => {
       const deleteButton = await screen.findAllByTestId(
         'DeleteFileButton__link',
       );
-      expect(mockServer.getState().files['3']['/']).toHaveLength(TOTAL_FILES);
+      expect(
+        mockServer.getState().files['Solar-Power-Data-Logger-Team-Collab']['/'],
+      ).toHaveLength(TOTAL_FILES);
 
       await click(deleteButton[0]);
 
@@ -223,9 +225,11 @@ describe('File Browser', () => {
       await click(deleteConfirm);
 
       await waitFor(() =>
-        expect(mockServer.getState().files['3']['/']).toHaveLength(
-          TOTAL_FILES - 1,
-        ),
+        expect(
+          mockServer.getState().files['Solar-Power-Data-Logger-Team-Collab'][
+            '/'
+          ],
+        ).toHaveLength(TOTAL_FILES - 1),
       );
     });
 
@@ -233,7 +237,7 @@ describe('File Browser', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/3/repos/processor/branch/master/commit/f4e23cf347c342d98bd9015e4c3ad52a',
+        '/project/Solar-Power-Data-Logger-Team-Collab/repos/processor/branch/master/commit/f4e23cf347c342d98bd9015e4c3ad52a',
       );
       render(<FileBrowser />);
 
@@ -265,7 +269,7 @@ describe('File Browser', () => {
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
-          '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/cats%2F',
+          '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/cats%2F',
         ),
       );
     });
@@ -281,7 +285,7 @@ describe('File Browser', () => {
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
-          '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/liberty.png',
+          '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/liberty.png',
         ),
       );
     });
@@ -305,7 +309,9 @@ describe('File Browser', () => {
       const deleteButton = await screen.findAllByTestId(
         'DeleteFileButton__link',
       );
-      expect(mockServer.getState().files['3']['/']).toHaveLength(TOTAL_FILES);
+      expect(
+        mockServer.getState().files['Solar-Power-Data-Logger-Team-Collab']['/'],
+      ).toHaveLength(TOTAL_FILES);
 
       await click(deleteButton[0]);
 
@@ -314,9 +320,11 @@ describe('File Browser', () => {
       await click(deleteConfirm);
 
       await waitFor(() =>
-        expect(mockServer.getState().files['3']['/']).toHaveLength(
-          TOTAL_FILES - 1,
-        ),
+        expect(
+          mockServer.getState().files['Solar-Power-Data-Logger-Team-Collab'][
+            '/'
+          ],
+        ).toHaveLength(TOTAL_FILES - 1),
       );
     });
 
@@ -324,7 +332,7 @@ describe('File Browser', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/3/repos/processor/branch/master/commit/f4e23cf347c342d98bd9015e4c3ad52a',
+        '/project/Solar-Power-Data-Logger-Team-Collab/repos/processor/branch/master/commit/f4e23cf347c342d98bd9015e4c3ad52a',
       );
       render(<FileBrowser />);
 
@@ -339,7 +347,7 @@ describe('File Browser', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/liberty.png',
+        '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/liberty.png',
       );
     });
 
@@ -379,7 +387,9 @@ describe('File Browser', () => {
       render(<FileBrowser />);
 
       const deleteButton = await screen.findByTestId('DeleteFileButton__link');
-      expect(mockServer.getState().files['3']['/']).toHaveLength(TOTAL_FILES);
+      expect(
+        mockServer.getState().files['Solar-Power-Data-Logger-Team-Collab']['/'],
+      ).toHaveLength(TOTAL_FILES);
 
       await click(deleteButton);
 
@@ -388,9 +398,11 @@ describe('File Browser', () => {
       await click(deleteConfirm);
 
       await waitFor(() =>
-        expect(mockServer.getState().files['3']['/']).toHaveLength(
-          TOTAL_FILES - 1,
-        ),
+        expect(
+          mockServer.getState().files['Solar-Power-Data-Logger-Team-Collab'][
+            '/'
+          ],
+        ).toHaveLength(TOTAL_FILES - 1),
       );
     });
 
@@ -398,7 +410,7 @@ describe('File Browser', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/3/repos/processor/branch/master/commit/f4e23cf347c342d98bd9015e4c3ad52a',
+        '/project/Solar-Power-Data-Logger-Team-Collab/repos/processor/branch/master/commit/f4e23cf347c342d98bd9015e4c3ad52a',
       );
       render(<FileBrowser />);
 

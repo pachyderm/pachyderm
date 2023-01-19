@@ -13,7 +13,7 @@ describe('FileSet', () => {
     const pachClient = client({ssl: false, pachdAddress: 'localhost:30650'});
     const pfs = pachClient.pfs();
     await pfs.deleteAll();
-    await pfs.createRepo({repo: {name}});
+    await pfs.createRepo({projectId: 'default', repo: {name}});
 
     return pachClient;
   };
@@ -29,13 +29,15 @@ describe('FileSet', () => {
         .end();
 
       const commit = await client.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: 'putFileFromURL'}},
       });
 
-      await client.pfs().addFileSet({fileSetId, commit});
-      await client.pfs().finishCommit({commit});
+      await client.pfs().addFileSet({projectId: 'default', fileSetId, commit});
+      await client.pfs().finishCommit({projectId: 'default', commit});
 
       const files = await client.pfs().listFile({
+        projectId: 'default',
         commitId: commit.id,
         branch: {name: 'master', repo: {name: 'putFileFromURL'}},
       });
@@ -55,13 +57,15 @@ describe('FileSet', () => {
         .end();
 
       const commit = await client.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: 'putFileFromBytes'}},
       });
-      await client.pfs().addFileSet({fileSetId, commit});
+      await client.pfs().addFileSet({projectId: 'default', fileSetId, commit});
 
-      await client.pfs().finishCommit({commit});
+      await client.pfs().finishCommit({projectId: 'default', commit});
 
       const files = await client.pfs().listFile({
+        projectId: 'default',
         commitId: commit.id,
         branch: {name: 'master', repo: {name: 'putFileFromBytes'}},
       });
@@ -93,13 +97,15 @@ describe('FileSet', () => {
         .end();
 
       const commit = await client.pfs().startCommit({
+        projectId: 'default',
         branch: {name: 'master', repo: {name: 'putFileFromFilePath'}},
       });
-      await client.pfs().addFileSet({fileSetId, commit});
+      await client.pfs().addFileSet({projectId: 'default', fileSetId, commit});
 
-      await client.pfs().finishCommit({commit});
+      await client.pfs().finishCommit({projectId: 'default', commit});
 
       const files = await client.pfs().listFile({
+        projectId: 'default',
         commitId: commit.id,
         branch: {name: 'master', repo: {name: 'putFileFromFilePath'}},
       });

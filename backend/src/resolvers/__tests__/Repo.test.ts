@@ -8,7 +8,7 @@ import {CreateRepoMutation, RepoQuery, ReposQuery} from '@graphqlTypes';
 
 describe('resolvers/Repo', () => {
   const id = 'cron';
-  const projectId = '3';
+  const projectId = 'Solar-Power-Data-Logger-Team-Collab';
 
   describe('repo', () => {
     it('should return a repo for a given id and projectId', async () => {
@@ -54,7 +54,7 @@ describe('resolvers/Repo', () => {
 
     it('should return repo list filtered by globalId', async () => {
       const {data} = await executeQuery<ReposQuery>(GET_REPOS_QUERY, {
-        args: {projectId: '1'},
+        args: {projectId: 'Solar-Panel-Data-Sorting'},
       });
       expect(data?.repos).toHaveLength(3);
       expect(data?.repos[0]?.id).toBe('montage');
@@ -64,7 +64,10 @@ describe('resolvers/Repo', () => {
       const {data: filteredData} = await executeQuery<ReposQuery>(
         GET_REPOS_QUERY,
         {
-          args: {projectId: '1', jobSetId: '33b9af7d5d4343219bc8e02ff44cd55a'},
+          args: {
+            projectId: 'Solar-Panel-Data-Sorting',
+            jobSetId: '33b9af7d5d4343219bc8e02ff44cd55a',
+          },
         },
       );
 

@@ -36,6 +36,7 @@ import {
   InspectDatumRequestArgs,
   ListDatumsRequestArgs,
 } from '../lib/types';
+import {Project} from '../proto/pfs/pfs_pb';
 import {APIClient} from '../proto/pps/pps_grpc_pb';
 import {
   ListJobRequest,
@@ -68,10 +69,12 @@ export interface ListArgs {
 }
 export interface ListJobArgs extends ListArgs {
   pipelineId?: string | null;
+  projectId: string;
 }
 
 export interface ListJobSetArgs extends ListArgs {
   details?: boolean;
+  projectIds: string[];
 }
 
 export interface PipelineArgs {
@@ -82,6 +85,7 @@ export interface DeletePipelineArgs {
   pipeline: PipelineArgs;
   keepRepo?: boolean;
   force?: boolean;
+  projectId: string;
 }
 
 export interface CreatePipelineRequestOptions
@@ -153,6 +157,7 @@ const pps = ({
   const client = new APIClient(pachdAddress, channelCredentials);
 
   return {
+    // TODO: createPipeline should support projects
     createPipeline: (options: CreatePipelineRequestOptions) => {
       const request = new CreatePipelineRequest();
       if (options.autoscaling) request.setAutoscaling(options.autoscaling);
@@ -216,10 +221,19 @@ const pps = ({
         });
       });
     },
-    listPipeline: (jq = '') => {
+    listPipeline: ({
+      projectIds,
+      jq = '',
+    }: {
+      projectIds: string[];
+      jq?: string;
+    }) => {
       const listPipelineRequest = new ListPipelineRequest()
         .setJqfilter(jq)
-        .setDetails(true);
+        .setDetails(true)
+        .setProjectsList(
+          projectIds.map((projectName) => new Project().setName(projectName)),
+        );
       const stream = client.listPipeline(
         listPipelineRequest,
         credentialMetadata,
@@ -232,12 +246,17 @@ const pps = ({
     },
 
     deletePipeline: ({
+      projectId,
       pipeline,
       keepRepo = false,
       force = false,
     }: DeletePipelineArgs) => {
       const deletePipelineRequest = new DeletePipelineRequest()
-        .setPipeline(new Pipeline().setName(pipeline.name))
+        .setPipeline(
+          new Pipeline()
+            .setName(pipeline.name)
+            .setProject(new Project().setName(projectId)),
+        )
         .setForce(force)
         .setKeepRepo(keepRepo);
       return new Promise<Empty.AsObject>((resolve, reject) => {
@@ -254,11 +273,24 @@ const pps = ({
       });
     },
 
-    listJobs: ({limit, pipelineId}: ListJobArgs = {}) => {
+    // TODO: should implement multi project list ?
+    listJobs: ({projectId, limit, pipelineId}: ListJobArgs) => {
       const listJobRequest = new ListJobRequest().setDetails(true);
 
-      if (pipelineId) {
+      listJobRequest.setProjectsList([new Project().setName(projectId)]);
+
+      if (pipelineId && projectId) {
+        listJobRequest.setPipeline(
+          new Pipeline()
+            .setName(pipelineId)
+            .setProject(new Project().setName(projectId)),
+        );
+      } else if (pipelineId) {
         listJobRequest.setPipeline(new Pipeline().setName(pipelineId));
+      }
+
+      if (projectId) {
+        listJobRequest.setProjectsList([new Project().setName(projectId)]);
       }
 
       const stream = client.listJob(listJobRequest, credentialMetadata, {
@@ -271,12 +303,24 @@ const pps = ({
       );
     },
 
-    inspectPipeline: (id: string) => {
+    inspectPipeline: ({
+      projectId,
+      pipelineId,
+    }: {
+      projectId: string;
+      pipelineId: string;
+    }) => {
       return new Promise<PipelineInfo.AsObject>((resolve, reject) => {
+        const pipelineRequest = new InspectPipelineRequest()
+          .setPipeline(
+            new Pipeline()
+              .setName(pipelineId)
+              .setProject(new Project().setName(projectId)),
+          )
+          .setDetails(true);
+
         client.inspectPipeline(
-          new InspectPipelineRequest()
-            .setPipeline(pipelineFromObject({name: id}))
-            .setDetails(true),
+          pipelineRequest,
           credentialMetadata,
           (error, res) => {
             if (error) {
@@ -305,8 +349,14 @@ const pps = ({
       return streamToObjectArray<JobInfo, JobInfo.AsObject>(stream);
     },
 
-    listJobSets: ({limit, details = true}: ListJobSetArgs = {}) => {
+    listJobSets: (
+      {projectIds, limit, details = true}: ListJobSetArgs = {projectIds: []},
+    ) => {
       const listJobSetRequest = new ListJobSetRequest().setDetails(details);
+
+      listJobSetRequest.setProjectsList(
+        projectIds.map((projectName) => new Project().setName(projectName)),
+      );
 
       const stream = client.listJobSet(listJobSetRequest, credentialMetadata, {
         deadline: Date.now() + RPC_DEADLINE_MS,
@@ -318,14 +368,17 @@ const pps = ({
       );
     },
 
-    inspectJob: ({id, pipelineName, wait = false}: JobQueryArgs) => {
+    inspectJob: ({projectId, id, pipelineName, wait = false}: JobQueryArgs) => {
       return new Promise<JobInfo.AsObject>((resolve, reject) => {
         client.inspectJob(
           new InspectJobRequest()
             .setWait(wait)
             .setJob(
               jobFromObject({id}).setPipeline(
-                pipelineFromObject({name: pipelineName}),
+                pipelineFromObject({
+                  name: pipelineName,
+                  project: {name: projectId},
+                }),
               ),
             )
             .setDetails(true),
@@ -341,6 +394,7 @@ const pps = ({
     },
 
     getLogs: ({
+      projectId,
       pipelineName,
       jobId,
       datumId,
@@ -348,12 +402,14 @@ const pps = ({
       follow = false,
     }: GetLogsRequestArgs) => {
       const getLogsRequest = getLogsRequestFromArgs({
+        projectId,
         pipelineName,
         jobId,
         datumId,
         since,
         follow,
       });
+
       const stream = client.getLogs(getLogsRequest, credentialMetadata, {
         deadline: Date.now() + RPC_DEADLINE_MS,
       });
@@ -362,6 +418,7 @@ const pps = ({
     },
 
     getLogsStream: ({
+      projectId,
       pipelineName,
       jobId,
       datumId,
@@ -372,6 +429,7 @@ const pps = ({
         (resolve, reject) => {
           try {
             const getLogsRequest = getLogsRequestFromArgs({
+              projectId,
               pipelineName,
               jobId,
               datumId,
@@ -401,7 +459,12 @@ const pps = ({
       });
     },
 
-    inspectDatum: ({id, jobId, pipelineName}: InspectDatumRequestArgs) => {
+    inspectDatum: ({
+      projectId,
+      id,
+      jobId,
+      pipelineName,
+    }: InspectDatumRequestArgs) => {
       return new Promise<DatumInfo>((resolve, reject) => {
         client.inspectDatum(
           new InspectDatumRequest().setDatum(
@@ -410,7 +473,11 @@ const pps = ({
               .setJob(
                 new Job()
                   .setId(jobId)
-                  .setPipeline(new Pipeline().setName(pipelineName)),
+                  .setPipeline(
+                    new Pipeline()
+                      .setName(pipelineName)
+                      .setProject(new Project().setName(projectId)),
+                  ),
               ),
           ),
           credentialMetadata,
@@ -425,6 +492,7 @@ const pps = ({
     },
 
     listDatums: ({
+      projectId,
       jobId,
       pipelineName,
       filter,
@@ -434,7 +502,11 @@ const pps = ({
       const request = new ListDatumRequest().setJob(
         new Job()
           .setId(jobId)
-          .setPipeline(new Pipeline().setName(pipelineName)),
+          .setPipeline(
+            new Pipeline()
+              .setName(pipelineName)
+              .setProject(new Project().setName(projectId)),
+          ),
       );
       if (filter) {
         request.setFilter(new ListDatumRequest.Filter().setStateList(filter));

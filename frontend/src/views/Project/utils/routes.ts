@@ -35,7 +35,7 @@ const generateRouteFn = <S extends string>(path: S) => {
   return (params?: ExtractRouteParams<S>, withSearch = true) => {
     return withSearch
       ? generatePathWithSearch(path, params)
-      : encodeURI(generatePath(path, params));
+      : generatePath(path, params);
   };
 };
 
@@ -47,11 +47,11 @@ const generateLineageOrProjectRouteFn = <S extends string>(
     if (matchPath(window.location.pathname, LINEAGE_PATH)) {
       return withSearch
         ? generatePathWithSearch(lineagePath, params)
-        : encodeURI(generatePath(lineagePath, params));
+        : generatePath(lineagePath, params);
     } else {
       return withSearch
         ? generatePathWithSearch(projectPath, params)
-        : encodeURI(generatePath(projectPath, params));
+        : generatePath(projectPath, params);
     }
   };
 };

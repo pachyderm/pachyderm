@@ -146,6 +146,8 @@ export {
   DropCommitSetRequest,
   CheckStorageRequest,
   CheckStorageResponse,
+  Project,
+  ProjectInfo,
 } from './proto/pfs/pfs_pb';
 export {
   APIClient as PpsAPIClient,
@@ -248,16 +250,6 @@ export {
   JobSetInfo,
   JobState,
 } from './proto/pps/pps_pb';
-export {
-  APIClient as ProjectsAPIClient,
-  APIService as ProjectsAPIService,
-  IAPIServer as ProjectsIAPIServer,
-  IAPIService as ProjectsIAPIService,
-  IAPIClient as ProjectsIAPIClient,
-  IAPIService_IInspectProject,
-  IAPIService_IListProject,
-} from './proto/projects/projects_grpc_pb';
-export * from './proto/projects/projects_pb';
 export {
   APIClient as EnterpriseAPIClient,
   APIService as EnterpriseAPIService,

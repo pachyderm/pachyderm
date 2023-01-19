@@ -4,13 +4,11 @@ import {
   FileType,
   JobState,
   PipelineState,
-  ProjectStatus,
   OriginKind,
   DatumState,
   State,
 } from '@dash-backend/proto';
 import {
-  ProjectStatus as GQLProjectStatus,
   FileType as GQLFileType,
   PipelineState as GQLPipelineState,
   JobState as GQLJobState,
@@ -88,17 +86,6 @@ export const toGQLFileType = (fileType: FileType) => {
       return GQLFileType.RESERVED;
     default:
       throw new ApolloError(`Unknown file type ${fileType}`);
-  }
-};
-
-export const toGQLProjectStatus = (projectStatus: ProjectStatus) => {
-  switch (projectStatus) {
-    case ProjectStatus.HEALTHY:
-      return GQLProjectStatus.HEALTHY;
-    case ProjectStatus.UNHEALTHY:
-      return GQLProjectStatus.UNHEALTHY;
-    default:
-      throw new ApolloError(`Unknown project status ${projectStatus}`);
   }
 };
 

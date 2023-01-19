@@ -61,7 +61,7 @@ const Landing: React.FC = () => {
                 <Group spacing={32}>
                   <DefaultDropdown
                     storeSelected
-                    initialSelectId="Newest"
+                    initialSelectId="Name A-Z"
                     onSelect={handleSortSelect}
                     buttonOpts={{disabled: !multiProject}}
                     items={sortDropdown}

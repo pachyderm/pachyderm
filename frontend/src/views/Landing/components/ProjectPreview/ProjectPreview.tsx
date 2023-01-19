@@ -1,4 +1,4 @@
-import {Project} from '@graphqlTypes';
+import {Project, ProjectStatus as ProjectStatusEnum} from '@graphqlTypes';
 import classNames from 'classnames';
 import React, {useRef} from 'react';
 import {Link} from 'react-router-dom';
@@ -68,7 +68,8 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
               >
                 <div className={styles.inline}>
                   <ProjectStatus status={project.status} />
-                  {project.status.toString() === 'UNHEALTHY' && (
+                  {project.status.toString() ===
+                    ProjectStatusEnum.UNHEALTHY && (
                     <Link
                       to={jobsRoute({projectId: project.id})}
                       className={styles.link}

@@ -102,6 +102,7 @@ describe('grpc/builders/pfs', () => {
 
   it('should create Repo from an object', () => {
     const repo = repoFromObject({
+      projectId: 'default',
       name: '__spec__',
     });
 

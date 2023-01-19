@@ -14,7 +14,6 @@ import {
   GRPC_MAX_MESSAGE_LENGTH,
   PfsAPIService,
   PpsAPIService,
-  ProjectsAPIService,
   AdminAPIService,
 } from '@dash-backend/proto';
 import {generateIdTokenForAccount} from '@dash-backend/testHelpers';
@@ -28,7 +27,6 @@ import enterprise from './handlers/enterprise';
 import MockState from './handlers/MockState';
 import pfs from './handlers/pfs';
 import pps from './handlers/pps';
-import projects from './handlers/projects';
 
 const defaultState = {
   tokenError: false,
@@ -56,7 +54,6 @@ const createServer = () => {
   grpcServer.addService(PpsAPIService, pps.getService());
   grpcServer.addService(PfsAPIService, pfs.getService());
   grpcServer.addService(AuthAPIService, auth.getService());
-  grpcServer.addService(ProjectsAPIService, projects.getService());
   grpcServer.addService(EnterpriseAPIService, enterprise.getService());
   grpcServer.addService(AdminAPIService, admin.getService());
 

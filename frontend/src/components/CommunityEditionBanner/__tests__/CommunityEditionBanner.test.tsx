@@ -43,7 +43,7 @@ describe('CommunityEditionBanner', () => {
 
   it('should show a warning when pipeline limit is reached', async () => {
     mockServer.getState().enterprise = enterpriseStates.inactive;
-    window.history.replaceState({}, '', '/project/7/');
+    window.history.replaceState({}, '', '/project/Trait-Discovery/');
 
     render(<CommunityEditionBanner />);
     expect(
@@ -53,7 +53,7 @@ describe('CommunityEditionBanner', () => {
 
   it('should show a warning when worker limit is reached', async () => {
     mockServer.getState().enterprise = enterpriseStates.inactive;
-    window.history.replaceState({}, '', '/project/1/');
+    window.history.replaceState({}, '', '/project/Solar-Panel-Data-Sorting/');
 
     render(<CommunityEditionBanner />);
     expect(

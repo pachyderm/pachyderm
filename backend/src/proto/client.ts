@@ -8,7 +8,6 @@ import enterprise from './services/enterprise';
 import license from './services/license';
 import pfs from './services/pfs';
 import pps from './services/pps';
-import projects from './services/projects';
 
 interface ClientArgs {
   pachdAddress?: string;
@@ -71,7 +70,6 @@ const client = ({
   let pfsService: ReturnType<typeof pfs> | undefined;
   let ppsService: ReturnType<typeof pps> | undefined;
   let authService: ReturnType<typeof auth> | undefined;
-  let projectsService: ReturnType<typeof projects> | undefined;
   let adminService: ReturnType<typeof admin> | undefined;
   let enterpriseService: ReturnType<typeof enterprise> | undefined;
   let licenseService: ReturnType<typeof license> | undefined;
@@ -147,19 +145,6 @@ const client = ({
         plugins,
       );
       return authService;
-    },
-    projects: () => {
-      if (projectsService) return projectsService;
-
-      projectsService = attachPlugins(
-        projects({
-          pachdAddress,
-          channelCredentials,
-          credentialMetadata,
-        }),
-        plugins,
-      );
-      return projectsService;
     },
     attachCredentials: ({
       authToken = '',

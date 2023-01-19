@@ -8,7 +8,6 @@ import {
   branchFromObject,
   FileObject,
   repoFromObject,
-  RepoObject,
   BranchObject,
   CommitObject,
   commitFromObject,
@@ -66,6 +65,10 @@ import {
   RenewFileSetRequest,
   DiffFileRequest,
   ComposeFileSetRequest,
+  ListProjectRequest,
+  Project,
+  ProjectInfo,
+  InspectProjectRequest,
 } from '../../proto/pfs/pfs_pb';
 import streamToObjectArray from '../../utils/streamToObjectArray';
 import {RPC_DEADLINE_MS} from '../constants/rpc';
@@ -88,9 +91,20 @@ const pfs = ({
   });
 
   const pfsService = {
-    listFile: (params: FileObject) => {
+    listFile: ({
+      projectId,
+      ...params
+    }: {
+      projectId: string;
+    } & FileObject) => {
       const listFileRequest = new ListFileRequest();
       const file = fileFromObject(params);
+
+      file
+        .getCommit()
+        ?.getBranch()
+        ?.getRepo()
+        ?.setProject(new Project().setName(projectId));
 
       listFileRequest.setFile(file);
 
@@ -100,19 +114,35 @@ const pfs = ({
 
       return streamToObjectArray<FileInfo, FileInfo.AsObject>(stream);
     },
-    diffFile: (
-      newFileObject: FileObject,
-      oldFileObject?: FileObject,
+    diffFile: ({
+      projectId,
+      newFileObject,
+      oldFileObject,
       shallow = false,
-    ) => {
+    }: {
+      projectId: string;
+      newFileObject: FileObject;
+      oldFileObject?: FileObject;
+      shallow?: boolean;
+    }) => {
       const diffFileRequest = new DiffFileRequest();
 
       const newFile = fileFromObject(newFileObject);
+      newFile
+        .getCommit()
+        ?.getBranch()
+        ?.getRepo()
+        ?.setProject(new Project().setName(projectId));
       diffFileRequest.setNewFile(newFile);
       diffFileRequest.setShallow(shallow);
 
       if (oldFileObject) {
         const oldFile = fileFromObject(oldFileObject);
+        oldFile
+          .getCommit()
+          ?.getBranch()
+          ?.getRepo()
+          ?.setProject(new Project().setName(projectId));
         diffFileRequest.setOldFile(oldFile);
       }
 
@@ -124,9 +154,18 @@ const pfs = ({
         stream,
       );
     },
-    getFile: (params: FileObject, tar = false) => {
+    getFile: ({
+      projectId,
+      tar = false,
+      ...params
+    }: {projectId: string; tar?: boolean} & FileObject) => {
       const getFileRequest = new GetFileRequest();
       const file = fileFromObject(params);
+      file
+        .getCommit()
+        ?.getBranch()
+        ?.getRepo()
+        ?.setProject(new Project().setName(projectId));
 
       getFileRequest.setFile(file);
 
@@ -154,13 +193,23 @@ const pfs = ({
         stream.on('error', (err) => reject(err));
       });
     },
-    getFileTAR: (params: FileObject) => {
-      return pfsService.getFile(params, true);
+    getFileTAR: ({
+      projectId,
+      ...params
+    }: {
+      projectId: string;
+    } & FileObject) => {
+      return pfsService.getFile({projectId, ...params, tar: true});
     },
-    inspectFile: (params: FileObject) => {
+    inspectFile: ({projectId, ...params}: {projectId: string} & FileObject) => {
       return new Promise<FileInfo.AsObject>((resolve, reject) => {
         const inspectFileRequest = new InspectFileRequest();
         const file = fileFromObject(params);
+        file
+          .getCommit()
+          ?.getBranch()
+          ?.getRepo()
+          ?.setProject(new Project().setName(projectId));
 
         inspectFileRequest.setFile(file);
 
@@ -178,6 +227,7 @@ const pfs = ({
       });
     },
     listCommit: ({
+      projectId,
       number,
       all = false,
       originKind,
@@ -188,15 +238,27 @@ const pfs = ({
     }: ListCommitArgs) => {
       const listCommitRequest = new ListCommitRequest();
       if (repo) {
-        listCommitRequest.setRepo(repoFromObject(repo).setType('user'));
+        listCommitRequest.setRepo(
+          repoFromObject({projectId, ...repo}).setType('user'),
+        );
       }
 
       if (from) {
-        listCommitRequest.setFrom(commitFromObject(from));
+        listCommitRequest
+          .setFrom(commitFromObject(from))
+          .getFrom()
+          ?.getBranch()
+          ?.getRepo()
+          ?.setProject(new Project().setName(projectId));
       }
 
       if (to) {
-        listCommitRequest.setTo(commitFromObject(to));
+        listCommitRequest
+          .setTo(commitFromObject(to))
+          .getTo()
+          ?.getBranch()
+          ?.getRepo()
+          ?.setProject(new Project().setName(projectId));
       }
 
       if (number) {
@@ -217,18 +279,30 @@ const pfs = ({
       return streamToObjectArray<CommitInfo, CommitInfo.AsObject>(stream);
     },
     startCommit: ({
+      projectId,
       branch,
       parent,
       description = '',
-    }: StartCommitRequestArgs) => {
+    }: StartCommitRequestArgs & {projectId: string}) => {
       return new Promise<Commit.AsObject>((resolve, reject) => {
         const startCommitRequest = new StartCommitRequest();
 
         startCommitRequest.setBranch(branchFromObject(branch));
+        startCommitRequest
+          .getBranch()
+          ?.getRepo()
+          ?.setProject(new Project().setName(projectId));
+
         if (parent) {
           startCommitRequest.setParent(commitFromObject(parent));
+          startCommitRequest
+            .getParent()
+            ?.getBranch()
+            ?.getRepo()
+            ?.setProject(new Project().setName(projectId));
         }
         startCommitRequest.setDescription(description);
+        startCommitRequest.getBranch();
 
         client.startCommit(
           startCommitRequest,
@@ -243,11 +317,12 @@ const pfs = ({
       });
     },
     finishCommit: ({
+      projectId,
       error,
       force = false,
       commit,
       description = '',
-    }: FinishCommitRequestArgs) => {
+    }: FinishCommitRequestArgs & {projectId: string}) => {
       return new Promise<Empty.AsObject>((resolve, reject) => {
         const finishCommitRequest = new FinishCommitRequest();
 
@@ -256,6 +331,11 @@ const pfs = ({
         }
         if (commit) {
           finishCommitRequest.setCommit(commitFromObject(commit));
+          finishCommitRequest
+            .getCommit()
+            ?.getBranch()
+            ?.getRepo()
+            ?.setProject(new Project().setName(projectId));
         }
         finishCommitRequest.setForce(force);
         finishCommitRequest.setDescription(description);
@@ -286,7 +366,11 @@ const pfs = ({
         });
       });
     },
-    inspectCommit: ({wait, commit}: InspectCommitRequestArgs) => {
+    inspectCommit: ({
+      projectId,
+      wait,
+      commit,
+    }: {projectId: string} & InspectCommitRequestArgs) => {
       return new Promise<CommitInfo.AsObject>((resolve, reject) => {
         const inspectCommitRequest = new InspectCommitRequest();
 
@@ -296,6 +380,11 @@ const pfs = ({
 
         if (commit) {
           inspectCommitRequest.setCommit(commitFromObject(commit));
+          inspectCommitRequest
+            .getCommit()
+            ?.getBranch()
+            ?.getRepo()
+            ?.setProject(new Project().setName(projectId));
         }
         client.inspectCommit(
           inspectCommitRequest,
@@ -310,6 +399,7 @@ const pfs = ({
       });
     },
     subscribeCommit: ({
+      projectId,
       repo,
       branch,
       state,
@@ -319,7 +409,9 @@ const pfs = ({
     }: SubscribeCommitRequestArgs) => {
       const subscribeCommitRequest = new SubscribeCommitRequest();
 
-      subscribeCommitRequest.setRepo(repoFromObject(repo).setType('user'));
+      subscribeCommitRequest.setRepo(
+        repoFromObject({projectId, ...repo}).setType('user'),
+      );
 
       if (from) {
         subscribeCommitRequest.setFrom(commitFromObject(from));
@@ -448,10 +540,14 @@ const pfs = ({
         );
       });
     },
-    inspectBranch: (params: BranchObject) => {
+    inspectBranch: ({
+      projectId,
+      ...params
+    }: {projectId: string} & BranchObject) => {
       return new Promise<BranchInfo.AsObject>((resolve, reject) => {
         const inspectBranchRequest = new InspectBranchRequest();
         const branch = branchFromObject(params);
+        branch.getRepo()?.setProject(new Project().setName(projectId));
 
         inspectBranchRequest.setBranch(branch);
 
@@ -508,18 +604,35 @@ const pfs = ({
         );
       });
     },
-    listRepo: (type = 'user') => {
-      const listRepoRequest = new ListRepoRequest().setType(type);
+    listRepo: ({
+      projectIds,
+      type = 'user',
+    }: {
+      projectIds: string[];
+      type?: string;
+    }) => {
+      const listRepoRequest = new ListRepoRequest()
+        .setType(type)
+        .setProjectsList(
+          projectIds.map((projectId) => new Project().setName(projectId)),
+        );
       const stream = client.listRepo(listRepoRequest, credentialMetadata, {
         deadline: Date.now() + RPC_DEADLINE_MS,
       });
 
       return streamToObjectArray<RepoInfo, RepoInfo.AsObject>(stream);
     },
-    inspectRepo: (name: RepoObject['name']) => {
+    inspectRepo: ({
+      name,
+      projectId,
+    }: {
+      name: Repo.AsObject['name'];
+      projectId: string;
+    }) => {
       return new Promise<RepoInfo.AsObject>((resolve, reject) => {
         const inspectRepoRequest = new InspectRepoRequest();
-        const repo = repoFromObject({name});
+        const repo = repoFromObject({name, projectId});
+        new Repo().setName(name).setType('user');
 
         inspectRepoRequest.setRepo(repo);
 
@@ -537,6 +650,7 @@ const pfs = ({
       });
     },
     createRepo: ({
+      projectId,
       repo,
       description = '',
       update = false,
@@ -544,7 +658,7 @@ const pfs = ({
       return new Promise<Empty.AsObject>((resolve, reject) => {
         const createRepoRequest = new CreateRepoRequest();
 
-        createRepoRequest.setRepo(repoFromObject(repo));
+        createRepoRequest.setRepo(repoFromObject({projectId, ...repo}));
         createRepoRequest.setDescription(description);
         createRepoRequest.setUpdate(update);
 
@@ -556,11 +670,11 @@ const pfs = ({
         });
       });
     },
-    deleteRepo: ({repo, force = false}: DeleteRepoRequestArgs) => {
+    deleteRepo: ({projectId, repo, force = false}: DeleteRepoRequestArgs) => {
       return new Promise<Empty.AsObject>((resolve, reject) => {
         const deleteRepoRequest = new DeleteRepoRequest();
 
-        deleteRepoRequest.setRepo(repoFromObject(repo));
+        deleteRepoRequest.setRepo(repoFromObject({projectId, ...repo}));
         deleteRepoRequest.setForce(force);
         client.deleteRepo(deleteRepoRequest, credentialMetadata, (error) => {
           if (error) {
@@ -580,11 +694,21 @@ const pfs = ({
         });
       });
     },
-    addFileSet: ({fileSetId, commit}: AddFileSetRequestArgs) => {
+    addFileSet: ({
+      projectId,
+      fileSetId,
+      commit,
+    }: AddFileSetRequestArgs & {projectId: string}) => {
       return new Promise<Empty.AsObject>((resolve, reject) => {
         const request = new AddFileSetRequest()
           .setCommit(commitFromObject(commit))
           .setFileSetId(fileSetId);
+
+        request
+          .getCommit()
+          ?.getBranch()
+          ?.getRepo()
+          ?.setProject(new Project().setName(projectId));
 
         client.addFileSet(request, credentialMetadata, (err) => {
           if (err) reject(err);
@@ -628,6 +752,35 @@ const pfs = ({
         channelCredentials,
         credentialMetadata,
         plugins,
+      });
+    },
+    listProject: () => {
+      const stream = client.listProject(
+        new ListProjectRequest(),
+        credentialMetadata,
+        {
+          deadline: Date.now() + RPC_DEADLINE_MS,
+        },
+      );
+
+      return streamToObjectArray<ProjectInfo, ProjectInfo.AsObject>(stream);
+    },
+    inspectProject: (id: string) => {
+      return new Promise<ProjectInfo.AsObject>((resolve, reject) => {
+        const inspectProjectRequest = new InspectProjectRequest();
+        inspectProjectRequest.setProject(new Project().setName(id));
+
+        client.inspectProject(
+          inspectProjectRequest,
+          credentialMetadata,
+          (error, res) => {
+            if (error) {
+              return reject(error);
+            }
+
+            return resolve(res.toObject());
+          },
+        );
       });
     },
   };

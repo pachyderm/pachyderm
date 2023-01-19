@@ -4,7 +4,7 @@ import {executeQuery, mockServer} from '@dash-backend/testHelpers';
 import {SearchResultsQuery} from '@graphqlTypes';
 
 describe('Search resolver', () => {
-  const projectId = '1';
+  const projectId = 'Solar-Panel-Data-Sorting';
   it('should return no results when empty query string is provided', async () => {
     const {data, errors = []} = await executeQuery<SearchResultsQuery>(
       GET_SEARCH_RESULTS_QUERY,
@@ -67,7 +67,7 @@ describe('Search resolver', () => {
         {
           args: {
             query: 'like',
-            projectId: '2',
+            projectId: 'Data-Cleaning-Process',
             globalIdFilter: '23b9af7d5d4343219bc8e02ff4acd33a',
           },
         },
@@ -84,7 +84,7 @@ describe('Search resolver', () => {
         {
           args: {
             query: 'sel',
-            projectId: '2',
+            projectId: 'Data-Cleaning-Process',
             globalIdFilter: '23b9af7d5d4343219bc8e02ff4acd33a',
           },
         },
@@ -169,7 +169,7 @@ describe('Search resolver', () => {
         {
           args: {
             query: 'like',
-            projectId: '2',
+            projectId: 'Data-Cleaning-Process',
             globalIdFilter: '23b9af7d5d4343219bc8e02ff4acd33a',
           },
         },
@@ -186,7 +186,7 @@ describe('Search resolver', () => {
         {
           args: {
             query: 'sel',
-            projectId: '2',
+            projectId: 'Data-Cleaning-Process',
             globalIdFilter: '23b9af7d5d4343219bc8e02ff4acd33a',
           },
         },

@@ -178,13 +178,13 @@ const getLoadLogMessages = (count: number) => {
 };
 
 export const pipelineAndJobLogs: {[projectId: string]: LogMessage[]} = {
-  '1': tutorial,
-  '2': duplicatedLogs,
-  '3': [],
-  '4': [],
-  '5': [],
-  '6': [],
-  '7': [],
-  '9': getLoadLogMessages(LOGS),
+  'Solar-Panel-Data-Sorting': tutorial,
+  'Data-Cleaning-Process': duplicatedLogs,
+  'Solar-Power-Data-Logger-Team-Collab': [],
+  'Solar-Price-Prediction-Modal': [],
+  'Egress-Examples': [],
+  'Empty-Project': [],
+  'Trait-Discovery': [],
+  'Load-Project': getLoadLogMessages(LOGS),
   default: [...tutorial],
 };

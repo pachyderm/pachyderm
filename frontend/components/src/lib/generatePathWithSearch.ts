@@ -6,7 +6,7 @@ const generatePathWithSearch = (
     [x: string]: string | number | boolean | undefined;
   },
 ) => {
-  const path = encodeURI(rrGeneratePath(pathTemplate, {...params}));
+  const path = rrGeneratePath(pathTemplate, {...params});
   return `${path}${window.location.search}`;
 };
 

@@ -6,7 +6,9 @@ export const WORKER_LIMIT = 8;
 
 const useCommunityEditionBanner = (expiration?: number) => {
   const {projectId} = useUrlState();
-  const {pipelines} = usePipelines({projectId});
+  const {pipelines} = usePipelines({
+    projectIds: projectId === '' ? [] : [projectId],
+  });
 
   const pipelineLimitReached =
     !expiration && pipelines && pipelines.length >= PIPELINE_LIMIT;

@@ -1,6 +1,7 @@
 import {
   commitFromObject,
   CommitObject,
+  projectFromObject,
   triggerFromObject,
   TriggerObject,
 } from '../builders/pfs';
@@ -11,7 +12,11 @@ import {
   TimestampObject,
 } from '../builders/protobuf';
 import {GetLogsRequestArgs} from '../lib/types';
-import {ObjectStorageEgress, SQLDatabaseEgress} from '../proto/pfs/pfs_pb';
+import {
+  ObjectStorageEgress,
+  Project,
+  SQLDatabaseEgress,
+} from '../proto/pfs/pfs_pb';
 import {
   CronInput,
   DatumSetSpec,
@@ -41,6 +46,7 @@ import {
 
 export type PipelineObject = {
   name: Pipeline.AsObject['name'];
+  project?: Project.AsObject;
 };
 
 export type SecretMountObject = {
@@ -221,9 +227,14 @@ export type ProcessStatsFromObject = {
   downloadBytes: DatumSetSpec.AsObject['sizeBytes'];
 };
 
-export const pipelineFromObject = ({name}: PipelineObject) => {
+export const pipelineFromObject = ({name, project}: PipelineObject) => {
   const pipeline = new Pipeline();
   pipeline.setName(name);
+
+  if (project) {
+    const projectObject = projectFromObject(project);
+    pipeline.setProject(projectObject);
+  }
 
   return pipeline;
 };
@@ -755,6 +766,7 @@ export const processStatsFromObject = ({
 };
 
 export const getLogsRequestFromArgs = ({
+  projectId,
   pipelineName,
   jobId,
   datumId,
@@ -768,19 +780,30 @@ export const getLogsRequestFromArgs = ({
     getLogsRequest.setJob(
       jobFromObject({
         id: jobId,
-        pipeline: pipelineFromObject({name: pipelineName}),
+        pipeline: pipelineFromObject({
+          name: pipelineName,
+          project: {name: projectId || ''},
+        }),
       }),
     );
   } else if (pipelineName && jobId) {
     getLogsRequest.setJob(
       jobFromObject({
         id: jobId,
-        pipeline: pipelineFromObject({name: pipelineName}),
+        pipeline: pipelineFromObject({
+          name: pipelineName,
+          project: {name: projectId || ''},
+        }),
       }),
     );
   } else {
     if (pipelineName) {
-      getLogsRequest.setPipeline(pipelineFromObject({name: pipelineName}));
+      getLogsRequest.setPipeline(
+        pipelineFromObject({
+          name: pipelineName,
+          project: {name: projectId || ''},
+        }),
+      );
     }
   }
   if (since) {

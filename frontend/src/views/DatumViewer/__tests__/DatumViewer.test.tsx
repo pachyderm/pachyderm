@@ -72,14 +72,16 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/lineage/1/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs',
+        '/lineage/Solar-Panel-Data-Sorting/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs',
       );
       render(<PipelineDatumViewer />);
 
       await click(await screen.findByTestId('SidePanel__closeModal'));
 
       await waitFor(() =>
-        expect(window.location.pathname).toBe('/lineage/1/pipelines/montage'),
+        expect(window.location.pathname).toBe(
+          '/lineage/Solar-Panel-Data-Sorting/pipelines/montage',
+        ),
       );
     });
 
@@ -87,7 +89,7 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/lineage/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
+        '/lineage/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
       );
 
       render(<JobDatumViewer />);
@@ -96,7 +98,7 @@ describe('Datum Viewer', () => {
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
-          '/lineage/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/montage',
+          '/lineage/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/montage',
         ),
       );
     });
@@ -107,7 +109,7 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
+        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
       );
 
       render(<JobDatumViewer />);
@@ -130,7 +132,7 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
+        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
       );
 
       render(<JobDatumViewer />);
@@ -144,7 +146,7 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/006fdb9ba8a1afa805823336f4a280fd5c0b5c169ec48af78d07cecb96f8f14f',
+        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/006fdb9ba8a1afa805823336f4a280fd5c0b5c169ec48af78d07cecb96f8f14f',
       );
 
       render(<JobDatumViewer />);
@@ -162,7 +164,7 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/1112b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
+        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/1112b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
       );
 
       render(<JobDatumViewer />);
@@ -188,7 +190,7 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
+        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
       );
     });
 
@@ -196,7 +198,7 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/edges/logs',
+        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/edges/logs',
       );
       render(<JobDatumViewer />);
 
@@ -210,7 +212,7 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/edges/logs',
+        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/edges/logs',
       );
       render(<JobDatumViewer />);
       expect(
@@ -227,7 +229,7 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155?view=eyJkYXR1bUZpbHRlcnMiOlsiU0tJUFBFRCIsIkZBSUxFRCJdfQ',
+        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155?view=eyJkYXR1bUZpbHRlcnMiOlsiU0tJUFBFRCIsIkZBSUxFRCJdfQ',
       );
 
       render(<JobDatumViewer />);
@@ -283,7 +285,7 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
+        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
       );
 
       render(<JobDatumViewer />);
@@ -311,7 +313,7 @@ describe('Datum Viewer', () => {
         window.history.replaceState(
           {},
           '',
-          '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
+          '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
         );
       });
 
@@ -335,7 +337,7 @@ describe('Datum Viewer', () => {
         window.history.replaceState(
           {},
           '',
-          '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
+          '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
         );
       });
 
@@ -408,7 +410,7 @@ describe('Datum Viewer', () => {
         window.history.replaceState(
           {},
           '',
-          '/project/2/pipelines/likelihoods/jobs/23b9af7d5d4343219bc8e02ff4acd33a/logs/datum',
+          '/project/Data-Cleaning-Process/pipelines/likelihoods/jobs/23b9af7d5d4343219bc8e02ff4acd33a/logs/datum',
         );
         render(<JobDatumViewer />);
         const forwards = await screen.findByTestId('Pager__forward');
@@ -419,10 +421,10 @@ describe('Datum Viewer', () => {
         ).toBeInTheDocument();
         expect(backwards).toBeDisabled();
         let datums = await screen.findAllByTestId('DatumList__listItem');
-        expect(datums[0].textContent).toEqual(
+        expect(datums[0].textContent).toBe(
           '0a00000000000000000000000000000000000000000000000000000000000000',
         );
-        expect(datums[49].textContent).toEqual(
+        expect(datums[49].textContent).toBe(
           '49a0000000000000000000000000000000000000000000000000000000000000',
         );
         await click(forwards);
@@ -431,10 +433,10 @@ describe('Datum Viewer', () => {
         ).toBeInTheDocument();
         expect(forwards).toBeDisabled();
         datums = await screen.findAllByTestId('DatumList__listItem');
-        expect(datums[0].textContent).toEqual(
+        expect(datums[0].textContent).toBe(
           '50a0000000000000000000000000000000000000000000000000000000000000',
         );
-        expect(datums[49].textContent).toEqual(
+        expect(datums[49].textContent).toBe(
           '99a0000000000000000000000000000000000000000000000000000000000000',
         );
       });
@@ -443,7 +445,7 @@ describe('Datum Viewer', () => {
         window.history.replaceState(
           '',
           '',
-          '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum',
+          '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum',
         );
         render(<JobDatumViewer />);
         expect(
@@ -467,7 +469,7 @@ describe('Datum Viewer', () => {
         window.history.replaceState(
           '',
           '',
-          '/project/1/jobs/7798fhje5d4343219bc8e02ff4acd33a/pipeline/montage/logs/datum',
+          '/project/Solar-Panel-Data-Sorting/jobs/7798fhje5d4343219bc8e02ff4acd33a/pipeline/montage/logs/datum',
         );
 
         render(<JobDatumViewer />);
@@ -483,12 +485,14 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/1/jobs/33b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
+        '/project/Solar-Panel-Data-Sorting/jobs/33b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
       );
     });
 
     afterEach(() => {
-      window.localStorage.removeItem('pachyderm-console-1');
+      window.localStorage.removeItem(
+        'pachyderm-console-Solar-Panel-Data-Sorting',
+      );
     });
 
     it('should display empty state when there are no logs', async () => {
@@ -616,7 +620,7 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/1/jobs/33b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
+        '/project/Solar-Panel-Data-Sorting/jobs/33b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
       );
       expect(screen.queryAllByTestId('LogRow__base')).toHaveLength(0);
       expect(await screen.findAllByTestId('RawLogRow__base')).toHaveLength(2);
@@ -626,7 +630,7 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/2/jobs/23b9af7d5d4343219bc8e02ff4acd33a/pipeline/likelihoods/logs',
+        '/project/Data-Cleaning-Process/jobs/23b9af7d5d4343219bc8e02ff4acd33a/pipeline/likelihoods/logs',
       );
       render(<MiddleSection />);
       expect(
@@ -641,7 +645,7 @@ describe('Datum Viewer', () => {
         window.history.replaceState(
           {},
           '',
-          '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
+          '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
         );
       });
 
@@ -681,7 +685,7 @@ describe('Datum Viewer', () => {
         window.history.replaceState(
           {},
           '',
-          '/project/1/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
+          '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/0752b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
         );
       });
 
@@ -730,7 +734,7 @@ describe('Datum Viewer', () => {
         window.history.replaceState(
           {},
           '',
-          '/project/1/jobs/7798fhje5d4343219bc8e02ff4acd33a/pipeline/montage/logs/datum/987654321dbb460a649a72bf1a1147159737c785f622c0c149ff89d7fcb66747',
+          '/project/Solar-Panel-Data-Sorting/jobs/7798fhje5d4343219bc8e02ff4acd33a/pipeline/montage/logs/datum/987654321dbb460a649a72bf1a1147159737c785f622c0c149ff89d7fcb66747',
         );
         render(<MiddleSection />);
         expect(

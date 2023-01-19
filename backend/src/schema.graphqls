@@ -210,6 +210,7 @@ type Repo {
   name: ID!
   sizeBytes: Float!
   sizeDisplay: String!
+  projectId: String!
 
   # The Dash API will have to derive this field until core pach can expose it for us
   linkedPipeline: Pipeline
@@ -270,11 +271,9 @@ input JobsQueryArgs {
 }
 
 type Project {
-  id: ID!
-  name: String!
+  id: String!
   status: ProjectStatus!
-  description: String!
-  createdAt: Int!
+  description: String
 }
 
 type ProjectDetails {
@@ -364,7 +363,7 @@ input PipelineQueryArgs {
 }
 
 input PipelinesQueryArgs {
-  projectId: String!
+  projectIds: [String!]!
   jobSetId: ID
 }
 
@@ -424,6 +423,7 @@ input JobQueryArgs {
 
 input WorkspaceLogsArgs {
   start: Int
+  projectId: String!
 }
 
 input LogsArgs {

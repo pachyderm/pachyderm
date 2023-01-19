@@ -1,89 +1,58 @@
-import {Timestamp} from 'google-protobuf/google/protobuf/timestamp_pb';
+import {Project, ProjectInfo} from '@dash-backend/proto';
 
-import {Project, Projects, ProjectStatus} from '@dash-backend/proto';
-
-const projects: {[projectId: string]: Project} = {
-  '1': new Project()
-    .setId('1')
-    .setName('Solar Panel Data Sorting')
-    .setCreatedat(new Timestamp().setSeconds(1614026189))
-    .setStatus(ProjectStatus.HEALTHY)
+const projects: Record<string, ProjectInfo> = {
+  'Solar-Panel-Data-Sorting': new ProjectInfo()
+    .setProject(new Project().setName('Solar-Panel-Data-Sorting'))
     .setDescription(
       'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
     ),
-  '2': new Project()
-    .setId('2')
-    .setName('Data Cleaning Process')
-    .setCreatedat(new Timestamp().setSeconds(1614526189))
-    .setStatus(ProjectStatus.UNHEALTHY)
+  'Data-Cleaning-Process': new ProjectInfo()
+    .setProject(new Project().setName('Data-Cleaning-Process'))
     .setDescription(
       'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
     ),
-  '3': new Project()
-    .setId('3')
-    .setName('Solar Power Data Logger Team Collab')
-    .setCreatedat(new Timestamp().setSeconds(1614126189))
-    .setStatus(ProjectStatus.HEALTHY)
+  'Solar-Power-Data-Logger-Team-Collab': new ProjectInfo()
+    .setProject(new Project().setName('Solar-Power-Data-Logger-Team-Collab'))
     .setDescription(
       'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
     ),
-  '4': new Project()
-    .setId('4')
-    .setName('Solar Price Prediction Modal')
-    .setCreatedat(new Timestamp().setSeconds(1614126189))
-    .setStatus(ProjectStatus.HEALTHY)
+  'Solar-Price-Prediction-Modal': new ProjectInfo()
+    .setProject(new Project().setName('Solar-Price-Prediction-Modal'))
     .setDescription(
       'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
     ),
-  '5': new Project()
-    .setId('5')
-    .setName('Egress Examples')
-    .setCreatedat(new Timestamp().setSeconds(1614126189))
-    .setStatus(ProjectStatus.UNHEALTHY)
+  'Egress-Examples': new ProjectInfo()
+    .setProject(new Project().setName('Egress-Examples'))
     .setDescription(
       'Multiple pipelines outputting to different forms of egress',
     ),
-  '6': new Project()
-    .setId('6')
-    .setName('Empty Project')
-    .setCreatedat(new Timestamp().setSeconds(1614126189))
-    .setStatus(ProjectStatus.HEALTHY)
+  'Empty-Project': new ProjectInfo()
+    .setProject(new Project().setName('Empty-Project'))
     .setDescription(
       'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
     ),
-  '7': new Project()
-    .setId('7')
-    .setName('Trait Discovery')
-    .setCreatedat(new Timestamp().setSeconds(1614126189))
-    .setStatus(ProjectStatus.HEALTHY)
+  'Trait-Discovery': new ProjectInfo()
+    .setProject(new Project().setName('Trait-Discovery'))
     .setDescription(
       'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
     ),
 };
 
-const tutorialProjects: {[projectId: string]: Project} = {
-  '8': new Project()
-    .setId('8')
-    .setName('OpenCV Tutorial')
-    .setCreatedat(new Timestamp().setSeconds(1614126189))
-    .setStatus(ProjectStatus.HEALTHY)
+const tutorialProjects: {[projectId: string]: ProjectInfo} = {
+  'OpenCV-Tutorial': new ProjectInfo()
+    .setProject(new Project().setName('OpenCV-Tutorial'))
     .setDescription(
       'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
     ),
 };
 
-const loadProjects: {[projectId: string]: Project} = {
-  '9': new Project()
-    .setId('9')
-    .setName('Load Project')
-    .setCreatedat(new Timestamp().setSeconds(1651264871))
-    .setStatus(ProjectStatus.HEALTHY)
+const loadProjects: {[projectId: string]: ProjectInfo} = {
+  'Load-Project': new ProjectInfo()
+    .setProject(new Project().setName('Load-Project'))
     .setDescription('Project for testing frontend load'),
 };
 
-export const projectInfo = new Projects().setProjectInfoList(
-  Object.values(projects),
-);
+export const projectInfo = projects;
 
 export const allProjects = {...projects, ...tutorialProjects, ...loadProjects};
 

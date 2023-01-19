@@ -37,7 +37,7 @@ const useFileUpload = () => {
     clearErrors,
   } = formCtx;
 
-  const {repoId} = useUrlState();
+  const {repoId, projectId} = useUrlState();
   const {repo, loading: repoLoading} = useCurrentRepo();
   const {closeModal, isOpen} = useModal(true);
   const [files, setFiles] = useState<File[]>([]);
@@ -92,10 +92,11 @@ const useFileUpload = () => {
           path: values.path,
           repo: repoId,
           branch: values.branch,
+          projectId,
         }),
       });
     },
-    [repoId, startUpload],
+    [repoId, startUpload, projectId],
   );
 
   const fileDrag: DragEventHandler<HTMLDivElement> = useCallback(

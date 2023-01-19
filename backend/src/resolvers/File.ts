@@ -28,11 +28,12 @@ const getDownloadLink = (file: FileInfo.AsObject, host: string) => {
   const branchName = file.file?.commit?.branch?.name;
   const commitId = file.file?.commit?.id;
   const filePath = file.file?.path;
+  const projectId = file.file?.commit?.branch?.repo?.project?.name;
 
   if (repoName && branchName && commitId && filePath) {
     return `${
       process.env.NODE_ENV === 'test' ? 'http:' : ''
-    }${host}/download/${repoName}/${branchName}/${commitId}${filePath}`;
+    }${host}/download/${projectId}/${repoName}/${branchName}/${commitId}${filePath}`;
   }
 
   return null;
@@ -42,7 +43,7 @@ const fileResolver: FileResolver = {
   Query: {
     files: async (
       _parent,
-      {args: {commitId, path, branchName, repoName}},
+      {args: {projectId, commitId, path, branchName, repoName}},
       {pachClient, host},
     ) => {
       let diff:
@@ -50,26 +51,40 @@ const fileResolver: FileResolver = {
         | {diffTotals: Record<string, FileCommitState>; diff: Diff};
 
       const files = await pachClient.pfs().listFile({
+        projectId,
         commitId: commitId || 'master',
         path: path || '/',
-        branch: {name: branchName, repo: {name: repoName}},
+        branch: {
+          name: branchName,
+          repo: {name: repoName},
+        },
       });
 
       const commit = commitInfoToGQLCommit(
         await pachClient.pfs().inspectCommit({
+          projectId,
           wait: CommitState.COMMIT_STATE_UNKNOWN,
           commit: {
             id: commitId || '',
-            branch: {name: branchName || 'master', repo: {name: repoName}},
+            branch: {
+              name: branchName || 'master',
+              repo: {name: repoName},
+            },
           },
         }),
       );
 
       if (commit.originKind !== OriginKind.ALIAS && commit.finished !== -1) {
         const diffResponse = await pachClient.pfs().diffFile({
-          commitId: commitId || 'master',
-          path: path || '/',
-          branch: {name: branchName, repo: {name: repoName}},
+          projectId,
+          newFileObject: {
+            commitId: commitId || 'master',
+            path: path || '/',
+            branch: {
+              name: branchName,
+              repo: {name: repoName},
+            },
+          },
         });
         diff = formatDiff(diffResponse);
       }
@@ -111,7 +126,7 @@ const fileResolver: FileResolver = {
     },
     deleteFile: async (
       _field,
-      {args: {repo, branch, filePath}},
+      {args: {projectId, repo, branch, filePath}},
       {pachClient},
     ) => {
       const fileClient = await pachClient.pfs().fileSet();
@@ -119,10 +134,11 @@ const fileResolver: FileResolver = {
       const fileSetId = await fileClient.deleteFile(filePath).end();
 
       const commit = await pachClient.pfs().startCommit({
+        projectId,
         branch: {name: branch, repo: {name: repo}},
       });
-      await pachClient.pfs().addFileSet({fileSetId, commit});
-      await pachClient.pfs().finishCommit({commit});
+      await pachClient.pfs().addFileSet({projectId, fileSetId, commit});
+      await pachClient.pfs().finishCommit({projectId, commit});
       return commit.id;
     },
   },

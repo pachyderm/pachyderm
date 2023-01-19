@@ -17,9 +17,17 @@ interface CommitResolver {
   };
 }
 
-const getJobSetIds = async (pachClient: PachClient) => {
+const getJobSetIds = async ({
+  projectId,
+  pachClient,
+}: {
+  projectId: string;
+  pachClient: PachClient;
+}) => {
   try {
-    const jobSets = await pachClient.pps().listJobSets({details: false});
+    const jobSets = await pachClient
+      .pps()
+      .listJobSets({projectIds: [projectId], details: false});
     return jobSets.reduce((memo, {jobSet}) => {
       memo.add(jobSet?.id);
       return memo;
@@ -33,14 +41,15 @@ const commitResolver: CommitResolver = {
   Query: {
     commit: async (
       _parent,
-      {args: {id, repoName, branchName, withDiff}},
+      {args: {projectId, id, repoName, branchName, withDiff}},
       {pachClient},
     ) => {
       let diff = undefined;
-      const jobSetIds = await getJobSetIds(pachClient);
+      const jobSetIds = await getJobSetIds({pachClient, projectId});
 
       const commit = commitInfoToGQLCommit(
         await pachClient.pfs().inspectCommit({
+          projectId,
           wait: CommitState.COMMIT_STATE_UNKNOWN,
           commit: {
             id,
@@ -55,9 +64,12 @@ const commitResolver: CommitResolver = {
         commit.finished !== -1
       ) {
         const diffResponse = await pachClient.pfs().diffFile({
-          commitId: id || 'master',
-          path: '/',
-          branch: {name: branchName || 'master', repo: {name: repoName}},
+          projectId,
+          newFileObject: {
+            commitId: id || 'master',
+            path: '/',
+            branch: {name: branchName || 'master', repo: {name: repoName}},
+          },
         });
         diff = formatDiff(diffResponse).diff;
       }
@@ -70,14 +82,16 @@ const commitResolver: CommitResolver = {
     },
     commits: async (
       _parent,
-      {args: {repoName, branchName, number, originKind}},
+      {args: {projectId, repoName, branchName, number, originKind}},
       {pachClient},
     ) => {
-      const jobSetIds = await getJobSetIds(pachClient);
+      const jobSetIds = await getJobSetIds({projectId, pachClient});
       return (
         await pachClient.pfs().listCommit({
+          projectId,
           repo: {
             name: repoName,
+            project: {name: projectId},
           },
           number: number || 100,
           originKind: originKind ? toProtoCommitOrigin(originKind) : undefined,
@@ -88,6 +102,7 @@ const commitResolver: CommitResolver = {
                   name: branchName,
                   repo: {
                     name: repoName,
+                    project: {name: projectId},
                   },
                 },
               }
@@ -105,17 +120,18 @@ const commitResolver: CommitResolver = {
   Mutation: {
     startCommit: async (
       _field,
-      {args: {branchName, repoName}},
+      {args: {projectId, branchName, repoName}},
       {pachClient},
     ) => {
-      const commit = await pachClient
-        .pfs()
-        .startCommit({branch: {repo: {name: repoName}, name: branchName}});
+      const commit = await pachClient.pfs().startCommit({
+        projectId,
+        branch: {repo: {name: repoName}, name: branchName},
+      });
 
       return commitToGQLCommit(commit);
     },
-    finishCommit: async (_field, {args: {commit}}, {pachClient}) => {
-      await pachClient.pfs().finishCommit({commit: commit});
+    finishCommit: async (_field, {args: {projectId, commit}}, {pachClient}) => {
+      await pachClient.pfs().finishCommit({projectId, commit});
       return true;
     },
   },

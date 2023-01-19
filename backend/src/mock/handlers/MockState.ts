@@ -9,10 +9,7 @@ import enterpriseStates from '@dash-backend/mock/fixtures/enterprise';
 import files, {Files} from '@dash-backend/mock/fixtures/files';
 import jobs from '@dash-backend/mock/fixtures/jobs';
 import pipelines from '@dash-backend/mock/fixtures/pipelines';
-import {
-  allProjects as projects,
-  projectInfo,
-} from '@dash-backend/mock/fixtures/projects';
+import {projectInfo as projects} from '@dash-backend/mock/fixtures/projects';
 import repos from '@dash-backend/mock/fixtures/repos';
 import {
   RepoInfo,
@@ -21,12 +18,11 @@ import {
   PipelineInfo,
   JobInfo,
   LogMessage,
-  Project,
-  Projects,
   ModifyFileRequest,
   DiffFileResponse,
   GetStateResponse,
   ClusterInfo,
+  ProjectInfo,
 } from '@dash-backend/proto';
 
 import jobSets from '../fixtures/jobSets';
@@ -55,9 +51,8 @@ export type StateType = {
   };
   workspaceLogs: LogMessage[];
   projects: {
-    [projectId: string]: Project;
+    [projectId: string]: ProjectInfo;
   };
-  projectInfo: Projects;
   datums: {
     [projectId: string]: {[pipelineId: string]: {[jobId: string]: DatumInfo[]}};
   };
@@ -78,7 +73,6 @@ const defaultState: StateType = {
   pipelineAndJobLogs,
   workspaceLogs,
   projects,
-  projectInfo,
   datums,
   enterprise: enterpriseStates.active,
   admin: admin,
