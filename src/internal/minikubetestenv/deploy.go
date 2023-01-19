@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	helmChartPublishedPath = "pach/pachyderm"
+	helmChartPublishedPath = "pachyderm/pachyderm"
 	localImage             = "local"
 	licenseKeySecretName   = "enterprise-license-key-secret"
 )
