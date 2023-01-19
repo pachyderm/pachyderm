@@ -17,5 +17,7 @@ cypress/accessToken.txt
 cypress/accessToken_*.txt
 cypress/downloads/**
 
+test-dags/lots-of-datums/data
+
 # Local Netlify folder
 .netlify
