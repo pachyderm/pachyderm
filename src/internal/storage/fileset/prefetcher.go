@@ -4,11 +4,10 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
 
 	"golang.org/x/sync/semaphore"
 )

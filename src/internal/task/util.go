@@ -3,18 +3,17 @@ package task
 import (
 	"context"
 
-	"go.uber.org/zap"
-	"golang.org/x/sync/semaphore"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
-	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
-
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
+
+	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
 )
 
 // DoOrdered returns objects of type Any in order on channel out.
