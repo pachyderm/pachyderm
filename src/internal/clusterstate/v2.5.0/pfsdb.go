@@ -12,8 +12,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	idxProto "github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
@@ -414,7 +414,7 @@ func deleteCommit(ctx context.Context, tx *pachsql.Tx, ci *pfs.CommitInfo, ances
 			if err := updateOldCommit(ctx, tx, c, func(child *pfs.CommitInfo) {
 				child.ParentCommit = ci.ParentCommit
 			}); err != nil {
-				return errors.Wrapf(err, "update child commit %q", pfsdb.CommitKey(c))
+				return errors.Wrapf(err, "update child commit %q", commitKey(c))
 			}
 		}
 	}
@@ -428,12 +428,8 @@ func addCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error {
 	}
 	var commitIntId int
 	query := `SELECT int_id FROM pfs.commits WHERE commit_id = $1;`
-	if err := tx.GetContext(ctx, commitIntId, query, commitKey(commit)); err != nil {
-		return errors.Wrapf(err, "get int_id of commit %q", commitKey(commit))
-	}
-	stmt := `INSERT INTO pfs.commits_origin_branches(commit_int_id, branch, repo, project) VALUES ($1, $2, $3, $4);`
-	_, err = tx.ExecContext(ctx, stmt, commitIntId, commit.Branch.Name, commit.Repo.Name, commit.Repo.Project.Name)
-	return errors.Wrapf(err, "link commit %q to origin branch", commitKey(commit), branchKey(commit.Branch))
+	err = tx.GetContext(ctx, &commitIntId, query, commitKey(commit))
+	return errors.Wrapf(err, "get int_id of commit %q", commitKey(commit))
 }
 
 func getFileSetMd(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit) (*fileset.Metadata, error) {
@@ -457,25 +453,28 @@ func sameFileSets(ctx context.Context, tx *pachsql.Tx, c1 *pfs.Commit, c2 *pfs.C
 	if err != nil {
 		return false, err
 	}
-	// add another utility ref that builds a composite hash
+
+	sameByteSlice := func(a []byte, b []byte) bool {
+		return true
+	}
+	sameIndex := func(a *idxProto.Index, b *idxProto.Index) bool {
+		if a.File != nil && b.File != nil && len(a.File.DataRefs) == len(b.File.DataRefs) {
+			for i, dr := range a.File.DataRefs {
+				if res := bytes.Compare(dr.Hash, b.File.DataRefs[i].Hash); res != 0 {
+					return false
+				}
+			}
+			return true
+		}
+		if a.Range != nil && b.Range != nil && sameByteSlice(a.Range.ChunkRef.Hash, b.Range.ChunkRef.Hash) {
+			return true
+		}
+		return false
+	}
+	// TODO(acohen4): add another utility ref that builds a composite hash
 	if md1.GetPrimitive() != nil && md2.GetPrimitive() != nil {
-		if md1.GetPrimitive().SizeBytes != md2.GetPrimitive().SizeBytes {
+		if !sameIndex(md1.GetPrimitive().GetAdditive(), md2.GetPrimitive().GetAdditive()) || !sameIndex(md1.GetPrimitive().GetDeletive(), md2.GetPrimitive().GetDeletive()) {
 			return false, nil
-		}
-		// TODO(acohen4): check whether to use .File.DataRefs or .Range.DataRef.
-		// Add a string to hashing that distinguishes additive from deletive
-		if len(md1.GetPrimitive().Additive.File.DataRefs) != len(md2.GetPrimitive().Additive.File.DataRefs) {
-			return false, nil
-		}
-		for i, dr := range md1.GetPrimitive().Additive.File.DataRefs {
-			if res := bytes.Compare(dr.Hash, md2.GetPrimitive().Additive.File.DataRefs[i].Hash); res != 0 {
-				return false, nil
-			}
-		}
-		for i, dr := range md1.GetPrimitive().Deletive.File.DataRefs {
-			if res := bytes.Compare(dr.Hash, md2.GetPrimitive().Deletive.File.DataRefs[i].Hash); res != 0 {
-				return false, nil
-			}
 		}
 		return true, nil
 	} else if md1.GetComposite() != nil && md2.GetComposite() != nil {
@@ -522,19 +521,13 @@ func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 			deleteCommits[commitKey(ci.Commit)] = proto.Clone(ci).(*pfs.CommitInfo)
 		}
 	}
-	for k, ci := range deleteCommits {
+	for _, ci := range deleteCommits {
 		same, err := sameFileSets(ctx, tx, ci.Commit, ci.ParentCommit)
 		if err != nil {
 			return err
 		}
-		// TODO(acohen4): don't magically fix this
-		// this alias commit shouldn't be deleted, and instead should be converted to a AUTO commit
 		if !same {
-			delete(deleteCommits, k)
-			ci.Origin.Kind = pfs.OriginKind_AUTO
-			if err := updateCommitInfo(ctx, tx, commitKey(ci.Commit), ci); err != nil {
-				return err
-			}
+			return errors.Errorf("commit %q is listed as ALIAS but has a different ID than it's first real ancestor.", commitKey(ci.Commit))
 		}
 	}
 	realAncestors := make(map[string]*pfs.CommitInfo)
