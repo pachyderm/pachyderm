@@ -1197,6 +1197,7 @@ func TestPFS(suite *testing.T) {
 		_, err := env.PachClient.PfsAPIClient.CreateProject(ctx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: "test"}})
 		require.NoError(t, err)
 		_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: &pfs.Repo{Project: &pfs.Project{Name: "default"}, Name: "test"}})
+		require.NoError(t, err)
 		_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: &pfs.Repo{Project: &pfs.Project{Name: "test"}, Name: "test"}})
 		require.NoError(t, err)
 		_, err = env.PachClient.PfsAPIClient.DeleteProject(ctx, &pfs.DeleteProjectRequest{Project: &pfs.Project{Name: "test"}})
