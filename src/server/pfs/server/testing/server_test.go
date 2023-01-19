@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -1176,6 +1177,41 @@ func TestPFS(suite *testing.T) {
 		)
 		require.YesError(t, err)
 		require.True(t, strings.Contains(err.Error(), "branch and head commit must belong to the same repo"))
+	})
+
+	suite.Run("DeleteProject", func(t *testing.T) {
+		log.Println("eggshells!")
+		t.Parallel()
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		log.Println("foobar!")
+
+		_, err := env.PachClient.PfsAPIClient.CreateProject(ctx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: "test"}})
+		require.NoError(t, err)
+		_, err = env.PachClient.PfsAPIClient.DeleteProject(ctx, &pfs.DeleteProjectRequest{Project: &pfs.Project{Name: "test"}})
+		require.NoError(t, err)
+	})
+
+	suite.Run("DeleteProjectWithRepos", func(t *testing.T) {
+		log.Println("eggshells!")
+		t.Parallel()
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		log.Println("foobar!")
+
+		_, err := env.PachClient.PfsAPIClient.CreateProject(ctx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: "test"}})
+		require.NoError(t, err)
+		_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: &pfs.Repo{Project: &pfs.Project{Name: "test"}, Name: "test"}})
+		require.NoError(t, err)
+		_, err = env.PachClient.PfsAPIClient.DeleteProject(ctx, &pfs.DeleteProjectRequest{Project: &pfs.Project{Name: "test"}})
+		require.YesError(t, err)
+
+		_, err = env.PachClient.PfsAPIClient.DeleteProject(ctx,
+			&pfs.DeleteProjectRequest{
+				Project: &pfs.Project{Name: "test"},
+				Force:   true,
+			})
+		require.NoError(t, err)
 	})
 
 	suite.Run("DeleteRepo", func(t *testing.T) {
