@@ -1,4 +1,4 @@
-import React, {useCallback} from 'react';
+import React, {useCallback, useState} from 'react';
 import {Repo, Mount, ListMountsResponse} from '../../types';
 import {caretUpIcon, caretDownIcon} from '@jupyterlab/ui-components';
 import {useSort, stringComparator} from '../../../../utils/hooks/useSort';
@@ -10,12 +10,14 @@ type SortableListProps = {
   open: (path: string) => void;
   updateData: (data: ListMountsResponse) => void;
   mountedItems: Mount[];
+  type: string;
 };
 
 const nameComparator = {
   name: 'Name',
   func: stringComparator,
-  accessor: (item: Mount | Repo) => ('name' in item ? item.name : item.repo),
+  accessor: (item: Mount | Repo) =>
+    'name' in item ? item.name : `${item.project}_${item.repo}`,
 };
 
 const SortableList: React.FC<SortableListProps> = ({
@@ -23,7 +25,22 @@ const SortableList: React.FC<SortableListProps> = ({
   items,
   updateData,
   mountedItems,
+  type,
 }) => {
+  const allProjectsLabel = 'All projects';
+  // .map() likes Array<Mount | Repo> but not Mount[] | Repo[]
+  // https://github.com/microsoft/TypeScript/issues/33591#issuecomment-841832390
+  const _items: Array<Mount | Repo> = items;
+  const projectsList = [
+    ...new Set(_items.map((item: Mount | Repo): string => item.project)),
+  ];
+  const [selectedProject, setSelectedProject] =
+    useState<string>(allProjectsLabel);
+
+  const onChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedProject(e.target.value);
+  };
+
   const {sortedData, setComparator, reversed} = useSort<Mount | Repo>({
     data: items,
     initialSort: nameComparator,
@@ -36,6 +53,31 @@ const SortableList: React.FC<SortableListProps> = ({
 
   return (
     <div className="pachyderm-mount-sortableList">
+      {type === 'unmounted' && (
+        <div className="pachyderm-mount-sortableList-projectFilter">
+          <div className="pachyderm-mount-projectFilter-headerItem">
+            <span>Project: </span>
+            <select
+              name="project"
+              value={selectedProject}
+              className="pachyderm-mount-project-list-select"
+              onChange={onChange}
+              data-testid="ProjectList__select"
+            >
+              <option key={allProjectsLabel} value={allProjectsLabel}>
+                {allProjectsLabel}
+              </option>
+              {projectsList.map((project) => {
+                return (
+                  <option key={project} value={project}>
+                    {project}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        </div>
+      )}
       <div className="pachyderm-mount-sortableList-header">
         <div
           className="pachyderm-mount-sortableList-headerItem"
@@ -58,12 +100,15 @@ const SortableList: React.FC<SortableListProps> = ({
                 updateData={updateData}
               />
             ) : (
-              <ListUnmount
-                item={item}
-                key={`${item.project}_${item.repo}`}
-                updateData={updateData}
-                mountedItems={mountedItems}
-              />
+              (selectedProject === item.project ||
+                selectedProject === allProjectsLabel) && (
+                <ListUnmount
+                  item={item}
+                  key={`${item.project}_${item.repo}`}
+                  updateData={updateData}
+                  mountedItems={mountedItems}
+                />
+              )
             ),
           )}
       </ul>
