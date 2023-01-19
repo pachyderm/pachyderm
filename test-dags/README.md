@@ -8,3 +8,7 @@ This folder contains a collection of dags that can be useful for console develop
 `generate-datums` - Generates datums and commit them to the repo created up in the setup-datums command.
 
 `setup-opencv` - Sets up the openCV getting started tutorial found on our website.
+
+`setup-project-tutorial` - Creates the tutorial DAG in a project named tutorial
+
+`setup-cross-project` - Creates two cross-project DAGs across two projects each, for a total of four projects.

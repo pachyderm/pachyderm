@@ -16,3 +16,31 @@ setup-opencv:
 	-pachctl put file images@master:kitten.png -f http://imgur.com/g2QnNqa.png
 	-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/2.4.x/examples/opencv/montage.json
 
+setup-project-tutorial:
+	-pachctl create project tutorial --description wow
+	-pachctl create repo images --project tutorial
+	-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json --project tutorial
+	-pachctl put file images@master:birthday-cake.jpg -f https://i.imgur.com/FOO9q43.jpg --project tutorial
+	-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json --project tutorial
+	-pachctl put file images@master:pooh.jpg -f https://imgur.com/Togu2RY.jpg --project tutorial
+
+setup-cross-project: setup-cross-project-1 setup-cross-project-2
+
+setup-cross-project-1:
+	-pachctl create project Cross-Project-A1 --description 'Contains nodes 1 and 3 of pipeline A.'
+	-pachctl create project Cross-Project-A2 --description 'Contains node 2 of pipeline A.'
+	-pachctl create repo images --project Cross-Project-A1
+	-pachctl create pipeline -f ./cross-project/A_edges.json --project Cross-Project-A2
+	-pachctl put file images@master:birthday-cake.jpg -f https://i.imgur.com/FOO9q43.jpg --project Cross-Project-A1
+	-pachctl create pipeline -f ./cross-project/A_montage.json --project Cross-Project-A1
+	-pachctl put file images@master:pooh.jpg -f https://imgur.com/Togu2RY.jpg --project Cross-Project-A1
+
+setup-cross-project-2:
+	-pachctl create project Cross-Project-B1 --description 'Contains nodes 1 and 4 of pipeline B.'
+	-pachctl create project Cross-Project-B2 --description 'Contains nodes 2 and 3 of pipeline B.'
+	-pachctl create repo images --project Cross-Project-B1
+	-pachctl create pipeline -f ./cross-project/B1_edge.json --project Cross-Project-B2
+	-pachctl create pipeline -f ./cross-project/B2_edge.json --project Cross-Project-B2
+	-pachctl create pipeline -f ./cross-project/B3_edge.json --project Cross-Project-B1
+	-pachctl put file images@master:birthday-cake.jpg -f https://i.imgur.com/FOO9q43.jpg --project Cross-Project-B1
+	-pachctl put file images@master:pooh.jpg -f https://imgur.com/Togu2RY.jpg --project Cross-Project-B1
