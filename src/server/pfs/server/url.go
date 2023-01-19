@@ -162,8 +162,7 @@ func coordinateTasks(ctx context.Context, URL string, createTask func(startOffse
 	}()
 	startPath, endPath := "", ""
 	list := bucket.List(&blob.ListOptions{Prefix: url.Object})
-	var listObj *blob.ListObject
-	listObj, err = list.Next(ctx)
+	listObj, err := list.Next(ctx)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
 			return errors.Wrapf(err, "no objects were listed")
@@ -171,23 +170,20 @@ func coordinateTasks(ctx context.Context, URL string, createTask func(startOffse
 	}
 	startPath = listObj.Key
 	remainingObjSize := listObj.Size
-	bytesInBatch := int64(0)
-	filePos := int64(0)
+	bytesInBatch, filePos := int64(0), int64(0)
 	for {
+		// this case can happen when the previous batch ends on an object boundary.
 		if bytesInBatch+remainingObjSize == 0 && listObj.Size != 0 {
-			startPath = ""
-			endPath = ""
+			startPath, endPath = "", ""
 			filePos = 0
 		}
+		// add objects that completely fit into the batch.
 		for bytesInBatch+remainingObjSize < batchSize {
 			bytesInBatch += remainingObjSize
 			listObj, err = list.Next(ctx)
 			if err != nil {
 				if errors.Is(err, io.EOF) {
-					if err := createTask(filePos, batchSize-bytesInBatch, startPath, endPath); err != nil {
-						return errors.EnsureStack(err)
-					}
-					return nil
+					return errors.EnsureStack(createTask(filePos, batchSize-bytesInBatch, startPath, endPath))
 				}
 				return errors.Wrapf(err, "error listing bucket %s", url.Bucket)
 			}
@@ -198,14 +194,15 @@ func coordinateTasks(ctx context.Context, URL string, createTask func(startOffse
 			}
 			endPath = listObj.Key
 		}
+		// batch is full, so create a task and process the current object if there are remaining bytes.
 		remainingObjSize -= batchSize - bytesInBatch
 		if err := createTask(filePos, batchSize-bytesInBatch, startPath, endPath); err != nil {
 			return errors.EnsureStack(err)
 		}
-		startPath = listObj.Key
-		endPath = listObj.Key
+		startPath, endPath = listObj.Key, listObj.Key
 		filePos = batchSize - bytesInBatch
 		bytesInBatch = 0
+		// break an object down bigger than the batch size into batches.
 		for remainingObjSize >= batchSize {
 			if err := createTask(filePos, filePos+batchSize, startPath, endPath); err != nil {
 				return errors.EnsureStack(err)
