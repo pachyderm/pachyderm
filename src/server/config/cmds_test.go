@@ -57,6 +57,19 @@ func TestEnvValue(t *testing.T) {
 	`))
 }
 
+func TestConnect(t *testing.T) {
+	require.NoError(t, run(t, `
+		pachctl connect blah | match "New context 'blah' created, will connect to Pachyderm at grpc://blah:30650"
+	`))
+}
+
+func TestConnectExisting(t *testing.T) {
+	require.NoError(t, run(t, `
+		pachctl connect blah
+		pachctl connect blah | match "Context 'blah' set as active"
+	`))
+}
+
 func TestMetrics(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
