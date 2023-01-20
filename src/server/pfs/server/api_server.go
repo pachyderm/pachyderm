@@ -172,10 +172,13 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 
 // DeleteRepos implements the pfs.DeleteRepo RPC.  It deletes more than one repo at once.
 func (a *apiServer) DeleteRepos(ctx context.Context, request *pfs.DeleteReposRequest) (resp *pfs.DeleteReposResponse, err error) {
-	if len(request.Projects) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "DeleteRepos must specify project(s) whose repos should be deleted.")
+	var repos []*pfs.Repo
+	switch {
+	case request.All:
+		repos, err = a.driver.deleteAllRepos(ctx)
+	case len(request.Projects) > 0:
+		repos, err = a.driver.deleteProjectsRepos(ctx, request.Projects)
 	}
-	repos, err := a.driver.deleteProjectsRepos(ctx, request.Projects)
 	if err != nil {
 		return nil, err
 	}
@@ -416,7 +419,7 @@ func (a *apiServer) ListProject(request *pfs.ListProjectRequest, srv pfs.API_Lis
 // DeleteProject implements the protobuf pfs.DeleteProject RPC
 func (a *apiServer) DeleteProject(ctx context.Context, request *pfs.DeleteProjectRequest) (*types.Empty, error) {
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.driver.deleteProject(txnCtx, request.Project, request.Force)
+		return a.driver.deleteProject(ctx, txnCtx, request.Project, request.Force)
 	}); err != nil {
 		return nil, err
 	}
@@ -611,7 +614,7 @@ func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFi
 // WalkFile implements the protobuf pfs.WalkFile RPC
 func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFileServer) (retErr error) {
 	request.GetFile().GetCommit().GetBranch().GetRepo().EnsureProject()
-	return a.driver.walkFile(server.Context(), request.File, func(fi *pfs.FileInfo) error {
+	return a.driver.walkFile(server.Context(), request.File, request.PaginationMarker, request.Number, request.Reverse, func(fi *pfs.FileInfo) error {
 		return errors.EnsureStack(server.Send(fi))
 	})
 }

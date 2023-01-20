@@ -12,9 +12,6 @@ enterpriseServer:
   image:
     tag: local
 
-pachw:
-  enabled: false
-
 pachd:
   enabled: false
   rootToken: ""

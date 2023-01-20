@@ -328,6 +328,37 @@ func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContex
 	return nil
 }
 
+func (d *driver) deleteAllRepos(ctx context.Context) ([]*pfs.Repo, error) {
+	var repos, deleted []*pfs.Repo
+
+	if err := d.listRepo(ctx, false, "", nil, func(repoInfo *pfs.RepoInfo) error {
+		repos = append(repos, repoInfo.Repo)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if len(repos) == 0 {
+		return nil, nil
+	}
+
+	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		// the list does not use the transaction
+		for _, repo := range repos {
+			if err := d.deleteRepo(txnCtx, repo, true); err != nil {
+				if errors.As(err, &auth.ErrNotAuthorized{}) {
+					continue
+				}
+				return err
+			}
+			deleted = append(deleted, repo)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return deleted, nil
+}
+
 func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) error {
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 
@@ -476,13 +507,30 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 }
 
 // TODO: delete all repos and pipelines within project
-func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *pfs.Project, _ bool) error {
+func (d *driver) deleteProject(ctx context.Context, txnCtx *txncontext.TransactionContext, project *pfs.Project, force bool) error {
 	if err := project.ValidateName(); err != nil {
 		return errors.Wrap(err, "invalid project name")
 	}
 	if err := d.env.AuthServer.CheckProjectIsAuthorizedInTransaction(txnCtx, project, auth.Permission_PROJECT_DELETE, auth.Permission_PROJECT_MODIFY_BINDINGS); err != nil {
 		return errors.Wrapf(err, "user is not authorized to delete project %q", project)
 	}
+
+	var repoInfos []*pfs.RepoInfo
+	if err := d.listRepo(ctx, false /* includeAuth */, "" /* repoType */, []*pfs.Project{project} /* projectsFilter */, func(repoInfo *pfs.RepoInfo) error {
+		repoInfos = append(repoInfos, repoInfo)
+		return nil
+	}); err != nil {
+		return err
+	}
+	if len(repoInfos) > 0 && !force {
+		return errors.Errorf("project %q contains %d repos", project, len(repoInfos))
+	}
+	for _, repoInfo := range repoInfos {
+		if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil {
+			return errors.Wrapf(err, "could not delete repo %v", repoInfo.Repo)
+		}
+	}
+
 	if err := d.projects.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.ProjectKey(project)); err != nil {
 		return errors.Wrapf(err, "delete project %q", project)
 	}
@@ -2166,13 +2214,6 @@ func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Projec
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
-	var repoInfos []*pfs.RepoInfo
-	if err := d.listRepo(ctx, false /* includeAuth */, "" /* repoType */, nil /* projectsFilter */, func(repoInfo *pfs.RepoInfo) error {
-		repoInfos = append(repoInfos, repoInfo)
-		return nil
-	}); err != nil {
-		return err
-	}
 	var projectInfos []*pfs.ProjectInfo
 	if err := d.listProject(ctx, func(pi *pfs.ProjectInfo) error {
 		projectInfos = append(projectInfos, proto.Clone(pi).(*pfs.ProjectInfo))
@@ -2181,14 +2222,8 @@ func (d *driver) deleteAll(ctx context.Context) error {
 		return err
 	}
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		// the list does not use the transaction
-		for _, repoInfo := range repoInfos {
-			if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
-				return err
-			}
-		}
 		for _, projectInfo := range projectInfos {
-			if err := d.deleteProject(txnCtx, projectInfo.Project, true); err != nil {
+			if err := d.deleteProject(ctx, txnCtx, projectInfo.Project, true); err != nil {
 				return err
 			}
 		}

@@ -40,7 +40,7 @@ PARALLELISM ?= 3
 
 install:
 	# GOBIN (default: GOPATH/bin) must be on your PATH to access these binaries:
-	go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
+	CGO_ENABLED=0 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there

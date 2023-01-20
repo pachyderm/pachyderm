@@ -19,6 +19,7 @@ import (
 	"github.com/itchyny/gojq"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/robfig/cron"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -629,34 +630,59 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	// Track the jobsets we've already processed
 	seen := map[string]struct{}{}
 
+	number := request.Number
+	if number < 0 {
+		return errors.Errorf("number must be non-negative")
+	}
+	if number == 0 {
+		number = math.MaxInt64
+	}
+	paginationMarker := request.PaginationMarker
+
+	// For quickly filtering out jobs based on project
+	projectsFilter := make(map[string]bool, len(request.GetProjects()))
+	for _, project := range request.GetProjects() {
+		projectsFilter[project.GetName()] = true
+	}
+
 	// Return jobsets by the newest job in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
 	jobInfo := &pps.JobInfo{}
-	err := a.jobs.ReadOnly(serv.Context()).List(jobInfo, col.DefaultOptions(), func(string) error {
+	opts := &col.Options{Target: col.SortByCreateRevision, Order: col.SortDescend}
+	if request.Reverse {
+		opts.Order = col.SortAscend
+	}
+	if err := a.jobs.ReadOnly(serv.Context()).List(jobInfo, opts, func(string) error {
+		if number == 0 {
+			return errutil.ErrBreak
+		}
 		id := jobInfo.GetJob().GetID()
 		if _, ok := seen[id]; ok {
 			return nil
 		}
 		seen[id] = struct{}{}
-
+		if paginationMarker != nil {
+			createdAt := time.Unix(int64(jobInfo.Created.GetSeconds()), int64(jobInfo.Created.GetNanos())).UTC()
+			fromTime := time.Unix(int64(paginationMarker.GetSeconds()), int64(paginationMarker.GetNanos())).UTC()
+			if createdAt.Equal(fromTime) || !request.Reverse && createdAt.After(fromTime) || request.Reverse && createdAt.Before(fromTime) {
+				return nil
+			}
+		}
 		jobInfos, err := pachClient.InspectJobSet(id, request.Details)
 		if err != nil {
 			return err
 		}
+		number--
 
 		// Filter jobs based on projects.
 		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.
 		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
 		var jobInfosFiltered []*pps.JobInfo
-		if len(request.GetProjects()) == 0 {
+		if len(projectsFilter) == 0 {
 			jobInfosFiltered = jobInfos
 		} else {
-			filter := make(map[string]bool, len(request.GetProjects()))
-			for _, project := range request.GetProjects() {
-				filter[project.GetName()] = true
-			}
 			for _, ji := range jobInfos {
-				if filter[ji.Job.Pipeline.Project.GetName()] {
+				if projectsFilter[ji.Job.Pipeline.Project.GetName()] {
 					jobInfosFiltered = append(jobInfosFiltered, ji)
 				}
 			}
@@ -664,13 +690,14 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		if len(jobInfosFiltered) == 0 {
 			return nil
 		}
-
 		return errors.EnsureStack(serv.Send(&pps.JobSetInfo{
 			JobSet: client.NewJobSet(id),
-			Jobs:   jobInfos,
+			Jobs:   jobInfosFiltered,
 		}))
-	})
-	return errors.EnsureStack(err)
+	}); err != nil && err != errutil.ErrBreak {
+		return errors.EnsureStack(err)
+	}
+	return nil
 }
 
 // intersectCommitSets finds all commitsets which involve the specified commits
@@ -1748,6 +1775,15 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	if request.Spout != nil && request.Autoscaling {
 		return errors.Errorf("autoscaling can't be used with spouts (spouts aren't triggered externally)")
 	}
+	var tolErrs error
+	for i, t := range request.GetTolerations() {
+		if _, err := transformToleration(t); err != nil {
+			multierr.AppendInto(&tolErrs, errors.Errorf("toleration %d/%d: %v", i+1, len(request.GetTolerations()), err))
+		}
+	}
+	if tolErrs != nil {
+		return tolErrs
+	}
 	return nil
 }
 
@@ -2150,6 +2186,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 			Metadata:              request.Metadata,
 			ReprocessSpec:         request.ReprocessSpec,
 			Autoscaling:           request.Autoscaling,
+			Tolerations:           request.Tolerations,
 		},
 	}
 
@@ -2741,6 +2778,10 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 				// they could still show up in the list. Ignore them
 				return nil
 			}
+			// skip pipelines outside the default project.
+			if pipelineInfo.GetPipeline().GetProject().GetName() != pfs.DefaultProjectName {
+				return nil
+			}
 			request.Pipeline = pipelineInfo.Pipeline
 			err := a.deletePipeline(ctx, request)
 			if err == nil {
@@ -2929,6 +2970,46 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	return nil
 }
 
+// DeletePipelines implements the protobuf pps.DeletePipelines RPC.  It deletes
+// multiple pipelines at once.  If all is set, then all pipelines in all
+// projects are deleted; otherwise the requested pipelines are deleted.
+func (a *apiServer) DeletePipelines(ctx context.Context, request *pps.DeletePipelinesRequest) (response *pps.DeletePipelinesResponse, retErr error) {
+	var (
+		projects = make(map[string]bool)
+		dr       = &pps.DeletePipelineRequest{
+			Force:    request.Force,
+			KeepRepo: request.KeepRepo,
+		}
+		pp []*pps.Pipeline
+	)
+	for _, p := range request.GetProjects() {
+		projects[p.String()] = true
+	}
+	dr.Pipeline = &pps.Pipeline{}
+	pipelineInfo := &pps.PipelineInfo{}
+	deleted := make(map[string]struct{})
+	if err := a.pipelines.ReadOnly(ctx).List(pipelineInfo, col.DefaultOptions(), func(string) error {
+		if _, ok := deleted[pipelineInfo.Pipeline.String()]; ok {
+			// while the delete pipeline call will delete historical versions,
+			// they could still show up in the list.  Ignore them.
+			return nil
+		}
+		if !request.GetAll() && !projects[pipelineInfo.GetPipeline().GetProject().GetName()] {
+			return nil
+		}
+		dr.Pipeline = pipelineInfo.Pipeline
+		err := a.deletePipeline(ctx, dr)
+		if err == nil {
+			deleted[pipelineInfo.Pipeline.String()] = struct{}{}
+			pp = append(pp, pipelineInfo.Pipeline)
+		}
+		return err
+	}); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return &pps.DeletePipelinesResponse{Pipelines: pp}, nil
+}
+
 // StartPipeline implements the protobuf pps.StartPipeline RPC
 func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelineRequest) (response *types.Empty, retErr error) {
 	if request.Pipeline == nil {
@@ -3105,6 +3186,11 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 			continue
 		}
 
+		// Don't create jobs for commits not on the output branch.
+		if commitInfo.Commit.Branch.Name != pipelineInfo.Details.OutputBranch {
+			continue
+		}
+
 		// Check if there is an existing job for the output commit
 		job := client.NewProjectJob(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, txnCtx.CommitSetID)
 		jobInfo := &pps.JobInfo{}
@@ -3224,7 +3310,7 @@ func (a *apiServer) ListSecret(ctx context.Context, in *types.Empty) (response *
 
 // DeleteAll implements the protobuf pps.DeleteAll RPC
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
-	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {
+	if _, err := a.DeletePipelines(ctx, &pps.DeletePipelinesRequest{All: true, Force: true}); err != nil {
 		return nil, err
 	}
 

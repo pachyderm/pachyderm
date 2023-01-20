@@ -1,6 +1,6 @@
 import YAML from 'yaml';
 import {JSONObject} from '@lumino/coreutils';
-import {useEffect, useState} from 'react';
+import {useEffect, useState, useMemo, RefObject} from 'react';
 import {ServerConnection} from '@jupyterlab/services';
 import {isEqual} from 'lodash';
 
@@ -219,3 +219,26 @@ export const useDatum = (
     initialInputSpec,
   };
 };
+
+export default function isVisible(ref: RefObject<HTMLDivElement>): boolean {
+  const [isIntersecting, setIntersecting] = useState(false);
+  const observer = useMemo(
+    () =>
+      new IntersectionObserver(([entry]) =>
+        setIntersecting(entry.isIntersecting),
+      ),
+    [ref],
+  );
+
+  useEffect(() => {
+    if (ref.current) {
+      observer.observe(ref.current);
+      // Remove the observer as soon as the component is unmounted
+      return () => {
+        observer.disconnect();
+      };
+    }
+  });
+
+  return isIntersecting;
+}

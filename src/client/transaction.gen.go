@@ -495,6 +495,10 @@ func (c *unsupportedPpsBuilderClient) DeletePipeline(_ context.Context, _ *pps_v
 	return nil, unsupportedError("DeletePipeline")
 }
 
+func (c *unsupportedPpsBuilderClient) DeletePipelines(_ context.Context, _ *pps_v2.DeletePipelinesRequest, opts ...grpc.CallOption) (*pps_v2.DeletePipelinesResponse, error) {
+	return nil, unsupportedError("DeletePipelines")
+}
+
 func (c *unsupportedPpsBuilderClient) DeleteSecret(_ context.Context, _ *pps_v2.DeleteSecretRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DeleteSecret")
 }

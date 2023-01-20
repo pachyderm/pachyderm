@@ -2,22 +2,22 @@ package server
 
 import (
 	"context"
-	"io"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/hashicorp/go-multierror"
+	"go.uber.org/zap"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
-	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"go.uber.org/zap"
 )
 
 const (
@@ -53,26 +53,38 @@ func (d *driver) URLWorker(ctx context.Context) {
 	})
 }
 
-func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask) (*types.Any, error) {
+func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask) (_ *types.Any, retErr error) {
 	url, err := obj.ParseURL(task.URL)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error parsing URL %v", task.URL)
+		return nil, errors.EnsureStack(err)
 	}
-	objClient, err := obj.NewClientFromURLAndSecret(ctx, url, false)
+	bucket, err := openBucket(ctx, url)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err := bucket.Close(); err != nil {
+			retErr = multierror.Append(retErr, errors.EnsureStack(err))
+		}
+	}()
 	prefix := strings.TrimPrefix(url.Object, "/")
 	result := &PutFileURLTaskResult{}
 	if err := log.LogStep(ctx, "putFileURLTask", func(ctx context.Context) error {
 		return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 			id, err := d.withUnorderedWriter(ctx, renewer, func(uw *fileset.UnorderedWriter) error {
 				for _, path := range task.Paths {
-					if err := miscutil.WithPipe(func(w io.Writer) error {
-						return errors.EnsureStack(objClient.Get(ctx, path, w))
-					}, func(r io.Reader) error {
+					if err := func() error {
+						r, err := bucket.NewReader(ctx, path, nil)
+						if err != nil {
+							return errors.EnsureStack(err)
+						}
+						defer func() {
+							if err := r.Close(); err != nil {
+								retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing reader for bucket %s", url.Bucket))
+							}
+						}()
 						return uw.Put(ctx, filepath.Join(task.Dst, strings.TrimPrefix(path, prefix)), task.Datum, true, r)
-					}); err != nil {
+					}(); err != nil {
 						return err
 					}
 				}
@@ -90,29 +102,39 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 	return serializePutFileURLTaskResult(result)
 }
 
-func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask) (*types.Any, error) {
+func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask) (_ *types.Any, retErr error) {
 	src, err := d.getFile(ctx, task.File, task.PathRange)
 	if err != nil {
 		return nil, err
 	}
 	url, err := obj.ParseURL(task.URL)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error parsing URL %v", task.URL)
+		return nil, errors.EnsureStack(err)
 	}
-	objClient, err := obj.NewClientFromURLAndSecret(ctx, url, false)
+	bucket, err := openBucket(ctx, url)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err := bucket.Close(); err != nil {
+			retErr = multierror.Append(retErr, errors.EnsureStack(err))
+		}
+	}()
 	if err := log.LogStep(ctx, "getFileURLTask", func(ctx context.Context) error {
 		err := src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
 			if fi.FileType != pfs.FileType_FILE {
 				return nil
 			}
-			return miscutil.WithPipe(func(w io.Writer) error {
-				return errors.EnsureStack(file.Content(ctx, w))
-			}, func(r io.Reader) error {
-				return errors.EnsureStack(objClient.Put(ctx, filepath.Join(url.Object, fi.File.Path), r))
-			})
+			w, err := bucket.NewWriter(ctx, fi.File.Path, nil)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			defer func() {
+				if err := w.Close(); err != nil {
+					retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing writer for bucket %s", url.Bucket))
+				}
+			}()
+			return errors.EnsureStack(file.Content(ctx, w))
 		})
 		return errors.EnsureStack(err)
 	}); err != nil {
