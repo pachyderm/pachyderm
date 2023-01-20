@@ -10,12 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/version"
 )
 
 const enterpriseRootToken = "iamenterprise"
@@ -274,7 +272,7 @@ func TestSyncContexts(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo {{.license}} | pachctl license activate
 		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:31658 --supply-root-token
-		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:31650 --pachd-address {{ .pach_address }} --pachd-user-address grpc://pachd.default:1655 --cluster-deployment-id {{.clusterId}}
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:31650 --pachd-address {{ .pach_address }} --pachd-user-address grpc://pachd.default:1655
 		`,
 		"id", id,
 		"token", tu.RootToken,
@@ -295,11 +293,9 @@ func TestSyncContexts(t *testing.T) {
 		pachctl enterprise sync-contexts
 		pachctl config list context | match {{.id}}
 		pachctl config get context {{.id}} | match "\"pachd_address\": \"grpc://pachd.default:1655\""
-		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
 		pachctl config get context {{.id}} | match "\"source\": \"IMPORTED\","
 		`,
 		"id", id,
-		"clusterId", clusterId,
 	).Run())
 
 	// re-register cluster with the same cluster ID and new user address
@@ -311,7 +307,6 @@ func TestSyncContexts(t *testing.T) {
 		`,
 		"id", id,
 		"license", tu.GetTestEnterpriseCode(t),
-		"clusterId", clusterId,
 		"userAddress", "grpc://pachd.default:700",
 	).Run())
 
@@ -319,10 +314,9 @@ func TestSyncContexts(t *testing.T) {
 	// the cluster id should be updated and the session token should be set to empty
 	// TODO(acohen4): set session_token so that it can be unset
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl license update-cluster --id {{.id}} --cluster-deployment-id {{.clusterId}}
+		pachctl license update-cluster --id {{.id}}
 		pachctl enterprise sync-contexts
 		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\""
-		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
 		`,
 		"id", id,
 		"license", tu.GetTestEnterpriseCode(t),
@@ -343,12 +337,6 @@ func TestRegisterDefaultArgs(t *testing.T) {
 
 	id := tu.UniqueString("cluster")
 
-	// get cluster ID from connection
-	clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &admin.InspectClusterRequest{
-		ClientVersion: version.Version,
-	})
-	require.NoError(t, inspectErr)
-
 	host := c.GetAddress().Host
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
 	// register a new cluster
@@ -366,7 +354,6 @@ func TestRegisterDefaultArgs(t *testing.T) {
 		"id", id,
 		"enterprise_token", enterpriseRootToken,
 		"license", tu.GetTestEnterpriseCode(t),
-		"clusterId", clusterId,
 		"pach_address", pachAddress,
 		"list_pach_address", fmt.Sprintf("grpc://%s:%v", host, c.GetAddress().Port), // assert that a localhost address is registered
 	).Run())
