@@ -7,7 +7,7 @@ pachctl config update context "$(pachctl config get active-context)" --pachd-add
 # deploy object storage
 kubectl apply -f etc/testing/minio.yaml
 
-helm repo add pach https://helm.pachyderm.com
+helm repo add pachyderm https://helm.pachyderm.com
 
 helm repo update
 

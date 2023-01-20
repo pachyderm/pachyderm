@@ -6,8 +6,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"strings"
 	"testing"
+	"time"
 
 	proto "github.com/gogo/protobuf/proto"
 
@@ -22,9 +22,10 @@ import (
 )
 
 const (
-	inputRepo      string = "input"
-	outputRepo     string = "output"
-	upgradeSubject string = "upgrade_client"
+	imagesRepo     = "images"
+	edgesRepo      = "edges"
+	montageRepo    = "montage"
+	upgradeSubject = "upgrade_client"
 )
 
 var skip bool
@@ -72,7 +73,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, fromVersions []string, p
 // post-upgrade:
 // - create file input@master:/bar
 // - verify output@master:/bar and output@master:/foo still exists
-func TestUpgradeSimple(t *testing.T) {
+func TestUpgradeOpenCVWithAuth(t *testing.T) {
 	if skip {
 		t.Skip("Skipping upgrade test")
 	}
@@ -81,35 +82,52 @@ func TestUpgradeSimple(t *testing.T) {
 		"2.1.0",
 		"2.2.0",
 		"2.3.9",
+		"2.4.3",
 	}
 	upgradeTest(t, context.Background(), fromVersions,
 		func(t *testing.T, c *client.APIClient) {
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
-			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, inputRepo))
+			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, imagesRepo))
+			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+				edgesRepo,
+				"pachyderm/opencv:1.0",
+				[]string{"python3", "/edges.py"}, /* cmd */
+				nil,                              /* stdin */
+				nil,                              /* parallelismSpec */
+				&pps.Input{Pfs: &pps.PFSInput{Glob: "/", Repo: imagesRepo}},
+				"master", /* outputBranch */
+				false,    /* update */
+			))
 			require.NoError(t,
-				c.CreateProjectPipeline(pfs.DefaultProjectName, outputRepo,
-					"busybox",
-					[]string{"sh"},
-					[]string{"cp /pfs/input/* /pfs/out/;"},
-					nil,
-					&pps.Input{Pfs: &pps.PFSInput{Glob: "/", Repo: inputRepo}},
-					"master",
-					false,
+				c.CreateProjectPipeline(pfs.DefaultProjectName,
+					montageRepo,
+					"dpokidov/imagemagick:7.1.0-23",
+					[]string{"sh"}, /* cmd */
+					[]string{"montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png"}, /* stdin */
+					nil, /* parallelismSpec */
+					&pps.Input{Cross: []*pps.Input{
+						{Pfs: &pps.PFSInput{Repo: imagesRepo, Glob: "/"}},
+						{Pfs: &pps.PFSInput{Repo: edgesRepo, Glob: "/"}},
+					}},
+					"master", /* outputBranch */
+					false,    /* update */
 				))
-			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, inputRepo, "master", ""), func(mf client.ModifyFile) error {
-				return errors.EnsureStack(mf.PutFile("foo", strings.NewReader("foo")))
+
+			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, imagesRepo, "master", "" /* commitID */), func(mf client.ModifyFile) error {
+				return errors.EnsureStack(mf.PutFileURL("/liberty.png", "http://i.imgur.com/46Q8nDz.png", false))
 			}))
 
-			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, outputRepo, "master", "")
+			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montageRepo, "master", "")
 			require.NoError(t, err)
-			commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			commitInfos, err := c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.ID)
 			require.NoError(t, err)
 
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(pfs.DefaultProjectName, outputRepo)) {
-					require.NoError(t, c.GetFile(info.Commit, "foo", &buf))
-					require.Equal(t, "foo", buf.String())
+				if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montageRepo)) {
+					require.NoError(t, c.GetFile(info.Commit, "montage.png", &buf))
 				}
 			}
 		},
@@ -119,25 +137,21 @@ func TestUpgradeSimple(t *testing.T) {
 			state, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 			require.NoError(t, err)
 			require.Equal(t, enterprise.State_ACTIVE, state.State)
-			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, inputRepo, "master", ""), func(mf client.ModifyFile) error {
-				return errors.EnsureStack(mf.PutFile("bar", strings.NewReader("bar")))
+			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, imagesRepo, "master", ""), func(mf client.ModifyFile) error {
+				return errors.EnsureStack(mf.PutFileURL("/kitten.png", "https://i.imgur.com/g2QnNqa.png", false))
 			}))
 
-			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, outputRepo, "master", "")
+			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montageRepo, "master", "")
 			require.NoError(t, err)
-			commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			commitInfos, err := c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.ID)
 			require.NoError(t, err)
 
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(pfs.DefaultProjectName, outputRepo)) {
-					require.NoError(t, c.GetFile(info.Commit, "foo", &buf))
-					require.Equal(t, "foo", buf.String())
-
-					buf.Reset()
-
-					require.NoError(t, c.GetFile(info.Commit, "bar", &buf))
-					require.Equal(t, "bar", buf.String())
+				if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montageRepo)) {
+					require.NoError(t, c.GetFile(info.Commit, "montage.png", &buf))
 				}
 			}
 		},
