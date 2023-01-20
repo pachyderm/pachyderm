@@ -476,14 +476,20 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		require.ElementsEqual(t, []auth.Permission{}, info.AuthInfo.Permissions)
+		// PROJECT_LIST_REPO and PROJECT_CREATE_REPO comes from all users having projectWriter role for default project
+		require.ElementsEqual(t, []auth.Permission{auth.Permission_PROJECT_LIST_REPO, auth.Permission_PROJECT_CREATE_REPO}, info.AuthInfo.Permissions)
 	}
-
 	// admin calls ListRepo, and has OWNER access to all repos
 	infos, err = rootClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		require.ElementsEqual(t, []string{"clusterAdmin"}, info.AuthInfo.Roles)
+		switch info.Repo.Project.Name {
+		case pfs.DefaultProjectName:
+			// projectWriter comes from the fact that allClusterUsers are assigned projectWriter role
+			require.ElementsEqual(t, []string{"clusterAdmin", "projectWriter"}, info.AuthInfo.Roles)
+		default:
+			require.ElementsEqual(t, []string{"clusterAdmin"}, info.AuthInfo.Roles)
+		}
 	}
 }
 

@@ -280,7 +280,22 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 		}
 		repoInfo.SizeBytesUpperBound = size
 
-		// TODO CORE-1111 check whether user has PROJECT_LIST_REPO on project or REPO_READ on repo.
+		// Check if the user can list repo within the project, otherwise check if they can read the repo.
+		if err := d.env.AuthServer.CheckProjectIsAuthorized(ctx, repoInfo.Repo.Project, auth.Permission_PROJECT_LIST_REPO); err != nil {
+			if errors.As(err, &auth.ErrNotAuthorized{}) {
+				if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, repoInfo.Repo, auth.Permission_REPO_READ); err != nil {
+					if errors.As(err, &auth.ErrNotAuthorized{}) {
+						return nil
+					}
+					return errors.Wrap(err, "could not check user is authorized to access repo")
+				}
+				// Here we know that the user does not have permission to list repos at the project level,
+				// but they should still see the repo because they have read permission.
+			} else {
+				return errors.Wrap(err, "could not check user is authorized to access project")
+			}
+		}
+
 		if authSeemsActive && includeAuth {
 			permissions, roles, err := d.getPermissions(ctx, repoInfo.Repo)
 			if err != nil {
@@ -475,7 +490,7 @@ func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectReques
 			if err := d.env.AuthServer.CreateRoleBindingInTransaction(
 				txnCtx,
 				whoAmI.Username,
-				[]string{auth.ProjectOwner},
+				[]string{auth.ProjectOwnerRole},
 				&auth.Resource{Type: auth.ResourceType_PROJECT, Name: req.Project.GetName()},
 			); err != nil && !errors.Is(err, col.ErrExists{}) {
 				return errors.Wrapf(err, "could not create role binding for new project %s", req.Project.GetName())

@@ -29,8 +29,7 @@ func authIsActive(c collection.PostgresReadWriteCollection) bool {
 }
 
 // migrateAuth migrates auth to be fully project-aware with a default project.
-// It uses some internal knowledge about how cols.PostgresCollection works to do
-// so.
+// It uses some internal knowledge about how cols.PostgresCollection works to do so.
 func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 	if _, err := tx.ExecContext(ctx, `UPDATE collections.role_bindings SET key = regexp_replace(key, '^REPO:([-a-zA-Z0-9_]+)$', 'REPO:default/\1') where key ~ '^REPO:([-a-zA-Z0-9_]+)'`); err != nil {
 		return errors.Wrap(err, "could not update role bindings")
@@ -57,9 +56,13 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 		return errors.Wrap(err, "could not update cluster level role bindings")
 	}
 
-	// TODO CORE-1048, grant all users the ProjectWriter role for default project
 	defaultProjectRbs := &auth.RoleBinding{Entries: make(map[string]*auth.Roles)}
+	// grant all users the ProjectWriter role for the default project
 	if err := roleBindingsCol.Upsert(projectRoleBindingKeyPrefix+defaultProjectName, defaultProjectRbs, func() error {
+		if _, ok := defaultProjectRbs.Entries[auth.AllClusterUsersSubject]; !ok {
+			defaultProjectRbs.Entries[auth.AllClusterUsersSubject] = &auth.Roles{Roles: make(map[string]bool)}
+		}
+		defaultProjectRbs.Entries[auth.AllClusterUsersSubject].Roles[auth.ProjectWriterRole] = true
 		return nil
 	}); err != nil {
 		return errors.Wrap(err, "could not update default project's role bindings")
