@@ -74,7 +74,7 @@ func ConnectCmds() []*cobra.Command {
 			} else {
 				context.PachdAddress = pachdAddress.Qualified()
 			}
-			name := "local"
+			name := pachdAddress.Qualified()
 			cfg.V2.Contexts[name] = &context
 			cfg.V2.ActiveContext = name
 			return cfg.Write()
