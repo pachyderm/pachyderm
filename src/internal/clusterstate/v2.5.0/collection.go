@@ -45,11 +45,6 @@ type ErrNotFound struct {
 	customMessage string
 }
 
-func (err ErrNotFound) Is(other error) bool {
-	_, ok := other.(ErrNotFound)
-	return ok
-}
-
 const DefaultPrefix string = "pachyderm/1.7.0"
 
 func (err ErrNotFound) Error() string {
@@ -65,11 +60,6 @@ type ErrExists struct {
 	Type          string
 	Key           string
 	customMessage string
-}
-
-func (err ErrExists) Is(other error) bool {
-	_, ok := other.(ErrExists)
-	return ok
 }
 
 func (err ErrExists) Error() string {
