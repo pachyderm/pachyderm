@@ -57,9 +57,10 @@ func ConnectCmds() []*cobra.Command {
 	var commands []*cobra.Command
 
 	connect := &cobra.Command{
+		Use:   "{{alias}} <address>",
 		Short: "Connect to a Pachyderm Cluster",
 		Long:  "Connect to a Pachyderm Cluster",
-		Run: cmdutil.Run(func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			address := args[0]
 			cfg, err := config.Read(false, false)
 			if err != nil {
