@@ -2214,13 +2214,6 @@ func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Projec
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
-	var repoInfos []*pfs.RepoInfo
-	if err := d.listRepo(ctx, false /* includeAuth */, "" /* repoType */, nil /* projectsFilter */, func(repoInfo *pfs.RepoInfo) error {
-		repoInfos = append(repoInfos, repoInfo)
-		return nil
-	}); err != nil {
-		return err
-	}
 	var projectInfos []*pfs.ProjectInfo
 	if err := d.listProject(ctx, func(pi *pfs.ProjectInfo) error {
 		projectInfos = append(projectInfos, proto.Clone(pi).(*pfs.ProjectInfo))
@@ -2229,12 +2222,6 @@ func (d *driver) deleteAll(ctx context.Context) error {
 		return err
 	}
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		// the list does not use the transaction
-		for _, repoInfo := range repoInfos {
-			if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
-				return err
-			}
-		}
 		for _, projectInfo := range projectInfos {
 			if err := d.deleteProject(ctx, txnCtx, projectInfo.Project, true); err != nil {
 				return err
