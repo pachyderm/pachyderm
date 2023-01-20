@@ -23,19 +23,19 @@ def main():
 
     client = get_bigquery_client()
 
-    rows_to_insert = get_file_rows(
+    rows_to_insert = get_csv_file_rows(
         "api-perf_stats.csv", results_folder, common_columns)
     insert_to_bigquery(client, rows_to_insert, 'api-perf-stats')
 
-    rows_to_insert = get_file_rows(
+    rows_to_insert = get_csv_file_rows(
         "api-perf_stats_history.csv", results_folder, common_columns)
     insert_to_bigquery(client, rows_to_insert, 'api-perf-stats-history')
 
-    rows_to_insert = get_file_rows(
+    rows_to_insert = get_csv_file_rows(
         "api-perf_exceptions.csv", results_folder, common_columns)
     insert_to_bigquery(client, rows_to_insert, 'api-perf-exceptions')
 
-    rows_to_insert = get_file_rows(
+    rows_to_insert = get_csv_file_rows(
         "api-perf_failures.csv", results_folder, common_columns)
     insert_to_bigquery(client, rows_to_insert, 'api-perf-failures')
 
@@ -54,7 +54,7 @@ def get_bigquery_client() -> bigquery.Client:
 
 
 # Collects the rows to insert from a csv and prepares them for insertion into big query. returns the rows to insert
-def get_file_rows(file_name: str, results_folder: str, common_columns: dict[str, any]) -> list[dict[str, any]]:
+def get_csv_file_rows(file_name: str, results_folder: str, common_columns: dict[str, any]) -> list[dict[str, any]]:
     if results_folder:
         file_path = os.path.join(results_folder, file_name)
     rows_to_insert = []
