@@ -645,8 +645,6 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 			if err = cfg.Write(); err != nil {
 				return nil, errors.Wrap(err, "could not write config to save cluster deployment ID")
 			}
-		} else {
-			return nil, errors.Errorf("connected to the wrong cluster (context cluster deployment ID = %q vs reported cluster deployment ID = %q)", context.ClusterDeploymentID, clusterInfo.DeploymentID)
 		}
 	}
 
