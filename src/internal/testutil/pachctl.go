@@ -44,8 +44,7 @@ func NewPachctl(ctx context.Context, c *client.APIClient, configPath string) (*P
 		{
 		  "source": 2,
 		  "session_token": "{{.token}}",
-		  "pachd_address": "grpc://{{.host}}:{{.port}}",
-		  "cluster_deployment_id": "dev"
+		  "pachd_address": "grpc://{{.host}}:{{.port}}"
 		}
 		EOF
 		pachctl config set active-context {{ .context }}
