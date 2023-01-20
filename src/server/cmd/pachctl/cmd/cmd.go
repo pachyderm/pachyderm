@@ -848,6 +848,7 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, debugcmds.Cmds()...)
 	subcommands = append(subcommands, txncmds.Cmds()...)
 	subcommands = append(subcommands, configcmds.Cmds()...)
+	subcommands = append(subcommands, configcmds.ConnectCmds()...)
 	subcommands = append(subcommands, taskcmds.Cmds()...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
