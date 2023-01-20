@@ -52,7 +52,6 @@ func mockInspectCluster(env *realenv.RealEnv) {
 	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
 		clusterInfo := admin.ClusterInfo{
 			ID:                "dev",
-			DeploymentID:      "dev",
 			VersionWarningsOk: true,
 		}
 		return &clusterInfo, nil

@@ -37,7 +37,6 @@ func NewAPIServer(env Env) APIServer {
 	return &apiServer{
 		clusterInfo: &admin.ClusterInfo{
 			ID:                env.ClusterID,
-			DeploymentID:      env.Config.DeploymentID,
 			VersionWarningsOk: true,
 		},
 	}

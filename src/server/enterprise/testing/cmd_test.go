@@ -348,7 +348,6 @@ func TestRegisterDefaultArgs(t *testing.T) {
 		ClientVersion: version.Version,
 	})
 	require.NoError(t, inspectErr)
-	clusterId := clusterInfo.DeploymentID
 
 	host := c.GetAddress().Host
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
@@ -362,7 +361,6 @@ func TestRegisterDefaultArgs(t *testing.T) {
 
 		pachctl config list context | match {{.id}}
 		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.list_pach_address}}"
-		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
 		pachctl config get context {{.id}} | match "\"source\": \"IMPORTED\","
 		`,
 		"id", id,
