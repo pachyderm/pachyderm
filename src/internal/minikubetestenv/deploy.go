@@ -171,7 +171,6 @@ func withBase(namespace string) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
-			"pachd.clusterDeploymentID":           "dev",
 			"pachd.resources.requests.cpu":        "250m",
 			"pachd.resources.requests.memory":     "512M",
 			"etcd.resources.requests.cpu":         "250m",

@@ -92,7 +92,6 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	if err := yaml.Unmarshal([]byte(a.env.Config.EnterpriseMemberConfig), &cluster); err != nil {
 		return errors.Wrapf(err, "unmarshal enterprise cluster %q", a.env.Config.EnterpriseMemberConfig)
 	}
-	cluster.ClusterDeploymentId = a.env.Config.DeploymentID
 	cluster.Secret = a.env.Config.EnterpriseSecret
 	es, err := client.NewFromURI(a.env.Config.EnterpriseServerAddress)
 	if err != nil {
@@ -104,11 +103,10 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 			return errors.Wrap(err, "add enterprise cluster")
 		}
 		if _, err = es.License.UpdateCluster(es.Ctx(), &lc.UpdateClusterRequest{
-			Id:                  cluster.Id,
-			Address:             cluster.Address,
-			UserAddress:         cluster.UserAddress,
-			ClusterDeploymentId: cluster.ClusterDeploymentId,
-			Secret:              cluster.Secret,
+			Id:          cluster.Id,
+			Address:     cluster.Address,
+			UserAddress: cluster.UserAddress,
+			Secret:      cluster.Secret,
 		}); err != nil {
 			return errors.Wrap(err, "update enterprise cluster")
 		}

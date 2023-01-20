@@ -639,16 +639,6 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 			}
 		}
 	}
-	if context.ClusterDeploymentID != clusterInfo.DeploymentID {
-		if context.ClusterDeploymentID == "" {
-			context.ClusterDeploymentID = clusterInfo.DeploymentID
-			if err = cfg.Write(); err != nil {
-				return nil, errors.Wrap(err, "could not write config to save cluster deployment ID")
-			}
-		} else {
-			return nil, errors.Errorf("connected to the wrong cluster (context cluster deployment ID = %q vs reported cluster deployment ID = %q)", context.ClusterDeploymentID, clusterInfo.DeploymentID)
-		}
-	}
 
 	// Add port forwarding. This will set it to nil if port forwarding is
 	// disabled, or an address is explicitly set.

@@ -116,11 +116,10 @@ func RegisterCmd() *cobra.Command {
 			// Register the pachd with the license server
 			resp, err := ec.License.AddCluster(ec.Ctx(),
 				&license.AddClusterRequest{
-					Id:                  id,
-					Address:             pachdAddr,
-					UserAddress:         pachdUsrAddr,
-					ClusterDeploymentId: clusterId,
-					EnterpriseServer:    enterpriseServer,
+					Id:               id,
+					Address:          pachdAddr,
+					UserAddress:      pachdUsrAddr,
+					EnterpriseServer: enterpriseServer,
 				})
 			if err != nil {
 				return errors.Wrapf(err, "could not register pachd with the license service")
@@ -220,19 +219,13 @@ func SyncContextsCmd() *cobra.Command {
 			// update the pach_address of all existing contexts, and add the rest as well.
 			for _, cluster := range resp.Clusters {
 				if context, ok := cfg.V2.Contexts[cluster.Id]; ok {
-					// reset the session token if the context is pointing to a new cluster deployment
-					if cluster.ClusterDeploymentId != context.ClusterDeploymentID {
-						context.ClusterDeploymentID = cluster.ClusterDeploymentId
-						context.SessionToken = ""
-					}
 					context.PachdAddress = cluster.Address
 					context.EnterpriseServer = cluster.EnterpriseServer
 				} else {
 					cfg.V2.Contexts[cluster.Id] = &config.Context{
-						ClusterDeploymentID: cluster.ClusterDeploymentId,
-						PachdAddress:        cluster.Address,
-						Source:              config.ContextSource_IMPORTED,
-						EnterpriseServer:    cluster.EnterpriseServer,
+						PachdAddress:     cluster.Address,
+						Source:           config.ContextSource_IMPORTED,
+						EnterpriseServer: cluster.EnterpriseServer,
 					}
 				}
 			}

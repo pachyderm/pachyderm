@@ -3,14 +3,12 @@ package cmds
 import (
 	"fmt"
 
-	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
-	"github.com/pachyderm/pachyderm/v2/src/version"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
@@ -60,22 +58,13 @@ func ActivateCmd() *cobra.Command {
 				return nil
 			}
 
-			// inspect the activated cluster for its Deployment Id
-			clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &admin.InspectClusterRequest{
-				ClientVersion: version.Version,
-			})
-			if inspectErr != nil {
-				return errors.Wrapf(inspectErr, "could not inspect cluster")
-			}
-
 			// Register the localhost as a cluster
 			resp, err := c.License.AddCluster(c.Ctx(),
 				&license.AddClusterRequest{
-					Id:                  "localhost",
-					Address:             "grpc://localhost:1653",
-					UserAddress:         "grpc://localhost:1653",
-					ClusterDeploymentId: clusterInfo.DeploymentID,
-					EnterpriseServer:    true,
+					Id:               "localhost",
+					Address:          "grpc://localhost:1653",
+					UserAddress:      "grpc://localhost:1653",
+					EnterpriseServer: true,
 				})
 			if err != nil {
 				return errors.Wrapf(err, "could not register pachd with the license service")
@@ -135,7 +124,7 @@ func AddClusterCmd() *cobra.Command {
 
 // UpdateClusterCmd returns a cobra.Command to register a cluster with the license server
 func UpdateClusterCmd() *cobra.Command {
-	var id, address, userAddress, clusterDeploymentId string
+	var id, address, userAddress string
 	updateCluster := &cobra.Command{
 		Short: "Update an existing cluster registered with the license server.",
 		Long:  "Update an existing cluster registered with the license server.",
@@ -147,10 +136,9 @@ func UpdateClusterCmd() *cobra.Command {
 			defer c.Close()
 
 			_, err = c.License.UpdateCluster(c.Ctx(), &license.UpdateClusterRequest{
-				Id:                  id,
-				Address:             address,
-				UserAddress:         userAddress,
-				ClusterDeploymentId: clusterDeploymentId,
+				Id:          id,
+				Address:     address,
+				UserAddress: userAddress,
 			})
 			return grpcutil.ScrubGRPC(err)
 		}),
@@ -158,7 +146,6 @@ func UpdateClusterCmd() *cobra.Command {
 	updateCluster.PersistentFlags().StringVar(&id, "id", "", `The id for the cluster to update`)
 	updateCluster.PersistentFlags().StringVar(&address, "address", "", `The host and port where the cluster can be reached by the enterprise server`)
 	updateCluster.PersistentFlags().StringVar(&userAddress, "user-address", "", `The host and port where the cluster can be reached by a user`)
-	updateCluster.PersistentFlags().StringVar(&clusterDeploymentId, "cluster-deployment-id", "", `The deployment id of the updated cluster`)
 	return cmdutil.CreateAlias(updateCluster, "license update-cluster")
 }
 

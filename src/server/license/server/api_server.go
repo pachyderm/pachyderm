@@ -211,8 +211,8 @@ func (a *apiServer) AddCluster(ctx context.Context, req *lc.AddClusterRequest) (
 
 	// Register the pachd in the database
 	if _, err := a.env.DB.ExecContext(ctx,
-		`INSERT INTO license.clusters (id, address, secret, cluster_deployment_id, user_address, is_enterprise_server, version, auth_enabled)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, req.Id, req.Address, secret, req.ClusterDeploymentId, req.UserAddress, req.EnterpriseServer, "unknown", false); err != nil {
+		`INSERT INTO license.clusters (id, address, secret, user_address, is_enterprise_server, version, auth_enabled)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, req.Id, req.Address, secret, req.UserAddress, req.EnterpriseServer, "unknown", false); err != nil {
 		// throw a unique error if the error is a primary key uniqueness violation
 		if dbutil.IsUniqueViolation(err) {
 			return nil, lc.ErrDuplicateClusterID
@@ -301,7 +301,6 @@ func (a *apiServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequ
 	fieldValues := make(map[string]string)
 	fieldValues["address"] = req.Address
 	fieldValues["user_address"] = req.UserAddress
-	fieldValues["cluster_deployment_id"] = req.ClusterDeploymentId
 	fieldValues["secret"] = req.Secret
 
 	var setFields string

@@ -269,7 +269,6 @@ func TestSyncContexts(t *testing.T) {
 	resetClusterState(t, c)
 	defer resetClusterState(t, c)
 	id := tu.UniqueString("cluster")
-	clusterId := tu.UniqueString("clusterDeploymentId")
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
 	// register a new cluster
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
@@ -281,7 +280,6 @@ func TestSyncContexts(t *testing.T) {
 		"token", tu.RootToken,
 		"enterprise_token", enterpriseRootToken,
 		"license", tu.GetTestEnterpriseCode(t),
-		"clusterId", clusterId,
 		"pach_address", pachAddress,
 	).Run())
 
@@ -320,7 +318,6 @@ func TestSyncContexts(t *testing.T) {
 	// re-register cluster with a new cluster ID
 	// the cluster id should be updated and the session token should be set to empty
 	// TODO(acohen4): set session_token so that it can be unset
-	newClusterId := tu.UniqueString("clusterDeploymentId")
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl license update-cluster --id {{.id}} --cluster-deployment-id {{.clusterId}}
 		pachctl enterprise sync-contexts
@@ -329,7 +326,6 @@ func TestSyncContexts(t *testing.T) {
 		`,
 		"id", id,
 		"license", tu.GetTestEnterpriseCode(t),
-		"clusterId", newClusterId,
 		"userAddress", "grpc://pachd.default:700",
 	).Run())
 

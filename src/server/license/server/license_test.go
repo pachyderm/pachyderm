@@ -151,11 +151,10 @@ func TestClusterCRUD(t *testing.T) {
 
 	// Add a new cluster
 	newCluster, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
-		Id:                  "new",
-		Address:             "grpc://localhost:" + peerPort,
-		UserAddress:         "grpc://localhost:999",
-		ClusterDeploymentId: "some-deployment-id",
-		EnterpriseServer:    false,
+		Id:               "new",
+		Address:          "grpc://localhost:" + peerPort,
+		UserAddress:      "grpc://localhost:999",
+		EnterpriseServer: false,
 	})
 	require.NoError(t, err)
 	require.True(t, len(newCluster.Secret) >= 30)
@@ -174,10 +173,9 @@ func TestClusterCRUD(t *testing.T) {
 
 	expectedUserClusters := map[string]*license.UserClusterInfo{
 		"new": {
-			Id:                  "new",
-			Address:             "grpc://localhost:999",
-			ClusterDeploymentId: "some-deployment-id",
-			EnterpriseServer:    false,
+			Id:               "new",
+			Address:          "grpc://localhost:999",
+			EnterpriseServer: false,
 		},
 	}
 
@@ -191,7 +189,6 @@ func TestClusterCRUD(t *testing.T) {
 	verifyListUserClustersContents := func(expected map[string]*license.UserClusterInfo, actual []*license.UserClusterInfo) {
 		for _, v := range actual {
 			require.Equal(t, expected[v.Id].Address, v.Address)
-			require.Equal(t, expected[v.Id].ClusterDeploymentId, v.ClusterDeploymentId)
 			require.Equal(t, expected[v.Id].EnterpriseServer, v.EnterpriseServer)
 		}
 	}
@@ -209,17 +206,15 @@ func TestClusterCRUD(t *testing.T) {
 
 	// Update the cluster
 	_, err = client.License.UpdateCluster(client.Ctx(), &license.UpdateClusterRequest{
-		Id:                  "new",
-		Address:             "localhost:1653",
-		UserAddress:         "localhost:1000",
-		ClusterDeploymentId: "another-deployment-id",
+		Id:          "new",
+		Address:     "localhost:1653",
+		UserAddress: "localhost:1000",
 	})
 	require.NoError(t, err)
 
 	expectedStatuses["new"].Address = "localhost:1653"
 
 	expectedUserClusters["new"].Address = "localhost:1000"
-	expectedUserClusters["new"].ClusterDeploymentId = "another-deployment-id"
 
 	clusters, err = client.License.ListClusters(client.Ctx(), &license.ListClustersRequest{})
 	require.NoError(t, err)
@@ -402,11 +397,10 @@ func TestListUserClusters(t *testing.T) {
 	require.Equal(t, enterprise.State_ACTIVE, resp.State)
 
 	_, err = client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
-		Id:                  "new",
-		Address:             "grpc://localhost:1650",
-		UserAddress:         "grpc://localhost:999",
-		ClusterDeploymentId: "some-deployment-id",
-		EnterpriseServer:    false,
+		Id:               "new",
+		Address:          "grpc://localhost:1650",
+		UserAddress:      "grpc://localhost:999",
+		EnterpriseServer: false,
 	})
 	require.NoError(t, err)
 
