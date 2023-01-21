@@ -82,9 +82,20 @@ func bucketNameToCommit(bucketName string) (*pfs.Commit, error) {
 		repo   *pfs.Repo
 	)
 
-	// the name is [commitID.][branch. | branch.type.]repoName
-	// in particular, to access a non-user system repo, the branch name must be given
-	parts := strings.SplitN(bucketName, ".", 4)
+	// the name is [[commitID.]branch.]repoName[.project]
+	// If unspecified, the branch is 'master', and the project is 'default'.
+	// However, two-component buckets are always interpreted as '<branch>.<repo>'.
+	// So, to specify a non-default project, the branch must be set explicitly.
+	//
+	// For example, 'master.myrepo.default' may be shortened to just 'myrepo' by
+	// removing the default project and branch, and 'mybranch.myrepo.default' may
+	// be shortened to just 'mybranch.myrepo' by removing the default project, but
+	// 'master.myrepo.myproject' cannot be shortened because the project is
+	// non-default.
+	//
+	// Note that buckets can never have 5 or more components--additional splitting
+	// is unnecessary, as 5 will always error.
+	parts := strings.SplitN(bucketName, ".", 5)
 	if uuid.IsUUIDWithoutDashes(parts[0]) {
 		id = parts[0]
 		parts = parts[1:]
@@ -102,6 +113,8 @@ func bucketNameToCommit(bucketName string) (*pfs.Commit, error) {
 	case 3:
 		// e.g. s3://mybranch.myrepo.myproject
 		repo, branch = client.NewProjectRepo(parts[2], parts[1]), parts[0]
+	default:
+		return nil, errors.Errorf("invalid bucket name: %q", bucketName)
 	}
 
 	return repo.NewCommit(branch, id), nil

@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -212,5 +213,15 @@ func TestBucketNameToCommit(t *testing.T) {
 		if c.Branch.Repo.Project.Name != cc.Branch.Repo.Project.Name {
 			t.Errorf("%s: mismatched project names: %s ≠ %s", b, c.Branch.Repo.Project.Name, cc.Branch.Repo.Project.Name)
 		}
+	}
+}
+
+func TestBucketNameError(t *testing.T) {
+	c, err := bucketNameToCommit("7b234298216044d4accaf3f472175a54.too.many.components.bucket")
+	if err == nil {
+		t.Fatalf("expected error but valid result: %+v", c)
+	}
+	if !strings.Contains(err.Error(), "invalid bucket name") {
+		t.Fatalf("expected 'invalid bucket name' error, but got: %v", err)
 	}
 }
