@@ -54,7 +54,7 @@ func NewMasterDriver() *MasterDriver {
 }
 
 func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, buckets *[]*s2.Bucket) error {
-	repos, err := pc.ListRepo() // get repos of all types
+	repos, err := pc.ListRepo() // get all user-type repos
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 		}
 		for _, b := range repo.Branches {
 			*buckets = append(*buckets, &s2.Bucket{
-				Name:         fmt.Sprintf("%s.%s.%s", b.Name, b.Repo.Name, b.Repo.Project.Name),
+				Name:         fmt.Sprintf("%s.%s.%s", b.GetName(), b.GetRepo().GetName(), b.GetRepo().GetProject().GetName()),
 				CreationDate: t,
 			})
 		}
