@@ -539,7 +539,7 @@ func (d *driver) addCommit(txnCtx *txncontext.TransactionContext, newCommitInfo 
 		}
 		if _, ok := provHeads[pfsdb.CommitKey(branchInfo.Head)]; !ok {
 			provHeads[pfsdb.CommitKey(branchInfo.Head)] = struct{}{}
-			if err := pfsdb.AddCommitProvenance(context.TODO(), txnCtx.SqlTx, newCommitInfo.Commit, branchInfo.Head); err != nil {
+			if err := pfsdb.AddCommitProvenance(txnCtx.SqlTx, newCommitInfo.Commit, branchInfo.Head); err != nil {
 				return err
 			}
 		}
@@ -782,7 +782,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 				}
 				provCommit = provBranchInfo.Head
 			}
-			if err := pfsdb.AddCommitProvenance(context.TODO(), txnCtx.SqlTx, newCommit, provCommit); err != nil {
+			if err := pfsdb.AddCommitProvenance(txnCtx.SqlTx, newCommit, provCommit); err != nil {
 				return errors.Wrapf(err, "add commit provenance from %q to %q", pfsdb.CommitKey(newCommit), pfsdb.CommitKey(provCommit))
 			}
 		}
@@ -853,7 +853,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 	// load CommitInfo.Details.CommitProvenance
 	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		provCommits, err := pfsdb.CommitProvenance(context.TODO(), txnCtx.SqlTx, commit.Repo, commitInfo.Commit.ID)
+		provCommits, err := pfsdb.CommitProvenance(txnCtx.SqlTx, commit.Repo, commitInfo.Commit.ID)
 		if err != nil {
 			return err
 		}
@@ -910,7 +910,7 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 	if err := d.commits.ReadWrite(sqlTx).Get(commit, commitInfo); err != nil {
 		if col.IsErrNotFound(err) {
 			// try to resolve to alias if not found
-			resolvedCommit, err := pfsdb.ResolveCommitProvenance(context.TODO(), sqlTx, userCommit.Repo, commit.ID)
+			resolvedCommit, err := pfsdb.ResolveCommitProvenance(sqlTx, userCommit.Repo, commit.ID)
 			if err != nil {
 				return nil, err
 			}

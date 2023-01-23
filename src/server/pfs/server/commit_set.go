@@ -20,7 +20,7 @@ import (
 func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, filterAliases bool) ([]*pfs.CommitInfo, error) {
 	var commitInfos []*pfs.CommitInfo
 	if !filterAliases {
-		cs, err := pfsdb.CommitSetProvenance(context.TODO(), txnCtx.SqlTx, commitset.ID)
+		cs, err := pfsdb.CommitSetProvenance(txnCtx.SqlTx, commitset.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -39,11 +39,12 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	}); err != nil {
 		return nil, err
 	}
+	// TODO(acohen4) move ci.Details.CommitProvenance -> ci.DirectProvenance. Stop using ci.DirectProvenance. Then we don't deal with this expensive query
 	totalRepos := make(map[string]struct{})
 	for _, ci := range commitInfos {
 		var err error
 		ci.Details = &pfs.CommitInfo_Details{}
-		ci.Details.CommitProvenance, err = pfsdb.CommitProvenance(context.TODO(), txnCtx.SqlTx, ci.Commit.Repo, ci.Commit.ID)
+		ci.Details.CommitProvenance, err = pfsdb.CommitProvenance(txnCtx.SqlTx, ci.Commit.Repo, ci.Commit.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -52,6 +53,7 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	sorted := make([]*pfs.CommitInfo, 0)
 	seenRepos := make(map[string]struct{})
 	sortedCommits := make(map[string]struct{})
+	// TODO(acohen4): optimize. maybe first figure out source commits and traverse from there
 	// O(n^2) sorting of commits
 	for len(sorted) < len(commitInfos) {
 		for _, ci := range commitInfos {
@@ -345,7 +347,7 @@ func (d *driver) checkSubvenantCommitSets(txnCtx *txncontext.TransactionContext,
 	collectSubvCommitSets := func(setIDs map[string]struct{}) (map[string]struct{}, error) {
 		subvCommitSets := make(map[string]struct{})
 		for _, commitset := range commitsets {
-			subvCommits, err := pfsdb.CommitSetSubvenance(context.TODO(), txnCtx.SqlTx, commitset.ID)
+			subvCommits, err := pfsdb.CommitSetSubvenance(txnCtx.SqlTx, commitset.ID)
 			if err != nil {
 				return nil, err
 			}

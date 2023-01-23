@@ -2,7 +2,6 @@
 package pfsdb
 
 import (
-	"context"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -150,13 +149,13 @@ func Commits(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollecti
 			if ci.Commit.Repo == nil {
 				return errors.New("Commits must have the repo field populated")
 			}
-			if err := AddCommit(context.TODO(), tx, ci.Commit); err != nil {
+			if err := AddCommit(tx, ci.Commit); err != nil {
 				return err
 			}
 			return nil
 		}),
 		col.WithDeleteHook(func(tx *pachsql.Tx, commitKey string) error {
-			return DeleteCommit(context.TODO(), tx, commitKey)
+			return DeleteCommit(tx, commitKey)
 		}),
 		col.WithDeleteJoinHook(func() (hookJoinTable string, colJoinColumn string, hookJoinColumn string) {
 			return "pfs.commits", "key", "commit_id"

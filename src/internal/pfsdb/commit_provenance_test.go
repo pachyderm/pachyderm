@@ -29,15 +29,15 @@ func TestCommitSetProvenance(t *testing.T) {
 	require.NoError(t, err)
 	proj := "my_project"
 	a := client.NewProjectCommit(proj, "A", "", "v")
-	require.NoError(t, AddCommit(ctx, tx, a))
+	require.NoError(t, AddCommit(tx, a))
 	b := client.NewProjectCommit(proj, "B", "", "x")
-	require.NoError(t, AddCommit(ctx, tx, b))
+	require.NoError(t, AddCommit(tx, b))
 	c := client.NewProjectCommit(proj, "C", "", "y")
-	require.NoError(t, AddCommit(ctx, tx, c))
+	require.NoError(t, AddCommit(tx, c))
 	d := client.NewProjectCommit(proj, "D", "", "z")
-	require.NoError(t, AddCommit(ctx, tx, d))
+	require.NoError(t, AddCommit(tx, d))
 	e := client.NewProjectCommit(proj, "E", "", "w")
-	require.NoError(t, AddCommit(ctx, tx, e))
+	require.NoError(t, AddCommit(tx, e))
 	// setup basic commit graph of
 	//                -- C@y
 	//               /
@@ -46,37 +46,37 @@ func TestCommitSetProvenance(t *testing.T) {
 	//                -- D@z
 	//               /
 	// E@w <---------
-	require.NoError(t, AddCommitProvenance(ctx, tx, b, a))
-	require.NoError(t, AddCommitProvenance(ctx, tx, c, b))
-	require.NoError(t, AddCommitProvenance(ctx, tx, d, b))
-	require.NoError(t, AddCommitProvenance(ctx, tx, d, e))
+	require.NoError(t, AddCommitProvenance(tx, b, a))
+	require.NoError(t, AddCommitProvenance(tx, c, b))
+	require.NoError(t, AddCommitProvenance(tx, d, b))
+	require.NoError(t, AddCommitProvenance(tx, d, e))
 	require.NoError(t, tx.Commit())
 	// assert commit set provenance
 	tx, err = db.Beginx()
 	require.NoError(t, err)
 	// check y's commit set provenance
-	yProv, err := CommitSetProvenance(ctx, tx, "y")
+	yProv, err := CommitSetProvenance(tx, "y")
 	require.NoError(t, err)
 	sort.Slice(yProv, func(i, j int) bool {
 		return CommitKey(yProv[i]) < CommitKey(yProv[j])
 	})
 	checkCommitsEqual(t, []*pfs.Commit{a, b}, yProv)
 	// check y's commit set subvenance
-	ySubv, err := CommitSetSubvenance(ctx, tx, "y")
+	ySubv, err := CommitSetSubvenance(tx, "y")
 	require.NoError(t, err)
 	sort.Slice(ySubv, func(i, j int) bool {
 		return CommitKey(ySubv[i]) < CommitKey(ySubv[j])
 	})
 	checkCommitsEqual(t, []*pfs.Commit{}, ySubv)
 	// check z's commit set provenance
-	zProv, err := CommitSetProvenance(ctx, tx, "z")
+	zProv, err := CommitSetProvenance(tx, "z")
 	require.NoError(t, err)
 	sort.Slice(zProv, func(i, j int) bool {
 		return CommitKey(zProv[i]) < CommitKey(zProv[j])
 	})
 	checkCommitsEqual(t, []*pfs.Commit{a, b, e}, zProv)
 	// check x's commit set subvenance
-	xSubv, err := CommitSetSubvenance(ctx, tx, "x")
+	xSubv, err := CommitSetSubvenance(tx, "x")
 	require.NoError(t, err)
 	sort.Slice(xSubv, func(i, j int) bool {
 		return CommitKey(xSubv[i]) < CommitKey(xSubv[j])
