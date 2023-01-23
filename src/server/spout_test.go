@@ -367,18 +367,19 @@ func testSpout(t *testing.T, usePachctl bool) {
 				Spout: &pps.Spout{},
 			})
 		require.NoError(t, err)
-
 		// and we want to make sure that these commits all have provenance on the spec repo
-		specBranch := client.NewSystemProjectRepo(pfs.DefaultProjectName, pipeline, pfs.SpecRepoType).NewBranch("master")
+		specCommit, err := c.PfsAPIClient.InspectCommit(c.Ctx(), &pfs.InspectCommitRequest{Commit: &pfs.Commit{
+			Repo: client.NewSystemProjectRepo(pfs.DefaultProjectName, pipeline, pfs.SpecRepoType),
+			ID:   "master",
+		}})
 		countBreakFunc := newCountBreakFunc(3)
 		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline), "", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
-				require.Equal(t, 1, len(ci.DirectProvenance))
-				require.Equal(t, specBranch, ci.DirectProvenance[0])
+				require.Equal(t, 1, len(ci.CommitProvenance))
+				require.Equal(t, specCommit, ci.CommitProvenance[0])
 				return nil
 			})
 		}))
-
 		// now we'll update the pipeline
 		_, err = c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
@@ -402,8 +403,8 @@ func testSpout(t *testing.T, usePachctl bool) {
 		countBreakFunc = newCountBreakFunc(6)
 		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline), "", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
-				require.Equal(t, 1, len(ci.DirectProvenance))
-				require.Equal(t, specBranch, ci.DirectProvenance[0])
+				require.Equal(t, 1, len(ci.CommitProvenance))
+				require.Equal(t, specCommit, ci.CommitProvenance[0])
 				return nil
 			})
 		}))
