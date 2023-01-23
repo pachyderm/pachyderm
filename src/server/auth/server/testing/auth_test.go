@@ -2587,10 +2587,10 @@ func TestListRepoWithProjectAccessControl(t *testing.T) {
 		"admin no filter":                            {admin, nil, allRepos},
 		"admin filters by default project":           {admin, []*pfs.Project{{Name: pfs.DefaultProjectName}}, defaultRepos},
 		"admin filters by non-default project":       {admin, []*pfs.Project{{Name: project1}}, project1Repos},
-		"non-admin no filter":                        {bob, nil, append(defaultRepos, project1Repos...)},
+		"non-admin no filter":                        {bob, nil, project1Repos},
 		"projectViewer filters on their own project": {bob, []*pfs.Project{{Name: project1}}, project1Repos},
 		"projectViewer filters on different project": {bob, []*pfs.Project{{Name: project2}}, []string{}},
-		"repoReader can see their own repos":         {alice, nil, append(defaultRepos, project1Repo1, project2Repo2)},
+		"repoReader can see their own repos":         {alice, nil, []string{project1Repo1, project2Repo2}},
 		"repoReader filters on project1":             {alice, []*pfs.Project{{Name: project1}}, []string{project1Repo1}},
 		"repoReader filers on project2":              {alice, []*pfs.Project{{Name: project2}}, []string{project2Repo2}},
 	}

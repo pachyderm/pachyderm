@@ -483,13 +483,7 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	infos, err = rootClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		switch info.Repo.Project.Name {
-		case pfs.DefaultProjectName:
-			// projectWriter comes from the fact that allClusterUsers are assigned projectWriter role
-			require.ElementsEqual(t, []string{"clusterAdmin", "projectWriter"}, info.AuthInfo.Roles)
-		default:
-			require.ElementsEqual(t, []string{"clusterAdmin"}, info.AuthInfo.Roles)
-		}
+		require.ElementsEqual(t, []string{"clusterAdmin"}, info.AuthInfo.Roles)
 	}
 }
 
