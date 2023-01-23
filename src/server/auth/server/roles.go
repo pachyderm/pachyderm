@@ -180,18 +180,12 @@ func init() {
 		},
 	})
 
-	projectWriterRole := registerRole(&auth.Role{
-		Name:          auth.ProjectWriterRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_PROJECT, auth.ResourceType_REPO},
-		Permissions: combinePermissions(projectViewerRole.Permissions, []auth.Permission{
-			auth.Permission_PROJECT_CREATE_REPO,
-		}),
-	})
+	// TODO add projectWriterRole
 
 	projectOwnerRole := registerRole(&auth.Role{
 		Name:          auth.ProjectOwnerRole,
 		ResourceTypes: []auth.ResourceType{auth.ResourceType_PROJECT, auth.ResourceType_REPO},
-		Permissions: combinePermissions(projectWriterRole.Permissions, repoOwnerRole.Permissions, []auth.Permission{
+		Permissions: combinePermissions(repoOwnerRole.Permissions, []auth.Permission{
 			auth.Permission_PROJECT_DELETE,
 			auth.Permission_PROJECT_MODIFY_BINDINGS,
 		}),
@@ -220,7 +214,7 @@ func init() {
 			secretAdminRole.Permissions,
 			pachdLogReaderRole.Permissions,
 			projectViewerRole.Permissions,
-			projectWriterRole.Permissions,
+			// TODO add projectWriterRole.Permissions
 			projectOwnerRole.Permissions,
 			projectCreatorRole.Permissions,
 			[]auth.Permission{

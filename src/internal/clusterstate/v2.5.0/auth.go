@@ -56,17 +56,7 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 		return errors.Wrap(err, "could not update cluster level role bindings")
 	}
 
-	defaultProjectRbs := &auth.RoleBinding{Entries: make(map[string]*auth.Roles)}
-	// grant all users the ProjectWriter role for the default project
-	if err := roleBindingsCol.Upsert(projectRoleBindingKeyPrefix+defaultProjectName, defaultProjectRbs, func() error {
-		if _, ok := defaultProjectRbs.Entries[auth.AllClusterUsersSubject]; !ok {
-			defaultProjectRbs.Entries[auth.AllClusterUsersSubject] = &auth.Roles{Roles: make(map[string]bool)}
-		}
-		defaultProjectRbs.Entries[auth.AllClusterUsersSubject].Roles[auth.ProjectWriterRole] = true
-		return nil
-	}); err != nil {
-		return errors.Wrap(err, "could not update default project's role bindings")
-	}
+	// TODO grant all users the ProjectWriter role for the default project
 
 	// Rename pipeline users from "pipeline:<repo>" to "pipeline:default/<repo>"
 	if _, err := tx.ExecContext(ctx, `UPDATE auth.auth_tokens SET subject = regexp_replace(subject, '^pipeline:([-a-zA-Z0-9_]+)$', 'pipeline:default/\1') WHERE subject ~ '^pipeline:[^/]+$'`); err != nil {
