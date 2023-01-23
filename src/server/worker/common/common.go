@@ -46,9 +46,8 @@ func DatumID(inputs []*Input) string {
 		}
 		hash.Write([]byte(repoName))
 		_ = binary.Write(hash, binary.BigEndian, int64(len(repoName)))
-		// TODO: Datum hash changing will cause datums to rerun after upgrade
 		hash.Write([]byte(input.Branch))
-		_ = binary.Write(hash, binary.BigEndian, int64(len(file.Commit.Branch.Name)))
+		_ = binary.Write(hash, binary.BigEndian, int64(len(input.Branch)))
 		hash.Write([]byte(input.FileInfo.File.Path))
 		_ = binary.Write(hash, binary.BigEndian, int64(len(input.FileInfo.File.Path)))
 	}
