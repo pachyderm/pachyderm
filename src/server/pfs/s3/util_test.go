@@ -167,7 +167,7 @@ func projectTestRunner(ctx context.Context, t *testing.T, pachClient *client.API
 
 	port := listener.Addr().(*net.TCPAddr).Port
 
-	minioClient, err := minio.NewV4(fmt.Sprintf("127.0.0.1:%d", port), "PAC11234", "1234", false)
+	minioClient, err := minio.NewV4(fmt.Sprintf("127.0.0.1:%d", port), "1234", "1234", false)
 	require.NoError(t, err)
 
 	t.Run(group, func(t *testing.T) {

@@ -364,8 +364,8 @@ func projectMasterListObjectsPaginated(t *testing.T, pachClient *client.APIClien
 	}
 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
 
-	// Query by commit.repo
-	ch = minioClient.ListObjects(fmt.Sprintf("%s.%s.%s", commit.ID, repo, pfs.DefaultProjectName), "", false, make(chan struct{}))
+	// Query by commit.repo (only works in the default project)
+	ch = minioClient.ListObjects(fmt.Sprintf("%s.%s", commit.ID, repo), "", false, make(chan struct{}))
 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
 
 	// Query by commit.branch.repo
@@ -451,7 +451,7 @@ func projectMasterListObjectsRecursive(t *testing.T, pachClient *client.APIClien
 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{})
 }
 
-func projectMasterListSystemRepoBuckets(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+func projectMasterDoesNotListSystemRepoBuckets(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("listsystemrepo")
 	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	specRepo := client.NewSystemProjectRepo(pfs.DefaultProjectName, repo, pfs.SpecRepoType)
@@ -471,54 +471,13 @@ func projectMasterListSystemRepoBuckets(t *testing.T, pachClient *client.APIClie
 	buckets, err := minioClient.ListBuckets()
 	require.NoError(t, err)
 
-	var hasMaster, hasMeta bool
 	for _, bucket := range buckets {
-		if bucket.Name == fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName) {
-			hasMaster = true
-		} else if bucket.Name == fmt.Sprintf("master.%s.%s.%s", pfs.MetaRepoType, repo, pfs.DefaultProjectName) {
-			hasMeta = true
-		} else {
-			require.NotEqual(t, bucket.Name, fmt.Sprintf("master.%s.%s.%s", pfs.SpecRepoType, repo, pfs.DefaultProjectName))
+		if !strings.Contains(bucket.Name, repo) {
+			// sometimes this encounters stray buckets from other tests
+			continue
 		}
+		require.Equal(t, bucket.Name, fmt.Sprintf("master.%s.%s", repo, pfs.DefaultProjectName))
 	}
-
-	require.True(t, hasMaster)
-	require.True(t, hasMeta)
-}
-
-func projectMasterResolveSystemRepoBucket(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-	repo := tu.UniqueString("testsystemrepo")
-	require.NoError(t, pachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	// create a branch named "spec" in the repo
-	branch := pfs.SpecRepoType
-	require.NoError(t, pachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, branch, "", "", nil))
-
-	// as well as a branch named "master" on an associated repo of type "spec"
-	specRepo := client.NewSystemProjectRepo(pfs.DefaultProjectName, repo, pfs.SpecRepoType)
-	_, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), &pfs.CreateRepoRequest{Repo: specRepo})
-	require.NoError(t, err)
-	_, err = pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), &pfs.CreateBranchRequest{Branch: specRepo.NewBranch("master")})
-	require.NoError(t, err)
-
-	bucketSuffix := fmt.Sprintf("%s.%s.%s", branch, repo, pfs.DefaultProjectName)
-
-	r := strings.NewReader("user")
-	_, err = minioClient.PutObject(bucketSuffix, "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
-	require.NoError(t, err)
-
-	r2 := strings.NewReader("spec")
-	_, err = minioClient.PutObject(fmt.Sprintf("master.%s", bucketSuffix), "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
-	require.NoError(t, err)
-
-	// a two-part name should resolve to the user repo
-	fetchedContent, err := getObject(t, minioClient, bucketSuffix, "file")
-	require.NoError(t, err)
-	require.Equal(t, "user", fetchedContent)
-
-	// while the fully-specified name goes to the indicated system repo
-	fetchedContent, err = getObject(t, minioClient, fmt.Sprintf("master.%s", bucketSuffix), "file")
-	require.NoError(t, err)
-	require.Equal(t, "spec", fetchedContent)
 }
 
 func TestProjectMasterDriver(t *testing.T) {
@@ -595,11 +554,8 @@ func TestProjectMasterDriver(t *testing.T) {
 		t.Run("ListObjectsRecursive", func(t *testing.T) {
 			projectMasterListObjectsRecursive(t, pachClient, minioClient)
 		})
-		t.Run("ListSystemRepoBucket", func(t *testing.T) {
-			projectMasterListSystemRepoBuckets(t, pachClient, minioClient)
-		})
-		t.Run("ResolveSystemRepoBucket", func(t *testing.T) {
-			projectMasterResolveSystemRepoBucket(t, pachClient, minioClient)
+		t.Run("DoesNotListSystemRepoBucket", func(t *testing.T) {
+			projectMasterDoesNotListSystemRepoBuckets(t, pachClient, minioClient)
 		})
 	})
 }
