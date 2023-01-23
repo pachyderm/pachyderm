@@ -522,13 +522,7 @@ func (d *driver) addCommit(txnCtx *txncontext.TransactionContext, newCommitInfo 
 	if err := d.linkParent(txnCtx, newCommitInfo, parent, needsFinishedParent); err != nil {
 		return err
 	}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(newCommitInfo.Commit, newCommitInfo); err != nil {
-		if col.IsErrExists(err) {
-			return errors.EnsureStack(pfsserver.ErrInconsistentCommit{Commit: newCommitInfo.Commit})
-		}
-		return errors.EnsureStack(err)
-	}
-	provHeads := make(map[string]struct{})
+	provHeads := make(map[string]*pfs.Commit)
 	for _, prov := range directProvenance {
 		branchInfo := &pfs.BranchInfo{}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(prov), branchInfo); err != nil {
@@ -537,11 +531,20 @@ func (d *driver) addCommit(txnCtx *txncontext.TransactionContext, newCommitInfo 
 			}
 			return errors.EnsureStack(err)
 		}
-		if _, ok := provHeads[pfsdb.CommitKey(branchInfo.Head)]; !ok {
-			provHeads[pfsdb.CommitKey(branchInfo.Head)] = struct{}{}
-			if err := pfsdb.AddCommitProvenance(txnCtx.SqlTx, newCommitInfo.Commit, branchInfo.Head); err != nil {
-				return err
-			}
+		provHeads[pfsdb.CommitKey(branchInfo.Head)] = branchInfo.Head
+	}
+	for _, p := range provHeads {
+		newCommitInfo.CommitProvenance = append(newCommitInfo.CommitProvenance, p)
+	}
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(newCommitInfo.Commit, newCommitInfo); err != nil {
+		if col.IsErrExists(err) {
+			return errors.EnsureStack(pfsserver.ErrInconsistentCommit{Commit: newCommitInfo.Commit})
+		}
+		return errors.EnsureStack(err)
+	}
+	for _, p := range provHeads {
+		if err := pfsdb.AddCommitProvenance(txnCtx.SqlTx, newCommitInfo.Commit, p); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -703,7 +706,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		return nil
 	}
 	var propagatedBranches []*pfs.BranchInfo
-	seen := make(map[string]*pfs.BranchInfo, 0)
+	seen := make(map[string]*pfs.BranchInfo)
 	bi := &pfs.BranchInfo{}
 	for _, b := range branches {
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
@@ -723,6 +726,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 	sort.Slice(propagatedBranches, func(i, j int) bool {
 		return len(propagatedBranches[i].Provenance) < len(propagatedBranches[j].Provenance)
 	})
+	seenAliases := make(map[string]*pfs.BranchInfo)
 	// add new commits, set their ancestry + provenance pointers, and advance branch heads
 	for _, bi := range propagatedBranches {
 		// TODO(acohen4): can we just make calls to startCommit() here?
@@ -742,10 +746,28 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			ID:     txnCtx.CommitSetID,
 		}
 		newCommitInfo := &pfs.CommitInfo{
-			Commit:           newCommit,
-			Origin:           &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
-			Started:          txnCtx.Timestamp,
-			DirectProvenance: bi.DirectProvenance,
+			Commit:  newCommit,
+			Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
+			Started: txnCtx.Timestamp,
+		}
+		// enumerate the new commit's provenance
+		for _, b := range bi.DirectProvenance {
+			var provCommit *pfs.Commit
+			if pbi, ok := seen[pfsdb.BranchKey(b)]; ok {
+				provCommit = client.NewProjectCommit(pbi.Branch.Repo.Project.Name, pbi.Branch.Repo.Name, pbi.Branch.Name, txnCtx.CommitSetID)
+			} else {
+				if pbi, ok := seen[pfsdb.BranchKey(b)]; ok {
+					provCommit = pbi.Head
+				} else {
+					provBranchInfo := &pfs.BranchInfo{}
+					if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(b), provBranchInfo); err != nil {
+						return errors.Wrapf(err, "get provenant branch %q", pfsdb.BranchKey(b))
+					}
+					seenAliases[pfsdb.BranchKey(b)] = provBranchInfo
+					provCommit = provBranchInfo.Head
+				}
+			}
+			newCommitInfo.CommitProvenance = append(newCommitInfo.CommitProvenance, provCommit)
 		}
 		// we might be able to find an older parent commit that better reflects the provenance state, saving work
 		// Set 'newCommit's ParentCommit, 'branch.Head's ChildCommits and 'branch.Head'
@@ -771,19 +793,9 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			}
 		}
 		// add commit provenance
-		for _, b := range bi.DirectProvenance {
-			var provCommit *pfs.Commit
-			if pbi, ok := seen[pfsdb.BranchKey(b)]; ok {
-				provCommit = client.NewProjectCommit(pbi.Branch.Repo.Project.Name, pbi.Branch.Repo.Name, pbi.Branch.Name, txnCtx.CommitSetID)
-			} else {
-				provBranchInfo := &pfs.BranchInfo{}
-				if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(b), provBranchInfo); err != nil {
-					return errors.Wrapf(err, "get provenant branch %q", pfsdb.BranchKey(b))
-				}
-				provCommit = provBranchInfo.Head
-			}
-			if err := pfsdb.AddCommitProvenance(txnCtx.SqlTx, newCommit, provCommit); err != nil {
-				return errors.Wrapf(err, "add commit provenance from %q to %q", pfsdb.CommitKey(newCommit), pfsdb.CommitKey(provCommit))
+		for _, c := range newCommitInfo.CommitProvenance {
+			if err := pfsdb.AddCommitProvenance(txnCtx.SqlTx, newCommit, c); err != nil {
+				return errors.Wrapf(err, "add commit provenance from %q to %q", pfsdb.CommitKey(newCommit), pfsdb.CommitKey(c))
 			}
 		}
 	}
@@ -849,21 +861,6 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 		case pfs.CommitState_STARTED:
 			// Do nothing
 		}
-	}
-	// load CommitInfo.Details.CommitProvenance
-	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		var err error
-		provCommits, err := pfsdb.CommitProvenance(txnCtx.SqlTx, commit.Repo, commitInfo.Commit.ID)
-		if err != nil {
-			return err
-		}
-		if commitInfo.Details == nil {
-			commitInfo.Details = &pfs.CommitInfo_Details{}
-		}
-		commitInfo.Details.CommitProvenance = provCommits
-		return nil
-	}); err != nil {
-		return nil, err
 	}
 	return commitInfo, nil
 }

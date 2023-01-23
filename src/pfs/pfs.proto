@@ -132,6 +132,7 @@ message CommitInfo {
   google.protobuf.Timestamp finishing = 7;
   google.protobuf.Timestamp finished = 8;
   repeated Branch direct_provenance = 9;
+  repeated Commit commit_provenance = 13;
   string error = 10;
   int64 size_bytes_upper_bound = 11;
 
@@ -140,7 +141,6 @@ message CommitInfo {
     int64 size_bytes = 1;
     google.protobuf.Duration compacting_time = 2;
     google.protobuf.Duration validating_time = 3;
-    repeated Commit commit_provenance = 4;
   }
   Details details = 12;
 }

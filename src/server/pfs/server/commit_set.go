@@ -39,15 +39,8 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	}); err != nil {
 		return nil, err
 	}
-	// TODO(acohen4) move ci.Details.CommitProvenance -> ci.DirectProvenance. Stop using ci.DirectProvenance. Then we don't deal with this expensive query
 	totalRepos := make(map[string]struct{})
 	for _, ci := range commitInfos {
-		var err error
-		ci.Details = &pfs.CommitInfo_Details{}
-		ci.Details.CommitProvenance, err = pfsdb.CommitProvenance(txnCtx.SqlTx, ci.Commit.Repo, ci.Commit.ID)
-		if err != nil {
-			return nil, err
-		}
 		totalRepos[pfsdb.RepoKey(ci.Commit.Repo)] = struct{}{}
 	}
 	sorted := make([]*pfs.CommitInfo, 0)
@@ -61,7 +54,7 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 				continue
 			}
 			satisfied := true
-			for _, p := range ci.Details.CommitProvenance {
+			for _, p := range ci.CommitProvenance {
 				_, needsRepoCommit := totalRepos[pfsdb.RepoKey(p.Repo)]
 				_, processedRepoCommit := seenRepos[pfsdb.RepoKey(p.Repo)]
 				if needsRepoCommit && !processedRepoCommit {
