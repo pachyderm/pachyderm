@@ -477,7 +477,10 @@ func (a *apiServer) activateInTransaction(ctx context.Context, txCtx *txncontext
 		}); err != nil {
 			return errors.EnsureStack(err)
 		}
-		// TODO Grant all users ProjectWriter role for default project
+		// Grant all users ProjectWriter role for default project
+		if err := a.CreateRoleBindingInTransaction(txCtx, auth.AllClusterUsersSubject, []string{auth.ProjectWriterRole}, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: pfs.DefaultProjectName}); err != nil {
+			return errors.Wrapf(err, "could not create role binding for project %q", pfs.DefaultProjectName)
+		}
 		return a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(pachToken), auth.RootUser)
 	}); err != nil {
 		return nil, errors.Wrapf(err, "insert root token")

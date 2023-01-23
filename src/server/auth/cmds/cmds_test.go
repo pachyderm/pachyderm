@@ -184,38 +184,38 @@ func TestCheckGetSetRepo(t *testing.T) {
 	for _, project := range []string{pfs.DefaultProjectName, "nonDefault"} {
 		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl config update context --project {{.project}}`, "project", project).Run())
 
+		// Alice creates a repo, and manages its permissions
+		repo := tu.UniqueString("repo")
 		loginAsUser(t, c, alice)
-		require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl create repo {{.repo}}
-		pachctl auth check repo {{.repo}} | match 'Roles: \[repoOwner\]'
-		pachctl auth get repo {{.repo}} | match {{.alice}}
-		`,
-			"alice", alice,
-			"bob", bob,
-			"repo", tu.UniqueString("TestGet-repo"),
-		).Run())
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create repo {{.repo}}`, "repo", repo).Run())
 
-		repo := tu.UniqueString("TestGet-repo")
-		// Test 'pachctl auth set'
-		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create repo {{.repo}}
-		pachctl auth set repo {{.repo}} repoReader {{.bob}}
-		pachctl auth get repo {{.repo}} | match "{{.bob}}: \[repoReader\]" | match "{{.alice}}: \[repoOwner\]"
+		// Test pachctl auth check
+		if project == pfs.DefaultProjectName {
+			require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} | match repoOwner | match projectWriter`, "repo", repo).Run())
+		} else {
+			require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} | match repoOwner | match -v projectWriter`, "repo", repo).Run())
+		}
+
+		// Test pachctl auth get
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth get repo {{.repo}} | match {{.alice}}`, "repo", repo, "alice", alice).Run())
+
+		// Alice grants Bob repoReader role
+		require.NoError(t, tu.PachctlBashCmd(t, c, `
+			pachctl auth set repo {{.repo}} repoReader {{.bob}}
+			pachctl auth get repo {{.repo}} | match "{{.bob}}: \[repoReader\]"
 		`,
-			"alice", alice,
 			"bob", bob,
 			"repo", repo,
 		).Run())
 
-		// Test checking another user's permissions
+		// Root user checks everyone's permissions
 		loginAsUser(t, c, auth.RootUser)
-		require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl auth check repo {{.repo}} {{.alice}} | match "Roles: \[repoOwner\]"
-		pachctl auth check repo {{.repo}} {{.bob}} | match "Roles: \[repoReader\]"
-		`,
-			"alice", alice,
-			"bob", bob,
-			"repo", repo,
-		).Run())
+		if project == pfs.DefaultProjectName {
+			require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} {{.alice}} | match repoOwner | match projectWriter`, "repo", repo, "alice", alice).Run())
+		} else {
+			require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} {{.alice}} | match repoOwner | match -v projectWriter`, "repo", repo, "alice", alice).Run())
+		}
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} {{.bob}} | match repoReader`, "repo", repo, "bob", bob).Run())
 	}
 }
 
