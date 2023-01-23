@@ -947,7 +947,7 @@ proxy:
       metrics: 0 # legacy 30656
     # externalTrafficPolicy determines cluster-wide routing policy; see "kubectl explain
     # service.spec.externalTrafficPolicy".
-    externalTrafficPolicy: "Cluster"
+    externalTrafficPolicy: ""
   # Configuration for TLS (SSL, HTTPS).
   tls:
     # If true, enable TLS serving.  Enabling TLS is incompatible with support for legacy ports (you
