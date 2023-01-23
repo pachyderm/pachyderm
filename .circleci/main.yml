@@ -1186,15 +1186,10 @@ jobs:
           name: update homebrew formula
           description: updates homebrew after determining release type.
           # this checks if it is a custom, pre, or alpha release and passes that additional string so homebrew knows to create new homebrew index.
-          # $additional is currently just a flag, that value itself is not used.
           # $stable instructs update_homebrew.sh to release this version as default pachctl installation
           command: |
-            v=${CIRCLE_TAG}
-            prefix=${v%%-*}
-            index=${#prefix}
-            additional=${v:index}
             stable=$(if [[ "$CIRCLE_TAG" == *"-"* ]]; then echo 0; else echo 1; fi;)
-            ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional} ${stable}
+            ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${stable}
 
 workflows:
   integration-tests:
