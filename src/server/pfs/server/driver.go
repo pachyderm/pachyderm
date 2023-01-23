@@ -518,6 +518,7 @@ func (d *driver) linkParent(txnCtx *txncontext.TransactionContext, child *pfs.Co
 }
 
 // TODO(acohen4): reassess need for "needsFinishedParent" parameter
+// creates a new commit, and adds both commit ancestry, and commit provenance pointers
 func (d *driver) addCommit(txnCtx *txncontext.TransactionContext, newCommitInfo *pfs.CommitInfo, parent *pfs.Commit, directProvenance []*pfs.Branch, needsFinishedParent bool) error {
 	if err := d.linkParent(txnCtx, newCommitInfo, parent, needsFinishedParent); err != nil {
 		return err
@@ -605,9 +606,6 @@ func (d *driver) startCommit(
 	}); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	// Snapshot the branch's direct provenance into the new commit
-	newCommitInfo.DirectProvenance = branchInfo.DirectProvenance
-
 	// check if this is happening in a spout pipeline, and alias the spec commit
 	_, ok1 := os.LookupEnv(client.PPSPipelineNameEnv)
 	_, ok2 := os.LookupEnv("PPS_SPEC_COMMIT")
@@ -639,7 +637,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
 		return errors.Errorf("cannot finish an alias commit: %s", commitInfo.Commit)
 	}
-	if !force && len(commitInfo.DirectProvenance) > 0 {
+	if !force && len(commitInfo.CommitProvenance) > 0 {
 		if info, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil && !errutil.IsNotFoundError(err) {
 			return errors.EnsureStack(err)
 		} else if err == nil && info.Type == pps.PipelineInfo_PIPELINE_TYPE_TRANSFORM {
@@ -834,8 +832,8 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 	if commitInfo.Finished == nil {
 		switch wait {
 		case pfs.CommitState_READY:
-			for _, branch := range commitInfo.DirectProvenance {
-				if _, err := d.inspectCommit(ctx, branch.NewCommit(commitInfo.Commit.ID), pfs.CommitState_FINISHED); err != nil {
+			for _, c := range commitInfo.CommitProvenance {
+				if _, err := d.inspectCommit(ctx, c, pfs.CommitState_FINISHED); err != nil {
 					return nil, err
 				}
 			}
@@ -1739,10 +1737,9 @@ func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branch *
 	commit := branch.NewCommit(txnCtx.CommitSetID)
 	commit.Repo = branch.Repo
 	commitInfo := &pfs.CommitInfo{
-		Commit:           commit,
-		Origin:           &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
-		Started:          txnCtx.Timestamp,
-		DirectProvenance: directProvenance,
+		Commit:  commit,
+		Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
+		Started: txnCtx.Timestamp,
 	}
 	if closed {
 		commitInfo.Finishing = txnCtx.Timestamp
@@ -1756,7 +1753,7 @@ func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branch *
 			return nil, errors.EnsureStack(err)
 		}
 	}
-	if err := d.addCommit(txnCtx, commitInfo, parent, directProvenance, false); err != nil {
+	if err := d.addCommit(txnCtx, commitInfo, parent, directProvenance, false /* needsFinishedParent */); err != nil {
 		return nil, err
 	}
 	return commit, nil
