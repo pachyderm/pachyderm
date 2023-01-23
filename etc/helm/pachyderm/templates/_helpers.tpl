@@ -163,6 +163,16 @@ http://localhost:30658
 {{- end }}
 {{- end }}
 
+{{- define "oidc.hasRealIDP" -}}
+{{- if .Values.oidc.upstreamIDPs -}}
+true
+{{- else if .Values.oidc.mockIDP -}}
+false
+{{- else }}
+false
+{{- end }}
+{{- end }}
+
 {{- define "pachyderm.withEnterprise" }}
 {{- if or (include "pachyderm.enterpriseLicenseKeySecretName" . ) .Values.pachd.activateEnterpriseMember }}
 true
