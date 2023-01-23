@@ -1178,6 +1178,50 @@ func TestPFS(suite *testing.T) {
 		require.True(t, strings.Contains(err.Error(), "branch and head commit must belong to the same repo"))
 	})
 
+	suite.Run("DeleteProject", func(t *testing.T) {
+		t.Parallel()
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+		_, err := env.PachClient.PfsAPIClient.CreateProject(ctx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: "test"}})
+		require.NoError(t, err)
+		_, err = env.PachClient.PfsAPIClient.DeleteProject(ctx, &pfs.DeleteProjectRequest{Project: &pfs.Project{Name: "test"}})
+		require.NoError(t, err)
+	})
+
+	suite.Run("DeleteProjectWithRepos", func(t *testing.T) {
+		t.Parallel()
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+		_, err := env.PachClient.PfsAPIClient.CreateProject(ctx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: "test"}})
+		require.NoError(t, err)
+		_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: &pfs.Repo{Project: &pfs.Project{Name: "default"}, Name: "test"}})
+		require.NoError(t, err)
+		_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: &pfs.Repo{Project: &pfs.Project{Name: "test"}, Name: "test"}})
+		require.NoError(t, err)
+		_, err = env.PachClient.PfsAPIClient.DeleteProject(ctx, &pfs.DeleteProjectRequest{Project: &pfs.Project{Name: "test"}})
+		require.YesError(t, err)
+
+		repoInfos, err := env.PachClient.ListRepo()
+		require.NoError(t, err)
+		require.Len(t, repoInfos, 2) // should still have both repos
+
+		_, err = env.PachClient.PfsAPIClient.DeleteProject(ctx,
+			&pfs.DeleteProjectRequest{
+				Project: &pfs.Project{Name: "test"},
+				Force:   true,
+			})
+		require.NoError(t, err)
+
+		repoInfos, err = env.PachClient.ListRepo()
+		require.NoError(t, err)
+		require.Len(t, repoInfos, 1) // should only have one, in the default project
+		for _, repoInfo := range repoInfos {
+			require.Equal(t, repoInfo.GetRepo().GetProject().GetName(), "default")
+		}
+	})
+
 	suite.Run("DeleteRepo", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)

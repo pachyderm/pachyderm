@@ -4,7 +4,6 @@ package s3
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -15,13 +14,7 @@ import (
 
 func (c *controller) SecretKey(r *http.Request, accessKey string, region *string) (*string, error) {
 	log.Debug(r.Context(), "SecretKey", zap.Stringp("region", region))
-
 	pc := c.clientFactory(r.Context())
-
-	if strings.HasPrefix(accessKey, "PAC1") {
-		mux.Vars(r)[isProjectAwareVar] = isProjectAwareValue
-		accessKey = accessKey[4:]
-	}
 	pc.SetAuthToken(accessKey)
 
 	// WhoAmI will simultaneously check that auth is enabled, and that the
