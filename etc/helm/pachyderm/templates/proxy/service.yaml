@@ -16,6 +16,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   type: {{ .Values.proxy.service.type }}
+  externalTrafficPolicy: {{ .Values.proxy.service.externalTrafficPolicy }}
   ports:
     {{- if .Values.proxy.service.httpPort }}
     - name: http-port
