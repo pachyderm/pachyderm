@@ -731,6 +731,11 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		if len(bi.Provenance) == 1 && bi.Provenance[0].Repo.Type == pfs.SpecRepoType {
 			continue
 		}
+		// necessary when upstream and downstream branches are created in the same pachyderm transaction.
+		// ex. when the spec and meta repos are created, the meta commit is already created at branch create time.
+		if bi.GetHead().GetID() == txnCtx.CommitSetID {
+			continue
+		}
 		newCommit := &pfs.Commit{
 			Repo:   bi.Branch.Repo,
 			Branch: bi.Branch,
