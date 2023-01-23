@@ -8,11 +8,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client/limit"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	log "github.com/sirupsen/logrus"
-	logrus "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -27,23 +26,21 @@ type kubeDriver struct {
 	limiter    limit.ConcurrencyLimiter
 	config     serviceenv.Configuration
 	etcdPrefix string
-	logger     *logrus.Logger
 }
 
-func newKubeDriver(kubeClient kubernetes.Interface, config serviceenv.Configuration, logger *logrus.Logger) InfraDriver {
+func newKubeDriver(kubeClient kubernetes.Interface, config serviceenv.Configuration) InfraDriver {
 	return &kubeDriver{
 		kubeClient: kubeClient,
 		namespace:  config.Namespace,
 		limiter:    limit.New(config.PPSMaxConcurrentK8sRequests),
 		config:     config,
 		etcdPrefix: path.Join(config.EtcdPrefix, config.PPSEtcdPrefix),
-		logger:     logger,
 	}
 }
 
 // Creates a pipeline's services, secrets, and replication controllers.
 func (kd *kubeDriver) CreatePipelineResources(ctx context.Context, pi *pps.PipelineInfo) error {
-	log.Infof("PPS master: creating resources for pipeline %q", pi.Pipeline)
+	log.Info(ctx, "creating resources for pipeline")
 	kd.limiter.Acquire()
 	defer kd.limiter.Release()
 	if err := kd.createWorkerSvcAndRc(ctx, pi); err != nil {
@@ -74,7 +71,7 @@ func pipelineLabelSelector(p *pps.Pipeline) string {
 func (kd *kubeDriver) DeletePipelineResources(ctx context.Context, pipeline *pps.Pipeline) (retErr error) {
 	projectName := pipeline.Project.GetName()
 	pipelineName := pipeline.Name
-	log.Infof("PPS master: deleting resources for pipeline %q", pipeline)
+	log.Info(ctx, "deleting resources for pipeline")
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/DeletePipelineResources", "project", projectName, "pipeline", pipelineName)
 	defer func() {

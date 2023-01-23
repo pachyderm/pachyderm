@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"reflect"
@@ -24,7 +25,7 @@ type setIDer interface {
 
 type DBSpec interface {
 	fmt.Stringer
-	Create(t *testing.T) (db *sqlx.DB, dbName string, tableName string)
+	Create(ctx context.Context, t *testing.T) (db *sqlx.DB, dbName string, tableName string)
 	Schema() string
 	TestRow() setIDer
 }
@@ -33,9 +34,9 @@ type postgreSQLSpec struct{}
 
 func (s postgreSQLSpec) String() string { return "PostgreSQL" }
 
-func (s postgreSQLSpec) Create(t *testing.T) (*sqlx.DB, string, string) {
+func (s postgreSQLSpec) Create(ctx context.Context, t *testing.T) (*sqlx.DB, string, string) {
 	const tableName = "test_table"
-	db, dbName := dockertestenv.NewEphemeralPostgresDB(t)
+	db, dbName := dockertestenv.NewEphemeralPostgresDB(ctx, t)
 	return db, dbName, tableName
 }
 
@@ -51,10 +52,10 @@ type mySQLSpec struct {
 
 func (s mySQLSpec) String() string { return "MySQL" }
 
-func (s mySQLSpec) Create(t *testing.T) (*sqlx.DB, string, string) {
+func (s mySQLSpec) Create(ctx context.Context, t *testing.T) (*sqlx.DB, string, string) {
 	const tableName = "test_table"
 	var db *sqlx.DB
-	db, s.dbName = dockertestenv.NewEphemeralMySQLDB(t)
+	db, s.dbName = dockertestenv.NewEphemeralMySQLDB(ctx, t)
 	return db, s.dbName, tableName
 }
 
@@ -68,9 +69,9 @@ type snowflakeSpec struct{}
 
 func (s snowflakeSpec) String() string { return "Snowflake" }
 
-func (s snowflakeSpec) Create(t *testing.T) (*sqlx.DB, string, string) {
+func (s snowflakeSpec) Create(ctx context.Context, t *testing.T) (*sqlx.DB, string, string) {
 	const tableName = "test_table"
-	db, dbName := testsnowflake.NewEphemeralSnowflakeDB(t)
+	db, dbName := testsnowflake.NewEphemeralSnowflakeDB(ctx, t)
 	return db, dbName, tableName
 }
 

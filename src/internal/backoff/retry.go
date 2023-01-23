@@ -4,9 +4,10 @@ import (
 	"context"
 	"time"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"go.uber.org/zap"
 )
 
 // An Operation is executing by Retry() or RetryNotify().
@@ -38,7 +39,7 @@ func NotifyCtx(ctx context.Context, name string) Notify {
 		case <-ctx.Done():
 			return errors.EnsureStack(ctx.Err())
 		default:
-			log.Errorf("error in %s: %v: retrying in: %v", name, err, d)
+			log.Info(ctx, "NotifyCtx: error; retrying", zap.String("name", name), zap.Error(err), zap.Duration("retryAfter", d))
 		}
 		return nil
 	}
@@ -81,7 +82,7 @@ func NotifyContinue(inner interface{}) Notify {
 			case func(error, time.Duration) error:
 				return n(err, d)
 			default:
-				log.Errorf("error in %v: %v (retrying in: %v)", n, err, d)
+				log.Info(pctx.TODO(), "NotifyContinue: error; retrying", zap.Any("inner", inner), zap.Error(err), zap.Duration("retryAfter", d))
 				return nil
 			}
 		}

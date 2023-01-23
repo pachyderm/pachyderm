@@ -4,15 +4,17 @@ import (
 	"bytes"
 	"context"
 	"net/http"
+	"os"
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
+	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/server/identityutil"
-
-	logrus "github.com/sirupsen/logrus"
 )
 
 const (
@@ -43,10 +45,17 @@ func NewIdentityServer(env Env, public bool, options ...IdentityServerOption) *a
 	}
 
 	if public {
+		ctx := pctx.Background("identity")
 		web := newDexWeb(env, server, options...)
 		go func() {
-			if err := http.ListenAndServe(web.addr, web); err != nil {
-				logrus.WithError(err).Fatalf("error setting up and/or running the identity server")
+			server := &http.Server{
+				Addr:    web.addr,
+				Handler: web,
+			}
+			log.AddLoggerToHTTPServer(ctx, "dexWeb.http", server)
+			if err := server.ListenAndServe(); err != nil {
+				log.Error(ctx, "error setting up and/or running the identity server; restarting container", zap.Error(err))
+				os.Exit(30)
 			}
 		}()
 	}
@@ -56,7 +65,7 @@ func NewIdentityServer(env Env, public bool, options ...IdentityServerOption) *a
 
 func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	if a.env.Config.IdentityConfig != "" {
-		a.env.Logger.Info("Started to configure identity server config via environment")
+		log.Info(ctx, "Started to configure identity server config via environment")
 		var config identity.IdentityServerConfig
 		if err := yaml.Unmarshal([]byte(a.env.Config.IdentityConfig), &config); err != nil {
 			return errors.Wrapf(err, "unmarshal IdentityConfig with value: %q", a.env.Config.IdentityConfig)
@@ -64,10 +73,10 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 		if _, err := a.setIdentityServerConfig(ctx, &identity.SetIdentityServerConfigRequest{Config: &config}); err != nil {
 			return errors.Wrapf(err, "failed to set identity server config")
 		}
-		a.env.Logger.Info("Successfully configured identity server config via environment")
+		log.Info(ctx, "Successfully configured identity server config via environment")
 	}
 	if a.env.Config.IdentityConnectors != "" {
-		a.env.Logger.Info("Started to configure identity connectors via environment")
+		log.Info(ctx, "Started to configure identity connectors via environment")
 		var connectors identityutil.IDPConnectors
 		// this is a no-op if the config.IdentityConnectors is already json.
 		jsonBytes, err := yaml.YAMLToJSON([]byte(a.env.Config.IdentityConnectors))
@@ -100,11 +109,11 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 			}
 		}
 		for e := range oldCons {
-			if _, err = a.deleteIDPConnector(ctx, &identity.DeleteIDPConnectorRequest{Id: e}); err != nil {
-				a.env.Logger.Errorf(errors.Wrapf(err, "delete connector %q", e).Error())
+			if _, err := a.deleteIDPConnector(ctx, &identity.DeleteIDPConnectorRequest{Id: e}); err != nil {
+				log.Error(ctx, "problem deleting connector", zap.Error(err), zap.String("connector", e))
 			}
 		}
-		a.env.Logger.Info("Successfully configured identity connectors via environment")
+		log.Info(ctx, "Successfully configured identity connectors via environment")
 	}
 	return nil
 }

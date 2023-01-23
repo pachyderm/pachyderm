@@ -29,7 +29,7 @@ func unsupportedError(name string) error {
 
 type unsupportedAdminBuilderClient struct{}
 
-func (c *unsupportedAdminBuilderClient) InspectCluster(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*admin_v2.ClusterInfo, error) {
+func (c *unsupportedAdminBuilderClient) InspectCluster(_ context.Context, _ *admin_v2.InspectClusterRequest, opts ...grpc.CallOption) (*admin_v2.ClusterInfo, error) {
 	return nil, unsupportedError("InspectCluster")
 }
 
@@ -333,6 +333,10 @@ func (c *unsupportedPfsBuilderClient) DeleteRepo(_ context.Context, _ *pfs_v2.De
 	return nil, unsupportedError("DeleteRepo")
 }
 
+func (c *unsupportedPfsBuilderClient) DeleteRepos(_ context.Context, _ *pfs_v2.DeleteReposRequest, opts ...grpc.CallOption) (*pfs_v2.DeleteReposResponse, error) {
+	return nil, unsupportedError("DeleteRepos")
+}
+
 func (c *unsupportedPfsBuilderClient) DiffFile(_ context.Context, _ *pfs_v2.DiffFileRequest, opts ...grpc.CallOption) (pfs_v2.API_DiffFileClient, error) {
 	return nil, unsupportedError("DiffFile")
 }
@@ -489,6 +493,10 @@ func (c *unsupportedPpsBuilderClient) DeleteJob(_ context.Context, _ *pps_v2.Del
 
 func (c *unsupportedPpsBuilderClient) DeletePipeline(_ context.Context, _ *pps_v2.DeletePipelineRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DeletePipeline")
+}
+
+func (c *unsupportedPpsBuilderClient) DeletePipelines(_ context.Context, _ *pps_v2.DeletePipelinesRequest, opts ...grpc.CallOption) (*pps_v2.DeletePipelinesResponse, error) {
+	return nil, unsupportedError("DeletePipelines")
 }
 
 func (c *unsupportedPpsBuilderClient) DeleteSecret(_ context.Context, _ *pps_v2.DeleteSecretRequest, opts ...grpc.CallOption) (*types.Empty, error) {

@@ -66,7 +66,7 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 	}
 
 	// Rename pipeline users from "pipeline:<repo>" to "pipeline:default/<repo>"
-	if _, err := tx.ExecContext(ctx, `UPDATE auth.auth_tokens SET subject = ('pipeline:default/' || trim(leading 'pipeline:' from subject)) WHERE subject ~ '^pipeline:[^/]+$'`); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE auth.auth_tokens SET subject = regexp_replace(subject, '^pipeline:([-a-zA-Z0-9_]+)$', 'pipeline:default/\1') WHERE subject ~ '^pipeline:[^/]+$'`); err != nil {
 		return errors.Wrap(err, "could not update auth tokens")
 	}
 	rb := &auth.RoleBinding{}

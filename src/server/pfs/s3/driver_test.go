@@ -1,15 +1,146 @@
 package s3
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-func TestBucketNameToProjectCommit(t *testing.T) {
-	// pattern: [commitID.][branch. | branch.type.]repoName.projectName
+func TestBucketNameToCommit(t *testing.T) {
+	// pattern: [commitID.][branch.]repoName[.projectName]
 	var cases = map[string]*pfs.Commit{
-		"8b234298216044d4accaf3f472175a54.testLOPed701519c9c4.default": {
+		"testLOPed701519c9c4": {
+			ID: "",
+			Branch: &pfs.Branch{
+				Name: "master",
+				Repo: &pfs.Repo{
+					Project: &pfs.Project{
+						Name: "default",
+					},
+					Name: "testLOPed701519c9c4",
+					Type: pfs.UserRepoType,
+				},
+			},
+		},
+		"master.testLOPed701519c9c4": {
+			ID: "",
+			Branch: &pfs.Branch{
+				Name: "master",
+				Repo: &pfs.Repo{
+					Project: &pfs.Project{
+						Name: "default",
+					},
+					Name: "testLOPed701519c9c4",
+					Type: pfs.UserRepoType,
+				},
+			},
+		},
+		"notmaster.testLOPed701519c9c4": {
+			ID: "",
+			Branch: &pfs.Branch{
+				Name: "notmaster",
+				Repo: &pfs.Repo{
+					Project: &pfs.Project{
+						Name: "default",
+					},
+					Name: "testLOPed701519c9c4",
+					Type: pfs.UserRepoType,
+				},
+			},
+		},
+		"master.testLOPed701519c9c4.default": {
+			ID: "",
+			Branch: &pfs.Branch{
+				Name: "master",
+				Repo: &pfs.Repo{
+					Project: &pfs.Project{
+						Name: "default",
+					},
+					Name: "testLOPed701519c9c4",
+					Type: pfs.UserRepoType,
+				},
+			},
+		},
+		"notmaster.testLOPed701519c9c4.default": {
+			ID: "",
+			Branch: &pfs.Branch{
+				Name: "notmaster",
+				Repo: &pfs.Repo{
+					Project: &pfs.Project{
+						Name: "default",
+					},
+					Name: "testLOPed701519c9c4",
+					Type: pfs.UserRepoType,
+				},
+			},
+		},
+		"master.testLOPed701519c9c4.proj": {
+			ID: "",
+			Branch: &pfs.Branch{
+				Name: "master",
+				Repo: &pfs.Repo{
+					Project: &pfs.Project{
+						Name: "proj",
+					},
+					Name: "testLOPed701519c9c4",
+					Type: pfs.UserRepoType,
+				},
+			},
+		},
+		"notmaster.testLOPed701519c9c4.proj": {
+			ID: "",
+			Branch: &pfs.Branch{
+				Name: "notmaster",
+				Repo: &pfs.Repo{
+					Project: &pfs.Project{
+						Name: "proj",
+					},
+					Name: "testLOPed701519c9c4",
+					Type: pfs.UserRepoType,
+				},
+			},
+		},
+		"8b234298216044d4accaf3f472175a54.testLOPed701519c9c4": {
+			ID: "8b234298216044d4accaf3f472175a54",
+			Branch: &pfs.Branch{
+				Name: "master",
+				Repo: &pfs.Repo{
+					Project: &pfs.Project{
+						Name: "default",
+					},
+					Name: "testLOPed701519c9c4",
+					Type: pfs.UserRepoType,
+				},
+			},
+		},
+		"8b234298216044d4accaf3f472175a54.master.testLOPed701519c9c4": {
+			ID: "8b234298216044d4accaf3f472175a54",
+			Branch: &pfs.Branch{
+				Name: "master",
+				Repo: &pfs.Repo{
+					Project: &pfs.Project{
+						Name: "default",
+					},
+					Name: "testLOPed701519c9c4",
+					Type: pfs.UserRepoType,
+				},
+			},
+		},
+		"8b234298216044d4accaf3f472175a54.notmaster.testLOPed701519c9c4": {
+			ID: "8b234298216044d4accaf3f472175a54",
+			Branch: &pfs.Branch{
+				Name: "notmaster",
+				Repo: &pfs.Repo{
+					Project: &pfs.Project{
+						Name: "default",
+					},
+					Name: "testLOPed701519c9c4",
+					Type: pfs.UserRepoType,
+				},
+			},
+		},
+		"8b234298216044d4accaf3f472175a54.master.testLOPed701519c9c4.default": {
 			ID: "8b234298216044d4accaf3f472175a54",
 			Branch: &pfs.Branch{
 				Name: "master",
@@ -35,52 +166,26 @@ func TestBucketNameToProjectCommit(t *testing.T) {
 				},
 			},
 		},
-		"8b234298216044d4accaf3f472175a54.notmaster.spec.testLOPed701519c9c4.default": {
+		"8b234298216044d4accaf3f472175a54.master.testLOPed701519c9c4.proj": {
 			ID: "8b234298216044d4accaf3f472175a54",
 			Branch: &pfs.Branch{
-				Name: "notmaster",
+				Name: "master",
 				Repo: &pfs.Repo{
 					Project: &pfs.Project{
-						Name: "default",
-					},
-					Name: "testLOPed701519c9c4",
-					Type: pfs.SpecRepoType,
-				},
-			},
-		},
-		"notmaster.testLOPed701519c9c4.default": {
-			ID: "",
-			Branch: &pfs.Branch{
-				Name: "notmaster",
-				Repo: &pfs.Repo{
-					Project: &pfs.Project{
-						Name: "default",
+						Name: "proj",
 					},
 					Name: "testLOPed701519c9c4",
 					Type: pfs.UserRepoType,
 				},
 			},
 		},
-		"notmaster.spec.testLOPed701519c9c4.default": {
-			ID: "",
+		"8b234298216044d4accaf3f472175a54.notmaster.testLOPed701519c9c4.proj": {
+			ID: "8b234298216044d4accaf3f472175a54",
 			Branch: &pfs.Branch{
 				Name: "notmaster",
 				Repo: &pfs.Repo{
 					Project: &pfs.Project{
-						Name: "default",
-					},
-					Name: "testLOPed701519c9c4",
-					Type: pfs.SpecRepoType,
-				},
-			},
-		},
-		"testLOPed701519c9c4.default": {
-			ID: "",
-			Branch: &pfs.Branch{
-				Name: "master",
-				Repo: &pfs.Repo{
-					Project: &pfs.Project{
-						Name: "default",
+						Name: "proj",
 					},
 					Name: "testLOPed701519c9c4",
 					Type: pfs.UserRepoType,
@@ -89,7 +194,7 @@ func TestBucketNameToProjectCommit(t *testing.T) {
 		},
 	}
 	for b, c := range cases {
-		cc, err := bucketNameToProjectCommit(b)
+		cc, err := bucketNameToCommit(b)
 		if err != nil {
 			t.Error(err)
 		}
@@ -108,5 +213,15 @@ func TestBucketNameToProjectCommit(t *testing.T) {
 		if c.Branch.Repo.Project.Name != cc.Branch.Repo.Project.Name {
 			t.Errorf("%s: mismatched project names: %s ≠ %s", b, c.Branch.Repo.Project.Name, cc.Branch.Repo.Project.Name)
 		}
+	}
+}
+
+func TestBucketNameError(t *testing.T) {
+	c, err := bucketNameToCommit("7b234298216044d4accaf3f472175a54.too.many.components.bucket")
+	if err == nil {
+		t.Fatalf("expected error but valid result: %+v", c)
+	}
+	if !strings.Contains(err.Error(), "invalid bucket name") {
+		t.Fatalf("expected 'invalid bucket name' error, but got: %v", err)
 	}
 }

@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -72,9 +70,8 @@ func NewTestDB(t testing.TB) *pachsql.DB {
 
 // NewEphemeralPostgresDB creates a randomly-named new database, returning a
 // connection to the new DB and the name itself.
-func NewEphemeralPostgresDB(t testing.TB) (*pachsql.DB, string) {
+func NewEphemeralPostgresDB(ctx context.Context, t testing.TB) (*pachsql.DB, string) {
 	var (
-		ctx  = context.Background()
 		name = testutil.GenerateEphemeralDBName(t)
 	)
 	err := backoff.Retry(func() error {
@@ -186,7 +183,7 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 			dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
 		)
 		if err != nil {
-			logrus.Error("error connecting to db:", err)
+			t.Logf("error connecting to db: %v", err)
 			return err
 		}
 		defer db.Close()

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"sort"
 	"time"
@@ -52,6 +51,43 @@ func deduceActiveEnterpriseContext(cfg *config.Config) (string, error) {
 		}
 	}
 	return activeEnterpriseContext, nil
+}
+
+func ConnectCmds() []*cobra.Command {
+	var commands []*cobra.Command
+
+	connect := &cobra.Command{
+		Use:   "{{alias}} <address>",
+		Short: "Connect to a Pachyderm Cluster",
+		Long:  "Creates a Pachyderm context at the given address and sets it as active",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			address := args[0]
+			cfg, err := config.Read(false, false)
+			if err != nil {
+				return err
+			}
+
+			context, contextExists := cfg.V2.Contexts[address]
+
+			if !contextExists {
+				context = new(config.Context)
+				pachdAddress, err := grpcutil.ParsePachdAddress(address)
+				if err != nil {
+					return err
+				}
+				context.PachdAddress = pachdAddress.Qualified()
+				fmt.Printf("New context '%s' created, will connect to Pachyderm at %s\n", address, pachdAddress.Qualified())
+			}
+
+			cfg.V2.Contexts[address] = context
+			cfg.V2.ActiveContext = address
+			fmt.Printf("Context '%s' set as active\n", address)
+			return cfg.Write()
+
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(connect, "connect"))
+	return commands
 }
 
 // Cmds returns a slice containing admin commands.
@@ -508,11 +544,11 @@ func Cmds() []*cobra.Command {
 func contextCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
-		log.Fatal(err)
+		shell.Fatal(err)
 	}
 	activeContext, _, err := cfg.ActiveContext(false)
 	if err != nil {
-		log.Fatal(err)
+		shell.Fatal(err)
 	}
 	var result []prompt.Suggest
 	for name, ctx := range cfg.V2.Contexts {

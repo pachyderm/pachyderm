@@ -11,7 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pps"
-	logrus "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 )
 
@@ -29,7 +28,6 @@ type Env struct {
 	GetPpsServer        func() pps.APIServer
 
 	BackgroundContext context.Context
-	Logger            *logrus.Logger
 	Config            serviceenv.Configuration
 }
 
@@ -46,7 +44,6 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv
 		GetPpsServer:        senv.PpsServer,
 
 		BackgroundContext: senv.Context(),
-		Logger:            senv.Logger(),
 		Config:            *senv.Config(),
 	}
 }

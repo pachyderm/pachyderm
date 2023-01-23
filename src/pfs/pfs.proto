@@ -192,12 +192,27 @@ message ListRepoRequest {
   // an empty string requests all repos
   string type = 1;
   // projects filters out repos that do not belong in the list, while no projects means list all repos.
-  repeated string projects = 2;
+  repeated Project projects = 2;
 }
 
 message DeleteRepoRequest {
   Repo repo = 1;
   bool force = 2;
+}
+
+// DeleteReposRequest is used to delete more than one repo at once.
+message DeleteReposRequest {
+  // All repos in each project will be deleted if the caller has
+  // permission.
+  repeated Project projects = 1;
+  bool force = 2;
+  // If all is set, then all repos in all projects will be deleted if the caller
+  // has permission.
+  bool all = 3;
+}
+
+message DeleteReposResponse {
+  repeated Repo repos = 1;
 }
 
 // CommitState describes the states a commit can be in.
@@ -406,6 +421,14 @@ message ListFileRequest {
 
 message WalkFileRequest {
     File file = 1;
+    // Marker for pagination. If set, the files that come after the marker in
+    // lexicographical order will be returned. If reverse is also set, the files
+    // that come before the marker in lexicographical order will be returned.
+    File paginationMarker = 2;
+    // Number of files to return
+    int64 number = 3;
+    // If true, return files in reverse order
+    bool reverse = 4;
 }
 
 message GlobFileRequest {
@@ -579,6 +602,13 @@ service API {
   rpc ListRepo(ListRepoRequest) returns (stream RepoInfo) {}
   // DeleteRepo deletes a repo.
   rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
+  // DeleteRepos deletes more than one repo at once.  It attempts to
+  // delete every repo matching the DeleteReposRequest.  When deleting
+  // all repos matching a project, any repos not deletable by the
+  // caller will remain, and the project will not be empty; this is
+  // not an error.  The returned DeleteReposResponse will contain a
+  // list of all actually-deleted repos.
+  rpc DeleteRepos(DeleteReposRequest) returns (DeleteReposResponse) {}
 
   // StartCommit creates a new write commit from a parent commit.
   rpc StartCommit(StartCommitRequest) returns (Commit) {}

@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -232,7 +233,8 @@ func TestWorkerDriver(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	pachClient := env.PachClient
 
 	inputRepo := tu.UniqueString("testworkerdriverinput")
@@ -288,7 +290,7 @@ func TestWorkerDriver(t *testing.T) {
 		},
 	)
 
-	testRunner(t, pachClient, "worker", driver, func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	testRunner(env.Context, t, pachClient, "worker", driver, func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 		s := &workerTestState{
 			pachClient:         pachClient,
 			minioClient:        minioClient,

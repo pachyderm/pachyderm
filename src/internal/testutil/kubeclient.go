@@ -6,14 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 
-	apps "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -42,82 +38,6 @@ func GetKubeClient(t testing.TB) *kube.Clientset {
 	k, err := kube.NewForConfig(config)
 	require.NoError(t, err)
 	return k
-}
-
-func DeletePod(t testing.TB, app, ns string) {
-	kubeClient := GetKubeClient(t)
-	podList, err := kubeClient.CoreV1().Pods(ns).List(
-		context.Background(),
-		metav1.ListOptions{
-			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-				map[string]string{"app": app, "suite": "pachyderm"},
-			)),
-		})
-	require.NoError(t, err)
-	require.Equal(t, 1, len(podList.Items))
-	require.NoError(t, kubeClient.CoreV1().Pods(ns).Delete(
-		context.Background(),
-		podList.Items[0].ObjectMeta.Name, metav1.DeleteOptions{}))
-
-	// Make sure the pod goes down
-	startTime := time.Now()
-	require.NoError(t, backoff.Retry(func() error {
-		podList, err := kubeClient.CoreV1().Pods(ns).List(
-			context.Background(),
-			metav1.ListOptions{
-				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": app, "suite": "pachyderm"},
-				)),
-			})
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		if len(podList.Items) == 0 {
-			return nil
-		}
-		if time.Since(startTime) > 10*time.Second {
-			return nil
-		}
-		return errors.Errorf("waiting for old %v pod to be killed", app)
-	}, backoff.NewTestingBackOff()))
-
-	// Make sure the pod comes back up
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		podList, err := kubeClient.CoreV1().Pods(ns).List(
-			context.Background(),
-			metav1.ListOptions{
-				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": app, "suite": "pachyderm"},
-				)),
-			})
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		if len(podList.Items) == 0 {
-			return errors.Errorf("no %v pod up yet", app)
-		}
-		return nil
-	})
-
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		podList, err := kubeClient.CoreV1().Pods(ns).List(
-			context.Background(),
-			metav1.ListOptions{
-				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": app, "suite": "pachyderm"},
-				)),
-			})
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		if len(podList.Items) == 0 {
-			return errors.Errorf("no %v pod up yet", app)
-		}
-		if podList.Items[0].Status.Phase != v1.PodRunning {
-			return errors.Errorf("%v not running yet", app)
-		}
-		return nil
-	})
 }
 
 // DeletePipelineRC deletes the RC belonging to the pipeline 'pipeline'. This
@@ -154,59 +74,4 @@ func DeletePipelineRC(t testing.TB, pipeline, namespace string) {
 		}
 		return nil
 	})
-}
-
-// PachdDeployment finds the corresponding deployment for pachd in the
-// kubernetes namespace and returns it.
-func PachdDeployment(t testing.TB, namespace string) *apps.Deployment {
-	k := GetKubeClient(t)
-	result, err := k.AppsV1().Deployments(namespace).Get(context.Background(), "pachd", metav1.GetOptions{})
-	require.NoError(t, err)
-	return result
-}
-
-func podRunningAndReady(e watch.Event) (bool, error) {
-	if e.Type == watch.Deleted {
-		return false, errors.New("received DELETE while watching pods")
-	}
-	pod, ok := e.Object.(*v1.Pod)
-	if !ok {
-		return false, errors.Errorf("unexpected object type in watch.Event")
-	}
-	return pod.Status.Phase == v1.PodRunning, nil
-}
-
-// WaitForPachdReady finds the pachd pods within the kubernetes namespace and
-// blocks until they are all ready.
-func WaitForPachdReady(t testing.TB, namespace string) {
-	k := GetKubeClient(t)
-	deployment := PachdDeployment(t, namespace)
-	for {
-		newDeployment, err := k.AppsV1().Deployments(namespace).Get(context.Background(), deployment.Name, metav1.GetOptions{})
-		require.NoError(t, err)
-		if newDeployment.Status.ObservedGeneration >= deployment.Generation && newDeployment.Status.Replicas == *newDeployment.Spec.Replicas {
-			break
-		}
-		time.Sleep(time.Second * 5)
-	}
-	watch, err := k.CoreV1().Pods(namespace).Watch(context.Background(), metav1.ListOptions{
-		LabelSelector: "app=pachd",
-	})
-	defer watch.Stop()
-	require.NoError(t, err)
-	readyPods := make(map[string]bool)
-	for event := range watch.ResultChan() {
-		ready, err := podRunningAndReady(event)
-		require.NoError(t, err)
-		if ready {
-			pod, ok := event.Object.(*v1.Pod)
-			if !ok {
-				t.Fatal("event.Object should be an object")
-			}
-			readyPods[pod.Name] = true
-			if len(readyPods) == int(*deployment.Spec.Replicas) {
-				break
-			}
-		}
-	}
 }

@@ -1,11 +1,14 @@
+//go:build unit_test
+
 package integrationtests
 
 import (
 	"testing"
 
+	"google.golang.org/api/option"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"google.golang.org/api/option"
 )
 
 // NOTE: these tests require object storage credentials to be loaded in your

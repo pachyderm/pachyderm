@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -26,7 +27,6 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	types "github.com/gogo/protobuf/types"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -36,6 +36,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/license"
@@ -367,7 +369,7 @@ func getCertOptionsFromEnv() ([]Option, error) {
 			// Try to read all certs under 'p'--skip any that we can't read/stat
 			if err := filepath.Walk(p, func(p string, info os.FileInfo, err error) error {
 				if err != nil {
-					log.Warnf("skipping \"%s\", could not stat path: %v", p, err)
+					log.Error(pctx.TODO(), "skipping path, could not stat", zap.String("path", p), zap.Error(err))
 					return nil // Don't try and fix any errors encountered by Walk() itself
 				}
 				if info.IsDir() {
@@ -375,7 +377,7 @@ func getCertOptionsFromEnv() ([]Option, error) {
 				}
 				pemBytes, err := os.ReadFile(p)
 				if err != nil {
-					log.Warnf("could not read server CA certs at %s: %v", p, err)
+					log.Error(pctx.TODO(), "could not read server CA certs", zap.String("path", p), zap.Error(err))
 					return nil
 				}
 				options = append(options, WithAdditionalRootCAs(pemBytes))
@@ -465,7 +467,7 @@ func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	log.Debugf("Implicit port forwarder listening on port %d", port)
+	log.Debug(pctx.TODO(), "Implicit port forwarder listening", zap.Uint16("port", port))
 
 	return fw, port, nil
 }
@@ -572,7 +574,7 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 	if pachdAddress == nil && context.PortForwarders != nil {
 		pachdLocalPort, ok := context.PortForwarders["pachd"]
 		if ok {
-			log.Debugf("Connecting to explicitly port forwarded pachd instance on port %d", pachdLocalPort)
+			log.Debug(pctx.TODO(), "Connecting to explicitly port forwarded pachd instance", zap.Uint32("port", pachdLocalPort))
 			pachdAddress = &grpcutil.PachdAddress{
 				Secured: false,
 				Host:    "localhost",
@@ -608,10 +610,11 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 	}
 
 	// Verify cluster deployment ID
-	clusterInfo, err := client.InspectCluster()
+	clusterInfo, err := client.InspectClusterWithVersion(version.Version)
 	if err != nil {
 		scrubbedErr := grpcutil.ScrubGRPC(err)
 		if status.Code(err) == codes.Unimplemented {
+			// This is an older version check designed to detect 1.x vs. 2.x mismatch.
 			pachdVersion, versErr := client.Version()
 			if err != nil {
 				return nil, errors.Wrap(scrubbedErr, errors.Wrap(versErr, "could not determine pachd version").Error())
@@ -626,14 +629,22 @@ func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, 
 		}
 		return nil, errors.Wrap(scrubbedErr, "could not get cluster ID")
 	}
+	if os.Getenv("PACHYDERM_IGNORE_VERSION_SKEW") == "" {
+		// Let people that Know What They're Doing disable the version warnings.
+		if !clusterInfo.GetVersionWarningsOk() {
+			log.Error(pctx.TODO(), "WARNING: The pachyderm server you're connected to is too old to validate compatibility with this client; please downgrade pachctl or upgrade pachd for the best experience.")
+		} else {
+			for _, w := range clusterInfo.GetVersionWarnings() {
+				log.Error(pctx.TODO(), w)
+			}
+		}
+	}
 	if context.ClusterDeploymentID != clusterInfo.DeploymentID {
 		if context.ClusterDeploymentID == "" {
 			context.ClusterDeploymentID = clusterInfo.DeploymentID
 			if err = cfg.Write(); err != nil {
 				return nil, errors.Wrap(err, "could not write config to save cluster deployment ID")
 			}
-		} else {
-			return nil, errors.Errorf("connected to the wrong cluster (context cluster deployment ID = %q vs reported cluster deployment ID = %q)", context.ClusterDeploymentID, clusterInfo.DeploymentID)
 		}
 	}
 

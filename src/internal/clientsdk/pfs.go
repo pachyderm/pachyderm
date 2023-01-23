@@ -177,6 +177,17 @@ func ListFile(client pfs.API_ListFileClient) ([]*pfs.FileInfo, error) {
 	return results, nil
 }
 
+func WalkFile(client pfs.API_WalkFileClient) ([]*pfs.FileInfo, error) {
+	var results []*pfs.FileInfo
+	if err := ForEachFile(client, func(x *pfs.FileInfo) error {
+		results = append(results, x)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
 func ForEachSubscribeCommit(client pfs.API_SubscribeCommitClient, cb func(*pfs.CommitInfo) error) error {
 	for {
 		x, err := client.Recv()

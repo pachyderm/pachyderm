@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
+	"unicode"
 
 	"github.com/gogo/protobuf/proto"
 
@@ -105,7 +106,14 @@ func (p *Project) ValidateName() error {
 	if p.Name == DefaultProjectName {
 		return nil
 	}
-	return ancestry.ValidateName(p.Name)
+	if err := ancestry.ValidateName(p.Name); err != nil {
+		return err
+	}
+	first := rune(p.Name[0])
+	if !unicode.IsLetter(first) && !unicode.IsDigit(first) {
+		return errors.Errorf("project names must start with an alphanumeric character")
+	}
+	return nil
 }
 
 // EnsureProject ensures that repo.Project is set.  It does nothing if repo is
