@@ -75,7 +75,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           },
           className,
         )}
-        style={resizable ? {width: sidebarWidth} : undefined}
+        style={{width: resizable ? sidebarWidth : '100%'}}
         {...rest}
       >
         {resizable && (
