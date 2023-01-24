@@ -1,0 +1,4 @@
+config:
+  aws:region: us-west-2
+  core:rdsPGDBPassword:
+    secure: AAABAEpfKQjJCB5OSFdb8b0aVhNCXcLcNTWOFjm+A2Je1pwEZVyxjA==

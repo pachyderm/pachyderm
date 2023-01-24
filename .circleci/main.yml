@@ -24,6 +24,11 @@ orbs:
   gcp-cli: circleci/gcp-cli@2.4.1
   gh: circleci/github-cli@2.1
   codecov: codecov/codecov@1.1.0
+  pulumi: pulumi/pulumi@2.1.0
+  aws-cli: circleci/aws-cli@3.1.1
+  node: circleci/node@5.0.2
+  kubernetes: circleci/kubernetes@1.3.0
+  aws-eks: circleci/aws-eks@2.2.0
 
 parameters:
   machine_image:
@@ -1037,6 +1042,32 @@ jobs:
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
+  create-aws-test-env:
+    parameters:
+      env:
+        type: string
+    resource_class: large
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./
+      - node/install
+      - kubernetes/install
+      - aws-eks/install-aws-iam-authenticator
+      - aws-cli/setup
+      - pulumi/login
+      - run: |
+         pulumi plugin install resource eks v0.40.0
+      - run:
+          name: echo bins
+          command: |
+            ls -la dist-pach/*
+            ls -la cr-release-packages/*
+      - pulumi/update:
+          stack: pachyderm/core/<< parameters.env >>
+          working_directory: ./etc/testing/circle/workloads/pulumi/aws/
   cust-prerelease-testing:
     parameters:
       customer:
@@ -1364,38 +1395,33 @@ workflows:
           requires:
             - jupyter-extension-build
             - build-pachctl-bin
+      - create-aws-test-env:
+          filters: *only-release-tags
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+            - publish-chart-preview
+            - release-github-draft
       - gcp-prerelease-testing:
           filters: *only-release-tags
           requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
+            - create-aws-test-env
       - aws-prerelease-testing:
           filters: *only-release-tags
           requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
+            - create-aws-test-env
       - cust-prerelease-testing:
           name: wp-testing
           customer: wp
           filters: *only-alpha-tags
           requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
+            - create-aws-test-env
       - cust-prerelease-testing:
           name: btl-testing
           customer: btl
           filters: *only-alpha-tags
           requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
+            - create-aws-test-env
       - console-release-draft:
           filters: *only-release-tags
           requires:
