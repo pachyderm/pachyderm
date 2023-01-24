@@ -39,37 +39,45 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	}); err != nil {
 		return nil, err
 	}
-	totalRepos := make(map[string]struct{})
+	commits := make(map[string]*pfs.CommitInfo) // commit key -> commit info
+	commitSubv := make(map[string][]string)     // maps commit key -> []commit keys
 	for _, ci := range commitInfos {
-		totalRepos[pfsdb.RepoKey(ci.Commit.Repo)] = struct{}{}
+		commits[pfsdb.CommitKey(ci.Commit)] = ci
 	}
-	sorted := make([]*pfs.CommitInfo, 0)
-	seenRepos := make(map[string]struct{})
-	sortedCommits := make(map[string]struct{})
-	// TODO(acohen4): optimize. maybe first figure out source commits and traverse from there
-	// O(n^2) sorting of commits
-	for len(sorted) < len(commitInfos) {
-		for _, ci := range commitInfos {
-			if _, ok := sortedCommits[pfsdb.CommitKey(ci.Commit)]; ok {
-				continue
+	queue := make([]string, 0)
+	res := make([]*pfs.CommitInfo, 0)
+	// set up commitSubv, and load queue with commits that can be popped
+	for _, ci := range commitInfos {
+		ready := true
+		for _, p := range ci.CommitProvenance {
+			if _, ok := commits[pfsdb.CommitKey(p)]; ok {
+				commitSubv[pfsdb.CommitKey(p)] = append(commitSubv[pfsdb.CommitKey(p)], pfsdb.CommitKey(ci.Commit))
+				ready = false
 			}
-			satisfied := true
-			for _, p := range ci.CommitProvenance {
-				_, needsRepoCommit := totalRepos[pfsdb.RepoKey(p.Repo)]
-				_, processedRepoCommit := seenRepos[pfsdb.RepoKey(p.Repo)]
-				if needsRepoCommit && !processedRepoCommit {
-					satisfied = false
+		}
+		if ready {
+			queue = append(queue, pfsdb.CommitKey(ci.Commit))
+		}
+	}
+	for len(res) < len(commitInfos) {
+		for i, k := range queue {
+			pop := true
+			for _, p := range commits[k].CommitProvenance {
+				if _, ok := commitSubv[pfsdb.CommitKey(p)]; ok {
+					pop = false
 					break
 				}
 			}
-			if satisfied {
-				seenRepos[pfsdb.RepoKey(ci.Commit.Repo)] = struct{}{}
-				sortedCommits[pfsdb.CommitKey(ci.Commit)] = struct{}{}
-				sorted = append(sorted, ci)
+			if pop {
+				res = append(res, ci)
+				queue = append(queue, commitSubv[k]...)
+				delete(commitSubv, k)
+				queue = append(queue[:i], queue[i+1:]...)
+				break
 			}
 		}
 	}
-	return sorted, nil
+	return res, nil
 }
 
 func (d *driver) inspectCommitSetImmediate(ctx context.Context, commitset *pfs.CommitSet, cb func(*pfs.CommitInfo) error) error {
