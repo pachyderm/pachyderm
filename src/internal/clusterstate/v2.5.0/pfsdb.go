@@ -593,7 +593,9 @@ func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 			return err
 		}
 		ci.CommitProvenance = cp
-		return errors.Wrap(updateCommitInfo(ctx, tx, commitKey(ci.Commit), ci), "update CommitProvenance")
+		if err := updateCommitInfo(ctx, tx, commitKey(ci.Commit), ci); err != nil {
+			return errors.Wrapf(err, "update CommitProvenance for %q", commitKey(ci.Commit))
+		}
 	}
 	// re-point branches if necessary
 	headlessBranches := make([]*pfs.BranchInfo, 0)
