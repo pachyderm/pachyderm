@@ -6,7 +6,7 @@ import ListMount from './ListMount';
 import ListUnmount from './ListUnmount';
 
 type SortableListProps = {
-  items: Mount[] | Repo[];
+  items: Array<Mount | Repo>;
   open: (path: string) => void;
   updateData: (data: ListMountsResponse) => void;
   mountedItems: Mount[];
@@ -28,11 +28,8 @@ const SortableList: React.FC<SortableListProps> = ({
   type,
 }) => {
   const allProjectsLabel = 'All projects';
-  // .map() likes Array<Mount | Repo> but not Mount[] | Repo[]
-  // https://github.com/microsoft/TypeScript/issues/33591#issuecomment-841832390
-  const _items: Array<Mount | Repo> = items;
   const projectsList = [
-    ...new Set(_items.map((item: Mount | Repo): string => item.project)),
+    ...new Set(items.map((item: Mount | Repo): string => item.project)),
   ];
   const [selectedProject, setSelectedProject] =
     useState<string>(allProjectsLabel);
@@ -67,13 +64,11 @@ const SortableList: React.FC<SortableListProps> = ({
               <option key={allProjectsLabel} value={allProjectsLabel}>
                 {allProjectsLabel}
               </option>
-              {projectsList.map((project) => {
-                return (
-                  <option key={project} value={project}>
-                    {project}
-                  </option>
-                );
-              })}
+              {projectsList.map((project) => (
+                <option key={project} value={project}>
+                  {project}
+                </option>
+              ))}
             </select>
           </div>
         </div>
