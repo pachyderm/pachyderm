@@ -5,6 +5,7 @@
 package task
 
 import (
+	protoextensions "github.com/pachyderm/pachyderm/v2/src/protoextensions"
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -25,17 +26,9 @@ func (x *Task) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("state", x.State.String())
 
-	if obj, ok := interface{}(x.Input).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("input", obj)
-	} else {
-		enc.AddReflected("input", x.Input)
-	}
+	protoextensions.AddAny(enc, "input", x.Input)
 
-	if obj, ok := interface{}(x.Output).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("output", obj)
-	} else {
-		enc.AddReflected("output", x.Output)
-	}
+	protoextensions.AddAny(enc, "output", x.Output)
 
 	enc.AddString("reason", x.Reason)
 

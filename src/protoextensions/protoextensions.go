@@ -1,11 +1,89 @@
+// Package protoextensions is the runtime support code for protoc-gen-zap (in ../etc/proto).
+// log.Proto also uses this code, so that embedded messages are marshaled the same way as raw
+// messages.
 package protoextensions
 
-import "go.uber.org/zap/zapcore"
+import (
+	"github.com/gogo/protobuf/types"
+	"go.uber.org/zap/zapcore"
+)
 
-func AddBytes(enc zapcore.ObjectEncoder, key string, buf []byte) {
-	enc.AddString(key, "<elided bytes>")
+// AddTimestamp encodes a google.protobuf.Timestamp.
+func AddTimestamp(enc zapcore.ObjectEncoder, key string, ts *types.Timestamp) {
+	if ts == nil {
+		return
+	}
+	t, err := types.TimestampFromProto(ts)
+	if err != nil {
+		enc.AddReflected(key, ts)
+		return
+	}
+	enc.AddTime(key, t)
 }
 
-func AppendBytes(enc zapcore.ArrayEncoder, buf []byte) {
-	enc.AppendString("<elided bytes>")
+// AddDuration encodes a google.protobuf.Duration.
+func AddDuration(enc zapcore.ObjectEncoder, key string, dpb *types.Duration) {
+	if dpb == nil {
+		return
+	}
+	d, err := types.DurationFromProto(dpb)
+	if err != nil {
+		enc.AddReflected(key, dpb)
+		return
+	}
+	enc.AddDuration(key, d)
+}
+
+// AddBytesValue encodes an abridged google.protobuf.BytesValue.
+func AddBytesValue(enc zapcore.ObjectEncoder, key string, b *types.BytesValue) {
+	if b == nil {
+		return
+	}
+	enc.AddObject(key, ConciseBytes(b.GetValue()))
+}
+
+// AddBytes encodes an abridged []byte.
+func AddBytes(enc zapcore.ObjectEncoder, key string, b []byte) {
+	enc.AddObject(key, ConciseBytes(b))
+}
+
+// AddAny encodes a google.protobuf.Any.
+func AddAny(enc zapcore.ObjectEncoder, key string, a *types.Any) {
+	if a == nil {
+		return
+	}
+	var any types.DynamicAny
+	if err := types.UnmarshalAny(a, &any); err != nil {
+		enc.AddReflected(key, a)
+		return
+	}
+	msg := any.Message
+	if m, ok := msg.(zapcore.ObjectMarshaler); ok {
+		enc.AddObject(key, m)
+	} else {
+		enc.AddReflected(key, msg)
+	}
+}
+
+// AddInt64Value encodes a google.protobuf.Int64Value.
+func AddInt64Value(enc zapcore.ObjectEncoder, key string, i *types.Int64Value) {
+	if i == nil {
+		return
+	}
+	enc.AddInt64(key, i.GetValue())
+}
+
+// ConciseBytes is []byte that implements zap.ObjectMarshaler in a way that only prints the first 32
+// of the provided bytes.
+type ConciseBytes []byte
+
+// MarshalLogObject implements zap.ObjectMarshaler.
+func (b ConciseBytes) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddInt("len", len(b))
+	if len(b) > 32 {
+		enc.AddBinary("firstBytes", b[:32])
+	} else {
+		enc.AddBinary("bytes", b)
+	}
+	return nil
 }

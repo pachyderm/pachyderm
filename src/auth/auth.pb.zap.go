@@ -146,10 +146,8 @@ func (x *TokenInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("subject", x.Subject)
 
-	if obj, ok := interface{}(x.Expiration).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("expiration", obj)
-	} else {
-		enc.AddReflected("expiration", x.Expiration)
+	if t := x.Expiration; t != nil {
+		enc.AddTime("expiration", *t)
 	}
 
 	enc.AddString("hashed_token", x.HashedToken)
@@ -194,10 +192,8 @@ func (x *WhoAmIResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("username", x.Username)
 
-	if obj, ok := interface{}(x.Expiration).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("expiration", obj)
-	} else {
-		enc.AddReflected("expiration", x.Expiration)
+	if t := x.Expiration; t != nil {
+		enc.AddTime("expiration", *t)
 	}
 
 	return nil

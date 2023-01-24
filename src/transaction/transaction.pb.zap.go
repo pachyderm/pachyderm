@@ -5,6 +5,7 @@
 package transaction
 
 import (
+	protoextensions "github.com/pachyderm/pachyderm/v2/src/protoextensions"
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -143,11 +144,7 @@ func (x *TransactionInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddArray("responses", zapcore.ArrayMarshalerFunc(responsesArrMarshaller))
 
-	if obj, ok := interface{}(x.Started).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("started", obj)
-	} else {
-		enc.AddReflected("started", x.Started)
-	}
+	protoextensions.AddTimestamp(enc, "started", x.Started)
 
 	enc.AddUint64("version", x.Version)
 

@@ -6,6 +6,7 @@ package pfs
 
 import (
 	fmt "fmt"
+	protoextensions "github.com/pachyderm/pachyderm/v2/src/protoextensions"
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -72,11 +73,7 @@ func (x *RepoInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddReflected("repo", x.Repo)
 	}
 
-	if obj, ok := interface{}(x.Created).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("created", obj)
-	} else {
-		enc.AddReflected("created", x.Created)
-	}
+	protoextensions.AddTimestamp(enc, "created", x.Created)
 
 	enc.AddInt64("size_bytes_upper_bound", x.SizeBytesUpperBound)
 
@@ -286,23 +283,11 @@ func (x *CommitInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddArray("child_commits", zapcore.ArrayMarshalerFunc(child_commitsArrMarshaller))
 
-	if obj, ok := interface{}(x.Started).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("started", obj)
-	} else {
-		enc.AddReflected("started", x.Started)
-	}
+	protoextensions.AddTimestamp(enc, "started", x.Started)
 
-	if obj, ok := interface{}(x.Finishing).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("finishing", obj)
-	} else {
-		enc.AddReflected("finishing", x.Finishing)
-	}
+	protoextensions.AddTimestamp(enc, "finishing", x.Finishing)
 
-	if obj, ok := interface{}(x.Finished).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("finished", obj)
-	} else {
-		enc.AddReflected("finished", x.Finished)
-	}
+	protoextensions.AddTimestamp(enc, "finished", x.Finished)
 
 	direct_provenanceArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.DirectProvenance {
@@ -336,17 +321,9 @@ func (x *CommitInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddInt64("size_bytes", x.SizeBytes)
 
-	if obj, ok := interface{}(x.CompactingTime).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("compacting_time", obj)
-	} else {
-		enc.AddReflected("compacting_time", x.CompactingTime)
-	}
+	protoextensions.AddDuration(enc, "compacting_time", x.CompactingTime)
 
-	if obj, ok := interface{}(x.ValidatingTime).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("validating_time", obj)
-	} else {
-		enc.AddReflected("validating_time", x.ValidatingTime)
-	}
+	protoextensions.AddDuration(enc, "validating_time", x.ValidatingTime)
 
 	return nil
 }
@@ -400,15 +377,11 @@ func (x *FileInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("file_type", x.FileType.String())
 
-	if obj, ok := interface{}(x.Committed).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("committed", obj)
-	} else {
-		enc.AddReflected("committed", x.Committed)
-	}
+	protoextensions.AddTimestamp(enc, "committed", x.Committed)
 
 	enc.AddInt64("size_bytes", x.SizeBytes)
 
-	enc.AddBinary("hash", x.Hash)
+	protoextensions.AddBytes(enc, "hash", x.Hash)
 
 	return nil
 }
@@ -642,11 +615,7 @@ func (x *ListCommitRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("origin_kind", x.OriginKind.String())
 
-	if obj, ok := interface{}(x.StartedTime).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("started_time", obj)
-	} else {
-		enc.AddReflected("started_time", x.StartedTime)
-	}
+	protoextensions.AddTimestamp(enc, "started_time", x.StartedTime)
 
 	return nil
 }
@@ -902,11 +871,7 @@ func (x *AddFile) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("datum", x.Datum)
 
-	if obj, ok := interface{}(x.GetRaw()).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("raw", obj)
-	} else {
-		enc.AddReflected("raw", x.GetRaw())
-	}
+	protoextensions.AddBytesValue(enc, "raw", x.GetRaw())
 
 	if obj, ok := interface{}(x.GetUrl()).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("url", obj)
@@ -1294,9 +1259,9 @@ func (x *CheckStorageRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 
 	enc.AddBool("read_chunk_data", x.ReadChunkData)
 
-	enc.AddBinary("chunk_begin", x.ChunkBegin)
+	protoextensions.AddBytes(enc, "chunk_begin", x.ChunkBegin)
 
-	enc.AddBinary("chunk_end", x.ChunkEnd)
+	protoextensions.AddBytes(enc, "chunk_end", x.ChunkEnd)
 
 	return nil
 }
@@ -1318,11 +1283,7 @@ func (x *PutCacheRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("key", x.Key)
 
-	if obj, ok := interface{}(x.Value).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("value", obj)
-	} else {
-		enc.AddReflected("value", x.Value)
-	}
+	protoextensions.AddAny(enc, "value", x.Value)
 
 	file_set_idsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.FileSetIds {
@@ -1352,11 +1313,7 @@ func (x *GetCacheResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 
-	if obj, ok := interface{}(x.Value).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("value", obj)
-	} else {
-		enc.AddReflected("value", x.Value)
-	}
+	protoextensions.AddAny(enc, "value", x.Value)
 
 	return nil
 }
@@ -1424,11 +1381,7 @@ func (x *RunLoadTestResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 
 	enc.AddString("error", x.Error)
 
-	if obj, ok := interface{}(x.Duration).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("duration", obj)
-	} else {
-		enc.AddReflected("duration", x.Duration)
-	}
+	protoextensions.AddDuration(enc, "duration", x.Duration)
 
 	enc.AddString("state_id", x.StateId)
 

@@ -15,10 +15,8 @@ func (x *User) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("email", x.Email)
 
-	if obj, ok := interface{}(x.LastAuthenticated).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("last_authenticated", obj)
-	} else {
-		enc.AddReflected("last_authenticated", x.LastAuthenticated)
+	if t := x.LastAuthenticated; t != nil {
+		enc.AddTime("last_authenticated", *t)
 	}
 
 	return nil

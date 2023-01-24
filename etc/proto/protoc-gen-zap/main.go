@@ -32,8 +32,9 @@ import (
 )
 
 const (
-	zapcorePkg = protogen.GoImportPath("go.uber.org/zap/zapcore")
-	fmtPkg     = protogen.GoImportPath("fmt")
+	zapcorePkg   = protogen.GoImportPath("go.uber.org/zap/zapcore")
+	extensionPkg = protogen.GoImportPath("github.com/pachyderm/pachyderm/v2/src/protoextensions")
+	fmtPkg       = protogen.GoImportPath("fmt")
 )
 
 func generateListField(g *protogen.GeneratedFile, f *protogen.Field) {
@@ -62,6 +63,8 @@ func generateListField(g *protogen.GeneratedFile, f *protogen.Field) {
 	case protoreflect.GroupKind:
 		g.P("enc.AppendReflected(v)")
 	case protoreflect.MessageKind:
+		// We don't have any protos that have 'repeated google.protobuf.*' fields, so no
+		// special support exists to handle them here.
 		g.P("if obj, ok := interface{}(v).(", g.QualifiedGoIdent(zapcorePkg.Ident("ObjectMarshaler")), "); ok {")
 		g.P("enc.AppendObject(obj)")
 		g.P("} else {")
@@ -105,6 +108,8 @@ func generateMapField(g *protogen.GeneratedFile, f *protogen.Field) {
 	case protoreflect.GroupKind:
 		g.P("enc.AddReflected(", g.QualifiedGoIdent(fmtPkg.Ident("Sprintf")), "(\"%v\", k), v)")
 	case protoreflect.MessageKind:
+		// We don't have any protos that use google.protobuf.* map keys or values, so no
+		// special support for those is here.
 		g.P("if obj, ok := interface{}(v).(", g.QualifiedGoIdent(zapcorePkg.Ident("ObjectMarshaler")), "); ok {")
 		g.P("enc.AddObject(", g.QualifiedGoIdent(fmtPkg.Ident("Sprintf")), "(\"%v\", k), obj)")
 		g.P("} else {")
@@ -121,7 +126,7 @@ func generateMapField(g *protogen.GeneratedFile, f *protogen.Field) {
 	g.P()
 }
 
-func generatePrimitiveField(g *protogen.GeneratedFile, f *protogen.Field) {
+func generatePrimitiveField(g *protogen.GeneratedFile, f *protogen.Field, opts *descriptorpb.FieldOptions) {
 	fname := f.Desc.Name()
 	var gname string
 	if f.Oneof != nil {
@@ -133,7 +138,7 @@ func generatePrimitiveField(g *protogen.GeneratedFile, f *protogen.Field) {
 	case protoreflect.BoolKind:
 		g.P("enc.AddBool(\"", fname, "\", x.", gname, ")")
 	case protoreflect.BytesKind:
-		g.P("enc.AddBinary(\"", fname, "\", x.", gname, ")")
+		g.P(g.QualifiedGoIdent(extensionPkg.Ident("AddBytes")), `(enc, "`, fname, `", x.`, gname, `)`)
 	case protoreflect.DoubleKind:
 		g.P("enc.AddFloat64(\"", fname, "\", x.", gname, ")")
 	case protoreflect.EnumKind:
@@ -151,11 +156,34 @@ func generatePrimitiveField(g *protogen.GeneratedFile, f *protogen.Field) {
 	case protoreflect.GroupKind:
 		g.P("enc.AddReflected(\"", fname, "\", x.", gname, ")")
 	case protoreflect.MessageKind:
-		g.P("if obj, ok := interface{}(x.", gname, ").(", g.QualifiedGoIdent(zapcorePkg.Ident("ObjectMarshaler")), "); ok {")
-		g.P("enc.AddObject(\"", fname, "\", obj)")
-		g.P("} else {")
-		g.P("enc.AddReflected(\"", fname, "\", x.", gname, ")")
-		g.P("}")
+		switch f.Desc.Message().FullName() {
+		case "google.protobuf.Empty":
+			// do nothing
+		case "google.protobuf.Timestamp":
+			if proto.GetExtension(opts, gogoproto.E_Stdtime).(bool) {
+				// If gogoproto.stdtime is set, then this is a pointer to a
+				// time.Time, not a types.Timestamp.
+				g.P(`if t := x.`, gname, `; t != nil {`)
+				g.P(`enc.AddTime("`, fname, `", *t)`)
+				g.P(`}`)
+			} else {
+				g.P(g.QualifiedGoIdent(extensionPkg.Ident("AddTimestamp")), `(enc, "`, fname, `", x.`, gname, `)`)
+			}
+		case "google.protobuf.Duration":
+			g.P(g.QualifiedGoIdent(extensionPkg.Ident("AddDuration")), `(enc, "`, fname, `", x.`, gname, `)`)
+		case "google.protobuf.BytesValue":
+			g.P(g.QualifiedGoIdent(extensionPkg.Ident("AddBytesValue")), `(enc, "`, fname, `", x.`, gname, `)`)
+		case "google.protobuf.Any":
+			g.P(g.QualifiedGoIdent(extensionPkg.Ident("AddAny")), `(enc, "`, fname, `", x.`, gname, `)`)
+		case "google.protobuf.Int64Value":
+			g.P(g.QualifiedGoIdent(extensionPkg.Ident("AddInt64Value")), `(enc, "`, fname, `", x.`, gname, `)`)
+		default:
+			g.P("if obj, ok := interface{}(x.", gname, ").(", g.QualifiedGoIdent(zapcorePkg.Ident("ObjectMarshaler")), "); ok {")
+			g.P("enc.AddObject(\"", fname, "\", obj)")
+			g.P("} else {")
+			g.P("enc.AddReflected(\"", fname, "\", x.", gname, ")")
+			g.P("}")
+		}
 	case protoreflect.StringKind:
 		g.P("enc.AddString(\"", fname, "\", x.", gname, ")")
 	default:
@@ -178,8 +206,12 @@ func generateMessage(g *protogen.GeneratedFile, m *protogen.Message) {
 				f.GoName = customName
 			}
 		}
-		//m.GoIdent.GoName = gogoName(m.GoIdent.GoName, opts)
-
+		if f.Desc.Name() == "size" && f.Desc.ContainingMessage().FullName() == "pfs_v2.Trigger" {
+			// For some reason, this field gets generated as Size_ instead of Size.
+			// It's because there is code in the package that implements a Size method,
+			// but it's unclear to me how the proto compiler can know this.
+			f.GoName = "Size_"
+		}
 		// if isMasked(opts) {
 		// 	panic("this works")
 		// 	g.P("enc.AddString(\"", f.Desc.Name(), "\", \"[MASKED]\")")
@@ -190,7 +222,7 @@ func generateMessage(g *protogen.GeneratedFile, m *protogen.Message) {
 		} else if f.Desc.IsMap() {
 			generateMapField(g, f)
 		} else {
-			generatePrimitiveField(g, f)
+			generatePrimitiveField(g, f, opts)
 		}
 	}
 	g.P("return nil")

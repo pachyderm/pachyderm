@@ -5,6 +5,7 @@
 package license
 
 import (
+	protoextensions "github.com/pachyderm/pachyderm/v2/src/protoextensions"
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -15,11 +16,7 @@ func (x *ActivateRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("activation_code", x.ActivationCode)
 
-	if obj, ok := interface{}(x.Expires).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("expires", obj)
-	} else {
-		enc.AddReflected("expires", x.Expires)
-	}
+	protoextensions.AddTimestamp(enc, "expires", x.Expires)
 
 	return nil
 }
@@ -143,16 +140,12 @@ func (x *ClusterStatus) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("client_id", x.ClientId)
 
-	if obj, ok := interface{}(x.LastHeartbeat).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("last_heartbeat", obj)
-	} else {
-		enc.AddReflected("last_heartbeat", x.LastHeartbeat)
+	if t := x.LastHeartbeat; t != nil {
+		enc.AddTime("last_heartbeat", *t)
 	}
 
-	if obj, ok := interface{}(x.CreatedAt).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("created_at", obj)
-	} else {
-		enc.AddReflected("created_at", x.CreatedAt)
+	if t := x.CreatedAt; t != nil {
+		enc.AddTime("created_at", *t)
 	}
 
 	return nil

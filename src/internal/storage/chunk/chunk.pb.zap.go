@@ -5,6 +5,7 @@
 package chunk
 
 import (
+	protoextensions "github.com/pachyderm/pachyderm/v2/src/protoextensions"
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -19,7 +20,7 @@ func (x *DataRef) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddReflected("ref", x.Ref)
 	}
 
-	enc.AddBinary("hash", x.Hash)
+	protoextensions.AddBytes(enc, "hash", x.Hash)
 
 	enc.AddInt64("offset_bytes", x.OffsetBytes)
 
@@ -33,13 +34,13 @@ func (x *Ref) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 
-	enc.AddBinary("id", x.Id)
+	protoextensions.AddBytes(enc, "id", x.Id)
 
 	enc.AddInt64("size_bytes", x.SizeBytes)
 
 	enc.AddBool("edge", x.Edge)
 
-	enc.AddBinary("dek", x.Dek)
+	protoextensions.AddBytes(enc, "dek", x.Dek)
 
 	enc.AddString("encryption_algo", x.EncryptionAlgo.String())
 

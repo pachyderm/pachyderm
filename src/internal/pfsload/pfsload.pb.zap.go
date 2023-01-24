@@ -5,6 +5,7 @@
 package pfsload
 
 import (
+	protoextensions "github.com/pachyderm/pachyderm/v2/src/protoextensions"
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -103,7 +104,7 @@ func (x *PutFileTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("file_set_id", x.FileSetId)
 
-	enc.AddBinary("hash", x.Hash)
+	protoextensions.AddBytes(enc, "hash", x.Hash)
 
 	return nil
 }
@@ -239,7 +240,7 @@ func (x *State_Commit) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddReflected("commit", x.Commit)
 	}
 
-	enc.AddBinary("hash", x.Hash)
+	protoextensions.AddBytes(enc, "hash", x.Hash)
 
 	return nil
 }

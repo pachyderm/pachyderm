@@ -6,6 +6,7 @@ package pps
 
 import (
 	fmt "fmt"
+	protoextensions "github.com/pachyderm/pachyderm/v2/src/protoextensions"
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -269,11 +270,7 @@ func (x *CronInput) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddBool("overwrite", x.Overwrite)
 
-	if obj, ok := interface{}(x.Start).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("start", obj)
-	} else {
-		enc.AddReflected("start", x.Start)
-	}
+	protoextensions.AddTimestamp(enc, "start", x.Start)
 
 	return nil
 }
@@ -383,7 +380,7 @@ func (x *InputFile) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("path", x.Path)
 
-	enc.AddBinary("hash", x.Hash)
+	protoextensions.AddBytes(enc, "hash", x.Hash)
 
 	return nil
 }
@@ -469,23 +466,11 @@ func (x *ProcessStats) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 
-	if obj, ok := interface{}(x.DownloadTime).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("download_time", obj)
-	} else {
-		enc.AddReflected("download_time", x.DownloadTime)
-	}
+	protoextensions.AddDuration(enc, "download_time", x.DownloadTime)
 
-	if obj, ok := interface{}(x.ProcessTime).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("process_time", obj)
-	} else {
-		enc.AddReflected("process_time", x.ProcessTime)
-	}
+	protoextensions.AddDuration(enc, "process_time", x.ProcessTime)
 
-	if obj, ok := interface{}(x.UploadTime).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("upload_time", obj)
-	} else {
-		enc.AddReflected("upload_time", x.UploadTime)
-	}
+	protoextensions.AddDuration(enc, "upload_time", x.UploadTime)
 
 	enc.AddInt64("download_bytes", x.DownloadBytes)
 
@@ -555,11 +540,7 @@ func (x *DatumStatus) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 
-	if obj, ok := interface{}(x.Started).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("started", obj)
-	} else {
-		enc.AddReflected("started", x.Started)
-	}
+	protoextensions.AddTimestamp(enc, "started", x.Started)
 
 	dataArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Data {
@@ -675,23 +656,11 @@ func (x *JobInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("reason", x.Reason)
 
-	if obj, ok := interface{}(x.Created).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("created", obj)
-	} else {
-		enc.AddReflected("created", x.Created)
-	}
+	protoextensions.AddTimestamp(enc, "created", x.Created)
 
-	if obj, ok := interface{}(x.Started).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("started", obj)
-	} else {
-		enc.AddReflected("started", x.Started)
-	}
+	protoextensions.AddTimestamp(enc, "started", x.Started)
 
-	if obj, ok := interface{}(x.Finished).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("finished", obj)
-	} else {
-		enc.AddReflected("finished", x.Finished)
-	}
+	protoextensions.AddTimestamp(enc, "finished", x.Finished)
 
 	if obj, ok := interface{}(x.Details).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("details", obj)
@@ -781,17 +750,9 @@ func (x *JobInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddReflected("datum_set_spec", x.DatumSetSpec)
 	}
 
-	if obj, ok := interface{}(x.DatumTimeout).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("datum_timeout", obj)
-	} else {
-		enc.AddReflected("datum_timeout", x.DatumTimeout)
-	}
+	protoextensions.AddDuration(enc, "datum_timeout", x.DatumTimeout)
 
-	if obj, ok := interface{}(x.JobTimeout).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job_timeout", obj)
-	} else {
-		enc.AddReflected("job_timeout", x.JobTimeout)
-	}
+	protoextensions.AddDuration(enc, "job_timeout", x.JobTimeout)
 
 	enc.AddInt64("datum_tries", x.DatumTries)
 
@@ -849,11 +810,7 @@ func (x *Toleration) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("effect", x.Effect.String())
 
-	if obj, ok := interface{}(x.TolerationSeconds).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("toleration_seconds", obj)
-	} else {
-		enc.AddReflected("toleration_seconds", x.TolerationSeconds)
-	}
+	protoextensions.AddInt64Value(enc, "toleration_seconds", x.TolerationSeconds)
 
 	return nil
 }
@@ -929,11 +886,7 @@ func (x *PipelineInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		enc.AddReflected("egress", x.Egress)
 	}
 
-	if obj, ok := interface{}(x.CreatedAt).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("created_at", obj)
-	} else {
-		enc.AddReflected("created_at", x.CreatedAt)
-	}
+	protoextensions.AddTimestamp(enc, "created_at", x.CreatedAt)
 
 	enc.AddString("recent_error", x.RecentError)
 
@@ -991,17 +944,9 @@ func (x *PipelineInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		enc.AddReflected("datum_set_spec", x.DatumSetSpec)
 	}
 
-	if obj, ok := interface{}(x.DatumTimeout).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("datum_timeout", obj)
-	} else {
-		enc.AddReflected("datum_timeout", x.DatumTimeout)
-	}
+	protoextensions.AddDuration(enc, "datum_timeout", x.DatumTimeout)
 
-	if obj, ok := interface{}(x.JobTimeout).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job_timeout", obj)
-	} else {
-		enc.AddReflected("job_timeout", x.JobTimeout)
-	}
+	protoextensions.AddDuration(enc, "job_timeout", x.JobTimeout)
 
 	enc.AddInt64("datum_tries", x.DatumTries)
 
@@ -1113,11 +1058,7 @@ func (x *ListJobSetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddArray("projects", zapcore.ArrayMarshalerFunc(projectsArrMarshaller))
 
-	if obj, ok := interface{}(x.PaginationMarker).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("paginationMarker", obj)
-	} else {
-		enc.AddReflected("paginationMarker", x.PaginationMarker)
-	}
+	protoextensions.AddTimestamp(enc, "paginationMarker", x.PaginationMarker)
 
 	enc.AddInt64("number", x.Number)
 
@@ -1185,11 +1126,7 @@ func (x *ListJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("jqFilter", x.JqFilter)
 
-	if obj, ok := interface{}(x.PaginationMarker).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("paginationMarker", obj)
-	} else {
-		enc.AddReflected("paginationMarker", x.PaginationMarker)
-	}
+	protoextensions.AddTimestamp(enc, "paginationMarker", x.PaginationMarker)
 
 	enc.AddInt64("number", x.Number)
 
@@ -1319,11 +1256,7 @@ func (x *GetLogsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddBool("use_loki_backend", x.UseLokiBackend)
 
-	if obj, ok := interface{}(x.Since).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("since", obj)
-	} else {
-		enc.AddReflected("since", x.Since)
-	}
+	protoextensions.AddDuration(enc, "since", x.Since)
 
 	return nil
 }
@@ -1359,11 +1292,7 @@ func (x *LogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddBool("user", x.User)
 
-	if obj, ok := interface{}(x.Ts).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("ts", obj)
-	} else {
-		enc.AddReflected("ts", x.Ts)
-	}
+	protoextensions.AddTimestamp(enc, "ts", x.Ts)
 
 	enc.AddString("message", x.Message)
 
@@ -1572,17 +1501,9 @@ func (x *CreatePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 		enc.AddReflected("datum_set_spec", x.DatumSetSpec)
 	}
 
-	if obj, ok := interface{}(x.DatumTimeout).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("datum_timeout", obj)
-	} else {
-		enc.AddReflected("datum_timeout", x.DatumTimeout)
-	}
+	protoextensions.AddDuration(enc, "datum_timeout", x.DatumTimeout)
 
-	if obj, ok := interface{}(x.JobTimeout).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job_timeout", obj)
-	} else {
-		enc.AddReflected("job_timeout", x.JobTimeout)
-	}
+	protoextensions.AddDuration(enc, "job_timeout", x.JobTimeout)
 
 	enc.AddString("salt", x.Salt)
 
@@ -1824,7 +1745,7 @@ func (x *CreateSecretRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		return nil
 	}
 
-	enc.AddBinary("file", x.File)
+	protoextensions.AddBytes(enc, "file", x.File)
 
 	return nil
 }
@@ -1880,11 +1801,7 @@ func (x *SecretInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("type", x.Type)
 
-	if obj, ok := interface{}(x.CreationTimestamp).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("creation_timestamp", obj)
-	} else {
-		enc.AddReflected("creation_timestamp", x.CreationTimestamp)
-	}
+	protoextensions.AddTimestamp(enc, "creation_timestamp", x.CreationTimestamp)
 
 	return nil
 }

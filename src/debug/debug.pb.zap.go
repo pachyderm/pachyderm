@@ -5,6 +5,7 @@
 package debug
 
 import (
+	protoextensions "github.com/pachyderm/pachyderm/v2/src/protoextensions"
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -35,11 +36,7 @@ func (x *Profile) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("name", x.Name)
 
-	if obj, ok := interface{}(x.Duration).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("duration", obj)
-	} else {
-		enc.AddReflected("duration", x.Duration)
-	}
+	protoextensions.AddDuration(enc, "duration", x.Duration)
 
 	return nil
 }
