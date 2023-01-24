@@ -82,9 +82,9 @@ func DeployApp(ctx *pulumi.Context, cluster *eks.Cluster, rdsInstance *rds.Insta
 					"enabled": pulumi.Bool(true),
 				},
 				"enterpriseLicenseKey": pulumi.String(enterpriseKey),
-				"oauthClientSecret":    pulumi.String("i9mRbLujCvi8j3NPKOFPklXai71oqz3y"),
-				"rootToken":            pulumi.String("1WgTXSc2MccsxunEzXvSAejsKNyT4Lsy"),
-				"enterpriseSecret":     pulumi.String("SBgvzhmVtMxiVbzSIzpWqi3fKCfsup3o"),
+				"oauthClientSecret":    pulumi.String(""),
+				"rootToken":            pulumi.String(""),
+				"enterpriseSecret":     pulumi.String(""),
 			},
 			"deployTarget": pulumi.String("AMAZON"),
 			"global": pulumi.Map{
