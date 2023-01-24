@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+// Note: you'll need to rebuild protos twice to do this.  Once to build the Go bindings for this
+// file, then one more time to generate the code based on the newly-regnerated version of this file.
+
+package protoextensions;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/protoextensions";
+
+import "google/protobuf/descriptor.proto";
+
+extend google.protobuf.FieldOptions {
+  bool marshal_mask = 50001;
+  bool marshal_half = 50002;
+}
