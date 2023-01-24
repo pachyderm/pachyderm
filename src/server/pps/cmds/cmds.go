@@ -1028,6 +1028,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				JqFilter:  "",
 				Details:   true,
 				CommitSet: &pfs.CommitSet{ID: commitSet},
+				Projects:  []*pfs.Project{{Name: project}},
 			}
 			lpClient, err := client.PpsAPIClient.ListPipeline(client.Ctx(), request)
 			if err != nil {
@@ -1048,6 +1049,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	draw.Flags().StringVarP(&commitSet, "commit", "c", "", "Commit at which you would to draw the DAG")
 	draw.Flags().IntVar(&boxWidth, "box-width", 11, "Character width of each box in the DAG")
 	draw.Flags().IntVar(&edgeHeight, "edge-height", 5, "Number of vertical lines spanned by each edge")
+	draw.Flags().StringVar(&project, "project", project, "Project containing pipelines.")
 	commands = append(commands, cmdutil.CreateAlias(draw, "draw pipeline"))
 
 	var (
