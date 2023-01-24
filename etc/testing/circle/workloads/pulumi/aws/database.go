@@ -9,7 +9,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 )
 
-func DeployRDS(ctx *pulumi.Context) error {
+func DeployRDS(ctx *pulumi.Context) (*rds.Instance, error) {
 	cfg := config.New(ctx, "")
 	rdsAllocatedStorage, err := cfg.TryInt("rdsAllocatedStorage")
 	if err != nil {
@@ -17,7 +17,7 @@ func DeployRDS(ctx *pulumi.Context) error {
 	}
 	rdsInstanceClass, err := cfg.Try("rdsInstanceClass")
 	if err != nil {
-		rdsInstanceClass = "db.t2.medium"
+		rdsInstanceClass = "db.m6g.large"
 	}
 	rdsDiskType, err := cfg.Try("rdsDiskType")
 	if err != nil {
@@ -54,7 +54,7 @@ func DeployRDS(ctx *pulumi.Context) error {
 	r, err := rds.NewInstance(ctx, rdsInstanceName, rdsInstanceArgs)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	rdsProviderName := fmt.Sprintf("%s-postgresql", ctx.Stack())
@@ -66,14 +66,14 @@ func DeployRDS(ctx *pulumi.Context) error {
 	})
 
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	_, err = postgresql.NewDatabase(ctx, "dex", &postgresql.DatabaseArgs{}, pulumi.Provider(postgresProvider))
+	dexDbName := "dex"
+	_, err = postgresql.NewDatabase(ctx, dexDbName, &postgresql.DatabaseArgs{Name: pulumi.StringPtr(dexDbName)}, pulumi.Provider(postgresProvider))
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return r, nil
 }

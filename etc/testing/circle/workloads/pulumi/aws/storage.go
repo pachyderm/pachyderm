@@ -7,9 +7,9 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-func DeployBucket(ctx *pulumi.Context) error {
+func DeployBucket(ctx *pulumi.Context) (*s3.Bucket, error) {
 	bucketName := fmt.Sprintf("s3-%s-bucket", ctx.Stack())
-	_, err := s3.NewBucket(ctx, bucketName, &s3.BucketArgs{
+	bucket, err := s3.NewBucket(ctx, bucketName, &s3.BucketArgs{
 		Bucket:       pulumi.String(bucketName),
 		Acl:          pulumi.String("public-read-write"),
 		ForceDestroy: pulumi.Bool(true),
@@ -22,8 +22,10 @@ func DeployBucket(ctx *pulumi.Context) error {
 	})
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	ctx.Export("bucketName", bucket.Bucket)
+
+	return bucket, nil
 }

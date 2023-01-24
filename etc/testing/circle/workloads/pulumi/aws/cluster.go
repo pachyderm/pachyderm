@@ -12,7 +12,7 @@ import (
 // Create a new EKS cluster; this leverages the pulumi aws crosswalk library.
 // aws crosswalk (awsx) is a higher level library that makes it easier to
 // create AWS resources since it created all the associated networking.
-func DeployCluster(ctx *pulumi.Context) error {
+func DeployCluster(ctx *pulumi.Context) (*eks.Cluster, error) {
 	cfg := config.New(ctx, "")
 	minClusterSize, err := cfg.TryInt("minClusterSize")
 	if err != nil {
@@ -48,7 +48,7 @@ func DeployCluster(ctx *pulumi.Context) error {
 		},
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Create a new EKS cluster
@@ -78,12 +78,12 @@ func DeployCluster(ctx *pulumi.Context) error {
 		},
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Export some values in case they are needed elsewhere
 	ctx.Export("kubeconfig", eksCluster.Kubeconfig)
 	ctx.Export("vpcId", eksVpc.VpcId)
 
-	return nil
+	return eksCluster, nil
 }
