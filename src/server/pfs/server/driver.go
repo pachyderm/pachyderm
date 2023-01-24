@@ -887,10 +887,10 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 	}
 	// Now that ancestry has been parsed out, check if the ID is a branch name
 	if commit.ID != "" && !uuid.IsUUIDWithoutDashes(commit.ID) {
-		if commit.Branch.Name != "" {
+		if commit.Branch.GetName() != "" {
 			return nil, errors.Errorf("invalid commit ID given with a branch (%s): %s\n", commit.Branch, commit.ID)
 		}
-		commit.Branch.Name = commit.ID
+		commit.Branch = commit.Repo.NewBranch(commit.ID)
 		commit.ID = ""
 	}
 	// If commit.ID is unspecified, get it from the branch head

@@ -163,13 +163,6 @@ func (a *validatedAPIServer) SquashCommitSet(ctx context.Context, request *pfs.S
 	return a.apiServer.SquashCommitSet(ctx, request)
 }
 
-func (a *validatedAPIServer) SquashCommitSets(ctx context.Context, request *pfs.SquashCommitSetsRequest) (*types.Empty, error) {
-	if len(request.CommitSets) == 0 {
-		return nil, errors.New("commitsets must include at least one commit set")
-	}
-	return a.apiServer.SquashCommitSets(ctx, request)
-}
-
 func (a *validatedAPIServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileServer) error {
 	if request.File == nil {
 		return errors.New("file cannot be nil")

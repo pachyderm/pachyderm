@@ -579,6 +579,17 @@ func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 			return errors.Wrapf(err, "delete real commit %q with ancestor", commitKey(ci.Commit), commitKey(ancstr))
 		}
 	}
+	// now set ci.CommitProvenance for each commit
+	if err := forEachCommit(ctx, tx, ci, func(string) error {
+		cp, err := commitProvenance(tx, ci.Commit.Repo, ci.Commit.ID)
+		if err != nil {
+			return err
+		}
+		ci.CommitProvenance = cp
+		return updateCommitInfo(ctx, tx, commitKey(ci.Commit), ci)
+	}); err != nil {
+		return errors.Wrap(err, "update CommitProvenance")
+	}
 	// re-point branches if necessary
 	headlessBranches := make([]*pfs.BranchInfo, 0)
 	if err := forEachBranch(ctx, tx, func(key string, bi *pfs.BranchInfo) {
@@ -599,6 +610,41 @@ func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	return nil
 }
 
+func commitProvenance(tx *pachsql.Tx, repo *pfs.Repo, commitSet string) ([]*pfs.Commit, error) {
+	commitKey := commitKey(&pfs.Commit{
+		Repo: repo,
+		ID:   commitSet,
+	})
+	query := `SELECT commit_id FROM pfs.commits 
+                  WHERE int_id IN (       
+                      SELECT to_id FROM pfs.commits JOIN pfs.commit_provenance 
+                        ON int_id = from_id 
+                      WHERE commit_id = $1
+                  );`
+	rows, err := tx.Queryx(query, commitKey)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	commitProvenance := make([]*pfs.Commit, 0)
+	for rows.Next() {
+		var commitId string
+		if err := rows.Scan(&commitId); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		c := &pfs.Commit{
+			Repo: &pfs.Repo{
+				Name: strings.Split(strings.Split(commitId, "/")[1], "@")[0],
+				Project: &pfs.Project{
+					Name: strings.Split(commitId, "/")[0],
+				},
+			},
+			ID: strings.Split(commitId, "=")[1],
+		}
+		commitProvenance = append(commitProvenance, c)
+	}
+	return commitProvenance, nil
+}
+
 func oldestAncestor(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.CommitInfo) *pfs.Commit {
 	oldest := traverseToEdges(startCommit, skipSet, func(commitInfo *pfs.CommitInfo) []*pfs.Commit {
 		return []*pfs.Commit{commitInfo.ParentCommit}
@@ -610,7 +656,7 @@ func oldestAncestor(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.CommitI
 }
 
 // traverseToEdges does a breadth first search using a traverse function.
-// returns all of the commits that
+// returns all of the commits that are at the edge of "skipSet"
 func traverseToEdges(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.CommitInfo, traverse func(*pfs.CommitInfo) []*pfs.Commit) []*pfs.Commit {
 	cs := []*pfs.Commit{startCommit.Commit}
 	result := make([]*pfs.Commit, 0)
@@ -661,10 +707,6 @@ func commitSubvenance(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit) ([]*pf
 			Branch: &pfs.Branch{Name: branch, Repo: repo},
 			ID:     id,
 		}
-		// will there always be an origin branch? In theory the relationship is many to many between branches and commits
-		// if branch != "" {
-		// 	c.Branch = ParseBranch(branch)
-		// }
 		commitSubvenance = append(commitSubvenance, c)
 	}
 	return commitSubvenance, nil

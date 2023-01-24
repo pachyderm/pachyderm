@@ -259,18 +259,11 @@ message ListCommitSetRequest {
 
 message SquashCommitSetRequest {
   CommitSet commit_set = 1;
-}
-
-message SquashCommitSetsRequest {
-  repeated CommitSet commit_sets = 1;
+  bool force = 2;
 }
 
 message DropCommitSetRequest {
   CommitSet commit_set = 1;
-}
-
-message DropCommitSetsRequest {
-  repeated CommitSet commit_sets = 1;
 }
 
 message SubscribeCommitRequest {
@@ -610,12 +603,8 @@ service API {
   rpc ListCommitSet(ListCommitSetRequest) returns (stream CommitSetInfo) {}
   // SquashCommitSet squashes the commits of a CommitSet into their children.
   rpc SquashCommitSet(SquashCommitSetRequest) returns (google.protobuf.Empty) {}
-  // SquashCommitSets squashes the commits of a list of CommitSets into their children.
-  rpc SquashCommitSets(SquashCommitSetsRequest) returns (google.protobuf.Empty) {}
   // DropCommitSet drops the commits of a CommitSet and all data included in the commits.
   rpc DropCommitSet(DropCommitSetRequest) returns (google.protobuf.Empty) {}
-  // DropCommitSets drops the commits of a list of CommitSet and all data included in the commits.
-  rpc DropCommitSets(DropCommitSetsRequest) returns (google.protobuf.Empty) {}
 
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}

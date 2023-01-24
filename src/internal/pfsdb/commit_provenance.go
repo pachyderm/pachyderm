@@ -23,32 +23,6 @@ func ResolveCommitProvenance(tx *pachsql.Tx, repo *pfs.Repo, commitSet string) (
 	return nil, pfsserver.ErrCommitNotFound{Commit: &pfs.Commit{Repo: repo, ID: commitSet}}
 }
 
-func CommitProvenance(tx *pachsql.Tx, repo *pfs.Repo, commitSet string) ([]*pfs.Commit, error) {
-	commitKey := CommitKey(&pfs.Commit{
-		Repo: repo,
-		ID:   commitSet,
-	})
-	query := `SELECT commit_id FROM pfs.commits 
-                  WHERE int_id IN (       
-                      SELECT to_id FROM pfs.commits JOIN pfs.commit_provenance 
-                        ON int_id = from_id 
-                      WHERE commit_id = $1
-                  );`
-	rows, err := tx.Queryx(query, commitKey)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	commitProvenance := make([]*pfs.Commit, 0)
-	for rows.Next() {
-		var commitId string
-		if err := rows.Scan(&commitId); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-		commitProvenance = append(commitProvenance, ParseCommit(commitId))
-	}
-	return commitProvenance, nil
-}
-
 // CommitSetProvenance returns all the commit IDs that are in the provenance
 // of all the commits in this commit set.
 func CommitSetProvenance(tx *pachsql.Tx, id string) ([]*pfs.Commit, error) {

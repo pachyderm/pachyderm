@@ -272,13 +272,7 @@ func (a *apiServer) ListCommitSet(request *pfs.ListCommitSetRequest, serv pfs.AP
 // SquashCommitSetInTransaction is identical to SquashCommitSet except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) SquashCommitSetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitSetRequest) error {
-	return a.driver.squashCommitSets(txnCtx, []*pfs.CommitSet{request.CommitSet})
-}
-
-// SquashCommitSetsInTransaction is identical to SquashCommitSets except that it can run
-// inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) SquashCommitSetsInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitSetsRequest) error {
-	return a.driver.squashCommitSets(txnCtx, request.CommitSets)
+	return a.driver.squashCommitSets(txnCtx, request.CommitSet, request.Force)
 }
 
 // SquashCommitSet implements the protobuf pfs.SquashCommitSet RPC
@@ -291,29 +285,10 @@ func (a *apiServer) SquashCommitSet(ctx context.Context, request *pfs.SquashComm
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) SquashCommitSets(ctx context.Context, request *pfs.SquashCommitSetsRequest) (*types.Empty, error) {
-	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return errors.EnsureStack(txn.SquashCommitSets(request))
-	}); err != nil {
-		return nil, err
-	}
-	return &types.Empty{}, nil
-}
-
 // DropCommitSet implements the protobuf pfs.DropCommitSet RPC
 func (a *apiServer) DropCommitSet(ctx context.Context, request *pfs.DropCommitSetRequest) (response *types.Empty, retErr error) {
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.driver.dropCommitSets(txnCtx, []*pfs.CommitSet{request.CommitSet})
-	}); err != nil {
-		return nil, err
-	}
-	return &types.Empty{}, nil
-}
-
-// DropCommitSets implements the protobuf pfs.DropCommitSets RPC
-func (a *apiServer) DropCommitSets(ctx context.Context, request *pfs.DropCommitSetsRequest) (response *types.Empty, retErr error) {
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.driver.dropCommitSets(txnCtx, request.CommitSets)
+		return a.driver.dropCommitSet(txnCtx, request.CommitSet)
 	}); err != nil {
 		return nil, err
 	}

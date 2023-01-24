@@ -336,11 +336,11 @@ func traverseToEdges(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.Commit
 	return result
 }
 
-func (d *driver) checkSubvenantCommitSets(txnCtx *txncontext.TransactionContext, commitsets []*pfs.CommitSet) error {
+func (d *driver) subvenantCommitSets(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) ([]*pfs.CommitSet, error) {
 	collectSubvCommitSets := func(setIDs map[string]struct{}) (map[string]struct{}, error) {
 		subvCommitSets := make(map[string]struct{})
-		for _, commitset := range commitsets {
-			subvCommits, err := pfsdb.CommitSetSubvenance(txnCtx.SqlTx, commitset.ID)
+		for id := range setIDs {
+			subvCommits, err := pfsdb.CommitSetSubvenance(txnCtx.SqlTx, id)
 			if err != nil {
 				return nil, err
 			}
@@ -352,51 +352,44 @@ func (d *driver) checkSubvenantCommitSets(txnCtx *txncontext.TransactionContext,
 		}
 		return subvCommitSets, nil
 	}
-	reqDeleteSets := make(map[string]struct{})
-	for _, commitset := range commitsets {
-		reqDeleteSets[commitset.ID] = struct{}{}
-	}
-	subvCSs, err := collectSubvCommitSets(reqDeleteSets)
+	subvCSs, err := collectSubvCommitSets(map[string]struct{}{
+		commitset.ID: struct{}{},
+	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if len(subvCSs) > 0 {
-		d.log.Errorf("Cannot squash commit sets %v. Computing complete list of commit sets necessary to squash the requested commit sets", commitsets)
-		unaccountedSubvCommitSets := make(map[string]struct{})
-		for len(subvCSs) > 0 {
-			for cs := range subvCSs {
-				unaccountedSubvCommitSets[cs] = struct{}{}
-			}
-			subvCSs, err = collectSubvCommitSets(subvCSs)
-			if err != nil {
-				return err
-			}
+	completeSubvCSs := make(map[string]struct{})
+	for len(subvCSs) > 0 {
+		for cs := range subvCSs {
+			completeSubvCSs[cs] = struct{}{}
 		}
-		css := make([]*pfs.CommitSet, 0)
-		for cs := range unaccountedSubvCommitSets {
-			css = append(css, &pfs.CommitSet{ID: cs})
+		subvCSs, err = collectSubvCommitSets(subvCSs)
+		if err != nil {
+			return nil, err
 		}
-		return pfsserver.ErrDeleteWithDependentCommitSets{RequestedDeleteCommitSets: commitsets, MinimalCommitSets: css}
 	}
-	return nil
+	result := make([]*pfs.CommitSet, 0)
+	for cs := range completeSubvCSs {
+		result = append(result, &pfs.CommitSet{ID: cs})
+	}
+	return result, nil
 }
 
 // dropCommitSet is only implemented for commits with no children, so if any
 // commits in the commitSet have children the operation will fail.
-func (d *driver) dropCommitSets(txnCtx *txncontext.TransactionContext, commitsets []*pfs.CommitSet) error {
-	if err := d.checkSubvenantCommitSets(txnCtx, commitsets); err != nil {
+func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) error {
+	css, err := d.subvenantCommitSets(txnCtx, commitset)
+	if err != nil {
 		return err
 	}
-	var commitInfos []*pfs.CommitInfo
-	for _, commitset := range commitsets {
-		var err error
-		cis, err := d.inspectCommitSetImmediateTx(txnCtx, commitset, true)
-		if err != nil {
-			return err
-		}
-		commitInfos = append(commitInfos, cis...)
+	if len(css) > 0 {
+		return errors.Errorf("commit set %q cannot be dropped because it has subvenant commit sets: %v", commitset, css)
 	}
-	for _, ci := range commitInfos {
+	cis, err := d.inspectCommitSetImmediateTx(txnCtx, commitset, true)
+	if err != nil {
+		return err
+	}
+	for _, ci := range cis {
 		if ci.Commit.Branch.Repo.Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {
 			return errors.Errorf("cannot squash commit %s because it updated a pipeline", ci.Commit)
 		}
@@ -410,21 +403,24 @@ func (d *driver) dropCommitSets(txnCtx *txncontext.TransactionContext, commitset
 	// effectively a drop, though, because there is no child commit that contains
 	// the data from the given commits, which is why it is an error to drop any
 	// non-head commits (until generalized drop semantics are implemented).
-	if err := d.deleteCommits(txnCtx, commitInfos); err != nil {
+	if err := d.deleteCommits(txnCtx, cis); err != nil {
 		return err
 	}
 	// notify PPS that this commitset has been dropped so it can clean up any
 	// jobs associated with it at the end of the transaction
-	for _, commitset := range commitsets {
-		txnCtx.StopJobs(commitset)
-	}
+	txnCtx.StopJobs(commitset)
 	return nil
 }
 
-func (d *driver) squashCommitSets(txnCtx *txncontext.TransactionContext, commitsets []*pfs.CommitSet) error {
-	if err := d.checkSubvenantCommitSets(txnCtx, commitsets); err != nil {
+func (d *driver) squashCommitSets(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, force bool) error {
+	css, err := d.subvenantCommitSets(txnCtx, commitset)
+	if err != nil {
 		return err
 	}
+	if len(css) > 0 && !force {
+		return errors.Errorf("commit set %q cannot be dropped because it has subvenant commit sets: %v; if you wish to squash all of the subvenant commit sets, passthe force argument", commitset, css)
+	}
+	commitsets := append([]*pfs.CommitSet{commitset}, css...)
 	var commitInfos []*pfs.CommitInfo
 	for _, commitset := range commitsets {
 		var err error

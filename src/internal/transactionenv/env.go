@@ -29,7 +29,6 @@ type PfsWrites interface {
 	StartCommit(*pfs.StartCommitRequest) (*pfs.Commit, error)
 	FinishCommit(*pfs.FinishCommitRequest) error
 	SquashCommitSet(*pfs.SquashCommitSetRequest) error
-	SquashCommitSets(*pfs.SquashCommitSetsRequest) error
 
 	CreateBranch(*pfs.CreateBranchRequest) error
 	DeleteBranch(*pfs.DeleteBranchRequest) error
@@ -150,11 +149,6 @@ func (t *directTransaction) SquashCommitSet(original *pfs.SquashCommitSetRequest
 	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().SquashCommitSetInTransaction(t.txnCtx, req))
 }
 
-func (t *directTransaction) SquashCommitSets(original *pfs.SquashCommitSetsRequest) error {
-	req := proto.Clone(original).(*pfs.SquashCommitSetsRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().SquashCommitSetsInTransaction(t.txnCtx, req))
-}
-
 func (t *directTransaction) CreateBranch(original *pfs.CreateBranchRequest) error {
 	req := proto.Clone(original).(*pfs.CreateBranchRequest)
 	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().CreateBranchInTransaction(t.txnCtx, req))
@@ -230,11 +224,6 @@ func (t *appendTransaction) FinishCommit(req *pfs.FinishCommitRequest) error {
 
 func (t *appendTransaction) SquashCommitSet(req *pfs.SquashCommitSetRequest) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{SquashCommitSet: req})
-	return errors.EnsureStack(err)
-}
-
-func (t *appendTransaction) SquashCommitSets(req *pfs.SquashCommitSetsRequest) error {
-	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{SquashCommitSets: req})
 	return errors.EnsureStack(err)
 }
 
