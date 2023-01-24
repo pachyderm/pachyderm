@@ -15,7 +15,7 @@ func AddTimestamp(enc zapcore.ObjectEncoder, key string, ts *types.Timestamp) {
 	}
 	t, err := types.TimestampFromProto(ts)
 	if err != nil {
-		enc.AddReflected(key, ts)
+		enc.AddReflected(key, ts) //nolint:errcheck
 		return
 	}
 	enc.AddTime(key, t)
@@ -28,7 +28,7 @@ func AddDuration(enc zapcore.ObjectEncoder, key string, dpb *types.Duration) {
 	}
 	d, err := types.DurationFromProto(dpb)
 	if err != nil {
-		enc.AddReflected(key, dpb)
+		enc.AddReflected(key, dpb) //nolint:errcheck
 		return
 	}
 	enc.AddDuration(key, d)
@@ -39,12 +39,12 @@ func AddBytesValue(enc zapcore.ObjectEncoder, key string, b *types.BytesValue) {
 	if b == nil {
 		return
 	}
-	enc.AddObject(key, ConciseBytes(b.GetValue()))
+	enc.AddObject(key, ConciseBytes(b.GetValue())) //nolint:errcheck
 }
 
 // AddBytes encodes an abridged []byte.
 func AddBytes(enc zapcore.ObjectEncoder, key string, b []byte) {
-	enc.AddObject(key, ConciseBytes(b))
+	enc.AddObject(key, ConciseBytes(b)) //nolint:errcheck
 }
 
 // AddAny encodes a google.protobuf.Any.
@@ -54,14 +54,14 @@ func AddAny(enc zapcore.ObjectEncoder, key string, a *types.Any) {
 	}
 	var any types.DynamicAny
 	if err := types.UnmarshalAny(a, &any); err != nil {
-		enc.AddReflected(key, a)
+		enc.AddReflected(key, a) //nolint:errcheck
 		return
 	}
 	msg := any.Message
 	if m, ok := msg.(zapcore.ObjectMarshaler); ok {
-		enc.AddObject(key, m)
+		enc.AddObject(key, m) //nolint:errcheck
 	} else {
-		enc.AddReflected(key, msg)
+		enc.AddReflected(key, msg) //nolint:errcheck
 	}
 }
 
