@@ -353,7 +353,7 @@ func (d *driver) subvenantCommitSets(txnCtx *txncontext.TransactionContext, comm
 		return subvCommitSets, nil
 	}
 	subvCSs, err := collectSubvCommitSets(map[string]struct{}{
-		commitset.ID: struct{}{},
+		commitset.ID: {},
 	})
 	if err != nil {
 		return nil, err

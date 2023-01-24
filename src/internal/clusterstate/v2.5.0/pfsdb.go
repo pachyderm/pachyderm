@@ -580,15 +580,20 @@ func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		}
 	}
 	// now set ci.CommitProvenance for each commit
+	cis = make([]*pfs.CommitInfo, 0)
 	if err := forEachCommit(ctx, tx, ci, func(string) error {
-		cp, err := commitProvenance(tx, ci.Commit.Repo, ci.Commit.ID)
+		cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "recollect commits")
+	}
+	for _, ci := range cis {
+		cp, err := commitProvenance(tx, ci.Commit.Repo, ci.Commit.Branch, ci.Commit.ID)
 		if err != nil {
 			return err
 		}
 		ci.CommitProvenance = cp
-		return updateCommitInfo(ctx, tx, commitKey(ci.Commit), ci)
-	}); err != nil {
-		return errors.Wrap(err, "update CommitProvenance")
+		return errors.Wrap(updateCommitInfo(ctx, tx, commitKey(ci.Commit), ci), "update CommitProvenance")
 	}
 	// re-point branches if necessary
 	headlessBranches := make([]*pfs.BranchInfo, 0)
@@ -610,10 +615,11 @@ func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	return nil
 }
 
-func commitProvenance(tx *pachsql.Tx, repo *pfs.Repo, commitSet string) ([]*pfs.Commit, error) {
+func commitProvenance(tx *pachsql.Tx, repo *pfs.Repo, branch *pfs.Branch, commitSet string) ([]*pfs.Commit, error) {
 	commitKey := commitKey(&pfs.Commit{
-		Repo: repo,
-		ID:   commitSet,
+		Repo:   repo,
+		Branch: branch,
+		ID:     commitSet,
 	})
 	query := `SELECT commit_id FROM pfs.commits 
                   WHERE int_id IN (       
