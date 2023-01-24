@@ -723,6 +723,12 @@
                             }
                         }
                     }
+                },
+                "affinity": {
+                    "type": "object"
+                },
+                "tolerations": {
+                    "type": "array"
                 }
             }
         },

@@ -41,7 +41,9 @@ spec:
       {{- if .Values.pachd.priorityClassName }}
       priorityClassName: {{ .Values.pachd.priorityClassName }}
       {{- end }}
-      {{-  if .Values.pachd.affinity }}
+      {{-  if .Values.pachw.affinity }}
+      affinity: {{ toYaml .Values.pachw.affinity | nindent 8 }}
+      {{-  else if .Values.pachd.affinity }}
       affinity: {{ toYaml .Values.pachd.affinity | nindent 8 }}
       {{- end }}
       {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
@@ -241,7 +243,9 @@ spec:
       {{- if .Values.pachd.serviceAccount.name }}
       serviceAccountName: {{ .Values.pachd.serviceAccount.name | quote }}
       {{- end }}
-      {{-  if .Values.pachd.tolerations }}
+      {{-  if .Values.pachw.tolerations }}
+      tolerations: {{ toYaml .Values.pachw.tolerations | nindent 8 }}
+      {{-  else if .Values.pachd.tolerations }}
       tolerations: {{ toYaml .Values.pachd.tolerations | nindent 8 }}
       {{- end }}
       automountServiceAccountToken: true
