@@ -691,6 +691,12 @@
         "pachw": {
             "type": "object",
             "properties": {
+                "affinity": {
+                    "type": "object"
+                },
+                "inheritFromPachd": {
+                    "type": "boolean"
+                },
                 "inSidecars": {
                     "type": "boolean"
                 },
@@ -699,6 +705,9 @@
                 },
                 "maxReplicas": {
                     "type": "integer"
+                },
+                "nodeSelector": {
+                    "type": "object"
                 },
                 "resources": {
                     "type": "object",
@@ -723,9 +732,6 @@
                             }
                         }
                     }
-                },
-                "affinity": {
-                    "type": "object"
                 },
                 "tolerations": {
                     "type": "array"
