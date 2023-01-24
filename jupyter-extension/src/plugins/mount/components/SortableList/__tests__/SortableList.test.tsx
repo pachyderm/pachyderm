@@ -97,14 +97,14 @@ describe('sortable list components', () => {
       />,
     );
     let listItems = getAllByTestId('ListItem__noBranches');
-    expect(listItems.length).toEqual(2);
+    expect(listItems).toHaveLength(2);
     expect(listItems[0]).toHaveTextContent('data');
     expect(listItems[1]).toHaveTextContent('images');
 
     getByText('Name').click();
 
     listItems = getAllByTestId('ListItem__noBranches');
-    expect(listItems.length).toEqual(2);
+    expect(listItems).toHaveLength(2);
     expect(listItems[0]).toHaveTextContent('images');
     expect(listItems[1]).toHaveTextContent('data');
   });
@@ -149,7 +149,7 @@ describe('sortable list components', () => {
       });
     });
     expect(mountButton).toBeDisabled();
-    expect(updateData).toBeCalledWith([]);
+    expect(updateData).toHaveBeenCalledWith([]);
   });
 
   it('should allow user to unmount mounted repo', async () => {
@@ -198,7 +198,7 @@ describe('sortable list components', () => {
       );
     });
     expect(unmountButton).toBeDisabled();
-    expect(updateData).toBeCalledWith([]);
+    expect(updateData).toHaveBeenCalledWith([]);
   });
 
   it('should open mounted repo on click', async () => {
@@ -254,7 +254,7 @@ describe('sortable list components', () => {
     );
     const select = getByTestId('ListItem__select') as HTMLSelectElement;
 
-    expect(select.value).toEqual('master');
+    expect(select.value).toBe('master');
     fireEvent.change(select, {target: {value: 'develop'}});
 
     getByText('Mount').click();
@@ -301,7 +301,7 @@ describe('sortable list components', () => {
     );
 
     const statusIcon = getByTestId('ListItem__statusIcon');
-    expect(statusIcon.title).toEqual('Error: error mounting branch');
+    expect(statusIcon.title).toBe('Error: error mounting branch');
     const commitBehindnessText = getByTestId('ListItem__commitBehindness');
     expect(commitBehindnessText.textContent).toContain('up to date');
   });
@@ -548,24 +548,24 @@ describe('sortable list components', () => {
     );
 
     let listItems = getAllByTestId('ListItem__repo');
-    expect(listItems.length).toEqual(3);
+    expect(listItems).toHaveLength(3);
 
     fireEvent.change(getByTestId('ProjectList__select'), {
       target: {value: 'p1'},
     });
     listItems = getAllByTestId('ListItem__repo');
-    expect(listItems.length).toEqual(2);
+    expect(listItems).toHaveLength(2);
 
     fireEvent.change(getByTestId('ProjectList__select'), {
       target: {value: 'default'},
     });
     listItems = getAllByTestId('ListItem__repo');
-    expect(listItems.length).toEqual(1);
+    expect(listItems).toHaveLength(1);
 
     fireEvent.change(getByTestId('ProjectList__select'), {
       target: {value: 'All projects'},
     });
     listItems = getAllByTestId('ListItem__repo');
-    expect(listItems.length).toEqual(3);
+    expect(listItems).toHaveLength(3);
   });
 });

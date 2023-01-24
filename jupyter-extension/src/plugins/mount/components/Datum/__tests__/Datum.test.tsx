@@ -30,7 +30,7 @@ describe('datum screen', () => {
         }),
       );
 
-      const {getByTestId, queryByTestId} = render(
+      const {getByTestId, queryByTestId, findByTestId} = render(
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
@@ -45,15 +45,15 @@ describe('datum screen', () => {
       expect(queryByTestId('Datum__cyclerLeft')).not.toBeInTheDocument();
       expect(queryByTestId('Datum__cyclerRight')).not.toBeInTheDocument();
 
-      const input = await getByTestId('Datum__inputSpecInput');
-      const submit = await getByTestId('Datum__mountDatums');
+      const input = await findByTestId('Datum__inputSpecInput');
+      const submit = await findByTestId('Datum__mountDatums');
 
       userEvent.type(input, '{"pfs": "a"}'.replace(/[{[]/g, '$&$&'));
       expect(input).toHaveValue('{"pfs": "a"}');
       submit.click();
 
       await waitFor(() => {
-        expect(mockRequestAPI.requestAPI).nthCalledWith(
+        expect(mockRequestAPI.requestAPI).toHaveBeenNthCalledWith(
           2,
           '_mount_datums',
           'PUT',
@@ -77,7 +77,7 @@ describe('datum screen', () => {
         }),
       );
 
-      const {getByTestId} = render(
+      const {getByTestId, findByTestId} = render(
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
@@ -89,8 +89,8 @@ describe('datum screen', () => {
         />,
       );
 
-      const input = await getByTestId('Datum__inputSpecInput');
-      const submit = await getByTestId('Datum__mountDatums');
+      const input = await findByTestId('Datum__inputSpecInput');
+      const submit = await findByTestId('Datum__mountDatums');
 
       userEvent.type(input, '{"pfs": "a"}'.replace(/[{[]/g, '$&$&'));
       expect(input).toHaveValue('{"pfs": "a"}');
@@ -105,10 +105,10 @@ describe('datum screen', () => {
       );
 
       getByTestId('Datum__cyclerLeft');
-      (await getByTestId('Datum__cyclerRight')).click();
+      (await findByTestId('Datum__cyclerRight')).click();
 
       await waitFor(() => {
-        expect(mockRequestAPI.requestAPI).nthCalledWith(
+        expect(mockRequestAPI.requestAPI).toHaveBeenNthCalledWith(
           4,
           '_show_datum?idx=1',
           'PUT',
@@ -123,7 +123,7 @@ describe('datum screen', () => {
 
   describe('errors with input spec', () => {
     it('error if bad syntax in input spec', async () => {
-      const {getByTestId} = render(
+      const {getByTestId, findByTestId} = render(
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
@@ -137,8 +137,8 @@ describe('datum screen', () => {
 
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
 
-      const input = await getByTestId('Datum__inputSpecInput');
-      const submit = await getByTestId('Datum__mountDatums');
+      const input = await findByTestId('Datum__inputSpecInput');
+      const submit = await findByTestId('Datum__mountDatums');
 
       userEvent.type(input, '{"pfs": "a"'.replace(/[{[]/g, '$&$&'));
       expect(input).toHaveValue('{"pfs": "a"');
@@ -154,7 +154,7 @@ describe('datum screen', () => {
         throw new ServerConnection.ResponseError(new Response());
       });
 
-      const {getByTestId} = render(
+      const {getByTestId, findByTestId} = render(
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
@@ -168,8 +168,8 @@ describe('datum screen', () => {
 
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
 
-      const input = await getByTestId('Datum__inputSpecInput');
-      const submit = await getByTestId('Datum__mountDatums');
+      const input = await findByTestId('Datum__inputSpecInput');
+      const submit = await findByTestId('Datum__mountDatums');
 
       userEvent.type(input, '{"pfs": "fake_repo"}'.replace(/[{[]/g, '$&$&'));
       expect(input).toHaveValue('{"pfs": "fake_repo"}');
@@ -183,7 +183,7 @@ describe('datum screen', () => {
 
   describe('test valid input spec formats', () => {
     it('valid json input spec', async () => {
-      const {getByTestId} = render(
+      const {getByTestId, findByTestId} = render(
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
@@ -197,8 +197,8 @@ describe('datum screen', () => {
 
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
 
-      const input = await getByTestId('Datum__inputSpecInput');
-      const submit = await getByTestId('Datum__mountDatums');
+      const input = await findByTestId('Datum__inputSpecInput');
+      const submit = await findByTestId('Datum__mountDatums');
 
       userEvent.type(input, '{"pfs": "repo"}'.replace(/[{[]/g, '$&$&'));
       expect(input).toHaveValue('{"pfs": "repo"}');
@@ -208,7 +208,7 @@ describe('datum screen', () => {
     });
 
     it('valid yaml input spec', async () => {
-      const {getByTestId} = render(
+      const {getByTestId, findByTestId} = render(
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
@@ -222,8 +222,8 @@ describe('datum screen', () => {
 
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
 
-      const input = await getByTestId('Datum__inputSpecInput');
-      const submit = await getByTestId('Datum__mountDatums');
+      const input = await findByTestId('Datum__inputSpecInput');
+      const submit = await findByTestId('Datum__mountDatums');
 
       userEvent.type(input, YAML.stringify({pfs: 'repo'}));
       expect(input).toHaveValue(YAML.stringify({pfs: 'repo'}));
