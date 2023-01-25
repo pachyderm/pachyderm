@@ -7,7 +7,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"go.uber.org/zap"
 
 	"github.com/gogo/protobuf/proto"
@@ -16,13 +15,9 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	mauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/license"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
@@ -44,152 +39,6 @@ var authConfig = logConfig{}
 // TODO: would be nice if we could annotate the protobuf fields for redaction,
 // then auto-generate this code (or even just handle it dynamically).
 var endpoints = map[string]logConfig{
-	"/license_v2.API/Activate": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*license.ActivateRequest)).(*license.ActivateRequest)
-			copyReq.ActivationCode = ""
-			return copyReq
-		},
-	},
-
-	"/license_v2.API/GetActivationCode": {
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*license.GetActivationCodeResponse)).(*license.GetActivationCodeResponse)
-			copyResp.ActivationCode = ""
-			return copyResp
-		},
-	},
-
-	"/license_v2.API/AddCluster": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*license.AddClusterRequest)).(*license.AddClusterRequest)
-			copyReq.Secret = ""
-			return copyReq
-		},
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*license.AddClusterResponse)).(*license.AddClusterResponse)
-			copyResp.Secret = ""
-			return copyResp
-		},
-	},
-
-	"/license_v2.API/Heartbeat": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*license.HeartbeatRequest)).(*license.HeartbeatRequest)
-			copyReq.Secret = ""
-			return copyReq
-		},
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*license.HeartbeatResponse)).(*license.HeartbeatResponse)
-			copyResp.License.ActivationCode = ""
-			return copyResp
-		},
-	},
-
-	"/enterprise_v2.API/GetActivationCode": {
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*enterprise.GetActivationCodeResponse)).(*enterprise.GetActivationCodeResponse)
-			copyResp.ActivationCode = ""
-			return copyResp
-		},
-	},
-
-	"/enterprise_v2.API/GetState": {
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*enterprise.GetStateResponse)).(*enterprise.GetStateResponse)
-			copyResp.ActivationCode = ""
-			return copyResp
-		},
-	},
-
-	"/enterprise_v2.API/Activate": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*enterprise.ActivateRequest)).(*enterprise.ActivateRequest)
-			copyReq.Secret = ""
-			return copyReq
-		},
-	},
-
-	"/identity_v2.API/CreateIDPConnector": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*identity.CreateIDPConnectorRequest)).(*identity.CreateIDPConnectorRequest)
-			if copyReq.Connector != nil {
-				copyReq.Connector.Config = &types.Struct{}
-				copyReq.Connector.JsonConfig = ""
-			}
-			return copyReq
-		},
-	},
-
-	"/identity_v2.API/GetIDPConnector": {
-		transformResponse: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*identity.GetIDPConnectorResponse)).(*identity.GetIDPConnectorResponse)
-			copyReq.Connector.Config = &types.Struct{}
-			copyReq.Connector.JsonConfig = ""
-			return copyReq
-		},
-	},
-
-	"/identity_v2.API/UpdateIDPConnector": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*identity.UpdateIDPConnectorRequest)).(*identity.UpdateIDPConnectorRequest)
-			if copyReq.Connector != nil {
-				copyReq.Connector.Config = &types.Struct{}
-				copyReq.Connector.JsonConfig = ""
-			}
-			return copyReq
-		},
-	},
-
-	"/identity_v2.API/ListIDPConnectors": {
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*identity.ListIDPConnectorsResponse)).(*identity.ListIDPConnectorsResponse)
-			for _, c := range copyResp.Connectors {
-				c.Config = &types.Struct{}
-				c.JsonConfig = ""
-			}
-			return copyResp
-		},
-	},
-
-	"/identity_v2.API/CreateOIDCClient": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*identity.CreateOIDCClientRequest)).(*identity.CreateOIDCClientRequest)
-			if copyReq.Client != nil {
-				copyReq.Client.Secret = ""
-			}
-			return copyReq
-		},
-	},
-
-	"/identity_v2.API/UpdateOIDCClient": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*identity.UpdateOIDCClientRequest)).(*identity.UpdateOIDCClientRequest)
-			if copyReq.Client != nil {
-				copyReq.Client.Secret = ""
-			}
-			return copyReq
-		},
-	},
-
-	"/identity_v2.API/GetOIDCClient": {
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*identity.GetOIDCClientResponse)).(*identity.GetOIDCClientResponse)
-			copyResp.Client.Secret = ""
-			return copyResp
-		},
-	},
-
-	"/identity_v2.API/ListOIDCClients": {
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*identity.ListOIDCClientsResponse)).(*identity.ListOIDCClientsResponse)
-			for _, c := range copyResp.Clients {
-				c.Secret = ""
-			}
-			return copyResp
-		},
-	},
-
 	"/auth_v2.API/Deactivate":                 authConfig,
 	"/auth_v2.API/Authorize":                  authConfig,
 	"/auth_v2.API/GetPermissionsForPrincipal": authConfig,
@@ -206,123 +55,6 @@ var endpoints = map[string]logConfig{
 	"/auth_v2.API/RevokeAuthTokensForUser":    authConfig,
 
 	"/auth_v2.API/WhoAmI": defaultConfig,
-
-	"/auth_v2.API/Activate": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*auth.ActivateRequest)).(*auth.ActivateRequest)
-			copyReq.RootToken = ""
-			return copyReq
-		},
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*auth.ActivateResponse)).(*auth.ActivateResponse)
-			copyResp.PachToken = ""
-			return copyResp
-		},
-	},
-
-	"/auth_v2.API/Authenticate": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*auth.AuthenticateRequest)).(*auth.AuthenticateRequest)
-			copyReq.OIDCState = ""
-			copyReq.IdToken = ""
-			return copyReq
-		},
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*auth.AuthenticateResponse)).(*auth.AuthenticateResponse)
-			copyResp.PachToken = ""
-			return copyResp
-		},
-	},
-
-	"/auth_v2.API/RotateRootToken": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*auth.RotateRootTokenRequest)).(*auth.RotateRootTokenRequest)
-			copyReq.RootToken = ""
-			return copyReq
-		},
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*auth.RotateRootTokenResponse)).(*auth.RotateRootTokenResponse)
-			copyResp.RootToken = ""
-			return copyResp
-		},
-	},
-
-	"/auth_v2.API/GetOIDCLogin": {
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*auth.GetOIDCLoginResponse)).(*auth.GetOIDCLoginResponse)
-			copyResp.LoginURL = ""
-			copyResp.State = ""
-			return copyResp
-		},
-	},
-
-	"/auth_v2.API/SetConfiguration": {
-		transformRequest: func(r interface{}) interface{} {
-			req := r.(*auth.SetConfigurationRequest)
-			if req.Configuration == nil {
-				return r
-			}
-			copyReq := proto.Clone(req).(*auth.SetConfigurationRequest)
-			copyReq.Configuration.ClientSecret = ""
-			return copyReq
-		},
-	},
-
-	"/auth_v2.API/GetRobotToken": {
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*auth.GetRobotTokenResponse)).(*auth.GetRobotTokenResponse)
-			copyResp.Token = ""
-			return copyResp
-		},
-	},
-
-	"/auth_v2.API/RevokeAuthToken": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*auth.RevokeAuthTokenRequest)).(*auth.RevokeAuthTokenRequest)
-			copyReq.Token = ""
-			return copyReq
-		},
-	},
-
-	"/auth_v2.API/ExtractAuthTokens": {
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*auth.ExtractAuthTokensResponse)).(*auth.ExtractAuthTokensResponse)
-			copyResp.Tokens = nil
-			return copyResp
-		},
-	},
-
-	"/auth_v2.API/RestoreAuthToken": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*auth.RestoreAuthTokenRequest)).(*auth.RestoreAuthTokenRequest)
-			copyReq.Token = nil
-			return copyReq
-		},
-	},
-
-	"/auth_v2.API/GetConfiguration": {
-		transformResponse: func(r interface{}) interface{} {
-			resp := r.(*auth.GetConfigurationResponse)
-			if resp.Configuration == nil {
-				return resp
-			}
-			copyResp := proto.Clone(resp).(*auth.GetConfigurationResponse)
-			copyResp.Configuration.ClientSecret = ""
-			return copyResp
-		},
-	},
-
-	"/pfs_v2.API/CreateFileSet": {
-		transformRequest: func(r interface{}) interface{} {
-			return nil
-		},
-	},
-
-	"/pfs_v2.API/ModifyFile": { // TODO(jonathan): Provisional.  This is the only RPC that has big requests via wrapped BytesValues.
-		transformRequest: func(r interface{}) interface{} {
-			return "<modify file>"
-		},
-	},
 
 	"/grpc.health.v1.Health/Check": {
 		leveler: func(lvl log.Level, a any, err error) log.Level {
