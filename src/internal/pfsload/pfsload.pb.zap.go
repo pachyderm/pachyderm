@@ -26,7 +26,6 @@ func (x *CommitSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("modifications", zapcore.ArrayMarshalerFunc(modificationsArrMarshaller))
-
 	file_sourcesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.FileSources {
 			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
@@ -38,7 +37,6 @@ func (x *CommitSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("file_sources", zapcore.ArrayMarshalerFunc(file_sourcesArrMarshaller))
-
 	if obj, ok := interface{}(x.Validator).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("validator", obj)
 	} else {
@@ -132,7 +130,6 @@ func (x *RandomFileSourceSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		return nil
 	}
 	enc.AddArray("sizes", zapcore.ArrayMarshalerFunc(sizesArrMarshaller))
-
 	enc.AddBool("increment_path", x.IncrementPath)
 	return nil
 }
@@ -201,7 +198,6 @@ func (x *State) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("commits", zapcore.ArrayMarshalerFunc(commitsArrMarshaller))
-
 	return nil
 }
 

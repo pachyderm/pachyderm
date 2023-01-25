@@ -29,7 +29,6 @@ func (x *Meta) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("inputs", zapcore.ArrayMarshalerFunc(inputsArrMarshaller))
-
 	enc.AddString("hash", x.Hash)
 	enc.AddString("state", x.State.String())
 	enc.AddString("reason", x.Reason)
@@ -103,7 +102,6 @@ func (x *CrossTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("file_set_ids", zapcore.ArrayMarshalerFunc(file_set_idsArrMarshaller))
-
 	enc.AddInt64("base_file_set_index", x.BaseFileSetIndex)
 	if obj, ok := interface{}(x.BaseFileSetPathRange).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("base_file_set_path_range", obj)
@@ -161,7 +159,6 @@ func (x *MergeTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("file_set_ids", zapcore.ArrayMarshalerFunc(file_set_idsArrMarshaller))
-
 	if obj, ok := interface{}(x.PathRange).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("path_range", obj)
 	} else {
@@ -193,7 +190,6 @@ func (x *ComposeTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("file_set_ids", zapcore.ArrayMarshalerFunc(file_set_idsArrMarshaller))
-
 	enc.AddString("auth_token", x.AuthToken)
 	return nil
 }

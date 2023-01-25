@@ -61,6 +61,5 @@ func (x *File) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("data_refs", zapcore.ArrayMarshalerFunc(data_refsArrMarshaller))
-
 	return nil
 }

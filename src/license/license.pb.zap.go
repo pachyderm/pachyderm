@@ -14,7 +14,7 @@ func (x *ActivateRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 
-	enc.AddString("activation_code", x.ActivationCode)
+	protoextensions.AddHalfString(enc, "activation_code", x.ActivationCode)
 	protoextensions.AddTimestamp(enc, "expires", x.Expires)
 	return nil
 }
@@ -51,7 +51,7 @@ func (x *GetActivationCodeResponse) MarshalLogObject(enc zapcore.ObjectEncoder) 
 	} else {
 		enc.AddReflected("info", x.Info)
 	}
-	enc.AddString("activation_code", x.ActivationCode)
+	protoextensions.AddHalfString(enc, "activation_code", x.ActivationCode)
 	return nil
 }
 
@@ -78,7 +78,7 @@ func (x *AddClusterRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("id", x.Id)
 	enc.AddString("address", x.Address)
-	enc.AddString("secret", x.Secret)
+	protoextensions.AddHalfString(enc, "secret", x.Secret)
 	enc.AddString("user_address", x.UserAddress)
 	enc.AddString("cluster_deployment_id", x.ClusterDeploymentId)
 	enc.AddBool("enterprise_server", x.EnterpriseServer)
@@ -90,7 +90,7 @@ func (x *AddClusterResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 
-	enc.AddString("secret", x.Secret)
+	protoextensions.AddHalfString(enc, "secret", x.Secret)
 	return nil
 }
 
@@ -175,7 +175,6 @@ func (x *ListClustersResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		return nil
 	}
 	enc.AddArray("clusters", zapcore.ArrayMarshalerFunc(clustersArrMarshaller))
-
 	return nil
 }
 
@@ -201,7 +200,7 @@ func (x *HeartbeatRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("id", x.Id)
-	enc.AddString("secret", x.Secret)
+	protoextensions.AddHalfString(enc, "secret", x.Secret)
 	enc.AddString("version", x.Version)
 	enc.AddBool("auth_enabled", x.AuthEnabled)
 	enc.AddString("client_id", x.ClientId)
@@ -257,6 +256,5 @@ func (x *ListUserClustersResponse) MarshalLogObject(enc zapcore.ObjectEncoder) e
 		return nil
 	}
 	enc.AddArray("clusters", zapcore.ArrayMarshalerFunc(clustersArrMarshaller))
-
 	return nil
 }

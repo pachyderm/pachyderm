@@ -20,7 +20,6 @@ func (x *ShardTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("inputs", zapcore.ArrayMarshalerFunc(inputsArrMarshaller))
-
 	if obj, ok := interface{}(x.PathRange).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("path_range", obj)
 	} else {
@@ -45,7 +44,6 @@ func (x *ShardTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("compact_tasks", zapcore.ArrayMarshalerFunc(compact_tasksArrMarshaller))
-
 	return nil
 }
 
@@ -71,7 +69,6 @@ func (x *CompactTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("inputs", zapcore.ArrayMarshalerFunc(inputsArrMarshaller))
-
 	if obj, ok := interface{}(x.PathRange).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("path_range", obj)
 	} else {
@@ -101,7 +98,6 @@ func (x *ConcatTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("inputs", zapcore.ArrayMarshalerFunc(inputsArrMarshaller))
-
 	return nil
 }
 
@@ -163,7 +159,6 @@ func (x *PutFileURLTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("paths", zapcore.ArrayMarshalerFunc(pathsArrMarshaller))
-
 	return nil
 }
 

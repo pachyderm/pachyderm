@@ -153,7 +153,6 @@ func (x *ListIDPConnectorsResponse) MarshalLogObject(enc zapcore.ObjectEncoder) 
 		return nil
 	}
 	enc.AddArray("connectors", zapcore.ArrayMarshalerFunc(connectorsArrMarshaller))
-
 	return nil
 }
 
@@ -209,7 +208,6 @@ func (x *OIDCClient) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("redirect_uris", zapcore.ArrayMarshalerFunc(redirect_urisArrMarshaller))
-
 	trusted_peersArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.TrustedPeers {
 			enc.AppendString(v)
@@ -217,7 +215,6 @@ func (x *OIDCClient) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("trusted_peers", zapcore.ArrayMarshalerFunc(trusted_peersArrMarshaller))
-
 	enc.AddString("name", x.Name)
 	enc.AddString("secret", "[MASKED]")
 	return nil
@@ -295,7 +292,6 @@ func (x *ListOIDCClientsResponse) MarshalLogObject(enc zapcore.ObjectEncoder) er
 		return nil
 	}
 	enc.AddArray("clients", zapcore.ArrayMarshalerFunc(clientsArrMarshaller))
-
 	return nil
 }
 

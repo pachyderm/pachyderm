@@ -38,7 +38,6 @@ func (x *Composite) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("layers", zapcore.ArrayMarshalerFunc(layersArrMarshaller))
-
 	return nil
 }
 

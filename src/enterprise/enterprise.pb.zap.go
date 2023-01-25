@@ -14,7 +14,7 @@ func (x *LicenseRecord) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 
-	enc.AddString("activation_code", x.ActivationCode)
+	protoextensions.AddHalfString(enc, "activation_code", x.ActivationCode)
 	protoextensions.AddTimestamp(enc, "expires", x.Expires)
 	return nil
 }
@@ -61,7 +61,7 @@ func (x *ActivateRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 	enc.AddString("license_server", x.LicenseServer)
 	enc.AddString("id", x.Id)
-	enc.AddString("secret", x.Secret)
+	protoextensions.AddHalfString(enc, "secret", x.Secret)
 	return nil
 }
 
@@ -92,7 +92,7 @@ func (x *GetStateResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("info", x.Info)
 	}
-	enc.AddString("activation_code", x.ActivationCode)
+	protoextensions.AddHalfString(enc, "activation_code", x.ActivationCode)
 	return nil
 }
 
@@ -115,7 +115,7 @@ func (x *GetActivationCodeResponse) MarshalLogObject(enc zapcore.ObjectEncoder) 
 	} else {
 		enc.AddReflected("info", x.Info)
 	}
-	enc.AddString("activation_code", x.ActivationCode)
+	protoextensions.AddHalfString(enc, "activation_code", x.ActivationCode)
 	return nil
 }
 

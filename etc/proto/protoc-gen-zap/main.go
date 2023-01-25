@@ -23,6 +23,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap/gogoproto"
 	"github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap/protoextensions"
@@ -133,6 +134,13 @@ func generatePrimitiveField(g *protogen.GeneratedFile, f *protogen.Field, opts *
 	} else {
 		gname = f.GoName
 	}
+
+	half := proto.GetExtension(opts, protoextensions.E_Half).(bool)
+	if half && f.Desc.Kind() != protoreflect.StringKind {
+		fmt.Fprintf(os.Stderr, "field %v: can only apply log.half to fields of type string (not %v)", f.Desc.Name(), f.Desc.Kind().String())
+		os.Exit(1)
+	}
+
 	switch f.Desc.Kind() {
 	case protoreflect.BoolKind:
 		g.P("enc.AddBool(\"", fname, "\", x.", gname, ")")
@@ -184,7 +192,11 @@ func generatePrimitiveField(g *protogen.GeneratedFile, f *protogen.Field, opts *
 			g.P("}")
 		}
 	case protoreflect.StringKind:
-		g.P("enc.AddString(\"", fname, "\", x.", gname, ")")
+		if half {
+			g.P(g.QualifiedGoIdent(extensionPkg.Ident("AddHalfString")), `(enc, "`, fname, `", x.`, gname, `)`)
+		} else {
+			g.P("enc.AddString(\"", fname, "\", x.", gname, ")")
+		}
 	default:
 		g.P("enc.AddReflected(\"", fname, "\", x.", gname, ")")
 	}

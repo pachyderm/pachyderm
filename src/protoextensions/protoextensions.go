@@ -4,6 +4,8 @@
 package protoextensions
 
 import (
+	fmt "fmt"
+
 	"github.com/gogo/protobuf/types"
 	"go.uber.org/zap/zapcore"
 )
@@ -86,4 +88,13 @@ func (b ConciseBytes) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddBinary("bytes", b)
 	}
 	return nil
+}
+
+// AddHalfString adds the first half of a string, and a message saying how many bytes were omitted.
+func AddHalfString(enc zapcore.ObjectEncoder, key, value string) {
+	if value == "" {
+		enc.AddString(key, "")
+		return
+	}
+	enc.AddString(key, fmt.Sprintf("%s.../%d", value[:len(value)/2], len(value)))
 }

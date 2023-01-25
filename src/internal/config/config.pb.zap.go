@@ -57,7 +57,6 @@ func (x *ConfigV2) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		}
 		return nil
 	}))
-
 	enc.AddBool("metrics", x.Metrics)
 	enc.AddInt64("max_shell_completions", x.MaxShellCompletions)
 	return nil
@@ -82,7 +81,6 @@ func (x *Context) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		}
 		return nil
 	}))
-
 	enc.AddString("cluster_deployment_id", x.ClusterDeploymentID)
 	enc.AddBool("enterprise_server", x.EnterpriseServer)
 	enc.AddString("project", x.Project)

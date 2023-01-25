@@ -23,7 +23,6 @@ func (x *ClusterInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("version_warnings", zapcore.ArrayMarshalerFunc(version_warningsArrMarshaller))
-
 	return nil
 }
 

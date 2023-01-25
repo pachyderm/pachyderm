@@ -21,7 +21,6 @@ func (x *CancelRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("data_filters", zapcore.ArrayMarshalerFunc(data_filtersArrMarshaller))
-
 	return nil
 }
 

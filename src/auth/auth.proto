@@ -341,7 +341,7 @@ message SessionInfo {
   // nonce is used by /authorization-code/callback to validate session
   // continuity with the IdP after a user has arrived there from GetOIDCLogin().
   // This is a 30-character CSPRNG-generated string.
-  string nonce = 1;
+  string nonce = 1 [(log.half) = true];
   // email contains the email adddress associated with a user in their OIDC ID
   // provider. Currently users are identified with their email address rather
   // than their OIDC subject identifier to make switching between OIDC ID
@@ -369,7 +369,7 @@ message GetOIDCLoginRequest {
 message GetOIDCLoginResponse {
   // The login URL generated for the OIDC object
   string login_url = 1 [(gogoproto.customname) = "LoginURL", (log.half) = true];
-  string state = 2 [(log.mask) = true];
+  string state = 2 [(log.half) = true];
 }
 
 // Robot token API (TODO: add access controls)

@@ -120,7 +120,6 @@ func (x *CreateDatumSetsTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) 
 		return nil
 	}
 	enc.AddArray("datum_sets", zapcore.ArrayMarshalerFunc(datum_setsArrMarshaller))
-
 	return nil
 }
 

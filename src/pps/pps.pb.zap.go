@@ -35,7 +35,6 @@ func (x *Transform) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("cmd", zapcore.ArrayMarshalerFunc(cmdArrMarshaller))
-
 	err_cmdArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.ErrCmd {
 			enc.AppendString(v)
@@ -43,14 +42,12 @@ func (x *Transform) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("err_cmd", zapcore.ArrayMarshalerFunc(err_cmdArrMarshaller))
-
 	enc.AddObject("env", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
 		for k, v := range x.Env {
 			enc.AddString(fmt.Sprintf("%v", k), v)
 		}
 		return nil
 	}))
-
 	secretsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Secrets {
 			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
@@ -62,7 +59,6 @@ func (x *Transform) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("secrets", zapcore.ArrayMarshalerFunc(secretsArrMarshaller))
-
 	image_pull_secretsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.ImagePullSecrets {
 			enc.AppendString(v)
@@ -70,7 +66,6 @@ func (x *Transform) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("image_pull_secrets", zapcore.ArrayMarshalerFunc(image_pull_secretsArrMarshaller))
-
 	stdinArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Stdin {
 			enc.AppendString(v)
@@ -78,7 +73,6 @@ func (x *Transform) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("stdin", zapcore.ArrayMarshalerFunc(stdinArrMarshaller))
-
 	err_stdinArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.ErrStdin {
 			enc.AppendString(v)
@@ -86,7 +80,6 @@ func (x *Transform) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("err_stdin", zapcore.ArrayMarshalerFunc(err_stdinArrMarshaller))
-
 	accept_return_codeArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.AcceptReturnCode {
 			enc.AppendInt64(v)
@@ -94,7 +87,6 @@ func (x *Transform) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("accept_return_code", zapcore.ArrayMarshalerFunc(accept_return_codeArrMarshaller))
-
 	enc.AddBool("debug", x.Debug)
 	enc.AddString("user", x.User)
 	enc.AddString("working_dir", x.WorkingDir)
@@ -156,14 +148,12 @@ func (x *Metadata) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		}
 		return nil
 	}))
-
 	enc.AddObject("labels", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
 		for k, v := range x.Labels {
 			enc.AddString(fmt.Sprintf("%v", k), v)
 		}
 		return nil
 	}))
-
 	return nil
 }
 
@@ -254,7 +244,6 @@ func (x *Input) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("join", zapcore.ArrayMarshalerFunc(joinArrMarshaller))
-
 	groupArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Group {
 			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
@@ -266,7 +255,6 @@ func (x *Input) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("group", zapcore.ArrayMarshalerFunc(groupArrMarshaller))
-
 	crossArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Cross {
 			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
@@ -278,7 +266,6 @@ func (x *Input) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("cross", zapcore.ArrayMarshalerFunc(crossArrMarshaller))
-
 	unionArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Union {
 			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
@@ -290,7 +277,6 @@ func (x *Input) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("union", zapcore.ArrayMarshalerFunc(unionArrMarshaller))
-
 	if obj, ok := interface{}(x.Cron).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("cron", obj)
 	} else {
@@ -380,7 +366,6 @@ func (x *DatumInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("data", zapcore.ArrayMarshalerFunc(dataArrMarshaller))
-
 	enc.AddString("image_id", x.ImageId)
 	return nil
 }
@@ -476,7 +461,6 @@ func (x *DatumStatus) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("data", zapcore.ArrayMarshalerFunc(dataArrMarshaller))
-
 	return nil
 }
 
@@ -527,7 +511,6 @@ func (x *JobSetInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("jobs", zapcore.ArrayMarshalerFunc(jobsArrMarshaller))
-
 	return nil
 }
 
@@ -612,7 +595,6 @@ func (x *JobInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("worker_status", zapcore.ArrayMarshalerFunc(worker_statusArrMarshaller))
-
 	if obj, ok := interface{}(x.ResourceRequests).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("resource_requests", obj)
 	} else {
@@ -819,7 +801,6 @@ func (x *PipelineInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		return nil
 	}
 	enc.AddArray("tolerations", zapcore.ArrayMarshalerFunc(tolerationsArrMarshaller))
-
 	return nil
 }
 
@@ -839,7 +820,6 @@ func (x *PipelineInfos) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("pipeline_info", zapcore.ArrayMarshalerFunc(pipeline_infoArrMarshaller))
-
 	return nil
 }
 
@@ -884,7 +864,6 @@ func (x *ListJobSetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("projects", zapcore.ArrayMarshalerFunc(projectsArrMarshaller))
-
 	protoextensions.AddTimestamp(enc, "paginationMarker", x.PaginationMarker)
 	enc.AddInt64("number", x.Number)
 	enc.AddBool("reverse", x.Reverse)
@@ -922,7 +901,6 @@ func (x *ListJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("projects", zapcore.ArrayMarshalerFunc(projectsArrMarshaller))
-
 	if obj, ok := interface{}(x.Pipeline).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("pipeline", obj)
 	} else {
@@ -939,7 +917,6 @@ func (x *ListJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("input_commit", zapcore.ArrayMarshalerFunc(input_commitArrMarshaller))
-
 	enc.AddInt64("history", x.History)
 	enc.AddBool("details", x.Details)
 	enc.AddString("jqFilter", x.JqFilter)
@@ -1038,7 +1015,6 @@ func (x *GetLogsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("data_filters", zapcore.ArrayMarshalerFunc(data_filtersArrMarshaller))
-
 	if obj, ok := interface{}(x.Datum).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("datum", obj)
 	} else {
@@ -1074,7 +1050,6 @@ func (x *LogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("data", zapcore.ArrayMarshalerFunc(dataArrMarshaller))
-
 	enc.AddBool("user", x.User)
 	protoextensions.AddTimestamp(enc, "ts", x.Ts)
 	enc.AddString("message", x.Message)
@@ -1098,7 +1073,6 @@ func (x *RestartDatumRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		return nil
 	}
 	enc.AddArray("data_filters", zapcore.ArrayMarshalerFunc(data_filtersArrMarshaller))
-
 	return nil
 }
 
@@ -1153,7 +1127,6 @@ func (x *ListDatumRequest_Filter) MarshalLogObject(enc zapcore.ObjectEncoder) er
 		return nil
 	}
 	enc.AddArray("state", zapcore.ArrayMarshalerFunc(stateArrMarshaller))
-
 	return nil
 }
 
@@ -1179,7 +1152,6 @@ func (x *SchedulingSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		}
 		return nil
 	}))
-
 	enc.AddString("priority_class_name", x.PriorityClassName)
 	return nil
 }
@@ -1288,7 +1260,6 @@ func (x *CreatePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 		return nil
 	}
 	enc.AddArray("tolerations", zapcore.ArrayMarshalerFunc(tolerationsArrMarshaller))
-
 	return nil
 }
 
@@ -1335,7 +1306,6 @@ func (x *ListPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		return nil
 	}
 	enc.AddArray("projects", zapcore.ArrayMarshalerFunc(projectsArrMarshaller))
-
 	return nil
 }
 
@@ -1371,7 +1341,6 @@ func (x *DeletePipelinesRequest) MarshalLogObject(enc zapcore.ObjectEncoder) err
 		return nil
 	}
 	enc.AddArray("projects", zapcore.ArrayMarshalerFunc(projectsArrMarshaller))
-
 	enc.AddBool("force", x.Force)
 	enc.AddBool("keep_repo", x.KeepRepo)
 	enc.AddBool("all", x.All)
@@ -1394,7 +1363,6 @@ func (x *DeletePipelinesResponse) MarshalLogObject(enc zapcore.ObjectEncoder) er
 		return nil
 	}
 	enc.AddArray("pipelines", zapcore.ArrayMarshalerFunc(pipelinesArrMarshaller))
-
 	return nil
 }
 
@@ -1445,7 +1413,6 @@ func (x *RunPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("provenance", zapcore.ArrayMarshalerFunc(provenanceArrMarshaller))
-
 	enc.AddString("job_id", x.JobID)
 	return nil
 }
@@ -1538,7 +1505,6 @@ func (x *SecretInfos) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("secret_info", zapcore.ArrayMarshalerFunc(secret_infoArrMarshaller))
-
 	return nil
 }
 
@@ -1594,7 +1560,6 @@ func (x *RenderTemplateRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 		}
 		return nil
 	}))
-
 	return nil
 }
 
@@ -1615,6 +1580,5 @@ func (x *RenderTemplateResponse) MarshalLogObject(enc zapcore.ObjectEncoder) err
 		return nil
 	}
 	enc.AddArray("specs", zapcore.ArrayMarshalerFunc(specsArrMarshaller))
-
 	return nil
 }

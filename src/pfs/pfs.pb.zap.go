@@ -78,7 +78,6 @@ func (x *RepoInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("branches", zapcore.ArrayMarshalerFunc(branchesArrMarshaller))
-
 	if obj, ok := interface{}(x.AuthInfo).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("auth_info", obj)
 	} else {
@@ -113,7 +112,6 @@ func (x *RepoAuthInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("permissions", zapcore.ArrayMarshalerFunc(permissionsArrMarshaller))
-
 	rolesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Roles {
 			enc.AppendString(v)
@@ -121,7 +119,6 @@ func (x *RepoAuthInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("roles", zapcore.ArrayMarshalerFunc(rolesArrMarshaller))
-
 	return nil
 }
 
@@ -151,7 +148,6 @@ func (x *BranchInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("provenance", zapcore.ArrayMarshalerFunc(provenanceArrMarshaller))
-
 	subvenanceArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Subvenance {
 			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
@@ -163,7 +159,6 @@ func (x *BranchInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("subvenance", zapcore.ArrayMarshalerFunc(subvenanceArrMarshaller))
-
 	direct_provenanceArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.DirectProvenance {
 			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
@@ -175,7 +170,6 @@ func (x *BranchInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("direct_provenance", zapcore.ArrayMarshalerFunc(direct_provenanceArrMarshaller))
-
 	if obj, ok := interface{}(x.Trigger).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("trigger", obj)
 	} else {
@@ -252,7 +246,6 @@ func (x *CommitInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("child_commits", zapcore.ArrayMarshalerFunc(child_commitsArrMarshaller))
-
 	protoextensions.AddTimestamp(enc, "started", x.Started)
 	protoextensions.AddTimestamp(enc, "finishing", x.Finishing)
 	protoextensions.AddTimestamp(enc, "finished", x.Finished)
@@ -267,7 +260,6 @@ func (x *CommitInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("direct_provenance", zapcore.ArrayMarshalerFunc(direct_provenanceArrMarshaller))
-
 	enc.AddString("error", x.Error)
 	enc.AddInt64("size_bytes_upper_bound", x.SizeBytesUpperBound)
 	if obj, ok := interface{}(x.Details).(zapcore.ObjectMarshaler); ok {
@@ -319,7 +311,6 @@ func (x *CommitSetInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("commits", zapcore.ArrayMarshalerFunc(commitsArrMarshaller))
-
 	return nil
 }
 
@@ -408,7 +399,6 @@ func (x *ListRepoRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("projects", zapcore.ArrayMarshalerFunc(projectsArrMarshaller))
-
 	return nil
 }
 
@@ -442,7 +432,6 @@ func (x *DeleteReposRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("projects", zapcore.ArrayMarshalerFunc(projectsArrMarshaller))
-
 	enc.AddBool("force", x.Force)
 	enc.AddBool("all", x.All)
 	return nil
@@ -464,7 +453,6 @@ func (x *DeleteReposResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		return nil
 	}
 	enc.AddArray("repos", zapcore.ArrayMarshalerFunc(reposArrMarshaller))
-
 	return nil
 }
 
@@ -659,7 +647,6 @@ func (x *CreateBranchRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		return nil
 	}
 	enc.AddArray("provenance", zapcore.ArrayMarshalerFunc(provenanceArrMarshaller))
-
 	if obj, ok := interface{}(x.Trigger).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("trigger", obj)
 	} else {
@@ -1052,7 +1039,6 @@ func (x *ComposeFileSetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 		return nil
 	}
 	enc.AddArray("file_set_ids", zapcore.ArrayMarshalerFunc(file_set_idsArrMarshaller))
-
 	enc.AddInt64("ttl_seconds", x.TtlSeconds)
 	enc.AddBool("compact", x.Compact)
 	return nil
@@ -1093,7 +1079,6 @@ func (x *ShardFileSetResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		return nil
 	}
 	enc.AddArray("shards", zapcore.ArrayMarshalerFunc(shardsArrMarshaller))
-
 	return nil
 }
 
@@ -1131,7 +1116,6 @@ func (x *PutCacheRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("file_set_ids", zapcore.ArrayMarshalerFunc(file_set_idsArrMarshaller))
-
 	enc.AddString("tag", x.Tag)
 	return nil
 }
@@ -1254,7 +1238,6 @@ func (x *SQLDatabaseEgress_FileFormat) MarshalLogObject(enc zapcore.ObjectEncode
 		return nil
 	}
 	enc.AddArray("columns", zapcore.ArrayMarshalerFunc(columnsArrMarshaller))
-
 	return nil
 }
 
@@ -1329,6 +1312,5 @@ func (x *EgressResponse_SQLDatabaseResult) MarshalLogObject(enc zapcore.ObjectEn
 		}
 		return nil
 	}))
-
 	return nil
 }

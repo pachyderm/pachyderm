@@ -118,7 +118,6 @@ func (x *TransactionInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("requests", zapcore.ArrayMarshalerFunc(requestsArrMarshaller))
-
 	responsesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Responses {
 			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
@@ -130,7 +129,6 @@ func (x *TransactionInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("responses", zapcore.ArrayMarshalerFunc(responsesArrMarshaller))
-
 	protoextensions.AddTimestamp(enc, "started", x.Started)
 	enc.AddUint64("version", x.Version)
 	return nil
@@ -152,7 +150,6 @@ func (x *TransactionInfos) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("transaction_info", zapcore.ArrayMarshalerFunc(transaction_infoArrMarshaller))
-
 	return nil
 }
 
@@ -172,7 +169,6 @@ func (x *BatchTransactionRequest) MarshalLogObject(enc zapcore.ObjectEncoder) er
 		return nil
 	}
 	enc.AddArray("requests", zapcore.ArrayMarshalerFunc(requestsArrMarshaller))
-
 	return nil
 }
 
