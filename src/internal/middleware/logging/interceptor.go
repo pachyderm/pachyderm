@@ -5,7 +5,6 @@ import (
 	"context"
 	"io"
 	"reflect"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -99,6 +98,7 @@ func getCommonLogger(ctx context.Context, service, method string) context.Contex
 		}
 		if command := md.Get("command"); command != nil {
 			f = append(f, zap.Strings("command", command))
+			log.Info(ctx, "audit log: ", f...)
 		}
 	}
 	if peer, ok := peer.FromContext(ctx); ok {
@@ -169,12 +169,6 @@ func (li *LoggingInterceptor) UnaryServerInterceptor(ctx context.Context, req in
 
 	service, method := parseMethod(info.FullMethod)
 	ctx = getCommonLogger(ctx, service, method)
-
-	md, ok := metadata.FromIncomingContext(ctx)
-	if ok && len(md.Get("command")) > 0 {
-		command := md.Get("command")
-		dolog(ctx, log.InfoLevel, "audit log: "+strings.Join(command, ""))
-	}
 
 	// NOTE(jonathan): We use service/method in the log messages so that rate limiting applies
 	// per-RPC instead of for all RPCs.  (Rate limiting algorithm looks at the message and the
