@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -203,6 +204,33 @@ func BenchmarkProtoObject(b *testing.B) {
 	ctx, w := newBenchLogger(false)
 	for i := 0; i < b.N; i++ {
 		Debug(ctx, "proto", zap.Object("pipeline", bigProto))
+	}
+	if w.n == 0 {
+		b.Fatal("no bytes added to logger")
+	}
+}
+
+func BenchmarkProtoJSONEncode(b *testing.B) {
+	ctx, w := newBenchLogger(false)
+	m := jsonpb.Marshaler{
+		EmitDefaults: true,
+	}
+	for i := 0; i < b.N; i++ {
+		j, err := m.MarshalToString(bigProto)
+		if err != nil {
+			panic(err)
+		}
+		Debug(ctx, "proto", zap.String("json", j))
+	}
+	if w.n == 0 {
+		b.Fatal("no bytes added to logger")
+	}
+}
+
+func BenchmarkProtoTextEncode(b *testing.B) {
+	ctx, w := newBenchLogger(false)
+	for i := 0; i < b.N; i++ {
+		Debug(ctx, "proto", zap.Stringer("text", bigProto))
 	}
 	if w.n == 0 {
 		b.Fatal("no bytes added to logger")
