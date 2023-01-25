@@ -5759,6 +5759,8 @@ func TestPFS(suite *testing.T) {
 				err = env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "master", "", "", provBranches)
 				if err != nil && !strings.Contains(err.Error(), "cannot be in the provenance of its own branch") {
 					require.NoError(t, err)
+				} else if pfsserver.IsInvalidBranchStructureErr(err) {
+					// skip
 				} else if err == nil {
 					outputBranches = append(outputBranches, client.NewProjectBranch(pfs.DefaultProjectName, repo, "master"))
 					if len(provBranches) > 0 {

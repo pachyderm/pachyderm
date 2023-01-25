@@ -146,6 +146,12 @@ type ErrDropWithChildren struct {
 	Commit *pfs.Commit
 }
 
+// ErrInvalidBranchStructure represents an error where more than one branch
+// from a repo is reachable in a DAG. Such a DAG structure is unsupported.
+type ErrInvalidBranchStructure struct {
+	Branch *pfs.Branch
+}
+
 const GetFileTARSuggestion = "Use GetFileTAR instead"
 
 var (
@@ -285,6 +291,10 @@ func (e ErrDropWithChildren) Error() string {
 	return fmt.Sprintf("cannot drop a commit that has children: %s", e.Commit)
 }
 
+func (e ErrInvalidBranchStructure) Error() string {
+	return fmt.Sprintf("multiple branches from the same repo, %q, cannot participate in a DAG", e.Branch.Repo.String())
+}
+
 var (
 	commitNotFoundRe          = regexp.MustCompile("commit [^ ]+ not found")
 	commitsetNotFoundRe       = regexp.MustCompile("no commits found for commitset")
@@ -304,6 +314,7 @@ var (
 	squashWithoutChildrenRe   = regexp.MustCompile("cannot squash a commit that has no children")
 	dropWithChildrenRe        = regexp.MustCompile("cannot drop a commit that has children")
 	deleteWithDependentSetsRe = regexp.MustCompile("cannot be squashed in isolation; to delete them also squash")
+	invalidBranchStructureRe  = regexp.MustCompile("multiple branches from the same repo, .+, cannot participate in a DAG")
 )
 
 // IsCommitNotFoundErr returns true if 'err' has an error message that matches
@@ -465,6 +476,13 @@ func IsDeleteWithDependentCommitSetsErr(err error) bool {
 		return false
 	}
 	return deleteWithDependentSetsRe.MatchString(err.Error())
+}
+
+func IsInvalidBranchStructureErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return invalidBranchStructureRe.MatchString(err.Error())
 }
 
 func ValidateSQLDatabaseEgress(sql *pfs.SQLDatabaseEgress) error {

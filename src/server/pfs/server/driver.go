@@ -1399,7 +1399,7 @@ func (d *driver) validateDAGStructure(txnCtx *txncontext.TransactionContext, bi 
 	foundRepos := make(map[string]struct{})
 	for _, bi := range branchInfoCache {
 		if _, ok := foundRepos[bi.Branch.Repo.String()]; ok {
-			return errors.Errorf("multiple branches from the same repo, %q, cannot participate in a DAG", bi.Branch.Repo.String())
+			return &pfsserver.ErrInvalidBranchStructure{Branch: bi.Branch}
 		}
 		foundRepos[bi.Branch.Repo.String()] = struct{}{}
 	}

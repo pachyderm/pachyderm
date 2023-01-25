@@ -18,7 +18,7 @@ import (
 // A commit set will include all the commits that were created across repos for a run, along
 // with all of the commits that the run's commit's rely on (present in previous commit sets).
 func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, filterAliases bool) ([]*pfs.CommitInfo, error) {
-	var commitInfos []*pfs.CommitInfo
+	commits := make(map[string]*pfs.CommitInfo) // commit key -> commit info
 	if !filterAliases {
 		cs, err := pfsdb.CommitSetProvenance(txnCtx.SqlTx, commitset.ID)
 		if err != nil {
@@ -29,20 +29,27 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(c, ci); err != nil {
 				return nil, err
 			}
-			commitInfos = append(commitInfos, ci)
+			commits[pfsdb.CommitKey(ci.Commit)] = ci
 		}
 	}
 	ci := &pfs.CommitInfo{}
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitset.ID, ci, col.DefaultOptions(), func(string) error {
-		commitInfos = append(commitInfos, proto.Clone(ci).(*pfs.CommitInfo))
+		commits[pfsdb.CommitKey(ci.Commit)] = ci
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	commits := make(map[string]*pfs.CommitInfo) // commit key -> commit info
-	commitSubv := make(map[string][]string)     // maps commit key -> []commit keys
-	for _, ci := range commitInfos {
-		commits[pfsdb.CommitKey(ci.Commit)] = ci
+	commitSubv := make(map[string][]string) // maps commit key -> []commit keys
+	queue := make([]string, 0)
+	seenQueue := make(map[string]struct{})
+	res := make([]*pfs.CommitInfo, 0)
+	// set up commitSubv
+	for _, ci := range commits {
+		for _, p := range ci.CommitProvenance {
+			if _, ok := commits[pfsdb.CommitKey(p)]; ok {
+				commitSubv[pfsdb.CommitKey(p)] = append(commitSubv[pfsdb.CommitKey(p)], pfsdb.CommitKey(ci.Commit))
+			}
+		}
 	}
 	canPop := func(k string) bool {
 		for _, p := range commits[k].CommitProvenance {
@@ -52,24 +59,13 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 		}
 		return true
 	}
-	queue := make([]string, 0)
-	seenQueue := make(map[string]struct{})
-	res := make([]*pfs.CommitInfo, 0)
-	// set up commitSubv
-	for _, ci := range commitInfos {
-		for _, p := range ci.CommitProvenance {
-			if _, ok := commits[pfsdb.CommitKey(p)]; ok {
-				commitSubv[pfsdb.CommitKey(p)] = append(commitSubv[pfsdb.CommitKey(p)], pfsdb.CommitKey(ci.Commit))
-			}
-		}
-	}
 	// load queue with commits that can be popped
-	for _, ci := range commitInfos {
+	for _, ci := range commits {
 		if canPop(pfsdb.CommitKey(ci.Commit)) {
 			queue = append(queue, pfsdb.CommitKey(ci.Commit))
 		}
 	}
-	for len(res) < len(commitInfos) {
+	for len(res) < len(commits) {
 		for i, k := range queue {
 			if canPop(k) {
 				res = append(res, commits[k])
