@@ -13,18 +13,9 @@ func (x *Config) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("user_id", x.UserID)
-	if obj, ok := interface{}(x.V1).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("v1", obj)
-	} else {
-		enc.AddReflected("v1", x.V1)
-	}
-	if obj, ok := interface{}(x.V2).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("v2", obj)
-	} else {
-		enc.AddReflected("v2", x.V2)
-	}
+	enc.AddObject("v1", x.V1)
+	enc.AddObject("v2", x.V2)
 	return nil
 }
 
@@ -32,7 +23,6 @@ func (x *ConfigV1) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("pachd_address", x.PachdAddress)
 	enc.AddString("server_cas", x.ServerCAs)
 	enc.AddString("session_token", x.SessionToken)
@@ -44,16 +34,11 @@ func (x *ConfigV2) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("active_context", x.ActiveContext)
 	enc.AddString("active_enterprise_context", x.ActiveEnterpriseContext)
 	enc.AddObject("contexts", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
 		for k, v := range x.Contexts {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AddObject(fmt.Sprintf("%v", k), obj)
-			} else {
-				enc.AddReflected(fmt.Sprintf("%v", k), v)
-			}
+			enc.AddObject(fmt.Sprintf("%v", k), v)
 		}
 		return nil
 	}))
@@ -66,7 +51,6 @@ func (x *Context) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("source", x.Source.String())
 	enc.AddString("pachd_address", x.PachdAddress)
 	enc.AddString("server_cas", x.ServerCAs)

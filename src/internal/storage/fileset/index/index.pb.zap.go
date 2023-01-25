@@ -12,7 +12,6 @@ func (x *Index) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("path", x.Path)
 	if obj, ok := interface{}(x.Range).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("range", obj)
@@ -33,7 +32,6 @@ func (x *Range) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddInt64("offset", x.Offset)
 	enc.AddString("last_path", x.LastPath)
 	if obj, ok := interface{}(x.ChunkRef).(zapcore.ObjectMarshaler); ok {
@@ -48,7 +46,6 @@ func (x *File) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("datum", x.Datum)
 	data_refsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.DataRefs {

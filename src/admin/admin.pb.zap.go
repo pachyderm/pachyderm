@@ -12,7 +12,6 @@ func (x *ClusterInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("id", x.ID)
 	enc.AddString("deployment_id", x.DeploymentID)
 	enc.AddBool("version_warnings_ok", x.VersionWarningsOk)
@@ -30,11 +29,6 @@ func (x *InspectClusterRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.ClientVersion).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("client_version", obj)
-	} else {
-		enc.AddReflected("client_version", x.ClientVersion)
-	}
+	enc.AddObject("client_version", x.ClientVersion)
 	return nil
 }

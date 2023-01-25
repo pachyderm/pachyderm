@@ -24,6 +24,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap/gogoproto"
 	"github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap/protoextensions"
@@ -67,11 +68,15 @@ func generateListField(g *protogen.GeneratedFile, f *protogen.Field) {
 	case protoreflect.MessageKind:
 		// We don't have any protos that have 'repeated google.protobuf.*' fields, so no
 		// special support exists to handle them here.
-		g.P("if obj, ok := interface{}(v).(", g.QualifiedGoIdent(zapcorePkg.Ident("ObjectMarshaler")), "); ok {")
-		g.P("enc.AppendObject(obj)")
-		g.P("} else {")
-		g.P("enc.AppendReflected(v)")
-		g.P("}")
+		if isPachydermProto(string(f.Desc.Message().FullName())) {
+			g.P("enc.AppendObject(v)")
+		} else {
+			g.P("if obj, ok := interface{}(v).(", g.QualifiedGoIdent(zapcorePkg.Ident("ObjectMarshaler")), "); ok {")
+			g.P("enc.AppendObject(obj)")
+			g.P("} else {")
+			g.P("enc.AppendReflected(v)")
+			g.P("}")
+		}
 	case protoreflect.StringKind:
 		g.P("enc.AppendString(v)")
 	default:
@@ -111,11 +116,15 @@ func generateMapField(g *protogen.GeneratedFile, f *protogen.Field) {
 	case protoreflect.MessageKind:
 		// We don't have any protos that use google.protobuf.* map keys or values, so no
 		// special support for those is here.
-		g.P("if obj, ok := interface{}(v).(", g.QualifiedGoIdent(zapcorePkg.Ident("ObjectMarshaler")), "); ok {")
-		g.P("enc.AddObject(", g.QualifiedGoIdent(fmtPkg.Ident("Sprintf")), "(\"%v\", k), obj)")
-		g.P("} else {")
-		g.P("enc.AddReflected(", g.QualifiedGoIdent(fmtPkg.Ident("Sprintf")), "(\"%v\", k), v)")
-		g.P("}")
+		if isPachydermProto(string(f.Desc.Message().FullName())) {
+			g.P("enc.AddObject(", g.QualifiedGoIdent(fmtPkg.Ident("Sprintf")), "(\"%v\", k), v)")
+		} else {
+			g.P("if obj, ok := interface{}(v).(", g.QualifiedGoIdent(zapcorePkg.Ident("ObjectMarshaler")), "); ok {")
+			g.P("enc.AddObject(", g.QualifiedGoIdent(fmtPkg.Ident("Sprintf")), "(\"%v\", k), obj)")
+			g.P("} else {")
+			g.P("enc.AddReflected(", g.QualifiedGoIdent(fmtPkg.Ident("Sprintf")), "(\"%v\", k), v)")
+			g.P("}")
+		}
 	case protoreflect.StringKind:
 		g.P("enc.AddString(", g.QualifiedGoIdent(fmtPkg.Ident("Sprintf")), "(\"%v\", k), v)")
 	default:
@@ -185,11 +194,18 @@ func generatePrimitiveField(g *protogen.GeneratedFile, f *protogen.Field, opts *
 		case "google.protobuf.Int64Value":
 			g.P(g.QualifiedGoIdent(extensionPkg.Ident("AddInt64Value")), `(enc, "`, fname, `", x.`, gname, `)`)
 		default:
-			g.P("if obj, ok := interface{}(x.", gname, ").(", g.QualifiedGoIdent(zapcorePkg.Ident("ObjectMarshaler")), "); ok {")
-			g.P("enc.AddObject(\"", fname, "\", obj)")
-			g.P("} else {")
-			g.P("enc.AddReflected(\"", fname, "\", x.", gname, ")")
-			g.P("}")
+			// Avoid reflection for our own types, which we know will have MarshalLogObject.
+			if isPachydermProto(string(f.Desc.Message().FullName())) {
+				g.P("enc.AddObject(\"", fname, "\", x.", gname, ")")
+			} else {
+				fmt.Fprintf(os.Stderr, "** FALLBACK ON %v\n", f.Desc.Message().FullName())
+
+				g.P("if obj, ok := interface{}(x.", gname, ").(", g.QualifiedGoIdent(zapcorePkg.Ident("ObjectMarshaler")), "); ok {")
+				g.P("enc.AddObject(\"", fname, "\", obj)")
+				g.P("} else {")
+				g.P("enc.AddReflected(\"", fname, "\", x.", gname, ")")
+				g.P("}")
+			}
 		}
 	case protoreflect.StringKind:
 		if half {
@@ -202,13 +218,21 @@ func generatePrimitiveField(g *protogen.GeneratedFile, f *protogen.Field, opts *
 	}
 }
 
+func isPachydermProto(fullName string) bool {
+	if strings.Contains(fullName, "_v2.") {
+		return true
+	}
+	return strings.HasPrefix(fullName, "datum.") ||
+		strings.HasPrefix(fullName, "pfsload.") ||
+		strings.HasPrefix(fullName, "taskapi.")
+}
+
 func generateMessage(g *protogen.GeneratedFile, m *protogen.Message) {
 	ident := g.QualifiedGoIdent(m.GoIdent)
 	g.P("func (x *", ident, ") MarshalLogObject(enc ", g.QualifiedGoIdent(zapcorePkg.Ident("ObjectEncoder")), ") error {")
 	g.P("if x == nil {")
 	g.P("return nil")
 	g.P("}")
-	g.P()
 	for _, f := range m.Fields {
 		opts := f.Desc.Options().(*descriptorpb.FieldOptions)
 		if opts != nil {

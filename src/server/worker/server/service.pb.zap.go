@@ -12,7 +12,6 @@ func (x *CancelRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("job_id", x.JobID)
 	data_filtersArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.DataFilters {
@@ -28,7 +27,6 @@ func (x *CancelResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddBool("success", x.Success)
 	return nil
 }

@@ -13,7 +13,6 @@ func (x *Group) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -21,7 +20,6 @@ func (x *Task) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("id", x.ID)
 	enc.AddString("state", x.State.String())
 	protoextensions.AddAny(enc, "input", x.Input)
@@ -35,7 +33,6 @@ func (x *Claim) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -43,7 +40,6 @@ func (x *TestTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("id", x.ID)
 	return nil
 }

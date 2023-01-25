@@ -12,12 +12,7 @@ func (x *State) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Branch).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("branch", obj)
-	} else {
-		enc.AddReflected("branch", x.Branch)
-	}
+	enc.AddObject("branch", x.Branch)
 	enc.AddString("pfs_state_id", x.PfsStateId)
 	return nil
 }

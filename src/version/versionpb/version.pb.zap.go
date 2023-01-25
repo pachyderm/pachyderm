@@ -12,7 +12,6 @@ func (x *Version) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddUint32("major", x.Major)
 	enc.AddUint32("minor", x.Minor)
 	enc.AddUint32("micro", x.Micro)

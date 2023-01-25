@@ -13,7 +13,6 @@ func (x *ActivateRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	protoextensions.AddHalfString(enc, "activation_code", x.ActivationCode)
 	protoextensions.AddTimestamp(enc, "expires", x.Expires)
 	return nil
@@ -23,12 +22,7 @@ func (x *ActivateResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Info).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("info", obj)
-	} else {
-		enc.AddReflected("info", x.Info)
-	}
+	enc.AddObject("info", x.Info)
 	return nil
 }
 
@@ -36,7 +30,6 @@ func (x *GetActivationCodeRequest) MarshalLogObject(enc zapcore.ObjectEncoder) e
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -44,13 +37,8 @@ func (x *GetActivationCodeResponse) MarshalLogObject(enc zapcore.ObjectEncoder) 
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("state", x.State.String())
-	if obj, ok := interface{}(x.Info).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("info", obj)
-	} else {
-		enc.AddReflected("info", x.Info)
-	}
+	enc.AddObject("info", x.Info)
 	protoextensions.AddHalfString(enc, "activation_code", x.ActivationCode)
 	return nil
 }
@@ -59,7 +47,6 @@ func (x *DeactivateRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -67,7 +54,6 @@ func (x *DeactivateResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -75,7 +61,6 @@ func (x *AddClusterRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("id", x.Id)
 	enc.AddString("address", x.Address)
 	protoextensions.AddHalfString(enc, "secret", x.Secret)
@@ -89,7 +74,6 @@ func (x *AddClusterResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	protoextensions.AddHalfString(enc, "secret", x.Secret)
 	return nil
 }
@@ -98,7 +82,6 @@ func (x *DeleteClusterRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("id", x.Id)
 	return nil
 }
@@ -107,7 +90,6 @@ func (x *DeleteClusterResponse) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -115,7 +97,6 @@ func (x *ClusterStatus) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("id", x.Id)
 	enc.AddString("address", x.Address)
 	enc.AddString("version", x.Version)
@@ -134,7 +115,6 @@ func (x *UpdateClusterRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("id", x.Id)
 	enc.AddString("address", x.Address)
 	enc.AddString("user_address", x.UserAddress)
@@ -147,7 +127,6 @@ func (x *UpdateClusterResponse) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -155,7 +134,6 @@ func (x *ListClustersRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -163,14 +141,9 @@ func (x *ListClustersResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	if x == nil {
 		return nil
 	}
-
 	clustersArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Clusters {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -182,7 +155,6 @@ func (x *DeleteAllRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -190,7 +162,6 @@ func (x *DeleteAllResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -198,7 +169,6 @@ func (x *HeartbeatRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("id", x.Id)
 	protoextensions.AddHalfString(enc, "secret", x.Secret)
 	enc.AddString("version", x.Version)
@@ -211,12 +181,7 @@ func (x *HeartbeatResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.License).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("license", obj)
-	} else {
-		enc.AddReflected("license", x.License)
-	}
+	enc.AddObject("license", x.License)
 	return nil
 }
 
@@ -224,7 +189,6 @@ func (x *UserClusterInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("id", x.Id)
 	enc.AddString("cluster_deployment_id", x.ClusterDeploymentId)
 	enc.AddString("address", x.Address)
@@ -236,7 +200,6 @@ func (x *ListUserClustersRequest) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -244,14 +207,9 @@ func (x *ListUserClustersResponse) MarshalLogObject(enc zapcore.ObjectEncoder) e
 	if x == nil {
 		return nil
 	}
-
 	clustersArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Clusters {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}

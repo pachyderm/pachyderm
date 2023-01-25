@@ -13,17 +13,8 @@ func (x *ProfileRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Profile).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("profile", obj)
-	} else {
-		enc.AddReflected("profile", x.Profile)
-	}
-	if obj, ok := interface{}(x.Filter).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("filter", obj)
-	} else {
-		enc.AddReflected("filter", x.Filter)
-	}
+	enc.AddObject("profile", x.Profile)
+	enc.AddObject("filter", x.Filter)
 	return nil
 }
 
@@ -31,7 +22,6 @@ func (x *Profile) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("name", x.Name)
 	protoextensions.AddDuration(enc, "duration", x.Duration)
 	return nil
@@ -41,18 +31,9 @@ func (x *Filter) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddBool("pachd", x.GetPachd())
-	if obj, ok := interface{}(x.GetPipeline()).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("pipeline", obj)
-	} else {
-		enc.AddReflected("pipeline", x.GetPipeline())
-	}
-	if obj, ok := interface{}(x.GetWorker()).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("worker", obj)
-	} else {
-		enc.AddReflected("worker", x.GetWorker())
-	}
+	enc.AddObject("pipeline", x.GetPipeline())
+	enc.AddObject("worker", x.GetWorker())
 	enc.AddBool("database", x.GetDatabase())
 	return nil
 }
@@ -61,7 +42,6 @@ func (x *Worker) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("pod", x.Pod)
 	enc.AddBool("redirected", x.Redirected)
 	return nil
@@ -71,12 +51,7 @@ func (x *BinaryRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Filter).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("filter", obj)
-	} else {
-		enc.AddReflected("filter", x.Filter)
-	}
+	enc.AddObject("filter", x.Filter)
 	return nil
 }
 
@@ -84,12 +59,7 @@ func (x *DumpRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Filter).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("filter", obj)
-	} else {
-		enc.AddReflected("filter", x.Filter)
-	}
+	enc.AddObject("filter", x.Filter)
 	enc.AddInt64("limit", x.Limit)
 	return nil
 }

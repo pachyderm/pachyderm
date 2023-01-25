@@ -12,7 +12,6 @@ func (x *User) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("email", x.Email)
 	if t := x.LastAuthenticated; t != nil {
 		enc.AddTime("last_authenticated", *t)
@@ -24,7 +23,6 @@ func (x *IdentityServerConfig) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("issuer", x.Issuer)
 	enc.AddString("id_token_expiry", x.IdTokenExpiry)
 	enc.AddString("rotation_token_expiry", x.RotationTokenExpiry)
@@ -35,12 +33,7 @@ func (x *SetIdentityServerConfigRequest) MarshalLogObject(enc zapcore.ObjectEnco
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Config).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("config", obj)
-	} else {
-		enc.AddReflected("config", x.Config)
-	}
+	enc.AddObject("config", x.Config)
 	return nil
 }
 
@@ -48,7 +41,6 @@ func (x *SetIdentityServerConfigResponse) MarshalLogObject(enc zapcore.ObjectEnc
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -56,7 +48,6 @@ func (x *GetIdentityServerConfigRequest) MarshalLogObject(enc zapcore.ObjectEnco
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -64,12 +55,7 @@ func (x *GetIdentityServerConfigResponse) MarshalLogObject(enc zapcore.ObjectEnc
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Config).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("config", obj)
-	} else {
-		enc.AddReflected("config", x.Config)
-	}
+	enc.AddObject("config", x.Config)
 	return nil
 }
 
@@ -77,7 +63,6 @@ func (x *IDPConnector) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("id", x.Id)
 	enc.AddString("name", x.Name)
 	enc.AddString("type", x.Type)
@@ -91,12 +76,7 @@ func (x *CreateIDPConnectorRequest) MarshalLogObject(enc zapcore.ObjectEncoder) 
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Connector).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("connector", obj)
-	} else {
-		enc.AddReflected("connector", x.Connector)
-	}
+	enc.AddObject("connector", x.Connector)
 	return nil
 }
 
@@ -104,7 +84,6 @@ func (x *CreateIDPConnectorResponse) MarshalLogObject(enc zapcore.ObjectEncoder)
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -112,12 +91,7 @@ func (x *UpdateIDPConnectorRequest) MarshalLogObject(enc zapcore.ObjectEncoder) 
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Connector).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("connector", obj)
-	} else {
-		enc.AddReflected("connector", x.Connector)
-	}
+	enc.AddObject("connector", x.Connector)
 	return nil
 }
 
@@ -125,7 +99,6 @@ func (x *UpdateIDPConnectorResponse) MarshalLogObject(enc zapcore.ObjectEncoder)
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -133,7 +106,6 @@ func (x *ListIDPConnectorsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) e
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -141,14 +113,9 @@ func (x *ListIDPConnectorsResponse) MarshalLogObject(enc zapcore.ObjectEncoder) 
 	if x == nil {
 		return nil
 	}
-
 	connectorsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Connectors {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -160,7 +127,6 @@ func (x *GetIDPConnectorRequest) MarshalLogObject(enc zapcore.ObjectEncoder) err
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("id", x.Id)
 	return nil
 }
@@ -169,12 +135,7 @@ func (x *GetIDPConnectorResponse) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Connector).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("connector", obj)
-	} else {
-		enc.AddReflected("connector", x.Connector)
-	}
+	enc.AddObject("connector", x.Connector)
 	return nil
 }
 
@@ -182,7 +143,6 @@ func (x *DeleteIDPConnectorRequest) MarshalLogObject(enc zapcore.ObjectEncoder) 
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("id", x.Id)
 	return nil
 }
@@ -191,7 +151,6 @@ func (x *DeleteIDPConnectorResponse) MarshalLogObject(enc zapcore.ObjectEncoder)
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -199,7 +158,6 @@ func (x *OIDCClient) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("id", x.Id)
 	redirect_urisArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.RedirectUris {
@@ -224,12 +182,7 @@ func (x *CreateOIDCClientRequest) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Client).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("client", obj)
-	} else {
-		enc.AddReflected("client", x.Client)
-	}
+	enc.AddObject("client", x.Client)
 	return nil
 }
 
@@ -237,12 +190,7 @@ func (x *CreateOIDCClientResponse) MarshalLogObject(enc zapcore.ObjectEncoder) e
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Client).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("client", obj)
-	} else {
-		enc.AddReflected("client", x.Client)
-	}
+	enc.AddObject("client", x.Client)
 	return nil
 }
 
@@ -250,7 +198,6 @@ func (x *GetOIDCClientRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("id", x.Id)
 	return nil
 }
@@ -259,12 +206,7 @@ func (x *GetOIDCClientResponse) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Client).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("client", obj)
-	} else {
-		enc.AddReflected("client", x.Client)
-	}
+	enc.AddObject("client", x.Client)
 	return nil
 }
 
@@ -272,7 +214,6 @@ func (x *ListOIDCClientsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) err
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -280,14 +221,9 @@ func (x *ListOIDCClientsResponse) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	if x == nil {
 		return nil
 	}
-
 	clientsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Clients {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -299,12 +235,7 @@ func (x *UpdateOIDCClientRequest) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Client).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("client", obj)
-	} else {
-		enc.AddReflected("client", x.Client)
-	}
+	enc.AddObject("client", x.Client)
 	return nil
 }
 
@@ -312,7 +243,6 @@ func (x *UpdateOIDCClientResponse) MarshalLogObject(enc zapcore.ObjectEncoder) e
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -320,7 +250,6 @@ func (x *DeleteOIDCClientRequest) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("id", x.Id)
 	return nil
 }
@@ -329,7 +258,6 @@ func (x *DeleteOIDCClientResponse) MarshalLogObject(enc zapcore.ObjectEncoder) e
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -337,7 +265,6 @@ func (x *DeleteAllRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -345,6 +272,5 @@ func (x *DeleteAllResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }

@@ -13,7 +13,6 @@ func (x *DeleteAllRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -21,57 +20,16 @@ func (x *TransactionRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.CreateRepo).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("create_repo", obj)
-	} else {
-		enc.AddReflected("create_repo", x.CreateRepo)
-	}
-	if obj, ok := interface{}(x.DeleteRepo).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("delete_repo", obj)
-	} else {
-		enc.AddReflected("delete_repo", x.DeleteRepo)
-	}
-	if obj, ok := interface{}(x.StartCommit).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("start_commit", obj)
-	} else {
-		enc.AddReflected("start_commit", x.StartCommit)
-	}
-	if obj, ok := interface{}(x.FinishCommit).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("finish_commit", obj)
-	} else {
-		enc.AddReflected("finish_commit", x.FinishCommit)
-	}
-	if obj, ok := interface{}(x.SquashCommitSet).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("squash_commit_set", obj)
-	} else {
-		enc.AddReflected("squash_commit_set", x.SquashCommitSet)
-	}
-	if obj, ok := interface{}(x.CreateBranch).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("create_branch", obj)
-	} else {
-		enc.AddReflected("create_branch", x.CreateBranch)
-	}
-	if obj, ok := interface{}(x.DeleteBranch).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("delete_branch", obj)
-	} else {
-		enc.AddReflected("delete_branch", x.DeleteBranch)
-	}
-	if obj, ok := interface{}(x.UpdateJobState).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("update_job_state", obj)
-	} else {
-		enc.AddReflected("update_job_state", x.UpdateJobState)
-	}
-	if obj, ok := interface{}(x.CreatePipeline).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("create_pipeline", obj)
-	} else {
-		enc.AddReflected("create_pipeline", x.CreatePipeline)
-	}
-	if obj, ok := interface{}(x.StopJob).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("stop_job", obj)
-	} else {
-		enc.AddReflected("stop_job", x.StopJob)
-	}
+	enc.AddObject("create_repo", x.CreateRepo)
+	enc.AddObject("delete_repo", x.DeleteRepo)
+	enc.AddObject("start_commit", x.StartCommit)
+	enc.AddObject("finish_commit", x.FinishCommit)
+	enc.AddObject("squash_commit_set", x.SquashCommitSet)
+	enc.AddObject("create_branch", x.CreateBranch)
+	enc.AddObject("delete_branch", x.DeleteBranch)
+	enc.AddObject("update_job_state", x.UpdateJobState)
+	enc.AddObject("create_pipeline", x.CreatePipeline)
+	enc.AddObject("stop_job", x.StopJob)
 	return nil
 }
 
@@ -79,12 +37,7 @@ func (x *TransactionResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Commit).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("commit", obj)
-	} else {
-		enc.AddReflected("commit", x.Commit)
-	}
+	enc.AddObject("commit", x.Commit)
 	return nil
 }
 
@@ -92,7 +45,6 @@ func (x *Transaction) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("id", x.ID)
 	return nil
 }
@@ -101,30 +53,17 @@ func (x *TransactionInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Transaction).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("transaction", obj)
-	} else {
-		enc.AddReflected("transaction", x.Transaction)
-	}
+	enc.AddObject("transaction", x.Transaction)
 	requestsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Requests {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
 	enc.AddArray("requests", zapcore.ArrayMarshalerFunc(requestsArrMarshaller))
 	responsesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Responses {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -138,14 +77,9 @@ func (x *TransactionInfos) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	transaction_infoArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.TransactionInfo {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -157,14 +91,9 @@ func (x *BatchTransactionRequest) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	if x == nil {
 		return nil
 	}
-
 	requestsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Requests {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -176,7 +105,6 @@ func (x *StartTransactionRequest) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -184,12 +112,7 @@ func (x *InspectTransactionRequest) MarshalLogObject(enc zapcore.ObjectEncoder) 
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Transaction).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("transaction", obj)
-	} else {
-		enc.AddReflected("transaction", x.Transaction)
-	}
+	enc.AddObject("transaction", x.Transaction)
 	return nil
 }
 
@@ -197,12 +120,7 @@ func (x *DeleteTransactionRequest) MarshalLogObject(enc zapcore.ObjectEncoder) e
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Transaction).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("transaction", obj)
-	} else {
-		enc.AddReflected("transaction", x.Transaction)
-	}
+	enc.AddObject("transaction", x.Transaction)
 	return nil
 }
 
@@ -210,7 +128,6 @@ func (x *ListTransactionRequest) MarshalLogObject(enc zapcore.ObjectEncoder) err
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -218,11 +135,6 @@ func (x *FinishTransactionRequest) MarshalLogObject(enc zapcore.ObjectEncoder) e
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Transaction).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("transaction", obj)
-	} else {
-		enc.AddReflected("transaction", x.Transaction)
-	}
+	enc.AddObject("transaction", x.Transaction)
 	return nil
 }

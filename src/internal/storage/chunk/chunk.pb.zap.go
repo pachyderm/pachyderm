@@ -13,7 +13,6 @@ func (x *DataRef) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	if obj, ok := interface{}(x.Ref).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("ref", obj)
 	} else {
@@ -29,7 +28,6 @@ func (x *Ref) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	protoextensions.AddBytes(enc, "id", x.Id)
 	enc.AddInt64("size_bytes", x.SizeBytes)
 	enc.AddBool("edge", x.Edge)

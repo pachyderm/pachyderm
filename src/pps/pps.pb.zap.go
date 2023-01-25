@@ -14,7 +14,6 @@ func (x *SecretMount) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("name", x.Name)
 	enc.AddString("key", x.Key)
 	enc.AddString("mount_path", x.MountPath)
@@ -26,7 +25,6 @@ func (x *Transform) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("image", x.Image)
 	cmdArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Cmd {
@@ -50,11 +48,7 @@ func (x *Transform) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}))
 	secretsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Secrets {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -99,7 +93,6 @@ func (x *TFJob) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("tf_job", x.TFJob)
 	return nil
 }
@@ -108,18 +101,9 @@ func (x *Egress) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("URL", x.URL)
-	if obj, ok := interface{}(x.GetObjectStorage()).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("object_storage", obj)
-	} else {
-		enc.AddReflected("object_storage", x.GetObjectStorage())
-	}
-	if obj, ok := interface{}(x.GetSqlDatabase()).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("sql_database", obj)
-	} else {
-		enc.AddReflected("sql_database", x.GetSqlDatabase())
-	}
+	enc.AddObject("object_storage", x.GetObjectStorage())
+	enc.AddObject("sql_database", x.GetSqlDatabase())
 	return nil
 }
 
@@ -127,12 +111,7 @@ func (x *Job) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Pipeline).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("pipeline", obj)
-	} else {
-		enc.AddReflected("pipeline", x.Pipeline)
-	}
+	enc.AddObject("pipeline", x.Pipeline)
 	enc.AddString("id", x.ID)
 	return nil
 }
@@ -141,7 +120,6 @@ func (x *Metadata) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddObject("annotations", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
 		for k, v := range x.Annotations {
 			enc.AddString(fmt.Sprintf("%v", k), v)
@@ -161,7 +139,6 @@ func (x *Service) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddInt32("internal_port", x.InternalPort)
 	enc.AddInt32("external_port", x.ExternalPort)
 	enc.AddString("ip", x.IP)
@@ -173,12 +150,7 @@ func (x *Spout) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Service).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("service", obj)
-	} else {
-		enc.AddReflected("service", x.Service)
-	}
+	enc.AddObject("service", x.Service)
 	return nil
 }
 
@@ -186,7 +158,6 @@ func (x *PFSInput) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("project", x.Project)
 	enc.AddString("name", x.Name)
 	enc.AddString("repo", x.Repo)
@@ -200,11 +171,7 @@ func (x *PFSInput) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddBool("lazy", x.Lazy)
 	enc.AddBool("empty_files", x.EmptyFiles)
 	enc.AddBool("s3", x.S3)
-	if obj, ok := interface{}(x.Trigger).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("trigger", obj)
-	} else {
-		enc.AddReflected("trigger", x.Trigger)
-	}
+	enc.AddObject("trigger", x.Trigger)
 	return nil
 }
 
@@ -212,7 +179,6 @@ func (x *CronInput) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("name", x.Name)
 	enc.AddString("project", x.Project)
 	enc.AddString("repo", x.Repo)
@@ -227,61 +193,36 @@ func (x *Input) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Pfs).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("pfs", obj)
-	} else {
-		enc.AddReflected("pfs", x.Pfs)
-	}
+	enc.AddObject("pfs", x.Pfs)
 	joinArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Join {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
 	enc.AddArray("join", zapcore.ArrayMarshalerFunc(joinArrMarshaller))
 	groupArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Group {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
 	enc.AddArray("group", zapcore.ArrayMarshalerFunc(groupArrMarshaller))
 	crossArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Cross {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
 	enc.AddArray("cross", zapcore.ArrayMarshalerFunc(crossArrMarshaller))
 	unionArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Union {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
 	enc.AddArray("union", zapcore.ArrayMarshalerFunc(unionArrMarshaller))
-	if obj, ok := interface{}(x.Cron).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("cron", obj)
-	} else {
-		enc.AddReflected("cron", x.Cron)
-	}
+	enc.AddObject("cron", x.Cron)
 	return nil
 }
 
@@ -289,13 +230,8 @@ func (x *JobInput) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("name", x.Name)
-	if obj, ok := interface{}(x.Commit).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("commit", obj)
-	} else {
-		enc.AddReflected("commit", x.Commit)
-	}
+	enc.AddObject("commit", x.Commit)
 	enc.AddString("glob", x.Glob)
 	enc.AddBool("lazy", x.Lazy)
 	return nil
@@ -305,7 +241,6 @@ func (x *ParallelismSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddUint64("constant", x.Constant)
 	return nil
 }
@@ -314,7 +249,6 @@ func (x *InputFile) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("path", x.Path)
 	protoextensions.AddBytes(enc, "hash", x.Hash)
 	return nil
@@ -324,12 +258,7 @@ func (x *Datum) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Job).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job", obj)
-	} else {
-		enc.AddReflected("job", x.Job)
-	}
+	enc.AddObject("job", x.Job)
 	enc.AddString("id", x.ID)
 	return nil
 }
@@ -338,30 +267,13 @@ func (x *DatumInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Datum).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("datum", obj)
-	} else {
-		enc.AddReflected("datum", x.Datum)
-	}
+	enc.AddObject("datum", x.Datum)
 	enc.AddString("state", x.State.String())
-	if obj, ok := interface{}(x.Stats).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("stats", obj)
-	} else {
-		enc.AddReflected("stats", x.Stats)
-	}
-	if obj, ok := interface{}(x.PfsState).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("pfs_state", obj)
-	} else {
-		enc.AddReflected("pfs_state", x.PfsState)
-	}
+	enc.AddObject("stats", x.Stats)
+	enc.AddObject("pfs_state", x.PfsState)
 	dataArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Data {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -374,7 +286,6 @@ func (x *Aggregate) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddInt64("count", x.Count)
 	enc.AddFloat64("mean", x.Mean)
 	enc.AddFloat64("stddev", x.Stddev)
@@ -387,7 +298,6 @@ func (x *ProcessStats) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	protoextensions.AddDuration(enc, "download_time", x.DownloadTime)
 	protoextensions.AddDuration(enc, "process_time", x.ProcessTime)
 	protoextensions.AddDuration(enc, "upload_time", x.UploadTime)
@@ -400,32 +310,11 @@ func (x *AggregateProcessStats) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.DownloadTime).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("download_time", obj)
-	} else {
-		enc.AddReflected("download_time", x.DownloadTime)
-	}
-	if obj, ok := interface{}(x.ProcessTime).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("process_time", obj)
-	} else {
-		enc.AddReflected("process_time", x.ProcessTime)
-	}
-	if obj, ok := interface{}(x.UploadTime).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("upload_time", obj)
-	} else {
-		enc.AddReflected("upload_time", x.UploadTime)
-	}
-	if obj, ok := interface{}(x.DownloadBytes).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("download_bytes", obj)
-	} else {
-		enc.AddReflected("download_bytes", x.DownloadBytes)
-	}
-	if obj, ok := interface{}(x.UploadBytes).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("upload_bytes", obj)
-	} else {
-		enc.AddReflected("upload_bytes", x.UploadBytes)
-	}
+	enc.AddObject("download_time", x.DownloadTime)
+	enc.AddObject("process_time", x.ProcessTime)
+	enc.AddObject("upload_time", x.UploadTime)
+	enc.AddObject("download_bytes", x.DownloadBytes)
+	enc.AddObject("upload_bytes", x.UploadBytes)
 	return nil
 }
 
@@ -433,14 +322,9 @@ func (x *WorkerStatus) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("worker_id", x.WorkerID)
 	enc.AddString("job_id", x.JobID)
-	if obj, ok := interface{}(x.DatumStatus).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("datum_status", obj)
-	} else {
-		enc.AddReflected("datum_status", x.DatumStatus)
-	}
+	enc.AddObject("datum_status", x.DatumStatus)
 	return nil
 }
 
@@ -448,15 +332,10 @@ func (x *DatumStatus) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	protoextensions.AddTimestamp(enc, "started", x.Started)
 	dataArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Data {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -468,14 +347,9 @@ func (x *ResourceSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddFloat32("cpu", x.Cpu)
 	enc.AddString("memory", x.Memory)
-	if obj, ok := interface{}(x.Gpu).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("gpu", obj)
-	} else {
-		enc.AddReflected("gpu", x.Gpu)
-	}
+	enc.AddObject("gpu", x.Gpu)
 	enc.AddString("disk", x.Disk)
 	return nil
 }
@@ -484,7 +358,6 @@ func (x *GPUSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("type", x.Type)
 	enc.AddInt64("number", x.Number)
 	return nil
@@ -494,19 +367,10 @@ func (x *JobSetInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.JobSet).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job_set", obj)
-	} else {
-		enc.AddReflected("job_set", x.JobSet)
-	}
+	enc.AddObject("job_set", x.JobSet)
 	jobsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Jobs {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -518,39 +382,22 @@ func (x *JobInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Job).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job", obj)
-	} else {
-		enc.AddReflected("job", x.Job)
-	}
+	enc.AddObject("job", x.Job)
 	enc.AddUint64("pipeline_version", x.PipelineVersion)
-	if obj, ok := interface{}(x.OutputCommit).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("output_commit", obj)
-	} else {
-		enc.AddReflected("output_commit", x.OutputCommit)
-	}
+	enc.AddObject("output_commit", x.OutputCommit)
 	enc.AddUint64("restart", x.Restart)
 	enc.AddInt64("data_processed", x.DataProcessed)
 	enc.AddInt64("data_skipped", x.DataSkipped)
 	enc.AddInt64("data_total", x.DataTotal)
 	enc.AddInt64("data_failed", x.DataFailed)
 	enc.AddInt64("data_recovered", x.DataRecovered)
-	if obj, ok := interface{}(x.Stats).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("stats", obj)
-	} else {
-		enc.AddReflected("stats", x.Stats)
-	}
+	enc.AddObject("stats", x.Stats)
 	enc.AddString("state", x.State.String())
 	enc.AddString("reason", x.Reason)
 	protoextensions.AddTimestamp(enc, "created", x.Created)
 	protoextensions.AddTimestamp(enc, "started", x.Started)
 	protoextensions.AddTimestamp(enc, "finished", x.Finished)
-	if obj, ok := interface{}(x.Details).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("details", obj)
-	} else {
-		enc.AddReflected("details", x.Details)
-	}
+	enc.AddObject("details", x.Details)
 	return nil
 }
 
@@ -558,77 +405,28 @@ func (x *JobInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Transform).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("transform", obj)
-	} else {
-		enc.AddReflected("transform", x.Transform)
-	}
-	if obj, ok := interface{}(x.ParallelismSpec).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("parallelism_spec", obj)
-	} else {
-		enc.AddReflected("parallelism_spec", x.ParallelismSpec)
-	}
-	if obj, ok := interface{}(x.Egress).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("egress", obj)
-	} else {
-		enc.AddReflected("egress", x.Egress)
-	}
-	if obj, ok := interface{}(x.Service).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("service", obj)
-	} else {
-		enc.AddReflected("service", x.Service)
-	}
-	if obj, ok := interface{}(x.Spout).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("spout", obj)
-	} else {
-		enc.AddReflected("spout", x.Spout)
-	}
+	enc.AddObject("transform", x.Transform)
+	enc.AddObject("parallelism_spec", x.ParallelismSpec)
+	enc.AddObject("egress", x.Egress)
+	enc.AddObject("service", x.Service)
+	enc.AddObject("spout", x.Spout)
 	worker_statusArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.WorkerStatus {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
 	enc.AddArray("worker_status", zapcore.ArrayMarshalerFunc(worker_statusArrMarshaller))
-	if obj, ok := interface{}(x.ResourceRequests).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("resource_requests", obj)
-	} else {
-		enc.AddReflected("resource_requests", x.ResourceRequests)
-	}
-	if obj, ok := interface{}(x.ResourceLimits).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("resource_limits", obj)
-	} else {
-		enc.AddReflected("resource_limits", x.ResourceLimits)
-	}
-	if obj, ok := interface{}(x.SidecarResourceLimits).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("sidecar_resource_limits", obj)
-	} else {
-		enc.AddReflected("sidecar_resource_limits", x.SidecarResourceLimits)
-	}
-	if obj, ok := interface{}(x.Input).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("input", obj)
-	} else {
-		enc.AddReflected("input", x.Input)
-	}
+	enc.AddObject("resource_requests", x.ResourceRequests)
+	enc.AddObject("resource_limits", x.ResourceLimits)
+	enc.AddObject("sidecar_resource_limits", x.SidecarResourceLimits)
+	enc.AddObject("input", x.Input)
 	enc.AddString("salt", x.Salt)
-	if obj, ok := interface{}(x.DatumSetSpec).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("datum_set_spec", obj)
-	} else {
-		enc.AddReflected("datum_set_spec", x.DatumSetSpec)
-	}
+	enc.AddObject("datum_set_spec", x.DatumSetSpec)
 	protoextensions.AddDuration(enc, "datum_timeout", x.DatumTimeout)
 	protoextensions.AddDuration(enc, "job_timeout", x.JobTimeout)
 	enc.AddInt64("datum_tries", x.DatumTries)
-	if obj, ok := interface{}(x.SchedulingSpec).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("scheduling_spec", obj)
-	} else {
-		enc.AddReflected("scheduling_spec", x.SchedulingSpec)
-	}
+	enc.AddObject("scheduling_spec", x.SchedulingSpec)
 	enc.AddString("pod_spec", x.PodSpec)
 	enc.AddString("pod_patch", x.PodPatch)
 	return nil
@@ -638,7 +436,6 @@ func (x *Worker) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("name", x.Name)
 	enc.AddString("state", x.State.String())
 	return nil
@@ -648,12 +445,7 @@ func (x *Pipeline) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Project).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("project", obj)
-	} else {
-		enc.AddReflected("project", x.Project)
-	}
+	enc.AddObject("project", x.Project)
 	enc.AddString("name", x.Name)
 	return nil
 }
@@ -662,7 +454,6 @@ func (x *Toleration) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("key", x.Key)
 	enc.AddString("operator", x.Operator.String())
 	enc.AddString("value", x.Value)
@@ -675,18 +466,9 @@ func (x *PipelineInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Pipeline).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("pipeline", obj)
-	} else {
-		enc.AddReflected("pipeline", x.Pipeline)
-	}
+	enc.AddObject("pipeline", x.Pipeline)
 	enc.AddUint64("version", x.Version)
-	if obj, ok := interface{}(x.SpecCommit).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("spec_commit", obj)
-	} else {
-		enc.AddReflected("spec_commit", x.SpecCommit)
-	}
+	enc.AddObject("spec_commit", x.SpecCommit)
 	enc.AddBool("stopped", x.Stopped)
 	enc.AddString("state", x.State.String())
 	enc.AddString("reason", x.Reason)
@@ -694,11 +476,7 @@ func (x *PipelineInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddUint64("parallelism", x.Parallelism)
 	enc.AddString("type", x.Type.String())
 	enc.AddString("auth_token", x.AuthToken)
-	if obj, ok := interface{}(x.Details).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("details", obj)
-	} else {
-		enc.AddReflected("details", x.Details)
-	}
+	enc.AddObject("details", x.Details)
 	return nil
 }
 
@@ -706,97 +484,40 @@ func (x *PipelineInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Transform).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("transform", obj)
-	} else {
-		enc.AddReflected("transform", x.Transform)
-	}
-	if obj, ok := interface{}(x.TFJob).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("tf_job", obj)
-	} else {
-		enc.AddReflected("tf_job", x.TFJob)
-	}
-	if obj, ok := interface{}(x.ParallelismSpec).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("parallelism_spec", obj)
-	} else {
-		enc.AddReflected("parallelism_spec", x.ParallelismSpec)
-	}
-	if obj, ok := interface{}(x.Egress).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("egress", obj)
-	} else {
-		enc.AddReflected("egress", x.Egress)
-	}
+	enc.AddObject("transform", x.Transform)
+	enc.AddObject("tf_job", x.TFJob)
+	enc.AddObject("parallelism_spec", x.ParallelismSpec)
+	enc.AddObject("egress", x.Egress)
 	protoextensions.AddTimestamp(enc, "created_at", x.CreatedAt)
 	enc.AddString("recent_error", x.RecentError)
 	enc.AddInt64("workers_requested", x.WorkersRequested)
 	enc.AddInt64("workers_available", x.WorkersAvailable)
 	enc.AddString("output_branch", x.OutputBranch)
-	if obj, ok := interface{}(x.ResourceRequests).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("resource_requests", obj)
-	} else {
-		enc.AddReflected("resource_requests", x.ResourceRequests)
-	}
-	if obj, ok := interface{}(x.ResourceLimits).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("resource_limits", obj)
-	} else {
-		enc.AddReflected("resource_limits", x.ResourceLimits)
-	}
-	if obj, ok := interface{}(x.SidecarResourceLimits).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("sidecar_resource_limits", obj)
-	} else {
-		enc.AddReflected("sidecar_resource_limits", x.SidecarResourceLimits)
-	}
-	if obj, ok := interface{}(x.Input).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("input", obj)
-	} else {
-		enc.AddReflected("input", x.Input)
-	}
+	enc.AddObject("resource_requests", x.ResourceRequests)
+	enc.AddObject("resource_limits", x.ResourceLimits)
+	enc.AddObject("sidecar_resource_limits", x.SidecarResourceLimits)
+	enc.AddObject("input", x.Input)
 	enc.AddString("description", x.Description)
 	enc.AddString("salt", x.Salt)
 	enc.AddString("reason", x.Reason)
-	if obj, ok := interface{}(x.Service).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("service", obj)
-	} else {
-		enc.AddReflected("service", x.Service)
-	}
-	if obj, ok := interface{}(x.Spout).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("spout", obj)
-	} else {
-		enc.AddReflected("spout", x.Spout)
-	}
-	if obj, ok := interface{}(x.DatumSetSpec).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("datum_set_spec", obj)
-	} else {
-		enc.AddReflected("datum_set_spec", x.DatumSetSpec)
-	}
+	enc.AddObject("service", x.Service)
+	enc.AddObject("spout", x.Spout)
+	enc.AddObject("datum_set_spec", x.DatumSetSpec)
 	protoextensions.AddDuration(enc, "datum_timeout", x.DatumTimeout)
 	protoextensions.AddDuration(enc, "job_timeout", x.JobTimeout)
 	enc.AddInt64("datum_tries", x.DatumTries)
-	if obj, ok := interface{}(x.SchedulingSpec).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("scheduling_spec", obj)
-	} else {
-		enc.AddReflected("scheduling_spec", x.SchedulingSpec)
-	}
+	enc.AddObject("scheduling_spec", x.SchedulingSpec)
 	enc.AddString("pod_spec", x.PodSpec)
 	enc.AddString("pod_patch", x.PodPatch)
 	enc.AddBool("s3_out", x.S3Out)
-	if obj, ok := interface{}(x.Metadata).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("metadata", obj)
-	} else {
-		enc.AddReflected("metadata", x.Metadata)
-	}
+	enc.AddObject("metadata", x.Metadata)
 	enc.AddString("reprocess_spec", x.ReprocessSpec)
 	enc.AddInt64("unclaimed_tasks", x.UnclaimedTasks)
 	enc.AddString("worker_rc", x.WorkerRc)
 	enc.AddBool("autoscaling", x.Autoscaling)
 	tolerationsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Tolerations {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -808,14 +529,9 @@ func (x *PipelineInfos) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	pipeline_infoArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.PipelineInfo {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -827,7 +543,6 @@ func (x *JobSet) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("id", x.ID)
 	return nil
 }
@@ -836,12 +551,7 @@ func (x *InspectJobSetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.JobSet).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job_set", obj)
-	} else {
-		enc.AddReflected("job_set", x.JobSet)
-	}
+	enc.AddObject("job_set", x.JobSet)
 	enc.AddBool("wait", x.Wait)
 	enc.AddBool("details", x.Details)
 	return nil
@@ -851,15 +561,10 @@ func (x *ListJobSetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddBool("details", x.Details)
 	projectsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Projects {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -874,12 +579,7 @@ func (x *InspectJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Job).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job", obj)
-	} else {
-		enc.AddReflected("job", x.Job)
-	}
+	enc.AddObject("job", x.Job)
 	enc.AddBool("wait", x.Wait)
 	enc.AddBool("details", x.Details)
 	return nil
@@ -889,30 +589,17 @@ func (x *ListJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	projectsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Projects {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
 	enc.AddArray("projects", zapcore.ArrayMarshalerFunc(projectsArrMarshaller))
-	if obj, ok := interface{}(x.Pipeline).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("pipeline", obj)
-	} else {
-		enc.AddReflected("pipeline", x.Pipeline)
-	}
+	enc.AddObject("pipeline", x.Pipeline)
 	input_commitArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.InputCommit {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -930,12 +617,7 @@ func (x *SubscribeJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Pipeline).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("pipeline", obj)
-	} else {
-		enc.AddReflected("pipeline", x.Pipeline)
-	}
+	enc.AddObject("pipeline", x.Pipeline)
 	enc.AddBool("details", x.Details)
 	return nil
 }
@@ -944,12 +626,7 @@ func (x *DeleteJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Job).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job", obj)
-	} else {
-		enc.AddReflected("job", x.Job)
-	}
+	enc.AddObject("job", x.Job)
 	return nil
 }
 
@@ -957,12 +634,7 @@ func (x *StopJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Job).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job", obj)
-	} else {
-		enc.AddReflected("job", x.Job)
-	}
+	enc.AddObject("job", x.Job)
 	enc.AddString("reason", x.Reason)
 	return nil
 }
@@ -971,12 +643,7 @@ func (x *UpdateJobStateRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Job).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job", obj)
-	} else {
-		enc.AddReflected("job", x.Job)
-	}
+	enc.AddObject("job", x.Job)
 	enc.AddString("state", x.State.String())
 	enc.AddString("reason", x.Reason)
 	enc.AddUint64("restart", x.Restart)
@@ -985,11 +652,7 @@ func (x *UpdateJobStateRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	enc.AddInt64("data_failed", x.DataFailed)
 	enc.AddInt64("data_recovered", x.DataRecovered)
 	enc.AddInt64("data_total", x.DataTotal)
-	if obj, ok := interface{}(x.Stats).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("stats", obj)
-	} else {
-		enc.AddReflected("stats", x.Stats)
-	}
+	enc.AddObject("stats", x.Stats)
 	return nil
 }
 
@@ -997,17 +660,8 @@ func (x *GetLogsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Pipeline).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("pipeline", obj)
-	} else {
-		enc.AddReflected("pipeline", x.Pipeline)
-	}
-	if obj, ok := interface{}(x.Job).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job", obj)
-	} else {
-		enc.AddReflected("job", x.Job)
-	}
+	enc.AddObject("pipeline", x.Pipeline)
+	enc.AddObject("job", x.Job)
 	data_filtersArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.DataFilters {
 			enc.AppendString(v)
@@ -1015,11 +669,7 @@ func (x *GetLogsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("data_filters", zapcore.ArrayMarshalerFunc(data_filtersArrMarshaller))
-	if obj, ok := interface{}(x.Datum).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("datum", obj)
-	} else {
-		enc.AddReflected("datum", x.Datum)
-	}
+	enc.AddObject("datum", x.Datum)
 	enc.AddBool("master", x.Master)
 	enc.AddBool("follow", x.Follow)
 	enc.AddInt64("tail", x.Tail)
@@ -1032,7 +682,6 @@ func (x *LogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("project_name", x.ProjectName)
 	enc.AddString("pipeline_name", x.PipelineName)
 	enc.AddString("job_id", x.JobID)
@@ -1041,11 +690,7 @@ func (x *LogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddBool("master", x.Master)
 	dataArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Data {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -1060,12 +705,7 @@ func (x *RestartDatumRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Job).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job", obj)
-	} else {
-		enc.AddReflected("job", x.Job)
-	}
+	enc.AddObject("job", x.Job)
 	data_filtersArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.DataFilters {
 			enc.AppendString(v)
@@ -1080,12 +720,7 @@ func (x *InspectDatumRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Datum).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("datum", obj)
-	} else {
-		enc.AddReflected("datum", x.Datum)
-	}
+	enc.AddObject("datum", x.Datum)
 	return nil
 }
 
@@ -1093,22 +728,9 @@ func (x *ListDatumRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Job).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job", obj)
-	} else {
-		enc.AddReflected("job", x.Job)
-	}
-	if obj, ok := interface{}(x.Input).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("input", obj)
-	} else {
-		enc.AddReflected("input", x.Input)
-	}
-	if obj, ok := interface{}(x.Filter).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("filter", obj)
-	} else {
-		enc.AddReflected("filter", x.Filter)
-	}
+	enc.AddObject("job", x.Job)
+	enc.AddObject("input", x.Input)
+	enc.AddObject("filter", x.Filter)
 	enc.AddString("paginationMarker", x.PaginationMarker)
 	enc.AddInt64("number", x.Number)
 	enc.AddBool("reverse", x.Reverse)
@@ -1119,7 +741,6 @@ func (x *ListDatumRequest_Filter) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	if x == nil {
 		return nil
 	}
-
 	stateArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.State {
 			enc.AppendString(v.String())
@@ -1134,7 +755,6 @@ func (x *DatumSetSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddInt64("number", x.Number)
 	enc.AddInt64("size_bytes", x.SizeBytes)
 	enc.AddInt64("per_worker", x.PerWorker)
@@ -1145,7 +765,6 @@ func (x *SchedulingSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddObject("node_selector", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
 		for k, v := range x.NodeSelector {
 			enc.AddString(fmt.Sprintf("%v", k), v)
@@ -1160,102 +779,37 @@ func (x *CreatePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Pipeline).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("pipeline", obj)
-	} else {
-		enc.AddReflected("pipeline", x.Pipeline)
-	}
-	if obj, ok := interface{}(x.TFJob).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("tf_job", obj)
-	} else {
-		enc.AddReflected("tf_job", x.TFJob)
-	}
-	if obj, ok := interface{}(x.Transform).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("transform", obj)
-	} else {
-		enc.AddReflected("transform", x.Transform)
-	}
-	if obj, ok := interface{}(x.ParallelismSpec).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("parallelism_spec", obj)
-	} else {
-		enc.AddReflected("parallelism_spec", x.ParallelismSpec)
-	}
-	if obj, ok := interface{}(x.Egress).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("egress", obj)
-	} else {
-		enc.AddReflected("egress", x.Egress)
-	}
+	enc.AddObject("pipeline", x.Pipeline)
+	enc.AddObject("tf_job", x.TFJob)
+	enc.AddObject("transform", x.Transform)
+	enc.AddObject("parallelism_spec", x.ParallelismSpec)
+	enc.AddObject("egress", x.Egress)
 	enc.AddBool("update", x.Update)
 	enc.AddString("output_branch", x.OutputBranch)
 	enc.AddBool("s3_out", x.S3Out)
-	if obj, ok := interface{}(x.ResourceRequests).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("resource_requests", obj)
-	} else {
-		enc.AddReflected("resource_requests", x.ResourceRequests)
-	}
-	if obj, ok := interface{}(x.ResourceLimits).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("resource_limits", obj)
-	} else {
-		enc.AddReflected("resource_limits", x.ResourceLimits)
-	}
-	if obj, ok := interface{}(x.SidecarResourceLimits).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("sidecar_resource_limits", obj)
-	} else {
-		enc.AddReflected("sidecar_resource_limits", x.SidecarResourceLimits)
-	}
-	if obj, ok := interface{}(x.Input).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("input", obj)
-	} else {
-		enc.AddReflected("input", x.Input)
-	}
+	enc.AddObject("resource_requests", x.ResourceRequests)
+	enc.AddObject("resource_limits", x.ResourceLimits)
+	enc.AddObject("sidecar_resource_limits", x.SidecarResourceLimits)
+	enc.AddObject("input", x.Input)
 	enc.AddString("description", x.Description)
 	enc.AddBool("reprocess", x.Reprocess)
-	if obj, ok := interface{}(x.Service).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("service", obj)
-	} else {
-		enc.AddReflected("service", x.Service)
-	}
-	if obj, ok := interface{}(x.Spout).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("spout", obj)
-	} else {
-		enc.AddReflected("spout", x.Spout)
-	}
-	if obj, ok := interface{}(x.DatumSetSpec).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("datum_set_spec", obj)
-	} else {
-		enc.AddReflected("datum_set_spec", x.DatumSetSpec)
-	}
+	enc.AddObject("service", x.Service)
+	enc.AddObject("spout", x.Spout)
+	enc.AddObject("datum_set_spec", x.DatumSetSpec)
 	protoextensions.AddDuration(enc, "datum_timeout", x.DatumTimeout)
 	protoextensions.AddDuration(enc, "job_timeout", x.JobTimeout)
 	enc.AddString("salt", x.Salt)
 	enc.AddInt64("datum_tries", x.DatumTries)
-	if obj, ok := interface{}(x.SchedulingSpec).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("scheduling_spec", obj)
-	} else {
-		enc.AddReflected("scheduling_spec", x.SchedulingSpec)
-	}
+	enc.AddObject("scheduling_spec", x.SchedulingSpec)
 	enc.AddString("pod_spec", x.PodSpec)
 	enc.AddString("pod_patch", x.PodPatch)
-	if obj, ok := interface{}(x.SpecCommit).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("spec_commit", obj)
-	} else {
-		enc.AddReflected("spec_commit", x.SpecCommit)
-	}
-	if obj, ok := interface{}(x.Metadata).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("metadata", obj)
-	} else {
-		enc.AddReflected("metadata", x.Metadata)
-	}
+	enc.AddObject("spec_commit", x.SpecCommit)
+	enc.AddObject("metadata", x.Metadata)
 	enc.AddString("reprocess_spec", x.ReprocessSpec)
 	enc.AddBool("autoscaling", x.Autoscaling)
 	tolerationsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Tolerations {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -1267,12 +821,7 @@ func (x *InspectPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) err
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Pipeline).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("pipeline", obj)
-	} else {
-		enc.AddReflected("pipeline", x.Pipeline)
-	}
+	enc.AddObject("pipeline", x.Pipeline)
 	enc.AddBool("details", x.Details)
 	return nil
 }
@@ -1281,27 +830,14 @@ func (x *ListPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Pipeline).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("pipeline", obj)
-	} else {
-		enc.AddReflected("pipeline", x.Pipeline)
-	}
+	enc.AddObject("pipeline", x.Pipeline)
 	enc.AddInt64("history", x.History)
 	enc.AddBool("details", x.Details)
 	enc.AddString("jqFilter", x.JqFilter)
-	if obj, ok := interface{}(x.CommitSet).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("commit_set", obj)
-	} else {
-		enc.AddReflected("commit_set", x.CommitSet)
-	}
+	enc.AddObject("commit_set", x.CommitSet)
 	projectsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Projects {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -1313,12 +849,7 @@ func (x *DeletePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Pipeline).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("pipeline", obj)
-	} else {
-		enc.AddReflected("pipeline", x.Pipeline)
-	}
+	enc.AddObject("pipeline", x.Pipeline)
 	enc.AddBool("all", x.All)
 	enc.AddBool("force", x.Force)
 	enc.AddBool("keep_repo", x.KeepRepo)
@@ -1329,14 +860,9 @@ func (x *DeletePipelinesRequest) MarshalLogObject(enc zapcore.ObjectEncoder) err
 	if x == nil {
 		return nil
 	}
-
 	projectsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Projects {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -1351,14 +877,9 @@ func (x *DeletePipelinesResponse) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	if x == nil {
 		return nil
 	}
-
 	pipelinesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Pipelines {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -1370,12 +891,7 @@ func (x *StartPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Pipeline).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("pipeline", obj)
-	} else {
-		enc.AddReflected("pipeline", x.Pipeline)
-	}
+	enc.AddObject("pipeline", x.Pipeline)
 	return nil
 }
 
@@ -1383,12 +899,7 @@ func (x *StopPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Pipeline).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("pipeline", obj)
-	} else {
-		enc.AddReflected("pipeline", x.Pipeline)
-	}
+	enc.AddObject("pipeline", x.Pipeline)
 	return nil
 }
 
@@ -1396,19 +907,10 @@ func (x *RunPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Pipeline).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("pipeline", obj)
-	} else {
-		enc.AddReflected("pipeline", x.Pipeline)
-	}
+	enc.AddObject("pipeline", x.Pipeline)
 	provenanceArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Provenance {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -1421,12 +923,7 @@ func (x *RunCronRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Pipeline).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("pipeline", obj)
-	} else {
-		enc.AddReflected("pipeline", x.Pipeline)
-	}
+	enc.AddObject("pipeline", x.Pipeline)
 	return nil
 }
 
@@ -1434,7 +931,6 @@ func (x *CreateSecretRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	if x == nil {
 		return nil
 	}
-
 	protoextensions.AddBytes(enc, "file", x.File)
 	return nil
 }
@@ -1443,12 +939,7 @@ func (x *DeleteSecretRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Secret).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("secret", obj)
-	} else {
-		enc.AddReflected("secret", x.Secret)
-	}
+	enc.AddObject("secret", x.Secret)
 	return nil
 }
 
@@ -1456,12 +947,7 @@ func (x *InspectSecretRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Secret).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("secret", obj)
-	} else {
-		enc.AddReflected("secret", x.Secret)
-	}
+	enc.AddObject("secret", x.Secret)
 	return nil
 }
 
@@ -1469,7 +955,6 @@ func (x *Secret) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("name", x.Name)
 	return nil
 }
@@ -1478,12 +963,7 @@ func (x *SecretInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.Secret).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("secret", obj)
-	} else {
-		enc.AddReflected("secret", x.Secret)
-	}
+	enc.AddObject("secret", x.Secret)
 	enc.AddString("type", x.Type)
 	protoextensions.AddTimestamp(enc, "creation_timestamp", x.CreationTimestamp)
 	return nil
@@ -1493,14 +973,9 @@ func (x *SecretInfos) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	secret_infoArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.SecretInfo {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -1512,7 +987,6 @@ func (x *ActivateAuthRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -1520,7 +994,6 @@ func (x *ActivateAuthResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	if x == nil {
 		return nil
 	}
-
 	return nil
 }
 
@@ -1528,7 +1001,6 @@ func (x *RunLoadTestRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("dag_spec", x.DagSpec)
 	enc.AddString("load_spec", x.LoadSpec)
 	enc.AddInt64("seed", x.Seed)
@@ -1542,7 +1014,6 @@ func (x *RunLoadTestResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("error", x.Error)
 	enc.AddString("state_id", x.StateId)
 	return nil
@@ -1552,7 +1023,6 @@ func (x *RenderTemplateRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("template", x.Template)
 	enc.AddObject("args", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
 		for k, v := range x.Args {
@@ -1567,15 +1037,10 @@ func (x *RenderTemplateResponse) MarshalLogObject(enc zapcore.ObjectEncoder) err
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("json", x.Json)
 	specsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Specs {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}

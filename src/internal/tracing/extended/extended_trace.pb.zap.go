@@ -13,7 +13,6 @@ func (x *TraceProto) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddObject("serialized_trace", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
 		for k, v := range x.SerializedTrace {
 			enc.AddString(fmt.Sprintf("%v", k), v)

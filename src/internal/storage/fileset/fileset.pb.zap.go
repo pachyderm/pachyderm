@@ -12,7 +12,6 @@ func (x *Metadata) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	if obj, ok := interface{}(x.GetPrimitive()).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("primitive", obj)
 	} else {
@@ -30,7 +29,6 @@ func (x *Composite) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	layersArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Layers {
 			enc.AppendString(v)
@@ -45,7 +43,6 @@ func (x *Primitive) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	if obj, ok := interface{}(x.Deletive).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("deletive", obj)
 	} else {
@@ -64,7 +61,6 @@ func (x *TestCacheValue) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
 	enc.AddString("file_set_id", x.FileSetId)
 	return nil
 }

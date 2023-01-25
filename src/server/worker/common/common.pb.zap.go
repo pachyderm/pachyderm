@@ -12,17 +12,8 @@ func (x *Input) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-
-	if obj, ok := interface{}(x.FileInfo).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("file_info", obj)
-	} else {
-		enc.AddReflected("file_info", x.FileInfo)
-	}
-	if obj, ok := interface{}(x.ParentCommit).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("parent_commit", obj)
-	} else {
-		enc.AddReflected("parent_commit", x.ParentCommit)
-	}
+	enc.AddObject("file_info", x.FileInfo)
+	enc.AddObject("parent_commit", x.ParentCommit)
 	enc.AddString("name", x.Name)
 	enc.AddString("join_on", x.JoinOn)
 	enc.AddBool("outer_join", x.OuterJoin)
