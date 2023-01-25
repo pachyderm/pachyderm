@@ -10,6 +10,9 @@ from google.oauth2 import service_account
 
 def main():
     results_folder = os.getenv('API_PERF_RESULTS_FOLDER')
+    if not results_folder:
+        raise Exception(
+            f'Missing performance results folder location. Need API_PERF_RESULTS_FOLDER.')
     common_columns = {
         'Workflow_Id': os.getenv('CIRCLE_WORKFLOW_ID'),
         'Job_Id': os.getenv('CIRCLE_WORKFLOW_JOB_ID'),
@@ -24,20 +27,22 @@ def main():
     client = get_bigquery_client()
 
     rows_to_insert = get_csv_file_rows(
-        "api-perf_stats.csv", results_folder, common_columns)
+        'api-perf_stats.csv', results_folder, common_columns)
     insert_to_bigquery(client, rows_to_insert, 'api-perf-stats')
 
     rows_to_insert = get_csv_file_rows(
-        "api-perf_stats_history.csv", results_folder, common_columns)
+        'api-perf_stats_history.csv', results_folder, common_columns)
     insert_to_bigquery(client, rows_to_insert, 'api-perf-stats-history')
 
     rows_to_insert = get_csv_file_rows(
-        "api-perf_exceptions.csv", results_folder, common_columns)
+        'api-perf_exceptions.csv', results_folder, common_columns)
     insert_to_bigquery(client, rows_to_insert, 'api-perf-exceptions')
 
     rows_to_insert = get_csv_file_rows(
-        "api-perf_failures.csv", results_folder, common_columns)
+        'api-perf_failures.csv', results_folder, common_columns)
     insert_to_bigquery(client, rows_to_insert, 'api-perf-failures')
+
+
 
 
 # Log in to big query and return the authenticated client
@@ -54,6 +59,7 @@ def get_bigquery_client() -> bigquery.Client:
 
 
 # Collects the rows to insert from a csv and prepares them for insertion into big query. returns the rows to insert
+# returns a list of rows to insert. Each row is represented by a dictionary with `column_name: column_value` format.
 def get_csv_file_rows(file_name: str, results_folder: str, common_columns: dict[str, any]) -> list[dict[str, any]]:
     if results_folder:
         file_path = os.path.join(results_folder, file_name)
@@ -68,6 +74,10 @@ def get_csv_file_rows(file_name: str, results_folder: str, common_columns: dict[
             row_dict.update(common_columns)
             rows_to_insert.append(row_dict)
     return rows_to_insert
+
+
+def get_json_log_file_rows():
+    pass
 
 
 # format column names to be compatible with bigquery's rules
@@ -93,18 +103,18 @@ def normalize_version(version: str):
 # do the actual call to bigquery to insert rows. returns any errors
 def insert_to_bigquery(client: bigquery.Client, rows_to_insert: list[dict[str, any]], table_name: str) -> Sequence[dict]:
     errors = []
-    if len(rows_to_insert)>0:
-        table = client.get_table("{}.{}.{}".format(
-            "build-release-001", "insights", table_name))
+    if len(rows_to_insert) > 0:
+        table = client.get_table('{}.{}.{}'.format(
+            'build-release-001', 'insights', table_name))
         errors = client.insert_rows_json(table, rows_to_insert)
         if errors == []:
             print(f'Successful insert to {table_name}')
         else:
             print(f'Errors inserting into {table_name}: {errors}')
-    else: 
+    else:
         print(f'No rows to insert into {table_name}, skipping.')
     return errors
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
