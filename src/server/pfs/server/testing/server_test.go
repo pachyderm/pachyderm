@@ -4136,6 +4136,59 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, expected.String(), output.String())
 	})
 
+	suite.Run("PathRange", func(t *testing.T) {
+		t.Parallel()
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+		masterCommit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+		var paths []string
+		for i := 0; i < 3; i++ {
+			paths = append(paths, fmt.Sprintf("/dir%v/", i))
+			for j := 0; j < 3; j++ {
+				path := fmt.Sprintf("/dir%v/file%v", i, j)
+				require.NoError(t, env.PachClient.PutFile(masterCommit, path, &bytes.Buffer{}))
+				paths = append(paths, path)
+			}
+		}
+
+		type test struct {
+			pathRange     *pfs.PathRange
+			expectedPaths []string
+		}
+		var tests []*test
+		for i := 1; i < len(paths); i++ {
+			for j := 0; j+i < len(paths); j += i {
+				tests = append(tests, &test{
+					pathRange: &pfs.PathRange{
+						Lower: paths[j],
+						Upper: paths[j+i],
+					},
+					expectedPaths: paths[j : j+i],
+				})
+			}
+		}
+		for i, test := range tests {
+			t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+				c, err := env.PachClient.PfsAPIClient.GlobFile(ctx, &pfs.GlobFileRequest{
+					Commit:    masterCommit,
+					Pattern:   "**",
+					PathRange: test.pathRange,
+				})
+				require.NoError(t, err)
+				expectedPaths := test.expectedPaths
+				require.NoError(t, clientsdk.ForEachFile(c, func(fi *pfs.FileInfo) error {
+					require.Equal(t, expectedPaths[0], fi.File.Path)
+					expectedPaths = expectedPaths[1:]
+					return nil
+				}))
+				require.Equal(t, 0, len(expectedPaths))
+			})
+		}
+	})
+
 	suite.Run("ApplyWriteOrder", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
