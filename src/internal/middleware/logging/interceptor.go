@@ -173,7 +173,7 @@ func (li *LoggingInterceptor) UnaryServerInterceptor(ctx context.Context, req in
 	md, ok := metadata.FromIncomingContext(ctx)
 	if ok && len(md.Get("command")) > 0 {
 		command := md.Get("command")
-		dolog(ctx, log.InfoLevel, "audit log: %s"+strings.Join(command, ""))
+		dolog(ctx, log.InfoLevel, "audit log: "+strings.Join(command, ""))
 	}
 
 	// NOTE(jonathan): We use service/method in the log messages so that rate limiting applies
