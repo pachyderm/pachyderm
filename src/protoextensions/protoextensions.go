@@ -46,7 +46,11 @@ func AddBytesValue(enc zapcore.ObjectEncoder, key string, b *types.BytesValue) {
 
 // AddBytes encodes an abridged []byte.
 func AddBytes(enc zapcore.ObjectEncoder, key string, b []byte) {
-	enc.AddObject(key, ConciseBytes(b)) //nolint:errcheck
+	if len(b) > 32 {
+		enc.AddObject(key, ConciseBytes(b)) //nolint:errcheck
+		return
+	}
+	enc.AddBinary(key, b)
 }
 
 // AddAny encodes a google.protobuf.Any.
@@ -81,8 +85,8 @@ type ConciseBytes []byte
 
 // MarshalLogObject implements zap.ObjectMarshaler.
 func (b ConciseBytes) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddInt("len", len(b))
 	if len(b) > 32 {
+		enc.AddInt("len", len(b))
 		enc.AddBinary("firstBytes", b[:32])
 	} else {
 		enc.AddBinary("bytes", b)
