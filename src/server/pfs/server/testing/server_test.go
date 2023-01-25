@@ -3634,12 +3634,11 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("PathRange", func(t *testing.T) {
 		t.Parallel()
-		ctx := pctx.TestContext(t)
-		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
-		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-		masterCommit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+		require.NoError(t, env.PachClient.CreateRepo(repo))
+		masterCommit := client.NewCommit(repo, "master", "")
 		var paths []string
 		for i := 0; i < 3; i++ {
 			paths = append(paths, fmt.Sprintf("/dir%v/", i))
@@ -3668,7 +3667,7 @@ func TestPFS(suite *testing.T) {
 		}
 		for i, test := range tests {
 			t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-				c, err := env.PachClient.PfsAPIClient.GlobFile(ctx, &pfs.GlobFileRequest{
+				c, err := env.PachClient.PfsAPIClient.GlobFile(context.Background(), &pfs.GlobFileRequest{
 					Commit:    masterCommit,
 					Pattern:   "**",
 					PathRange: test.pathRange,
