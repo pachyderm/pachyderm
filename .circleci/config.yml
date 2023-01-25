@@ -139,11 +139,11 @@ jobs:
     parallelism: 1
     steps:
       - checkout
+      - run: mkdir -p ${TEST_RESULTS}
       - run:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h | tee "${TEST_RESULTS}/sar_stats.tsv"
           background: true
-      - run: mkdir -p ${TEST_RESULTS}
       - run:
           name: Clone Locust tests
           command: |
@@ -180,7 +180,7 @@ jobs:
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
       - store_artifacts:
-          path: /tmp/test-results
+          path: "${TEST_RESULTS}"
 
 # our single workflow, that triggers the setup job defined above
 workflows:
