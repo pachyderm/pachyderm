@@ -14,9 +14,7 @@ func (x *Group) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("namespace", x.Namespace)
-
 	enc.AddString("group", x.Group)
-
 	return nil
 }
 
@@ -26,21 +24,15 @@ func (x *TaskInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("id", x.ID)
-
 	if obj, ok := interface{}(x.Group).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("group", obj)
 	} else {
 		enc.AddReflected("group", x.Group)
 	}
-
 	enc.AddString("state", x.State.String())
-
 	enc.AddString("reason", x.Reason)
-
 	enc.AddString("input_type", x.InputType)
-
 	enc.AddString("input_data", x.InputData)
-
 	return nil
 }
 
@@ -54,6 +46,5 @@ func (x *ListTaskRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("group", x.Group)
 	}
-
 	return nil
 }

@@ -25,6 +25,7 @@ import (
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap/gogoproto"
+	"github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap/protoextensions"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -79,7 +80,6 @@ func generateListField(g *protogen.GeneratedFile, f *protogen.Field) {
 	g.P("return nil")
 	g.P("}")
 	g.P("enc.AddArray(\"", fname, "\",", g.QualifiedGoIdent(zapcorePkg.Ident("ArrayMarshalerFunc")), "(", fname, "ArrMarshaller))")
-	g.P()
 }
 
 func generateMapField(g *protogen.GeneratedFile, f *protogen.Field) {
@@ -123,7 +123,6 @@ func generateMapField(g *protogen.GeneratedFile, f *protogen.Field) {
 	g.P("}")
 	g.P("return nil")
 	g.P("}))")
-	g.P()
 }
 
 func generatePrimitiveField(g *protogen.GeneratedFile, f *protogen.Field, opts *descriptorpb.FieldOptions) {
@@ -189,7 +188,6 @@ func generatePrimitiveField(g *protogen.GeneratedFile, f *protogen.Field, opts *
 	default:
 		g.P("enc.AddReflected(\"", fname, "\", x.", gname, ")")
 	}
-	g.P()
 }
 
 func generateMessage(g *protogen.GeneratedFile, m *protogen.Message) {
@@ -212,12 +210,9 @@ func generateMessage(g *protogen.GeneratedFile, m *protogen.Message) {
 			// but it's unclear to me how the proto compiler can know this.
 			f.GoName = "Size_"
 		}
-		// if isMasked(opts) {
-		// 	panic("this works")
-		// 	g.P("enc.AddString(\"", f.Desc.Name(), "\", \"[MASKED]\")")
-		// 	g.P()
-		//} else
-		if f.Desc.IsList() {
+		if proto.GetExtension(opts, protoextensions.E_Mask).(bool) {
+			g.P("enc.AddString(\"", f.Desc.Name(), "\", \"[MASKED]\")")
+		} else if f.Desc.IsList() {
 			generateListField(g, f)
 		} else if f.Desc.IsMap() {
 			generateMapField(g, f)

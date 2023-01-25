@@ -18,13 +18,11 @@ func (x *Metadata) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("primitive", x.GetPrimitive())
 	}
-
 	if obj, ok := interface{}(x.GetComposite()).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("composite", obj)
 	} else {
 		enc.AddReflected("composite", x.GetComposite())
 	}
-
 	return nil
 }
 
@@ -54,15 +52,12 @@ func (x *Primitive) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("deletive", x.Deletive)
 	}
-
 	if obj, ok := interface{}(x.Additive).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("additive", obj)
 	} else {
 		enc.AddReflected("additive", x.Additive)
 	}
-
 	enc.AddInt64("size_bytes", x.SizeBytes)
-
 	return nil
 }
 
@@ -72,6 +67,5 @@ func (x *TestCacheValue) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("file_set_id", x.FileSetId)
-
 	return nil
 }

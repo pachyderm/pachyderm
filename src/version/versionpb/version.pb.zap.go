@@ -14,22 +14,13 @@ func (x *Version) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddUint32("major", x.Major)
-
 	enc.AddUint32("minor", x.Minor)
-
 	enc.AddUint32("micro", x.Micro)
-
 	enc.AddString("additional", x.Additional)
-
 	enc.AddString("git_commit", x.GitCommit)
-
 	enc.AddString("git_tree_modified", x.GitTreeModified)
-
 	enc.AddString("build_date", x.BuildDate)
-
 	enc.AddString("go_version", x.GoVersion)
-
 	enc.AddString("platform", x.Platform)
-
 	return nil
 }

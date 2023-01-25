@@ -14,8 +14,7 @@ func (x *ActivateRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 
-	enc.AddString("root_token", x.RootToken)
-
+	enc.AddString("root_token", "[MASKED]")
 	return nil
 }
 
@@ -24,8 +23,7 @@ func (x *ActivateResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 
-	enc.AddString("pach_token", x.PachToken)
-
+	enc.AddString("pach_token", "[MASKED]")
 	return nil
 }
 
@@ -50,8 +48,7 @@ func (x *RotateRootTokenRequest) MarshalLogObject(enc zapcore.ObjectEncoder) err
 		return nil
 	}
 
-	enc.AddString("root_token", x.RootToken)
-
+	enc.AddString("root_token", "[MASKED]")
 	return nil
 }
 
@@ -60,8 +57,7 @@ func (x *RotateRootTokenResponse) MarshalLogObject(enc zapcore.ObjectEncoder) er
 		return nil
 	}
 
-	enc.AddString("root_token", x.RootToken)
-
+	enc.AddString("root_token", "[MASKED]")
 	return nil
 }
 
@@ -71,13 +67,9 @@ func (x *OIDCConfig) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("issuer", x.Issuer)
-
 	enc.AddString("client_id", x.ClientID)
-
-	enc.AddString("client_secret", x.ClientSecret)
-
+	enc.AddString("client_secret", "[MASKED]")
 	enc.AddString("redirect_uri", x.RedirectURI)
-
 	scopesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Scopes {
 			enc.AppendString(v)
@@ -87,11 +79,8 @@ func (x *OIDCConfig) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddArray("scopes", zapcore.ArrayMarshalerFunc(scopesArrMarshaller))
 
 	enc.AddBool("require_email_verified", x.RequireEmailVerified)
-
 	enc.AddBool("localhost_issuer", x.LocalhostIssuer)
-
 	enc.AddString("user_accessible_issuer_host", x.UserAccessibleIssuerHost)
-
 	return nil
 }
 
@@ -113,7 +102,6 @@ func (x *GetConfigurationResponse) MarshalLogObject(enc zapcore.ObjectEncoder) e
 	} else {
 		enc.AddReflected("configuration", x.Configuration)
 	}
-
 	return nil
 }
 
@@ -127,7 +115,6 @@ func (x *SetConfigurationRequest) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	} else {
 		enc.AddReflected("configuration", x.Configuration)
 	}
-
 	return nil
 }
 
@@ -145,13 +132,10 @@ func (x *TokenInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("subject", x.Subject)
-
 	if t := x.Expiration; t != nil {
 		enc.AddTime("expiration", *t)
 	}
-
 	enc.AddString("hashed_token", x.HashedToken)
-
 	return nil
 }
 
@@ -161,9 +145,7 @@ func (x *AuthenticateRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	}
 
 	enc.AddString("oidc_state", x.OIDCState)
-
 	enc.AddString("id_token", x.IdToken)
-
 	return nil
 }
 
@@ -172,8 +154,7 @@ func (x *AuthenticateResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		return nil
 	}
 
-	enc.AddString("pach_token", x.PachToken)
-
+	enc.AddString("pach_token", "[MASKED]")
 	return nil
 }
 
@@ -191,11 +172,9 @@ func (x *WhoAmIResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("username", x.Username)
-
 	if t := x.Expiration; t != nil {
 		enc.AddTime("expiration", *t)
 	}
-
 	return nil
 }
 
@@ -205,7 +184,6 @@ func (x *GetRolesForPermissionRequest) MarshalLogObject(enc zapcore.ObjectEncode
 	}
 
 	enc.AddString("permission", x.Permission.String())
-
 	return nil
 }
 
@@ -269,9 +247,7 @@ func (x *Resource) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("type", x.Type.String())
-
 	enc.AddString("name", x.Name)
-
 	return nil
 }
 
@@ -311,7 +287,6 @@ func (x *Role) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("name", x.Name)
-
 	permissionsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Permissions {
 			enc.AppendString(v.String())
@@ -341,7 +316,6 @@ func (x *AuthorizeRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("resource", x.Resource)
 	}
-
 	permissionsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Permissions {
 			enc.AppendString(v.String())
@@ -359,7 +333,6 @@ func (x *AuthorizeResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddBool("authorized", x.Authorized)
-
 	satisfiedArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Satisfied {
 			enc.AppendString(v.String())
@@ -377,7 +350,6 @@ func (x *AuthorizeResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddArray("missing", zapcore.ArrayMarshalerFunc(missingArrMarshaller))
 
 	enc.AddString("principal", x.Principal)
-
 	return nil
 }
 
@@ -391,7 +363,6 @@ func (x *GetPermissionsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	} else {
 		enc.AddReflected("resource", x.Resource)
 	}
-
 	return nil
 }
 
@@ -405,9 +376,7 @@ func (x *GetPermissionsForPrincipalRequest) MarshalLogObject(enc zapcore.ObjectE
 	} else {
 		enc.AddReflected("resource", x.Resource)
 	}
-
 	enc.AddString("principal", x.Principal)
-
 	return nil
 }
 
@@ -445,9 +414,7 @@ func (x *ModifyRoleBindingRequest) MarshalLogObject(enc zapcore.ObjectEncoder) e
 	} else {
 		enc.AddReflected("resource", x.Resource)
 	}
-
 	enc.AddString("principal", x.Principal)
-
 	rolesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Roles {
 			enc.AppendString(v)
@@ -477,7 +444,6 @@ func (x *GetRoleBindingRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	} else {
 		enc.AddReflected("resource", x.Resource)
 	}
-
 	return nil
 }
 
@@ -491,7 +457,6 @@ func (x *GetRoleBindingResponse) MarshalLogObject(enc zapcore.ObjectEncoder) err
 	} else {
 		enc.AddReflected("binding", x.Binding)
 	}
-
 	return nil
 }
 
@@ -501,11 +466,8 @@ func (x *SessionInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("nonce", x.Nonce)
-
 	enc.AddString("email", x.Email)
-
 	enc.AddBool("conversion_err", x.ConversionErr)
-
 	return nil
 }
 
@@ -523,9 +485,7 @@ func (x *GetOIDCLoginResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	}
 
 	enc.AddString("login_url", x.LoginURL)
-
-	enc.AddString("state", x.State)
-
+	enc.AddString("state", "[MASKED]")
 	return nil
 }
 
@@ -535,9 +495,7 @@ func (x *GetRobotTokenRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	}
 
 	enc.AddString("robot", x.Robot)
-
 	enc.AddInt64("ttl", x.TTL)
-
 	return nil
 }
 
@@ -546,8 +504,7 @@ func (x *GetRobotTokenResponse) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 		return nil
 	}
 
-	enc.AddString("token", x.Token)
-
+	enc.AddString("token", "[MASKED]")
 	return nil
 }
 
@@ -557,7 +514,6 @@ func (x *RevokeAuthTokenRequest) MarshalLogObject(enc zapcore.ObjectEncoder) err
 	}
 
 	enc.AddString("token", x.Token)
-
 	return nil
 }
 
@@ -567,7 +523,6 @@ func (x *RevokeAuthTokenResponse) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	}
 
 	enc.AddInt64("number", x.Number)
-
 	return nil
 }
 
@@ -577,7 +532,6 @@ func (x *SetGroupsForUserRequest) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	}
 
 	enc.AddString("username", x.Username)
-
 	groupsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Groups {
 			enc.AppendString(v)
@@ -603,7 +557,6 @@ func (x *ModifyMembersRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	}
 
 	enc.AddString("group", x.Group)
-
 	addArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Add {
 			enc.AppendString(v)
@@ -645,7 +598,6 @@ func (x *GetGroupsForPrincipalRequest) MarshalLogObject(enc zapcore.ObjectEncode
 	}
 
 	enc.AddString("principal", x.Principal)
-
 	return nil
 }
 
@@ -671,7 +623,6 @@ func (x *GetUsersRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("group", x.Group)
-
 	return nil
 }
 
@@ -729,7 +680,6 @@ func (x *RestoreAuthTokenRequest) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	} else {
 		enc.AddReflected("token", x.Token)
 	}
-
 	return nil
 }
 
@@ -747,7 +697,6 @@ func (x *RevokeAuthTokensForUserRequest) MarshalLogObject(enc zapcore.ObjectEnco
 	}
 
 	enc.AddString("username", x.Username)
-
 	return nil
 }
 
@@ -757,7 +706,6 @@ func (x *RevokeAuthTokensForUserResponse) MarshalLogObject(enc zapcore.ObjectEnc
 	}
 
 	enc.AddInt64("number", x.Number)
-
 	return nil
 }
 

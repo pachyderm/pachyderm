@@ -18,7 +18,6 @@ func (x *Meta) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("job", x.Job)
 	}
-
 	inputsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Inputs {
 			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
@@ -32,21 +31,15 @@ func (x *Meta) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddArray("inputs", zapcore.ArrayMarshalerFunc(inputsArrMarshaller))
 
 	enc.AddString("hash", x.Hash)
-
 	enc.AddString("state", x.State.String())
-
 	enc.AddString("reason", x.Reason)
-
 	if obj, ok := interface{}(x.Stats).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("stats", obj)
 	} else {
 		enc.AddReflected("stats", x.Stats)
 	}
-
 	enc.AddInt64("index", x.Index)
-
 	enc.AddString("image_id", x.ImageId)
-
 	return nil
 }
 
@@ -60,19 +53,12 @@ func (x *Stats) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("process_stats", x.ProcessStats)
 	}
-
 	enc.AddInt64("processed", x.Processed)
-
 	enc.AddInt64("skipped", x.Skipped)
-
 	enc.AddInt64("total", x.Total)
-
 	enc.AddInt64("failed", x.Failed)
-
 	enc.AddInt64("recovered", x.Recovered)
-
 	enc.AddString("failed_id", x.FailedID)
-
 	return nil
 }
 
@@ -86,17 +72,13 @@ func (x *PFSTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("input", x.Input)
 	}
-
 	if obj, ok := interface{}(x.PathRange).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("path_range", obj)
 	} else {
 		enc.AddReflected("path_range", x.PathRange)
 	}
-
 	enc.AddInt64("base_index", x.BaseIndex)
-
 	enc.AddString("auth_token", x.AuthToken)
-
 	return nil
 }
 
@@ -106,7 +88,6 @@ func (x *PFSTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("file_set_id", x.FileSetId)
-
 	return nil
 }
 
@@ -124,17 +105,13 @@ func (x *CrossTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddArray("file_set_ids", zapcore.ArrayMarshalerFunc(file_set_idsArrMarshaller))
 
 	enc.AddInt64("base_file_set_index", x.BaseFileSetIndex)
-
 	if obj, ok := interface{}(x.BaseFileSetPathRange).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("base_file_set_path_range", obj)
 	} else {
 		enc.AddReflected("base_file_set_path_range", x.BaseFileSetPathRange)
 	}
-
 	enc.AddInt64("base_index", x.BaseIndex)
-
 	enc.AddString("auth_token", x.AuthToken)
-
 	return nil
 }
 
@@ -144,7 +121,6 @@ func (x *CrossTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("file_set_id", x.FileSetId)
-
 	return nil
 }
 
@@ -154,17 +130,13 @@ func (x *KeyTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("file_set_id", x.FileSetId)
-
 	if obj, ok := interface{}(x.PathRange).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("path_range", obj)
 	} else {
 		enc.AddReflected("path_range", x.PathRange)
 	}
-
 	enc.AddString("type", x.Type.String())
-
 	enc.AddString("auth_token", x.AuthToken)
-
 	return nil
 }
 
@@ -174,7 +146,6 @@ func (x *KeyTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("file_set_id", x.FileSetId)
-
 	return nil
 }
 
@@ -196,11 +167,8 @@ func (x *MergeTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("path_range", x.PathRange)
 	}
-
 	enc.AddString("type", x.Type.String())
-
 	enc.AddString("auth_token", x.AuthToken)
-
 	return nil
 }
 
@@ -210,7 +178,6 @@ func (x *MergeTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("file_set_id", x.FileSetId)
-
 	return nil
 }
 
@@ -228,7 +195,6 @@ func (x *ComposeTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddArray("file_set_ids", zapcore.ArrayMarshalerFunc(file_set_idsArrMarshaller))
 
 	enc.AddString("auth_token", x.AuthToken)
-
 	return nil
 }
 
@@ -238,7 +204,6 @@ func (x *ComposeTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("file_set_id", x.FileSetId)
-
 	return nil
 }
 
@@ -248,8 +213,6 @@ func (x *SetSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddInt64("number", x.Number)
-
 	enc.AddInt64("size_bytes", x.SizeBytes)
-
 	return nil
 }

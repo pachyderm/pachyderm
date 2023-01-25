@@ -14,10 +14,7 @@ func (x *TestItem) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("id", x.ID)
-
 	enc.AddString("value", x.Value)
-
 	enc.AddString("data", x.Data)
-
 	return nil
 }

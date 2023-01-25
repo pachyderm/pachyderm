@@ -26,7 +26,6 @@ func (x *ShardTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("path_range", x.PathRange)
 	}
-
 	return nil
 }
 
@@ -56,9 +55,7 @@ func (x *PathRange) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("lower", x.Lower)
-
 	enc.AddString("upper", x.Upper)
-
 	return nil
 }
 
@@ -80,7 +77,6 @@ func (x *CompactTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("path_range", x.PathRange)
 	}
-
 	return nil
 }
 
@@ -90,7 +86,6 @@ func (x *CompactTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("id", x.Id)
-
 	return nil
 }
 
@@ -116,7 +111,6 @@ func (x *ConcatTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("id", x.Id)
-
 	return nil
 }
 
@@ -126,13 +120,11 @@ func (x *ValidateTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("id", x.Id)
-
 	if obj, ok := interface{}(x.PathRange).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("path_range", obj)
 	} else {
 		enc.AddReflected("path_range", x.PathRange)
 	}
-
 	return nil
 }
 
@@ -146,17 +138,13 @@ func (x *ValidateTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("first", x.First)
 	}
-
 	if obj, ok := interface{}(x.Last).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("last", obj)
 	} else {
 		enc.AddReflected("last", x.Last)
 	}
-
 	enc.AddString("error", x.Error)
-
 	enc.AddInt64("size_bytes", x.SizeBytes)
-
 	return nil
 }
 
@@ -166,11 +154,8 @@ func (x *PutFileURLTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("dst", x.Dst)
-
 	enc.AddString("datum", x.Datum)
-
 	enc.AddString("URL", x.URL)
-
 	pathsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Paths {
 			enc.AppendString(v)
@@ -188,7 +173,6 @@ func (x *PutFileURLTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	}
 
 	enc.AddString("id", x.Id)
-
 	return nil
 }
 
@@ -198,19 +182,16 @@ func (x *GetFileURLTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("URL", x.URL)
-
 	if obj, ok := interface{}(x.File).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("file", obj)
 	} else {
 		enc.AddReflected("file", x.File)
 	}
-
 	if obj, ok := interface{}(x.PathRange).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("path_range", obj)
 	} else {
 		enc.AddReflected("path_range", x.PathRange)
 	}
-
 	return nil
 }
 

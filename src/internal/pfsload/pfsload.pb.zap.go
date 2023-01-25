@@ -15,7 +15,6 @@ func (x *CommitSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddInt64("count", x.Count)
-
 	modificationsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Modifications {
 			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
@@ -45,7 +44,6 @@ func (x *CommitSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("validator", x.Validator)
 	}
-
 	return nil
 }
 
@@ -55,13 +53,11 @@ func (x *ModificationSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddInt64("count", x.Count)
-
 	if obj, ok := interface{}(x.PutFile).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("put_file", obj)
 	} else {
 		enc.AddReflected("put_file", x.PutFile)
 	}
-
 	return nil
 }
 
@@ -71,9 +67,7 @@ func (x *PutFileSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddInt64("count", x.Count)
-
 	enc.AddString("source", x.Source)
-
 	return nil
 }
 
@@ -83,17 +77,13 @@ func (x *PutFileTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddInt64("count", x.Count)
-
 	if obj, ok := interface{}(x.FileSource).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("file_source", obj)
 	} else {
 		enc.AddReflected("file_source", x.FileSource)
 	}
-
 	enc.AddInt64("seed", x.Seed)
-
 	enc.AddString("auth_token", x.AuthToken)
-
 	return nil
 }
 
@@ -103,9 +93,7 @@ func (x *PutFileTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("file_set_id", x.FileSetId)
-
 	protoextensions.AddBytes(enc, "hash", x.Hash)
-
 	return nil
 }
 
@@ -115,13 +103,11 @@ func (x *FileSourceSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("name", x.Name)
-
 	if obj, ok := interface{}(x.Random).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("random", obj)
 	} else {
 		enc.AddReflected("random", x.Random)
 	}
-
 	return nil
 }
 
@@ -135,7 +121,6 @@ func (x *RandomFileSourceSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	} else {
 		enc.AddReflected("directory", x.Directory)
 	}
-
 	sizesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Sizes {
 			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
@@ -149,7 +134,6 @@ func (x *RandomFileSourceSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	enc.AddArray("sizes", zapcore.ArrayMarshalerFunc(sizesArrMarshaller))
 
 	enc.AddBool("increment_path", x.IncrementPath)
-
 	return nil
 }
 
@@ -163,9 +147,7 @@ func (x *RandomDirectorySpec) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	} else {
 		enc.AddReflected("depth", x.Depth)
 	}
-
 	enc.AddInt64("run", x.Run)
-
 	return nil
 }
 
@@ -175,11 +157,8 @@ func (x *SizeSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddInt64("min_size", x.MinSize)
-
 	enc.AddInt64("max_size", x.MaxSize)
-
 	enc.AddInt64("prob", x.Prob)
-
 	return nil
 }
 
@@ -193,7 +172,6 @@ func (x *ValidatorSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("frequency", x.Frequency)
 	}
-
 	return nil
 }
 
@@ -203,9 +181,7 @@ func (x *FrequencySpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddInt64("count", x.Count)
-
 	enc.AddInt64("prob", x.Prob)
-
 	return nil
 }
 
@@ -239,8 +215,6 @@ func (x *State_Commit) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("commit", x.Commit)
 	}
-
 	protoextensions.AddBytes(enc, "hash", x.Hash)
-
 	return nil
 }

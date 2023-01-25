@@ -15,9 +15,7 @@ func (x *ActivateRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("activation_code", x.ActivationCode)
-
 	protoextensions.AddTimestamp(enc, "expires", x.Expires)
-
 	return nil
 }
 
@@ -31,7 +29,6 @@ func (x *ActivateResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("info", x.Info)
 	}
-
 	return nil
 }
 
@@ -49,15 +46,12 @@ func (x *GetActivationCodeResponse) MarshalLogObject(enc zapcore.ObjectEncoder) 
 	}
 
 	enc.AddString("state", x.State.String())
-
 	if obj, ok := interface{}(x.Info).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("info", obj)
 	} else {
 		enc.AddReflected("info", x.Info)
 	}
-
 	enc.AddString("activation_code", x.ActivationCode)
-
 	return nil
 }
 
@@ -83,17 +77,11 @@ func (x *AddClusterRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("id", x.Id)
-
 	enc.AddString("address", x.Address)
-
 	enc.AddString("secret", x.Secret)
-
 	enc.AddString("user_address", x.UserAddress)
-
 	enc.AddString("cluster_deployment_id", x.ClusterDeploymentId)
-
 	enc.AddBool("enterprise_server", x.EnterpriseServer)
-
 	return nil
 }
 
@@ -103,7 +91,6 @@ func (x *AddClusterResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("secret", x.Secret)
-
 	return nil
 }
 
@@ -113,7 +100,6 @@ func (x *DeleteClusterRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	}
 
 	enc.AddString("id", x.Id)
-
 	return nil
 }
 
@@ -131,23 +117,16 @@ func (x *ClusterStatus) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("id", x.Id)
-
 	enc.AddString("address", x.Address)
-
 	enc.AddString("version", x.Version)
-
 	enc.AddBool("auth_enabled", x.AuthEnabled)
-
 	enc.AddString("client_id", x.ClientId)
-
 	if t := x.LastHeartbeat; t != nil {
 		enc.AddTime("last_heartbeat", *t)
 	}
-
 	if t := x.CreatedAt; t != nil {
 		enc.AddTime("created_at", *t)
 	}
-
 	return nil
 }
 
@@ -157,15 +136,10 @@ func (x *UpdateClusterRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	}
 
 	enc.AddString("id", x.Id)
-
 	enc.AddString("address", x.Address)
-
 	enc.AddString("user_address", x.UserAddress)
-
 	enc.AddString("cluster_deployment_id", x.ClusterDeploymentId)
-
 	enc.AddString("secret", x.Secret)
-
 	return nil
 }
 
@@ -227,15 +201,10 @@ func (x *HeartbeatRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("id", x.Id)
-
 	enc.AddString("secret", x.Secret)
-
 	enc.AddString("version", x.Version)
-
 	enc.AddBool("auth_enabled", x.AuthEnabled)
-
 	enc.AddString("client_id", x.ClientId)
-
 	return nil
 }
 
@@ -249,7 +218,6 @@ func (x *HeartbeatResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("license", x.License)
 	}
-
 	return nil
 }
 
@@ -259,13 +227,9 @@ func (x *UserClusterInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("id", x.Id)
-
 	enc.AddString("cluster_deployment_id", x.ClusterDeploymentId)
-
 	enc.AddString("address", x.Address)
-
 	enc.AddBool("enterprise_server", x.EnterpriseServer)
-
 	return nil
 }
 

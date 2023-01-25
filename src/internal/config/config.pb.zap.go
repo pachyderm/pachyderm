@@ -15,19 +15,16 @@ func (x *Config) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("user_id", x.UserID)
-
 	if obj, ok := interface{}(x.V1).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("v1", obj)
 	} else {
 		enc.AddReflected("v1", x.V1)
 	}
-
 	if obj, ok := interface{}(x.V2).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("v2", obj)
 	} else {
 		enc.AddReflected("v2", x.V2)
 	}
-
 	return nil
 }
 
@@ -37,13 +34,9 @@ func (x *ConfigV1) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("pachd_address", x.PachdAddress)
-
 	enc.AddString("server_cas", x.ServerCAs)
-
 	enc.AddString("session_token", x.SessionToken)
-
 	enc.AddString("active_transaction", x.ActiveTransaction)
-
 	return nil
 }
 
@@ -53,9 +46,7 @@ func (x *ConfigV2) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("active_context", x.ActiveContext)
-
 	enc.AddString("active_enterprise_context", x.ActiveEnterpriseContext)
-
 	enc.AddObject("contexts", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
 		for k, v := range x.Contexts {
 			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
@@ -68,9 +59,7 @@ func (x *ConfigV2) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}))
 
 	enc.AddBool("metrics", x.Metrics)
-
 	enc.AddInt64("max_shell_completions", x.MaxShellCompletions)
-
 	return nil
 }
 
@@ -80,21 +69,13 @@ func (x *Context) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	enc.AddString("source", x.Source.String())
-
 	enc.AddString("pachd_address", x.PachdAddress)
-
 	enc.AddString("server_cas", x.ServerCAs)
-
 	enc.AddString("session_token", x.SessionToken)
-
 	enc.AddString("active_transaction", x.ActiveTransaction)
-
 	enc.AddString("cluster_name", x.ClusterName)
-
 	enc.AddString("auth_info", x.AuthInfo)
-
 	enc.AddString("namespace", x.Namespace)
-
 	enc.AddObject("port_forwarders", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
 		for k, v := range x.PortForwarders {
 			enc.AddUint32(fmt.Sprintf("%v", k), v)
@@ -103,10 +84,7 @@ func (x *Context) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}))
 
 	enc.AddString("cluster_deployment_id", x.ClusterDeploymentID)
-
 	enc.AddBool("enterprise_server", x.EnterpriseServer)
-
 	enc.AddString("project", x.Project)
-
 	return nil
 }

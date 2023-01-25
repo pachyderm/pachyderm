@@ -7,6 +7,8 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/struct.proto";
 import "gogoproto/gogo.proto";
 
+import "protoextensions/log.proto";
+
 // User represents an IDP user that has authenticated via OIDC
 message User {
   string email = 1;
@@ -46,16 +48,16 @@ message IDPConnector {
   // Type is the type of the IDP ex. `saml`, `oidc`, `github`.
   string type = 3;
 
-  // ConfigVersion must be incremented every time a connector is 
+  // ConfigVersion must be incremented every time a connector is
   // updated, to avoid concurrent updates conflicting.
   int64 configVersion = 4;
 
   // This is left for backwards compatibility, but we want users to use the config defined below.
-  string jsonConfig = 5;
+  string jsonConfig = 5 [(log.mask) = true];
 
   // Config is the configuration for the upstream IDP, which varies based on the type.
   // We make the assumption that this is either yaml or JSON.
-  google.protobuf.Struct config = 6;
+  google.protobuf.Struct config = 6 [(log.mask) = true];
 }
 
 message CreateIDPConnectorRequest {
@@ -95,7 +97,7 @@ message OIDCClient {
   repeated string redirect_uris = 2;
   repeated string trusted_peers = 3;
   string name = 4;
-  string secret = 5;
+  string secret = 5 [(log.mask) = true];
 }
 
 message CreateOIDCClientRequest {

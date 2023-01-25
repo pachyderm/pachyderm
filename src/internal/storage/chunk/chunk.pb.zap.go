@@ -19,13 +19,9 @@ func (x *DataRef) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("ref", x.Ref)
 	}
-
 	protoextensions.AddBytes(enc, "hash", x.Hash)
-
 	enc.AddInt64("offset_bytes", x.OffsetBytes)
-
 	enc.AddInt64("size_bytes", x.SizeBytes)
-
 	return nil
 }
 
@@ -35,16 +31,10 @@ func (x *Ref) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 
 	protoextensions.AddBytes(enc, "id", x.Id)
-
 	enc.AddInt64("size_bytes", x.SizeBytes)
-
 	enc.AddBool("edge", x.Edge)
-
 	protoextensions.AddBytes(enc, "dek", x.Dek)
-
 	enc.AddString("encryption_algo", x.EncryptionAlgo.String())
-
 	enc.AddString("compression_algo", x.CompressionAlgo.String())
-
 	return nil
 }

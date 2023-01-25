@@ -18,8 +18,6 @@ func (x *State) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("branch", x.Branch)
 	}
-
 	enc.AddString("pfs_state_id", x.PfsStateId)
-
 	return nil
 }
