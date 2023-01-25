@@ -30,6 +30,10 @@ echo "$ENT_ACT_CODE" | pachctl license activate
 pachctl version
 nohup pachctl port-forward &
 
+kubectl get pod postgres-0 -o json  > "${TEST_RESULTS}/postgres-k8s-config.json"
+kubectl get pod -l "app=pachd" -o json  > "${TEST_RESULTS}/pachd-k8s-config.json"
+kubectl get pod -l "app=pg-bouncer" -o json  > "${TEST_RESULTS}/pg-bouncer-k8s-config.json"
+
 # Run locust tests
 cd locust-pachyderm
 pip3 install -r requirements.txt
@@ -39,11 +43,11 @@ locust -f locustfile.py --headless --users 50 --spawn-rate 1 --run-time 3m \
     --html /tmp/test-results/api-perf-stats.html \
     --exit-code-on-error 0 # errors are reported in the artifacts, if the test finishes the pipeline ran successfully
 cd ..
-pachctl logs > /tmp/test-results/pachctl_logs.json
+pachctl logs > "${TEST_RESULTS}/pachctl_logs.json"
 
 # Collect and export stats to bigquery
 export PACHD_PERF_VERSION="$image_tag"
-export API_PERF_RESULTS_FOLDER="/tmp/test-results"
+export API_PERF_RESULTS_FOLDER="${TEST_RESULTS}"
 cd etc/testing/circle/workloads/api-perf-collector
 pip3 install -r requirements.txt
 python3 app.py
