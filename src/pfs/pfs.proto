@@ -15,8 +15,6 @@ import "auth/auth.proto";
 
 import "task/task.proto";
 
-import "protoextensions/log.proto";
-
 ////  PFS Data structures (stored in etcd)
 
 message Repo {
