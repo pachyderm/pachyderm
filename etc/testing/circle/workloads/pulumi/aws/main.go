@@ -13,7 +13,7 @@ func main() {
 
 func DeployResources() pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
-		cluster, err := DeployCluster(ctx)
+		k8sProvider, saRole, err := DeployCluster(ctx)
 		if err != nil {
 			return err
 		}
@@ -25,7 +25,7 @@ func DeployResources() pulumi.RunFunc {
 		if err != nil {
 			return err
 		}
-		err = DeployApp(ctx, cluster, rdsInstance, bucket)
+		err = DeployApp(ctx, k8sProvider, saRole, rdsInstance, bucket)
 		if err != nil {
 			return err
 		}

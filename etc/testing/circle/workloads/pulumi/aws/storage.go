@@ -14,10 +14,11 @@ func DeployBucket(ctx *pulumi.Context) (*s3.Bucket, error) {
 		Acl:          pulumi.String("public-read-write"),
 		ForceDestroy: pulumi.Bool(true),
 		Tags: pulumi.StringMap{
-			"Project": pulumi.String("Feature Testing"),
-			"Service": pulumi.String("CI"),
-			"Owner":   pulumi.String("pachyderm-ci"),
-			"Team":    pulumi.String("Core"),
+			"Project":     pulumi.String("Feature Testing"),
+			"Service":     pulumi.String("CI"),
+			"Owner":       pulumi.String("pachyderm-ci"),
+			"Team":        pulumi.String("Core"),
+			"Environment": pulumi.String(ctx.Stack()),
 		},
 	})
 

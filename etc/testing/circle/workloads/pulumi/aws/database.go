@@ -39,10 +39,11 @@ func DeployRDS(ctx *pulumi.Context) (*rds.Instance, error) {
 		Username:           pulumi.String("postgres"),
 		PubliclyAccessible: pulumi.Bool(true),
 		Tags: pulumi.StringMap{
-			"Project": pulumi.String("Feature Testing"),
-			"Service": pulumi.String("CI"),
-			"Owner":   pulumi.String("pachyderm-ci"),
-			"Team":    pulumi.String("Core"),
+			"Project":     pulumi.String("Feature Testing"),
+			"Service":     pulumi.String("CI"),
+			"Owner":       pulumi.String("pachyderm-ci"),
+			"Team":        pulumi.String("Core"),
+			"Environment": pulumi.String(ctx.Stack()),
 		},
 	}
 

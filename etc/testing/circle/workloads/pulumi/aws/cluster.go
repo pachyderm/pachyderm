@@ -2,9 +2,15 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
+	awseks "github.com/pulumi/pulumi-aws/sdk/v5/go/aws/eks"
+	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/iam"
 	"github.com/pulumi/pulumi-awsx/sdk/go/awsx/ec2"
 	"github.com/pulumi/pulumi-eks/sdk/go/eks"
+	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes"
+	metav1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/meta/v1"
+	storagev1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/storage/v1"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 )
@@ -12,7 +18,7 @@ import (
 // Create a new EKS cluster; this leverages the pulumi aws crosswalk library.
 // aws crosswalk (awsx) is a higher level library that makes it easier to
 // create AWS resources since it created all the associated networking.
-func DeployCluster(ctx *pulumi.Context) (*eks.Cluster, error) {
+func DeployCluster(ctx *pulumi.Context) (*kubernetes.Provider, *iam.Role, error) {
 	cfg := config.New(ctx, "")
 	minClusterSize, err := cfg.TryInt("minClusterSize")
 	if err != nil {
@@ -41,21 +47,23 @@ func DeployCluster(ctx *pulumi.Context) (*eks.Cluster, error) {
 		EnableDnsHostnames: pulumi.Bool(true),
 		CidrBlock:          &vpcNetworkCidr,
 		Tags: pulumi.StringMap{
-			"Project": pulumi.String("Feature Testing"),
-			"Service": pulumi.String("CI"),
-			"Owner":   pulumi.String("pachyderm-ci"),
-			"Team":    pulumi.String("Core"),
+			"Project":     pulumi.String("Feature Testing"),
+			"Service":     pulumi.String("CI"),
+			"Owner":       pulumi.String("pachyderm-ci"),
+			"Team":        pulumi.String("Core"),
+			"Environment": pulumi.String(ctx.Stack()),
 		},
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Create a new EKS cluster
 	eksClusterName := fmt.Sprintf("eks-%s-cluster", ctx.Stack())
 	eksCluster, err := eks.NewCluster(ctx, eksClusterName, &eks.ClusterArgs{
 		// Put the cluster in the new VPC created earlier
-		VpcId: eksVpc.VpcId,
+		VpcId:              eksVpc.VpcId,
+		CreateOidcProvider: pulumi.Bool(true),
 		// Public subnets will be used for load balancers
 		PublicSubnetIds: eksVpc.PublicSubnetIds,
 		// Private subnets will be used for cluster nodes
@@ -71,19 +79,134 @@ func DeployCluster(ctx *pulumi.Context) (*eks.Cluster, error) {
 		// EndpointPrivateAccess: 	      pulumi.Bool(true),
 		// EndpointPublicAccess:         pulumi.Bool(false),
 		Tags: pulumi.StringMap{
-			"Project": pulumi.String("Feature Testing"),
-			"Service": pulumi.String("CI"),
-			"Owner":   pulumi.String("pachyderm-ci"),
-			"Team":    pulumi.String("Core"),
+			"Project":     pulumi.String("Feature Testing"),
+			"Service":     pulumi.String("CI"),
+			"Owner":       pulumi.String("pachyderm-ci"),
+			"Team":        pulumi.String("Core"),
+			"Environment": pulumi.String(ctx.Stack()),
 		},
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	k8sProvider, err := kubernetes.NewProvider(ctx, "k8sprovider", &kubernetes.ProviderArgs{
+		Kubeconfig: eksCluster.KubeconfigJson,
+	})
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	clusterOidcProviderUrl := eksCluster.Core.OidcProvider().Url()
+
+	assumeRolePolicyDocument := pulumi.All(clusterOidcProviderUrl, eksCluster.Core.OidcProvider().Arn()).ApplyT(func(args []interface{}) (string, error) {
+		url := args[0].(string)
+		arn := args[1].(string)
+
+		urlTrimmed := strings.TrimPrefix(url, "https://")
+		urlAud := fmt.Sprintf("%s:aud", urlTrimmed)
+		urlSub := fmt.Sprintf("%s:sub", urlTrimmed)
+
+		assumeRolePolicy, _ := iam.GetPolicyDocument(ctx, &iam.GetPolicyDocumentArgs{
+			Statements: []iam.GetPolicyDocumentStatement{
+				{
+					Sid: &[]string{"allowK8sServiceAccount"}[0],
+					Actions: []string{
+						"sts:AssumeRoleWithWebIdentity",
+					},
+					Principals: []iam.GetPolicyDocumentStatementPrincipal{
+						{
+							Identifiers: []string{
+								arn,
+							},
+							Type: "Federated",
+						},
+					},
+					Conditions: []iam.GetPolicyDocumentStatementCondition{
+						{
+							Test:     "StringEquals",
+							Variable: urlAud,
+							Values: []string{
+								"sts.amazonaws.com",
+							},
+						},
+						{
+							Test:     "StringEquals",
+							Variable: urlSub,
+							Values: []string{
+								"system:serviceaccount:kube-system:ebs-csi-controller-sa",
+							},
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			return "", err
+		}
+		return assumeRolePolicy.Json, nil
+	})
+
+	saRoleName := fmt.Sprintf("ebscsi-%s-sa-role", ctx.Stack())
+	saRole, err := iam.NewRole(ctx, saRoleName, &iam.RoleArgs{
+		AssumeRolePolicy: assumeRolePolicyDocument,
+		Tags: pulumi.StringMap{
+			"Project":     pulumi.String("Feature Testing"),
+			"Service":     pulumi.String("CI"),
+			"Owner":       pulumi.String("pachyderm-ci"),
+			"Team":        pulumi.String("Core"),
+			"Environment": pulumi.String(ctx.Stack()),
+		},
+	})
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	_, err = iam.NewRolePolicyAttachment(ctx, "attach-ebs-csi-policy", &iam.RolePolicyAttachmentArgs{
+		Role:      saRole,
+		PolicyArn: pulumi.String("arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"),
+	})
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	_, err = awseks.NewAddon(ctx, "aws-ebs-csi-driver", &awseks.AddonArgs{
+		ClusterName:           eksCluster.EksCluster.Name(),
+		AddonName:             pulumi.String("aws-ebs-csi-driver"),
+		ServiceAccountRoleArn: saRole.Arn,
+		Tags: pulumi.StringMap{
+			"Project":     pulumi.String("Feature Testing"),
+			"Service":     pulumi.String("CI"),
+			"Owner":       pulumi.String("pachyderm-ci"),
+			"Team":        pulumi.String("Core"),
+			"Environment": pulumi.String(ctx.Stack()),
+		},
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	_, err = storagev1.NewStorageClass(ctx, "gp3", &storagev1.StorageClassArgs{
+		Provisioner: pulumi.String("ebs.csi.aws.com"),
+		Metadata: &metav1.ObjectMetaArgs{
+			Name: pulumi.String("gp3"),
+		},
+		Parameters: pulumi.StringMap{
+			"type":   pulumi.String("gp3"),
+			"fsType": pulumi.String("ext4"),
+		},
+	}, pulumi.Provider(k8sProvider))
+
+	if err != nil {
+		return nil, nil, err
 	}
 
 	// Export some values in case they are needed elsewhere
 	ctx.Export("kubeconfig", eksCluster.Kubeconfig)
 	ctx.Export("vpcId", eksVpc.VpcId)
 
-	return eksCluster, nil
+	return k8sProvider, saRole, nil
 }

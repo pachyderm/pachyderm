@@ -112,6 +112,7 @@ require (
 	github.com/go-git/gcfg v1.5.0 // indirect
 	github.com/go-git/go-billy/v5 v5.3.1 // indirect
 	github.com/go-git/go-git/v5 v5.4.2 // indirect
+	github.com/gofrs/flock v0.7.1 // indirect
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
@@ -120,14 +121,19 @@ require (
 	github.com/opentracing/basictracer-go v1.0.0 // indirect
 	github.com/pulumi/pulumi-docker/sdk/v3 v3.2.0 // indirect
 	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.17.0 // indirect
+	github.com/pulumi/pulumi/sdk v1.13.1 // indirect
+	github.com/pulumi/pulumi/sdk/v2 v2.20.0 // indirect
 	github.com/pulumi/pulumi/sdk/v3 v3.50.1 // indirect
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.0.0 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
+	github.com/src-d/gcfg v1.4.0 // indirect
 	github.com/texttheater/golang-levenshtein v0.0.0-20191208221605-eb6844b05fc6 // indirect
 	github.com/tweekmonster/luser v0.0.0-20161003172636-3fa38070dbd7 // indirect
 	github.com/xanzy/ssh-agent v0.3.2 // indirect
+	gopkg.in/src-d/go-billy.v4 v4.3.2 // indirect
+	gopkg.in/src-d/go-git.v4 v4.13.1 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	lukechampine.com/frand v1.4.2 // indirect
 	sourcegraph.com/sourcegraph/appdash v0.0.0-20190731080439-ebfcffb1b5c0 // indirect
@@ -284,6 +290,8 @@ require (
 	github.com/pquerna/otp v1.2.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
+	github.com/pulumi/pulumi-aws/sdk v1.31.0
+	github.com/pulumi/pulumi-aws/sdk/v3 v3.38.1
 	github.com/pulumi/pulumi-aws/sdk/v5 v5.28.0
 	github.com/pulumi/pulumi-awsx/sdk v1.0.1
 	github.com/pulumi/pulumi-eks/sdk v1.0.1
