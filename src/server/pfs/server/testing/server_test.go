@@ -5722,7 +5722,7 @@ func TestPFS(suite *testing.T) {
 						// The commitset cannot be squashed or dropped as some commits have children and some commits don't
 						continue
 					}
-				} else if pfsserver.IsDeleteWithDependentCommitSetsErr(err) {
+				} else if pfsserver.IsDeleteWithDependentCommitSetsErr(err) || pfsserver.IsSquashWithSuvenanceErr(err) {
 					// TODO(acohen4): destructure error and successfully squash all the dependent commit sets
 					continue
 				}
@@ -5757,11 +5757,12 @@ func TestPFS(suite *testing.T) {
 					}
 				}
 				err = env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, "master", "", "", provBranches)
-				if err != nil && !strings.Contains(err.Error(), "cannot be in the provenance of its own branch") {
+				if err != nil {
+					if pfsserver.IsInvalidBranchStructureErr(err) || strings.Contains(err.Error(), "cannot be in the provenance of its own branch") {
+						continue
+					}
 					require.NoError(t, err)
-				} else if pfsserver.IsInvalidBranchStructureErr(err) {
-					// skip
-				} else if err == nil {
+				} else {
 					outputBranches = append(outputBranches, client.NewProjectBranch(pfs.DefaultProjectName, repo, "master"))
 					if len(provBranches) > 0 {
 						require.NoError(t, finishCommit(env.PachClient, repo, "master", ""))

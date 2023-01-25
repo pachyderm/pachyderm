@@ -171,6 +171,80 @@ func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb fun
 	return errors.EnsureStack(err)
 }
 
+// dropCommitSet is only implemented for commits with no children, so if any
+// commits in the commitSet have children the operation will fail.
+func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) error {
+	css, err := d.subvenantCommitSets(txnCtx, commitset)
+	if err != nil {
+		return err
+	}
+	if len(css) > 0 {
+		return &pfsserver.ErrSquashWithSubvenance{CommitSet: commitset, SubvenantCommitSets: css}
+	}
+	cis, err := d.inspectCommitSetImmediateTx(txnCtx, commitset, true)
+	if err != nil {
+		return err
+	}
+	for _, ci := range cis {
+		if ci.Commit.Branch.Repo.Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {
+			return errors.Errorf("cannot squash commit %s because it updated a pipeline", ci.Commit)
+		}
+		// TODO(acohen4): can drop commits & squash just be modeled the same for now?
+		// if len(ci.ChildCommits) > 0 {
+		// 	return &pfsserver.ErrDropWithChildren{Commit: ci.Commit}
+		// }
+	}
+	// While this is a 'drop' operation and not a 'squash', proper drop semantics
+	// aren't implemented at the moment.  Squashing the head of a branch is
+	// effectively a drop, though, because there is no child commit that contains
+	// the data from the given commits, which is why it is an error to drop any
+	// non-head commits (until generalized drop semantics are implemented).
+	if err := d.deleteCommits(txnCtx, cis); err != nil {
+		return err
+	}
+	// notify PPS that this commitset has been dropped so it can clean up any
+	// jobs associated with it at the end of the transaction
+	txnCtx.StopJobs(commitset)
+	return nil
+}
+
+func (d *driver) squashCommitSets(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, force bool) error {
+	css, err := d.subvenantCommitSets(txnCtx, commitset)
+	if err != nil {
+		return err
+	}
+	if len(css) > 0 && !force {
+		return &pfsserver.ErrSquashWithSubvenance{CommitSet: commitset, SubvenantCommitSets: css}
+	}
+	commitsets := append([]*pfs.CommitSet{commitset}, css...)
+	var commitInfos []*pfs.CommitInfo
+	for _, commitset := range commitsets {
+		var err error
+		cis, err := d.inspectCommitSetImmediateTx(txnCtx, commitset, true)
+		if err != nil {
+			return err
+		}
+		commitInfos = append(commitInfos, cis...)
+	}
+	for _, ci := range commitInfos {
+		if ci.Commit.Branch.Repo.Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {
+			return errors.Errorf("cannot squash commit %s because it updated a pipeline", ci.Commit)
+		}
+		if len(ci.ChildCommits) == 0 {
+			return &pfsserver.ErrSquashWithoutChildren{Commit: ci.Commit}
+		}
+	}
+	if err := d.deleteCommits(txnCtx, commitInfos); err != nil {
+		return err
+	}
+	// notify PPS that this commitset has been squashed so it can clean up any
+	// jobs associated with it at the end of the transaction
+	for _, commitset := range commitsets {
+		txnCtx.StopJobs(commitset)
+	}
+	return nil
+}
+
 // deleteCommits accepts commitInfos that may span commit sets.
 func (d *driver) deleteCommits(txnCtx *txncontext.TransactionContext, commitInfos []*pfs.CommitInfo) error {
 	deleteCommits := make(map[string]*pfs.CommitInfo)
@@ -386,78 +460,4 @@ func (d *driver) subvenantCommitSets(txnCtx *txncontext.TransactionContext, comm
 		result = append(result, &pfs.CommitSet{ID: cs})
 	}
 	return result, nil
-}
-
-// dropCommitSet is only implemented for commits with no children, so if any
-// commits in the commitSet have children the operation will fail.
-func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) error {
-	css, err := d.subvenantCommitSets(txnCtx, commitset)
-	if err != nil {
-		return err
-	}
-	if len(css) > 0 {
-		return errors.Errorf("commit set %q cannot be dropped because it has subvenant commit sets: %v", commitset, css)
-	}
-	cis, err := d.inspectCommitSetImmediateTx(txnCtx, commitset, true)
-	if err != nil {
-		return err
-	}
-	for _, ci := range cis {
-		if ci.Commit.Branch.Repo.Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {
-			return errors.Errorf("cannot squash commit %s because it updated a pipeline", ci.Commit)
-		}
-		// TODO(acohen4): can drop commits & squash just be modeled the same for now?
-		// if len(ci.ChildCommits) > 0 {
-		// 	return &pfsserver.ErrDropWithChildren{Commit: ci.Commit}
-		// }
-	}
-	// While this is a 'drop' operation and not a 'squash', proper drop semantics
-	// aren't implemented at the moment.  Squashing the head of a branch is
-	// effectively a drop, though, because there is no child commit that contains
-	// the data from the given commits, which is why it is an error to drop any
-	// non-head commits (until generalized drop semantics are implemented).
-	if err := d.deleteCommits(txnCtx, cis); err != nil {
-		return err
-	}
-	// notify PPS that this commitset has been dropped so it can clean up any
-	// jobs associated with it at the end of the transaction
-	txnCtx.StopJobs(commitset)
-	return nil
-}
-
-func (d *driver) squashCommitSets(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, force bool) error {
-	css, err := d.subvenantCommitSets(txnCtx, commitset)
-	if err != nil {
-		return err
-	}
-	if len(css) > 0 && !force {
-		return errors.Errorf("commit set %q cannot be dropped because it has subvenant commit sets: %v; if you wish to squash all of the subvenant commit sets, passthe force argument", commitset, css)
-	}
-	commitsets := append([]*pfs.CommitSet{commitset}, css...)
-	var commitInfos []*pfs.CommitInfo
-	for _, commitset := range commitsets {
-		var err error
-		cis, err := d.inspectCommitSetImmediateTx(txnCtx, commitset, true)
-		if err != nil {
-			return err
-		}
-		commitInfos = append(commitInfos, cis...)
-	}
-	for _, ci := range commitInfos {
-		if ci.Commit.Branch.Repo.Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {
-			return errors.Errorf("cannot squash commit %s because it updated a pipeline", ci.Commit)
-		}
-		if len(ci.ChildCommits) == 0 {
-			return &pfsserver.ErrSquashWithoutChildren{Commit: ci.Commit}
-		}
-	}
-	if err := d.deleteCommits(txnCtx, commitInfos); err != nil {
-		return err
-	}
-	// notify PPS that this commitset has been squashed so it can clean up any
-	// jobs associated with it at the end of the transaction
-	for _, commitset := range commitsets {
-		txnCtx.StopJobs(commitset)
-	}
-	return nil
 }

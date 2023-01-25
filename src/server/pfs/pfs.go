@@ -152,6 +152,14 @@ type ErrInvalidBranchStructure struct {
 	Branch *pfs.Branch
 }
 
+// ErrSquashWithSubvenance represents an error where a commit set cannot be deleted
+// because it contains commits that are depended on by commits in another commit set.
+// The dependent commit sets can be deleted by passing a force flag.
+type ErrSquashWithSubvenance struct {
+	CommitSet           *pfs.CommitSet
+	SubvenantCommitSets []*pfs.CommitSet
+}
+
 const GetFileTARSuggestion = "Use GetFileTAR instead"
 
 var (
@@ -295,6 +303,10 @@ func (e ErrInvalidBranchStructure) Error() string {
 	return fmt.Sprintf("multiple branches from the same repo, %q, cannot participate in a DAG", e.Branch.Repo.String())
 }
 
+func (e ErrSquashWithSubvenance) Error() string {
+	return fmt.Sprintf("commit set %q cannot be dropped because it has subvenant commit sets: %v; to delete all of the subvenant commit sets, pass the force argument", e.CommitSet, e.SubvenantCommitSets)
+}
+
 var (
 	commitNotFoundRe          = regexp.MustCompile("commit [^ ]+ not found")
 	commitsetNotFoundRe       = regexp.MustCompile("no commits found for commitset")
@@ -315,6 +327,7 @@ var (
 	dropWithChildrenRe        = regexp.MustCompile("cannot drop a commit that has children")
 	deleteWithDependentSetsRe = regexp.MustCompile("cannot be squashed in isolation; to delete them also squash")
 	invalidBranchStructureRe  = regexp.MustCompile("multiple branches from the same repo, .+, cannot participate in a DAG")
+	squashWithSubvenanceRe    = regexp.MustCompile("commit set .+ cannot be dropped because it has subvenant commit sets: .+")
 )
 
 // IsCommitNotFoundErr returns true if 'err' has an error message that matches
@@ -483,6 +496,13 @@ func IsInvalidBranchStructureErr(err error) bool {
 		return false
 	}
 	return invalidBranchStructureRe.MatchString(err.Error())
+}
+
+func IsSquashWithSuvenanceErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return squashWithSubvenanceRe.MatchString(err.Error())
 }
 
 func ValidateSQLDatabaseEgress(sql *pfs.SQLDatabaseEgress) error {
