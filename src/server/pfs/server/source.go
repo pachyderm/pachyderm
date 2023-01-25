@@ -58,10 +58,14 @@ func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOpt
 		// and the first file that shouldn't get created.
 		// For example, the files /d1/f1 and /d2/f2 with a path range of [/d1/f1, /d2/f2) should
 		// emit /d1/f1 and /d2/.
-		s.fileIndexOpts = append(s.fileIndexOpts, index.WithRange(&index.PathRange{
+		pr := &index.PathRange{
 			Lower: sc.pathRange.Lower,
-			Upper: sc.pathRange.Upper + string(0),
-		}))
+			Upper: sc.pathRange.Upper,
+		}
+		if pr.Upper != "" {
+			pr.Upper += string(0)
+		}
+		s.fileIndexOpts = append(s.fileIndexOpts, index.WithRange(pr))
 		s.upper = sc.pathRange.Upper
 	}
 	if sc.filter != nil {
