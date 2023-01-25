@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -231,6 +232,20 @@ func BenchmarkProtoTextEncode(b *testing.B) {
 	ctx, w := newBenchLogger(false)
 	for i := 0; i < b.N; i++ {
 		Debug(ctx, "proto", zap.Stringer("text", bigProto))
+	}
+	if w.n == 0 {
+		b.Fatal("no bytes added to logger")
+	}
+}
+
+func BenchmarkProtoBinaryEncode(b *testing.B) {
+	ctx, w := newBenchLogger(false)
+	for i := 0; i < b.N; i++ {
+		m, err := proto.Marshal(bigProto)
+		if err != nil {
+			panic(err)
+		}
+		Debug(ctx, "proto", zap.ByteString("binary", m))
 	}
 	if w.n == 0 {
 		b.Fatal("no bytes added to logger")
