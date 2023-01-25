@@ -34,7 +34,7 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	}
 	ci := &pfs.CommitInfo{}
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitset.ID, ci, col.DefaultOptions(), func(string) error {
-		commits[pfsdb.CommitKey(ci.Commit)] = ci
+		commits[pfsdb.CommitKey(ci.Commit)] = proto.Clone(ci).(*pfs.CommitInfo)
 		return nil
 	}); err != nil {
 		return nil, err
