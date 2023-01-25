@@ -357,8 +357,10 @@ loki-stack:
 # The pachw controller creates a pool of pachd instances running in 'pachw' mode which can dynamically scale to handle
 # storage related tasks
 pachw:
-  # inSidecars can be enabled to process storage related tasks in pipeline storage sidecars like version 2.4 or less.
-  inSidecars: false
+  # inSidecars is enabled by default to also process storage related tasks in pipeline storage sidecars like version 2.4 or less.
+  # when enabled, pachw instances can still run in their own dedicated kubernetes deployment if maxReplicas is greater than 0.
+  # For more control of where pachw instances run, 'inSidecars' can be disabled.
+  inSidecars: true
   maxReplicas: 1
   # minReplicas: 0
   # resources defines the kubernetes resource configuration for pachw pods. If not defined, the resource configuration
