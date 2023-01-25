@@ -44,35 +44,44 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	for _, ci := range commitInfos {
 		commits[pfsdb.CommitKey(ci.Commit)] = ci
 	}
+	canPop := func(k string) bool {
+		for _, p := range commits[k].CommitProvenance {
+			if _, ok := commitSubv[pfsdb.CommitKey(p)]; ok {
+				return false
+			}
+		}
+		return true
+	}
 	queue := make([]string, 0)
+	seenQueue := make(map[string]struct{})
 	res := make([]*pfs.CommitInfo, 0)
-	// set up commitSubv, and load queue with commits that can be popped
+	// set up commitSubv
 	for _, ci := range commitInfos {
-		ready := true
 		for _, p := range ci.CommitProvenance {
 			if _, ok := commits[pfsdb.CommitKey(p)]; ok {
 				commitSubv[pfsdb.CommitKey(p)] = append(commitSubv[pfsdb.CommitKey(p)], pfsdb.CommitKey(ci.Commit))
-				ready = false
 			}
 		}
-		if ready {
+	}
+	// load queue with commits that can be popped
+	for _, ci := range commitInfos {
+		if canPop(pfsdb.CommitKey(ci.Commit)) {
 			queue = append(queue, pfsdb.CommitKey(ci.Commit))
 		}
 	}
 	for len(res) < len(commitInfos) {
 		for i, k := range queue {
-			pop := true
-			for _, p := range commits[k].CommitProvenance {
-				if _, ok := commitSubv[pfsdb.CommitKey(p)]; ok {
-					pop = false
-					break
+			if canPop(k) {
+				res = append(res, commits[k])
+				// add k's commitSubv to queue
+				for _, s := range commitSubv[k] {
+					if _, seen := seenQueue[s]; !seen {
+						queue = append(queue, s)
+						seenQueue[s] = struct{}{}
+					}
 				}
-			}
-			if pop {
-				res = append(res, ci)
-				queue = append(queue, commitSubv[k]...)
 				delete(commitSubv, k)
-				queue = append(queue[:i], queue[i+1:]...)
+				queue = append(queue[:i], queue[i+1:]...) // pop from queue
 				break
 			}
 		}
