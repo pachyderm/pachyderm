@@ -2,6 +2,7 @@ package log
 
 import (
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -13,14 +14,20 @@ func TestProto(t *testing.T) {
 	// faster than this.
 	ctx := TestParallel(t)
 	Info(ctx, "some proto", Proto("version", &versionpb.Version{Major: 42}))
+	Info(ctx, "some proto", Proto("version", (*versionpb.Version)(nil)))
+	Info(ctx, "some proto without MarshalLogObject", Proto("int", &types.Int32Value{Value: 42}))
+	Info(ctx, "some proto without MarshalLogObject", Proto("int", (*types.Int32Value)(nil)))
+
+	Info(ctx, "int64", Proto("int", &types.Int64Value{Value: 42}))
+	Info(ctx, "int64", Proto("int", (*types.Int64Value)(nil)))
 
 	b := [4096]byte{}
 	Info(ctx, "lots of bytes", Proto("bytes", &types.BytesValue{Value: b[:]}))
 	Info(ctx, "empty bytes", Proto("bytes", &types.BytesValue{}))
 	Info(ctx, "nil bytes", Proto("bytes", (*types.BytesValue)(nil)))
-	Info(ctx, "some bytes", Proto("bytes", &types.BytesValue{Value: b[:29]}))
-	Info(ctx, "some bytes", Proto("bytes", &types.BytesValue{Value: b[:30]}))
 	Info(ctx, "some bytes", Proto("bytes", &types.BytesValue{Value: b[:31]}))
+	Info(ctx, "some bytes", Proto("bytes", &types.BytesValue{Value: b[:32]}))
+	Info(ctx, "some bytes", Proto("bytes", &types.BytesValue{Value: b[:33]}))
 
 	badAny := &types.Any{
 		TypeUrl: "totally invalid",
@@ -37,4 +44,10 @@ func TestProto(t *testing.T) {
 
 	Info(ctx, "empty", Proto("empty", &types.Empty{}))
 	Info(ctx, "nil empty", Proto("empty", (*types.Empty)(nil)))
+
+	Info(ctx, "duration", Proto("duration", types.DurationProto(24*time.Hour)))
+	Info(ctx, "nil duration", Proto("duration", (*types.Duration)(nil)))
+
+	Info(ctx, "time", Proto("time", types.TimestampNow()))
+	Info(ctx, "nil time", Proto("time", (*types.Timestamp)(nil)))
 }
