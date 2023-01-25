@@ -1396,6 +1396,7 @@ workflows:
             - jupyter-extension-build
             - build-pachctl-bin
       - create-aws-test-env:
+          env: qa1
           filters: *only-release-tags
           requires:
             - build-docker-images
