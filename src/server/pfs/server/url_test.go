@@ -19,7 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
-func TestTaskBatching(t *testing.T) {
+func TestSharding(t *testing.T) {
 	//integrationtests.LoadGoogleParameters(t)
 	//credFile := path.Join(t.TempDir(), "tmp-google-cred")
 	//require.NoError(t, os.WriteFile(credFile, []byte(os.Getenv("GOOGLE_CLIENT_CREDS")), 0666))

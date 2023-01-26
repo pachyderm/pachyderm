@@ -144,8 +144,8 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 	return errors.EnsureStack(eg.Wait())
 }
 
-// shardObjects iterates through a list of objects and creates tasks of uniform byte size by sharding/batching objects.
-// createTask is passed through as a callback to support nicer testing.
+// shardObjects iterates through a list of objects and creates tasks by sharding small files into a single shard or
+// breaking large files into multiple shards.
 func shardObjects(ctx context.Context, URL string, cb shardCallback) (retErr error) {
 	url, err := obj.ParseURL(URL)
 	if err != nil {
@@ -161,66 +161,58 @@ func shardObjects(ctx context.Context, URL string, cb shardCallback) (retErr err
 		}
 	}()
 	list := bucket.List(&blob.ListOptions{Prefix: url.Object})
-	var startPath, endPath string
+	var startPath, endPath string // startPath is inclusive, endPath is exclusive.
 	var numObjects, size int64
-	moreObjects := true
-	for moreObjects {
+	shardLargeObject := func(key string) error {
+		var pos int64
+		endPath = key
+		for {
+			if size-pos < threshold*2 {
+				if err := cb(startPath, pos, endPath, -1); err != nil {
+					return errors.EnsureStack(err)
+				}
+				startPath = key
+				numObjects, size = 0, 0
+				break
+			}
+			endOffset := pos + threshold
+			if err := cb(startPath, pos, endPath, endOffset); err != nil {
+				return errors.EnsureStack(err)
+			}
+			pos = endOffset
+		}
+		return nil
+	}
+
+	for {
 		listObj, err := list.Next(ctx)
 		if errors.Is(err, io.EOF) {
-			moreObjects = false
-			// this happens because we process item N on iteration N+1
-			// so on the final iteration (io.EOF), we need to process the items in the batch.
+			break
 		}
 		if startPath == "" {
 			startPath = listObj.Key
+		}
+		if size >= threshold {
+			if err := shardLargeObject(listObj.Key); err != nil {
+				return err
+			}
 		}
 		if numObjects >= threshold {
 			if err := cb(startPath, 0, listObj.Key, -1); err != nil {
 				return errors.EnsureStack(err)
 			}
-			startPath = ""
-			if listObj != nil { // this case happens if the last object is larger than the threshold.
-				startPath = listObj.Key
-			}
-			numObjects = 0
-			size = 0
+			startPath = listObj.Key
+			numObjects, size = 0, 0
 		}
-		if size >= threshold {
-			var pos int64
-			endPath = ""
-			if listObj != nil { // this case happens if the last object is larger than the threshold.
-				endPath = listObj.Key
-			}
-			for {
-				if size-pos < threshold*2 {
-					if err := cb(startPath, pos, endPath, -1); err != nil {
-						return errors.EnsureStack(err)
-					}
-					startPath = ""
-					if listObj != nil { // this case happens if the last object is larger than the threshold.
-						startPath = listObj.Key
-					}
-					numObjects = 0
-					size = 0
-					break
-				}
-				endOffset := pos + threshold
-				if err := cb(startPath, pos, endPath, endOffset); err != nil {
-					return errors.EnsureStack(err)
-				}
-				pos = endOffset
-			}
-		}
-		numObjects += 1
-		size += 0
-		if listObj != nil { // this case happens if the last object is larger than the threshold.
-			size += listObj.Size
-		}
+		numObjects++
+		size += listObj.Size
 	}
+	// Handle leftover objects in shard after iteration terminates
 	if startPath != "" {
-		if err := cb(startPath, 0, "", -1); err != nil {
-			return errors.EnsureStack(err)
+		if size >= threshold {
+			return shardLargeObject("")
 		}
+		return cb(startPath, 0, "", -1)
 	}
 	return nil
 }
