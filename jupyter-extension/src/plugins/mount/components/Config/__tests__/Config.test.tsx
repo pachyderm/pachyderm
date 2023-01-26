@@ -215,7 +215,7 @@ describe('config screen', () => {
 
     expect(setShowConfig).not.toHaveBeenCalled();
     getByTestId('Config__back').click();
-    expect(setShowConfig).toBeCalledWith(false);
+    expect(setShowConfig).toHaveBeenCalledWith(false);
   });
 
   describe('pachd address field', () => {
@@ -326,7 +326,7 @@ describe('config screen', () => {
               'grpcs://hub-123-123123123.clusters.pachyderm.io:31400',
           },
         );
-        expect(updateConfig).toBeCalledTimes(1);
+        expect(updateConfig).toHaveBeenCalledTimes(1);
       });
     });
 
@@ -381,7 +381,7 @@ describe('config screen', () => {
             server_cas: '12345=',
           },
         );
-        expect(updateConfig).toBeCalledTimes(1);
+        expect(updateConfig).toHaveBeenCalledTimes(1);
       });
     });
   });

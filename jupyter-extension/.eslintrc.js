@@ -3,7 +3,9 @@ module.exports = {
     'eslint:recommended',
     'plugin:@typescript-eslint/eslint-recommended',
     'plugin:@typescript-eslint/recommended',
-    'plugin:prettier/recommended'
+    'plugin:prettier/recommended',
+    'plugin:testing-library/react',
+    'plugin:jest/style',
   ],
   parser: '@typescript-eslint/parser',
   parserOptions: {
@@ -34,6 +36,7 @@ module.exports = {
     ],
     curly: ['error', 'all'],
     eqeqeq: 'error',
-    'prefer-arrow-callback': 'error'
+    'prefer-arrow-callback': 'error',
+    'jest/prefer-to-be': 'warn',
   }
 };

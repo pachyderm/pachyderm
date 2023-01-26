@@ -5,7 +5,13 @@ import (
 	"errors"
 	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/sirupsen/logrus"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -116,6 +122,130 @@ func BenchmarkLogrusWrapper(b *testing.B) {
 	l := NewLogrus(ctx)
 	for i := 0; i < b.N; i++ {
 		l.Debugf("debug: %d", i)
+	}
+	if w.n == 0 {
+		b.Fatal("no bytes added to logger")
+	}
+}
+
+var bigProto = &pps.CreatePipelineRequest{
+	Pipeline: &pps.Pipeline{
+		Project: &pfs.Project{
+			Name: "project",
+		},
+		Name: "pipeline",
+	},
+	Transform: &pps.Transform{
+		Image: "debian",
+		Cmd:   []string{"set +x", "cp /pfs/in /pfs/out -avr"},
+		Secrets: []*pps.SecretMount{
+			{
+				Name:      "name",
+				Key:       "key",
+				MountPath: "path",
+			},
+		},
+		MemoryVolume: true,
+		Env:          map[string]string{"PATH": "/", "HOME": "/pfs"},
+	},
+	ResourceRequests: &pps.ResourceSpec{
+		Cpu: 2,
+	},
+	DatumTimeout: types.DurationProto(time.Hour),
+	JobTimeout:   types.DurationProto(24 * time.Hour),
+	ParallelismSpec: &pps.ParallelismSpec{
+		Constant: 10,
+	},
+	Tolerations: []*pps.Toleration{
+		{
+			Key:      "dedicated",
+			Operator: pps.TolerationOperator_EXISTS,
+			Effect:   pps.TaintEffect_NO_SCHEDULE,
+		},
+		{
+			Key:      "NotReady",
+			Operator: pps.TolerationOperator_EXISTS,
+			Effect:   pps.TaintEffect_NO_EXECUTE,
+			TolerationSeconds: &types.Int64Value{
+				Value: 60,
+			},
+		},
+	},
+	PodPatch: "{}",
+	Input: &pps.Input{
+		Cross: []*pps.Input{
+			{
+				Pfs: &pps.PFSInput{
+					Project: "project",
+					Name:    "a",
+					Glob:    "/*",
+				}},
+			{
+				Pfs: &pps.PFSInput{
+					Project: "project",
+					Name:    "b",
+					Glob:    "/*",
+				}},
+		},
+	},
+	DatumTries: 3,
+}
+
+func BenchmarkProtoReflect(b *testing.B) {
+	ctx, w := newBenchLogger(false)
+	for i := 0; i < b.N; i++ {
+		Debug(ctx, "proto", zap.Reflect("pipeline", bigProto))
+	}
+	if w.n == 0 {
+		b.Fatal("no bytes added to logger")
+	}
+}
+
+func BenchmarkProtoObject(b *testing.B) {
+	ctx, w := newBenchLogger(false)
+	for i := 0; i < b.N; i++ {
+		Debug(ctx, "proto", zap.Object("pipeline", bigProto))
+	}
+	if w.n == 0 {
+		b.Fatal("no bytes added to logger")
+	}
+}
+
+func BenchmarkProtoJSONEncode(b *testing.B) {
+	ctx, w := newBenchLogger(false)
+	m := jsonpb.Marshaler{
+		EmitDefaults: true,
+	}
+	for i := 0; i < b.N; i++ {
+		j, err := m.MarshalToString(bigProto)
+		if err != nil {
+			panic(err)
+		}
+		Debug(ctx, "proto", zap.String("json", j))
+	}
+	if w.n == 0 {
+		b.Fatal("no bytes added to logger")
+	}
+}
+
+func BenchmarkProtoTextEncode(b *testing.B) {
+	ctx, w := newBenchLogger(false)
+	for i := 0; i < b.N; i++ {
+		Debug(ctx, "proto", zap.Stringer("text", bigProto))
+	}
+	if w.n == 0 {
+		b.Fatal("no bytes added to logger")
+	}
+}
+
+func BenchmarkProtoBinaryEncode(b *testing.B) {
+	ctx, w := newBenchLogger(false)
+	for i := 0; i < b.N; i++ {
+		m, err := proto.Marshal(bigProto)
+		if err != nil {
+			panic(err)
+		}
+		Debug(ctx, "proto", zap.ByteString("binary", m))
 	}
 	if w.n == 0 {
 		b.Fatal("no bytes added to logger")
