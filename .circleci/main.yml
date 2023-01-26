@@ -1042,9 +1042,11 @@ jobs:
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
-  create-aws-test-env:
+  pulumi-aws-test-env:
     parameters:
       env:
+        type: string
+      action:
         type: string
     resource_class: large
     machine:
@@ -1060,14 +1062,22 @@ jobs:
       - pulumi/login
       - run: |
          pulumi plugin install resource eks v0.40.0
-      - run:
-          name: echo bins
-          command: |
-            ls -la dist-pach/*
-            ls -la cr-release-packages/*
-      - pulumi/update:
-          stack: pachyderm/core/<< parameters.env >>
-          working_directory: ./etc/testing/circle/workloads/pulumi/aws/
+      - when:
+          condition:
+            and:
+              - equal: ["update", << parameters.action >>]
+          steps:
+              - pulumi/update:
+                  stack: pachyderm/core/<< parameters.env >>
+                  working_directory: ./etc/testing/circle/workloads/pulumi/aws/
+      - when:
+          condition:
+            and:
+              - equal: ["destroy", << parameters.action >>]
+          steps:
+              - pulumi/destroy:
+                  stack: pachyderm/core/<< parameters.env >>
+                  working_directory: ./etc/testing/circle/workloads/pulumi/aws/
   cust-prerelease-testing:
     parameters:
       customer:
@@ -1265,9 +1275,15 @@ workflows:
     when: << pipeline.parameters.run_load_tests >>
     jobs:
       - build-docker-images
-      - nightly-load:
+      - pulumi-aws-test-env:
+          name: create-aws-prerelease-testing-env
+          env: qa3
+          action: update
           requires:
             - build-docker-images
+      - nightly-load:
+          requires:
+            - create-aws-prerelease-testing-env
           matrix:
             parameters:
               bucket:
@@ -1287,6 +1303,12 @@ workflows:
                   #- LOAD13
                   #- LOAD14
                   #- LOAD15
+      - pulumi-aws-test-env:
+          name: destroy-aws-prerelease-testing-env
+          env: qa3
+          action: destroy
+          requires:
+            - nightly-load
   rootless-tests:
     when:
       or:
@@ -1395,34 +1417,59 @@ workflows:
           requires:
             - jupyter-extension-build
             - build-pachctl-bin
-      - create-aws-test-env:
+      - pulumi-aws-test-env:
+          name: aws-prerelease-testing-env
           env: qa1
+          action: update
           filters: *only-release-tags
           requires:
             - build-docker-images
             - build-pachctl-bin
             - publish-chart-preview
             - release-github-draft
-      - gcp-prerelease-testing:
-          filters: *only-release-tags
+      - pulumi-aws-test-env:
+          name: cust-prerelease-testing-env-1
+          env: qa4
+          action: update
+          filters: *only-alpha-tags
           requires:
-            - create-aws-test-env
+            - build-docker-images
+            - build-pachctl-bin
+            - publish-chart-preview
+            - release-github-draft
+      - pulumi-aws-test-env:
+          name: cust-prerelease-testing-env-2
+          env: qa5
+          action: update
+          filters: *only-alpha-tags
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+            - publish-chart-preview
+            - release-github-draft
       - aws-prerelease-testing:
           filters: *only-release-tags
           requires:
-            - create-aws-test-env
+            - aws-prerelease-testing-env
+      - pulumi-aws-test-env:
+          name: destroy-aws-prerelease-testing-env
+          env: qa1
+          action: destroy
+          filters: *only-release-tags
+          requires:
+            - aws-prerelease-testing
       - cust-prerelease-testing:
           name: wp-testing
           customer: wp
           filters: *only-alpha-tags
           requires:
-            - create-aws-test-env
+            - cust-prerelease-testing-env-1
       - cust-prerelease-testing:
           name: btl-testing
           customer: btl
           filters: *only-alpha-tags
           requires:
-            - create-aws-test-env
+            - cust-prerelease-testing-env-2
       - console-release-draft:
           filters: *only-release-tags
           requires:
@@ -1525,21 +1572,35 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - build-pachctl-bin
-      - gcp-prerelease-testing:
-          filters: *only-nightly-tags
+      - pulumi-aws-test-env:
+          name: create-aws-test-env
+          env: qa1
+          action: update
+          filters: *only-release-tags
           requires:
             - build-docker-images
             - build-pachctl-bin
             - publish-chart-preview
             - release-github-draft
+      - aws-prerelease-testing:
+          filters: *only-release-tags
+          requires:
+            - create-aws-test-env
+      - pulumi-aws-test-env:
+          name: destroy-aws-test-env
+          env: qa1
+          action: destroy
+          filters: *only-release-tags
+          requires:
+            - aws-prerelease-testing
       - release-docker-hub:
           filters: *only-nightly-tags
           requires:
-            - gcp-prerelease-testing
+            - aws-prerelease-testing
       - release-github:
           filters: *only-nightly-tags
           requires:
-            - gcp-prerelease-testing
+            - aws-prerelease-testing
       - release-hombrew-tap:
           filters: *only-nightly-tags
           requires:
@@ -1548,7 +1609,7 @@ workflows:
           name: publish-helm-chart
           filters: *only-nightly-tags
           requires:
-            - gcp-prerelease-testing
+            - aws-prerelease-testing
 
 commands:
   install-jupyter-test-deps:
