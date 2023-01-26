@@ -5,7 +5,6 @@ import (
 	"net"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
@@ -31,7 +30,7 @@ import (
 
 /* Admin Server Mocks */
 
-type inspectClusterFunc func(context.Context, *types.Empty) (*admin.ClusterInfo, error)
+type inspectClusterFunc func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error)
 
 type mockInspectCluster struct{ handler inspectClusterFunc }
 
@@ -46,7 +45,7 @@ type mockAdminServer struct {
 	InspectCluster mockInspectCluster
 }
 
-func (api *adminServerAPI) InspectCluster(ctx context.Context, req *types.Empty) (*admin.ClusterInfo, error) {
+func (api *adminServerAPI) InspectCluster(ctx context.Context, req *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
 	if api.mock.InspectCluster.handler != nil {
 		return api.mock.InspectCluster.handler(ctx, req)
 	}
@@ -955,6 +954,7 @@ type createRepoFunc func(context.Context, *pfs.CreateRepoRequest) (*types.Empty,
 type inspectRepoFunc func(context.Context, *pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
 type listRepoFunc func(*pfs.ListRepoRequest, pfs.API_ListRepoServer) error
 type deleteRepoFunc func(context.Context, *pfs.DeleteRepoRequest) (*types.Empty, error)
+type deleteReposFunc func(context.Context, *pfs.DeleteReposRequest) (*pfs.DeleteReposResponse, error)
 type startCommitFunc func(context.Context, *pfs.StartCommitRequest) (*pfs.Commit, error)
 type finishCommitFunc func(context.Context, *pfs.FinishCommitRequest) (*types.Empty, error)
 type inspectCommitFunc func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error)
@@ -1003,6 +1003,7 @@ type mockCreateRepo struct{ handler createRepoFunc }
 type mockInspectRepo struct{ handler inspectRepoFunc }
 type mockListRepo struct{ handler listRepoFunc }
 type mockDeleteRepo struct{ handler deleteRepoFunc }
+type mockDeleteRepos struct{ handler deleteReposFunc }
 type mockStartCommit struct{ handler startCommitFunc }
 type mockFinishCommit struct{ handler finishCommitFunc }
 type mockInspectCommit struct{ handler inspectCommitFunc }
@@ -1051,6 +1052,7 @@ func (mock *mockCreateRepo) Use(cb createRepoFunc)                 { mock.handle
 func (mock *mockInspectRepo) Use(cb inspectRepoFunc)               { mock.handler = cb }
 func (mock *mockListRepo) Use(cb listRepoFunc)                     { mock.handler = cb }
 func (mock *mockDeleteRepo) Use(cb deleteRepoFunc)                 { mock.handler = cb }
+func (mock *mockDeleteRepos) Use(cb deleteReposFunc)               { mock.handler = cb }
 func (mock *mockStartCommit) Use(cb startCommitFunc)               { mock.handler = cb }
 func (mock *mockFinishCommit) Use(cb finishCommitFunc)             { mock.handler = cb }
 func (mock *mockInspectCommit) Use(cb inspectCommitFunc)           { mock.handler = cb }
@@ -1105,6 +1107,7 @@ type mockPFSServer struct {
 	InspectRepo        mockInspectRepo
 	ListRepo           mockListRepo
 	DeleteRepo         mockDeleteRepo
+	DeleteRepos        mockDeleteRepos
 	StartCommit        mockStartCommit
 	FinishCommit       mockFinishCommit
 	InspectCommit      mockInspectCommit
@@ -1178,6 +1181,12 @@ func (api *pfsServerAPI) DeleteRepo(ctx context.Context, req *pfs.DeleteRepoRequ
 		return api.mock.DeleteRepo.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.DeleteRepo")
+}
+func (api *pfsServerAPI) DeleteRepos(ctx context.Context, req *pfs.DeleteReposRequest) (*pfs.DeleteReposResponse, error) {
+	if api.mock.DeleteRepos.handler != nil {
+		return api.mock.DeleteRepos.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.DeleteRepos")
 }
 func (api *pfsServerAPI) StartCommit(ctx context.Context, req *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	if api.mock.StartCommit.handler != nil {
@@ -1449,6 +1458,7 @@ type createPipelineFunc func(context.Context, *pps.CreatePipelineRequest) (*type
 type inspectPipelineFunc func(context.Context, *pps.InspectPipelineRequest) (*pps.PipelineInfo, error)
 type listPipelineFunc func(*pps.ListPipelineRequest, pps.API_ListPipelineServer) error
 type deletePipelineFunc func(context.Context, *pps.DeletePipelineRequest) (*types.Empty, error)
+type deletePipelinesFunc func(context.Context, *pps.DeletePipelinesRequest) (*pps.DeletePipelinesResponse, error)
 type startPipelineFunc func(context.Context, *pps.StartPipelineRequest) (*types.Empty, error)
 type stopPipelineFunc func(context.Context, *pps.StopPipelineRequest) (*types.Empty, error)
 type runPipelineFunc func(context.Context, *pps.RunPipelineRequest) (*types.Empty, error)
@@ -1480,6 +1490,7 @@ type mockCreatePipeline struct{ handler createPipelineFunc }
 type mockInspectPipeline struct{ handler inspectPipelineFunc }
 type mockListPipeline struct{ handler listPipelineFunc }
 type mockDeletePipeline struct{ handler deletePipelineFunc }
+type mockDeletePipelines struct{ handler deletePipelinesFunc }
 type mockStartPipeline struct{ handler startPipelineFunc }
 type mockStopPipeline struct{ handler stopPipelineFunc }
 type mockRunPipeline struct{ handler runPipelineFunc }
@@ -1511,6 +1522,7 @@ func (mock *mockCreatePipeline) Use(cb createPipelineFunc)               { mock.
 func (mock *mockInspectPipeline) Use(cb inspectPipelineFunc)             { mock.handler = cb }
 func (mock *mockListPipeline) Use(cb listPipelineFunc)                   { mock.handler = cb }
 func (mock *mockDeletePipeline) Use(cb deletePipelineFunc)               { mock.handler = cb }
+func (mock *mockDeletePipelines) Use(cb deletePipelinesFunc)             { mock.handler = cb }
 func (mock *mockStartPipeline) Use(cb startPipelineFunc)                 { mock.handler = cb }
 func (mock *mockStopPipeline) Use(cb stopPipelineFunc)                   { mock.handler = cb }
 func (mock *mockRunPipeline) Use(cb runPipelineFunc)                     { mock.handler = cb }
@@ -1548,6 +1560,7 @@ type mockPPSServer struct {
 	InspectPipeline    mockInspectPipeline
 	ListPipeline       mockListPipeline
 	DeletePipeline     mockDeletePipeline
+	DeletePipelines    mockDeletePipelines
 	StartPipeline      mockStartPipeline
 	StopPipeline       mockStopPipeline
 	RunPipeline        mockRunPipeline
@@ -1654,6 +1667,12 @@ func (api *ppsServerAPI) DeletePipeline(ctx context.Context, req *pps.DeletePipe
 		return api.mock.DeletePipeline.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.DeletePipeline")
+}
+func (api *ppsServerAPI) DeletePipelines(ctx context.Context, req *pps.DeletePipelinesRequest) (*pps.DeletePipelinesResponse, error) {
+	if api.mock.DeletePipeline.handler != nil {
+		return api.mock.DeletePipelines.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pps.DeletePipelines")
 }
 func (api *ppsServerAPI) StartPipeline(ctx context.Context, req *pps.StartPipelineRequest) (*types.Empty, error) {
 	if api.mock.StartPipeline.handler != nil {
@@ -1936,7 +1955,7 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 		return &mock.Auth.api
 	}
 
-	loggingInterceptor := loggingmw.NewLoggingInterceptor(logrus.StandardLogger())
+	loggingInterceptor := loggingmw.NewLoggingInterceptor(ctx)
 	unaryOpts := []grpc.UnaryServerInterceptor{
 		errorsmw.UnaryServerInterceptor,
 		loggingInterceptor.UnaryServerInterceptor,

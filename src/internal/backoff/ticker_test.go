@@ -1,28 +1,31 @@
 package backoff_test
 
 import (
-	"log"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"go.uber.org/zap"
 )
 
 func TestTicker(t *testing.T) {
+	ctx := pctx.TestContext(t)
 	const successOn = 3
 	var i = 0
 
 	// This function is successful on "successOn" calls.
 	f := func() error {
 		i++
-		log.Printf("function is called %d. time\n", i)
+		log.Info(ctx, "function is called", zap.Int("i", i))
 
 		if i == successOn {
-			log.Println("OK")
+			log.Info(ctx, "OK")
 			return nil
 		}
 
-		log.Println("error")
+		log.Info(ctx, "error")
 		return errors.New("error")
 	}
 

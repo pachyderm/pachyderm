@@ -9,10 +9,11 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 var (
@@ -146,7 +147,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(tx *pachsql.Tx) error, 
 			underlyingTxFinishMetric.WithLabelValues("failed_start").Inc()
 			return errors.EnsureStack(err)
 		}
-		return tryTxFunc(tx, cb)
+		return tryTxFunc(ctx, tx, cb)
 	}, c.BackOff, func(err error, _ time.Duration) error {
 		if isTransactionError(err) {
 			return nil
@@ -169,11 +170,11 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(tx *pachsql.Tx) error, 
 	return nil
 }
 
-func tryTxFunc(tx *pachsql.Tx, cb func(tx *pachsql.Tx) error) error {
+func tryTxFunc(ctx context.Context, tx *pachsql.Tx, cb func(tx *pachsql.Tx) error) error {
 	if err := cb(tx); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
 			underlyingTxFinishMetric.WithLabelValues("rollback_failed").Inc()
-			logrus.Error(rbErr)
+			log.Info(ctx, "tryTxFunc encountered an error on rollback", zap.Error(rbErr))
 			return err // The user error, not the rollback error.
 		}
 		underlyingTxFinishMetric.WithLabelValues("rollback_ok").Inc()

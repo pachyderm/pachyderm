@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 
@@ -42,8 +43,8 @@ func deserializeTestTask(any *types.Any) (*TestTask, error) {
 	return testTask, nil
 }
 
-func newTestEtcdService(t *testing.T) Service {
-	env := testetcd.NewEnv(t)
+func newTestEtcdService(ctx context.Context, t *testing.T) Service {
+	env := testetcd.NewEnv(ctx, t)
 	return NewEtcdService(env.EtcdClient, "")
 }
 
@@ -53,12 +54,13 @@ func seedRand() string {
 	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
 }
 
-func test(t *testing.T, s Service, workerFailProb, groupCancelProb, taskFailProb float64, msg ...string) {
+func test(ctx context.Context, t *testing.T, workerFailProb, groupCancelProb, taskFailProb float64, msg ...string) {
+	s := newTestEtcdService(ctx, t)
 	numGroups := 10
 	numTasks := 10
 	numWorkers := 5
 	// Set up workers.
-	workerCtx, workerCancel := context.WithCancel(context.Background())
+	workerCtx, workerCancel := context.WithCancel(ctx)
 	defer workerCancel()
 	workerEg, errCtx := errgroup.WithContext(workerCtx)
 	for i := 0; i < numWorkers; i++ {
@@ -151,42 +153,49 @@ func test(t *testing.T, s Service, workerFailProb, groupCancelProb, taskFailProb
 
 func TestBasic(t *testing.T) {
 	t.Parallel()
-	test(t, newTestEtcdService(t), 0, 0, 0, seedRand())
+	ctx := pctx.TestContext(t)
+	test(ctx, t, 0, 0, 0, seedRand())
 }
 
 func TestWorkerCrashes(t *testing.T) {
 	t.Parallel()
-	test(t, newTestEtcdService(t), 0.1, 0, 0, seedRand())
+	ctx := pctx.TestContext(t)
+	test(ctx, t, 0.1, 0, 0, seedRand())
 }
 
 func TestCancelGroups(t *testing.T) {
 	t.Parallel()
-	test(t, newTestEtcdService(t), 0, 0.05, 0, seedRand())
+	ctx := pctx.TestContext(t)
+	test(ctx, t, 0, 0.05, 0, seedRand())
 }
 
 func TestTaskFailures(t *testing.T) {
 	t.Parallel()
-	test(t, newTestEtcdService(t), 0, 0, 0.1, seedRand())
+	ctx := pctx.TestContext(t)
+	test(ctx, t, 0, 0, 0.1, seedRand())
 }
 
 func TestEverything(t *testing.T) {
 	t.Parallel()
-	test(t, newTestEtcdService(t), 0.1, 0.2, 0.1, seedRand())
+	ctx := pctx.TestContext(t)
+	test(ctx, t, 0.1, 0.2, 0.1, seedRand())
 }
 
 func TestRunZeroTasks(t *testing.T) {
 	t.Parallel()
-	env := testetcd.NewEnv(t)
+	ctx := pctx.TestContext(t)
+	env := testetcd.NewEnv(ctx, t)
 	s := NewEtcdService(env.EtcdClient, "")
 	d := s.NewDoer("", "", nil)
-	require.NoError(t, DoBatch(context.Background(), d, nil, func(_ int64, _ *types.Any, _ error) error {
+	require.NoError(t, DoBatch(ctx, d, nil, func(_ int64, _ *types.Any, _ error) error {
 		return errors.New("no tasks should exist")
 	}))
 }
 
 func TestListTask(t *testing.T) {
 	t.Parallel()
-	env := testetcd.NewEnv(t)
+	rctx := pctx.TestContext(t)
+	env := testetcd.NewEnv(rctx, t)
 	testNamespace := tu.UniqueString(t.Name())
 	s := NewEtcdService(env.EtcdClient, "")
 
@@ -217,7 +226,7 @@ func TestListTask(t *testing.T) {
 				Namespace: namespace,
 				Group:     group,
 			}}
-			if err := List(context.Background(), s, req, func(info *taskapi.TaskInfo) error {
+			if err := List(rctx, s, req, func(info *taskapi.TaskInfo) error {
 				out = append(out, info)
 				return nil
 			}); err != nil {
@@ -269,9 +278,9 @@ func TestListTask(t *testing.T) {
 	}
 
 	var groupEg errgroup.Group
-	workerCtx, workerCancel := context.WithCancel(context.Background())
+	workerCtx, workerCancel := context.WithCancel(rctx)
 	defer workerCancel()
-	workerEg, errCtx := errgroup.WithContext(workerCtx)
+	workerEg, errCtx := errgroup.WithContext(pctx.Child(workerCtx, "worker"))
 	for g := 0; g < numGroups; g++ {
 		g := g
 		groupEg.Go(func() error {

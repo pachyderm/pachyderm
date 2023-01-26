@@ -2,7 +2,6 @@ package shell
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -57,7 +56,7 @@ func getPachClient() *client.APIClient {
 	pachClientOnce.Do(func() {
 		c, err := client.NewOnUserMachine("user-completion")
 		if err != nil {
-			log.Fatal(err)
+			Fatal(err)
 		}
 		pachClient = c
 	})

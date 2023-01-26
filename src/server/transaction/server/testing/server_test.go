@@ -1,22 +1,16 @@
-//go:build k8s
-
 package testing
 
 import (
-	"bytes"
-	"fmt"
-	"strings"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 )
 
@@ -30,10 +24,10 @@ func requireCommitResponse(t *testing.T, response *transaction.TransactionRespon
 
 func TestTransactions(suite *testing.T) {
 	suite.Parallel()
-
 	suite.Run("TestEmptyTransaction", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -59,7 +53,8 @@ func TestTransactions(suite *testing.T) {
 
 	suite.Run("TestInvalidatedTransaction", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -89,7 +84,8 @@ func TestTransactions(suite *testing.T) {
 
 	suite.Run("TestFailedAppend", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -122,26 +118,31 @@ func TestTransactions(suite *testing.T) {
 
 	suite.Run("TestDependency", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		project := testutil.UniqueString("p-")
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
 
 		txnClient := env.PachClient.WithTransaction(txn)
 
+		_, err = txnClient.PfsAPIClient.CreateProject(txnClient.Ctx(), &pfs.CreateProjectRequest{
+			Project: client.NewProject(project), // projects is not transactional, so it shouldn't be added to inspect transaction request count
+		})
+		require.NoError(t, err)
 		// Create repo, start commit, finish commit
 		_, err = txnClient.PfsAPIClient.CreateRepo(txnClient.Ctx(), &pfs.CreateRepoRequest{
-			Repo: client.NewProjectRepo(pfs.DefaultProjectName, "foo"),
+			Repo: client.NewProjectRepo(project, "foo"),
 		})
 		require.NoError(t, err)
 
 		commit, err := txnClient.PfsAPIClient.StartCommit(txnClient.Ctx(), &pfs.StartCommitRequest{
-			Branch: client.NewProjectBranch(pfs.DefaultProjectName, "foo", "master"),
+			Branch: client.NewProjectBranch(project, "foo", "master"),
 		})
 		require.NoError(t, err)
 
 		_, err = txnClient.PfsAPIClient.FinishCommit(txnClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: client.NewProjectCommit(pfs.DefaultProjectName, "foo", "master", ""),
+			Commit: client.NewProjectCommit(project, "foo", "master", ""),
 		})
 		require.NoError(t, err)
 
@@ -176,7 +177,8 @@ func TestTransactions(suite *testing.T) {
 	// inspect the new commit outside of the transaction STM and fail to find it.
 	suite.Run("TestCreateBranch", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -184,17 +186,19 @@ func TestTransactions(suite *testing.T) {
 		repo := "foo"
 		branchA := "master"
 		branchB := "bar"
+		project := testutil.UniqueString("prj-")
 
-		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, branchA, "", "", nil))
-		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, repo, branchB, "", "", nil))
+		require.NoError(t, env.PachClient.CreateProject(project))
+		require.NoError(t, env.PachClient.CreateProjectRepo(project, repo))
+		require.NoError(t, env.PachClient.CreateProjectBranch(project, repo, branchA, "", "", nil))
+		require.NoError(t, env.PachClient.CreateProjectBranch(project, repo, branchB, "", "", nil))
 
 		txnClient := env.PachClient.WithTransaction(txn)
-		commit, err := txnClient.StartProjectCommit(pfs.DefaultProjectName, repo, branchB)
+		commit, err := txnClient.StartProjectCommit(project, repo, branchB)
 		require.NoError(t, err)
-		err = txnClient.FinishProjectCommit(pfs.DefaultProjectName, repo, branchB, "")
+		err = txnClient.FinishProjectCommit(project, repo, branchB, "")
 		require.NoError(t, err)
-		require.NoError(t, txnClient.CreateProjectBranch(pfs.DefaultProjectName, repo, branchA, branchB, "", nil))
+		require.NoError(t, txnClient.CreateProjectBranch(project, repo, branchA, branchB, "", nil))
 
 		info, err := txnClient.FinishTransaction(txn)
 		require.NoError(t, err)
@@ -202,19 +206,36 @@ func TestTransactions(suite *testing.T) {
 		// Double-check each response value
 		requireCommitResponse(t, info.Responses[0], commit)
 		requireEmptyResponse(t, info.Responses[1])
+		// Exercise branch reading after transaction
+		_, err = env.PachClient.InspectProjectBranch(project, repo, branchA)
+		require.NoError(t, err)
 
-		commitInfo, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, repo, branchA, "")
+		branches, err := env.PachClient.ListProjectBranch(project, repo)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(branches))
+
+		_, err = env.PachClient.InspectProjectBranch(pfs.DefaultProjectName, repo, branchA)
+		require.YesError(t, err, "Inspecting a branch in the wrong project should fail.")
+
+		_, err = env.PachClient.ListProjectBranch(pfs.DefaultProjectName, repo)
+		require.YesError(t, err)
+		// Exercise commit reading after transaction
+		_, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, repo, branchA, "")
+		require.YesError(t, err, "Inspecting a commit in the wrong project should fail.")
+
+		commitInfo, err := env.PachClient.InspectProjectCommit(project, repo, branchA, "")
 		require.NoError(t, err)
 		require.Equal(t, commitInfo.Commit.ID, commit.ID)
 
-		commitInfo, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, repo, branchB, "")
+		commitInfo, err = env.PachClient.InspectProjectCommit(project, repo, branchB, "")
 		require.NoError(t, err)
 		require.Equal(t, commitInfo.Commit.ID, commit.ID)
 	})
 
 	suite.Run("TestDeleteAllTransactions", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		_, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -236,24 +257,41 @@ func TestTransactions(suite *testing.T) {
 
 	suite.Run("TestMultiCommit", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+		project := testutil.UniqueString("prj_")
+		err := env.PachClient.CreateProject(project)
+		require.NoError(t, err)
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
 
 		txnClient := env.PachClient.WithTransaction(txn)
 
-		err = txnClient.CreateProjectRepo(pfs.DefaultProjectName, "foo")
+		err = txnClient.CreateProjectRepo(project, "foo")
 		require.NoError(t, err)
 
-		_, err = txnClient.StartProjectCommit(pfs.DefaultProjectName, "foo", "master")
+		_, err = txnClient.StartProjectCommit(project, "foo", "master")
 		require.NoError(t, err)
-		err = txnClient.FinishProjectCommit(pfs.DefaultProjectName, "foo", "master", "")
+		err = txnClient.FinishProjectCommit(project, "foo", "master", "")
 		require.NoError(t, err)
 
-		_, err = txnClient.StartProjectCommit(pfs.DefaultProjectName, "foo", "master")
+		_, err = txnClient.StartProjectCommit(project, "foo", "master")
 		require.YesError(t, err)
 		require.Matches(t, "already has a commit in this transaction", err.Error())
+		// Delete and verify deletion occurs as well
+		txns, err := env.PachClient.ListTransaction()
+		require.NoError(t, err)
+		require.Equal(t, 1, len(txns))
+
+		err = txnClient.DeleteTransaction(txn)
+		require.NoError(t, err)
+
+		txns, err = env.PachClient.ListTransaction()
+		require.NoError(t, err)
+		require.Equal(t, 0, len(txns))
+
 	})
 
 	// Test that a transactional change to multiple repos will only propagate a
@@ -264,7 +302,8 @@ func TestTransactions(suite *testing.T) {
 	//  E ────────╯
 	suite.Run("TestPropagateCommit", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "B"))
@@ -349,7 +388,8 @@ func TestTransactions(suite *testing.T) {
 	// performed within the transaction.
 	suite.Run("TestPropagateCommitRedux", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -398,7 +438,8 @@ func TestTransactions(suite *testing.T) {
 
 	suite.Run("TestBatchTransaction", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		var branchInfos []*pfs.BranchInfo
 		var info *transaction.TransactionInfo
@@ -476,7 +517,8 @@ func TestTransactions(suite *testing.T) {
 
 	suite.Run("TestProjectlessBatch", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 		_, err := env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
 			_, err := builder.PfsAPIClient.CreateRepo(builder.Ctx(), &pfs.CreateRepoRequest{
 				Repo: &pfs.Repo{
@@ -488,69 +530,4 @@ func TestTransactions(suite *testing.T) {
 		})
 		require.NoError(t, err)
 	})
-}
-
-func TestCreatePipelineTransaction(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	repo := testutil.UniqueString("in")
-	pipeline := testutil.UniqueString("pipeline")
-	_, err := c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
-		require.NoError(t, txnClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-		require.NoError(t, txnClient.CreateProjectPipeline(pfs.DefaultProjectName,
-			pipeline,
-			"",
-			[]string{"bash"},
-			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out", repo)},
-			&pps.ParallelismSpec{Constant: 1},
-			client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/"),
-			"master",
-			false,
-		))
-		return nil
-	})
-	require.NoError(t, err)
-
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
-	require.NoError(t, c.PutFile(commit, "foo", strings.NewReader("bar")))
-
-	commitInfo, err := c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
-	require.NoError(t, err)
-
-	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfo.Commit, "foo", &buf))
-	require.Equal(t, "bar", buf.String())
-}
-
-func TestCreateProjectlessPipelineTransaction(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	repo := testutil.UniqueString("in")
-	pipeline := testutil.UniqueString("pipeline")
-	_, err := c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
-		require.NoError(t, txnClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-		_, err := txnClient.PpsAPIClient.CreatePipeline(txnClient.Ctx(),
-			&pps.CreatePipelineRequest{
-				Pipeline: &pps.Pipeline{Name: pipeline},
-				Transform: &pps.Transform{
-					Image: testutil.DefaultTransformImage,
-					Cmd:   []string{"bash"},
-					Stdin: []string{fmt.Sprintf("cp /pfs/%s/* /pfs/out", repo)},
-				},
-				ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
-				Input:           client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/"),
-				OutputBranch:    "master",
-			})
-		require.NoError(t, err)
-		return nil
-	})
-	require.NoError(t, err)
-
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
-	require.NoError(t, c.PutFile(commit, "foo", strings.NewReader("bar")))
-
-	commitInfo, err := c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
-	require.NoError(t, err)
-
-	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfo.Commit, "foo", &buf))
-	require.Equal(t, "bar", buf.String())
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -20,7 +21,7 @@ import (
 // newClient should register cleanup of the returned object using testing.T.Cleanup
 // All of the subtests call t.Parallel, but the top level test does not.
 func TestSuite(t *testing.T, newClient func(t testing.TB) Client) {
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
 	t.Run("TestStorage", func(t *testing.T) {
 		t.Parallel()
 		c := newClient(t)

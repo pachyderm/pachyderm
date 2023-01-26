@@ -26,7 +26,7 @@ const (
 	// PipelineHeader is the header for pipelines.
 	PipelineHeader = "PROJECT\tNAME\tVERSION\tINPUT\tCREATED\tSTATE / LAST JOB\tDESCRIPTION\t\n"
 	// JobHeader is the header for jobs
-	JobHeader = "PIPELINE\tID\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
+	JobHeader = "PROJECT\tPIPELINE\tID\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// JobSetHeader is the header for jobsets
 	JobSetHeader = "ID\tSUBJOBS\tPROGRESS\tCREATED\tMODIFIED\n"
 	// DatumHeader is the header for datums
@@ -46,6 +46,7 @@ func safeTrim(s string, l int) string {
 
 // PrintJobInfo pretty-prints job info.
 func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) {
+	fmt.Fprintf(w, "%s\t", jobInfo.Job.Pipeline.Project.Name)
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.Pipeline.Name)
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
 	if jobInfo.Started != nil {
@@ -195,7 +196,8 @@ func NewPrintableJobInfo(ji *ppsclient.JobInfo, full bool) *PrintableJobInfo {
 func PrintDetailedJobInfo(w io.Writer, jobInfo *PrintableJobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
 		`ID: {{.Job.ID}}
-Pipeline: {{.Job.Pipeline.Name}}{{if .FullTimestamps}}
+Pipeline: {{.Job.Pipeline.Name}}
+Project: {{.Job.Pipeline.Project.Name}}{{if .FullTimestamps}}
 Started: {{jobStarted .Started}}{{else}}
 Started: {{prettyAgo .Started}} {{end}}{{if .Finished}}
 Duration: {{prettyTimeDifference .Started .Finished}} {{end}}

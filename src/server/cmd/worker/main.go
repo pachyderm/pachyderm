@@ -6,9 +6,10 @@ import (
 	"path"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
+	"google.golang.org/grpc"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -21,7 +22,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -29,20 +32,23 @@ import (
 )
 
 func main() {
+	log.InitWorkerLogger()
+	ctx := pctx.Child(pctx.Background(""), "", pctx.WithFields(pps.WorkerIDField(os.Getenv(client.PPSPodNameEnv))))
+	go log.WatchDroppedLogs(ctx, time.Minute)
+	log.Debug(ctx, "version info", log.Proto("versionInfo", version.Version))
+
 	// append pachyderm bins to path to allow use of pachctl
 	os.Setenv("PATH", os.Getenv("PATH")+":/pach-bin")
-	cmdutil.Main(context.Background(), do, &serviceenv.WorkerFullConfiguration{})
+	cmdutil.Main(ctx, do, &serviceenv.WorkerFullConfiguration{})
 }
 
 func do(ctx context.Context, config interface{}) error {
 	// must run InstallJaegerTracer before InitWithKube/pach client initialization
 	tracing.InstallJaegerTracerFromEnv()
-	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-
-	log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
+	env := serviceenv.InitWithKube(ctx, serviceenv.NewConfiguration(config))
 
 	// Enable cloud profilers if the configuration allows.
-	profileutil.StartCloudProfiler("pachyderm-worker", env.Config())
+	profileutil.StartCloudProfiler(ctx, "pachyderm-worker", env.Config())
 
 	// Construct a client that connects to the sidecar.
 	pachClient := env.GetPachClient(ctx)
@@ -60,15 +66,23 @@ func do(ctx context.Context, config interface{}) error {
 	if err != nil {
 		return errors.Wrapf(err, "worker: get pipelineInfo for %q", p)
 	}
+	ctx = pachClient.AddMetadata(ctx)
 
 	// Construct worker API server.
-	workerInstance, err := worker.NewWorker(env, pachClient, pipelineInfo, "/")
+	workerInstance, err := worker.NewWorker(pctx.Child(ctx, ""), env, pachClient, pipelineInfo, "/")
 	if err != nil {
 		return err
 	}
 
+	// grpc logger
+	interceptor := logging.NewLoggingInterceptor(ctx)
+	interceptor.Level = log.DebugLevel
+
 	// Start worker api server
-	server, err := grpcutil.NewServer(ctx, false)
+	server, err := grpcutil.NewServer(ctx, false,
+		grpc.ChainUnaryInterceptor(interceptor.UnaryServerInterceptor),
+		grpc.ChainStreamInterceptor(interceptor.StreamServerInterceptor),
+	)
 	if err != nil {
 		return err
 	}
@@ -97,7 +111,7 @@ func do(ctx context.Context, config interface{}) error {
 		for {
 			_, more := <-keepAliveChan
 			if !more {
-				log.Errorf("failed to renew worker IP address etcd lease")
+				log.Error(ctx, "failed to renew worker IP address etcd lease")
 				return
 			}
 		}

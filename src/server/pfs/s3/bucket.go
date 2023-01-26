@@ -3,6 +3,7 @@
 package s3
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -12,16 +13,18 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsClient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/s2"
+	"go.uber.org/zap"
 )
 
-func (c *controller) newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
+func (c *controller) newContents(ctx context.Context, fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
 	t, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
-		c.logger.Debugf("Warning: using nil timestamp (file probably in open commit), on error %s", err)
+		log.Debug(ctx, "Warning: using nil timestamp (file probably in open commit)", zap.Error(err))
 	}
 
 	return s2.Contents{
@@ -35,7 +38,7 @@ func (c *controller) newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, err
 }
 
 func (c *controller) GetLocation(r *http.Request, bucketName string) (string, error) {
-	c.logger.Debugf("GetLocation: %+v", bucketName)
+	defer log.Span(r.Context(), "GetLocation", zap.String("bucketName", bucketName))()
 
 	pc := c.requestClient(r)
 	bucket, err := c.driver.bucket(pc, r, bucketName)
@@ -51,7 +54,7 @@ func (c *controller) GetLocation(r *http.Request, bucketName string) (string, er
 }
 
 func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, delimiter string, maxKeys int) (*s2.ListObjectsResult, error) {
-	c.logger.Debugf("ListObjects: bucketName=%+v, prefix=%+v, marker=%+v, delimiter=%+v, maxKeys=%+v", bucketName, prefix, marker, delimiter, maxKeys)
+	defer log.Span(r.Context(), "ListObjects", zap.String("bucketName", bucketName), zap.String("prefix", prefix), zap.String("delimiter", delimiter), zap.Int("maxKeys", maxKeys))()
 
 	// Strip / from prefix to normalize: "/" means "all objects" and "/foo"
 	// means the same as "foo"
@@ -121,7 +124,7 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 			return errutil.ErrBreak
 		}
 		if fileInfo.FileType == pfsClient.FileType_FILE {
-			c, err := c.newContents(fileInfo)
+			c, err := c.newContents(r.Context(), fileInfo)
 			if err != nil {
 				return err
 			}
@@ -141,7 +144,7 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 }
 
 func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
-	c.logger.Debugf("CreateBucket: %+v", bucketName)
+	defer log.Span(r.Context(), "CreateBucket", zap.String("bucketName", bucketName))()
 
 	if !c.driver.canModifyBuckets() {
 		return s2.NotImplementedError(r)
@@ -187,7 +190,7 @@ func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 }
 
 func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
-	c.logger.Debugf("DeleteBucket: %+v", bucketName)
+	defer log.Span(r.Context(), "DeleteBucket", zap.String("bucketName", bucketName))()
 
 	if !c.driver.canModifyBuckets() {
 		return s2.NotImplementedError(r)
@@ -250,12 +253,12 @@ func (c *controller) ListObjectVersions(r *http.Request, bucketName, prefix, key
 	// fail on teardown. It's nevertheless unimplemented because it's too
 	// expensive to pull off with PFS until this is implemented:
 	// https://github.com/pachyderm/pachyderm/v2/issues/3896
-	c.logger.Debugf("ListObjectVersions: bucketName=%+v, prefix=%+v, keyMarker=%+v, versionIDMarker=%+v, delimiter=%+v, maxKeys=%+v", bucketName, prefix, keyMarker, versionIDMarker, delimiter, maxKeys)
+	defer log.Span(r.Context(), "ListObjectVersions", zap.String("bucketName", bucketName), zap.String("prefix", prefix), zap.String("keyMarker", keyMarker), zap.String("versionIDMarker", versionIDMarker), zap.String("delimiter", delimiter), zap.Int("maxKeys", maxKeys))()
 	return nil, s2.NotImplementedError(r)
 }
 
 func (c *controller) GetBucketVersioning(r *http.Request, bucketName string) (string, error) {
-	c.logger.Debugf("GetBucketVersioning: %+v", bucketName)
+	defer log.Span(r.Context(), "GetBucketVersioning", zap.String("bucketName", bucketName))()
 
 	pc := c.requestClient(r)
 
@@ -275,7 +278,7 @@ func (c *controller) GetBucketVersioning(r *http.Request, bucketName string) (st
 }
 
 func (c *controller) SetBucketVersioning(r *http.Request, bucketName, status string) error {
-	c.logger.Debugf("SetBucketVersioning: bucketName=%+v, status=%+v", bucketName, status)
+	defer log.Span(r.Context(), "SetBucketVersioning", zap.String("bucketName", bucketName), zap.String("status", status))()
 
 	pc := c.requestClient(r)
 

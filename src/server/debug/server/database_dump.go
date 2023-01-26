@@ -12,21 +12,25 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"go.uber.org/multierr"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
-func (s *debugServer) collectDatabaseDump(ctx context.Context, tw *tar.Writer, prefix ...string) error {
+func (s *debugServer) collectDatabaseDump(ctx context.Context, tw *tar.Writer, prefix ...string) (retErr error) {
+	defer log.Span(ctx, "collectDatabaseDump")(log.Errorp(&retErr))
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
+	var errs error
 	if err := s.collectDatabaseStats(ctxWithTimeout, tw, prefix...); err != nil {
-		return err
+		multierr.AppendInto(&errs, errors.Wrap(err, "collectDatabaseStats"))
 	}
 	if err := s.collectDatabaseTables(ctxWithTimeout, tw, prefix...); err != nil {
-		return err
+		multierr.AppendInto(&errs, errors.Wrap(err, "collectDatabaseTables"))
 	}
-	return nil
+	return errs
 }
 
 func (s *debugServer) collectDatabaseStats(ctx context.Context, tw *tar.Writer, prefix ...string) error {

@@ -149,6 +149,7 @@ export class MountPlugin implements IMountPlugin {
               items={mounted ? mounted : this._poller.mounted}
               updateData={this._poller.updateData}
               mountedItems={[]}
+              type={'mounted'}
             />
           </div>
         )}
@@ -168,6 +169,7 @@ export class MountPlugin implements IMountPlugin {
               items={unmounted ? unmounted : this._poller.unmounted}
               updateData={this._poller.updateData}
               mountedItems={this._poller.mounted}
+              type={'unmounted'}
             />
           </div>
         )}
@@ -303,10 +305,14 @@ export class MountPlugin implements IMountPlugin {
     for (let i = 0; i < mounted.length; i++) {
       const pfsInput: PfsInput = {
         pfs: {
+          name: `${mounted[i].project}_${mounted[i].repo}`,
           ...(mounted[i].branch !== 'master' && {
-            name: `${mounted[i].repo}_${mounted[i].branch}`,
+            name: `${mounted[i].project}_${mounted[i].repo}_${mounted[i].branch}`,
           }),
           repo: mounted[i].repo,
+          ...(mounted[i].project !== 'default' && {
+            project: mounted[i].project,
+          }),
           ...(mounted[i].branch !== 'master' && {branch: mounted[i].branch}),
           glob: '/',
         },
@@ -342,6 +348,7 @@ export class MountPlugin implements IMountPlugin {
         mounts.push({
           name: pfsInput.name ? pfsInput.name : pfsInput.repo,
           repo: pfsInput.repo,
+          project: pfsInput.project ? pfsInput.project : 'default',
           branch: pfsInput.branch ? pfsInput.branch : 'master',
           mode: 'ro',
         });
@@ -355,6 +362,7 @@ export class MountPlugin implements IMountPlugin {
       mounts.push({
         name: pfsInput.name ? pfsInput.name : pfsInput.repo,
         repo: pfsInput.repo,
+        project: pfsInput.project ? pfsInput.project : 'default',
         branch: pfsInput.branch ? pfsInput.branch : 'master',
         mode: 'ro',
       });

@@ -11,6 +11,8 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -145,12 +147,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 
 // ListRepo implements the protobuf pfs.ListRepo RPC
 func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) (retErr error) {
-	projectsFilter := make(map[string]bool)
-	for _, project := range request.Projects {
-		projectsFilter[project] = true
-	}
-
-	return a.driver.listRepo(srv.Context(), true /* includeAuth */, request.Type, projectsFilter, srv.Send)
+	return a.driver.listRepo(srv.Context(), true /* includeAuth */, request.Type, request.Projects, srv.Send)
 }
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
@@ -162,12 +159,32 @@ func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContex
 // DeleteRepo implements the protobuf pfs.DeleteRepo RPC
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
 	request.GetRepo().EnsureProject()
+	if request.GetRepo() == nil {
+		return nil, status.Error(codes.InvalidArgument, "no repo specified")
+	}
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.DeleteRepo(request))
 	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+// DeleteRepos implements the pfs.DeleteRepo RPC.  It deletes more than one repo at once.
+func (a *apiServer) DeleteRepos(ctx context.Context, request *pfs.DeleteReposRequest) (resp *pfs.DeleteReposResponse, err error) {
+	var repos []*pfs.Repo
+	switch {
+	case request.All:
+		repos, err = a.driver.deleteAllRepos(ctx)
+	case len(request.Projects) > 0:
+		repos, err = a.driver.deleteProjectsRepos(ctx, request.Projects)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.DeleteReposResponse{
+		Repos: repos,
+	}, nil
 }
 
 // StartCommitInTransaction is identical to StartCommit except that it can run
@@ -399,7 +416,7 @@ func (a *apiServer) ListProject(request *pfs.ListProjectRequest, srv pfs.API_Lis
 // DeleteProject implements the protobuf pfs.DeleteProject RPC
 func (a *apiServer) DeleteProject(ctx context.Context, request *pfs.DeleteProjectRequest) (*types.Empty, error) {
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.driver.deleteProject(txnCtx, request.Project, request.Force)
+		return a.driver.deleteProject(ctx, txnCtx, request.Project, request.Force)
 	}); err != nil {
 		return nil, err
 	}
@@ -603,7 +620,7 @@ func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFi
 func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFileServer) (retErr error) {
 	request.GetFile().GetCommit().GetBranch().GetRepo().EnsureProject()
 	request.GetFile().GetCommit().GetRepo().EnsureProject()
-	return a.driver.walkFile(server.Context(), request.File, func(fi *pfs.FileInfo) error {
+	return a.driver.walkFile(server.Context(), request.File, request.PaginationMarker, request.Number, request.Reverse, func(fi *pfs.FileInfo) error {
 		return errors.EnsureStack(server.Send(fi))
 	})
 }

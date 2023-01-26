@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -54,47 +53,20 @@ func NewMasterDriver() *MasterDriver {
 	return &MasterDriver{}
 }
 
-func branchBucketName(b *pfs.Branch) string {
-	if b.Repo.Type == pfs.UserRepoType {
-		return fmt.Sprintf("%s.%s", b.Name, b.Repo.Name)
-	}
-	return fmt.Sprintf("%s.%s.%s", b.Name, b.Repo.Type, b.Repo.Name)
-}
-
-func projectBranchBucketName(b *pfs.Branch) string {
-	if b.Repo.Type == pfs.UserRepoType {
-		return fmt.Sprintf("%s.%s.%s", b.Name, b.Repo.Name, b.Repo.Project.Name)
-	}
-	return fmt.Sprintf("%s.%s.%s.%s", b.Name, b.Repo.Type, b.Repo.Name, b.Repo.Project.Name)
-}
-
 func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, buckets *[]*s2.Bucket) error {
-	var isProjectAware = mux.Vars(r)[isProjectAwareVar] == isProjectAwareValue
-	repos, err := pc.ListRepoByType("") // get repos of all types
+	repos, err := pc.ListRepo() // get all user-type repos
 	if err != nil {
 		return err
 	}
 
 	for _, repo := range repos {
-		if !isProjectAware && repo.Repo.Project.Name != pfs.DefaultProjectName {
-			continue // skip repos not in the default project
-		}
-		if repo.Repo.Type == pfs.SpecRepoType {
-			continue // hide spec repos, but allow meta/stats repos
-		}
 		t, err := types.TimestampFromProto(repo.Created)
 		if err != nil {
 			return err
 		}
-		for _, branch := range repo.Branches {
-			var name string
-			if isProjectAware {
-				name = projectBranchBucketName(branch)
-			} else {
-				name = branchBucketName(branch)
-			}
+		for _, b := range repo.Branches {
 			*buckets = append(*buckets, &s2.Bucket{
-				Name:         name,
+				Name:         fmt.Sprintf("%s.%s.%s", b.GetName(), b.GetRepo().GetName(), b.GetRepo().GetProject().GetName()),
 				CreationDate: t,
 			})
 		}
@@ -103,76 +75,58 @@ func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 	return nil
 }
 
-func bucketNameToCommit(bucketName string) *pfs.Commit {
-	var id string
-	branch := "master"
-	var repo *pfs.Repo
+func bucketNameToCommit(bucketName string) (*pfs.Commit, error) {
+	var (
+		id     string
+		branch string
+		repo   *pfs.Repo
+	)
 
-	// the name is [commitID.][branch. | branch.type.]repoName
-	// in particular, to access a non-user system repo, the branch name must be given
-	parts := strings.SplitN(bucketName, ".", 4)
-	if uuid.IsUUIDWithoutDashes(parts[0]) {
-		id = parts[0]
-		parts = parts[1:]
-	}
-	if len(parts) > 1 {
-		branch = parts[0]
-		parts = parts[1:]
-	}
-	if len(parts) == 1 {
-		repo = client.NewProjectRepo(pfs.DefaultProjectName, parts[0])
-	} else {
-		repo = client.NewSystemProjectRepo(pfs.DefaultProjectName, parts[1], parts[0])
-	}
-
-	return repo.NewCommit(branch, id)
-}
-
-func bucketNameToProjectCommit(bucketName string) (*pfs.Commit, error) {
-	var id string
-	branch := "master"
-	var repo *pfs.Repo
-
-	// the name is [commitID.][branch. | branch.type.]repoName.projectName
-	// in particular, to access a non-user system repo, the branch name must be given
+	// the name is [[commitID.]branch.]repoName[.project]
+	// If unspecified, the branch is 'master', and the project is 'default'.
+	// However, two-component buckets are always interpreted as '<branch>.<repo>'.
+	// So, to specify a non-default project, the branch must be set explicitly.
+	//
+	// For example, 'master.myrepo.default' may be shortened to just 'myrepo' by
+	// removing the default project and branch, and 'mybranch.myrepo.default' may
+	// be shortened to just 'mybranch.myrepo' by removing the default project, but
+	// 'master.myrepo.myproject' cannot be shortened because the project is
+	// non-default.
+	//
+	// Note that buckets can never have 5 or more components--additional splitting
+	// is unnecessary, as 5 will always error.
 	parts := strings.SplitN(bucketName, ".", 5)
 	if uuid.IsUUIDWithoutDashes(parts[0]) {
 		id = parts[0]
 		parts = parts[1:]
 	}
-	if len(parts) > 2 {
-		branch = parts[0]
-		parts = parts[1:]
-	}
+
 	switch len(parts) {
 	case 0:
-		return nil, errors.Errorf("bad bucket name %s", bucketName)
+		return nil, errors.Errorf("invalid bucket name %q; must include a repo", bucketName)
 	case 1:
-		return nil, errors.Errorf("bad bucket name %s", bucketName)
+		// e.g. s3://myrepo
+		repo, branch = client.NewProjectRepo(pfs.DefaultProjectName, parts[0]), "master"
 	case 2:
-		repo = client.NewProjectRepo(parts[1], parts[0])
+		// e.g. s3://mybranch.myrepo
+		repo, branch = client.NewProjectRepo(pfs.DefaultProjectName, parts[1]), parts[0]
 	case 3:
-		repo = client.NewSystemProjectRepo(parts[2], parts[1], parts[0])
+		// e.g. s3://mybranch.myrepo.myproject
+		repo, branch = client.NewProjectRepo(parts[2], parts[1]), parts[0]
 	default:
-		return nil, errors.Errorf("bad bucket name %s", bucketName)
+		return nil, errors.Errorf("invalid bucket name: %q", bucketName)
 	}
 
 	return repo.NewCommit(branch, id), nil
 }
 
 func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
-	if mux.Vars(r)[isProjectAwareVar] == isProjectAwareValue {
-		commit, err := bucketNameToProjectCommit(name)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not map bucket name to commit")
-		}
-		return &Bucket{
-			Commit: commit,
-			Name:   name,
-		}, nil
+	commit, err := bucketNameToCommit(name)
+	if err != nil {
+		return nil, err
 	}
 	return &Bucket{
-		Commit: bucketNameToCommit(name),
+		Commit: commit,
 		Name:   name,
 	}, nil
 }

@@ -131,6 +131,7 @@ type driver struct {
 // the user code on the current worker node, as well as determining if
 // enterprise features are activated (for exporting stats).
 func NewDriver(
+	ctx context.Context,
 	env serviceenv.ServiceEnv,
 	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
@@ -144,7 +145,7 @@ func NewDriver(
 	pipelines := ppsdb.Pipelines(env.GetDBClient(), env.GetPostgresListener())
 	result := &driver{
 		env:             env,
-		ctx:             env.Context(),
+		ctx:             ctx,
 		pachClient:      pachClient,
 		pipelineInfo:    pipelineInfo,
 		activeDataMutex: &sync.Mutex{},
@@ -346,8 +347,9 @@ func (d *driver) RunUserCode(
 	if d.pipelineInfo.Details.Transform.Stdin != nil {
 		cmd.Stdin = strings.NewReader(strings.Join(d.pipelineInfo.Details.Transform.Stdin, "\n") + "\n")
 	}
-	cmd.Stdout = logger.WithUserCode()
-	cmd.Stderr = logger.WithUserCode()
+	stdout, stderr := logger.WithUserCode().Writer("stdout"), logger.WithUserCode().Writer("stderr")
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	cmd.Env = environ
 	cmd.SysProcAttr = makeSysProcAttr(d.uid, d.gid)
 
@@ -374,6 +376,8 @@ func (d *driver) RunUserCode(
 	}
 	err = cmd.Wait()
 	killChildren()
+	stdout.Close()
+	stderr.Close()
 
 	// We ignore broken pipe errors, these occur very occasionally if a user
 	// specifies Stdin but their process doesn't actually read everything from
@@ -414,8 +418,9 @@ func (d *driver) RunUserErrorHandlingCode(
 	if d.pipelineInfo.Details.Transform.ErrStdin != nil {
 		cmd.Stdin = strings.NewReader(strings.Join(d.pipelineInfo.Details.Transform.ErrStdin, "\n") + "\n")
 	}
-	cmd.Stdout = logger.WithUserCode()
-	cmd.Stderr = logger.WithUserCode()
+	stdout, stderr := logger.WithUserCode().Writer("stdout"), logger.WithUserCode().Writer("stderr")
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	cmd.Env = environ
 	cmd.SysProcAttr = makeSysProcAttr(d.uid, d.gid)
 	cmd.Dir = d.pipelineInfo.Details.Transform.WorkingDir
@@ -437,6 +442,8 @@ func (d *driver) RunUserErrorHandlingCode(
 	}
 	err = cmd.Wait()
 	killChildren()
+	stdout.Close()
+	stderr.Close()
 
 	// We ignore broken pipe errors, these occur very occasionally if a user
 	// specifies Stdin but their process doesn't actually read everything from

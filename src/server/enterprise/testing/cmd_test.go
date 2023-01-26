@@ -10,11 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/version"
 )
 
 const enterpriseRootToken = "iamenterprise"
@@ -274,7 +275,7 @@ func TestSyncContexts(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo {{.license}} | pachctl license activate
 		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:31658 --supply-root-token
-		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:31650 --pachd-address {{ .pach_address }} --pachd-user-address grpc://pachd.default:1655 --cluster-deployment-id {{.clusterId}} 
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:31650 --pachd-address {{ .pach_address }} --pachd-user-address grpc://pachd.default:1655 --cluster-deployment-id {{.clusterId}}
 		`,
 		"id", id,
 		"token", tu.RootToken,
@@ -295,7 +296,7 @@ func TestSyncContexts(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl enterprise sync-contexts
 		pachctl config list context | match {{.id}}
-		pachctl config get context {{.id}} | match "\"pachd_address\": \"grpc://pachd.default:1655\"" 
+		pachctl config get context {{.id}} | match "\"pachd_address\": \"grpc://pachd.default:1655\""
 		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
 		pachctl config get context {{.id}} | match "\"source\": \"IMPORTED\","
 		`,
@@ -308,7 +309,7 @@ func TestSyncContexts(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl license update-cluster --id {{.id}} --user-address {{.userAddress}}
 		pachctl enterprise sync-contexts
-		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\"" 
+		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\""
 		`,
 		"id", id,
 		"license", tu.GetTestEnterpriseCode(t),
@@ -323,8 +324,8 @@ func TestSyncContexts(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl license update-cluster --id {{.id}} --cluster-deployment-id {{.clusterId}}
 		pachctl enterprise sync-contexts
-		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\"" 
-		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\"" 
+		pachctl config get context {{.id}} | match "\"pachd_address\": \"{{.userAddress}}\""
+		pachctl config get context {{.id}} | match "\"cluster_deployment_id\": \"{{.clusterId}}\""
 		`,
 		"id", id,
 		"license", tu.GetTestEnterpriseCode(t),
@@ -347,7 +348,9 @@ func TestRegisterDefaultArgs(t *testing.T) {
 	id := tu.UniqueString("cluster")
 
 	// get cluster ID from connection
-	clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &types.Empty{})
+	clusterInfo, inspectErr := c.AdminAPIClient.InspectCluster(c.Ctx(), &admin.InspectClusterRequest{
+		ClientVersion: version.Version,
+	})
 	require.NoError(t, inspectErr)
 	clusterId := clusterInfo.DeploymentID
 

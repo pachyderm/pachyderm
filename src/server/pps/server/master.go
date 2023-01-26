@@ -8,15 +8,17 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	middleware_auth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -135,10 +137,10 @@ func newMaster(ctx context.Context, env Env, etcdPrefix string, kd InfraDriver, 
 
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
-func (a *apiServer) master() {
+func (a *apiServer) master(ctx context.Context) {
 	masterLock := dlock.NewDLock(a.env.EtcdClient, path.Join(a.etcdPrefix, masterLockPath))
-	backoff.RetryNotify(func() error { //nolint:errcheck
-		ctx, cancel := context.WithCancel(context.Background())
+	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+		ctx, cancel := context.WithCancel(pctx.Child(ctx, "master", pctx.WithServerID()))
 		// set internal auth for basic operations
 		ctx = middleware_auth.AsInternalUser(ctx, "pps-master")
 		defer cancel()
@@ -147,17 +149,17 @@ func (a *apiServer) master() {
 			return errors.EnsureStack(err)
 		}
 		defer masterLock.Unlock(ctx) //nolint:errcheck
-		log.Infof("PPS master: launching master process")
-		kd := newKubeDriver(a.env.KubeClient, a.env.Config, a.env.Logger)
+		log.Info(ctx, "PPS master: launching master process")
+		kd := newKubeDriver(a.env.KubeClient, a.env.Config)
 		sd := newPipelineStateDriver(a.env.DB, a.pipelines, a.txnEnv, a.env.PFSServer)
 		m := newMaster(ctx, a.env, a.etcdPrefix, kd, sd)
 		m.run()
 		return errors.Wrapf(ctx.Err(), "ppsMaster.Run() exited unexpectedly")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		log.Errorf("PPS master: error running the master process: %v; retrying in %v", err, d)
+		log.Error(ctx, "PPS master: error running the master process; retrying",
+			zap.Error(err), zap.Duration("retryIn", d))
 		return nil
 	})
-	panic("internal error: PPS master has somehow exited. Restarting pod...")
 }
 
 func (m *ppsMaster) setPipelineCrashing(ctx context.Context, specCommit *pfs.Commit, reason string) error {
@@ -201,6 +203,7 @@ eventLoop:
 		select {
 		case e := <-m.eventCh:
 			func(e *pipelineEvent) {
+				log.Debug(m.masterCtx, "pipelineEvent", zap.Stringer("pipeline", e.pipeline))
 				m.pcMgr.Lock()
 				defer m.pcMgr.Unlock()
 				key := toKey(e.pipeline)
@@ -223,8 +226,9 @@ eventLoop:
 // setPipelineState is a PPS-master-specific helper that wraps
 // ppsutil.SetPipelineState in a trace
 func setPipelineState(ctx context.Context, db *pachsql.DB, pipelines collection.PostgresCollection, specCommit *pfs.Commit, state pps.PipelineState, reason string) (retErr error) {
+	log.Debug(ctx, "set pipeline state", zap.String("pipeline", specCommit.GetBranch().GetRepo().GetName()), zap.Stringer("state", state))
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/SetPipelineState", "pipeline", specCommit.Repo.Name, "new-state", state)
+		"/pps.Master/SetPipelineState", "project", specCommit.Repo.Project.GetName(), "pipeline", specCommit.Repo.Name, "new-state", state)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)

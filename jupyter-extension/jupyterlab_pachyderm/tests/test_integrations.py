@@ -15,6 +15,7 @@ ADDRESS = "http://localhost:8888"
 BASE_URL = f"{ADDRESS}/{NAMESPACE}/{VERSION}"
 CONFIG_PATH = "~/.pachyderm/config.json"
 ROOT_TOKEN = "iamroot"
+DEFAULT_PROJECT = "default"
 
 
 @pytest.fixture(scope="module")
@@ -94,8 +95,8 @@ def test_list_repos(pachyderm_resources, dev_server):
     r = requests.get(f"{BASE_URL}/repos")
 
     assert r.status_code == 200
-    for _, repo_info in r.json().items():
-        assert repo_info.keys() == {"authorization", "branches", "repo"}
+    for repo_info in r.json():
+        assert repo_info.keys() == {"authorization", "branches", "repo", "project"}
         assert repo_info["repo"] in repos
         for _branch in repo_info["branches"]:
             assert _branch in branches
@@ -122,15 +123,16 @@ def test_list_mounts(pachyderm_resources, dev_server):
     r = requests.get(f"{BASE_URL}/mounts")
     assert r.status_code == 200
 
-    assert len(r.json()["mounted"]) == 1
-    for _, mount_info in r.json()["mounted"].items():
+    resp = r.json()
+    assert len(resp["mounted"]) == 1
+    for mount_info in resp["mounted"]:
         assert mount_info.keys() == {
             "name",
             "repo",
             "branch",
+            "project",
             "commit",
             "files",
-            "glob",
             "mode",
             "state",
             "status",
@@ -140,12 +142,12 @@ def test_list_mounts(pachyderm_resources, dev_server):
             "how_many_commits_behind",
         }
 
-    for _, _repo_info in r.json()["unmounted"].items():
+    for _repo_info in resp["unmounted"]:
         assert _repo_info["repo"] in repos
-        assert _repo_info.keys() == {"authorization", "branches", "repo"}
+        assert _repo_info.keys() == {"authorization", "branches", "repo", "project"}
         for _branch in _repo_info["branches"]:
             assert _branch in branches
-    assert len(r.json()["unmounted"]) == len(repos)
+    assert len(resp["unmounted"]) == len(repos)
 
 
 def test_mount(pachyderm_resources, dev_server):
@@ -157,18 +159,21 @@ def test_mount(pachyderm_resources, dev_server):
                 "name": repos[0],
                 "repo": repos[0],
                 "branch": "master",
+                "project": DEFAULT_PROJECT,
                 "mode": "ro",
             },
             {
                 "name": repos[0] + "_dev",
                 "repo": repos[0],
                 "branch": "dev",
+                "project": DEFAULT_PROJECT,
                 "mode": "ro",
             },
             {
                 "name": repos[1],
                 "repo": repos[1],
                 "branch": "master",
+                "project": DEFAULT_PROJECT,
                 "mode": "ro",
             },
         ]
@@ -179,19 +184,19 @@ def test_mount(pachyderm_resources, dev_server):
     resp = r.json()
     assert len(resp["mounted"]) == 3
     assert len(list(os.walk(PFS_MOUNT_DIR))[0][1]) == 3
-    for _, mount_info in resp["mounted"].items():
+    for mount_info in resp["mounted"]:
         assert sorted(
             list(os.walk(os.path.join(PFS_MOUNT_DIR, mount_info["name"])))[0][2]
         ) == sorted(files)
     assert len(resp["unmounted"]) == 3
-    assert len(resp["unmounted"][repos[1]]["branches"]) == 2
-    assert len(resp["unmounted"][repos[2]]["branches"]) == 2
+    assert len(resp["unmounted"][0]["branches"]) == 2
+    assert len(resp["unmounted"][1]["branches"]) == 2
 
     r = requests.put(
         f"{BASE_URL}/_unmount_all",
     )
     assert r.status_code == 200
-    assert r.json()["mounted"] == {}
+    assert r.json()["mounted"] == []
     assert len(r.json()["unmounted"]) == 3
     assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
 
@@ -205,12 +210,14 @@ def test_unmount(pachyderm_resources, dev_server):
                 "name": repos[0],
                 "repo": repos[0],
                 "branch": "master",
+                "project": DEFAULT_PROJECT,
                 "mode": "ro",
             },
             {
                 "name": repos[0] + "_dev",
                 "repo": repos[0],
                 "branch": "dev",
+                "project": DEFAULT_PROJECT,
                 "mode": "ro",
             },
         ]
@@ -233,7 +240,7 @@ def test_unmount(pachyderm_resources, dev_server):
     assert r.status_code == 200
     assert len(r.json()["mounted"]) == 1
     assert len(r.json()["unmounted"]) == 3
-    assert len(r.json()["unmounted"][repos[0]]["branches"]) == 2
+    assert len(r.json()["unmounted"][0]["branches"]) == 2
 
     r = requests.put(
         f"{BASE_URL}/_unmount",
@@ -242,7 +249,7 @@ def test_unmount(pachyderm_resources, dev_server):
     assert r.status_code == 200
     assert len(r.json()["mounted"]) == 0
     assert len(r.json()["unmounted"]) == 3
-    assert len(r.json()["unmounted"][repos[0]]["branches"]) == 2
+    assert len(r.json()["unmounted"][0]["branches"]) == 2
     assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
 
 
@@ -282,11 +289,11 @@ def test_mount_datums(pachyderm_resources, dev_server):
     assert len(list(os.walk(PFS_MOUNT_DIR))[0][1]) == 4
     datum0_id = r.json()["id"]
 
-    assert sorted(list(os.walk(os.path.join(PFS_MOUNT_DIR, repos[0])))[0][2]) == sorted(
+    assert sorted(list(os.walk(os.path.join(PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[0]]))))[0][2]) == sorted(
         files
     )
-    assert repos[1] + "_dev" in list(os.walk(PFS_MOUNT_DIR))[0][1]
-    assert len(list(os.walk(os.path.join(PFS_MOUNT_DIR, repos[2])))[0][2]) == 1
+    assert "".join([DEFAULT_PROJECT, "_", repos[1], "_dev"]) in list(os.walk(PFS_MOUNT_DIR))[0][1]
+    assert len(list(os.walk(os.path.join(PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[2]]))))[0][2]) == 1
 
     r = requests.put(f"{BASE_URL}/_show_datum", params={"idx": "2"})
     assert r.status_code == 200
@@ -308,7 +315,37 @@ def test_mount_datums(pachyderm_resources, dev_server):
 
     r = requests.get(f"{BASE_URL}/datums")
     assert r.status_code == 200
-    assert r.json()["input"] == input_spec["input"]
+    assert r.json()["input"] == {
+        "cross": [
+            {
+                "pfs": {
+                    "repo": repos[0],
+                    "name": "".join([DEFAULT_PROJECT, "_", repos[0]]),
+                    "glob": "/",
+                    "project": DEFAULT_PROJECT,
+                    "branch": "master",
+                }
+            },
+            {
+                "pfs": {
+                    "repo": repos[1],
+                    "name": "".join([DEFAULT_PROJECT, "_", repos[1], "_dev"]),
+                    "branch": "dev",
+                    "glob": "/*",
+                    "project": DEFAULT_PROJECT,
+                }
+            },
+            {
+                "pfs": {
+                    "repo": repos[2],
+                    "name": "".join([DEFAULT_PROJECT, "_", repos[2]]),
+                    "glob": "/*",
+                    "project": DEFAULT_PROJECT,
+                    "branch": "master",
+                }
+            },
+        ]
+    }
     assert r.json()["num_datums"] == 4
     assert r.json()["curr_idx"] == 0
 

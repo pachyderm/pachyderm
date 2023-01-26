@@ -8,11 +8,12 @@ import (
 
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 var (
@@ -39,9 +40,7 @@ var (
 var _ Client = &cacheClient{}
 
 type cacheClient struct {
-	slow, fast Client
-	log        *logrus.Logger
-
+	slow, fast   Client
 	mu           sync.Mutex
 	cache        *simplelru.LRU
 	populateOnce sync.Once
@@ -56,7 +55,6 @@ func NewCacheClient(slow, fast Client, size int) Client {
 	client := &cacheClient{
 		slow: slow,
 		fast: fast,
-		log:  logrus.StandardLogger(),
 	}
 	cache, err := simplelru.NewLRU(size, client.onEvicted)
 	if err != nil {
@@ -110,7 +108,7 @@ func (c *cacheClient) getSlow(ctx context.Context, p string, w io.Writer) error 
 			// if the object could not be found, the first read will return a NotExist error
 			return errors.EnsureStack(err)
 		} else if err != nil {
-			c.log.Errorf("obj.cacheClient: writing to cache: %v", err)
+			log.Error(ctx, "obj.cacheClient: error writing to cache", zap.Error(err))
 			return nil
 		}
 		c.mu.Lock()
@@ -158,7 +156,7 @@ func (c *cacheClient) onEvicted(key, value interface{}) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := c.fast.Delete(ctx, p); err != nil && !pacherr.IsNotExist(err) {
-		c.log.Errorf("could not delete from cache's fast store: %v", err)
+		log.Error(ctx, "could not delete from cache's fast store", zap.Error(err))
 	}
 	cacheEvictionMetric.Inc()
 }
@@ -175,7 +173,7 @@ func (c *cacheClient) populate(ctx context.Context) error {
 func (c *cacheClient) doPopulateOnce(ctx context.Context) {
 	c.populateOnce.Do(func() {
 		if err := c.populate(ctx); err != nil {
-			c.log.Warnf("could not populate cache: %v", err)
+			log.Error(ctx, "could not populate cache", zap.Error(err))
 		}
 	})
 }

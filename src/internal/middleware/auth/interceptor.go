@@ -5,9 +5,10 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
+	"go.uber.org/zap"
 
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
@@ -129,6 +130,7 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/InspectRepo":      authDisabledOr(authenticated),
 	"/pfs_v2.API/ListRepo":         authDisabledOr(authenticated),
 	"/pfs_v2.API/DeleteRepo":       authDisabledOr(authenticated),
+	"/pfs_v2.API/DeleteRepos":      authDisabledOr(authenticated),
 	"/pfs_v2.API/StartCommit":      authDisabledOr(authenticated),
 	"/pfs_v2.API/FinishCommit":     authDisabledOr(authenticated),
 	"/pfs_v2.API/InspectCommit":    authDisabledOr(authenticated),
@@ -196,6 +198,7 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/CreatePipeline":  authDisabledOr(authenticated),
 	"/pps_v2.API/InspectPipeline": authDisabledOr(authenticated),
 	"/pps_v2.API/DeletePipeline":  authDisabledOr(authenticated),
+	"/pps_v2.API/DeletePipelines": authDisabledOr(authenticated),
 	"/pps_v2.API/StartPipeline":   authDisabledOr(authenticated),
 	"/pps_v2.API/StopPipeline":    authDisabledOr(authenticated),
 	"/pps_v2.API/RunPipeline":     authDisabledOr(authenticated),
@@ -296,14 +299,13 @@ func peerNameOrUnknown(ctx context.Context) string {
 func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	a, ok := authHandlers[info.FullMethod]
 	if !ok {
-		logrus.Errorf("no auth function for %q\n", info.FullMethod)
+		log.Error(ctx, "no auth function defined", zap.String("fullMethod", info.FullMethod))
 		return nil, errors.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
 	username, err := a(ctx, i.getAuthServer(), info.FullMethod)
-
 	if err != nil {
-		logrus.WithError(err).Errorf("denied unary call %q to user %v@%v", info.FullMethod, nameOrUnauthenticated(username), peerNameOrUnknown(ctx))
+		log.Info(ctx, "denied unary call", zap.String("fullMethod", info.FullMethod), zap.String("username", nameOrUnauthenticated(username)), zap.String("remoteAddress", peerNameOrUnknown(ctx)))
 		return nil, err
 	}
 
@@ -319,14 +321,13 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 	ctx := stream.Context()
 	a, ok := authHandlers[info.FullMethod]
 	if !ok {
-		logrus.Errorf("no auth function for %q\n", info.FullMethod)
+		log.Error(ctx, "no auth function defined", zap.String("fullMethod", info.FullMethod))
 		return errors.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
 	username, err := a(ctx, i.getAuthServer(), info.FullMethod)
-
 	if err != nil {
-		logrus.WithError(err).Errorf("denied streaming call %q to user %v@%v", info.FullMethod, nameOrUnauthenticated(username), peerNameOrUnknown(ctx))
+		log.Info(ctx, "denied streaming call", zap.String("fullMethod", info.FullMethod), zap.String("username", nameOrUnauthenticated(username)), zap.String("remoteAddress", peerNameOrUnknown(ctx)))
 		return err
 	}
 

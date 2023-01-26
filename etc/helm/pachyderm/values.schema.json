@@ -688,6 +688,56 @@
                 }
             }
         },
+        "pachw": {
+            "type": "object",
+            "properties": {
+                "affinity": {
+                    "type": "object"
+                },
+                "inheritFromPachd": {
+                    "type": "boolean"
+                },
+                "inSidecars": {
+                    "type": "boolean"
+                },
+                "minReplicas": {
+                    "type": "integer"
+                },
+                "maxReplicas": {
+                    "type": "integer"
+                },
+                "nodeSelector": {
+                    "type": "object"
+                },
+                "resources": {
+                    "type": "object",
+                    "properties": {
+                        "limits": {
+                            "type": "object",
+                            "properties": {
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "requests": {
+                            "type": "object",
+                            "properties": {
+                                "cpu": {
+                                    "type": "string"
+                                },
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tolerations": {
+                    "type": "array"
+                }
+            }
+        },
         "pachd": {
             "type": "object",
             "properties": {
@@ -1057,6 +1107,24 @@
                             "type": "integer"
                         },
                         "uploadConcurrencyLimit": {
+                            "type": "integer"
+                        },
+                        "memoryThreshold": {
+                            "type": "integer"
+                        },
+                        "levelFactor": {
+                            "type": "integer"
+                        },
+                        "maxFanIn": {
+                            "type": "integer"
+                        },
+                        "maxOpenFileSets": {
+                            "type": "integer"
+                        },
+                        "diskCacheSize": {
+                            "type": "integer"
+                        },
+                        "memoryCacheSize": {
                             "type": "integer"
                         }
                     }

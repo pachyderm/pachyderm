@@ -18,6 +18,7 @@ export type authorization = 'off' | 'none' | 'read' | 'write';
 export type Mount = {
   name: string;
   repo: string;
+  project: string;
   branch: string;
   commit: string | null;
   glob: string | null;
@@ -32,6 +33,7 @@ export type Mount = {
 
 export type Repo = {
   repo: string;
+  project: string;
   authorization: authorization;
   branches: string[];
 };
@@ -40,6 +42,7 @@ export type PfsInput = {
   pfs: {
     name?: string;
     repo: string;
+    project?: string;
     branch?: string;
     commit?: string;
     files?: string[];

@@ -9,17 +9,15 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/sdata"
 	"github.com/pachyderm/pachyderm/v2/src/internal/secrets"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // SQLIngestParams are the parameters passed to SQLIngest
 type SQLIngestParams struct {
-	// Instrumentation
-	Logger *logrus.Logger
-
 	// PFS In/Out
 	InputDir, OutputDir string
 
@@ -38,8 +36,7 @@ type SQLIngestParams struct {
 // It makes outgoing connections using pachsql.OpenURL
 // It accesses the filesystem only within params.InputDir, and params.OutputDir
 func SQLIngest(ctx context.Context, params SQLIngestParams) error {
-	log := params.Logger
-	log.Infof("Connecting to DB at %v...", params.URL)
+	log.Info(ctx, "Connecting to DB", zap.Stringer("url", &params.URL))
 	db, err := pachsql.OpenURL(params.URL, string(params.Password))
 	if err != nil {
 		return err
@@ -52,7 +49,7 @@ func SQLIngest(ctx context.Context, params SQLIngestParams) error {
 	}(); err != nil {
 		return err
 	}
-	log.Infof("Connected to DB")
+	log.Info(ctx, "Connected to DB")
 	writerFactory, err := makeWriterFactory(params.Format, params.HasHeader)
 	if err != nil {
 		return err
@@ -63,29 +60,28 @@ func SQLIngest(ctx context.Context, params SQLIngestParams) error {
 			return errors.EnsureStack(err)
 		}
 		query := string(queryBytes)
-		log.Infof("Query: %q", query)
-		log.Info("Running query...")
+		log.Info(ctx, "Running query", zap.String("query", query))
 		rows, err := db.QueryContext(ctx, query)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		log.Infof("Query complete, begin reading rows...")
+		log.Info(ctx, "Query complete, begin reading rows")
 		colNames, err := rows.Columns()
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		log.Infof("Column names: %v", colNames)
+		log.Info(ctx, "Got columns", zap.Strings("columns", colNames))
 		tw := writerFactory(w, colNames)
 		res, err := sdata.MaterializeSQL(tw, rows)
 		if err != nil {
 			return err
 		}
-		log.Infof("Successfully materialized %d rows", res.RowCount)
+		log.Info(ctx, "Successfully materialized rows", zap.Uint64("rowCount", res.RowCount))
 		return nil
 	}); err != nil {
 		return err
 	}
-	log.Infof("DONE")
+	log.Info(ctx, "DONE")
 	return nil
 }
 
@@ -112,7 +108,6 @@ func makeWriterFactory(formatName string, hasHeader bool) (writerFactory, error)
 }
 
 type SQLQueryGenerationParams struct {
-	Logger              *logrus.Logger
 	InputDir, OutputDir string
 
 	URL      string
@@ -122,8 +117,8 @@ type SQLQueryGenerationParams struct {
 }
 
 // SQLQueryGeneration generates queries with a timestamp in the comments
-func SQLQueryGeneration(_ context.Context, params SQLQueryGenerationParams) error {
-	timestamp, err := readCronTimestamp(params.Logger, params.InputDir)
+func SQLQueryGeneration(ctx context.Context, params SQLQueryGenerationParams) error {
+	timestamp, err := readCronTimestamp(ctx, params.InputDir)
 	if err != nil {
 		return err
 	}
@@ -133,7 +128,7 @@ func SQLQueryGeneration(_ context.Context, params SQLQueryGenerationParams) erro
 	return errors.EnsureStack(os.WriteFile(outputPath, []byte(contents), 0755))
 }
 
-func readCronTimestamp(log *logrus.Logger, inputDir string) (uint64, error) {
+func readCronTimestamp(ctx context.Context, inputDir string) (uint64, error) {
 	dirEnts, err := os.ReadDir(inputDir)
 	if err != nil {
 		return 0, errors.EnsureStack(err)
@@ -142,10 +137,10 @@ func readCronTimestamp(log *logrus.Logger, inputDir string) (uint64, error) {
 		name := dirEnt.Name()
 		timestamp, err := time.Parse(time.RFC3339, name)
 		if err != nil {
-			log.Errorf("could not parse %q into timestamp", name)
+			log.Error(ctx, "could not parse filename into a timestamp", zap.String("name", name), zap.Error(err))
 			continue
 		}
-		log.Infof("found cron timestamp %q", name)
+		log.Info(ctx, "found cron timestamp", zap.String("name", name))
 		timestamp = timestamp.UTC()
 		return uint64(timestamp.Unix()), nil
 	}
@@ -153,7 +148,6 @@ func readCronTimestamp(log *logrus.Logger, inputDir string) (uint64, error) {
 }
 
 type SQLRunParams struct {
-	Logger                *logrus.Logger
 	OutputDir, OutputFile string
 	Query                 string
 	Password              secrets.Secret
@@ -163,7 +157,6 @@ type SQLRunParams struct {
 }
 
 func RunSQLRaw(ctx context.Context, params SQLRunParams) error {
-	log := params.Logger
 	db, err := pachsql.OpenURL(params.URL, string(params.Password))
 	if err != nil {
 		return err
@@ -176,7 +169,7 @@ func RunSQLRaw(ctx context.Context, params SQLRunParams) error {
 	}(); err != nil {
 		return err
 	}
-	log.Info("Connected to DB")
+	log.Info(ctx, "Connected to DB")
 
 	writerFactory, err := makeWriterFactory(params.Format, params.HasHeader)
 	if err != nil {
@@ -187,22 +180,22 @@ func RunSQLRaw(ctx context.Context, params SQLRunParams) error {
 		return errors.EnsureStack(err)
 	}
 	defer w.Close()
-	log.Infof("Running query: %q", params.Query)
+	log.Info(ctx, "Running query", zap.String("query", params.Query))
 	rows, err := db.QueryContext(ctx, params.Query)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	log.Info("Query complete, reading rows...")
+	log.Info(ctx, "Query complete, begin reading rows")
 	columns, err := rows.Columns()
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	log.Infof("Column names: %v", columns)
+	log.Info(ctx, "Got columns", zap.Strings("columns", columns))
 	tw := writerFactory(w, columns)
 	res, err := sdata.MaterializeSQL(tw, rows)
 	if err != nil {
 		return err
 	}
-	log.Infof("Sucessfully materialized %d rows", res.RowCount)
+	log.Info(ctx, "Sucessfully materialized rows", zap.Uint64("rowCount", res.RowCount))
 	return nil
 }
