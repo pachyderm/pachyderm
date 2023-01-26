@@ -98,6 +98,11 @@ func getCommonLogger(ctx context.Context, service, method string) context.Contex
 		}
 		if command := md.Get("command"); command != nil {
 			f = append(f, zap.Strings("command", command))
+			if method != "InspectCluster" {
+				// InspectCluster is called by the client to get the deployment ID, so
+				// we don't want to log that.
+				log.Info(ctx, "audit log", f...)
+			}
 		}
 	}
 	if peer, ok := peer.FromContext(ctx); ok {
