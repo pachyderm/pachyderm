@@ -53,11 +53,10 @@ message PutFileURLTask {
   string dst = 1;
   string datum = 2;
   string URL = 3;
-  reserved 4;
-  string start_path = 5;
+  string start_path = 4;
+  int64 start_offset = 5;
   string end_path = 6;
-  int64 start_offset = 7;
-  int64 end_offset = 8;
+  int64 end_offset = 7;
 }
 
 message PutFileURLTaskResult {

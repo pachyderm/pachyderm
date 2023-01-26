@@ -36,7 +36,7 @@ func (s *Storage) NewUploader(ctx context.Context, name string, noUpload bool, c
 	return &Uploader{
 		ctx:       ctx,
 		client:    client,
-		taskChain: taskchain.NewTaskChain(ctx, semaphore.NewWeighted(taskParallelism)),
+		taskChain: taskchain.New(ctx, semaphore.NewWeighted(taskParallelism)),
 		chunkSem:  semaphore.NewWeighted(chunkParallelism),
 		noUpload:  noUpload,
 		cb:        cb,
@@ -45,7 +45,7 @@ func (s *Storage) NewUploader(ctx context.Context, name string, noUpload bool, c
 
 // TODO: Need to think more about the context / error handling with the nested task chains.
 func (u *Uploader) Upload(meta interface{}, r io.Reader) error {
-	taskChain := taskchain.NewTaskChain(u.ctx, u.chunkSem)
+	taskChain := taskchain.New(u.ctx, u.chunkSem)
 	var dataRefs []*DataRef
 	if err := ComputeChunks(r, func(chunkBytes []byte) error {
 		return taskChain.CreateTask(func(ctx context.Context) (func() error, error) {

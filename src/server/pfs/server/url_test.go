@@ -5,6 +5,8 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path"
 	"testing"
@@ -13,25 +15,25 @@ import (
 	"gocloud.dev/blob"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj/integrationtests"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 func TestTaskBatching(t *testing.T) {
-	integrationtests.LoadGoogleParameters(t)
-	credFile := path.Join(t.TempDir(), "tmp-google-cred")
-	require.NoError(t, os.WriteFile(credFile, []byte(os.Getenv("GOOGLE_CLIENT_CREDS")), 0666))
-	require.NoError(t, os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", credFile))
-	bucketName := os.Getenv("GOOGLE_CLIENT_BUCKET")
-	url, err := obj.ParseURL("gs://" + bucketName)
+	//integrationtests.LoadGoogleParameters(t)
+	//credFile := path.Join(t.TempDir(), "tmp-google-cred")
+	//require.NoError(t, os.WriteFile(credFile, []byte(os.Getenv("GOOGLE_CLIENT_CREDS")), 0666))
+	//require.NoError(t, os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", credFile))
+	//bucketName := os.Getenv("GOOGLE_CLIENT_BUCKET")
+	//url, err := obj.ParseURL("gs://" + bucketName)
+	url, err := obj.ParseURL("gs://fahad-test-bucket")
 	require.NoError(t, err, "should be able to parse url")
 	files := make(map[string]string)
 	testDir := "./testing/testdata/urlCoordination"
 	dir, err := os.ReadDir(testDir)
 	objStoreDir := randutil.UniqueString("url-coord-")
 	require.NoError(t, err, "should be able to read dir")
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300000)
 	defer cancel()
 	bucket, err := openBucket(ctx, url)
 	require.NoError(t, err, "should be able to open bucket")
@@ -50,15 +52,17 @@ func TestTaskBatching(t *testing.T) {
 		}
 	}()
 	var tasks []PutFileURLTask
-	batchSize = 5
-	require.NoError(t, coordinateTasks(ctx, url.BucketString()+"/"+objStoreDir,
-		func(startOffset, endOffset int64, startPath, endPath string) error {
+	threshold = 3
+	require.NoError(t, shardObjects(ctx, url.BucketString()+"/"+objStoreDir,
+		func(startPath string, startOffset int64, endPath string, endOffset int64) error {
 			task := PutFileURLTask{
 				StartPath:   startPath,
 				EndPath:     endPath,
 				StartOffset: startOffset,
 				EndOffset:   endOffset,
 			}
+			jsonBytes, _ := json.Marshal(task)
+			fmt.Printf("%s\n", string(jsonBytes))
 			tasks = append(tasks, task)
 			return nil
 		}))
@@ -82,11 +86,11 @@ func processTasks(ctx context.Context, t *testing.T, tasks []PutFileURLTask, dir
 			if task.StartPath == path.Join(objStoreDir, file.Name()) {
 				shouldAppend = true
 			}
-			if shouldAppend {
-				paths = append(paths, file.Name())
-			}
 			if task.EndPath == path.Join(objStoreDir, file.Name()) {
 				break
+			}
+			if shouldAppend {
+				paths = append(paths, file.Name())
 			}
 		}
 		startOffset := task.StartOffset

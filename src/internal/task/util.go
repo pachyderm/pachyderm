@@ -17,8 +17,8 @@ import (
 )
 
 // DoOrdered returns objects of type Any in order on channel out.
-func DoOrdered(ctx context.Context, doer Doer, inputs, out chan *types.Any, parallelism int) error {
-	taskChain := taskchain.NewTaskChain(ctx, semaphore.NewWeighted(int64(parallelism)))
+func DoOrdered(ctx context.Context, doer Doer, inputs, outputs chan *types.Any, parallelism int) error {
+	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(parallelism)))
 	for {
 		select {
 		case input, ok := <-inputs:
@@ -31,8 +31,12 @@ func DoOrdered(ctx context.Context, doer Doer, inputs, out chan *types.Any, para
 					return nil, errors.EnsureStack(err)
 				}
 				return func() error {
-					out <- result
-					return nil
+					select {
+					case outputs <- result:
+						return nil
+					case <-ctx.Done():
+						return errors.EnsureStack(ctx.Err())
+					}
 				}, nil
 			}); err != nil {
 				return errors.EnsureStack(err)

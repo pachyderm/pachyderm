@@ -21,8 +21,8 @@ type TaskChain struct {
 	sem      *semaphore.Weighted
 }
 
-// NewTaskChain creates a new task chain.
-func NewTaskChain(ctx context.Context, sem *semaphore.Weighted) *TaskChain {
+// New creates a new task chain.
+func New(ctx context.Context, sem *semaphore.Weighted) *TaskChain {
 	eg, errCtx := errgroup.WithContext(ctx)
 	prevChan := make(chan struct{})
 	close(prevChan)

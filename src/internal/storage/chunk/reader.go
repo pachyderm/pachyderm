@@ -68,7 +68,7 @@ func (r *Reader) Get(w io.Writer) (retErr error) {
 	}
 	ctx, cancel := context.WithCancel(r.ctx)
 	defer cancel()
-	taskChain := taskchain.NewTaskChain(ctx, semaphore.NewWeighted(int64(r.prefetchLimit)))
+	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(r.prefetchLimit)))
 	defer func() {
 		if retErr != nil {
 			cancel()

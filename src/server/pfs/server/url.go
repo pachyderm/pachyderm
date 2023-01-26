@@ -8,12 +8,10 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
-	"go.uber.org/zap"
 	"gocloud.dev/blob"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -27,7 +25,7 @@ const (
 )
 
 var (
-	batchSize = int64(1000000) // batchSize is overridden when testing. Default is 1 Mb
+	threshold = int64(1000000) // threshold is overridden when testing. Default is 1 Mb
 )
 
 func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.UnorderedWriter, dstPath, tag string, src *pfs.AddFile_URLSource) (n int64, retErr error) {
@@ -86,6 +84,8 @@ func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.Unord
 	}
 }
 
+type shardCallback func(startPath string, startOffset int64, endPath string, endOffset int64) error
+
 func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *fileset.UnorderedWriter, dst, tag string, src *pfs.AddFile_URLSource) error {
 	inputChan := make(chan *types.Any)
 	outputChan := make(chan *types.Any)
@@ -93,15 +93,15 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 	doer := taskService.NewDoer(URLTaskNamespace, uuid.NewWithoutDashes(), nil)
 	// Create tasks.
 	eg.Go(func() error {
-		if err := coordinateTasks(ctx, src.URL, func(startOffset, endOffset int64, startPath, endPath string) error {
+		if err := shardObjects(ctx, src.URL, func(startPath string, startOffset int64, endPath string, endOffset int64) error {
 			input, err := serializePutFileURLTask(&PutFileURLTask{
 				Dst:         dst,
 				Datum:       tag,
 				URL:         src.URL,
-				StartOffset: startOffset,
-				EndOffset:   endOffset,
 				StartPath:   startPath,
+				StartOffset: startOffset,
 				EndPath:     endPath,
+				EndOffset:   endOffset,
 			})
 			if err != nil {
 				return err
@@ -144,9 +144,9 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 	return errors.EnsureStack(eg.Wait())
 }
 
-// coordinateTasks iterates through a list of objects and creates tasks of uniform byte size by sharding/batching objects.
+// shardObjects iterates through a list of objects and creates tasks of uniform byte size by sharding/batching objects.
 // createTask is passed through as a callback to support nicer testing.
-func coordinateTasks(ctx context.Context, URL string, createTask func(startOffset, endOffset int64, startPath, endPath string) error) (retErr error) {
+func shardObjects(ctx context.Context, URL string, cb shardCallback) (retErr error) {
 	url, err := obj.ParseURL(URL)
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -160,57 +160,69 @@ func coordinateTasks(ctx context.Context, URL string, createTask func(startOffse
 			retErr = multierror.Append(retErr, errors.EnsureStack(err))
 		}
 	}()
-	startPath, endPath := "", ""
 	list := bucket.List(&blob.ListOptions{Prefix: url.Object})
-	listObj, err := list.Next(ctx)
-	if err != nil {
+	var startPath, endPath string
+	var numObjects, size int64
+	moreObjects := true
+	for moreObjects {
+		listObj, err := list.Next(ctx)
 		if errors.Is(err, io.EOF) {
-			return errors.Wrapf(err, "no objects were listed")
+			moreObjects = false
+			// this happens because we process item N on iteration N+1
+			// so on the final iteration (io.EOF), we need to process the items in the batch.
 		}
-	}
-	startPath = listObj.Key
-	remainingObjSize := listObj.Size
-	bytesInBatch, filePos := int64(0), int64(0)
-	for {
-		// this case can happen when the previous batch ends on an object boundary.
-		if bytesInBatch+remainingObjSize == 0 && listObj.Size != 0 {
-			startPath, endPath = "", ""
-			filePos = 0
+		if startPath == "" {
+			startPath = listObj.Key
 		}
-		// add objects that completely fit into the batch.
-		for bytesInBatch+remainingObjSize < batchSize {
-			bytesInBatch += remainingObjSize
-			listObj, err = list.Next(ctx)
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					return errors.EnsureStack(createTask(filePos, batchSize-bytesInBatch, startPath, endPath))
-				}
-				return errors.Wrapf(err, "error listing bucket %s", url.Bucket)
-			}
-			log.Debug(ctx, "object stats", zap.String("object", listObj.Key), zap.Int64("size", listObj.Size))
-			remainingObjSize = listObj.Size
-			if startPath == "" {
-				startPath = listObj.Key
-			}
-			endPath = listObj.Key
-		}
-		// batch is full, so create a task and process the current object if there are remaining bytes.
-		remainingObjSize -= batchSize - bytesInBatch
-		if err := createTask(filePos, batchSize-bytesInBatch, startPath, endPath); err != nil {
-			return errors.EnsureStack(err)
-		}
-		startPath, endPath = listObj.Key, listObj.Key
-		filePos = batchSize - bytesInBatch
-		bytesInBatch = 0
-		// break an object down bigger than the batch size into batches.
-		for remainingObjSize >= batchSize {
-			if err := createTask(filePos, filePos+batchSize, startPath, endPath); err != nil {
+		if numObjects >= threshold {
+			if err := cb(startPath, 0, listObj.Key, -1); err != nil {
 				return errors.EnsureStack(err)
 			}
-			filePos += batchSize
-			remainingObjSize -= batchSize
+			startPath = ""
+			if listObj != nil { // this case happens if the last object is larger than the threshold.
+				startPath = listObj.Key
+			}
+			numObjects = 0
+			size = 0
+		}
+		if size >= threshold {
+			var pos int64
+			endPath = ""
+			if listObj != nil { // this case happens if the last object is larger than the threshold.
+				endPath = listObj.Key
+			}
+			for {
+				if size-pos < threshold*2 {
+					if err := cb(startPath, pos, endPath, -1); err != nil {
+						return errors.EnsureStack(err)
+					}
+					startPath = ""
+					if listObj != nil { // this case happens if the last object is larger than the threshold.
+						startPath = listObj.Key
+					}
+					numObjects = 0
+					size = 0
+					break
+				}
+				endOffset := pos + threshold
+				if err := cb(startPath, pos, endPath, endOffset); err != nil {
+					return errors.EnsureStack(err)
+				}
+				pos = endOffset
+			}
+		}
+		numObjects += 1
+		size += 0
+		if listObj != nil { // this case happens if the last object is larger than the threshold.
+			size += listObj.Size
 		}
 	}
+	if startPath != "" {
+		if err := cb(startPath, 0, "", -1); err != nil {
+			return errors.EnsureStack(err)
+		}
+	}
+	return nil
 }
 
 // TODO: Parallelize and decide on appropriate config.

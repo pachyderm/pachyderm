@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"path/filepath"
 	"strings"
@@ -87,11 +86,11 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 			if listObj.Key == task.StartPath {
 				shouldAppend = true
 			}
-			if shouldAppend {
-				paths = append(paths, listObj.Key)
-			}
 			if listObj.Key == task.EndPath {
 				break
+			}
+			if shouldAppend {
+				paths = append(paths, listObj.Key)
 			}
 		}
 		return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
@@ -176,7 +175,6 @@ func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 }
 
 func serializePutFileURLTask(task *PutFileURLTask) (*types.Any, error) {
-	fmt.Printf("task: %+v\n", task)
 	data, err := proto.Marshal(task)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
