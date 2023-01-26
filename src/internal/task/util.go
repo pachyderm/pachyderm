@@ -16,8 +16,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
 )
 
-// DoOrdered returns objects of type Any in order on channel out.
-func DoOrdered(ctx context.Context, doer Doer, inputs, outputs chan *types.Any, parallelism int) error {
+// DoOrdered returns objects of type Any in order via the provided callback cb.
+func DoOrdered(ctx context.Context, doer Doer, inputs chan *types.Any, parallelism int, cb CollectFunc) error {
 	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(parallelism)))
 	for {
 		select {
@@ -31,12 +31,7 @@ func DoOrdered(ctx context.Context, doer Doer, inputs, outputs chan *types.Any, 
 					return nil, errors.EnsureStack(err)
 				}
 				return func() error {
-					select {
-					case outputs <- result:
-						return nil
-					case <-ctx.Done():
-						return errors.EnsureStack(ctx.Err())
-					}
+					return cb(-1, result, nil)
 				}, nil
 			}); err != nil {
 				return errors.EnsureStack(err)

@@ -88,7 +88,6 @@ type shardCallback func(startPath string, startOffset int64, endPath string, end
 
 func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *fileset.UnorderedWriter, dst, tag string, src *pfs.AddFile_URLSource) error {
 	inputChan := make(chan *types.Any)
-	outputChan := make(chan *types.Any)
 	eg, ctx := errgroup.WithContext(ctx)
 	doer := taskService.NewDoer(URLTaskNamespace, uuid.NewWithoutDashes(), nil)
 	// Create tasks.
@@ -121,12 +120,7 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 	// Order output from input channel.
 	eg.Go(func() error {
 		// TODO: Add cache?
-		defer close(outputChan)
-		return task.DoOrdered(ctx, doer, inputChan, outputChan, 100)
-	})
-	// Deserialize output.
-	eg.Go(func() error {
-		for output := range outputChan {
+		return task.DoOrdered(ctx, doer, inputChan, 100, func(_ int64, output *types.Any, _ error) error {
 			result, err := deserializePutFileURLTaskResult(output)
 			if err != nil {
 				return err
@@ -135,17 +129,14 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 			if err != nil {
 				return err
 			}
-			if err := uw.AddFileSet(ctx, *fsid); err != nil {
-				return errors.EnsureStack(err)
-			}
-		}
-		return nil
+			return errors.EnsureStack(uw.AddFileSet(ctx, *fsid))
+		})
 	})
 	return errors.EnsureStack(eg.Wait())
 }
 
-// shardObjects iterates through a list of objects and creates tasks by sharding small files into a single shard or
-// breaking large files into multiple shards.
+// shardObjects iterates through a list of objects and creates tasks by sharding small files
+// into a single shard or breaking large files into multiple shards.
 func shardObjects(ctx context.Context, URL string, cb shardCallback) (retErr error) {
 	url, err := obj.ParseURL(URL)
 	if err != nil {
@@ -207,7 +198,6 @@ func shardObjects(ctx context.Context, URL string, cb shardCallback) (retErr err
 		numObjects++
 		size += listObj.Size
 	}
-	// Handle leftover objects in shard after iteration terminates
 	if startPath != "" {
 		if size >= threshold {
 			return shardLargeObject("")

@@ -5,8 +5,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 	"os"
 	"path"
 	"testing"
@@ -15,18 +13,18 @@ import (
 	"gocloud.dev/blob"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj/integrationtests"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 func TestSharding(t *testing.T) {
-	//integrationtests.LoadGoogleParameters(t)
-	//credFile := path.Join(t.TempDir(), "tmp-google-cred")
-	//require.NoError(t, os.WriteFile(credFile, []byte(os.Getenv("GOOGLE_CLIENT_CREDS")), 0666))
-	//require.NoError(t, os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", credFile))
-	//bucketName := os.Getenv("GOOGLE_CLIENT_BUCKET")
-	//url, err := obj.ParseURL("gs://" + bucketName)
-	url, err := obj.ParseURL("gs://fahad-test-bucket")
+	integrationtests.LoadGoogleParameters(t)
+	credFile := path.Join(t.TempDir(), "tmp-google-cred")
+	require.NoError(t, os.WriteFile(credFile, []byte(os.Getenv("GOOGLE_CLIENT_CREDS")), 0666))
+	require.NoError(t, os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", credFile))
+	bucketName := os.Getenv("GOOGLE_CLIENT_BUCKET")
+	url, err := obj.ParseURL("gs://" + bucketName)
 	require.NoError(t, err, "should be able to parse url")
 	files := make(map[string]string)
 	testDir := "./testing/testdata/urlCoordination"
@@ -61,8 +59,6 @@ func TestSharding(t *testing.T) {
 				StartOffset: startOffset,
 				EndOffset:   endOffset,
 			}
-			jsonBytes, _ := json.Marshal(task)
-			fmt.Printf("%s\n", string(jsonBytes))
 			tasks = append(tasks, task)
 			return nil
 		}))
