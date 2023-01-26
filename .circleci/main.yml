@@ -1088,7 +1088,7 @@ jobs:
                   command: |
                     pulumi stack output kubeconfig > kubeconfig.yml
                     KUBECONFIG=./kubeconfig.yml kubectl get nodes
-                    export PACHD_IP=$(kubectl get services | grep pachyderm-proxy | awk '{print $4}')
+                    export PACHD_IP=$(KUBECONFIG=./kubeconfig.yml kubectl get services --all-namespaces | grep pachyderm-proxy | awk '{print $5}')
       - when:
           condition:
             and:
