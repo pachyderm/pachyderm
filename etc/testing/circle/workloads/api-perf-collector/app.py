@@ -42,7 +42,31 @@ def main():
         'api-perf_failures.csv', results_folder, common_columns)
     insert_to_bigquery(client, rows_to_insert, 'api-perf-failures')
 
+    # pachctl_logs.txt - list of wrapped json - unwrap each log, parse json into row, return list
+    # postgres-k8s-config.json - need describe pod for requests/limits?
+    # app label
+    # pg bouncer env variables
+    # restart count
+    # resources under containers
+    # status - conditions
+    # pachd-k8s-config.json
+    # pg-bouncer-k8s-config.json
+    # sar _stats.tsv - whitespace delimited - throw out first line - ignore blank lines, 
+    #  -first column 12 characters - each other column 10 characters? just find next non-whitespace character?
+    # -sadf -d datafile -- 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h 
 
+
+# format column names to be compatible with bigquery's rules
+def format_column_names(raw: list[str]) -> list[str]:
+    formatted = []
+    for name in raw:
+        # strip non-alphamnumeric column titles
+        tmp = re.sub('[^a-zA-Z\d:]', '_', name)
+        # append _ instead of starting with a number
+        if re.match('\d', tmp[0]) is not None:
+            tmp = '_' + tmp
+        formatted.append(tmp)
+    return formatted
 
 
 # Log in to big query and return the authenticated client
@@ -63,7 +87,7 @@ def get_bigquery_client() -> bigquery.Client:
 def get_csv_file_rows(file_name: str, results_folder: str, common_columns: dict[str, any]) -> list[dict[str, any]]:
     if results_folder:
         file_path = os.path.join(results_folder, file_name)
-    rows_to_insert = []
+    rows = []
     with open(file_path, mode='r') as c:
         csv_reader = csv.reader(c, delimiter=',')
         columns = format_column_names(next(csv_reader))
@@ -72,25 +96,50 @@ def get_csv_file_rows(file_name: str, results_folder: str, common_columns: dict[
             for i, value in enumerate(row):
                 row_dict[columns[i]] = value
             row_dict.update(common_columns)
-            rows_to_insert.append(row_dict)
-    return rows_to_insert
+            rows.append(row_dict)
+    return rows
 
 
-def get_json_log_file_rows():
-    pass
+# Each log is json within json, so load that into a list of dictionaries for storage.
+def get_log_file_rows(file_name: str, results_folder: str) -> list[dict[str, any]]:
+    if results_folder:
+        file_path = os.path.join(results_folder, file_name)
+    rows = []
+    with open(file_path,'r') as f:
+        for line in f:
+            json_log = json.loads(line)['log']
+            try:
+                rows.append(json.loads(json_log))
+            except ValueError: # in the case the log is not parsable json, we have to toss it
+                pass   
+    return rows
 
 
-# format column names to be compatible with bigquery's rules
-def format_column_names(raw: list[str]) -> list[str]:
-    formatted = []
-    for name in raw:
-        # strip non-alphamnumeric column titles
-        tmp = re.sub('[^a-zA-Z\d:]', '_', name)
-        # append _ instead of starting with a number
-        if re.match('\d', tmp[0]) is not None:
-            tmp = '_' + tmp
-        formatted.append(tmp)
-    return formatted
+def get_kubeconfig_rows(file_name: str, results_folder: str)  -> list[dict[str, any]]:
+    if results_folder:
+        file_path = os.path.join(results_folder, file_name)
+    rows = []
+    with open(file_path,'r') as f:
+        kubeconfig = {"kubeconfig": json.loads(f.read())}
+        rows.append(kubeconfig)
+    return rows
+
+
+def get_sadf_rows(file_name: str, results_folder: str) -> list[dict[str, any]]:
+    if results_folder:
+        file_path = os.path.join(results_folder, file_name)
+    rows = []
+    with open(file_path,'r') as f:
+        for line in f:
+            if line.startswith('#'): # then they are columns 
+                column_names = format_column_names(line[1:].strip().split(';'))
+            else:
+                values = line.split(';')
+                row = {}
+                for i,name in enumerate(column_names):
+                    row[name]=values[i]
+                rows.append(row)
+    return rows
 
 
 # We don't want some versions with v in front and some without in the DB, so just remove v if it's there
