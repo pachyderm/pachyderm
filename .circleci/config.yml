@@ -142,7 +142,7 @@ jobs:
       - run: mkdir -p ${TEST_RESULTS}
       - run:
           name: Collect node stats
-          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h | tee "${TEST_RESULTS}/sar_stats.tsv"
+          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h -o "${TEST_RESULTS}/sar_stats"
           background: true
       - run:
           name: Clone Locust tests
