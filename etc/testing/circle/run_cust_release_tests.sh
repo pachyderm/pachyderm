@@ -12,6 +12,20 @@ pachctl version --client-only
 VERSION="$(pachctl version --client-only)"
 export VERSION
 
+echo '{"pachd_address": "grpc://${PACHD_IP}:80"}' | pachctl config set context "test" --overwrite
+pachctl config set active-context "test"
+
+# Print client and server versions, for debugging.  (Also waits for proxy to discover pachd, etc.)
+for i in $(seq 1 20); do
+    if pachctl version; then
+        echo "pachd ready after $i attempts"
+        break
+    else
+        sleep 5
+        continue
+    fi
+done
+
 if [ "${1}" = "wp" ]; then
   # cloning wp-workload test repo
   git clone https://github.com/pachyderm/customer-success.git customer-success

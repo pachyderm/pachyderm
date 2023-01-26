@@ -1048,6 +1048,12 @@ jobs:
         type: string
       action:
         type: string
+      pachdVersion:
+        type: string
+        default: ""
+      helmChartVersion:
+        type: string
+        default: ""
     resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -1062,6 +1068,13 @@ jobs:
       - pulumi/login
       - run: |
          pulumi plugin install resource eks v0.40.0
+      - run:
+          name: set few config values
+          command: |
+            pulumi stack select << parameters.env >> --create
+            pulumi config set pachdVersion << parameters.pachdVersion >>
+            pulumi config set helmChartVersion << parameters.helmChartVersion >>
+            pulumi config set --secret rdsPGDBPassword ${PUlUMI_TEST_DB_PW}
       - when:
           condition:
             and:
@@ -1070,6 +1083,12 @@ jobs:
               - pulumi/update:
                   stack: pachyderm/core/<< parameters.env >>
                   working_directory: ./etc/testing/circle/workloads/pulumi/aws/
+              - run:
+                  name: 
+                  command: |
+                    pulumi stack output kubeconfig > kubeconfig.yml
+                    KUBECONFIG=./kubeconfig.yml kubectl get nodes
+                    export PACHD_IP=$(kubectl get services | grep pachyderm-proxy | awk '{print $4}')
       - when:
           condition:
             and:
@@ -1278,6 +1297,7 @@ workflows:
       - pulumi-aws-test-env:
           name: create-aws-prerelease-testing-env
           env: qa3
+          pachdVersion: $CIRCLE_SHA1
           action: update
           requires:
             - build-docker-images
@@ -1421,6 +1441,8 @@ workflows:
           name: aws-prerelease-testing-env
           env: qa1
           action: update
+          pachdVersion: $CIRCLE_SHA1
+          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
           filters: *only-release-tags
           requires:
             - build-docker-images
@@ -1431,6 +1453,8 @@ workflows:
           name: cust-prerelease-testing-env-1
           env: qa4
           action: update
+          pachdVersion: $CIRCLE_SHA1
+          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
           filters: *only-alpha-tags
           requires:
             - build-docker-images
@@ -1441,6 +1465,8 @@ workflows:
           name: cust-prerelease-testing-env-2
           env: qa5
           action: update
+          pachdVersion: $CIRCLE_SHA1
+          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
           filters: *only-alpha-tags
           requires:
             - build-docker-images
@@ -1576,6 +1602,8 @@ workflows:
           name: create-aws-test-env
           env: qa1
           action: update
+          pachdVersion: $CIRCLE_SHA1
+          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
           filters: *only-release-tags
           requires:
             - build-docker-images
