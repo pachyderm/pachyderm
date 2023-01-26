@@ -2012,7 +2012,7 @@ func TestPFS(suite *testing.T) {
 	// that was used in C@x.
 	suite.Run("ResolveAlias", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(pctx.TestContext(t), t, dockertestenv.NewTestDBConfig(t))
 		c := env.PachClient
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "B"))
@@ -2042,7 +2042,7 @@ func TestPFS(suite *testing.T) {
 	// TODO(acohen4): write test
 	suite.Run("BigSquash", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(pctx.TestContext(t), t, dockertestenv.NewTestDBConfig(t))
 		c := env.PachClient
 		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 	})
@@ -5064,7 +5064,7 @@ func TestPFS(suite *testing.T) {
 	// if appropriate
 	suite.Run("SquashCommitSetMultiLevelChildrenComplex", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(pctx.TestContext(t), t, dockertestenv.NewTestDBConfig(t))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "upstream1"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "upstream2"))
 		// commit to both inputs

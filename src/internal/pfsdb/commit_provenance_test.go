@@ -3,20 +3,20 @@
 package pfsdb
 
 import (
-	"context"
 	"sort"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 func TestCommitSetProvenance(t *testing.T) {
-	db, _ := dockertestenv.NewEphemeralPostgresDB(t)
+	ctx := pctx.TestContext(t)
+	db, _ := dockertestenv.NewEphemeralPostgresDB(ctx, t)
 	defer db.Close()
-	ctx := context.Background()
 	// setup schema
 	tx, err := db.Beginx()
 	require.NoError(t, err)
