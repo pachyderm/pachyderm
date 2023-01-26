@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	threshold = int64(1000000) // threshold is overridden when testing. Default is 1 Mb
+	threshold = int64(1_000_000_000) // threshold is overridden when testing. Default is 1 GB
 )
 
 func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.UnorderedWriter, dstPath, tag string, src *pfs.AddFile_URLSource) (n int64, retErr error) {
@@ -174,7 +174,6 @@ func shardObjects(ctx context.Context, URL string, cb shardCallback) (retErr err
 		}
 		return nil
 	}
-
 	for {
 		listObj, err := list.Next(ctx)
 		if errors.Is(err, io.EOF) {
