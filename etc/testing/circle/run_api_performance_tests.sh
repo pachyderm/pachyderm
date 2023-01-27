@@ -2,22 +2,25 @@
 
 set -euxo pipefail
 
-pachctl_tag=$PACHD_VERSION 
+
 if [ "$PACHD_VERSION" == "latest" ]
 then 
     if [ -z "$PACHD_LATEST_VERSION" ]
     then 
         pachctl_tag=$(git tag --sort=taggerdate | tail -1) # the latest tag should be the nightly
-        image_tag="$CIRCLE_SHA1" #removing v from the front for the image
+        image_tag="$CIRCLE_SHA1" 
     else
         pachctl_tag="$PACHD_LATEST_VERSION"
-        image_tag="${pachctl_tag//v/}" #removing v from the front for the image
+        image_tag="${pachctl_tag//v/}" 
     fi
+else
+    pachctl_tag=$PACHD_VERSION 
+    image_tag="${pachctl_tag//v/}" 
 fi
 
 
 # Install pachctl
-gh release download "$pachctl_tag" --pattern "pachctl_${image_tag}_amd64.deb" --repo pachyderm/pachyderm --output /tmp/pachctl.deb
+gh release download "$pachctl_tag" --pattern "pachctl_${pachctl_tag//v/}_amd64.deb" --repo pachyderm/pachyderm --output /tmp/pachctl.deb
 sudo dpkg -i /tmp/pachctl.deb
 
 kubectl config use-context minikube
