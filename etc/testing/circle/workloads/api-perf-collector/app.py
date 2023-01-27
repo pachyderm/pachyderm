@@ -41,7 +41,7 @@ def main():
 
     rows_to_insert = get_log_file_rows(
         'pachctl_logs.jsonl', results_folder, common_columns)
-    print(f'LOGS: {rows_to_insert}')
+    # print(f'LOGS: {rows_to_insert}')
 
     rows_to_insert = get_kubeconfig_rows(
         'pachd-k8s-config.json', results_folder, 'pachd', common_columns)
