@@ -16,7 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
 )
 
-// DoOrdered processes tasks in parallel, but returns objects in order via the provided callback cb.
+// DoOrdered processes tasks in parallel, but returns outputs in order via the provided callback cb.
 func DoOrdered(ctx context.Context, doer Doer, inputs chan *types.Any, parallelism int, cb CollectFunc) error {
 	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(parallelism)))
 	for {

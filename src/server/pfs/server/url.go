@@ -24,7 +24,7 @@ import (
 var (
 	// these are overridden when testing.
 	defaultNumObjectsThreshold = 1000
-	defaultSizeThreshold       = int64(units.GB * 1)
+	defaultSizeThreshold       = int64(units.GB)
 )
 
 func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.UnorderedWriter, dstPath, tag string, src *pfs.AddFile_URLSource) (n int64, retErr error) {
@@ -157,15 +157,15 @@ func shardObjects(ctx context.Context, URL string, cb shardCallback) (retErr err
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		if len(paths)+1 > defaultNumObjectsThreshold || size+listObj.Size > defaultSizeThreshold {
+		paths = append(paths, listObj.Key)
+		size += listObj.Size
+		if len(paths) >= defaultNumObjectsThreshold || size >= defaultSizeThreshold {
 			if err := cb(paths, 0, -1); err != nil {
 				return errors.EnsureStack(err)
 			}
 			paths = nil
 			size = 0
 		}
-		paths = append(paths, listObj.Key)
-		size += listObj.Size
 	}
 	if len(paths) != 0 {
 		return cb(paths, 0, -1)
