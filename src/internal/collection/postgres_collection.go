@@ -28,7 +28,7 @@ const (
 
 type postgresCollection struct {
 	table              string
-	db                 *pachsql.DB
+	db                 sqlx.ExtContext
 	listener           PostgresListener
 	template           proto.Message
 	indexes            []*Index
@@ -87,7 +87,7 @@ func WithListBufferCapacity(cap int) Option {
 func NewPostgresCollection(name string, db *pachsql.DB, listener PostgresListener, template proto.Message, indexes []*Index, opts ...Option) PostgresCollection {
 	col := &postgresCollection{
 		table:              name,
-		db:                 db,
+		db:                 tracingExtContext{inner: db},
 		listener:           listener,
 		template:           template,
 		indexes:            indexes,
@@ -529,7 +529,7 @@ func (c *postgresReadOnlyCollection) GetRevByIndex(index *Index, indexVal string
 
 func (c *postgresReadOnlyCollection) Count() (int64, error) {
 	query := fmt.Sprintf("select count(*) from collections.%s", c.table)
-	row := c.db.QueryRowContext(c.ctx, query)
+	row := c.db.QueryRowxContext(c.ctx, query)
 
 	var result int64
 	err := row.Scan(&result)
