@@ -13,7 +13,7 @@ describe('HeaderButtons', () => {
   afterEach(() => {
     window.localStorage.removeItem('pachyderm-console-Default');
   });
-  
+
   /* eslint-disable jest/no-disabled-tests */
   /* Tutorial is temporarily disabled because of "Project" Console Support */
   it.skip('should start the tutorial when clicked', async () => {

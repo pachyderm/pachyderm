@@ -14,6 +14,7 @@ module.exports = {
     'plugin:import/typescript',
     'plugin:jest/recommended',
     'plugin:jest/style',
+    'plugin:jest-dom/recommended',
     'plugin:testing-library/dom',
     'plugin:testing-library/react',
   ],

@@ -188,7 +188,7 @@ describe('ProjectSidebar', () => {
       const deleteButton = await screen.findByTestId(
         'DeletePipelineButton__link',
       );
-      await waitFor(() => expect(deleteButton).not.toBeDisabled());
+      await waitFor(() => expect(deleteButton).toBeEnabled());
       await click(deleteButton);
       const confirmButton = await screen.findByTestId('ModalFooter__confirm');
       await click(confirmButton);
@@ -436,7 +436,7 @@ describe('ProjectSidebar', () => {
       render(<Project />);
       expect(mockServer.getState().repos['OpenCV-Tutorial']).toHaveLength(3);
       const deleteButton = await screen.findByTestId('DeleteRepoButton__link');
-      await waitFor(() => expect(deleteButton).not.toBeDisabled());
+      await waitFor(() => expect(deleteButton).toBeEnabled());
       await click(deleteButton);
       const confirmButton = await screen.findByTestId('ModalFooter__confirm');
       await click(confirmButton);
@@ -485,7 +485,7 @@ describe('ProjectSidebar', () => {
         screen.queryByTestId('CommitBrowser__loadingdots'),
       );
       expect(await screen.findByText('View Files')).toBeInTheDocument();
-      expect(screen.getByText('View Files')).not.toBeDisabled();
+      expect(screen.getByText('View Files')).toBeEnabled();
     });
 
     it('should show a link to view files while filtering for a global id', async () => {
@@ -504,7 +504,7 @@ describe('ProjectSidebar', () => {
         screen.queryByTestId('CommitDetails__loadingdots'),
       );
       expect(await screen.findByText('View Files')).toBeInTheDocument();
-      expect(screen.getByText('View Files')).not.toBeDisabled();
+      expect(screen.getByText('View Files')).toBeEnabled();
     });
   });
 

@@ -146,9 +146,9 @@ describe('File Browser', () => {
       await click(nameHeader);
 
       let rows = await screen.findAllByRole('row');
-      expect(rows[1].textContent).toContain('yml_spec.yml');
-      expect(rows[2].textContent).toContain('xml_plants.xml');
-      expect(rows[3].textContent).toContain('txt_spec.txt');
+      expect(rows[1]).toHaveTextContent(/yml_spec\.yml/);
+      expect(rows[2]).toHaveTextContent(/xml_plants\.xml/);
+      expect(rows[3]).toHaveTextContent(/txt_spec\.txt/);
 
       const sizeHeader = await screen.findByLabelText(
         'sort by size in descending order',
@@ -156,9 +156,9 @@ describe('File Browser', () => {
       await click(sizeHeader);
 
       rows = await screen.findAllByRole('row');
-      expect(rows[1].textContent).toContain('json_single_field.json');
-      expect(rows[2].textContent).toContain('csv_commas.csv');
-      expect(rows[3].textContent).toContain('csv_tabs.csv');
+      expect(rows[1]).toHaveTextContent(/json_single_field\.json/);
+      expect(rows[2]).toHaveTextContent(/csv_commas\.csv/);
+      expect(rows[3]).toHaveTextContent(/csv_tabs\.csv/);
 
       const typeHeader = await screen.findByLabelText(
         'sort by type in descending order',
@@ -166,9 +166,9 @@ describe('File Browser', () => {
       await click(typeHeader);
 
       rows = await screen.findAllByRole('row');
-      expect(rows[1].textContent).toContain('cats');
-      expect(rows[2].textContent).toContain('csv_commas.csv');
-      expect(rows[3].textContent).toContain('csv_tabs.csv');
+      expect(rows[1]).toHaveTextContent(/cats/);
+      expect(rows[2]).toHaveTextContent(/csv_commas\.csv/);
+      expect(rows[3]).toHaveTextContent(/csv_tabs\.csv/);
     });
 
     it('should navigate to dir path on action click', async () => {

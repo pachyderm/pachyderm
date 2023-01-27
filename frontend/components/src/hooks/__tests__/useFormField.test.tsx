@@ -65,6 +65,6 @@ describe('useFormField', () => {
 
     expect(testInput).toHaveAttribute('aria-invalid', 'false');
     expect(testInput).not.toHaveAttribute('aria-describedby');
-    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

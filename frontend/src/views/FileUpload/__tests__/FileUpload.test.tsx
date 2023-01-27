@@ -28,11 +28,11 @@ describe('File Upload', () => {
     render(<FileUpload />);
 
     await waitFor(() =>
-      expect(screen.getByLabelText('Attach Files')).not.toBeDisabled(),
+      expect(screen.getByLabelText('Attach Files')).toBeEnabled(),
     );
 
     const pathInput = await screen.findByLabelText('File Path');
-    await waitFor(() => expect(pathInput).not.toBeDisabled());
+    await waitFor(() => expect(pathInput).toBeEnabled());
     await clear(pathInput);
 
     expect(await screen.findByText('A path is required')).toBeInTheDocument();
@@ -42,11 +42,11 @@ describe('File Upload', () => {
     render(<FileUpload />);
 
     await waitFor(() =>
-      expect(screen.getByLabelText('Attach Files')).not.toBeDisabled(),
+      expect(screen.getByLabelText('Attach Files')).toBeEnabled(),
     );
 
     const pathInput = await screen.findByLabelText('File Path');
-    await waitFor(() => expect(pathInput).not.toBeDisabled());
+    await waitFor(() => expect(pathInput).toBeEnabled());
     await type(pathInput, '$');
 
     expect(
@@ -89,11 +89,11 @@ describe('File Upload', () => {
     render(<FileUpload />);
 
     await waitFor(() =>
-      expect(screen.getByLabelText('Attach Files')).not.toBeDisabled(),
+      expect(screen.getByLabelText('Attach Files')).toBeEnabled(),
     );
 
     const pathInput = await screen.findByLabelText('File Path');
-    await waitFor(() => expect(pathInput).not.toBeDisabled());
+    await waitFor(() => expect(pathInput).toBeEnabled());
 
     await clear(pathInput);
 
@@ -121,14 +121,14 @@ describe('File Upload', () => {
     render(<FileUpload />);
 
     await waitFor(() =>
-      expect(screen.getByLabelText('Attach Files')).not.toBeDisabled(),
+      expect(screen.getByLabelText('Attach Files')).toBeEnabled(),
     );
 
     const fileInput = (await screen.findByLabelText(
       'Attach Files',
     )) as HTMLInputElement;
 
-    await waitFor(() => expect(fileInput).not.toBeDisabled());
+    await waitFor(() => expect(fileInput).toBeEnabled());
 
     await upload(fileInput, [
       new File(['hello'], 'hello.png', {type: 'image/png'}),
@@ -144,7 +144,7 @@ describe('File Upload', () => {
     render(<FileUpload />);
 
     await waitFor(() =>
-      expect(screen.getByLabelText('Attach Files')).not.toBeDisabled(),
+      expect(screen.getByLabelText('Attach Files')).toBeEnabled(),
     );
 
     const fileInput = (await screen.findByLabelText(

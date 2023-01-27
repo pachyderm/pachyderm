@@ -39,7 +39,7 @@ describe('Landing', () => {
       }),
     ).toBeInTheDocument();
 
-    expect(screen.getAllByRole('tab')).toHaveLength(1);
+    expect(screen.getByRole('tab')).toBeInTheDocument();
   });
 
   it('should allow users to non-case sensitive search for projects by name', async () => {

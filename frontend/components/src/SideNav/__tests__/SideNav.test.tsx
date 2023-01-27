@@ -53,7 +53,7 @@ describe('SideNav', () => {
 
     await click(expandAndCollapse);
     workspaces = screen.queryByText('Workspaces');
-    expect(workspaces).toBeNull();
+    expect(workspaces).not.toBeInTheDocument();
 
     await click(expandAndCollapse);
     workspaces = screen.queryByText('Workspaces');

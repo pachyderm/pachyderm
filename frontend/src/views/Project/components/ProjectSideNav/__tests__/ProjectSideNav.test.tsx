@@ -31,7 +31,7 @@ describe('project sidenav', () => {
     await waitFor(() =>
       expect(
         screen.queryByTestId('ProjectHeader__projectNameLoader'),
-      ).toBeNull(),
+      ).not.toBeInTheDocument(),
     );
     expect(screen.queryByLabelText('Number of failed')).not.toBeInTheDocument();
   });

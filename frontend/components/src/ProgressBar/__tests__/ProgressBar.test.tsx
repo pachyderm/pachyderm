@@ -61,7 +61,7 @@ describe('ProgressBar', () => {
       'ProgressBarStep__successCheckmark',
     );
 
-    expect(incomplete).toBeNull();
+    expect(incomplete).not.toBeInTheDocument();
 
     const completeButton = await screen.findByText('Complete');
     await click(completeButton);

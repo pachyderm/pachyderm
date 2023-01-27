@@ -62,7 +62,7 @@ describe('JobList', () => {
       ).not.toBeInTheDocument(),
     );
 
-    const {queryAllByRole, getByText, queryAllByText} = within(
+    const {queryAllByRole, getByText, queryByText} = within(
       screen.getByRole('list'),
     );
 
@@ -74,7 +74,7 @@ describe('JobList', () => {
     expect(getByText('Killed')).toBeInTheDocument();
     expect(getByText('Running')).toBeInTheDocument();
     expect(getByText('Starting')).toBeInTheDocument();
-    expect(queryAllByText('See Details')).toHaveLength(0);
+    expect(queryByText('See Details')).not.toBeInTheDocument();
   });
 
   it('should display a list of jobs for a pipeline', async () => {

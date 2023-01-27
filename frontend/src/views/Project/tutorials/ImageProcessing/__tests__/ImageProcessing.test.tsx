@@ -70,7 +70,7 @@ describe('Image Processing', () => {
         name: 'Next Story',
       });
 
-      await waitFor(() => expect(nextStoryButton).not.toBeDisabled());
+      await waitFor(() => expect(nextStoryButton).toBeEnabled());
       await click(nextStoryButton);
     };
 
@@ -91,7 +91,7 @@ describe('Image Processing', () => {
       name: 'Create the images repo',
     });
 
-    await waitFor(() => expect(repoCreationButton).not.toBeDisabled());
+    await waitFor(() => expect(repoCreationButton).toBeEnabled());
     await click(repoCreationButton);
 
     expect(await screen.findByText('Task Completed!')).toBeInTheDocument();
@@ -109,7 +109,7 @@ describe('Image Processing', () => {
       name: 'Next Story',
     });
 
-    await waitFor(() => expect(nextStoryButton).not.toBeDisabled());
+    await waitFor(() => expect(nextStoryButton).toBeEnabled());
 
     expect(mockServer.getState().repos['Empty-Project']).toHaveLength(2);
     expect(mockServer.getState().pipelines['Empty-Project']).toHaveLength(1);

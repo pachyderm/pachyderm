@@ -53,7 +53,9 @@ describe('Modal', () => {
 
     runTimers();
 
-    await waitFor(() => expect(screen.queryByText('Header')).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByText('Header')).not.toBeInTheDocument(),
+    );
   });
 
   it('clicking the header close button should close the modal', async () => {
@@ -70,7 +72,9 @@ describe('Modal', () => {
 
     runTimers();
 
-    await waitFor(() => expect(screen.queryByText('Header')).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByText('Header')).not.toBeInTheDocument(),
+    );
   });
 
   it('clicking the Cancel button should close the modal', async () => {
@@ -87,7 +91,9 @@ describe('Modal', () => {
 
     runTimers();
 
-    await waitFor(() => expect(screen.queryByText('Header')).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByText('Header')).not.toBeInTheDocument(),
+    );
   });
 
   it('should call the confimation function when the confirm button is clicked', async () => {
