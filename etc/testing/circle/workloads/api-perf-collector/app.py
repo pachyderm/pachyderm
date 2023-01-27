@@ -10,9 +10,6 @@ from google.oauth2 import service_account
 
 def main():
     results_folder = os.getenv('API_PERF_RESULTS_FOLDER')
-    if not results_folder:
-        raise Exception(
-            f'Missing performance results folder location. Need API_PERF_RESULTS_FOLDER.')
     common_columns = {
         'Workflow_Id': os.getenv('CIRCLE_WORKFLOW_ID'),
         'Job_Id': os.getenv('CIRCLE_WORKFLOW_JOB_ID'),
@@ -42,19 +39,26 @@ def main():
         'api-perf_failures.csv', results_folder, common_columns)
     insert_to_bigquery(client, rows_to_insert, 'api-perf-failures')
 
-    # ADD COMMON COLUMNS AND BUILD TABLES
-    # pachctl_logs.txt - list of wrapped json - unwrap each log, parse json into row, return list
-    # postgres-k8s-config.json - need describe pod for requests/limits?
-    # app label
-    # pg bouncer env variables
-    # restart count
-    # resources under containers
-    # status - conditions
-    # pachd-k8s-config.json
-    # pg-bouncer-k8s-config.json
-    # sar _stats.tsv - whitespace delimited - throw out first line - ignore blank lines, 
-    #  -first column 12 characters - each other column 10 characters? just find next non-whitespace character?
-    # -sadf -d datafile -- 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h 
+    rows_to_insert = get_log_file_rows(
+        'pachctl_logs.jsonl', results_folder, common_columns)
+    print(f'LOGS: {rows_to_insert}')
+
+    rows_to_insert = get_kubeconfig_rows(
+        'pachd-k8s-config.json', results_folder, 'pachd', common_columns)
+    print(f'PACHD: {rows_to_insert}')
+
+    rows_to_insert = get_kubeconfig_rows(
+        'pg-bouncer-k8s-config.json', results_folder, 'pg-bouncer', common_columns)
+    print(f'PG-BOUNCER: {rows_to_insert}')
+
+    rows_to_insert = get_kubeconfig_rows(
+        'postgres-k8s-config.json', results_folder, 'postgres', common_columns)
+    print(f'POSTGRES: {rows_to_insert}')
+
+    rows_to_insert = get_sadf_rows(
+        'sadf_stats', results_folder, common_columns)
+    print(f'SADF: {rows_to_insert}')
+
 
 
 # format column names to be compatible with bigquery's rules
@@ -118,12 +122,12 @@ def get_log_file_rows(file_name: str, results_folder: str, common_columns: dict[
     return rows
 
 
-def get_kubeconfig_rows(file_name: str, results_folder: str, common_columns: dict[str, any])  -> list[dict[str, any]]:
+def get_kubeconfig_rows(file_name: str, results_folder: str, app_name: str, common_columns: dict[str, any])  -> list[dict[str, any]]:
     if results_folder:
         file_path = os.path.join(results_folder, file_name)
     rows = []
     with open(file_path,'r') as f:
-        kubeconfig = {"kubeconfig": json.loads(f.read())}
+        kubeconfig = {'pod': app_name, 'kubeconfig': json.loads(f.read())}
         kubeconfig.update(common_columns)
         rows.append(kubeconfig)
     return rows
@@ -133,6 +137,7 @@ def get_sadf_rows(file_name: str, results_folder: str, common_columns: dict[str,
     if results_folder:
         file_path = os.path.join(results_folder, file_name)
     rows = []
+    time_sorted_rows = {} # we want one row per timestamp so we flatten the report by timestamps before finalizing
     with open(file_path,'r') as f:
         for line in f:
             if line.startswith('#'): # then they are columns 
@@ -140,10 +145,17 @@ def get_sadf_rows(file_name: str, results_folder: str, common_columns: dict[str,
             else:
                 values = line.split(';')
                 row = {}
+                timestamp = ""
                 for i,name in enumerate(column_names):
                     row[name]=values[i]
+                    if name == 'timestamp':
+                        timestamp = values[i]
                 row.update(common_columns)
-                rows.append(row)
+                if not timestamp in time_sorted_rows.keys():
+                    time_sorted_rows[timestamp] = {}
+                time_sorted_rows[timestamp].update(row)
+    for row in time_sorted_rows.values():
+        rows.append(row)
     return rows
 
 

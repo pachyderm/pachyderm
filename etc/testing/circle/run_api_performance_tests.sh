@@ -48,7 +48,7 @@ locust -f locustfile.py --headless --users 50 --spawn-rate 1 --run-time 3m \
     --html /tmp/test-results/api-perf-stats.html \
     --exit-code-on-error 0 # errors are reported in the artifacts, if the test finishes the pipeline ran successfully
 cd ..
-pachctl logs > "${TEST_RESULTS}/pachctl_logs.txt"
+pachctl logs > "${TEST_RESULTS}/pachctl_logs.jsonl"
 sadf -d "${TEST_RESULTS}/sar_stats" -- 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h > "${TEST_RESULTS}/sadf_stats"
 
 # Collect and export stats to bigquery
