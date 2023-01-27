@@ -8,11 +8,13 @@ then
     if [ -z "$PACHD_LATEST_VERSION" ]
     then 
         pachctl_tag=$(git tag --sort=taggerdate | tail -1) # the latest tag should be the nightly
+        image_tag="$CIRCLE_SHA1" #removing v from the front for the image
     else
         pachctl_tag="$PACHD_LATEST_VERSION"
+        image_tag="${pachctl_tag//v/}" #removing v from the front for the image
     fi
 fi
-image_tag="${pachctl_tag//v/}" #removing v from the front for the image
+
 
 # Install pachctl
 gh release download "$pachctl_tag" --pattern "pachctl_${image_tag}_amd64.deb" --repo pachyderm/pachyderm --output /tmp/pachctl.deb
