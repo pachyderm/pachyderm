@@ -38,10 +38,10 @@ def main():
     rows_to_insert = get_csv_file_rows(
         'api-perf_failures.csv', results_folder, common_columns)
     insert_to_bigquery(client, rows_to_insert, 'api-perf-failures')
-
+    
     rows_to_insert = get_log_file_rows(
         'pachctl_logs.jsonl', results_folder, common_columns)
-    # print(f'LOGS: {rows_to_insert}')
+    print(f'LOGS: {rows_to_insert}')
 
     rows_to_insert = get_kubeconfig_rows(
         'pachd-k8s-config.json', results_folder, 'pachd', common_columns)
@@ -115,8 +115,9 @@ def get_log_file_rows(file_name: str, results_folder: str, common_columns: dict[
             json_log = json.loads(line)['log']
             try:
                 log_json = json.loads(json_log)
-                log_json.update(common_columns)
-                rows.append(log_json)
+                if log_json['severity'] != 'info' and log_json['severity'] != 'debug':
+                    log_json.update(common_columns)
+                    rows.append(log_json)
             except ValueError: # in the case the log is not parsable json, we have to toss it
                 pass   
     return rows
@@ -149,7 +150,7 @@ def get_sadf_rows(file_name: str, results_folder: str, common_columns: dict[str,
                 for i,name in enumerate(column_names):
                     row[name]=values[i]
                     if name == 'timestamp':
-                        timestamp = values[i]
+                        timestamp = values[i].strip()
                 row.update(common_columns)
                 if not timestamp in time_sorted_rows.keys():
                     time_sorted_rows[timestamp] = {}
