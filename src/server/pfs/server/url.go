@@ -20,12 +20,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-const (
-	defaultURLTaskSize = 1000
-)
-
 var (
-	threshold = int64(1_000_000_000) // threshold is overridden when testing. Default is 1 GB
+	// these are overridden when testing.
+	defaultURLTaskSize = int64(1000)
+	threshold          = int64(1_000_000_000)
 )
 
 func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.UnorderedWriter, dstPath, tag string, src *pfs.AddFile_URLSource) (n int64, retErr error) {
@@ -187,7 +185,7 @@ func shardObjects(ctx context.Context, URL string, cb shardCallback) (retErr err
 				return err
 			}
 		}
-		if numObjects >= threshold {
+		if numObjects >= defaultURLTaskSize {
 			if err := cb(startPath, 0, listObj.Key, -1); err != nil {
 				return errors.EnsureStack(err)
 			}

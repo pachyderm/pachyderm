@@ -50,7 +50,7 @@ func TestSharding(t *testing.T) {
 		}
 	}()
 	var tasks []PutFileURLTask
-	threshold = 3
+	threshold, defaultURLTaskSize = 3, 3
 	require.NoError(t, shardObjects(ctx, url.BucketString()+"/"+objStoreDir,
 		func(startPath string, startOffset int64, endPath string, endOffset int64) error {
 			task := PutFileURLTask{
