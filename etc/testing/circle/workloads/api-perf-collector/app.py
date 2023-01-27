@@ -42,6 +42,7 @@ def main():
         'api-perf_failures.csv', results_folder, common_columns)
     insert_to_bigquery(client, rows_to_insert, 'api-perf-failures')
 
+    # ADD COMMON COLUMNS AND BUILD TABLES
     # pachctl_logs.txt - list of wrapped json - unwrap each log, parse json into row, return list
     # postgres-k8s-config.json - need describe pod for requests/limits?
     # app label
@@ -101,7 +102,7 @@ def get_csv_file_rows(file_name: str, results_folder: str, common_columns: dict[
 
 
 # Each log is json within json, so load that into a list of dictionaries for storage.
-def get_log_file_rows(file_name: str, results_folder: str) -> list[dict[str, any]]:
+def get_log_file_rows(file_name: str, results_folder: str, common_columns: dict[str, any]) -> list[dict[str, any]]:
     if results_folder:
         file_path = os.path.join(results_folder, file_name)
     rows = []
@@ -109,23 +110,26 @@ def get_log_file_rows(file_name: str, results_folder: str) -> list[dict[str, any
         for line in f:
             json_log = json.loads(line)['log']
             try:
-                rows.append(json.loads(json_log))
+                log_json = json.loads(json_log)
+                log_json.update(common_columns)
+                rows.append(log_json)
             except ValueError: # in the case the log is not parsable json, we have to toss it
                 pass   
     return rows
 
 
-def get_kubeconfig_rows(file_name: str, results_folder: str)  -> list[dict[str, any]]:
+def get_kubeconfig_rows(file_name: str, results_folder: str, common_columns: dict[str, any])  -> list[dict[str, any]]:
     if results_folder:
         file_path = os.path.join(results_folder, file_name)
     rows = []
     with open(file_path,'r') as f:
         kubeconfig = {"kubeconfig": json.loads(f.read())}
+        kubeconfig.update(common_columns)
         rows.append(kubeconfig)
     return rows
 
 
-def get_sadf_rows(file_name: str, results_folder: str) -> list[dict[str, any]]:
+def get_sadf_rows(file_name: str, results_folder: str, common_columns: dict[str, any]) -> list[dict[str, any]]:
     if results_folder:
         file_path = os.path.join(results_folder, file_name)
     rows = []
@@ -138,6 +142,7 @@ def get_sadf_rows(file_name: str, results_folder: str) -> list[dict[str, any]]:
                 row = {}
                 for i,name in enumerate(column_names):
                     row[name]=values[i]
+                row.update(common_columns)
                 rows.append(row)
     return rows
 
