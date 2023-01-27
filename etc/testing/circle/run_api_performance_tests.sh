@@ -8,7 +8,7 @@ then
     if [ -z "$PACHD_LATEST_VERSION" ]
     then 
         pachctl_tag=$(git tag --sort=taggerdate | tail -1) # the latest tag should be the nightly
-        image_tag="$CIRCLE_SHA1" 
+        image_tag=$(git rev-parse origin/master)
     else
         pachctl_tag="$PACHD_LATEST_VERSION"
         image_tag="${pachctl_tag//v/}" 
