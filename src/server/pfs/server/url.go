@@ -167,7 +167,7 @@ func shardObjects(ctx context.Context, URL string, cb shardCallback) (retErr err
 			size = 0
 		}
 	}
-	if len(paths) != 0 {
+	if len(paths) > 0 {
 		return cb(paths, 0, -1)
 	}
 	return nil
