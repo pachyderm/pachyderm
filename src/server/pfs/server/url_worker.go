@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"io"
 	"path/filepath"
 	"strings"
 	"time"
@@ -11,7 +10,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
-	"gocloud.dev/blob"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -72,36 +70,15 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 	prefix := strings.TrimPrefix(url.Object, "/")
 	result := &PutFileURLTaskResult{}
 	if err := log.LogStep(ctx, "putFileURLTask", func(ctx context.Context) error {
-		var paths []string
-		shouldAppend := false
-		list := bucket.List(&blob.ListOptions{Prefix: url.Object})
-		for {
-			listObj, err := list.Next(ctx)
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				return errors.EnsureStack(err)
-			}
-			if listObj.Key == task.StartPath {
-				shouldAppend = true
-			}
-			if listObj.Key == task.EndPath {
-				break
-			}
-			if shouldAppend {
-				paths = append(paths, listObj.Key)
-			}
-		}
 		return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 			id, err := d.withUnorderedWriter(ctx, renewer, func(uw *fileset.UnorderedWriter) error {
 				startOffset := task.StartOffset
 				length := int64(-1) // -1 means to read until end of file.
-				for i, path := range paths {
+				for i, path := range task.Paths {
 					if i != 0 {
 						startOffset = 0
 					}
-					if i == len(paths)-1 && task.EndOffset != int64(-1) {
+					if i == len(task.Paths)-1 && task.EndOffset != int64(-1) {
 						length = task.EndOffset - startOffset
 					}
 					if err := func() error {

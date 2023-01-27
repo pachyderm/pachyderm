@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/docker/go-units"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 	"gocloud.dev/blob"
@@ -22,8 +23,8 @@ import (
 
 var (
 	// these are overridden when testing.
-	defaultURLTaskSize = int64(1000)
-	threshold          = int64(1_000_000_000)
+	defaultNumObjectsThreshold = 1000
+	defaultSizeThreshold       = int64(units.GB * 1)
 )
 
 func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.UnorderedWriter, dstPath, tag string, src *pfs.AddFile_URLSource) (n int64, retErr error) {
@@ -82,7 +83,7 @@ func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.Unord
 	}
 }
 
-type shardCallback func(startPath string, startOffset int64, endPath string, endOffset int64) error
+type shardCallback func(paths []string, startOffset, endOffset int64) error
 
 func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *fileset.UnorderedWriter, dst, tag string, src *pfs.AddFile_URLSource) error {
 	inputChan := make(chan *types.Any)
@@ -90,14 +91,13 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 	doer := taskService.NewDoer(URLTaskNamespace, uuid.NewWithoutDashes(), nil)
 	// Create tasks.
 	eg.Go(func() error {
-		if err := shardObjects(ctx, src.URL, func(startPath string, startOffset int64, endPath string, endOffset int64) error {
+		if err := shardObjects(ctx, src.URL, func(paths []string, startOffset, endOffset int64) error {
 			input, err := serializePutFileURLTask(&PutFileURLTask{
 				Dst:         dst,
 				Datum:       tag,
 				URL:         src.URL,
-				StartPath:   startPath,
+				Paths:       paths,
 				StartOffset: startOffset,
-				EndPath:     endPath,
 				EndOffset:   endOffset,
 			})
 			if err != nil {
@@ -134,7 +134,7 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 }
 
 // shardObjects iterates through a list of objects and creates tasks by sharding small files
-// into a single shard or breaking large files into multiple shards.
+// into a single shard. Files larger than a shard size will be given their own dedicated shard.
 func shardObjects(ctx context.Context, URL string, cb shardCallback) (retErr error) {
 	url, err := obj.ParseURL(URL)
 	if err != nil {
@@ -150,56 +150,25 @@ func shardObjects(ctx context.Context, URL string, cb shardCallback) (retErr err
 		}
 	}()
 	list := bucket.List(&blob.ListOptions{Prefix: url.Object})
-	var startPath, endPath string // startPath is inclusive, endPath is exclusive.
-	var numObjects, size int64
-	shardLargeObject := func(key string) error {
-		var pos int64
-		endPath = key
-		for {
-			if size-pos < threshold*2 {
-				if err := cb(startPath, pos, endPath, -1); err != nil {
-					return errors.EnsureStack(err)
-				}
-				startPath = key
-				numObjects, size = 0, 0
-				break
-			}
-			endOffset := pos + threshold
-			if err := cb(startPath, pos, endPath, endOffset); err != nil {
-				return errors.EnsureStack(err)
-			}
-			pos = endOffset
-		}
-		return nil
-	}
+	var paths []string
+	var size int64
 	for {
 		listObj, err := list.Next(ctx)
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		if startPath == "" {
-			startPath = listObj.Key
-		}
-		if size >= threshold {
-			if err := shardLargeObject(listObj.Key); err != nil {
-				return err
-			}
-		}
-		if numObjects >= defaultURLTaskSize {
-			if err := cb(startPath, 0, listObj.Key, -1); err != nil {
+		if len(paths)+1 > defaultNumObjectsThreshold || size+listObj.Size > defaultSizeThreshold {
+			if err := cb(paths, 0, -1); err != nil {
 				return errors.EnsureStack(err)
 			}
-			startPath = listObj.Key
-			numObjects, size = 0, 0
+			paths = nil
+			size = 0
 		}
-		numObjects++
+		paths = append(paths, listObj.Key)
 		size += listObj.Size
 	}
-	if startPath != "" {
-		if size >= threshold {
-			return shardLargeObject("")
-		}
-		return cb(startPath, 0, "", -1)
+	if len(paths) != 0 {
+		return cb(paths, 0, -1)
 	}
 	return nil
 }
@@ -247,8 +216,8 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 			if fi.FileType != pfs.FileType_FILE {
 				return nil
 			}
-			bytesWritten += int64(fi.SizeBytes)
-			if count >= defaultURLTaskSize {
+			bytesWritten += fi.SizeBytes
+			if count >= int64(defaultNumObjectsThreshold) {
 				pathRange.Upper = file.Index().Path
 				if err := createTask(); err != nil {
 					return err

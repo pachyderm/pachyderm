@@ -50,19 +50,18 @@ func TestSharding(t *testing.T) {
 		}
 	}()
 	var tasks []PutFileURLTask
-	threshold, defaultURLTaskSize = 3, 3
+	defaultSizeThreshold, defaultNumObjectsThreshold = 3, 3
 	require.NoError(t, shardObjects(ctx, url.BucketString()+"/"+objStoreDir,
-		func(startPath string, startOffset int64, endPath string, endOffset int64) error {
+		func(paths []string, startOffset, endOffset int64) error {
 			task := PutFileURLTask{
-				StartPath:   startPath,
-				EndPath:     endPath,
+				Paths:       paths,
 				StartOffset: startOffset,
 				EndOffset:   endOffset,
 			}
 			tasks = append(tasks, task)
 			return nil
 		}))
-	processedFiles := processTasks(ctx, t, tasks, dir, bucket, objStoreDir)
+	processedFiles := processTasks(ctx, t, tasks, bucket, objStoreDir)
 	for file, data := range files {
 		require.Equal(t, data, processedFiles[file], "files should match")
 	}
@@ -73,33 +72,21 @@ func TestSharding(t *testing.T) {
 	}
 }
 
-func processTasks(ctx context.Context, t *testing.T, tasks []PutFileURLTask, dir []os.DirEntry, bucket *blob.Bucket, objStoreDir string) map[string]string {
+func processTasks(ctx context.Context, t *testing.T, tasks []PutFileURLTask, bucket *blob.Bucket, objStoreDir string) map[string]string {
+
 	verifiedFiles := make(map[string]string)
 	for _, task := range tasks {
-		var paths []string
-		shouldAppend := false
-		for _, file := range dir {
-			if task.StartPath == path.Join(objStoreDir, file.Name()) {
-				shouldAppend = true
-			}
-			if task.EndPath == path.Join(objStoreDir, file.Name()) {
-				break
-			}
-			if shouldAppend {
-				paths = append(paths, file.Name())
-			}
-		}
 		startOffset := task.StartOffset
 		length := int64(-1) // -1 means to read until end of file.
-		for i, filePath := range paths {
+		for i, filePath := range task.Paths {
 			func() {
 				if i != 0 {
 					startOffset = 0
 				}
-				if i == len(paths)-1 && task.EndOffset != int64(-1) {
+				if i == len(task.Paths)-1 && task.EndOffset != int64(-1) {
 					length = task.EndOffset - startOffset
 				}
-				r, err := bucket.NewRangeReader(ctx, path.Join(objStoreDir, filePath), startOffset, length, nil)
+				r, err := bucket.NewRangeReader(ctx, filePath, startOffset, length, nil)
 				require.NoError(t, err, "should be able to create range reader")
 				defer func() {
 					require.NoError(t, r.Close(), "should be able to close file")
@@ -107,7 +94,7 @@ func processTasks(ctx context.Context, t *testing.T, tasks []PutFileURLTask, dir
 				buf := &bytes.Buffer{}
 				_, err = r.WriteTo(buf)
 				require.NoError(t, err, "should be able to write to buffer")
-				verifiedFiles[filePath] += buf.String()
+				verifiedFiles[path.Base(filePath)] += buf.String()
 			}()
 		}
 	}
