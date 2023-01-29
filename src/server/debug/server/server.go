@@ -14,6 +14,7 @@ import (
 	"path"
 	"reflect"
 	"runtime"
+	"runtime/coverage"
 	runtimedebug "runtime/debug"
 	"runtime/pprof"
 	"sort"
@@ -411,7 +412,24 @@ func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_
 
 func collectProfileFunc(profile *debug.Profile) collectFunc {
 	return func(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
-		return collectProfile(ctx, tw, profile, prefix...)
+		switch profile.GetName() {
+		case "cover":
+			var errs error
+			if err := collectDebugFile(tw, "covcounters", "", func(w io.Writer) error {
+				return coverage.WriteCounters(w)
+			}); err != nil {
+				multierr.AppendInto(&errs, errors.Wrap(err, "counters"))
+			}
+			if err := collectDebugFile(tw, "covmeta", "", func(w io.Writer) error {
+				return coverage.WriteMeta(w)
+			}); err != nil {
+				multierr.AppendInto(&errs, errors.Wrap(err, "meta"))
+			}
+			return errs
+		default:
+			return collectProfile(ctx, tw, profile, prefix...)
+		}
+
 	}
 }
 
