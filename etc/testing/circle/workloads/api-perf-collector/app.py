@@ -38,10 +38,10 @@ def main():
     rows_to_insert = get_csv_file_rows(
         'api-perf_failures.csv', results_folder, common_columns)
     insert_to_bigquery(client, rows_to_insert, 'api-perf-failures')
-    
+
     rows_to_insert = get_log_file_rows(
         'pachctl_logs.jsonl', results_folder, common_columns)
-    print_jsonl('LOGS:', rows_to_insert)
+    insert_to_bigquery(client, rows_to_insert, 'api-perf-pachd-logs')
 
     rows_to_insert = get_kubeconfig_rows(
         'pachd-k8s-config.json', results_folder, 'pachd', common_columns)
@@ -58,11 +58,6 @@ def main():
     rows_to_insert = get_sadf_rows(
         'sadf_stats', results_folder, common_columns)
     insert_to_bigquery(client, rows_to_insert, 'api-perf-sar-stats')
-
-def print_jsonl(prefix: str, data: list):
-    print(f'{prefix}\n')
-    for l in data:
-        print(f'{l}')
 
 
 # format column names to be compatible with bigquery's rules
@@ -114,27 +109,28 @@ def get_log_file_rows(file_name: str, results_folder: str, common_columns: dict[
     if results_folder:
         file_path = os.path.join(results_folder, file_name)
     rows = []
-    with open(file_path,'r') as f:
+    with open(file_path, 'r') as f:
         for line in f:
             json_log = json.loads(line)['log']
             try:
                 log_json = json.loads(json_log)
                 if log_json['severity'] != 'info' and log_json['severity'] != 'debug':
                     for field in log_json.keys():
-                        if type(log_json[field]) is dict: # flatten json for insertion to BQ
-                           log_json[field] = json.dumps(log_json[field]) 
+                        # flatten json for insertion to BQ
+                        if type(log_json[field]) is dict:
+                            log_json[field] = json.dumps(log_json[field])
                     log_json.update(common_columns)
                     rows.append(log_json)
-            except ValueError: # in the case the log is not parsable json, we have to toss it
-                pass   
+            except ValueError:  # in the case the log is not parsable json, we have to toss it
+                pass
     return rows
 
 
-def get_kubeconfig_rows(file_name: str, results_folder: str, app_name: str, common_columns: dict[str, any])  -> list[dict[str, any]]:
+def get_kubeconfig_rows(file_name: str, results_folder: str, app_name: str, common_columns: dict[str, any]) -> list[dict[str, any]]:
     if results_folder:
         file_path = os.path.join(results_folder, file_name)
     rows = []
-    with open(file_path,'r') as f:
+    with open(file_path, 'r') as f:
         # f should already be json so no need to json.loads/dumps
         kubeconfig = {'pod': app_name, 'kubeconfig': f.read()}
         kubeconfig.update(common_columns)
@@ -146,17 +142,18 @@ def get_sadf_rows(file_name: str, results_folder: str, common_columns: dict[str,
     if results_folder:
         file_path = os.path.join(results_folder, file_name)
     rows = []
-    time_sorted_rows = {} # we want one row per timestamp so we flatten the report by timestamps before finalizing
-    with open(file_path,'r') as f:
+    # we want one row per timestamp so we flatten the report by timestamps before finalizing
+    time_sorted_rows = {}
+    with open(file_path, 'r') as f:
         for line in f:
-            if line.startswith('#'): # then they are columns 
+            if line.startswith('#'):  # then they are columns
                 column_names = format_column_names(line[1:].strip().split(';'))
             else:
                 values = line.split(';')
                 row = {}
                 timestamp = ""
-                for i,name in enumerate(column_names):
-                    row[name]=values[i]
+                for i, name in enumerate(column_names):
+                    row[name] = values[i]
                     if name == 'timestamp':
                         timestamp = values[i].strip()
                 row.update(common_columns)
