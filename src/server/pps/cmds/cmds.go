@@ -1353,6 +1353,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			_, err = c.NextDatum(context.Background(), &workerserver.NextDatumRequest{Error: errStr})
 			return err
 		}),
+		Hidden: true,
 	}
 	nextDatum.Flags().StringVar(&errStr, "error", "", "A string representation of an error that occurred while processing the current datum.")
 	commands = append(commands, cmdutil.CreateAlias(nextDatum, "next datum"))
