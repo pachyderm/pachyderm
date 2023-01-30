@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -415,15 +416,25 @@ func collectProfileFunc(profile *debug.Profile) collectFunc {
 		switch profile.GetName() {
 		case "cover":
 			var errs error
-			if err := collectDebugFile(tw, "covcounters", "", func(w io.Writer) error {
-				return coverage.WriteCounters(w)
-			}); err != nil {
+			// "go tool covdata" relies on these files being named the same as what is
+			// written out automatically.  See go/src/runtime/coverage/emit.go.
+			// (covcounters.<16 byte hex-encoded hash that nothing checks>.<pid>.<unix
+			// nanos>, covmeta.<same hash>.)
+			hash := [16]byte{}
+			if _, err := rand.Read(hash[:]); err != nil {
+				return errors.Wrap(err, "generate random coverage id")
+			}
+			if err := collectDebugFile(tw, fmt.Sprintf("cover/covcounters.%x.%d.%d", hash, os.Getpid(), time.Now().UnixNano()), "", coverage.WriteCounters, prefix...); err != nil {
 				multierr.AppendInto(&errs, errors.Wrap(err, "counters"))
 			}
-			if err := collectDebugFile(tw, "covmeta", "", func(w io.Writer) error {
-				return coverage.WriteMeta(w)
-			}); err != nil {
+			if err := collectDebugFile(tw, fmt.Sprintf("cover/covmeta.%x", hash), "", coverage.WriteMeta, prefix...); err != nil {
 				multierr.AppendInto(&errs, errors.Wrap(err, "meta"))
+			}
+			if errs == nil {
+				log.Debug(ctx, "clearing coverage counters")
+				if err := coverage.ClearCounters(); err != nil {
+					log.Debug(ctx, "problem clearing coverage counters", zap.Error(err))
+				}
 			}
 			return errs
 		default:
