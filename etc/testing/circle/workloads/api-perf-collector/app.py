@@ -57,7 +57,7 @@ def main():
 
     rows_to_insert = get_sadf_rows(
         'sadf_stats', results_folder, common_columns)
-    print_jsonl('SADF:', rows_to_insert)
+    insert_to_bigquery(client, rows_to_insert, 'api-perf-sar-stats')
 
 def print_jsonl(prefix: str, data: list):
     print(f'{prefix}\n')
