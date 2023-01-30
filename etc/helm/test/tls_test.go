@@ -94,6 +94,7 @@ func TestEnableconsoleTLSExistingSecret(t *testing.T) {
 	expectedSecretName := "blah"
 	options := &helm.Options{
 		SetValues: map[string]string{
+			"proxy.enabled":          "false",
 			"deployTarget":           "LOCAL",
 			"console.enabled":        "true",
 			"ingress.tls.enabled":    "true",

@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
 )
@@ -15,7 +16,7 @@ import (
 func TestGetTableInfo(suite *testing.T) {
 	type testCase struct {
 		Name     string
-		NewDB    func(testing.TB) (*pachsql.DB, string)
+		NewDB    func(context.Context, testing.TB) (*pachsql.DB, string)
 		Expected *pachsql.TableInfo
 	}
 	tcs := []testCase{
@@ -104,10 +105,10 @@ func TestGetTableInfo(suite *testing.T) {
 			},
 		},
 	}
-	ctx := context.Background()
 	for _, tc := range tcs {
 		suite.Run(tc.Name, func(t *testing.T) {
-			db, dbName := tc.NewDB(t)
+			ctx := pctx.TestContext(t)
+			db, dbName := tc.NewDB(ctx, t)
 			if tc.Name == "MySQL" {
 				tc.Expected.Schema = dbName
 			}

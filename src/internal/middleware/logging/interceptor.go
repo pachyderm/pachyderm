@@ -3,214 +3,42 @@ package logging
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"reflect"
-	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"go.uber.org/zap"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/identity"
-	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	mauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 type logConfig struct {
 	// interfaces here are the request and response protobufs, respectively
-	level             func(error) logrus.Level
 	transformRequest  func(interface{}) interface{}
 	transformResponse func(interface{}) interface{}
+	leveler           func(defaultLevel log.Level, response any, err error) log.Level
 }
 
-func defaultLevel(err error) logrus.Level {
-	switch status.Code(err) {
-	case codes.OK:
-		// status.Code(nil) returns OK
-		return logrus.InfoLevel
-	case codes.InvalidArgument, codes.OutOfRange:
-		return logrus.InfoLevel
-	case codes.NotFound, codes.AlreadyExists, codes.Unauthenticated:
-		return logrus.WarnLevel
-	default:
-		return logrus.ErrorLevel
-	}
-}
-
-var defaultConfig = logConfig{level: defaultLevel}
+var defaultConfig = logConfig{}
 
 // The config used for auth endpoints suppresses 'not activated' errors to the
 // debug level
-var authConfig = logConfig{
-	level: func(err error) logrus.Level {
-		if err == nil {
-			return logrus.InfoLevel
-		} else if auth.IsErrNotActivated(err) {
-			return logrus.DebugLevel
-		}
-		return logrus.ErrorLevel
-	},
-}
+var authConfig = logConfig{}
 
 // Special handling for some endpoints, usually regarding redaction or
 // suppressing to a different log level.
 // TODO: would be nice if we could annotate the protobuf fields for redaction,
 // then auto-generate this code (or even just handle it dynamically).
 var endpoints = map[string]logConfig{
-	"/license_v2.API/Activate": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*license.ActivateRequest)).(*license.ActivateRequest)
-			copyReq.ActivationCode = ""
-			return copyReq
-		},
-	},
-
-	"/license_v2.API/GetActivationCode": {
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*license.GetActivationCodeResponse)).(*license.GetActivationCodeResponse)
-			copyResp.ActivationCode = ""
-			return copyResp
-		},
-	},
-
-	"/license_v2.API/AddCluster": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*license.AddClusterRequest)).(*license.AddClusterRequest)
-			copyReq.Secret = ""
-			return copyReq
-		},
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*license.AddClusterResponse)).(*license.AddClusterResponse)
-			copyResp.Secret = ""
-			return copyResp
-		},
-	},
-
-	"/license_v2.API/Heartbeat": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*license.HeartbeatRequest)).(*license.HeartbeatRequest)
-			copyReq.Secret = ""
-			return copyReq
-		},
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*license.HeartbeatResponse)).(*license.HeartbeatResponse)
-			copyResp.License.ActivationCode = ""
-			return copyResp
-		},
-	},
-
-	"/enterprise_v2.API/GetActivationCode": {
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*enterprise.GetActivationCodeResponse)).(*enterprise.GetActivationCodeResponse)
-			copyResp.ActivationCode = ""
-			return copyResp
-		},
-	},
-
-	"/enterprise_v2.API/GetState": {
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*enterprise.GetStateResponse)).(*enterprise.GetStateResponse)
-			copyResp.ActivationCode = ""
-			return copyResp
-		},
-	},
-
-	"/enterprise_v2.API/Activate": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*enterprise.ActivateRequest)).(*enterprise.ActivateRequest)
-			copyReq.Secret = ""
-			return copyReq
-		},
-	},
-
-	"/identity_v2.API/CreateIDPConnector": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*identity.CreateIDPConnectorRequest)).(*identity.CreateIDPConnectorRequest)
-			if copyReq.Connector != nil {
-				copyReq.Connector.Config = &types.Struct{}
-				copyReq.Connector.JsonConfig = ""
-			}
-			return copyReq
-		},
-	},
-
-	"/identity_v2.API/GetIDPConnector": {
-		transformResponse: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*identity.GetIDPConnectorResponse)).(*identity.GetIDPConnectorResponse)
-			copyReq.Connector.Config = &types.Struct{}
-			copyReq.Connector.JsonConfig = ""
-			return copyReq
-		},
-	},
-
-	"/identity_v2.API/UpdateIDPConnector": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*identity.UpdateIDPConnectorRequest)).(*identity.UpdateIDPConnectorRequest)
-			if copyReq.Connector != nil {
-				copyReq.Connector.Config = &types.Struct{}
-				copyReq.Connector.JsonConfig = ""
-			}
-			return copyReq
-		},
-	},
-
-	"/identity_v2.API/ListIDPConnectors": {
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*identity.ListIDPConnectorsResponse)).(*identity.ListIDPConnectorsResponse)
-			for _, c := range copyResp.Connectors {
-				c.Config = &types.Struct{}
-				c.JsonConfig = ""
-			}
-			return copyResp
-		},
-	},
-
-	"/identity_v2.API/CreateOIDCClient": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*identity.CreateOIDCClientRequest)).(*identity.CreateOIDCClientRequest)
-			if copyReq.Client != nil {
-				copyReq.Client.Secret = ""
-			}
-			return copyReq
-		},
-	},
-
-	"/identity_v2.API/UpdateOIDCClient": {
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*identity.UpdateOIDCClientRequest)).(*identity.UpdateOIDCClientRequest)
-			if copyReq.Client != nil {
-				copyReq.Client.Secret = ""
-			}
-			return copyReq
-		},
-	},
-
-	"/identity_v2.API/GetOIDCClient": {
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*identity.GetOIDCClientResponse)).(*identity.GetOIDCClientResponse)
-			copyResp.Client.Secret = ""
-			return copyResp
-		},
-	},
-
-	"/identity_v2.API/ListOIDCClients": {
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*identity.ListOIDCClientsResponse)).(*identity.ListOIDCClientsResponse)
-			for _, c := range copyResp.Clients {
-				c.Secret = ""
-			}
-			return copyResp
-		},
-	},
-
 	"/auth_v2.API/Deactivate":                 authConfig,
 	"/auth_v2.API/Authorize":                  authConfig,
 	"/auth_v2.API/GetPermissionsForPrincipal": authConfig,
@@ -226,133 +54,19 @@ var endpoints = map[string]logConfig{
 	"/auth_v2.API/DeleteExpiredAuthTokens":    authConfig,
 	"/auth_v2.API/RevokeAuthTokensForUser":    authConfig,
 
-	"/auth_v2.API/WhoAmI": {
-		level: func(err error) logrus.Level {
-			if err == nil {
-				return logrus.DebugLevel
+	"/auth_v2.API/WhoAmI": defaultConfig,
+
+	"/grpc.health.v1.Health/Check": {
+		leveler: func(lvl log.Level, a any, err error) log.Level {
+			if err != nil {
+				return log.ErrorLevel
 			}
-			return authConfig.level(err)
-		},
-	},
-
-	"/auth_v2.API/Activate": {
-		level: authConfig.level,
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*auth.ActivateRequest)).(*auth.ActivateRequest)
-			copyReq.RootToken = ""
-			return copyReq
-		},
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*auth.ActivateResponse)).(*auth.ActivateResponse)
-			copyResp.PachToken = ""
-			return copyResp
-		},
-	},
-
-	"/auth_v2.API/Authenticate": {
-		level: authConfig.level,
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*auth.AuthenticateRequest)).(*auth.AuthenticateRequest)
-			copyReq.OIDCState = ""
-			copyReq.IdToken = ""
-			return copyReq
-		},
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*auth.AuthenticateResponse)).(*auth.AuthenticateResponse)
-			copyResp.PachToken = ""
-			return copyResp
-		},
-	},
-
-	"/auth_v2.API/RotateRootToken": {
-		level: authConfig.level,
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*auth.RotateRootTokenRequest)).(*auth.RotateRootTokenRequest)
-			copyReq.RootToken = ""
-			return copyReq
-		},
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*auth.RotateRootTokenResponse)).(*auth.RotateRootTokenResponse)
-			copyResp.RootToken = ""
-			return copyResp
-		},
-	},
-
-	"/auth_v2.API/GetOIDCLogin": {
-		level: authConfig.level,
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*auth.GetOIDCLoginResponse)).(*auth.GetOIDCLoginResponse)
-			copyResp.LoginURL = ""
-			copyResp.State = ""
-			return copyResp
-		},
-	},
-
-	"/auth_v2.API/SetConfiguration": {
-		level: authConfig.level,
-		transformRequest: func(r interface{}) interface{} {
-			req := r.(*auth.SetConfigurationRequest)
-			if req.Configuration == nil {
-				return r
+			if res, ok := a.(*healthpb.HealthCheckResponse); ok {
+				if res.GetStatus() == healthpb.HealthCheckResponse_SERVING {
+					return lvl
+				}
 			}
-			copyReq := proto.Clone(req).(*auth.SetConfigurationRequest)
-			copyReq.Configuration.ClientSecret = ""
-			return copyReq
-		},
-	},
-
-	"/auth_v2.API/GetRobotToken": {
-		level: authConfig.level,
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*auth.GetRobotTokenResponse)).(*auth.GetRobotTokenResponse)
-			copyResp.Token = ""
-			return copyResp
-		},
-	},
-
-	"/auth_v2.API/RevokeAuthToken": {
-		level: authConfig.level,
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*auth.RevokeAuthTokenRequest)).(*auth.RevokeAuthTokenRequest)
-			copyReq.Token = ""
-			return copyReq
-		},
-	},
-
-	"/auth_v2.API/ExtractAuthTokens": {
-		level: authConfig.level,
-		transformResponse: func(r interface{}) interface{} {
-			copyResp := proto.Clone(r.(*auth.ExtractAuthTokensResponse)).(*auth.ExtractAuthTokensResponse)
-			copyResp.Tokens = nil
-			return copyResp
-		},
-	},
-
-	"/auth_v2.API/RestoreAuthToken": {
-		level: authConfig.level,
-		transformRequest: func(r interface{}) interface{} {
-			copyReq := proto.Clone(r.(*auth.RestoreAuthTokenRequest)).(*auth.RestoreAuthTokenRequest)
-			copyReq.Token = nil
-			return copyReq
-		},
-	},
-
-	"/auth_v2.API/GetConfiguration": {
-		level: authConfig.level,
-		transformResponse: func(r interface{}) interface{} {
-			resp := r.(*auth.GetConfigurationResponse)
-			if resp.Configuration == nil {
-				return resp
-			}
-			copyResp := proto.Clone(resp).(*auth.GetConfigurationResponse)
-			copyResp.Configuration.ClientSecret = ""
-			return copyResp
-		},
-	},
-
-	"/pfs_v2.API/CreateFileSet": {
-		transformRequest: func(r interface{}) interface{} {
-			return nil
+			return log.ErrorLevel
 		},
 	},
 }
@@ -369,38 +83,110 @@ func isNilInterface(x interface{}) bool {
 	return x == nil || (val.Kind() == reflect.Ptr && val.IsNil())
 }
 
+func getCommonLogger(ctx context.Context, service, method string) context.Context {
+	var f []log.Field
+	f = append(f, zap.String("service", service), zap.String("method", method))
+
+	if user := mauth.GetWhoAmI(ctx); user != "" {
+		f = append(f, zap.String("user", user))
+	}
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		if rids := md.Get("x-request-id"); rids != nil {
+			// There shouldn't be multiple copies of the x-request-id header, but if
+			// there are, log all of them.
+			f = append(f, zap.Strings("x-request-id", rids))
+		}
+		if command := md.Get("command"); command != nil {
+			f = append(f, zap.Strings("command", command))
+			if method != "InspectCluster" {
+				// InspectCluster is called by the client to get the deployment ID, so
+				// we don't want to log that.
+				log.Info(ctx, "audit log", f...)
+			}
+		}
+	}
+	if peer, ok := peer.FromContext(ctx); ok {
+		f = append(f, zap.Stringer("peer", peer.Addr))
+	}
+
+	if service == "grpc.health.v1.Health" {
+		// The health check logger is rate-limited to one unique message per hour.
+		ctx = log.HealthCheckLogger(ctx)
+	}
+	return pctx.Child(ctx, service+"/"+method, pctx.WithFields(f...))
+}
+
+func getRequestLogger(ctx context.Context, req any) context.Context {
+	var f []log.Field
+	switch x := req.(type) {
+	case nil:
+	case proto.Message:
+		f = append(f, log.Proto("request", x))
+	default:
+		f = append(f, zap.Any("request", x))
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		f = append(f, zap.Duration("deadline", time.Until(deadline)))
+	}
+	return pctx.Child(ctx, "", pctx.WithFields(f...))
+}
+
+func getResponseLogger(ctx context.Context, res any, sent, rcvd int, err error) context.Context {
+	var f []log.Field
+	switch x := res.(type) {
+	case nil:
+	case proto.Message:
+		f = append(f, log.Proto("response", x))
+	default:
+		f = append(f, zap.Any("response", x))
+	}
+	if sent > 0 {
+		f = append(f, zap.Int("messagesSent", sent))
+	}
+	if rcvd > 0 {
+		f = append(f, zap.Int("messagesReceived", rcvd))
+	}
+	if err != nil {
+		f = append(f, zap.Error(err))
+	}
+	// FromError is pretty weird.  It returns (status=nil, ok=true) for nil errors.  It's OK to
+	// call methods on a nil status, though.  It also returns stats=Unknown, ok=false if the
+	// error doesn't have a gRPC code in it.  So we want to copy status information into the log
+	// even when ok is false.
+	s, _ := status.FromError(err)
+	f = append(f, zap.Uint32("grpc.code", uint32(s.Code()))) // always want code, even if it's 0 (= "OK")
+	if msg := s.Message(); msg != "" {
+		f = append(f, zap.String("grpc.message", msg))
+	}
+	return pctx.Child(ctx, "", pctx.WithFields(f...))
+}
+
 func (li *LoggingInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, retErr error) {
-	ctx = withMethodName(ctx, info.FullMethod)
 	start := time.Now()
 	config := getConfig(info.FullMethod)
-	level := defaultLevel(nil)
-	if config.level != nil {
-		level = config.level(nil)
-	}
+	lvl := li.Level
 
 	logReq := req
 	if config.transformRequest != nil && !isNilInterface(req) {
 		logReq = config.transformRequest(req)
 	}
 
-	md, ok := metadata.FromIncomingContext(ctx)
-	if ok && len(md.Get("command")) > 0 {
-		command := md.Get("command")
-		li.logger.Logf(logrus.InfoLevel, "user command: %s", strings.Join(command, ""))
-	}
+	service, method := parseMethod(info.FullMethod)
+	ctx = getCommonLogger(ctx, service, method)
 
-	li.logUnaryBefore(ctx, level, logReq, info.FullMethod, start)
+	// NOTE(jonathan): We use service/method in the log messages so that rate limiting applies
+	// per-RPC instead of for all RPCs.  (Rate limiting algorithm looks at the message and the
+	// severity.)
+	dolog(getRequestLogger(ctx, logReq), lvl, "request for "+service+"/"+method)
 	defer func() {
-		level := defaultLevel(retErr)
-		if config.level != nil {
-			level = config.level(retErr)
-		}
-
 		logResp := resp
 		if config.transformResponse != nil && !isNilInterface(resp) {
 			logResp = config.transformResponse(resp)
 		}
-		li.logUnaryAfter(ctx, level, logReq, info.FullMethod, start, logResp, retErr)
+		if config.leveler != nil && !isNilInterface(resp) {
+			lvl = config.leveler(lvl, resp, retErr)
+		}
+		li.logUnaryAfter(getResponseLogger(ctx, logResp, 1, 1, retErr), lvl, service, method, start, retErr)
 	}()
 
 	return handler(ctx, req)
@@ -409,51 +195,78 @@ func (li *LoggingInterceptor) UnaryServerInterceptor(ctx context.Context, req in
 func (li *LoggingInterceptor) StreamServerInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (retErr error) {
 	start := time.Now()
 	config := getConfig(info.FullMethod)
-	wrapper := &streamWrapper{stream: stream,
-		ctx: withMethodName(stream.Context(), info.FullMethod),
+	service, method := parseMethod(info.FullMethod)
+	lvl := li.Level
+
+	ctx := getCommonLogger(stream.Context(), service, method)
+
+	reqCtx := getRequestLogger(ctx, nil)
+	// If client streaming, then our "main" log message for this RPC is 'first message received'
+	// (which is one of many messages).  If not client streaming the main message is 'request'.
+	// This debug call is mostly to catch cases where the client spends a long time not sending
+	// a first message.
+	dolog(reqCtx, lvl, "stream started for "+service+"/"+method)
+
+	wrapper := &streamWrapper{
+		stream: stream,
+		ctx:    ctx,
 	}
 
 	// Log the first received message as the request
-	var req interface{}
-	var logReq interface{}
-	wrapper.onFirstRecv = func(m interface{}) {
-		req = m
-		level := defaultLevel(nil)
-		if config.level != nil {
-			level = config.level(nil)
+	wrapper.onFirstRecv = func(m any) {
+		logReq := m
+		if config.transformRequest != nil && !isNilInterface(m) {
+			logReq = config.transformRequest(m)
 		}
-
-		logReq = req
-		if config.transformRequest != nil && !isNilInterface(req) {
-			logReq = config.transformRequest(req)
+		reqCtx := getRequestLogger(ctx, logReq)
+		if info.IsClientStream {
+			dolog(reqCtx, lvl, "first message received for "+service+"/"+method)
+		} else {
+			dolog(reqCtx, lvl, "request for "+service+"/"+method)
 		}
-		li.logUnaryBefore(stream.Context(), level, logReq, info.FullMethod, start)
 	}
 
-	var resp interface{}
-	if !info.IsServerStream {
-		// Not a streaming response, save the first sent message for the defer
-		wrapper.onFirstSend = func(m interface{}) {
-			resp = m
+	var resp any
+	wrapper.onFirstSend = func(m any) {
+		logResp := m
+		if config.transformResponse != nil && !isNilInterface(m) {
+			logResp = config.transformResponse(m)
+		}
+
+		// If server stream, log the first message.  If not, the call should be ending soon,
+		// and we'll log it as the response.  The !IsServerStream case is for catching
+		// slowness between sending the first and only message, and actually returning.
+		if info.IsServerStream {
+			resCtx := getResponseLogger(ctx, logResp, 0, 0, nil)
+			dolog(resCtx, lvl, "first message sent for "+service+"/"+method)
+			resp = nil
+		} else {
+			resCtx := getResponseLogger(ctx, nil, 0, 0, nil)
+			dolog(resCtx, lvl, "first mesasge sent for "+service+"/"+method)
+			resp = logResp
 		}
 	}
 
 	defer func() {
-		level := defaultLevel(retErr)
-		if config.level != nil {
-			level = config.level(retErr)
+		resCtx := getResponseLogger(ctx, resp, wrapper.sent, wrapper.received, retErr)
+		if config.leveler != nil && !isNilInterface(resp) {
+			lvl = config.leveler(lvl, resp, retErr)
 		}
-
-		logResp := resp
-		if config.transformResponse != nil && !isNilInterface(resp) {
-			logResp = config.transformResponse(resp)
-		} else if info.IsServerStream {
-			logResp = fmt.Sprintf("stream containing %d objects", wrapper.sent)
-		}
-		li.logUnaryAfter(stream.Context(), level, logReq, info.FullMethod, start, logResp, retErr)
+		li.logUnaryAfter(resCtx, lvl, service, method, start, retErr)
 	}()
 
 	return handler(srv, wrapper)
+}
+
+func dolog(ctx context.Context, lvl log.Level, msg string, f ...log.Field) {
+	switch lvl { //exhaustive:enforce
+	case log.DebugLevel:
+		log.Debug(ctx, msg, f...)
+	case log.InfoLevel:
+		log.Info(ctx, msg, f...)
+	case log.ErrorLevel:
+		log.Error(ctx, msg, f...)
+	}
 }
 
 type streamWrapper struct {

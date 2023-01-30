@@ -187,7 +187,7 @@ or type (e.g. csv, binary, images, etc).`,
 			if all {
 				repoType = ""
 			}
-			projectsFilter := []string{project}
+			projectsFilter := []*pfs.Project{{Name: project}}
 			if allProjects {
 				projectsFilter = nil
 			}
@@ -223,8 +223,8 @@ or type (e.g. csv, binary, images, etc).`,
 	listRepo.Flags().AddFlagSet(timestampFlags)
 	listRepo.Flags().BoolVar(&all, "all", false, "include system repos of all types")
 	listRepo.Flags().StringVar(&repoType, "type", pfs.UserRepoType, "only include repos of the given type")
-	listRepo.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
-	listRepo.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Show repos from all projects.")
+	listRepo.Flags().StringVar(&project, "project", project, "project in which repo is located")
+	listRepo.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "show repos from all projects")
 	commands = append(commands, cmdutil.CreateAliases(listRepo, "list repo", repos))
 
 	var force bool
@@ -242,21 +242,35 @@ or type (e.g. csv, binary, images, etc).`,
 			request := &pfs.DeleteRepoRequest{
 				Force: force,
 			}
+
 			if len(args) > 0 {
 				if all {
 					return errors.Errorf("cannot use the --all flag with an argument")
+				}
+				if allProjects {
+					return errors.Errorf("cannot use the --all-projects flag with an argument")
 				}
 				request.Repo = cmdutil.ParseRepo(project, args[0])
 			} else if !all {
 				return errors.Errorf("either a repo name or the --all flag needs to be provided")
 			}
+			if all {
+				var req = new(pfs.DeleteReposRequest)
+				if allProjects {
+					req.All = true
+				} else {
+					req.Projects = []*pfs.Project{
+						{
+							Name: project,
+						},
+					}
+				}
+				_, err := c.PfsAPIClient.DeleteRepos(c.Ctx(), req)
+				return errors.EnsureStack(err)
+			}
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				if all {
-					_, err = c.PfsAPIClient.DeleteAll(c.Ctx(), &types.Empty{})
-				} else {
-					_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
-				}
+				_, err := c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
 				return errors.EnsureStack(err)
 			})
 			return grpcutil.ScrubGRPC(err)
@@ -264,7 +278,8 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
-	deleteRepo.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	deleteRepo.Flags().StringVar(&project, "project", project, "project in which repo is located")
+	deleteRepo.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "delete repos from all projects; only valid with --all")
 	shell.RegisterCompletionFunc(deleteRepo, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteRepo, "delete repo", repos))
 
@@ -476,7 +491,7 @@ $ {{alias}} foo@master --from XXX`,
 					return errors.Errorf("cannot specify --from when listing all commits")
 				}
 
-				listCommitSetClient, err := c.PfsAPIClient.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{})
+				listCommitSetClient, err := c.PfsAPIClient.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{Project: &pfs.Project{Name: project}})
 				if err != nil {
 					return grpcutil.ScrubGRPC(err)
 				}
@@ -642,7 +657,7 @@ $ {{alias}} foo@master --from XXX`,
 	listCommit.Flags().StringVar(&originStr, "origin", "", "only return commits of a specific type")
 	listCommit.Flags().AddFlagSet(outputFlags)
 	listCommit.Flags().AddFlagSet(timestampFlags)
-	listCommit.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	listCommit.Flags().StringVar(&project, "project", project, "Project in which commit is located.")
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listCommit, "list commit", commits))
 
@@ -1115,7 +1130,7 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.ProjectHeader)
 			for _, pi := range pis {
-				pretty.PrintProjectInfo(writer, pi)
+				pretty.PrintProjectInfo(writer, pi, &pfs.Project{Name: pachCtx.Project})
 			}
 			return writer.Flush()
 		}),
@@ -1333,16 +1348,42 @@ $ {{alias}} repo@branch -i http://host/path`,
 		})
 	commands = append(commands, cmdutil.CreateAliases(putFile, "put file", files))
 
+	var srcProject, destProject string
 	copyFile := &cobra.Command{
 		Use:   "{{alias}} <src-repo>@<src-branch-or-commit>:<src-path> <dst-repo>@<dst-branch-or-commit>:<dst-path>",
 		Short: "Copy files between pfs paths.",
 		Long:  "Copy files between pfs paths.",
+		Example: `
+# copy between repos within the current project defined by the pachyderm context
+# defaults to the "default" project
+$ {{alias}} srcRepo@master:/file destRepo@master:/file
+
+# copy within a specified project
+$ {{alias}} srcRepo@master:/file destRepo@master:/file --project myProject
+
+# copy from the current project to a different project
+# here, srcRepo is in the current project, while destRepo is in myProject
+$ {{alias}} srcRepo@master:/file destRepo@master:/file --dest-project myProject
+
+# copy from a different project to the current project
+# here, srcRepo is in myProject, while destRepo is in the current project
+$ {{alias}} srcRepo@master:/file destRepo@master:/file --src-project myProject
+
+# copy between repos across two different projects
+# here, srcRepo is in project1, while destRepo is in project2
+$ {{alias}} srcRepo@master:/file destRepo@master:/file --src-project project1 --dest-project project2`,
 		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
-			srcFile, err := cmdutil.ParseFile(project, args[0])
+			if srcProject == "" {
+				srcProject = project
+			}
+			srcFile, err := cmdutil.ParseFile(srcProject, args[0])
 			if err != nil {
 				return err
 			}
-			destFile, err := cmdutil.ParseFile(project, args[1])
+			if destProject == "" {
+				destProject = project
+			}
+			destFile, err := cmdutil.ParseFile(destProject, args[1])
 			if err != nil {
 				return err
 			}
@@ -1364,7 +1405,9 @@ $ {{alias}} repo@branch -i http://host/path`,
 		}),
 	}
 	copyFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
-	copyFile.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	copyFile.Flags().StringVar(&project, "project", project, "Project in which both source and destination repos are located.")
+	copyFile.Flags().StringVar(&srcProject, "src-project", "", "Project in which the source repo is located. This overrides --project.")
+	copyFile.Flags().StringVar(&destProject, "dest-project", "", "Project in which the destination repo is located. This overrides --project.")
 	shell.RegisterCompletionFunc(copyFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(copyFile, "copy file", files))
 
@@ -1623,7 +1666,7 @@ $ {{alias}} "foo@master:data/*"
 	var shallow bool
 	var nameOnly bool
 	var diffCmdArg string
-	oldProject := project
+	var oldProject string
 	diffFile := &cobra.Command{
 		Use:   "{{alias}} <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-branch-or-commit>:<old-path>]",
 		Short: "Return a diff of two file trees stored in Pachyderm",
@@ -1640,6 +1683,9 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			newFile, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
+			}
+			if oldProject == "" {
+				oldProject = project
 			}
 			oldFile := &pfs.File{}
 			if len(args) == 2 {
@@ -1723,7 +1769,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 	diffFile.Flags().AddFlagSet(timestampFlags)
 	diffFile.Flags().AddFlagSet(pagerFlags)
 	diffFile.Flags().StringVar(&project, "project", project, "Project in which first repo is located.")
-	diffFile.Flags().StringVar(&oldProject, "old-project", oldProject, "Project in which second, older repo is located.")
+	diffFile.Flags().StringVar(&oldProject, "old-project", "", "Project in which second, older repo is located.")
 	shell.RegisterCompletionFunc(diffFile, shell.FileCompletion)
 	commands = append(commands, cmdutil.CreateAliases(diffFile, "diff file", files))
 

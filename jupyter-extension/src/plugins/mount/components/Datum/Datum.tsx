@@ -1,6 +1,6 @@
-import React from 'react';
+import React, {useRef} from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
-import {useDatum} from './hooks/useDatum';
+import isVisible, {useDatum} from './hooks/useDatum';
 import {caretLeftIcon, caretRightIcon} from '@jupyterlab/ui-components';
 import {
   CrossInputSpec,
@@ -34,6 +34,8 @@ const Datum: React.FC<DatumProps> = ({
   currentDatumInfo,
   repoViewInputSpec,
 }) => {
+  const cyclerRef = useRef(null);
+
   const {
     loading,
     shouldShowCycler,
@@ -106,6 +108,14 @@ const Datum: React.FC<DatumProps> = ({
         >
           {errorMessage}
         </span>
+        <span
+          className="pachyderm-mount-datum-info"
+          data-testid="Datum__infoMessage"
+        >
+          {!isVisible(cyclerRef) &&
+            shouldShowCycler &&
+            'Drag line below to show datum cycler'}
+        </span>
         <button
           data-testid="Datum__mountDatums"
           className="pachyderm-button-link"
@@ -118,6 +128,7 @@ const Datum: React.FC<DatumProps> = ({
           <div
             className="pachyderm-mount-datum-cycler"
             data-testid="Datum__cycler"
+            ref={cyclerRef}
           >
             Datum
             <div style={{display: 'flex'}}>

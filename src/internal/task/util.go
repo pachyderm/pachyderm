@@ -3,14 +3,44 @@ package task
 import (
 	"context"
 
-	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
-
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
+
+	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
 )
+
+// DoOrdered processes tasks in parallel, but returns outputs in order via the provided callback cb.
+func DoOrdered(ctx context.Context, doer Doer, inputs chan *types.Any, parallelism int, cb CollectFunc) error {
+	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(parallelism)))
+	for {
+		select {
+		case input, ok := <-inputs:
+			if !ok {
+				return taskChain.Wait()
+			}
+			if err := taskChain.CreateTask(func(context.Context) (func() error, error) {
+				result, err := DoOne(ctx, doer, input)
+				if err != nil {
+					return nil, errors.EnsureStack(err)
+				}
+				return func() error {
+					return cb(-1, result, nil)
+				}, nil
+			}); err != nil {
+				return errors.EnsureStack(err)
+			}
+		case <-ctx.Done():
+			return errors.EnsureStack(ctx.Err())
+		}
+	}
+}
 
 // DoOne executes one task.
 // NOTE: This interface is much less performant than the stream / batch interfaces for many tasks.
@@ -75,11 +105,11 @@ func List(ctx context.Context, svc Service, req *taskapi.ListTaskRequest, send f
 		if err := types.UnmarshalAny(data.Input, &input); err != nil {
 			// unmarshalling might fail due to the input type not being registered,
 			// don't let this interfere with fetching or counting tasks
-			logrus.Warnf("couldn't unmarshal task input: %v", err)
+			log.Error(ctx, "couldn't unmarshal task input", zap.Error(err), zap.String("taskType", data.GetInput().TypeUrl), zap.String("taskID", data.GetID()))
 		} else {
 			inputJSON, err = marshaler.MarshalToString(input.Message)
 			if err != nil {
-				logrus.Warnf("couldn't marshal task input: %v", err)
+				log.Error(ctx, "couldn't marahsl task input", zap.Error(err), zap.String("taskType", data.GetInput().TypeUrl), zap.String("taskID", data.GetID()))
 			}
 		}
 		info := &taskapi.TaskInfo{

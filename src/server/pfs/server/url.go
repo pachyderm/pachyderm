@@ -6,19 +6,25 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/docker/go-units"
 	"github.com/gogo/protobuf/types"
+	"github.com/hashicorp/go-multierror"
+	"gocloud.dev/blob"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"golang.org/x/sync/errgroup"
 )
 
-const (
-	defaultURLTaskSize = 1000
+var (
+	// these are overridden when testing.
+	defaultNumObjectsThreshold = 1000
+	defaultSizeThreshold       = int64(units.GB)
 )
 
 func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.UnorderedWriter, dstPath, tag string, src *pfs.AddFile_URLSource) (n int64, retErr error) {
@@ -28,7 +34,14 @@ func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.Unord
 	}
 	switch url.Scheme {
 	case "http", "https":
-		resp, err := http.Get(src.URL)
+		client := &http.Client{
+			Transport: promutil.InstrumentRoundTripper("putFileURL", http.DefaultTransport),
+		}
+		req, err := http.NewRequestWithContext(ctx, "GET", src.URL, nil)
+		if err != nil {
+			return 0, errors.EnsureStack(err)
+		}
+		resp, err := client.Do(req)
 		if err != nil {
 			return 0, errors.EnsureStack(err)
 		} else if resp.StatusCode >= 400 {
@@ -46,58 +59,46 @@ func putFileURL(ctx context.Context, taskService task.Service, uw *fileset.Unord
 		}
 		url, err := obj.ParseURL(src.URL)
 		if err != nil {
-			return 0, errors.Wrapf(err, "error parsing url %v", src)
+			return 0, errors.EnsureStack(err)
 		}
-		objClient, err := obj.NewClientFromURLAndSecret(url, false)
+		bucket, err := openBucket(ctx, url)
 		if err != nil {
 			return 0, err
 		}
-		return 0, miscutil.WithPipe(func(w io.Writer) error {
-			return errors.EnsureStack(objClient.Get(ctx, url.Object, w))
-		}, func(r io.Reader) error {
-			return uw.Put(ctx, dstPath, tag, true, r)
-		})
+		defer func() {
+			if err := bucket.Close(); err != nil {
+				retErr = multierror.Append(retErr, errors.EnsureStack(err))
+			}
+		}()
+		r, err := bucket.NewReader(ctx, url.Object, nil)
+		if err != nil {
+			return 0, errors.EnsureStack(err)
+		}
+		defer func() {
+			if err := r.Close(); err != nil {
+				retErr = multierror.Append(retErr, errors.Wrapf(err, "error closing reader for bucket %s", url.Bucket))
+			}
+		}()
+		return 0, uw.Put(ctx, dstPath, tag, true, r)
 	}
 }
+
+type shardCallback func(paths []string, startOffset, endOffset int64) error
 
 func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *fileset.UnorderedWriter, dst, tag string, src *pfs.AddFile_URLSource) error {
 	inputChan := make(chan *types.Any)
 	eg, ctx := errgroup.WithContext(ctx)
+	doer := taskService.NewDoer(URLTaskNamespace, uuid.NewWithoutDashes(), nil)
+	// Create tasks.
 	eg.Go(func() error {
-		// TODO: Add cache?
-		doer := taskService.NewDoer(URLTaskNamespace, uuid.NewWithoutDashes(), nil)
-		err := doer.Do(ctx, inputChan, func(_ int64, output *types.Any, err error) error {
-			if err != nil {
-				return err
-			}
-			result, err := deserializePutFileURLTaskResult(output)
-			if err != nil {
-				return err
-			}
-			fsid, err := fileset.ParseID(result.Id)
-			if err != nil {
-				return err
-			}
-			return uw.AddFileSet(ctx, *fsid)
-		})
-		return errors.EnsureStack(err)
-	})
-	eg.Go(func() error {
-		url, err := obj.ParseURL(src.URL)
-		if err != nil {
-			return errors.Wrapf(err, "error parsing url %v", src)
-		}
-		objClient, err := obj.NewClientFromURLAndSecret(url, false)
-		if err != nil {
-			return err
-		}
-		var paths []string
-		createTask := func() error {
+		if err := shardObjects(ctx, src.URL, func(paths []string, startOffset, endOffset int64) error {
 			input, err := serializePutFileURLTask(&PutFileURLTask{
-				Dst:   dst,
-				Datum: tag,
-				URL:   src.URL,
-				Paths: paths,
+				Dst:         dst,
+				Datum:       tag,
+				URL:         src.URL,
+				Paths:       paths,
+				StartOffset: startOffset,
+				EndOffset:   endOffset,
 			})
 			if err != nil {
 				return err
@@ -108,28 +109,68 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 				return errors.EnsureStack(ctx.Err())
 			}
 			return nil
-		}
-		if err := objClient.Walk(ctx, url.Object, func(p string) error {
-			if len(paths) >= defaultURLTaskSize {
-				if err := createTask(); err != nil {
-					return err
-				}
-				paths = nil
-			}
-			paths = append(paths, p)
-			return nil
 		}); err != nil {
-			return errors.EnsureStack(err)
-		}
-		if len(paths) > 0 {
-			if err := createTask(); err != nil {
-				return err
-			}
+			return err
 		}
 		close(inputChan)
 		return nil
 	})
+	// Order output from input channel.
+	eg.Go(func() error {
+		// TODO: Add cache?
+		return task.DoOrdered(ctx, doer, inputChan, 100, func(_ int64, output *types.Any, _ error) error {
+			result, err := deserializePutFileURLTaskResult(output)
+			if err != nil {
+				return err
+			}
+			fsid, err := fileset.ParseID(result.Id)
+			if err != nil {
+				return err
+			}
+			return errors.EnsureStack(uw.AddFileSet(ctx, *fsid))
+		})
+	})
 	return errors.EnsureStack(eg.Wait())
+}
+
+// shardObjects iterates through a list of objects and creates tasks by sharding small files
+// into a single shard. Files larger than a shard size will be given their own dedicated shard.
+func shardObjects(ctx context.Context, URL string, cb shardCallback) (retErr error) {
+	url, err := obj.ParseURL(URL)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	bucket, err := openBucket(ctx, url)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := bucket.Close(); err != nil {
+			retErr = multierror.Append(retErr, errors.EnsureStack(err))
+		}
+	}()
+	list := bucket.List(&blob.ListOptions{Prefix: url.Object})
+	var paths []string
+	var size int64
+	for {
+		listObj, err := list.Next(ctx)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		paths = append(paths, listObj.Key)
+		size += listObj.Size
+		if len(paths) >= defaultNumObjectsThreshold || size >= defaultSizeThreshold {
+			if err := cb(paths, 0, -1); err != nil {
+				return errors.EnsureStack(err)
+			}
+			paths = nil
+			size = 0
+		}
+	}
+	if len(paths) > 0 {
+		return cb(paths, 0, -1)
+	}
+	return nil
 }
 
 // TODO: Parallelize and decide on appropriate config.
@@ -175,8 +216,8 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 			if fi.FileType != pfs.FileType_FILE {
 				return nil
 			}
-			bytesWritten += int64(fi.SizeBytes)
-			if count >= defaultURLTaskSize {
+			bytesWritten += fi.SizeBytes
+			if count >= int64(defaultNumObjectsThreshold) {
 				pathRange.Upper = file.Index().Path
 				if err := createTask(); err != nil {
 					return err

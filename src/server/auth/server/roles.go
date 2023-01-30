@@ -172,26 +172,15 @@ func init() {
 	})
 
 	// Project related roles
-	projectViewerRole := registerRole(&auth.Role{
-		Name:          auth.ProjectViewer,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_REPO},
-		Permissions: []auth.Permission{
-			auth.Permission_PROJECT_LIST_REPO,
-		},
-	})
 
-	projectWriterRole := registerRole(&auth.Role{
-		Name:          auth.ProjectWriter,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
-		Permissions: combinePermissions(projectViewerRole.Permissions, []auth.Permission{
-			auth.Permission_PROJECT_CREATE_REPO,
-		}),
-	})
+	// TODO CORE-1049 projectViewerRole
+	// TODO CORE-1048 projectWriterRole
 
+	// TODO inherit projectViewer and projectWriter roles
 	projectOwnerRole := registerRole(&auth.Role{
 		Name:          auth.ProjectOwner,
 		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
-		Permissions: combinePermissions(projectWriterRole.Permissions, repoOwnerRole.Permissions, []auth.Permission{
+		Permissions: combinePermissions(repoOwnerRole.Permissions, []auth.Permission{
 			auth.Permission_PROJECT_DELETE,
 			auth.Permission_PROJECT_MODIFY_BINDINGS,
 		}),

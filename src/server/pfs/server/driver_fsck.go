@@ -8,11 +8,10 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
-	log "github.com/sirupsen/logrus"
-
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -341,7 +340,7 @@ func compare(s1, s2 stream.Stream) int {
 }
 
 func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb func(*pfs.FsckResponse) error) error {
-	log.Infof("checking for zombie data in %s", outputCommit)
+	log.Info(ctx, "checking for zombie data", log.Proto("outputCommit", outputCommit))
 	// generate fileset that groups output files by datum
 	id, err := d.createFileSet(ctx, func(w *fileset.UnorderedWriter) error {
 		_, fs, err := d.openCommit(ctx, outputCommit)

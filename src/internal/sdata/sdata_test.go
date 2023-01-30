@@ -2,7 +2,6 @@ package sdata
 
 import (
 	"bytes"
-	"context"
 	"database/sql"
 	"fmt"
 	"io"
@@ -12,6 +11,7 @@ import (
 
 	fuzz "github.com/google/gofuzz"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/sdata/testutil"
 )
@@ -115,7 +115,8 @@ func TestMaterializeSQL(t *testing.T) {
 		for _, writerSpec := range writerSpecs {
 			testName := fmt.Sprintf("%v-%s", dbSpec, writerSpec.Name)
 			t.Run(testName, func(t *testing.T) {
-				db, _, tableName := dbSpec.Create(t)
+				ctx := pctx.TestContext(t)
+				db, _, tableName := dbSpec.Create(ctx, t)
 				require.NoError(t, pachsql.CreateTestTable(db, tableName, dbSpec.TestRow()))
 				nRows := 10
 				if err := testutil.GenerateTestData(db, tableName, nRows, dbSpec.TestRow()); err != nil {
@@ -139,10 +140,8 @@ func TestMaterializeSQL(t *testing.T) {
 func TestSQLTupleWriter(t *testing.T) {
 	for _, dbSpec := range testutil.SupportedDBSpecs {
 		t.Run(dbSpec.String(), func(t *testing.T) {
-			var (
-				ctx              = context.Background()
-				db, _, tableName = dbSpec.Create(t)
-			)
+			ctx := pctx.TestContext(t)
+			db, _, tableName := dbSpec.Create(ctx, t)
 			require.NoError(t, pachsql.CreateTestTable(db, tableName, dbSpec.TestRow()))
 			tableInfo, err := pachsql.GetTableInfo(ctx, db, fmt.Sprintf("%s.%s", dbSpec.Schema(), tableName))
 

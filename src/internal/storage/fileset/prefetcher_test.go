@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	units "github.com/docker/go-units"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
@@ -28,8 +29,8 @@ func createTestFileSet(tb testing.TB, ctx context.Context, s *Storage, numFiles 
 }
 
 func TestPrefetcher(t *testing.T) {
-	ctx := context.Background()
-	s := newTestStorage(t)
+	ctx := pctx.TestContext(t)
+	s := newTestStorage(ctx, t)
 	seed := int64(1648577872380609229)
 	random := rand.New(rand.NewSource(seed))
 	tests := []struct {
@@ -69,8 +70,8 @@ func BenchmarkPrefetcher(b *testing.B) {
 }
 
 func benchmarkPrefetcher(b *testing.B, prefetch bool) {
-	ctx := context.Background()
-	s := newTestStorage(b)
+	ctx := pctx.TestContext(b)
+	s := newTestStorage(ctx, b)
 	seed := int64(1648577872380609229)
 	random := rand.New(rand.NewSource(seed))
 	benchmarks := []struct {

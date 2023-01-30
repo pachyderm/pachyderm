@@ -6,6 +6,7 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/pps";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/wrappers.proto";
 
 import "gogoproto/gogo.proto";
 
@@ -347,6 +348,37 @@ enum PipelineState {
   PIPELINE_CRASHING = 7;
 }
 
+// Toleration is a Kubernetes toleration.
+message Toleration {
+  // key is the taint key that the toleration applies to.  Empty means match all taint keys.
+  string key = 1;
+  // operator represents a key's relationship to the value.
+  TolerationOperator operator = 2;
+  // value is the taint value the toleration matches to.
+  string value = 3;
+  // effect indicates the taint effect to match.  Empty means match all taint effects.
+  TaintEffect effect = 4;
+  // toleration_seconds represents the period of time the toleration (which must be of effect
+  // NoExecute, otherwise this field is ignored) tolerates the taint.  If not set, tolerate the
+  // taint forever.
+  google.protobuf.Int64Value toleration_seconds = 5;
+}
+
+// TolerationOperator relates a Toleration's key to its value.
+enum TolerationOperator {
+  EMPTY = 0; // K8s doesn't have this, but it's possible to represent something similar.
+  EXISTS = 1; // "Exists"
+  EQUAL = 2; // "Equal"
+}
+
+// TaintEffect is an effect that can be matched by a toleration.
+enum TaintEffect {
+  ALL_EFFECTS = 0; // Empty matches all effects.
+  NO_SCHEDULE = 1; // "NoSchedule"
+  PREFER_NO_SCHEDULE = 2; // "PreferNoSchedule"
+  NO_EXECUTE = 3; // "NoExecute"
+}
+
 // PipelineInfo is proto for each pipeline that Pachd stores in the
 // database. It tracks the state of the pipeline, and points to its metadata in
 // PFS (and, by pointing to a PFS commit, de facto tracks the pipeline's
@@ -423,7 +455,8 @@ message PipelineInfo {
     int64 unclaimed_tasks = 31;
     string worker_rc = 32;
     bool autoscaling = 33;
-    bool batching = 34;
+    repeated Toleration tolerations = 34;
+    bool batching = 35;
   }
   Details details = 12;
 }
@@ -445,7 +478,13 @@ message InspectJobSetRequest {
 message ListJobSetRequest {
   bool details = 1;
   // A list of projects to filter jobs on, nil means don't filter.
-  repeated string projects = 2;
+  repeated pfs_v2.Project projects = 2;
+  // we return job sets created before or after this time based on the reverse flag
+  google.protobuf.Timestamp paginationMarker = 3;
+  // number of results to return
+  int64 number = 4;
+  // if true, return results in reverse order
+  bool reverse = 5;
 }
 
 message InspectJobRequest {
@@ -457,7 +496,7 @@ message InspectJobRequest {
 
 message ListJobRequest {
   // A list of projects to filter jobs on, nil means don't filter.
-  repeated string projects = 7;
+  repeated pfs_v2.Project projects = 7;
   Pipeline pipeline = 1;                // nil means all pipelines
   repeated pfs_v2.Commit input_commit = 2; // nil means all inputs
 
@@ -479,6 +518,15 @@ message ListJobRequest {
 
   // A jq program string for additional result filtering
   string jqFilter = 6;
+
+  // timestamp that is pagination marker
+  google.protobuf.Timestamp paginationMarker = 8;
+
+  // number of results to return
+  int64 number = 9;
+
+  // flag to indicated if results should be returned in reverse order
+  bool reverse = 10;
 }
 
 // Streams open jobs until canceled
@@ -661,7 +709,9 @@ message CreatePipelineRequest {
   Metadata metadata = 28;
   string reprocess_spec = 29;
   bool autoscaling = 30;
-  bool batching = 31;
+  // TODO: Why is there a field number gap here?
+  repeated Toleration tolerations = 34;
+  bool batching = 35;
 }
 
 message InspectPipelineRequest {
@@ -692,13 +742,34 @@ message ListPipelineRequest {
 
   // If non-nil, will return all the pipeline infos at this commit set
   pfs_v2.CommitSet commit_set = 5;
+
+  // Projects to filter on. Empty list means no filter, so return all pipelines.
+  repeated pfs_v2.Project projects = 6;
 }
 
+// Delete a pipeline.  If the deprecated all member is true, then delete all
+// pipelines in the default project.
 message DeletePipelineRequest {
   Pipeline pipeline = 1;
-  bool all = 2;
+  bool all = 2 [deprecated = true];
   bool force = 3;
   bool keep_repo = 4;
+}
+
+// Delete more than one pipeline.
+message DeletePipelinesRequest {
+  // All pipelines in each project will be deleted if the caller has
+  // permission.
+  repeated pfs_v2.Project projects = 1;
+  bool force = 2;
+  bool keep_repo = 3;
+  // If set, all pipelines in all projects will be deleted if the caller has
+  // permission.
+  bool all = 4;
+}
+
+message DeletePipelinesResponse {
+  repeated Pipeline pipelines = 1;
 }
 
 message StartPipelineRequest {
@@ -749,7 +820,7 @@ message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
 message RunLoadTestRequest {
-  string dag_spec = 1; 
+  string dag_spec = 1;
   string load_spec = 2;
   int64 seed = 3;
   int64 parallelism = 4;
@@ -790,6 +861,7 @@ service API {
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
   rpc ListPipeline(ListPipelineRequest) returns (stream PipelineInfo) {}
   rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}
+  rpc DeletePipelines(DeletePipelinesRequest) returns (DeletePipelinesResponse) {}
   rpc StartPipeline(StartPipelineRequest) returns (google.protobuf.Empty) {}
   rpc StopPipeline(StopPipelineRequest) returns (google.protobuf.Empty) {}
   rpc RunPipeline(RunPipelineRequest) returns (google.protobuf.Empty) {}
@@ -822,4 +894,3 @@ service API {
   // ListTask lists PPS tasks
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
 }
-

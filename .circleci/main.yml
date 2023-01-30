@@ -28,7 +28,7 @@ orbs:
 parameters:
   machine_image:
     type: string
-    default: ubuntu-2004:2022.07.1
+    default: ubuntu-2204:2022.10.1
   go-version:
     type: string
     default: "1.19"
@@ -41,7 +41,6 @@ parameters:
   run-core-jobs:
     type: boolean
     default: false
-
 executors:
   docker-go:
     docker:
@@ -64,7 +63,7 @@ jobs:
       - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
-      - run: CGO_ENALBED=0 go install ./src/testing/match
+      - run: go install ./src/testing/match
       - restore_cache:
           keys:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
@@ -842,7 +841,7 @@ jobs:
 
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+          key: core-pip3.10-cache-v1-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -851,7 +850,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+          key: core-pip3.10-cache-v1-{{ checksum "ci-requirements.txt" }}
           paths:
             - "venv"
 
@@ -891,7 +890,7 @@ jobs:
           at: .
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+          key: core-pip3.10-cache-v1-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -900,7 +899,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+          key: core-pip3.10-cache-v1-{{ checksum "ci-requirements.txt" }}
           paths:
             - "venv"
       - run:
@@ -926,7 +925,7 @@ jobs:
           at: .
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+          key: core-pip3.10-cache-v1-{{ checksum "ci-requirements.txt" }}
       - run:
           name: "Install Python dependencies"
           command: |
@@ -935,7 +934,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.10-cache-v12-{{ checksum "ci-requirements.txt" }}
+          key: core-pip3.10-cache-v1-{{ checksum "ci-requirements.txt" }}
           paths:
             - "venv"
       - run:
@@ -995,87 +994,6 @@ jobs:
       - run:
           name: Docker push
           command: docker push pachyderm/notebooks-user:$CIRCLE_TAG
-
-  # Needs the following Env Vars to be setup in the project:
-  # $GCLOUD_SERVICE_KEY_JUPYTER - with permissions to the google cloud project where the kubernetes cluster resides
-  # $AUTH0_CLIENT_ID - Used to authenticate jupyter with oauth
-  # $AUTH0_CLIENT_SECRET
-  # $AUTH0_DOMAIN the tenant subdomain without .auth0.com
-  # $PULUMI_ACCESS_TOKEN
-  # GH_ACCESS_TOKEN - build not personal access token to github with repo permissions (see onecomment)
-  jupyter-extension-preview:
-    parameters:
-      gcp-project:
-        type: string
-      gcp-compute-zone:
-        type: string
-      gcloud-sdk-version:
-        type: string
-      pulumi-version:
-        type: string
-    docker:
-      - image: cimg/go:1.17.5
-    working_directory: ~/project/jupyter-extension
-    steps:
-      - checkout:
-          path: ~/project
-      - run:
-          name: Set up pulumi
-          command: |
-            wget https://get.pulumi.com/releases/sdk/pulumi-<<parameters.pulumi-version>>-linux-x64.tar.gz
-            tar xvf pulumi-<<parameters.pulumi-version>>-linux-x64.tar.gz
-            # Add to PATH
-            echo 'export PATH=${PWD}/pulumi:$PATH' >> $BASH_ENV
-            source $BASH_ENV
-            pulumi login --non-interactive
-      - run:
-          name: Setup gcloud
-          command: |
-            # NOTE: Needed to enable cloud resource manager in the project
-            # https://console.cloud.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=pulumi-ci-334619
-            cd ~/
-            curl -Ss --retry 5 https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-<<parameters.gcloud-sdk-version>>-linux-x86_64.tar.gz | tar xz
-
-            ./google-cloud-sdk/install.sh -q
-            echo 'source ~/google-cloud-sdk/path.bash.inc' >> $BASH_ENV
-            source $BASH_ENV
-
-            # Initialize gcloud CLI
-            gcloud --quiet config set core/disable_usage_reporting true
-            gcloud --quiet config set component_manager/disable_update_check true
-            echo $GCLOUD_SERVICE_KEY_JUPYTER | gcloud auth activate-service-account --key-file=-
-            gcloud --quiet config set project <<parameters.gcp-project>>
-            gcloud --quiet config set compute/zone <<parameters.gcp-compute-zone>>
-
-      - run:
-          name: Preview Stack
-          command: |
-            cd infra
-            pulumi stack select -c $CIRCLE_BRANCH --non-interactive
-            pulumi config set gcp:zone <<parameters.gcp-compute-zone>>
-            pulumi config set gcp:project <<parameters.gcp-project>>
-            pulumi config set sha $CIRCLE_SHA1
-            pulumi config set branch $CIRCLE_BRANCH
-            pulumi config set --secret client_id $AUTH0_CLIENT_ID
-            pulumi config set --secret client_secret $AUTH0_CLIENT_SECRET
-            pulumi config set --secret auth0_domain $AUTH0_DOMAIN
-            # pulumi preview
-            pulumi up --yes
-            # pulumi destroy --yes
-      - run:
-          name: Comment on PR
-          command: |
-            wget https://github.com/chainlink/onecomment/releases/download/v0.2.0/onecomment_0.2.0_Linux_x86_64.tar.gz
-            tar xvf onecomment_0.2.0_Linux_x86_64.tar.gz
-
-            # Setup GH token env var in circle project
-            ./onecomment -pr-id ${CIRCLE_PULL_REQUEST##*/} \
-            -owner ${CIRCLE_PROJECT_USERNAME} -repo ${CIRCLE_PROJECT_REPONAME} \
-            -includes '<!-- Created by one-comment -->' \
-            -message "PR Preview available at [https://jh-$CIRCLE_BRANCH.clusters-ci.pachyderm.io](https://jh-$CIRCLE_BRANCH.clusters-ci.pachyderm.io)
-            Enter any username to login (Each user will be assigned a new workspace)
-            You may need to shutdown and relaunch your Jupyterlab instance if new code has been pushed since you last launched it.
-            You can connect to pach by entering grpc://pachd-peer:30653 into the extension connection screen."
 
   gcp-prerelease-testing:
     resource_class: large
@@ -1163,7 +1081,67 @@ jobs:
                 echo "regular release."
                 gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/mount-server/mount-server_${CIRCLE_TAG:1}* --generate-notes
             fi
+  console-release-draft:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - gh/setup:
+          version: 2.13.0
+      - run:
+          name: create github console release draft
+          command: |
+            if [[ $CIRCLE_TAG == *"-"* ]];
+              then
+                  echo "git tag has - assuming its a prerelease."
+                  parentBranch=master
+              else
+                  echo "regular release."
+                  parentBranch=${CIRCLE_TAG:1}
+              fi
+            git clone https://github.com/pachyderm/haberdashery.git haberdashery
+            cd haberdashery
+            git checkout -b release-${CIRCLE_TAG:1} ${parentBranch}
+            tmp=$(mktemp)
+            jq --arg val "${CIRCLE_TAG:1}-${CIRCLE_SHA1}" '.pachyderm = $val' version.json > "$tmp" && mv "$tmp" version.json
+            jq --arg val "${CIRCLE_SHA1}" '.pachReleaseCommit = $val' version.json > "$tmp" && mv "$tmp" version.json
+            jq --arg val "${CIRCLE_TAG:1}" '.pachctl = $val' version.json > "$tmp" && mv "$tmp" version.json
+            git add --all
+            git commit -m "bump pachyderm version"
+            git push origin release-${CIRCLE_TAG:1}
+            PR=$(gh pr create --base ${parentBranch} --title "bump pach version for release ${CIRCLE_TAG:1}" --body "bump pach version" --repo pachyderm/haberdashery)
+            gh pr merge ${PR} --auto --repo pachyderm/haberdashery
+            gh pr checks ${PR} --watch --interval 10 --repo pachyderm/haberdashery
+            STATE=$(gh pr view ${PR} --json state --jq .state --repo pachyderm/haberdashery)
+            if [[ "${STATE}" != "MERGED" ]]; then
+              echo "review console PR ${PR} for failures. It is not merged"
+              exit 1
+            fi
+            sleep 2 # in case we create release to fast
+            if [[ $CIRCLE_TAG == *"-"* ]];
+              then
+                  echo "git tag has - assuming prerelease."
+                  gh release create --draft ${CIRCLE_TAG:1}-1 --tittle ${CIRCLE_TAG:1}-1 --target $parentBranch --generate-notes --prerelease --repo pachyderm/haberdashery
+              else
+                  echo "regular release."
+                  gh release create --draft ${CIRCLE_TAG:1}-1 --tittle ${CIRCLE_TAG:1}-1 --target $parentBranch --generate-notes --repo pachyderm/haberdashery
+              fi
+            SECONDS=0
+            while :; do
+                docker pull pachyderm/haberdashery:${CIRCLE_TAG:1}-1 2>/dev/null && break
+                if (( $SECONDS > 1 )); then
+                    printf 'Waited 10 minutes for console docker image, inspect console relase at https://app.circleci.com/pipelines/gh/pachyderm/haberdashery for failures\n' >&2
+                    exit 1
+                fi
+                sleep 1
+            done
   release-github:
+    parameters:
+      repo:
+        type: string
+        default: pachyderm/pachyderm
+      tag:
+        type: string
+        default: ${CIRCLE_TAG}
     docker:
       - image: cimg/base:stable
     steps:
@@ -1175,7 +1153,7 @@ jobs:
       - run:
           name: create github release
           command: |
-            gh release edit ${CIRCLE_TAG} --draft=false
+            gh release edit << parameters.tag >> --draft=false --repo << parameters.repo >>
   release-docker-hub:
     docker:
       - image: cimg/base:stable
@@ -1198,7 +1176,7 @@ jobs:
       - checkout
       - add_ssh_keys:
           fingerprints:
-            - "4c:1c:ff:56:c1:d0:07:03:23:08:08:2e:e6:16:30:1d"
+            - "23:49:d3:11:ea:69:de:6f:c3:29:e3:09:ff:01:b1:f0"
       - run:
           name: setup pachydermbuildbot git
           command: |
@@ -1208,13 +1186,11 @@ jobs:
           name: update homebrew formula
           description: updates homebrew after determining release type.
           # this checks if it is a custom, pre, or alpha release and passes that additional string so homebrew knows to create new homebrew index.
-          # $additional is currently just a flag, that value itself is not used.
+          # $stable instructs update_homebrew.sh to release this version as default pachctl installation
           command: |
-            v=${CIRCLE_TAG}
-            prefix=${v%%-*}
-            index=${#prefix}
-            additional=${v:index}
-            ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
+            stable=$(if [[ "$CIRCLE_TAG" == *"-"* ]]; then echo 0; else echo 1; fi;)
+            ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${stable}
+
 workflows:
   integration-tests:
     when:
@@ -1239,7 +1215,6 @@ workflows:
                 - MISC
                 - AUTH
                 - ENTERPRISE
-                - PFS
                 - S3_AUTH
                 - EXAMPLES
                 - CONNECTORS
@@ -1320,16 +1295,6 @@ workflows:
             - build-pachctl-bin
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
-      - jupyter-extension-preview:
-          gcp-project: pulumi-ci-334619
-          gcp-compute-zone: us-east1-b
-          gcloud-sdk-version: "363.0.0"
-          pulumi-version: v3.22.1
-          requires:
-            - jupyter-extension-docker-build
-          filters:
-            branches:
-              ignore: master
 
   release:
     jobs:
@@ -1344,7 +1309,6 @@ workflows:
                 - MISC
                 - AUTH
                 - ENTERPRISE
-                - PFS
                 - S3_AUTH
                 - EXAMPLES
           filters: *only-release-tags
@@ -1427,6 +1391,13 @@ workflows:
             - build-pachctl-bin
             - publish-chart-preview
             - release-github-draft
+      - console-release-draft:
+          filters: *only-release-tags
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+            - publish-chart-preview
+            - release-github-draft
       - sign-off:
           filters: *only-release-tags
           type: approval
@@ -1444,13 +1415,21 @@ workflows:
       #    requires:
       #      - sign-off
       - release-github:
+          name: github-release-pach-core
+          filters: *only-release-tags
+          requires:
+            - sign-off
+      - release-github:
+          name: github-release-console
+          repo: pachyderm/haberdashery
+          tag: ${CIRCLE_TAG:1}-1
           filters: *only-release-tags
           requires:
             - sign-off
       - release-hombrew-tap:
           filters: *only-release-tags
           requires:
-            - release-github #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
+            - github-release-pach-core #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
       - helm-publish:
           name: publish-helm-chart
           filters: *only-release-tags
@@ -1487,7 +1466,6 @@ workflows:
                 - MISC
                 - AUTH
                 - ENTERPRISE
-                - PFS
                 - S3_AUTH
                 - EXAMPLES
           filters: *only-nightly-tags

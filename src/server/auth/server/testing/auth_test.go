@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -34,7 +35,8 @@ import (
 
 func envWithAuth(t *testing.T) *realenv.RealEnv {
 	t.Helper()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateLicense(t, env.PachClient, peerPort)
 	_, err := env.PachClient.Enterprise.Activate(env.PachClient.Ctx(),
@@ -983,9 +985,6 @@ func TestListAndInspectRepo(t *testing.T) {
 	expectedPermissions := map[string][]auth.Permission{
 		repoOwner: {
 			auth.Permission_PIPELINE_LIST_JOB,
-			auth.Permission_PROJECT_CREATE_REPO,
-			auth.Permission_PROJECT_CREATE,
-			auth.Permission_PROJECT_LIST_REPO,
 			auth.Permission_REPO_ADD_PIPELINE_READER,
 			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 			auth.Permission_REPO_CREATE_BRANCH,
@@ -1004,9 +1003,6 @@ func TestListAndInspectRepo(t *testing.T) {
 		},
 		repoWriter: {
 			auth.Permission_PIPELINE_LIST_JOB,
-			auth.Permission_PROJECT_CREATE_REPO,
-			auth.Permission_PROJECT_CREATE,
-			auth.Permission_PROJECT_LIST_REPO,
 			auth.Permission_REPO_ADD_PIPELINE_READER,
 			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 			auth.Permission_REPO_CREATE_BRANCH,
@@ -1023,9 +1019,6 @@ func TestListAndInspectRepo(t *testing.T) {
 		},
 		repoReader: {
 			auth.Permission_PIPELINE_LIST_JOB,
-			auth.Permission_PROJECT_CREATE_REPO,
-			auth.Permission_PROJECT_CREATE,
-			auth.Permission_PROJECT_LIST_REPO,
 			auth.Permission_REPO_ADD_PIPELINE_READER,
 			auth.Permission_REPO_INSPECT_COMMIT,
 			auth.Permission_REPO_INSPECT_FILE,
@@ -1035,11 +1028,7 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_READ,
 			auth.Permission_REPO_REMOVE_PIPELINE_READER,
 		},
-		repoNone: {
-			auth.Permission_PROJECT_CREATE_REPO,
-			auth.Permission_PROJECT_CREATE,
-			auth.Permission_PROJECT_LIST_REPO,
-		},
+		repoNone: {},
 	}
 	for _, info := range repoInfos {
 		require.ElementsEqual(t, expectedPermissions[info.Repo.Name], info.AuthInfo.Permissions)
@@ -1114,12 +1103,10 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 
-	// PROJECT_CREATE comes from cluster level all users having projectCreator role
-	// PROJECT_LIST_REPO and PROJECT_CREATE_REPO comes from all users having projectWriter role for default project
 	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		require.ElementsEqual(t, []auth.Permission{auth.Permission_PROJECT_CREATE, auth.Permission_PROJECT_LIST_REPO, auth.Permission_PROJECT_CREATE_REPO}, info.AuthInfo.Permissions)
+		require.ElementsEqual(t, []auth.Permission{}, info.AuthInfo.Permissions)
 	}
 
 	// Deactivate auth
@@ -2065,7 +2052,8 @@ func TestLoad(t *testing.T) {
 // TestGetPermissions tests that GetPermissions and GetPermissionsForPrincipal work for repos and the cluster itself
 func TestGetPermissions(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -2108,7 +2096,8 @@ func TestGetPermissions(t *testing.T) {
 // TestDeactivateFSAdmin tests that users with the FS admin role can't call Deactivate
 func TestDeactivateFSAdmin(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -2132,7 +2121,8 @@ func TestDeactivateFSAdmin(t *testing.T) {
 // TestExtractAuthToken tests that admins can extract hashed robot auth tokens
 func TestExtractAuthToken(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -2180,7 +2170,8 @@ func TestExtractAuthToken(t *testing.T) {
 // TestRestoreAuthToken tests that admins can restore hashed auth tokens that have been extracted
 func TestRestoreAuthToken(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -2253,7 +2244,8 @@ func TestRestoreAuthToken(t *testing.T) {
 // any other test
 func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -2303,7 +2295,8 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 // GetRobotToken
 func TestGetRobotTokenErrorNonAdminUser(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -2320,7 +2313,8 @@ func TestGetRobotTokenErrorNonAdminUser(t *testing.T) {
 // TestDeleteAll tests that you must be a cluster admin to call DeleteAll
 func TestDeleteAll(t *testing.T) {
 	t.Parallel()
-	env := realenv.NewRealEnvWithIdentity(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -2428,13 +2422,13 @@ func TestModifyRoleBindingAccess(t *testing.T) {
 
 func TestPreAuthProjects(t *testing.T) {
 	t.Parallel()
-
-	env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	c := env.PachClient
 	project := tu.UniqueString("project")
 	require.NoError(t, c.CreateProject(project))
 
-	// activate auth
+	// activate auth auth
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateLicense(t, c, peerPort)
 	_, err := env.PachClient.Enterprise.Activate(env.PachClient.Ctx(),
@@ -2447,6 +2441,24 @@ func TestPreAuthProjects(t *testing.T) {
 	_, err = c.Activate(c.Ctx(), &auth.ActivateRequest{RootToken: tu.RootToken})
 	require.NoError(t, err)
 	c.SetAuthToken(tu.RootToken)
+
+	// default project's role binding should be created automatically via auth activation
+	_, err = c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
+		Principal: tu.Robot("marvin"),
+		Roles:     []string{},
+		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: pfs.DefaultProjectName},
+	})
+	require.NoError(t, err)
+
+	// however non-defualt projects get their role bindings through pfs auth activation
+	_, err = c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
+		Principal: tu.Robot("marvin"),
+		Roles:     []string{},
+		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project},
+	})
+	require.YesError(t, err)
+
+	// activate pfs auth
 	_, err = c.PfsAPIClient.ActivateAuth(c.Ctx(), &pfs.ActivateAuthRequest{})
 	require.NoError(t, err)
 
@@ -2457,85 +2469,6 @@ func TestPreAuthProjects(t *testing.T) {
 		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project},
 	})
 	require.NoError(t, err)
-}
-
-func TestListRepoWithProjectAccessControl(t *testing.T) {
-	t.Parallel()
-	c := envWithAuth(t).PachClient
-	// create users
-	admin := tu.AuthenticateClient(t, c, auth.RootUser)
-	aliceName, alice := tu.RandomRobot(t, c, "alice")
-	bobName, bob := tu.RandomRobot(t, c, "bob")
-	// create projects and repos
-	project1, project2 := tu.UniqueString("project1"), tu.UniqueString("project2")
-	repo1, repo2 := "repo1", "repo2"
-	require.NoError(t, admin.CreateProjectRepo(pfs.DefaultProjectName, repo1))
-	require.NoError(t, admin.CreateProjectRepo(pfs.DefaultProjectName, repo2))
-	require.NoError(t, admin.CreateProject(project1))
-	require.NoError(t, admin.CreateProject(project2))
-	require.NoError(t, admin.CreateProjectRepo(project1, repo1))
-	require.NoError(t, admin.CreateProjectRepo(project1, repo2))
-	require.NoError(t, admin.CreateProjectRepo(project2, repo1))
-	require.NoError(t, admin.CreateProjectRepo(project2, repo2))
-	// auth repo resource names need to be project-aware
-	defaultRepo1, defaultRepo2 := pfs.DefaultProjectName+"/"+repo1, pfs.DefaultProjectName+"/"+repo2
-	project1Repo1, project1Repo2 := project1+"/"+repo1, project1+"/"+repo2
-	project2Repo1, project2Repo2 := project2+"/"+repo1, project2+"/"+repo2
-	// make bob ProjectViewer for project1
-	_, err := admin.ModifyRoleBinding(admin.Ctx(), &auth.ModifyRoleBindingRequest{
-		Principal: bobName,
-		Roles:     []string{auth.ProjectViewer},
-		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project1},
-	})
-	require.NoError(t, err)
-	// make alice RepoReader for two repos from separate projects
-	_, err = admin.ModifyRoleBinding(admin.Ctx(), &auth.ModifyRoleBindingRequest{
-		Principal: aliceName,
-		Roles:     []string{auth.RepoReaderRole},
-		Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: project1Repo1},
-	})
-	require.NoError(t, err)
-	_, err = admin.ModifyRoleBinding(admin.Ctx(), &auth.ModifyRoleBindingRequest{
-		Principal: aliceName,
-		Roles:     []string{auth.RepoReaderRole},
-		Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: project2Repo2},
-	})
-	require.NoError(t, err)
-
-	defaultRepos := []string{defaultRepo1, defaultRepo2}
-	project1Repos := []string{project1Repo1, project1Repo2}
-	project2Repos := []string{project2Repo1, project2Repo2}
-	allRepos := append(defaultRepos, append(project1Repos, project2Repos...)...)
-
-	tests := map[string]struct {
-		user     *client.APIClient
-		projects []string
-		expected []string
-	}{
-		"AllProjects":                   {admin, nil, allRepos},
-		"DefaultProject":                {admin, []string{pfs.DefaultProjectName}, defaultRepos},
-		"Project1":                      {admin, []string{project1}, project1Repos},
-		"ProjectViewer":                 {bob, nil, append(defaultRepos, project1Repos...)},
-		"ProjectViewerFilterOnProject1": {bob, []string{project1}, project1Repos},
-		"ProjectViewerFilterOnProject2": {bob, []string{project2}, []string{}},
-		"RepoReaderCanSeeTheirRepos":    {alice, nil, append(defaultRepos, project1Repo1, project2Repo2)},
-		"RepoReaderFilterOnProject1":    {alice, []string{project1}, []string{project1Repo1}},
-		"RepoReaderFilterOnProject2":    {alice, []string{project2}, []string{project2Repo2}},
-	}
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(tc.user.Ctx())
-			defer cancel()
-			resp, err := tc.user.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{Type: pfs.UserRepoType, Projects: tc.projects})
-			require.NoError(t, err)
-			var repos []string
-			require.NoError(t, clientsdk.ForEachRepoInfo(resp, func(ri *pfs.RepoInfo) error {
-				repos = append(repos, ri.Repo.AuthResource().Name)
-				return nil
-			}))
-			require.ElementsEqual(t, tc.expected, repos)
-		})
-	}
 }
 
 // TestDeleteProject tests whether only owners of a project can delete the project.
@@ -2550,4 +2483,52 @@ func TestDeleteProject(t *testing.T) {
 
 	require.ErrorContains(t, alice.DeleteProject(project, false), "not authorized")
 	require.NoError(t, c.DeleteProject(project, false))
+}
+
+// TestDeleteRepos tests that when a user requests to delete all repos in a
+// project, only those repos he may delete are deleted.
+func TestDeleteRepos(t *testing.T) {
+	t.Parallel()
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
+
+	projectName := tu.UniqueString("project")
+	require.NoError(t, aliceClient.CreateProject(projectName))
+
+	// create repoA, and check that alice is its owner
+	require.NoError(t, aliceClient.CreateProjectRepo(projectName, "repoA"))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, projectName, "repoA"))
+	// repoB will not be given to bob and should not be deleted
+	require.NoError(t, aliceClient.CreateProjectRepo(projectName, "repoB"))
+
+	//////////
+	/// alice adds bob to the ACL of repo1 as an owner
+	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(projectName, "repoA", bob, []string{auth.RepoOwnerRole}))
+
+	// repoC belongs to bob and should be deleted
+	require.NoError(t, bobClient.CreateProjectRepo(projectName, "repoC"))
+	resp, err := bobClient.PfsAPIClient.DeleteRepos(bobClient.Ctx(), &pfs.DeleteReposRequest{Projects: []*pfs.Project{{Name: projectName}}})
+	require.NoError(t, err)
+	var deleted = make(map[string]bool)
+	for _, repo := range resp.Repos {
+		require.Equal(t, repo.Project.GetName(), projectName)
+		deleted[repo.Name] = true
+	}
+	require.False(t, deleted["repoB"])
+	for _, name := range []string{"repoA", "repoC"} {
+		require.True(t, deleted[name])
+	}
+
+	// actually list repos and ensure that repoB is still present
+	repoInfos, err := aliceClient.ListRepo()
+	require.NoError(t, err)
+	seen := make(map[string]bool)
+	for _, repoInfo := range repoInfos {
+		if repoInfo.Repo.Project.GetName() == projectName {
+			seen[repoInfo.Repo.Name] = true
+		}
+	}
+	require.True(t, seen["repoB"])
 }
