@@ -61,7 +61,7 @@ func TestSharding(t *testing.T) {
 			tasks = append(tasks, task)
 			return nil
 		}))
-	processedFiles := processTasks(ctx, t, tasks, bucket, objStoreDir)
+	processedFiles := processTasks(ctx, t, tasks, bucket)
 	for file, data := range files {
 		require.Equal(t, data, processedFiles[file], "files should match")
 	}
@@ -72,8 +72,7 @@ func TestSharding(t *testing.T) {
 	}
 }
 
-func processTasks(ctx context.Context, t *testing.T, tasks []PutFileURLTask, bucket *blob.Bucket, objStoreDir string) map[string]string {
-
+func processTasks(ctx context.Context, t *testing.T, tasks []PutFileURLTask, bucket *blob.Bucket) map[string]string {
 	verifiedFiles := make(map[string]string)
 	for _, task := range tasks {
 		startOffset := task.StartOffset
