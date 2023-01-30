@@ -45,15 +45,15 @@ def main():
 
     rows_to_insert = get_kubeconfig_rows(
         'pachd-k8s-config.json', results_folder, 'pachd', common_columns)
-    print_jsonl('PACHD:',rows_to_insert)
+    insert_to_bigquery(client, rows_to_insert, 'api-perf-kube-config')
 
     rows_to_insert = get_kubeconfig_rows(
         'pg-bouncer-k8s-config.json', results_folder, 'pg-bouncer', common_columns)
-    print_jsonl('PG-BOUNCER:', rows_to_insert)
+    insert_to_bigquery(client, rows_to_insert, 'api-perf-kube-config')
 
     rows_to_insert = get_kubeconfig_rows(
         'postgres-k8s-config.json', results_folder, 'postgres', common_columns)
-    print_jsonl('POSTGRES:', rows_to_insert)
+    insert_to_bigquery(client, rows_to_insert, 'api-perf-kube-config')
 
     rows_to_insert = get_sadf_rows(
         'sadf_stats', results_folder, common_columns)
