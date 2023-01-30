@@ -5385,12 +5385,9 @@ func TestPFS(suite *testing.T) {
 		for _, path := range paths {
 			require.NoError(t, env.PachClient.PutFile(commit, path, strings.NewReader(path)))
 		}
+		objC := dockertestenv.NewTestObjClient(ctx, t)
+		bucketURL := objC.BucketURL().String()
 		check := func() {
-			objC := dockertestenv.NewTestObjClient(ctx, t)
-			bucketURL := objC.BucketURL().String()
-			for _, path := range paths {
-				require.NoError(t, env.PachClient.GetFileURL(commit, path, bucketURL))
-			}
 			for _, path := range paths {
 				buf := &bytes.Buffer{}
 				err := objC.Get(context.Background(), path, buf)
@@ -5398,8 +5395,13 @@ func TestPFS(suite *testing.T) {
 				require.True(t, bytes.Equal([]byte(path), buf.Bytes()))
 			}
 		}
+		for _, path := range paths {
+			require.NoError(t, env.PachClient.GetFileURL(commit, path, bucketURL))
+		}
 		check()
 		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
+		require.NoError(t, objC.Delete(ctx, "files/*"))
+		require.NoError(t, env.PachClient.GetFileURL(commit, "files/*", bucketURL))
 		check()
 	})
 
