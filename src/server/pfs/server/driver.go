@@ -475,7 +475,7 @@ func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectReques
 			if err := d.env.AuthServer.CreateRoleBindingInTransaction(
 				txnCtx,
 				whoAmI.Username,
-				[]string{auth.ProjectOwner},
+				[]string{auth.ProjectOwnerRole},
 				&auth.Resource{Type: auth.ResourceType_PROJECT, Name: req.Project.GetName()},
 			); err != nil && !errors.Is(err, col.ErrExists{}) {
 				return errors.Wrapf(err, "could not create role binding for new project %s", req.Project.GetName())

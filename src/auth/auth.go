@@ -97,17 +97,17 @@ const (
 	// PachdLogReaderRole is a role which grants the ability to pull pachd logs
 	PachdLogReaderRole = "pachdLogReader"
 
-	// ProjectViewer is a role which grants the ability to view resources under a project, such as repos and pipelines
-	ProjectViewer = "projectViewer"
+	// ProjectViewerRole is a role which grants the ability to view resources under a project, such as repos and pipelines
+	ProjectViewerRole = "projectViewer"
 
-	// ProjectWriter is a role which grants the ability to create resources under a project, such as repos and pipelines
-	ProjectWriter = "projectWriter"
+	// ProjectWriterRole is a role which grants the ability to create resources under a project, such as repos and pipelines
+	ProjectWriterRole = "projectWriter"
 
-	// ProjectOwner is a role which grants the ability to manage RoleBindings, as well as delete resources within a project
-	ProjectOwner = "projectOwner"
+	// ProjectOwnerRole is a role which grants the ability to manage RoleBindings, as well as delete resources within a project
+	ProjectOwnerRole = "projectOwner"
 
-	// ProjectCreator is a role which grants the ability to create projects
-	ProjectCreator = "projectCreator"
+	// ProjectCreatorRole is a role which grants the ability to create projects
+	ProjectCreatorRole = "projectCreator"
 )
 
 var (

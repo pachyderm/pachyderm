@@ -472,7 +472,7 @@ func (a *apiServer) activateInTransaction(ctx context.Context, txCtx *txncontext
 			Entries: map[string]*auth.Roles{
 				auth.RootUser:               {Roles: map[string]bool{auth.ClusterAdminRole: true}},
 				authdb.InternalUser:         {Roles: map[string]bool{auth.ClusterAdminRole: true}},
-				auth.AllClusterUsersSubject: {Roles: map[string]bool{auth.ProjectCreator: true}},
+				auth.AllClusterUsersSubject: {Roles: map[string]bool{auth.ProjectCreatorRole: true}},
 			},
 		}); err != nil {
 			return errors.EnsureStack(err)

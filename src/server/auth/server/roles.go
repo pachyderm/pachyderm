@@ -178,7 +178,7 @@ func init() {
 
 	// TODO inherit projectViewer and projectWriter roles
 	projectOwnerRole := registerRole(&auth.Role{
-		Name:          auth.ProjectOwner,
+		Name:          auth.ProjectOwnerRole,
 		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
 		Permissions: combinePermissions(repoOwnerRole.Permissions, []auth.Permission{
 			auth.Permission_PROJECT_DELETE,
@@ -187,7 +187,7 @@ func init() {
 	})
 
 	projectCreatorRole := registerRole(&auth.Role{
-		Name:          auth.ProjectCreator,
+		Name:          auth.ProjectCreatorRole,
 		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
 		Permissions: []auth.Permission{
 			auth.Permission_PROJECT_CREATE,

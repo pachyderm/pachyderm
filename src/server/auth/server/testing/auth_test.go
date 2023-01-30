@@ -2068,7 +2068,7 @@ func TestGetPermissions(t *testing.T) {
 	// alice can get her own permissions on the cluster (none) and on the repo (repoOwner)
 	permissions, err := aliceClient.GetPermissions(aliceClient.Ctx(), &auth.GetPermissionsRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}})
 	require.NoError(t, err)
-	require.ElementsEqual(t, []string{auth.ProjectCreator}, permissions.Roles)
+	require.ElementsEqual(t, []string{auth.ProjectCreatorRole}, permissions.Roles)
 
 	permissions, err = aliceClient.GetPermissions(aliceClient.Ctx(), &auth.GetPermissionsRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo}})
 	require.NoError(t, err)
@@ -2077,7 +2077,7 @@ func TestGetPermissions(t *testing.T) {
 	// the root user can get bob's permissions
 	permissions, err = rootClient.GetPermissionsForPrincipal(rootClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}, Principal: bob})
 	require.NoError(t, err)
-	require.ElementsEqual(t, []string{auth.ProjectCreator}, permissions.Roles)
+	require.ElementsEqual(t, []string{auth.ProjectCreatorRole}, permissions.Roles)
 
 	permissions, err = rootClient.GetPermissionsForPrincipal(rootClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo}, Principal: bob})
 	require.NoError(t, err)
@@ -2356,7 +2356,7 @@ func TestCreateProject(t *testing.T) {
 	// create a project and check the caller is the owner
 	projectName := tu.UniqueString("project" + t.Name())
 	require.NoError(t, aliceClient.CreateProject(projectName))
-	require.Equal(t, tu.BuildBindings(alice, auth.ProjectOwner), tu.GetProjectRoleBinding(t, aliceClient, projectName))
+	require.Equal(t, tu.BuildBindings(alice, auth.ProjectOwnerRole), tu.GetProjectRoleBinding(t, aliceClient, projectName))
 
 	// revoke cluster level role binding that grants all users ProjectCreate role
 	// and see if create project fails
