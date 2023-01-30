@@ -1701,36 +1701,40 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	}
 	branchInfo := &pfs.BranchInfo{}
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(branch, branchInfo); err != nil {
-		return errors.Wrapf(err, "get branch %q", pfsdb.BranchKey(branch))
-	}
-	if !force {
-		if len(branchInfo.Subvenance) > 0 {
-			return errors.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
+		if !col.IsErrNotFound(err) {
+			return errors.Wrapf(err, "get branch %q", pfsdb.BranchKey(branch))
 		}
 	}
-	// For provenant branches, remove this branch from subvenance
-	for _, provBranch := range branchInfo.Provenance {
-		provBranchInfo := &pfs.BranchInfo{}
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(provBranch, provBranchInfo, func() error {
-			del(&provBranchInfo.Subvenance, branch)
-			return nil
-		}); err != nil && !errutil.IsNotFoundError(err) {
-			return errors.Wrapf(err, "error deleting subvenance")
+	if branchInfo.Branch != nil {
+		if !force {
+			if len(branchInfo.Subvenance) > 0 {
+				return errors.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
+			}
 		}
-	}
-	// For subvenant branches, recalculate provenance
-	for _, subvBranch := range branchInfo.Subvenance {
-		subvBranchInfo := &pfs.BranchInfo{}
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(subvBranch, subvBranchInfo); err != nil {
-			return errors.EnsureStack(err)
+		// For provenant branches, remove this branch from subvenance
+		for _, provBranch := range branchInfo.Provenance {
+			provBranchInfo := &pfs.BranchInfo{}
+			if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(provBranch, provBranchInfo, func() error {
+				del(&provBranchInfo.Subvenance, branch)
+				return nil
+			}); err != nil && !errutil.IsNotFoundError(err) {
+				return errors.Wrapf(err, "error deleting subvenance")
+			}
 		}
-		del(&subvBranchInfo.DirectProvenance, branch)
-		if err := d.createBranch(txnCtx, subvBranch, nil, subvBranchInfo.DirectProvenance, nil); err != nil {
-			return err
+		// For subvenant branches, recalculate provenance
+		for _, subvBranch := range branchInfo.Subvenance {
+			subvBranchInfo := &pfs.BranchInfo{}
+			if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(subvBranch, subvBranchInfo); err != nil {
+				return errors.EnsureStack(err)
+			}
+			del(&subvBranchInfo.DirectProvenance, branch)
+			if err := d.createBranch(txnCtx, subvBranch, nil, subvBranchInfo.DirectProvenance, nil); err != nil {
+				return err
+			}
 		}
-	}
-	if err := d.branches.ReadWrite(txnCtx.SqlTx).Delete(branch); err != nil {
-		return errors.Wrapf(err, "branches.Delete")
+		if err := d.branches.ReadWrite(txnCtx.SqlTx).Delete(branch); err != nil {
+			return errors.Wrapf(err, "branches.Delete")
+		}
 	}
 	repoInfo := &pfs.RepoInfo{}
 	if err := d.repos.ReadWrite(txnCtx.SqlTx).Update(branch.Repo, repoInfo, func() error {
