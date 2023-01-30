@@ -98,7 +98,8 @@ def get_csv_file_rows(file_name: str, results_folder: str, common_columns: dict[
         for row in csv_reader:
             row_dict = {}
             for i, value in enumerate(row):
-                row_dict[columns[i]] = value
+                if not value == 'N/A' : # Just don't insert NA for data typing
+                    row_dict[columns[i]] = value
             row_dict.update(common_columns)
             rows.append(row_dict)
     return rows
