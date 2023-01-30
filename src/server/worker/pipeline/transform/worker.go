@@ -10,6 +10,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/hashicorp/go-multierror"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -23,7 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
-	"golang.org/x/sync/errgroup"
 )
 
 type hasher struct {
@@ -279,7 +279,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, task *DatumS
 				if driver.PipelineInfo().Details.Batching {
 					return handleDatumSetBatching(ctx, driver, logger, task, status, cacheClient, di, opts)
 				}
-				return forEachDatum(ctx, driver, logger, task, status, cacheClient, di, opts, false, func(ctx context.Context, logger logs.TaggedLogger, env []string) error {
+				return forEachDatum(ctx, driver, logger, task, status, cacheClient, di, opts, func(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 					return errors.EnsureStack(driver.RunUserCode(ctx, logger, env))
 				})
 			})
@@ -305,49 +305,73 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, task *DatumS
 }
 
 func handleDatumSetBatching(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger, task *DatumSetTask, status *Status, cacheClient *pfssync.CacheClient, di datum.Iterator, setOpts []datum.SetOption) error {
-	status.nextChan, status.setupChan = make(chan struct{}), make(chan struct{})
-	cancelCtx, cancel := context.WithCancel(ctx)
-	var eg *errgroup.Group
-	eg, ctx = errgroup.WithContext(cancelCtx)
-	eg.Go(func() error {
-		// TODO: Environment variables?
-		return driver.RunUserCode(ctx, logger, nil)
-	})
-	eg.Go(func() error {
+	nextChan, setupChan := make(chan error), make(chan []string)
+	status.nextChan, status.setupChan = nextChan, setupChan
+	// Set up the restart mechanism for the user code.
+	var cancel context.CancelFunc
+	var errChan chan error
+	stop := func() {
+		if cancel != nil {
+			cancel()
+			<-errChan
+		}
+	}
+	defer stop()
+	start := func() error {
+		var cancelCtx context.Context
+		cancelCtx, cancel = context.WithCancel(ctx)
+		errChan = make(chan error, 1)
+		go func() {
+			err := driver.RunUserCode(cancelCtx, logger, nil)
+			if err == nil {
+				err = errors.New("user code exited prematurely")
+			}
+			errChan <- err
+			close(errChan)
+		}()
 		select {
-		case <-status.nextChan:
+		case <-nextChan:
+			return nil
 		case <-ctx.Done():
 			return errors.EnsureStack(ctx.Err())
 		}
-		if err := forEachDatum(ctx, driver, logger, task, status, cacheClient, di, setOpts, true, func(ctx context.Context, logger logs.TaggedLogger, _ []string) error {
-			select {
-			case status.setupChan <- struct{}{}:
-			case <-ctx.Done():
-				return errors.EnsureStack(ctx.Err())
-			}
-			select {
-			case <-status.nextChan:
-			case <-ctx.Done():
-				return errors.EnsureStack(ctx.Err())
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-		cancel()
-		return nil
-	})
-	err := eg.Wait()
-	if errors.Is(cancelCtx.Err(), context.Canceled) {
-		err = nil
 	}
-	return err
+	// Start the user code, then iterate through the datums.
+	if err := start(); err != nil {
+		return errors.Wrap(err, "error starting user code")
+	}
+	return forEachDatum(ctx, driver, logger, task, status, cacheClient, di, setOpts, func(ctx context.Context, logger logs.TaggedLogger, env []string) (retErr error) {
+		defer func() {
+			// Restart the user code if an error occurred.
+			if retErr != nil {
+				stop()
+				if err := start(); err != nil {
+					retErr = multierror.Append(retErr, errors.Wrap(err, "error restarting user code"))
+				}
+			}
+		}()
+		select {
+		case status.setupChan <- env:
+		case err := <-errChan:
+			return errors.Wrap(err, "error running user code")
+		case <-ctx.Done():
+			return errors.EnsureStack(ctx.Err())
+		}
+		select {
+		case err := <-nextChan:
+			return err
+		case err := <-errChan:
+			return errors.Wrap(err, "error running user code")
+		case <-ctx.Done():
+			return errors.EnsureStack(ctx.Err())
+		}
+	})
 }
 
 type datumCallback = func(ctx context.Context, logger logs.TaggedLogger, env []string) error
 
 // TODO: There are way too many parameters here. Consider grouping them into a reasonable struct or storing some of these in the driver.
-func forEachDatum(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger, task *DatumSetTask, status *Status, cacheClient *pfssync.CacheClient, di datum.Iterator, setOpts []datum.SetOption, disableDatumOpts bool, cb datumCallback) error {
+func forEachDatum(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger, task *DatumSetTask, status *Status, cacheClient *pfssync.CacheClient, di datum.Iterator, setOpts []datum.SetOption, cb datumCallback) error {
 	// TODO: Can this just be refactored into the datum package such that we don't need to specify a storage root for the sets?
 	// The sets would just create a temporary directory under /tmp.
 	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
@@ -365,22 +389,20 @@ func forEachDatum(ctx context.Context, driver driver.Driver, logger logs.TaggedL
 			logger = logger.WithData(inputs)
 			env := driver.UserCodeEnv(logger.JobID(), task.OutputCommit, inputs)
 			var opts []datum.Option
-			if !disableDatumOpts {
-				if driver.PipelineInfo().Details.DatumTimeout != nil {
-					timeout, err := types.DurationFromProto(driver.PipelineInfo().Details.DatumTimeout)
-					if err != nil {
-						return errors.EnsureStack(err)
-					}
-					opts = append(opts, datum.WithTimeout(timeout))
+			if driver.PipelineInfo().Details.DatumTimeout != nil {
+				timeout, err := types.DurationFromProto(driver.PipelineInfo().Details.DatumTimeout)
+				if err != nil {
+					return errors.EnsureStack(err)
 				}
-				if driver.PipelineInfo().Details.DatumTries > 0 {
-					opts = append(opts, datum.WithRetry(int(driver.PipelineInfo().Details.DatumTries)-1))
-				}
-				if driver.PipelineInfo().Details.Transform.ErrCmd != nil {
-					opts = append(opts, datum.WithRecoveryCallback(func(runCtx context.Context) error {
-						return errors.EnsureStack(driver.RunUserErrorHandlingCode(runCtx, logger, env))
-					}))
-				}
+				opts = append(opts, datum.WithTimeout(timeout))
+			}
+			if driver.PipelineInfo().Details.DatumTries > 0 {
+				opts = append(opts, datum.WithRetry(int(driver.PipelineInfo().Details.DatumTries)-1))
+			}
+			if driver.PipelineInfo().Details.Transform.ErrCmd != nil {
+				opts = append(opts, datum.WithRecoveryCallback(func(runCtx context.Context) error {
+					return errors.EnsureStack(driver.RunUserErrorHandlingCode(runCtx, logger, env))
+				}))
 			}
 			return s.WithDatum(meta, func(d *datum.Datum) error {
 				cancelCtx, cancel := context.WithCancel(ctx)

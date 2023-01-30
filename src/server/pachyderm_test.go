@@ -11282,7 +11282,7 @@ func TestDatumBatching(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	c = c.WithDefaultTransformUser("1000")
 
-	dataRepo := tu.UniqueString("TestDatumBatching_data")
+	dataRepo := tu.UniqueString("DatumBatching_data")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 	numFiles := 25
@@ -11293,16 +11293,8 @@ func TestDatumBatching(t *testing.T) {
 		return nil
 	}))
 
-	script := fmt.Sprintf(`
-		while true
-		do
-			pachctl next datum
-			cp /pfs/%s/* /pfs/out/
-		done
-	`, dataRepo)
-	pipeline := tu.UniqueString("TestDatumBatchingPipeline")
-	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
-		&pps.CreatePipelineRequest{
+	createPipelineRequest := func(pipeline, script string) *pps.CreatePipelineRequest {
+		return &pps.CreatePipelineRequest{
 			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
 				Cmd:   []string{"bash"},
@@ -11311,17 +11303,70 @@ func TestDatumBatching(t *testing.T) {
 			Input:        client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
 			DatumSetSpec: &pps.DatumSetSpec{Number: 5},
 			Batching:     true,
-		})
-	require.NoError(t, err)
-
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
-	require.NoError(t, err)
-	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
-	require.NoError(t, err)
-	fileInfos, err := c.ListFileAll(commitInfo.Commit, "")
-	require.NoError(t, err)
-	require.Equal(t, 25, len(fileInfos))
-	for i := 0; i < numFiles; i++ {
-		require.Equal(t, fmt.Sprintf("/file-%02d", i), fileInfos[i].File.Path)
+		}
 	}
+	check := func(pipeline string) {
+		commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		require.NoError(t, err)
+		_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
+		require.NoError(t, err)
+		fileInfos, err := c.ListFileAll(commitInfo.Commit, "")
+		require.NoError(t, err)
+		require.Equal(t, 25, len(fileInfos))
+		for i := 0; i < numFiles; i++ {
+			require.Equal(t, fmt.Sprintf("/file-%02d", i), fileInfos[i].File.Path)
+		}
+	}
+
+	t.Run("Basic", func(t *testing.T) {
+		script := fmt.Sprintf(`
+			while true
+			do
+				pachctl next datum
+				cp /pfs/%s/* /pfs/out/
+			done
+		`, dataRepo)
+		pipeline := tu.UniqueString("DatumBatchingBasic")
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(), createPipelineRequest(pipeline, script))
+		require.NoError(t, err)
+		check(pipeline)
+	})
+	t.Run("Error", func(t *testing.T) {
+		script := fmt.Sprintf(`
+			while true
+			do
+				pachctl next datum
+				if [ ! -f /tmp/exec ]
+				then 
+					touch /tmp/exec
+					exit 1
+				fi
+				cp /pfs/%s/* /pfs/out/
+			done
+		`, dataRepo)
+		pipeline := tu.UniqueString("DatumBatchingError")
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(), createPipelineRequest(pipeline, script))
+		require.NoError(t, err)
+		check(pipeline)
+	})
+	t.Run("Timeout", func(t *testing.T) {
+		script := fmt.Sprintf(`
+			while true
+			do
+				pachctl next datum
+				if [ ! -f /tmp/exec ]
+				then 
+					touch /tmp/exec
+					sleep 5	
+				fi
+				cp /pfs/%s/* /pfs/out/
+			done
+		`, dataRepo)
+		pipeline := tu.UniqueString("DatumBatchingTimeout")
+		req := createPipelineRequest(pipeline, script)
+		req.DatumTimeout = types.DurationProto(3 * time.Second)
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(), req)
+		require.NoError(t, err)
+		check(pipeline)
+	})
 }

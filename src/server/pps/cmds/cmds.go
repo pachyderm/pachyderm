@@ -1302,6 +1302,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	runLoadTest.Flags().StringVar(&stateID, "state-id", "", "The ID of the base state to use for the load.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pps-load-test"))
 
+	var errStr string
 	nextDatum := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Used internally for datum batching",
@@ -1312,10 +1313,12 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer c.Close()
-			_, err = c.NextDatum(context.Background(), &types.Empty{})
+			// TODO: Decide how to handle the environment variables in the response.
+			_, err = c.NextDatum(context.Background(), &workerserver.NextDatumRequest{Error: errStr})
 			return err
 		}),
 	}
+	nextDatum.Flags().StringVar(&errStr, "error", "", "A string representation of an error that occurred while processing the current datum.")
 	commands = append(commands, cmdutil.CreateAlias(nextDatum, "next datum"))
 
 	return commands

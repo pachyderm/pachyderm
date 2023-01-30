@@ -16,11 +16,12 @@ import (
 // its public interface only allows getting the status of a task and canceling
 // the currently-processing datum.
 type Status struct {
-	mutex               sync.Mutex
-	jobID               string
-	datumStatus         *pps.DatumStatus
-	cancel              func()
-	nextChan, setupChan chan struct{}
+	mutex       sync.Mutex
+	jobID       string
+	datumStatus *pps.DatumStatus
+	cancel      func()
+	nextChan    chan error
+	setupChan   chan []string
 }
 
 func convertInputs(inputs []*common.Input) []*pps.InputFile {
@@ -101,17 +102,19 @@ func (s *Status) Cancel(jobID string, datumFilter []string) bool {
 	return false
 }
 
-func (s *Status) NextDatum(ctx context.Context) error {
-	// TODO: Error if not set.
-	select {
-	case s.nextChan <- struct{}{}:
-	case <-ctx.Done():
-		return errors.EnsureStack(ctx.Err())
+func (s *Status) NextDatum(ctx context.Context, err error) ([]string, error) {
+	if s.nextChan == nil {
+		return nil, errors.New("datum batching not enabled")
 	}
 	select {
-	case <-s.setupChan:
+	case s.nextChan <- err:
 	case <-ctx.Done():
-		return errors.EnsureStack(ctx.Err())
+		return nil, errors.EnsureStack(ctx.Err())
 	}
-	return nil
+	select {
+	case env := <-s.setupChan:
+		return env, nil
+	case <-ctx.Done():
+		return nil, errors.EnsureStack(ctx.Err())
+	}
 }
