@@ -4966,7 +4966,7 @@ func TestPFS(suite *testing.T) {
 		e := client.NewProjectCommit(project, "repo", resp.Branch.Name, resp.ID)
 		require.NoError(t, finishProjectCommit(env.PachClient, project, "repo", resp.Branch.Name, resp.ID))
 		// Create 'c'
-		_, err = env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "repo", "master")
+		_, err = env.PachClient.StartProjectCommit(project, "repo", "master")
 		require.NoError(t, err)
 		require.NoError(t, finishProjectCommit(env.PachClient, project, "repo", "master", ""))
 		cInfo, err := env.PachClient.InspectProjectCommit(project, "repo", "master", "")
