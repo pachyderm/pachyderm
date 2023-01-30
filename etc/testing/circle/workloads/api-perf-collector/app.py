@@ -120,6 +120,9 @@ def get_log_file_rows(file_name: str, results_folder: str, common_columns: dict[
             try:
                 log_json = json.loads(json_log)
                 if log_json['severity'] != 'info' and log_json['severity'] != 'debug':
+                    for field in log_json.keys():
+                        if type(log_json[field]) is dict: # flatten json for insertion to BQ
+                           log_json[field] = json.dumps(log_json[field]) 
                     log_json.update(common_columns)
                     rows.append(log_json)
             except ValueError: # in the case the log is not parsable json, we have to toss it
@@ -132,7 +135,8 @@ def get_kubeconfig_rows(file_name: str, results_folder: str, app_name: str, comm
         file_path = os.path.join(results_folder, file_name)
     rows = []
     with open(file_path,'r') as f:
-        kubeconfig = {'pod': app_name, 'kubeconfig': json.loads(f.read())}
+        # f should already be json so no need to json.loads/dumps
+        kubeconfig = {'pod': app_name, 'kubeconfig': f.read()}
         kubeconfig.update(common_columns)
         rows.append(kubeconfig)
     return rows
