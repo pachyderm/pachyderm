@@ -1085,18 +1085,26 @@ jobs:
     docker:
       - image: cimg/base:stable
     steps:
+      - add_ssh_keys:
+          fingerprints:
+            - "23:49:d3:11:ea:69:de:6f:c3:29:e3:09:ff:01:b1:f0"
+      - run:
+          name: setup pachydermbuildbot git
+          command: |
+            git config --global user.email "buildbot@pachyderm.io"
+            git config --global user.name "pachydermbuildbot"
       - gh/setup:
           version: 2.13.0
       - run:
           name: create github console release draft
           command: |
-            if [[ $CIRCLE_TAG == *"-"* ]];
+            if [[ $CIRCLE_TAG == *"alpha"* ]];
               then
-                  echo "git tag has - assuming its a prerelease."
+                  echo "based on git tag assuming its a alpha release."
                   parentBranch=master
               else
-                  echo "regular release."
-                  parentBranch=${CIRCLE_TAG:1}
+                  echo "using console's release branch for RCs and patch releases."
+                  parentBranch=$(echo ${CIRCLE_TAG:1} | cut -f -2 -d ".").x
               fi
             git clone https://github.com/pachyderm/haberdashery.git haberdashery
             cd haberdashery
@@ -1108,12 +1116,19 @@ jobs:
             git add --all
             git commit -m "bump pachyderm version"
             git push origin release-${CIRCLE_TAG:1}
-            PR=$(gh pr create --base ${parentBranch} --title "bump pach version for release ${CIRCLE_TAG:1}" --body "bump pach version" --repo pachyderm/haberdashery)
-            gh pr merge ${PR} --auto --repo pachyderm/haberdashery
+            PR=$(gh pr create --base ${parentBranch} --title "bump pach version for release ${CIRCLE_TAG:1}" --body "bump pach version" --reviewer pachydermbuildbot --repo pachyderm/haberdashery)
+            gh pr review --approve --repo pachyderm/haberdashery
             gh pr checks ${PR} --watch --interval 10 --repo pachyderm/haberdashery
-            STATE=$(gh pr view ${PR} --json state --jq .state --repo pachyderm/haberdashery)
-            if [[ "${STATE}" != "MERGED" ]]; then
-              echo "review console PR ${PR} for failures. It is not merged"
+            PR_STATE=$(gh pr status --json mergeStateStatus --jq .currentBranch.mergeStateStatus --repo pachyderm/haberdashery)
+            if [[ "$PR_STATE" != "CLEAN" ]]; then
+              echo "review console PR ${PR} for failures. PR Checks failed."
+              exit 1
+            fi
+            gh pr merge ${PR} --repo pachyderm/haberdashery
+            sleep 2 # give it quick sec to merge, make sure we get right state.
+            IS_MERGED=$(gh pr view ${PR} --json state --jq .state --repo pachyderm/haberdashery)
+            if [[ "${IS_MERGED}" != "MERGED" ]]; then
+              echo "review console PR ${PR} for failures. It did not merge."
               exit 1
             fi
             sleep 2 # in case we create release to fast
