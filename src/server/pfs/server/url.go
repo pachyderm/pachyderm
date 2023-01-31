@@ -216,8 +216,6 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 			if fi.FileType != pfs.FileType_FILE {
 				return nil
 			}
-			numObjects++
-			size += fi.SizeBytes
 			bytesWritten += fi.SizeBytes
 			if numObjects >= int64(defaultNumObjectsThreshold) || size >= defaultSizeThreshold {
 				pathRange.Upper = file.Index().Path
@@ -229,6 +227,8 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 				}
 				numObjects, size = 0, 0
 			}
+			numObjects++
+			size += fi.SizeBytes
 			return nil
 		}); err != nil {
 			return errors.EnsureStack(err)
