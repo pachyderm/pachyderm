@@ -11674,12 +11674,30 @@ func TestDatumBatching(t *testing.T) {
 				if [ ! -f /tmp/exec ]
 				then 
 					touch /tmp/exec
-					exit 1
+					pachctl next datum --error oops
 				fi
 				cp /pfs/%s/* /pfs/out/
 			done
 		`, dataRepo)
 		pipeline := tu.UniqueString("DatumBatchingError")
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(), createPipelineRequest(pipeline, script))
+		require.NoError(t, err)
+		check(pipeline)
+	})
+	t.Run("Exit", func(t *testing.T) {
+		script := fmt.Sprintf(`
+			while true
+			do
+				pachctl next datum
+				if [ ! -f /tmp/exec ]
+				then
+					touch /tmp/exec
+					exit 1
+				fi
+				cp /pfs/%s/* /pfs/out/
+			done
+		`, dataRepo)
+		pipeline := tu.UniqueString("DatumBatchingExit")
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(), createPipelineRequest(pipeline, script))
 		require.NoError(t, err)
 		check(pipeline)
