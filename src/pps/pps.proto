@@ -840,6 +840,14 @@ message RenderTemplateResponse {
   repeated CreatePipelineRequest specs = 2;
 }
 
+message LokiRequest {
+  google.protobuf.Duration since = 1;
+}
+
+message LokiLogMessage {
+  string message = 1;
+}
+
 service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
@@ -890,4 +898,7 @@ service API {
 
   // ListTask lists PPS tasks
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
+
+  // GetKubeEvents returns a stream of kubernetes events
+  rpc GetKubeEvents(LokiRequest) returns (stream LokiLogMessage) {}
 }
