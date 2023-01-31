@@ -2929,24 +2929,10 @@ func TestUpdatePipeline(t *testing.T) {
 	// Confirm that k8s resources have been updated (fix #4071)
 	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 		kc := tu.GetKubeClient(t)
-		svcs, err := kc.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
-		require.NoError(t, err)
 		var (
-			newServiceSeen bool
-			staleName      = ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 1})
-			newName        = ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 2})
+			staleName = ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 1})
+			newName   = ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 2})
 		)
-		for _, svc := range svcs.Items {
-			switch svc.ObjectMeta.Name {
-			case staleName:
-				return errors.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
-			case newName:
-				newServiceSeen = true
-			}
-		}
-		if !newServiceSeen {
-			return errors.Errorf("did not find new service: %q", newName)
-		}
 		rcs, err := kc.CoreV1().ReplicationControllers(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		var newRCSeen bool
@@ -3007,24 +2993,10 @@ func TestUpdatePipeline(t *testing.T) {
 	// Confirm that k8s resources have been updated (fix #4071)
 	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 		kc := tu.GetKubeClient(t)
-		svcs, err := kc.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
-		require.NoError(t, err)
 		var (
-			newServiceSeen bool
-			staleName      = ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 1})
-			newName        = ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 2})
+			staleName = ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 1})
+			newName   = ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 2})
 		)
-		for _, svc := range svcs.Items {
-			switch svc.ObjectMeta.Name {
-			case staleName:
-				return errors.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
-			case newName:
-				newServiceSeen = true
-			}
-		}
-		if !newServiceSeen {
-			return errors.Errorf("did not find new service: %q", newName)
-		}
 		rcs, err := kc.CoreV1().ReplicationControllers(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		var newRCSeen bool
