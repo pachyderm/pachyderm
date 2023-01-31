@@ -149,6 +149,8 @@ func (x *PutFileURLTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("paths", zapcore.ArrayMarshalerFunc(pathsArrMarshaller))
+	enc.AddInt64("start_offset", x.StartOffset)
+	enc.AddInt64("end_offset", x.EndOffset)
 	return nil
 }
 

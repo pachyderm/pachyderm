@@ -1474,6 +1474,7 @@ type runLoadTestPPSFunc func(context.Context, *pps.RunLoadTestRequest) (*pps.Run
 type runLoadTestDefaultPPSFunc func(context.Context, *types.Empty) (*pps.RunLoadTestResponse, error)
 type renderTemplateFunc func(context.Context, *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error)
 type listTaskPPSFunc func(*task.ListTaskRequest, pps.API_ListTaskServer) error
+type getKubeEventsFunc func(*pps.LokiRequest, pps.API_GetKubeEventsServer) error
 
 type mockInspectJob struct{ handler inspectJobFunc }
 type mockListJob struct{ handler listJobFunc }
@@ -1506,6 +1507,7 @@ type mockRunLoadTestPPS struct{ handler runLoadTestPPSFunc }
 type mockRunLoadTestDefaultPPS struct{ handler runLoadTestDefaultPPSFunc }
 type mockRenderTemplate struct{ handler renderTemplateFunc }
 type mockListTaskPPS struct{ handler listTaskPPSFunc }
+type mockGetKubeEvents struct{ handler getKubeEventsFunc }
 
 func (mock *mockInspectJob) Use(cb inspectJobFunc)                       { mock.handler = cb }
 func (mock *mockListJob) Use(cb listJobFunc)                             { mock.handler = cb }
@@ -1538,6 +1540,7 @@ func (mock *mockRunLoadTestPPS) Use(cb runLoadTestPPSFunc)               { mock.
 func (mock *mockRunLoadTestDefaultPPS) Use(cb runLoadTestDefaultPPSFunc) { mock.handler = cb }
 func (mock *mockRenderTemplate) Use(cb renderTemplateFunc)               { mock.handler = cb }
 func (mock *mockListTaskPPS) Use(cb listTaskPPSFunc)                     { mock.handler = cb }
+func (mock *mockGetKubeEvents) Use(cb getKubeEventsFunc)                 { mock.handler = cb }
 
 type ppsServerAPI struct {
 	mock *mockPPSServer
@@ -1576,6 +1579,7 @@ type mockPPSServer struct {
 	RunLoadTestDefault mockRunLoadTestDefaultPPS
 	RenderTemplate     mockRenderTemplate
 	ListTask           mockListTaskPPS
+	GetKubeEvents      mockGetKubeEvents
 }
 
 func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
@@ -1763,6 +1767,12 @@ func (api *ppsServerAPI) ListTask(req *task.ListTaskRequest, server pps.API_List
 		return api.mock.ListTask.handler(req, server)
 	}
 	return errors.Errorf("unhandled pachd mock pps.ListTask")
+}
+func (api *ppsServerAPI) GetKubeEvents(req *pps.LokiRequest, server pps.API_GetKubeEventsServer) error {
+	if api.mock.GetKubeEvents.handler != nil {
+		return api.mock.GetKubeEvents.handler(req, server)
+	}
+	return errors.Errorf("unhandled pachd mock pps.GetKubeEvents")
 }
 
 /* Transaction Server Mocks */

@@ -1047,3 +1047,19 @@ func (x *RenderTemplateResponse) MarshalLogObject(enc zapcore.ObjectEncoder) err
 	enc.AddArray("specs", zapcore.ArrayMarshalerFunc(specsArrMarshaller))
 	return nil
 }
+
+func (x *LokiRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	protoextensions.AddDuration(enc, "since", x.Since)
+	return nil
+}
+
+func (x *LokiLogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("message", x.Message)
+	return nil
+}
