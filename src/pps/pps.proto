@@ -840,8 +840,12 @@ message RenderTemplateResponse {
   repeated CreatePipelineRequest specs = 2;
 }
 
-message GetKubeEventTailResponse {
-  string logs = 1;
+message LokiRequest {
+  google.protobuf.Duration since = 1;
+}
+
+message LokiLogMessage {
+  string message = 1;
 }
 
 service API {
@@ -896,5 +900,5 @@ service API {
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
 
   // GetKubeEventTail returns a stream of kubernetes events
-  rpc GetKubeEventTail(google.protobuf.Empty) returns (GetKubeEventTailResponse) {}
+  rpc GetKubeEventTail(LokiRequest) returns (stream LokiLogMessage) {}
 }

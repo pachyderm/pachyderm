@@ -1474,7 +1474,7 @@ type runLoadTestPPSFunc func(context.Context, *pps.RunLoadTestRequest) (*pps.Run
 type runLoadTestDefaultPPSFunc func(context.Context, *types.Empty) (*pps.RunLoadTestResponse, error)
 type renderTemplateFunc func(context.Context, *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error)
 type listTaskPPSFunc func(*task.ListTaskRequest, pps.API_ListTaskServer) error
-type getKubeEventTailFunc func(context.Context, *types.Empty) (*pps.GetKubeEventTailResponse, error)
+type getKubeEventTailFunc func(*pps.LokiRequest, pps.API_GetKubeEventTailServer) error
 
 type mockInspectJob struct{ handler inspectJobFunc }
 type mockListJob struct{ handler listJobFunc }
@@ -1768,11 +1768,11 @@ func (api *ppsServerAPI) ListTask(req *task.ListTaskRequest, server pps.API_List
 	}
 	return errors.Errorf("unhandled pachd mock pps.ListTask")
 }
-func (api *ppsServerAPI) GetKubeEventTail(ctx context.Context, empty *types.Empty) (*pps.GetKubeEventTailResponse, error) {
+func (api *ppsServerAPI) GetKubeEventTail(req *pps.LokiRequest, server pps.API_GetKubeEventTailServer) error {
 	if api.mock.GetKubeEventTail.handler != nil {
-		return api.mock.GetKubeEventTail.handler(ctx, empty)
+		return api.mock.GetKubeEventTail.handler(req, server)
 	}
-	return nil, errors.Errorf("unhandled pachd mock pps.GetKubeEventTail")
+	return errors.Errorf("unhandled pachd mock pps.GetKubeEventTail")
 }
 
 /* Transaction Server Mocks */
