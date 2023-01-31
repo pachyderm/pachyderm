@@ -168,6 +168,9 @@ def get_sadf_rows(file_name: str, results_folder: str, common_columns: dict[str,
 
 # We don't want some versions with v in front and some without in the DB, so just remove v if it's there
 def normalize_version(version: str):
+    # handle master sha
+    if not re.search('^v?(\d.\d.\d).*', version):
+        return 'master'
     if version[0] == 'v':
         return version[1:]
     return version
