@@ -38,8 +38,8 @@ func convertInputs(inputs []*common.Input) []*pps.InputFile {
 
 func (s *Status) withLock(cb func()) {
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	cb()
-	s.mutex.Unlock()
 }
 
 func (s *Status) withJob(jobID string, cb func() error) error {
@@ -118,8 +118,8 @@ func (s *Status) withDatumBatch(cb func(<-chan error, chan<- []string) error) er
 
 func (s *Status) withBatchLock(cb func()) {
 	s.batchMutex.Lock()
+	defer s.batchMutex.Unlock()
 	cb()
-	s.batchMutex.Unlock()
 }
 
 func (s *Status) NextDatum(ctx context.Context, err error) ([]string, error) {
