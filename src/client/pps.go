@@ -849,13 +849,17 @@ func (c APIClient) getLogs(projectName, pipelineName, jobID string, data []strin
 	return resp
 }
 
-func (c APIClient) GetKubeEventTail() (string, error) {
-	resp, err := c.PpsAPIClient.GetKubeEventTail(c.Ctx(), &types.Empty{})
-	err = grpcutil.ScrubGRPC(err)
-	if err != nil {
-		return "", err
+func (c APIClient) GetKubeEventTail() ([]*pps.LokiLogMessage, error) {
+	ctx, cf := context.WithCancel(c.Ctx())
+	defer cf()
+	request := pps.LokiRequest{
+		Since: types.DurationProto(0),
 	}
-	return resp.Logs, err
+	client, err := c.PpsAPIClient.GetKubeEventTail(ctx, &request)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return clientsdk.ListLokiLine(client)
 }
 
 // CreatePipeline creates a new pipeline, pipelines are the main computation

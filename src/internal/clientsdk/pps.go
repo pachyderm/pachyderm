@@ -150,3 +150,33 @@ func ListJob(client pps.API_ListJobClient) ([]*pps.JobInfo, error) {
 	}
 	return results, nil
 }
+
+func ForEachLokiLine(client pps.API_GetKubeEventTailClient, cb func(*pps.LokiLogMessage) error) error {
+	for {
+		x, err := client.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return errors.EnsureStack(err)
+		}
+		if err := cb(x); err != nil {
+			if errors.Is(err, pacherr.ErrBreak) {
+				err = nil
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+func ListLokiLine(client pps.API_GetKubeEventTailClient) ([]*pps.LokiLogMessage, error) {
+	var results []*pps.LokiLogMessage
+	if err := ForEachLokiLine(client, func(x *pps.LokiLogMessage) error {
+		results = append(results, x)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return results, nil
+}

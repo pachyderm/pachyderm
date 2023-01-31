@@ -553,7 +553,10 @@ each datum.`,
 			if err != nil {
 				return err
 			}
-			fmt.Println(events)
+			for _, event := range events {
+				fmt.Println(event.Message)
+			}
+			//fmt.Println("events")
 			return nil
 		}),
 	}

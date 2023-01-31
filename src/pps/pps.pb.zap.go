@@ -1048,10 +1048,18 @@ func (x *RenderTemplateResponse) MarshalLogObject(enc zapcore.ObjectEncoder) err
 	return nil
 }
 
-func (x *GetKubeEventTailResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (x *LokiRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("logs", x.Logs)
+	protoextensions.AddDuration(enc, "since", x.Since)
+	return nil
+}
+
+func (x *LokiLogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("message", x.Message)
 	return nil
 }

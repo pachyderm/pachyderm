@@ -503,7 +503,7 @@ func (c *unsupportedPpsBuilderClient) DeleteSecret(_ context.Context, _ *pps_v2.
 	return nil, unsupportedError("DeleteSecret")
 }
 
-func (c *unsupportedPpsBuilderClient) GetKubeEventTail(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*pps_v2.GetKubeEventTailResponse, error) {
+func (c *unsupportedPpsBuilderClient) GetKubeEventTail(_ context.Context, _ *pps_v2.LokiRequest, opts ...grpc.CallOption) (pps_v2.API_GetKubeEventTailClient, error) {
 	return nil, unsupportedError("GetKubeEventTail")
 }
 
