@@ -8,253 +8,267 @@ aliases:
       only: /^\d+\.\d+\.\d+(-[a-z\d\-.]+)?$/
 
 orbs:
-    codecov: codecov/codecov@1.1.0
-    pagerduty: fredbi/pagerduty@0.3.0
-    browser-tools: circleci/browser-tools@1.2.3
-    gh: circleci/github-cli@2.1.1
+  codecov: codecov/codecov@1.1.0
+  browser-tools: circleci/browser-tools@1.2.3
+  gh: circleci/github-cli@2.1.1
+  jq: circleci/jq@2.2.0
 
 jobs:
-    components-storybook-release:
-        docker:
-            - image: cimg/node:16.11.0
-        steps:
-            - checkout
-            - run: .circleci/scripts/upload-storybook.sh
-    backend-test:
-        resource_class: xlarge
-        docker:
-            - image: cimg/node:16.14.2
-        steps:
-            - checkout
-            - run: make ci
-            - run: cd backend && npm run lint
-            - run: cd backend && npm run test -- --collect-coverage
-            - codecov/upload:
-                  file: backend/coverage/lcov.info
-    integration-test:
-        resource_class: xlarge
-        machine:
-            image: ubuntu-2004:202111-01
-        steps:
-            - checkout
-            - run: make ci
-            - gh/setup:
-                version: 2.20.2
-            - run: etc/testing/circle/install.sh
-            - run: etc/testing/circle/start-kind.sh
-            - run: etc/testing/circle/deploy-pachyderm.sh
-            - run: cd backend && npm run lint
-            - run: pachctl port-forward & cd backend && npm run integration-test
+  components-storybook-release:
+    docker:
+      - image: cimg/node:16.11.0
+    steps:
+      - checkout
+      - run: .circleci/scripts/upload-storybook.sh
+  backend-test:
+    resource_class: xlarge
+    docker:
+      - image: cimg/node:16.14.2
+    steps:
+      - checkout
+      - run: make ci
+      - run: cd backend && npm run lint
+      - run: cd backend && npm run test -- --collect-coverage
+      - codecov/upload:
+          file: backend/coverage/lcov.info
+  integration-test:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202111-01
+    steps:
+      - checkout
+      - run: make ci
+      - gh/setup:
+          version: 2.20.2
+      - run: etc/testing/circle/install.sh
+      - run: etc/testing/circle/start-kind.sh
+      - run: etc/testing/circle/deploy-pachyderm.sh
+      - run: cd backend && npm run lint
+      - run: pachctl port-forward & cd backend && npm run integration-test
 
-    frontend-test:
-        resource_class: xlarge
-        docker:
-            - image: cimg/node:16.14.2
-        steps:
-            - checkout
-            - run: make ci
-            - run: cd frontend && npm run lint
-            - run: cd frontend && npm run test -- --collect-coverage
-            - codecov/upload:
-                  file: frontend/coverage/lcov.info
-    e2e-mock-test:
-        resource_class: xlarge
-        machine:
-            image: ubuntu-2004:202201-02
-        steps:
-            - checkout
-            - run: make ci
-            - run: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e:local-mock
-            - store_artifacts:
-                  path: /tmp/cypress-screenshots
-            - store_artifacts:
-                  path: /tmp/cypress-videos
-    e2e-test:
-        resource_class: xlarge
-        machine:
-            image: ubuntu-2004:202201-02
-        steps:
-            - checkout
-            - run: sudo sysctl fs.inotify.max_user_watches=524288
-            - run: sudo sysctl -p
-            - run: sudo apt-get update
-            - run: sudo apt-get install -y libgbm-dev
-            - run: npm ci
-            - run: cd backend && npm ci
-            - run: cd frontend && npm ci
-            - gh/setup:
-                version: 2.20.2
-            - run: etc/testing/circle/install.sh
-            - run: etc/testing/circle/start-kind.sh
-            - run: etc/testing/circle/deploy-pachyderm.sh
-            - run: echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
-            - run: touch .env.development.local
-            - run: make setup-ci-auth
-            - run: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e-auth
-            - run: (yes || true) | pachctl auth deactivate
-            - run: pachctl enterprise deactivate
-            - run: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
-            - store_artifacts:
-                  path: /tmp/cypress-screenshots
-            - store_artifacts:
-                  path: /tmp/cypress-videos
-    load-test:
-        resource_class: xlarge
-        machine:
-            image: ubuntu-2004:202111-01
-        steps:
-            - checkout
-            - run: sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-            - run: echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-            - run: sudo apt-get update
-            - run: sudo apt-get install k6
-            - run: make ci
-            - gh/setup:
-                version: 2.20.2
-            - run: etc/testing/circle/install.sh
-            - run: etc/testing/circle/start-kind.sh
-            - run: etc/testing/circle/deploy-pachyderm.sh
-            - run: echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
-            - run: touch .env.development.local
-            - run: make setup-ci-auth
-            - run: npm run load-setup
-            - run: pachctl port-forward & npm run load-test:ci
-    build:
-        resource_class: xlarge
-        docker:
-            - image: cimg/node:16.14.2
-        steps:
-            - checkout
-            - run: make ci
-            - run: make build
-    check-types:
-        resource_class: xlarge
-        docker:
-            - image: cimg/node:16.14.2
-        steps:
-            - checkout
-            - run: make ci
-            - run: make graphql
-            - run: sh ./scripts/checkTypeChanges.sh
-    docker-build:
-        parameters:
-            resource_class:
-                type: string
-        resource_class: << parameters.resource_class >>
-        machine:
-            image: ubuntu-2004:202101-01
-        steps:
-        - checkout
-        - restore_cache:
-            keys:
-                - docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
-        - run:
-            name: Build application Docker image
-            command: |
-                make circle-docker-build
-        - save_cache:
-            key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
-            paths:
-                - /tmp/docker-cache
-    docker-manifest:
-        machine:
-            image: ubuntu-2004:202101-01
-        steps:
-        - checkout
-        - run:
-            name: Create Multiarch Manifest
-            command: |
-                make circle-docker-manifest
-    preview:
-        docker:
-            - image: node:16.14.2
-        steps:
-            - checkout
-            - run:
-                name: Create a name helium can use, persist in ENV
-                command: |
-                  echo 'export HELIUM_NAME="console-$(echo ${CIRCLE_BRANCH} | sed -E "s/[._]|-npm_and_yarn-/-/g")"' >> "$BASH_ENV"
-            - run:
-                name: Curl helium for preview env
-                command: |
-                  echo "Creating $HELIUM_NAME in Helium"
-                  curl --fail -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" -F name="$HELIUM_NAME" -F consoleVersion="<<pipeline.git.revision>>" -F expiry="$(date "+%Y-%m-%d" --date="14 days")" -F backend=gcp_namespace_only -F clusterStack="pachyderm/helium/console-preview-cluster" https://helium.pachyderm.io/v1/api/workspace
-            - run:
-                name: Comment on PR
-                command: |
-                  export GH_ACCESS_TOKEN=${GHI_TOKEN}
-                  wget https://github.com/chainlink/onecomment/releases/download/v0.2.0/onecomment_0.2.0_Linux_x86_64.tar.gz
-                  tar xvf onecomment_0.2.0_Linux_x86_64.tar.gz
+  frontend-test:
+    resource_class: xlarge
+    docker:
+      - image: cimg/node:16.14.2
+    steps:
+      - checkout
+      - run: make ci
+      - run: cd frontend && npm run lint
+      - run: cd frontend && npm run test -- --collect-coverage
+      - codecov/upload:
+          file: frontend/coverage/lcov.info
+  e2e-mock-test:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202201-02
+    steps:
+      - checkout
+      - run: make ci
+      - run: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e:local-mock
+      - store_artifacts:
+          path: /tmp/cypress-screenshots
+      - store_artifacts:
+          path: /tmp/cypress-videos
+  e2e-test:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202201-02
+    steps:
+      - checkout
+      - run: sudo sysctl fs.inotify.max_user_watches=524288
+      - run: sudo sysctl -p
+      - run: sudo apt-get update
+      - run: sudo apt-get install -y libgbm-dev
+      - run: npm ci
+      - run: cd backend && npm ci
+      - run: cd frontend && npm ci
+      - gh/setup:
+          version: 2.20.2
+      - run: etc/testing/circle/install.sh
+      - run: etc/testing/circle/start-kind.sh
+      - run: etc/testing/circle/deploy-pachyderm.sh
+      - run: echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
+      - run: touch .env.development.local
+      - run: make setup-ci-auth
+      - run: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e-auth
+      - run: (yes || true) | pachctl auth deactivate
+      - run: pachctl enterprise deactivate
+      - run: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
+      - store_artifacts:
+          path: /tmp/cypress-screenshots
+      - store_artifacts:
+          path: /tmp/cypress-videos
+  load-test:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202111-01
+    steps:
+      - checkout
+      - run: sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+      - run: echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+      - run: sudo apt-get update
+      - run: sudo apt-get install k6
+      - run: make ci
+      - gh/setup:
+          version: 2.20.2
+      - run: etc/testing/circle/install.sh
+      - run: etc/testing/circle/start-kind.sh
+      - run: etc/testing/circle/deploy-pachyderm.sh
+      - run: echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
+      - run: touch .env.development.local
+      - run: make setup-ci-auth
+      - run: npm run load-setup
+      - run: pachctl port-forward & npm run load-test:ci
+  build:
+    resource_class: xlarge
+    docker:
+      - image: cimg/node:16.14.2
+    steps:
+      - checkout
+      - run: make ci
+      - run: make build
+  check-types:
+    resource_class: xlarge
+    docker:
+      - image: cimg/node:16.14.2
+    steps:
+      - checkout
+      - run: make ci
+      - run: make graphql
+      - run: sh ./scripts/checkTypeChanges.sh
+  docker-build:
+    parameters:
+      resource_class:
+        type: string
+    resource_class: << parameters.resource_class >>
+    machine:
+      image: ubuntu-2004:202101-01
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
+      - run:
+          name: Build application Docker image
+          command: |
+            make circle-docker-build
+      - save_cache:
+          key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
+          paths:
+            - /tmp/docker-cache
+  docker-manifest:
+    machine:
+      image: ubuntu-2004:202101-01
+    steps:
+      - checkout
+      - run:
+          name: Create Multiarch Manifest
+          command: |
+            make circle-docker-manifest
+  preview:
+    docker:
+      - image: node:16.14.2
+    steps:
+      - checkout
+      - jq/install
+      - run:
+          name: Comment on PR
+          command: |
+            export GH_ACCESS_TOKEN=${GHI_TOKEN}
+            PACHYDERM_VERSION=$(jq -r .pachyderm ./version.json)
+            RELEASE_COMMIT=$(jq -r .pachReleaseCommit ./version.json)
+            wget https://github.com/chainlink/onecomment/releases/download/v0.2.0/onecomment_0.2.0_Linux_x86_64.tar.gz
+            tar xvf onecomment_0.2.0_Linux_x86_64.tar.gz
 
-                  # Setup GH token env var in circle project
-                  ./onecomment -pr-id ${CIRCLE_PULL_REQUEST##*/} \
-                  -owner pachyderm -repo haberdashery \
-                  -includes '<!-- Created by one-comment -->' \
-                  -message "PR Preview available at [https://$HELIUM_NAME.workspace.pachyderm.com](https://$HELIUM_NAME.workspace.pachyderm.com) and [https://helium.pachyderm.io/get/$HELIUM_NAME](https://helium.pachyderm.io/get/$HELIUM_NAME)"
-    redhat-release:
-        docker:
-          - image: cimg/base:2022.04
-        steps:
-          - checkout
-          - setup_remote_docker:
-              docker_layer_caching: true
-              version: "20.10.12"
-          - run: etc/redhat/push_images.sh
+            # Setup GH token env var in circle project
+            ./onecomment -pr-id ${CIRCLE_PULL_REQUEST##*/} \
+            -owner pachyderm -repo haberdashery \
+            -includes '' \
+            -message "Install a console image of this branch locally with:
+            \`\`\`bash
+            helm repo add pachyderm https://pachyderm.github.io/helmchart 
+            helm repo update
+            helm uninstall pachd
+
+            helm install \\
+              --wait --timeout 10m pachd pach/pachyderm \\
+              --version=$PACHYDERM_VERSION \\
+              --set deployTarget=LOCAL \\
+              --set console.image.tag=<<pipeline.git.revision>> \\
+              --set console.config.disableTelemetry=true \\
+              --set pachd.image.tag=$RELEASE_COMMIT
+            \`\`\`
+            To start port forwarding use the following commands:
+            \`\`\`bash
+            pachctl config import-kube local --overwrite
+            pachctl config set active-context local
+            pachctl port-forward
+            \`\`\`
+            "
+  redhat-release:
+    docker:
+      - image: cimg/base:2022.04
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+          version: '20.10.12'
+      - run: etc/redhat/push_images.sh
 
 workflows:
-    version: 2
-    test:
-        when:
-            not:
-                equal: [scheduled_pipeline, << pipeline.trigger_source >>]
-        jobs:
-            - backend-test
-            - frontend-test
-            - e2e-test
-            - e2e-mock-test
-            - check-types
-            - build
-            - integration-test
-    storybook-release:
-        jobs:
-            - components-storybook-release:
-                  filters:
-                      branches:
-                          only: master
-    load-test:
-        when:
-            equal: [scheduled_pipeline, << pipeline.trigger_source >>]
-        jobs:
-            - load-test
-    docker-build:
-        jobs:
-            - docker-build:
-                matrix:
-                    parameters:
-                        resource_class:
-                        - large
-                        - arm.large
-            - docker-manifest:
-                requires:
-                - docker-build
-            - preview:
-                requires:
-                - docker-manifest
-                filters:
-                    branches:
-                        ignore: master
-    docker-release:
-        jobs:
-            - docker-build:
-                filters: *only-release-tags
-                matrix:
-                    parameters:
-                        resource_class:
-                        - large
-                        - arm.large
-            - docker-manifest:
-                filters: *only-release-tags
-                requires:
-                - docker-build
-            - redhat-release:
-                filters: *only-release-tags
+  version: 2
+  test:
+    when:
+      not:
+        equal: [scheduled_pipeline, << pipeline.trigger_source >>]
+    jobs:
+      - backend-test
+      - frontend-test
+      - e2e-test
+      - e2e-mock-test
+      - check-types
+      - build
+      - integration-test
+  storybook-release:
+    jobs:
+      - components-storybook-release:
+          filters:
+            branches:
+              only: master
+  load-test:
+    when:
+      equal: [scheduled_pipeline, << pipeline.trigger_source >>]
+    jobs:
+      - load-test
+  docker-build:
+    jobs:
+      - docker-build:
+          matrix:
+            parameters:
+              resource_class:
+                - large
+                - arm.large
+      - docker-manifest:
+          requires:
+            - docker-build
+      - preview:
+          requires:
+          - docker-manifest
+          filters:
+            branches:
+              ignore: master
+  docker-release:
+    jobs:
+      - docker-build:
+          filters: *only-release-tags
+          matrix:
+            parameters:
+              resource_class:
+                - large
+                - arm.large
+      - docker-manifest:
+          filters: *only-release-tags
+          requires:
+            - docker-build
+      - redhat-release:
+          filters: *only-release-tags

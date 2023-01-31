@@ -18,9 +18,6 @@ Your PRs should be concise and descriptive to the contents of your changeset. If
 - Include any additional details required to be able to see and run the changeset. E.g. Any preliminary setup steps, necessary configurations, or helpful tips.
 - Include any details about changes external to the PR. E.g. A link to changes in CI, an example of a bot in action, or a link to a cloud console.
 
-### Pulumi Preview
-Whenever you create or update a PR, a GitHub Action runs that generates a docker image based on the code in the branch. It will be deployed by [Pulumi](https://www.pulumi.com/) and accessible from the PR comment using `admin` and `password` credentials.
-
 <br/>
 
 ## Working with GraphQL
