@@ -35,6 +35,8 @@ const (
 	SecretHeader = "NAME\tTYPE\tCREATED\t\n"
 	// jobReasonLen is the amount of the job reason that we print
 	jobReasonLen = 25
+	// KubeEventsHeader is the header for kubernetes events
+	KubeEventsHeader = "LAST SEEN\tTYPE\tREASON\tOBJECT\tMESSAGE\t\n"
 )
 
 func safeTrim(s string, l int) string {
@@ -42,6 +44,40 @@ func safeTrim(s string, l int) string {
 		return s
 	}
 	return strings.TrimSpace(s[:l]) + "..."
+}
+
+func PrintKubeEvent(w io.Writer, event string) {
+	type LokiLog struct {
+		Event string `json:"log"`
+	}
+	var log LokiLog
+	if err := json.Unmarshal([]byte(event), &log); err != nil {
+		fmt.Fprintf(w, "error unmarshalling kubernetes event: %v", errors.EnsureStack(err))
+		return
+	}
+	type KubeEvent struct {
+		Message string `json:"msg"`
+		Event   struct {
+			Type     string `json:"type"`
+			LastSeen uint64 `json:"lastTimestamp"`
+			Reason   string `json:"reason"`
+			Object   struct {
+				Name string `json:"name"`
+			} `json:"involvedObject"`
+		} `json:"event"`
+	}
+	var kubeEvent KubeEvent
+	if err := json.Unmarshal([]byte(log.Event), &kubeEvent); err != nil {
+		fmt.Fprintf(w, "error unmarshalling kubernetes event: %v", errors.EnsureStack(err))
+		return
+	}
+	lastSeen := types.Timestamp{Seconds: int64(kubeEvent.Event.LastSeen)}
+	fmt.Fprintf(w, "%s\t", pretty.Ago(&lastSeen))
+	fmt.Fprintf(w, "%s\t", kubeEvent.Event.Type)
+	fmt.Fprintf(w, "%s\t", kubeEvent.Event.Reason)
+	fmt.Fprintf(w, "%s\t", kubeEvent.Event.Object.Name)
+	fmt.Fprintf(w, "%s\t", kubeEvent.Message)
+	fmt.Fprintln(w)
 }
 
 // PrintJobInfo pretty-prints job info.
