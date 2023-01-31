@@ -849,13 +849,13 @@ func (c APIClient) getLogs(projectName, pipelineName, jobID string, data []strin
 	return resp
 }
 
-func (c APIClient) GetKubeEventTail() ([]*pps.LokiLogMessage, error) {
+func (c APIClient) GetKubeEvents(since time.Duration) ([]*pps.LokiLogMessage, error) {
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
 	request := pps.LokiRequest{
-		Since: types.DurationProto(0),
+		Since: types.DurationProto(since),
 	}
-	client, err := c.PpsAPIClient.GetKubeEventTail(ctx, &request)
+	client, err := c.PpsAPIClient.GetKubeEvents(ctx, &request)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}

@@ -1343,12 +1343,16 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 	return errors.EnsureStack(err)
 }
 
-func (a *apiServer) GetKubeEventTail(request *pps.LokiRequest, apiGetKubeEventsServer pps.API_GetKubeEventTailServer) (retErr error) {
+func (a *apiServer) GetKubeEvents(request *pps.LokiRequest, apiGetKubeEventsServer pps.API_GetKubeEventsServer) (retErr error) {
 	loki, err := a.env.GetLokiClient()
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	return lokiutil.QueryRange(apiGetKubeEventsServer.Context(), loki, `{app="pachyderm-kube-event-tail"}`, time.Time{}, time.Time{}, false, func(t time.Time, line string) error {
+	since := time.Time{}
+	if request.Since != nil {
+		since = time.Now().Add(-time.Duration(request.Since.Seconds) * time.Second)
+	}
+	return lokiutil.QueryRange(apiGetKubeEventsServer.Context(), loki, `{app="pachyderm-kube-event-tail"}`, since, time.Time{}, false, func(t time.Time, line string) error {
 		return errors.EnsureStack(apiGetKubeEventsServer.Send(&pps.LokiLogMessage{
 			Message: strings.TrimSuffix(line, "\n"),
 		}))

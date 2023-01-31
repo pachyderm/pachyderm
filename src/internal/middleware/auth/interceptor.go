@@ -218,7 +218,7 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/RunLoadTestDefault": authDisabledOr(authenticated),
 	"/pps_v2.API/RenderTemplate":     authDisabledOr(authenticated),
 	"/pps_v2.API/ListTask":           authDisabledOr(authenticated),
-	"/pps_v2.API/GetKubeEventTail":   authDisabledOr(authenticated),
+	"/pps_v2.API/GetKubeEvents":      authDisabledOr(authenticated),
 
 	//
 	// TransactionAPI

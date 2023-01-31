@@ -899,6 +899,6 @@ service API {
   // ListTask lists PPS tasks
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
 
-  // GetKubeEventTail returns a stream of kubernetes events
-  rpc GetKubeEventTail(LokiRequest) returns (stream LokiLogMessage) {}
+  // GetKubeEvents returns a stream of kubernetes events
+  rpc GetKubeEvents(LokiRequest) returns (stream LokiLogMessage) {}
 }

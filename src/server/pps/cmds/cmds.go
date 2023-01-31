@@ -539,6 +539,7 @@ each datum.`,
 	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listDatum, "list datum", datums))
 
+	var since string
 	kubeEvents := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Return the kubernetes events.",
@@ -549,7 +550,11 @@ each datum.`,
 				return err
 			}
 			defer client.Close()
-			events, err := client.GetKubeEventTail()
+			since, err := time.ParseDuration(since)
+			if err != nil {
+				return errors.Wrapf(err, "error parsing since(%q)", since)
+			}
+			events, err := client.GetKubeEvents(since)
 			if err != nil {
 				return err
 			}
@@ -567,6 +572,7 @@ each datum.`,
 		}),
 	}
 	kubeEvents.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
+	kubeEvents.Flags().StringVar(&since, "since", "0", "Return log messages more recent than \"since\".")
 	commands = append(commands, cmdutil.CreateAlias(kubeEvents, "kube-events"))
 
 	inspectDatum := &cobra.Command{
@@ -608,7 +614,6 @@ each datum.`,
 		worker      bool
 		follow      bool
 		tail        int64
-		since       string
 	)
 
 	// prettyLogsPrinter helps to print the logs recieved in different colours
