@@ -552,7 +552,7 @@ each datum.`,
 			defer client.Close()
 			since, err := time.ParseDuration(since)
 			if err != nil {
-				return errors.Wrapf(err, "error parsing since(%q)", since)
+				return errors.Wrapf(err, "parse since(%q)", since)
 			}
 			events, err := client.GetKubeEvents(since)
 			if err != nil {
