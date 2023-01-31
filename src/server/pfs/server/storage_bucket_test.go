@@ -97,7 +97,10 @@ func writeReadDelete(t *testing.T, url *obj.ObjectStoreURL) {
 	require.NoError(t, bucket.Delete(ctx, objName), "should be able to delete object")
 }
 
-func writeToObjStorage(ctx context.Context, t *testing.T, bucket *blob.Bucket, objName string) {
+func writeToObjStorage(ctx context.Context, t *testing.T, bucket *blob.Bucket, objName string, data ...string) {
+	exists, err := bucket.Exists(ctx, objName)
+	require.NoError(t, err, fmt.Sprintf("should be able to check if obj %s exists", objName))
+	require.Equal(t, false, exists)
 	w, err := bucket.NewWriter(ctx, objName, nil)
 	require.NoError(t, err, fmt.Sprintf("should be able to create writer for %s", objName))
 	defer func() {
@@ -105,7 +108,11 @@ func writeToObjStorage(ctx context.Context, t *testing.T, bucket *blob.Bucket, o
 			require.NoError(t, err, "should be able to close writer")
 		}
 	}()
-	_, err = w.Write([]byte(objName))
+	objData := []byte(objName)
+	if len(data) != 0 {
+		objData = []byte(data[0])
+	}
+	_, err = w.Write(objData)
 	require.NoError(t, err, fmt.Sprintf("should be able to write to %s", objName))
 }
 
