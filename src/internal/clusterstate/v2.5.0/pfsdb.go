@@ -384,11 +384,19 @@ func deleteCommit(ctx context.Context, tx *pachsql.Tx, ci *pfs.CommitInfo, ances
 	if err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_provenance SET from_id=$1 WHERE from_id=$2;`, ancestorId, cId); err != nil {
-		return errors.Wrapf(err, "update commit provenance for commit %q", commitKey(ci.Commit))
+	// update provenance pointers
+	if _, err := tx.ExecContext(ctx, `INSERT INTO pfs.commit_provenance (from_id, to_id) 
+                                          SELECT $1, to_id FROM pfs.commit_provenance WHERE from_id=$2 ON CONFLICT DO NOTHING;`,
+		ancestorId, cId); err != nil {
+		return errors.Wrapf(err, "update commit 'from' provenance for commit %q", commitKey(ci.Commit))
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_provenance SET to_id=$1 WHERE to_id=$2;`, ancestorId, cId); err != nil {
-		return errors.Wrapf(err, "update commit provenance for commit %q", commitKey(ci.Commit))
+	if _, err := tx.ExecContext(ctx, `INSERT INTO pfs.commit_provenance (from_id, to_id)                                       
+                                          SELECT from_id, $1 FROM pfs.commit_provenance WHERE to_id=$2 ON CONFLICT DO NOTHING;`,
+		ancestorId, cId); err != nil {
+		return errors.Wrapf(err, "update commit 'to' provenance for commit %q", commitKey(ci.Commit))
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.commit_provenance WHERE from_id=$1 OR to_id=$1;`, cId); err != nil {
+		return errors.Wrapf(err, "update commit 'to' provenance for commit %q", commitKey(ci.Commit))
 	}
 	// delete commit
 	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.commits WHERE int_id=$1;`, cId); err != nil {
@@ -588,11 +596,11 @@ func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		return errors.Wrap(err, "recollect commits")
 	}
 	for _, ci := range cis {
-		cp, err := commitProvenance(tx, ci.Commit.Repo, ci.Commit.Branch, ci.Commit.ID)
+		var err error
+		ci.CommitProvenance, err = commitProvenance(tx, ci.Commit.Repo, ci.Commit.Branch, ci.Commit.ID)
 		if err != nil {
 			return err
 		}
-		ci.CommitProvenance = cp
 		if err := updateCommitInfo(ctx, tx, commitKey(ci.Commit), ci); err != nil {
 			return errors.Wrapf(err, "update CommitProvenance for %q", commitKey(ci.Commit))
 		}
