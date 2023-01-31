@@ -56,7 +56,7 @@ func CommitSetProvenance(tx *pachsql.Tx, id string) ([]*pfs.Commit, error) {
 }
 
 // CommitSetSubvenance returns all the commit IDs that contain commits in this commit set in their
-// full provenance
+// full (transitive) provenance
 func CommitSetSubvenance(tx *pachsql.Tx, id string) ([]*pfs.Commit, error) {
 	q := `
           WITH RECURSIVE subv(from_id, to_id) AS (

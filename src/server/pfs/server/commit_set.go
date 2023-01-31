@@ -18,7 +18,7 @@ import (
 // A commit set will include all the commits that were created across repos for a run, along
 // with all of the commits that the run's commit's rely on (present in previous commit sets).
 func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, filterAliases bool) ([]*pfs.CommitInfo, error) {
-	commits := make(map[string]*pfs.CommitInfo) // commit key -> commit info
+	cis := make([]*pfs.CommitInfo, 0)
 	if !filterAliases {
 		cs, err := pfsdb.CommitSetProvenance(txnCtx.SqlTx, commitset.ID)
 		if err != nil {
@@ -29,15 +29,24 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(c, ci); err != nil {
 				return nil, err
 			}
-			commits[pfsdb.CommitKey(ci.Commit)] = ci
+			cis = append(cis, ci)
 		}
 	}
 	ci := &pfs.CommitInfo{}
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitset.ID, ci, col.DefaultOptions(), func(string) error {
-		commits[pfsdb.CommitKey(ci.Commit)] = proto.Clone(ci).(*pfs.CommitInfo)
+		cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
 		return nil
 	}); err != nil {
 		return nil, err
+	}
+	return TopologicalSort(cis), nil
+}
+
+// TopologicalSort sorts a slice of commit infos topologically based on their provenance
+func TopologicalSort(cis []*pfs.CommitInfo) []*pfs.CommitInfo {
+	commits := make(map[string]*pfs.CommitInfo)
+	for _, ci := range cis {
+		commits[pfsdb.CommitKey(ci.Commit)] = ci
 	}
 	commitSubv := make(map[string][]string) // maps commit key -> []commit keys
 	queue := make([]string, 0)
@@ -82,7 +91,7 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 			}
 		}
 	}
-	return res, nil
+	return res
 }
 
 func (d *driver) inspectCommitSetImmediate(ctx context.Context, commitset *pfs.CommitSet, cb func(*pfs.CommitInfo) error) error {
@@ -245,7 +254,19 @@ func (d *driver) squashCommitSets(txnCtx *txncontext.TransactionContext, commits
 	return nil
 }
 
-// deleteCommits accepts commitInfos that may span commit sets.
+// deleteCommits() accepts commitInfos that may span commit sets.
+//
+// Since commits are only deleted as part of deleting a commit set, in most cases
+// we will delete many commits at a time. The graph traversal computations can result
+// in many I/Os. Therefore, this function bulkifies the graph traversals to run the
+// entire operation performantly. This function takes care to load and save an object
+// no more than one time.
+//
+// to delete a single commit
+// 1. delete the commit's file set
+// 2. check to whether the commit was at the head of a branch, and update the branch head if necessary
+// 3. updating the ChildCommits pointers of deletedCommit.ParentCommit
+// 4. updating the ParentCommit pointer of deletedCommit.ChildCommits
 func (d *driver) deleteCommits(txnCtx *txncontext.TransactionContext, commitInfos []*pfs.CommitInfo) error {
 	deleteCommits := make(map[string]*pfs.CommitInfo)
 	repos := make(map[string]*pfs.Repo)
@@ -423,6 +444,19 @@ func traverseToEdges(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.Commit
 	return result
 }
 
+// a commit set 'X' is subvenant to another commit set 'Y' if it contains commits
+// that are subvenant to commits in 'Y'.
+// commit set subvenance is transitivie. So if 'X' is subvenant to 'Y', and 'Y', is provenant to
+//
+// imagine the commit provenance graph where r@X & q@Y are in p@Y's provenance. q@Y is also in s@Z's provenance.
+// i.e.
+// r@X    q@Y
+//  \     / \
+//   \   /   \
+//    p@Y    s@Z
+// CommitSetSubvenance(X) evaluates to [p@Y]. Since we delete commit sets in batches, we would delete all of
+// commit set Y. But this would inadvertently kill commit q@Y which is in s@Z's provenance. Therefore,
+// we re-evaluate CommitSetSubvenance for each collected commit set until or resulting set becomes stable.
 func (d *driver) subvenantCommitSets(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) ([]*pfs.CommitSet, error) {
 	collectSubvCommitSets := func(setIDs map[string]struct{}) (map[string]struct{}, error) {
 		subvCommitSets := make(map[string]struct{})
