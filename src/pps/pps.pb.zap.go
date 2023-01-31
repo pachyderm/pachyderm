@@ -86,6 +86,7 @@ func (x *Transform) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("working_dir", x.WorkingDir)
 	enc.AddString("dockerfile", x.Dockerfile)
 	enc.AddBool("memory_volume", x.MemoryVolume)
+	enc.AddBool("datum_batching", x.DatumBatching)
 	return nil
 }
 
@@ -522,7 +523,6 @@ func (x *PipelineInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		return nil
 	}
 	enc.AddArray("tolerations", zapcore.ArrayMarshalerFunc(tolerationsArrMarshaller))
-	enc.AddBool("batching", x.Batching)
 	return nil
 }
 
@@ -815,7 +815,6 @@ func (x *CreatePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 		return nil
 	}
 	enc.AddArray("tolerations", zapcore.ArrayMarshalerFunc(tolerationsArrMarshaller))
-	enc.AddBool("batching", x.Batching)
 	return nil
 }
 

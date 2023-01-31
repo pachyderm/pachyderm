@@ -38,6 +38,7 @@ message Transform {
   string working_dir = 12;
   string dockerfile = 13;
   bool memory_volume = 14;
+  bool datum_batching = 15;
 }
 
 message TFJob {
@@ -456,7 +457,6 @@ message PipelineInfo {
     string worker_rc = 32;
     bool autoscaling = 33;
     repeated Toleration tolerations = 34;
-    bool batching = 35;
   }
   Details details = 12;
 }
@@ -709,9 +709,7 @@ message CreatePipelineRequest {
   Metadata metadata = 28;
   string reprocess_spec = 29;
   bool autoscaling = 30;
-  // TODO: Why is there a field number gap here?
   repeated Toleration tolerations = 34;
-  bool batching = 35;
 }
 
 message InspectPipelineRequest {

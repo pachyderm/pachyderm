@@ -11632,12 +11632,12 @@ func TestDatumBatching(t *testing.T) {
 		return &pps.CreatePipelineRequest{
 			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
-				Cmd:   []string{"bash"},
-				Stdin: []string{script},
+				Cmd:           []string{"bash"},
+				Stdin:         []string{script},
+				DatumBatching: true,
 			},
 			Input:        client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
 			DatumSetSpec: &pps.DatumSetSpec{Number: 5},
-			Batching:     true,
 		}
 	}
 	check := func(pipeline string) {

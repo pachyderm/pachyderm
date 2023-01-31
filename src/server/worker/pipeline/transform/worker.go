@@ -276,7 +276,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, task *DatumS
 					datum.WithPFSOutput(mfPFS),
 					datum.WithStats(stats),
 				}
-				if driver.PipelineInfo().Details.Batching {
+				if driver.PipelineInfo().Details.Transform.DatumBatching {
 					return handleDatumSetBatching(ctx, driver, logger, task, status, cacheClient, di, opts)
 				}
 				return forEachDatum(ctx, driver, logger, task, status, cacheClient, di, opts, func(ctx context.Context, logger logs.TaggedLogger, env []string) error {
