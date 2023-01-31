@@ -186,7 +186,7 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 		err := doer.Do(ctx, inputChan, func(_ int64, output *types.Any, err error) error { return err })
 		return errors.EnsureStack(err)
 	})
-	var size int64
+	var bytesWritten int64
 	eg.Go(func() error {
 		src, err := d.getFile(ctx, file, basePathRange)
 		if err != nil {
@@ -211,14 +211,15 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 			}
 			return nil
 		}
-		var count int64
+		var numObjects, size int64
 		if err := src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
 			if fi.FileType != pfs.FileType_FILE {
 				return nil
 			}
-			count++
+			numObjects++
 			size += fi.SizeBytes
-			if count >= int64(defaultNumObjectsThreshold) || size >= defaultSizeThreshold {
+			bytesWritten += fi.SizeBytes
+			if numObjects >= int64(defaultNumObjectsThreshold) || size >= defaultSizeThreshold {
 				pathRange.Upper = file.Index().Path
 				if err := createTask(); err != nil {
 					return err
@@ -226,7 +227,7 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 				pathRange = &pfs.PathRange{
 					Lower: file.Index().Path,
 				}
-				count, size = 0, 0
+				numObjects, size = 0, 0
 			}
 			return nil
 		}); err != nil {
@@ -242,5 +243,5 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 	if err := eg.Wait(); err != nil {
 		return 0, errors.EnsureStack(err)
 	}
-	return size, nil
+	return bytesWritten, nil
 }
