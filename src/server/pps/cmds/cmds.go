@@ -553,13 +553,20 @@ each datum.`,
 			if err != nil {
 				return err
 			}
-			for _, event := range events {
-				fmt.Println(event.Message)
+			if raw {
+				for _, event := range events {
+					fmt.Println(event.Message)
+				}
+				return nil
 			}
-			//fmt.Println("events")
-			return nil
+			writer := tabwriter.NewWriter(os.Stdout, pretty.KubeEventsHeader)
+			for _, event := range events {
+				pretty.PrintKubeEvent(writer, event.Message)
+			}
+			return writer.Flush()
 		}),
 	}
+	kubeEvents.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
 	commands = append(commands, cmdutil.CreateAlias(kubeEvents, "kube-events"))
 
 	inspectDatum := &cobra.Command{
