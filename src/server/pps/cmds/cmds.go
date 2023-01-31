@@ -539,6 +539,42 @@ each datum.`,
 	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listDatum, "list datum", datums))
 
+	var since string
+	kubeEvents := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Return the kubernetes events.",
+		Long:  "Return the kubernetes events.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			since, err := time.ParseDuration(since)
+			if err != nil {
+				return errors.Wrapf(err, "parse since(%q)", since)
+			}
+			events, err := client.GetKubeEvents(since)
+			if err != nil {
+				return err
+			}
+			if raw {
+				for _, event := range events {
+					fmt.Println(event.Message)
+				}
+				return nil
+			}
+			writer := tabwriter.NewWriter(os.Stdout, pretty.KubeEventsHeader)
+			for _, event := range events {
+				pretty.PrintKubeEvent(writer, event.Message)
+			}
+			return writer.Flush()
+		}),
+	}
+	kubeEvents.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
+	kubeEvents.Flags().StringVar(&since, "since", "0", "Return log messages more recent than \"since\".")
+	commands = append(commands, cmdutil.CreateAlias(kubeEvents, "kube-events"))
+
 	inspectDatum := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job> <datum>",
 		Short: "Display detailed info about a single datum.",
@@ -578,7 +614,6 @@ each datum.`,
 		worker      bool
 		follow      bool
 		tail        int64
-		since       string
 	)
 
 	// prettyLogsPrinter helps to print the logs recieved in different colours

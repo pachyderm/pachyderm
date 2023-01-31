@@ -5397,6 +5397,14 @@ func TestPFS(suite *testing.T) {
 				require.NoError(t, err)
 				require.True(t, bytes.Equal([]byte(path), buf.Bytes()))
 			}
+			require.NoError(t, objC.Delete(ctx, "files/*"))
+			require.NoError(t, env.PachClient.GetFileURL(commit, "files/*", bucketURL))
+			for _, path := range paths {
+				buf := &bytes.Buffer{}
+				err := objC.Get(context.Background(), path, buf)
+				require.NoError(t, err)
+				require.True(t, bytes.Equal([]byte(path), buf.Bytes()))
+			}
 		}
 		check()
 		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
