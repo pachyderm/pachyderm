@@ -859,7 +859,7 @@ func (c APIClient) GetKubeEventTail() ([]*pps.LokiLogMessage, error) {
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return clientsdk.ListLokiLine(client)
+	return clientsdk.ListLokiLogs(client)
 }
 
 // CreatePipeline creates a new pipeline, pipelines are the main computation

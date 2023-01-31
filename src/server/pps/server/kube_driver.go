@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"io"
 	"path"
 
 	"github.com/pachyderm/pachyderm/v2/src/client/limit"
@@ -189,34 +188,4 @@ func (kd *kubeDriver) WatchPipelinePods(ctx context.Context) (<-chan watch.Event
 		return nil, nil, errors.Wrap(err, "failed to watch kubernetes pods")
 	}
 	return kubePipelineWatch.ResultChan(), kubePipelineWatch.Stop, nil
-}
-
-func (kd *kubeDriver) GetKubeEventTail(ctx context.Context) (string, error) {
-	// find kube-event-tail pod
-	pods, err := kd.kubeClient.CoreV1().Pods(kd.namespace).List(ctx, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-		map[string]string{"app": "pachyderm-kube-event-tail"},
-	))})
-	if err != nil {
-		return "", errors.Wrap(err, "failed to get kube-event-tail pod")
-	}
-	if len(pods.Items) == 0 {
-		return "", errors.New("no kube-event-tail pods found")
-	} else if len(pods.Items) > 1 {
-		return "", errors.New("multiple kube-event-tail pods found")
-	}
-	pod := pods.Items[0]
-	logStream, err := kd.kubeClient.CoreV1().Pods(kd.namespace).GetLogs(pod.Name, &v1.PodLogOptions{}).Stream(ctx)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to get kube-event-tail logs")
-	}
-	defer func() {
-		if closeErr := logStream.Close(); err == nil {
-			err = closeErr
-		}
-	}()
-	bytes, err := io.ReadAll(logStream)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to parse kube-event-tail logs")
-	}
-	return string(bytes), nil
 }

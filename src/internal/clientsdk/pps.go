@@ -151,7 +151,7 @@ func ListJob(client pps.API_ListJobClient) ([]*pps.JobInfo, error) {
 	return results, nil
 }
 
-func ForEachLokiLine(client pps.API_GetKubeEventTailClient, cb func(*pps.LokiLogMessage) error) error {
+func ForEachLokiLog(client pps.API_GetKubeEventTailClient, cb func(*pps.LokiLogMessage) error) error {
 	for {
 		x, err := client.Recv()
 		if err != nil {
@@ -170,9 +170,9 @@ func ForEachLokiLine(client pps.API_GetKubeEventTailClient, cb func(*pps.LokiLog
 	return nil
 }
 
-func ListLokiLine(client pps.API_GetKubeEventTailClient) ([]*pps.LokiLogMessage, error) {
+func ListLokiLogs(client pps.API_GetKubeEventTailClient) ([]*pps.LokiLogMessage, error) {
 	var results []*pps.LokiLogMessage
-	if err := ForEachLokiLine(client, func(x *pps.LokiLogMessage) error {
+	if err := ForEachLokiLog(client, func(x *pps.LokiLogMessage) error {
 		results = append(results, x)
 		return nil
 	}); err != nil {
