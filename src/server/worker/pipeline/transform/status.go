@@ -20,6 +20,7 @@ type Status struct {
 	jobID       string
 	datumStatus *pps.DatumStatus
 	cancel      func()
+	batchMutex  sync.Mutex
 	nextChan    chan error
 	setupChan   chan []string
 }
@@ -102,7 +103,28 @@ func (s *Status) Cancel(jobID string, datumFilter []string) bool {
 	return false
 }
 
+func (s *Status) withDatumBatch(cb func(<-chan error, chan<- []string) error) error {
+	s.withBatchLock(func() {
+		if s.nextChan != nil {
+			panic("multiple goroutines attempting to set up a datum batch")
+		}
+		s.nextChan, s.setupChan = make(chan error), make(chan []string)
+	})
+	defer s.withBatchLock(func() {
+		s.nextChan, s.setupChan = nil, nil
+	})
+	return cb(s.nextChan, s.setupChan)
+}
+
+func (s *Status) withBatchLock(cb func()) {
+	s.batchMutex.Lock()
+	cb()
+	s.batchMutex.Unlock()
+}
+
 func (s *Status) NextDatum(ctx context.Context, err error) ([]string, error) {
+	s.batchMutex.Lock()
+	defer s.batchMutex.Unlock()
 	if s.nextChan == nil {
 		return nil, errors.New("datum batching not enabled")
 	}

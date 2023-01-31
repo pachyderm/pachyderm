@@ -305,66 +305,66 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, task *DatumS
 }
 
 func handleDatumSetBatching(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger, task *DatumSetTask, status *Status, cacheClient *pfssync.CacheClient, di datum.Iterator, setOpts []datum.SetOption) error {
-	nextChan, setupChan := make(chan error), make(chan []string)
-	status.nextChan, status.setupChan = nextChan, setupChan
-	// Set up the restart mechanism for the user code.
-	var cancel context.CancelFunc
-	var errChan chan error
-	stop := func() {
-		if cancel != nil {
-			cancel()
-			<-errChan
-		}
-	}
-	defer stop()
-	start := func() error {
-		var cancelCtx context.Context
-		cancelCtx, cancel = context.WithCancel(ctx)
-		errChan = make(chan error, 1)
-		go func() {
-			err := driver.RunUserCode(cancelCtx, logger, nil)
-			if err == nil {
-				err = errors.New("user code exited prematurely")
+	return status.withDatumBatch(func(nextChan <-chan error, setupChan chan<- []string) error {
+		// Set up the restart mechanism for the user code.
+		var cancel context.CancelFunc
+		var errChan chan error
+		stop := func() {
+			if cancel != nil {
+				cancel()
+				<-errChan
 			}
-			errChan <- err
-			close(errChan)
-		}()
-		select {
-		case <-nextChan:
-			return nil
-		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err())
 		}
-	}
-	// Start the user code, then iterate through the datums.
-	if err := start(); err != nil {
-		return errors.Wrap(err, "error starting user code")
-	}
-	return forEachDatum(ctx, driver, logger, task, status, cacheClient, di, setOpts, func(ctx context.Context, logger logs.TaggedLogger, env []string) (retErr error) {
-		defer func() {
-			// Restart the user code if an error occurred.
-			if retErr != nil {
-				stop()
-				if err := start(); err != nil {
-					retErr = multierror.Append(retErr, errors.Wrap(err, "error restarting user code"))
+		defer stop()
+		start := func() error {
+			var cancelCtx context.Context
+			cancelCtx, cancel = context.WithCancel(ctx)
+			errChan = make(chan error, 1)
+			go func() {
+				err := driver.RunUserCode(cancelCtx, logger, nil)
+				if err == nil {
+					err = errors.New("user code exited prematurely")
 				}
+				errChan <- err
+				close(errChan)
+			}()
+			select {
+			case <-nextChan:
+				return nil
+			case <-ctx.Done():
+				return errors.EnsureStack(ctx.Err())
 			}
-		}()
-		select {
-		case status.setupChan <- env:
-		case err := <-errChan:
-			return errors.Wrap(err, "error running user code")
-		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err())
 		}
-		select {
-		case err := <-nextChan:
-			return err
-		case err := <-errChan:
-			return errors.Wrap(err, "error running user code")
-		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err())
+		// Start the user code, then iterate through the datums.
+		if err := start(); err != nil {
+			return errors.Wrap(err, "error starting user code")
 		}
+		return forEachDatum(ctx, driver, logger, task, status, cacheClient, di, setOpts, func(ctx context.Context, logger logs.TaggedLogger, env []string) (retErr error) {
+			defer func() {
+				// Restart the user code if an error occurred.
+				if retErr != nil {
+					stop()
+					if err := start(); err != nil {
+						retErr = multierror.Append(retErr, errors.Wrap(err, "error restarting user code"))
+					}
+				}
+			}()
+			select {
+			case status.setupChan <- env:
+			case err := <-errChan:
+				return errors.Wrap(err, "error running user code")
+			case <-ctx.Done():
+				return errors.EnsureStack(ctx.Err())
+			}
+			select {
+			case err := <-nextChan:
+				return err
+			case err := <-errChan:
+				return errors.Wrap(err, "error running user code")
+			case <-ctx.Done():
+				return errors.EnsureStack(ctx.Err())
+			}
+		})
 	})
 }
 
