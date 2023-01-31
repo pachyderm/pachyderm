@@ -27,7 +27,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	workerstats "github.com/pachyderm/pachyderm/v2/src/server/worker/stats"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 )
 
@@ -1003,41 +1002,6 @@ func (kd *kubeDriver) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pp
 		},
 	}
 	if _, err := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).Create(ctx, rc, metav1.CreateOptions{}); err != nil {
-		if !errutil.IsAlreadyExistError(err) {
-			return errors.EnsureStack(err)
-		}
-	}
-	serviceAnnotations := map[string]string{
-		"prometheus.io/scrape": "true",
-		"prometheus.io/port":   strconv.Itoa(workerstats.PrometheusPort),
-	}
-
-	service := &v1.Service{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Service",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        options.rcName,
-			Labels:      options.labels,
-			Annotations: serviceAnnotations,
-		},
-		Spec: v1.ServiceSpec{
-			Selector:  options.labels,
-			ClusterIP: "None", // headless, so as not to consume an IP address in the cluster
-			Ports: []v1.ServicePort{
-				{
-					Port: int32(kd.config.PPSWorkerPort),
-					Name: "grpc-port",
-				},
-				{
-					Port: workerstats.PrometheusPort,
-					Name: "prom-metrics",
-				},
-			},
-		},
-	}
-	if _, err := kd.kubeClient.CoreV1().Services(kd.namespace).Create(ctx, service, metav1.CreateOptions{}); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
 			return errors.EnsureStack(err)
 		}
