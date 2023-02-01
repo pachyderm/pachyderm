@@ -522,6 +522,7 @@ func (x *PipelineInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		return nil
 	}
 	enc.AddArray("tolerations", zapcore.ArrayMarshalerFunc(tolerationsArrMarshaller))
+	enc.AddString("k8s_name_version", x.K8SNameVersion)
 	return nil
 }
 

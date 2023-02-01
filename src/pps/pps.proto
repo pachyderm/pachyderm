@@ -456,6 +456,18 @@ message PipelineInfo {
     string worker_rc = 32;
     bool autoscaling = 33;
     repeated Toleration tolerations = 34;
+
+    // k8s_name_version determines how Kubernetes objects
+    // (e.g. ReplicationControllers and Services) associated with this pipeline
+    // are named.  If it is set to "v2.4" then objects will be named
+    // "pipeline-$NAME-v$version"; this can conflict with other objects in
+    // different projects with the same name.  If it is set to "v2.5" then
+    // objects will be named "pipeline-$UNIQUENAME-v$version", where $UNIQUENAME
+    // ends with RawURLBase64(SHA1("$PROJECT/$NAME")) and begins with as many
+    // characters of the project and pipeline names as will fit.  It is an error
+    // to create or update a pipeline with k8s_name_version set to "v2.4" when
+    // another pipeline exists with "v2.4" and the same name.
+    string k8s_name_version = 35;
   }
   Details details = 12;
 }
