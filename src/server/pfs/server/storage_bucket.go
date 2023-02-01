@@ -25,20 +25,22 @@ import (
 
 // openBucket handles connection to s3-compatible buckets, gcp buckets, and azure containers using the go-cdk library.
 func openBucket(ctx context.Context, url *obj.ObjectStoreURL) (*blob.Bucket, error) {
-	if os.Getenv("CUSTOM_ENDPOINT") != "" {
-		if url.Params != "" {
-			url.Params += "&"
-		}
-		url.Params += "endpoint=" + os.Getenv("CUSTOM_ENDPOINT")
-	}
-	if os.Getenv("DISABLE_SSL") != "" {
-		if url.Params != "" {
-			url.Params += "&"
-		}
-		url.Params += "disableSSL=" + os.Getenv("DISABLE_SSL")
-	}
 	switch url.Scheme {
-	case "s3", "gs", "azblob":
+	case "s3": // these environment variables should be ignored if not using s3.
+		if os.Getenv("CUSTOM_ENDPOINT") != "" {
+			if url.Params != "" {
+				url.Params += "&"
+			}
+			url.Params += "endpoint=" + os.Getenv("CUSTOM_ENDPOINT")
+		}
+		if os.Getenv("DISABLE_SSL") != "" {
+			if url.Params != "" {
+				url.Params += "&"
+			}
+			url.Params += "disableSSL=" + os.Getenv("DISABLE_SSL")
+		}
+		fallthrough
+	case "gs", "azblob":
 		bucket, err := blob.OpenBucket(ctx, url.BucketString())
 		if err != nil {
 			return nil, errors.EnsureStack(errors.Wrapf(err, "error opening bucket %s", url.Bucket))

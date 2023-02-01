@@ -1343,6 +1343,22 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 	return errors.EnsureStack(err)
 }
 
+func (a *apiServer) GetKubeEvents(request *pps.LokiRequest, apiGetKubeEventsServer pps.API_GetKubeEventsServer) (retErr error) {
+	loki, err := a.env.GetLokiClient()
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	since := time.Time{}
+	if request.Since != nil {
+		since = time.Now().Add(-time.Duration(request.Since.Seconds) * time.Second)
+	}
+	return lokiutil.QueryRange(apiGetKubeEventsServer.Context(), loki, `{app="pachyderm-kube-event-tail"}`, since, time.Time{}, false, func(t time.Time, line string) error {
+		return errors.EnsureStack(apiGetKubeEventsServer.Send(&pps.LokiLogMessage{
+			Message: strings.TrimSuffix(line, "\n"),
+		}))
+	})
+}
+
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	ctx := apiGetLogsServer.Context()
 
@@ -1546,8 +1562,7 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 	if err := a.authorizePipelineOp(apiGetLogsServer.Context(), pipelineOpGetLogs, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name); err != nil {
 		return err
 	}
-	// TODO (CORE-1039): make project-aware
-	query := fmt.Sprintf(`{pipelineName=%q, container="user"}`, pipelineInfo.Pipeline.Name)
+	query := fmt.Sprintf(`{pipelineProject=%q, pipelineName=%q, container="user"}`, pipelineInfo.Pipeline.Project.Name, pipelineInfo.Pipeline.Name)
 	if request.Master {
 		query += contains("master")
 	}

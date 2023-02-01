@@ -211,13 +211,13 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 			}
 			return nil
 		}
-		var count int64
+		var numObjects, size int64
 		if err := src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
 			if fi.FileType != pfs.FileType_FILE {
 				return nil
 			}
 			bytesWritten += fi.SizeBytes
-			if count >= int64(defaultNumObjectsThreshold) {
+			if numObjects >= int64(defaultNumObjectsThreshold) || size >= defaultSizeThreshold {
 				pathRange.Upper = file.Index().Path
 				if err := createTask(); err != nil {
 					return err
@@ -225,9 +225,10 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 				pathRange = &pfs.PathRange{
 					Lower: file.Index().Path,
 				}
-				count = 0
+				numObjects, size = 0, 0
 			}
-			count++
+			numObjects++
+			size += fi.SizeBytes
 			return nil
 		}); err != nil {
 			return errors.EnsureStack(err)
