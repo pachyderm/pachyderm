@@ -14,7 +14,7 @@ func TestPipelineRcName(t *testing.T) {
 		version                   uint64
 		name                      string
 	}{
-		{"default", "foo", 1, "pipeline-foo-v1"},
+		{"default", "foo", 1, "default-foo-v1"},
 		{"foo", "bar", 1, "foo-bar-v1"},
 	} {
 		p := &pps.PipelineInfo{Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: c.projectName}, Name: c.pipelineName}, Version: c.version}

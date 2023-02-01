@@ -54,7 +54,7 @@ func PipelineRcName(pi *pps.PipelineInfo) string {
 	//
 	// TODO(CORE-1099): deal with name collision & too-long names
 	pipelineName := strings.ReplaceAll(pi.Pipeline.Name, "_", "-")
-	if projectName := pi.Pipeline.Project.GetName(); projectName != "" && projectName != pfs.DefaultProjectName {
+	if projectName := pi.Pipeline.Project.GetName(); projectName != "" {
 		projectName = strings.ReplaceAll(projectName, "_", "-")
 		return fmt.Sprintf("%s-%s-v%d", strings.ToLower(projectName), strings.ToLower(pipelineName), pi.Version)
 	}

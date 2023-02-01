@@ -19,7 +19,7 @@ import (
 
 func mergeDefaultOptions(project, name string, add *workerOptions) *workerOptions {
 	base := &workerOptions{
-		rcName: strings.Join([]string{"pipeline", project, name, "v0"}, "-"),
+		rcName: strings.Join([]string{project, name, "v0"}, "-"),
 		labels: map[string]string{
 			"app":             "pipeline",
 			"component":       "worker",
