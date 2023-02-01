@@ -38,6 +38,7 @@ message Transform {
   string working_dir = 12;
   string dockerfile = 13;
   bool memory_volume = 14;
+  bool datum_batching = 15;
 }
 
 message TFJob {
