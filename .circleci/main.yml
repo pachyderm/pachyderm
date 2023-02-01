@@ -409,6 +409,8 @@ jobs:
     parameters:
       bucket:
         type: string
+      env:
+        type: string
     resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -1050,6 +1052,9 @@ jobs:
     parameters:
       env:
         type: string
+      bucket:
+        type: string
+        default: ""
       action:
         type: string
       pachdVersion:
@@ -1313,7 +1318,7 @@ workflows:
             - build-docker-images
           matrix:
             parameters:
-              env:
+              env: 
                 - LOAD1_${CIRCLE_SHA1:0:5}
                 - LOAD2_${CIRCLE_SHA1:0:5}
                 # - LOAD3_${CIRCLE_SHA1:0:5}
@@ -1327,7 +1332,7 @@ workflows:
                 # - LOAD11_${CIRCLE_SHA1:0:5}
                 # - LOAD12_${CIRCLE_SHA1:0:5}
       - nightly-load:
-          name: nightly-load-<< matrix.env >>
+          name: nightly-load-<< matrix.bucket >>
           requires:
             - pulumi-aws-test-env-<< matrix.env >>
           matrix:
@@ -1349,13 +1354,19 @@ workflows:
                   #- LOAD13
                   #- LOAD14
                   #- LOAD15
+              env: 
+                - LOAD1_${CIRCLE_SHA1:0:5}
+                - LOAD2_${CIRCLE_SHA1:0:5}
       - pulumi-aws-test-env:
           name: destroy-aws-testing-env
           action: destroy
           requires:
-            - nightly-load-<< matrix.env >>
+            - nightly-load-<< matrix.bucket >>
           matrix:
             parameters:
+              bucket:
+                - LOAD1
+                - LOAD2
               env:
                 - LOAD1_${CIRCLE_SHA1:0:5}
                 - LOAD2_${CIRCLE_SHA1:0:5}
