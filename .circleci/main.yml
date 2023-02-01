@@ -409,8 +409,6 @@ jobs:
     parameters:
       bucket:
         type: string
-      env:
-        type: string
     resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -1052,9 +1050,6 @@ jobs:
     parameters:
       env:
         type: string
-      bucket:
-        type: string
-        default: ""
       action:
         type: string
       pachdVersion:
@@ -1099,7 +1094,7 @@ jobs:
                     KUBECONFIG=./kubeconfig.yml kubectl get nodes
                     export PACHD_IP=$(KUBECONFIG=./kubeconfig.yml kubectl get services --all-namespaces | grep pachyderm-proxy | awk '{print $5}')
                     # set extra values for nightly runs.
-                    export << parameters.env >>=${PACHD_IP} >> $BASH_ENV
+                    export << parameters.env >>_${CIRCLE_SHA1:0:5}=${PACHD_IP} >> $BASH_ENV
                     cp $BASH_ENV bash.env
               - persist_to_workspace:
                   root: .
@@ -1319,22 +1314,22 @@ workflows:
           matrix:
             parameters:
               env: 
-                - LOAD1_${CIRCLE_SHA1:0:5}
-                - LOAD2_${CIRCLE_SHA1:0:5}
-                # - LOAD3_${CIRCLE_SHA1:0:5}
-                # - LOAD4_${CIRCLE_SHA1:0:5}
-                # - LOAD5_${CIRCLE_SHA1:0:5}
-                # - LOAD6_${CIRCLE_SHA1:0:5}
-                # - LOAD7_${CIRCLE_SHA1:0:5}
-                # - LOAD8_${CIRCLE_SHA1:0:5}
-                # - LOAD9_${CIRCLE_SHA1:0:5}
-                # - LOAD10_${CIRCLE_SHA1:0:5}
-                # - LOAD11_${CIRCLE_SHA1:0:5}
-                # - LOAD12_${CIRCLE_SHA1:0:5}
+                - LOAD1
+                - LOAD2
+                # - LOAD3
+                # - LOAD4
+                # - LOAD5
+                # - LOAD6
+                # - LOAD7
+                # - LOAD8
+                # - LOAD9
+                # - LOAD10
+                # - LOAD11
+                # - LOAD12
       - nightly-load:
           name: nightly-load-<< matrix.bucket >>
           requires:
-            - pulumi-aws-test-env-<< matrix.env >>
+            - pulumi-aws-test-env-<< matrix.bucket >>
           matrix:
             parameters:
               bucket:
@@ -1354,32 +1349,26 @@ workflows:
                   #- LOAD13
                   #- LOAD14
                   #- LOAD15
-              env: 
-                - LOAD1_${CIRCLE_SHA1:0:5}
-                - LOAD2_${CIRCLE_SHA1:0:5}
       - pulumi-aws-test-env:
           name: destroy-aws-testing-env
           action: destroy
           requires:
-            - nightly-load-<< matrix.bucket >>
+            - nightly-load-<< matrix.env >>
           matrix:
             parameters:
-              bucket:
+              env:
                 - LOAD1
                 - LOAD2
-              env:
-                - LOAD1_${CIRCLE_SHA1:0:5}
-                - LOAD2_${CIRCLE_SHA1:0:5}
-                # - LOAD3_${CIRCLE_SHA1:0:5}
-                # - LOAD4_${CIRCLE_SHA1:0:5}
-                # - LOAD5_${CIRCLE_SHA1:0:5}
-                # - LOAD6_${CIRCLE_SHA1:0:5}
-                # - LOAD7_${CIRCLE_SHA1:0:5}
-                # - LOAD8_${CIRCLE_SHA1:0:5}
-                # - LOAD9_${CIRCLE_SHA1:0:5}
-                # - LOAD10_${CIRCLE_SHA1:0:5}
-                # - LOAD11_${CIRCLE_SHA1:0:5}
-                # - LOAD12_${CIRCLE_SHA1:0:5}
+                # - LOAD3
+                # - LOAD4
+                # - LOAD5
+                # - LOAD6
+                # - LOAD7
+                # - LOAD8
+                # - LOAD9
+                # - LOAD10
+                # - LOAD11
+                # - LOAD12
   rootless-tests:
     when:
       or:
