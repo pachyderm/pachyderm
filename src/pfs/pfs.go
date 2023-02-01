@@ -106,6 +106,9 @@ func (p *Project) ValidateName() error {
 	if p.Name == DefaultProjectName {
 		return nil
 	}
+	if len(p.Name) > 51 {
+		return errors.Errorf("project names may not exceed 51 characters")
+	}
 	if err := ancestry.ValidateName(p.Name); err != nil {
 		return err
 	}
