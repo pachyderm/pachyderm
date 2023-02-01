@@ -11620,7 +11620,7 @@ func TestDatumBatching(t *testing.T) {
 	dataRepo := tu.UniqueString("DatumBatching_data")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
-	numFiles := 25
+	numFiles := 15
 	require.NoError(t, c.WithModifyFileClient(dataCommit, func(mfc client.ModifyFile) error {
 		for i := 0; i < numFiles; i++ {
 			require.NoError(t, mfc.PutFile(fmt.Sprintf("/file-%02d", i), strings.NewReader("")))
@@ -11640,19 +11640,22 @@ func TestDatumBatching(t *testing.T) {
 			DatumSetSpec: &pps.DatumSetSpec{Number: 5},
 		}
 	}
-	check := func(pipeline string) {
-		commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+
+	checkSuccess := func(request *pps.CreatePipelineRequest) {
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(), request)
 		require.NoError(t, err)
-		_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
+		commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, request.Pipeline.Name, "master", "")
 		require.NoError(t, err)
-		fileInfos, err := c.ListFileAll(commitInfo.Commit, "")
+		jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, request.Pipeline.Name, commitInfo.Commit.ID, false)
 		require.NoError(t, err)
-		require.Equal(t, 25, len(fileInfos))
+		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+		fileInfos, err := c.ListFileAll(jobInfo.OutputCommit, "")
+		require.NoError(t, err)
+		require.Equal(t, numFiles, len(fileInfos))
 		for i := 0; i < numFiles; i++ {
 			require.Equal(t, fmt.Sprintf("/file-%02d", i), fileInfos[i].File.Path)
 		}
 	}
-
 	t.Run("Basic", func(t *testing.T) {
 		script := fmt.Sprintf(`
 			while true
@@ -11660,11 +11663,10 @@ func TestDatumBatching(t *testing.T) {
 				pachctl next datum
 				cp /pfs/%s/* /pfs/out/
 			done
-		`, dataRepo)
+			`, dataRepo)
 		pipeline := tu.UniqueString("DatumBatchingBasic")
-		_, err := c.PpsAPIClient.CreatePipeline(context.Background(), createPipelineRequest(pipeline, script))
-		require.NoError(t, err)
-		check(pipeline)
+		request := createPipelineRequest(pipeline, script)
+		checkSuccess(request)
 	})
 	t.Run("Error", func(t *testing.T) {
 		script := fmt.Sprintf(`
@@ -11678,11 +11680,10 @@ func TestDatumBatching(t *testing.T) {
 				fi
 				cp /pfs/%s/* /pfs/out/
 			done
-		`, dataRepo)
+			`, dataRepo)
 		pipeline := tu.UniqueString("DatumBatchingError")
-		_, err := c.PpsAPIClient.CreatePipeline(context.Background(), createPipelineRequest(pipeline, script))
-		require.NoError(t, err)
-		check(pipeline)
+		request := createPipelineRequest(pipeline, script)
+		checkSuccess(request)
 	})
 	t.Run("Exit", func(t *testing.T) {
 		script := fmt.Sprintf(`
@@ -11696,13 +11697,12 @@ func TestDatumBatching(t *testing.T) {
 				fi
 				cp /pfs/%s/* /pfs/out/
 			done
-		`, dataRepo)
+			`, dataRepo)
 		pipeline := tu.UniqueString("DatumBatchingExit")
-		_, err := c.PpsAPIClient.CreatePipeline(context.Background(), createPipelineRequest(pipeline, script))
-		require.NoError(t, err)
-		check(pipeline)
+		request := createPipelineRequest(pipeline, script)
+		checkSuccess(request)
 	})
-	t.Run("Timeout", func(t *testing.T) {
+	t.Run("DatumTimeout", func(t *testing.T) {
 		script := fmt.Sprintf(`
 			while true
 			do
@@ -11714,12 +11714,36 @@ func TestDatumBatching(t *testing.T) {
 				fi
 				cp /pfs/%s/* /pfs/out/
 			done
-		`, dataRepo)
-		pipeline := tu.UniqueString("DatumBatchingTimeout")
-		req := createPipelineRequest(pipeline, script)
-		req.DatumTimeout = types.DurationProto(3 * time.Second)
-		_, err := c.PpsAPIClient.CreatePipeline(context.Background(), req)
+			`, dataRepo)
+		pipeline := tu.UniqueString("DatumBatchingDatumTimeout")
+		request := createPipelineRequest(pipeline, script)
+		request.DatumTimeout = types.DurationProto(3 * time.Second)
+		checkSuccess(request)
+	})
+
+	checkState := func(request *pps.CreatePipelineRequest, state pps.JobState) {
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(), request)
 		require.NoError(t, err)
-		check(pipeline)
+		commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, request.Pipeline.Name, "master", "")
+		require.NoError(t, err)
+		jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, request.Pipeline.Name, commitInfo.Commit.ID, false)
+		require.NoError(t, err)
+		require.Equal(t, state, jobInfo.State)
+	}
+	t.Run("JobFailure", func(t *testing.T) {
+		script := `
+			pachctl next datum
+			exit 1
+			`
+		pipeline := tu.UniqueString("DatumBatchingJobFailure")
+		request := createPipelineRequest(pipeline, script)
+		checkState(request, pps.JobState_JOB_FAILURE)
+	})
+	t.Run("JobTimeout", func(t *testing.T) {
+		script := `sleep 3600`
+		pipeline := tu.UniqueString("DatumBatchingJobTimeout")
+		request := createPipelineRequest(pipeline, script)
+		request.JobTimeout = types.DurationProto(10 * time.Second)
+		checkState(request, pps.JobState_JOB_KILLED)
 	})
 }
