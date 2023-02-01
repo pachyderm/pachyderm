@@ -11573,10 +11573,10 @@ func TestJobPropagationOnlyOutputBranch(t *testing.T) {
 
 	project := tu.UniqueString("project")
 	require.NoError(t, c.CreateProject(project))
-	dataRepo := tu.UniqueString("JobPropagationOnlyOutputBranch_data")
+	dataRepo := tu.UniqueString("PropagationOnlyOutputBranch_data")
 	require.NoError(t, c.CreateProjectRepo(project, dataRepo))
 
-	pipeline := tu.UniqueString("JobPropagationOnlyOutputBranch")
+	pipeline := tu.UniqueString("pipeline")
 	outputBranch := client.NewProjectBranch(project, pipeline, "output")
 	require.NoError(t, c.CreateProjectPipeline(project,
 		pipeline,
