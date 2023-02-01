@@ -1306,6 +1306,7 @@ workflows:
     jobs:
       - build-docker-images
       - pulumi-aws-test-env:
+          name: pulumi-aws-test-env-<< matrix.env >>
           pachdVersion: $CIRCLE_SHA1
           action: update
           requires:
@@ -1326,8 +1327,9 @@ workflows:
                 # - LOAD11_${CIRCLE_SHA1:0:5}
                 # - LOAD12_${CIRCLE_SHA1:0:5}
       - nightly-load:
+          name: nightly-load-<< matrix.env >>
           requires:
-            - pulumi-aws-test-env
+            - pulumi-aws-test-env-<< matrix.env >>
           matrix:
             parameters:
               bucket:
@@ -1351,7 +1353,7 @@ workflows:
           name: destroy-aws-testing-env
           action: destroy
           requires:
-            - nightly-load
+            - nightly-load-<< matrix.env >>
           matrix:
             parameters:
               env:
