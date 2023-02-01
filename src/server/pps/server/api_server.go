@@ -1562,8 +1562,7 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 	if err := a.authorizePipelineOp(apiGetLogsServer.Context(), pipelineOpGetLogs, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name); err != nil {
 		return err
 	}
-	// TODO (CORE-1039): make project-aware
-	query := fmt.Sprintf(`{pipelineName=%q, container="user"}`, pipelineInfo.Pipeline.Name)
+	query := fmt.Sprintf(`{pipelineProject=%q, pipelineName=%q, container="user"}`, pipelineInfo.Pipeline.Project.Name, pipelineInfo.Pipeline.Name)
 	if request.Master {
 		query += contains("master")
 	}
