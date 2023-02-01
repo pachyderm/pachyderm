@@ -365,6 +365,19 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                       <span
                         class="hljs-attr"
                       >
+                        project:
+                      </span>
+                       
+                      <span
+                        class="hljs-string"
+                      >
+                        Solar-Panel-Data-Sorting
+                      </span>
+                      
+    
+                      <span
+                        class="hljs-attr"
+                      >
                         repo:
                       </span>
                        
@@ -385,6 +398,19 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                         class="hljs-attr"
                       >
                         pfs:
+                      </span>
+                      
+    
+                      <span
+                        class="hljs-attr"
+                      >
+                        project:
+                      </span>
+                       
+                      <span
+                        class="hljs-string"
+                      >
+                        Solar-Panel-Data-Sorting
                       </span>
                       
     

@@ -1,0 +1,15 @@
+{
+  "pipeline": {"name": "B3_edge"},
+  "description": "A pipeline that performs image edge detection by using the OpenCV library.",
+  "input": {
+    "pfs": {
+      "glob": "/*",
+      "repo": "B2_edge",
+      "project": "Multi-Project-B2"
+    }
+  },
+  "transform": {
+    "cmd": ["python3", "/edges.py"],
+    "image": "pachyderm/opencv:1.0"
+  }
+}

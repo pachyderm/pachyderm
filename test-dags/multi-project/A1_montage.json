@@ -7,14 +7,14 @@
         "pfs": {
           "glob": "/",
           "repo": "images",
-          "project": "Cross-Project-A1"
+          "project": "Multi-Project-A1"
         }
       },
       {
         "pfs": {
           "glob": "/",
           "repo": "edges",
-          "project": "Cross-Project-A2"
+          "project": "Multi-Project-A2"
         }
       }
     ]

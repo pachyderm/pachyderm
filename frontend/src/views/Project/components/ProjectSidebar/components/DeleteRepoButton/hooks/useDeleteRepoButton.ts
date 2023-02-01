@@ -12,10 +12,10 @@ const useDeleteRepoButton = () => {
     return (
       dagData &&
       !dagData?.dag?.some(({parents}) =>
-        parents.some((parent) => parent === repoId),
+        parents.some((parent) => parent === `${projectId}_${repoId}`),
       )
     );
-  }, [repoId, dagData]);
+  }, [repoId, dagData, projectId]);
 
   return {
     canDelete,

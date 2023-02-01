@@ -901,6 +901,7 @@ export type GetCommitsQueryResult = Apollo.QueryResult<
 export const GetDagDocument = gql`
   query getDag($args: DagQueryArgs!) {
     dag(args: $args) {
+      id
       name
       state
       access
@@ -961,6 +962,7 @@ export type GetDagQueryResult = Apollo.QueryResult<
 export const GetDagsDocument = gql`
   subscription getDags($args: DagQueryArgs!) {
     dags(args: $args) {
+      id
       name
       state
       access
@@ -2078,6 +2080,7 @@ export const RepoDocument = gql`
       }
       name
       sizeDisplay
+      projectId
     }
   }
 `;

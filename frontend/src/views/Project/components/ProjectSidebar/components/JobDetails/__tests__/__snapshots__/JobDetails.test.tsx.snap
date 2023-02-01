@@ -194,7 +194,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                     <span
                       class="hljs-string"
                     >
-                      ''
+                      Solar-Panel-Data-Sorting
                     </span>
                     
     
@@ -404,7 +404,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                     <span
                       class="hljs-string"
                     >
-                      ''
+                      Solar-Panel-Data-Sorting
                     </span>
                     
     

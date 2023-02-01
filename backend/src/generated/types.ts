@@ -816,6 +816,7 @@ export type Vertex = {
   __typename?: 'Vertex';
   access: Scalars['Boolean'];
   createdAt?: Maybe<Scalars['Int']>;
+  id: Scalars['String'];
   jobState?: Maybe<NodeState>;
   name: Scalars['String'];
   parents: Array<Scalars['String']>;
@@ -1894,6 +1895,7 @@ export type VertexResolvers<
 > = ResolversObject<{
   access?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   createdAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   jobState?: Resolver<
     Maybe<ResolversTypes['NodeState']>,
     ParentType,
@@ -2264,6 +2266,7 @@ export type GetDagQuery = {
   __typename?: 'Query';
   dag: Array<{
     __typename?: 'Vertex';
+    id: string;
     name: string;
     state?: NodeState | null;
     access: boolean;
@@ -2282,6 +2285,7 @@ export type GetDagsSubscription = {
   __typename?: 'Subscription';
   dags: Array<{
     __typename?: 'Vertex';
+    id: string;
     name: string;
     state?: NodeState | null;
     access: boolean;
@@ -2793,6 +2797,7 @@ export type RepoQuery = {
     id: string;
     name: string;
     sizeDisplay: string;
+    projectId: string;
     branches: Array<{__typename?: 'Branch'; name: string}>;
     linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
   };

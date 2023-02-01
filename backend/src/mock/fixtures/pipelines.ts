@@ -26,7 +26,216 @@ const schedulingSpec = new SchedulingSpec();
 schedulingSpec.setPriorityClassName('high-priority');
 schedulingSpec.getNodeSelectorMap().set('disktype', 'ssd');
 
-const tutorial = [
+// clone of customerTeam and tutorial
+const defaultPipelines = [
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('likelihoods')
+        .setProject(new Project().setName('default')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_STANDBY)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setCrossList([
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('samples')
+                .setProject('Data-Cleaning-Process'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('reference')
+                .setProject('Data-Cleaning-Process'),
+            ),
+          ]),
+        )
+
+        .setOutputBranch('master'),
+    ),
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('models')
+        .setProject(new Project().setName('default')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_RUNNING)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('training')
+              .setProject('Data-Cleaning-Process'),
+          ),
+        )
+
+        .setOutputBranch('master'),
+    ),
+
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('joint_call')
+        .setProject(new Project().setName('default')),
+    )
+    .setLastJobState(JobState.JOB_KILLED)
+    .setState(PipelineState.PIPELINE_FAILURE)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setCrossList([
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('reference')
+                .setProject('Data-Cleaning-Process'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('likelihoods')
+                .setProject('Data-Cleaning-Process'),
+            ),
+          ]),
+        )
+
+        .setOutputBranch('master'),
+    ),
+
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('split')
+        .setProject(new Project().setName('default')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_RUNNING)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('raw_data')
+              .setProject('Data-Cleaning-Process'),
+          ),
+        )
+
+        .setOutputBranch('master'),
+    ),
+
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('model')
+        .setProject(new Project().setName('default')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_PAUSED)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setCrossList([
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('split')
+                .setProject('Data-Cleaning-Process'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('parameters_pachyderm_version_alternate_replicant')
+                .setProject('Data-Cleaning-Process'),
+            ),
+          ]),
+        )
+
+        .setOutputBranch('master'),
+    ),
+
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('test')
+        .setProject(new Project().setName('default')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_RUNNING)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setCrossList([
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('split')
+                .setProject('Data-Cleaning-Process'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('model')
+                .setProject('Data-Cleaning-Process'),
+            ),
+          ]),
+        )
+
+        .setOutputBranch('master'),
+    ),
+
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('select')
+        .setProject(new Project().setName('default')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_RUNNING)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setCrossList([
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('test')
+                .setProject('Data-Cleaning-Process'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('model')
+                .setProject('Data-Cleaning-Process'),
+            ),
+          ]),
+        )
+
+        .setOutputBranch('master'),
+    ),
+
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('detect_pachyderm_repo_version_alternate')
+        .setProject(new Project().setName('default')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_RUNNING)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setCrossList([
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('model')
+                .setProject('Data-Cleaning-Process'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('images')
+                .setProject('Data-Cleaning-Process'),
+            ),
+          ]),
+        )
+
+        .setOutputBranch('master'),
+    ),
   new PipelineInfo()
     .setPipeline(
       new Pipeline()
@@ -39,8 +248,16 @@ const tutorial = [
         .setParallelismSpec(new ParallelismSpec().setConstant(8))
         .setInput(
           new Input().setCrossList([
-            new Input().setPfs(new PFSInput().setRepo('edges')),
-            new Input().setPfs(new PFSInput().setRepo('images')),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('edges')
+                .setProject('Solar-Panel-Data-Sorting'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('images')
+                .setProject('Solar-Panel-Data-Sorting'),
+            ),
           ]),
         )
         .setDescription('Not my favorite pipeline')
@@ -71,7 +288,296 @@ const tutorial = [
     .setLastJobState(JobState.JOB_CREATED)
     .setDetails(
       new PipelineInfo.Details()
-        .setInput(new Input().setPfs(new PFSInput().setRepo('images')))
+        .setInput(
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('images')
+              .setProject('Solar-Panel-Data-Sorting'),
+          ),
+        )
+        .setDescription('Very cool edges description')
+        .setOutputBranch('master')
+        .setTransform(
+          new Transform()
+            .setCmdList(['python3', './edges.py'])
+            .setImage('pachyderm/opencv'),
+        ),
+    )
+    .setState(PipelineState.PIPELINE_RUNNING),
+];
+
+// clone of customerTeam with a different project name
+const solarPricePredictionModal = [
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('likelihoods')
+        .setProject(new Project().setName('Solar-Price-Prediction-Modal')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_STANDBY)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setCrossList([
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('samples')
+                .setProject('Solar-Price-Prediction-Modal'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('reference')
+                .setProject('Solar-Price-Prediction-Modal'),
+            ),
+          ]),
+        )
+
+        .setOutputBranch('master'),
+    ),
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('models')
+        .setProject(new Project().setName('Solar-Price-Prediction-Modal')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_RUNNING)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('training')
+              .setProject('Solar-Price-Prediction-Modal'),
+          ),
+        )
+
+        .setOutputBranch('master'),
+    ),
+
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('joint_call')
+        .setProject(new Project().setName('Solar-Price-Prediction-Modal')),
+    )
+    .setLastJobState(JobState.JOB_KILLED)
+    .setState(PipelineState.PIPELINE_FAILURE)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setCrossList([
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('reference')
+                .setProject('Solar-Price-Prediction-Modal'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('likelihoods')
+                .setProject('Solar-Price-Prediction-Modal'),
+            ),
+          ]),
+        )
+
+        .setOutputBranch('master'),
+    ),
+
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('split')
+        .setProject(new Project().setName('Solar-Price-Prediction-Modal')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_RUNNING)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('raw_data')
+              .setProject('Solar-Price-Prediction-Modal'),
+          ),
+        )
+
+        .setOutputBranch('master'),
+    ),
+
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('model')
+        .setProject(new Project().setName('Solar-Price-Prediction-Modal')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_PAUSED)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setCrossList([
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('split')
+                .setProject('Solar-Price-Prediction-Modal'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('parameters_pachyderm_version_alternate_replicant')
+                .setProject('Solar-Price-Prediction-Modal'),
+            ),
+          ]),
+        )
+
+        .setOutputBranch('master'),
+    ),
+
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('test')
+        .setProject(new Project().setName('Solar-Price-Prediction-Modal')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_RUNNING)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setCrossList([
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('split')
+                .setProject('Solar-Price-Prediction-Modal'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('model')
+                .setProject('Solar-Price-Prediction-Modal'),
+            ),
+          ]),
+        )
+
+        .setOutputBranch('master'),
+    ),
+
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('select')
+        .setProject(new Project().setName('Solar-Price-Prediction-Modal')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_RUNNING)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setCrossList([
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('test')
+                .setProject('Solar-Price-Prediction-Modal'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('model')
+                .setProject('Solar-Price-Prediction-Modal'),
+            ),
+          ]),
+        )
+
+        .setOutputBranch('master'),
+    ),
+
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('detect_pachyderm_repo_version_alternate')
+        .setProject(new Project().setName('Solar-Price-Prediction-Modal')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_RUNNING)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setCrossList([
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('model')
+                .setProject('Solar-Price-Prediction-Modal'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('images')
+                .setProject('Solar-Price-Prediction-Modal'),
+            ),
+          ]),
+        )
+
+        .setOutputBranch('master'),
+    ),
+];
+
+const tutorial = [
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('montage')
+        .setProject(new Project().setName('Solar-Panel-Data-Sorting')),
+    )
+    .setLastJobState(JobState.JOB_CREATED)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setParallelismSpec(new ParallelismSpec().setConstant(8))
+        .setInput(
+          new Input().setCrossList([
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('edges')
+                .setProject('Solar-Panel-Data-Sorting'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('images')
+                .setProject('Solar-Panel-Data-Sorting'),
+            ),
+          ]),
+        )
+        .setDescription('Not my favorite pipeline')
+        .setOutputBranch('master')
+        .setEgress(new Egress().setUrl('https://egress.com'))
+        .setS3Out(true)
+        .setSchedulingSpec(schedulingSpec)
+        .setTransform(
+          new Transform()
+            .setCmdList(['sh'])
+            .setImage('v4tech/imagemagick')
+            .setStdinList([
+              'montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png',
+            ]),
+        ),
+    )
+    .setReason(
+      'datum 64b95f0fe1a787b6c26ec7ede800be6f2b97616f3224592d91cbfe1cfccd00a1 failed',
+    )
+    .setState(PipelineState.PIPELINE_FAILURE),
+
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('edges')
+        .setProject(new Project().setName('Solar-Panel-Data-Sorting')),
+    )
+    .setLastJobState(JobState.JOB_CREATED)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('images')
+              .setProject('Solar-Panel-Data-Sorting'),
+          ),
+        )
         .setDescription('Very cool edges description')
         .setOutputBranch('master')
         .setTransform(
@@ -96,8 +602,12 @@ const egress = [
         .setParallelismSpec(new ParallelismSpec().setConstant(8))
         .setInput(
           new Input().setCrossList([
-            new Input().setPfs(new PFSInput().setRepo('edges')),
-            new Input().setPfs(new PFSInput().setRepo('images')),
+            new Input().setPfs(
+              new PFSInput().setRepo('edges').setProject('Egress-Examples'),
+            ),
+            new Input().setPfs(
+              new PFSInput().setRepo('images').setProject('Egress-Examples'),
+            ),
           ]),
         )
         .setDescription('a pipeline with egress to an s3 bucket')
@@ -128,8 +638,12 @@ const egress = [
         .setParallelismSpec(new ParallelismSpec().setConstant(8))
         .setInput(
           new Input().setCrossList([
-            new Input().setPfs(new PFSInput().setRepo('edges')),
-            new Input().setPfs(new PFSInput().setRepo('images')),
+            new Input().setPfs(
+              new PFSInput().setRepo('edges').setProject('Egress-Examples'),
+            ),
+            new Input().setPfs(
+              new PFSInput().setRepo('images').setProject('Egress-Examples'),
+            ),
           ]),
         )
         .setDescription('a pipeline with egress to an sql database')
@@ -172,8 +686,12 @@ const egress = [
         .setParallelismSpec(new ParallelismSpec().setConstant(8))
         .setInput(
           new Input().setCrossList([
-            new Input().setPfs(new PFSInput().setRepo('edges')),
-            new Input().setPfs(new PFSInput().setRepo('images')),
+            new Input().setPfs(
+              new PFSInput().setRepo('edges').setProject('Egress-Examples'),
+            ),
+            new Input().setPfs(
+              new PFSInput().setRepo('images').setProject('Egress-Examples'),
+            ),
           ]),
         )
         .setDescription('a pipeline with egress to object storage')
@@ -207,7 +725,11 @@ const egress = [
     .setLastJobState(JobState.JOB_CREATED)
     .setDetails(
       new PipelineInfo.Details()
-        .setInput(new Input().setPfs(new PFSInput().setRepo('images')))
+        .setInput(
+          new Input().setPfs(
+            new PFSInput().setRepo('images').setProject('Egress-Examples'),
+          ),
+        )
         .setDescription('Very cool edges description')
         .setOutputBranch('master')
         .setTransform(
@@ -224,7 +746,7 @@ const customerTeam = [
     .setPipeline(
       new Pipeline()
         .setName('likelihoods')
-        .setProject(new Project().setName('three-projects')),
+        .setProject(new Project().setName('Data-Cleaning-Process')),
     )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_STANDBY)
@@ -232,8 +754,16 @@ const customerTeam = [
       new PipelineInfo.Details()
         .setInput(
           new Input().setCrossList([
-            new Input().setPfs(new PFSInput().setRepo('samples')),
-            new Input().setPfs(new PFSInput().setRepo('reference')),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('samples')
+                .setProject('Data-Cleaning-Process'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('reference')
+                .setProject('Data-Cleaning-Process'),
+            ),
           ]),
         )
 
@@ -243,13 +773,19 @@ const customerTeam = [
     .setPipeline(
       new Pipeline()
         .setName('models')
-        .setProject(new Project().setName('three-projects')),
+        .setProject(new Project().setName('Data-Cleaning-Process')),
     )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_RUNNING)
     .setDetails(
       new PipelineInfo.Details()
-        .setInput(new Input().setPfs(new PFSInput().setRepo('training')))
+        .setInput(
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('training')
+              .setProject('Data-Cleaning-Process'),
+          ),
+        )
 
         .setOutputBranch('master'),
     ),
@@ -258,7 +794,7 @@ const customerTeam = [
     .setPipeline(
       new Pipeline()
         .setName('joint_call')
-        .setProject(new Project().setName('three-projects')),
+        .setProject(new Project().setName('Data-Cleaning-Process')),
     )
     .setLastJobState(JobState.JOB_KILLED)
     .setState(PipelineState.PIPELINE_FAILURE)
@@ -266,8 +802,16 @@ const customerTeam = [
       new PipelineInfo.Details()
         .setInput(
           new Input().setCrossList([
-            new Input().setPfs(new PFSInput().setRepo('reference')),
-            new Input().setPfs(new PFSInput().setRepo('likelihoods')),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('reference')
+                .setProject('Data-Cleaning-Process'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('likelihoods')
+                .setProject('Data-Cleaning-Process'),
+            ),
           ]),
         )
 
@@ -278,13 +822,19 @@ const customerTeam = [
     .setPipeline(
       new Pipeline()
         .setName('split')
-        .setProject(new Project().setName('three-projects')),
+        .setProject(new Project().setName('Data-Cleaning-Process')),
     )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_RUNNING)
     .setDetails(
       new PipelineInfo.Details()
-        .setInput(new Input().setPfs(new PFSInput().setRepo('raw_data')))
+        .setInput(
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('raw_data')
+              .setProject('Data-Cleaning-Process'),
+          ),
+        )
 
         .setOutputBranch('master'),
     ),
@@ -293,7 +843,7 @@ const customerTeam = [
     .setPipeline(
       new Pipeline()
         .setName('model')
-        .setProject(new Project().setName('three-projects')),
+        .setProject(new Project().setName('Data-Cleaning-Process')),
     )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_PAUSED)
@@ -301,11 +851,15 @@ const customerTeam = [
       new PipelineInfo.Details()
         .setInput(
           new Input().setCrossList([
-            new Input().setPfs(new PFSInput().setRepo('split')),
             new Input().setPfs(
-              new PFSInput().setRepo(
-                'parameters_pachyderm_version_alternate_replicant',
-              ),
+              new PFSInput()
+                .setRepo('split')
+                .setProject('Data-Cleaning-Process'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('parameters_pachyderm_version_alternate_replicant')
+                .setProject('Data-Cleaning-Process'),
             ),
           ]),
         )
@@ -317,7 +871,7 @@ const customerTeam = [
     .setPipeline(
       new Pipeline()
         .setName('test')
-        .setProject(new Project().setName('three-projects')),
+        .setProject(new Project().setName('Data-Cleaning-Process')),
     )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_RUNNING)
@@ -325,8 +879,16 @@ const customerTeam = [
       new PipelineInfo.Details()
         .setInput(
           new Input().setCrossList([
-            new Input().setPfs(new PFSInput().setRepo('split')),
-            new Input().setPfs(new PFSInput().setRepo('model')),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('split')
+                .setProject('Data-Cleaning-Process'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('model')
+                .setProject('Data-Cleaning-Process'),
+            ),
           ]),
         )
 
@@ -337,7 +899,7 @@ const customerTeam = [
     .setPipeline(
       new Pipeline()
         .setName('select')
-        .setProject(new Project().setName('three-projects')),
+        .setProject(new Project().setName('Data-Cleaning-Process')),
     )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_RUNNING)
@@ -345,8 +907,16 @@ const customerTeam = [
       new PipelineInfo.Details()
         .setInput(
           new Input().setCrossList([
-            new Input().setPfs(new PFSInput().setRepo('test')),
-            new Input().setPfs(new PFSInput().setRepo('model')),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('test')
+                .setProject('Data-Cleaning-Process'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('model')
+                .setProject('Data-Cleaning-Process'),
+            ),
           ]),
         )
 
@@ -357,7 +927,7 @@ const customerTeam = [
     .setPipeline(
       new Pipeline()
         .setName('detect_pachyderm_repo_version_alternate')
-        .setProject(new Project().setName('three-projects')),
+        .setProject(new Project().setName('Data-Cleaning-Process')),
     )
     .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_RUNNING)
@@ -365,8 +935,16 @@ const customerTeam = [
       new PipelineInfo.Details()
         .setInput(
           new Input().setCrossList([
-            new Input().setPfs(new PFSInput().setRepo('model')),
-            new Input().setPfs(new PFSInput().setRepo('images')),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('model')
+                .setProject('Data-Cleaning-Process'),
+            ),
+            new Input().setPfs(
+              new PFSInput()
+                .setRepo('images')
+                .setProject('Data-Cleaning-Process'),
+            ),
           ]),
         )
 
@@ -386,7 +964,13 @@ const cron = [
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details()
-        .setInput(new Input().setCron(new CronInput().setRepo('cron')))
+        .setInput(
+          new Input().setCron(
+            new CronInput()
+              .setRepo('cron')
+              .setProject('Solar-Power-Data-Logger-Team-Collab'),
+          ),
+        )
         .setOutputBranch('master'),
     ),
 ];
@@ -401,7 +985,9 @@ const traitDiscovery = [
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
-        new Input().setPfs(new PFSInput().setRepo('orfs')),
+        new Input().setPfs(
+          new PFSInput().setRepo('orfs').setProject('Trait-Discovery'),
+        ),
       ),
     ),
   new PipelineInfo()
@@ -413,7 +999,11 @@ const traitDiscovery = [
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
-        new Input().setPfs(new PFSInput().setRepo('reference_sequences')),
+        new Input().setPfs(
+          new PFSInput()
+            .setRepo('reference_sequences')
+            .setProject('Trait-Discovery'),
+        ),
       ),
     ),
   new PipelineInfo()
@@ -426,8 +1016,16 @@ const traitDiscovery = [
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
-          new Input().setPfs(new PFSInput().setRepo('pachy_orfs_blastdb')),
-          new Input().setPfs(new PFSInput().setRepo('pachy_trait_refseqfasta')),
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('pachy_orfs_blastdb')
+              .setProject('Trait-Discovery'),
+          ),
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('pachy_trait_refseqfasta')
+              .setProject('Trait-Discovery'),
+          ),
         ]),
       ),
     ),
@@ -440,7 +1038,11 @@ const traitDiscovery = [
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
-        new Input().setPfs(new PFSInput().setRepo('pachy_trait_search')),
+        new Input().setPfs(
+          new PFSInput()
+            .setRepo('pachy_trait_search')
+            .setProject('Trait-Discovery'),
+        ),
       ),
     ),
   new PipelineInfo()
@@ -452,7 +1054,9 @@ const traitDiscovery = [
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
-        new Input().setPfs(new PFSInput().setRepo('atgs')),
+        new Input().setPfs(
+          new PFSInput().setRepo('atgs').setProject('Trait-Discovery'),
+        ),
       ),
     ),
   new PipelineInfo()
@@ -464,7 +1068,11 @@ const traitDiscovery = [
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
-        new Input().setPfs(new PFSInput().setRepo('pachy_trait_candidates')),
+        new Input().setPfs(
+          new PFSInput()
+            .setRepo('pachy_trait_candidates')
+            .setProject('Trait-Discovery'),
+        ),
       ),
     ),
   new PipelineInfo()
@@ -476,7 +1084,11 @@ const traitDiscovery = [
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
-        new Input().setPfs(new PFSInput().setRepo('pachy_trait_candidates')),
+        new Input().setPfs(
+          new PFSInput()
+            .setRepo('pachy_trait_candidates')
+            .setProject('Trait-Discovery'),
+        ),
       ),
     ),
   new PipelineInfo()
@@ -489,8 +1101,16 @@ const traitDiscovery = [
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
-          new Input().setPfs(new PFSInput().setRepo('assembly_bam_files')),
-          new Input().setPfs(new PFSInput().setRepo('pachy_trait_candidates')),
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('assembly_bam_files')
+              .setProject('Trait-Discovery'),
+          ),
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('pachy_trait_candidates')
+              .setProject('Trait-Discovery'),
+          ),
         ]),
       ),
     ),
@@ -504,9 +1124,15 @@ const traitDiscovery = [
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
-          new Input().setPfs(new PFSInput().setRepo('pachy_atg_fasta')),
           new Input().setPfs(
-            new PFSInput().setRepo('pachy_trait_candidate_fasta'),
+            new PFSInput()
+              .setRepo('pachy_atg_fasta')
+              .setProject('Trait-Discovery'),
+          ),
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('pachy_trait_candidate_fasta')
+              .setProject('Trait-Discovery'),
           ),
         ]),
       ),
@@ -520,7 +1146,11 @@ const traitDiscovery = [
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
-        new Input().setPfs(new PFSInput().setRepo('pachy_group_candidate_bam')),
+        new Input().setPfs(
+          new PFSInput()
+            .setRepo('pachy_group_candidate_bam')
+            .setProject('Trait-Discovery'),
+        ),
       ),
     ),
   new PipelineInfo()
@@ -533,8 +1163,16 @@ const traitDiscovery = [
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
-          new Input().setPfs(new PFSInput().setRepo('pachy_trait_candidates')),
-          new Input().setPfs(new PFSInput().setRepo('pachy_atg_fasta')),
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('pachy_trait_candidates')
+              .setProject('Trait-Discovery'),
+          ),
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('pachy_atg_fasta')
+              .setProject('Trait-Discovery'),
+          ),
         ]),
       ),
     ),
@@ -548,7 +1186,9 @@ const traitDiscovery = [
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(
-          new PFSInput().setRepo('pachy_trait_quality_downselect'),
+          new PFSInput()
+            .setRepo('pachy_trait_quality_downselect')
+            .setProject('Trait-Discovery'),
         ),
       ),
     ),
@@ -561,7 +1201,9 @@ const traitDiscovery = [
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(
-          new PFSInput().setRepo('pachy_group_contig_candidates'),
+          new PFSInput()
+            .setRepo('pachy_group_contig_candidates')
+            .setProject('Trait-Discovery'),
         ),
       ),
     ),
@@ -576,9 +1218,15 @@ const traitDiscovery = [
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
           new Input().setPfs(
-            new PFSInput().setRepo('pachy_trait_candidate_fasta'),
+            new PFSInput()
+              .setRepo('pachy_trait_candidate_fasta')
+              .setProject('Trait-Discovery'),
           ),
-          new Input().setPfs(new PFSInput().setRepo('inter_pro_scan')),
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('inter_pro_scan')
+              .setProject('Trait-Discovery'),
+          ),
         ]),
       ),
     ),
@@ -591,7 +1239,11 @@ const traitDiscovery = [
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
-        new Input().setPfs(new PFSInput().setRepo('pachy_trait_quality')),
+        new Input().setPfs(
+          new PFSInput()
+            .setRepo('pachy_trait_quality')
+            .setProject('Trait-Discovery'),
+        ),
       ),
     ),
   new PipelineInfo()
@@ -605,9 +1257,13 @@ const traitDiscovery = [
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
           new Input().setPfs(
-            new PFSInput().setRepo('pachy_trait_candidate_fasta'),
+            new PFSInput()
+              .setRepo('pachy_trait_candidate_fasta')
+              .setProject('Trait-Discovery'),
           ),
-          new Input().setPfs(new PFSInput().setRepo('custom_hmms')),
+          new Input().setPfs(
+            new PFSInput().setRepo('custom_hmms').setProject('Trait-Discovery'),
+          ),
         ]),
       ),
     ),
@@ -620,7 +1276,11 @@ const traitDiscovery = [
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
-        new Input().setPfs(new PFSInput().setRepo('pachy_trait_clustering')),
+        new Input().setPfs(
+          new PFSInput()
+            .setRepo('pachy_trait_clustering')
+            .setProject('Trait-Discovery'),
+        ),
       ),
     ),
   new PipelineInfo()
@@ -633,8 +1293,16 @@ const traitDiscovery = [
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
-          new Input().setPfs(new PFSInput().setRepo('pachy_trait_domainscan')),
-          new Input().setPfs(new PFSInput().setRepo('pachy_trait_hmmscan')),
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('pachy_trait_domainscan')
+              .setProject('Trait-Discovery'),
+          ),
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('pachy_trait_hmmscan')
+              .setProject('Trait-Discovery'),
+          ),
         ]),
       ),
     ),
@@ -649,9 +1317,15 @@ const traitDiscovery = [
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
           new Input().setPfs(
-            new PFSInput().setRepo('pachy_trait_candidate_fasta'),
+            new PFSInput()
+              .setRepo('pachy_trait_candidate_fasta')
+              .setProject('Trait-Discovery'),
           ),
-          new Input().setPfs(new PFSInput().setRepo('patent_databases')),
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('patent_databases')
+              .setProject('Trait-Discovery'),
+          ),
         ]),
       ),
     ),
@@ -665,7 +1339,9 @@ const traitDiscovery = [
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(
-          new PFSInput().setRepo('pachy_group_geneclass_data'),
+          new PFSInput()
+            .setRepo('pachy_group_geneclass_data')
+            .setProject('Trait-Discovery'),
         ),
       ),
     ),
@@ -678,7 +1354,11 @@ const traitDiscovery = [
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
-        new Input().setPfs(new PFSInput().setRepo('pachy_patent_search')),
+        new Input().setPfs(
+          new PFSInput()
+            .setRepo('pachy_patent_search')
+            .setProject('Trait-Discovery'),
+        ),
       ),
     ),
   new PipelineInfo()
@@ -692,14 +1372,30 @@ const traitDiscovery = [
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
           new Input().setPfs(
-            new PFSInput().setRepo('pachy_trait_quality_check'),
+            new PFSInput()
+              .setRepo('pachy_trait_quality_check')
+              .setProject('Trait-Discovery'),
           ),
           new Input().setPfs(
-            new PFSInput().setRepo('pachy_trait_completeness'),
+            new PFSInput()
+              .setRepo('pachy_trait_completeness')
+              .setProject('Trait-Discovery'),
           ),
-          new Input().setPfs(new PFSInput().setRepo('pachy_trait_neighbors')),
-          new Input().setPfs(new PFSInput().setRepo('pachy_trait_candidates')),
-          new Input().setPfs(new PFSInput().setRepo('pachy_trait_geneclass')),
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('pachy_trait_neighbors')
+              .setProject('Trait-Discovery'),
+          ),
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('pachy_trait_candidates')
+              .setProject('Trait-Discovery'),
+          ),
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('pachy_trait_geneclass')
+              .setProject('Trait-Discovery'),
+          ),
           new Input().setPfs(
             new PFSInput().setRepo('pachy_trait_patent_check'),
           ),
@@ -715,7 +1411,11 @@ const traitDiscovery = [
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
-        new Input().setPfs(new PFSInput().setRepo('pachy_group_promo_data')),
+        new Input().setPfs(
+          new PFSInput()
+            .setRepo('pachy_group_promo_data')
+            .setProject('Trait-Discovery'),
+        ),
       ),
     ),
   new PipelineInfo()
@@ -729,10 +1429,14 @@ const traitDiscovery = [
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
           new Input().setPfs(
-            new PFSInput().setRepo('pachy_trait_promotionfilter'),
+            new PFSInput()
+              .setRepo('pachy_trait_promotionfilter')
+              .setProject('Trait-Discovery'),
           ),
           new Input().setPfs(
-            new PFSInput().setRepo('pachy_trait_promotion_status'),
+            new PFSInput()
+              .setRepo('pachy_trait_promotion_status')
+              .setProject('Trait-Discovery'),
           ),
         ]),
       ),
@@ -746,7 +1450,11 @@ const traitDiscovery = [
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
-        new Input().setPfs(new PFSInput().setRepo('pachy_group_promo_clstr')),
+        new Input().setPfs(
+          new PFSInput()
+            .setRepo('pachy_group_promo_clstr')
+            .setProject('Trait-Discovery'),
+        ),
       ),
     ),
   new PipelineInfo()
@@ -759,7 +1467,9 @@ const traitDiscovery = [
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(
-          new PFSInput().setRepo('pachy_trait_promoclstr_filter'),
+          new PFSInput()
+            .setRepo('pachy_trait_promoclstr_filter')
+            .setProject('Trait-Discovery'),
         ),
       ),
     ),
@@ -772,7 +1482,11 @@ const traitDiscovery = [
     .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
-        new Input().setPfs(new PFSInput().setRepo('pachy_trait_promotion')),
+        new Input().setPfs(
+          new PFSInput()
+            .setRepo('pachy_trait_promotion')
+            .setProject('Trait-Discovery'),
+        ),
       ),
     ),
 ];
@@ -797,13 +1511,13 @@ const pipelines: {[projectId: string]: PipelineInfo[]} = {
   'Solar-Panel-Data-Sorting': tutorial,
   'Data-Cleaning-Process': customerTeam,
   'Solar-Power-Data-Logger-Team-Collab': cron,
-  'Solar-Price-Prediction-Modal': customerTeam,
+  'Solar-Price-Prediction-Modal': solarPricePredictionModal,
   'Egress-Examples': egress,
   'Empty-Project': [],
   'Trait-Discovery': traitDiscovery,
   'OpenCV-Tutorial': [],
   'Load-Project': getLoadPipelines(DAGS),
-  default: [...tutorial, ...customerTeam],
+  default: defaultPipelines,
 };
 
 export default pipelines;

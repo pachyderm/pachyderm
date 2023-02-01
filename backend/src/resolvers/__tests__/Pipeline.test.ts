@@ -11,7 +11,8 @@ import {
 } from '@graphqlTypes';
 
 describe('Pipeline resolver', () => {
-  const id = 'montage';
+  const id = 'Solar-Panel-Data-Sorting_montage';
+  const name = 'montage';
   const projectId = 'Solar-Panel-Data-Sorting';
 
   describe('pipeline', () => {
@@ -19,18 +20,22 @@ describe('Pipeline resolver', () => {
       const {data, errors = []} = await executeQuery<PipelineQuery>(
         GET_PIPELINE_QUERY,
         {
-          args: {id, projectId},
+          args: {id: name, projectId},
         },
       );
 
       expect(errors).toHaveLength(0);
-      expect(data?.pipeline.id).toBe(id);
-      expect(data?.pipeline.name).toBe(id);
-      expect(data?.pipeline.description).toBe('Not my favorite pipeline');
-      expect(data?.pipeline.state).toBe('PIPELINE_FAILURE');
-      expect(data?.pipeline.outputBranch).toBe('master');
-      expect(data?.pipeline.egress).toBe(true);
-      expect(data?.pipeline.s3OutputRepo).toBe(`s3//${id}`);
+      expect(data?.pipeline).toEqual(
+        expect.objectContaining({
+          id: id,
+          name: name,
+          description: 'Not my favorite pipeline',
+          state: 'PIPELINE_FAILURE',
+          outputBranch: 'master',
+          egress: true,
+          s3OutputRepo: `s3//montage`,
+        }),
+      );
     });
 
     it('should return a NOT_FOUND error if a pipeline could not be found', async () => {
@@ -54,8 +59,8 @@ describe('Pipeline resolver', () => {
       });
 
       expect(data?.pipelines).toHaveLength(2);
-      expect(data?.pipelines[0]?.id).toBe('montage');
-      expect(data?.pipelines[1]?.id).toBe('edges');
+      expect(data?.pipelines[0]?.id).toBe('Solar-Panel-Data-Sorting_montage');
+      expect(data?.pipelines[1]?.id).toBe('Solar-Panel-Data-Sorting_edges');
     });
 
     it('should return pipeline list filtered by globalId', async () => {
@@ -67,7 +72,7 @@ describe('Pipeline resolver', () => {
       });
 
       expect(data?.pipelines).toHaveLength(1);
-      expect(data?.pipelines[0]?.id).toBe('montage');
+      expect(data?.pipelines[0]?.id).toBe('Solar-Panel-Data-Sorting_montage');
     });
   });
 
@@ -100,7 +105,7 @@ describe('Pipeline resolver', () => {
         },
       );
       expect(errors).toHaveLength(0);
-      expect(data?.createPipeline.id).toBe('test');
+      expect(data?.createPipeline.id).toBe('_test');
       expect(data?.createPipeline.name).toBe('test');
     });
 

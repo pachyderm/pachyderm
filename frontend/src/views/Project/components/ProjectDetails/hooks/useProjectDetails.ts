@@ -27,7 +27,7 @@ export const useProjectDetails = () => {
     (node: Node) =>
       pipelineRoute({
         projectId,
-        pipelineId: node.id,
+        pipelineId: node.name,
       }),
     [projectId],
   );

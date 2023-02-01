@@ -154,9 +154,9 @@ const useInfoPanel = ({
   }, [jobDetails, job?.finishedAt, job?.startedAt]);
 
   const getInputRepos = useCallback((input: Input) => {
-    const inputs = [];
+    const inputs: {projectId: string; name: string}[] = [];
     if (input?.pfs?.repo) {
-      inputs.push(input.pfs.repo);
+      inputs.push({projectId: input.pfs.project, name: input.pfs.repo});
     }
     input.joinList?.forEach((i) => {
       inputs.push(...getInputRepos(i));

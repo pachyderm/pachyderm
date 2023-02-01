@@ -20,6 +20,7 @@ import styles from './ResourceLink.module.css';
 
 type ResourceLinkProps = {
   name: string;
+  projectId?: string;
 };
 
 interface CommitLinkProps extends ResourceLinkProps {
@@ -27,12 +28,16 @@ interface CommitLinkProps extends ResourceLinkProps {
   repoName: string;
 }
 
-export const RepoLink: React.FC<ResourceLinkProps> = ({name, ...rest}) => {
-  const {projectId} = useUrlState();
+export const RepoLink: React.FC<ResourceLinkProps> = ({
+  name,
+  projectId,
+  ...rest
+}) => {
+  const {projectId: projectIdFromURL} = useUrlState();
   const nodeName = name.replace(/_repo$/, '');
   const path = repoRoute({
     branchId: 'default',
-    projectId,
+    projectId: projectId ?? projectIdFromURL,
     repoId: nodeName,
   });
 

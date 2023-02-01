@@ -21,7 +21,7 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
   } = useRouteController();
   const {hoveredNode, setHoveredNode} = useHoveredNode();
   const [showSuccess, setShowSuccess] = useState(false);
-  const {copy, supported, copied, reset} = useClipboardCopy(node.id);
+  const {copy, supported, copied, reset} = useClipboardCopy(node.name);
 
   const isEgress = node.type === NodeType.EGRESS;
   const noAccess = !node.access;

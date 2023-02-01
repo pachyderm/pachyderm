@@ -36,12 +36,12 @@ const getIcon = (node: Node) => {
 
 const ListItem: React.FC<ListItemProps> = ({node, selectedItem, nodePath}) => {
   const nodeName =
-    node.type !== NodeType.PIPELINE ? deriveRepoNameFromNode(node) : node.id;
+    node.type !== NodeType.PIPELINE ? deriveRepoNameFromNode(node) : node.name;
 
   return (
     <Link
       data-testid="ListItem__row"
-      aria-label={node.id}
+      aria-label={node.name}
       to={node.access ? nodePath : undefined}
       className={classnames(styles.base, {
         [styles[node.type]]: true,

@@ -101,6 +101,7 @@ export type ResourceSpecObject = {
 
 export type PFSInputObject = {
   name?: PFSInput.AsObject['name'];
+  project?: PFSInput.AsObject['project'];
   repo: PFSInput.AsObject['repo'];
   branch: PFSInput.AsObject['branch'];
   commit?: PFSInput.AsObject['commit'];
@@ -116,6 +117,7 @@ export type PFSInputObject = {
 
 export type CronInputObject = {
   name: CronInput.AsObject['name'];
+  project: CronInput.AsObject['project'];
   repo: CronInput.AsObject['repo'];
   commit: CronInput.AsObject['commit'];
   spec: CronInput.AsObject['spec'];
@@ -202,7 +204,7 @@ export type JobObject = {
 };
 
 export type JobInfoObject = {
-  job: Pick<Job.AsObject, 'id' | 'pipeline'>;
+  job: Job.AsObject;
   createdAt?: JobInfo.AsObject['created'];
   startedAt?: JobInfo.AsObject['started'];
   finishedAt?: JobInfo.AsObject['finished'];
@@ -393,6 +395,7 @@ export const pfsInputFromObject = ({
   emptyFiles = false,
   s3 = false,
   trigger,
+  project,
 }: PFSInputObject) => {
   const pfsInput = new PFSInput();
   if (name) pfsInput.setName(name);
@@ -406,6 +409,7 @@ export const pfsInputFromObject = ({
   pfsInput.setLazy(lazy);
   pfsInput.setEmptyFiles(emptyFiles);
   pfsInput.setS3(s3);
+  pfsInput.setProject(project || '');
   if (trigger) {
     pfsInput.setTrigger(triggerFromObject(trigger));
   }
@@ -420,6 +424,7 @@ export const cronInputFromObject = ({
   spec,
   overwrite,
   start,
+  project,
 }: CronInputObject) => {
   const cronInput = new CronInput();
   cronInput.setName(name);
@@ -427,6 +432,7 @@ export const cronInputFromObject = ({
   cronInput.setCommit(commit);
   cronInput.setSpec(spec);
   cronInput.setOverwrite(overwrite);
+  cronInput.setProject(project);
 
   if (start) {
     cronInput.setStart(timestampFromObject(start));
@@ -657,7 +663,7 @@ export const jobFromObject = ({id, pipeline}: JobObject) => {
 };
 
 export const jobInfoFromObject = ({
-  job: {id, pipeline: {name} = {name: ''}},
+  job: {id, pipeline: {name, project} = {name: ''}},
   createdAt,
   startedAt,
   finishedAt,
@@ -676,7 +682,15 @@ export const jobInfoFromObject = ({
 }: JobInfoObject) => {
   const jobInfo = new JobInfo()
     .setState(state)
-    .setJob(new Job().setId(id).setPipeline(new Pipeline().setName(name)));
+    .setJob(
+      new Job()
+        .setId(id)
+        .setPipeline(
+          new Pipeline()
+            .setName(name)
+            .setProject(new Project().setName(project?.name || 'default')),
+        ),
+    );
 
   if (reason) {
     jobInfo.setReason(reason);

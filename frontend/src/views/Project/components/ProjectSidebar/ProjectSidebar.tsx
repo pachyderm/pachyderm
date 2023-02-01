@@ -7,6 +7,7 @@ import {
 } from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import JobList from '@dash-frontend/components/JobList';
 import Sidebar from '@dash-frontend/components/Sidebar';
+import {InputOutputNodesMap} from '@dash-frontend/lib/types';
 
 import {
   LINEAGE_JOBS_PATH,
@@ -28,13 +29,13 @@ import useProjectSidebar from './hooks/useProjectSidebar';
 import styles from './ProjectSidebar.module.css';
 
 type ProjectSidebarProps = {
-  dagLinks?: Record<string, string[]>;
+  inputOutputNodesMap?: InputOutputNodesMap;
   dagsLoading?: boolean;
   resizable?: boolean;
 };
 
 const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
-  dagLinks,
+  inputOutputNodesMap,
   dagsLoading,
   resizable = true,
 }) => {
@@ -92,12 +93,15 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
               <JobDetails />
             </Route>
             <Route path={[PROJECT_REPO_PATH, LINEAGE_REPO_PATH]}>
-              <RepoDetails dagsLoading={!!dagsLoading} dagLinks={dagLinks} />
+              <RepoDetails
+                dagsLoading={!!dagsLoading}
+                inputOutputNodesMap={inputOutputNodesMap}
+              />
             </Route>
             <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]} exact>
               <PipelineDetails
                 dagsLoading={!!dagsLoading}
-                dagLinks={dagLinks}
+                inputOutputNodesMap={inputOutputNodesMap}
               />
             </Route>
           </Switch>

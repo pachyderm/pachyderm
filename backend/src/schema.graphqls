@@ -250,6 +250,7 @@ enum NodeType {
 }
 
 type Vertex {
+  id: String!
   name: String!
   state: NodeState
   access: Boolean!

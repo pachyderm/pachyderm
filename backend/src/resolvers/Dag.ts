@@ -4,7 +4,9 @@ import uniqBy from 'lodash/uniqBy';
 import uniqueId from 'lodash/uniqueId';
 import objectHash from 'object-hash';
 
-import flattenPipelineInput from '@dash-backend/lib/flattenPipelineInput';
+import flattenPipelineInput, {
+  flattenPipelineInputObj,
+} from '@dash-backend/lib/flattenPipelineInput';
 import getJobsFromJobSet from '@dash-backend/lib/getJobsFromJobSet';
 import {
   toGQLJobState,
@@ -38,13 +40,20 @@ const deriveVertices = (
   repos: RepoInfo.AsObject[],
   pipelines: PipelineInfo.AsObject[],
 ) => {
-  const pipelineMap = keyBy(pipelines, (p) => p.pipeline?.name || '');
-  const repoMap = keyBy(repos, (r) => r.repo?.name || '');
+  const pipelineMap = keyBy(
+    pipelines,
+    (p) => `${p.pipeline?.project?.name || ''}_${p.pipeline?.name}`,
+  );
+  const repoMap = keyBy(
+    repos,
+    (r) => `${r.repo?.project?.name || ''}_${r.repo?.name}`,
+  );
 
   const repoNodes = repos.map<Vertex>((r) => ({
-    name: `${r.repo?.name}_repo`,
+    id: `${r.repo?.project?.name || ''}_${r.repo?.name}_repo`,
+    name: r.repo?.name || '',
     type:
-      r.repo && pipelineMap[r.repo.name]
+      r.repo && pipelineMap[`${r.repo?.project?.name || ''}_${r.repo?.name}`]
         ? NodeType.OUTPUT_REPO
         : NodeType.INPUT_REPO,
     state: null,
@@ -52,22 +61,27 @@ const deriveVertices = (
     access: hasRepoReadPermissions(r.authInfo?.permissionsList),
     createdAt: r.created?.seconds,
     // detect out output repos as those name matching a pipeline
-    parents: r.repo && pipelineMap[r.repo.name] ? [r.repo.name] : [],
+    parents:
+      r.repo && pipelineMap[`${r.repo?.project?.name || ''}_${r.repo?.name}`]
+        ? [`${r.repo?.project?.name || ''}_${r.repo?.name}`]
+        : [],
   }));
 
   const pipelineNodes = flatMap(pipelines, (p) => {
-    const pipelineName = p.pipeline?.name || '';
+    const pipelineId = `${p.pipeline?.project?.name || ''}_${p.pipeline?.name}`;
     const state = toGQLPipelineState(p.state);
     const jobState = toGQLJobState(p.lastJobState);
 
     const nodes: Vertex[] = [
       {
-        name: pipelineName,
+        id: pipelineId,
+        name: p.pipeline?.name || '',
         type: NodeType.PIPELINE,
         state: gqlPipelineStateToNodeState(state),
         access: p.pipeline
           ? hasRepoReadPermissions(
-              repoMap[p.pipeline.name]?.authInfo?.permissionsList,
+              repoMap[`${p.pipeline?.project?.name || ''}_${p.pipeline?.name}`]
+                ?.authInfo?.permissionsList,
             )
           : false,
         jobState: gqlJobStateToNodeState(jobState),
@@ -83,6 +97,12 @@ const deriveVertices = (
         p.details.egress.objectStorage?.url)
     ) {
       nodes.push({
+        id: `${p.pipeline?.project?.name || ''}_${
+          p.details.egress.url ||
+          p.details.egress.sqlDatabase?.url ||
+          p.details.egress.objectStorage?.url ||
+          ''
+        }`,
         name:
           p.details.egress.url ||
           p.details.egress.sqlDatabase?.url ||
@@ -90,7 +110,7 @@ const deriveVertices = (
           '',
         type: NodeType.EGRESS,
         access: true,
-        parents: [`${pipelineName}_repo`],
+        parents: [`${pipelineId}_repo`],
         state: null,
         jobState: null,
         createdAt: p.details.createdAt?.seconds,
@@ -147,27 +167,35 @@ const dagResolver: DagResolver = {
 
             const pipelineMap = keyBy(
               sortedJobSet.map((job) => job.job?.pipeline),
-              (p) => p?.name || '',
+              (p) => `${p?.project?.name || ''}_${p?.name}`,
             );
 
             const vertices = sortedJobSet.reduce<Vertex[]>((acc, job) => {
               const inputs = job.details?.input
-                ? flattenPipelineInput(job.details.input)
+                ? flattenPipelineInputObj(job.details.input)
                 : [];
 
-              const inputRepoVertices: Vertex[] = inputs.map((input) => ({
-                parents: [],
-                type: pipelineMap[input]
-                  ? NodeType.OUTPUT_REPO
-                  : NodeType.INPUT_REPO,
-                state: null,
-                jobState: null,
-                access: true,
-                name: `${input}_repo`,
-              }));
+              const inputRepoVertices: Vertex[] = inputs.map(
+                ({project, repo}) => ({
+                  id: `${project || ''}_${repo}_repo`,
+                  parents: [],
+                  type: pipelineMap[`${project || ''}_${repo}`]
+                    ? NodeType.OUTPUT_REPO
+                    : NodeType.INPUT_REPO,
+                  state: null,
+                  jobState: null,
+                  access: true,
+                  name: `${repo}_repo`,
+                }),
+              );
 
               const pipelineVertex: Vertex = {
-                parents: inputs,
+                id: `${job.job?.pipeline?.project?.name || ''}_${
+                  job.job?.pipeline?.name
+                }`,
+                parents: inputs.map(
+                  ({project, repo}) => `${project || ''}_${repo}`,
+                ),
                 type: NodeType.PIPELINE,
                 access: true,
                 name: job.job?.pipeline?.name || '',
@@ -176,10 +204,17 @@ const dagResolver: DagResolver = {
               };
 
               const outputRepoVertex: Vertex = {
-                parents: [job.job?.pipeline?.name || ''],
+                parents: [
+                  `${job.job?.pipeline?.project?.name || ''}_${
+                    job.job?.pipeline?.name
+                  }`,
+                ],
                 type: NodeType.OUTPUT_REPO,
                 access: true,
                 state: null,
+                id: `${job.job?.pipeline?.project?.name || ''}_${
+                  job.job?.pipeline?.name
+                }_repo`,
                 name: `${job.job?.pipeline?.name || ''}_repo`,
               };
 

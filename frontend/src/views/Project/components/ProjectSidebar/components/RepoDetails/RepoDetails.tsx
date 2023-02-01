@@ -11,6 +11,7 @@ import {PipelineLink, EgressLink} from '@dash-frontend/components/ResourceLink';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {InputOutputNodesMap} from '@dash-frontend/lib/types';
 import {
   LINEAGE_PATH,
   LINEAGE_REPO_PATH,
@@ -26,13 +27,16 @@ import {TAB_ID} from './constants/tabIds';
 import styles from './RepoDetails.module.css';
 
 type RepoDetailsProps = {
-  dagLinks?: Record<string, string[]>;
+  inputOutputNodesMap?: InputOutputNodesMap;
   dagsLoading?: boolean;
 };
 
 const noBranchRepoMessage = 'There are no branches on this repo!';
 
-const RepoDetails: React.FC<RepoDetailsProps> = ({dagsLoading, dagLinks}) => {
+const RepoDetails: React.FC<RepoDetailsProps> = ({
+  dagsLoading,
+  inputOutputNodesMap,
+}) => {
   const {loading, repo} = useCurrentRepo();
   const {repoId} = useUrlState();
 
@@ -41,18 +45,22 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({dagsLoading, dagLinks}) => {
   const {viewState} = useUrlQueryState();
   const repoBaseRef = useRef<HTMLDivElement>(null);
   const filterEgressLink = useCallback(
-    (egress: boolean) => (name: string) => {
-      try {
-        const url = new URL(name);
-        return egress === Boolean(url);
-      } catch {
-        return egress === false;
-      }
-    },
+    (egress: boolean) =>
+      ({name}: {name: string}) => {
+        try {
+          const url = new URL(name);
+          return egress === Boolean(url);
+        } catch {
+          return egress === false;
+        }
+      },
     [],
   );
 
-  const inputs = (dagLinks && dagLinks[`${repo?.name}_repo`]) || [];
+  const inputs =
+    (inputOutputNodesMap &&
+      inputOutputNodesMap[`${repo?.projectId}_${repo?.name}_repo`]) ||
+    [];
 
   const egressOutputs = inputs.filter(filterEgressLink(true));
   const pipelineOutputs = inputs.filter(filterEgressLink(false));
@@ -110,7 +118,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({dagsLoading, dagLinks}) => {
             {pipelineOutputs.length > 0 && (
               <Description loading={currentRepoLoading} term="Inputs To">
                 <div className={styles.pipelineGroup}>
-                  {pipelineOutputs.map((name) => (
+                  {pipelineOutputs.map(({name}) => (
                     <PipelineLink name={name} key={name} />
                   ))}
                 </div>
@@ -119,7 +127,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({dagsLoading, dagLinks}) => {
             {egressOutputs.length > 0 && (
               <Description loading={currentRepoLoading} term="Egress To">
                 <div className={styles.pipelineGroup}>
-                  {egressOutputs.map((name) => (
+                  {egressOutputs.map(({name}) => (
                     <EgressLink name={name} key={name} />
                   ))}
                 </div>

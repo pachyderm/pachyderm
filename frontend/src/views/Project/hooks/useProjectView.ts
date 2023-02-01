@@ -5,7 +5,11 @@ import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSetting
 import {useProjectDagsData} from '@dash-frontend/hooks/useProjectDAGsData';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {DagDirection, DagNodes} from '@dash-frontend/lib/types';
+import {
+  DagDirection,
+  DagNodes,
+  InputOutputNodesMap,
+} from '@dash-frontend/lib/types';
 
 import {NODE_HEIGHT, NODE_WIDTH} from './../constants/nodeSizes';
 
@@ -29,18 +33,18 @@ export const useProjectView = () => {
   });
 
   // list input repos by pipeline, and pipeline outputs by repo
-  const inputRepoLinks = useMemo(() => {
-    let links = {} as Record<string, string[]>;
+  const inputOutputNodesMap = useMemo(() => {
+    let links: InputOutputNodesMap = {};
     dags?.forEach((dag) => {
       dag.links.forEach((link) => {
-        if (!link.target.includes('repo')) {
+        if (!link.target.id.includes('repo')) {
           links = {
             ...links,
-            [link.target]: links[link.target]
-              ? [...links[link.target], link.source]
+            [link.target.id]: links[link.target.id]
+              ? [...links[link.target.id], link.source]
               : [link.source],
-            [link.source]: links[link.source]
-              ? [...links[link.source], link.target]
+            [link.source.id]: links[link.source.id]
+              ? [...links[link.source.id], link.target]
               : [link.target],
           };
         }
@@ -89,7 +93,7 @@ export const useProjectView = () => {
   return {
     dags,
     nodes,
-    inputRepoLinks,
+    inputOutputNodesMap,
     error,
     loading,
   };

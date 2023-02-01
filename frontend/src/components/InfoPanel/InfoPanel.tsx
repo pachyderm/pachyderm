@@ -169,8 +169,12 @@ const InfoPanel: React.FC<InfoPanelProps> = ({
               data-testid="InfoPanel__repos"
               className={styles.inputs}
             >
-              {inputs.map((input) => (
-                <RepoLink key={input} name={input} />
+              {inputs.map(({projectId, name}) => (
+                <RepoLink
+                  key={`${projectId}_${name}`}
+                  name={name}
+                  projectId={projectId}
+                />
               ))}
             </Description>
           ) : null}

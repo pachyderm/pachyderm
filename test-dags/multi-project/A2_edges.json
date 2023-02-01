@@ -5,7 +5,7 @@
     "pfs": {
       "glob": "/*",
       "repo": "images",
-      "project": "Cross-Project-A1"
+      "project": "Multi-Project-A1"
     }
   },
   "transform": {

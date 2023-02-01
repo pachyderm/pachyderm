@@ -1,11 +1,11 @@
 {
-  "pipeline": {"name": "B2_edge"},
+  "pipeline": {"name": "B1_edge"},
   "description": "A pipeline that performs image edge detection by using the OpenCV library.",
   "input": {
     "pfs": {
       "glob": "/*",
-      "repo": "B1_edge",
-      "project": "Cross-Project-B2"
+      "repo": "images",
+      "project": "Multi-Project-B1"
     }
   },
   "transform": {

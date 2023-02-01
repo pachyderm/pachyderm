@@ -88,9 +88,9 @@ export const pipelineInfoToGQLPipeline = (
   pipelineInfo: PipelineInfo.AsObject,
 ): Pipeline => {
   return {
-    // pipelines don't always have an ID, most of the time it uses
-    // name as the global identifier
-    id: pipelineInfo.pipeline?.name || '',
+    id: `${pipelineInfo.pipeline?.project?.name || ''}_${
+      pipelineInfo.pipeline?.name || ''
+    }`,
     name: pipelineInfo.pipeline?.name || '',
     description: pipelineInfo.details?.description || '',
     version: pipelineInfo.version,

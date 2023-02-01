@@ -14,10 +14,10 @@ const useDeletePipelineButton = () => {
       !dagData?.dag?.some(
         ({parents, type}) =>
           type === 'PIPELINE' &&
-          parents.some((parent) => parent === pipelineId),
+          parents.some((parent) => parent === `${projectId}_${pipelineId}`),
       )
     );
-  }, [pipelineId, dagData]);
+  }, [pipelineId, dagData, projectId]);
 
   return {
     canDelete,

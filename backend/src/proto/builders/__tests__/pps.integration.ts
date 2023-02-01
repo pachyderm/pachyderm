@@ -267,6 +267,7 @@ describe('grpc/builders/pps', () => {
   it('should create CronInput from an object', () => {
     const cronInput = cronInputFromObject({
       name: 'images',
+      project: 'test',
       repo: 'imagesRepo',
       commit: 'uweioruwejrij098w0e9r809we',
       spec: '*/10 * * * *',
@@ -279,6 +280,7 @@ describe('grpc/builders/pps', () => {
 
     expect(cronInput.getName()).toBe('images');
     expect(cronInput.getRepo()).toBe('imagesRepo');
+    expect(cronInput.getProject()).toBe('test');
     expect(cronInput.getCommit()).toBe('uweioruwejrij098w0e9r809we');
     expect(cronInput.getSpec()).toBe('*/10 * * * *');
     expect(cronInput.getOverwrite()).toBe(true);
@@ -331,6 +333,7 @@ describe('grpc/builders/pps', () => {
       ],
 
       cron: {
+        project: 'test',
         name: 'imagesCron',
         repo: 'imagesRepo',
         commit: 'uweioruwejrij098w0e9r809we',
@@ -341,6 +344,7 @@ describe('grpc/builders/pps', () => {
 
     expect(input.getPfs()?.getName()).toBe('imagesPfs');
     expect(input.getCron()?.getName()).toBe('imagesCron');
+    expect(input.getCron()?.getProject()).toBe('test');
 
     expect(input.getJoinList()[0]?.getPfs()?.getName()).toBe('joinList');
     expect(input.getGroupList()[0]?.getPfs()?.getName()).toBe('groupList');

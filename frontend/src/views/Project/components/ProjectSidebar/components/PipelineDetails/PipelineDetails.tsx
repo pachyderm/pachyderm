@@ -4,6 +4,7 @@ import {Helmet} from 'react-helmet';
 
 import Description from '@dash-frontend/components/Description';
 import InfoPanel from '@dash-frontend/components/InfoPanel';
+import {InputOutputNodesMap} from '@dash-frontend/lib/types';
 import {SkeletonDisplayText, Tabs} from '@pachyderm/components';
 
 import Title from '../Title';
@@ -15,11 +16,13 @@ import usePipelineDetails from './hooks/usePipelineDetails';
 import styles from './PipelineDetails.module.css';
 
 type PipelineDetailsProps = {
-  dagLinks?: Record<string, string[]>;
+  inputOutputNodesMap?: InputOutputNodesMap;
   dagsLoading?: boolean;
 };
 
-const PipelineDetails: React.FC<PipelineDetailsProps> = ({dagLinks}) => {
+const PipelineDetails: React.FC<PipelineDetailsProps> = ({
+  inputOutputNodesMap,
+}) => {
   const {loading, pipeline, lastJob, isServiceOrSpout, tabsBasePath} =
     usePipelineDetails();
 
@@ -69,7 +72,7 @@ const PipelineDetails: React.FC<PipelineDetailsProps> = ({dagLinks}) => {
             <InfoPanel lastPipelineJob={lastJob} pipelineLoading={loading} />
           </Tabs.TabPanel>
           <Tabs.TabPanel id={TAB_ID.INFO}>
-            <PipelineInfo dagLinks={dagLinks} />
+            <PipelineInfo inputOutputNodesMap={inputOutputNodesMap} />
           </Tabs.TabPanel>
           <Tabs.TabPanel id={TAB_ID.SPEC}>
             <PipelineSpec />

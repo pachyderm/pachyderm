@@ -3,35 +3,47 @@ describe('Dag', () => {
     cy.setupProject('error-opencv').visit('/');
   });
   beforeEach(() => {
-    cy.findAllByText(/^View(\sProject)*$/).eq(0).click();
+    cy.findByText('default')
+      .parent()
+      .findByRole('button', {name: /View/i})
+      .click();
   });
   afterEach(() => {
-    cy.visit('/')
+    cy.visit('/');
   });
   after(() => {
     cy.deleteReposAndPipelines();
   });
 
   it('should render the entire dag', () => {
-    const imageNode = cy.get("#GROUP_images", { timeout: 10000 });
-    imageNode.should("exist");
-    imageNode.findByText("images").should("exist");
-    const edgesPipelineNode = cy.get('#GROUP_edges');
-    edgesPipelineNode.should("exist");
-    edgesPipelineNode.findAllByText("edges").should("exist");
-    const montagePipelineNode = cy.get('#GROUP_montage');
-    montagePipelineNode.should('exist');
-    montagePipelineNode.findAllByText("montage").should("exist");
-    cy.get("#GROUP_").should("exist");
+    cy.get('#GROUP_images', {timeout: 10000})
+      .should('exist')
+      .findByText('images')
+      .should('exist');
+
+    cy.get('#GROUP_edges')
+      .should('exist')
+      .findAllByText('edges')
+      .should('exist');
+
+    cy.get('#GROUP_montage')
+      .should('exist')
+      .findAllByText('montage')
+      .should('exist');
+
+    cy.get('#GROUP_').should('exist');
   });
 
   it('should render a sub-dag with a globalId filter', () => {
-    const jobs = cy.findByTestId("ProjectSideNav__seeJobs", {timeout: 10000});
-    jobs.click();
+    cy.findByRole('link', {
+      name: /jobs/i,
+      timeout: 10000,
+    }).click();
 
-    const failedJob = cy.findAllByText("Failure", {timeout: 60000});
-    failedJob.should('exist');
-    failedJob.last().click({force: true});
+    cy.findAllByText('Failure', {timeout: 60000})
+      .should('exist')
+      .last()
+      .click({force: true});
 
     cy.findByTestId('CommitIdCopy__id').invoke('text').then((jobId) => {
       cy.findByText('Filter by Global ID').click();

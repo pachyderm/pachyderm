@@ -56,12 +56,15 @@ export type Node = {
   access: boolean;
 };
 
+export type NodeWithId = {id: string; name: string};
+export type InputOutputNodesMap = Record<string, NodeWithId[]>;
+
 export type Link = {
   id: string;
-  source: string;
+  source: NodeWithId;
   sourceState?: NodeState;
   targetState?: NodeState;
-  target: string;
+  target: NodeWithId;
   state?: NodeState;
   bendPoints: Array<PointCoordinates>;
   startPoint: PointCoordinates;
@@ -92,6 +95,7 @@ export interface NodeInputData extends ElkNode, Omit<Node, 'x' | 'y'> {}
 
 export type PfsInput = {
   repo: string;
+  project: string;
 };
 export type Input = {
   pfs?: PfsInput;

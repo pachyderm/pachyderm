@@ -4,7 +4,7 @@ import React from 'react';
 import {Route, Redirect} from 'react-router';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {Dag, DagNodes} from '@dash-frontend/lib/types';
+import {Dag, DagNodes, InputOutputNodesMap} from '@dash-frontend/lib/types';
 import {lineageRoute} from '@dash-frontend/views/Project/utils/routes';
 import {LoadingDots} from '@pachyderm/components';
 
@@ -31,7 +31,7 @@ type ProjectDetailsProps = {
   };
   error: ApolloError | string | undefined;
   loading: boolean;
-  inputRepoLinks: Record<string, string[]>;
+  inputOutputNodesMap: InputOutputNodesMap;
 };
 
 const Wrapper: React.FC = ({children}) => (
@@ -48,7 +48,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   nodes,
   error,
   loading,
-  inputRepoLinks,
+  inputOutputNodesMap,
 }) => {
   const {repoId, pipelineId, projectId} = useUrlState();
   const {isSidebarOpen, sidebarSize, repoRedirect, pipelineRedirect} =
@@ -100,7 +100,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
         <ProjectSidebar
           resizable={false}
           dagsLoading={loading}
-          dagLinks={inputRepoLinks}
+          inputOutputNodesMap={inputOutputNodesMap}
         />
       </Route>
     </Wrapper>

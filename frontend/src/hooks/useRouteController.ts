@@ -29,7 +29,7 @@ const useRouteController = () => {
           }),
         );
       } else if (destination === 'pipeline') {
-        const pipelineId = n.id;
+        const pipelineId = n.name;
 
         browserHistory.push(
           pipelineRoute({

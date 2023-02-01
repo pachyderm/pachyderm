@@ -455,9 +455,12 @@ describe('ProjectSidebar', () => {
 
       render(
         <Project
-          dagLinks={{
-            egress_sql_repo: [
-              'snowflake://pachyderm@WHMUWUD-CJ80657/PACH_DB/PUBLIC?warehouse=COMPUTE_WH',
+          inputOutputNodesMap={{
+            'Egress-Examples_egress_sql_repo': [
+              {
+                id: 'Egress-Examples_snowflake://pachyderm@WHMUWUD-CJ80657/PACH_DB/PUBLIC?warehouse=COMPUTE_WH',
+                name: 'snowflake://pachyderm@WHMUWUD-CJ80657/PACH_DB/PUBLIC?warehouse=COMPUTE_WH',
+              },
             ],
           }}
         />,

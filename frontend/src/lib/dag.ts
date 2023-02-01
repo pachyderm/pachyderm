@@ -2,6 +2,7 @@
 import {NodeType, Vertex, NodeState} from '@graphqlTypes';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import flatten from 'lodash/flatten';
+import keyBy from 'lodash/keyBy';
 import minBy from 'lodash/minBy';
 import uniqueId from 'lodash/uniqueId';
 import objectHash from 'object-hash';
@@ -27,10 +28,12 @@ const normalizeDAGData = async (
   const correspondingIndex: {[key: string]: number} = vertices.reduce(
     (acc, val, index) => ({
       ...acc,
-      [val.name]: index,
+      [val.id]: index,
     }),
     {},
   );
+
+  const vertMap = keyBy(vertices, (v) => v.id);
 
   // create elk edges
   const elkEdges = flatten(
@@ -43,14 +46,13 @@ const normalizeDAGData = async (
               : parent;
           const sourceIndex = correspondingIndex[parentName];
           const sourceVertex = vertices[sourceIndex];
-
           if (sourceIndex >= 0) {
             return [
               ...acc,
               {
                 id: objectHash({node: node, parentName}),
                 sources: [parentName],
-                targets: [node.name],
+                targets: [node.id],
                 state: sourceVertex?.jobState || undefined,
                 sourceState: sourceVertex?.state || undefined,
                 targetstate: node.state || undefined,
@@ -77,9 +79,9 @@ const normalizeDAGData = async (
           ...acc,
           {
             // hashing here for consistency
-            id: objectHash(`${parentName}-${node.name}`),
+            id: objectHash(`${parentName}-${node.id}`),
             sources: [nodeName],
-            targets: [node.name],
+            targets: [node.id],
             state: sourceVertex?.jobState || undefined,
             sourceState: sourceVertex?.state || undefined,
             targetstate: node.state || undefined,
@@ -93,7 +95,7 @@ const normalizeDAGData = async (
 
   // create elk children
   const elkChildren = vertices.map<NodeInputData>((node) => ({
-    id: node.name,
+    id: node.id,
     name: node.name,
     type: node.type,
     state: node.state || undefined,
@@ -143,8 +145,8 @@ const normalizeDAGData = async (
 
     return {
       ...rest,
-      source: sources[0],
-      target: targets[0],
+      source: {id: sources[0], name: vertMap[sources[0]].name},
+      target: {id: targets[0], name: vertMap[targets[0]].name},
       startPoint: sections?.[0].startPoint || {x: 0, y: 0},
       endPoint: sections?.[0].endPoint || {x: 0, y: 0},
       bendPoints: sections?.[0].bendPoints || [],
@@ -189,10 +191,10 @@ const buildDags = async (
     const dags = disconnectedComponents(nodes, links).map((component) => {
       const componentRepos = vertices.filter((v) =>
         component.nodes.find(
-          (c) => c.type === NodeType.INPUT_REPO && c.id === v.name,
+          (c) => c.type === NodeType.INPUT_REPO && c.id === v.id,
         ),
       );
-      const id = minBy(componentRepos, (r) => r.createdAt)?.name || uniqueId();
+      const id = minBy(componentRepos, (r) => r.createdAt)?.id || uniqueId();
 
       return {
         id,
