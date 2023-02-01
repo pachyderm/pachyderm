@@ -108,27 +108,27 @@ describe('mount plugin', () => {
 
     jest.runAllTimers();
     await waitFor(() => {
-      expect(plugin.unmountedRepos.length).toEqual(2);
-      expect(plugin.unmountedRepos[0].repo).toEqual('images');
-      expect(plugin.unmountedRepos[1].repo).toEqual('data');
+      expect(plugin.unmountedRepos).toHaveLength(2);
+      expect(plugin.unmountedRepos[0].repo).toBe('images');
+      expect(plugin.unmountedRepos[1].repo).toBe('data');
       expect(mockRequestAPI.requestAPI).toHaveBeenCalledTimes(2);
     });
     jest.runAllTimers();
     await waitFor(() => {
-      expect(plugin.unmountedRepos.length).toEqual(1);
-      expect(plugin.unmountedRepos[0].repo).toEqual('data');
-      expect(plugin.mountedRepos.length).toEqual(1);
-      expect(plugin.mountedRepos[0].name).toEqual('images');
+      expect(plugin.unmountedRepos).toHaveLength(1);
+      expect(plugin.unmountedRepos[0].repo).toBe('data');
+      expect(plugin.mountedRepos).toHaveLength(1);
+      expect(plugin.mountedRepos[0].name).toBe('images');
       expect(mockRequestAPI.requestAPI).toHaveBeenCalledTimes(3);
     });
   });
 
   it('should generate the correct layout', async () => {
     const plugin = new MountPlugin(app, docManager, factory, restorer);
-    expect(plugin.layout.title.caption).toEqual('Pachyderm Mount');
-    expect(plugin.layout.id).toEqual('pachyderm-mount');
-    expect(plugin.layout.orientation).toEqual('vertical');
-    expect(plugin.layout.widgets.length).toEqual(7);
+    expect(plugin.layout.title.caption).toBe('Pachyderm Mount');
+    expect(plugin.layout.id).toBe('pachyderm-mount');
+    expect(plugin.layout.orientation).toBe('vertical');
+    expect(plugin.layout.widgets).toHaveLength(7);
     expect(plugin.layout.widgets[0]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[1]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[2]).toBeInstanceOf(ReactWidget);

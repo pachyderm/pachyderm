@@ -25,5 +25,10 @@ COPY pachgen ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/pachgen
 WORKDIR ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/pachgen
 RUN go mod init && go mod tidy && go build -o "${GOPATH}/bin/protoc-gen-pach"
 
+# Build the bespoke MarshalLogObject generator.
+COPY protoc-gen-zap ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap
+WORKDIR ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap
+RUN go build -mod=readonly -o "${GOPATH}/bin/protoc-gen-zap"
+
 ADD run.sh /
 CMD ["/run.sh"]

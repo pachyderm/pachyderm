@@ -1,12 +1,13 @@
-package chunk
+package taskchain
 
 import (
 	"context"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // TaskChain manages a chain of tasks that have a parallel and serial part.
@@ -20,8 +21,8 @@ type TaskChain struct {
 	sem      *semaphore.Weighted
 }
 
-// NewTaskChain creates a new task chain.
-func NewTaskChain(ctx context.Context, sem *semaphore.Weighted) *TaskChain {
+// New creates a new task chain.
+func New(ctx context.Context, sem *semaphore.Weighted) *TaskChain {
 	eg, errCtx := errgroup.WithContext(ctx)
 	prevChan := make(chan struct{})
 	close(prevChan)

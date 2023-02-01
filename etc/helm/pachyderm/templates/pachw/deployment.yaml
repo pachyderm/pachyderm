@@ -41,7 +41,9 @@ spec:
       {{- if .Values.pachd.priorityClassName }}
       priorityClassName: {{ .Values.pachd.priorityClassName }}
       {{- end }}
-      {{-  if .Values.pachd.affinity }}
+      {{-  if .Values.pachw.affinity }}
+      affinity: {{ toYaml .Values.pachw.affinity | nindent 8 }}
+      {{-  else if and .Values.pachd.affinity .Values.pachw.inheritFromPachd }}
       affinity: {{ toYaml .Values.pachd.affinity | nindent 8 }}
       {{- end }}
       {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
@@ -194,7 +196,7 @@ spec:
           timeoutSeconds: 30
         {{- if .Values.pachw.resources }}
         resources: {{ toYaml .Values.pachw.resources | nindent 10 }}
-        {{- else if .Values.pachd.resources }}
+        {{- else if and .Values.pachd.resources .Values.pachw.inheritFromPachd }}
         resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
         {{- end }}
         volumeMounts:
@@ -235,13 +237,17 @@ spec:
           type: RuntimeDefault
       {{- end }}
       {{- end }}
-      {{-  if .Values.pachd.nodeSelector }}
+      {{-  if .Values.pachw.nodeSelector }}
+      nodeSelector: {{ toYaml .Values.pachw.nodeSelector | nindent 8 }}
+      {{-  else if and .Values.pachd.nodeSelector .Values.pachw.inheritFromPachd }}
       nodeSelector: {{ toYaml .Values.pachd.nodeSelector | nindent 8 }}
       {{- end }}
       {{- if .Values.pachd.serviceAccount.name }}
       serviceAccountName: {{ .Values.pachd.serviceAccount.name | quote }}
       {{- end }}
-      {{-  if .Values.pachd.tolerations }}
+      {{-  if .Values.pachw.tolerations }}
+      tolerations: {{ toYaml .Values.pachw.tolerations | nindent 8 }}
+      {{-  else if and .Values.pachd.tolerations .Values.pachw.inheritFromPachd }}
       tolerations: {{ toYaml .Values.pachd.tolerations | nindent 8 }}
       {{- end }}
       automountServiceAccountToken: true

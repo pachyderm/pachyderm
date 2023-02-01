@@ -503,6 +503,10 @@ func (c *unsupportedPpsBuilderClient) DeleteSecret(_ context.Context, _ *pps_v2.
 	return nil, unsupportedError("DeleteSecret")
 }
 
+func (c *unsupportedPpsBuilderClient) GetKubeEvents(_ context.Context, _ *pps_v2.LokiRequest, opts ...grpc.CallOption) (pps_v2.API_GetKubeEventsClient, error) {
+	return nil, unsupportedError("GetKubeEvents")
+}
+
 func (c *unsupportedPpsBuilderClient) GetLogs(_ context.Context, _ *pps_v2.GetLogsRequest, opts ...grpc.CallOption) (pps_v2.API_GetLogsClient, error) {
 	return nil, unsupportedError("GetLogs")
 }

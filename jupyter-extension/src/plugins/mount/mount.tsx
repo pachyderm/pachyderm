@@ -149,6 +149,7 @@ export class MountPlugin implements IMountPlugin {
               items={mounted ? mounted : this._poller.mounted}
               updateData={this._poller.updateData}
               mountedItems={[]}
+              type={'mounted'}
             />
           </div>
         )}
@@ -168,6 +169,7 @@ export class MountPlugin implements IMountPlugin {
               items={unmounted ? unmounted : this._poller.unmounted}
               updateData={this._poller.updateData}
               mountedItems={this._poller.mounted}
+              type={'unmounted'}
             />
           </div>
         )}

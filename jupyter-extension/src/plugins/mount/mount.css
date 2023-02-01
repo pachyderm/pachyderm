@@ -99,7 +99,8 @@
   border: 1px solid var(--jp-brand-color1);
 }
 
-.pachyderm-mount-sortableList-header {
+.pachyderm-mount-sortableList-header,
+.pachyderm-mount-sortableList-projectFilter {
   flex: 0 0 auto;
   display: flex;
   flex-direction: row;
@@ -109,7 +110,8 @@
   z-index: 2;
 }
 
-.pachyderm-mount-sortableList-headerItem {
+.pachyderm-mount-sortableList-headerItem,
+.pachyderm-mount-projectFilter-headerItem {
   padding: 0.25rem 0.75rem 0.125rem 0.75rem;
   font-weight: 500;
   display: flex;
