@@ -90,8 +90,9 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://helm.pachyderm.com"),
 			},
-			Chart:  pulumi.String("pachyderm"),
-			Values: values,
+			Chart:   pulumi.String("pachyderm"),
+			Timeout: pulumi.Int(1200),
+			Values:  values,
 		}, pulumi.Provider(k8sProvider))
 	} else {
 		_, err = helm.NewRelease(ctx, "pach-release", &helm.ReleaseArgs{
@@ -100,6 +101,7 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 				Repo: pulumi.String("https://helm.pachyderm.com"),
 			},
 			Chart:   pulumi.String("pachyderm"),
+			Timeout: pulumi.Int(1200),
 			Version: pulumi.String(helmChartVersion),
 			Values:  values,
 		}, pulumi.Provider(k8sProvider))
