@@ -132,8 +132,8 @@ describe('mount plugin', () => {
     expect(plugin.layout.widgets[0]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[1]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[2]).toBeInstanceOf(ReactWidget);
-    expect(plugin.layout.widgets[3]).toBeInstanceOf(FileBrowser);
-    expect(plugin.layout.widgets[4]).toBeInstanceOf(ReactWidget);
+    expect(plugin.layout.widgets[3]).toBeInstanceOf(ReactWidget);
+    expect(plugin.layout.widgets[4]).toBeInstanceOf(FileBrowser);
     expect(plugin.layout.widgets[5]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[6]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[7]).toBeInstanceOf(ReactWidget);
