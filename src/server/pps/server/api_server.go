@@ -1771,6 +1771,9 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 		return errors.Errorf("pipeline name is %d characters long, but must have at most 63: %q",
 			len(request.Pipeline.Name), request.Pipeline.Name)
 	}
+	if len(request.Pipeline.Name)+len(request.Pipeline.Project.GetName()) > 62 {
+		return errors.Errorf("names of pipeline and project together may not exceed 62 characters")
+	}
 	// TODO(msteffen) eventually TFJob and Transform will be alternatives, but
 	// currently TFJob isn't supported
 	if request.TFJob != nil {
