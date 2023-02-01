@@ -97,6 +97,7 @@ module.exports = {
     'jest/prefer-to-be': 'warn',
     'testing-library/no-node-access': 'off',
     'testing-library/no-unnecessary-act': 'off',
+    'jest/expect-expect': 'off',
   },
   settings: {
     react: {

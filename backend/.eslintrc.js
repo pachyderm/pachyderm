@@ -56,6 +56,7 @@ module.exports = {
       },
     ],
     'no-useless-return': 'off',
+    'jest/expect-expect': 'off',
   },
   settings: {
     'import/extensions': ['.js', '.jsx', '.ts', '.tsx'],
