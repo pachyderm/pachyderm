@@ -489,7 +489,11 @@ func rcIsFresh(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationCont
 		log.Error(ctx, "RC is nil")
 		return false
 	}
-	expectedName := ppsutil.PipelineRcName(pi)
+	expectedName, err := ppsutil.PipelineRcName(pi)
+	if err != nil {
+		log.Error(ctx, "could not generate pipeline name", log.Errorp(&err))
+		return false
+	}
 	// establish current RC properties
 	rcName := rc.ObjectMeta.Name
 	rcPachVersion := rc.ObjectMeta.Annotations[pachVersionAnnotation]

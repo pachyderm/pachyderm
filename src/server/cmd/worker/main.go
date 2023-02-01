@@ -92,7 +92,10 @@ func do(ctx context.Context, config interface{}) error {
 	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.Config().PodName, pachClient, env.GetDBClient()))
 
 	// Put our IP address into etcd, so pachd can discover us
-	workerRcName := ppsutil.PipelineRcName(pipelineInfo)
+	workerRcName, err := ppsutil.PipelineRcName(pipelineInfo)
+	if err != nil {
+		return errors.Wrapf(err, "could not generate k8s name for %v", pipelineInfo)
+	}
 	key := path.Join(env.Config().PPSEtcdPrefix, workerserver.WorkerEtcdPrefix, workerRcName, env.Config().PPSWorkerIP)
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our

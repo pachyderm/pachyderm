@@ -313,6 +313,10 @@ func (s *debugServer) getWorkerPods(ctx context.Context, pipelineInfo *pps.Pipel
 }
 
 func (s *debugServer) getLegacyWorkerPods(ctx context.Context, pipelineInfo *pps.PipelineInfo) ([]v1.Pod, error) {
+	name, err := ppsutil.PipelineRcName(pipelineInfo)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error generating name for pipeline %q", name)
+	}
 	podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(
 		ctx,
 		metav1.ListOptions{
@@ -323,7 +327,7 @@ func (s *debugServer) getLegacyWorkerPods(ctx context.Context, pipelineInfo *pps
 			LabelSelector: metav1.FormatLabelSelector(
 				metav1.SetAsLabelSelector(
 					map[string]string{
-						"app": ppsutil.PipelineRcName(pipelineInfo),
+						"app": name,
 					},
 				),
 			),

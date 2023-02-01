@@ -120,9 +120,14 @@ func NewClient(address string) (Client, error) {
 //
 // TODO: Consider switching from filepath.Walk style to buf.Scanner style.
 func forEachWorker(ctx context.Context, pipelineInfo *pps.PipelineInfo, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16, cb func(Client) error) error {
-	var pipelineRcName string
+	var (
+		pipelineRcName string
+		err            error
+	)
 	if pipelineInfo.Pipeline.Name != "" && pipelineInfo.Version != 0 {
-		pipelineRcName = ppsutil.PipelineRcName(pipelineInfo)
+		if pipelineRcName, err = ppsutil.PipelineRcName(pipelineInfo); err != nil {
+			return err
+		}
 	}
 	resp, err := etcdClient.Get(ctx, path.Join(etcdPrefix, WorkerEtcdPrefix, pipelineRcName), etcd.WithPrefix())
 	if err != nil {

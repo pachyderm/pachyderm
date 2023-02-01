@@ -2933,8 +2933,8 @@ func TestUpdatePipeline(t *testing.T) {
 		require.NoError(t, err)
 		var (
 			newServiceSeen bool
-			staleName      = ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 1})
-			newName        = ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 2})
+			staleName      = ppsutil.MustPipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 1})
+			newName        = ppsutil.MustPipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 2})
 		)
 		for _, svc := range svcs.Items {
 			switch svc.ObjectMeta.Name {
@@ -3011,8 +3011,8 @@ func TestUpdatePipeline(t *testing.T) {
 		require.NoError(t, err)
 		var (
 			newServiceSeen bool
-			staleName      = ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 1})
-			newName        = ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 2})
+			staleName      = ppsutil.MustPipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 1})
+			newName        = ppsutil.MustPipelineRcName(&pps.PipelineInfo{Pipeline: pipeline, Version: 2})
 		)
 		for _, svc := range svcs.Items {
 			switch svc.ObjectMeta.Name {
@@ -10983,7 +10983,7 @@ func TestDatumSetCache(t *testing.T) {
 
 func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline string, n int) {
 	kc := tu.GetKubeClient(t)
-	rcName := ppsutil.PipelineRcName(&pps.PipelineInfo{
+	rcName := ppsutil.MustPipelineRcName(&pps.PipelineInfo{
 		Pipeline: &pps.Pipeline{
 			Project: &pfs.Project{Name: pfs.DefaultProjectName},
 			Name:    pipeline,

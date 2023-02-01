@@ -837,8 +837,12 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	}
 
 	// Generate options for new RC
+	name, err := ppsutil.PipelineRcName(pipelineInfo)
+	if err != nil {
+		return nil, err
+	}
 	return &workerOptions{
-		rcName:                ppsutil.PipelineRcName(pipelineInfo),
+		rcName:                name,
 		s3GatewayPort:         s3GatewayPort,
 		specCommit:            pipelineInfo.SpecCommit.ID,
 		labels:                labels,

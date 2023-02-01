@@ -1423,7 +1423,10 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		}
 
 		// 3) Get pods for this pipeline
-		rcName = ppsutil.PipelineRcName(pipelineInfo)
+		rcName, err = ppsutil.PipelineRcName(pipelineInfo)
+		if err != nil {
+			return err
+		}
 		pods, err = a.rcPods(apiGetLogsServer.Context(), pipelineInfo)
 		if err != nil {
 			return err
@@ -2600,7 +2603,10 @@ func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline,
 	} else {
 		kubeClient := a.env.KubeClient
 		if info.Details.Service != nil {
-			rcName := ppsutil.PipelineRcName(info)
+			rcName, err := ppsutil.PipelineRcName(info)
+			if err != nil {
+				return nil, err
+			}
 			service, err := kubeClient.CoreV1().Services(a.namespace).Get(ctx, fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
 			if err != nil {
 				if !errutil.IsNotFoundError(err) {
@@ -3474,8 +3480,12 @@ func (a *apiServer) rcPods(ctx context.Context, pi *pps.PipelineInfo) ([]v1.Pod,
 		// Look for the pre-2.4–style pods labelled with the long name.
 		// This long name could exceed 63 characters, which is why 2.4
 		// and later use separate labels for each component.
+		name, err := ppsutil.PipelineRcName(pi)
+		if err != nil {
+			return nil, err
+		}
 		return a.listPods(ctx, map[string]string{
-			appLabel: ppsutil.PipelineRcName(pi),
+			appLabel: name,
 		})
 	}
 	return pp, nil

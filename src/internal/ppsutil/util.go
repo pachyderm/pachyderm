@@ -16,8 +16,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5"
+	"crypto/sha1"
+	"encoding/base32"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,19 +49,85 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
-// PipelineRcName generates the name of the k8s replication controller that
-// manages a pipeline's workers
-func PipelineRcName(pi *pps.PipelineInfo) string {
-	// k8s won't allow RC names that contain upper-case letters
-	// or underscores
-	//
-	// TODO(CORE-1099): deal with name collision & too-long names
-	pipelineName := strings.ReplaceAll(pi.Pipeline.Name, "_", "-")
-	if projectName := pi.Pipeline.Project.GetName(); projectName != "" {
-		projectName = strings.ReplaceAll(projectName, "_", "-")
-		return fmt.Sprintf("pipeline-%s-%s-v%d", strings.ToLower(projectName), strings.ToLower(pipelineName), pi.Version)
+// MustPipelineRcName generates the name of the k8s replication controller that
+// manages a pipeline's workers.  It panics on an error.
+func MustPipelineRcName(pi *pps.PipelineInfo) string {
+	name, err := pipelineRcName(pi.GetDetails().GetK8SNameVersion(), pi.GetPipeline().GetProject().GetName(), pi.GetPipeline().GetName(), pi.GetVersion())
+	if err != nil {
+		panic(err)
 	}
-	return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(pipelineName), pi.Version)
+	return name
+}
+
+// PipelineRcName generates the name of the k8s replication controller that
+// manages a pipeline's workers.
+func PipelineRcName(pi *pps.PipelineInfo) (string, error) {
+	return pipelineRcName(pi.GetDetails().GetK8SNameVersion(), pi.GetPipeline().GetProject().GetName(), pi.GetPipeline().GetName(), pi.GetVersion())
+}
+
+func pipelineRcName(nameVersion, projectName, pipelineName string, version uint64) (string, error) {
+	switch nameVersion {
+	case "v2.4":
+		// k8s won't allow RC names that contain upper-case letters
+		// or underscores
+		//
+		// TODO(CORE-1099): deal with name collision & too-long names
+		pipelineName := strings.ReplaceAll(pipelineName, "_", "-")
+		return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(pipelineName), version), nil
+	case "v2.5":
+		version := strconv.FormatUint(version, 10)
+		charsAvailable := 63 - (len("pipeline---v") + len(version))
+		pipeline := &pps.Pipeline{Project: &pfs.Project{Name: projectName}, Name: pipelineName}
+		h := sha1.New()
+		io.WriteString(h, pipeline.String()) //nolint:errcheck
+		hash := strings.ToLower(base32.HexEncoding.EncodeToString(h.Sum(nil)))
+		charsAvailable -= len(hash)
+		projectName = strings.ToLower(strings.ReplaceAll(projectName, "_", "-"))
+		pipelineName = strings.ToLower(strings.ReplaceAll(pipelineName, "_", "-"))
+		return "pipeline-" + truncatePair(projectName, "-"+pipelineName, charsAvailable) + "-" + hash + "-v" + version, nil
+	default:
+		return "", errors.Errorf("invalid name version %q", nameVersion)
+	}
+}
+
+// truncatePair returns first plus second, not to exceed limit.  It tries to do
+// this fairly, using as much of both first and second as possible.
+//
+// truncatePair("", "abc", 2) → "ab"
+// truncatePair("a", "bc", 2) → "ab"
+// truncatePair("ab", "c", 2) → "ac"
+// truncatePair("abc", "def", 8) → "abcdef"
+func truncatePair(first, second string, limit int) string {
+	if len(first) == 0 {
+		if limit > len(second) {
+			limit = len(second)
+		}
+		return second[0:limit]
+	}
+	if len(second) == 0 {
+		if limit > len(first) {
+			limit = len(first)
+		}
+		return first[0:limit]
+	}
+
+	//	discard = limit-(len(first) + len(second))
+
+	var index1, index2 int
+	for i := 0; i < limit; {
+		if index1 < len(first) {
+			index1++
+			i++
+		}
+		if index2 < len(second) {
+			index2++
+			i++
+		}
+		if index1 == len(first) && index2 == len(second) {
+			break
+		}
+	}
+	return first[0:index1] + second[0:index2]
 }
 
 // GetRequestsResourceListFromPipeline returns a list of resources that the pipeline,
