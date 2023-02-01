@@ -11746,4 +11746,13 @@ func TestDatumBatching(t *testing.T) {
 		request.JobTimeout = types.DurationProto(10 * time.Second)
 		checkState(request, pps.JobState_JOB_KILLED)
 	})
+	t.Run("PrematureExit", func(t *testing.T) {
+		script := `
+			pachctl next datum
+			exit 0
+			`
+		pipeline := tu.UniqueString("DatumBatchingPrematureExit")
+		request := createPipelineRequest(pipeline, script)
+		checkState(request, pps.JobState_JOB_FAILURE)
+	})
 }

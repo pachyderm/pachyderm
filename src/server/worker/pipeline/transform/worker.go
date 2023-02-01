@@ -331,6 +331,8 @@ func handleDatumSetBatching(ctx context.Context, driver driver.Driver, logger lo
 			select {
 			case <-nextChan:
 				return nil
+			case err := <-errChan:
+				return errors.Wrap(err, "error running user code")
 			case <-ctx.Done():
 				return errors.EnsureStack(ctx.Err())
 			}
