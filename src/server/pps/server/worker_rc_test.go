@@ -2,12 +2,12 @@ package server
 
 import (
 	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -19,7 +19,7 @@ import (
 
 func mergeDefaultOptions(project, name string, add *workerOptions) *workerOptions {
 	base := &workerOptions{
-		rcName: strings.Join([]string{"pipeline", project, name, "v0"}, "-"),
+		rcName: ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: project}, Name: name}}),
 		labels: map[string]string{
 			"app":             "pipeline",
 			"component":       "worker",

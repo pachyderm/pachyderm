@@ -157,7 +157,7 @@ func waitForOnePodReady(t testing.TB, ctx context.Context, namespace string, lab
 	}, 5*time.Second)
 }
 
-func TestSimplePipeline(t *testing.T) {
+func TestCreatePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -216,6 +216,38 @@ func TestSimplePipeline(t *testing.T) {
 			require.Equal(t, "foo", buf.String())
 		}
 	}
+
+	pipeline = strings.Repeat("x", 59-len(projectName)-1)
+	require.NoError(t, c.CreateProjectPipeline(projectName,
+		pipeline,
+		tu.DefaultTransformImage,
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepoName),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewProjectPFSInput(projectName, dataRepoName, "/*"),
+		"",
+		false,
+	), "adding a pipeline with a name summing to 59 characters (with the project name and a hyphen) should be okay")
+
+	pipeline = strings.Repeat("x", 60-len(projectName)-1)
+	require.YesError(t, c.CreateProjectPipeline(projectName,
+		pipeline,
+		tu.DefaultTransformImage,
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepoName),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewProjectPFSInput(projectName, dataRepoName, "/*"),
+		"",
+		false,
+	), "adding a pipeline with a name summing to 60 characters (with the project name and a hyphen) should error")
 }
 
 func TestPipelineWithSubprocesses(t *testing.T) {
@@ -11573,10 +11605,10 @@ func TestJobPropagationOnlyOutputBranch(t *testing.T) {
 
 	project := tu.UniqueString("project")
 	require.NoError(t, c.CreateProject(project))
-	dataRepo := tu.UniqueString("JobPropagationOnlyOutputBranch_data")
+	dataRepo := tu.UniqueString("PropagationOnlyOutputBranch_data")
 	require.NoError(t, c.CreateProjectRepo(project, dataRepo))
 
-	pipeline := tu.UniqueString("JobPropagationOnlyOutputBranch")
+	pipeline := tu.UniqueString("pipeline")
 	outputBranch := client.NewProjectBranch(project, pipeline, "output")
 	require.NoError(t, c.CreateProjectPipeline(project,
 		pipeline,

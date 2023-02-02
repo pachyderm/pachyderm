@@ -79,6 +79,12 @@ const (
 	// default we return logs from up to 24 hours ago.
 	DefaultLogsFrom  = time.Hour * 24
 	ppsTaskNamespace = "/pps"
+
+	maxPipelineNameLength = 51
+
+	// dnsLabelLimit is the maximum length of a ReplicationController
+	// or Service name.
+	dnsLabelLimit = 63
 )
 
 var (
@@ -1766,9 +1772,14 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	if err := ancestry.ValidateName(request.Pipeline.Name); err != nil {
 		return errors.Wrapf(err, "invalid pipeline name")
 	}
-	if len(request.Pipeline.Name) > 63 {
-		return errors.Errorf("pipeline name is %d characters long, but must have at most 63: %q",
-			len(request.Pipeline.Name), request.Pipeline.Name)
+	if len(request.Pipeline.Name) > maxPipelineNameLength {
+		return errors.Errorf("pipeline name %q is %d characters longer than the %d max",
+			request.Pipeline.Name, maxPipelineNameLength-len(request.Pipeline.Name), maxPipelineNameLength)
+	}
+	// TODO(CORE-1489): Remove dependency of name length on Kubernetes
+	// resource naming convention.
+	if k8sName := ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: request.Pipeline.GetProject().GetName()}, Name: request.Pipeline.Name}, Version: 99}); len(k8sName) > dnsLabelLimit {
+		return errors.Errorf("Kubernetes name %q is %d characters longer than the %d max", k8sName, dnsLabelLimit-len(k8sName), dnsLabelLimit)
 	}
 	// TODO(msteffen) eventually TFJob and Transform will be alternatives, but
 	// currently TFJob isn't supported
