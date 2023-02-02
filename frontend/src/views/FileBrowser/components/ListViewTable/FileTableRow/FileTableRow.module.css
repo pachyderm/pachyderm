@@ -2,3 +2,8 @@
 .commitIcon.UPDATED {
   color: var(--chart-dark-blue);
 }
+
+.disabledButton {
+    pointer-events: none;
+  }
+  

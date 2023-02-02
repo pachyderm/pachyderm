@@ -107,17 +107,29 @@ const IconView: React.FC<IconViewProps> = ({file}) => {
                   tooltipKey={`${filePath}download`}
                   tooltipText="This file is too large to download"
                 >
-                  <Button
-                    IconSVG={DownloadSVG}
-                    buttonType="ghost"
-                    aria-label={`Download ${file.path}`}
-                  />
+                  <span>
+                    <Button
+                      IconSVG={DownloadSVG}
+                      buttonType="ghost"
+                      aria-label={`Download ${file.path}`}
+                      disabled
+                      className={styles.disabledButton}
+                    />
+                  </span>
                 </Tooltip>
                 <Tooltip
                   tooltipKey={`${filePath}preview`}
                   tooltipText="This file is too large to preview"
                 >
-                  <Button buttonType="ghost">Preview</Button>
+                  <span>
+                    <Button
+                      buttonType="ghost"
+                      disabled
+                      className={styles.disabledButton}
+                    >
+                      Preview
+                    </Button>
+                  </span>
                 </Tooltip>
               </>
             )

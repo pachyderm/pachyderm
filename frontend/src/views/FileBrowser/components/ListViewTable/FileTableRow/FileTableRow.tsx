@@ -69,14 +69,50 @@ const FileTableRow: React.FC<FileTableRowProps> = ({file}) => {
         <ButtonGroup>
           {file.type === FileType.FILE ? (
             <>
-              {previewSupported && (
-                <Button buttonType="ghost" to={filePath}>
-                  Preview
-                </Button>
+              {download ? (
+                <>
+                  {previewSupported && (
+                    <Button buttonType="ghost" to={filePath}>
+                      Preview
+                    </Button>
+                  )}
+                  <Button href={download} download buttonType="ghost">
+                    Download
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Tooltip
+                    tooltipKey={`${filePath}preview`}
+                    tooltipText="This file is too large to preview"
+                  >
+                    <span>
+                      <Button
+                        buttonType="ghost"
+                        disabled
+                        className={styles.disabledButton}
+                      >
+                        Preview
+                      </Button>
+                    </span>
+                  </Tooltip>
+                  <Tooltip
+                    tooltipKey={`${filePath}download`}
+                    tooltipText="This file is too large to download"
+                  >
+                    <span>
+                      <Button
+                        buttonType="ghost"
+                        disabled
+                        className={styles.disabledButton}
+                      >
+                        Download
+                      </Button>
+                    </span>
+                  </Tooltip>
+                </>
               )}
-              <Button href={download} download buttonType="ghost">
-                Download
-              </Button>
+
               <DeleteFileButton file={file}>Delete</DeleteFileButton>
             </>
           ) : (

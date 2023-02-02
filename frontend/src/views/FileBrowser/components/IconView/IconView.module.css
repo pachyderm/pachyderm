@@ -70,3 +70,7 @@
   width: 100%;
   justify-content: flex-end;
 }
+
+.disabledButton {
+  pointer-events: none;
+}

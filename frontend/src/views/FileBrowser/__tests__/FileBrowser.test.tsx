@@ -245,6 +245,24 @@ describe('File Browser', () => {
         screen.queryByTestId('DeleteFileButton__link'),
       ).not.toBeInTheDocument();
     });
+    it('should not allow preview or download for large file', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/cats%2F',
+      );
+      render(<FileBrowser />);
+
+      const previewButton = await screen.findByRole('button', {
+        name: 'Preview',
+      });
+      expect(previewButton).toBeDisabled();
+
+      const downloadButton = await screen.findByRole('button', {
+        name: 'Download',
+      });
+      expect(downloadButton).toBeDisabled();
+    });
   });
 
   describe('File Browser icon view', () => {
@@ -339,6 +357,28 @@ describe('File Browser', () => {
       expect(
         screen.queryByTestId('DeleteFileButton__link'),
       ).not.toBeInTheDocument();
+    });
+
+    it('should not allow preview or download for large file', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/cats%2F',
+      );
+      render(<FileBrowser />);
+
+      const iconViewIcon = await screen.findByLabelText('switch to icon view');
+      await click(iconViewIcon);
+
+      const previewButton = await screen.findByRole('button', {
+        name: 'Preview',
+      });
+      expect(previewButton).toBeDisabled();
+
+      const downloadButton = screen.getByRole('button', {
+        name: 'Download /cats/test.png',
+      });
+      expect(downloadButton).toBeDisabled();
     });
   });
 

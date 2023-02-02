@@ -70,8 +70,10 @@ describe('File Resolver', () => {
 
       const files = data?.files.files;
       expect(errors).toHaveLength(0);
-      expect(files).toHaveLength(1);
+      expect(files).toHaveLength(2);
       expect(files?.[0]?.path).toBe('/cats/kitten.png');
+      expect(files?.[1]?.path).toBe('/cats/test.png');
+      expect(files?.[1]?.downloadDisabled).toBe(true);
     });
   });
   describe('putFilesFromURLs', () => {

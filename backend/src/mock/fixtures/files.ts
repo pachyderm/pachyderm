@@ -1,3 +1,4 @@
+import {FILE_DOWNLOAD_LIMIT} from '@dash-backend/lib/constants';
 import {FileInfo, FileType} from '@dash-backend/proto';
 import {fileInfoFromObject} from '@dash-backend/proto/builders/pfs';
 
@@ -50,6 +51,17 @@ const tutorial = {
       fileType: FileType.FILE,
       hash: 'AGyiZfGAxLyuqfB1yCGe/AMCpp2zdTYW8B37j8ls4hA',
       sizeBytes: 104836,
+    }),
+    fileInfoFromObject({
+      committed: {seconds: 1612126189, nanos: 0},
+      file: {
+        commitId: 'd350c8d08a644ed5b2ee98c035ab6b33',
+        path: '/cats/test.png',
+        branch: {name: 'master', repo: {name: 'images'}},
+      },
+      fileType: FileType.FILE,
+      hash: 'AGyiZfGAxLyuqfB1yCGe/AMCpp2zdTYW8B37j8ls4hA',
+      sizeBytes: FILE_DOWNLOAD_LIMIT + 1,
     }),
   ],
 };
