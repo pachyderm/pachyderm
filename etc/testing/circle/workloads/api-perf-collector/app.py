@@ -41,7 +41,6 @@ def main():
 
     rows_to_insert = get_log_file_rows(
         'pachctl_logs.jsonl', results_folder, common_columns)
-    print(f'pachd logs: {rows_to_insert}')
     insert_to_bigquery(client, rows_to_insert, 'api-perf-pachd-logs')
 
     rows_to_insert = get_kubeconfig_rows(
