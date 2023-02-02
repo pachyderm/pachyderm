@@ -172,10 +172,13 @@ func migratePFSDB(ctx context.Context, tx *pachsql.Tx) error {
 	// images.user@master=da4016a16f8944cba94038ab5bcc9933 rather than
 	// /images.user@master=da4016a16f8944cba94038ab5bcc9933).
 	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_diffs SET commit_id = regexp_replace(commit_id, '^([-a-zA-Z0-9_]+)', 'default/\1') WHERE commit_id ~ '^[-a-zA-Z0-9_]+\.';`); err != nil {
-		return errors.Wrap(err, "could not update")
+		return errors.Wrap(err, "could not update pfs.commit_diffs")
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_totals SET commit_id = regexp_replace(commit_id, '^([-a-zA-Z0-9_]+)', 'default/\1') WHERE commit_id ~ '^[-a-zA-Z0-9_]+\.';`); err != nil {
-		return errors.Wrap(err, "could not update")
+		return errors.Wrap(err, "could not update pfs.commit_totals")
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE storage.tracker_objects SET str_id = regexp_replace(str_id, 'commit/([-a-zA-Z0-9_]+)', 'commit/default/\1') WHERE str_id ~ '^commit/[-a-zA-Z0-9_]+\.';`); err != nil {
+		return errors.Wrapf(err, "could not update storage.tracker_objects")
 	}
 	var oldRepo = new(pfs.RepoInfo)
 	if err := migratePostgreSQLCollection(ctx, tx, "repos", reposIndexes, oldRepo, func(oldKey string) (newKey string, newVal proto.Message, err error) {
