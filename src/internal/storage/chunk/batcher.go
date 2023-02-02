@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"golang.org/x/sync/semaphore"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
 )
 
 // ChunkFunc is a function that provides the metadata for the entries in a chunk and a data reference to the chunk.
@@ -25,7 +27,7 @@ type Batcher struct {
 	entries   []*entry
 	buf       []byte
 	threshold int
-	taskChain *TaskChain
+	taskChain *taskchain.TaskChain
 	chunkFunc ChunkFunc
 	entryFunc EntryFunc
 }
@@ -43,7 +45,7 @@ func (s *Storage) NewBatcher(ctx context.Context, name string, threshold int, op
 	b := &Batcher{
 		client:    client,
 		threshold: threshold,
-		taskChain: NewTaskChain(ctx, semaphore.NewWeighted(chunkParallelism)),
+		taskChain: taskchain.New(ctx, semaphore.NewWeighted(chunkParallelism)),
 	}
 	for _, opt := range opts {
 		opt(b)

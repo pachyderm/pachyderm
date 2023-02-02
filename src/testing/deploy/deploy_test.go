@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -109,15 +110,21 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 	state := loginInfo.State
 
 	// Get the initial URL from the grpc, which should point to the dex login page
-	resp, err := hc.Get(loginInfo.LoginURL)
+	getResp, err := hc.Get(loginInfo.LoginURL)
 	require.NoError(t, err)
+	require.Equal(t, 200, getResp.StatusCode, "Mock login could not retrieve the login page.")
 
 	vals := make(url.Values)
 	vals.Add("login", "admin")
 	vals.Add("password", "password")
 
-	_, err = hc.PostForm(resp.Request.URL.String(), vals)
+	postResp, err := hc.PostForm(getResp.Request.URL.String(), vals)
 	require.NoError(t, err)
+	require.Equal(t, 200, postResp.StatusCode, "POST to perform mock login failed.")
+	postBody, err := io.ReadAll(postResp.Body)
+	require.NoError(t, err, "Could not read login form POST response.")
+	// There is a login failure case in which the response returned is a redirect back to the login page that returns 200
+	require.Matches(t, "^(You are now logged in).*$", string(postBody), "Recieved an unexpected response from mock IDP login form POST.")
 
 	authResp, err := c.AuthAPIClient.Authenticate(c.Ctx(), &auth.AuthenticateRequest{OIDCState: state})
 	require.NoError(t, err)

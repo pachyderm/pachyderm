@@ -838,6 +838,12 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(drawDocs, "draw"))
 
+	nextDocs := &cobra.Command{
+		Short: "Used internally for datum batching.",
+		Long:  "Used internally for datum batching.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(nextDocs, "next"))
+
 	subcommands = append(subcommands, pfscmds.Cmds(pachCtx)...)
 	subcommands = append(subcommands, ppscmds.Cmds(pachCtx)...)
 	subcommands = append(subcommands, authcmds.Cmds(pachCtx)...)

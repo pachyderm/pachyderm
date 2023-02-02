@@ -11,6 +11,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
+
 	"golang.org/x/sync/semaphore"
 )
 
@@ -66,7 +68,7 @@ func (r *Reader) Get(w io.Writer) (retErr error) {
 	}
 	ctx, cancel := context.WithCancel(r.ctx)
 	defer cancel()
-	taskChain := NewTaskChain(ctx, semaphore.NewWeighted(int64(r.prefetchLimit)))
+	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(r.prefetchLimit)))
 	defer func() {
 		if retErr != nil {
 			cancel()

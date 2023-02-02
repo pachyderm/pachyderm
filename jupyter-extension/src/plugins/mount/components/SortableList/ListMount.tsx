@@ -46,7 +46,7 @@ const ListMount: React.FC<ListMountProps> = ({item, open, updateData}) => {
   return (
     <li
       className="pachyderm-mount-sortableList-item"
-      data-testid="ListItem__branches"
+      data-testid="ListItem__repo"
     >
       <span
         className={`pachyderm-mount-list-item-name-branch-wrapper ${

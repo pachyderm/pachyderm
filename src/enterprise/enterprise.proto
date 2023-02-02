@@ -5,12 +5,14 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/enterprise";
 
 import "google/protobuf/timestamp.proto";
 
+import "protoextensions/log.proto";
+
 // Enterprise data structures
 
 // LicenseRecord is the record we store in etcd for a Pachyderm enterprise
 // token that has been provided to a Pachyderm license server
 message LicenseRecord {
-  string activation_code = 1;
+  string activation_code = 1 [(log.half) = true];
 
   google.protobuf.Timestamp expires = 2;
 }
@@ -27,10 +29,10 @@ message EnterpriseConfig {
   string secret = 3;
 }
 
-// EnterpriseRecord is a protobuf we cache in etcd to store the 
+// EnterpriseRecord is a protobuf we cache in etcd to store the
 // enterprise status.
 message EnterpriseRecord {
-  // license is the cached LicenseRecord retrieved from the most recent 
+  // license is the cached LicenseRecord retrieved from the most recent
   // heartbeat to the license server.
   LicenseRecord license = 1;
 
@@ -64,7 +66,7 @@ message TokenInfo {
 message ActivateRequest {
   string license_server = 1;
   string id = 2;
-  string secret = 3;
+  string secret = 3 [(log.half) = true];
 }
 message ActivateResponse {}
 
@@ -76,7 +78,7 @@ message GetStateResponse {
 
   // activation_code will always be an empty string,
   // call GetEnterpriseCode to get the activation code
-  string activation_code = 3;
+  string activation_code = 3 [(log.half) = true];
 }
 
 message GetActivationCodeRequest {}
@@ -84,11 +86,11 @@ message GetActivationCodeRequest {}
 message GetActivationCodeResponse {
   State state = 1;
   TokenInfo info = 2;
-  string activation_code = 3;
+  string activation_code = 3 [(log.half) = true];
 }
 
 // Heartbeat in the enterprise service just triggers a heartbeat for
-// testing purposes. The RPC used to communicate with the license 
+// testing purposes. The RPC used to communicate with the license
 // service is defined in the license service.
 message HeartbeatRequest{}
 message HeartbeatResponse{}
@@ -133,4 +135,3 @@ service API {
   rpc Unpause(UnpauseRequest) returns (UnpauseResponse) {}
   rpc PauseStatus(PauseStatusRequest) returns (PauseStatusResponse) {}
 }
-

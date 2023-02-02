@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -24,6 +25,7 @@ type source struct {
 	commitInfo                  *pfs.CommitInfo
 	fileSet                     fileset.FileSet
 	dirIndexOpts, fileIndexOpts []index.Option
+	upper                       string
 }
 
 // NewSource creates a Source which emits FileInfos with the information from commit, and the entries return from fileSet.
@@ -51,10 +53,20 @@ func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOpt
 		s.dirIndexOpts = append(s.dirIndexOpts, index.WithRange(&index.PathRange{
 			Lower: sc.pathRange.Lower,
 		}))
-		s.fileIndexOpts = append(s.fileIndexOpts, index.WithRange(&index.PathRange{
+		// The upper for the index path range is set to be past the provided upper
+		// to ensure that directories between the last file that should be emitted
+		// and the first file that shouldn't get created.
+		// For example, the files /d1/f1 and /d2/f2 with a path range of [/d1/f1, /d2/f2) should
+		// emit /d1/f1 and /d2/.
+		pr := &index.PathRange{
 			Lower: sc.pathRange.Lower,
 			Upper: sc.pathRange.Upper,
-		}))
+		}
+		if pr.Upper != "" {
+			pr.Upper += string(rune(0))
+		}
+		s.fileIndexOpts = append(s.fileIndexOpts, index.WithRange(pr))
+		s.upper = sc.pathRange.Upper
 	}
 	if sc.filter != nil {
 		s.fileSet = sc.filter(s.fileSet)
@@ -71,6 +83,9 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	cache := make(map[string]*pfs.FileInfo)
 	err := s.fileSet.Iterate(ctx, func(f fileset.File) error {
 		idx := f.Index()
+		if s.upper != "" && idx.Path >= s.upper {
+			return errutil.ErrBreak
+		}
 		file := s.commitInfo.Commit.NewFile(idx.Path)
 		file.Datum = idx.File.Datum
 		fi := &pfs.FileInfo{
@@ -102,6 +117,9 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 		}
 		return nil
 	}, s.fileIndexOpts...)
+	if errors.Is(err, errutil.ErrBreak) {
+		err = nil
+	}
 	return errors.EnsureStack(err)
 }
 

@@ -34,9 +34,6 @@ const (
 
 	// The S3 location served back
 	globalLocation = "PACHYDERM"
-
-	isProjectAwareVar   = "isProjectAware"
-	isProjectAwareValue = "yes"
 )
 
 // The S3 user associated with all PFS content
@@ -65,11 +62,10 @@ func (c *controller) requestClient(r *http.Request) *client.APIClient {
 	vars := mux.Vars(r)
 	if vars["s3gAuth"] != "disabled" {
 		accessKey := vars["authAccessKey"]
-		if strings.HasPrefix(accessKey, "PAC1") {
-			vars[isProjectAwareVar] = isProjectAwareValue
-			accessKey = accessKey[4:]
-		}
-		if accessKey != "" {
+		if accessKey == "" {
+			log.Error(pc.Ctx(), "S3 gateway requests did not include authAccessKey")
+		} else {
+			// this should always run
 			pc.SetAuthToken(accessKey)
 		}
 	}

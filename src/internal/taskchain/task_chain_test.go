@@ -1,4 +1,4 @@
-package chunk
+package taskchain
 
 import (
 	"context"
@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/semaphore"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"golang.org/x/sync/semaphore"
 )
 
 func TestTaskChain(t *testing.T) {
@@ -17,7 +18,7 @@ func TestTaskChain(t *testing.T) {
 	t.Run("Basic", func(t *testing.T) {
 		t.Parallel()
 		numTasks := 5
-		tc := NewTaskChain(ctx, semaphore.NewWeighted(int64(numTasks)))
+		tc := New(ctx, semaphore.NewWeighted(int64(numTasks)))
 		doneParallel := make(chan int, numTasks)
 		doneSerial := make(chan int, numTasks)
 		for i := 0; i < numTasks; i++ {
@@ -42,7 +43,7 @@ func TestTaskChain(t *testing.T) {
 	t.Run("Window", func(t *testing.T) {
 		t.Parallel()
 		numTasks := 10
-		tc := NewTaskChain(ctx, semaphore.NewWeighted(int64(numTasks/2)))
+		tc := New(ctx, semaphore.NewWeighted(int64(numTasks/2)))
 		done := make(chan int, numTasks)
 		for i := 0; i < numTasks; i++ {
 			i := i
@@ -61,7 +62,7 @@ func TestTaskChain(t *testing.T) {
 	})
 	t.Run("Error", func(t *testing.T) {
 		t.Parallel()
-		tc := NewTaskChain(ctx, semaphore.NewWeighted(1))
+		tc := New(ctx, semaphore.NewWeighted(1))
 		errMsg := "task errored"
 		require.NoError(t, tc.CreateTask(func(_ context.Context) (func() error, error) {
 			return nil, errors.New(errMsg)
