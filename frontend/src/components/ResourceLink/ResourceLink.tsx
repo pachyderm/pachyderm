@@ -41,6 +41,11 @@ export const RepoLink: React.FC<ResourceLinkProps> = ({
     repoId: nodeName,
   });
 
+  const repoText =
+    projectId && projectId !== projectIdFromURL
+      ? `${nodeName} (Project ${projectIdFromURL})`
+      : nodeName;
+
   return (
     <Link
       data-testid="ResourceLink__repo"
@@ -52,7 +57,7 @@ export const RepoLink: React.FC<ResourceLinkProps> = ({
         <RepoSVG />
       </Icon>
       <span {...rest} className={styles.nodeName}>
-        {nodeName}
+        {repoText}
       </span>
     </Link>
   );
