@@ -79,6 +79,10 @@ const (
 	// default we return logs from up to 24 hours ago.
 	DefaultLogsFrom  = time.Hour * 24
 	ppsTaskNamespace = "/pps"
+
+	// kubernetesNameLimit is the maximum length of a ReplicationController
+	// or Service name.
+	kubernetesNameLimit = 63
 )
 
 var (
@@ -1771,8 +1775,8 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 		return errors.Errorf("pipeline name is %d characters long, but must have at most 63: %q",
 			len(request.Pipeline.Name), request.Pipeline.Name)
 	}
-	if len(request.Pipeline.Name)+len(request.Pipeline.Project.GetName())+1 > 58 {
-		return errors.Errorf("%s-%s exceeds 58 characters", request.Pipeline.Project.GetName(), request.Pipeline.Name)
+	if max := kubernetesNameLimit - len("-v99"); len(request.Pipeline.Name)+len(request.Pipeline.Project.GetName())+1 > max {
+		return errors.Errorf("%s-%s exceeds %d characters", request.Pipeline.Project.GetName(), request.Pipeline.Name, max)
 	}
 	// TODO(msteffen) eventually TFJob and Transform will be alternatives, but
 	// currently TFJob isn't supported

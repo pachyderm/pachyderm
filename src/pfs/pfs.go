@@ -25,6 +25,14 @@ const (
 	SpecRepoType = "spec"
 
 	DefaultProjectName = "default"
+
+	// projectNameLimit is the maximum length of a project name, determined
+	// by the 63-character Kubernetes resource name limit and leaving eight
+	// characters for pipeline names.
+	//
+	// TODO(CORE-1489): raise this to something more sensible, e.g. 63 or 64
+	// or 256 characters.
+	projectNameLimit = 63 - 8
 )
 
 // NewHash returns a hash that PFS uses internally to compute checksums.
@@ -106,8 +114,8 @@ func (p *Project) ValidateName() error {
 	if p.Name == DefaultProjectName {
 		return nil
 	}
-	if len(p.Name) > 51 {
-		return errors.Errorf("project names may not exceed 51 characters")
+	if len(p.Name) > projectNameLimit {
+		return errors.Errorf("project names may not exceed %d characters", projectNameLimit)
 	}
 	if err := ancestry.ValidateName(p.Name); err != nil {
 		return err
