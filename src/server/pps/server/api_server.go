@@ -1775,6 +1775,8 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 		return errors.Errorf("pipeline name is %d characters long, but must have at most 63: %q",
 			len(request.Pipeline.Name), request.Pipeline.Name)
 	}
+	// TODO(CORE-1489): Remove dependency of name length on Kubernetes
+	// resource naming convention.
 	if max := kubernetesNameLimit - len("-v99"); len(request.Pipeline.Name)+len(request.Pipeline.Project.GetName())+1 > max {
 		return errors.Errorf("%s-%s exceeds %d characters", request.Pipeline.Project.GetName(), request.Pipeline.Name, max)
 	}
