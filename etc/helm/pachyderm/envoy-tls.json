@@ -96,6 +96,27 @@
          }
       }
    },
+   "dynamic_resources": {
+      "ads_config": {
+         "api_type": "GRPC",
+         "grpc_services": [
+            {
+               "envoy_grpc": {
+                  "cluster_name": "xds"
+               }
+            }
+         ],
+         "transport_api_version": "V3"
+      },
+      "cds_config": {
+         "ads": { },
+         "resource_api_version": "V3"
+      },
+      "lds_config": {
+         "ads": { },
+         "resource_api_version": "V3"
+      }
+   },
    "layered_runtime": {
       "layers": [
          {
@@ -409,6 +430,49 @@
             },
             "name": "pachd-s3",
             "type": "strict_dns",
+            "upstream_connection_options": {
+               "tcp_keepalive": { }
+            }
+         },
+         {
+            "connect_timeout": "10s",
+            "dns_failure_refresh_rate": {
+               "base_interval": "0.05s",
+               "max_interval": "0.1s"
+            },
+            "dns_lookup_family": "V4_ONLY",
+            "dns_refresh_rate": "5s",
+            "health_checks": [ ],
+            "lb_policy": "random",
+            "load_assignment": {
+               "cluster_name": "xds",
+               "endpoints": [
+                  {
+                     "lb_endpoints": [
+                        {
+                           "endpoint": {
+                              "address": {
+                                 "socket_address": {
+                                    "address": "xds-service",
+                                    "port_value": 18000
+                                 }
+                              }
+                           }
+                        }
+                     ]
+                  }
+               ]
+            },
+            "name": "xds",
+            "type": "strict_dns",
+            "typed_extension_protocol_options": {
+               "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+                  "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+                  "explicit_http_config": {
+                     "http2_protocol_options": { }
+                  }
+               }
+            },
             "upstream_connection_options": {
                "tcp_keepalive": { }
             }

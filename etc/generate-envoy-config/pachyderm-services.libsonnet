@@ -1,4 +1,10 @@
 {
+  'xds': {
+    grpc: true,
+    internal_port: 18000,
+    service: 'xds-service',
+    routes: []
+  },
   'pachd-grpc': {
     internal_port: 1650,
     external_port: 30650,
