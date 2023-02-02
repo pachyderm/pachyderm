@@ -172,7 +172,9 @@ const dagResolver: DagResolver = {
 
             const vertices = sortedJobSet.reduce<Vertex[]>((acc, job) => {
               const inputs = job.details?.input
-                ? flattenPipelineInputObj(job.details.input)
+                ? flattenPipelineInputObj(job.details.input).filter(
+                    (input) => input.project === projectId,
+                  )
                 : [];
 
               const inputRepoVertices: Vertex[] = inputs.map(
