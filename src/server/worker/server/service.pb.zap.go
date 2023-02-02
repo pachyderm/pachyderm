@@ -30,3 +30,25 @@ func (x *CancelResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddBool("success", x.Success)
 	return nil
 }
+
+func (x *NextDatumRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("error", x.Error)
+	return nil
+}
+
+func (x *NextDatumResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	envArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Env {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("env", zapcore.ArrayMarshalerFunc(envArrMarshaller))
+	return nil
+}
