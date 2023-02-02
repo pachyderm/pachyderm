@@ -3,10 +3,7 @@ import classnames from 'classnames';
 import React from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
-import {
-  NO_DAG_MESSAGE,
-  LETS_START_TITLE,
-} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
+import {NO_DAG_MESSAGE} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import View from '@dash-frontend/components/View';
 import {DagDirection, Dag} from '@dash-frontend/lib/types';
 import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
@@ -24,10 +21,12 @@ import {
   DropdownItem,
   useBreakpoint,
   DownloadSVG,
+  useModal,
 } from '@pachyderm/components';
 import {LARGE} from 'constants/breakpoints';
 
 import {NODE_HEIGHT, NODE_WIDTH} from '../../constants/nodeSizes';
+import CreateRepoModal from '../CreateRepoModal';
 import DAGError from '../DAGError';
 
 import DAG from './components/DAG';
@@ -70,6 +69,8 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
     graphExtents,
     projectName,
   );
+
+  const {openModal, closeModal, isOpen} = useModal(false);
 
   const isResponsive = useBreakpoint(LARGE);
   const noDags = dags?.length === 0;
@@ -232,7 +233,17 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
         <DAGError error={error} />
       </div>
       {noDags && (
-        <EmptyState title={LETS_START_TITLE} message={NO_DAG_MESSAGE} />
+        <EmptyState
+          title={''}
+          message={NO_DAG_MESSAGE}
+          renderButton={
+            <Button onClick={openModal}>Create Your First Repo</Button>
+          }
+          linkToDocs={{
+            text: 'How to create a repo on CLI',
+            link: 'https://docs.pachyderm.com/latest/concepts/data-concepts/repo/',
+          }}
+        />
       )}
       <HoveredNodeProvider>
         <svg
@@ -285,6 +296,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
           </g>
         </svg>
       </HoveredNodeProvider>
+      <CreateRepoModal show={isOpen} onHide={closeModal} />
     </View>
   );
 };
