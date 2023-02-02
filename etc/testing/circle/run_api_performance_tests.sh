@@ -19,9 +19,9 @@ else
 fi
 
 
-# Install pachctl
-gh release download "$pachctl_tag" --pattern "pachctl_${pachctl_tag//v/}_amd64.deb" --repo pachyderm/pachyderm --output /tmp/pachctl.deb
-sudo dpkg -i /tmp/pachctl.deb
+branch=$(git rev-parse --abbrev-ref HEAD)
+git checkout "$pachctl_tag"
+make install
 
 kubectl config use-context minikube
 # Create Pachyderm deployment
@@ -34,6 +34,8 @@ pachctl config import-kube perftest
 echo "$ENT_ACT_CODE" | pachctl license activate
 pachctl version
 nohup pachctl port-forward &
+
+git checkout "$branch"
 
 kubectl get pod postgres-0 -o json  > "${TEST_RESULTS}/postgres-k8s-config.json"
 kubectl get pod -l "app=pachd" -o json  > "${TEST_RESULTS}/pachd-k8s-config.json"
