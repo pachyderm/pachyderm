@@ -105,9 +105,9 @@ describe('Search', () => {
     const searchBar = await screen.findByRole('searchbox');
     assertDropdown().toBeHidden();
 
-    await type(searchBar, 'edges');
+    await type(searchBar, 'images');
     assertDropdown().toBeShown();
-    await click(await screen.findByRole('button', {name: 'See Jobs'}));
+    await click(await screen.findByRole('button', {name: 'See Commits'}));
     assertDropdown().toBeHidden();
 
     searchBar.focus();
@@ -141,28 +141,20 @@ describe('Search', () => {
     );
   });
 
-  it('should route to selected pipeline and pipeline jobs', async () => {
+  it('should route to selected pipeline', async () => {
     renderTestbed();
     const searchBar = await screen.findByRole('searchbox');
     assertDropdown().toBeHidden();
 
     await type(searchBar, 'edges');
     assertDropdown().toBeShown();
-    await click(await screen.findByRole('button', {name: 'See Jobs'}));
-    expect(window.location.pathname).toBe(
-      '/project/Solar-Panel-Data-Sorting/pipelines/edges/jobs',
-    );
-    assertDropdown().toBeHidden();
-
-    searchBar.focus();
-    assertDropdown().toBeShown();
-    await click(await screen.findByRole('button', {name: 'edges'}));
-    await click(await screen.queryAllByText('edges')[1]);
+    await click((await screen.findAllByText('edges'))[1]);
 
     assertDropdown().toBeHidden();
     expect(window.location.pathname).toBe(
       '/project/Solar-Panel-Data-Sorting/pipelines/edges',
     );
+    assertDropdown().toBeHidden();
   });
 
   it('should route to jobs for selected id', async () => {

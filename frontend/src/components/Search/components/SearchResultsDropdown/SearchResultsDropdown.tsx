@@ -128,12 +128,7 @@ const SearchResultsDropdown: React.FC = () => {
                   title={pipeline.name}
                   searchValue={debouncedValue}
                   onClick={() => pipelineOnClick(pipeline.name)}
-                >
-                  <SecondaryAction
-                    linkText={'See Jobs'}
-                    onClick={() => pipelineOnClick(pipeline.name, 'jobs')}
-                  />
-                </SearchResultItem>
+                />
               );
             })}
           </div>
