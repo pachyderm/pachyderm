@@ -112,8 +112,8 @@ def get_log_file_rows(file_name: str, results_folder: str, common_columns: dict[
     rows = []
     with open(file_path, 'r') as f:
         for line in f:
-            json_log = json.loads(line)['log']
             try:
+                json_log = json.loads(line)['log']
                 log_json = json.loads(json_log)
                 if log_json['severity'] != 'info' and log_json['severity'] != 'debug':
                     for field in log_json.keys():
