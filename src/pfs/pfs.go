@@ -32,7 +32,7 @@ const (
 	//
 	// TODO(CORE-1489): raise this to something more sensible, e.g. 63 or 64
 	// or 256 characters.
-	projectNameLimit = 63 - 8
+	projectNameLimit = 63 - 8 - len("-v99")
 )
 
 // NewHash returns a hash that PFS uses internally to compute checksums.
