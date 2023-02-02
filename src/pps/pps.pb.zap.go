@@ -86,6 +86,7 @@ func (x *Transform) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("working_dir", x.WorkingDir)
 	enc.AddString("dockerfile", x.Dockerfile)
 	enc.AddBool("memory_volume", x.MemoryVolume)
+	enc.AddBool("datum_batching", x.DatumBatching)
 	return nil
 }
 
