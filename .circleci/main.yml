@@ -1350,7 +1350,7 @@ workflows:
                   #- LOAD14
                   #- LOAD15
       - pulumi-aws-test-env:
-          name: destroy-aws-testing-env
+          name: destroy-aws-testing-env-<< matrix.env >>
           action: destroy
           requires:
             - nightly-load-<< matrix.env >>
