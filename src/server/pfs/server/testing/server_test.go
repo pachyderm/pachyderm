@@ -480,6 +480,17 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, numGoros, successCount)
 	})
 
+	suite.Run("CreateProject", func(t *testing.T) {
+		t.Parallel()
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+		// 51-character project names are allowed
+		require.NoError(t, env.PachClient.CreateProject("123456789A123456789B123456789C123456789D123456789E1"))
+		// 52-character project names are not allowed
+		require.YesError(t, env.PachClient.CreateProject("123456789A123456789B123456789C123456789D123456789E12"))
+	})
+
 	suite.Run("CreateRepoNonExistentProject", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
