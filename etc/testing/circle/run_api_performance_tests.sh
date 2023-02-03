@@ -23,8 +23,11 @@ fi
 
 branch=$(git rev-parse --abbrev-ref HEAD)
 git checkout "$pachctl_tag" # needed to get correct helm chart and values
-gh release download "$pachctl_tag" --pattern "pachctl_${image_tag}_amd64.deb" --repo pachyderm/pachyderm --output /tmp/pachctl.deb
-sudo dpkg -i /tmp/pachctl.deb
+{
+    gh release download "$pachctl_tag" --pattern "pachctl_${image_tag}_amd64.deb" --repo pachyderm/pachyderm --output /tmp/pachctl.deb &&
+    sudo dpkg -i /tmp/pachctl.deb
+} || make install #  not tag deployed so try to make install as a backup
+
 
 kubectl config use-context minikube
 # Create Pachyderm deployment
