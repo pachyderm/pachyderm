@@ -2,6 +2,8 @@
 
 set -euxo pipefail
 
+go version
+
 
 if [ "$PACHD_VERSION" == "latest" ]
 then 
@@ -20,8 +22,9 @@ fi
 
 
 branch=$(git rev-parse --abbrev-ref HEAD)
-git checkout "$pachctl_tag"
-make install
+git checkout "$pachctl_tag" # needed to get correct helm chart and values
+gh release download "$pachctl_tag" --pattern "pachctl_${image_tag}_amd64.deb" --repo pachyderm/pachyderm --output /tmp/pachctl.deb
+sudo dpkg -i /tmp/pachctl.deb
 
 kubectl config use-context minikube
 # Create Pachyderm deployment
