@@ -1071,7 +1071,7 @@ jobs:
       - aws-cli/setup
       - pulumi/login
       - run: |
-         pulumi plugin install resource eks v0.40.0
+          pulumi plugin install resource eks v0.40.0
       - run:
           name: set few config values
           command: |
@@ -1084,30 +1084,30 @@ jobs:
             and:
               - equal: ["update", << parameters.action >>]
           steps:
-              - pulumi/update:
-                  stack: pachyderm/core/<< parameters.env >>
-                  working_directory: ./etc/testing/circle/workloads/pulumi/aws/
-              - run:
-                  name: 
-                  command: |
-                    pulumi stack output kubeconfig > kubeconfig.yml
-                    KUBECONFIG=./kubeconfig.yml kubectl get nodes
-                    export PACHD_IP=$(KUBECONFIG=./kubeconfig.yml kubectl get services --all-namespaces | grep pachyderm-proxy | awk '{print $5}')
-                    # set extra values for nightly runs.
-                    export << parameters.env >>_${CIRCLE_SHA1:0:5}=${PACHD_IP} >> $BASH_ENV
-                    cp $BASH_ENV bash.env
-              - persist_to_workspace:
-                  root: .
-                  paths:
-                    - bash.env
+            - pulumi/update:
+                stack: pachyderm/core/<< parameters.env >>
+                working_directory: ./etc/testing/circle/workloads/pulumi/aws/
+            - run:
+                name:
+                command: |
+                  pulumi stack output kubeconfig > kubeconfig.yml
+                  KUBECONFIG=./kubeconfig.yml kubectl get nodes
+                  export PACHD_IP=$(KUBECONFIG=./kubeconfig.yml kubectl get services --all-namespaces | grep pachyderm-proxy | awk '{print $5}')
+                  # set extra values for nightly runs.
+                  export << parameters.env >>_${CIRCLE_SHA1:0:5}=${PACHD_IP} >> $BASH_ENV
+                  cp $BASH_ENV bash.env
+            - persist_to_workspace:
+                root: .
+                paths:
+                  - bash.env
       - when:
           condition:
             and:
               - equal: ["destroy", << parameters.action >>]
           steps:
-              - pulumi/destroy:
-                  stack: pachyderm/core/<< parameters.env >>
-                  working_directory: ./etc/testing/circle/workloads/pulumi/aws/
+            - pulumi/destroy:
+                stack: pachyderm/core/<< parameters.env >>
+                working_directory: ./etc/testing/circle/workloads/pulumi/aws/
   cust-prerelease-testing:
     parameters:
       customer:
@@ -1308,7 +1308,7 @@ workflows:
             - build-docker-images
           matrix:
             parameters:
-              env: 
+              env:
                 - LOAD1
                 - LOAD2
                 # - LOAD3
@@ -1340,10 +1340,10 @@ workflows:
                 # - LOAD10
                 # - LOAD11
                 # - LOAD12
-                  # Disabled for now since they take too long, may consider reenabling later.
-                  #- LOAD13
-                  #- LOAD14
-                  #- LOAD15
+                # Disabled for now since they take too long, may consider reenabling later.
+                #- LOAD13
+                #- LOAD14
+                #- LOAD15
       - pulumi-aws-test-env:
           name: destroy-aws-testing-env-<< matrix.env >>
           action: destroy
