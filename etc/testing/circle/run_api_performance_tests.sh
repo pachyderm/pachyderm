@@ -4,7 +4,6 @@ set -euxo pipefail
 
 go version
 
-
 if [ "$PACHD_VERSION" == "latest" ]
 then 
     if [ -z "$PACHD_LATEST_VERSION" ]

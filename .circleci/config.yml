@@ -47,6 +47,9 @@ parameters:
   pachd-latest-version:
     type: string
     default: ""
+  go-version:
+    type: string
+    default: "1.19"
 # our defined job, and its steps
 jobs:
   setup:
@@ -148,6 +151,8 @@ jobs:
           name: Clone Locust tests
           command: |
             git clone https://github.com/pachyderm/locust-pachyderm.git locust-pachyderm
+      - go/install:
+          version: << pipeline.parameters.go-version >>
       - run:
           name: setup env vars
           command: |
