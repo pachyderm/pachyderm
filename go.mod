@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-lambda-go v1.17.0
 	github.com/aws/aws-sdk-go v1.44.68
 	github.com/breml/rootcerts v0.2.4
-	github.com/c-bata/go-prompt v0.2.3
+	github.com/c-bata/go-prompt v0.2.5
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/coreos/go-oidc v2.2.1+incompatible
