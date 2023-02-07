@@ -576,7 +576,6 @@ each datum.`,
 	kubeEvents.Flags().StringVar(&since, "since", "0", "Return log messages more recent than \"since\".")
 	commands = append(commands, cmdutil.CreateAlias(kubeEvents, "kube-events"))
 
-	//var query string
 	queryLoki := &cobra.Command{
 		Use:   "{{alias}} <query>",
 		Short: "Query the loki logs.",
@@ -602,8 +601,6 @@ each datum.`,
 			return nil
 		}),
 	}
-	//kubeEvents.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
-	//queryLoki.Flags().StringVar(&query, "query", "", "The query to send to loki.")
 	queryLoki.Flags().StringVar(&since, "since", "0", "Return log messages more recent than \"since\".")
 	commands = append(commands, cmdutil.CreateAlias(queryLoki, "loki"))
 
