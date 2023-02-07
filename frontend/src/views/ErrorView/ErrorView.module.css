@@ -21,3 +21,8 @@
 .elephantImage {
   max-width: 25rem;
 }
+
+.backLink, .backLink:hover {
+  text-decoration: none;
+  color: var(--white);
+}

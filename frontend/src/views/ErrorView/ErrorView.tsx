@@ -51,7 +51,13 @@ const ErrorView: React.FC<ErrorViewProps> = ({
             </Group>
             {errorDetails && <ErrorText>{errorDetails}</ErrorText>}
             {source && <ErrorText>Source: {source}</ErrorText>}
-            {showBackHomeButton && <Button href="/">Go Back Home</Button>}
+            {showBackHomeButton && (
+              <Button tabIndex={-1}>
+                <a href="/" className={styles.backLink}>
+                  Go Back Home
+                </a>
+              </Button>
+            )}
           </Group>
 
           {stackTrace && (
