@@ -16,8 +16,8 @@ from .api.debug import DebugStub as _DebugStub
 from .api.enterprise import ApiStub as _EnterpriseStub
 from .api.identity import ApiStub as _IdentityStub
 from .api.license import ApiStub as _LicenseStub
-from .api.pfs import ApiStub as _PfsStub
-from .api.pps import ApiStub as _PpsStub
+from .api.pfs.extension import ApiStub as _PfsStub
+from .api.pps.extension import ApiStub as _PpsStub
 from .api.transaction import ApiStub as _TransactionStub
 from .api.version import ApiStub as _VersionStub, Version
 from .constants import (
@@ -232,9 +232,7 @@ class Client:
         self._auth_token = value
         self._metadata = self._build_metadata()
         self._channel = _apply_metadata_interceptor(
-            channel=_create_channel(
-                self.address, self.root_certs, options=GRPC_CHANNEL_OPTIONS
-            ),
+            channel=self._channel,
             metadata=self._metadata,
         )
 
@@ -247,9 +245,7 @@ class Client:
         self._transaction_id = value
         self._metadata = self._build_metadata()
         self._channel = _apply_metadata_interceptor(
-            channel=_create_channel(
-                self.address, self.root_certs, options=GRPC_CHANNEL_OPTIONS
-            ),
+            channel=self._channel,
             metadata=self._metadata,
         )
 

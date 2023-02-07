@@ -28,3 +28,6 @@ try:
     __version__ = metadata.version(__name__)  # type: ignore
 except FileNotFoundError:
     pass
+
+
+from .api.pfs import _additions as __pfs_additions

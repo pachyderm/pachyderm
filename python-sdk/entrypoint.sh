@@ -38,6 +38,7 @@ done
 for i in ${PROTO_FILES}; do
     sed -i 's/_v2//' "${i}"
     sed -i 's/task\/task.proto/taskapi\/task.proto/' "${i}"
+    sed -i 's/version\/versionpb/version/' "${i}"
     sed -i 's/versionpb/version/' "${i}"
 done
 

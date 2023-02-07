@@ -16,15 +16,7 @@ class MetadataClientInterceptor(ClientInterceptor):
     ):
         call_details_metadata = list(call_details.metadata or [])
         call_details_metadata.extend(self.metadata)
-        new_details = ClientCallDetails(
-            compression=call_details.compression,
-            credentials=call_details.credentials,
-            metadata=call_details_metadata,
-            method=call_details.method,
-            timeout=call_details.timeout,
-            wait_for_ready=call_details.wait_for_ready,
-        )
-
+        new_details = call_details._replace(metadata=call_details_metadata)
         future = method(request, new_details)
         future.add_done_callback(_check_connection_error)
         return future
@@ -35,10 +27,8 @@ def _check_connection_error(grpc_future: grpc.Future):
     ConnectionError and attempt to sanitize the error message for the user.
     """
     error: Optional[grpc.Call] = grpc_future.exception()
-    print("Callback Called")
     if error is not None:
         unable_to_connect = "failed to connect to all addresses" in error.details()
-        print(f"unable_to_connect: {unable_to_connect}")
         if error.code() == grpc.StatusCode.UNAVAILABLE and unable_to_connect:
             error_message = "Could not connect to pachyderm instance\n"
             if "PACHD_PEER_SERVICE_HOST" in environ:

@@ -25,13 +25,14 @@ classifiers = [
 python = ">=3.7,<4.0"
 betterproto = { git = "https://github.com/bbonenfant/python-betterproto", rev = "95c8ad4" }
 certifi = ">=2022.9"
-grpcio = ">=1.38.0,<1.46.2"
-grpc-interceptor = "^0.13.0"
+grpcio = ">=1.50.0,<1.52.0"
+grpc-interceptor = "^0.14.2"
 importlib-metadata = { version = ">1.5.1", python = "<3.8" }
 
 [tool.poetry.dev-dependencies]
 betterproto = { git = "https://github.com/bbonenfant/python-betterproto", rev = "95c8ad4", extras = ["compiler"] }
 grpcio-tools = ">=1.38.0,<1.46.2"
+pytest = "^7.2.1"
 
 
 [build-system]
