@@ -153,7 +153,7 @@ func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoS
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) error {
-	return a.driver.deleteRepo(txnCtx, request.Repo, request.Force)
+	return a.driver.deleteRepo(txnCtx, request.Repo)
 }
 
 // DeleteRepo implements the protobuf pfs.DeleteRepo RPC
@@ -384,7 +384,7 @@ func (a *apiServer) ListBranch(request *pfs.ListBranchRequest, srv pfs.API_ListB
 // DeleteBranchInTransaction is identical to DeleteBranch except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) DeleteBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteBranchRequest) error {
-	return a.driver.deleteBranch(txnCtx, request.Branch, request.Force)
+	return a.driver.deleteBranch(txnCtx, request.Branch)
 }
 
 // DeleteBranch implements the protobuf pfs.DeleteBranch RPC
