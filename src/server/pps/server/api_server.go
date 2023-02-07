@@ -1365,6 +1365,22 @@ func (a *apiServer) GetKubeEvents(request *pps.LokiRequest, apiGetKubeEventsServ
 	})
 }
 
+func (a *apiServer) QueryLoki(request *pps.LokiRequest, apiQueryLokiServer pps.API_QueryLokiServer) (retErr error) {
+	loki, err := a.env.GetLokiClient()
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	since := time.Time{}
+	if request.Since != nil {
+		since = time.Now().Add(-time.Duration(request.Since.Seconds) * time.Second)
+	}
+	return lokiutil.QueryRange(apiQueryLokiServer.Context(), loki, request.Query, since, time.Time{}, false, func(t time.Time, line string) error {
+		return errors.EnsureStack(apiQueryLokiServer.Send(&pps.LokiLogMessage{
+			Message: strings.TrimSuffix(line, "\n"),
+		}))
+	})
+}
+
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	ctx := apiGetLogsServer.Context()
 

@@ -1054,6 +1054,7 @@ func (x *LokiRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	protoextensions.AddDuration(enc, "since", x.Since)
+	enc.AddString("query", x.Query)
 	return nil
 }
 
