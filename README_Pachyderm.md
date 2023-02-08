@@ -17,6 +17,9 @@ In most cases, a Pachyderm customer will receive a Console deploy as an addition
 1. If using Enterprise, [configure auth](#with-auth0), otherwise, your Console deploy will stay in Community Edition.
 1. Run `pachctl port-forward`.
 
+## Optional makefile automation
+1. After you have setup, you can optionally use the makefile command found in the root of the project `make install-pachyderm-port-forward` (or `make install-pachyderm`) to run the correct pachyderm version as specified by the `version.json` file.
+
 ## Configuring Auth
 #### With Auth0
 
