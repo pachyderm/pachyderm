@@ -2,7 +2,8 @@ name: Pull Request Stats
 
 on:
   schedule:
-    - cron:  '55 16 * * 1'
+    #- cron:  '55 16 * * 1'
+    - cron: '0 * * * *'
 
 jobs:
   stats:
