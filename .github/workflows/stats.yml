@@ -2,8 +2,7 @@ name: Pull Request Stats
 
 on:
   schedule:
-    #- cron:  '55 16 * * 1'
-    - cron: '0 * * * *'
+    - cron:  '55 16 * * 1'
 
 jobs:
   stats:
@@ -14,3 +13,4 @@ jobs:
         with:
           slack-channel: '#eng-console'
           slack-webhook: 'https://hooks.slack.com/services/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'
+          token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
