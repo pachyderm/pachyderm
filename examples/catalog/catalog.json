@@ -1,0 +1,16 @@
+{
+  "pipeline": {
+    "name": "catalog"
+  },
+  "description": "A pipeline that catalogs data.",
+  "input": {
+    "pfs": {
+      "glob": "/",
+      "repo": "books"
+    }
+  },
+  "transform": {
+    "cmd": [ "/scripts/run.sh" ],
+    "image": "catalog:local"
+  }
+}
