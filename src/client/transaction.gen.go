@@ -357,6 +357,10 @@ func (c *unsupportedPfsBuilderClient) Fsck(_ context.Context, _ *pfs_v2.FsckRequ
 	return nil, unsupportedError("Fsck")
 }
 
+func (c *unsupportedPfsBuilderClient) GarbageCollect(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("GarbageCollect")
+}
+
 func (c *unsupportedPfsBuilderClient) GetCache(_ context.Context, _ *pfs_v2.GetCacheRequest, opts ...grpc.CallOption) (*pfs_v2.GetCacheResponse, error) {
 	return nil, unsupportedError("GetCache")
 }

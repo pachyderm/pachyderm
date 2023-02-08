@@ -647,6 +647,18 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	return &types.Empty{}, nil
 }
 
+func (a *apiServer) GarbageCollect(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
+	gc := chunk.NewGC(a.driver.storage.ChunkStorage(), time.Minute)
+	if err := gc.RunOnce(ctx); err != nil {
+		return nil, err
+	}
+	storageGC := a.driver.storage.NewGC(time.Minute)
+	if err := storageGC.RunUntilEmpty(ctx); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
 // Fsckimplements the protobuf pfs.Fsck RPC
 func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer) (retErr error) {
 	ctx := fsckServer.Context()

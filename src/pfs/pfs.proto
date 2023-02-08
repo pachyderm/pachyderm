@@ -704,4 +704,7 @@ service API {
   rpc ListProject(ListProjectRequest) returns (stream ProjectInfo) {}
   // DeleteProject deletes a project.
   rpc DeleteProject(DeleteProjectRequest) returns (google.protobuf.Empty) {}
+
+  // GarbageCollect runs chunk garbage collection once
+  rpc GarbageCollect(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }

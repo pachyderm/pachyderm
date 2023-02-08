@@ -997,6 +997,7 @@ type runLoadTestFunc func(context.Context, *pfs.RunLoadTestRequest) (*pfs.RunLoa
 type runLoadTestDefaultFunc func(context.Context, *types.Empty) (*pfs.RunLoadTestResponse, error)
 type listTaskPFSFunc func(*task.ListTaskRequest, pfs.API_ListTaskServer) error
 type egressFunc func(context.Context, *pfs.EgressRequest) (*pfs.EgressResponse, error)
+type garbageCollectFunc func(context.Context, *types.Empty) (*types.Empty, error)
 
 type mockActivateAuthPFS struct{ handler activateAuthPFSFunc }
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -1046,6 +1047,7 @@ type mockRunLoadTest struct{ handler runLoadTestFunc }
 type mockRunLoadTestDefault struct{ handler runLoadTestDefaultFunc }
 type mockListTaskPFS struct{ handler listTaskPFSFunc }
 type mockEgress struct{ handler egressFunc }
+type mockGarbageCollect struct{ handler garbageCollectFunc }
 
 func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc)       { mock.handler = cb }
 func (mock *mockCreateRepo) Use(cb createRepoFunc)                 { mock.handler = cb }
@@ -1095,6 +1097,7 @@ func (mock *mockRunLoadTest) Use(cb runLoadTestFunc)               { mock.handle
 func (mock *mockRunLoadTestDefault) Use(cb runLoadTestDefaultFunc) { mock.handler = cb }
 func (mock *mockListTaskPFS) Use(cb listTaskPFSFunc)               { mock.handler = cb }
 func (mock *mockEgress) Use(cb egressFunc)                         { mock.handler = cb }
+func (mock *mockGarbageCollect) Use(cb garbageCollectFunc)         { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
@@ -1150,6 +1153,7 @@ type mockPFSServer struct {
 	RunLoadTestDefault mockRunLoadTestDefault
 	ListTask           mockListTaskPFS
 	Egress             mockEgress
+	GarbageCollect     mockGarbageCollect
 }
 
 func (api *pfsServerAPI) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error) {
@@ -1439,6 +1443,12 @@ func (api *pfsServerAPI) Egress(ctx context.Context, req *pfs.EgressRequest) (*p
 		return api.mock.Egress.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.Egress")
+}
+func (api *pfsServerAPI) GarbageCollect(ctx context.Context, req *types.Empty) (*types.Empty, error) {
+	if api.mock.GarbageCollect.handler != nil {
+		return api.mock.GarbageCollect.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.GarbageCollect")
 }
 
 /* PPS Server Mocks */
