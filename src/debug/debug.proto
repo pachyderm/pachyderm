@@ -42,8 +42,22 @@ message DumpRequest {
   int64 limit = 2;
 }
 
+message SetLogLevelRequest {
+    enum LogLevel {
+      UNKNOWN = 0;
+      DEBUG = 1;
+      INFO = 2;
+      ERROR = 3;
+    };
+    LogLevel level = 1;
+    google.protobuf.Duration duration = 2;
+}
+
+message SetLogLevelResponse {}
+
 service Debug {
   rpc Profile(ProfileRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Binary(BinaryRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Dump(DumpRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc SetLogLevel(SetLogLevelRequest) returns (SetLogLevelResponse) {}
 }

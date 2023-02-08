@@ -132,12 +132,34 @@ func Cmds() []*cobra.Command {
 		"launch a debug server on the given port. If unset, choose a free port automatically")
 	commands = append(commands, cmdutil.CreateAlias(analyze, "debug analyze"))
 
+	log := &cobra.Command{
+		Use:   "{{alias}} <level>",
+		Short: "Change the log level across Pachyderm.",
+		Long:  "Change the log level across Pachyderm.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			client, err := client.NewOnUserMachine("debug-log-level")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+
+			lvl, ok := debug.SetLogLevelRequest_LogLevel_value[args[0]]
+			if !ok {
+				fmt.Fprintf(os.Stderr, "no log level %v\n", args[0])
+				return nil // XXXX
+			}
+			res, err := client.DebugClient.SetLogLevel(client.Ctx(), &debug.SetLogLevelRequest{Level: debug.SetLogLevelRequest_LogLevel(lvl)})
+			fmt.Println(res)
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(log, "debug log-level"))
+
 	debug := &cobra.Command{
 		Short: "Debug commands for analyzing a running cluster.",
 		Long:  "Debug commands for analyzing a running cluster.",
 	}
 	commands = append(commands, cmdutil.CreateAlias(debug, "debug"))
-
 	return commands
 }
 

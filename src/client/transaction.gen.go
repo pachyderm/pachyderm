@@ -149,6 +149,10 @@ func (c *unsupportedDebugBuilderClient) Profile(_ context.Context, _ *debug_v2.P
 	return nil, unsupportedError("Profile")
 }
 
+func (c *unsupportedDebugBuilderClient) SetLogLevel(_ context.Context, _ *debug_v2.SetLogLevelRequest, opts ...grpc.CallOption) (*debug_v2.SetLogLevelResponse, error) {
+	return nil, unsupportedError("SetLogLevel")
+}
+
 type unsupportedEnterpriseBuilderClient struct{}
 
 func (c *unsupportedEnterpriseBuilderClient) Activate(_ context.Context, _ *enterprise_v2.ActivateRequest, opts ...grpc.CallOption) (*enterprise_v2.ActivateResponse, error) {

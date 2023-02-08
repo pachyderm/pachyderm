@@ -63,3 +63,19 @@ func (x *DumpRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddInt64("limit", x.Limit)
 	return nil
 }
+
+func (x *SetLogLevelRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("level", x.Level.String())
+	protoextensions.AddDuration(enc, "duration", x.Duration)
+	return nil
+}
+
+func (x *SetLogLevelResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	return nil
+}
