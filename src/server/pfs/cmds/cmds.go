@@ -227,6 +227,24 @@ or type (e.g. csv, binary, images, etc).`,
 	listRepo.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "show repos from all projects")
 	commands = append(commands, cmdutil.CreateAliases(listRepo, "list repo", repos))
 
+	garbageCollect := &cobra.Command{
+		Short: "Garbage collect unused data.",
+		Long:  "Garbage collect unused data.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			err = c.GarbageCollect()
+			if err != nil {
+				return errors.Wrap(err, "error garbage collecting")
+			}
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(garbageCollect, "garbage-collect"))
+
 	var force bool
 	deleteRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",

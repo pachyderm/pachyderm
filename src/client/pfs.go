@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	types "github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -835,4 +836,9 @@ func (c APIClient) FsckFastExit() error {
 			return errors.Errorf(resp.Error)
 		}
 	}
+}
+
+func (c APIClient) GarbageCollect() error {
+	_, err := c.PfsAPIClient.GarbageCollect(c.Ctx(), &types.Empty{})
+	return grpcutil.ScrubGRPC(err)
 }
