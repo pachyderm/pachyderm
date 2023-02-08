@@ -43,7 +43,7 @@ Mgoogle/protobuf/struct.proto=github.com/gogo/protobuf/types,\
 ":${GOPATH}/src" \
     "${i}" >/dev/stderr
 done
-
+# TODO - where should api shaper path go?
 pushd src > /dev/stderr
 read -ra proto_files < <(find . -name "*.proto" -print0 | xargs -0)
 protoc \
@@ -51,7 +51,10 @@ protoc \
     --plugin=protoc-gen-pach="${GOPATH}/bin/protoc-gen-pach" \
     "-I${GOPATH}/pkg/mod/github.com/gogo/protobuf@${GOGO_PROTO_VERSION}" \
     --pach_out="../v2/src" \
+    --apishaper_out=. \
+    --apishaper_opt=paths=source_relative \
     "${proto_files[@]}" > /dev/stderr
+
 
 popd > /dev/stderr
 

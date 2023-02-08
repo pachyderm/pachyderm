@@ -30,5 +30,10 @@ COPY protoc-gen-zap ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/proto
 WORKDIR ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap
 RUN go build -mod=readonly -o "${GOPATH}/bin/protoc-gen-zap"
 
+# generate tests
+COPY apishaper ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/apishaper
+WORKDIR ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/apishaper
+RUN go mod init && go mod tidy && go build -o "${GOPATH}/bin/protoc-gen-apishaper"
+
 ADD run.sh /
 CMD ["/run.sh"]
