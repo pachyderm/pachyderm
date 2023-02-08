@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"os"
+	"os/exec"
 	"os/signal"
 	"runtime/debug"
 	"sort"
@@ -485,6 +486,21 @@ Environment variables:
 	}
 	shellCmd.Flags().Int64Var(&maxCompletions, "max-completions", 0, "The maximum number of completions to show in the shell, defaults to 64.")
 	subcommands = append(subcommands, cmdutil.CreateAlias(shellCmd, "shell"))
+
+	searchCmd := &cobra.Command{
+		Short: "Search files in pfs.",
+		Long:  "Search files in pfs.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			cmd := exec.Command("pachctl", "get", "file", "-r", "-o", "/tmp/pach_search", "catalog@master:/")
+			if err := cmd.Run(); err != nil {
+				return err
+			}
+			cmd = exec.Command("bleve", "query", "/tmp/pach_search/index", args[0], "--fields")
+			cmd.Stdout = os.Stdout
+			return cmd.Run()
+		}),
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(searchCmd, "search"))
 
 	deleteAll := &cobra.Command{
 		Short: "Delete everything.",
