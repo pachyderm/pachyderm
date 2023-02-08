@@ -66,3 +66,13 @@ __pycache__
 
 # Dev files
 .vscode/
+
+# Ignore trino runtime files and plugins (which are huge)
+/_trino_stuff/bin/
+/_trino_stuff/trino-server-406.tar.gz
+/_trino_stuff/trino-server-406/var/
+/_trino_stuff/trino-server-406/lib/
+/_trino_stuff/trino-server-406/bin/
+/_trino_stuff/trino-server-406/plugin/
+/_trino_stuff/trino-server-406/NOTICE
+/_trino_stuff/trino-server-406/README.txt
