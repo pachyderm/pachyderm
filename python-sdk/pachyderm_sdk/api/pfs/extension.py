@@ -1,7 +1,7 @@
 import io
 import subprocess
 from contextlib import contextmanager
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from pathlib import Path
 from typing import Iterator, Union
 
@@ -32,7 +32,10 @@ class OpenCommit(Commit):
     def __init__(self, commit: "Commit", stub: "ApiStub"):
         self._commit = commit
         self._stub = stub
-        super().__init__(**asdict(commit))
+        super().__init__(**{
+            field.name: getattr(commit, field.name)
+            for field in fields(commit)
+        })
 
     def wait(self) -> CommitInfo:
         return self._stub.wait_commit(self)
@@ -66,7 +69,7 @@ class OpenCommit(Commit):
         self._stub.put_file_from_bytes(
             commit=self, path=path, data=data, append=append
         )
-        return File(commit=self, path=path)
+        return File(commit=self._commit, path=path)
 
     def put_file_from_url(
         self,
@@ -90,7 +93,7 @@ class OpenCommit(Commit):
         self._stub.put_file_from_url(
             commit=self, path=path, url=url, recursive=recursive
         )
-        return File(commit=self, path=path)
+        return File(commit=self._commit, path=path)
 
     def put_file_from_file(
         self,
@@ -114,7 +117,7 @@ class OpenCommit(Commit):
         self._stub.put_file_from_file(
             commit=self, path=path, file=file, append=append
         )
-        return File(commit=self, path=path)
+        return File(commit=self._commit, path=path)
 
     def copy_file(
         self,
@@ -136,7 +139,7 @@ class OpenCommit(Commit):
             Otherwise, overwrites the file.
         """
         self._stub.copy_file(commit=self, src=src, dst=dst, append=append)
-        return File(commit=self, path=dst)
+        return File(commit=self._commit, path=dst)
 
     def delete_file(self, *, path: str) -> "File":
         """Copies a file within PFS
@@ -147,7 +150,7 @@ class OpenCommit(Commit):
             The path of the file to be deleted.
         """
         self._stub.delete_file(commit=self, path=path)
-        return File(commit=self, path=path)
+        return File(commit=self._commit, path=path)
 
 
 class ApiStub(_GeneratedApiStub):
@@ -219,13 +222,9 @@ class ApiStub(_GeneratedApiStub):
         >>> with client.commit(branch=pfs.Branch.from_uri("images@master")) as c:
         >>>     client.put_file_bytes(c, "/file.txt", b"SOME BYTES")
         """
-        # TODO: Should this just route through put_file_from_file?
-
-        operations = [ModifyFileRequest(set_commit=commit)]
-        if not append:
-            operations.append(ModifyFileRequest(delete_file=DeleteFile(path=path)))
-        operations.append(ModifyFileRequest(add_file=AddFile(path=path, raw=data)))
-        return self.modify_file(iter(operations))
+        return self.put_file_from_file(
+            commit=commit, path=path, file=io.BytesIO(data), append=append
+        )
 
     def put_file_from_url(
         self,
@@ -296,6 +295,7 @@ class ApiStub(_GeneratedApiStub):
             yield ModifyFileRequest(set_commit=commit)
             if not append:
                 yield ModifyFileRequest(delete_file=DeleteFile(path=path))
+            yield ModifyFileRequest(add_file=AddFile(path=path, raw=b""))
             while True:
                 data = file.read(BUFFER_SIZE)
                 if len(data) == 0:
@@ -374,15 +374,13 @@ class ApiStub(_GeneratedApiStub):
             return False
         return True
 
-    @contextmanager
-    def pfs_file(self, file: "File") -> Iterator[PFSFile]:
+    def pfs_file(self, file: "File") -> PFSFile:
         stream = self.get_file(file=file)
-        yield PFSFile(stream)
+        return PFSFile(stream)
 
-    @contextmanager
-    def pfs_tar_file(self, file: "File") -> Iterator[PFSTarFile]:
+    def pfs_tar_file(self, file: "File") -> PFSTarFile:
         stream = self.get_file_tar(file=file)
-        yield PFSTarFile.open(fileobj=PFSFile(stream), mode="r|*")
+        return PFSTarFile.open(fileobj=PFSFile(stream), mode="r|*")
 
     def _mount(self, mount_dir: Union[str, Path], commit: "Commit") -> subprocess.Popen:
         # TODO: Check SUDO (used in unmount).

@@ -82,4 +82,4 @@ class PFSFile:
 
     def close(self) -> None:
         """Closes the :class:`.PFSFile`."""
-        self._stream.cancel()
+        self._stream = iter(b"")

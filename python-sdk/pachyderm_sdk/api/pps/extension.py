@@ -98,6 +98,6 @@ class ApiStub(_GeneratedApiStub):
                 },
                 "data": encoded_data,
             }
-        ).encode("utf8")
+        ).encode()
 
         return super().create_secret(file=file)

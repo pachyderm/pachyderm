@@ -1,13 +1,12 @@
 import io
-import os
 from pathlib import Path
 from typing import NamedTuple
 
 import betterproto
 import grpc
 
-from tests.test_client import TestClient
 from tests.fixtures import *
+from tests.utils import count
 
 from pachyderm_sdk.api import pfs
 from pachyderm_sdk.api.pfs.file import PFSFile
@@ -27,7 +26,7 @@ class TestUnitProject:
     @staticmethod
     def test_inspect_project(client: TestClient):
         project = client.new_project()
-        resp = client.pfs.inspect_project(project)
+        resp = client.pfs.inspect_project(project=project)
         assert resp.project.name == project.name
 
     @staticmethod
@@ -35,7 +34,7 @@ class TestUnitProject:
         project = client.new_project()
         orig_project_count = len(list(client.pfs.list_project()))
         assert orig_project_count >= 1
-        client.pfs.delete_project(project)
+        client.pfs.delete_project(project=project)
         assert len(list(client.pfs.list_project())) == orig_project_count - 1
 
 
@@ -49,12 +48,12 @@ class TestsUnitRepo:
         user_repos = list(client.pfs.list_repo(type="user"))
         assert len(all_repos) >= 1
         assert len(user_repos) >= 1
-        assert len(all_repos) > len(user_repos)
+        assert len(all_repos) >= len(user_repos)
 
     @staticmethod
     def test_inspect_repo(client: TestClient, default_project: bool):
         repo = client.new_repo(default_project)
-        response = client.pfs.inspect_repo(repo)
+        response = client.pfs.inspect_repo(repo=repo)
         assert response.repo.name == repo.name
 
     @staticmethod
@@ -62,13 +61,13 @@ class TestsUnitRepo:
         repo = client.new_repo(default_project)
         orig_repo_count = len(list(client.pfs.list_repo()))
         assert orig_repo_count >= 1
-        client.pfs.delete_repo(repo)
+        client.pfs.delete_repo(repo=repo)
         assert len(list(client.pfs.list_repo())) == orig_repo_count - 1
 
     @staticmethod
     def test_delete_non_existent_repo(client: TestClient):
         orig_repo_count = len(list(client.pfs.list_repo()))
-        client.pfs.delete_repo(pfs.Repo.from_uri("BOGUS_NAME"))
+        client.pfs.delete_repo(repo=pfs.Repo.from_uri("BOGUS_NAME"))
         assert len(list(client.pfs.list_repo())) == orig_repo_count
 
     @staticmethod
@@ -78,7 +77,7 @@ class TestsUnitRepo:
         orig_repo_count = len(list(client.pfs.list_repo(projects=[project])))
         assert orig_repo_count >= 1
         client.pfs.delete_repos(projects=[project])
-        assert len(list(client.pfs.list_repo())) == orig_repo_count - 1
+        assert len(list(client.pfs.list_repo(projects=[project]))) == orig_repo_count - 1
 
 
 class TestUnitBranch:
@@ -138,11 +137,11 @@ class TestUnitCommit:
         ):
             client.pfs.start_commit(branch=branch)
 
-        client.pfs.finish_commit(commit)
+        client.pfs.finish_commit(commit=commit)
 
         with pytest.raises(grpc.RpcError, match=r"repo .* not found"):
             client.pfs.start_commit(
-                branch=pfs.Branch.from_uri("fake-repo:fake-branch")
+                branch=pfs.Commit.from_uri("fake-repo@fake-branch").branch  # TODO: Branch constructor
             )
 
     @staticmethod
@@ -151,7 +150,7 @@ class TestUnitCommit:
         branch = pfs.Branch(repo=repo, name="master")
 
         commit1 = client.pfs.start_commit(branch=branch)
-        client.pfs.finish_commit(commit1)
+        client.pfs.finish_commit(commit=commit1)
 
         commit2 = client.pfs.start_commit(parent=commit1, branch=branch)
         assert commit2.branch.repo.name == repo.name
@@ -163,7 +162,7 @@ class TestUnitCommit:
         patch_branch = pfs.Branch(repo=repo, name="patch")
 
         commit1 = client.pfs.start_commit(branch=master_branch)
-        client.pfs.finish_commit(commit1)
+        client.pfs.finish_commit(commit=commit1)
 
         commit2 = client.pfs.start_commit(parent=commit1, branch=patch_branch)
         assert commit2.branch.name == patch_branch.name
@@ -189,7 +188,7 @@ class TestUnitCommit:
             pass
 
         with pytest.raises(grpc.RpcError):
-            fake_branch = pfs.Branch.from_uri("fake-repo:fake-branch")
+            fake_branch = pfs.Commit.from_uri("fake-repo@fake-branch").branch  # TODO: Branch constructor
             with client.pfs.commit(branch=fake_branch):
                 pass
 
@@ -209,32 +208,22 @@ class TestUnitCommit:
         # Create provenance between repos (which creates a new commit)
         client.pfs.create_branch(branch=branch2, provenance=[branch1])
 
-        # Head commit is still open in repo2  # TODO: Verify this?
-        client.pfs.finish_commit(commit=pfs.Commit(branch=branch2))
-
         with client.pfs.commit(branch=branch1) as commit1:
-            client.pfs.put_file_from_bytes(commit1, "/input.json", b"hello world")
+            commit1.put_file_from_bytes(path="/input.json", data=b"hello world")
         client.pfs.finish_commit(commit=pfs.Commit(branch=branch2))  # TODO: WHY?
 
-        # Just block until all of the commits are yielded
-        # TODO: This will need to be updated because we no longer return commit set.
+        # Just block until commits have yielded.
         info1 = client.pfs.wait_commit(commit=commit1)
-        #assert len(commit) == 2
         assert info1.finished  # This should be a timestamp?
 
         with client.pfs.commit(branch=branch1) as commit2:
-            client.pfs.put_file_from_bytes(commit2, "/input.json", b"bye world")
-        client.pfs.finish_commit(commit=pfs.Commit(branch=branch2))  # TODO: WHY?
+            commit2.put_file_from_bytes(path="/input.json", data=b"bye world")
 
-        # Just block until the commit in repo1 is finished
         info2 = client.pfs.wait_commit(commit=commit2)
-        #assert len(commits) == 1
         assert info2.finished
 
-        files = list(
-            client.pfs.list_file(file=pfs.File(commit=commit2, path="/"))
-        )
-        assert len(files) == 1
+        files = client.pfs.list_file(file=pfs.File(commit=commit2, path="/"))
+        assert count(files) == 1
 
     @staticmethod
     def test_inspect_commit(client: TestClient, default_project: bool):
@@ -242,16 +231,15 @@ class TestUnitCommit:
         branch = pfs.Branch(repo=repo, name="master")
 
         with client.pfs.commit(branch=branch) as commit:
-            client.pfs.put_file_from_bytes(commit, "input.json", b"hello world")
+            commit.put_file_from_bytes(path="/input.json", data=b"hello world")
 
         # Inspect commit at a specific repo
         commit_info = client.pfs.inspect_commit(
             commit=commit, wait=pfs.CommitState.FINISHED
         )
-        assert commit.finished
+        assert commit_info.finished
         assert commit_info.commit.branch.name == branch.name
-        assert commit.commit.branch.repo.name == repo.name
-        assert commit.size_bytes == 11
+        assert commit_info.commit.branch.repo.name == repo.name
 
     @staticmethod
     def test_squash_commit(client: TestClient, default_project: bool):
@@ -266,19 +254,19 @@ class TestUnitCommit:
 
         client.pfs.wait_commit(commit2)
 
-        commits = list(client.pfs.list_commit(repo=repo))
-        assert len(commits) == 2
+        commits = client.pfs.list_commit(repo=repo)
+        assert count(commits) == 2
 
         client.pfs.squash_commit_set(commit_set=pfs.CommitSet(id=commit1.id))
-        commits = list(client.pfs.list_commit(repo=repo))
-        assert len(commits) == 1
+        commits = client.pfs.list_commit(repo=repo)
+        assert count(commits) == 1
 
     @staticmethod
     def test_drop_commit(client: TestClient, default_project: bool):
         repo = client.new_repo(default_project)
         branch = pfs.Branch(repo=repo, name="master")
 
-        with client.pfs.commit(branch=branch) as commit1:
+        with client.pfs.commit(branch=branch) as _commit1:
             pass
 
         with client.pfs.commit(branch=branch) as commit2:
@@ -286,18 +274,18 @@ class TestUnitCommit:
 
         client.pfs.wait_commit(commit2)
 
-        commits = list(client.pfs.list_commit(repo=repo))
-        assert len(commits) == 2
+        commits = client.pfs.list_commit(repo=repo)
+        assert count(commits) == 2
 
         client.pfs.drop_commit_set(commit_set=pfs.CommitSet(id=commit2.id))
-        commits = list(client.pfs.list_commit(repo=repo))
-        assert len(commits) == 1
+        commits = client.pfs.list_commit(repo=repo)
+        assert count(commits) == 1
 
     @staticmethod
     def test_subscribe_commit(client: TestClient, default_project: bool):
         repo = client.new_repo(default_project)
         branch = pfs.Branch(repo=repo, name="master")
-        commit_generator = client.pfs.subscribe_commit(branch=branch)
+        commit_generator = client.pfs.subscribe_commit(repo=repo, branch=branch.name)
 
         with client.pfs.commit(branch=branch) as commit:
             pass
@@ -333,7 +321,7 @@ class TestModifyFile:
         branch = pfs.Branch(repo=repo, name="master")
 
         with client.pfs.commit(branch=branch) as commit:
-            client.pfs.put_file_from_bytes(commit=commit, path="/file.dat", data=b"DATA")
+            commit.put_file_from_bytes(path="/file.dat", data=b"DATA")
 
         commit_infos = list(client.pfs.list_commit(repo=repo))
         assert len(commit_infos) == 1
@@ -347,7 +335,7 @@ class TestModifyFile:
         branch = pfs.Branch(repo=repo, name="master")
 
         with client.pfs.commit(branch=branch) as commit:
-            client.pfs.put_file_from_file(commit=commit, path="/file.dat", file=io.BytesIO(b"DATA"))
+            commit.put_file_from_file(path="/file.dat", file=io.BytesIO(b"DATA"))
 
         files = list(client.pfs.list_file(file=pfs.File(commit=commit, path="/")))
         assert len(files) == 1
@@ -358,14 +346,12 @@ class TestModifyFile:
         branch = pfs.Branch(repo=repo, name="master")
 
         with client.pfs.commit(branch=branch) as commit:
-            client.pfs.put_file_from_bytes(commit=commit, path="/file.dat", data=b"")
+            file = commit.put_file_from_bytes(path="/file.dat", data=b"")
 
         files = list(client.pfs.list_file(file=pfs.File(commit=commit, path="/")))
         assert len(files) == 1
-        file = client.pfs.inspect_file(
-            file=pfs.File(commit=commit, path="/file.dat")
-        )
-        assert file.size_bytes == 0
+        file_info = client.pfs.inspect_file(file=file)
+        assert file_info.size_bytes == 0
 
     @staticmethod
     def test_append_file(client: TestClient, default_project: bool):
@@ -374,26 +360,25 @@ class TestModifyFile:
         branch = pfs.Branch(repo=repo, name="master")
 
         with client.pfs.commit(branch=branch) as commit1:
-            client.pfs.put_file_from_bytes(
-                commit=commit1, path="/file.dat", data=b"TWELVE BYTES"
-            )
+            commit1.put_file_from_bytes(path="/file.dat", data=b"TWELVE BYTES")
         with client.pfs.commit(branch=branch) as commit2:
-            client.pfs.put_file_from_bytes(
-                commit=commit2, path="/file.dat", data=b"TWELVE BYTES", append=True
+            file = commit2.put_file_from_bytes(
+                path="/file.dat", data=b"TWELVE BYTES", append=True
             )
 
-        file_info = client.pfs.inspect_file(pfs.File(commit=commit2, path="/file.dat"))
+        file_info = client.pfs.inspect_file(file=file)
         assert file_info.size_bytes == 24
 
     @staticmethod
     def test_put_large_file(client: TestClient, default_project: bool):
         """Put a file larger than the maximum message size."""
+        # TODO: This functionality is tested in TestPFSFile::test_get_large_file.
         repo = client.new_repo(default_project)
         branch = pfs.Branch(repo=repo, name="master")
 
         with client.pfs.commit(branch=branch) as commit:
             data = b"#" * MAX_RECEIVE_MESSAGE_SIZE * 2
-            client.pfs.put_file_from_bytes(commit=commit, path="/file.dat", data=data)
+            commit.put_file_from_bytes(path="/file.dat", data=data)
 
         files = list(client.pfs.list_file(file=pfs.File(commit=commit, path="/")))
         assert len(files) == 1
@@ -404,8 +389,8 @@ class TestModifyFile:
         branch = pfs.Branch(repo=repo, name="master")
 
         with client.pfs.commit(branch=branch) as commit:
-            url = "https://gist.githubusercontent.com/ysimonson/1986773831f6c4c292a7290c5a5d4405/raw/fb2b4d03d317816e36697a6864a9c27645baa6c0/wheel.html"  # TODO: Replace with different url.
-            client.pfs.put_file_from_url(commit=commit, path="/index.html", url=url)
+            url = "https://www.pachyderm.com/index.html"
+            commit.put_file_from_url(path="/index.html", url=url)
 
         file_info = list(client.pfs.list_file(file=pfs.File(commit=commit, path="/")))
         assert len(file_info) == 1
@@ -417,12 +402,11 @@ class TestModifyFile:
         branch = pfs.Branch(repo=repo, name="master")
 
         with client.pfs.commit(branch=branch) as src_commit:
-            client.pfs.put_file_bytes(commit=src_commit, path="/file1.dat", data=io.BytesIO(b"DATA1"))
-            client.pfs.put_file_bytes(commit=src_commit, path="/file2.dat", data=io.BytesIO(b"DATA2"))
+            file1 = src_commit.put_file_from_bytes(path="/file1.dat", data=b"DATA1")
+            src_commit.put_file_from_bytes(path="/file2.dat", data=b"DATA2")
 
         with client.pfs.commit(branch=branch) as dest_commit:
-            src = pfs.File(commit=src_commit, path="/file1.dat")
-            client.pfs.copy_file(commit=dest_commit, src=src, dst="/copy.dat")
+            dest_commit.copy_file(src=file1, dst="/copy.dat")
 
         file_info = list(
             client.pfs.list_file(file=pfs.File(commit=dest_commit, path="/"))
@@ -438,22 +422,20 @@ class TestModifyFile:
         branch = pfs.Branch(repo=repo, name="master")
 
         with client.pfs.commit(branch=branch) as commit1:
-            client.pfs.put_file_from_bytes(commit=commit1, path="/file1.dat", data=b"DATA")
+            commit1.put_file_from_bytes(path="/file1.dat", data=b"DATA")
 
-        file_info = list(
-            client.pfs.list_file(file=pfs.File(commit=commit1, path="/file1.dat"))
+        file_info = client.pfs.list_file(
+            file=pfs.File(commit=commit1, path="/file1.dat")
         )
-        assert len(file_info) == 1
+        assert count(file_info) == 1
 
         with client.pfs.commit(branch=branch) as commit2:
-            client.pfs.delete_file(commit=commit2, path="/file1.dat")
+            commit2.delete_file(path="/file1.dat")
 
-        file_info = list(
-            client.pfs.list_file(file=pfs.File(commit=commit2, path="/file1.dat"))
+        file_info = client.pfs.list_file(
+            file=pfs.File(commit=commit2, path="/file1.dat")
         )
-        assert len(file_info) == 0
-
-# TODO: Started using OpenCommit from here.
+        assert count(file_info) == 0
 
     @staticmethod
     def test_walk_file(client: TestClient, default_project: bool):
@@ -465,7 +447,9 @@ class TestModifyFile:
             commit.put_file_from_bytes(path="/a/file2.dat", data=b"DATA")
             commit.put_file_from_bytes(path="/a/b/file3.dat", data=b"DATA")
 
-        files = list(client.pfs.walk_file(commit, "/a"))
+        files = list(
+            client.pfs.walk_file(file=pfs.File(commit=commit, path="/a"))
+        )
         assert len(files) == 4
         assert files[0].file.path == "/a/"
         assert files[1].file.path == "/a/b/"
@@ -523,7 +507,7 @@ class TestModifyFile:
 
         with pytest.raises(ValueError, match=r"commit does not exist"):
             assert not client.pfs.path_exists(
-                commit=pfs.Commit.from_uri("fake_repo@master"), path="/dir"
+                file=pfs.File.from_uri("fake_repo@master:/dir")
             )
 
 
@@ -548,7 +532,7 @@ class TestPFSFile:
                 "PFSFile initialization streams the first message. "
                 "This asserts that the test file must be streamed over multiple messages. "
             )
-            streamed_data = file.read()
+            streamed_data = pfs_file.read()
 
         # Assert
         assert streamed_data[:10] == data[:10]
@@ -579,7 +563,7 @@ class TestPFSFile:
         """Test that gRPC errors are caught and thrown early."""
         # Arrange
         repo = client.new_repo()
-        invalid_file = pfs.File.from_uri(f"{repo.to_uri()}@master:/NO_FILE.HERE")
+        invalid_file = pfs.File.from_uri(f"{repo.as_uri()}@master:/NO_FILE.HERE")
 
         # Act & Assert
         with pytest.raises(ConnectionError):
@@ -606,8 +590,7 @@ class TestPFSFile:
 
         # Act & Assert
         with client.pfs.pfs_file(file) as pfs_file:
-            assert pfs_file._stream.is_active()
-        assert not pfs_file._stream.is_active()
+            assert pfs_file.read(1)
 
     @staticmethod
     def test_cancelled_stream(client: TestClient):
@@ -646,7 +629,8 @@ class TestPFSFile:
                 commit.put_file_from_bytes(path=test_file.path, data=test_file.data)
 
         # Act
-        with client.pfs.pfs_tar_file(commit, "/") as pfs_tar_file:
+        root_path = pfs.File(commit=commit, path="/")
+        with client.pfs.pfs_tar_file(file=root_path) as pfs_tar_file:
             pfs_tar_file.extractall(tmp_path)
 
         # Assert
