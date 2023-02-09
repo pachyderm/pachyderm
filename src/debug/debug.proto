@@ -48,9 +48,13 @@ message SetLogLevelRequest {
       DEBUG = 1;
       INFO = 2;
       ERROR = 3;
+      OFF = 4; // Only GRPC logs can be turned off.
     };
-    LogLevel level = 1;
-    google.protobuf.Duration duration = 2;
+    oneof level {
+      LogLevel pachyderm = 1;
+      LogLevel grpc = 2;
+    };
+    google.protobuf.Duration duration = 3;
 }
 
 message SetLogLevelResponse {}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/server/debug/shell"
@@ -26,6 +27,8 @@ func Cmds() []*cobra.Command {
 	var database bool
 	var pipeline string
 	var worker string
+	var setGRPCLevel bool
+	var levelChangeDuration time.Duration
 	profile := &cobra.Command{
 		Use:   "{{alias}} <profile> <file>",
 		Short: "Collect a set of pprof profiles.",
@@ -143,16 +146,31 @@ func Cmds() []*cobra.Command {
 			}
 			defer client.Close()
 
-			lvl, ok := debug.SetLogLevelRequest_LogLevel_value[args[0]]
+			want := strings.ToUpper(args[0])
+			lvl, ok := debug.SetLogLevelRequest_LogLevel_value[want]
 			if !ok {
-				fmt.Fprintf(os.Stderr, "no log level %v\n", args[0])
-				return nil // XXXX
+				return errors.Errorf("no log level %v", want)
 			}
-			res, err := client.DebugClient.SetLogLevel(client.Ctx(), &debug.SetLogLevelRequest{Level: debug.SetLogLevelRequest_LogLevel(lvl)})
-			fmt.Println(res)
+			req := &debug.SetLogLevelRequest{
+				Duration: types.DurationProto(levelChangeDuration),
+			}
+			if setGRPCLevel {
+				req.Level = &debug.SetLogLevelRequest_Grpc{
+					Grpc: debug.SetLogLevelRequest_LogLevel(lvl),
+				}
+			} else {
+				req.Level = &debug.SetLogLevelRequest_Pachyderm{
+					Pachyderm: debug.SetLogLevelRequest_LogLevel(lvl),
+				}
+			}
+			if _, err := client.DebugClient.SetLogLevel(client.Ctx(), req); err != nil {
+				return errors.Wrap(err, "SetLogLevel")
+			}
 			return nil
 		}),
 	}
+	log.Flags().DurationVarP(&levelChangeDuration, "duration", "d", 5*time.Minute, "how long to log at the non-default level")
+	log.Flags().BoolVarP(&setGRPCLevel, "grpc", "g", false, "adjust the grpc log level instead of the pachyderm log level")
 	commands = append(commands, cmdutil.CreateAlias(log, "debug log-level"))
 
 	debug := &cobra.Command{

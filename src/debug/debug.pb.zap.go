@@ -68,7 +68,8 @@ func (x *SetLogLevelRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("level", x.Level.String())
+	enc.AddString("pachyderm", x.GetPachyderm().String())
+	enc.AddString("grpc", x.GetGrpc().String())
 	protoextensions.AddDuration(enc, "duration", x.Duration)
 	return nil
 }
