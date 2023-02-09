@@ -67,7 +67,8 @@ __pycache__
 # Dev files
 .vscode/
 
-# Ignore trino runtime files and plugins (which are huge)
+# Ignore the trino client, all of the trino server except the setup
+# instructions, and the example data
 /_trino_stuff/bin/
 /_trino_stuff/trino-server-406.tar.gz
 /_trino_stuff/trino-server-406/var/
@@ -76,3 +77,5 @@ __pycache__
 /_trino_stuff/trino-server-406/plugin/
 /_trino_stuff/trino-server-406/NOTICE
 /_trino_stuff/trino-server-406/README.txt
+_trino_stuff/trino-example-data/*.json
+_trino_stuff/trino-example-data/*.csv
