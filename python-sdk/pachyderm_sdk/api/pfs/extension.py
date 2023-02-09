@@ -1,9 +1,9 @@
 import io
 import subprocess
 from contextlib import contextmanager
-from dataclasses import asdict, fields
+from dataclasses import fields
 from pathlib import Path
-from typing import Iterator, Union
+from typing import Iterator, Union, TYPE_CHECKING
 
 from betterproto.lib.google.protobuf import Empty
 import grpc
@@ -24,6 +24,9 @@ from . import (
 from .file import PFSFile, PFSTarFile
 from .utils import check_pachctl
 
+if TYPE_CHECKING:
+    from _typeshed import SupportsRead
+
 BUFFER_SIZE = 19 * 1024 * 1024  # 19MB
 
 
@@ -32,6 +35,9 @@ class OpenCommit(Commit):
     def __init__(self, commit: "Commit", stub: "ApiStub"):
         self._commit = commit
         self._stub = stub
+
+        # This is required to maintain serialization capabilities while being
+        #   future compatible with any new fields to the pfs.Commit message.
         super().__init__(**{
             field.name: getattr(commit, field.name)
             for field in fields(commit)
@@ -99,7 +105,7 @@ class OpenCommit(Commit):
         self,
         *,
         path: str,
-        file: io.BytesIO,  # TODO: Get correct type.
+        file: "SupportsRead[bytes]",
         append: bool = False
     ) -> "File":
         """Uploads a PFS file from an open file object.
@@ -108,7 +114,7 @@ class OpenCommit(Commit):
         ----------
         path : str
             The path in the repo the data will be written to.
-        file : io.BytesIO  # TODO: Get correct type.
+        file : SupportsRead[bytes]
             An open file object to read the data from.
         append : bool, optional
             If true, appends the data to the file specified at `path`, if
@@ -265,7 +271,7 @@ class ApiStub(_GeneratedApiStub):
         *,
         commit: "Commit",
         path: str,
-        file: io.BytesIO,  # TODO: Get correct type.
+        file: "SupportsRead[bytes]",
         append: bool = False
     ) -> Empty:
         """Uploads a PFS file from an open file object.
@@ -276,7 +282,7 @@ class ApiStub(_GeneratedApiStub):
             An open commit to modify.
         path : str
             The path in the repo the data will be written to.
-        file : io.BytesIO  # TODO: Get correct type.
+        file : SupportsRead[bytes]
             An open file object to read the data from.
         append : bool, optional
             If true, appends the data to the file specified at `path`, if
@@ -380,6 +386,7 @@ class ApiStub(_GeneratedApiStub):
 
     def pfs_tar_file(self, file: "File") -> PFSTarFile:
         stream = self.get_file_tar(file=file)
+        # noinspection PyTypeChecker
         return PFSTarFile.open(fileobj=PFSFile(stream), mode="r|*")
 
     def _mount(self, mount_dir: Union[str, Path], commit: "Commit") -> subprocess.Popen:

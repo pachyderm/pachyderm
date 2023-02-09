@@ -1,12 +1,41 @@
 from contextlib import contextmanager
-from typing import Iterator
+from typing import Iterator, Callable
+
+import grpc
 
 from . import ApiStub as _GeneratedApiStub
 from . import (
-    Transaction
+    Transaction,
+    TransactionInfo,
 )
 
+
 class ApiStub(_GeneratedApiStub):
+
+    def __init__(
+        self,
+        channel: grpc.Channel,
+        *,
+        get_transaction_id: Callable[[], str],
+        set_transaction_id: Callable[[str], None],
+    ):
+        self._get_transaction_id = get_transaction_id
+        self._set_transaction_id = set_transaction_id
+        super().__init__(channel=channel)
+
+    def start_transaction(self) -> "Transaction":
+        # TODO: Should we do this?
+        response = super().start_transaction()
+        self._set_transaction_id(response.id)
+        return response
+
+    def finish_transaction(
+        self, *, transaction: "Transaction" = None
+    ) -> "TransactionInfo":
+        # TODO: Should we do this?
+        response = super().finish_transaction(transaction=transaction)
+        self._set_transaction_id("")
+        return response
 
     @contextmanager
     def transaction(self) -> Iterator[Transaction]:
@@ -35,3 +64,16 @@ class ApiStub(_GeneratedApiStub):
         >>>     client.finish_commit(c1)
         >>>     client.finish_commit(c2)
         """
+        old_transaction_id = self._get_transaction_id()
+        transaction = super().start_transaction()
+        self._set_transaction_id(transaction.id)
+
+        try:
+            yield transaction
+        except Exception:
+            super().delete_transaction(transaction=transaction)
+            raise
+        else:
+            super().finish_transaction(transaction=transaction)
+        finally:
+            self._set_transaction_id(old_transaction_id)

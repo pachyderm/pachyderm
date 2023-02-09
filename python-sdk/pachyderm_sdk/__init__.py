@@ -26,7 +26,7 @@ __all__ = [
 __version__ = ""
 try:
     __version__ = metadata.version(__name__)  # type: ignore
-except FileNotFoundError:
+except (FileNotFoundError, ModuleNotFoundError):
     pass
 
 

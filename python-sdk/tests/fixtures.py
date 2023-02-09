@@ -26,14 +26,6 @@ def client(request) -> "TestClient":
     client.tear_down()
 
 
-def skip_if_not_enterprise():
-    return pytest.mark.skipif(
-        not os.environ.get(ENTERPRISE_CODE_ENV),
-        reason="enterprise code not available",
-    )
-
-
-@skip_if_not_enterprise()
 @pytest.fixture
 def auth_client(client: "TestClient") -> "TestClient":
     from pachyderm_sdk.api.identity import IdentityServerConfig
@@ -68,6 +60,8 @@ class TestClient(_Client):
     TODO:
         * Add resource names when using verbosity
     """
+
+    __test__ = False
 
     def __init__(self, *args, nodeid: str, **kwargs):
         """
@@ -129,6 +123,7 @@ class TestClient(_Client):
         return pipeline_info, job_info
 
     def tear_down(self):
+        self.transaction_id = None
         for pipeline in self.pipelines:
             self.pps.delete_pipeline(pipeline=pipeline, force=True)
         for repo in self.repos:
@@ -147,6 +142,6 @@ class TestClient(_Client):
                 .replace("/", "-")
                 .replace(":", "-")
                 .replace(".py", "")
-        )[:40]  # TODO: Make this the maximum it can be.
+        )[:45]  # TODO: Make this the maximum it can be.
         name = f"{name[:name.find('[')]}-{random.randint(100, 999)}"
         return name

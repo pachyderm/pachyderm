@@ -48,6 +48,8 @@ find src -regex ".*\.proto" \
   * Options include:
     * Custom class that hides start/finish and includes contextmanager
     * Extend transaction.ApiStub methods to require passing client.
+* Fix Tony issue where get_distribution fails
+  * Should be try-except.
 
 
 

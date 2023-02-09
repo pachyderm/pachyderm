@@ -59,6 +59,7 @@ class ApiStub(_GeneratedApiStub):
                 raise ValueError("invalid pipeline")
         return super().inspect_pipeline(pipeline=pipeline, details=details)
 
+    # noinspection PyMethodOverriding
     def create_secret(
         self,
         *,

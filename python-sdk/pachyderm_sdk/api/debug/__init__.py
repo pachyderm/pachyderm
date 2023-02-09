@@ -68,17 +68,17 @@ class DumpRequest(betterproto.Message):
 class DebugStub:
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_profile = channel.unary_stream(
-            "/debug.Debug/Profile",
+            "/debug_v2.Debug/Profile",
             request_serializer=ProfileRequest.SerializeToString,
             response_deserializer=betterproto_lib_google_protobuf.BytesValue.FromString,
         )
         self.__rpc_binary = channel.unary_stream(
-            "/debug.Debug/Binary",
+            "/debug_v2.Debug/Binary",
             request_serializer=BinaryRequest.SerializeToString,
             response_deserializer=betterproto_lib_google_protobuf.BytesValue.FromString,
         )
         self.__rpc_dump = channel.unary_stream(
-            "/debug.Debug/Dump",
+            "/debug_v2.Debug/Dump",
             request_serializer=DumpRequest.SerializeToString,
             response_deserializer=betterproto_lib_google_protobuf.BytesValue.FromString,
         )

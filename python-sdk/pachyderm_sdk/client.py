@@ -18,7 +18,7 @@ from .api.identity import ApiStub as _IdentityStub
 from .api.license import ApiStub as _LicenseStub
 from .api.pfs.extension import ApiStub as _PfsStub
 from .api.pps.extension import ApiStub as _PpsStub
-from .api.transaction import ApiStub as _TransactionStub
+from .api.transaction.extension import ApiStub as _TransactionStub
 from .api.version import ApiStub as _VersionStub, Version
 from .constants import (
     AUTH_TOKEN_ENV,
@@ -99,19 +99,56 @@ class Client:
         self._metadata = self._build_metadata()
         self._channel = _apply_metadata_interceptor(channel, self._metadata)
 
-        self.admin = _AdminStub(channel)
-        self.auth = _AuthStub(channel)
-        self.debug = _DebugStub(channel)
-        self.enterprise = _EnterpriseStub(channel)
-        self.identity = _IdentityStub(channel)
-        self.license = _LicenseStub(channel)
-        self.pfs = _PfsStub(channel)
-        self.pps = _PpsStub(channel)
-        self.transaction = _TransactionStub(channel)
-        self._version_api = _VersionStub(channel)
+        self.admin = _AdminStub(self._channel)
+        self.auth = _AuthStub(self._channel)
+        self.debug = _DebugStub(self._channel)
+        self.enterprise = _EnterpriseStub(self._channel)
+        self.identity = _IdentityStub(self._channel)
+        self.license = _LicenseStub(self._channel)
+        self.pfs = _PfsStub(self._channel)
+        self.pps = _PpsStub(self._channel)
+
+        def get():
+            return self.transaction_id
+
+        def set(value):
+            self.transaction_id = value
+
+        self.transaction = _TransactionStub(
+            self._channel,
+            get_transaction_id=get,
+            set_transaction_id=set,
+        )
+        self._version_api = _VersionStub(self._channel)
+
+        self._init_api()
 
         if not auth_token and (oidc_token := os.environ.get(OIDC_TOKEN_ENV)):
             self.auth_token = self.auth.authenticate(id_token=oidc_token)
+
+    def _init_api(self):
+        self.admin = _AdminStub(self._channel)
+        self.auth = _AuthStub(self._channel)
+        self.debug = _DebugStub(self._channel)
+        self.enterprise = _EnterpriseStub(self._channel)
+        self.identity = _IdentityStub(self._channel)
+        self.license = _LicenseStub(self._channel)
+        self.pfs = _PfsStub(self._channel)
+        self.pps = _PpsStub(self._channel)
+
+        def get():
+            return self.transaction_id
+
+        def set(value):
+            self.transaction_id = value
+
+        self.transaction = _TransactionStub(
+            self._channel,
+            get_transaction_id=get,
+            set_transaction_id=set,
+        )
+        self._version_api = _VersionStub(self._channel)
+
 
     @classmethod
     def new_in_cluster(
@@ -232,9 +269,12 @@ class Client:
         self._auth_token = value
         self._metadata = self._build_metadata()
         self._channel = _apply_metadata_interceptor(
-            channel=self._channel,
+            channel=_create_channel(
+                self.address, self.root_certs, options=GRPC_CHANNEL_OPTIONS
+            ),
             metadata=self._metadata,
         )
+        self._init_api()
 
     @property
     def transaction_id(self):
@@ -245,9 +285,12 @@ class Client:
         self._transaction_id = value
         self._metadata = self._build_metadata()
         self._channel = _apply_metadata_interceptor(
-            channel=self._channel,
+            channel=_create_channel(
+                self.address, self.root_certs, options=GRPC_CHANNEL_OPTIONS
+            ),
             metadata=self._metadata,
         )
+        self._init_api()
 
     def _build_metadata(self):
         metadata = []

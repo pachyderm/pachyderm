@@ -50,10 +50,11 @@ sed -i 's/OIDC/Oidc/g' ${OUTDIR}/identity/identity.proto
 echo "${PROTO_FILES}" | xargs poetry run python3 -m grpc_tools.protoc -I. --python_betterproto_out=${OUTDIR}
 
 # Fix routing addresses.
-V2_APIS="admin auth debug enterprise identity license pfs pps transaction"
+V2_APIS="admin auth enterprise identity license pfs pps transaction"
 for name in ${V2_APIS}; do
   sed -i "s/${name}.API/${name}_v2.API/" ${OUTDIR}/"${name}"/__init__.py
 done
+sed -i "s/debug.Debug/debug_v2.Debug/" ${OUTDIR}/debug/__init__.py
 sed -i "s/version.API/versionpb_v2.API/" ${OUTDIR}/version/__init__.py
 
 # Clean up
