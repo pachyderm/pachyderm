@@ -193,7 +193,6 @@ func WatchDroppedLogs(ctx context.Context, d time.Duration) {
 	for {
 		select {
 		case <-t.C:
-			Info(ctx, "log level", zap.Stringer("level", logLevel))
 			reportDroppedLogs(ctx)
 		case <-ctx.Done():
 			Info(ctx, "dropped log reporting ended", zap.Error(ctx.Err()))
