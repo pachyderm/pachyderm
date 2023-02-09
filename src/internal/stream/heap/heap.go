@@ -6,7 +6,9 @@ type Heap[T any] struct {
 }
 
 func New[T any](lt func(a, b T) bool) Heap[T] {
-	return Heap[T]{}
+	return Heap[T]{
+		lt: lt,
+	}
 }
 
 func (h *Heap[T]) Push(x T) {

@@ -18,8 +18,10 @@ type mergeEntry[T any] struct {
 }
 
 type Merger[T any] struct {
-	its     []Peekable[T]
-	heap    heap.Heap[mergeEntry[T]]
+	its  []Peekable[T]
+	heap heap.Heap[*mergeEntry[T]]
+	lt   func(a, b T) bool
+
 	isSetup bool
 }
 
@@ -29,7 +31,8 @@ type Merger[T any] struct {
 func NewMerger[T any](its []Peekable[T], lt func(a, b T) bool) *Merger[T] {
 	m := &Merger[T]{
 		its: its,
-		heap: heap.New(func(a, b mergeEntry[T]) bool {
+		lt:  lt,
+		heap: heap.New(func(a, b *mergeEntry[T]) bool {
 			if lt(a.peek, b.peek) {
 				return true
 			} else if lt(b.peek, a.peek) {
@@ -45,7 +48,7 @@ func NewMerger[T any](its []Peekable[T], lt func(a, b T) bool) *Merger[T] {
 func (m *Merger[T]) Next(ctx context.Context, dst *T) error {
 	if !m.isSetup {
 		for i := range m.its {
-			me := mergeEntry[T]{
+			me := &mergeEntry[T]{
 				it:       m.its[i],
 				priority: len(m.its) - i,
 			}
@@ -60,6 +63,7 @@ func (m *Merger[T]) Next(ctx context.Context, dst *T) error {
 		m.isSetup = true
 	}
 
+	// read into dst
 	me, exists := m.heap.Pop()
 	if !exists {
 		return io.EOF
@@ -68,12 +72,33 @@ func (m *Merger[T]) Next(ctx context.Context, dst *T) error {
 		return err // any error is an error, since we already peaked.
 	}
 	// need to put back the stream, read into me.peek for comparison in the heap.
-	if err := me.it.Peek(ctx, &me.peek); err != nil {
-		if errors.Is(err, io.EOF) {
-			return nil // iterator is over, no need to put it back on the heap.
-		}
+	if err := me.it.Peek(ctx, &me.peek); err != nil && !errors.Is(err, io.EOF) {
 		return err
+	} else if !errors.Is(err, io.EOF) {
+		m.heap.Push(me)
 	}
-	m.heap.Push(me)
+
+	// drain equal elements from other iterators
+	for {
+		me, exists := m.heap.Pop()
+		if !exists {
+			break
+		}
+		if m.lt(*dst, me.peek) {
+			m.heap.Push(me)
+			break
+		}
+		if err := Skip[T](ctx, me.it); err != nil {
+			return err
+		}
+		if err := me.it.Peek(ctx, &me.peek); err != nil {
+			if errors.Is(err, io.EOF) {
+				continue
+			}
+			return err
+		}
+		m.heap.Push(me)
+	}
+
 	return nil
 }

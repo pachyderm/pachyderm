@@ -63,8 +63,44 @@ func Read[T any](ctx context.Context, it Iterator[T], buf []T) (n int, _ error) 
 // Collect reads at most max from the iterator into a buffer and returns it.
 func Collect[T any](ctx context.Context, it Iterator[T], max int) (ret []T, _ error) {
 	err := ForEach(ctx, it, func(x T) error {
+		if len(ret) >= max {
+			return errors.New("iterator has more than max entries")
+		}
 		ret = append(ret, x)
 		return nil
 	})
 	return ret, err
+}
+
+func Skip[T any](ctx context.Context, it Iterator[T]) error {
+	var x T
+	return it.Next(ctx, &x)
+}
+
+type Slice[T any] struct {
+	xs  []T
+	pos int
+}
+
+func NewSlice[T any](xs []T) *Slice[T] {
+	return &Slice[T]{
+		xs: xs,
+	}
+}
+
+func (s *Slice[T]) Next(ctx context.Context, dst *T) error {
+	if s.pos >= len(s.xs) {
+		return io.EOF
+	}
+	*dst = s.xs[s.pos]
+	s.pos++
+	return nil
+}
+
+func (s *Slice[T]) Peek(ctx context.Context, dst *T) error {
+	if s.pos >= len(s.xs) {
+		return io.EOF
+	}
+	*dst = s.xs[s.pos]
+	return nil
 }
