@@ -12,20 +12,24 @@ import (
 )
 
 var outputPath = "/tmp/api-test/"
-var packageLine = "package main_test"
-var imports = []string{"\"testing\"", "\"github.com/pachyderm/pachyderm/v2/src/client\""}
+var imports = []string{"\"testing\"", "\"github.com/pachyderm/pachyderm/v2/src/client\"", "\"github.com/pachyderm/pachyderm/v2/src/internal/require\""}
+var errCheck = "require.NoError(f, err)"
 
 // var declareFunction = "func Fuzz%s(f *testing.F) {" // TODO templatize
 var newClient = []string{
-	"pachClient, err := NewForTest()",
-	"if err != nil {",
-	"	return err",
-	"}"}
+	"pachClient, err := client.NewForTest()",
+	errCheck,
+}
 var final = []string{"}"}
 
 // TODO add add() for known cases https://go.dev/doc/tutorial/fuzz
 func closeParamBlock(currentIndent int, currentBlock []string) []string {
-	return append(currentBlock, withIndent(currentIndent, ")")...)
+	if strings.TrimSpace(currentBlock[len(currentBlock)-1]) == "}" {
+		currentBlock[len(currentBlock)-1] = withIndent(currentIndent, "})")[0]
+		return currentBlock
+	} else {
+		return append(currentBlock, withIndent(currentIndent, ")")...)
+	}
 }
 func closeFunction(currentIndent int, currentFunction []string) ([]string, int) {
 	currentIndent -= 1
@@ -47,8 +51,8 @@ func createApiCall(rpc *descriptorpb.MethodDescriptorProto, proto *descriptorpb.
 	pkgName := pkg[len(pkg)-1]
 	inputType := strings.Split(rpc.GetInputType(), ".")
 	inputTypeName := inputType[len(inputType)-1]
+	retLines = append(retLines, "	pachClient.Ctx(),")
 	retLines = append(retLines, fmt.Sprintf("	&%s.%s{", pkgName, inputTypeName)) // using the go type - can we use reflection to calculate this
-	retLines = append(retLines, "		c.Ctx(),")
 	// FieldDescriptorProto_Type
 	for _, mt := range proto.GetMessageType() {
 		if inputTypeName == mt.GetName() {
@@ -56,17 +60,19 @@ func createApiCall(rpc *descriptorpb.MethodDescriptorProto, proto *descriptorpb.
 			defer f2.Close()
 			f2.WriteString(fmt.Sprintf("DNJ type: %v", mt))
 			for _, field := range mt.GetField() {
-				// // TODO how to return structure as well as primitives.
-				// if field.GetType() == FieldDescriptorProto_Type.MESSAGE_TYPE {
-				// 	// recurse and repeat type finding
-				// } else {
-				// 	// translate proto type to go primitive types
-				// }
+				// TODO how to return structure as well as primitives.
+				fieldType := field.GetType()
+				if fieldType == descriptorpb.FieldDescriptorProto_TYPE_MESSAGE {
+					// recurse and repeat type finding
+				} else { // verify in valid primitive types and error if not
+					// translate proto type to go primitive types to stash in fuzz params
+				}
 			}
 		}
 	}
 	retLines = append(retLines, "		Repo: NewProjectRepo(projectName, repoName),") // TODO multiple inputs?
 	retLines = append(retLines, "})")
+	retLines = append(retLines, errCheck)
 	return retLines, append(imports, fmt.Sprintf("%s \"%s\"", pkgName, proto.GetOptions().GetGoPackage()))
 }
 func createImports(imports []string) []string {
@@ -151,6 +157,7 @@ func run() error {
 						testLines = append(testLines, funcLines...)
 
 						testLines = append(createImports(imports), testLines...)
+						testLines = append([]string{"package main"}, testLines...)
 						writeToFile(fileName, testLines)
 					}
 				}
