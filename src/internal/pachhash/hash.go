@@ -46,3 +46,12 @@ func ParseHex(x []byte) (*Output, error) {
 func EncodeHash(bytes []byte) string {
 	return hex.EncodeToString(bytes)
 }
+
+func XOR(xs ...Output) (ret Output) {
+	for _, x := range xs {
+		for i := range x {
+			ret[i] ^= x[i]
+		}
+	}
+	return ret
+}
