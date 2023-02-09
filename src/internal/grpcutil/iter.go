@@ -31,3 +31,7 @@ func ForEach[T any](cs ClientStream[T], fn func(x T) error) error {
 func Read[T any](cs ClientStream[T], buf []T) (int, error) {
 	return stream.Read[T](cs.Context(), NewIterator(cs), buf)
 }
+
+func Collect[T any](cs ClientStream[T], max int) ([]T, error) {
+	return stream.Collect[T](cs.Context(), NewIterator(cs), max)
+}
