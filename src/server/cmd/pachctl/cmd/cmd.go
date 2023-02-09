@@ -487,6 +487,7 @@ Environment variables:
 	shellCmd.Flags().Int64Var(&maxCompletions, "max-completions", 0, "The maximum number of completions to show in the shell, defaults to 64.")
 	subcommands = append(subcommands, cmdutil.CreateAlias(shellCmd, "shell"))
 
+	var repeat string
 	searchCmd := &cobra.Command{
 		Short: "Search files in pfs.",
 		Long:  "Search files in pfs.",
@@ -495,11 +496,13 @@ Environment variables:
 			if err := cmd.Run(); err != nil {
 				return err
 			}
-			cmd = exec.Command("bleve", "query", "/tmp/pach_search/index", args[0], "--fields")
+			cmd = exec.Command("bleve", "query", "/tmp/pach_search/index",
+				args[0], "--fields", "-r", repeat)
 			cmd.Stdout = os.Stdout
 			return cmd.Run()
 		}),
 	}
+	searchCmd.Flags().StringVarP(&repeat, "repeat", "r", "1", "Repeat the query this many times.")
 	subcommands = append(subcommands, cmdutil.CreateAlias(searchCmd, "search"))
 
 	deleteAll := &cobra.Command{
