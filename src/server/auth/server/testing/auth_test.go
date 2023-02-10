@@ -980,7 +980,7 @@ func TestListAndInspectRepo(t *testing.T) {
 	// above. Bob's access to those should be NONE
 	lrClient, err := bobClient.PfsAPIClient.ListRepo(bobClient.Ctx(), &pfs.ListRepoRequest{})
 	require.NoError(t, err)
-	repoInfos, err := clientsdk.ListRepoInfo(lrClient)
+	repoInfos, err := grpcutil.CollectRepoInfo(lrClient)
 	require.NoError(t, err)
 	expectedPermissions := map[string][]auth.Permission{
 		repoOwner: {
@@ -1083,7 +1083,7 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 	c, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
 		&pfs.ListRepoRequest{})
 	require.NoError(t, err)
-	_, err = clientsdk.ListRepoInfo(c)
+	_, err = grpcutil.CollectRepoInfo(c)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
 }

@@ -2,7 +2,9 @@ package grpcutil
 
 import (
 	"context"
+	"io"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"google.golang.org/grpc"
 )
@@ -24,14 +26,26 @@ func (it Iterator[T]) Next(ctx context.Context, x *T) error {
 	return it.cs.RecvMsg(x)
 }
 
-func ForEach[T any](cs ClientStream[T], fn func(x T) error) error {
-	return stream.ForEach[T](cs.Context(), NewIterator(cs), fn)
+// ForEach calls fn for each element in cs.
+// fn must not retain the element passed to it.
+func ForEach[T any](cs ClientStream[T], fn func(x *T) error) error {
+	return stream.ForEach[T](cs.Context(), NewIterator(cs), func(x T) error {
+		return fn(&x)
+	})
 }
 
-func Read[T any](cs ClientStream[T], buf []T) (int, error) {
-	return stream.Read[T](cs.Context(), NewIterator(cs), buf)
-}
-
-func Collect[T any](cs ClientStream[T], max int) ([]T, error) {
-	return stream.Collect[T](cs.Context(), NewIterator(cs), max)
+// Collect reads at most max elements
+func Collect[T any](cs ClientStream[T], max int) (ret []*T, _ error) {
+	it := NewIterator(cs)
+	for {
+		x := new(T)
+		if err := it.Next(cs.Context(), x); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, err
+		}
+		ret = append(ret, x)
+	}
+	return ret, nil
 }

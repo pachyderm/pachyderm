@@ -217,7 +217,7 @@ func TestPFS(suite *testing.T) {
 		request := &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.2")}
 		listFileClient, err := env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[pfs.File](listFileClient)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 		require.ElementsEqual(t, []string{"/dir1/file1.2", "/dir1/file1.5"}, finfosToPaths(fis))
@@ -225,7 +225,7 @@ func TestPFS(suite *testing.T) {
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.1"), Number: 2}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[pfs.File](listFileClient)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(fis))
@@ -233,7 +233,7 @@ func TestPFS(suite *testing.T) {
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), Number: 1, Reverse: true}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[pfs.File](listFileClient)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(fis))
 		require.ElementsEqual(t, []string{"/dir1/file1.5"}, finfosToPaths(fis))
@@ -241,20 +241,20 @@ func TestPFS(suite *testing.T) {
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), Reverse: true}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[pfs.File](listFileClient)
 		require.YesError(t, err)
 
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.1"), Number: 2, Reverse: true}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[pfs.File](listFileClient)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(fis))
 
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.5"), Number: 2, Reverse: true}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[pfs.File](listFileClient)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(fis))
@@ -279,7 +279,7 @@ func TestPFS(suite *testing.T) {
 		listCommitsAndCheck := func(request *pfs.ListCommitRequest, expectedIDs []string) []*pfs.CommitInfo {
 			listCommitClient, err := env.PachClient.PfsAPIClient.ListCommit(env.PachClient.Ctx(), request)
 			require.NoError(t, err)
-			cis, err := clientsdk.ListCommit(listCommitClient)
+			cis, err := grpcutil.Collect[pfs.Commit](listCommitClient)
 			require.NoError(t, err)
 			require.Equal(t, len(expectedIDs), len(cis))
 			for i, ci := range cis {
@@ -711,7 +711,7 @@ func TestPFS(suite *testing.T) {
 					All:  true,
 				})
 				require.NoError(t, err)
-				cis, err := clientsdk.ListCommit(listCommitClient)
+				cis, err := grpcutil.Collect[pfs.Commit](listCommitClient)
 				require.NoError(t, err)
 				// There will be some empty commits on each branch from creation, ignore
 				// those and just check that the latest commits match.
@@ -4190,7 +4190,7 @@ func TestPFS(suite *testing.T) {
 				})
 				require.NoError(t, err)
 				expectedPaths := test.expectedPaths
-				require.NoError(t, clientsdk.ForEachFile(c, func(fi *pfs.FileInfo) error {
+				require.NoError(t, grpcutil.ForEachFile(c, func(fi *pfs.FileInfo) error {
 					require.Equal(t, expectedPaths[0], fi.File.Path)
 					expectedPaths = expectedPaths[1:]
 					return nil

@@ -22,7 +22,7 @@ func Merge(ctx context.Context, storage *chunk.Storage, indexes []*Index, cb fun
 			iterator: miscutil.NewIterator(ctx, iterateFunc),
 		})
 	}
-	pq := stream.NewPriorityQueue(ss, compare)
+	pq := stream.NewMerger(ss, compare)
 	return pq.Iterate(func(ss []stream.Stream) error {
 		for _, s := range ss {
 			if err := cb(s.(*indexStream).index); err != nil {
