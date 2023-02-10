@@ -60,7 +60,7 @@ spec:
             - -c
             - /etc/envoy/envoy.json
             - --service-node
-            - $(MY_POD_NAME)
+            - "my-node"
             - --service-zone
             - $(MY_NODE_NAME)
             - --service-cluster
