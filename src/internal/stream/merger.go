@@ -2,19 +2,32 @@ package stream
 
 import (
 	"context"
-	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream/heap"
 )
 
+// Merged is the type of elements emitted by the Merger Iterator
+type Merged[T any] struct {
+	Elements []T
+	Indexes  []int
+}
+
+func (m *Merged[T]) First() (T, int) {
+	return m.Elements[0], m.Indexes[0]
+}
+
+func (m *Merged[T]) Last() (T, int) {
+	l := len(m.Elements)
+	return m.Elements[l-1], m.Indexes[l-1]
+}
+
 var (
-	_ Iterator[struct{}] = &Merger[struct{}]{}
-	_ Peekable[struct{}] = &Merger[struct{}]{}
+	_ Iterator[Merged[struct{}]] = &Merger[struct{}]{}
 )
 
 type mergeEntry[T any] struct {
-	it       Peekable[T]
-	priority int // lower is more important
+	it    Peekable[T]
+	index int
 
 	peek T
 }
@@ -27,9 +40,8 @@ type Merger[T any] struct {
 	isSetup bool
 }
 
-// NewMerger creates an iterator which merges the entries from its into a single iterator.
+// NewMerger creates an iterator which aggregates entries which are equal in value.
 // The entries will come out in ascending order.
-// The iterators slice can be thought of as layers, with higher layers masking the value of lower layers when the entries are equal.
 func NewMerger[T any](its []Peekable[T], lt func(a, b T) bool) *Merger[T] {
 	m := &Merger[T]{
 		its: its,
@@ -40,23 +52,28 @@ func NewMerger[T any](its []Peekable[T], lt func(a, b T) bool) *Merger[T] {
 			} else if lt(b.peek, a.peek) {
 				return false
 			} else {
-				return a.priority < b.priority
+				return a.index < b.index
 			}
 		}),
 	}
 	return m
 }
 
-func (m *Merger[T]) Next(ctx context.Context, dst *T) error {
+func (m *Merger[T]) Next(ctx context.Context, dst *Merged[T]) error {
 	if err := m.ensureSetup(ctx); err != nil {
 		return err
 	}
+	dst.Elements = dst.Elements[:0]
+	dst.Indexes = dst.Indexes[:0]
+
 	// read into dst
 	me, exists := m.heap.Pop()
 	if !exists {
-		return io.EOF
+		return EOS
 	}
-	if err := me.it.Next(ctx, dst); err != nil {
+	dst.Indexes = append(dst.Indexes, me.index)
+	dst.Elements = extendSlice(dst.Elements)
+	if err := me.it.Next(ctx, &dst.Elements[len(dst.Elements)-1]); err != nil {
 		return err // any error is an error, since we already peaked.
 	}
 	// need to put back the stream, read into me.peek for comparison in the heap.
@@ -66,17 +83,19 @@ func (m *Merger[T]) Next(ctx context.Context, dst *T) error {
 		m.heap.Push(me)
 	}
 
-	// drain equal elements from other iterators
+	// get equal elements from other iterators
 	for {
 		me, exists := m.heap.Pop()
 		if !exists {
 			break
 		}
-		if m.lt(*dst, me.peek) {
+		if m.lt(dst.Elements[0], me.peek) {
 			m.heap.Push(me)
 			break
 		}
-		if err := Skip[T](ctx, me.it); err != nil {
+		dst.Indexes = append(dst.Indexes, me.index)
+		dst.Elements = extendSlice(dst.Elements)
+		if err := me.it.Next(ctx, &dst.Elements[len(dst.Elements)-1]); err != nil {
 			return err
 		}
 		if err := me.it.Peek(ctx, &me.peek); err != nil {
@@ -90,20 +109,12 @@ func (m *Merger[T]) Next(ctx context.Context, dst *T) error {
 	return nil
 }
 
-func (m *Merger[T]) Peek(ctx context.Context, dst *T) error {
-	me, exists := m.heap.Peek()
-	if !exists {
-		return EOS
-	}
-	return me.it.Peek(ctx, dst)
-}
-
 func (m *Merger[T]) ensureSetup(ctx context.Context) error {
 	if !m.isSetup {
 		for i := range m.its {
 			me := &mergeEntry[T]{
-				it:       m.its[i],
-				priority: len(m.its) - i,
+				it:    m.its[i],
+				index: i,
 			}
 			if err := m.its[i].Peek(ctx, &me.peek); err != nil {
 				if IsEOS(err) {
@@ -115,5 +126,34 @@ func (m *Merger[T]) ensureSetup(ctx context.Context) error {
 		}
 		m.isSetup = true
 	}
+	return nil
+}
+
+func extendSlice[T any](s []T) []T {
+	var zero T
+	return append(s, zero)
+}
+
+type Reducer[T any] struct {
+	m    *Merger[T]
+	dst  Merged[T]
+	copy func(dst, src *T)
+}
+
+// NewReducer creates an iterator which merges the entries from its into a single iterator.
+// The entries will come out in ascending order.
+// The iterators slice can be thought of as layers, with higher layers masking the value of lower layers when the entries are equal.
+func NewReducer[T any](its []Peekable[T], lt func(a, b T) bool, cp func(dst, src *T)) *Reducer[T] {
+	return &Reducer[T]{
+		m:    NewMerger(its, lt),
+		copy: cp,
+	}
+}
+
+func (r *Reducer[T]) Next(ctx context.Context, dst *T) error {
+	if err := r.m.Next(ctx, &r.dst); err != nil {
+		return err
+	}
+	r.copy(dst, &r.dst.Elements[len(r.dst.Elements)-1])
 	return nil
 }

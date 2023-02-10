@@ -7,7 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
-func TestMerger(t *testing.T) {
+func TestReducer(t *testing.T) {
 	its := []Peekable[string]{
 		NewSlice([]string{"c", "d"}),
 		NewSlice([]string{"a"}),
@@ -16,8 +16,10 @@ func TestMerger(t *testing.T) {
 	}
 	expected := []string{"a", "b", "c", "d"}
 
-	m := NewMerger(its, func(a, b string) bool {
+	m := NewReducer(its, func(a, b string) bool {
 		return a < b
+	}, func(dst, src *string) {
+		*dst = *src
 	})
 	actual, err := Collect[string](pctx.TestContext(t), m, 100)
 	require.NoError(t, err)
