@@ -23,7 +23,11 @@ func NewIterator[T any](cs ClientStream[T]) Iterator[T] {
 }
 
 func (it Iterator[T]) Next(ctx context.Context, x *T) error {
-	return it.cs.RecvMsg(x)
+	err := it.cs.RecvMsg(x)
+	if errors.Is(err, io.EOF) {
+		err = stream.EOS
+	}
+	return err
 }
 
 // ForEach calls fn for each element in cs.
@@ -40,7 +44,7 @@ func Collect[T any](cs ClientStream[T], max int) (ret []*T, _ error) {
 	for {
 		x := new(T)
 		if err := it.Next(cs.Context(), x); err != nil {
-			if errors.Is(err, io.EOF) {
+			if stream.IsEOS(err) {
 				break
 			}
 			return nil, err

@@ -3,9 +3,9 @@ package stream
 import (
 	"context"
 	"errors"
-	"io"
 )
 
+// EOS signals the end of the stream
 var EOS = errors.New("end of stream")
 
 func IsEOS(err error) bool {
@@ -44,7 +44,7 @@ func ForEach[T any](ctx context.Context, it Iterator[T], fn func(t T) error) err
 	var x T
 	for {
 		if err := it.Next(ctx, &x); err != nil {
-			if errors.Is(err, io.EOF) {
+			if errors.Is(err, EOS) {
 				return nil
 			}
 			return err
@@ -84,6 +84,7 @@ func Skip[T any](ctx context.Context, it Iterator[T]) error {
 	return it.Next(ctx, &x)
 }
 
+// Slice is an iterator backed by an in-memory slice
 type Slice[T any] struct {
 	xs  []T
 	pos int
@@ -97,7 +98,7 @@ func NewSlice[T any](xs []T) *Slice[T] {
 
 func (s *Slice[T]) Next(ctx context.Context, dst *T) error {
 	if s.pos >= len(s.xs) {
-		return io.EOF
+		return EOS
 	}
 	*dst = s.xs[s.pos]
 	s.pos++
@@ -106,8 +107,13 @@ func (s *Slice[T]) Next(ctx context.Context, dst *T) error {
 
 func (s *Slice[T]) Peek(ctx context.Context, dst *T) error {
 	if s.pos >= len(s.xs) {
-		return io.EOF
+		return EOS
 	}
 	*dst = s.xs[s.pos]
 	return nil
+}
+
+// Reset resets the iterator to the beginning.
+func (s *Slice[T]) Reset() {
+	s.pos = 0
 }
