@@ -2,13 +2,15 @@ package stream
 
 import (
 	"context"
-	"errors"
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream/heap"
 )
 
-var _ Iterator[struct{}] = &Merger[struct{}]{}
+var (
+	_ Iterator[struct{}] = &Merger[struct{}]{}
+	_ Peekable[struct{}] = &Merger[struct{}]{}
+)
 
 type mergeEntry[T any] struct {
 	it       Peekable[T]
@@ -46,23 +48,9 @@ func NewMerger[T any](its []Peekable[T], lt func(a, b T) bool) *Merger[T] {
 }
 
 func (m *Merger[T]) Next(ctx context.Context, dst *T) error {
-	if !m.isSetup {
-		for i := range m.its {
-			me := &mergeEntry[T]{
-				it:       m.its[i],
-				priority: len(m.its) - i,
-			}
-			if err := m.its[i].Peek(ctx, &me.peek); err != nil {
-				if errors.Is(err, io.EOF) {
-					continue
-				}
-				return err
-			}
-			m.heap.Push(me)
-		}
-		m.isSetup = true
+	if err := m.ensureSetup(ctx); err != nil {
+		return err
 	}
-
 	// read into dst
 	me, exists := m.heap.Pop()
 	if !exists {
@@ -72,9 +60,9 @@ func (m *Merger[T]) Next(ctx context.Context, dst *T) error {
 		return err // any error is an error, since we already peaked.
 	}
 	// need to put back the stream, read into me.peek for comparison in the heap.
-	if err := me.it.Peek(ctx, &me.peek); err != nil && !errors.Is(err, io.EOF) {
+	if err := me.it.Peek(ctx, &me.peek); err != nil && !IsEOS(err) {
 		return err
-	} else if !errors.Is(err, io.EOF) {
+	} else if !IsEOS(err) {
 		m.heap.Push(me)
 	}
 
@@ -92,13 +80,40 @@ func (m *Merger[T]) Next(ctx context.Context, dst *T) error {
 			return err
 		}
 		if err := me.it.Peek(ctx, &me.peek); err != nil {
-			if errors.Is(err, io.EOF) {
+			if IsEOS(err) {
 				continue
 			}
 			return err
 		}
 		m.heap.Push(me)
 	}
+	return nil
+}
 
+func (m *Merger[T]) Peek(ctx context.Context, dst *T) error {
+	me, exists := m.heap.Peek()
+	if !exists {
+		return EOS
+	}
+	return me.it.Peek(ctx, dst)
+}
+
+func (m *Merger[T]) ensureSetup(ctx context.Context) error {
+	if !m.isSetup {
+		for i := range m.its {
+			me := &mergeEntry[T]{
+				it:       m.its[i],
+				priority: len(m.its) - i,
+			}
+			if err := m.its[i].Peek(ctx, &me.peek); err != nil {
+				if IsEOS(err) {
+					continue
+				}
+				return err
+			}
+			m.heap.Push(me)
+		}
+		m.isSetup = true
+	}
 	return nil
 }

@@ -1,10 +1,15 @@
 package heap
 
+// Heap is a min-heap, implemented using a slice
 type Heap[T any] struct {
-	x  []T
+	xs []T
 	lt func(a, b T) bool
 }
 
+// New creates a new Heap and returns it.
+// The heap will use lt for comparisons.
+// lt must return true if a < b and false otherwise.
+// lt should be a pure function of a and b, and should not retain either after it returns.
 func New[T any](lt func(a, b T) bool) Heap[T] {
 	return Heap[T]{
 		lt: lt,
@@ -12,26 +17,26 @@ func New[T any](lt func(a, b T) bool) Heap[T] {
 }
 
 func (h *Heap[T]) Push(x T) {
-	h.x = Push(h.x, x, h.lt)
+	h.xs = Push(h.xs, x, h.lt)
 }
 
 func (h *Heap[T]) Pop() (ret T, exists bool) {
-	if len(h.x) == 0 {
+	if len(h.xs) == 0 {
 		return ret, false
 	}
-	ret, h.x = Pop(h.x, h.lt)
+	ret, h.xs = Pop(h.xs, h.lt)
 	return ret, true
 }
 
 func (h *Heap[T]) Peek() (ret T, exists bool) {
-	if len(h.x) == 0 {
+	if len(h.xs) == 0 {
 		return ret, false
 	}
-	return Peek(h.x), true
+	return Peek(h.xs), true
 }
 
 func (h *Heap[T]) Len() int {
-	return len(h.x)
+	return len(h.xs)
 }
 
 // Push adds x to the heap h
@@ -55,6 +60,8 @@ func Pop[E any, S ~[]E](h S, lt func(a, b E) bool) (E, S) {
 func Peek[E any, S ~[]E](h S) E {
 	return h[0]
 }
+
+// The functions below are adapted from the standard library's heap implementation.
 
 func up[E any, S ~[]E](x S, j int, lt func(a, b E) bool) {
 	for {

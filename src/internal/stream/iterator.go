@@ -6,9 +6,15 @@ import (
 	"io"
 )
 
+var EOS = errors.New("end of stream")
+
+func IsEOS(err error) bool {
+	return errors.Is(err, EOS)
+}
+
 type Iterator[T any] interface {
 	// Next reads the next element into dst, and advances the iterator.
-	// Next returns io.EOF when the iteration is over, dst will not be affected.
+	// Next returns EOS when the iteration is over, dst will not be affected.
 	Next(ctx context.Context, dst *T) error
 }
 
@@ -16,7 +22,7 @@ type Peekable[T any] interface {
 	Iterator[T]
 
 	// Peek reads the next element into dst, but does not advance the iterator.
-	// Peek returns io.EOF when the iteration is over, dst will not be affected.
+	// Peek returns EOS when the iteration is over, dst will not be affected.
 	Peek(ctx context.Context, dst *T) error
 }
 
@@ -72,6 +78,7 @@ func Collect[T any](ctx context.Context, it Iterator[T], max int) (ret []T, _ er
 	return ret, err
 }
 
+// Skip discards one element from the iterator.
 func Skip[T any](ctx context.Context, it Iterator[T]) error {
 	var x T
 	return it.Next(ctx, &x)
