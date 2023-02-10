@@ -8,17 +8,19 @@ import (
 
 // Merged is the type of elements emitted by the Merger Iterator
 type Merged[T any] struct {
-	Elements []T
-	Indexes  []int
+	// Values is a slice of values, which are not ordered relative to one another.
+	Values []T
+	// Indexes is the index of the stream that produced each value.
+	Indexes []int
 }
 
 func (m *Merged[T]) First() (T, int) {
-	return m.Elements[0], m.Indexes[0]
+	return m.Values[0], m.Indexes[0]
 }
 
 func (m *Merged[T]) Last() (T, int) {
-	l := len(m.Elements)
-	return m.Elements[l-1], m.Indexes[l-1]
+	l := len(m.Values)
+	return m.Values[l-1], m.Indexes[l-1]
 }
 
 var (
@@ -63,7 +65,7 @@ func (m *Merger[T]) Next(ctx context.Context, dst *Merged[T]) error {
 	if err := m.ensureSetup(ctx); err != nil {
 		return err
 	}
-	dst.Elements = dst.Elements[:0]
+	dst.Values = dst.Values[:0]
 	dst.Indexes = dst.Indexes[:0]
 
 	// read into dst
@@ -72,8 +74,8 @@ func (m *Merger[T]) Next(ctx context.Context, dst *Merged[T]) error {
 		return EOS
 	}
 	dst.Indexes = append(dst.Indexes, me.index)
-	dst.Elements = extendSlice(dst.Elements)
-	if err := me.it.Next(ctx, &dst.Elements[len(dst.Elements)-1]); err != nil {
+	dst.Values = appendZero(dst.Values)
+	if err := me.it.Next(ctx, &dst.Values[len(dst.Values)-1]); err != nil {
 		return err // any error is an error, since we already peaked.
 	}
 	// need to put back the stream, read into me.peek for comparison in the heap.
@@ -89,13 +91,13 @@ func (m *Merger[T]) Next(ctx context.Context, dst *Merged[T]) error {
 		if !exists {
 			break
 		}
-		if m.lt(dst.Elements[0], me.peek) {
+		if m.lt(dst.Values[0], me.peek) {
 			m.heap.Push(me)
 			break
 		}
 		dst.Indexes = append(dst.Indexes, me.index)
-		dst.Elements = extendSlice(dst.Elements)
-		if err := me.it.Next(ctx, &dst.Elements[len(dst.Elements)-1]); err != nil {
+		dst.Values = appendZero(dst.Values)
+		if err := me.it.Next(ctx, &dst.Values[len(dst.Values)-1]); err != nil {
 			return err
 		}
 		if err := me.it.Peek(ctx, &me.peek); err != nil {
@@ -129,7 +131,8 @@ func (m *Merger[T]) ensureSetup(ctx context.Context) error {
 	return nil
 }
 
-func extendSlice[T any](s []T) []T {
+// appendZero appends the zero value of T to the slice and returns it.
+func appendZero[T any](s []T) []T {
 	var zero T
 	return append(s, zero)
 }
@@ -154,6 +157,6 @@ func (r *Reducer[T]) Next(ctx context.Context, dst *T) error {
 	if err := r.m.Next(ctx, &r.dst); err != nil {
 		return err
 	}
-	r.copy(dst, &r.dst.Elements[len(r.dst.Elements)-1])
+	r.copy(dst, &r.dst.Values[len(r.dst.Values)-1])
 	return nil
 }

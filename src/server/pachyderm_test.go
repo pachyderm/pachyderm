@@ -7259,7 +7259,7 @@ func TestListJobSetPaged(t *testing.T) {
 	listJobSetRequest := &pps.ListJobSetRequest{}
 	client, err := c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
 	require.NoError(t, err)
-	allJobSetInfos, err := grpcutil.Collect[pps.JobSetInfo](client)
+	allJobSetInfos, err := grpcutil.Collect[*pps.JobSetInfo](client)
 	require.NoError(t, err)
 	require.Equal(t, 9, len(allJobSetInfos))
 
@@ -7269,7 +7269,7 @@ func TestListJobSetPaged(t *testing.T) {
 	listJobSetRequest = &pps.ListJobSetRequest{Number: 3}
 	client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
 	require.NoError(t, err)
-	jsis, err := grpcutil.Collect[pps.JobSetInfo](client)
+	jsis, err := grpcutil.Collect[*pps.JobSetInfo](client)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jsis))
 	pagedJSIs = append(pagedJSIs, jsis...)
@@ -7278,7 +7278,7 @@ func TestListJobSetPaged(t *testing.T) {
 		listJobSetRequest = &pps.ListJobSetRequest{Number: 3, PaginationMarker: jsis[len(jsis)-1].Jobs[1].Created}
 		client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
 		require.NoError(t, err)
-		jsis, err = grpcutil.Collect[pps.JobSetInfo](client)
+		jsis, err = grpcutil.Collect[*pps.JobSetInfo](client)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(jsis))
 		pagedJSIs = append(pagedJSIs, jsis...)
@@ -7289,7 +7289,7 @@ func TestListJobSetPaged(t *testing.T) {
 	listJobSetRequest = &pps.ListJobSetRequest{Number: 3, Reverse: true}
 	client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
 	require.NoError(t, err)
-	jsis, err = grpcutil.Collect[pps.JobSetInfo](client)
+	jsis, err = grpcutil.Collect[*pps.JobSetInfo](client)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jsis))
 	reverseJIs = append(reverseJIs, jsis...)
@@ -7298,7 +7298,7 @@ func TestListJobSetPaged(t *testing.T) {
 		listJobSetRequest = &pps.ListJobSetRequest{Number: 3, Reverse: true, PaginationMarker: jsis[2].Jobs[0].Created}
 		client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
 		require.NoError(t, err)
-		jsis, err = grpcutil.Collect[pps.JobSetInfo](client)
+		jsis, err = grpcutil.Collect[*pps.JobSetInfo](client)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(jsis))
 		reverseJIs = append(reverseJIs, jsis...)

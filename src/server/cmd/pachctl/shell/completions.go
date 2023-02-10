@@ -107,7 +107,7 @@ func ProjectBranchCompletion(project, flag, text string, maxCompletions int64) (
 		if err != nil {
 			return nil, CacheNone
 		}
-		if err := grpcutil.ForEach[pfs.BranchInfo](client, func(bi *pfs.BranchInfo) error {
+		if err := grpcutil.ForEach[*pfs.BranchInfo](client, func(bi *pfs.BranchInfo) error {
 			head := "-"
 			if bi.Head != nil {
 				head = bi.Head.ID
@@ -231,7 +231,7 @@ func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, Ca
 		return nil, CacheNone
 	}
 	var result []prompt.Suggest
-	if err := grpcutil.ForEach[pps.PipelineInfo](client, func(pi *pps.PipelineInfo) error {
+	if err := grpcutil.ForEach[*pps.PipelineInfo](client, func(pi *pps.PipelineInfo) error {
 		result = append(result, prompt.Suggest{
 			Text:        pi.Pipeline.Name,
 			Description: pi.Details.Description,
@@ -275,7 +275,7 @@ func JobSetCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, C
 	if err != nil {
 		return nil, CacheNone
 	}
-	if err := grpcutil.ForEach[pps.JobSetInfo](listJobSetClient, func(jsi *pps.JobSetInfo) error {
+	if err := grpcutil.ForEach[*pps.JobSetInfo](listJobSetClient, func(jsi *pps.JobSetInfo) error {
 		result = append(result, prompt.Suggest{
 			Text:        jsi.JobSet.ID,
 			Description: jobSetDesc(jsi),

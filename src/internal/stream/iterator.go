@@ -3,6 +3,7 @@ package stream
 import (
 	"context"
 	"errors"
+	"fmt"
 )
 
 // EOS signals the end of the stream
@@ -56,6 +57,7 @@ func ForEach[T any](ctx context.Context, it Iterator[T], fn func(t T) error) err
 }
 
 // Read fills buf with elements from the iterator and returns the number copied into buf.
+// End of iteration is signaled by returning (_, EOS)
 func Read[T any](ctx context.Context, it Iterator[T], buf []T) (n int, _ error) {
 	for i := range buf {
 		if err := it.Next(ctx, &buf[i]); err != nil {
@@ -68,14 +70,20 @@ func Read[T any](ctx context.Context, it Iterator[T], buf []T) (n int, _ error) 
 
 // Collect reads at most max from the iterator into a buffer and returns it.
 func Collect[T any](ctx context.Context, it Iterator[T], max int) (ret []T, _ error) {
-	err := ForEach(ctx, it, func(x T) error {
+	for {
 		if len(ret) >= max {
-			return errors.New("iterator has more than max entries")
+			return nil, fmt.Errorf("stream.Collect: iterator produced too many elements. max=%d", max)
 		}
-		ret = append(ret, x)
-		return nil
-	})
-	return ret, err
+		ret = appendZero(ret)
+		if err := it.Next(ctx, &ret[len(ret)-1]); err != nil {
+			if IsEOS(err) {
+				ret = ret[:len(ret)-1]
+				break
+			}
+			return nil, err
+		}
+	}
+	return ret, nil
 }
 
 // Skip discards one element from the iterator.

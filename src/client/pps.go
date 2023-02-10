@@ -858,7 +858,7 @@ func (c APIClient) GetKubeEvents(since time.Duration) ([]*pps.LokiLogMessage, er
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return grpcutil.Collect[pps.LokiLogMessage](client, 1000)
+	return grpcutil.Collect[*pps.LokiLogMessage](client, 1000)
 }
 
 // CreatePipeline creates a new pipeline, pipelines are the main computation
@@ -971,7 +971,7 @@ func (c APIClient) ListPipeline(details bool) ([]*pps.PipelineInfo, error) {
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return grpcutil.Collect[pps.PipelineInfo](client, 1000)
+	return grpcutil.Collect[*pps.PipelineInfo](client, 1000)
 }
 
 // ListPipelineHistory returns historical information about pipelines.
@@ -1022,7 +1022,7 @@ func (c APIClient) ListProjectPipelineHistory(projectName, pipelineName string, 
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return grpcutil.Collect[pps.PipelineInfo](client, 1000)
+	return grpcutil.Collect[*pps.PipelineInfo](client, 1000)
 }
 
 // DeletePipeline deletes a pipeline along with its output Repo.

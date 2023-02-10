@@ -126,7 +126,7 @@ func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*types.Any, er
 			return errors.EnsureStack(err)
 		}
 		index := task.BaseIndex
-		return grpcutil.ForEach[pfs.FileInfo](client, func(fi *pfs.FileInfo) error {
+		return grpcutil.ForEach[*pfs.FileInfo](client, func(fi *pfs.FileInfo) error {
 			g := glob.MustCompile(pfsfile.CleanPath(task.Input.Glob), '/')
 			// Remove the trailing slash to support glob replace on directory paths.
 			p := strings.TrimRight(fi.File.Path, "/")

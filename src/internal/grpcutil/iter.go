@@ -2,54 +2,46 @@ package grpcutil
 
 import (
 	"context"
-	"io"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"google.golang.org/grpc"
 )
 
-type ClientStream[T any] interface {
-	Recv() (*T, error)
+type ClientStream[T proto.Message] interface {
+	Recv() (T, error)
 	grpc.ClientStream
 }
 
-type Iterator[T any] struct {
+type Iterator[T proto.Message] struct {
 	cs ClientStream[T]
 }
 
-func NewIterator[T any](cs ClientStream[T]) Iterator[T] {
+func NewIterator[T proto.Message](cs ClientStream[T]) Iterator[T] {
 	return Iterator[T]{cs: cs}
 }
 
-func (it Iterator[T]) Next(ctx context.Context, x *T) error {
-	err := it.cs.RecvMsg(x)
-	if errors.Is(err, io.EOF) {
-		err = stream.EOS
+func (it Iterator[T]) Next(ctx context.Context, dst *T) error {
+	x, err := it.cs.Recv()
+	if err != nil {
+		return err
 	}
-	return err
+	*dst = x
+	return nil
 }
 
 // ForEach calls fn for each element in cs.
 // fn must not retain the element passed to it.
-func ForEach[T any](cs ClientStream[T], fn func(x *T) error) error {
-	return stream.ForEach[T](cs.Context(), NewIterator(cs), func(x T) error {
-		return fn(&x)
-	})
+func ForEach[T proto.Message](cs ClientStream[T], fn func(x T) error) error {
+	return stream.ForEach[T](cs.Context(), NewIterator(cs), fn)
 }
 
-// Collect reads at most max elements
-func Collect[T any](cs ClientStream[T], max int) (ret []*T, _ error) {
-	it := NewIterator(cs)
-	for {
-		x := new(T)
-		if err := it.Next(cs.Context(), x); err != nil {
-			if stream.IsEOS(err) {
-				break
-			}
-			return nil, err
-		}
-		ret = append(ret, x)
-	}
-	return ret, nil
+// Read fills buf with received messages from cs and returns the number read.
+func Read[T proto.Message](cs ClientStream[T], buf []T) (int, error) {
+	return stream.Read[T](cs.Context(), NewIterator(cs), buf)
+}
+
+// Collect reads at most max elements from cs, and returns them as a slice.
+func Collect[T proto.Message](cs ClientStream[T], max int) (ret []T, _ error) {
+	return stream.Collect[T](cs.Context(), NewIterator(cs), max)
 }

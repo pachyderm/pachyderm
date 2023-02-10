@@ -509,7 +509,7 @@ This resets the cluster to its initial state.`,
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
-			if err := grpcutil.ForEach[pps.PipelineInfo](c, func(pi *pps.PipelineInfo) error {
+			if err := grpcutil.ForEach[*pps.PipelineInfo](c, func(pi *pps.PipelineInfo) error {
 				pipelines = append(pipelines, red(pi.Pipeline.String()))
 				return nil
 			}); err != nil {

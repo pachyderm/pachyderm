@@ -265,14 +265,14 @@ $ {{alias}} -p foo -i bar@YYY`,
 
 					if raw {
 						e := cmdutil.Encoder(output, os.Stdout)
-						return grpcutil.ForEach[pps.JobSetInfo](listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
+						return grpcutil.ForEach[*pps.JobSetInfo](listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
 							return errors.EnsureStack(e.EncodeProto(jobSetInfo))
 						})
 					}
 
 					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 						writer := tabwriter.NewWriter(w, pretty.JobSetHeader)
-						if err := grpcutil.ForEach[pps.JobSetInfo](listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
+						if err := grpcutil.ForEach[*pps.JobSetInfo](listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
 							pretty.PrintJobSetInfo(writer, jobSetInfo, fullTimestamps)
 							return nil
 						}); err != nil {
@@ -1001,7 +1001,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			pipelineInfos, err := grpcutil.Collect[pps.PipelineInfo](lpClient, 1000)
+			pipelineInfos, err := grpcutil.Collect[*pps.PipelineInfo](lpClient, 1000)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -1069,7 +1069,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			pipelineInfos, err := grpcutil.Collect[pps.PipelineInfo](lpClient, 1000)
+			pipelineInfos, err := grpcutil.Collect[*pps.PipelineInfo](lpClient, 1000)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
