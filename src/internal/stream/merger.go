@@ -138,18 +138,18 @@ func appendZero[T any](s []T) []T {
 }
 
 type Reducer[T any] struct {
-	m    *Merger[T]
-	dst  Merged[T]
-	copy func(dst, src *T)
+	m      *Merger[T]
+	dst    Merged[T]
+	reduce func(dst *T, m Merged[T])
 }
 
 // NewReducer creates an iterator which merges the entries from its into a single iterator.
 // The entries will come out in ascending order.
 // The iterators slice can be thought of as layers, with higher layers masking the value of lower layers when the entries are equal.
-func NewReducer[T any](its []Peekable[T], lt func(a, b T) bool, cp func(dst, src *T)) *Reducer[T] {
+func NewReducer[T any](its []Peekable[T], lt func(a, b T) bool, reduce func(dst *T, m Merged[T])) *Reducer[T] {
 	return &Reducer[T]{
-		m:    NewMerger(its, lt),
-		copy: cp,
+		m:      NewMerger(its, lt),
+		reduce: reduce,
 	}
 }
 
@@ -157,6 +157,6 @@ func (r *Reducer[T]) Next(ctx context.Context, dst *T) error {
 	if err := r.m.Next(ctx, &r.dst); err != nil {
 		return err
 	}
-	r.copy(dst, &r.dst.Values[len(r.dst.Values)-1])
+	r.reduce(dst, r.dst)
 	return nil
 }

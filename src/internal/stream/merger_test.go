@@ -41,8 +41,8 @@ func TestReducer(t *testing.T) {
 
 	m := NewReducer(its, func(a, b string) bool {
 		return a < b
-	}, func(dst, src *string) {
-		*dst = *src
+	}, func(dst *string, m Merged[string]) {
+		*dst = m.Values[len(m.Values)-1]
 	})
 	actual, err := Collect[string](pctx.TestContext(t), m, 100)
 	require.NoError(t, err)
