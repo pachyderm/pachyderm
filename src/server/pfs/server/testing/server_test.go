@@ -37,7 +37,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -143,7 +142,7 @@ func TestPFS(suite *testing.T) {
 		request := &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), Number: 4}
 		walkFileClient, err := env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.WalkFile(walkFileClient)
+		fis, err = grpcutil.Collect[*pfs.File](walkFileClient)
 		require.NoError(t, err)
 		require.Equal(t, 4, len(fis))
 		require.ElementsEqual(t, []string{"/dir/", "/dir/dir1/", "/dir/dir1/file1.1", "/dir/dir1/file1.2"}, finfosToPaths(fis))
@@ -152,14 +151,14 @@ func TestPFS(suite *testing.T) {
 		request = &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), PaginationMarker: commit1.NewFile(lastFilePath)}
 		walkFileClient, err = env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.WalkFile(walkFileClient)
+		fis, err = grpcutil.Collect[*pfs.File](walkFileClient)
 		require.NoError(t, err)
 		require.Equal(t, 7, len(fis))
 
 		request = &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), Number: 2, Reverse: true}
 		walkFileClient, err = env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.WalkFile(walkFileClient)
+		fis, err = grpcutil.Collect[*pfs.File](walkFileClient)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 		require.ElementsEqual(t, []string{"/dir/dir3/file3.1", "/dir/dir3/file3.2"}, finfosToPaths(fis))
@@ -168,13 +167,13 @@ func TestPFS(suite *testing.T) {
 		request = &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), Reverse: true}
 		walkFileClient, err = env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.WalkFile(walkFileClient)
+		fis, err = grpcutil.Collect[*pfs.File](walkFileClient)
 		require.YesError(t, err)
 
 		request = &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), PaginationMarker: commit1.NewFile("/dir/dir1/file1.2"), Number: 3, Reverse: true}
 		walkFileClient, err = env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.WalkFile(walkFileClient)
+		fis, err = grpcutil.Collect[*pfs.File](walkFileClient)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(fis))
 		require.ElementsEqual(t, []string{"/dir/dir1/file1.1", "/dir/dir1/", "/dir/"}, finfosToPaths(fis))
