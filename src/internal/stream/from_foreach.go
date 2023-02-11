@@ -11,11 +11,12 @@ import (
 type forEach[T any] struct {
 	dataChan chan T
 	errChan  chan error
+	copy     func(dst, src *T)
 }
 
-// NewIterator creates a new iterator from a forEachFunc
+// NewFromForEach creates a new iterator from a forEachFunc
 // Don't write new code that needs this.
-func NewFromForEach[T any](ctx context.Context, forEachFunc func(func(T) error) error) Iterator[T] {
+func NewFromForEach[T any](ctx context.Context, cp func(dst, src *T), forEachFunc func(func(T) error) error) Iterator[T] {
 	dataChan := make(chan T)
 	errChan := make(chan error, 1)
 	go func() {
@@ -35,6 +36,7 @@ func NewFromForEach[T any](ctx context.Context, forEachFunc func(func(T) error) 
 	return &forEach[T]{
 		dataChan: dataChan,
 		errChan:  errChan,
+		copy:     cp,
 	}
 }
 
@@ -45,7 +47,7 @@ func (i *forEach[T]) Next(ctx context.Context, dst *T) error {
 		if !more {
 			return EOS
 		}
-		*dst = data
+		i.copy(dst, &data)
 		return nil
 	case err := <-i.errChan:
 		return err

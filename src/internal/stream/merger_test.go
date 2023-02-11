@@ -29,22 +29,3 @@ func TestMerger(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
 }
-
-func TestReducer(t *testing.T) {
-	its := []Peekable[string]{
-		NewSlice([]string{"c", "d"}),
-		NewSlice([]string{"a"}),
-		NewSlice([]string{"b", "c"}),
-		NewSlice([]string{}),
-	}
-	expected := []string{"a", "b", "c", "d"}
-
-	m := NewReducer(its, func(a, b string) bool {
-		return a < b
-	}, func(dst *string, m Merged[string]) {
-		*dst = m.Values[len(m.Values)-1]
-	})
-	actual, err := Collect[string](pctx.TestContext(t), m, 100)
-	require.NoError(t, err)
-	require.Equal(t, expected, actual)
-}

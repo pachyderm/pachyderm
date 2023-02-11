@@ -23,6 +23,12 @@ func (m *Merged[T]) Last() (T, int) {
 	return m.Values[l-1], m.Indexes[l-1]
 }
 
+// CopyMerged efficiently copies a Merged from src to dst.
+func CopyMerged[T any](dst, src *Merged[T]) {
+	dst.Indexes = append(dst.Indexes[:0], src.Indexes...)
+	dst.Values = append(dst.Values[:0], src.Values...)
+}
+
 var (
 	_ Iterator[Merged[struct{}]] = &Merger[struct{}]{}
 )
@@ -74,8 +80,7 @@ func (m *Merger[T]) Next(ctx context.Context, dst *Merged[T]) error {
 		return EOS
 	}
 	dst.Indexes = append(dst.Indexes, me.index)
-	dst.Values = appendZero(dst.Values)
-	if err := me.it.Next(ctx, &dst.Values[len(dst.Values)-1]); err != nil {
+	if err := appendNext[T](ctx, me.it, &dst.Values); err != nil {
 		return err // any error is an error, since we already peaked.
 	}
 	// need to put back the stream, read into me.peek for comparison in the heap.
@@ -96,8 +101,7 @@ func (m *Merger[T]) Next(ctx context.Context, dst *Merged[T]) error {
 			break
 		}
 		dst.Indexes = append(dst.Indexes, me.index)
-		dst.Values = appendZero(dst.Values)
-		if err := me.it.Next(ctx, &dst.Values[len(dst.Values)-1]); err != nil {
+		if err := appendNext[T](ctx, me.it, &dst.Values); err != nil {
 			return err
 		}
 		if err := me.it.Peek(ctx, &me.peek); err != nil {
@@ -128,35 +132,5 @@ func (m *Merger[T]) ensureSetup(ctx context.Context) error {
 		}
 		m.isSetup = true
 	}
-	return nil
-}
-
-// appendZero appends the zero value of T to the slice and returns it.
-func appendZero[T any](s []T) []T {
-	var zero T
-	return append(s, zero)
-}
-
-type Reducer[T any] struct {
-	m      *Merger[T]
-	dst    Merged[T]
-	reduce func(dst *T, m Merged[T])
-}
-
-// NewReducer creates an iterator which merges the entries from its into a single iterator.
-// The entries will come out in ascending order.
-// The iterators slice can be thought of as layers, with higher layers masking the value of lower layers when the entries are equal.
-func NewReducer[T any](its []Peekable[T], lt func(a, b T) bool, reduce func(dst *T, m Merged[T])) *Reducer[T] {
-	return &Reducer[T]{
-		m:      NewMerger(its, lt),
-		reduce: reduce,
-	}
-}
-
-func (r *Reducer[T]) Next(ctx context.Context, dst *T) error {
-	if err := r.m.Next(ctx, &r.dst); err != nil {
-		return err
-	}
-	r.reduce(dst, r.dst)
 	return nil
 }

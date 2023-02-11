@@ -71,13 +71,11 @@ func Read[T any](ctx context.Context, it Iterator[T], buf []T) (n int, _ error) 
 // Collect reads at most max from the iterator into a buffer and returns it.
 func Collect[T any](ctx context.Context, it Iterator[T], max int) (ret []T, _ error) {
 	for {
-		if len(ret) >= max {
+		if len(ret) > max {
 			return nil, fmt.Errorf("stream.Collect: iterator produced too many elements. max=%d", max)
 		}
-		ret = appendZero(ret)
-		if err := it.Next(ctx, &ret[len(ret)-1]); err != nil {
+		if err := appendNext(ctx, it, &ret); err != nil {
 			if IsEOS(err) {
-				ret = ret[:len(ret)-1]
 				break
 			}
 			return nil, err
@@ -158,5 +156,16 @@ func (p *peekable[T]) Peek(ctx context.Context, dst *T) error {
 		p.exists = true
 	}
 	p.copy(dst, &p.peek)
+	return nil
+}
+
+// appendNext appends the next value from it to s
+func appendNext[T any](ctx context.Context, it Iterator[T], s *[]T) error {
+	var zero T
+	*s = append(*s, zero)
+	if err := it.Next(ctx, &(*s)[len(*s)-1]); err != nil {
+		*s = (*s)[:len(*s)-1]
+		return err
+	}
 	return nil
 }
