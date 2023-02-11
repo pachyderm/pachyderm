@@ -7,14 +7,16 @@ import (
 
 // Ordered enforces ascending order or returns an error
 type Ordered[T any] struct {
-	inner      Iterator[T]
-	lt         func(a, b T) bool
+	inner Iterator[T]
+	lt    func(a, b T) bool
+	copy  func(dst, src *T) bool
+
 	lastExists bool
 	last       T
 	err        error
 }
 
-func NewOrdered[T any](inner Iterator[T], lt func(a, b T) bool) *Ordered[T] {
+func NewOrdered[T any](inner Iterator[T], lt func(a, b T) bool, cp func(dst, src *T)) *Ordered[T] {
 	return &Ordered[T]{
 		inner: inner,
 		lt:    lt,
@@ -31,7 +33,7 @@ func (o *Ordered[T]) Next(ctx context.Context, dst *T) error {
 	if o.lastExists && !o.lt(o.last, *dst) {
 		o.err = errors.New("stream is unordered")
 	}
-	o.last = *dst
+	o.copy(&o.last, dst)
 	o.lastExists = true
 	return nil
 }

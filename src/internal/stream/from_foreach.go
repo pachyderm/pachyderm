@@ -8,9 +8,7 @@ import (
 
 // fromForEach provides functionality for generic imperative iteration.
 // TODO: Move file set merge and datum merge to this abstraction.
-// TODO: Improve when we upgrade to a go version with generics.
 type forEach[T any] struct {
-	peek     *T
 	dataChan chan T
 	errChan  chan error
 }
@@ -42,12 +40,6 @@ func NewFromForEach[T any](ctx context.Context, forEachFunc func(func(T) error) 
 
 // Next returns the next item and progresses the iterator.
 func (i *forEach[T]) Next(ctx context.Context, dst *T) error {
-	if i.peek != nil {
-		tmp := i.peek
-		i.peek = nil
-		*dst = *tmp
-		return nil
-	}
 	select {
 	case data, more := <-i.dataChan:
 		if !more {
