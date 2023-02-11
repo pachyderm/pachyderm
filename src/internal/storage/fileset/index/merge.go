@@ -19,7 +19,7 @@ func Merge(ctx context.Context, storage *chunk.Storage, indexes []*Index, cb fun
 		peekIt := stream.NewPeekable(it, copyIndex)
 		its = append(its, peekIt)
 	}
-	m := stream.NewMerger(its, compareIndexes)
+	m := stream.NewMerger(its, LessThan)
 	return stream.ForEach[stream.Merged[*Index]](ctx, m, func(x stream.Merged[*Index]) error {
 		for _, idx := range x.Values {
 			if err := cb(idx); err != nil {
@@ -30,7 +30,7 @@ func Merge(ctx context.Context, storage *chunk.Storage, indexes []*Index, cb fun
 	})
 }
 
-func compareIndexes(a, b *Index) bool {
+func LessThan(a, b *Index) bool {
 	if a.Path != b.Path {
 		return a.Path < b.Path
 	}
