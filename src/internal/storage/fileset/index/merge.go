@@ -2,56 +2,37 @@ package index
 
 import (
 	"context"
-	"strings"
 
+	proto "github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 )
 
 func Merge(ctx context.Context, storage *chunk.Storage, indexes []*Index, cb func(*Index) error) error {
-	var ss []stream.Stream
+	var its []stream.Peekable[*Index]
 	for _, index := range indexes {
 		ir := NewReader(storage, nil, index)
-		iterateFunc := func(cb func(interface{}) error) error {
+		iterateFunc := func(cb func(*Index) error) error {
 			return ir.Iterate(ctx, func(index *Index) error {
 				return cb(index)
 			})
 		}
-		ss = append(ss, &indexStream{
-			iterator: miscutil.NewIterator(ctx, iterateFunc),
-		})
+		it := miscutil.NewIterator(ctx, iterateFunc)
+		peekIt := stream.NewPeekable(it, copyIndex)
+		its = append(its, peekIt)
 	}
-	pq := stream.NewPriorityQueue(ss, compare)
-	return pq.Iterate(func(ss []stream.Stream) error {
-		for _, s := range ss {
-			if err := cb(s.(*indexStream).index); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	m := stream.NewReducer(its, compareIndexes, copyIndex)
+	return stream.ForEach[*Index](ctx, m, cb)
 }
 
-type indexStream struct {
-	iterator *miscutil.Iterator
-	index    *Index
+func compareIndexes(a, b *Index) bool {
+	if a.Path != b.Path {
+		return a.Path < b.Path
+	}
+	return a.File.Datum < b.File.Datum
 }
 
-func (is *indexStream) Next() error {
-	data, err := is.iterator.Next()
-	if err != nil {
-		return err
-	}
-	is.index = data.(*Index)
-	return nil
-}
-
-func compare(s1, s2 stream.Stream) int {
-	idx1 := s1.(*indexStream).index
-	idx2 := s2.(*indexStream).index
-	if idx1.Path == idx2.Path {
-		return strings.Compare(idx1.File.Datum, idx2.File.Datum)
-	}
-	return strings.Compare(idx1.Path, idx2.Path)
+func copyIndex(dst, src **Index) {
+	*dst = proto.Clone(*src).(*Index)
 }

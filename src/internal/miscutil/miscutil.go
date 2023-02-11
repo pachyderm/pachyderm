@@ -9,6 +9,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 )
 
 // WithPipe calls rcb with a reader and wcb with a writer
@@ -34,18 +35,18 @@ func WithPipe(wcb func(w io.Writer) error, rcb func(r io.Reader) error) error {
 // Iterator provides functionality for generic imperative iteration.
 // TODO: Move file set merge and datum merge to this abstraction.
 // TODO: Improve when we upgrade to a go version with generics.
-type Iterator struct {
-	peek     interface{}
-	dataChan chan interface{}
+type Iterator[T any] struct {
+	peek     *T
+	dataChan chan T
 	errChan  chan error
 }
 
 // NewIterator creates a new iterator.
-func NewIterator(ctx context.Context, iterate func(func(interface{}) error) error) *Iterator {
-	dataChan := make(chan interface{})
+func NewIterator[T any](ctx context.Context, iterate func(func(T) error) error) stream.Iterator[T] {
+	dataChan := make(chan T)
 	errChan := make(chan error, 1)
 	go func() {
-		if err := iterate(func(data interface{}) error {
+		if err := iterate(func(data T) error {
 			select {
 			case dataChan <- data:
 				return nil
@@ -58,26 +59,28 @@ func NewIterator(ctx context.Context, iterate func(func(interface{}) error) erro
 		}
 		close(dataChan)
 	}()
-	return &Iterator{
+	return &Iterator[T]{
 		dataChan: dataChan,
 		errChan:  errChan,
 	}
 }
 
 // Next returns the next item and progresses the iterator.
-func (i *Iterator) Next() (interface{}, error) {
+func (i *Iterator[T]) Next(ctx context.Context, dst *T) error {
 	if i.peek != nil {
 		tmp := i.peek
 		i.peek = nil
-		return tmp, nil
+		*dst = *tmp
+		return nil
 	}
 	select {
 	case data, more := <-i.dataChan:
 		if !more {
-			return nil, io.EOF
+			return stream.EOS
 		}
-		return data, nil
+		*dst = data
+		return nil
 	case err := <-i.errChan:
-		return nil, err
+		return err
 	}
 }

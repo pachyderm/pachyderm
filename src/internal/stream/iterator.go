@@ -125,3 +125,38 @@ func (s *Slice[T]) Peek(ctx context.Context, dst *T) error {
 func (s *Slice[T]) Reset() {
 	s.pos = 0
 }
+
+type peekable[T any] struct {
+	inner Iterator[T]
+	copy  func(dst, src *T)
+
+	peek   T
+	exists bool
+}
+
+func NewPeekable[T any](it Iterator[T], cp func(dst, src *T)) Peekable[T] {
+	if p, ok := it.(Peekable[T]); ok {
+		return p
+	}
+	return &peekable[T]{inner: it}
+}
+
+func (p *peekable[T]) Next(ctx context.Context, dst *T) error {
+	if p.exists {
+		p.copy(dst, &p.peek)
+		p.exists = false
+		return nil
+	}
+	return p.inner.Next(ctx, dst)
+}
+
+func (p *peekable[T]) Peek(ctx context.Context, dst *T) error {
+	if !p.exists {
+		if err := p.inner.Next(ctx, &p.peek); err != nil {
+			return err
+		}
+		p.exists = true
+	}
+	p.copy(dst, &p.peek)
+	return nil
+}
