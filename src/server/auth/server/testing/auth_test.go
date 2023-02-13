@@ -1040,7 +1040,6 @@ func TestListAndInspectRepo(t *testing.T) {
 		},
 	}
 	for _, info := range repoInfos {
-		fmt.Println("qqq", info.Repo)
 		require.ElementsEqual(t, expectedPermissions[info.Repo.Name], info.AuthInfo.Permissions)
 	}
 

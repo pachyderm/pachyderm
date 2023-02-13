@@ -219,8 +219,6 @@ func init() {
 			licenseAdminRole.Permissions,
 			secretAdminRole.Permissions,
 			pachdLogReaderRole.Permissions,
-			projectViewerRole.Permissions,
-			projectWriterRole.Permissions,
 			projectOwnerRole.Permissions,
 			projectCreatorRole.Permissions,
 			[]auth.Permission{

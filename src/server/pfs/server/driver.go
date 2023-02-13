@@ -295,7 +295,6 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 				return errors.Wrap(err, "could not check user is authorized to access project")
 			}
 		}
-
 		if authSeemsActive && includeAuth {
 			permissions, roles, err := d.getPermissions(ctx, repoInfo.Repo)
 			if err != nil {
