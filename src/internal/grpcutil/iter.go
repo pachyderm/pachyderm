@@ -5,9 +5,10 @@ import (
 	"io"
 
 	"github.com/gogo/protobuf/proto"
+	"google.golang.org/grpc"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
-	"google.golang.org/grpc"
 )
 
 type ClientStream[T proto.Message] interface {
