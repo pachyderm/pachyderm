@@ -205,15 +205,6 @@ jobs:
             pachctl port-forward
             \`\`\`
             "
-  redhat-release:
-    docker:
-      - image: cimg/base:2022.04
-    steps:
-      - checkout
-      - setup_remote_docker:
-          docker_layer_caching: true
-          version: '20.10.12'
-      - run: etc/redhat/push_images.sh
 
 workflows:
   version: 2
@@ -270,5 +261,3 @@ workflows:
           filters: *only-release-tags
           requires:
             - docker-build
-      - redhat-release:
-          filters: *only-release-tags
