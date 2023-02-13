@@ -31,16 +31,12 @@ class Version(betterproto.Message):
     go_version: str = betterproto.string_field(8)
     platform: str = betterproto.string_field(9)
 
-def wrapper(*args):
-    result = betterproto_lib_google_protobuf.Empty.SerializeToString(*args)
-    print(result)
-    return result
 
 class ApiStub:
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_get_version = channel.unary_unary(
             "/versionpb_v2.API/GetVersion",
-            request_serializer=wrapper,
+            request_serializer=betterproto_lib_google_protobuf.Empty.SerializeToString,
             response_deserializer=Version.FromString,
         )
 

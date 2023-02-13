@@ -2,8 +2,11 @@ import base64
 import json
 from typing import Dict
 
+import grpc
+
 from . import ApiStub as _GeneratedApiStub
 from . import (
+    Job,
     Pipeline,
     PipelineInfo,
 )
@@ -58,6 +61,50 @@ class ApiStub(_GeneratedApiStub):
             except StopIteration:
                 raise ValueError("invalid pipeline")
         return super().inspect_pipeline(pipeline=pipeline, details=details)
+
+    def pipeline_exists(self, pipeline: "Pipeline") -> bool:
+        """Checks whether a pipeline exists.
+
+        Parameters
+        ----------
+        pipeline: pps.Pipeline
+            The pipeline to check.
+
+        Returns
+        -------
+        bool
+            Whether the pipeline exists.
+        """
+        try:
+            super().inspect_pipeline(pipeline=pipeline)
+            return True
+        except grpc.RpcError as err:
+            err: grpc.Call
+            if err.code() == grpc.StatusCode.NOT_FOUND:
+                return False
+            raise err
+
+    def job_exists(self, job: "Job") -> bool:
+        """Checks whether a job exists.
+
+        Parameters
+        ----------
+        job: pps.Job
+            The job to check.
+
+        Returns
+        -------
+        bool
+            Whether the job exists.
+        """
+        try:
+            super().inspect_job(job=job)
+            return True
+        except grpc.RpcError as err:
+            err: grpc.Call
+            if err.code() == grpc.StatusCode.NOT_FOUND:
+                return False
+            raise err
 
     # noinspection PyMethodOverriding
     def create_secret(

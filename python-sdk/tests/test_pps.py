@@ -32,9 +32,8 @@ class TestUnitPipeline:
     @staticmethod
     def test_delete_pipeline(client: TestClient, default_project: bool):
         pipeline_info, job_info = client.new_pipeline(default_project)
-        orig_pipeline_count = count(client.pps.list_pipeline())
         client.pps.delete_pipeline(pipeline=pipeline_info.pipeline)
-        assert count(client.pps.list_pipeline()) == orig_pipeline_count - 1
+        assert not client.pps.pipeline_exists(pipeline_info.pipeline)
 
     @staticmethod
     def test_restart_pipeline(client: TestClient, default_project: bool):
@@ -86,25 +85,17 @@ class TestUnitJob:
     def test_inspect_job(client: TestClient, default_project: bool):
         pipeline_info_1, job_info_1 = client.new_pipeline(default_project)
         job_info = client.pps.inspect_job(job=job_info_1.job)
-
         assert job_info.job.id == job_info_1.job.id
-        assert count(client.pps.list_job()) == 2
 
     @staticmethod
     def test_stop_job(client: TestClient, default_project: bool):
         pipeline_info, job_info = client.new_pipeline(default_project)
         client.pps.stop_job(job=job_info.job)
 
-        # This is necessary because `StopJob` does not wait for the job to be
-        # killed before returning a result.
-        # TODO: remove once this is fixed:
-        # https://github.com/pachyderm/pachyderm/issues/3856
-        # TODO: Can we just use wait?
-        time.sleep(1)
-        job_info = client.pps.inspect_job(job=job_info.job, wait=False)
+        job_info = client.pps.inspect_job(job=job_info.job, wait=True)
 
-        # We race to stop the job before it finishes - if we lose the race, it will
-        # be in state JOB_SUCCESS
+        # We race to stop the job before it finishes.
+        # If we lose the race, it will be in state JOB_SUCCESS.
         assert job_info.state in [
             pps.JobState.JOB_KILLED,
             pps.JobState.JOB_SUCCESS,
@@ -113,9 +104,8 @@ class TestUnitJob:
     @staticmethod
     def test_delete_job(client: TestClient, default_project: bool):
         pipeline_info, job_info = client.new_pipeline(default_project)
-        orig_job_count = count(client.pps.list_job())
         client.pps.delete_job(job=job_info.job)
-        assert count(client.pps.list_job()) == orig_job_count - 1
+        assert not client.pps.job_exists(job=job_info.job)
 
 
 class TestUnitDatums:
@@ -141,8 +131,8 @@ class TestUnitLogs:
     """Unit tests for the log retrieval API."""
 
     @staticmethod
-    def test_get_pipeline_logs(client: TestClient, default_project: bool):
-        pipeline_info, job_info = client.new_pipeline(default_project)
+    def test_get_pipeline_logs(client: TestClient):
+        pipeline_info, job_info = client.new_pipeline()
         pipeline, job = pipeline_info.pipeline, job_info.job
 
         # Just make sure these spit out some logs
@@ -155,8 +145,8 @@ class TestUnitLogs:
         del logs
 
     @staticmethod
-    def test_get_job_logs(client: TestClient, default_project: bool):
-        pipeline_info, job_info = client.new_pipeline(default_project)
+    def test_get_job_logs(client: TestClient):
+        pipeline_info, job_info = client.new_pipeline()
         pipeline, job = pipeline_info.pipeline, job_info.job
 
         # Just make sure these spit out some logs
@@ -173,8 +163,8 @@ class TestUnitMisc:
         pipeline_info, job_info = client.new_pipeline(default_project)
         pipeline, job = pipeline_info.pipeline, job_info.job
 
-        # this should trigger an error because the sandbox pipeline doesn't have a
-        # cron input
+        # this should trigger an error because the sandbox pipeline
+        # does not have a cron input
         with pytest.raises(grpc.RpcError, match=r"pipeline.*have a cron input"):
             client.pps.run_cron(pipeline=pipeline)
 

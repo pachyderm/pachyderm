@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 import grpc
 
-from .api.admin import ApiStub as _AdminStub
+from .api.admin.admin_extension import ApiStub as _AdminStub
 from .api.auth import ApiStub as _AuthStub
 from .api.debug import DebugStub as _DebugStub
 from .api.enterprise import ApiStub as _EnterpriseStub
@@ -99,28 +99,7 @@ class Client:
         self._metadata = self._build_metadata()
         self._channel = _apply_metadata_interceptor(channel, self._metadata)
 
-        self.admin = _AdminStub(self._channel)
-        self.auth = _AuthStub(self._channel)
-        self.debug = _DebugStub(self._channel)
-        self.enterprise = _EnterpriseStub(self._channel)
-        self.identity = _IdentityStub(self._channel)
-        self.license = _LicenseStub(self._channel)
-        self.pfs = _PfsStub(self._channel)
-        self.pps = _PpsStub(self._channel)
-
-        def get():
-            return self.transaction_id
-
-        def set(value):
-            self.transaction_id = value
-
-        self.transaction = _TransactionStub(
-            self._channel,
-            get_transaction_id=get,
-            set_transaction_id=set,
-        )
-        self._version_api = _VersionStub(self._channel)
-
+        # See implementation for api layout.
         self._init_api()
 
         if not auth_token and (oidc_token := os.environ.get(OIDC_TOKEN_ENV)):
@@ -135,20 +114,12 @@ class Client:
         self.license = _LicenseStub(self._channel)
         self.pfs = _PfsStub(self._channel)
         self.pps = _PpsStub(self._channel)
-
-        def get():
-            return self.transaction_id
-
-        def set(value):
-            self.transaction_id = value
-
         self.transaction = _TransactionStub(
             self._channel,
-            get_transaction_id=get,
-            set_transaction_id=set,
+            get_transaction_id=lambda: self.transaction_id,
+            set_transaction_id=lambda value: setattr(self, "transaction_id", value),
         )
         self._version_api = _VersionStub(self._channel)
-
 
     @classmethod
     def new_in_cluster(
@@ -301,8 +272,8 @@ class Client:
         return metadata
 
     def delete_all(self) -> None:
-        """Delete all repos, commits, files, pipelines, and jobs. This resets
-        the cluster to its initial state.
+        """Delete all repos, commits, files, pipelines, and jobs.
+        This resets the cluster to its initial state.
         """
         # Try removing all identities if auth is activated.
         with contextlib.suppress(AuthServiceNotActivated):

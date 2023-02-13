@@ -23,34 +23,32 @@ find src -regex ".*\.proto" \
 ```
 
 
-* Test if interceptors are working. At the very least error catching isn't working like it did before.
 * Do we want to bubble up the manual methods to the client level?
-* Admin
-  * Overwrite inspect cluster to send the client version automatically.
 * Auth
   * Implement full OIDC auth process (TODO: link ticket)
-  * Should we implement AuthServiceNotActivated (also: Identity, License)
 * Debug
   * debug_cpu (do we need it?)
 * Health
   * health_check (do we need it? can we just use version?)
 * PFS
-  * We probably don't need ModifyFileClient (but should point in docs to new impl in api.pfs.extensions)
-  * GetFile and GetFileTar will need to have docs if we don't overwrite them.
   * Revisit mounting
-  * We could make the object returned by the commit context manager friendlier.
-    * put_file and copy_file methods could return a pfs.File object.
 * PPS
-  * InspectPipeline (branch in logic)
-  * CreateSecret (formats data for user)
+
 * Transaction
-  * Overall tricky because we need to update the RPC metadata being sent.
-  * Options include:
-    * Custom class that hides start/finish and includes contextmanager
-    * Extend transaction.ApiStub methods to require passing client.
-* Fix Tony issue where get_distribution fails
+  * Using the API is very verbose. Can we fix this?
+  * Add test for running a transaction in an OpenCommit. I bet it will fail.
+    * Is this something that is reasonable for a user to do?
+* Fix Tony issue where get_distribution fails in betterproto
   * Should be try-except.
 
+TODO:
+  * Port over examples.
+  * Setup CI.
+  * Investigate if we can make docs better.
+    * At the very least we could generate a docstring saying
+    "see <InputType> docstring for more information."
+    * It would be nice to move generated Message docstrings down to methods,
+    but this would require substantial betterproto work.
 
 
 Bugs?

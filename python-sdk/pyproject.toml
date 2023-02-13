@@ -3,7 +3,6 @@ name = "pachyderm_sdk"
 version = "0.0.1"
 description = "Python Pachyderm Client"
 authors = ["Pachyderm Integrations <integrations@pachyderm.io>"]
-include = ["version.json"]
 license = "Apache 2.0"
 documentation = "https://python-pachyderm.readthedocs.io/en/stable/"
 readme = 'README.md'

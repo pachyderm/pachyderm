@@ -77,3 +77,25 @@ class ApiStub(_GeneratedApiStub):
             super().finish_transaction(transaction=transaction)
         finally:
             self._set_transaction_id(old_transaction_id)
+
+    def transaction_exists(self, transaction: "Transaction") -> bool:
+        """Checks whether a transaction exists.
+
+        Parameters
+        ----------
+        transaction: transaction.Transaction
+            The transaction to check.
+
+        Returns
+        -------
+        bool
+            Whether the transaction exists.
+        """
+        try:
+            super().inspect_transaction(transaction=transaction)
+            return True
+        except grpc.RpcError as err:
+            err: grpc.Call
+            if err.code() == grpc.StatusCode.NOT_FOUND:
+                return False
+            raise err

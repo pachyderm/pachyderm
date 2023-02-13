@@ -1,5 +1,3 @@
-import os
-
 from tests.fixtures import *
 
 from pachyderm_sdk.api import enterprise

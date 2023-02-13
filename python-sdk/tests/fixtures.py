@@ -76,7 +76,7 @@ class TestClient(_Client):
 
     def new_project(self) -> pfs.Project:
         project = pfs.Project(name=f"proj{random.randint(100, 999)}")
-        if self._project_exists(project):
+        if self.pfs.project_exists(project):
             self.pfs.delete_project(project=project, force=True)
         self.pfs.create_project(project=project, description=self.id)
         self.projects.append(project)
@@ -129,12 +129,8 @@ class TestClient(_Client):
         for repo in self.repos:
             self.pfs.delete_repo(repo=repo, force=True)
         for project in self.projects:
-            if self._project_exists(project):
+            if self.pfs.project_exists(project):
                 self.pfs.delete_project(project=project, force=True)
-
-    def _project_exists(self, project: pfs.Project) -> bool:
-        all_projects_names = {info.project.name for info in self.pfs.list_project()}
-        return project.name in all_projects_names
 
     def _generate_name(self) -> str:
         name: str = (

@@ -1,10 +1,12 @@
 from os import environ
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, Sequence, Optional, Tuple, Union
 
 import grpc
 from grpc_interceptor import ClientCallDetails, ClientInterceptor
 
-MetadataType = List[Tuple[str, str]]
+from .errors import AuthServiceNotActivated
+
+MetadataType = Sequence[Tuple[str, Union[str, bytes]]]
 
 
 class MetadataClientInterceptor(ClientInterceptor):
@@ -38,4 +40,4 @@ def _check_connection_error(grpc_future: grpc.Future):
                     " python_pachyderm within the a pipeline. "
                 )
             raise ConnectionError(error_message) from error
-        raise error
+        raise AuthServiceNotActivated.try_from(error)

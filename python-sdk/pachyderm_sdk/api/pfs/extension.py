@@ -1,4 +1,5 @@
 import io
+import os
 import subprocess
 from contextlib import contextmanager
 from dataclasses import fields
@@ -13,8 +14,11 @@ from . import (
     Branch,
     Commit,
     CommitInfo,
+    CommitSet,
     CommitState,
     File,
+    Project,
+    Repo,
     ModifyFileRequest,
     AddFile,
     AddFileUrlSource,
@@ -35,6 +39,7 @@ class OpenCommit(Commit):
     def __init__(self, commit: "Commit", stub: "ApiStub"):
         self._commit = commit
         self._stub = stub
+        self._open = True
 
         # This is required to maintain serialization capabilities while being
         #   future compatible with any new fields to the pfs.Commit message.
@@ -45,6 +50,12 @@ class OpenCommit(Commit):
 
     def wait(self) -> CommitInfo:
         return self._stub.wait_commit(self)
+
+    def wait_set(self) -> Iterator[CommitInfo]:
+        """Similar to Commit.wait but streams back the pfs.CommitInfo
+        from all the downstream jobs that were initiated by this commit.
+        """
+        return self._stub.wait_commit_set(CommitSet(id=self._commit.id))
 
     def put_file_from_bytes(
         self,
@@ -72,6 +83,8 @@ class OpenCommit(Commit):
         >>> with client.pfs.commit(branch=pfs.Branch.from_uri("images@master")) as commit:
         >>>     commit.put_file_from_bytes(path="/file.txt", data=b"SOME BYTES")
         """
+        if not self._open:
+            raise RuntimeError("Cannot write to a closed commit")
         self._stub.put_file_from_bytes(
             commit=self, path=path, data=data, append=append
         )
@@ -96,6 +109,8 @@ class OpenCommit(Commit):
             If true, allows for recursive scraping on some types URLs, for
             example on s3:// URLs
         """
+        if not self._open:
+            raise RuntimeError("Cannot write to a closed commit")
         self._stub.put_file_from_url(
             commit=self, path=path, url=url, recursive=recursive
         )
@@ -120,6 +135,8 @@ class OpenCommit(Commit):
             If true, appends the data to the file specified at `path`, if
             they already exist. Otherwise, overwrites them.
         """
+        if not self._open:
+            raise RuntimeError("Cannot write to a closed commit")
         self._stub.put_file_from_file(
             commit=self, path=path, file=file, append=append
         )
@@ -144,6 +161,8 @@ class OpenCommit(Commit):
             If true, appends the contents of src to dst if it exists.
             Otherwise, overwrites the file.
         """
+        if not self._open:
+            raise RuntimeError("Cannot modify a closed commit")
         self._stub.copy_file(commit=self, src=src, dst=dst, append=append)
         return File(commit=self._commit, path=dst)
 
@@ -155,6 +174,8 @@ class OpenCommit(Commit):
         path : str
             The path of the file to be deleted.
         """
+        if not self._open:
+            raise RuntimeError("Cannot modify a closed commit")
         self._stub.delete_file(commit=self, path=path)
         return File(commit=self._commit, path=path)
 
@@ -193,10 +214,41 @@ class ApiStub(_GeneratedApiStub):
         try:
             yield OpenCommit(commit=commit, stub=self)
         finally:
+            commit._open = False
             self.finish_commit(commit=commit)
 
     def wait_commit(self, commit: "Commit") -> "CommitInfo":
         return self.inspect_commit(commit=commit, wait=CommitState.FINISHED)
+
+    def wait_commit_set(self, commit_set: "CommitSet") -> "Iterator[CommitInfo]":
+        return self.inspect_commit_set(commit_set=commit_set, wait=True)
+
+    def put_files(self, *, commit: "Commit", source: Union[Path, str], path: str):
+        """Recursively insert the contents of source into the open commit under path,
+        matching the directory structure of source.
+
+        This is roughly equivalent to ``pachctl put file -r``
+
+        Parameters
+        ----------
+        commit : pfs.Commit
+            The open commit to add files to.
+        source : Union[Path, str]
+            The directory to recursively insert content from.
+        path : str
+            The destination path in PFS.
+        """
+        source = Path(source)
+        if not source.exists():
+            raise FileNotFoundError(f"source does not exist: {source}")
+        if not source.is_dir():
+            raise NotADirectoryError(f"source is not a directory: {source}")
+        for root, _, filenames in os.walk(source):
+            for filename in filenames:
+                src = os.path.join(root, filename)
+                dst = os.path.join(path, os.path.relpath(src, start=source))
+                with open(src, "rb") as file:
+                    self.put_file_from_file(commit=commit, path=dst, file=file)
 
     def put_file_from_bytes(
         self,
@@ -355,7 +407,95 @@ class ApiStub(_GeneratedApiStub):
         ]
         return self.modify_file(iter(operations))
 
-    def path_exists(self, *, file: "File") -> bool:
+    def project_exists(self, project: "Project") -> bool:
+        """Checks whether a project exists.
+
+        Parameters
+        ----------
+        project: pfs.Project
+            The project to check.
+
+        Returns
+        -------
+        bool
+            Whether the project exists.
+        """
+        try:
+            self.inspect_project(project=project)
+            return True
+        except grpc.RpcError as err:
+            err: grpc.Call
+            if err.code() == grpc.StatusCode.NOT_FOUND:
+                return False
+            raise err
+
+    def repo_exists(self, repo: "Repo") -> bool:
+        """Checks whether a repo exists.
+
+        Parameters
+        ----------
+        repo: pfs.Repo
+            The repo to check.
+
+        Returns
+        -------
+        bool
+            Whether the repo exists.
+        """
+        try:
+            self.inspect_repo(repo=repo)
+            return True
+        except grpc.RpcError as err:
+            err: grpc.Call
+            if err.code() == grpc.StatusCode.NOT_FOUND:
+                return False
+            raise err
+
+    def branch_exists(self, branch: "Branch") -> bool:
+        """Checks whether a branch exists.
+
+        Parameters
+        ----------
+        branch: pfs.Branch
+            The branch to check.
+
+        Returns
+        -------
+        bool
+            Whether the branch exists.
+        """
+        try:
+            self.inspect_branch(branch=branch)
+            return True
+        except grpc.RpcError as err:
+            err: grpc.Call
+            if err.code() == grpc.StatusCode.NOT_FOUND:
+                return False
+            raise err
+
+    def commit_exists(self, commit: "Commit") -> bool:
+        """Checks whether a commit exists.
+
+        Parameters
+        ----------
+        commit: pfs.Commit
+            The commit to check.
+
+        Returns
+        -------
+        bool
+            Whether the commit exists.
+        """
+        try:
+            self.inspect_commit(commit=commit)
+            return True
+        except grpc.RpcError as err:
+            err: grpc.Call
+            if err.code() == grpc.StatusCode.NOT_FOUND:
+                return False
+            raise err
+
+    def path_exists(self, file: "File") -> bool:
         """Checks whether the path exists in the specified commit, agnostic to
         whether `path` is a file or a directory.
 
@@ -376,9 +516,12 @@ class ApiStub(_GeneratedApiStub):
 
         try:
             self.inspect_file(file=file)
-        except grpc.RpcError:
-            return False
-        return True
+            return True
+        except grpc.RpcError as err:
+            err: grpc.Call
+            if err.code() == grpc.StatusCode.NOT_FOUND:
+                return False
+            raise err
 
     def pfs_file(self, file: "File") -> PFSFile:
         stream = self.get_file(file=file)
