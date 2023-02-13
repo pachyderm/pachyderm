@@ -36,6 +36,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	"github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
+	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 	"go.uber.org/zap"
 
 	prompt "github.com/c-bata/go-prompt"
@@ -342,7 +343,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
-	listJob.Flags().BoolVar(&allProjects, "all-projects", false, "Show jobs from all projects.")
+	listJob.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Show jobs from all projects.")
 	listJob.Flags().StringVar(&project, "project", project, "Limit to jobs in the project specified.")
 	listJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
 	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits. format: <repo>@<branch-or-commit>")
@@ -539,6 +540,42 @@ each datum.`,
 	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(listDatum, "list datum", datums))
 
+	var since string
+	kubeEvents := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Return the kubernetes events.",
+		Long:  "Return the kubernetes events.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			since, err := time.ParseDuration(since)
+			if err != nil {
+				return errors.Wrapf(err, "parse since(%q)", since)
+			}
+			events, err := client.GetKubeEvents(since)
+			if err != nil {
+				return err
+			}
+			if raw {
+				for _, event := range events {
+					fmt.Println(event.Message)
+				}
+				return nil
+			}
+			writer := tabwriter.NewWriter(os.Stdout, pretty.KubeEventsHeader)
+			for _, event := range events {
+				pretty.PrintKubeEvent(writer, event.Message)
+			}
+			return writer.Flush()
+		}),
+	}
+	kubeEvents.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
+	kubeEvents.Flags().StringVar(&since, "since", "0", "Return log messages more recent than \"since\".")
+	commands = append(commands, cmdutil.CreateAlias(kubeEvents, "kube-events"))
+
 	inspectDatum := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job> <datum>",
 		Short: "Display detailed info about a single datum.",
@@ -578,7 +615,6 @@ each datum.`,
 		worker      bool
 		follow      bool
 		tail        int64
-		since       string
 	)
 
 	// prettyLogsPrinter helps to print the logs recieved in different colours
@@ -1007,7 +1043,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().StringVarP(&commit, "commit", "c", "", "List the pipelines as they existed at this commit.")
 	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
 	listPipeline.Flags().StringVar(&project, "project", project, "Project containing pipelines.")
-	listPipeline.Flags().BoolVar(&allProjects, "all-projects", false, "Show pipelines form all projects.")
+	listPipeline.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "Show pipelines form all projects.")
 	commands = append(commands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
 
 	var commitSet string
@@ -1102,7 +1138,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	deletePipeline.Flags().BoolVarP(&force, "force", "f", false, "delete the pipeline regardless of errors; use with care")
 	deletePipeline.Flags().BoolVar(&keepRepo, "keep-repo", false, "delete the pipeline, but keep the output repo data around (the pipeline cannot be recreated later with the same name unless the repo is deleted)")
 	deletePipeline.Flags().StringVar(&project, "project", project, "project containing project")
-	deletePipeline.Flags().BoolVar(&allProjects, "all-projects", false, "delete pipelines from all projects; only valid with --all")
+	deletePipeline.Flags().BoolVarP(&allProjects, "all-projects", "A", false, "delete pipelines from all projects; only valid with --all")
 	commands = append(commands, cmdutil.CreateAliases(deletePipeline, "delete pipeline", pipelines))
 
 	startPipeline := &cobra.Command{
@@ -1336,6 +1372,26 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	runLoadTest.Flags().StringVarP(&podPatchFile, "pod-patch", "", "", "The pod patch file to use for the pipelines.")
 	runLoadTest.Flags().StringVar(&stateID, "state-id", "", "The ID of the base state to use for the load.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pps-load-test"))
+
+	var errStr string
+	nextDatum := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Used internally for datum batching",
+		Long:  "Used internally for datum batching",
+		Run: cmdutil.Run(func(_ []string) error {
+			c, err := workerserver.NewClient("127.0.0.1")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			// TODO: Decide how to handle the environment variables in the response.
+			_, err = c.NextDatum(context.Background(), &workerserver.NextDatumRequest{Error: errStr})
+			return err
+		}),
+		Hidden: true,
+	}
+	nextDatum.Flags().StringVar(&errStr, "error", "", "A string representation of an error that occurred while processing the current datum.")
+	commands = append(commands, cmdutil.CreateAlias(nextDatum, "next datum"))
 
 	return commands
 }

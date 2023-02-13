@@ -480,6 +480,17 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, numGoros, successCount)
 	})
 
+	suite.Run("CreateProject", func(t *testing.T) {
+		t.Parallel()
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+		// 51-character project names are allowed
+		require.NoError(t, env.PachClient.CreateProject("123456789A123456789B123456789C123456789D123456789E1"))
+		// 52-character project names are not allowed
+		require.YesError(t, env.PachClient.CreateProject("123456789A123456789B123456789C123456789D123456789E12"))
+	})
+
 	suite.Run("CreateRepoNonExistentProject", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
@@ -5391,6 +5402,14 @@ func TestPFS(suite *testing.T) {
 			for _, path := range paths {
 				require.NoError(t, env.PachClient.GetFileURL(commit, path, bucketURL))
 			}
+			for _, path := range paths {
+				buf := &bytes.Buffer{}
+				err := objC.Get(context.Background(), path, buf)
+				require.NoError(t, err)
+				require.True(t, bytes.Equal([]byte(path), buf.Bytes()))
+			}
+			require.NoError(t, objC.Delete(ctx, "files/*"))
+			require.NoError(t, env.PachClient.GetFileURL(commit, "files/*", bucketURL))
 			for _, path := range paths {
 				buf := &bytes.Buffer{}
 				err := objC.Get(context.Background(), path, buf)
