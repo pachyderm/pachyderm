@@ -10,6 +10,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -264,6 +265,14 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, task *DatumS
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		pachClient := pachClient.WithCtx(ctx)
+		testCtx, cancel := context.WithTimeout(pachClient.Ctx(), time.Millisecond*50)
+		go func() {
+			<-testCtx.Done()
+			logger.LogStep("cancelling pachClient.Ctx()", func() error {
+				cancel()
+				return nil
+			})
+		}()
 		cacheClient := pfssync.NewCacheClient(pachClient, renewer)
 		// Setup file operation client for output meta commit.
 		resp, err := cacheClient.WithCreateFileSetClient(func(mfMeta client.ModifyFile) error {
@@ -286,7 +295,8 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, task *DatumS
 					di := datum.NewFileSetIterator(pachClient, task.FileSetId, task.PathRange)
 					// Process each datum in the assigned datum set.
 					err := di.Iterate(func(meta *datum.Meta) error {
-						ctx := pachClient.Ctx()
+						ctx := testCtx
+						//ctx := pachClient.Ctx()
 						meta = proto.Clone(meta).(*datum.Meta)
 						meta.ImageId = userImageID
 						inputs := meta.Inputs
@@ -309,6 +319,9 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, task *DatumS
 							}))
 						}
 						return s.WithDatum(meta, func(d *datum.Datum) error {
+							if ctx.Err() != nil {
+								fmt.Println("datum ctx was cancelled: " + ctx.Err().Error())
+							}
 							cancelCtx, cancel := context.WithCancel(ctx)
 							defer cancel()
 							err := status.withDatum(inputs, cancel, func() error {
