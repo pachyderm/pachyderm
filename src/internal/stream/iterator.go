@@ -2,8 +2,8 @@ package stream
 
 import (
 	"context"
-	"errors"
-	"fmt"
+
+	"github.com/pachyderm/pachyderm/src/internal/errors"
 )
 
 // EOS signals the end of the stream
@@ -72,7 +72,7 @@ func Read[T any](ctx context.Context, it Iterator[T], buf []T) (n int, _ error) 
 func Collect[T any](ctx context.Context, it Iterator[T], max int) (ret []T, _ error) {
 	for {
 		if len(ret) > max {
-			return nil, fmt.Errorf("stream.Collect: iterator produced too many elements. max=%d", max)
+			return nil, errors.Errorf("stream.Collect: iterator produced too many elements. max=%d", max)
 		}
 		if err := appendNext(ctx, it, &ret); err != nil {
 			if IsEOS(err) {
@@ -104,7 +104,7 @@ func NewSlice[T any](xs []T) *Slice[T] {
 
 func (s *Slice[T]) Next(ctx context.Context, dst *T) error {
 	if s.pos >= len(s.xs) {
-		return EOS
+		return errors.EnsureStack(EOS)
 	}
 	*dst = s.xs[s.pos]
 	s.pos++
@@ -113,7 +113,7 @@ func (s *Slice[T]) Next(ctx context.Context, dst *T) error {
 
 func (s *Slice[T]) Peek(ctx context.Context, dst *T) error {
 	if s.pos >= len(s.xs) {
-		return EOS
+		return errors.EnsureStack(EOS)
 	}
 	*dst = s.xs[s.pos]
 	return nil
@@ -136,7 +136,10 @@ func NewPeekable[T any](it Iterator[T], cp func(dst, src *T)) Peekable[T] {
 	if p, ok := it.(Peekable[T]); ok {
 		return p
 	}
-	return &peekable[T]{inner: it}
+	return &peekable[T]{
+		inner: it,
+		copy:  cp,
+	}
 }
 
 func (p *peekable[T]) Next(ctx context.Context, dst *T) error {
