@@ -20,7 +20,7 @@ jobs:
     steps:
       - checkout
       - run: .circleci/scripts/upload-storybook.sh
-  backend-test:
+  test-backend:
     resource_class: xlarge
     docker:
       - image: cimg/node:16.14.2
@@ -31,7 +31,7 @@ jobs:
       - run: cd backend && npm run test -- --collect-coverage
       - codecov/upload:
           file: backend/coverage/lcov.info
-  integration-test:
+  test-backend-integration:
     resource_class: xlarge
     machine:
       image: ubuntu-2004:202111-01
@@ -46,7 +46,7 @@ jobs:
       - run: cd backend && npm run lint
       - run: pachctl port-forward & cd backend && npm run integration-test
 
-  frontend-test:
+  test-frontend:
     resource_class: xlarge
     docker:
       - image: cimg/node:16.14.2
@@ -57,7 +57,7 @@ jobs:
       - run: cd frontend && npm run test -- --collect-coverage
       - codecov/upload:
           file: frontend/coverage/lcov.info
-  e2e-mock-test:
+  test-e2e-mock:
     resource_class: xlarge
     machine:
       image: ubuntu-2004:202201-02
@@ -69,7 +69,32 @@ jobs:
           path: /tmp/cypress-screenshots
       - store_artifacts:
           path: /tmp/cypress-videos
-  e2e-test:
+  test-e2e-community-edition:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202201-02
+    steps:
+      - checkout
+      - run: sudo sysctl fs.inotify.max_user_watches=524288
+      - run: sudo sysctl -p
+      - run: sudo apt-get update
+      - run: sudo apt-get install -y libgbm-dev
+      - run: npm ci
+      - run: cd backend && npm ci
+      - run: cd frontend && npm ci
+      - gh/setup:
+          version: 2.20.2
+      - run: etc/testing/circle/install.sh
+      - run: etc/testing/circle/start-kind.sh
+      - run: etc/testing/circle/deploy-pachyderm.sh
+      - run: echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
+      - run: touch .env.development.local
+      - run: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
+      - store_artifacts:
+          path: /tmp/cypress-screenshots
+      - store_artifacts:
+          path: /tmp/cypress-videos
+  test-e2e-enterprise-edition:
     resource_class: xlarge
     machine:
       image: ubuntu-2004:202201-02
@@ -91,9 +116,6 @@ jobs:
       - run: touch .env.development.local
       - run: make setup-ci-auth
       - run: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e-auth
-      - run: (yes || true) | pachctl auth deactivate
-      - run: pachctl enterprise deactivate
-      - run: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
       - store_artifacts:
           path: /tmp/cypress-screenshots
       - store_artifacts:
@@ -213,13 +235,14 @@ workflows:
       not:
         equal: [scheduled_pipeline, << pipeline.trigger_source >>]
     jobs:
-      - backend-test
-      - frontend-test
-      - e2e-test
-      - e2e-mock-test
+      - test-backend
+      - test-backend-integration
+      - test-frontend
+      - test-e2e-community-edition
+      - test-e2e-enterprise-edition
+      - test-e2e-mock
       - check-types
       - build
-      - integration-test
   storybook-release:
     jobs:
       - components-storybook-release:
@@ -244,7 +267,7 @@ workflows:
             - docker-build
       - preview:
           requires:
-          - docker-manifest
+            - docker-manifest
           filters:
             branches:
               ignore: master
