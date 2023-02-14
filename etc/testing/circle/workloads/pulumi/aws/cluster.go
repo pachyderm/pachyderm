@@ -22,15 +22,15 @@ func DeployCluster(ctx *pulumi.Context) (*kubernetes.Provider, *iam.Role, error)
 	cfg := config.New(ctx, "")
 	minClusterSize, err := cfg.TryInt("minClusterSize")
 	if err != nil {
-		minClusterSize = 3
+		minClusterSize = 1
 	}
 	maxClusterSize, err := cfg.TryInt("maxClusterSize")
 	if err != nil {
-		maxClusterSize = 6
+		maxClusterSize = 3
 	}
 	desiredClusterSize, err := cfg.TryInt("desiredClusterSize")
 	if err != nil {
-		desiredClusterSize = 3
+		desiredClusterSize = 1
 	}
 	eksNodeInstanceType, err := cfg.Try("eksNodeInstanceType")
 	if err != nil {
