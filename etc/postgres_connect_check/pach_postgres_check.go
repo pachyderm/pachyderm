@@ -23,7 +23,7 @@ func main() {
         os.Exit(1)
     }
 
-    ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*timeout) * time.Second)
+    ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*timeout * float64(time.Second)))
     defer cancel()
 
     conn, err := pgx.Connect(ctx, *connectionString)
