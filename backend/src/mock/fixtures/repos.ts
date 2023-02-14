@@ -921,6 +921,32 @@ const traitDiscovery = [
     .setDetails(new RepoInfo.Details().setSizeBytes(621858)),
 ];
 
+const multiProjectPipelineA = [
+  new RepoInfo()
+    .setRepo(
+      new Repo()
+        .setName('Node_1')
+        .setType('user')
+        .setProject(new Project().setName('Multi-Project-Pipeline-A')),
+    )
+    .setCreated(timestampFromObject({seconds: 1614126189, nanos: 0}))
+    .setBranchesList([new Branch().setName('master')])
+    .setDetails(new RepoInfo.Details().setSizeBytes(621858)),
+];
+
+const multiProjectPipelineB = [
+  new RepoInfo()
+    .setRepo(
+      new Repo()
+        .setName('Node_1')
+        .setType('user')
+        .setProject(new Project().setName('Multi-Project-Pipeline-B')),
+    )
+    .setCreated(timestampFromObject({seconds: 1614126189, nanos: 0}))
+    .setBranchesList([new Branch().setName('master')])
+    .setDetails(new RepoInfo.Details().setSizeBytes(621858)),
+];
+
 const getLoadRepos = (count: number) => {
   return [...new Array(count).keys()].reduce((repos: RepoInfo[], i) => {
     const now = Math.floor(new Date().getTime() / 1000);
@@ -957,6 +983,8 @@ const repos: {[projectId: string]: RepoInfo[]} = {
   'OpenCV-Tutorial': openCVTutorial,
   'Load-Project': getLoadRepos(DAGS),
   default: defaultRepos,
+  'Multi-Project-Pipeline-A': multiProjectPipelineA,
+  'Multi-Project-Pipeline-B': multiProjectPipelineB,
 };
 
 export default repos;

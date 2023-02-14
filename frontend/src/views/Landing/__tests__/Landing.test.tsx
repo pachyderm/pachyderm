@@ -31,7 +31,7 @@ describe('Landing', () => {
       }),
     ).toBeInTheDocument();
 
-    expect(await screen.findAllByRole('row', {})).toHaveLength(7);
+    expect(await screen.findAllByRole('row', {})).toHaveLength(9);
 
     expect(
       await screen.findByRole('tab', {
@@ -90,7 +90,7 @@ describe('Landing', () => {
     render(<Landing />);
 
     expect(await screen.findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(
-      3,
+      5,
     );
     expect(
       await screen.findAllByTestId('ProjectStatus__UNHEALTHY'),
@@ -160,7 +160,7 @@ describe('Landing', () => {
     ).toBeInTheDocument();
 
     const projectsPanel = screen.getByRole('tabpanel', {
-      name: /projects 7/i,
+      name: /projects 9/i,
     });
     const projectNamesAZ = within(projectsPanel).getAllByRole('heading', {
       level: 5,
@@ -173,6 +173,8 @@ describe('Landing', () => {
       'Data-Cleaning-Process',
       'Egress-Examples',
       'Empty-Project',
+      'Multi-Project-Pipeline-A',
+      'Multi-Project-Pipeline-B',
       'Solar-Panel-Data-Sorting',
       'Solar-Power-Data-Logger-Team-Collab',
       'Solar-Price-Prediction-Modal',
@@ -196,6 +198,8 @@ describe('Landing', () => {
       'Solar-Price-Prediction-Modal',
       'Solar-Power-Data-Logger-Team-Collab',
       'Solar-Panel-Data-Sorting',
+      'Multi-Project-Pipeline-B',
+      'Multi-Project-Pipeline-A',
       'Empty-Project',
       'Egress-Examples',
       'Data-Cleaning-Process',
@@ -207,7 +211,7 @@ describe('Landing', () => {
     const projects = await screen.findByTestId('Landing__view');
     expect(
       await within(projects).findAllByTestId('ProjectStatus__HEALTHY'),
-    ).toHaveLength(3);
+    ).toHaveLength(5);
     expect(
       await within(projects).findAllByTestId('ProjectStatus__UNHEALTHY'),
     ).toHaveLength(4);
@@ -252,7 +256,7 @@ describe('Landing', () => {
 
     expect(
       await within(projects).findAllByTestId('ProjectStatus__HEALTHY'),
-    ).toHaveLength(3);
+    ).toHaveLength(5);
     expect(
       within(projects).queryByTestId('ProjectStatus__UNHEALTHY'),
     ).not.toBeInTheDocument();

@@ -20,7 +20,7 @@ describe(
   // These tests ensure that scrollable content involving long lists of items don't cut off any items at the bottom when scrolling
 
   it('should display the last item properly when scrolling a list of projects', () => {
-    cy.findAllByRole('row').should('have.length', 7);
+    cy.findAllByRole('row').should('have.length', 9);
     cy.findByText('Data-Cleaning-Process').should('be.visible');
     cy.findByText('Egress-Examples').should('be.visible');
     cy.findByText('Trait-Discovery').should('not.be.visible');
@@ -35,7 +35,11 @@ describe(
   });
 
   it('should display the last item properly when scrolling a list of project jobs in lineage and list view', () => {
-    cy.findAllByText(/^View(\sProject)*$/).eq(4).scrollIntoView().click();
+    cy.findByRole('heading', {
+      name: /Solar-Power-Data-Logger-Team-Collab/i
+    }).parent().findByRole('button', {
+      name: /view/i
+    }).scrollIntoView().click()
     cy.findByText('Jobs').click();
     inspectListItemScrolling('JobListItem__job', 9);
 
@@ -46,7 +50,11 @@ describe(
   });
 
   it('should display the last item properly when scrolling job details in lineage and list view', () => {
-    cy.findAllByText(/^View(\sProject)*$/).eq(0).scrollIntoView().click();
+    cy.findByRole('heading', {
+      name: /Data-Cleaning-Process/i
+    }).parent().findByRole('button', {
+      name: /view/i
+    }).scrollIntoView().click()
     cy.findByText('Jobs').click();
     cy.findByTestId('JobListItem__job').click();
     cy.findByText('Total Datums').should('be.visible');
@@ -64,7 +72,11 @@ describe(
   });
 
   it('should display the last item properly when scrolling a list of repos and pipelines in list view', () => {
-    cy.findAllByText(/^View(\sProject)*$/).eq(6).scrollIntoView().click();
+    cy.findByRole('heading', {
+      name: /Trait-Discovery/i
+    }).parent().findByRole('button', {
+      name: /view/i
+    }).scrollIntoView().click()
     cy.findByText('View List').click();
     cy.findByText('Repositories').click();
     inspectListItemScrolling('ListItem__row', 34);
@@ -74,7 +86,11 @@ describe(
   });
 
   it('should display the last item properly when scrolling info from repos in lineage and list view', () => {
-    cy.findAllByText(/^View(\sProject)*$/).eq(4).scrollIntoView().click();
+    cy.findByRole('heading', {
+      name: /Solar-Power-Data-Logger-Team-Collab/i
+    }).parent().findByRole('button', {
+      name: /view/i
+    }).scrollIntoView().click()
     cy.findByText('View List').click();
     cy.findByText('Info').click();
     cy.get(`[aria-labelledby="info"]`).children().first().children().should('have.length', 8);
@@ -90,7 +106,11 @@ describe(
   });
 
   it('should display the last item properly when scrolling info from pipelines in lineage and list view', () => {
-    cy.findAllByText(/^View(\sProject)*$/).eq(4).scrollIntoView().click();
+    cy.findByRole('heading', {
+      name: /Solar-Power-Data-Logger-Team-Collab/i
+    }).parent().findByRole('button', {
+      name: /view/i
+    }).scrollIntoView().click()
     cy.findByText('View List').click();
     cy.findByText('Pipelines').click();
     cy.findByText('Pipeline Info').click();
@@ -111,7 +131,11 @@ describe(
   });
 
   it('should display the last item properly when scrolling job overview from pipelines in lineage and list view', () => {
-    cy.findAllByText(/^View(\sProject)*$/).eq(4).scrollIntoView().click();
+    cy.findByRole('heading', {
+      name: /Solar-Power-Data-Logger-Team-Collab/i
+    }).parent().findByRole('button', {
+      name: /view/i
+    }).scrollIntoView().click()
     cy.findByText('View List').click();
     cy.findByText('Pipelines').click();
   

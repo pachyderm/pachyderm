@@ -508,6 +508,68 @@ const dataCleaningProcess = [
   }),
 ];
 
+const multiProjectPipelineA = [
+  jobInfoFromObject({
+    state: JobState.JOB_SUCCESS,
+    createdAt: {seconds: 1616533099, nanos: 100},
+    startedAt: {seconds: 1616533100, nanos: 100},
+    finishedAt: {seconds: 1616533103, nanos: 100},
+    job: {id: '23b9af7d5d4343219bc8e02ff44cd55a', pipeline: {name: 'Node_2'}},
+    input: {
+      pfs: {
+        project: 'Multi-Project-Pipeline-B',
+        repo: 'Node_1',
+        name: 'Node_1',
+        branch: 'master',
+      },
+    },
+    outputCommit: {
+      id: '23b9af7d5d4343219bc8e02ff44cd55a',
+      branch: {
+        name: 'master',
+        repo: {
+          name: 'Node_2',
+        },
+      },
+    },
+    dataFailed: 1,
+    dataProcessed: 2,
+    dataSkipped: 1,
+    dataTotal: 4,
+  }),
+];
+
+const multiProjectPipelineB = [
+  jobInfoFromObject({
+    state: JobState.JOB_SUCCESS,
+    createdAt: {seconds: 1616533099, nanos: 100},
+    startedAt: {seconds: 1616533100, nanos: 100},
+    finishedAt: {seconds: 1616533103, nanos: 100},
+    job: {id: '23b9af7d5d4343219bc8e02ff44cd55a', pipeline: {name: 'Node_2'}},
+    input: {
+      pfs: {
+        project: 'Multi-Project-Pipeline-A',
+        repo: 'Node_1',
+        name: 'Node_1',
+        branch: 'master',
+      },
+    },
+    outputCommit: {
+      id: '23b9af7d5d4343219bc8e02ff44cd55a',
+      branch: {
+        name: 'master',
+        repo: {
+          name: 'Node_2',
+        },
+      },
+    },
+    dataFailed: 1,
+    dataProcessed: 2,
+    dataSkipped: 1,
+    dataTotal: 4,
+  }),
+];
+
 const getLoadJobs = (jobCount: number) => {
   const jobStates = Object.values(JobState);
   const now = Math.floor(new Date().getTime() / 1000);
@@ -542,6 +604,8 @@ const jobs: {[projectId: string]: JobInfo[]} = {
   'OpenCV-Tutorial': solarPanelDataSorting,
   'Load-Project': getLoadJobs(JOBS),
   default: [...solarPanelDataSorting, ...dataCleaningProcess],
+  'Multi-Project-Pipeline-A': multiProjectPipelineA,
+  'Multi-Project-Pipeline-B': multiProjectPipelineB,
 };
 
 export default jobs;

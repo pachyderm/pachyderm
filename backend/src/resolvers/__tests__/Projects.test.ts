@@ -39,14 +39,88 @@ describe('Projects Resolver', () => {
 
       const projects = data?.projects;
 
-      expect(projects).toHaveLength(7);
-      expect(projects?.[0]?.id).toBe('Solar-Panel-Data-Sorting');
-      expect(projects?.[1]?.id).toBe('Data-Cleaning-Process');
-      expect(projects?.[2]?.id).toBe('Solar-Power-Data-Logger-Team-Collab');
-      expect(projects?.[3]?.id).toBe('Solar-Price-Prediction-Modal');
-      expect(projects?.[4]?.id).toBe('Egress-Examples');
-      expect(projects?.[5]?.id).toBe('Empty-Project');
-      expect(projects?.[6]?.id).toBe('Trait-Discovery');
+      expect(projects).toHaveLength(9);
+      expect(projects?.[0]).toEqual(
+        expect.objectContaining({
+          __typename: 'Project',
+          description:
+            'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
+          id: 'Solar-Panel-Data-Sorting',
+          status: 'UNHEALTHY',
+        }),
+      );
+      expect(projects?.[1]).toEqual(
+        expect.objectContaining({
+          __typename: 'Project',
+          description:
+            'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
+          id: 'Data-Cleaning-Process',
+          status: 'UNHEALTHY',
+        }),
+      );
+      expect(projects?.[2]).toEqual(
+        expect.objectContaining({
+          __typename: 'Project',
+          description:
+            'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
+          id: 'Solar-Power-Data-Logger-Team-Collab',
+          status: 'HEALTHY',
+        }),
+      );
+      expect(projects?.[3]).toEqual(
+        expect.objectContaining({
+          __typename: 'Project',
+          description:
+            'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
+          id: 'Solar-Price-Prediction-Modal',
+          status: 'UNHEALTHY',
+        }),
+      );
+      expect(projects?.[4]).toEqual(
+        expect.objectContaining({
+          __typename: 'Project',
+          description:
+            'Multiple pipelines outputting to different forms of egress',
+          id: 'Egress-Examples',
+          status: 'UNHEALTHY',
+        }),
+      );
+      expect(projects?.[5]).toEqual(
+        expect.objectContaining({
+          __typename: 'Project',
+          description:
+            'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
+          id: 'Empty-Project',
+          status: 'HEALTHY',
+        }),
+      );
+      expect(projects?.[6]).toEqual(
+        expect.objectContaining({
+          __typename: 'Project',
+          description:
+            'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
+          id: 'Trait-Discovery',
+          status: 'HEALTHY',
+        }),
+      );
+      expect(projects?.[7]).toEqual(
+        expect.objectContaining({
+          __typename: 'Project',
+          description:
+            'Contains two DAGs spanning across this and Multi-Project-Pipeline-B',
+          id: 'Multi-Project-Pipeline-A',
+          status: 'HEALTHY',
+        }),
+      );
+      expect(projects?.[8]).toEqual(
+        expect.objectContaining({
+          __typename: 'Project',
+          description:
+            'Contains two DAGs spanning across this and Multi-Project-Pipeline-A',
+          id: 'Multi-Project-Pipeline-B',
+          status: 'HEALTHY',
+        }),
+      );
     });
   });
 

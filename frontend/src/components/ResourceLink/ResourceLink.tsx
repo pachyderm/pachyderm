@@ -43,7 +43,7 @@ export const RepoLink: React.FC<ResourceLinkProps> = ({
 
   const repoText =
     projectId && projectId !== projectIdFromURL
-      ? `${nodeName} (Project ${projectIdFromURL})`
+      ? `${nodeName} (Project ${projectId})`
       : nodeName;
 
   return (

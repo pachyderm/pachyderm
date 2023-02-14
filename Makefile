@@ -70,8 +70,15 @@ circle-docker-manifest:
 	echo "$(DOCKERHUB_PASS)" | docker login -u "$(DOCKERHUB_USERNAME)" --password-stdin
 	docker manifest create pachyderm/haberdashery:$(DOCKER_TAG) docker.io/pachyderm/haberdashery:$(DOCKER_TAG)-amd64 docker.io/pachyderm/haberdashery:$(DOCKER_TAG)-arm64
 	docker manifest push pachyderm/haberdashery:$(DOCKER_TAG)
+
+e2e-ce: e2e
+
 e2e: 
 	npm run cypress:local
+
+e2e-mock:
+	npm run cypress:local-mock
+
 e2e-auth: 
 	npm run cypress:local-auth
 

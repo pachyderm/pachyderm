@@ -214,6 +214,21 @@ describe('ProjectSidebar', () => {
         'likelihoods',
       );
     });
+
+    it('should show a linked project input node', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/lineage/Multi-Project-Pipeline-A/pipelines/Node_2/job',
+      );
+      render(<Project />);
+
+      expect(await screen.findByText('Success')).toBeInTheDocument();
+
+      expect(
+        await screen.findByText('Node_1 (Project Multi-Project-Pipeline-B)'),
+      ).toBeInTheDocument();
+    });
   });
 
   describe('repos', () => {

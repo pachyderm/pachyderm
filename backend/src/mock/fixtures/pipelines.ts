@@ -1491,6 +1491,49 @@ const traitDiscovery = [
     ),
 ];
 
+const multiProjectPipelineA = [
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('Node_2')
+        .setProject(new Project().setName('Multi-Project-Pipeline-A')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_STANDBY)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('Node_1')
+              .setProject('Multi-Project-Pipeline-B'),
+          ),
+        )
+        .setOutputBranch('master'),
+    ),
+];
+const multiProjectPipelineB = [
+  new PipelineInfo()
+    .setPipeline(
+      new Pipeline()
+        .setName('Node_2')
+        .setProject(new Project().setName('Multi-Project-Pipeline-B')),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
+    .setState(PipelineState.PIPELINE_STANDBY)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(
+          new Input().setPfs(
+            new PFSInput()
+              .setRepo('Node_1')
+              .setProject('Multi-Project-Pipeline-A'),
+          ),
+        )
+        .setOutputBranch('master'),
+    ),
+];
+
 const getLoadPipelines = (count: number) => {
   return [...new Array(count).keys()].map((i) => {
     return new PipelineInfo()
@@ -1518,6 +1561,8 @@ const pipelines: {[projectId: string]: PipelineInfo[]} = {
   'OpenCV-Tutorial': [],
   'Load-Project': getLoadPipelines(DAGS),
   default: defaultPipelines,
+  'Multi-Project-Pipeline-A': multiProjectPipelineA,
+  'Multi-Project-Pipeline-B': multiProjectPipelineB,
 };
 
 export default pipelines;
