@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -19,6 +20,9 @@ type Status struct {
 	jobID       string
 	datumStatus *pps.DatumStatus
 	cancel      func()
+	batchMutex  sync.Mutex
+	nextChan    chan error
+	setupChan   chan []string
 }
 
 func convertInputs(inputs []*common.Input) []*pps.InputFile {
@@ -34,8 +38,8 @@ func convertInputs(inputs []*common.Input) []*pps.InputFile {
 
 func (s *Status) withLock(cb func()) {
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	cb()
-	s.mutex.Unlock()
 }
 
 func (s *Status) withJob(jobID string, cb func() error) error {
@@ -97,4 +101,42 @@ func (s *Status) Cancel(jobID string, datumFilter []string) bool {
 		return true
 	}
 	return false
+}
+
+func (s *Status) withDatumBatch(cb func(<-chan error, chan<- []string) error) error {
+	s.withBatchLock(func() {
+		if s.nextChan != nil {
+			panic("multiple goroutines attempting to set up a datum batch")
+		}
+		s.nextChan, s.setupChan = make(chan error), make(chan []string)
+	})
+	defer s.withBatchLock(func() {
+		s.nextChan, s.setupChan = nil, nil
+	})
+	return cb(s.nextChan, s.setupChan)
+}
+
+func (s *Status) withBatchLock(cb func()) {
+	s.batchMutex.Lock()
+	defer s.batchMutex.Unlock()
+	cb()
+}
+
+func (s *Status) NextDatum(ctx context.Context, err error) ([]string, error) {
+	s.batchMutex.Lock()
+	defer s.batchMutex.Unlock()
+	if s.nextChan == nil {
+		return nil, errors.New("datum batching not enabled")
+	}
+	select {
+	case s.nextChan <- err:
+	case <-ctx.Done():
+		return nil, errors.EnsureStack(ctx.Err())
+	}
+	select {
+	case env := <-s.setupChan:
+		return env, nil
+	case <-ctx.Done():
+		return nil, errors.EnsureStack(ctx.Err())
+	}
 }

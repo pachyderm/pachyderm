@@ -157,7 +157,7 @@ func waitForOnePodReady(t testing.TB, ctx context.Context, namespace string, lab
 	}, 5*time.Second)
 }
 
-func TestSimplePipeline(t *testing.T) {
+func TestCreatePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -216,6 +216,38 @@ func TestSimplePipeline(t *testing.T) {
 			require.Equal(t, "foo", buf.String())
 		}
 	}
+
+	pipeline = strings.Repeat("x", 59-len(projectName)-1)
+	require.NoError(t, c.CreateProjectPipeline(projectName,
+		pipeline,
+		tu.DefaultTransformImage,
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepoName),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewProjectPFSInput(projectName, dataRepoName, "/*"),
+		"",
+		false,
+	), "adding a pipeline with a name summing to 59 characters (with the project name and a hyphen) should be okay")
+
+	pipeline = strings.Repeat("x", 60-len(projectName)-1)
+	require.YesError(t, c.CreateProjectPipeline(projectName,
+		pipeline,
+		tu.DefaultTransformImage,
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepoName),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewProjectPFSInput(projectName, dataRepoName, "/*"),
+		"",
+		false,
+	), "adding a pipeline with a name summing to 60 characters (with the project name and a hyphen) should error")
 }
 
 func TestPipelineWithSubprocesses(t *testing.T) {
@@ -11573,10 +11605,10 @@ func TestJobPropagationOnlyOutputBranch(t *testing.T) {
 
 	project := tu.UniqueString("project")
 	require.NoError(t, c.CreateProject(project))
-	dataRepo := tu.UniqueString("JobPropagationOnlyOutputBranch_data")
+	dataRepo := tu.UniqueString("PropagationOnlyOutputBranch_data")
 	require.NoError(t, c.CreateProjectRepo(project, dataRepo))
 
-	pipeline := tu.UniqueString("JobPropagationOnlyOutputBranch")
+	pipeline := tu.UniqueString("pipeline")
 	outputBranch := client.NewProjectBranch(project, pipeline, "output")
 	require.NoError(t, c.CreateProjectPipeline(project,
 		pipeline,
@@ -11606,4 +11638,153 @@ func TestJobPropagationOnlyOutputBranch(t *testing.T) {
 	for _, jobInfo := range jobInfos {
 		require.Equal(t, outputBranch, jobInfo.OutputCommit.Branch)
 	}
+}
+
+func TestDatumBatching(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	c = c.WithDefaultTransformUser("1000")
+
+	dataRepo := tu.UniqueString("DatumBatching_data")
+	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	numFiles := 15
+	require.NoError(t, c.WithModifyFileClient(dataCommit, func(mfc client.ModifyFile) error {
+		for i := 0; i < numFiles; i++ {
+			require.NoError(t, mfc.PutFile(fmt.Sprintf("/file-%02d", i), strings.NewReader("")))
+		}
+		return nil
+	}))
+
+	createPipelineRequest := func(pipeline, script string) *pps.CreatePipelineRequest {
+		return &pps.CreatePipelineRequest{
+			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{
+				Cmd:           []string{"bash"},
+				Stdin:         []string{script},
+				DatumBatching: true,
+			},
+			Input:        client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+			DatumSetSpec: &pps.DatumSetSpec{Number: 5},
+		}
+	}
+
+	checkSuccess := func(request *pps.CreatePipelineRequest) {
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(), request)
+		require.NoError(t, err)
+		commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, request.Pipeline.Name, "master", "")
+		require.NoError(t, err)
+		jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, request.Pipeline.Name, commitInfo.Commit.ID, false)
+		require.NoError(t, err)
+		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+		fileInfos, err := c.ListFileAll(jobInfo.OutputCommit, "")
+		require.NoError(t, err)
+		require.Equal(t, numFiles, len(fileInfos))
+		for i := 0; i < numFiles; i++ {
+			require.Equal(t, fmt.Sprintf("/file-%02d", i), fileInfos[i].File.Path)
+		}
+	}
+	t.Run("Basic", func(t *testing.T) {
+		script := fmt.Sprintf(`
+			while true
+			do
+				pachctl next datum
+				cp /pfs/%s/* /pfs/out/
+			done
+			`, dataRepo)
+		pipeline := tu.UniqueString("DatumBatchingBasic")
+		request := createPipelineRequest(pipeline, script)
+		checkSuccess(request)
+	})
+	t.Run("Error", func(t *testing.T) {
+		script := fmt.Sprintf(`
+			while true
+			do
+				pachctl next datum
+				if [ ! -f /tmp/exec ]
+				then 
+					touch /tmp/exec
+					pachctl next datum --error oops
+				fi
+				cp /pfs/%s/* /pfs/out/
+			done
+			`, dataRepo)
+		pipeline := tu.UniqueString("DatumBatchingError")
+		request := createPipelineRequest(pipeline, script)
+		checkSuccess(request)
+	})
+	t.Run("Exit", func(t *testing.T) {
+		script := fmt.Sprintf(`
+			while true
+			do
+				pachctl next datum
+				if [ ! -f /tmp/exec ]
+				then
+					touch /tmp/exec
+					exit 1
+				fi
+				cp /pfs/%s/* /pfs/out/
+			done
+			`, dataRepo)
+		pipeline := tu.UniqueString("DatumBatchingExit")
+		request := createPipelineRequest(pipeline, script)
+		checkSuccess(request)
+	})
+	t.Run("DatumTimeout", func(t *testing.T) {
+		script := fmt.Sprintf(`
+			while true
+			do
+				pachctl next datum
+				if [ ! -f /tmp/exec ]
+				then 
+					touch /tmp/exec
+					sleep 5	
+				fi
+				cp /pfs/%s/* /pfs/out/
+			done
+			`, dataRepo)
+		pipeline := tu.UniqueString("DatumBatchingDatumTimeout")
+		request := createPipelineRequest(pipeline, script)
+		request.DatumTimeout = types.DurationProto(3 * time.Second)
+		checkSuccess(request)
+	})
+
+	checkState := func(request *pps.CreatePipelineRequest, state pps.JobState) {
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(), request)
+		require.NoError(t, err)
+		commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, request.Pipeline.Name, "master", "")
+		require.NoError(t, err)
+		jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, request.Pipeline.Name, commitInfo.Commit.ID, false)
+		require.NoError(t, err)
+		require.Equal(t, state, jobInfo.State)
+	}
+	t.Run("JobFailure", func(t *testing.T) {
+		script := `
+			pachctl next datum
+			exit 1
+			`
+		pipeline := tu.UniqueString("DatumBatchingJobFailure")
+		request := createPipelineRequest(pipeline, script)
+		checkState(request, pps.JobState_JOB_FAILURE)
+	})
+	t.Run("JobTimeout", func(t *testing.T) {
+		script := `sleep 3600`
+		pipeline := tu.UniqueString("DatumBatchingJobTimeout")
+		request := createPipelineRequest(pipeline, script)
+		request.JobTimeout = types.DurationProto(10 * time.Second)
+		checkState(request, pps.JobState_JOB_KILLED)
+	})
+	t.Run("PrematureExit", func(t *testing.T) {
+		script := `
+			pachctl next datum
+			exit 0
+			`
+		pipeline := tu.UniqueString("DatumBatchingPrematureExit")
+		request := createPipelineRequest(pipeline, script)
+		checkState(request, pps.JobState_JOB_FAILURE)
+	})
 }
