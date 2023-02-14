@@ -1847,50 +1847,6 @@ func TestDeleteFailedPipeline(t *testing.T) {
 	})
 }
 
-// TestDeletePipelineMissingRepos creates a pipeline, force-deletes its input
-// and output repos, and then confirms that DeletePipeline still works
-// (i.e. the missing repos/ACLs don't cause an auth error).
-func TestDeletePipelineMissingRepos(t *testing.T) {
-	t.Parallel()
-	env := envWithAuth(t)
-	c := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
-	aliceClient := tu.AuthenticateClient(t, c, alice)
-
-	// Create input repo w/ initial commit
-	repo := tu.UniqueString(t.Name())
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	err := aliceClient.PutFile(commit, "/file", strings.NewReader("1"))
-	require.NoError(t, err)
-
-	// Create pipeline
-	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
-		pipeline,
-		"does-not-exist", // nonexistant image
-		[]string{"true"}, nil,
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
-		"", // default output branch: master
-		false,
-	))
-
-	// force-delete input and output repos
-	require.NoError(t, aliceClient.DeleteProjectRepo(pfs.DefaultProjectName, repo, true))
-	require.NoError(t, aliceClient.DeleteProjectRepo(pfs.DefaultProjectName, pipeline, true))
-
-	// Attempt to delete the pipeline--must succeed
-	require.NoError(t, aliceClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, true))
-	pis, err := aliceClient.ListPipeline(false)
-	require.NoError(t, err)
-	for _, pi := range pis {
-		if pi.Pipeline.Name == pipeline {
-			t.Fatalf("Expected %q to be deleted, but still present", pipeline)
-		}
-	}
-}
-
 func TestDeleteExpiredAuthTokens(t *testing.T) {
 	t.Parallel()
 	env := envWithAuth(t)

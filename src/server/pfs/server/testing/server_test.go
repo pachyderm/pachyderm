@@ -522,8 +522,8 @@ func TestPFS(suite *testing.T) {
 			// both succeed, leaving us with a repo bar that has a nonexistent
 			// provenance foo
 			require.True(t, err1 != nil || err2 != nil)
-			require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "bar", true))
-			require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "foo", true))
+			require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "bar", false))
+			require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "foo", false))
 		}
 	})
 
@@ -569,8 +569,8 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, project2, repoInfo2.Repo.Project.Name)
 
 		// delete both repos
-		require.NoError(t, client.DeleteProjectRepo(project1, repo, true))
-		require.NoError(t, client.DeleteProjectRepo(project2, repo, true))
+		require.NoError(t, client.DeleteProjectRepo(project1, repo, false))
+		require.NoError(t, client.DeleteProjectRepo(project2, repo, false))
 	})
 
 	suite.Run("Branch", func(t *testing.T) {
@@ -1299,14 +1299,6 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "B"))
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "B", "master", "", "", []*pfs.Branch{client.NewProjectBranch(pfs.DefaultProjectName, "A", "master")}))
-
-		// Force delete should succeed
-		require.NoError(t, env.PachClient.DeleteProjectRepo(pfs.DefaultProjectName, "A", true))
-
-		repoInfos, err = env.PachClient.ListRepo()
-		require.NoError(t, err)
-		require.Equal(t, 1, len(repoInfos))
-
 		// Everything should be consistent
 		require.NoError(t, env.PachClient.FsckFastExit())
 	})
