@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
@@ -31,12 +32,16 @@ func DeployResources() pulumi.RunFunc {
 		}
 
 		readmePath := fmt.Sprintf("./Pulumi.%s.README.md", ctx.Stack())
-		readmeBytes, err := ioutil.ReadFile(readmePath)
-		if err != nil {
-			return fmt.Errorf("failed to read readme: %w", err)
+		if _, err := os.Stat(readmePath); err == nil {
+			readmeBytes, err := ioutil.ReadFile(readmePath)
+			if err != nil {
+				return fmt.Errorf("failed to read readme: %w", err)
+			}
+			ctx.Export("readme", pulumi.String(string(readmeBytes)))
+		} else {
+			fmt.Printf("README file does not exist.\n")
 		}
 
-		ctx.Export("readme", pulumi.String(string(readmeBytes)))
 		return nil
 	}
 }
