@@ -419,9 +419,9 @@ jobs:
       GOOGLE_COMPUTE_REGION: us-east1
     steps:
       - attach_workspace:
-          at: .
+          at: /tmp/workspace
       - run: |
-          cat bash.env > $BASH_ENV
+          cat /tmp/workspace/bash.env > $BASH_ENV
       - checkout
       - gcp-cli/initialize
       - go/install:
@@ -1098,11 +1098,12 @@ jobs:
                   export PACHD_IP=$(KUBECONFIG=./kubeconfig.yml kubectl get services --all-namespaces | grep pachyderm-proxy | awk '{print $5}')
                   # set extra values for nightly runs.
                   export << parameters.env >>_${CIRCLE_SHA1:0:5}=${PACHD_IP} >> $BASH_ENV
-                  cp $BASH_ENV bash.env
+                  mkdir -p workspace
+                  cp $BASH_ENV workspace/bash.env
             - persist_to_workspace:
-                root: .
+                root: etc/testing/circle/workloads/pulumi/aws/workspace
                 paths:
-                  - etc/testing/circle/workloads/pulumi/aws/bash.env
+                  - bash.env
       - when:
           condition:
             and:
