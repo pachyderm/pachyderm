@@ -21,7 +21,8 @@ pachctl version --client-only
 VERSION="$(pachctl version --client-only)"
 export VERSION
 
-echo "{\"pachd_address\": \"grpc://${BUCKET}_${CIRCLE_SHA1:0:5}:80\", \"session_token\": \"test\"}" | tr -d \\ | pachctl config set context "test" --overwrite
+ADDRESS=$(eval "echo \${${BUCKET}_${CIRCLE_SHA1:0:5}}")
+echo "{\"pachd_address\": \"grpc://${ADDRESS}:80\", \"session_token\": \"test\"}" | tr -d \\ | pachctl config set context "test" --overwrite
 pachctl config set active-context "test"
 
 # Print client and server versions, for debugging.  (Also waits for proxy to discover pachd, etc.)
