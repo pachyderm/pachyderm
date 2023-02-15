@@ -1102,7 +1102,7 @@ jobs:
             - persist_to_workspace:
                 root: .
                 paths:
-                  - bash.env
+                  - etc/testing/circle/workloads/pulumi/aws/bash.env
       - when:
           condition:
             and:
