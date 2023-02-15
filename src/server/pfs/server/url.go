@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -118,7 +119,12 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 	// Order output from input channel.
 	eg.Go(func() error {
 		// TODO: Add cache?
-		return task.DoOrdered(ctx, doer, inputChan, 100, func(_ int64, output *types.Any, _ error) error {
+		concurrency := src.Concurrency
+		if src.Concurrency == 0 {
+			concurrency = 50
+		}
+		fmt.Printf("concurrency: %v\n", concurrency)
+		return task.DoOrdered(ctx, doer, inputChan, int(concurrency), func(_ int64, output *types.Any, _ error) error {
 			result, err := deserializePutFileURLTaskResult(output)
 			if err != nil {
 				return err
