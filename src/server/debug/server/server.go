@@ -24,6 +24,7 @@ import (
 	"github.com/wcharczuk/go-chart"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+	"golang.org/x/exp/maps"
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -1181,12 +1182,12 @@ func handleHelmSecret(ctx context.Context, tw *tar.Writer, secret v1.Secret) err
 		return errors.Errorf("helm-owned secret of unknown version; got %v want %v", got, want)
 	}
 	if secret.Data == nil {
-		log.Debug(ctx, "skipping helm secret with no data", zap.String("secretName", name))
+		log.Info(ctx, "skipping helm secret with no data", zap.String("secretName", name))
 		return nil
 	}
 	releaseData, ok := secret.Data["release"]
 	if !ok {
-		log.Debug(ctx, "secret data doesn't have a release key", zap.String("secretName", name))
+		log.Info(ctx, "secret data doesn't have a release key", zap.String("secretName", name), zap.Strings("keys", maps.Keys(secret.Data)))
 		return nil
 	}
 
