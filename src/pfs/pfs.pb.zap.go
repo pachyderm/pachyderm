@@ -507,7 +507,7 @@ func (x *AddFile_URLSource) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddString("URL", x.URL)
 	enc.AddBool("recursive", x.Recursive)
-	enc.AddInt64("concurrency", x.Concurrency)
+	enc.AddUint32("concurrency", x.Concurrency)
 	return nil
 }
 
