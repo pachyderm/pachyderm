@@ -346,6 +346,7 @@ message AddFile {
   message URLSource {
     string URL = 1;
     bool recursive = 2;
+    uint32 concurrency = 3;
   }
   oneof source {
     google.protobuf.BytesValue raw = 3;

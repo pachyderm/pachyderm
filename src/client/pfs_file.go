@@ -5,11 +5,11 @@ import (
 	"archive/tar"
 	"context"
 	"io"
-
 	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -249,8 +249,9 @@ func (mfc *modifyFileCore) PutFileURL(path, url string, recursive bool, opts ...
 			Datum: config.datum,
 			Source: &pfs.AddFile_Url{
 				Url: &pfs.AddFile_URLSource{
-					URL:       url,
-					Recursive: recursive,
+					URL:         url,
+					Recursive:   recursive,
+					Concurrency: config.importConcurrency,
 				},
 			},
 		}
