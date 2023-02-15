@@ -251,7 +251,7 @@ func (mfc *modifyFileCore) PutFileURL(path, url string, recursive bool, opts ...
 				Url: &pfs.AddFile_URLSource{
 					URL:         url,
 					Recursive:   recursive,
-					Concurrency: config.concurrency,
+					Concurrency: config.importConcurrency,
 				},
 			},
 		}

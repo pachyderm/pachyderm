@@ -18,10 +18,6 @@ find src -regex ".*\.pb\.go" \
 )"
 
 make proto
-git status
-git add src/pps/pps.pb.go
-git commit -m "[CORE-57] protogen hack"
-git push origin PFS-57
 
 # hash newly-generated code
 new_hash="$(
