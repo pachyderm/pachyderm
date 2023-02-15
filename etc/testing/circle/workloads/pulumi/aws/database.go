@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/rds"
 	postgresql "github.com/pulumi/pulumi-postgresql/sdk/v3/go/postgresql"
@@ -51,7 +52,7 @@ func DeployRDS(ctx *pulumi.Context) (*rds.Instance, error) {
 		rdsInstanceArgs.Iops = pulumi.Int(rdsDiskIOPs)
 	}
 
-	rdsInstanceName := fmt.Sprintf("rds-%s-instance", ctx.Stack())
+	rdsInstanceName := strings.ToLower(fmt.Sprintf("rds-%s-instance", ctx.Stack()))
 	r, err := rds.NewInstance(ctx, rdsInstanceName, rdsInstanceArgs)
 
 	if err != nil {
