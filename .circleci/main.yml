@@ -1089,14 +1089,14 @@ jobs:
                 stack: pachyderm/core/<< parameters.env >>
                 working_directory: ./etc/testing/circle/workloads/pulumi/aws/
             - run:
-                name:
+                name: gather stack output
                 command: |
                   cd etc/testing/circle/workloads/pulumi/aws
                   pulumi stack select pachyderm/core/<< parameters.env >>
                   pulumi stack output kubeconfig > kubeconfig.yml
                   KUBECONFIG=./kubeconfig.yml kubectl get nodes
-                  export PACHD_IP=$(KUBECONFIG=./kubeconfig.yml kubectl get services --all-namespaces | grep pachyderm-proxy | awk '{print $5}')
-                  echo 'export PACHD_IP=${PACHD_IP}' >> $BASH_ENV
+                  PACHD_IP=$(KUBECONFIG=./kubeconfig.yml kubectl get services --all-namespaces | grep pachyderm-proxy | awk '{print $5}')
+                  echo 'export PACHD_IP=$PACHD_IP' >> $BASH_ENV
                   mkdir -p workspace
                   cp $BASH_ENV workspace/bash.env
             - persist_to_workspace:
