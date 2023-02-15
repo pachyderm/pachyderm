@@ -21,6 +21,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
+const (
+	defaultConcurrency = 50
+	maxConcurrency     = 1000
+)
+
 var (
 	// these are overridden when testing.
 	defaultNumObjectsThreshold = 1000
@@ -118,7 +123,15 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 	// Order output from input channel.
 	eg.Go(func() error {
 		// TODO: Add cache?
-		return task.DoOrdered(ctx, doer, inputChan, 100, func(_ int64, output *types.Any, _ error) error {
+		concurrency := src.Concurrency
+		// We assume '0' here means a user did not set the concurrency in the request, so we should use our default.
+		if src.Concurrency == 0 {
+			concurrency = defaultConcurrency
+		}
+		if src.Concurrency > maxConcurrency {
+			src.Concurrency = maxConcurrency
+		}
+		return task.DoOrdered(ctx, doer, inputChan, int(concurrency), func(_ int64, output *types.Any, _ error) error {
 			result, err := deserializePutFileURLTaskResult(output)
 			if err != nil {
 				return err
