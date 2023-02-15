@@ -1077,8 +1077,6 @@ jobs:
             and:
               - equal: ["update", << parameters.action >>]
           steps:
-            - pulumi/stack_init:
-                stack: pachyderm/core/<< parameters.env >>
             - run:
                 name: set few config values
                 command: |
