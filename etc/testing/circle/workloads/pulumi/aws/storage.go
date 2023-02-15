@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/s3"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
 func DeployBucket(ctx *pulumi.Context) (*s3.Bucket, error) {
-	bucketName := fmt.Sprintf("s3-%s-bucket", ctx.Stack())
+	bucketName := strings.ToLower(fmt.Sprintf("s3-%s-bucket", ctx.Stack()))
 	bucket, err := s3.NewBucket(ctx, bucketName, &s3.BucketArgs{
 		Bucket:       pulumi.String(bucketName),
 		Acl:          pulumi.String("public-read-write"),
