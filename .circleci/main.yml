@@ -1080,6 +1080,7 @@ jobs:
             - run:
                 name: set few config values
                 command: |
+                  cd etc/testing/circle/workloads/pulumi/aws
                   pulumi stack select pachyderm/core/<< parameters.env >> --create
                   pulumi config set pachdVersion << parameters.pachdVersion >>
                   pulumi config set helmChartVersion << parameters.helmChartVersion >>
