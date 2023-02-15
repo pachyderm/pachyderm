@@ -16,9 +16,9 @@ import (
 
 func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *iam.Role, rdsInstance *rds.Instance, bucket *s3.Bucket) error {
 	cfg := config.New(ctx, "")
-	enterpriseKey := os.Getenv("ENT_ACT_TOKEN")
+	enterpriseKey := os.Getenv("ENT_ACT_CODE")
 	if enterpriseKey == "" {
-		return errors.New("Need to supply env var ENT_ACT_TOKEN")
+		return errors.New("Need to supply env var ENT_ACT_CODE")
 	}
 	awsSAkey := os.Getenv("AWS_ACCESS_KEY_ID")
 	awsSAsecret := os.Getenv("AWS_SECRET_ACCESS_KEY")
