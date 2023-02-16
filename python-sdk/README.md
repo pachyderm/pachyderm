@@ -4,26 +4,10 @@ This directory contains the auto-generated python SDK for interacting with
   a Pachyderm cluster. This currently uses a fork of betterproto that can
   be found here: https://github.com/bbonenfant/python-betterproto/tree/grpcio-support
 
+See [example.py](./example.py) for the ported OpenCV example script.
 
 ## Notes
-To rebuild docker image (cd pachyderm/python-sdk)
-```bash
-docker build -t pachyderm_python_proto:python-sdk .
-```
-
-To regenerate proto files (cd pachyderm)
-```bash
-rm -rf python-sdk/pachyderm_sdk/api
-find src -regex ".*\.proto" \
-  | grep -v 'internal' \
-  | grep -v 'server' \
-  | xargs tar cf - \
-  | docker run -i pachyderm_python_proto:python-sdk \
-  | tar -C python-sdk/pachyderm_sdk -xf -
-```
-
-
-* Do we want to bubble up the manual methods to the client level?
+* Do we want to bubble up the handwritten methods to the client level?
 * Auth
   * Implement full OIDC auth process (TODO: link ticket)
 * Debug
@@ -49,6 +33,9 @@ TODO:
     "see <InputType> docstring for more information."
     * It would be nice to move generated Message docstrings down to methods,
     but this would require substantial betterproto work.
+  * Investigate type-hinting context managers:
+    * For Pycharm to understand the return types we wrap them in a typing.ContextManager
+      object. This isn't technically correct, so we should see if VSCode works as well. 
 
 
 Bugs?
@@ -57,3 +44,4 @@ Bugs?
   * >>> file = pfs.File.from_uri("master@images:/")
     >>> file.commit.branch.repo.type = None
     >>> list(client.pfs.list_file(file=file))
+    

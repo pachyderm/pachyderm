@@ -20,13 +20,16 @@ mv ${OUTDIR}/version/versionpb/version.proto ${OUTDIR}/version
 
 PROTO_FILES=$(find ${OUTDIR} -name "*.proto")
 
-# Make sure to remove the gogoproto line, as that is Go specific
+# Remove protobuf extensions, that are Go specific.
 for i in ${PROTO_FILES}; do
-    # remove the import
+    # remove gogoproto
     sed -i 's/import.*gogo.proto.*\;//' "${i}"
-    # remove usages of gogoproto types
     sed -i 's/\[.*gogoproto.*\]//' "${i}"
     sed -i 's/.*gogoproto.*//' "${i}"
+
+    # remove the protoextensions/log.proto
+    sed -i 's/import.*protoextensions\/log.proto.*\;//' ${i}
+    sed -i 's/\[.*log.*\]//' ${i}
 done
 
 # fix imports to be relative to $OUTDIR

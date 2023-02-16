@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 import grpc
 
-from .api.admin.admin_extension import ApiStub as _AdminStub
+from .api.admin.extension import ApiStub as _AdminStub
 from .api.auth import ApiStub as _AuthStub
 from .api.debug import DebugStub as _DebugStub
 from .api.enterprise import ApiStub as _EnterpriseStub

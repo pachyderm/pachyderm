@@ -3,6 +3,7 @@ import json
 from typing import Dict
 
 import grpc
+from betterproto.lib.google.protobuf import Empty
 
 from . import ApiStub as _GeneratedApiStub
 from . import (
@@ -27,6 +28,8 @@ class ApiStub(_GeneratedApiStub):
         ----------
         pipeline : pps.Pipeline
             The pipeline to inspect.
+        details : bool, optional
+            If true, return pipeline details.
         history : int, optional
             Indicates to return historical versions of `pipeline_name`.
             Semantics are:
@@ -35,20 +38,19 @@ class ApiStub(_GeneratedApiStub):
             - 1: Return the above and `pipeline_name` from the next most recent version.
             - 2: etc.
             - -1: Return all historical versions of `pipeline_name`.
-        details : bool, optional
-            If true, return pipeline details.
 
         Returns
         -------
-        Iterator[pps_pb2.PipelineInfo]
-            An iterator of protobuf objects that contain info on a pipeline.
+        pps.PipelineInfo
 
         Examples
         --------
-        >>> pipeline = next(client.inspect_pipeline("foo"))
-        ...
-        >>> for p in client.inspect_pipeline("foo", 2):
-        >>>     print(p)
+        >>> from pachyderm_sdk import Client
+        >>> from pachyderm_sdk.api import pps
+        >>> client: Client
+        >>> pipeline_info = client.pps.inspect_pipeline(
+        >>>     pipeline=pps.Pipeline(name="foo")
+        >>> )
         """
         if history:
             response = self.list_pipeline(
@@ -114,7 +116,7 @@ class ApiStub(_GeneratedApiStub):
         data: Dict,
         labels: Dict[str, str] = None,
         annotations: Dict[str, str] = None
-    ):
+    ) -> Empty:
         """Creates a new secret.
 
         Parameters

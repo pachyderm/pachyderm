@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from typing import Iterator, Callable
+from typing import Callable, ContextManager
 
 import grpc
 
@@ -38,14 +38,14 @@ class ApiStub(_GeneratedApiStub):
         return response
 
     @contextmanager
-    def transaction(self) -> Iterator[Transaction]:
+    def transaction(self) -> ContextManager[Transaction]:
         """A context manager for running operations within a transaction. When
         the context manager completes, the transaction will be deleted if an
         error occurred, or otherwise finished.
 
         Yields
         -------
-        transaction_pb2.Transaction
+        transaction.Transaction
             A protobuf object that represents a transaction.
 
         Examples
@@ -54,15 +54,16 @@ class ApiStub(_GeneratedApiStub):
         useful for adding data to both atomically before the pipeline runs
         even once.
 
-        >>> with client.transaction() as t:
-        >>>     c1 = client.start_commit("foo", "master")
-        >>>     c2 = client.start_commit("bar", "master")
-        >>>
-        >>>     client.put_file_bytes(c1, "/joint_data.txt", b"DATA1")
-        >>>     client.put_file_bytes(c2, "/joint_data.txt", b"DATA2")
-        >>>
-        >>>     client.finish_commit(c1)
-        >>>     client.finish_commit(c2)
+        >>> from pachyderm_sdk import Client
+        >>> from pachyderm_sdk.api import pfs
+        >>> client: Client
+        >>> with client.transaction.transaction() as txn:
+        >>>     with client.pfs.commit(branch=pfs.Branch.from_uri("foo@master")) as c1:
+        >>>         c1.put_file_from_bytes("/joint_data.txt", b"DATA1")
+        >>>     with client.pfs.commit(branch=pfs.Branch.from_uri("bar@master")) as c2:
+        >>>         c2.put_file_from_bytes("/joint_data.txt", b"DATA2")
+        >>> c1.wait()
+        >>> c2.wait()
         """
         old_transaction_id = self._get_transaction_id()
         transaction = super().start_transaction()
