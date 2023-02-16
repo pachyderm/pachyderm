@@ -233,6 +233,11 @@ loki-stack:
       nodeSelector: {}
       tolerations: []
     config:
+      server:
+        grpc_server_max_recv_msg_size: 67108864 # 64MiB
+      query_scheduler:
+        grpc_client_config:
+          max_send_msg_size: 67108864 # 64MiB
       limits_config:
         retention_period: 24h
         retention_stream:
