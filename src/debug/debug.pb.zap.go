@@ -71,6 +71,7 @@ func (x *SetLogLevelRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("pachyderm", x.GetPachyderm().String())
 	enc.AddString("grpc", x.GetGrpc().String())
 	protoextensions.AddDuration(enc, "duration", x.Duration)
+	enc.AddBool("recurse", x.Recurse)
 	return nil
 }
 
@@ -78,5 +79,19 @@ func (x *SetLogLevelResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	if x == nil {
 		return nil
 	}
+	affected_podsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.AffectedPods {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("affected_pods", zapcore.ArrayMarshalerFunc(affected_podsArrMarshaller))
+	errored_podsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.ErroredPods {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("errored_pods", zapcore.ArrayMarshalerFunc(errored_podsArrMarshaller))
 	return nil
 }

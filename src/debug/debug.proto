@@ -20,8 +20,8 @@ message Profile {
 
 message Filter {
   oneof filter {
-    bool pachd = 1;	
-    pps_v2.Pipeline pipeline = 2;	
+    bool pachd = 1;
+    pps_v2.Pipeline pipeline = 2;
     Worker worker = 3;
     bool database = 4;
   }
@@ -55,9 +55,13 @@ message SetLogLevelRequest {
       LogLevel grpc = 2;
     };
     google.protobuf.Duration duration = 3;
+    bool recurse = 4;
 }
 
-message SetLogLevelResponse {}
+message SetLogLevelResponse {
+    repeated string affected_pods = 1;
+    repeated string errored_pods = 2;
+}
 
 service Debug {
   rpc Profile(ProfileRequest) returns (stream google.protobuf.BytesValue) {}

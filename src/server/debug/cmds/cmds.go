@@ -29,6 +29,7 @@ func Cmds() []*cobra.Command {
 	var worker string
 	var setGRPCLevel bool
 	var levelChangeDuration time.Duration
+	var recursivelySetLogLevel bool
 	profile := &cobra.Command{
 		Use:   "{{alias}} <profile> <file>",
 		Short: "Collect a set of pprof profiles.",
@@ -153,6 +154,7 @@ func Cmds() []*cobra.Command {
 			}
 			req := &debug.SetLogLevelRequest{
 				Duration: types.DurationProto(levelChangeDuration),
+				Recurse:  recursivelySetLogLevel,
 			}
 			if setGRPCLevel {
 				req.Level = &debug.SetLogLevelRequest_Grpc{
@@ -163,7 +165,14 @@ func Cmds() []*cobra.Command {
 					Pachyderm: debug.SetLogLevelRequest_LogLevel(lvl),
 				}
 			}
-			if _, err := client.DebugClient.SetLogLevel(client.Ctx(), req); err != nil {
+			res, err := client.DebugClient.SetLogLevel(client.Ctx(), req)
+			if pods := res.GetAffectedPods(); len(pods) > 0 {
+				fmt.Printf("adjusted log level on pods: %v\n", pods)
+			}
+			if pods := res.GetErroredPods(); len(pods) > 0 {
+				fmt.Printf("failed to adjust log level on some pods: %v\n", pods)
+			}
+			if err != nil {
 				return errors.Wrap(err, "SetLogLevel")
 			}
 			return nil
@@ -171,6 +180,7 @@ func Cmds() []*cobra.Command {
 	}
 	log.Flags().DurationVarP(&levelChangeDuration, "duration", "d", 5*time.Minute, "how long to log at the non-default level")
 	log.Flags().BoolVarP(&setGRPCLevel, "grpc", "g", false, "adjust the grpc log level instead of the pachyderm log level")
+	log.Flags().BoolVarP(&recursivelySetLogLevel, "recursive", "r", true, "set the log level on all pachyderm pods; if false, only the pachd that handles this RPC")
 	commands = append(commands, cmdutil.CreateAlias(log, "debug log-level"))
 
 	debug := &cobra.Command{

@@ -124,7 +124,7 @@ func (s *debugServer) handleRedirect(
 				case *debug.Filter_Worker:
 					if f.Worker.Redirected {
 						var errs error
-						// Collect the storage container.
+						// Collect self if we're not a worker.
 						if s.sidecarClient == nil {
 							return collect(ctx, tw, pachClient, client.PPSWorkerSidecarContainerName)
 						}
@@ -391,6 +391,7 @@ func (s *debugServer) handleWorkerRedirect(ctx context.Context, tw *tar.Writer, 
 
 func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_ProfileServer) error {
 	pachClient := s.env.GetPachClient(server.Context())
+
 	return s.handleRedirect(
 		pachClient,
 		server,
