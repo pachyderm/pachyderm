@@ -515,6 +515,14 @@ func (d *driver) deleteProject(ctx context.Context, txnCtx *txncontext.Transacti
 		return errors.Wrapf(err, "user is not authorized to delete project %q", project)
 	}
 
+	// We only want to delete the pipelines within if the user specified force. We can't just pass the force through to DeletePipelines
+	// because pipelines that can be deleted without force will be deleted.
+	if force {
+		if _, err := d.env.GetPPSServer().DeletePipelines(ctx, &pps.DeletePipelinesRequest{Projects: []*pfs.Project{project}, Force: force}); err != nil {
+			return errors.Wrap(err, "could not delete all pipelines in project")
+		}
+	}
+
 	var repoInfos []*pfs.RepoInfo
 	if err := d.listRepo(ctx, false /* includeAuth */, "" /* repoType */, []*pfs.Project{project} /* projectsFilter */, func(repoInfo *pfs.RepoInfo) error {
 		repoInfos = append(repoInfos, repoInfo)
