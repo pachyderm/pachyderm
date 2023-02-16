@@ -5,7 +5,7 @@
   "description": "generate lots of datums",
   "transform": {
     "cmd": ["node", "/index.js"],
-    "image": "peterpachyderm/datum:v1"
+    "image": "peterpachyderm/datum:v2"
   },
   "input": {
     "pfs": {

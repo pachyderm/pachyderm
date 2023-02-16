@@ -1,6 +1,6 @@
 setup-datums:
-	-pachctl create pipeline -f lots-of-datums/pipeline.json
 	-pachctl create repo data
+	-pachctl create pipeline -f lots-of-datums/pipeline.json
 	-mkdir -p ./lots-of-datums/data
 	-node lots-of-datums/generateData.js 100 ./lots-of-datums/data
 	-pachctl put file -r data@master:/ -f lots-of-datums/data
