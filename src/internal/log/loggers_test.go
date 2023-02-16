@@ -5,7 +5,9 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
@@ -162,5 +164,61 @@ func TestReportDroppedLogs(t *testing.T) {
 	}
 	if diff := cmp.Diff(h.Logs(), want, formatLogs(simple)); diff != "" {
 		t.Errorf("logs (-got +want):\n%s", diff)
+	}
+}
+
+type levelRecorder struct {
+	sync.Mutex
+	history []zapcore.Level
+	cur     zapcore.Level
+}
+
+func (r *levelRecorder) Level() zapcore.Level {
+	r.Lock()
+	defer r.Unlock()
+	return r.cur
+}
+
+func (r *levelRecorder) SetLevel(l zapcore.Level) {
+	r.Lock()
+	defer r.Unlock()
+	r.history = append(r.history, l)
+	r.cur = l
+}
+
+func (r *levelRecorder) History() []zapcore.Level {
+	var result []zapcore.Level
+	r.Lock()
+	defer r.Unlock()
+	result = append(result, r.history...)
+	return result
+}
+
+var _ atomicLeveler = new(levelRecorder)
+
+func TestRevertLogLevel(t *testing.T) {
+	orig := zapcore.FatalLevel
+	l := &levelRecorder{cur: zapcore.FatalLevel}
+	var tPtr atomic.Pointer[time.Timer]
+
+	for i := 0; i < 100; i++ {
+		go func(i int) {
+			revertLogLevel(&tPtr, l, orig, zapcore.DebugLevel, time.Duration(50+i)*time.Millisecond, "")
+		}(i)
+	}
+	time.Sleep(200 * time.Millisecond)
+
+	if got, want := l.Level(), orig; got != want {
+		t.Errorf("after much changing of levels: Level():\n  got: %v\n want: %v", got, want)
+	}
+
+	var wantHistory []zapcore.Level
+	for i := 0; i < 100; i++ {
+		wantHistory = append(wantHistory, zapcore.DebugLevel) // 100 switches to debug
+	}
+	wantHistory = append(wantHistory, zapcore.FatalLevel) // reverts back to fatal
+
+	if diff := cmp.Diff(l.History(), wantHistory[:]); diff != "" {
+		t.Errorf("history (-got +want):\n%s", diff)
 	}
 }

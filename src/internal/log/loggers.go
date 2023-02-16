@@ -19,15 +19,22 @@ import (
 )
 
 var (
-	logLevel          = zap.NewAtomicLevelAt(zapcore.InfoLevel)
-	grpcLevel         = zap.NewAtomicLevelAt(zapcore.FatalLevel)
-	healthCheckLogger *zap.Logger
-	developmentLogger bool
-	samplingDisabled  bool
+	logLevel  = zap.NewAtomicLevelAt(zapcore.InfoLevel)  // Current base logger level.
+	grpcLevel = zap.NewAtomicLevelAt(zapcore.FatalLevel) // The log level for the GRPC adaptor.
 
-	initOnce       sync.Once
-	warningsLogged atomic.Bool
-	warnings       []string
+	originalLogLevel     = zapcore.InfoLevel // The log level at startup time (after environment parsing).
+	logLevelRevertTimer  atomic.Pointer[time.Timer]
+	originalGRPCLevel    = zapcore.FatalLevel
+	grpcLevelRevertTimer atomic.Pointer[time.Timer]
+
+	healthCheckLogger *zap.Logger // A logger only for GRPC health checks.
+
+	developmentLogger bool // True if a development logger was requested via the environment.
+	samplingDisabled  bool // True if log sampling was disabled via the environment.
+
+	initOnce       sync.Once   // initOnce gates creating the zap global logger
+	warningsLogged atomic.Bool // True if startup warnings have already been printed.
+	warnings       []string    // Any warnings generated during startup (before the logger was ready).
 
 	// droppedLogs and droppedHealthLogs record how many logs or health check logs we dropped
 	// because of log sampling.
@@ -57,6 +64,41 @@ func SetGRPCLogLevel(l zapcore.Level) {
 	grpcLevel.SetLevel(l)
 }
 
+type atomicLeveler interface {
+	Level() zapcore.Level
+	SetLevel(zapcore.Level)
+}
+
+// revertLogLevel sets up a log level change that is reverted to an original level after the
+// duration, logging the revert with the text of msg, ensuring that even with multiple concurrent
+// calls, the most recent call cancels the actions of prior calls.
+func revertLogLevel(tPtr *atomic.Pointer[time.Timer], levelVar atomicLeveler, originalLevel, newLevel zapcore.Level, d time.Duration, msg string) {
+	wasSet := make(chan struct{})
+	oldTimer := tPtr.Swap(time.AfterFunc(d, func() {
+		<-wasSet
+		cur := levelVar.Level()
+		levelVar.SetLevel(originalLevel)
+		zap.L().Info(msg, zap.Stringer("from", cur), zap.Stringer("to", originalLevel))
+	}))
+	if oldTimer != nil {
+		oldTimer.Stop()
+	}
+	levelVar.SetLevel(newLevel)
+	close(wasSet) // prevent the revert from happening before we have the chance to set the new level
+}
+
+// SetLevelFor changes the global logger level for the set duration, and then reverts to the log
+// level at process startup.  Subsequent calls before expiration completely override previous calls;
+// the new level takes effect immediately and the previous scheduled revert is canceled.
+func SetLevelFor(l Level, d time.Duration) {
+	revertLogLevel(&logLevelRevertTimer, logLevel, originalLogLevel, l.coreLevel(), d, "reverting to original log level")
+}
+
+// SetGRPCLogLevelFor changes the GRPC logger level for the set duration.  See SetLevelFor for details.
+func SetGRPCLogLevelFor(l zapcore.Level, d time.Duration) {
+	revertLogLevel(&grpcLevelRevertTimer, grpcLevel, originalGRPCLevel, l, d, "reverting to original grpc log level")
+}
+
 // addInitWarningf logs a warning at logger initialization time.  The intent is to be able to log
 // warnings about logging configuration before the logger exists.
 func addInitWarningf(format string, args ...any) {
@@ -76,6 +118,7 @@ func init() {
 		if err := logLevel.UnmarshalText([]byte(lvl)); err != nil {
 			addInitWarningf("parse $LOG_LEVEL: %v; proceeding at %v level", err.Error(), logLevel.Level().String())
 		}
+		originalLogLevel = logLevel.Level()
 	}
 	if d := os.Getenv("DEVELOPMENT_LOGGER"); d != "" {
 		if d == "true" || d == "1" {
