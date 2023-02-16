@@ -97,7 +97,7 @@ spec:
             command:
               - "/bin/sh"
               - "-c"
-              - PGPASSWORD=$POSTGRESQL_PASSWORD psql -U $POSTGRESQL_USERNAME -h 127.0.0.1 -p $PGBOUNCER_PORT -d $POSTGRESQL_DATABASE --tuples-only --command="SELECT 1;" | grep -q "1"
+              - PGPASSWORD=$POSTGRESQL_PASSWORD pg_isready -U $POSTGRESQL_USERNAME -h 127.0.0.1 -p $PGBOUNCER_PORT -d $POSTGRESQL_DATABASE
           periodSeconds: 30
           successThreshold: 1
           timeoutSeconds: 1
