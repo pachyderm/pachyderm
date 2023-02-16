@@ -391,7 +391,6 @@ func (s *debugServer) handleWorkerRedirect(ctx context.Context, tw *tar.Writer, 
 
 func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_ProfileServer) error {
 	pachClient := s.env.GetPachClient(server.Context())
-
 	return s.handleRedirect(
 		pachClient,
 		server,
