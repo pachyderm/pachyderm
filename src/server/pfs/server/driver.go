@@ -269,32 +269,47 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 		projectsFilter[project.String()] = true
 	}
 
+	hasProjectAccessCache := make(map[string]bool)
+	hasAccessFunc := func(ctx context.Context, repo *pfs.Repo) error {
+		// Cache the project level access because it applies to every repo within the same project.
+		if _, ok := hasProjectAccessCache[repo.Project.String()]; !ok {
+			if err := d.env.AuthServer.CheckProjectIsAuthorized(ctx, repo.Project, auth.Permission_PROJECT_LIST_REPO); err != nil {
+				if errors.As(err, &auth.ErrNotAuthorized{}) {
+					hasProjectAccessCache[repo.Project.String()] = false
+				} else {
+					return err
+				}
+			} else {
+				hasProjectAccessCache[repo.Project.String()] = true
+			}
+		}
+		if hasProjectAccessCache[repo.Project.String()] {
+			return nil
+		}
+		// The user does not have permission to list repos at the project level,
+		// but we still allow them to see the repo if they have REPO_READ permission at the repo level.
+		return d.env.AuthServer.CheckRepoIsAuthorized(ctx, repo, auth.Permission_REPO_READ)
+	}
+
 	processFunc := func(string) error {
 		// Assume the user meant all projects by not providing any projects to filter on.
 		if len(projectsFilter) > 0 && !projectsFilter[repoInfo.Repo.Project.String()] {
 			return nil
 		}
+
+		if err := hasAccessFunc(ctx, repoInfo.Repo); err != nil {
+			if errors.As(err, &auth.ErrNotAuthorized{}) {
+				return nil
+			} else {
+				return errors.Wrapf(err, "could not check user is authorized to list repo given repo %s", repoInfo.Repo)
+			}
+		}
+
 		size, err := d.repoSize(ctx, repoInfo.Repo)
 		if err != nil {
 			return err
 		}
 		repoInfo.SizeBytesUpperBound = size
-
-		// Check if the user can list repo within the project, otherwise check if they can read the repo.
-		if err := d.env.AuthServer.CheckProjectIsAuthorized(ctx, repoInfo.Repo.Project, auth.Permission_PROJECT_LIST_REPO); err != nil {
-			if errors.As(err, &auth.ErrNotAuthorized{}) {
-				if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, repoInfo.Repo, auth.Permission_REPO_READ); err != nil {
-					if errors.As(err, &auth.ErrNotAuthorized{}) {
-						return nil
-					}
-					return errors.Wrap(err, "could not check user is authorized to access repo")
-				}
-				// Here we know that the user does not have permission to list repos at the project level,
-				// but they should still see the repo because they have read permission.
-			} else {
-				return errors.Wrap(err, "could not check user is authorized to access project")
-			}
-		}
 		if authSeemsActive && includeAuth {
 			permissions, roles, err := d.getPermissions(ctx, repoInfo.Repo)
 			if err != nil {
