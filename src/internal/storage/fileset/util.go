@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
@@ -88,67 +87,6 @@ func IsDir(p string) bool {
 	return strings.HasSuffix(p, "/")
 }
 
-// Iterator provides functionality for imperative iteration over a file set.
-type Iterator struct {
-	peek     File
-	fileChan chan File
-	errChan  chan error
-}
-
-// iterFunc is a function for iterating over a file set.
-type iterFunc = func(ctx context.Context, cb func(File) error, opts ...index.Option) error
-
-func NewIterator(ctx context.Context, iter iterFunc, opts ...index.Option) *Iterator {
-	fileChan := make(chan File)
-	errChan := make(chan error, 1)
-	go func() {
-		if err := iter(ctx, func(f File) error {
-			select {
-			case fileChan <- f:
-				return nil
-			case <-ctx.Done():
-				return errutil.ErrBreak
-			}
-		}, opts...); err != nil {
-			errChan <- err
-			return
-		}
-		close(fileChan)
-	}()
-	return &Iterator{
-		fileChan: fileChan,
-		errChan:  errChan,
-	}
-}
-
-// Peek returns the next file without progressing the iterator.
-func (i *Iterator) Peek() (File, error) {
-	if i.peek != nil {
-		return i.peek, nil
-	}
-	var err error
-	i.peek, err = i.Next()
-	return i.peek, err
-}
-
-// Next returns the next file and progresses the iterator.
-func (i *Iterator) Next() (File, error) {
-	if i.peek != nil {
-		tmp := i.peek
-		i.peek = nil
-		return tmp, nil
-	}
-	select {
-	case file, more := <-i.fileChan:
-		if !more {
-			return nil, io.EOF
-		}
-		return file, nil
-	case err := <-i.errChan:
-		return nil, err
-	}
-}
-
 func computeFileHash(hashes [][]byte) ([]byte, error) {
 	h := pachhash.New()
 	for _, hash := range hashes {
@@ -165,4 +103,8 @@ func SizeFromIndex(idx *index.Index) (size int64) {
 		size += dr.SizeBytes
 	}
 	return size
+}
+
+func fileLessThan(a, b File) bool {
+	return index.LessThan(a.Index(), b.Index())
 }
