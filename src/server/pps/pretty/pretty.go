@@ -46,29 +46,22 @@ func safeTrim(s string, l int) string {
 	return strings.TrimSpace(s[:l]) + "..."
 }
 
+type KubeEvent struct {
+	Message string `json:"msg"`
+	Event   struct {
+		Type     string `json:"type"`
+		LastSeen uint64 `json:"lastTimestamp"`
+		Reason   string `json:"reason"`
+		Object   struct {
+			Name string `json:"name"`
+		} `json:"involvedObject"`
+	} `json:"event"`
+}
+
 func PrintKubeEvent(w io.Writer, event string) {
-	type LokiLog struct {
-		Event string `json:"log"`
-	}
-	var log LokiLog
-	if err := json.Unmarshal([]byte(event), &log); err != nil {
-		fmt.Fprintf(w, "error unmarshalling kubernetes event: %v", errors.EnsureStack(err))
-		return
-	}
-	type KubeEvent struct {
-		Message string `json:"msg"`
-		Event   struct {
-			Type     string `json:"type"`
-			LastSeen uint64 `json:"lastTimestamp"`
-			Reason   string `json:"reason"`
-			Object   struct {
-				Name string `json:"name"`
-			} `json:"involvedObject"`
-		} `json:"event"`
-	}
 	var kubeEvent KubeEvent
-	if err := json.Unmarshal([]byte(log.Event), &kubeEvent); err != nil {
-		fmt.Fprintf(w, "error unmarshalling kubernetes event: %v", errors.EnsureStack(err))
+	if err := ParseKubeEvent(event, &kubeEvent); err != nil {
+		fmt.Fprintf(w, "parse kube event: %v", errors.EnsureStack(err))
 		return
 	}
 	lastSeen := types.Timestamp{Seconds: int64(kubeEvent.Event.LastSeen)}
@@ -78,6 +71,33 @@ func PrintKubeEvent(w io.Writer, event string) {
 	fmt.Fprintf(w, "%s\t", kubeEvent.Event.Object.Name)
 	fmt.Fprintf(w, "%s\t", kubeEvent.Message)
 	fmt.Fprintln(w)
+}
+
+func ParseKubeEvent(s string, event *KubeEvent) error {
+	// CRI formatted log lines have a timestamp at the beginning of the line
+	b := []byte(s)
+	i := bytes.IndexByte(b, '{')
+	if i > 0 {
+		s = string(b[i:])
+	}
+	if err := json.Unmarshal([]byte(s), &event); err != nil {
+		return errors.Wrap(err, "unmarshal kube event")
+	}
+	// if the message is empty, it might be a docker formatted log line
+	if event.Message == "" {
+		type DockerLog struct {
+			Event string `json:"log"`
+		}
+		var log DockerLog
+		// might be docker formatted logs
+		if err := json.Unmarshal([]byte(s), &log); err != nil {
+			return errors.Wrap(err, "unmarshal docker log")
+		}
+		if err := json.Unmarshal([]byte(log.Event), &event); err != nil {
+			return errors.Wrap(err, "unmarshal kube event")
+		}
+	}
+	return nil
 }
 
 // PrintJobInfo pretty-prints job info.
