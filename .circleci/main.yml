@@ -1032,16 +1032,18 @@ jobs:
     steps:
       - checkout
       - attach_workspace:
-          at: ./
+          at: /tmp/workspace
+      - run: |
+          cat /tmp/workspace/bash.env > $BASH_ENV
       - run:
           name: echo bins
           command: |
-            ls -la dist-pach/*
-            ls -la cr-release-packages/*
+            ls -la /tmp/workspace/dist-pach/*
+            ls -la /tmp/workspace/cr-release-packages/*
       - run:
           name: "test aws examples"
           command: |
-            etc/testing/circle/run_release_tests.sh "aws"
+            etc/testing/circle/run_release_tests.sh
           no_output_timeout: 1h
       - store_artifacts:
           path: /tmp/debug-dump
@@ -1122,12 +1124,14 @@ jobs:
     steps:
       - checkout
       - attach_workspace:
-          at: ./
+          at: /tmp/workspace
+      - run: |
+          cat /tmp/workspace/bash.env > $BASH_ENV
       - run:
           name: echo bins
           command: |
-            ls -la dist-pach/*
-            ls -la cr-release-packages/*
+            ls -la /tmp/workspace/dist-pach/*
+            ls -la /tmp/workspace/cr-release-packages/*
       - run:
           name: "test customer workload"
           command: |
@@ -1319,12 +1323,12 @@ workflows:
                 # - LOAD4
                 # - LOAD5
                 # - LOAD6
-                - LOAD7
-                - LOAD8
-                - LOAD9
-                # - LOAD10
-                # - LOAD11
-                # - LOAD12
+                # - LOAD7
+                # - LOAD8
+                # - LOAD9
+                - LOAD10
+                - LOAD11
+                - LOAD12
       - nightly-load:
           name: nightly-load-<< matrix.bucket >>
           requires:
@@ -1338,12 +1342,12 @@ workflows:
                 # - LOAD4
                 # - LOAD5
                 # - LOAD6
-                - LOAD7
-                - LOAD8
-                - LOAD9
-                # - LOAD10
-                # - LOAD11
-                # - LOAD12
+                # - LOAD7
+                # - LOAD8
+                # - LOAD9
+                - LOAD10
+                - LOAD11
+                - LOAD12
                 # Disabled for now since they take too long, may consider reenabling later.
                 #- LOAD13
                 #- LOAD14
@@ -1362,12 +1366,12 @@ workflows:
                 # - LOAD4
                 # - LOAD5
                 # - LOAD6
-                - LOAD7
-                - LOAD8
-                - LOAD9
-                # - LOAD10
-                # - LOAD11
-                # - LOAD12
+                # - LOAD7
+                # - LOAD8
+                # - LOAD9
+                - LOAD10
+                - LOAD11
+                - LOAD12
   rootless-tests:
     when:
       or:

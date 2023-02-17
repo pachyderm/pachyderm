@@ -2,7 +2,7 @@
 
 set -euxo pipefail
 
-tar -xvzf ./dist-pach/pachctl/pachctl_*_linux_amd64.tar.gz -C /tmp
+tar -xvzf /tmp/workspace/dist-pach/pachctl/pachctl_*_linux_amd64.tar.gz -C /tmp
 
 sudo mv /tmp/pachctl_*/pachctl /usr/local/bin && chmod +x /usr/local/bin/pachctl
 
