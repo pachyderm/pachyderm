@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"io"
 	"path"
-	"strings"
 
 	"github.com/gogo/protobuf/jsonpb"
 
@@ -242,64 +241,33 @@ func metaInputID(meta *Meta) string {
 type idGenerator = func(*Meta) string
 
 func mergeByKey(dits []Iterator, idFunc idGenerator, cb func([]*Meta) error) error {
-	var ss []stream.Stream
-	for _, dit := range dits {
-		ss = append(ss, newDatumStream(dit, len(ss), idFunc))
+	ctx := context.TODO()
+	type metaEntry struct {
+		Meta *Meta
+		ID   string
 	}
-	pq := stream.NewPriorityQueue(ss, compare)
-	return pq.Iterate(func(ss []stream.Stream) error {
+	cpMetaEntry := func(dst, src *metaEntry) { *dst = *src }
+	var ss []stream.Peekable[metaEntry]
+	for _, dit := range dits {
+		it := stream.NewFromForEach(ctx, cpMetaEntry, func(fn func(metaEntry) error) error {
+			return dit.Iterate(func(x *Meta) error {
+				return fn(metaEntry{
+					Meta: x,
+					ID:   idFunc(x),
+				})
+			})
+		})
+		pk := stream.NewPeekable(it, cpMetaEntry)
+		ss = append(ss, pk)
+	}
+	m := stream.NewMerger(ss, func(a, b metaEntry) bool {
+		return a.ID < b.ID
+	})
+	return stream.ForEach[stream.Merged[metaEntry]](ctx, m, func(x stream.Merged[metaEntry]) error {
 		var metas []*Meta
-		for _, s := range ss {
-			metas = append(metas, s.(*datumStream).meta)
+		for _, me := range x.Values {
+			metas = append(metas, me.Meta)
 		}
 		return cb(metas)
 	})
-}
-
-type datumStream struct {
-	meta     *Meta
-	id       string
-	metaChan chan *Meta
-	errChan  chan error
-	idFunc   idGenerator
-}
-
-func newDatumStream(dit Iterator, priority int, idFunc idGenerator) *datumStream {
-	metaChan := make(chan *Meta)
-	errChan := make(chan error, 1)
-	go func() {
-		if err := dit.Iterate(func(meta *Meta) error {
-			metaChan <- meta
-			return nil
-		}); err != nil {
-			errChan <- err
-			return
-		}
-		close(metaChan)
-	}()
-	return &datumStream{
-		metaChan: metaChan,
-		errChan:  errChan,
-		idFunc:   idFunc,
-	}
-}
-
-func (ds *datumStream) Next() error {
-	select {
-	case meta, more := <-ds.metaChan:
-		if !more {
-			return io.EOF
-		}
-		ds.meta = meta
-		ds.id = ds.idFunc(meta)
-		return nil
-	case err := <-ds.errChan:
-		return err
-	}
-}
-
-func compare(s1, s2 stream.Stream) int {
-	ds1 := s1.(*datumStream)
-	ds2 := s2.(*datumStream)
-	return strings.Compare(ds1.id, ds2.id)
 }

@@ -320,25 +320,6 @@ func (e ErrZombieData) Error() string {
 	return fmt.Sprintf("commit %v contains output from datum %s which should have been deleted", e.Commit, e.ID)
 }
 
-type fileStream struct {
-	iterator   *fileset.Iterator
-	file       fileset.File
-	fromOutput bool
-}
-
-func (fs *fileStream) Next() error {
-	var err error
-	fs.file, err = fs.iterator.Next()
-	return err
-}
-
-// just match on path, we don't care about datum here
-func compare(s1, s2 stream.Stream) int {
-	idx1 := s1.(*fileStream).file.Index()
-	idx2 := s2.(*fileStream).file.Index()
-	return strings.Compare(idx1.Path, idx2.Path)
-}
-
 func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb func(*pfs.FsckResponse) error) error {
 	log.Info(ctx, "checking for zombie data", log.Proto("outputCommit", outputCommit))
 	// generate fileset that groups output files by datum
@@ -357,6 +338,15 @@ func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb 
 	if err != nil {
 		return err
 	}
+	type fileEntry struct {
+		file       fileset.File
+		fromOutput bool
+	}
+	fileEntryLt := func(a, b fileEntry) bool {
+		idx1 := a.file.Index()
+		idx2 := b.file.Index()
+		return idx1.Path < idx2.Path
+	}
 	// now merge with the meta commit to look for extra datums in the output commit
 	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, r *fileset.Renewer) error {
 		if err := r.Add(ctx, *id); err != nil {
@@ -370,27 +360,41 @@ func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb 
 		if err != nil {
 			return err
 		}
-		var streams []stream.Stream
-		streams = append(streams, &fileStream{
-			iterator:   fileset.NewIterator(ctx, datumsFS.Iterate),
-			fromOutput: true,
-		}, &fileStream{
-			iterator: fileset.NewIterator(ctx, metaFS.Iterate, index.WithPrefix("/"+common.MetaPrefix)),
+		copyFileEntry := func(dst, src *fileEntry) {
+			*dst = *src
+		}
+		datumFSIt := stream.NewFromForEach(ctx, copyFileEntry, func(fn func(fileEntry) error) error {
+			return datumsFS.Iterate(ctx, func(f fileset.File) error {
+				return fn(fileEntry{
+					file:       f,
+					fromOutput: true,
+				})
+			})
 		})
-		pq := stream.NewPriorityQueue(streams, compare)
-		return errors.EnsureStack(pq.Iterate(func(ss []stream.Stream) error {
-			if len(ss) == 2 {
+		datumFSPk := stream.NewPeekable(datumFSIt, copyFileEntry)
+		metaFSIt := stream.NewFromForEach(ctx, copyFileEntry, func(fn func(fileEntry) error) error {
+			return metaFS.Iterate(ctx, func(f fileset.File) error {
+				return fn(fileEntry{
+					file:       f,
+					fromOutput: false,
+				})
+			}, index.WithPrefix("/"+common.MetaPrefix))
+		})
+		metaFSPk := stream.NewPeekable(metaFSIt, copyFileEntry)
+		m := stream.NewMerger([]stream.Peekable[fileEntry]{datumFSPk, metaFSPk}, fileEntryLt)
+		return stream.ForEach[stream.Merged[fileEntry]](ctx, m, func(x stream.Merged[fileEntry]) error {
+			if len(x.Values) == 2 {
 				return nil // datum is present both in output and meta, as expected
 			}
-			s := ss[0].(*fileStream)
-			if !s.fromOutput {
+			fe, _ := x.First()
+			if fe.fromOutput {
 				return nil // datum doesn't have any output, not an error
 			}
 			// this is zombie data: output files not associated with any current datum
 			// report each file back as an error
-			id := s.file.Index().File.Datum
+			id := fe.file.Index().File.Datum
 			return miscutil.WithPipe(func(w io.Writer) error {
-				return errors.EnsureStack(s.file.Content(ctx, w))
+				return errors.EnsureStack(fe.file.Content(ctx, w))
 			}, func(r io.Reader) error {
 				sc := bufio.NewScanner(r)
 				for sc.Scan() {
@@ -402,6 +406,6 @@ func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb 
 				}
 				return nil
 			})
-		}))
+		})
 	})
 }

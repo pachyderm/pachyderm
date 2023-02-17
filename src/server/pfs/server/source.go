@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
@@ -79,7 +80,7 @@ func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOpt
 func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error {
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
-	iter := fileset.NewIterator(ctx, s.fileSet.Iterate, s.dirIndexOpts...)
+	iter := fileset.NewIterator(ctx, s.fileSet, s.dirIndexOpts...)
 	cache := make(map[string]*pfs.FileInfo)
 	err := s.fileSet.Iterate(ctx, func(f fileset.File) error {
 		idx := f.Index()
@@ -144,8 +145,8 @@ func (s *source) checkFileInfoCache(ctx context.Context, cache map[string]*pfs.F
 	return nil, false, nil
 }
 
-func (s *source) computeFileInfo(ctx context.Context, cache map[string]*pfs.FileInfo, iter *fileset.Iterator, target string) (*pfs.FileInfo, error) {
-	f, err := iter.Next()
+func (s *source) computeFileInfo(ctx context.Context, cache map[string]*pfs.FileInfo, iter fileset.Iterator, target string) (*pfs.FileInfo, error) {
+	f, err := stream.Next[fileset.File](ctx, iter)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
 			return nil, errors.Errorf("stream is done, can't compute hash for %s", target)
@@ -162,7 +163,7 @@ func (s *source) computeFileInfo(ctx context.Context, cache map[string]*pfs.File
 	var size int64
 	h := pfs.NewHash()
 	for {
-		f2, err := iter.Peek()
+		f2, err := stream.Peek(ctx, iter)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
