@@ -398,6 +398,71 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 	return &types.Empty{}, nil
 }
 
+// SearchForFileInBranch searches for commits that reference a supplied file being modified in a branch.
+func (a *apiServer) SearchForFileInBranch(ctx context.Context, request *pfs.SearchForFileInBranchRequest) (*pfs.SearchForFileInBranchResponse, error) {
+	if request.Timeout == nil { // Use a sane default if not defined.
+		request.Timeout = types.DurationProto(time.Minute * 5)
+	}
+	timeout, err := types.DurationFromProto(request.Timeout)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	var found []*pfs.Commit
+	commit := request.GetStart()
+	commitsSearched := 0
+	searchStart := time.Now()
+	returnResp := func(found []*pfs.Commit, startTime time.Time,
+		commitsSearched int, lastSearchedCommit *pfs.Commit) *pfs.SearchForFileInBranchResponse {
+		resp := &pfs.SearchForFileInBranchResponse{}
+		resp.FoundCommits = found
+		resp.CommitsSearched = int32(commitsSearched)
+		resp.LastSearchedCommit = commit
+		resp.Duration = types.DurationProto(time.Since(searchStart))
+		return resp
+	}
+	for {
+		if len(found) == int(request.GetLimit()) {
+			return returnResp(found, searchStart, commitsSearched, commit), err
+		}
+		diffID, err := a.driver.commitStore.GetDiffFileSet(ctx, commit)
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return returnResp(found, searchStart, commitsSearched, commit), nil
+			}
+			return nil, errors.EnsureStack(err)
+		}
+		diffFileSet, err := a.driver.storage.Open(ctx, []fileset.ID{*diffID})
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return returnResp(found, searchStart, commitsSearched, commit), nil
+			}
+			return nil, errors.EnsureStack(err)
+		}
+		if err = diffFileSet.Iterate(ctx, func(file fileset.File) error {
+			if file.Index().Path == request.GetFileName() {
+				found = append(found, commit)
+			}
+			return nil
+		}); err != nil {
+			if errors.Is(err, context.Canceled) {
+				return returnResp(found, searchStart, commitsSearched, commit), nil
+			}
+			return nil, errors.EnsureStack(err)
+		}
+		inspectCommitResp, err := a.InspectCommit(ctx, &pfs.InspectCommitRequest{Commit: commit})
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return returnResp(found, searchStart, commitsSearched, commit), nil
+			}
+			return nil, errors.EnsureStack(err)
+		}
+		commit = inspectCommitResp.ParentCommit
+		commitsSearched++
+	}
+}
+
 // CreateProject implements the protobuf pfs.CreateProject RPC
 func (a *apiServer) CreateProject(ctx context.Context, request *pfs.CreateProjectRequest) (*types.Empty, error) {
 	if err := a.driver.createProject(ctx, request); err != nil {

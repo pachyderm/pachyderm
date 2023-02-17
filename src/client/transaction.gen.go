@@ -449,6 +449,10 @@ func (c *unsupportedPfsBuilderClient) RunLoadTestDefault(_ context.Context, _ *t
 	return nil, unsupportedError("RunLoadTestDefault")
 }
 
+func (c *unsupportedPfsBuilderClient) SearchForFileInBranch(_ context.Context, _ *pfs_v2.SearchForFileInBranchRequest, opts ...grpc.CallOption) (*pfs_v2.SearchForFileInBranchResponse, error) {
+	return nil, unsupportedError("SearchForFileInBranch")
+}
+
 func (c *unsupportedPfsBuilderClient) ShardFileSet(_ context.Context, _ *pfs_v2.ShardFileSetRequest, opts ...grpc.CallOption) (*pfs_v2.ShardFileSetResponse, error) {
 	return nil, unsupportedError("ShardFileSet")
 }

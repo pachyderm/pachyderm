@@ -430,6 +430,34 @@ func (x *CreateBranchRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	return nil
 }
 
+func (x *SearchForFileInBranchRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("start", x.Start)
+	enc.AddString("file_name", x.FileName)
+	enc.AddInt32("limit", x.Limit)
+	protoextensions.AddDuration(enc, "timeout", x.Timeout)
+	return nil
+}
+
+func (x *SearchForFileInBranchResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	found_commitsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.FoundCommits {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("found_commits", zapcore.ArrayMarshalerFunc(found_commitsArrMarshaller))
+	enc.AddObject("last_searched_commit", x.LastSearchedCommit)
+	protoextensions.AddDuration(enc, "duration", x.Duration)
+	enc.AddInt32("commits_searched", x.CommitsSearched)
+	return nil
+}
+
 func (x *InspectBranchRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
