@@ -264,26 +264,35 @@ func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Per
 func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string, projects []*pfs.Project, cb func(*pfs.RepoInfo) error) error {
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
+
+	// Helper func to filter out repos based on projects.
 	projectsFilter := make(map[string]bool)
 	for _, project := range projects {
 		projectsFilter[project.String()] = true
 	}
+	keep := func(repo *pfs.Repo) bool {
+		// Assume the user meant all projects by not providing any projects to filter on.
+		if len(projectsFilter) == 0 {
+			return true
+		}
+		return projectsFilter[repo.Project.String()]
+	}
 
-	hasProjectAccessCache := make(map[string]bool)
-	hasAccessFunc := func(ctx context.Context, repo *pfs.Repo) error {
-		// Cache the project level access because it applies to every repo within the same project.
-		if _, ok := hasProjectAccessCache[repo.Project.String()]; !ok {
+	// Helper func to check whether a user is allowed to see the given repo in the result.
+	// Cache the project level access because it applies to every repo within the same project.
+	checkAccessCache := make(map[string]bool)
+	checkAccess := func(ctx context.Context, repo *pfs.Repo) error {
+		if _, ok := checkAccessCache[repo.Project.String()]; !ok {
 			if err := d.env.AuthServer.CheckProjectIsAuthorized(ctx, repo.Project, auth.Permission_PROJECT_LIST_REPO); err != nil {
-				if errors.As(err, &auth.ErrNotAuthorized{}) {
-					hasProjectAccessCache[repo.Project.String()] = false
-				} else {
+				if !errors.As(err, &auth.ErrNotAuthorized{}) {
 					return err
 				}
+				checkAccessCache[repo.Project.String()] = false
 			} else {
-				hasProjectAccessCache[repo.Project.String()] = true
+				checkAccessCache[repo.Project.String()] = true
 			}
 		}
-		if hasProjectAccessCache[repo.Project.String()] {
+		if checkAccessCache[repo.Project.String()] {
 			return nil
 		}
 		// The user does not have permission to list repos at the project level,
@@ -292,17 +301,14 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 	}
 
 	processFunc := func(string) error {
-		// Assume the user meant all projects by not providing any projects to filter on.
-		if len(projectsFilter) > 0 && !projectsFilter[repoInfo.Repo.Project.String()] {
+		if !keep(repoInfo.Repo) {
 			return nil
 		}
-
-		if err := hasAccessFunc(ctx, repoInfo.Repo); err != nil {
-			if errors.As(err, &auth.ErrNotAuthorized{}) {
-				return nil
-			} else {
-				return errors.Wrapf(err, "could not check user is authorized to list repo given repo %s", repoInfo.Repo)
+		if err := checkAccess(ctx, repoInfo.Repo); err != nil {
+			if !errors.As(err, &auth.ErrNotAuthorized{}) {
+				return errors.Wrapf(err, "could not check user is authorized to list repo, problem with repo %s", repoInfo.Repo)
 			}
+			return nil
 		}
 
 		size, err := d.repoSize(ctx, repoInfo.Repo)

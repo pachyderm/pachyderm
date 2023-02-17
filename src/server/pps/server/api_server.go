@@ -2691,20 +2691,17 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		// ensure field names and enum values match with --raw output
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
-	projectsFilterSet := make(map[string]bool)
+
+	// Helper func to filter out pipelines based on projects
+	projectsFilter := make(map[string]bool)
 	for _, project := range request.Projects {
-		projectsFilterSet[project.Name] = true
+		projectsFilter[project.String()] = true
 	}
-	keepPipelineGivenProject := func(pipelineInfo *pps.PipelineInfo) bool {
-		if len(request.Projects) == 0 {
-			return true
-		}
-		return projectsFilterSet[pipelineInfo.Pipeline.Project.Name]
-	}
-	keepPipeline := func(pipelineInfo *pps.PipelineInfo) bool {
-		if !keepPipelineGivenProject(pipelineInfo) {
+	keep := func(pipelineInfo *pps.PipelineInfo) bool {
+		if len(projectsFilter) > 0 && !projectsFilter[pipelineInfo.Pipeline.Project.String()] {
 			return false
 		}
+
 		if jqCode != nil {
 			jsonBuffer.Reset()
 			// convert pipelineInfo to a map[string]interface{} for use with gojq
@@ -2723,6 +2720,28 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		}
 		return true
 	}
+
+	// Helper func to check whether a user is allowed to see the given pipeline in the result.
+	// Cache the project level access because it applies to every pipeline within the same project.
+	checkAccessCache := make(map[string]bool)
+	checkAccess := func(ctx context.Context, pipeline *pps.Pipeline) error {
+		if _, ok := checkAccessCache[pipeline.Project.String()]; !ok {
+			if err := a.env.AuthServer.CheckProjectIsAuthorized(ctx, pipeline.Project, auth.Permission_PROJECT_LIST_REPO); err != nil {
+				if !errors.As(err, &auth.ErrNotAuthorized{}) {
+					return err
+				}
+				checkAccessCache[pipeline.Project.String()] = false
+			} else {
+				checkAccessCache[pipeline.Project.String()] = true
+			}
+		}
+		if checkAccessCache[pipeline.Project.String()] {
+			return nil
+		}
+		// Use the pipeline's output repo as the reference to the pipeline itself
+		return a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Name: pipeline.Name, Type: pfs.UserRepoType, Project: pipeline.Project}, auth.Permission_REPO_READ)
+	}
+
 	loadPipelineAtCommit := func(pi *pps.PipelineInfo, commitSetID string) error { // mutates pi
 		return a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 			key, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, pi.Pipeline, commitSetID)
@@ -2743,7 +2762,13 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		})
 	}
 	return ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(pi *pps.PipelineInfo) error {
-		if !keepPipeline(pi) {
+		if !keep(pi) {
+			return nil
+		}
+		if err := checkAccess(ctx, pi.Pipeline); err != nil {
+			if !errors.As(err, &auth.ErrNotAuthorized{}) {
+				return errors.Wrapf(err, "could not check user is authorized to list pipeline, problem with pipeline %s", pi.Pipeline)
+			}
 			return nil
 		}
 		if request.GetCommitSet().GetID() != "" {
