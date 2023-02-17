@@ -107,12 +107,15 @@ class PFSFile(RawIOBase, BinaryIO):
             except grpc.RpcError as err:
                 self.close()
                 raise err
+            except StopIteration:
+                return b""
             self._buffer[:] = message.value
         return bytes(self._buffer[:size])
 
     def close(self) -> None:
         """Closes the PFSFile and cancels the gRPC stream."""
-        del self._stream
+        if hasattr(self, "_stream"):
+            del self._stream
         super().close()
 
     def readable(self) -> bool:

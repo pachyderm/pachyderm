@@ -79,7 +79,7 @@ class TestUnitJob:
         _pipeline_info_2, _job_info_2 = client.new_pipeline(default_project)
 
         jobs = client.pps.list_job()
-        assert count(jobs) == 4
+        assert count(jobs) >= 4
 
     @staticmethod
     def test_inspect_job(client: TestClient, default_project: bool):

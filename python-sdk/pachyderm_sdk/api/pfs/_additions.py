@@ -22,13 +22,14 @@ def _Repo_from_uri(uri: str) -> Repo:
 
 def _Repo_as_uri(self: "Repo") -> str:
     project = "default"
+    print()
     if self.project and self.project.name:
         project = self.project.name
     return f"{project}/{self.name}"
 
 
-Repo.from_uri = _Repo_from_uri.__get__(Repo)
-Repo.as_uri = _Repo_as_uri.__get__(Repo)
+Repo.from_uri = _Repo_from_uri
+Repo.as_uri = _Repo_as_uri
 
 
 def _Branch_from_uri(uri: str) -> Branch:
@@ -56,8 +57,8 @@ def _Branch_as_uri(self: "Branch") -> str:
     return f"{self.repo.as_uri()}@{self.name}"
 
 
-Branch.from_uri = _Branch_from_uri.__get__(Branch)
-Branch.as_uri = _Branch_as_uri.__get__(Branch)
+Branch.from_uri = _Branch_from_uri
+Branch.as_uri = _Branch_as_uri
 
 
 def _Commit_from_uri(uri: str) -> Commit:
@@ -106,8 +107,8 @@ def _Commit_as_uri(self: "Commit") -> str:
         return f"{project_repo}@{self.id}"
 
 
-Commit.from_uri = _Commit_from_uri.__get__(Commit)
-Commit.as_uri = _Commit_as_uri.__get__(Commit)
+Commit.from_uri = _Commit_from_uri
+Commit.as_uri = _Commit_as_uri
 
 
 def _File_from_uri(uri: str) -> File:
@@ -139,5 +140,5 @@ def _File_as_uri(self: "File") -> str:
     return f"{self.commit.as_uri()}:{self.path}"
 
 
-File.from_uri = _File_from_uri.__get__(File)
-File.as_uri = _File_as_uri.__get__(File)
+File.from_uri = _File_from_uri
+File.as_uri = _File_as_uri

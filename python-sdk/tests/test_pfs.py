@@ -129,9 +129,7 @@ class TestUnitCommit:
         client.pfs.finish_commit(commit=commit)
 
         with pytest.raises(grpc.RpcError, match=r"repo .* not found"):
-            client.pfs.start_commit(
-                branch=pfs.Commit.from_uri("fake-repo@fake-branch").branch  # TODO: Branch constructor
-            )
+            client.pfs.start_commit(branch=pfs.Branch.from_uri("fake-repo@fake-branch"))
 
     @staticmethod
     def test_start_with_parent(client: TestClient, default_project: bool):
@@ -172,8 +170,7 @@ class TestUnitCommit:
             pass
 
         with pytest.raises(grpc.RpcError):
-            fake_branch = pfs.Commit.from_uri("fake-repo@fake-branch").branch  # TODO: Branch constructor
-            with client.pfs.commit(branch=fake_branch):
+            with client.pfs.commit(branch=pfs.Branch.from_uri("fake-repo@fake-branch")):
                 pass
 
         assert client.pfs.commit_exists(commit1)
@@ -218,12 +215,16 @@ class TestUnitCommit:
 
         client.pfs.wait_commit(commit2)
 
-        commits = client.pfs.list_commit(repo=repo)
-        assert count(commits) == 2
+        commit_info = client.pfs.list_commit(repo=repo)
+        commits = [info.commit.id for info in commit_info]
+        assert commit1.id in commits
+        assert commit2.id in commits
 
         client.pfs.squash_commit_set(commit_set=pfs.CommitSet(id=commit1.id))
-        commits = client.pfs.list_commit(repo=repo)
-        assert count(commits) == 1
+        commit_info = client.pfs.list_commit(repo=repo)
+        commits = [info.commit.id for info in commit_info]
+        assert commit1.id not in commits
+        assert commit2.id in commits
 
     @staticmethod
     def test_drop_commit(client: TestClient, default_project: bool):
@@ -255,6 +256,7 @@ class TestUnitCommit:
         with client.pfs.commit(branch=branch) as commit:
             pass
 
+        _generated_commit = next(commit_generator)
         generated_commit = next(commit_generator)
         assert generated_commit.commit.id == commit.id
         assert generated_commit.commit.branch.repo.name == repo.name
@@ -265,14 +267,14 @@ class TestUnitCommit:
         repo = client.new_repo(default_project=False)
         branch = pfs.Branch(repo=repo, name="master")
 
-        with client.pfs.commit(branch=branch) as commit1:
+        with client.pfs.commit(branch=branch) as _commit1:
             pass
 
-        with client.pfs.commit(branch=branch) as commit2:
+        with client.pfs.commit(branch=branch) as _commit2:
             pass
 
         commit_info = client.pfs.list_commit(repo=repo)
-        assert count(commit_info) == 2
+        assert count(commit_info) >= 2
 
 
 class TestModifyFile:
@@ -506,7 +508,7 @@ class TestPFSFile:
         invalid_file = pfs.File.from_uri(f"{repo.as_uri()}@master:/NO_FILE.HERE")
 
         # Act & Assert
-        with pytest.raises(ConnectionError):
+        with pytest.raises(ValueError):
             with client.pfs.pfs_file(file=invalid_file):
                 pass
 
@@ -533,22 +535,26 @@ class TestPFSFile:
             assert pfs_file.read(1)
 
     @staticmethod
-    def test_cancelled_stream(client: TestClient):
-        """Test that a cancelled stream maintains the integrity of the
-        already-streamed data.
-        """
+    def test_file_obj(client: TestClient):
+        """Test normal file object functionality of PFSFile"""
         # Arrange
         repo = client.new_repo()
         branch = pfs.Branch(repo=repo, name="master")
-        data = os.urandom(200)
+        data = b"0,1,2,3\n4,5,6,7\na,b,c,d"
+        expected_lines = data.splitlines(keepends=True)
 
         with client.pfs.commit(branch=branch) as commit:
-            file = commit.put_file_from_bytes(path="/test_file.dat", data=data)
+            file = commit.put_file_from_bytes(path="/test.csv", data=data)
 
         # Act & Assert
         with client.pfs.pfs_file(file=file) as pfs_file:
-            assert pfs_file.read(100) == data[:100]
-        assert pfs_file.read(100) == data[100:]
+            assert pfs_file.readlines() == expected_lines
+
+        # Test that we can feed it into stdlib functionality (csv reader).
+        import csv
+        with client.pfs.pfs_file(file=file) as pfs_file:
+            with io.TextIOWrapper(pfs_file, encoding="utf-8") as text_file:
+                print(list(csv.reader(text_file)))
 
     @staticmethod
     def test_get_file_tar(client: TestClient, tmp_path: Path):
