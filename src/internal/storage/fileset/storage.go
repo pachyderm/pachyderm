@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -240,18 +241,37 @@ func (s *Storage) getPrimitives(ctx context.Context, ids []ID) ([]*Primitive, er
 // The path ranges must be non-overlapping and the ranges must be lexigraphically sorted.
 // Concat always returns the ID of a primitive fileset.
 func (s *Storage) Concat(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
-	var size int64
-	additive := index.NewWriter(ctx, s.ChunkStorage(), "additive-index-writer")
-	deletive := index.NewWriter(ctx, s.ChunkStorage(), "deletive-index-writer")
-	for _, id := range ids {
-		md, err := s.store.Get(ctx, id)
-		if err != nil {
+	cancelCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	eg, ctx := errgroup.WithContext(cancelCtx)
+	sem := semaphore.NewWeighted(10)
+	prims := make([]*Primitive, len(ids))
+	for i, id := range ids {
+		if err := sem.Acquire(ctx, 1); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
-		prim := md.GetPrimitive()
-		if prim == nil {
-			return nil, errors.Errorf("file set %v is not primitive", id)
-		}
+		i := i
+		id := id
+		eg.Go(func() error {
+			md, err := s.store.Get(ctx, id)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			prim := md.GetPrimitive()
+			if prim == nil {
+				return errors.Errorf("file set %v is not primitive", id)
+			}
+			prims[i] = prim
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	additive := index.NewWriter(ctx, s.ChunkStorage(), "additive-index-writer")
+	deletive := index.NewWriter(ctx, s.ChunkStorage(), "deletive-index-writer")
+	var size int64
+	for _, prim := range prims {
 		if prim.Additive != nil {
 			if err := additive.WriteIndex(prim.Additive); err != nil {
 				return nil, err
