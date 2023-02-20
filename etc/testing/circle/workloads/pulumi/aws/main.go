@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/pkg/errors"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
@@ -35,7 +36,7 @@ func DeployResources() pulumi.RunFunc {
 		if _, err := os.Stat(readmePath); err == nil {
 			readmeBytes, err := ioutil.ReadFile(readmePath)
 			if err != nil {
-				return fmt.Errorf("failed to read readme: %v", err)
+				return errors.WithStack(fmt.Errorf("failed to read readme: %v", err))
 			}
 			ctx.Export("readme", pulumi.String(string(readmeBytes)))
 		} else {

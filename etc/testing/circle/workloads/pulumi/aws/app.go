@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/pkg/errors"
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/iam"
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/rds"
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/s3"
@@ -18,7 +19,7 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 	cfg := config.New(ctx, "")
 	enterpriseKey := os.Getenv("ENT_ACT_CODE")
 	if enterpriseKey == "" {
-		return fmt.Errorf("need to supply env var ENT_ACT_CODE")
+		return errors.WithStack(fmt.Errorf("need to supply env var ENT_ACT_CODE"))
 	}
 	awsSAkey := os.Getenv("AWS_ACCESS_KEY_ID")
 	awsSAsecret := os.Getenv("AWS_SECRET_ACCESS_KEY")
@@ -36,7 +37,7 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 		pulumi.Provider(k8sProvider))
 
 	if err != nil {
-		return fmt.Errorf("error occurred while attempting to create test-ns: %w", err)
+		return errors.WithStack(fmt.Errorf("error occurred while attempting to create test-ns: %w", err))
 	}
 
 	values := pulumi.Map{
@@ -108,7 +109,7 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 	}
 
 	if err != nil {
-		return fmt.Errorf("failed to successfully helm install: %w", err)
+		return errors.WithStack(fmt.Errorf("failed to successfully helm install: %w", err))
 	}
 
 	return nil

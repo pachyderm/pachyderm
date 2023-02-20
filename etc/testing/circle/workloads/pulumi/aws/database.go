@@ -57,7 +57,7 @@ func DeployRDS(ctx *pulumi.Context) (*rds.Instance, error) {
 	r, err := rds.NewInstance(ctx, rdsInstanceName, rdsInstanceArgs)
 
 	if err != nil {
-		return nil, fmt.Errorf("error creating RDS instance: %w", err)
+		return nil, errors.WithStack(fmt.Errorf("error creating RDS instance: %w", err))
 	}
 
 	rdsProviderName := fmt.Sprintf("%s-postgresql", ctx.Stack())
@@ -69,13 +69,13 @@ func DeployRDS(ctx *pulumi.Context) (*rds.Instance, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("error creating postgres provider: %w", err)
+		return nil, errors.WithStack(fmt.Errorf("error creating postgres provider: %w", err))
 	}
 	dexDbName := "dex"
 	_, err = postgresql.NewDatabase(ctx, dexDbName, &postgresql.DatabaseArgs{Name: pulumi.StringPtr(dexDbName)}, pulumi.Provider(postgresProvider))
 
 	if err != nil {
-		errors.WithStack(fmt.Errorf("error creating dex database: %w", err))
+		return nil, errors.WithStack(fmt.Errorf("error creating dex database: %w", err))
 	}
 
 	return r, nil
