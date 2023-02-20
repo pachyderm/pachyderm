@@ -8,13 +8,14 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"go.uber.org/zap"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
-	"go.uber.org/zap"
 )
 
 // TODO: Move fan-in configuration to fileset.Storage.
@@ -228,6 +229,7 @@ func (c *compactor) Validate(ctx context.Context, taskDoer task.Doer, id fileset
 }
 
 func compactionWorker(ctx context.Context, taskSource task.Source, storage *fileset.Storage) error {
+	log.Info(ctx, "running compaction worker")
 	return backoff.RetryUntilCancel(ctx, func() error {
 		err := taskSource.Iterate(ctx, func(ctx context.Context, input *types.Any) (*types.Any, error) {
 			switch {
