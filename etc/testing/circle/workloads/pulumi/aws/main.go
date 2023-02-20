@@ -35,7 +35,7 @@ func DeployResources() pulumi.RunFunc {
 		if _, err := os.Stat(readmePath); err == nil {
 			readmeBytes, err := ioutil.ReadFile(readmePath)
 			if err != nil {
-				return fmt.Errorf("failed to read readme: %w", err)
+				return fmt.Errorf("failed to read readme: %v", err)
 			}
 			ctx.Export("readme", pulumi.String(string(readmeBytes)))
 		} else {

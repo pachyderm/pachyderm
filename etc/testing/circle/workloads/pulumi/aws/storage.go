@@ -24,7 +24,7 @@ func DeployBucket(ctx *pulumi.Context) (*s3.Bucket, error) {
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating S3 bucket: %v", err)
 	}
 
 	ctx.Export("bucketName", bucket.Bucket)
