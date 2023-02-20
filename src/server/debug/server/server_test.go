@@ -1,19 +1,30 @@
 package server
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
+	"gopkg.in/yaml.v3"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 type lokiResult struct {
@@ -370,5 +381,223 @@ bc`: `"a\nbc"`,
 		if quoteLogQLStreamSelector(s) != q {
 			t.Errorf("expected quoteLogQL(%q) = %q; got %q", s, q, quoteLogQLStreamSelector(s))
 		}
+	}
+}
+
+func TestHelmReleases(t *testing.T) {
+	ctx := pctx.TestContext(t)
+
+	// Build values of secrets, compressed and uncompressed.
+	releaseData := map[string]any{
+		"config": map[string]any{
+			"string": "hello",
+			"bool":   false,
+		},
+		"manifest": `---
+apiVersion: v1
+kind: Thing
+metadata:
+    name: thing
+---
+apiVersion: v1
+kind: Thingie
+metadata:
+    name: thingie
+`,
+	}
+	release, err := json.Marshal(releaseData)
+	if err != nil {
+		t.Fatalf("marshal reference release: %v", err)
+	}
+	enc := base64.StdEncoding
+	releaseBytes := make([]byte, enc.EncodedLen(len(release)))
+	enc.Encode(releaseBytes, release)
+
+	compressed := new(bytes.Buffer)
+	gz := gzip.NewWriter(compressed)
+	if _, err := gz.Write(release); err != nil {
+		t.Fatalf("gzip: %v", err)
+	}
+	if err := gz.Flush(); err != nil {
+		t.Fatalf("flush: %v", err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	releaseBytesCompressed := make([]byte, enc.EncodedLen(compressed.Len()))
+	enc.Encode(releaseBytesCompressed, compressed.Bytes())
+
+	// Build a debug server connected to fake k8s that contains a few valid and invalid sample
+	// secrets.
+	s := &debugServer{
+		env: &serviceenv.TestServiceEnv{
+			KubeClient: fake.NewSimpleClientset(
+				&v1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "secret",
+						Namespace: "default",
+					},
+					Data: map[string][]byte{
+						"super-secret": []byte("not helm"),
+					},
+				},
+				&v1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "some-mistagged-secret",
+						Namespace: "default",
+						Labels: map[string]string{
+							"owner": "helm",
+						},
+					},
+					Data: map[string][]byte{
+						"release": []byte("pure junk"),
+					},
+					Type: "helm.sh/release.v1",
+				},
+				&v1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "sh.helm.release.v1.pachyderm.v9",
+						Namespace: "default",
+						Labels: map[string]string{
+							"owner": "helm",
+						},
+					},
+					Data: map[string][]byte{
+						"release": releaseBytes,
+					},
+					Type: "helm.sh/release.v1",
+				},
+				&v1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "sh.helm.release.v1.pachyderm.v10",
+						Namespace: "default",
+						Labels: map[string]string{
+							"owner": "helm",
+						},
+					},
+					Data: map[string][]byte{
+						"release": releaseBytesCompressed,
+					},
+					Type: "helm.sh/release.v1",
+				},
+				&v1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "sh.helm.release.v2.pachyderm.v11",
+						Namespace: "default",
+						Labels: map[string]string{
+							"owner": "helm",
+						},
+					},
+					Data: map[string][]byte{
+						"release": []byte("some junk we don't understand"),
+					},
+					Type: "helm.sh/release.v2",
+				},
+			),
+			Configuration: &serviceenv.Configuration{
+				GlobalConfiguration: &serviceenv.GlobalConfiguration{
+					Namespace: "default",
+				},
+			},
+		},
+	}
+
+	// Build the debug dump .tar file with just helm release data.
+	got := new(bytes.Buffer)
+	w := tar.NewWriter(got)
+	if err := s.helmReleases(ctx, w); err != nil {
+		t.Fatalf("helmRealses: %v", err)
+	}
+
+	// Iterate over the debug dump, comparing the content of generated files with the reference.
+	wantFiles := map[string]any{
+		"helm/some-mistagged-secret/metadata.json": map[string]any{
+			"name":              "some-mistagged-secret",
+			"namespace":         "default",
+			"creationTimestamp": nil,
+			"labels": map[string]any{
+				"owner": "helm",
+			},
+		},
+		"helm/some-mistagged-secret/release/error.txt": "decode base64: illegal base64 data at input byte 4\n",
+		"helm/some-mistagged-secret/error.txt":         "some-mistagged-secret: unmarshal release json: unexpected end of JSON input\n",
+		"helm/sh.helm.release.v1.pachyderm.v9/metadata.json": map[string]any{
+			"name":              "sh.helm.release.v1.pachyderm.v9",
+			"namespace":         "default",
+			"creationTimestamp": nil,
+			"labels": map[string]any{
+				"owner": "helm",
+			},
+		},
+		"helm/sh.helm.release.v1.pachyderm.v9/release.json":  releaseData,
+		"helm/sh.helm.release.v1.pachyderm.v9/manifest.yaml": releaseData["manifest"].(string),
+		"helm/sh.helm.release.v1.pachyderm.v9/values.yaml":   releaseData["config"].(map[string]any),
+		"helm/sh.helm.release.v1.pachyderm.v10/metadata.json": map[string]any{
+			"name":              "sh.helm.release.v1.pachyderm.v10",
+			"namespace":         "default",
+			"creationTimestamp": nil,
+			"labels": map[string]any{
+				"owner": "helm",
+			},
+		},
+		"helm/sh.helm.release.v1.pachyderm.v10/release.json":  releaseData,
+		"helm/sh.helm.release.v1.pachyderm.v10/manifest.yaml": releaseData["manifest"].(string),
+		"helm/sh.helm.release.v1.pachyderm.v10/values.yaml":   releaseData["config"].(map[string]any),
+		"helm/sh.helm.release.v2.pachyderm.v11/error.txt":     "helm-owned secret of unknown version; got helm.sh/release.v2 want helm.sh/release.v1\n",
+	}
+	if err := tarutil.Iterate(got, func(f tarutil.File) error {
+		// Extract the content of the file.
+		buf := new(bytes.Buffer)
+		if err := f.Content(buf); err != nil {
+			return errors.Wrap(err, "get content")
+		}
+		// Extract the header of the file and make sure it's a file we expect.
+		h, err := f.Header()
+		if err != nil {
+			return errors.Wrap(err, "get header")
+		}
+		want, ok := wantFiles[h.Name]
+		if !ok {
+			t.Errorf("unexpected file %v (content: %v)", h.Name, buf.String())
+			return nil
+		}
+		delete(wantFiles, h.Name)
+
+		// Transform the content into an object if appropriate.
+		var got any
+		if strings.HasSuffix(h.Name, ".json") {
+			var x map[string]any
+			if err := json.Unmarshal(buf.Bytes(), &x); err != nil {
+				return errors.Wrapf(err, "%v: unmarshal json", h.Name)
+			}
+			got = x
+		} else if strings.HasSuffix(h.Name, "/values.yaml") {
+			// We only unmarshal values.yaml because manifest.yaml should be preserved
+			// verbatim from the value stored in the secret; no sort order to worry
+			// about when doing a string comparison.  values.yaml can be sorted
+			// arbitrarily, however.
+			var x map[string]any
+			if err := yaml.Unmarshal(buf.Bytes(), &x); err != nil {
+				return errors.Wrapf(err, "%v: unmarshal yaml", h.Name)
+			}
+			got = x
+		} else {
+			got = buf.String()
+		}
+
+		// Diff the (unmarshaled) content with the reference value.
+		if diff := cmp.Diff(got, want); diff != "" {
+			t.Errorf("content of %v (+got -want):\n%s", h.Name, diff)
+			return nil
+		}
+
+		return nil
+	}); err != nil {
+		t.Fatalf("Iterate: %v", err)
+	}
+
+	// Check that we saw all the files we expected.
+	for f := range wantFiles {
+		t.Errorf("did not see expected file %v", f)
 	}
 }
