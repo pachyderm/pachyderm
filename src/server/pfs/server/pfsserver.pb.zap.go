@@ -19,11 +19,7 @@ func (x *ShardTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("inputs", zapcore.ArrayMarshalerFunc(inputsArrMarshaller))
-	if obj, ok := interface{}(x.PathRange).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("path_range", obj)
-	} else {
-		enc.AddReflected("path_range", x.PathRange)
-	}
+	enc.AddObject("path_range", x.PathRange)
 	return nil
 }
 
@@ -33,11 +29,7 @@ func (x *ShardTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	compact_tasksArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.CompactTasks {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}
@@ -65,11 +57,7 @@ func (x *CompactTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("inputs", zapcore.ArrayMarshalerFunc(inputsArrMarshaller))
-	if obj, ok := interface{}(x.PathRange).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("path_range", obj)
-	} else {
-		enc.AddReflected("path_range", x.PathRange)
-	}
+	enc.AddObject("path_range", x.PathRange)
 	return nil
 }
 
@@ -108,11 +96,7 @@ func (x *ValidateTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddString("id", x.Id)
-	if obj, ok := interface{}(x.PathRange).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("path_range", obj)
-	} else {
-		enc.AddReflected("path_range", x.PathRange)
-	}
+	enc.AddObject("path_range", x.PathRange)
 	return nil
 }
 

@@ -21,7 +21,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -500,7 +499,7 @@ $ {{alias}} foo@master --from XXX`,
 				if !expand {
 					if raw {
 						e := cmdutil.Encoder(output, os.Stdout)
-						return clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+						return grpcutil.ForEach[*pfs.CommitSetInfo](listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
 							if err := e.EncodeProto(commitSetInfo); err != nil {
 								return errors.EnsureStack(err)
 							}
@@ -514,7 +513,7 @@ $ {{alias}} foo@master --from XXX`,
 
 					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 						writer := tabwriter.NewWriter(w, pretty.CommitSetHeader)
-						if err := clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+						if err := grpcutil.ForEach[*pfs.CommitSetInfo](listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
 							pretty.PrintCommitSetInfo(writer, commitSetInfo, fullTimestamps)
 							count++
 							if number != 0 && count >= int(number) {
@@ -529,7 +528,7 @@ $ {{alias}} foo@master --from XXX`,
 				} else {
 					if raw {
 						e := cmdutil.Encoder(output, os.Stdout)
-						return clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+						return grpcutil.ForEach[*pfs.CommitSetInfo](listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
 							for _, commitInfo := range commitSetInfo.Commits {
 								if err := e.EncodeProto(commitInfo); err != nil {
 									return errors.EnsureStack(err)
@@ -545,7 +544,7 @@ $ {{alias}} foo@master --from XXX`,
 
 					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 						writer := tabwriter.NewWriter(w, pretty.CommitHeader)
-						if err := clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+						if err := grpcutil.ForEach[*pfs.CommitSetInfo](listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
 							for _, commitInfo := range commitSetInfo.Commits {
 								pretty.PrintCommitInfo(writer, commitInfo, fullTimestamps)
 								count++
@@ -634,12 +633,12 @@ $ {{alias}} foo@master --from XXX`,
 
 				if raw {
 					encoder := cmdutil.Encoder(output, os.Stdout)
-					return clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
+					return grpcutil.ForEach[*pfs.CommitInfo](listClient, func(ci *pfs.CommitInfo) error {
 						return errors.EnsureStack(encoder.EncodeProto(ci))
 					})
 				}
 				writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-				if err := clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
+				if err := grpcutil.ForEach[*pfs.CommitInfo](listClient, func(ci *pfs.CommitInfo) error {
 					pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 					return nil
 				}); err != nil {
@@ -758,7 +757,7 @@ $ {{alias}} test@master --new`,
 
 			if raw {
 				encoder := cmdutil.Encoder(output, os.Stdout)
-				return clientsdk.ForEachSubscribeCommit(subscribeClient, func(ci *pfs.CommitInfo) error {
+				return grpcutil.ForEach[*pfs.CommitInfo](subscribeClient, func(ci *pfs.CommitInfo) error {
 					return errors.EnsureStack(encoder.EncodeProto(ci))
 				})
 			} else if output != "" {
@@ -771,7 +770,7 @@ $ {{alias}} test@master --new`,
 					retErr = err
 				}
 			}()
-			if err := clientsdk.ForEachSubscribeCommit(subscribeClient, func(ci *pfs.CommitInfo) error {
+			if err := grpcutil.ForEach[*pfs.CommitInfo](subscribeClient, func(ci *pfs.CommitInfo) error {
 				pretty.PrintCommitInfo(w, ci, fullTimestamps)
 				return nil
 			}); err != nil {
@@ -968,7 +967,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 
 			if raw {
 				encoder := cmdutil.Encoder(output, os.Stdout)
-				err := clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
+				err := grpcutil.ForEach[*pfs.BranchInfo](branchClient, func(branch *pfs.BranchInfo) error {
 					return errors.EnsureStack(encoder.EncodeProto(branch))
 				})
 				return grpcutil.ScrubGRPC(err)
@@ -977,7 +976,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 			}
 
 			writer := tabwriter.NewWriter(os.Stdout, pretty.BranchHeader)
-			if err := clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
+			if err := grpcutil.ForEach[*pfs.BranchInfo](branchClient, func(branch *pfs.BranchInfo) error {
 				pretty.PrintBranch(writer, branch)
 				return nil
 			}); err != nil {

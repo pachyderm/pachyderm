@@ -7,14 +7,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
-type WorkDeduper struct {
+type WorkDeduper[K comparable] struct {
 	futures sync.Map
 }
 
 // Concurrent calls to Do will block until cb has been completed by one of them, then the others will run, possibly concurrently.
 // The motivating use case is to eliminate network round trips when populating a cache.
 // Callers should check and populate the cache inside cb.
-func (wd *WorkDeduper) Do(ctx context.Context, k interface{}, cb func() error) error {
+func (wd *WorkDeduper[K]) Do(ctx context.Context, k K, cb func() error) error {
 	fut, created := wd.getOrCreateFuture(k)
 	if created {
 		defer wd.removeFuture(k)
@@ -24,7 +24,7 @@ func (wd *WorkDeduper) Do(ctx context.Context, k interface{}, cb func() error) e
 	return fut.await(ctx)
 }
 
-func (wd *WorkDeduper) getOrCreateFuture(key interface{}) (*future, bool) {
+func (wd *WorkDeduper[K]) getOrCreateFuture(key K) (*future, bool) {
 	fut := &future{
 		done: make(chan struct{}),
 	}
@@ -32,7 +32,7 @@ func (wd *WorkDeduper) getOrCreateFuture(key interface{}) (*future, bool) {
 	return x.(*future), !loaded
 }
 
-func (wd *WorkDeduper) removeFuture(k interface{}) {
+func (wd *WorkDeduper[K]) removeFuture(k K) {
 	wd.futures.Delete(k)
 }
 

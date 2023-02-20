@@ -84,8 +84,11 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 		"2.3.9",
 		"2.4.3",
 	}
+	// We use a long pipeline name (gt 64 chars) to test whether our auth tokens,
+	// which originally had a 64 limit, can handle the upgrade which adds the project names to the subject key.
+	montage := montageRepo + "01234567890123456789012345678901234567890"
 	upgradeTest(t, context.Background(), fromVersions,
-		func(t *testing.T, c *client.APIClient) {
+		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, imagesRepo))
 			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
@@ -100,7 +103,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			))
 			require.NoError(t,
 				c.CreateProjectPipeline(pfs.DefaultProjectName,
-					montageRepo,
+					montage,
 					"dpokidov/imagemagick:7.1.0-23",
 					[]string{"sh"}, /* cmd */
 					[]string{"montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png"}, /* stdin */
@@ -117,22 +120,21 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 				return errors.EnsureStack(mf.PutFileURL("/liberty.png", "http://i.imgur.com/46Q8nDz.png", false))
 			}))
 
-			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montageRepo, "master", "")
+			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montage, "master", "")
 			require.NoError(t, err)
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 			defer cancel()
 			commitInfos, err := c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.ID)
 			require.NoError(t, err)
 
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montageRepo)) {
+				if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montage)) {
 					require.NoError(t, c.GetFile(info.Commit, "montage.png", &buf))
 				}
 			}
 		},
-
-		func(t *testing.T, c *client.APIClient) {
+		func(t *testing.T, c *client.APIClient) { /* postUpgrade */
 			c = testutil.AuthenticateClient(t, c, upgradeSubject)
 			state, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 			require.NoError(t, err)
@@ -141,7 +143,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 				return errors.EnsureStack(mf.PutFileURL("/kitten.png", "https://i.imgur.com/g2QnNqa.png", false))
 			}))
 
-			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montageRepo, "master", "")
+			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montage, "master", "")
 			require.NoError(t, err)
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
@@ -150,7 +152,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montageRepo)) {
+				if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montage)) {
 					require.NoError(t, c.GetFile(info.Commit, "montage.png", &buf))
 				}
 			}

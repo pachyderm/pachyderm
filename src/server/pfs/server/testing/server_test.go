@@ -32,17 +32,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -54,6 +51,8 @@ import (
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
 func CommitToID(commit interface{}) interface{} {
@@ -143,7 +142,7 @@ func TestPFS(suite *testing.T) {
 		request := &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), Number: 4}
 		walkFileClient, err := env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.WalkFile(walkFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](walkFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 4, len(fis))
 		require.ElementsEqual(t, []string{"/dir/", "/dir/dir1/", "/dir/dir1/file1.1", "/dir/dir1/file1.2"}, finfosToPaths(fis))
@@ -152,14 +151,14 @@ func TestPFS(suite *testing.T) {
 		request = &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), PaginationMarker: commit1.NewFile(lastFilePath)}
 		walkFileClient, err = env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.WalkFile(walkFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](walkFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 7, len(fis))
 
 		request = &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), Number: 2, Reverse: true}
 		walkFileClient, err = env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.WalkFile(walkFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](walkFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 		require.ElementsEqual(t, []string{"/dir/dir3/file3.1", "/dir/dir3/file3.2"}, finfosToPaths(fis))
@@ -168,13 +167,13 @@ func TestPFS(suite *testing.T) {
 		request = &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), Reverse: true}
 		walkFileClient, err = env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.WalkFile(walkFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](walkFileClient, 1000)
 		require.YesError(t, err)
 
 		request = &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), PaginationMarker: commit1.NewFile("/dir/dir1/file1.2"), Number: 3, Reverse: true}
 		walkFileClient, err = env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.WalkFile(walkFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](walkFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(fis))
 		require.ElementsEqual(t, []string{"/dir/dir1/file1.1", "/dir/dir1/", "/dir/"}, finfosToPaths(fis))
@@ -217,7 +216,7 @@ func TestPFS(suite *testing.T) {
 		request := &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.2")}
 		listFileClient, err := env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](listFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 		require.ElementsEqual(t, []string{"/dir1/file1.2", "/dir1/file1.5"}, finfosToPaths(fis))
@@ -225,7 +224,7 @@ func TestPFS(suite *testing.T) {
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.1"), Number: 2}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](listFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(fis))
@@ -233,7 +232,7 @@ func TestPFS(suite *testing.T) {
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), Number: 1, Reverse: true}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](listFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(fis))
 		require.ElementsEqual(t, []string{"/dir1/file1.5"}, finfosToPaths(fis))
@@ -241,20 +240,20 @@ func TestPFS(suite *testing.T) {
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), Reverse: true}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](listFileClient, 1000)
 		require.YesError(t, err)
 
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.1"), Number: 2, Reverse: true}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](listFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(fis))
 
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.5"), Number: 2, Reverse: true}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](listFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(fis))
@@ -279,7 +278,7 @@ func TestPFS(suite *testing.T) {
 		listCommitsAndCheck := func(request *pfs.ListCommitRequest, expectedIDs []string) []*pfs.CommitInfo {
 			listCommitClient, err := env.PachClient.PfsAPIClient.ListCommit(env.PachClient.Ctx(), request)
 			require.NoError(t, err)
-			cis, err := clientsdk.ListCommit(listCommitClient)
+			cis, err := grpcutil.Collect[*pfs.CommitInfo](listCommitClient, 1000)
 			require.NoError(t, err)
 			require.Equal(t, len(expectedIDs), len(cis))
 			for i, ci := range cis {
@@ -711,7 +710,7 @@ func TestPFS(suite *testing.T) {
 					All:  true,
 				})
 				require.NoError(t, err)
-				cis, err := clientsdk.ListCommit(listCommitClient)
+				cis, err := grpcutil.Collect[*pfs.CommitInfo](listCommitClient, 1000)
 				require.NoError(t, err)
 				// There will be some empty commits on each branch from creation, ignore
 				// those and just check that the latest commits match.
@@ -4190,7 +4189,7 @@ func TestPFS(suite *testing.T) {
 				})
 				require.NoError(t, err)
 				expectedPaths := test.expectedPaths
-				require.NoError(t, clientsdk.ForEachFile(c, func(fi *pfs.FileInfo) error {
+				require.NoError(t, grpcutil.ForEach[*pfs.FileInfo](c, func(fi *pfs.FileInfo) error {
 					require.Equal(t, expectedPaths[0], fi.File.Path)
 					expectedPaths = expectedPaths[1:]
 					return nil

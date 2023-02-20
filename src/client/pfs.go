@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -178,7 +177,7 @@ func (c APIClient) ListProjectRepo(r *pfs.ListRepoRequest) ([]*pfs.RepoInfo, err
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return clientsdk.ListRepoInfo(client)
+	return grpcutil.Collect[*pfs.RepoInfo](client, 1000)
 }
 
 // DeleteRepo deletes a repo and reclaims the storage space it was using.  Note
@@ -528,7 +527,7 @@ func (c APIClient) ListProjectBranch(projectName, repoName string) ([]*pfs.Branc
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return clientsdk.ListBranchInfo(client)
+	return grpcutil.Collect[*pfs.BranchInfo](client, 1000)
 }
 
 // DeleteBranch deletes a branch, but leaves the commits themselves intact.
@@ -606,7 +605,7 @@ func (c APIClient) ListProject() (_ []*pfs.ProjectInfo, retErr error) {
 	if err != nil {
 		return nil, err
 	}
-	return clientsdk.ListProjectInfo(client)
+	return grpcutil.Collect[*pfs.ProjectInfo](client, 1000)
 }
 
 // DeleteProject deletes a project.
