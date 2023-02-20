@@ -11,6 +11,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -18,7 +19,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -400,12 +403,16 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 
 // SearchForFileInBranch searches for commits that reference a supplied file being modified in a branch.
 func (a *apiServer) SearchForFileInBranch(ctx context.Context, request *pfs.SearchForFileInBranchRequest) (*pfs.SearchForFileInBranchResponse, error) {
-	if request.Timeout == nil { // Use a sane default if not defined.
-		request.Timeout = types.DurationProto(time.Minute * 5)
-	}
 	timeout, err := types.DurationFromProto(request.Timeout)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
+	}
+	// Use a sane defaults for fields that are not defined.
+	if timeout == 0 {
+		timeout = time.Minute * 5
+	}
+	if request.Limit == 0 {
+		request.Limit = 10
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -422,45 +429,72 @@ func (a *apiServer) SearchForFileInBranch(ctx context.Context, request *pfs.Sear
 		resp.Duration = types.DurationProto(time.Since(searchStart))
 		return resp
 	}
+	searchDone := false
 	for {
-		if len(found) == int(request.GetLimit()) {
+		if len(found) == int(request.Limit) || searchDone {
 			return returnResp(found, searchStart, commitsSearched, commit), err
 		}
-		diffID, err := a.driver.commitStore.GetDiffFileSet(ctx, commit)
-		if err != nil {
-			if errors.Is(err, context.Canceled) {
-				return returnResp(found, searchStart, commitsSearched, commit), nil
+		if err := log.LogStep(ctx, "searchForFileInCommit", func(ctx context.Context) error {
+			inspectCommitResp, err := a.InspectCommit(ctx, &pfs.InspectCommitRequest{Commit: commit})
+			if err != nil {
+				return err
 			}
-			return nil, errors.EnsureStack(err)
-		}
-		diffFileSet, err := a.driver.storage.Open(ctx, []fileset.ID{*diffID})
-		if err != nil {
-			if errors.Is(err, context.Canceled) {
-				return returnResp(found, searchStart, commitsSearched, commit), nil
+			commit = inspectCommitResp.Commit
+			inCommit, err := a.searchForFileInCommit(ctx, commit, request.FileName)
+			if err != nil {
+				return err
 			}
-			return nil, errors.EnsureStack(err)
-		}
-		if err = diffFileSet.Iterate(ctx, func(file fileset.File) error {
-			if file.Index().Path == request.GetFileName() {
+			if inCommit {
 				found = append(found, commit)
 			}
+			if inspectCommitResp.ParentCommit == nil {
+				log.Info(ctx, "finished search")
+				searchDone = true
+				return nil
+			}
+			commit = inspectCommitResp.ParentCommit
+			commitsSearched++
 			return nil
-		}); err != nil {
-			if errors.Is(err, context.Canceled) {
+		}, zap.String("commit", commit.ID), zap.String("branch", commit.Branch.String())); err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return returnResp(found, searchStart, commitsSearched, commit), nil
 			}
 			return nil, errors.EnsureStack(err)
 		}
-		inspectCommitResp, err := a.InspectCommit(ctx, &pfs.InspectCommitRequest{Commit: commit})
-		if err != nil {
-			if errors.Is(err, context.Canceled) {
-				return returnResp(found, searchStart, commitsSearched, commit), nil
-			}
-			return nil, errors.EnsureStack(err)
-		}
-		commit = inspectCommitResp.ParentCommit
-		commitsSearched++
 	}
+}
+
+func (a *apiServer) searchForFileInCommit(ctx context.Context, commit *pfs.Commit, fileName string) (bool, error) {
+	diffID, err := a.driver.commitStore.GetDiffFileSet(ctx, commit)
+	if err != nil {
+		return false, err
+	}
+	diffFileSet, err := a.driver.storage.Open(ctx, []fileset.ID{*diffID})
+	if err != nil {
+		return false, err
+	}
+	found := false
+	if err = diffFileSet.Iterate(ctx, func(file fileset.File) error {
+		log.Info(ctx, "searchForFileInDiffFileSet", zap.String("file", file.Index().Path), zap.String("target", fileName))
+		if file.Index().Path == fileName {
+			found = true
+			return errutil.ErrBreak
+		}
+		return nil
+	}); err != nil {
+		return false, err
+	}
+	if err = diffFileSet.IterateDeletes(ctx, func(file fileset.File) error {
+		log.Info(ctx, "searchForFileInDiffFileSetDeletive", zap.String("file", file.Index().Path), zap.String("target", fileName))
+		if file.Index().Path == fileName {
+			found = true
+			return errutil.ErrBreak
+		}
+		return nil
+	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
+		return false, err
+	}
+	return found, nil
 }
 
 // CreateProject implements the protobuf pfs.CreateProject RPC

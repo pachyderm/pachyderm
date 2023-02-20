@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bufio"
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/gogo/protobuf/proto"
@@ -61,6 +63,9 @@ func Cmds(pachCtx *config.Context) []*cobra.Command {
 
 	var fullTimestamps bool
 	timestampFlags := cmdutil.TimestampFlags(&fullTimestamps)
+
+	var timeout time.Duration
+	var limit int32
 
 	var noPager bool
 	pagerFlags := cmdutil.PagerFlags(&noPager)
@@ -1015,6 +1020,43 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	deleteBranch.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(deleteBranch, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteBranch, "delete branch", branches))
+
+	searchForFileInBranch := &cobra.Command{
+		Use:   "{{alias}} <repo@commitID> <filePath>",
+		Short: "search for commits with reference to <filePath> within a branch starting from <repo@commitID>",
+		Long:  "search for commits with reference to <filePath> within a branch starting from <repo@commitID>",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			commit, err := cmdutil.ParseCommit(project, args[0])
+			if err != nil {
+				return err
+			}
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			resp, err := c.SearchForFileInBranch(&pfs.SearchForFileInBranchRequest{
+				Start:    commit,
+				FileName: args[1],
+				Timeout:  types.DurationProto(timeout),
+				Limit:    5,
+			})
+			if err != nil {
+				return err
+			}
+			marshalledResp, err := json.Marshal(resp)
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(marshalledResp))
+			return nil
+		}),
+	}
+	searchForFileInBranch.Flags().Int32Var(&limit, "limit", limit, "Number of matching commits to return")
+	searchForFileInBranch.Flags().DurationVar(&timeout, "timeout", timeout, "Search duration timeout")
+	searchForFileInBranch.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	shell.RegisterCompletionFunc(searchForFileInBranch, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAliases(searchForFileInBranch, "search branch", branches))
 
 	projectDocs := &cobra.Command{
 		Short: "Docs for projects.",
