@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
-	"syscall"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -23,14 +22,7 @@ func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
 
 	var d net.Dialer
-	d.ControlContext = func(ctx context.Context, network, address string, c syscall.RawConn) error {
-		var fd uintptr
-		c.Control(func(f uintptr) {
-			fd = f
-		})
-		log.Debug(ctx, "created socket for connection", zap.String("network", network), zap.String("address", address), zap.Any("rawConn", c), zap.String("rawConn.type", fmt.Sprintf("%T", c)), zap.Uintptr("fd", fd))
-		return nil
-	}
+	setupControl(&d)
 
 	r := new(net.Resolver)
 	d.Resolver = r
