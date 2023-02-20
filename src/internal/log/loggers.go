@@ -19,13 +19,8 @@ import (
 )
 
 var (
-	logLevel  = zap.NewAtomicLevelAt(zapcore.InfoLevel)  // Current base logger level.
-	grpcLevel = zap.NewAtomicLevelAt(zapcore.FatalLevel) // The log level for the GRPC adaptor.
-
-	originalLogLevel     = zapcore.InfoLevel // The log level at startup time (after environment parsing).
-	logLevelRevertTimer  atomic.Pointer[time.Timer]
-	originalGRPCLevel    = zapcore.FatalLevel
-	grpcLevelRevertTimer atomic.Pointer[time.Timer]
+	logLevel  = NewResettableLevelAt(zapcore.InfoLevel)  // Current base logger level.
+	grpcLevel = NewResettableLevelAt(zapcore.FatalLevel) // The log level for the GRPC adaptor.
 
 	healthCheckLogger *zap.Logger // A logger only for GRPC health checks.
 
@@ -53,50 +48,31 @@ func SetLevel(l Level) {
 	logLevel.SetLevel(l.coreLevel())
 }
 
-// SetGRPCLogLevel changes the grpc logger level.  To see messages, the overall log level has to be
-// lower than the grpc log level.  (For example, if you SetLevel to FATAL and then SetGRPCLogLevel
-// to DEBUG, you will only see FATAL logs from grpc.  But, if you SetLogLevel(DEBUG) and
-// SetGRPCLogLevel(DEBUG), you will see DEBUG grpc logs.)
+// SetGRPCLogLevel changes the grpc logger level.  It is safe to call at any time from multiple
+// goroutines.
 //
-// Note that SetGRPCLogLevel takes a zapcore.Level instead of a internal/log.Level.  That's because
-// GRPC has more log levels than Pachyderm.
+// Note: to see any messages, the overall log level has to be lower than the grpc log level.  (For
+// example, if you SetLevel to ERROR and then SetGRPCLogLevel to DEBUG, you will only see ERROR logs
+// from GRPC.  But, if you SetLogLevel(DEBUG) and SetGRPCLogLevel(DEBUG), you will see DEBUG grpc
+// logs.)
+//
+// Note: SetGRPCLogLevel takes a zapcore.Level instead of a internal/log.Level.  That's because GRPC
+// has more log levels than Pachyderm.
 func SetGRPCLogLevel(l zapcore.Level) {
 	grpcLevel.SetLevel(l)
-}
-
-type atomicLeveler interface {
-	Level() zapcore.Level
-	SetLevel(zapcore.Level)
-}
-
-// revertLogLevel sets up a log level change that is reverted to an original level after the
-// duration, logging the revert with the text of msg, ensuring that even with multiple concurrent
-// calls, the most recent call cancels the actions of prior calls.
-func revertLogLevel(tPtr *atomic.Pointer[time.Timer], levelVar atomicLeveler, originalLevel, newLevel zapcore.Level, d time.Duration, msg string) {
-	wasSet := make(chan struct{})
-	oldTimer := tPtr.Swap(time.AfterFunc(d, func() {
-		<-wasSet
-		cur := levelVar.Level()
-		levelVar.SetLevel(originalLevel)
-		zap.L().Info(msg, zap.Stringer("from", cur), zap.Stringer("to", originalLevel))
-	}))
-	if oldTimer != nil {
-		oldTimer.Stop()
-	}
-	levelVar.SetLevel(newLevel)
-	close(wasSet) // prevent the revert from happening before we have the chance to set the new level
 }
 
 // SetLevelFor changes the global logger level for the set duration, and then reverts to the log
 // level at process startup.  Subsequent calls before expiration completely override previous calls;
 // the new level takes effect immediately and the previous scheduled revert is canceled.
-func SetLevelFor(l Level, d time.Duration) {
-	revertLogLevel(&logLevelRevertTimer, logLevel, originalLogLevel, l.coreLevel(), d, "reverting to original log level")
+// SetLevelFor is safe to call from multiple goroutines.
+func SetLevelFor(l Level, d time.Duration, notify func(from, to string)) {
+	logLevel.SetLevelFor(l.coreLevel(), d, notify)
 }
 
 // SetGRPCLogLevelFor changes the GRPC logger level for the set duration.  See SetLevelFor for details.
-func SetGRPCLogLevelFor(l zapcore.Level, d time.Duration) {
-	revertLogLevel(&grpcLevelRevertTimer, grpcLevel, originalGRPCLevel, l, d, "reverting to original grpc log level")
+func SetGRPCLogLevelFor(l zapcore.Level, d time.Duration, notify func(from, to string)) {
+	grpcLevel.SetLevelFor(l, d, notify)
 }
 
 // addInitWarningf logs a warning at logger initialization time.  The intent is to be able to log
@@ -118,7 +94,6 @@ func init() {
 		if err := logLevel.UnmarshalText([]byte(lvl)); err != nil {
 			addInitWarningf("parse $LOG_LEVEL: %v; proceeding at %v level", err.Error(), logLevel.Level().String())
 		}
-		originalLogLevel = logLevel.Level()
 	}
 	if d := os.Getenv("DEVELOPMENT_LOGGER"); d != "" {
 		if d == "true" || d == "1" {

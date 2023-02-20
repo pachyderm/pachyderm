@@ -46,18 +46,21 @@ func (s *debugServer) SetLogLevel(ctx context.Context, req *debug.SetLogLevelReq
 	case nil:
 		return result, status.Error(codes.InvalidArgument, "no level provided")
 	case *debug.SetLogLevelRequest_Grpc:
+		notifyRevert := func(from, to string) {
+			log.Info(ctx, "reverted grpc log level", zap.String("from", from), zap.String("to", to))
+		}
 		switch x.Grpc {
 		case debug.SetLogLevelRequest_DEBUG:
-			log.SetGRPCLogLevelFor(zap.DebugLevel, d)
+			log.SetGRPCLogLevelFor(zap.DebugLevel, d, notifyRevert)
 			log.Info(ctx, "set grpc log level to debug", zap.Duration("revert_after", d))
 		case debug.SetLogLevelRequest_INFO:
-			log.SetGRPCLogLevelFor(zap.InfoLevel, d)
+			log.SetGRPCLogLevelFor(zap.InfoLevel, d, notifyRevert)
 			log.Info(ctx, "set grpc log level to info", zap.Duration("revert_after", d))
 		case debug.SetLogLevelRequest_ERROR:
-			log.SetGRPCLogLevelFor(zap.ErrorLevel, d)
+			log.SetGRPCLogLevelFor(zap.ErrorLevel, d, notifyRevert)
 			log.Info(ctx, "set grpc log level to error", zap.Duration("revert_after", d))
 		case debug.SetLogLevelRequest_OFF:
-			log.SetGRPCLogLevelFor(zap.FatalLevel, d)
+			log.SetGRPCLogLevelFor(zap.FatalLevel, d, notifyRevert)
 			log.Info(ctx, "set grpc log level to fatal", zap.Duration("revert_after", d))
 		default:
 			return result, status.Errorf(codes.InvalidArgument, "cannot set grpc log level to %v", x.Grpc.String())
@@ -65,13 +68,19 @@ func (s *debugServer) SetLogLevel(ctx context.Context, req *debug.SetLogLevelReq
 	case *debug.SetLogLevelRequest_Pachyderm:
 		switch x.Pachyderm {
 		case debug.SetLogLevelRequest_DEBUG:
-			log.SetLevelFor(log.DebugLevel, d)
-			log.Debug(ctx, "set log level to debug", zap.Duration("revert_after", d))
+			log.SetLevelFor(log.DebugLevel, d, func(from, to string) {
+				log.Info(ctx, "reverted log level", zap.String("from", from), zap.String("to", to))
+			})
+			log.Info(ctx, "set log level to debug", zap.Duration("revert_after", d))
 		case debug.SetLogLevelRequest_INFO:
-			log.SetLevelFor(log.InfoLevel, d)
+			log.SetLevelFor(log.InfoLevel, d, func(from, to string) {
+				log.Info(ctx, "reverted log level", zap.String("from", from), zap.String("to", to))
+			})
 			log.Info(ctx, "set log level to info", zap.Duration("revert_after", d))
 		case debug.SetLogLevelRequest_ERROR:
-			log.SetLevelFor(log.ErrorLevel, d)
+			log.SetLevelFor(log.ErrorLevel, d, func(from, to string) {
+				log.Error(ctx, "reverted log level", zap.String("from", from), zap.String("to", to))
+			})
 			log.Error(ctx, "set log level to error", zap.Duration("revert_after", d))
 		default:
 			return result, status.Errorf(codes.InvalidArgument, "cannot set log level to %v", x.Pachyderm.String())
