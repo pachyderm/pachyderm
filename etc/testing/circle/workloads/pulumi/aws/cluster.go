@@ -55,7 +55,7 @@ func DeployCluster(ctx *pulumi.Context) (*kubernetes.Provider, *iam.Role, error)
 		},
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("error creating VPC: %v", err)
+		return nil, nil, fmt.Errorf("error creating VPC: %w", err)
 	}
 
 	// Create a new EKS cluster
@@ -87,7 +87,7 @@ func DeployCluster(ctx *pulumi.Context) (*kubernetes.Provider, *iam.Role, error)
 		},
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("error creating EKS cluster: %v", err)
+		return nil, nil, fmt.Errorf("error creating EKS cluster: %w", err)
 	}
 
 	k8sProvider, err := kubernetes.NewProvider(ctx, "k8sprovider", &kubernetes.ProviderArgs{
@@ -95,7 +95,7 @@ func DeployCluster(ctx *pulumi.Context) (*kubernetes.Provider, *iam.Role, error)
 	})
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("error creating k8s provider: %v", err)
+		return nil, nil, fmt.Errorf("error creating k8s provider: %w", err)
 	}
 
 	clusterOidcProviderUrl := eksCluster.Core.OidcProvider().Url()
@@ -143,7 +143,7 @@ func DeployCluster(ctx *pulumi.Context) (*kubernetes.Provider, *iam.Role, error)
 			},
 		})
 		if err != nil {
-			return "", fmt.Errorf("error creating assume role policy: %v", err)
+			return "", fmt.Errorf("error creating assume role policy: %w", err)
 		}
 		return assumeRolePolicy.Json, nil
 	})
@@ -161,7 +161,7 @@ func DeployCluster(ctx *pulumi.Context) (*kubernetes.Provider, *iam.Role, error)
 	})
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("error creating service account role: %v", err)
+		return nil, nil, fmt.Errorf("error creating service account role: %w", err)
 	}
 
 	_, err = iam.NewRolePolicyAttachment(ctx, "attach-ebs-csi-policy", &iam.RolePolicyAttachmentArgs{
@@ -170,7 +170,7 @@ func DeployCluster(ctx *pulumi.Context) (*kubernetes.Provider, *iam.Role, error)
 	})
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("error attaching policy to service account role: %v", err)
+		return nil, nil, fmt.Errorf("error attaching policy to service account role: %w", err)
 	}
 
 	_, err = awseks.NewAddon(ctx, "aws-ebs-csi-driver", &awseks.AddonArgs{
@@ -186,7 +186,7 @@ func DeployCluster(ctx *pulumi.Context) (*kubernetes.Provider, *iam.Role, error)
 		},
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("error creating EBS CSI driver addon: %v", err)
+		return nil, nil, fmt.Errorf("error creating EBS CSI driver addon: %w", err)
 	}
 
 	_, err = storagev1.NewStorageClass(ctx, "gp3", &storagev1.StorageClassArgs{
@@ -201,7 +201,7 @@ func DeployCluster(ctx *pulumi.Context) (*kubernetes.Provider, *iam.Role, error)
 	}, pulumi.Provider(k8sProvider))
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("error creating storage class: %v", err)
+		return nil, nil, fmt.Errorf("error creating storage class: %w", err)
 	}
 
 	// Export some values in case they are needed elsewhere

@@ -36,7 +36,7 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 		pulumi.Provider(k8sProvider))
 
 	if err != nil {
-		return fmt.Errorf("error occurred while attempting to create test-ns: %v", err)
+		return fmt.Errorf("error occurred while attempting to create test-ns: %w", err)
 	}
 
 	values := pulumi.Map{
@@ -108,7 +108,7 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 	}
 
 	if err != nil {
-		return fmt.Errorf("failed to successfully helm install: %v", err)
+		return fmt.Errorf("failed to successfully helm install: %w", err)
 	}
 
 	return nil
