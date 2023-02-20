@@ -139,6 +139,6 @@ class TestClient(_Client):
                 .replace("/", "-")
                 .replace(":", "-")
                 .replace(".py", "")
-        )[:45]  # TODO: Make this the maximum it can be.
+        )[:40]  # TODO: Make this the maximum it can be.
         name = f"{name[:name.find('[')]}-{random.randint(100, 999)}"
         return name
