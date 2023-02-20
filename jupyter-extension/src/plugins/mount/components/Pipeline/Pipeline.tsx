@@ -3,7 +3,6 @@ import {closeIcon} from '@jupyterlab/ui-components';
 import {usePipeline} from './hooks/usePipeline';
 
 type PipelineProps = {
-  showPipeline: boolean;
   setShowPipeline: (shouldShow: boolean) => void;
 };
 
@@ -12,9 +11,9 @@ const placeholderInputSpec = `pfs:
   branch: dev
   glob: /*
 `;
-const placeholderRequirements = './requirements.txt"';
+const placeholderRequirements = './requirements.txt';
 
-const Pipeline: React.FC<PipelineProps> = ({showPipeline, setShowPipeline}) => {
+const Pipeline: React.FC<PipelineProps> = ({setShowPipeline}) => {
   const {
     loading,
     pipelineName,
@@ -27,7 +26,7 @@ const Pipeline: React.FC<PipelineProps> = ({showPipeline, setShowPipeline}) => {
     setRequirements,
     callCreatePipeline,
     errorMessage,
-  } = usePipeline(showPipeline);
+  } = usePipeline();
 
   return (
     <div className="pachyderm-mount-pipeline-base">
@@ -159,6 +158,8 @@ const Pipeline: React.FC<PipelineProps> = ({showPipeline, setShowPipeline}) => {
           data-testid="Pipeline__specPreview"
           name="specPreview"
           value={`name: ${pipelineName}
+transform:
+  image: ${imageName}
 input:
 ${inputSpec
   .split('\n')

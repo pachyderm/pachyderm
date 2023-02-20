@@ -14,21 +14,12 @@ describe('PPS screen', () => {
   beforeEach(() => {
     setShowPipeline = jest.fn();
     mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI({}));
-
-    // IntersectionObserver isn't available in test environment
-    const mockIntersectionObserver = jest.fn();
-    mockIntersectionObserver.mockReturnValue({
-      observe: () => null,
-      unobserve: () => null,
-      disconnect: () => null,
-    });
-    window.IntersectionObserver = mockIntersectionObserver;
   });
 
   describe('spec preview', () => {
     it('proper preview', async () => {
       const {getByTestId, findByTestId} = render(
-        <Pipeline showPipeline={true} setShowPipeline={setShowPipeline} />,
+        <Pipeline setShowPipeline={setShowPipeline} />,
       );
 
       const inputPipelineName = await findByTestId(

@@ -218,16 +218,7 @@ export class MountPlugin implements IMountPlugin {
     this._datum.addClass('pachyderm-mount-datum-wrapper');
 
     this._pipeline = ReactWidget.create(
-      <UseSignal signal={this._showPipelineSignal}>
-        {(_, showPipeline) => (
-          <>
-            <Pipeline
-              showPipeline={showPipeline ? showPipeline : this._showPipeline}
-              setShowPipeline={this.setShowPipeline}
-            />
-          </>
-        )}
-      </UseSignal>,
+      <Pipeline setShowPipeline={this.setShowPipeline} />,
     );
     this._pipeline.addClass('pachyderm-mount-pipeline-wrapper');
 
@@ -419,7 +410,7 @@ export class MountPlugin implements IMountPlugin {
       this._mountedList.setHidden(false);
       this._unmountedList.setHidden(false);
     }
-    this._mountBrowser.setHidden(false);
+    this._mountBrowser.setHidden(true);
     this._config.setHidden(true);
     this._datum.setHidden(true);
     this._fullPageError.setHidden(true);
@@ -458,6 +449,7 @@ export class MountPlugin implements IMountPlugin {
       this._mountedList.setHidden(true);
       this._unmountedList.setHidden(true);
       this._mountBrowser.setHidden(true);
+      this._pipeline.setHidden(true);
     } else {
       this._fullPageError.setHidden(true);
       this._config.setHidden(false);
@@ -465,6 +457,7 @@ export class MountPlugin implements IMountPlugin {
       this._mountedList.setHidden(false);
       this._unmountedList.setHidden(false);
       this._mountBrowser.setHidden(false);
+      this._pipeline.setHidden(false);
     }
   };
 

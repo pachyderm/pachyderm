@@ -16,7 +16,7 @@ export type usePipelineResponse = {
   errorMessage: string;
 };
 
-export const usePipeline = (showPipeline: boolean): usePipelineResponse => {
+export const usePipeline = (): usePipelineResponse => {
   const [loading, setLoading] = useState(false);
   const [pipelineName, setPipelineName] = useState('');
   const [imageName, setImageName] = useState('');
