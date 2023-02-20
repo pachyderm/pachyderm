@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/pkg/errors"
@@ -34,7 +33,7 @@ func DeployResources() pulumi.RunFunc {
 
 		readmePath := fmt.Sprintf("./Pulumi.%s.README.md", ctx.Stack())
 		if _, err := os.Stat(readmePath); err == nil {
-			readmeBytes, err := ioutil.ReadFile(readmePath)
+			readmeBytes, err := os.ReadFile(readmePath)
 			if err != nil {
 				return errors.WithStack(fmt.Errorf("failed to read readme: %v", err))
 			}
