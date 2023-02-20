@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -23,9 +24,14 @@ func Cmds() []*cobra.Command {
 
 	var d net.Dialer
 	d.ControlContext = func(ctx context.Context, network, address string, c syscall.RawConn) error {
-		log.Debug(ctx, "ControlContext", zap.String("network", network), zap.String("address", address))
+		var fd uintptr
+		c.Control(func(f uintptr) {
+			fd = f
+		})
+		log.Debug(ctx, "created socket for connection", zap.String("network", network), zap.String("address", address), zap.Any("rawConn", c), zap.String("rawConn.type", fmt.Sprintf("%T", c)), zap.Uintptr("fd", fd))
 		return nil
 	}
+
 	r := new(net.Resolver)
 	d.Resolver = r
 	r.Dial = func(ctx context.Context, network, address string) (_ net.Conn, retErr error) {
@@ -35,6 +41,13 @@ func Cmds() []*cobra.Command {
 
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.DialContext = d.DialContext
+	t.TLSClientConfig.VerifyConnection = func(cs tls.ConnectionState) error {
+		fmt.Printf("tls: server name: %v\n", cs.ServerName)
+		fmt.Printf("tls: negotiated protocol: %v\n", cs.NegotiatedProtocol)
+		fmt.Println()
+		return nil
+	}
+	t.TLSClientConfig.InsecureSkipVerify = true
 	hc := &http.Client{
 		Transport: promutil.InstrumentRoundTripper("pachctl", t),
 	}
@@ -97,9 +110,25 @@ func Cmds() []*cobra.Command {
 	}
 	commands = append(commands, cmdutil.CreateAlias(httpHead, "misc http-head"))
 
+	dial := &cobra.Command{
+		Use:   "{{alias}} <network(tcp|udp)> <address>",
+		Short: "Dials a network server and then disconnects.",
+		Long:  "Dials a network server and then disconnects.",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			ctx := pctx.Background("")
+			conn, err := d.DialContext(ctx, args[0], args[1])
+			if err != nil {
+				return errors.Wrap(err, "Dial")
+			}
+			fmt.Printf("OK: %s -> %s\n", conn.LocalAddr(), conn.RemoteAddr())
+			return conn.Close()
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(dial, "misc dial"))
+
 	misc := &cobra.Command{
 		Short:  "Miscellaneous utilities unrelated to Pachyderm itself.",
-		Long:   "Miscellaneous utilities unrelated to Pachyderm itself.",
+		Long:   "Miscellaneous utilities unrelated to Pachyderm itself.  These utilities can be removed or changed in minor releases; do not rely on them.",
 		Hidden: true,
 	}
 	commands = append(commands, cmdutil.CreateAlias(misc, "misc"))
