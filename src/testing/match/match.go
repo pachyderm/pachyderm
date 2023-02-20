@@ -29,6 +29,7 @@ func die(f string, args ...interface{}) {
 }
 
 func main() {
+	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	flag.Parse()
 	if flag.NArg() == 0 {
 		die("Must provide a regex to match")
