@@ -658,7 +658,7 @@ jobs:
       - run: make -C etc/generate-envoy-config test
   govulncheck:
     executor: docker-go
-    resource_class: large
+    resource_class: xlarge
     steps:
       - checkout
       - run:
