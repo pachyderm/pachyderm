@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/rds"
 	postgresql "github.com/pulumi/pulumi-postgresql/sdk/v3/go/postgresql"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -70,14 +71,12 @@ func DeployRDS(ctx *pulumi.Context) (*rds.Instance, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating postgres provider: %w", err)
 	}
-
 	dexDbName := "dex"
 	_, err = postgresql.NewDatabase(ctx, dexDbName, &postgresql.DatabaseArgs{Name: pulumi.StringPtr(dexDbName)}, pulumi.Provider(postgresProvider))
 
-	return nil, func() error {
-		if err != nil {
-			return fmt.Errorf("error creating dex database: %w", err)
-		}
-		return nil
-	}()
+	if err != nil {
+		errors.WithStack(fmt.Errorf("error creating dex database: %w", err))
+	}
+
+	return r, nil
 }
