@@ -3,8 +3,9 @@ package client
 import "github.com/pachyderm/pachyderm/v2/src/pfs"
 
 type putFileConfig struct {
-	datum  string
-	append bool
+	datum             string
+	append            bool
+	importConcurrency uint32
 }
 
 // PutFileOption configures a PutFile call.
@@ -21,6 +22,13 @@ func WithAppendPutFile() PutFileOption {
 func WithDatumPutFile(datum string) PutFileOption {
 	return func(pf *putFileConfig) {
 		pf.datum = datum
+	}
+}
+
+// WithImportConcurrency configures the maximum number of tasks in flight created by PutFileURL.
+func WithImportConcurrency(importConcurrency uint32) PutFileOption {
+	return func(pf *putFileConfig) {
+		pf.importConcurrency = importConcurrency
 	}
 }
 
