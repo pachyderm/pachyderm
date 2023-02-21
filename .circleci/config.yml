@@ -206,7 +206,35 @@ jobs:
             ./onecomment -pr-id ${CIRCLE_PULL_REQUEST##*/} \
             -owner pachyderm -repo haberdashery \
             -includes '' \
-            -message "Install a console image of this branch locally with:
+            -message "Install a Console image of this branch locally with:
+
+            <details><summary>Proxy</summary>
+
+            \`\`\`bash
+            helm repo add pachyderm https://pachyderm.github.io/helmchart 
+            helm repo update
+            helm uninstall pachd
+
+            helm install \\
+              --wait --timeout 10m pachd pach/pachyderm \\
+              --version=$PACHYDERM_VERSION \\
+              --set deployTarget=LOCAL \\
+              --set console.image.tag=<<pipeline.git.revision>> \\
+              --set console.config.disableTelemetry=true \\
+              --set pachd.image.tag=$RELEASE_COMMIT \\
+              --set proxy.enabled=true \\
+              --set proxy.host=localhost \\
+              --set proxy.service.type=LoadBalancer
+
+            echo '{\"pachd_address\": \"grpc://127.0.0.1:80\"}' | pachctl config set context local --overwrite
+            pachctl config set active-context local
+            echo \"Verify pachctl is working with: pachctl version\"
+            \`\`\`
+
+            </details>
+
+            <details><summary>Port Forwarding</summary>
+
             \`\`\`bash
             helm repo add pachyderm https://pachyderm.github.io/helmchart 
             helm repo update
@@ -219,13 +247,12 @@ jobs:
               --set console.image.tag=<<pipeline.git.revision>> \\
               --set console.config.disableTelemetry=true \\
               --set pachd.image.tag=$RELEASE_COMMIT
-            \`\`\`
-            To start port forwarding use the following commands:
-            \`\`\`bash
+
             pachctl config import-kube local --overwrite
             pachctl config set active-context local
             pachctl port-forward
             \`\`\`
+            </details>
             "
 
 workflows:
