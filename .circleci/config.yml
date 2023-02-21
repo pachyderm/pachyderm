@@ -12,6 +12,51 @@ orbs:
   browser-tools: circleci/browser-tools@1.2.3
   gh: circleci/github-cli@2.1.1
   jq: circleci/jq@2.2.0
+  node: circleci/node@5.1.0
+
+executors:
+  small-node:
+    resource_class: small
+    docker:
+      - image: cimg/node:16.14.2
+  medium-node:
+    resource_class: medium
+    docker:
+      - image: cimg/node:16.14.2
+  xlarge-node:
+    resource_class: xlarge
+    docker:
+      - image: cimg/node:16.14.2
+
+commands:
+  node-install-all:
+    steps:
+      - node/install-packages
+      - node/install-packages:
+          app-dir: backend
+      - node/install-packages:
+          app-dir: frontend
+  run-pachyderm-ce:
+    steps:
+      - gh/setup:
+          version: 2.20.2
+      - run: etc/testing/circle/install.sh
+      - run: etc/testing/circle/start-kind.sh
+      - run:
+          name: Deploy Pachyderm CE
+          command: etc/testing/circle/deploy-pachyderm.sh
+  activate-pachyderm-enterprise:
+    steps:
+      - run:
+          name: Activate Pachyderm Enterprise
+          command: echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
+  activate-auth-console:
+    steps:
+      - run:
+          name: Activate authorization in Console
+          command: |
+            touch .env.development.local
+            make setup-ci-auth
 
 jobs:
   components-storybook-release:
@@ -20,51 +65,86 @@ jobs:
     steps:
       - checkout
       - run: .circleci/scripts/upload-storybook.sh
-  test-backend:
-    resource_class: xlarge
-    docker:
-      - image: cimg/node:16.14.2
+
+  lint-frontend:
+    executor: small-node
     steps:
       - checkout
-      - run: make ci
-      - run: cd backend && npm run lint
+      - node/install-packages:
+          app-dir: frontend
+      - run: cd frontend && npm run lint:js:no-fix
+  lint-graphql-validate-generation:
+    executor: small-node
+    steps:
+      - checkout
+      - node-install-all
+      - run:
+          name: Generate graphQL types and compare the diff of the generated types.
+          command: |
+            make graphql
+            sh ./scripts/checkTypeChanges.sh
+  lint-backend:
+    executor: small-node
+    steps:
+      - checkout
+      - node/install-packages:
+          app-dir: ./backend
+      - run: cd backend && npm run lint:no-fix
+
+  test-backend:
+    executor: xlarge-node
+    steps:
+      - checkout
+      - node/install-packages:
+          app-dir: backend
+      - node/install-packages:
+          app-dir: frontend
       - run: cd backend && npm run test -- --collect-coverage
       - codecov/upload:
           file: backend/coverage/lcov.info
   test-backend-integration:
-    resource_class: xlarge
+    resource_class: large
     machine:
       image: ubuntu-2004:202111-01
     steps:
       - checkout
-      - run: make ci
-      - gh/setup:
-          version: 2.20.2
-      - run: etc/testing/circle/install.sh
-      - run: etc/testing/circle/start-kind.sh
-      - run: etc/testing/circle/deploy-pachyderm.sh
-      - run: cd backend && npm run lint
+      - node/install-packages:
+          app-dir: backend
+      - run-pachyderm-ce
       - run: pachctl port-forward & cd backend && npm run integration-test
-
-  test-frontend:
-    resource_class: xlarge
-    docker:
-      - image: cimg/node:16.14.2
+  test-frontend-components:
+    executor: xlarge-node
     steps:
       - checkout
-      - run: make ci
-      - run: cd frontend && npm run lint
-      - run: cd frontend && npm run test -- --collect-coverage
+      - node/install-packages:
+          app-dir: backend
+      - node/install-packages:
+          app-dir: frontend
+      - run: cd frontend && npm run components:test -- --collect-coverage
       - codecov/upload:
           file: frontend/coverage/lcov.info
+  test-frontend-react:
+    executor: xlarge-node
+    steps:
+      - checkout
+      - node/install-packages:
+          app-dir: backend
+      - node/install-packages:
+          app-dir: frontend
+      - run: cd frontend && npm run frontend:test -- --collect-coverage
+      - codecov/upload:
+          file: frontend/coverage/lcov.info
+
   test-e2e-mock:
-    resource_class: xlarge
+    resource_class: large
     machine:
       image: ubuntu-2004:202201-02
     steps:
       - checkout
-      - run: make ci
-      - run: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e:local-mock
+      - node-install-all
+      - run:
+          name: Run mock backend Cypress tests
+          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e:local-mock
       - store_artifacts:
           path: /tmp/cypress-screenshots
       - store_artifacts:
@@ -75,51 +155,35 @@ jobs:
       image: ubuntu-2004:202201-02
     steps:
       - checkout
-      - run: sudo sysctl fs.inotify.max_user_watches=524288
-      - run: sudo sysctl -p
-      - run: sudo apt-get update
-      - run: sudo apt-get install -y libgbm-dev
-      - run: npm ci
-      - run: cd backend && npm ci
-      - run: cd frontend && npm ci
-      - gh/setup:
-          version: 2.20.2
-      - run: etc/testing/circle/install.sh
-      - run: etc/testing/circle/start-kind.sh
-      - run: etc/testing/circle/deploy-pachyderm.sh
-      - run: echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
+      - node-install-all
+      - run-pachyderm-ce
+      - activate-pachyderm-enterprise
       - run: touch .env.development.local
-      - run: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
+      - run:
+          name: Run Community Edition Cypress tests
+          command: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
       - store_artifacts:
           path: /tmp/cypress-screenshots
       - store_artifacts:
           path: /tmp/cypress-videos
   test-e2e-enterprise-edition:
-    resource_class: xlarge
+    resource_class: large
     machine:
       image: ubuntu-2004:202201-02
     steps:
       - checkout
-      - run: sudo sysctl fs.inotify.max_user_watches=524288
-      - run: sudo sysctl -p
-      - run: sudo apt-get update
-      - run: sudo apt-get install -y libgbm-dev
-      - run: npm ci
-      - run: cd backend && npm ci
-      - run: cd frontend && npm ci
-      - gh/setup:
-          version: 2.20.2
-      - run: etc/testing/circle/install.sh
-      - run: etc/testing/circle/start-kind.sh
-      - run: etc/testing/circle/deploy-pachyderm.sh
-      - run: echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
-      - run: touch .env.development.local
-      - run: make setup-ci-auth
-      - run: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e-auth
+      - node-install-all
+      - run-pachyderm-ce
+      - activate-pachyderm-enterprise
+      - activate-auth-console
+      - run:
+          name: Run Enterprise Edition Cypress tests
+          command: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e-auth
       - store_artifacts:
           path: /tmp/cypress-screenshots
       - store_artifacts:
           path: /tmp/cypress-videos
+
   load-test:
     resource_class: xlarge
     machine:
@@ -130,34 +194,22 @@ jobs:
       - run: echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
       - run: sudo apt-get update
       - run: sudo apt-get install k6
-      - run: make ci
-      - gh/setup:
-          version: 2.20.2
-      - run: etc/testing/circle/install.sh
-      - run: etc/testing/circle/start-kind.sh
-      - run: etc/testing/circle/deploy-pachyderm.sh
-      - run: echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
+      - node-install-all
+      - run-pachyderm-ce
+      - activate-pachyderm-enterprise
       - run: touch .env.development.local
       - run: make setup-ci-auth
       - run: npm run load-setup
       - run: pachctl port-forward & npm run load-test:ci
+
   build:
-    resource_class: xlarge
+    resource_class: small
     docker:
       - image: cimg/node:16.14.2
     steps:
       - checkout
-      - run: make ci
+      - node-install-all
       - run: make build
-  check-types:
-    resource_class: xlarge
-    docker:
-      - image: cimg/node:16.14.2
-    steps:
-      - checkout
-      - run: make ci
-      - run: make graphql
-      - run: sh ./scripts/checkTypeChanges.sh
   docker-build:
     parameters:
       resource_class:
@@ -187,6 +239,7 @@ jobs:
           name: Create Multiarch Manifest
           command: |
             make circle-docker-manifest
+
   preview:
     docker:
       - image: node:16.14.2
@@ -262,25 +315,31 @@ workflows:
       not:
         equal: [scheduled_pipeline, << pipeline.trigger_source >>]
     jobs:
+      - lint-backend
+      - lint-frontend
+      - lint-graphql-validate-generation
+      - build
       - test-backend
       - test-backend-integration
-      - test-frontend
+      - test-frontend-components
+      - test-frontend-react
       - test-e2e-community-edition
       - test-e2e-enterprise-edition
       - test-e2e-mock
-      - check-types
-      - build
+
   storybook-release:
     jobs:
       - components-storybook-release:
           filters:
             branches:
               only: master
+
   load-test:
     when:
       equal: [scheduled_pipeline, << pipeline.trigger_source >>]
     jobs:
       - load-test
+
   docker-build:
     jobs:
       - docker-build:
@@ -298,6 +357,7 @@ workflows:
           filters:
             branches:
               ignore: master
+
   docker-release:
     jobs:
       - docker-build:

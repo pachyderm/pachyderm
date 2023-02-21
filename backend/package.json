@@ -6,7 +6,8 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json && cp -r ./src/proto/proto ./dist/proto/proto",
     "generate-types": "graphql-codegen",
-    "lint": "eslint 'src/**/*.{ts,tsx}'",
+    "lint": "eslint --fix 'src/**/*.{ts,tsx}'",
+    "lint:no-fix": "eslint 'src/**/*.{ts,tsx}'",
     "start": "NODE_PATH=dist/ NODE_ENV=production DOTENV_FLOW_PATH=../ node -r module-alias/register -r dotenv-flow/config dist/index.js",
     "start:dev": "LOG_LEVEL=debug NODE_ENV=development DOTENV_FLOW_PATH=../ nodemon --watch ./src --ext ts -- --files -r dotenv-flow/config -r tsconfig-paths/register src/index.ts",
     "start:test": "NODE_ENV=test DOTENV_FLOW_PATH=../ nodemon --watch ./src --ext ts -- --files -r dotenv-flow/config -r tsconfig-paths/register src/index.ts",

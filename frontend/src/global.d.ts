@@ -21,6 +21,7 @@ declare namespace NodeJS {
       REACT_APP_RUNTIME_DISABLE_TELEMETRY?: string;
     };
     REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX?: string;
+    REACT_APP_POLLING?: string;
   }
 }
 
@@ -37,6 +38,7 @@ declare global {
       GRPC_SSL: string;
       REACT_APP_RUNTIME_ISSUER_URI: string;
       REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX?: string;
+      REACT_APP_POLLING?: string;
     }
   }
 }
