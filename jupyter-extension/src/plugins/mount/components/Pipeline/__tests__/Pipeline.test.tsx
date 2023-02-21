@@ -48,6 +48,8 @@ describe('PPS screen', () => {
       const specPreview = getByTestId('Pipeline__specPreview');
       expect(specPreview).toHaveValue(
         `name: ThisPipelineIsNamedFred
+transform:
+  image: ThisImageIsNamedLucy
 input:
   pfs:
     repo: data
