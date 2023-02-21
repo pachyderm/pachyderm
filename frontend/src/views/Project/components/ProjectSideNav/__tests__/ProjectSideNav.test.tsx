@@ -34,7 +34,7 @@ describe('project sidenav', () => {
     const createButton = screen.getByText('Create Repo');
     await click(createButton);
 
-    const nameInput = await screen.findByLabelText('Repo Name', {exact: false});
+    const nameInput = await screen.findByLabelText('Name', {exact: false});
     const descriptionInput = await screen.findByLabelText(
       'Description (optional)',
       {

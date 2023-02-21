@@ -36,7 +36,7 @@ describe('Onboarding', () => {
     // Create Repo Modal
     cy.findByRole('dialog', {timeout: 12000}).within(() => {
       cy.findByRole('textbox', {
-        name: /repo name/i,
+        name: /name/i,
       })
         .clear()
         .type('NewRepo');

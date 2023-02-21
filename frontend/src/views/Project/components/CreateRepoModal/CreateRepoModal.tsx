@@ -39,7 +39,7 @@ const CreateRepoModal: FunctionComponent<ModalProps> = ({show, onHide}) => {
       <Group data-testid="CreateRepoModal__modal" vertical spacing={16}>
         <Group vertical spacing={32}>
           <div>
-            <Label htmlFor="name" label="Repo Name" maxLength={63} />
+            <Label htmlFor="name" label="Name" maxLength={63} />
             <Input
               data-testid="CreateRepoModal__name"
               type="text"

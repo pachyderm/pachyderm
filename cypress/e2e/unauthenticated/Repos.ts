@@ -6,7 +6,7 @@ describe('Repos', () => {
   beforeEach(() => {
     cy.findAllByText(/^View(\sProject)*$/).eq(0).click();
     cy.findByText('Create Repo', {timeout: 12000}).click();
-    cy.findByLabelText('Repo Name', {exact: false, timeout: 12000}).type("TestRepo")
+    cy.findByLabelText('Name', {exact: false, timeout: 12000}).type("TestRepo")
     cy.findByText('Create').click();
   });
 
@@ -18,7 +18,7 @@ describe('Repos', () => {
   it('should allow a user to create a repo', () => {
     cy.findByText('Create Repo', {timeout: 12000}).click();
 
-    cy.findByLabelText('Repo Name', {exact: false, timeout: 12000}).clear().type("NewRepo")
+    cy.findByLabelText('Name', {exact: false, timeout: 12000}).clear().type("NewRepo")
     cy.findByLabelText('Description', {exact: false}).type("New repo description")
     cy.findByText('Create').click();
 
