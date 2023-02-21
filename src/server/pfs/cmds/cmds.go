@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"bufio"
 	"compress/gzip"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -1022,14 +1021,15 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	commands = append(commands, cmdutil.CreateAliases(deleteBranch, "delete branch", branches))
 
 	searchForFileInBranch := &cobra.Command{
-		Use:   "{{alias}} <repo@commitID> <filePath>",
+		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs> [flags]",
 		Short: "search for commits with reference to <filePath> within a branch starting from <repo@commitID>",
 		Long:  "search for commits with reference to <filePath> within a branch starting from <repo@commitID>",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			commit, err := cmdutil.ParseCommit(project, args[0])
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
 			}
+			commit := file.Commit
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
@@ -1037,18 +1037,33 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 			defer c.Close()
 			resp, err := c.SearchForFileInBranch(&pfs.SearchForFileInBranchRequest{
 				Start:    commit,
-				FileName: args[1],
+				FilePath: file.Path,
 				Timeout:  types.DurationProto(timeout),
-				Limit:    5,
+				Limit:    limit,
 			})
 			if err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
-			marshalledResp, err := json.Marshal(resp)
-			if err != nil {
-				return err
+			writer := tabwriter.NewWriter(os.Stdout, "FOUND IN COMMITS\n")
+			for _, commit := range resp.FoundCommits {
+				_, err := writer.Write([]byte(commit.ID + "\n"))
+				if err != nil {
+					return errors.EnsureStack(err)
+				}
 			}
-			fmt.Println(string(marshalledResp))
+			if _, err = writer.Write([]byte("\n")); err != nil {
+				return errors.EnsureStack(err)
+			}
+			if err = writer.Flush(); err != nil {
+				return errors.EnsureStack(err)
+			}
+			writer = tabwriter.NewWriter(os.Stdout, "LAST SEARCHED COMMIT\n")
+			if _, err = writer.Write([]byte(resp.LastSearchedCommit.ID + "\n")); err != nil {
+				return errors.EnsureStack(err)
+			}
+			if err = writer.Flush(); err != nil {
+				return errors.EnsureStack(err)
+			}
 			return nil
 		}),
 	}

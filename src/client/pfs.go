@@ -769,14 +769,14 @@ func (c APIClient) ClearProjectCommit(projectName, repoName, branchName, commitI
 }
 
 // SearchForFileInBranch searches for commits that reference a supplied file being modified in a branch.
-func (c APIClient) SearchForFileInBranch(req *pfs.SearchForFileInBranchRequest) ([]*pfs.Commit, error) {
+func (c APIClient) SearchForFileInBranch(req *pfs.SearchForFileInBranchRequest) (*pfs.SearchForFileInBranchResponse, error) {
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
 	resp, err := c.PfsAPIClient.SearchForFileInBranch(ctx, req)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return resp.GetFoundCommits(), nil
+	return resp, nil
 }
 
 type FsckOption func(*pfs.FsckRequest)

@@ -435,7 +435,7 @@ func (x *SearchForFileInBranchRequest) MarshalLogObject(enc zapcore.ObjectEncode
 		return nil
 	}
 	enc.AddObject("start", x.Start)
-	enc.AddString("file_name", x.FileName)
+	enc.AddString("file_path", x.FilePath)
 	enc.AddInt32("limit", x.Limit)
 	protoextensions.AddDuration(enc, "timeout", x.Timeout)
 	return nil
@@ -453,7 +453,6 @@ func (x *SearchForFileInBranchResponse) MarshalLogObject(enc zapcore.ObjectEncod
 	}
 	enc.AddArray("found_commits", zapcore.ArrayMarshalerFunc(found_commitsArrMarshaller))
 	enc.AddObject("last_searched_commit", x.LastSearchedCommit)
-	protoextensions.AddDuration(enc, "duration", x.Duration)
 	enc.AddInt32("commits_searched", x.CommitsSearched)
 	return nil
 }

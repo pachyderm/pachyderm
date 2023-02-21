@@ -407,7 +407,7 @@ func (a *apiServer) SearchForFileInBranch(ctx context.Context, request *pfs.Sear
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	// Use a sane defaults for fields that are not defined.
+	// Use sane defaults for fields that are not defined.
 	if timeout == 0 {
 		timeout = time.Minute * 5
 	}
@@ -419,20 +419,17 @@ func (a *apiServer) SearchForFileInBranch(ctx context.Context, request *pfs.Sear
 	var found []*pfs.Commit
 	commit := request.GetStart()
 	commitsSearched := 0
-	searchStart := time.Now()
-	returnResp := func(found []*pfs.Commit, startTime time.Time,
-		commitsSearched int, lastSearchedCommit *pfs.Commit) *pfs.SearchForFileInBranchResponse {
+	returnResp := func(found []*pfs.Commit, commitsSearched int, lastSearchedCommit *pfs.Commit) *pfs.SearchForFileInBranchResponse {
 		resp := &pfs.SearchForFileInBranchResponse{}
 		resp.FoundCommits = found
 		resp.CommitsSearched = int32(commitsSearched)
 		resp.LastSearchedCommit = commit
-		resp.Duration = types.DurationProto(time.Since(searchStart))
 		return resp
 	}
 	searchDone := false
 	for {
-		if len(found) == int(request.Limit) || searchDone {
-			return returnResp(found, searchStart, commitsSearched, commit), err
+		if searchDone {
+			return returnResp(found, commitsSearched, commit), err
 		}
 		if err := log.LogStep(ctx, "searchForFileInCommit", func(ctx context.Context) error {
 			inspectCommitResp, err := a.InspectCommit(ctx, &pfs.InspectCommitRequest{Commit: commit})
@@ -440,31 +437,31 @@ func (a *apiServer) SearchForFileInBranch(ctx context.Context, request *pfs.Sear
 				return err
 			}
 			commit = inspectCommitResp.Commit
-			inCommit, err := a.searchForFileInCommit(ctx, commit, request.FileName)
+			inCommit, err := a.searchForFileInCommit(ctx, commit, request.FilePath)
 			if err != nil {
 				return err
 			}
 			if inCommit {
+				log.Info(ctx, "found file", zap.String("commit", commit.ID), zap.String("branch", commit.Branch.String()), zap.String("targetFile", request.FilePath))
 				found = append(found, commit)
 			}
-			if inspectCommitResp.ParentCommit == nil {
-				log.Info(ctx, "finished search")
+			commitsSearched++
+			if len(found) == int(request.Limit) || inspectCommitResp.ParentCommit == nil {
 				searchDone = true
 				return nil
 			}
 			commit = inspectCommitResp.ParentCommit
-			commitsSearched++
 			return nil
-		}, zap.String("commit", commit.ID), zap.String("branch", commit.Branch.String())); err != nil {
+		}, zap.String("commit", commit.ID), zap.String("branch", commit.Branch.String()), zap.String("targetFile", request.FilePath)); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return returnResp(found, searchStart, commitsSearched, commit), nil
+				return returnResp(found, commitsSearched, commit), nil
 			}
 			return nil, errors.EnsureStack(err)
 		}
 	}
 }
 
-func (a *apiServer) searchForFileInCommit(ctx context.Context, commit *pfs.Commit, fileName string) (bool, error) {
+func (a *apiServer) searchForFileInCommit(ctx context.Context, commit *pfs.Commit, filePath string) (bool, error) {
 	diffID, err := a.driver.commitStore.GetDiffFileSet(ctx, commit)
 	if err != nil {
 		return false, err
@@ -475,18 +472,20 @@ func (a *apiServer) searchForFileInCommit(ctx context.Context, commit *pfs.Commi
 	}
 	found := false
 	if err = diffFileSet.Iterate(ctx, func(file fileset.File) error {
-		log.Info(ctx, "searchForFileInDiffFileSet", zap.String("file", file.Index().Path), zap.String("target", fileName))
-		if file.Index().Path == fileName {
+		if file.Index().Path == filePath {
 			found = true
 			return errutil.ErrBreak
 		}
 		return nil
-	}); err != nil {
+	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
 		return false, err
 	}
+	// a file cannot be in the additive and deletive set, so if its found, skip iteration over deletive.
+	if found {
+		return found, nil
+	}
 	if err = diffFileSet.IterateDeletes(ctx, func(file fileset.File) error {
-		log.Info(ctx, "searchForFileInDiffFileSetDeletive", zap.String("file", file.Index().Path), zap.String("target", fileName))
-		if file.Index().Path == fileName {
+		if file.Index().Path == filePath {
 			found = true
 			return errutil.ErrBreak
 		}

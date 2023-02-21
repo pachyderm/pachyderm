@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -15,6 +14,8 @@ import (
 	"text/template"
 	"time"
 	"unicode"
+
+	"go.uber.org/zap/zapcore"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -38,7 +39,6 @@ import (
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
@@ -759,6 +759,12 @@ This resets the cluster to its initial state.`,
 		Long:  "Finish a Pachyderm resource.",
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(finishDocs, "finish"))
+
+	searchDocs := &cobra.Command{
+		Short: "Search for file addition, modification, or deletion in a commit.",
+		Long:  "Search for file addition, modification, or deletion in a commit.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(searchDocs, "search"))
 
 	waitDocs := &cobra.Command{
 		Short: "Wait for the side-effects of a Pachyderm resource to propagate.",

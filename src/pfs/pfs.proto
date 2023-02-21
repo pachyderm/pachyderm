@@ -302,15 +302,14 @@ message CreateBranchRequest {
 
 message SearchForFileInBranchRequest {
   Commit start = 1;
-  string file_name = 2;
-  int32 limit = 3; // Does it make more sense to define a limit in terms of raw commits to search or in terms of the length of the returned 'found commits' array?
+  string file_path = 2;
+  int32 limit = 3;
   google.protobuf.Duration timeout = 4;
 }
 
 message SearchForFileInBranchResponse {
   repeated Commit found_commits = 1;
   Commit last_searched_commit = 2;
-  google.protobuf.Duration duration = 3;
   int32 commits_searched = 4;
 }
 
