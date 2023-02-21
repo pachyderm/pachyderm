@@ -18,6 +18,7 @@ ROOT_TOKEN = "iamroot"
 DEFAULT_PROJECT = "default"
 
 
+@pytest.fixture()
 def pachyderm_resources():
     print("creating pachyderm resources")
     import python_pachyderm
