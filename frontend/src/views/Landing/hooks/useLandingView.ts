@@ -21,13 +21,13 @@ const sortOptions: sortOptionsType = {
   'Name A-Z': {
     name: 'Name A-Z',
     func: stringComparator,
-    accessor: (project: Project) => project.id,
+    accessor: (project: Project) => project.id.toLowerCase(),
   },
   'Name Z-A': {
     name: 'Name Z-A',
     reverse: true,
     func: stringComparator,
-    accessor: (project: Project) => project.id,
+    accessor: (project: Project) => project.id.toLowerCase(),
   },
 };
 
