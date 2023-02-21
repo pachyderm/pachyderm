@@ -1,11 +1,7 @@
-import flattenDeep from 'lodash/flattenDeep';
 import keyBy from 'lodash/keyBy';
 
 import {UUID_WITHOUT_DASHES_REGEX} from '@dash-backend/constants/pachCore';
-import flattenPipelineInput from '@dash-backend/lib/flattenPipelineInput';
-import getJobsFromJobSet from '@dash-backend/lib/getJobsFromJobSet';
 import hasRepoReadPermissions from '@dash-backend/lib/hasRepoReadPermissions';
-import {Pipeline, RepoInfo, PipelineInfo} from '@dash-backend/proto';
 import {QueryResolvers} from '@graphqlTypes';
 
 import {
@@ -24,13 +20,11 @@ const searchResolver: SearchResolver = {
   Query: {
     searchResults: async (
       _parent,
-      {args: {query, limit, projectId, globalIdFilter}},
+      {args: {query, limit, projectId}},
       {pachClient},
     ) => {
       if (query) {
         const lowercaseQuery = query.toLowerCase();
-        let repos: RepoInfo.AsObject[];
-        let pipelines: PipelineInfo.AsObject[];
 
         //Check if query is commit or job id
         if (UUID_WITHOUT_DASHES_REGEX.test(query)) {
@@ -54,54 +48,10 @@ const searchResolver: SearchResolver = {
           };
         }
 
-        if (globalIdFilter) {
-          const jobSet = await pachClient
-            .pps()
-            .inspectJobSet({id: globalIdFilter, projectId, details: false});
-
-          const jobs = await getJobsFromJobSet({
-            jobSet,
-            projectId,
-            pachClient,
-          });
-
-          const pipelineMap = jobs.reduce<Record<string, Pipeline.AsObject>>(
-            (acc, job) => {
-              if (job.job?.pipeline?.name) {
-                return {...acc, [job.job?.pipeline?.name]: job.job?.pipeline};
-              }
-              return acc;
-            },
-            {},
-          );
-
-          const inputRepos = flattenDeep(
-            jobs.map((job) =>
-              job.details?.input ? flattenPipelineInput(job.details.input) : [],
-            ),
-          );
-
-          repos = (
-            await pachClient.pfs().listRepo({projectIds: [projectId]})
-          ).filter(
-            (repo) =>
-              repo.repo?.name &&
-              (pipelineMap[repo.repo?.name] ||
-                inputRepos.includes(repo.repo?.name)),
-          );
-
-          pipelines = (
-            await pachClient.pps().listPipeline({projectIds: [projectId]})
-          ).filter(
-            (pipeline) =>
-              pipeline.pipeline?.name && pipelineMap[pipeline.pipeline?.name],
-          );
-        } else {
-          [repos, pipelines] = await Promise.all([
-            pachClient.pfs().listRepo({projectIds: [projectId]}),
-            pachClient.pps().listPipeline({projectIds: [projectId]}),
-          ]);
-        }
+        const [repos, pipelines] = await Promise.all([
+          pachClient.pfs().listRepo({projectIds: [projectId]}),
+          pachClient.pps().listPipeline({projectIds: [projectId]}),
+        ]);
 
         const filteredRepos = repos.filter(
           (r) =>

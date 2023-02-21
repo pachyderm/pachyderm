@@ -20,11 +20,11 @@
   padding-right: 1rem;
 }
 
-.hasCheckbox > td:last-child {
+.hasPrefixIcon > td:last-child {
   border: none;
 }
 
-tr.hasCheckbox > td:first-of-type {
+tr.hasPrefixIcon > td:first-of-type {
   padding-left: 3rem;
 }
 
@@ -34,6 +34,10 @@ tr.hasCheckbox > td:first-of-type {
 
 .dropdown {
   right: 2.5rem;
+}
+
+.dropdown > * {
+  display: block;
 }
 
 .active td {
@@ -47,7 +51,7 @@ tr.hasCheckbox > td:first-of-type {
 .checkbox {
   position: absolute;
   margin-left: 1rem;
-  margin-top: calc(10rem / 16);
+  margin-top: calc(9rem / 16);
 }
 
 .selected {

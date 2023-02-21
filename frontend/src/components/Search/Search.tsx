@@ -3,9 +3,8 @@ import React, {useCallback, useMemo, useRef, useState} from 'react';
 import {useForm} from 'react-hook-form';
 
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
-import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {Form, useOutsideClick, GlobalIdSVG} from '@pachyderm/components';
+import {Form, useOutsideClick} from '@pachyderm/components';
 
 import DefaultDropdown from './components/DefaultDropdown';
 import SearchBar from './components/SearchInput';
@@ -16,7 +15,6 @@ import styles from './Search.module.css';
 
 const Search: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const {viewState} = useUrlQueryState();
   const {projectId} = useUrlState();
   const [history = [], setHistory] = useLocalProjectSettings({
     projectId,
@@ -79,13 +77,6 @@ const Search: React.FC = () => {
             [styles.open]: isOpen,
           })}
         >
-          {viewState.globalIdFilter && (
-            <div className={styles.globalIdFilter}>
-              <GlobalIdSVG />
-              Global ID filter has been applied
-              <hr className={styles.searchHr} />
-            </div>
-          )}
           {showDefaultDropdown && <DefaultDropdown />}
           {showResults && <SearchResults />}
         </div>

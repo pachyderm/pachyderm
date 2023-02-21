@@ -36,13 +36,12 @@ const SearchResultsDropdown: React.FC = () => {
   );
 
   const {projectId} = useUrlState();
-  const {viewState} = useUrlQueryState();
+  const {getUpdatedSearchParams} = useUrlQueryState();
   const browserHistory = useHistory();
   const {loading, searchResults} = useSearchResults(
     projectId,
     debouncedValue,
     MAX_SEARCH_RESULTS,
-    viewState.globalIdFilter,
   );
 
   const repoOnClick = useCallback(
@@ -76,10 +75,14 @@ const SearchResultsDropdown: React.FC = () => {
   const jobSetOnClick = useCallback(
     (jobId) => {
       onResultSelect(jobId);
+      const newSearchParams = getUpdatedSearchParams({
+        selectedJobs: [jobId],
+        pipelineStep: [],
+      });
 
-      browserHistory.push(jobRoute({projectId, jobId}));
+      browserHistory.push(`${jobRoute({projectId}, false)}${newSearchParams}`);
     },
-    [onResultSelect, projectId, browserHistory],
+    [onResultSelect, getUpdatedSearchParams, browserHistory, projectId],
   );
 
   const repoResults = useCallback(() => {
@@ -182,7 +185,7 @@ const SearchResultsDropdown: React.FC = () => {
     return (
       <div className={styles.noResults}>
         <NotFoundMessage>
-          No matching pipelines, jobs or global ID found.
+          No matching pipelines, jobs or Global ID found.
         </NotFoundMessage>
       </div>
     );

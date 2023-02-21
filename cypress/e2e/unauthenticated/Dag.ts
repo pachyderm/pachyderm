@@ -35,22 +35,14 @@ describe('Dag', () => {
   });
 
   it('should render a sub-dag with a globalId filter', () => {
-    cy.findByRole('link', {
-      name: /jobs/i,
-      timeout: 10000,
-    }).click();
+    cy.findByText("Jobs", {timeout: 10000}).click();
+    cy.findByLabelText('expand filters').click();
+    cy.findAllByText('Failed').filter(':visible').click();
+    cy.findAllByTestId('RunsList__row', {timeout: 60000}).should('have.length', 2)
+    cy.findAllByTestId('DropdownButton__button').eq(1).click();
+    cy.findAllByText('Apply Global ID and view in DAG').eq(1).click();
 
-    cy.findAllByText('Failure', {timeout: 60000})
-      .should('exist')
-      .last()
-      .click({force: true});
-
-    cy.findByTestId('CommitIdCopy__id').invoke('text').then((jobId) => {
-      cy.findByText('Filter by Global ID').click();
-      cy.findByTestId('GlobalFilter__name').type(jobId);
-      cy.findByText('Apply').click();
-    });
-
+    cy.findByText("DAG").click();
     cy.get("#GROUP_images", { timeout: 10000 }).should("exist");
     cy.get("#GROUP_edges").should("exist");
     cy.get('#GROUP_montage', { timeout: 10000 }).should("not.exist");

@@ -6,20 +6,9 @@
   transition: width 0.1s ease-out;
   z-index: var(--z-index-sidenav);
   height: 100%;
-}
-
-.base.dark {
-  background-color: var(--background-black);
-}
-
-.base.dark .collapse,
-.base.dark .collapseIcon {
-  color: var(--dropshadow-grey);
-}
-
-.base.light {
   background-color: var(--white);
   border-right: solid 1px var(--line-grey);
+  padding-top: 0.5rem;
 }
 
 .base.collapsed {
@@ -34,10 +23,7 @@
   overflow-x: hidden;
   white-space: nowrap;
   transition: color 0.2s;
-}
-
-.collapsed .collapse {
-  padding: 1rem 2rem;
+  border-top: solid 1px var(--line-grey);
 }
 
 .collapse:focus:not([class$='focus-visible']) {
@@ -46,8 +32,4 @@
 
 .collapseIcon {
   margin-right: 0.5rem;
-}
-
-.flipSVG {
-  transform: scale(-1, 1);
 }

@@ -1,10 +1,9 @@
 .base {
   position: relative;
-  margin-left: 1rem;
 }
 
-.base button.filter {
-  padding-left: 0.75rem;
+.buttonContent {
+  margin-left: 1rem !important;
 }
 
 .filter,
@@ -13,12 +12,16 @@
   text-overflow: ellipsis;
   overflow-x: hidden;
   white-space: nowrap;
+  border-radius: 3px;
+  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.1));
+  background-color: var(--white);
 }
 
 .filter .dot {
   display: inline-block;
-  width: 0.375rem;
+  min-width: 0.375rem;
   height: 0.375rem;
+  left: 0.275rem;
   border-radius: 1rem;
   background-color: var(--white);
   position: relative;
@@ -38,8 +41,8 @@
 .dropdownBase {
   position: absolute;
   width: 24rem;
-  left: -16.5rem;
-  top: 2rem;
+  right: 0rem;
+  top: 2.25rem;
   z-index: var(--z-index-dropdown-menu);
   border: 1px solid var(--border-grey);
   border-radius: 0px 0px 3px 3px;

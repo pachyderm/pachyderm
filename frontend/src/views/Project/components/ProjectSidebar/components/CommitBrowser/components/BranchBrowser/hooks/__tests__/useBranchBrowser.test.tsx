@@ -24,7 +24,7 @@ describe('BranchBrowser/hooks/useBranchBrowser', () => {
     window.history.replaceState(
       '',
       '',
-      '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
+      '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
     );
 
     render(<BranchBrowserComponent />);

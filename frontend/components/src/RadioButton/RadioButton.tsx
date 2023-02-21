@@ -1,5 +1,5 @@
 import classNames from 'classnames';
-import React, {InputHTMLAttributes} from 'react';
+import React, {InputHTMLAttributes, forwardRef} from 'react';
 import {
   useFormContext,
   RegisterOptions,
@@ -22,15 +22,18 @@ export interface RadioButtonProps
   small?: boolean;
 }
 
+export interface PureRadioButtonProps
+  extends InputHTMLAttributes<HTMLInputElement> {
+  selected: boolean;
+  small?: boolean;
+}
+
 const RadioButton: React.FC<RadioButtonProps> = ({
   children,
-  className,
   validationOptions = {},
   name,
   onChange,
   onBlur,
-  small = false,
-  disabled = false,
   value,
   ...rest
 }) => {
@@ -44,35 +47,66 @@ const RadioButton: React.FC<RadioButtonProps> = ({
     registerOutput: register(name, validationOptions),
   });
 
-  const classes = classNames(styles.base, className, {
-    [styles.disabled]: disabled,
-  });
-
   return (
-    <label className={classes} data-disabled={disabled}>
-      <div className={styles.radioButtonContainer}>
-        <input
-          type="radio"
-          className={styles.input}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          value={value}
-          disabled={disabled}
-          {...rest}
-          {...inputProps}
-        />
-        <Icon small={small}>
-          {watchedValue === value ? (
-            <RadioCheckedSVG aria-hidden focusable={false} />
-          ) : (
-            <RadioSVG aria-hidden focusable={false} />
-          )}
-        </Icon>
-      </div>
-
+    <PureRadioButton
+      onChange={handleChange}
+      onBlur={handleBlur}
+      value={value}
+      selected={watchedValue === value}
+      {...rest}
+      {...inputProps}
+    >
       {children}
-    </label>
+    </PureRadioButton>
   );
 };
 
-export default Object.assign(RadioButton, {Label: RadioButtonLabel});
+const PureRadioButton = forwardRef<HTMLInputElement, PureRadioButtonProps>(
+  function PureRadioButtonForwardRef(
+    {
+      className,
+      selected,
+      onChange,
+      onBlur,
+      small = false,
+      disabled = false,
+      children,
+      ...rest
+    },
+    ref,
+  ) {
+    const classes = classNames(styles.base, className, {
+      [styles.small]: small,
+      [styles.disabled]: disabled,
+    });
+
+    return (
+      <label className={classes} data-disabled={disabled}>
+        <div className={styles.checkboxContainer}>
+          <input
+            type="radio"
+            className={styles.input}
+            disabled={disabled}
+            onChange={onChange}
+            onBlur={onBlur}
+            ref={ref}
+            {...rest}
+          />
+          <Icon small={small}>
+            {selected ? (
+              <RadioCheckedSVG aria-hidden focusable={false} />
+            ) : (
+              <RadioSVG aria-hidden focusable={false} />
+            )}
+          </Icon>
+        </div>
+        {children}
+      </label>
+    );
+  },
+);
+
+export default Object.assign(RadioButton, {
+  Label: RadioButtonLabel,
+  Pure: PureRadioButton,
+});

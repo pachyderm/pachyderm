@@ -2,7 +2,7 @@ import React from 'react';
 import {MemoryRouter} from 'react-router-dom';
 
 import {
-  SettingsSVG,
+  AddCircleSVG,
   SupportSVG,
   DirectionsSVG,
   RepoSVG,
@@ -14,111 +14,62 @@ import {SideNav} from './';
 
 export default {title: 'SideNav'};
 
-export const DarkMode = () => (
-  <MemoryRouter initialEntries={['/workspaces']}>
-    <div
-      style={{
-        display: 'flex',
-        position: 'relative',
-        flex: '1 0 auto',
-        height: '100%',
-      }}
-    >
-      <SideNav breakpoint={1200}>
-        <SideNav.SideNavList noPadding>
-          <SideNav.SideNavItem>
-            <SideNav.SideNavLink
-              IconSVG={DirectionsSVG}
-              to="workspaces"
-              tooltipContent="Workspaces"
-            >
-              Workspaces
-            </SideNav.SideNavLink>
-          </SideNav.SideNavItem>
-          <SideNav.SideNavItem>
-            <SideNav.SideNavLink
-              IconSVG={SettingsSVG}
-              to="settings"
-              tooltipContent="Settings"
-            >
-              Settings
-            </SideNav.SideNavLink>
-          </SideNav.SideNavItem>
-          <SideNav.SideNavItem>
-            <SideNav.SideNavLink
-              IconSVG={SupportSVG}
-              to="support"
-              tooltipContent="Support"
-              disabled
-            >
-              Support
-            </SideNav.SideNavLink>
-          </SideNav.SideNavItem>
-        </SideNav.SideNavList>
-      </SideNav>
-    </div>
-  </MemoryRouter>
-);
-
-export const LightMode = () => (
+export const Default = () => (
   <MemoryRouter initialEntries={['/repos']}>
-    <SideNav breakpoint={1200} styleMode="light">
+    <SideNav breakpoint={1200}>
       <SideNav.SideNavList>
-        <SideNav.SideNavButton
+        <SideNav.SideNavItem
           IconSVG={DirectionsSVG}
-          to="/"
-          tooltipContent="Switch View"
+          to="/dag"
+          tooltipContent="DAG"
+          showIconWhenExpanded
         >
-          View Lineage
-        </SideNav.SideNavButton>
-      </SideNav.SideNavList>
-      <SideNav.SideNavList>
-        <SideNav.SideNavItem>
-          <SideNav.SideNavLink
-            IconSVG={RepoSVG}
-            to="repos"
-            tooltipContent="Repos"
-            styleMode="light"
-            showIconWhenExpanded
-          >
-            Repositories
-          </SideNav.SideNavLink>
+          DAG
         </SideNav.SideNavItem>
-        <SideNav.SideNavItem>
-          <SideNav.SideNavLink
-            IconSVG={PipelineSVG}
-            to="pipelines"
-            tooltipContent="Pipelines"
-            styleMode="light"
-            showIconWhenExpanded
-          >
-            Pipelines
-          </SideNav.SideNavLink>
+        <SideNav.SideNavItem
+          IconSVG={AddCircleSVG}
+          onClick={() => alert('Repo Creation')}
+          tooltipContent="Create New Repo"
+          showIconWhenExpanded
+        >
+          Create Repo
         </SideNav.SideNavItem>
       </SideNav.SideNavList>
-      <SideNav.SideNavList>
-        <SideNav.SideNavItem>
-          <SideNav.SideNavLink
-            IconSVG={JobsSVG}
-            to="settings"
-            tooltipContent="Settings"
-            styleMode="light"
-            showIconWhenExpanded
-          >
-            Jobs
-          </SideNav.SideNavLink>
+      <SideNav.SideNavList label="Lists">
+        <SideNav.SideNavItem
+          IconSVG={JobsSVG}
+          to="/jobs"
+          tooltipContent="Jobs"
+          showIconWhenExpanded
+        >
+          Jobs
         </SideNav.SideNavItem>
-        <SideNav.SideNavItem>
-          <SideNav.SideNavLink
-            IconSVG={SupportSVG}
-            to="support"
-            tooltipContent="Support"
-            styleMode="light"
-            disabled
-            showIconWhenExpanded
-          >
-            Support
-          </SideNav.SideNavLink>
+        <SideNav.SideNavItem
+          IconSVG={PipelineSVG}
+          to="/pipelines"
+          tooltipContent="Pipelines"
+          showIconWhenExpanded
+        >
+          Pipeline Steps
+        </SideNav.SideNavItem>
+        <SideNav.SideNavItem
+          IconSVG={RepoSVG}
+          to="/repos"
+          tooltipContent="Repos"
+          showIconWhenExpanded
+        >
+          Repositories
+        </SideNav.SideNavItem>
+      </SideNav.SideNavList>
+      <SideNav.SideNavList label="Settings" border>
+        <SideNav.SideNavItem
+          IconSVG={SupportSVG}
+          to="support"
+          tooltipContent="Support"
+          disabled
+          showIconWhenExpanded
+        >
+          Support
         </SideNav.SideNavItem>
       </SideNav.SideNavList>
     </SideNav>

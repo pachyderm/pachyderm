@@ -1,25 +1,21 @@
 import React, {useEffect, useState, useCallback} from 'react';
 
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
+import useSidebarInfo from '@dash-frontend/hooks/useSidebarInfo';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 const SIDEBAR_MIN_WIDTH = 304;
 const SIDEBAR_MAX_WIDTH = 700;
 
-const useSidebar = ({defaultSize}: {defaultSize?: string}) => {
-  let sidebarSize = 304;
-  if (defaultSize === 'md') sidebarSize = 385;
-  if (defaultSize === 'lg') sidebarSize = 534;
-
+const useSidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const {viewState, updateViewState} = useUrlQueryState();
   const {projectId} = useUrlState();
   const [sidebarWidthSetting, handleUpdateSidebarWidth] =
     useLocalProjectSettings({projectId, key: 'sidebar_width'});
-  const [sidebarWidth, setSidebarWidth] = useState<number>(
-    viewState.sidebarWidth || sidebarWidthSetting || sidebarSize,
-  );
+  const {sidebarSize} = useSidebarInfo();
+  const [sidebarWidth, setSidebarWidth] = useState(sidebarSize);
   useEffect(() => {
     if (!viewState.sidebarWidth && !sidebarWidthSetting) {
       setSidebarWidth(sidebarSize);

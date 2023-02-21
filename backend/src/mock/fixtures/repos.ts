@@ -564,7 +564,8 @@ const cron = [
     )
     .setCreated(timestampFromObject({seconds: 1614126189, nanos: 0}))
     .setBranchesList([new Branch().setName('master')])
-    .setDetails(new RepoInfo.Details().setSizeBytes(621858)),
+    .setDetails(new RepoInfo.Details().setSizeBytes(621858))
+    .setSizeBytesUpperBound(621858),
   new RepoInfo()
     .setRepo(
       new Repo()

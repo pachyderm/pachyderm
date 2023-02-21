@@ -17,20 +17,15 @@ import {logsViewerDatumRoute} from '@dash-frontend/views/Project/utils/routes';
 type infoPanelProps = {
   pipelineJob?: JobQuery['job'];
   pipelineLoading: boolean;
-  useGlobalFilter: boolean;
 };
 
-const useInfoPanel = ({
-  pipelineJob,
-  pipelineLoading,
-  useGlobalFilter = true,
-}: infoPanelProps) => {
+const useInfoPanel = ({pipelineJob, pipelineLoading}: infoPanelProps) => {
   const {jobId, projectId, pipelineId} = useUrlState();
-  const {viewState, getUpdatedSearchParams} = useUrlQueryState();
+  const {getUpdatedSearchParams} = useUrlQueryState();
 
   const {job: specifiedJob, loading: jobLoading} = useJob(
     {
-      id: (useGlobalFilter && viewState.globalIdFilter) || jobId,
+      id: jobId,
       pipelineName: pipelineId,
       projectId,
     },
@@ -97,7 +92,7 @@ const useInfoPanel = ({
   }, [job]);
 
   let logsDatumRoute = '';
-  if (job?.id || jobId) {
+  if ((job?.id || jobId) && pipelineId) {
     logsDatumRoute = logsViewerDatumRoute(
       {
         projectId,

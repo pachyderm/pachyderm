@@ -17,18 +17,6 @@
   max-width: 19rem;
 }
 
-.base.sm {
-  width: var(--sidebar-width-sm);
-}
-
-.base.md {
-  width: var(--sidebar-width-md);
-}
-
-.base.lg {
-  width: var(--sidebar-width-lg);
-}
-
 .fixed {
   position: absolute;
   display: flex;

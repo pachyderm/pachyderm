@@ -53,9 +53,11 @@ export const JobOverviewFragmentDoc = gql`
   fragment JobOverview on Job {
     id
     state
+    nodeState
     createdAt
     startedAt
     finishedAt
+    restarts
     pipelineName
     reason
     dataProcessed
@@ -63,6 +65,8 @@ export const JobOverviewFragmentDoc = gql`
     dataFailed
     dataTotal
     dataRecovered
+    downloadBytesDisplay
+    uploadBytesDisplay
     outputCommit
   }
 `;
@@ -71,6 +75,8 @@ export const JobSetFieldsFragmentDoc = gql`
     id
     state
     createdAt
+    finishedAt
+    inProgress
     jobs {
       ...JobOverview
       inputString
@@ -1757,9 +1763,16 @@ export const PipelineDocument = gql`
     pipeline(args: $args) {
       id
       name
-      state
-      type
       description
+      version
+      createdAt
+      state
+      nodeState
+      stopped
+      recentError
+      lastJobState
+      lastJobNodeState
+      type
       datumTimeoutS
       datumTries
       jobTimeoutS
@@ -1825,9 +1838,16 @@ export const PipelinesDocument = gql`
     pipelines(args: $args) {
       id
       name
-      state
-      type
       description
+      version
+      createdAt
+      state
+      nodeState
+      stopped
+      recentError
+      lastJobState
+      lastJobNodeState
+      type
       datumTimeoutS
       datumTries
       jobTimeoutS
@@ -2080,6 +2100,8 @@ export const RepoDocument = gql`
       }
       name
       sizeDisplay
+      sizeBytes
+      access
       projectId
     }
   }
@@ -2146,6 +2168,8 @@ export const ReposDocument = gql`
       }
       name
       sizeDisplay
+      sizeBytes
+      access
     }
   }
 `;

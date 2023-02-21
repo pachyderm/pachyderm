@@ -5,9 +5,16 @@ export const GET_PIPELINES_QUERY = gql`
     pipelines(args: $args) {
       id
       name
-      state
-      type
       description
+      version
+      createdAt
+      state
+      nodeState
+      stopped
+      recentError
+      lastJobState
+      lastJobNodeState
+      type
       datumTimeoutS
       datumTries
       jobTimeoutS

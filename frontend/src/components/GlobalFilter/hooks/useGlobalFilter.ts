@@ -18,13 +18,20 @@ const useGlobalFilter = () => {
   const [getJobSet, {data, loading}] = useJobSetLazyQuery();
 
   const globalIdFilter = viewState.globalIdFilter;
-
   const formCtx = useForm<GlobalIdFilterFormValues>({
     mode: 'onChange',
     defaultValues: {globalId: globalIdFilter},
   });
 
-  const {watch, setError, reset, getValues, formState, getFieldState} = formCtx;
+  const {
+    watch,
+    setError,
+    reset,
+    getValues,
+    formState,
+    getFieldState,
+    setValue,
+  } = formCtx;
 
   const globalIdInput = watch('globalId');
 
@@ -57,6 +64,12 @@ const useGlobalFilter = () => {
     globalIdFilter,
     projectId,
   ]);
+
+  useEffect(() => {
+    if (globalIdFilter) {
+      setValue('globalId', globalIdFilter);
+    }
+  }, [globalIdFilter, setValue]);
 
   // apply viewstate if the jobset id returned jobs
   useEffect(() => {

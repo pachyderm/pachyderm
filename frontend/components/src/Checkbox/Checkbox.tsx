@@ -33,11 +33,16 @@ export const Checkbox: React.FC<CheckboxProps> = ({
   validationOptions = {},
   onChange,
   onBlur,
+  id,
   ...rest
 }) => {
   const {register, watch} = useFormContext();
-
   const value = watch(name);
+  let selected = value;
+
+  if (Array.isArray(value)) {
+    selected = value.includes(id);
+  }
 
   const {handleChange, handleBlur, ...inputProps} = useRHFInputProps({
     onChange,
@@ -49,7 +54,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
     <PureCheckbox
       onChange={handleChange}
       onBlur={handleBlur}
-      selected={value}
+      selected={selected}
       {...rest}
       {...inputProps}
     />

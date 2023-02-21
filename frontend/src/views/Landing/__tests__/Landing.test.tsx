@@ -122,33 +122,6 @@ describe('Landing', () => {
     expect(window.location.pathname).toBe('/lineage/Data-Cleaning-Process');
   });
 
-  it('should allow a user to view a project based on the preferred view', async () => {
-    window.localStorage.setItem(
-      'pachyderm-console-Data-Cleaning-Process',
-      '{"list_view_default": true}',
-    );
-
-    render(<Landing />);
-
-    expect(window.location.pathname).not.toBe(
-      '/project/Data-Cleaning-Process/repos',
-    );
-
-    const cell = await screen.findByRole('cell', {
-      name: /Data-Cleaning-Process view project project status description/i,
-    });
-    const viewProjectButton = within(cell).getByRole('button', {
-      name: /view project/i,
-    });
-    await click(viewProjectButton);
-
-    expect(window.location.pathname).toBe(
-      '/project/Data-Cleaning-Process/repos',
-    );
-
-    localStorage.removeItem('pachyderm-console-Data-Cleaning-Process');
-  });
-
   it('should allow the user to sort by name', async () => {
     render(<Landing />);
 

@@ -1,27 +1,40 @@
-import React, {SelectHTMLAttributes} from 'react';
+import classnames from 'classnames';
+import React, {HTMLAttributes} from 'react';
 
 import useTabPanel from '@pachyderm/components/Tabs/hooks/useTabPanel';
 
 import styles from './TabPanel.module.css';
 
-export interface TabPanelProps extends SelectHTMLAttributes<HTMLSelectElement> {
+export interface TabPanelProps extends HTMLAttributes<HTMLDivElement> {
   id: string;
+  className?: string;
+  renderWhenHidden?: boolean;
 }
 
-const TabPanel: React.FC<TabPanelProps> = ({children, id, ...rest}) => {
+const TabPanel: React.FC<TabPanelProps> = ({
+  children,
+  id,
+  className,
+  renderWhenHidden = true,
+  ...rest
+}) => {
   const {isShown} = useTabPanel(id);
 
+  if (!renderWhenHidden && !isShown) {
+    return null;
+  }
+
   return (
-    <section
+    <div
       {...rest}
       role="tabpanel"
       hidden={!isShown}
       aria-labelledby={id}
-      className={styles.base}
+      className={classnames(styles.base, className)}
       tabIndex={-1}
     >
       {children}
-    </section>
+    </div>
   );
 };
 

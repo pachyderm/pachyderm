@@ -6,6 +6,11 @@ import {
   toGQLJobState,
   toGQLPipelineState,
 } from '@dash-backend/lib/gqlEnumMappers';
+import hasRepoReadPermissions from '@dash-backend/lib/hasRepoReadPermissions';
+import {
+  gqlPipelineStateToNodeState,
+  gqlJobStateToNodeState,
+} from '@dash-backend/lib/nodeStateMappers';
 import omitByDeep from '@dash-backend/lib/omitByDeep';
 import removeGeneratedSuffixes from '@dash-backend/lib/removeGeneratedSuffixes';
 import sortJobInfos from '@dash-backend/lib/sortJobInfos';
@@ -96,9 +101,15 @@ export const pipelineInfoToGQLPipeline = (
     version: pipelineInfo.version,
     createdAt: pipelineInfo.details?.createdAt?.seconds || 0,
     state: toGQLPipelineState(pipelineInfo.state),
+    nodeState: gqlPipelineStateToNodeState(
+      toGQLPipelineState(pipelineInfo.state),
+    ),
     stopped: pipelineInfo.stopped,
     recentError: pipelineInfo.details?.recentError,
     lastJobState: toGQLJobState(pipelineInfo.lastJobState),
+    lastJobNodeState: gqlJobStateToNodeState(
+      toGQLJobState(pipelineInfo.lastJobState),
+    ),
     type: derivePipelineType(pipelineInfo),
     datumTimeoutS: pipelineInfo.details?.datumTimeout?.seconds,
     datumTries: pipelineInfo.details?.datumTries || 0,
@@ -118,10 +129,12 @@ export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject): Job => {
   return {
     id: jobInfo.job?.id || '',
     state: toGQLJobState(jobInfo.state),
+    nodeState: gqlJobStateToNodeState(toGQLJobState(jobInfo.state)),
     reason: jobInfo.reason,
     createdAt: jobInfo.created?.seconds,
     startedAt: jobInfo.started?.seconds,
     finishedAt: jobInfo.finished?.seconds,
+    restarts: jobInfo.restart,
     pipelineName: jobInfo.job?.pipeline?.name || '',
     transform: jobInfo.details?.transform,
     inputString: jobInfo.details?.input
@@ -138,6 +151,8 @@ export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject): Job => {
     outputBranch: jobInfo.outputCommit?.branch?.name,
     outputCommit: jobInfo.outputCommit?.id,
     jsonDetails: deriveJSONJobDetails(jobInfo),
+    uploadBytesDisplay: formatBytes(jobInfo.stats?.uploadBytes || 0),
+    downloadBytesDisplay: formatBytes(jobInfo.stats?.downloadBytes || 0),
     dataFailed: jobInfo.dataFailed,
     dataProcessed: jobInfo.dataProcessed,
     dataRecovered: jobInfo.dataRecovered,
@@ -154,14 +169,16 @@ export const branchInfoToGQLBranch = (branch: Branch.AsObject): GQLBranch => {
 };
 
 export const repoInfoToGQLRepo = (repoInfo: RepoInfo.AsObject): Repo => {
+  // repoInfo.details.sizeBytes is deprecated in favor of repoInfo.sizeBytesUpperBound
   return {
     createdAt: repoInfo.created?.seconds || 0,
     description: repoInfo.description,
     name: repoInfo.repo?.name || '',
-    sizeBytes: repoInfo.details?.sizeBytes || 0,
+    sizeBytes: repoInfo.sizeBytesUpperBound,
     id: repoInfo?.repo?.name || '',
+    access: hasRepoReadPermissions(repoInfo?.authInfo?.permissionsList),
     branches: repoInfo.branchesList.map(branchInfoToGQLBranch),
-    sizeDisplay: formatBytes(repoInfo.details?.sizeBytes || 0),
+    sizeDisplay: formatBytes(repoInfo.sizeBytesUpperBound),
     projectId: repoInfo.repo?.project?.name || '',
   };
 };
@@ -184,11 +201,19 @@ export const jobInfosToGQLJobSet = (
 
   const jobs = sortedJobInfos.map(jobInfoToGQLJob);
 
+  const createdAt =
+    jobs.length > 0 ? jobs.find((job) => job.createdAt)?.createdAt : null;
+  const finishTimes = jobs
+    .map((j) => Number(j.finishedAt))
+    .filter((finishedTime) => !isNaN(finishedTime));
+  const finishedAt = finishTimes.length > 0 ? Math.max(...finishTimes) : null;
+  const inProgress = Boolean(jobs.find((j) => !j.finishedAt));
+
   return {
     id,
-    // grab the oldest jobs createdAt date
-    createdAt:
-      jobs.length > 0 ? jobs.find((job) => job.createdAt)?.createdAt : null,
+    createdAt,
+    finishedAt,
+    inProgress,
     state: getAggregateJobState(jobs),
     jobs,
   };

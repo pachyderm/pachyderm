@@ -3,6 +3,7 @@ import React from 'react';
 import {Dag, DagDirection} from '@dash-frontend/lib/types';
 
 import {NODE_HEIGHT, NODE_WIDTH} from '../../../../constants/nodeSizes';
+import {SIDENAV_PADDING} from '../../hooks/useDAGView';
 
 import Link from './components/Link';
 import Node from './components/Node';
@@ -10,7 +11,7 @@ import styles from './DAG.module.css';
 import useDag from './hooks/useDag';
 
 const DAG_TOP_PADDING = 30;
-const DAG_SIDE_PADDING = 200;
+const DAG_SIDE_PADDING = SIDENAV_PADDING;
 const HIDE_DETAILS_THRESHOLD = 0.6;
 const SIMPLE_DAG_THRESHOLD = 0.3;
 

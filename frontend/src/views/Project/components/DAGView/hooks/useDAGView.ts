@@ -13,7 +13,6 @@ import {
 
 import useCurrentProject from '@dash-frontend/hooks/useCurrentProject';
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
-import useSidebarInfo from '@dash-frontend/hooks/useSidebarInfo';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {DagDirection, Node, Dag} from '@dash-frontend/lib/types';
@@ -24,7 +23,7 @@ import {NODE_HEIGHT, NODE_WIDTH} from '../../../constants/nodeSizes';
 const SIDEBAR_WIDTH = 384;
 const MIN_DAG_HEIGHT = 300;
 const DAG_TOP_PADDING = 130;
-const SIDENAV_PADDING = 200;
+export const SIDENAV_PADDING = 184;
 export const MAX_SCALE_VALUE = 1.5;
 const CENTER_SCALE_VALUE = 1;
 const DEFAULT_MINIMUM_SCALE_VALUE = 0.6;
@@ -79,7 +78,6 @@ export const useDAGView = (
     height: Math.max(MIN_DAG_HEIGHT, window.innerHeight - DAG_TOP_PADDING),
     width: window.innerWidth - SIDENAV_PADDING,
   });
-  const {overlay} = useSidebarInfo();
   const {selectedNode} = useRouteController();
   const {viewState, updateViewState} = useUrlQueryState();
   const {pipelineId, repoId, projectId} = useUrlState();
@@ -347,12 +345,6 @@ export const useDAGView = (
       document.onkeydown = null;
     };
   }, [applySliderZoom, sliderZoomValue, zoomOut]);
-
-  useEffect(() => {
-    if (overlay) {
-      dispatch({type: 'RESET'});
-    }
-  }, [overlay]);
 
   useEffect(() => {
     if (!loading) {

@@ -98,6 +98,7 @@ module.exports = {
     'testing-library/no-node-access': 'off',
     'testing-library/no-unnecessary-act': 'off',
     'jest/expect-expect': 'off',
+    'jest-dom/prefer-in-document': 'off',
   },
   settings: {
     react: {

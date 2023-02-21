@@ -316,19 +316,23 @@ export type Job = {
   dataRecovered: Scalars['Int'];
   dataSkipped: Scalars['Int'];
   dataTotal: Scalars['Int'];
+  downloadBytesDisplay: Scalars['String'];
   finishedAt?: Maybe<Scalars['Int']>;
   id: Scalars['ID'];
   inputBranch?: Maybe<Scalars['String']>;
   inputString?: Maybe<Scalars['String']>;
   jsonDetails: Scalars['String'];
+  nodeState: NodeState;
   outputBranch?: Maybe<Scalars['String']>;
   outputCommit?: Maybe<Scalars['String']>;
   pipelineName: Scalars['String'];
   reason?: Maybe<Scalars['String']>;
+  restarts: Scalars['Int'];
   startedAt?: Maybe<Scalars['Int']>;
   state: JobState;
   transform?: Maybe<Transform>;
   transformString?: Maybe<Scalars['String']>;
+  uploadBytesDisplay: Scalars['String'];
 };
 
 export type JobQueryArgs = {
@@ -340,7 +344,9 @@ export type JobQueryArgs = {
 export type JobSet = {
   __typename?: 'JobSet';
   createdAt?: Maybe<Scalars['Int']>;
+  finishedAt?: Maybe<Scalars['Int']>;
   id: Scalars['ID'];
+  inProgress: Scalars['Boolean'];
   jobs: Array<Job>;
   state: JobState;
 };
@@ -368,8 +374,10 @@ export enum JobState {
 }
 
 export type JobsQueryArgs = {
+  jobSetIds?: InputMaybe<Array<InputMaybe<Scalars['String']>>>;
   limit?: InputMaybe<Scalars['Int']>;
   pipelineId?: InputMaybe<Scalars['String']>;
+  pipelineIds?: InputMaybe<Array<InputMaybe<Scalars['String']>>>;
   projectId: Scalars['ID'];
 };
 
@@ -521,8 +529,10 @@ export type Pipeline = {
   id: Scalars['ID'];
   jobTimeoutS?: Maybe<Scalars['Int']>;
   jsonSpec: Scalars['String'];
+  lastJobNodeState?: Maybe<NodeState>;
   lastJobState?: Maybe<JobState>;
   name: Scalars['String'];
+  nodeState: NodeState;
   outputBranch: Scalars['String'];
   reason?: Maybe<Scalars['String']>;
   recentError?: Maybe<Scalars['String']>;
@@ -710,6 +720,7 @@ export type QueryWorkspaceLogsArgs = {
 
 export type Repo = {
   __typename?: 'Repo';
+  access: Scalars['Boolean'];
   branches: Array<Branch>;
   createdAt: Scalars['Int'];
   description: Scalars['String'];
@@ -1370,6 +1381,11 @@ export type JobResolvers<
   dataRecovered?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   dataSkipped?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   dataTotal?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  downloadBytesDisplay?: Resolver<
+    ResolversTypes['String'],
+    ParentType,
+    ContextType
+  >;
   finishedAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   inputBranch?: Resolver<
@@ -1383,6 +1399,7 @@ export type JobResolvers<
     ContextType
   >;
   jsonDetails?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  nodeState?: Resolver<ResolversTypes['NodeState'], ParentType, ContextType>;
   outputBranch?: Resolver<
     Maybe<ResolversTypes['String']>,
     ParentType,
@@ -1395,6 +1412,7 @@ export type JobResolvers<
   >;
   pipelineName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   reason?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  restarts?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   startedAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   state?: Resolver<ResolversTypes['JobState'], ParentType, ContextType>;
   transform?: Resolver<
@@ -1407,6 +1425,11 @@ export type JobResolvers<
     ParentType,
     ContextType
   >;
+  uploadBytesDisplay?: Resolver<
+    ResolversTypes['String'],
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1415,7 +1438,9 @@ export type JobSetResolvers<
   ParentType extends ResolversParentTypes['JobSet'] = ResolversParentTypes['JobSet'],
 > = ResolversObject<{
   createdAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  finishedAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  inProgress?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   jobs?: Resolver<Array<ResolversTypes['Job']>, ParentType, ContextType>;
   state?: Resolver<ResolversTypes['JobState'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
@@ -1577,12 +1602,18 @@ export type PipelineResolvers<
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   jobTimeoutS?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   jsonSpec?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  lastJobNodeState?: Resolver<
+    Maybe<ResolversTypes['NodeState']>,
+    ParentType,
+    ContextType
+  >;
   lastJobState?: Resolver<
     Maybe<ResolversTypes['JobState']>,
     ParentType,
     ContextType
   >;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  nodeState?: Resolver<ResolversTypes['NodeState'], ParentType, ContextType>;
   outputBranch?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   reason?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   recentError?: Resolver<
@@ -1778,6 +1809,7 @@ export type RepoResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Repo'] = ResolversParentTypes['Repo'],
 > = ResolversObject<{
+  access?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   branches?: Resolver<Array<ResolversTypes['Branch']>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -2001,9 +2033,11 @@ export type JobOverviewFragment = {
   __typename?: 'Job';
   id: string;
   state: JobState;
+  nodeState: NodeState;
   createdAt?: number | null;
   startedAt?: number | null;
   finishedAt?: number | null;
+  restarts: number;
   pipelineName: string;
   reason?: string | null;
   dataProcessed: number;
@@ -2011,6 +2045,8 @@ export type JobOverviewFragment = {
   dataFailed: number;
   dataTotal: number;
   dataRecovered: number;
+  downloadBytesDisplay: string;
+  uploadBytesDisplay: string;
   outputCommit?: string | null;
 };
 
@@ -2019,6 +2055,8 @@ export type JobSetFieldsFragment = {
   id: string;
   state: JobState;
   createdAt?: number | null;
+  finishedAt?: number | null;
+  inProgress: boolean;
   jobs: Array<{
     __typename?: 'Job';
     inputString?: string | null;
@@ -2026,9 +2064,11 @@ export type JobSetFieldsFragment = {
     transformString?: string | null;
     id: string;
     state: JobState;
+    nodeState: NodeState;
     createdAt?: number | null;
     startedAt?: number | null;
     finishedAt?: number | null;
+    restarts: number;
     pipelineName: string;
     reason?: string | null;
     dataProcessed: number;
@@ -2036,6 +2076,8 @@ export type JobSetFieldsFragment = {
     dataFailed: number;
     dataTotal: number;
     dataRecovered: number;
+    downloadBytesDisplay: string;
+    uploadBytesDisplay: string;
     outputCommit?: string | null;
     transform?: {
       __typename?: 'Transform';
@@ -2465,15 +2507,19 @@ export type JobQuery = {
     transformString?: string | null;
     id: string;
     state: JobState;
+    nodeState: NodeState;
     createdAt?: number | null;
     startedAt?: number | null;
     finishedAt?: number | null;
+    restarts: number;
     pipelineName: string;
     dataProcessed: number;
     dataSkipped: number;
     dataFailed: number;
     dataTotal: number;
     dataRecovered: number;
+    downloadBytesDisplay: string;
+    uploadBytesDisplay: string;
     transform?: {
       __typename?: 'Transform';
       cmdList: Array<string>;
@@ -2494,6 +2540,8 @@ export type JobSetsQuery = {
     id: string;
     state: JobState;
     createdAt?: number | null;
+    finishedAt?: number | null;
+    inProgress: boolean;
     jobs: Array<{
       __typename?: 'Job';
       inputString?: string | null;
@@ -2501,9 +2549,11 @@ export type JobSetsQuery = {
       transformString?: string | null;
       id: string;
       state: JobState;
+      nodeState: NodeState;
       createdAt?: number | null;
       startedAt?: number | null;
       finishedAt?: number | null;
+      restarts: number;
       pipelineName: string;
       reason?: string | null;
       dataProcessed: number;
@@ -2511,6 +2561,8 @@ export type JobSetsQuery = {
       dataFailed: number;
       dataTotal: number;
       dataRecovered: number;
+      downloadBytesDisplay: string;
+      uploadBytesDisplay: string;
       outputCommit?: string | null;
       transform?: {
         __typename?: 'Transform';
@@ -2538,15 +2590,19 @@ export type JobsQuery = {
     transformString?: string | null;
     id: string;
     state: JobState;
+    nodeState: NodeState;
     createdAt?: number | null;
     startedAt?: number | null;
     finishedAt?: number | null;
+    restarts: number;
     pipelineName: string;
     dataProcessed: number;
     dataSkipped: number;
     dataFailed: number;
     dataTotal: number;
     dataRecovered: number;
+    downloadBytesDisplay: string;
+    uploadBytesDisplay: string;
     transform?: {
       __typename?: 'Transform';
       cmdList: Array<string>;
@@ -2567,6 +2623,8 @@ export type JobSetQuery = {
     id: string;
     state: JobState;
     createdAt?: number | null;
+    finishedAt?: number | null;
+    inProgress: boolean;
     jobs: Array<{
       __typename?: 'Job';
       inputString?: string | null;
@@ -2574,9 +2632,11 @@ export type JobSetQuery = {
       transformString?: string | null;
       id: string;
       state: JobState;
+      nodeState: NodeState;
       createdAt?: number | null;
       startedAt?: number | null;
       finishedAt?: number | null;
+      restarts: number;
       pipelineName: string;
       reason?: string | null;
       dataProcessed: number;
@@ -2584,6 +2644,8 @@ export type JobSetQuery = {
       dataFailed: number;
       dataTotal: number;
       dataRecovered: number;
+      downloadBytesDisplay: string;
+      uploadBytesDisplay: string;
       outputCommit?: string | null;
       transform?: {
         __typename?: 'Transform';
@@ -2676,9 +2738,16 @@ export type PipelineQuery = {
     __typename?: 'Pipeline';
     id: string;
     name: string;
-    state: PipelineState;
-    type: PipelineType;
     description?: string | null;
+    version: number;
+    createdAt: number;
+    state: PipelineState;
+    nodeState: NodeState;
+    stopped: boolean;
+    recentError?: string | null;
+    lastJobState?: JobState | null;
+    lastJobNodeState?: NodeState | null;
+    type: PipelineType;
     datumTimeoutS?: number | null;
     datumTries: number;
     jobTimeoutS?: number | null;
@@ -2700,9 +2769,16 @@ export type PipelinesQuery = {
     __typename?: 'Pipeline';
     id: string;
     name: string;
-    state: PipelineState;
-    type: PipelineType;
     description?: string | null;
+    version: number;
+    createdAt: number;
+    state: PipelineState;
+    nodeState: NodeState;
+    stopped: boolean;
+    recentError?: string | null;
+    lastJobState?: JobState | null;
+    lastJobNodeState?: NodeState | null;
+    type: PipelineType;
     datumTimeoutS?: number | null;
     datumTries: number;
     jobTimeoutS?: number | null;
@@ -2730,6 +2806,8 @@ export type ProjectDetailsQuery = {
       id: string;
       state: JobState;
       createdAt?: number | null;
+      finishedAt?: number | null;
+      inProgress: boolean;
       jobs: Array<{
         __typename?: 'Job';
         inputString?: string | null;
@@ -2737,9 +2815,11 @@ export type ProjectDetailsQuery = {
         transformString?: string | null;
         id: string;
         state: JobState;
+        nodeState: NodeState;
         createdAt?: number | null;
         startedAt?: number | null;
         finishedAt?: number | null;
+        restarts: number;
         pipelineName: string;
         reason?: string | null;
         dataProcessed: number;
@@ -2747,6 +2827,8 @@ export type ProjectDetailsQuery = {
         dataFailed: number;
         dataTotal: number;
         dataRecovered: number;
+        downloadBytesDisplay: string;
+        uploadBytesDisplay: string;
         outputCommit?: string | null;
         transform?: {
           __typename?: 'Transform';
@@ -2797,6 +2879,8 @@ export type RepoQuery = {
     id: string;
     name: string;
     sizeDisplay: string;
+    sizeBytes: number;
+    access: boolean;
     projectId: string;
     branches: Array<{__typename?: 'Branch'; name: string}>;
     linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
@@ -2816,6 +2900,8 @@ export type ReposQuery = {
     id: string;
     name: string;
     sizeDisplay: string;
+    sizeBytes: number;
+    access: boolean;
     branches: Array<{__typename?: 'Branch'; name: string}>;
     linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
   } | null>;

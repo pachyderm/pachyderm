@@ -5,7 +5,11 @@ import {
   DefaultDropdown,
   DropdownItem,
   PureCheckbox,
+  RadioButton,
   OverflowSVG,
+  Icon,
+  LockSVG,
+  Tooltip,
 } from '@pachyderm/components';
 
 import DataCell from '../DataCell';
@@ -16,9 +20,12 @@ export interface RowProps extends HTMLAttributes<HTMLTableRowElement> {
   sticky?: boolean;
   isSelected?: boolean;
   hasCheckbox?: boolean;
+  hasRadio?: boolean;
+  hasLock?: boolean;
+  lockedTooltipText?: string;
   onClick?: () => void;
   overflowMenuItems?: DropdownItem[];
-  dropdownOnSelect?: () => void;
+  dropdownOnSelect?: (id: string) => void;
 }
 
 const Row: React.FC<RowProps> = ({
@@ -26,6 +33,9 @@ const Row: React.FC<RowProps> = ({
   className,
   isSelected = false,
   hasCheckbox,
+  hasRadio,
+  hasLock,
+  lockedTooltipText,
   overflowMenuItems,
   dropdownOnSelect,
   onClick,
@@ -33,22 +43,36 @@ const Row: React.FC<RowProps> = ({
 }) => {
   return (
     <>
-      {hasCheckbox && onClick && (
-        <tr className={styles.checkboxRow}>
-          <td>
+      <tr className={styles.checkboxRow}>
+        <td>
+          {hasCheckbox && onClick && (
             <PureCheckbox
               className={styles.checkbox}
               selected={isSelected}
               onChange={onClick}
             />
-          </td>
-        </tr>
-      )}
+          )}
+          {hasRadio && onClick && (
+            <RadioButton.Pure
+              className={styles.checkbox}
+              selected={isSelected}
+              onChange={onClick}
+            />
+          )}
+          {hasLock && (
+            <Tooltip tooltipKey="locked" tooltipText={lockedTooltipText}>
+              <Icon color="grey" className={styles.checkbox}>
+                <LockSVG />
+              </Icon>
+            </Tooltip>
+          )}
+        </td>
+      </tr>
       <tr
         className={classnames(styles.base, className, {
           [styles.active]: isSelected,
           [styles.button]: Boolean(onClick),
-          [styles.hasCheckbox]: Boolean(hasCheckbox),
+          [styles.hasPrefixIcon]: Boolean(hasCheckbox || hasRadio || hasLock),
           [styles.selected]: isSelected,
           [styles.hasOverFlowMenu]: overflowMenuItems,
         })}

@@ -11,6 +11,8 @@ import {
   Label,
   Button,
   CheckmarkSVG,
+  FilterSVG,
+  ChevronDownSVG,
 } from '@pachyderm/components';
 
 import styles from './GlobalFilter.module.css';
@@ -32,16 +34,25 @@ const GlobalFilter: React.FC = () => {
     <Form formContext={formCtx}>
       <div className={styles.base} ref={containerRef}>
         <Button
-          buttonType="tertiary"
-          onClick={() => setDropdownOpen(true)}
+          buttonType={globalIdFilter ? 'primary' : 'ghost'}
+          color={globalIdFilter && 'black'}
+          onClick={() => setDropdownOpen(!dropdownOpen)}
           className={classnames(styles.filter, {
             [styles.active]: globalIdFilter,
           })}
+          IconSVG={!globalIdFilter ? FilterSVG : undefined}
         >
           {globalIdFilter && <div className={styles.dot} />}
-          {!globalIdFilter
-            ? 'Filter by Global ID'
-            : `Global ID: ${globalIdFilter.slice(0, 8)}`}
+          {!globalIdFilter ? (
+            'Filter by Global ID'
+          ) : (
+            <div className={styles.buttonContent}>
+              Global ID: <b>{`${globalIdFilter.slice(0, 6)}...`}</b>
+              <Icon small color="white">
+                <ChevronDownSVG />
+              </Icon>
+            </div>
+          )}
         </Button>
         {dropdownOpen && (
           <div className={styles.dropdownBase}>
@@ -88,7 +99,7 @@ const GlobalFilter: React.FC = () => {
                 className={styles.submitButton}
                 aria-label={
                   globalIdInput === globalIdFilter
-                    ? 'Clear global ID filter'
+                    ? 'Clear Global ID filter'
                     : 'Apply Global ID Filter'
                 }
                 onClick={handleSubmit}

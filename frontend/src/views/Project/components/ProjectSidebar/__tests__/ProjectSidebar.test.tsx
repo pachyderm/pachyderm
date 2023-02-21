@@ -31,84 +31,12 @@ describe('ProjectSidebar', () => {
     ).not.toBeInTheDocument();
   });
 
-  describe('jobs', () => {
-    it('should display job list', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/lineage/Solar-Panel-Data-Sorting/jobs',
-      );
-
-      render(<Project />);
-
-      expect(
-        screen.getByTestId('JobListStatic__loadingdots'),
-      ).toBeInTheDocument();
-      expect(
-        await screen.findByTestId('JobList__projectSolar-Panel-Data-Sorting'),
-      ).toBeInTheDocument();
-    });
-
-    it('should not display logs button', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/project/Solar-Panel-Data-Sorting/jobs',
-      );
-
-      render(<Project />);
-      expect(screen.queryByText('Read Logs')).not.toBeInTheDocument();
-    });
-
-    it('should display logs button', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a',
-      );
-      render(<Project />);
-      const logsLink = await screen.findByRole('link', {name: 'Read Logs'});
-      expect(logsLink as HTMLElement).toHaveAttribute(
-        'href',
-        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/edges/logs?view=eyJkYXR1bUZpbHRlcnMiOltdfQ%3D%3D',
-      );
-    });
-
-    it('should display datum logs link with filter applied', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a',
-      );
-      render(<Project />);
-      const logsLink = await waitFor(
-        () => screen.findByRole('link', {name: '0 Success'}),
-        {timeout: 4000},
-      );
-      expect(logsLink as HTMLElement).toHaveAttribute(
-        'href',
-        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/edges/logs/datum?view=eyJkYXR1bUZpbHRlcnMiOlsiU1VDQ0VTUyJdfQ%3D%3D',
-      );
-    });
-
-    it('should display loading message for datum info if job is not finshed', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/project/Solar-Panel-Data-Sorting/jobs/7798fhje5d4343219bc8e02ff4acd33a',
-      );
-
-      render(<Project />);
-      expect(await screen.findByText('Processing datums')).toBeInTheDocument();
-    });
-  });
-
   describe('pipelines', () => {
     it('should display pipeline details', async () => {
       window.history.replaceState(
         '',
         '',
-        '/project/Solar-Panel-Data-Sorting/pipelines/montage',
+        '/lineage/Solar-Panel-Data-Sorting/pipelines/montage',
       );
 
       render(<Project />);
@@ -126,14 +54,14 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/Solar-Panel-Data-Sorting/pipelines/montage',
+        '/lineage/Solar-Panel-Data-Sorting/pipelines/montage',
       );
 
       render(<Project />);
       const logsLink = await screen.findByRole('link', {name: 'Inspect Jobs'});
       expect(logsLink as HTMLElement).toHaveAttribute(
         'href',
-        '/project/Solar-Panel-Data-Sorting/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs?view=eyJkYXR1bUZpbHRlcnMiOltdfQ%3D%3D',
+        '/lineage/Solar-Panel-Data-Sorting/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs?view=eyJkYXR1bUZpbHRlcnMiOltdfQ%3D%3D',
       );
     });
 
@@ -141,7 +69,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/Solar-Panel-Data-Sorting/pipelines/montage',
+        '/lineage/Solar-Panel-Data-Sorting/pipelines/montage',
       );
       render(<Project />);
 
@@ -151,7 +79,7 @@ describe('ProjectSidebar', () => {
       );
       expect(logsLink as HTMLElement).toHaveAttribute(
         'href',
-        '/project/Solar-Panel-Data-Sorting/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs/datum?view=eyJkYXR1bUZpbHRlcnMiOlsiU1VDQ0VTUyJdfQ%3D%3D',
+        '/lineage/Solar-Panel-Data-Sorting/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs/datum?view=eyJkYXR1bUZpbHRlcnMiOlsiU1VDQ0VTUyJdfQ%3D%3D',
       );
     });
 
@@ -204,7 +132,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/Data-Cleaning-Process/pipelines/likelihoods?view=eyJnbG9iYWxJZEZpbHRlciI6IjIzYjlhZjdkNWQ0MzQzMjE5YmM4ZTAyZmY0YWNkMzNhIn0%3D',
+        '/lineage/Data-Cleaning-Process/pipelines/likelihoods?view=eyJnbG9iYWxJZEZpbHRlciI6IjIzYjlhZjdkNWQ0MzQzMjE5YmM4ZTAyZmY0YWNkMzNhIn0%3D',
       );
 
       render(<Project />);
@@ -236,7 +164,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
+        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
       );
 
       render(<Project />);
@@ -253,7 +181,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
+        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
       );
 
       render(<Project />);
@@ -276,7 +204,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/Data-Cleaning-Process/repos/models/branch/master/commits',
+        '/lineage/Data-Cleaning-Process/repos/models/branch/master/commits',
       );
 
       render(<Project />);
@@ -289,7 +217,7 @@ describe('ProjectSidebar', () => {
       );
 
       expect(
-        await screen.findByRole('link', {name: 'Linked Job'}),
+        await screen.findByRole('button', {name: 'Linked Job'}),
       ).toBeInTheDocument();
     });
 
@@ -297,7 +225,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/Data-Cleaning-Process/repos/training/branch/master/commits',
+        '/lineage/Data-Cleaning-Process/repos/training/branch/master/commits',
       );
 
       render(<Project />);
@@ -310,7 +238,7 @@ describe('ProjectSidebar', () => {
       );
 
       expect(
-        await screen.findByRole('link', {name: 'Linked Job'}),
+        await screen.findByRole('button', {name: 'Linked Job'}),
       ).toBeInTheDocument();
     });
 
@@ -318,7 +246,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/Data-Cleaning-Process/repos/training/branch/develop',
+        '/lineage/Data-Cleaning-Process/repos/training/branch/develop',
       );
 
       render(<Project />);
@@ -341,7 +269,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/Data-Cleaning-Process/repos/test/branch/default',
+        '/lineage/Data-Cleaning-Process/repos/test/branch/default',
       );
 
       render(<Project />);
@@ -361,7 +289,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/Data-Cleaning-Process/repos/model/branch/default',
+        '/lineage/Data-Cleaning-Process/repos/model/branch/default',
       );
 
       render(<Project />);
@@ -376,30 +304,11 @@ describe('ProjectSidebar', () => {
       expect(await screen.findByText('Branch: develop')).toBeInTheDocument();
     });
 
-    it('should show a single commit with diff with a globalId filter', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/project/Data-Cleaning-Process/repos/likelihoods/branch/master?view=eyJnbG9iYWxJZEZpbHRlciI6IjIzYjlhZjdkNWQ0MzQzMjE5YmM4ZTAyZmY0YWNkMzNhIn0%3D',
-      );
-
-      render(<Project />);
-
-      await waitFor(() =>
-        expect(screen.getByTestId('CommitDetails__id')).toHaveTextContent(
-          '23b9af7d5d4343219bc8e02ff4acd33a',
-        ),
-      );
-      expect(
-        screen.getByTestId('CommitDetails__fileUpdates'),
-      ).toHaveTextContent('1 File updated');
-    });
-
     it('should show empty repo message when repo has no commits', async () => {
       window.history.replaceState(
         '',
         '',
-        '/project/Data-Cleaning-Process/repos/select/branch/master',
+        '/lineage/Data-Cleaning-Process/repos/select/branch/master',
       );
 
       render(<Project />);
@@ -422,7 +331,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
+        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
       );
 
       render(<Project />);
@@ -433,7 +342,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
+        '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
       );
 
       render(<Project />);
@@ -445,7 +354,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/OpenCV-Tutorial/repos/montage/branch/master',
+        '/lineage/OpenCV-Tutorial/repos/montage/branch/master',
       );
 
       render(<Project />);
@@ -465,7 +374,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/Egress-Examples/repos/egress_sql/branch/master/info',
+        '/lineage/Egress-Examples/repos/egress_sql/branch/master/info',
       );
 
       render(
@@ -491,7 +400,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/Data-Cleaning-Process/repos/models/branch/master/commits',
+        '/lineage/Data-Cleaning-Process/repos/models/branch/master/commits',
       );
 
       render(<Project />);
@@ -505,32 +414,13 @@ describe('ProjectSidebar', () => {
       expect(await screen.findByText('View Files')).toBeInTheDocument();
       expect(screen.getByText('View Files')).toBeEnabled();
     });
-
-    it('should show a link to view files while filtering for a global id', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/lineage/Data-Cleaning-Process/repos/likelihoods/branch/default?view=eyJnbG9iYWxJZEZpbHRlciI6IjIzYjlhZjdkNWQ0MzQzMjE5YmM4ZTAyZmY0YWNkMzNhIn0%3D',
-      );
-
-      render(<Project />);
-
-      await waitForElementToBeRemoved(() =>
-        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
-      );
-      await waitForElementToBeRemoved(() =>
-        screen.queryByTestId('CommitDetails__loadingdots'),
-      );
-      expect(await screen.findByText('View Files')).toBeInTheDocument();
-      expect(screen.getByText('View Files')).toBeEnabled();
-    });
   });
 
   it('should filter commits by auto origin', async () => {
     window.history.replaceState(
       '',
       '',
-      '/project/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
+      '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
     );
 
     render(<Project />);

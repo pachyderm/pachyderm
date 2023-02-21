@@ -11,7 +11,9 @@ export const Default = () => {
       <Tabs.TabsHeader>
         <Tabs.Tab id="one">One</Tabs.Tab>
         <Tabs.Tab id="two">Two</Tabs.Tab>
-        <Tabs.Tab id="three">Three</Tabs.Tab>
+        <Tabs.Tab id="three" disabled>
+          Three
+        </Tabs.Tab>
       </Tabs.TabsHeader>
 
       <Tabs.TabPanel id="one" data-testid={'panel-one'}>

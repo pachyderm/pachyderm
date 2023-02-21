@@ -6,6 +6,7 @@ import {useHistory} from 'react-router';
 import Description from '@dash-frontend/components/Description';
 import useCommit from '@dash-frontend/hooks/useCommit';
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
@@ -28,10 +29,20 @@ type CommitDetailsProps = {
 const CommitDetails: React.FC<CommitDetailsProps> = ({commitId, repo}) => {
   const browserHistory = useHistory();
   const {getPathToFileBrowser} = useFileBrowserNavigation();
+  const {getUpdatedSearchParams} = useUrlQueryState();
   const {branchId, projectId, repoId} = useUrlState();
 
   const selectedBranch =
     branchId === 'default' ? repo?.branches[0].name : branchId;
+
+  const goToJob = (jobId: string, repoId: string) => {
+    const newSearchParams = getUpdatedSearchParams({
+      selectedJobs: [jobId],
+      pipelineStep: [repoId],
+    });
+
+    browserHistory.push(`${jobRoute({projectId}, false)}${newSearchParams}`);
+  };
 
   const {commit, loading} = useCommit({
     args: {
@@ -155,15 +166,7 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({commitId, repo}) => {
         {commit.hasLinkedJob && (
           <Button
             buttonType="secondary"
-            onClick={() =>
-              browserHistory.push(
-                jobRoute({
-                  projectId,
-                  jobId: commit.id,
-                  pipelineId: commit.repoName,
-                }),
-              )
-            }
+            onClick={() => goToJob(commit.id, commit.repoName)}
           >
             Linked Job
           </Button>

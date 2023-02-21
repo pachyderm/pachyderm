@@ -15,6 +15,8 @@ export const GET_REPO_QUERY = gql`
       }
       name
       sizeDisplay
+      sizeBytes
+      access
       projectId
     }
   }

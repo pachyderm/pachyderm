@@ -2,25 +2,18 @@ import {format, fromUnixTime} from 'date-fns';
 import capitalize from 'lodash/capitalize';
 import React, {useRef, useCallback} from 'react';
 import {Helmet} from 'react-helmet';
-import {useRouteMatch} from 'react-router';
 
 import Description from '@dash-frontend/components/Description';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import {LETS_START_TITLE} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import {PipelineLink, EgressLink} from '@dash-frontend/components/ResourceLink';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
-import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {InputOutputNodesMap} from '@dash-frontend/lib/types';
-import {
-  LINEAGE_PATH,
-  LINEAGE_REPO_PATH,
-  PROJECT_REPO_PATH,
-} from '@dash-frontend/views/Project/constants/projectPaths';
+import {LINEAGE_REPO_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 import {SkeletonDisplayText, Tabs} from '@pachyderm/components';
 
 import CommitBrowser from '../CommitBrowser';
-import CommitDetails from '../CommitBrowser/components/CommitDetails';
 import Title from '../Title';
 
 import {TAB_ID} from './constants/tabIds';
@@ -28,21 +21,16 @@ import styles from './RepoDetails.module.css';
 
 type RepoDetailsProps = {
   inputOutputNodesMap?: InputOutputNodesMap;
-  dagsLoading?: boolean;
 };
 
 const noBranchRepoMessage = 'There are no branches on this repo!';
 
-const RepoDetails: React.FC<RepoDetailsProps> = ({
-  dagsLoading,
-  inputOutputNodesMap,
-}) => {
+const RepoDetails: React.FC<RepoDetailsProps> = ({inputOutputNodesMap}) => {
   const {loading, repo} = useCurrentRepo();
   const {repoId} = useUrlState();
 
   const currentRepoLoading = loading || repoId !== repo?.id;
 
-  const {viewState} = useUrlQueryState();
   const repoBaseRef = useRef<HTMLDivElement>(null);
   const filterEgressLink = useCallback(
     (egress: boolean) =>
@@ -65,11 +53,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({
   const egressOutputs = inputs.filter(filterEgressLink(true));
   const pipelineOutputs = inputs.filter(filterEgressLink(false));
 
-  const lineageMatch = useRouteMatch({
-    path: LINEAGE_PATH,
-  });
-
-  const tabsBasePath = lineageMatch ? LINEAGE_REPO_PATH : PROJECT_REPO_PATH;
+  const tabsBasePath = LINEAGE_REPO_PATH;
 
   const BranchBrowser = () =>
     repo?.branches?.length ? (
@@ -94,13 +78,9 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({
       <Tabs.RouterTabs basePathTabId={TAB_ID.COMMITS} basePath={tabsBasePath}>
         <Tabs.TabsHeader className={styles.tabsHeader}>
           {Object.values(TAB_ID).map((tabId) => {
-            let text = capitalize(tabId);
-            if (viewState.globalIdFilter && text === 'Commits') {
-              text = 'Commit';
-            }
             return (
               <Tabs.Tab id={tabId} key={tabId}>
-                {text}
+                {capitalize(tabId)}
               </Tabs.Tab>
             );
           })}
@@ -150,14 +130,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({
         </Tabs.TabPanel>
         <div className={styles.commitsTab}>
           <Tabs.TabPanel id={TAB_ID.COMMITS}>
-            {viewState.globalIdFilter
-              ? !dagsLoading && (
-                  <CommitDetails
-                    commitId={viewState.globalIdFilter}
-                    repo={repo}
-                  />
-                )
-              : !currentRepoLoading && <BranchBrowser />}
+            {!currentRepoLoading && <BranchBrowser />}
           </Tabs.TabPanel>
         </div>
       </Tabs.RouterTabs>

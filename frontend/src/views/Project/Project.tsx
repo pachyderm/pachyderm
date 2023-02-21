@@ -9,10 +9,12 @@ import {JobDatumViewer, PipelineDatumViewer} from '../DatumViewer';
 import FileBrowser from '../FileBrowser';
 import FileUpload from '../FileUpload';
 
-import ProjectDetails from './components/ProjectDetails';
+import DAG from './components/DAG';
+import JobSetList from './components/JobSetList';
+import PipelineList from './components/PipelineList';
 import ProjectHeader from './components/ProjectHeader';
-import ProjectJobList from './components/ProjectJobList';
 import ProjectSideNav from './components/ProjectSideNav';
+import RepoList from './components/RepoList';
 import {
   PROJECT_PATH,
   PROJECT_JOBS_PATH,
@@ -32,13 +34,10 @@ import {
   PROJECT_JOB_LOGS_VIEWER_DATUM_PATH,
   PROJECT_JOB_LOGS_VIEWER_JOB_PATH,
 } from './constants/projectPaths';
-import {useProjectView} from './hooks/useProjectView';
 import styles from './Project.module.css';
 
 const Project: React.FC = () => {
   const {projectId} = useUrlState();
-
-  const projectProps = useProjectView();
 
   return (
     <>
@@ -55,13 +54,23 @@ const Project: React.FC = () => {
             })}
           />
         </Route>
-        <Route
-          path={[PROJECT_REPOS_PATH, PROJECT_PIPELINES_PATH, LINEAGE_PATH]}
-        >
-          <ProjectDetails {...projectProps} />
+        <Route path={LINEAGE_PATH}>
+          <DAG />
+        </Route>
+        <Route path={PROJECT_PIPELINES_PATH}>
+          <div className={styles.listWrapper}>
+            <PipelineList />
+          </div>
+        </Route>
+        <Route path={PROJECT_REPOS_PATH}>
+          <div className={styles.listWrapper}>
+            <RepoList />
+          </div>
         </Route>
         <Route path={PROJECT_JOBS_PATH}>
-          <ProjectJobList />
+          <div className={styles.listWrapper}>
+            <JobSetList />
+          </div>
         </Route>
         <Route path={[LINEAGE_FILE_BROWSER_PATH, PROJECT_FILE_BROWSER_PATH]}>
           <FileBrowser />

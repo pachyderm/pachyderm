@@ -1,14 +1,10 @@
 import {Project} from '@graphqlTypes';
 import classNames from 'classnames';
 import noop from 'lodash/noop';
-import React, {useCallback} from 'react';
+import React from 'react';
 import {useHistory} from 'react-router';
 
-import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
-import {
-  projectReposRoute,
-  lineageRoute,
-} from '@dash-frontend/views/Project/utils/routes';
+import {lineageRoute} from '@dash-frontend/views/Project/utils/routes';
 import {Button, Group, Info} from '@pachyderm/components';
 
 import ProjectStatus from '../ProjectStatus';
@@ -29,15 +25,8 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   setSelectedProject = noop,
 }) => {
   const browserHistory = useHistory();
-  const [listDefaultView] = useLocalProjectSettings({
-    projectId: project.id,
-    key: 'list_view_default',
-  });
-  const onClick = useCallback(() => {
-    listDefaultView
-      ? browserHistory.push(projectReposRoute({projectId: project.id}))
-      : browserHistory.push(lineageRoute({projectId: project.id}));
-  }, [browserHistory, listDefaultView, project]);
+  const onClick = () =>
+    browserHistory.push(lineageRoute({projectId: project.id}));
 
   return (
     <tr

@@ -27,8 +27,6 @@ export type FileMajorType =
   | 'folder'
   | 'unknown';
 
-export type SidebarSize = 'sm' | 'md' | 'lg';
-
 export type FixedListRowProps = {
   index: number;
   style: CSSProperties;

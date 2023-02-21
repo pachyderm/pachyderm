@@ -1,0 +1,44 @@
+.base {
+  width: 100%;
+  display: inline-flex;
+  color: var(--pachyderm-black);
+  padding: 0.75rem;
+  padding-right: 1rem;
+}
+
+.base:hover {
+  background-color: var(--hover-grey);
+  color: var(--pachyderm-black);
+  text-decoration: none;
+}
+
+.innerContent {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+}
+
+.timestamp {
+  flex: 1;
+}
+
+.jobStatus {
+  color: var(--pachyderm-green);
+  background-color: var(--background-blue-light);
+  line-height: 0.9375rem;
+  border-radius: 4rem;
+  padding: 0.28125rem;
+  width: 5.8125rem;
+  text-align: center;
+}
+
+/* stylelint-disable-next-line selector-class-pattern */
+.jobStatus.JOB_FAILURE {
+  background-color: var(--background-pink);
+  color: var(--pachyderm-coral);
+}
+
+/* stylelint-disable-next-line selector-class-pattern */
+.jobStatus.JOB_KILLED {
+  color: var(--pachyderm-black);
+}

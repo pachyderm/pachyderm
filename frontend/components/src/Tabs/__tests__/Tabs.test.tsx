@@ -6,7 +6,7 @@ import {click} from '@dash-frontend/testHelpers';
 import {Tabs} from '../';
 
 describe('Tabs', () => {
-  const renderTestbed = () => {
+  const renderTestbed = (renderWhenHidden?: boolean) => {
     render(
       <Tabs initialActiveTabId={'one'}>
         <Tabs.TabsHeader>
@@ -15,13 +15,25 @@ describe('Tabs', () => {
           <Tabs.Tab id="three">Three</Tabs.Tab>
         </Tabs.TabsHeader>
 
-        <Tabs.TabPanel id="one" data-testid={'panel-one'}>
+        <Tabs.TabPanel
+          id="one"
+          data-testid={'panel-one'}
+          renderWhenHidden={renderWhenHidden}
+        >
           One Content
         </Tabs.TabPanel>
-        <Tabs.TabPanel id="two" data-testid={'panel-two'}>
+        <Tabs.TabPanel
+          id="two"
+          data-testid={'panel-two'}
+          renderWhenHidden={renderWhenHidden}
+        >
           Two Content
         </Tabs.TabPanel>
-        <Tabs.TabPanel id="three" data-testid={'panel-three'}>
+        <Tabs.TabPanel
+          id="three"
+          data-testid={'panel-three'}
+          renderWhenHidden={renderWhenHidden}
+        >
           Three Content
         </Tabs.TabPanel>
       </Tabs>,
@@ -29,11 +41,12 @@ describe('Tabs', () => {
   };
 
   const assertTab = (id: string) => {
-    const tabPanel = screen.getByTestId(`panel-${id}`);
+    const tabPanel = screen.queryByTestId(`panel-${id}`);
 
     return {
       toBeShown: () => expect(tabPanel).toBeVisible(),
       toBeHidden: () => expect(tabPanel).not.toBeVisible(),
+      notToBeRendered: () => expect(tabPanel).not.toBeInTheDocument(),
     };
   };
 
@@ -61,6 +74,17 @@ describe('Tabs', () => {
     assertTab('two').toBeShown();
     assertTab('one').toBeHidden();
     assertTab('three').toBeHidden();
+  });
+
+  /* eslint-disable-next-line jest/expect-expect */
+  it('should be able to navigate between tabs with hidden tabs not rendered', async () => {
+    renderTestbed(false);
+
+    await activateTab('two');
+
+    assertTab('two').toBeShown();
+    assertTab('one').notToBeRendered();
+    assertTab('three').notToBeRendered();
   });
 
   describe('keyboard behavior', () => {

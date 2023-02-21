@@ -10,6 +10,7 @@
   padding: 0;
   margin: 0;
   transition: color 300ms ease-in-out;
+  position: relative;
 }
 
 a + .base,

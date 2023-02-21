@@ -11,7 +11,7 @@ describe('Repos', () => {
   });
 
   afterEach(() => {
-    cy.exec('pachctl delete repo --all --force')
+    cy.deleteReposAndPipelines();
     cy.visit('/')
   })
 
@@ -102,5 +102,24 @@ describe('Repos', () => {
     cy.findByTestId('DeleteRepoButton__link').click();
     cy.findByText('Delete').click();
     cy.findByText('TestRepo').should('not.exist');
+  })
+
+  it('should allow a user to select a repo from the list view to inspect commits', () => {
+    cy.setupProject().visit('/');
+    cy.findAllByText(/^View(\sProject)*$/).eq(0).click();
+    cy.findByText('Repositories').click();
+    cy.findAllByTestId('RepositoriesList__row', {timeout: 30000}).should('have.length', 3)
+
+    cy.findByText('images').click();
+    cy.findByText('Detailed info for images');
+    cy.findByText('Commits').click();
+    
+    cy.findAllByTestId('CommitsList__row').should('have.length', 1)
+
+    cy.findAllByTestId('CommitsList__row').first().within(() => cy.findByTestId('DropdownButton__button').click());
+    cy.findByText('Inspect commit').click()
+
+    cy.findByText('1 File added');
+    cy.findByText('(+58.65 kB)');
   })
 });

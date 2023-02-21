@@ -1,3 +1,5 @@
+import {ApolloError} from 'apollo-server-errors';
+
 import {QueryResolvers} from '@dash-backend/generated/types';
 import getJobsFromJobSet from '@dash-backend/lib/getJobsFromJobSet';
 
@@ -29,12 +31,38 @@ const pipelineJobResolver: PipelineJobResolver = {
     },
     jobs: async (
       _parent,
-      {args: {limit, pipelineId, projectId}},
+      {args: {limit, pipelineId, pipelineIds, jobSetIds, projectId}},
       {pachClient},
     ) => {
+      let jqFilter = '';
+
+      if (
+        jobSetIds &&
+        jobSetIds.length > 0 &&
+        pipelineIds &&
+        pipelineIds.length > 0
+      ) {
+        throw new ApolloError(
+          'Cannot filter by both pipelineIds and jobSetIds',
+        );
+      }
+
+      if (jobSetIds && jobSetIds.length > 0) {
+        jqFilter = `select(${jobSetIds
+          .map((jobSetId) => `.job.id == "${jobSetId}"`)
+          .join(' or ')})`;
+      }
+
+      if (pipelineIds && pipelineIds.length > 0) {
+        jqFilter = `select(${pipelineIds
+          .map((pipeline) => `.job.pipeline.name == "${pipeline}"`)
+          .join(' or ')})`;
+      }
+
       const jobs = await pachClient.pps().listJobs({
         limit,
         pipelineId,
+        jqFilter,
         projectId,
       });
 

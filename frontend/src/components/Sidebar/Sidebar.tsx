@@ -2,7 +2,7 @@ import classnames from 'classnames';
 import React, {HTMLAttributes} from 'react';
 import {Route} from 'react-router';
 
-import {SidebarSize} from '@dash-frontend/lib/types';
+import {DEFAULT_SIDEBAR_SIZE} from '@dash-frontend/hooks/useSidebarInfo';
 import DeletePipelineButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/DeletePipelineButton';
 import DeleteRepoButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/DeleteRepoButton';
 import ReadLogsButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/ReadLogsButton';
@@ -10,8 +10,6 @@ import UploadFilesButton from '@dash-frontend/views/Project/components/ProjectSi
 import {
   PROJECT_PATH,
   LINEAGE_PATH,
-  PROJECT_REPO_PATH,
-  PROJECT_PIPELINE_PATH,
   LINEAGE_REPO_PATH,
   LINEAGE_PIPELINE_PATH,
 } from '@dash-frontend/views/Project/constants/projectPaths';
@@ -23,7 +21,6 @@ interface SidebarProps extends HTMLAttributes<HTMLDivElement> {
   overlay?: boolean;
   fixed?: boolean;
   onClose?: () => void;
-  defaultSize?: SidebarSize;
   resizable?: boolean;
 }
 
@@ -33,7 +30,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onClose,
   className,
   fixed = false,
-  defaultSize = 'sm',
   resizable = false,
   ...rest
 }) => {
@@ -45,7 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     throttleMouseEvent,
     applyMousePosition,
     onDragEnd,
-  } = useSidebar({defaultSize});
+  } = useSidebar();
 
   return (
     <div
@@ -71,11 +67,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           {
             [styles.fixed]: fixed,
             [styles.open]: isOpen,
-            [styles[defaultSize]]: true,
           },
           className,
         )}
-        style={{width: resizable ? sidebarWidth : '100%'}}
+        style={{width: resizable ? sidebarWidth : DEFAULT_SIDEBAR_SIZE}}
         {...rest}
       >
         {resizable && (
@@ -87,16 +82,16 @@ const Sidebar: React.FC<SidebarProps> = ({
         <Route path={[PROJECT_PATH, LINEAGE_PATH]}>
           <div className={styles.sideBarToolbar}>
             <ButtonGroup>
-              <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]}>
+              <Route path={LINEAGE_PIPELINE_PATH}>
                 <ReadLogsButton buttonText="Inspect Jobs" />
               </Route>
             </ButtonGroup>
             <ButtonGroup>
-              <Route path={[PROJECT_REPO_PATH, LINEAGE_REPO_PATH]}>
+              <Route path={LINEAGE_REPO_PATH}>
                 <UploadFilesButton />
                 <DeleteRepoButton />
               </Route>
-              <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]}>
+              <Route path={LINEAGE_PIPELINE_PATH}>
                 <DeletePipelineButton />
               </Route>
               {onClose && (

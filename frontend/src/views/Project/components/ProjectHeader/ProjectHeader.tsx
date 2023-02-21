@@ -1,6 +1,5 @@
 import React, {useCallback, useState} from 'react';
 
-import GlobalFilter from '@dash-frontend/components/GlobalFilter';
 import Header from '@dash-frontend/components/Header';
 import Search from '@dash-frontend/components/Search';
 import {
@@ -73,7 +72,6 @@ const ProjectHeader = () => {
       <div className={styles.dividerSearch} />
       <Search />
       <Group align="center">
-        <GlobalFilter />
         {/* Tutorial is temporarily disabled because of "Project" Console Support */}
       </Group>
     </Header>

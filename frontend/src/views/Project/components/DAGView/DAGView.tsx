@@ -4,7 +4,9 @@ import React from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
 import {NO_DAG_MESSAGE} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
+import GlobalFilter from '@dash-frontend/components/GlobalFilter';
 import View from '@dash-frontend/components/View';
+import useSidebarInfo from '@dash-frontend/hooks/useSidebarInfo';
 import {DagDirection, Dag} from '@dash-frontend/lib/types';
 import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
 import {
@@ -23,7 +25,7 @@ import {
   DownloadSVG,
   useModal,
 } from '@pachyderm/components';
-import {LARGE} from 'constants/breakpoints';
+import {EXTRA_LARGE} from 'constants/breakpoints';
 
 import {NODE_HEIGHT, NODE_WIDTH} from '../../constants/nodeSizes';
 import CreateRepoModal from '../CreateRepoModal';
@@ -64,6 +66,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
     projectName,
     viewState,
   } = useDAGView(NODE_WIDTH, NODE_HEIGHT, dags, loading);
+  const {isOpen: isSidebarOpen, sidebarSize} = useSidebarInfo();
   const {renderAndDownloadCanvas, downloadCanvas} = useCanvasDownload(
     viewState,
     graphExtents,
@@ -72,7 +75,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
 
   const {openModal, closeModal, isOpen} = useModal(false);
 
-  const isResponsive = useBreakpoint(LARGE);
+  const isResponsive = useBreakpoint(EXTRA_LARGE);
   const noDags = dags?.length === 0;
   const totalNodes = dags?.reduce((acc, val) => acc + val.nodes.length, 0) || 0;
 
@@ -132,7 +135,10 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
 
   return (
     <View className={styles.view}>
-      <div className={styles.topSection}>
+      <div
+        className={styles.topSection}
+        style={isSidebarOpen ? {width: `calc(100% - ${sidebarSize}px`} : {}}
+      >
         <div className={styles.canvasControls}>
           <RangeSlider
             min={(minScale * 100).toString()}
@@ -231,6 +237,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
           )}
         </div>
         <DAGError error={error} />
+        <GlobalFilter />
       </div>
       {noDags && (
         <EmptyState

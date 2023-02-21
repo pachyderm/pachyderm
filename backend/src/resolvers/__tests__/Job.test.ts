@@ -48,6 +48,36 @@ describe('Jobs', () => {
       expect(data?.jobs[0].id).toBe(expectedJobs[0].getJob()?.getId());
     });
 
+    it('should find jobs for multiple given pipelineIds', async () => {
+      const {data, errors = []} = await executeQuery<JobsQuery>(JOBS_QUERY, {
+        args: {projectId: 'Solar-Panel-Data-Sorting', pipelineIds: ['montage']},
+      });
+      const expectedJobs = jobs['Solar-Panel-Data-Sorting'].filter(
+        (jobs) => jobs.getJob()?.getPipeline()?.getName() === 'montage',
+      );
+
+      expect(errors).toHaveLength(0);
+      expect(data?.jobs).toHaveLength(expectedJobs.length);
+      expect(data?.jobs[0].id).toBe(expectedJobs[0].getJob()?.getId());
+    });
+
+    it('should find jobs for multiple given jobSetIds', async () => {
+      const {data, errors = []} = await executeQuery<JobsQuery>(JOBS_QUERY, {
+        args: {
+          projectId: 'Solar-Panel-Data-Sorting',
+          jobSetIds: ['23b9af7d5d4343219bc8e02ff44cd55a'],
+        },
+      });
+
+      const expectedJobs = jobs['Solar-Panel-Data-Sorting'].filter(
+        (jobs) => jobs.getJob()?.getId() === '23b9af7d5d4343219bc8e02ff44cd55a',
+      );
+
+      expect(errors).toHaveLength(0);
+      expect(data?.jobs).toHaveLength(expectedJobs.length);
+      expect(data?.jobs[0].id).toBe(expectedJobs[0].getJob()?.getId());
+    });
+
     it('should return an empty set if no records exist', async () => {
       const {data, errors = []} = await executeQuery<JobsQuery>(JOBS_QUERY, {
         args: {
@@ -120,6 +150,18 @@ describe('Jobs', () => {
       expect(data?.jobSets[1].id).toBe('33b9af7d5d4343219bc8e02ff44cd55a');
       expect(data?.jobSets[2].id).toBe('7798fhje5d4343219bc8e02ff4acd33a');
       expect(data?.jobSets[3].id).toBe('o90du4js5d4343219bc8e02ff4acd33a');
+    });
+
+    it('should return the earliest created and latest finished job times', async () => {
+      const {data} = await executeQuery<JobSetsQuery>(JOB_SETS_QUERY, {
+        args: {
+          projectId: '1',
+        },
+      });
+
+      expect(data?.jobSets[0].createdAt).toBe(1614126189);
+      expect(data?.jobSets[0].finishedAt).toBe(1616533103);
+      expect(data?.jobSets[0].inProgress).toBe(false);
     });
   });
 });

@@ -69,6 +69,7 @@ export interface ListArgs {
 }
 export interface ListJobArgs extends ListArgs {
   pipelineId?: string | null;
+  jqFilter?: string;
   projectId: string;
 }
 
@@ -274,7 +275,7 @@ const pps = ({
     },
 
     // TODO: should implement multi project list ?
-    listJobs: ({projectId, limit, pipelineId}: ListJobArgs) => {
+    listJobs: ({projectId, limit, pipelineId, jqFilter}: ListJobArgs) => {
       const listJobRequest = new ListJobRequest().setDetails(true);
 
       listJobRequest.setProjectsList([new Project().setName(projectId)]);
@@ -287,6 +288,10 @@ const pps = ({
         );
       } else if (pipelineId) {
         listJobRequest.setPipeline(new Pipeline().setName(pipelineId));
+      }
+
+      if (jqFilter) {
+        listJobRequest.setJqfilter(jqFilter);
       }
 
       if (projectId) {

@@ -15,6 +15,8 @@ export const GET_REPOS_QUERY = gql`
       }
       name
       sizeDisplay
+      sizeBytes
+      access
     }
   }
 `;

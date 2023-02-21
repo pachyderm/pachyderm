@@ -1,5 +1,6 @@
 import {OriginKind, RepoQuery} from '@graphqlTypes';
 import React from 'react';
+import {useHistory} from 'react-router';
 import {CSSTransition, TransitionGroup} from 'react-transition-group';
 
 import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
@@ -9,6 +10,7 @@ import {COMMITS_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
 import useCommits, {COMMIT_LIMIT} from '@dash-frontend/hooks/useCommits';
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
@@ -35,7 +37,19 @@ type CommitBrowserProps = {
 
 const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
   const {getPathToFileBrowser} = useFileBrowserNavigation();
+  const {getUpdatedSearchParams} = useUrlQueryState();
+  const browserHistory = useHistory();
   const {branchId, projectId, repoId} = useUrlState();
+
+  const goToJob = (jobId: string, repoId: string) => {
+    const newSearchParams = getUpdatedSearchParams({
+      selectedJobs: [jobId],
+      pipelineStep: [repoId],
+    });
+
+    browserHistory.push(`${jobRoute({projectId}, false)}${newSearchParams}`);
+  };
+
   const [hideAutoCommits, handleHideAutoCommitChange] = useLocalProjectSettings(
     {projectId, key: 'hide_auto_commits'},
   );
@@ -171,11 +185,9 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
                           {commit.hasLinkedJob && (
                             <Button
                               buttonType="ghost"
-                              to={jobRoute({
-                                projectId,
-                                jobId: commit.id,
-                                pipelineId: repo?.name,
-                              })}
+                              onClick={() =>
+                                goToJob(commit.id, repo?.name || '')
+                              }
                             >
                               Linked Job
                             </Button>

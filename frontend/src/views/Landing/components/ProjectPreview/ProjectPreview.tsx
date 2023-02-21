@@ -9,7 +9,7 @@ import {
   CREATE_FIRST_JOB_MESSAGE,
   LETS_START_TITLE,
 } from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
-import JobListStatic from '@dash-frontend/components/JobList/components/JobListStatic';
+import ProjectJobSetList from '@dash-frontend/components/ProjectJobSetList';
 import useIntersection from '@dash-frontend/hooks/useIntersection';
 import {useProjectDetails} from '@dash-frontend/hooks/useProjectDetails';
 import {jobsRoute} from '@dash-frontend/views/Project/utils/routes';
@@ -96,7 +96,7 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
               {getListTitle('Job', projectDetails?.jobSets?.length || 0)}
             </h6>
           )}
-          <JobListStatic
+          <ProjectJobSetList
             projectId={project.id}
             jobs={projectDetails?.jobSets}
             loading={loading}

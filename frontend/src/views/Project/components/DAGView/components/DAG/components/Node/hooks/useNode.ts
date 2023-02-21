@@ -126,7 +126,8 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
   const repoSelected =
     selectedRepo === deriveRepoNameFromNode(node) && !!repoPathMatch;
 
-  const pipelineSelected = selectedPipeline === node.id && !!pipelinePathMatch;
+  const pipelineSelected =
+    selectedPipeline === node.name && !!pipelinePathMatch;
 
   return {
     isHovered,

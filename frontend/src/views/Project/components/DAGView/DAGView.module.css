@@ -15,7 +15,7 @@
   align-items: center;
   margin-bottom: 0.125rem;
   border-radius: 3px;
-  filter: drop-shadow(2px 2px 8px rgba(222, 222, 223, 0.8));
+  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.1));
   background-color: var(--white);
 }
 

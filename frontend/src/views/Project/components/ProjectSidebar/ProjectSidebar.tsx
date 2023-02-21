@@ -1,28 +1,14 @@
 import React from 'react';
 import {Route, Switch} from 'react-router';
 
-import {
-  CREATE_FIRST_JOB_MESSAGE,
-  LETS_START_TITLE,
-} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
-import JobList from '@dash-frontend/components/JobList';
 import Sidebar from '@dash-frontend/components/Sidebar';
 import {InputOutputNodesMap} from '@dash-frontend/lib/types';
 
 import {
-  LINEAGE_JOBS_PATH,
-  LINEAGE_JOB_PATH,
   LINEAGE_PIPELINE_PATH,
   LINEAGE_REPO_PATH,
-  PROJECT_JOBS_PATH,
-  PROJECT_JOB_PATH,
-  PROJECT_PIPELINES_PATH,
-  PROJECT_PIPELINE_PATH,
-  PROJECT_REPOS_PATH,
-  PROJECT_REPO_PATH,
 } from '../../constants/projectPaths';
 
-import JobDetails from './components/JobDetails';
 import PipelineDetails from './components/PipelineDetails';
 import RepoDetails from './components/RepoDetails';
 import useProjectSidebar from './hooks/useProjectSidebar';
@@ -30,79 +16,33 @@ import styles from './ProjectSidebar.module.css';
 
 type ProjectSidebarProps = {
   inputOutputNodesMap?: InputOutputNodesMap;
-  dagsLoading?: boolean;
   resizable?: boolean;
 };
 
 const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
   inputOutputNodesMap,
-  dagsLoading,
   resizable = true,
 }) => {
-  const {
-    projectId,
-    handleClose,
-    sidebarSize,
-    overlay,
-    jobSets,
-    jobSetsLoading,
-    error,
-  } = useProjectSidebar();
+  const {handleClose} = useProjectSidebar();
 
   const resizableProps = resizable
     ? {
         fixed: true,
         onClose: handleClose,
-        overlay,
-        defaultSize: sidebarSize,
         resizable: true,
       }
     : {};
 
   return (
     <div className={styles.base}>
-      <Route
-        path={[
-          PROJECT_JOBS_PATH,
-          PROJECT_JOB_PATH,
-          PROJECT_REPO_PATH,
-          PROJECT_REPOS_PATH,
-          PROJECT_PIPELINES_PATH,
-          LINEAGE_REPO_PATH,
-          LINEAGE_JOB_PATH,
-          LINEAGE_PIPELINE_PATH,
-          PROJECT_PIPELINE_PATH,
-          LINEAGE_JOBS_PATH,
-        ]}
-      >
+      <Route path={[LINEAGE_REPO_PATH, LINEAGE_PIPELINE_PATH]}>
         <Sidebar data-testid="ProjectSidebar__sidebar" {...resizableProps}>
           <Switch>
-            <Route path={[LINEAGE_JOBS_PATH]} exact>
-              <JobList
-                projectId={projectId}
-                jobs={jobSets}
-                loading={jobSetsLoading}
-                error={error}
-                expandActions
-                showStatusFilter
-                emptyStateTitle={LETS_START_TITLE}
-                emptyStateMessage={CREATE_FIRST_JOB_MESSAGE}
-              />
+            <Route path={LINEAGE_REPO_PATH}>
+              <RepoDetails inputOutputNodesMap={inputOutputNodesMap} />
             </Route>
-            <Route path={[PROJECT_JOB_PATH, LINEAGE_JOB_PATH]}>
-              <JobDetails />
-            </Route>
-            <Route path={[PROJECT_REPO_PATH, LINEAGE_REPO_PATH]}>
-              <RepoDetails
-                dagsLoading={!!dagsLoading}
-                inputOutputNodesMap={inputOutputNodesMap}
-              />
-            </Route>
-            <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]} exact>
-              <PipelineDetails
-                dagsLoading={!!dagsLoading}
-                inputOutputNodesMap={inputOutputNodesMap}
-              />
+            <Route path={LINEAGE_PIPELINE_PATH} exact>
+              <PipelineDetails inputOutputNodesMap={inputOutputNodesMap} />
             </Route>
           </Switch>
         </Sidebar>

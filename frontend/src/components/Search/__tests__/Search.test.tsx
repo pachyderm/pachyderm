@@ -1,13 +1,7 @@
-import {JobState} from '@graphqlTypes';
 import {render, screen} from '@testing-library/react';
 import React from 'react';
 
-import {
-  click,
-  getUrlState,
-  withContextProviders,
-  type,
-} from '@dash-frontend/testHelpers';
+import {click, withContextProviders, type} from '@dash-frontend/testHelpers';
 
 import Search from '../Search';
 
@@ -30,7 +24,7 @@ describe('Search', () => {
   };
 
   beforeEach(() => {
-    window.history.replaceState({}, '', '/project/Solar-Panel-Data-Sorting');
+    window.history.replaceState({}, '', '/lineage/Solar-Panel-Data-Sorting');
   });
   afterEach(() => {
     window.localStorage.removeItem(
@@ -39,7 +33,7 @@ describe('Search', () => {
   });
 
   it('should display empty state messages', async () => {
-    window.history.replaceState({}, '', '/project/Empty-Project');
+    window.history.replaceState({}, '', '/lineage/Empty-Project');
     renderTestbed();
 
     const searchBar = await screen.findByRole('searchbox');
@@ -50,13 +44,10 @@ describe('Search', () => {
     expect(
       screen.getByText('There are no recent searches.'),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText('There are no jobs on this project.'),
-    ).toBeInTheDocument();
     await type(searchBar, 'anything');
     expect(
       await screen.findByText(
-        'No matching pipelines, jobs or global ID found.',
+        'No matching pipelines, jobs or Global ID found.',
       ),
     ).toBeInTheDocument();
     assertDropdown().toBeShown();
@@ -137,7 +128,7 @@ describe('Search', () => {
 
     assertDropdown().toBeHidden();
     expect(window.location.pathname).toBe(
-      '/project/Solar-Panel-Data-Sorting/repos/images/branch/default',
+      '/lineage/Solar-Panel-Data-Sorting/repos/images/branch/default',
     );
   });
 
@@ -152,7 +143,7 @@ describe('Search', () => {
 
     assertDropdown().toBeHidden();
     expect(window.location.pathname).toBe(
-      '/project/Solar-Panel-Data-Sorting/pipelines/edges',
+      '/lineage/Solar-Panel-Data-Sorting/pipelines/edges',
     );
     assertDropdown().toBeHidden();
   });
@@ -169,34 +160,7 @@ describe('Search', () => {
 
     assertDropdown().toBeHidden();
     expect(window.location.pathname).toBe(
-      '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a',
+      '/project/Solar-Panel-Data-Sorting/jobs/subjobs',
     );
-  });
-
-  it('should route to jobs view when chips are clicked', async () => {
-    renderTestbed();
-
-    const searchBar = await screen.findByRole('searchbox');
-    assertDropdown().toBeHidden();
-
-    searchBar.focus();
-    assertDropdown().toBeShown();
-    await click(await screen.findByRole('button', {name: 'All (4)'}));
-    expect(window.location.pathname).toBe(
-      '/project/Solar-Panel-Data-Sorting/jobs',
-    );
-    expect(getUrlState().jobFilters).toEqual([
-      JobState.JOB_CREATED,
-      JobState.JOB_EGRESSING,
-      JobState.JOB_FAILURE,
-      JobState.JOB_FINISHING,
-      JobState.JOB_KILLED,
-      JobState.JOB_RUNNING,
-      JobState.JOB_STARTING,
-      JobState.JOB_STATE_UNKNOWN,
-      JobState.JOB_SUCCESS,
-      JobState.JOB_UNRUNNABLE,
-    ]);
-    assertDropdown().toBeHidden();
   });
 });

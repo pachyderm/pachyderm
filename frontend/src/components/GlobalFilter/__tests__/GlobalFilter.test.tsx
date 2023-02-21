@@ -57,7 +57,7 @@ describe('Global ID Filter', () => {
 
     screen.getByText('Apply').click();
 
-    await screen.findByText('Global ID: 23b9af7d');
+    await screen.findByText('23b9af...');
     expect(window.location.search).toBe(
       '?view=eyJnbG9iYWxJZEZpbHRlciI6IjIzYjlhZjdkNWQ0MzQzMjE5YmM4ZTAyZmY0NGNkNTVhIn0%3D',
     );
@@ -74,9 +74,9 @@ describe('Global ID Filter', () => {
 
     screen.getByText('Apply').click();
 
-    await screen.findByText('Global ID: 23b9af7d');
+    await screen.findByText('23b9af...');
 
-    screen.getByText('Global ID: 23b9af7d').click();
+    screen.getByText('23b9af...').click();
 
     screen.getByText('Clear ID').click();
 

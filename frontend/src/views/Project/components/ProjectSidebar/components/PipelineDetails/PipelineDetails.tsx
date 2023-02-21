@@ -17,7 +17,6 @@ import styles from './PipelineDetails.module.css';
 
 type PipelineDetailsProps = {
   inputOutputNodesMap?: InputOutputNodesMap;
-  dagsLoading?: boolean;
 };
 
 const PipelineDetails: React.FC<PipelineDetailsProps> = ({

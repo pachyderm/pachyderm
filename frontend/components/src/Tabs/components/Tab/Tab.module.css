@@ -2,6 +2,7 @@
   color: var(--pachyderm-black);
   text-decoration: none;
   padding-bottom: 0.5rem;
+  display: block;
 }
 
 .base a[aria-selected='true'] {
@@ -18,8 +19,9 @@
   margin-top: 1rem;
 }
 
-.base a {
-  display: block;
+.base.disabled a {
+  color: var(--placeholder-grey);
+  cursor: not-allowed;
 }
 
 .base a:focus:not([class$='focus-visible']) {

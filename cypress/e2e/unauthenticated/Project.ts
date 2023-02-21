@@ -22,8 +22,10 @@ describe('Project', () => {
 
     // wait for jobs to finish to reduce pachd strain
     cy.findByText('Jobs').click();
-    cy.findAllByText('Success', {timeout: 30000}).should('have.length', 2)
-    cy.findByLabelText('Close').click();
+    cy.findByLabelText('expand filters').click();
+    cy.findAllByText('Success').filter(':visible').last().click();
+    cy.findAllByTestId('RunsList__row', {timeout: 60000}).should('have.length', 2)
+    cy.findByText('DAG').click();
 
     cy.findByText('images').click();
     cy.findByTestId('DeleteRepoButton__link').should('be.disabled');

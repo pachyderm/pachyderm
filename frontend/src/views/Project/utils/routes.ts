@@ -1,22 +1,17 @@
 import {ExtractRouteParams, generatePath, matchPath} from 'react-router';
 
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import {generatePathWithSearch} from '@pachyderm/components';
 
 import {
   LINEAGE_PATH,
   PROJECT_JOBS_PATH,
-  PROJECT_PIPELINE_PATH,
-  PROJECT_PIPELINE_JOB_PATH,
+  PROJECT_RUNS_JOB_PATH,
   PROJECT_PATH,
   PROJECT_REPOS_PATH,
   PROJECT_PIPELINES_PATH,
-  PROJECT_REPO_PATH,
   LINEAGE_FILE_BROWSER_PATH,
   PROJECT_FILE_BROWSER_PATH,
-  PROJECT_JOB_PATH,
-  LINEAGE_JOBS_PATH,
-  LINEAGE_JOB_PATH,
-  LINEAGE_PIPELINE_JOB_PATH,
   LINEAGE_REPO_PATH,
   LINEAGE_PIPELINE_PATH,
   PROJECT_FILE_UPLOAD_PATH,
@@ -58,29 +53,15 @@ const generateLineageOrProjectRouteFn = <S extends string>(
 
 export const lineageRoute = generateRouteFn(LINEAGE_PATH);
 export const projectRoute = generateRouteFn(PROJECT_PATH);
+export const projectJobsRoute = generateRouteFn(PROJECT_JOBS_PATH);
 export const projectReposRoute = generateRouteFn(PROJECT_REPOS_PATH);
 export const projectPipelinesRoute = generateRouteFn(PROJECT_PIPELINES_PATH);
 
-export const jobRoute = generateLineageOrProjectRouteFn(
-  PROJECT_JOB_PATH,
-  LINEAGE_JOB_PATH,
-);
-export const pipelineJobRoute = generateLineageOrProjectRouteFn(
-  PROJECT_PIPELINE_JOB_PATH,
-  LINEAGE_PIPELINE_JOB_PATH,
-);
-export const jobsRoute = generateLineageOrProjectRouteFn(
-  PROJECT_JOBS_PATH,
-  LINEAGE_JOBS_PATH,
-);
-export const repoRoute = generateLineageOrProjectRouteFn(
-  PROJECT_REPO_PATH,
-  LINEAGE_REPO_PATH,
-);
-export const pipelineRoute = generateLineageOrProjectRouteFn(
-  PROJECT_PIPELINE_PATH,
-  LINEAGE_PIPELINE_PATH,
-);
+export const jobRoute = generateRouteFn(PROJECT_RUNS_JOB_PATH);
+
+export const jobsRoute = generateRouteFn(PROJECT_JOBS_PATH);
+export const repoRoute = generateRouteFn(LINEAGE_REPO_PATH);
+export const pipelineRoute = generateRouteFn(LINEAGE_PIPELINE_PATH);
 
 export const fileBrowserRoute = generateLineageOrProjectRouteFn(
   PROJECT_FILE_BROWSER_PATH,
@@ -96,7 +77,7 @@ const generateLineageOrProjectLogsRouteFn = <S extends string>(
   return (params?: ExtractRouteParams<S>, withSearch = true) => {
     const projectPath = matchPath(
       window.location.pathname,
-      PROJECT_PIPELINE_PATH,
+      PROJECT_PIPELINES_PATH,
     )
       ? projectPipelinePath
       : projectJobPath;
@@ -137,3 +118,21 @@ export const fileUploadRoute = generateLineageOrProjectRouteFn(
   PROJECT_FILE_UPLOAD_PATH,
   LINEAGE_FILE_UPLOAD_PATH,
 );
+
+export const useSelectedRunRoute = ({
+  projectId,
+  jobId,
+  pipelineId,
+}: {
+  projectId: string;
+  jobId?: string;
+  pipelineId?: string;
+}) => {
+  const {getUpdatedSearchParams} = useUrlQueryState();
+  const newSearchParams = getUpdatedSearchParams({
+    selectedJobs: jobId ? [jobId] : [],
+    pipelineStep: pipelineId ? [pipelineId] : [],
+  });
+
+  return `${jobRoute({projectId}, false)}${newSearchParams}`;
+};

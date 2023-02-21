@@ -1,4 +1,9 @@
 import {JobState} from '@graphqlTypes';
+import {
+  fromUnixTime,
+  formatDistanceStrict,
+  formatDistanceToNowStrict,
+} from 'date-fns';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
 
@@ -11,23 +16,23 @@ import {
 
 type JobVisualState = 'RUNNING' | 'ERROR' | 'SUCCESS' | 'IDLE';
 
-export const getJobStateIcon = (state: JobVisualState) => {
+export const getJobStateIcon = (state: JobVisualState, small?: boolean) => {
   switch (state) {
     case 'ERROR':
       return (
-        <Icon color="red">
+        <Icon small={small} color="red">
           <StatusWarningSVG />
         </Icon>
       );
     case 'RUNNING':
       return (
-        <Icon color="green">
+        <Icon small={small} color="green">
           <StatusDotsSVG />
         </Icon>
       );
     case 'SUCCESS':
       return (
-        <Icon color="green">
+        <Icon small={small} color="green">
           <StatusCheckmarkSVG />
         </Icon>
       );
@@ -84,4 +89,22 @@ export const getVisualJobState = (state: JobState): JobVisualState => {
     default:
       return 'IDLE';
   }
+};
+
+export const getJobRuntime = (
+  createdAt?: number | null,
+  finishedAt?: number | null,
+) => {
+  if (finishedAt && createdAt) {
+    return formatDistanceStrict(
+      fromUnixTime(createdAt),
+      fromUnixTime(finishedAt),
+    );
+  }
+  if (createdAt) {
+    return `${formatDistanceToNowStrict(
+      fromUnixTime(createdAt),
+    )} - In Progress`;
+  }
+  return 'In Progresss';
 };

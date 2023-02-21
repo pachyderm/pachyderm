@@ -40,6 +40,16 @@ describe('services/pps', () => {
       input: input.toObject(),
     });
 
+    const input2 = new Input();
+    const pfsInput2 = new PFSInput().setGlob('/*').setRepo(name);
+    input2.setPfs(pfsInput2);
+
+    await pps.createPipeline({
+      pipeline: {name: `${name}-2`},
+      transform: transform.toObject(),
+      input: input2.toObject(),
+    });
+
     return {pachClient, inputRepoName};
   };
 
@@ -49,8 +59,8 @@ describe('services/pps', () => {
 
       const pipelines = await pachClient.pps().listPipeline({projectIds: []});
 
-      expect(pipelines).toHaveLength(1);
-      expect(pipelines[0].pipeline?.name).toBe('listPipeline');
+      expect(pipelines).toHaveLength(2);
+      expect(pipelines[1].pipeline?.name).toBe('listPipeline');
     });
   });
 
@@ -59,6 +69,25 @@ describe('services/pps', () => {
       const {pachClient} = await createSandBox('listJobs');
 
       const jobs = await pachClient.pps().listJobs({projectId: 'default'});
+      expect(jobs).toHaveLength(2);
+    });
+
+    it('should return a list of jobs given a pipeline id', async () => {
+      const {pachClient} = await createSandBox('listJobs');
+
+      const jobs = await pachClient
+        .pps()
+        .listJobs({projectId: 'default', pipelineId: 'listJobs'});
+      expect(jobs).toHaveLength(1);
+    });
+
+    it('should return a list of jobs given a jq filter', async () => {
+      const {pachClient} = await createSandBox('listJobs');
+
+      const jobs = await pachClient.pps().listJobs({
+        projectId: 'default',
+        jqFilter: `select(.job.pipeline.name == "listJobs")`,
+      });
       expect(jobs).toHaveLength(1);
     });
   });
@@ -84,7 +113,7 @@ describe('services/pps', () => {
       const {pachClient} = await createSandBox('listJobSets');
 
       const jobSets = await pachClient.pps().listJobSets();
-      expect(jobSets).toHaveLength(1);
+      expect(jobSets).toHaveLength(2);
     });
   });
 
@@ -93,12 +122,12 @@ describe('services/pps', () => {
       const {pachClient} = await createSandBox('inspectJob');
       const jobs = await pachClient.pps().listJobs({projectId: 'default'});
       const job = await pachClient.pps().inspectJob({
-        id: jobs[0].job?.id || '',
+        id: jobs[1].job?.id || '',
         pipelineName: 'inspectJob',
         projectId: '',
       });
 
-      expect(job).toMatchObject(jobs[0]);
+      expect(job).toMatchObject(jobs[1]);
     });
   });
 
@@ -127,7 +156,7 @@ describe('services/pps', () => {
     it('should create a pipeline', async () => {
       const {pachClient, inputRepoName} = await createSandBox('createPipeline');
       const pipelines = await pachClient.pps().listPipeline({projectIds: []});
-      expect(pipelines).toHaveLength(1);
+      expect(pipelines).toHaveLength(2);
 
       const transform = new Transform()
         .setCmdList(['sh'])
@@ -145,7 +174,7 @@ describe('services/pps', () => {
       const updatedPipelines = await pachClient
         .pps()
         .listPipeline({projectIds: []});
-      expect(updatedPipelines).toHaveLength(2);
+      expect(updatedPipelines).toHaveLength(3);
     });
   });
 
@@ -153,17 +182,17 @@ describe('services/pps', () => {
     it('should delete a pipeline', async () => {
       const {pachClient} = await createSandBox('deletePipeline');
       const pipelines = await pachClient.pps().listPipeline({projectIds: []});
-      expect(pipelines).toHaveLength(1);
+      expect(pipelines).toHaveLength(2);
 
       await pachClient.pps().deletePipeline({
         projectId: 'default',
-        pipeline: {name: 'deletePipeline'},
+        pipeline: {name: 'deletePipeline-2'},
       });
 
       const updatedPipelines = await pachClient
         .pps()
         .listPipeline({projectIds: []});
-      expect(updatedPipelines).toHaveLength(0);
+      expect(updatedPipelines).toHaveLength(1);
     });
   });
 

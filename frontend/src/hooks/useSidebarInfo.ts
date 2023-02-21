@@ -1,36 +1,34 @@
 import {useMemo} from 'react';
 import {useRouteMatch} from 'react-router';
 
-import {SidebarSize} from '@dash-frontend/lib/types';
+import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
+import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
-  LINEAGE_JOB_PATH,
-  LINEAGE_JOBS_PATH,
   LINEAGE_PIPELINE_PATH,
   LINEAGE_REPO_PATH,
 } from '@dash-frontend/views/Project/constants/projectPaths';
 
-const useSidebarInfo = () => {
-  const match = useRouteMatch([
-    LINEAGE_REPO_PATH,
-    LINEAGE_PIPELINE_PATH,
-    LINEAGE_JOB_PATH,
-    LINEAGE_JOBS_PATH,
-  ]);
+export const DEFAULT_SIDEBAR_SIZE = 392;
 
-  const sidebarSize = useMemo<SidebarSize>(() => {
-    switch (match?.path) {
-      case LINEAGE_JOB_PATH:
-      case LINEAGE_JOBS_PATH:
-        return 'lg';
-      default:
-        return 'md';
-    }
-  }, [match]);
+const useSidebarInfo = () => {
+  const match = useRouteMatch([LINEAGE_REPO_PATH, LINEAGE_PIPELINE_PATH]);
+  const {projectId} = useUrlState();
+  const {viewState} = useUrlQueryState();
+  const [sidebarWidthSetting] = useLocalProjectSettings({
+    projectId,
+    key: 'sidebar_width',
+  });
+
+  const sidebarSize = useMemo(() => {
+    return Number(
+      viewState.sidebarWidth || sidebarWidthSetting || DEFAULT_SIDEBAR_SIZE,
+    );
+  }, [sidebarWidthSetting, viewState.sidebarWidth]);
 
   return {
     sidebarSize,
     isOpen: Boolean(match),
-    overlay: match?.path === LINEAGE_JOBS_PATH && match.isExact,
   };
 };
 

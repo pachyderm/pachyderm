@@ -1,10 +1,11 @@
 import React from 'react';
 
 import InfoPanel from '@dash-frontend/components/InfoPanel/';
+import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {FullPagePanelModal} from '@pachyderm/components';
 
-import {pipelineRoute, jobRoute} from '../Project/utils/routes';
+import {pipelineRoute, useSelectedRunRoute} from '../Project/utils/routes';
 
 import DatumDetails from './components/DatumDetails';
 import LeftPanel from './components/LeftPanel';
@@ -25,7 +26,7 @@ const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
         {datumId ? (
           <DatumDetails className={styles.overflowYScroll} />
         ) : (
-          <InfoPanel className={styles.overflowYScroll} disableGlobalFilter />
+          <InfoPanel className={styles.overflowYScroll} />
         )}
       </FullPagePanelModal.RightPanel>
     </FullPagePanelModal>
@@ -34,12 +35,21 @@ const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
 
 export const PipelineDatumViewer: React.FC = () => {
   const {projectId, pipelineId} = useUrlState();
-  const onCloseRoute = pipelineRoute({projectId, pipelineId});
+  const {getPathFromLogs} = useLogsNavigation();
+  const onCloseRoute = getPathFromLogs(
+    pipelineRoute({projectId, pipelineId}, false),
+  );
   return <DatumViewer onCloseRoute={onCloseRoute} />;
 };
 
 export const JobDatumViewer: React.FC = () => {
   const {projectId, pipelineId, jobId} = useUrlState();
-  const onCloseRoute = jobRoute({projectId, pipelineId, jobId});
+  const {getPathFromLogs} = useLogsNavigation();
+  const jobRoute = useSelectedRunRoute({
+    projectId,
+    jobId: jobId,
+    pipelineId: pipelineId,
+  });
+  const onCloseRoute = getPathFromLogs(jobRoute);
   return <DatumViewer onCloseRoute={onCloseRoute} />;
 };

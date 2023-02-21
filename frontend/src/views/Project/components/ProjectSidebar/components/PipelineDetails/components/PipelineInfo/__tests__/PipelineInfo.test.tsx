@@ -14,7 +14,7 @@ import PipelineInfoComponent from '../PipelineInfo';
 describe('PipelineInfo', () => {
   const PipelineInfo = withContextProviders(() => {
     return (
-      <Route path="/project/:projectId/pipelines/:pipelineId">
+      <Route path="/lineage/:projectId/pipelines/:pipelineId">
         <PipelineInfoComponent />
       </Route>
     );
@@ -27,7 +27,7 @@ describe('PipelineInfo', () => {
     window.history.replaceState(
       '',
       '',
-      `/project/${projectId}/pipelines/${pipelineId}`,
+      `/lineage/${projectId}/pipelines/${pipelineId}`,
     );
 
     render(<PipelineInfo />);
@@ -54,7 +54,7 @@ describe('PipelineInfo', () => {
     expect(outputRepo).toHaveTextContent(pipelineId);
     expect(within(outputRepo as HTMLElement).getByRole('link')).toHaveAttribute(
       'href',
-      `/project/${projectId}/repos/${pipelineId}/branch/default`,
+      `/lineage/${projectId}/repos/${pipelineId}/branch/default`,
     );
 
     expect(

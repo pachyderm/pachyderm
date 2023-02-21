@@ -12,7 +12,10 @@ import {
   Repo,
   Branch,
 } from '@dash-backend/proto';
-import {pipelineInfoFromObject} from '@dash-backend/proto/builders/pps';
+import {
+  jobInfoFromObject,
+  pipelineInfoFromObject,
+} from '@dash-backend/proto/builders/pps';
 import {timestampFromObject} from '@dash-backend/proto/builders/protobuf';
 import {createServiceError} from '@dash-backend/testHelpers';
 
@@ -77,6 +80,16 @@ const pps = () => {
           let replyJobs = projectId
             ? MockState.state.jobs[projectId.toString()]
             : MockState.state.jobs['Solar-Panel-Data-Sorting'];
+
+          if (call.request.getJqfilter()) {
+            replyJobs = await runJQFilter({
+              jqFilter: `.jobInfoList[] | ${call.request.getJqfilter()}`,
+              object: {
+                jobInfoList: replyJobs.map((p) => p.toObject()),
+              },
+              objectMapper: jobInfoFromObject,
+            });
+          }
 
           const pipeline = call.request.getPipeline();
           if (pipeline) {

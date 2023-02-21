@@ -36,7 +36,6 @@ type InfoPanelProps = {
   showReadLogs?: boolean;
   lastPipelineJob?: JobQuery['job'];
   pipelineLoading?: boolean;
-  disableGlobalFilter?: boolean;
   className?: string;
 };
 
@@ -44,7 +43,6 @@ const InfoPanel: React.FC<InfoPanelProps> = ({
   showReadLogs = false,
   lastPipelineJob,
   pipelineLoading,
-  disableGlobalFilter = false,
   className,
 }) => {
   const {
@@ -62,7 +60,6 @@ const InfoPanel: React.FC<InfoPanelProps> = ({
   } = useInfoPanel({
     pipelineJob: lastPipelineJob,
     pipelineLoading: !!pipelineLoading,
-    useGlobalFilter: !disableGlobalFilter,
   });
 
   return (

@@ -60,39 +60,6 @@ describe('Search resolver', () => {
       const searchResults = data?.searchResults;
       expect(searchResults?.pipelines).toHaveLength(0);
     });
-
-    it('should return pipelines with matching jobset if globalId filter is set', async () => {
-      const {data, errors = []} = await executeQuery<SearchResultsQuery>(
-        GET_SEARCH_RESULTS_QUERY,
-        {
-          args: {
-            query: 'like',
-            projectId: 'Data-Cleaning-Process',
-            globalIdFilter: '23b9af7d5d4343219bc8e02ff4acd33a',
-          },
-        },
-      );
-      expect(errors).toHaveLength(0);
-      const searchResults = data?.searchResults;
-      expect(searchResults?.pipelines).toHaveLength(1);
-      expect(searchResults?.pipelines[0]?.name).toBe('likelihoods');
-    });
-
-    it('should not return pipelines without matching jobset if globalId filter is set', async () => {
-      const {data, errors = []} = await executeQuery<SearchResultsQuery>(
-        GET_SEARCH_RESULTS_QUERY,
-        {
-          args: {
-            query: 'sel',
-            projectId: 'Data-Cleaning-Process',
-            globalIdFilter: '23b9af7d5d4343219bc8e02ff4acd33a',
-          },
-        },
-      );
-      expect(errors).toHaveLength(0);
-      const searchResults = data?.searchResults;
-      expect(searchResults?.pipelines).toHaveLength(0);
-    });
   });
 
   describe('Job id search', () => {
@@ -156,39 +123,6 @@ describe('Search resolver', () => {
         GET_SEARCH_RESULTS_QUERY,
         {
           args: {query: 'montage', projectId},
-        },
-      );
-      expect(errors).toHaveLength(0);
-      const searchResults = data?.searchResults;
-      expect(searchResults?.repos).toHaveLength(0);
-    });
-
-    it('should return repos with matching jobset if globalId filter is set', async () => {
-      const {data, errors = []} = await executeQuery<SearchResultsQuery>(
-        GET_SEARCH_RESULTS_QUERY,
-        {
-          args: {
-            query: 'like',
-            projectId: 'Data-Cleaning-Process',
-            globalIdFilter: '23b9af7d5d4343219bc8e02ff4acd33a',
-          },
-        },
-      );
-      expect(errors).toHaveLength(0);
-      const searchResults = data?.searchResults;
-      expect(searchResults?.repos).toHaveLength(1);
-      expect(searchResults?.repos[0]?.name).toBe('likelihoods');
-    });
-
-    it('should not return repos without matching jobset if globalId filter is set', async () => {
-      const {data, errors = []} = await executeQuery<SearchResultsQuery>(
-        GET_SEARCH_RESULTS_QUERY,
-        {
-          args: {
-            query: 'sel',
-            projectId: 'Data-Cleaning-Process',
-            globalIdFilter: '23b9af7d5d4343219bc8e02ff4acd33a',
-          },
         },
       );
       expect(errors).toHaveLength(0);

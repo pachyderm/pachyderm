@@ -4,9 +4,11 @@ export const JobOverviewFragment = gql`
   fragment JobOverview on Job {
     id
     state
+    nodeState
     createdAt
     startedAt
     finishedAt
+    restarts
     pipelineName
     reason
     dataProcessed
@@ -14,6 +16,8 @@ export const JobOverviewFragment = gql`
     dataFailed
     dataTotal
     dataRecovered
+    downloadBytesDisplay
+    uploadBytesDisplay
     outputCommit
   }
 `;

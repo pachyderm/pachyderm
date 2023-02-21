@@ -1,13 +1,7 @@
-import {useRouteMatch} from 'react-router';
-
 import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import {useJobs} from '@dash-frontend/hooks/useJobs';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {
-  LINEAGE_PATH,
-  LINEAGE_PIPELINE_PATH,
-  PROJECT_PIPELINE_PATH,
-} from '@dash-frontend/views/Project/constants/projectPaths';
+import {LINEAGE_PIPELINE_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 
 const usePipelineDetails = () => {
   const {pipelineId, projectId} = useUrlState();
@@ -27,13 +21,7 @@ const usePipelineDetails = () => {
     },
   );
 
-  const lineageMatch = useRouteMatch({
-    path: LINEAGE_PATH,
-  });
-
-  const tabsBasePath = lineageMatch
-    ? LINEAGE_PIPELINE_PATH
-    : PROJECT_PIPELINE_PATH;
+  const tabsBasePath = LINEAGE_PIPELINE_PATH;
 
   return {
     loading: pipelineLoading || jobsLoading,

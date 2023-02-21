@@ -146,9 +146,11 @@ type Pipeline {
   version: Int!
   createdAt: Int!
   state: PipelineState!
+  nodeState: NodeState!
   stopped: Boolean!
   recentError: String
   lastJobState: JobState
+  lastJobNodeState: NodeState
   description: String
   type: PipelineType!
   datumTimeoutS: Int
@@ -210,6 +212,7 @@ type Repo {
   name: ID!
   sizeBytes: Float!
   sizeDisplay: String!
+  access: Boolean!
   projectId: String!
 
   # The Dash API will have to derive this field until core pach can expose it for us
@@ -225,7 +228,9 @@ type Job {
   createdAt: Int
   startedAt: Int
   finishedAt: Int
+  restarts: Int!
   state: JobState!
+  nodeState: NodeState!
   pipelineName: String!
   transformString: String
   transform: Transform
@@ -234,6 +239,8 @@ type Job {
   outputBranch: String
   outputCommit: String
   reason: String
+  downloadBytesDisplay: String!
+  uploadBytesDisplay: String!
   jsonDetails: String!
   dataProcessed: Int!
   dataSkipped: Int!
@@ -269,6 +276,8 @@ input JobsQueryArgs {
   projectId: ID!
   limit: Int
   pipelineId: String
+  pipelineIds: [String]
+  jobSetIds: [String]
 }
 
 type Project {
@@ -354,6 +363,8 @@ type AuthConfig {
 type JobSet {
   id: ID!
   createdAt: Int
+  finishedAt: Int
+  inProgress: Boolean!
   state: JobState!
   jobs: [Job!]!
 }

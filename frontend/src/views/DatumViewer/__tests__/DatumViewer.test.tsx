@@ -89,7 +89,7 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/lineage/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
+        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs',
       );
 
       render(<JobDatumViewer />);
@@ -98,7 +98,7 @@ describe('Datum Viewer', () => {
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
-          '/lineage/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/montage',
+          '/project/Solar-Panel-Data-Sorting/jobs/subjobs',
         ),
       );
     });

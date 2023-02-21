@@ -3,21 +3,16 @@ import React, {useState, useMemo, useCallback, useEffect} from 'react';
 
 import useBreakpoint from '../../../hooks/useBreakpoint';
 import {Icon} from '../../../Icon';
-import {ChevronDoubleRightSVG} from '../../../Svg';
+import {PanelLeftSVG, PanelRightSVG} from '../../../Svg';
 import SideNavContext from '../../SideNavContext';
 
 import styles from './SideNav.module.css';
 
 type Props = {
   breakpoint: number;
-  styleMode?: 'light' | 'dark';
 };
 
-const SideNav: React.FC<Props> = ({
-  children,
-  breakpoint,
-  styleMode = 'dark',
-}) => {
+const SideNav: React.FC<Props> = ({children, breakpoint}) => {
   const [minimized, setMinimized] = useState(false);
   const isMobile = useBreakpoint(breakpoint);
 
@@ -45,7 +40,6 @@ const SideNav: React.FC<Props> = ({
 
   const className = classnames(styles.base, {
     [styles.collapsed]: minimized,
-    [styles[styleMode]]: true,
   });
 
   return (
@@ -60,10 +54,8 @@ const SideNav: React.FC<Props> = ({
             data-testid="SideNav__toggle"
             aria-label={`${minimized ? 'Open' : 'Close'} navigation`}
           >
-            <Icon aria-hidden={true} className={styles.collapseIcon}>
-              <ChevronDoubleRightSVG
-                className={!minimized ? styles.flipSVG : ''}
-              />
+            <Icon aria-hidden={true} className={styles.collapseIcon} small>
+              {minimized ? <PanelRightSVG /> : <PanelLeftSVG />}
             </Icon>
             {!minimized && 'Collapse'}
           </button>
