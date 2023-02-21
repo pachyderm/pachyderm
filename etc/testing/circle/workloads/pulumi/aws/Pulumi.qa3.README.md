@@ -1,6 +1,6 @@
-# QA 1 Stack
+# QA 3 Stack
 
-> Used sanity aws example release tests.
+> Used as customer mock alpha test envs.
 
 # Overview
 

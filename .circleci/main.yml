@@ -1496,7 +1496,7 @@ workflows:
             - jupyter-extension-build
             - build-pachctl-bin
       - pulumi-aws-test-env:
-          name: aws-prerelease-testing-env
+          name: aws-prerelease-testing-env-1
           env: qa1
           action: update
           pachdVersion: $CIRCLE_SHA1
@@ -1508,8 +1508,8 @@ workflows:
             - publish-chart-preview
             - release-github-draft
       - pulumi-aws-test-env:
-          name: cust-prerelease-testing-env-1
-          env: qa4
+          name: aws-prerelease-testing-env-2
+          env: qa2
           action: update
           pachdVersion: $CIRCLE_SHA1
           helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
@@ -1520,8 +1520,8 @@ workflows:
             - publish-chart-preview
             - release-github-draft
       - pulumi-aws-test-env:
-          name: cust-prerelease-testing-env-2
-          env: qa5
+          name: aws-prerelease-testing-env-3
+          env: qa3
           action: update
           pachdVersion: $CIRCLE_SHA1
           helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
@@ -1532,28 +1532,43 @@ workflows:
             - publish-chart-preview
             - release-github-draft
       - aws-prerelease-testing:
+          name: aws-testing
           filters: *only-release-tags
           requires:
-            - aws-prerelease-testing-env
-      - pulumi-aws-test-env:
-          name: destroy-aws-prerelease-testing-env
-          env: qa1
-          action: destroy
-          filters: *only-release-tags
-          requires:
-            - aws-prerelease-testing
+            - aws-prerelease-testing-env-1
       - cust-prerelease-testing:
           name: wp-testing
           customer: wp
           filters: *only-alpha-tags
           requires:
-            - cust-prerelease-testing-env-1
+            - aws-prerelease-testing-env-2
       - cust-prerelease-testing:
           name: btl-testing
           customer: btl
           filters: *only-alpha-tags
           requires:
-            - cust-prerelease-testing-env-2
+            - aws-prerelease-testing-env-3
+      - pulumi-aws-test-env:
+          name: destroy-aws-prerelease-testing-env-1
+          env: qa1
+          action: destroy
+          filters: *only-release-tags
+          requires:
+            - aws-testing
+      - pulumi-aws-test-env:
+          name: destroy-aws-prerelease-testing-env-2
+          env: qa2
+          action: destroy
+          filters: *only-alpha-tags
+          requires:
+            - wp-testing
+      - pulumi-aws-test-env:
+          name: destroy-aws-prerelease-testing-env-3
+          env: qa3
+          action: destroy
+          filters: *only-alpha-tags
+          requires:
+            - btl-testing
       - console-release-draft:
           filters: *only-release-tags
           requires:

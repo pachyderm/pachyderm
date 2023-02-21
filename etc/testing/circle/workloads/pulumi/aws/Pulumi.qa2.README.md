@@ -1,6 +1,6 @@
 # QA 2 Stack
 
-> Used for nightly load testing from release branches.
+> Used as customer mock alpha test envs.
 
 # Overview
 

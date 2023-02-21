@@ -1,4 +1,4 @@
 config:
   aws:region: us-west-2
   postgresql:host: wp-postgresql
-  postgresslq:password: correcthorsebatterystaple
+  eksNodeInstanceType: m5.2xlarge
