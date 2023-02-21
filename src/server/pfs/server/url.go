@@ -129,7 +129,7 @@ func putFileURLRecursive(ctx context.Context, taskService task.Service, uw *file
 			concurrency = defaultConcurrency
 		}
 		if src.Concurrency > maxConcurrency {
-			src.Concurrency = maxConcurrency
+			concurrency = maxConcurrency
 		}
 		return task.DoOrdered(ctx, doer, inputChan, int(concurrency), func(_ int64, output *types.Any, _ error) error {
 			result, err := deserializePutFileURLTaskResult(output)
