@@ -6,6 +6,7 @@ import React from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
 import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLink';
+import {TableViewWrapper} from '@dash-frontend/components/TableView';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import {readableJobState} from '@dash-frontend/lib/jobs';
 import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
@@ -79,59 +80,61 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
   }
 
   return (
-    <Table>
-      <Table.Head sticky>
-        <Table.Row>
-          <Table.HeaderCell>Pipeline Step</Table.HeaderCell>
-          <Table.HeaderCell>Pipeline State</Table.HeaderCell>
-          <Table.HeaderCell>Last Job Status</Table.HeaderCell>
-          <Table.HeaderCell>Version</Table.HeaderCell>
-          <Table.HeaderCell>Created</Table.HeaderCell>
-          <Table.HeaderCell>Description</Table.HeaderCell>
-          <Table.HeaderCell />
-        </Table.Row>
-      </Table.Head>
-
-      <Table.Body>
-        {pipelines.map((pipeline) => (
-          <Table.Row
-            key={pipeline?.id}
-            data-testid="PipelineStepsList__row"
-            onClick={() => addSelection(pipeline?.name || '')}
-            isSelected={viewState.selectedPipelines?.includes(
-              pipeline?.name || '',
-            )}
-            hasCheckbox
-            overflowMenuItems={iconItems}
-            dropdownOnSelect={onOverflowMenuSelect(pipeline?.name || '')}
-          >
-            <Table.DataCell>{pipeline?.name}</Table.DataCell>
-            <Table.DataCell>
-              {getPipelineStateString(
-                capitalize(pipeline?.nodeState || ''),
-                readablePipelineState(pipeline?.state || ''),
-              )}
-            </Table.DataCell>
-            <Table.DataCell>
-              {getPipelineStateString(
-                capitalize(pipeline?.lastJobNodeState || ''),
-                readableJobState(pipeline?.lastJobState || ''),
-              )}
-            </Table.DataCell>
-            <Table.DataCell>v:{pipeline?.version}</Table.DataCell>
-            <Table.DataCell>
-              {pipeline?.createdAt
-                ? format(
-                    fromUnixTime(pipeline?.createdAt),
-                    'MMM dd, yyyy; h:mmaaa',
-                  )
-                : '-'}
-            </Table.DataCell>
-            <Table.DataCell>{pipeline?.description || '-'}</Table.DataCell>
+    <TableViewWrapper>
+      <Table>
+        <Table.Head sticky>
+          <Table.Row>
+            <Table.HeaderCell>Pipeline Step</Table.HeaderCell>
+            <Table.HeaderCell>Pipeline State</Table.HeaderCell>
+            <Table.HeaderCell>Last Job Status</Table.HeaderCell>
+            <Table.HeaderCell>Version</Table.HeaderCell>
+            <Table.HeaderCell>Created</Table.HeaderCell>
+            <Table.HeaderCell>Description</Table.HeaderCell>
+            <Table.HeaderCell />
           </Table.Row>
-        ))}
-      </Table.Body>
-    </Table>
+        </Table.Head>
+
+        <Table.Body>
+          {pipelines.map((pipeline) => (
+            <Table.Row
+              key={pipeline?.id}
+              data-testid="PipelineStepsList__row"
+              onClick={() => addSelection(pipeline?.name || '')}
+              isSelected={viewState.selectedPipelines?.includes(
+                pipeline?.name || '',
+              )}
+              hasCheckbox
+              overflowMenuItems={iconItems}
+              dropdownOnSelect={onOverflowMenuSelect(pipeline?.name || '')}
+            >
+              <Table.DataCell>{pipeline?.name}</Table.DataCell>
+              <Table.DataCell>
+                {getPipelineStateString(
+                  capitalize(pipeline?.nodeState || ''),
+                  readablePipelineState(pipeline?.state || ''),
+                )}
+              </Table.DataCell>
+              <Table.DataCell>
+                {getPipelineStateString(
+                  capitalize(pipeline?.lastJobNodeState || ''),
+                  readableJobState(pipeline?.lastJobState || ''),
+                )}
+              </Table.DataCell>
+              <Table.DataCell>v:{pipeline?.version}</Table.DataCell>
+              <Table.DataCell>
+                {pipeline?.createdAt
+                  ? format(
+                      fromUnixTime(pipeline?.createdAt),
+                      'MMM dd, yyyy; h:mmaaa',
+                    )
+                  : '-'}
+              </Table.DataCell>
+              <Table.DataCell>{pipeline?.description || '-'}</Table.DataCell>
+            </Table.Row>
+          ))}
+        </Table.Body>
+      </Table>
+    </TableViewWrapper>
   );
 };
 

@@ -6,6 +6,7 @@ import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLi
 import {
   TableViewFilters,
   TableViewLoadingDots,
+  TableViewWrapper,
 } from '@dash-frontend/components/TableView';
 import {useJobs} from '@dash-frontend/hooks/useJobs';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -74,60 +75,62 @@ const JobsList: React.FC<JobsListProps> = ({
           message="We couldn't find any results matching your filters. Try using a different set of filters."
         />
       ) : (
-        <Table>
-          <Table.Head sticky>
-            <Table.Row>
-              <Table.HeaderCell>Pipeline Step</Table.HeaderCell>
-              <Table.HeaderCell>Datums Processed</Table.HeaderCell>
-              <Table.HeaderCell>Started</Table.HeaderCell>
-              <Table.HeaderCell>Run ID</Table.HeaderCell>
-              <Table.HeaderCell>Duration</Table.HeaderCell>
-              <Table.HeaderCell>D/L</Table.HeaderCell>
-              <Table.HeaderCell>U/L</Table.HeaderCell>
-              <Table.HeaderCell>Restarts</Table.HeaderCell>
-              <Table.HeaderCell />
-            </Table.Row>
-          </Table.Head>
-
-          <Table.Body>
-            {sortedJobs.map((job) => (
-              <Table.Row
-                key={`${job.id}-${job.pipelineName}`}
-                data-testid="JobsList__row"
-                overflowMenuItems={iconItems}
-                dropdownOnSelect={onOverflowMenuSelect(
-                  job.id,
-                  job.pipelineName,
-                )}
-              >
-                <Table.DataCell>
-                  {getJobStateIcon(getVisualJobState(job.state), true)}
-                  {' @'}
-                  {job.pipelineName}
-                </Table.DataCell>
-                <Table.DataCell>
-                  {`${job.dataTotal} Total`}
-                  {getDatumStateBadges(job)}
-                </Table.DataCell>
-                <Table.DataCell>
-                  {job?.createdAt
-                    ? format(
-                        fromUnixTime(job?.createdAt),
-                        'MMM dd, yyyy; h:mmaaa',
-                      )
-                    : '-'}
-                </Table.DataCell>
-                <Table.DataCell>{job?.id.slice(0, 6)}...</Table.DataCell>
-                <Table.DataCell>
-                  {getJobRuntime(job.createdAt, job.finishedAt)}
-                </Table.DataCell>
-                <Table.DataCell>{job.downloadBytesDisplay}</Table.DataCell>
-                <Table.DataCell>{job.uploadBytesDisplay}</Table.DataCell>
-                <Table.DataCell>{job.restarts}</Table.DataCell>
+        <TableViewWrapper>
+          <Table>
+            <Table.Head sticky>
+              <Table.Row>
+                <Table.HeaderCell>Pipeline Step</Table.HeaderCell>
+                <Table.HeaderCell>Datums Processed</Table.HeaderCell>
+                <Table.HeaderCell>Started</Table.HeaderCell>
+                <Table.HeaderCell>Run ID</Table.HeaderCell>
+                <Table.HeaderCell>Duration</Table.HeaderCell>
+                <Table.HeaderCell>D/L</Table.HeaderCell>
+                <Table.HeaderCell>U/L</Table.HeaderCell>
+                <Table.HeaderCell>Restarts</Table.HeaderCell>
+                <Table.HeaderCell />
               </Table.Row>
-            ))}
-          </Table.Body>
-        </Table>
+            </Table.Head>
+
+            <Table.Body>
+              {sortedJobs.map((job) => (
+                <Table.Row
+                  key={`${job.id}-${job.pipelineName}`}
+                  data-testid="JobsList__row"
+                  overflowMenuItems={iconItems}
+                  dropdownOnSelect={onOverflowMenuSelect(
+                    job.id,
+                    job.pipelineName,
+                  )}
+                >
+                  <Table.DataCell>
+                    {getJobStateIcon(getVisualJobState(job.state), true)}
+                    {' @'}
+                    {job.pipelineName}
+                  </Table.DataCell>
+                  <Table.DataCell>
+                    {`${job.dataTotal} Total`}
+                    {getDatumStateBadges(job)}
+                  </Table.DataCell>
+                  <Table.DataCell>
+                    {job?.createdAt
+                      ? format(
+                          fromUnixTime(job?.createdAt),
+                          'MMM dd, yyyy; h:mmaaa',
+                        )
+                      : '-'}
+                  </Table.DataCell>
+                  <Table.DataCell>{job?.id.slice(0, 6)}...</Table.DataCell>
+                  <Table.DataCell>
+                    {getJobRuntime(job.createdAt, job.finishedAt)}
+                  </Table.DataCell>
+                  <Table.DataCell>{job.downloadBytesDisplay}</Table.DataCell>
+                  <Table.DataCell>{job.uploadBytesDisplay}</Table.DataCell>
+                  <Table.DataCell>{job.restarts}</Table.DataCell>
+                </Table.Row>
+              ))}
+            </Table.Body>
+          </Table>
+        </TableViewWrapper>
       )}
     </Form>
   );

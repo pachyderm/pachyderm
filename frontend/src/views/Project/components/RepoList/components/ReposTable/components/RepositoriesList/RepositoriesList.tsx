@@ -5,6 +5,7 @@ import React from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
 import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLink';
+import {TableViewWrapper} from '@dash-frontend/components/TableView';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import {Table, LoadingDots} from '@pachyderm/components';
 
@@ -77,44 +78,49 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
   }
 
   return (
-    <Table>
-      <Table.Head sticky hasCheckbox>
-        <Table.Row>
-          <Table.HeaderCell>Repository</Table.HeaderCell>
-          <Table.HeaderCell>Size</Table.HeaderCell>
-          <Table.HeaderCell>Created</Table.HeaderCell>
-          <Table.HeaderCell>Description</Table.HeaderCell>
-          <Table.HeaderCell />
-        </Table.Row>
-      </Table.Head>
-
-      <Table.Body>
-        {repos.map((repo) => (
-          <Table.Row
-            key={repo?.id}
-            data-testid="RepositoriesList__row"
-            onClick={
-              repo?.access ? () => addSelection(repo?.id || '') : undefined
-            }
-            isSelected={viewState.selectedRepos?.includes(repo?.id || '')}
-            hasRadio={repo?.access}
-            hasLock={!repo?.access}
-            lockedTooltipText={!repo?.access ? NO_ACCESS_TOOLTIP : undefined}
-            overflowMenuItems={iconItems}
-            dropdownOnSelect={onOverflowMenuSelect(repo?.id || '')}
-          >
-            <Table.DataCell>{repo?.name}</Table.DataCell>
-            <Table.DataCell>{repo?.sizeDisplay || '-'}</Table.DataCell>
-            <Table.DataCell>
-              {repo?.createdAt
-                ? format(fromUnixTime(repo?.createdAt), 'MMM dd, yyyy; h:mmaaa')
-                : '-'}
-            </Table.DataCell>
-            <Table.DataCell>{repo?.description}</Table.DataCell>
+    <TableViewWrapper>
+      <Table>
+        <Table.Head sticky hasCheckbox>
+          <Table.Row>
+            <Table.HeaderCell>Repository</Table.HeaderCell>
+            <Table.HeaderCell>Size</Table.HeaderCell>
+            <Table.HeaderCell>Created</Table.HeaderCell>
+            <Table.HeaderCell>Description</Table.HeaderCell>
+            <Table.HeaderCell />
           </Table.Row>
-        ))}
-      </Table.Body>
-    </Table>
+        </Table.Head>
+
+        <Table.Body>
+          {repos.map((repo) => (
+            <Table.Row
+              key={repo?.id}
+              data-testid="RepositoriesList__row"
+              onClick={
+                repo?.access ? () => addSelection(repo?.id || '') : undefined
+              }
+              isSelected={viewState.selectedRepos?.includes(repo?.id || '')}
+              hasRadio={repo?.access}
+              hasLock={!repo?.access}
+              lockedTooltipText={!repo?.access ? NO_ACCESS_TOOLTIP : undefined}
+              overflowMenuItems={iconItems}
+              dropdownOnSelect={onOverflowMenuSelect(repo?.id || '')}
+            >
+              <Table.DataCell>{repo?.name}</Table.DataCell>
+              <Table.DataCell>{repo?.sizeDisplay || '-'}</Table.DataCell>
+              <Table.DataCell>
+                {repo?.createdAt
+                  ? format(
+                      fromUnixTime(repo?.createdAt),
+                      'MMM dd, yyyy; h:mmaaa',
+                    )
+                  : '-'}
+              </Table.DataCell>
+              <Table.DataCell>{repo?.description}</Table.DataCell>
+            </Table.Row>
+          ))}
+        </Table.Body>
+      </Table>
+    </TableViewWrapper>
   );
 };
 

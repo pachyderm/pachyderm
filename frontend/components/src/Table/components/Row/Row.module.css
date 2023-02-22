@@ -33,7 +33,8 @@ tr.hasPrefixIcon > td:first-of-type {
 }
 
 .dropdown {
-  right: 2.5rem;
+  right: 3.25rem;
+  top: 0rem;
 }
 
 .dropdown > * {
@@ -46,6 +47,7 @@ tr.hasPrefixIcon > td:first-of-type {
 
 .checkboxRow {
   position: absolute;
+  pointer-events: none;
 }
 
 .checkbox {

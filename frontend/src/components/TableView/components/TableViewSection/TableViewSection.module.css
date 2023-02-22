@@ -1,10 +1,3 @@
 .base {
   padding: 0rem;
-  padding-bottom: 6rem;
-  overflow-y: scroll;
 }
-  
-.base::-webkit-scrollbar {
-  display: none;
-}
-  

@@ -1,0 +1,10 @@
+.base {
+  --tableview-header-offset: 13.5rem;
+  max-height: calc(100vh - var(--tableview-header-offset));
+  overflow-y: scroll;
+  padding-bottom: 6rem;
+}
+
+.base::-webkit-scrollbar {
+  display: none;
+}

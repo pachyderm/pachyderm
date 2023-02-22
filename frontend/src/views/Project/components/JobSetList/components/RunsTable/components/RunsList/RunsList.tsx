@@ -6,6 +6,7 @@ import React from 'react';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLink';
 import IconBadge from '@dash-frontend/components/IconBadge';
+import {TableViewWrapper} from '@dash-frontend/components/TableView';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import {getJobRuntime} from '@dash-frontend/lib/jobs';
 import {
@@ -108,50 +109,52 @@ const RunsList: React.FC<RunsListProps> = ({
   }
 
   return (
-    <Table>
-      <Table.Head sticky>
-        <Table.Row>
-          <Table.HeaderCell>Run</Table.HeaderCell>
-          <Table.HeaderCell>Run Progress</Table.HeaderCell>
-          <Table.HeaderCell>Runtime</Table.HeaderCell>
-          <Table.HeaderCell>ID</Table.HeaderCell>
-          <Table.HeaderCell />
-        </Table.Row>
-      </Table.Head>
-
-      <Table.Body>
-        {jobSets.map((jobSet) => (
-          <Table.Row
-            key={jobSet?.id}
-            data-testid="RunsList__row"
-            onClick={() => addSelection(jobSet?.id || '')}
-            isSelected={viewState.selectedJobs?.includes(jobSet?.id || '')}
-            hasCheckbox
-            overflowMenuItems={iconItems}
-            dropdownOnSelect={onOverflowMenuSelect(jobSet?.id || '')}
-          >
-            <Table.DataCell>
-              {jobSet?.createdAt
-                ? format(
-                    fromUnixTime(jobSet?.createdAt),
-                    'MMM dd, yyyy; h:mmaaa',
-                  )
-                : '-'}
-            </Table.DataCell>
-            <Table.DataCell>
-              {`${jobSet?.jobs.length} Job${
-                (jobSet?.jobs.length || 0) > 1 ? 's' : ''
-              } Total`}
-              {getJobStateBadges(jobSet)}
-            </Table.DataCell>
-            <Table.DataCell>
-              {getJobRuntime(jobSet.createdAt, jobSet.finishedAt)}
-            </Table.DataCell>
-            <Table.DataCell>{jobSet?.id}</Table.DataCell>
+    <TableViewWrapper>
+      <Table>
+        <Table.Head sticky>
+          <Table.Row>
+            <Table.HeaderCell>Run</Table.HeaderCell>
+            <Table.HeaderCell>Run Progress</Table.HeaderCell>
+            <Table.HeaderCell>Runtime</Table.HeaderCell>
+            <Table.HeaderCell>ID</Table.HeaderCell>
+            <Table.HeaderCell />
           </Table.Row>
-        ))}
-      </Table.Body>
-    </Table>
+        </Table.Head>
+
+        <Table.Body>
+          {jobSets.map((jobSet) => (
+            <Table.Row
+              key={jobSet?.id}
+              data-testid="RunsList__row"
+              onClick={() => addSelection(jobSet?.id || '')}
+              isSelected={viewState.selectedJobs?.includes(jobSet?.id || '')}
+              hasCheckbox
+              overflowMenuItems={iconItems}
+              dropdownOnSelect={onOverflowMenuSelect(jobSet?.id || '')}
+            >
+              <Table.DataCell>
+                {jobSet?.createdAt
+                  ? format(
+                      fromUnixTime(jobSet?.createdAt),
+                      'MMM dd, yyyy; h:mmaaa',
+                    )
+                  : '-'}
+              </Table.DataCell>
+              <Table.DataCell>
+                {`${jobSet?.jobs.length} Job${
+                  (jobSet?.jobs.length || 0) > 1 ? 's' : ''
+                } Total`}
+                {getJobStateBadges(jobSet)}
+              </Table.DataCell>
+              <Table.DataCell>
+                {getJobRuntime(jobSet.createdAt, jobSet.finishedAt)}
+              </Table.DataCell>
+              <Table.DataCell>{jobSet?.id}</Table.DataCell>
+            </Table.Row>
+          ))}
+        </Table.Body>
+      </Table>
+    </TableViewWrapper>
   );
 };
 

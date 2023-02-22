@@ -8,6 +8,7 @@
   background-color: var(--white);
   z-index: var(--z-index-modal);
   white-space: nowrap;
+  overflow-x: clip;
 }
 
 .limits {
