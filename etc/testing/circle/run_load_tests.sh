@@ -55,5 +55,8 @@ EOF
 
 fi
 
+pachctl delete pipeline --all
+pachctl delete repo --all
+
 set -e
 pachctl debug dump /tmp/debug-dump
