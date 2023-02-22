@@ -1111,6 +1111,10 @@ jobs:
             and:
               - equal: ["destroy", << parameters.action >>]
           steps:
+            - run:
+                name: wait for CNI warm pool population to acquiesce before destroy
+                command: |
+                  sleep 300
             - pulumi/destroy:
                 stack: pachyderm/core/<< parameters.env >>
                 working_directory: ./etc/testing/circle/workloads/pulumi/aws/
