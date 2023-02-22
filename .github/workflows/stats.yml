@@ -13,3 +13,4 @@ jobs:
         with:
           slack-channel: '#eng-console'
           slack-webhook: 'https://hooks.slack.com/services/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'
+          token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
