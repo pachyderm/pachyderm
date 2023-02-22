@@ -521,6 +521,14 @@ each datum.`,
 				if err != nil {
 					return err
 				}
+				if err := pps.VisitInput(request.Input, func(i *pps.Input) error {
+					if i.Pfs != nil && i.Pfs.Project == "" {
+						i.Pfs.Project = project
+					}
+					return nil
+				}); err != nil {
+					return err
+				}
 				return client.ListDatumInput(request.Input, printF)
 			} else if len(args) == 1 {
 				job, err := cmdutil.ParseJob(project, args[0])
