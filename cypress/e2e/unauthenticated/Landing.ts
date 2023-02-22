@@ -15,11 +15,18 @@ describe('Landing', () => {
   })
 
   it('should show default project info', () => {
-    cy.findByText('default').click();
-    cy.findByText('Project Preview');
+    cy.findByRole('heading', {
+      name: /default/i,
+    }).click();
+    cy.findByRole('heading', {
+      name: 'Project Preview',
+    });
+
     cy.findByText('Total No. of Repos/Pipelines');
-    cy.findByText('Total Data Size');
     cy.findByText('2/1');
+
+    cy.findByText('Total Data Size');
+
     cy.findByText('Pipeline Status');
     cy.findByText('Last Job');
   });
