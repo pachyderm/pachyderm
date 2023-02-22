@@ -1340,14 +1340,6 @@ workflows:
                 - LOAD2
                 - LOAD3
                 - LOAD4
-                - LOAD5
-                - LOAD6
-                - LOAD7
-                - LOAD8
-                - LOAD9
-                - LOAD10
-                - LOAD11
-                - LOAD12
       - nightly-load:
           name: nightly-load-<< matrix.bucket >>
           requires:
@@ -1359,18 +1351,6 @@ workflows:
                 - LOAD2
                 - LOAD3
                 - LOAD4
-                - LOAD5
-                - LOAD6
-                - LOAD7
-                - LOAD8
-                - LOAD9
-                - LOAD10
-                - LOAD11
-                - LOAD12
-                # Disabled for now since they take too long, may consider reenabling later.
-                #- LOAD13
-                #- LOAD14
-                #- LOAD15
       - pulumi-aws-test-env:
           name: destroy-aws-testing-env-<< matrix.env >>
           action: destroy
@@ -1383,10 +1363,82 @@ workflows:
                 - LOAD2
                 - LOAD3
                 - LOAD4
+      - pulumi-aws-test-env:
+          name: pulumi-aws-test-env-<< matrix.env >>
+          pachdVersion: $CIRCLE_SHA1
+          action: update
+          requires:
+            - build-docker-images
+            - destroy-aws-testing-env-LOAD1
+            - destroy-aws-testing-env-LOAD2
+            - destroy-aws-testing-env-LOAD3
+            - destroy-aws-testing-env-LOAD4
+          matrix:
+            parameters:
+              env:
                 - LOAD5
                 - LOAD6
                 - LOAD7
                 - LOAD8
+      - nightly-load:
+          name: nightly-load-<< matrix.bucket >>
+          requires:
+            - pulumi-aws-test-env-<< matrix.bucket >>
+          matrix:
+            parameters:
+              bucket:
+                - LOAD5
+                - LOAD6
+                - LOAD7
+                - LOAD8
+      - pulumi-aws-test-env:
+          name: destroy-aws-testing-env-<< matrix.env >>
+          action: destroy
+          requires:
+            - nightly-load-<< matrix.env >>
+          matrix:
+            parameters:
+              env:
+                - LOAD5
+                - LOAD6
+                - LOAD7
+                - LOAD8
+      - pulumi-aws-test-env:
+          name: pulumi-aws-test-env-<< matrix.env >>
+          pachdVersion: $CIRCLE_SHA1
+          action: update
+          requires:
+            - build-docker-images
+            - destroy-aws-testing-env-LOAD5
+            - destroy-aws-testing-env-LOAD6
+            - destroy-aws-testing-env-LOAD7
+            - destroy-aws-testing-env-LOAD8
+          matrix:
+            parameters:
+              env:
+                - LOAD9
+                - LOAD10
+                - LOAD11
+                - LOAD12
+      - nightly-load:
+          name: nightly-load-<< matrix.bucket >>
+          requires:
+            - pulumi-aws-test-env-<< matrix.bucket >>
+          matrix:
+            parameters:
+              bucket:
+                - LOAD9
+                - LOAD10
+                - LOAD11
+                - LOAD12
+      - pulumi-aws-test-env:
+          name: destroy-aws-testing-env-<< matrix.env >>
+          action: destroy
+          requires:
+            - nightly-load-<< matrix.env >>
+          matrix:
+            parameters:
+              env:
                 - LOAD9
                 - LOAD10
                 - LOAD11
