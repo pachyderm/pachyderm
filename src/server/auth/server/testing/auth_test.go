@@ -2609,13 +2609,14 @@ func TestListRepoWithProjectAccessControl(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(tc.user.Ctx())
 			defer cancel()
-			resp, err := tc.user.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{Type: pfs.UserRepoType, Projects: tc.filterBy})
+			lrClient, err := tc.user.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{Type: pfs.UserRepoType, Projects: tc.filterBy})
+			require.NoError(t, err)
+			repoInfos, err := grpcutil.Collect[*pfs.RepoInfo](lrClient, 1000)
 			require.NoError(t, err)
 			var repos []string
-			require.NoError(t, clientsdk.ForEachRepoInfo(resp, func(ri *pfs.RepoInfo) error {
-				repos = append(repos, ri.Repo.AuthResource().Name)
-				return nil
-			}))
+			for _, repoInfo := range repoInfos {
+				repos = append(repos, repoInfo.Repo.AuthResource().Name)
+			}
 			require.ElementsEqual(t, tc.expectedRepos, repos)
 		})
 	}

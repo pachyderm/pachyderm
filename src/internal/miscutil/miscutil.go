@@ -3,6 +3,7 @@ package miscutil
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"golang.org/x/sync/errgroup"
@@ -80,5 +81,17 @@ func (i *Iterator) Next() (interface{}, error) {
 		return data, nil
 	case err := <-i.errChan:
 		return nil, err
+	}
+}
+
+func CacheFunc[In comparable, Out any](f func(In) Out) func(In) Out {
+	cache := make(map[In]Out)
+	return func(a In) Out {
+		if _, ok := cache[a]; !ok {
+			fmt.Printf("qqq Cache miss, running f(%v)\n", a)
+			cache[a] = f(a)
+		}
+		fmt.Printf("qqq Cache hit, returning cache[%v]\n", a)
+		return cache[a]
 	}
 }

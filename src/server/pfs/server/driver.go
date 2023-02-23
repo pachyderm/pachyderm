@@ -27,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -280,24 +281,18 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 
 	// Helper func to check whether a user is allowed to see the given repo in the result.
 	// Cache the project level access because it applies to every repo within the same project.
-	checkAccessCache := make(map[string]bool)
+	checkProjectAccess := miscutil.CacheFunc(func(project string) error {
+		return d.env.AuthServer.CheckProjectIsAuthorized(ctx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
+	})
 	checkAccess := func(ctx context.Context, repo *pfs.Repo) error {
-		if _, ok := checkAccessCache[repo.Project.String()]; !ok {
-			if err := d.env.AuthServer.CheckProjectIsAuthorized(ctx, repo.Project, auth.Permission_PROJECT_LIST_REPO); err != nil {
-				if !errors.As(err, &auth.ErrNotAuthorized{}) {
-					return err
-				}
-				checkAccessCache[repo.Project.String()] = false
-			} else {
-				checkAccessCache[repo.Project.String()] = true
+		if err := checkProjectAccess(repo.Project.String()); err != nil {
+			if !errors.As(err, &auth.ErrNotAuthorized{}) {
+				return err
 			}
+			// Allow access if user has the right permissions at the individual Repo-level.
+			return d.env.AuthServer.CheckRepoIsAuthorized(ctx, repo, auth.Permission_REPO_READ)
 		}
-		if checkAccessCache[repo.Project.String()] {
-			return nil
-		}
-		// The user does not have permission to list repos at the project level,
-		// but we still allow them to see the repo if they have REPO_READ permission at the repo level.
-		return d.env.AuthServer.CheckRepoIsAuthorized(ctx, repo, auth.Permission_REPO_READ)
+		return nil
 	}
 
 	processFunc := func(string) error {

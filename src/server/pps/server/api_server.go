@@ -39,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
@@ -2749,23 +2750,18 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 
 	// Helper func to check whether a user is allowed to see the given pipeline in the result.
 	// Cache the project level access because it applies to every pipeline within the same project.
-	checkAccessCache := make(map[string]bool)
+	checkProjectAccess := miscutil.CacheFunc(func(project string) error {
+		return a.env.AuthServer.CheckProjectIsAuthorized(ctx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
+	})
 	checkAccess := func(ctx context.Context, pipeline *pps.Pipeline) error {
-		if _, ok := checkAccessCache[pipeline.Project.String()]; !ok {
-			if err := a.env.AuthServer.CheckProjectIsAuthorized(ctx, pipeline.Project, auth.Permission_PROJECT_LIST_REPO); err != nil {
-				if !errors.As(err, &auth.ErrNotAuthorized{}) {
-					return err
-				}
-				checkAccessCache[pipeline.Project.String()] = false
-			} else {
-				checkAccessCache[pipeline.Project.String()] = true
+		if err := checkProjectAccess(pipeline.Project.String()); err != nil {
+			if !errors.As(err, &auth.ErrNotAuthorized{}) {
+				return err
 			}
+			// Use the pipeline's output repo as the reference to the pipeline itself
+			return a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Name: pipeline.Name, Type: pfs.UserRepoType, Project: pipeline.Project}, auth.Permission_REPO_READ)
 		}
-		if checkAccessCache[pipeline.Project.String()] {
-			return nil
-		}
-		// Use the pipeline's output repo as the reference to the pipeline itself
-		return a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Name: pipeline.Name, Type: pfs.UserRepoType, Project: pipeline.Project}, auth.Permission_REPO_READ)
+		return nil
 	}
 
 	loadPipelineAtCommit := func(pi *pps.PipelineInfo, commitSetID string) error { // mutates pi
