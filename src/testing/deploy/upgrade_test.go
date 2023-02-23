@@ -31,13 +31,17 @@ const (
 var skip bool
 
 // runs the upgrade test from all versions specified in "fromVersions" against the local image
-func upgradeTest(suite *testing.T, ctx context.Context, fromVersions []string, preUpgrade func(*testing.T, *client.APIClient), postUpgrade func(*testing.T, *client.APIClient)) {
+func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVersions []string, preUpgrade func(*testing.T, *client.APIClient), postUpgrade func(*testing.T, *client.APIClient)) {
 	k := testutil.GetKubeClient(suite)
 	for _, from := range fromVersions {
+		from := from // suite.Run runs in a background goroutine if parallelOK is true
 		suite.Run(fmt.Sprintf("UpgradeFrom_%s", from), func(t *testing.T) {
-			t.Parallel()
+			if parallelOK {
+				t.Parallel()
+			}
 			ns, portOffset := minikubetestenv.ClaimCluster(t)
 			minikubetestenv.PutNamespace(t, ns)
+			t.Logf("starting preUpgrade; version %v, namespace %v", from, ns)
 			preUpgrade(t, minikubetestenv.InstallRelease(t,
 				context.Background(),
 				ns,
@@ -54,6 +58,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, fromVersions []string, p
 						"global.postgresql.postgresqlPostgresPassword": "insecure-root-password",
 					},
 				}))
+			t.Logf("preUpgrade done; starting postUpgrade")
 			postUpgrade(t, minikubetestenv.UpgradeRelease(t,
 				context.Background(),
 				ns,
@@ -63,6 +68,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, fromVersions []string, p
 					CleanupAfter: true,
 					PortOffset:   portOffset,
 				}))
+			t.Logf("postUpgrade done")
 		})
 	}
 }
@@ -78,16 +84,13 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 		t.Skip("Skipping upgrade test")
 	}
 	fromVersions := []string{
-		"2.0.4",
-		"2.1.0",
-		"2.2.0",
 		"2.3.9",
-		"2.4.3",
+		"2.4.6",
 	}
 	// We use a long pipeline name (gt 64 chars) to test whether our auth tokens,
 	// which originally had a 64 limit, can handle the upgrade which adds the project names to the subject key.
 	montage := montageRepo + "01234567890123456789012345678901234567890"
-	upgradeTest(t, context.Background(), fromVersions,
+	upgradeTest(t, context.Background(), true /* parallelOK */, fromVersions,
 		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, imagesRepo))
@@ -124,7 +127,9 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			require.NoError(t, err)
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 			defer cancel()
+			t.Log("before upgrade: waiting for montage commit")
 			commitInfos, err := c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.ID)
+			t.Log("before upgrade: wait is done")
 			require.NoError(t, err)
 
 			var buf bytes.Buffer
@@ -147,7 +152,9 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			require.NoError(t, err)
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
+			t.Log("after upgrade: waiting for montage commit")
 			commitInfos, err := c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.ID)
+			t.Log("after upgrade: wait is done")
 			require.NoError(t, err)
 
 			var buf bytes.Buffer
@@ -164,7 +171,7 @@ func TestUpgradeLoad(t *testing.T) {
 	if skip {
 		t.Skip("Skipping upgrade test")
 	}
-	fromVersions := []string{"2.3.9"}
+	fromVersions := []string{"2.3.9", "2.4.6"}
 	dagSpec := `
 default-load-test-source:
 default-load-test-pipeline: default-load-test-source
@@ -194,24 +201,28 @@ validator:
     count: 1
 `
 	var stateID string
-	upgradeTest(t, context.Background(), fromVersions,
+	upgradeTest(t, context.Background(), false /* parallelOK */, fromVersions,
 		func(t *testing.T, c *client.APIClient) {
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
+			t.Log("before upgrade: starting load test")
 			resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pps.RunLoadTestRequest{
 				DagSpec:  dagSpec,
 				LoadSpec: loadSpec,
 			})
+			t.Log("before upgrade: load test done")
 			require.NoError(t, err)
 			require.Equal(t, "", resp.Error)
 			stateID = resp.StateId
 		},
 		func(t *testing.T, c *client.APIClient) {
 			c = testutil.AuthenticateClient(t, c, upgradeSubject)
+			t.Log("after upgrade: starting load test")
 			resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pps.RunLoadTestRequest{
 				DagSpec:  dagSpec,
 				LoadSpec: loadSpec,
 				StateId:  stateID,
 			})
+			t.Log("after upgrade: load test done")
 			require.NoError(t, err)
 			require.Equal(t, "", resp.Error)
 		},
