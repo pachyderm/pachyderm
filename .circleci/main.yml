@@ -1352,10 +1352,10 @@ workflows:
       - nightly-load:
           name: nightly-load-<< matrix.bucket >>
           requires:
-            - pulumi-aws-test-env-LOAD1
-            - pulumi-aws-test-env-LOAD2
-            - pulumi-aws-test-env-LOAD3
-            - pulumi-aws-test-env-LOAD4
+            - nightly-load-LOAD1
+            - nightly-load-LOAD2
+            - nightly-load-LOAD3
+            - nightly-load-LOAD4
           matrix:
             parameters:
               bucket:
