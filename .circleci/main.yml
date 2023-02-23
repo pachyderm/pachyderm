@@ -409,6 +409,8 @@ jobs:
     parameters:
       bucket:
         type: string
+      env:
+        type: string
     resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -1052,6 +1054,9 @@ jobs:
     parameters:
       env:
         type: string
+      bucket:
+        type: string
+        default: ""
       action:
         type: string
       pachdVersion:
@@ -1349,13 +1354,15 @@ workflows:
                 - LOAD2
                 - LOAD3
                 - LOAD4
+              env:
+                - LOAD1
+                - LOAD2
+                - LOAD3
+                - LOAD4
       - nightly-load:
           name: nightly-load-<< matrix.bucket >>
           requires:
-            - nightly-load-LOAD1
-            - nightly-load-LOAD2
-            - nightly-load-LOAD3
-            - nightly-load-LOAD4
+            - nightly-load-<< matrix.env >>
           matrix:
             parameters:
               bucket:
@@ -1363,13 +1370,15 @@ workflows:
                 - LOAD6
                 - LOAD7
                 - LOAD8
+              env:
+                - LOAD1
+                - LOAD2
+                - LOAD3
+                - LOAD4
       - nightly-load:
           name: nightly-load-<< matrix.bucket >>
           requires:
-            - nightly-load-LOAD5
-            - nightly-load-LOAD6
-            - nightly-load-LOAD7
-            - nightly-load-LOAD8
+            - nightly-load-<< matrix.env >>
           matrix:
             parameters:
               bucket:
@@ -1377,14 +1386,16 @@ workflows:
                 - LOAD10
                 - LOAD11
                 - LOAD12
+              env:
+                - LOAD1
+                - LOAD2
+                - LOAD3
+                - LOAD4
       - pulumi-aws-test-env:
           name: destroy-aws-testing-env-<< matrix.env >>
           action: destroy
           requires:
-            - nightly-load-LOAD9
-            - nightly-load-LOAD10
-            - nightly-load-LOAD11
-            - nightly-load-LOAD12
+            - nightly-load-<< matrix.bucket >>
           matrix:
             parameters:
               env:
@@ -1392,6 +1403,11 @@ workflows:
                 - LOAD2
                 - LOAD3
                 - LOAD4
+              bucket:
+                - LOAD9
+                - LOAD10
+                - LOAD11
+                - LOAD12
   rootless-tests:
     when:
       or:
