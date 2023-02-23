@@ -1065,8 +1065,6 @@ jobs:
       image: << pipeline.parameters.machine_image >>
     steps:
       - checkout
-      - attach_workspace:
-          at: ./
       - node/install
       - kubernetes/install
       - aws-eks/install-aws-iam-authenticator
