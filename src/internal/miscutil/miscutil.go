@@ -3,7 +3,6 @@ package miscutil
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"golang.org/x/sync/errgroup"
@@ -84,14 +83,15 @@ func (i *Iterator) Next() (interface{}, error) {
 	}
 }
 
-func CacheFunc[In comparable, Out any](f func(In) Out) func(In) Out {
-	cache := make(map[In]Out)
-	return func(a In) Out {
-		if _, ok := cache[a]; !ok {
-			fmt.Printf("qqq Cache miss, running f(%v)\n", a)
-			cache[a] = f(a)
+// CacheFunc is a simple unbounded function cache that wraps any function with single input and output.
+func CacheFunc[K comparable, V any](f func(K) V) func(K) V {
+	cache := make(map[K]V)
+	return func(a K) V {
+		if ent, ok := cache[a]; ok {
+			return ent
 		}
-		fmt.Printf("qqq Cache hit, returning cache[%v]\n", a)
-		return cache[a]
+		v := f(a)
+		cache[a] = v
+		return v
 	}
 }
