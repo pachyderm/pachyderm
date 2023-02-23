@@ -11,7 +11,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -19,9 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -314,6 +311,11 @@ func (a *apiServer) ClearCommit(ctx context.Context, request *pfs.ClearCommitReq
 	return &types.Empty{}, a.driver.clearCommit(ctx, request.Commit)
 }
 
+// FindCommits searches for commits that reference a supplied file being modified in a branch.
+func (a *apiServer) FindCommits(request *pfs.FindCommitsRequest, srv pfs.API_FindCommitsServer) error {
+	return a.driver.findCommits(srv.Context(), request, srv.Send)
+}
+
 // CreateBranchInTransaction is identical to CreateBranch except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.CreateBranchRequest) error {
@@ -399,101 +401,6 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 		return nil, err
 	}
 	return &types.Empty{}, nil
-}
-
-// SearchForFileInBranch searches for commits that reference a supplied file being modified in a branch.
-func (a *apiServer) SearchForFileInBranch(ctx context.Context, request *pfs.SearchForFileInBranchRequest) (*pfs.SearchForFileInBranchResponse, error) {
-	timeout, err := types.DurationFromProto(request.Timeout)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	// Use sane defaults for fields that are not defined.
-	if timeout == 0 {
-		timeout = time.Minute * 5
-	}
-	if request.Limit == 0 {
-		request.Limit = 10
-	}
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	var found []*pfs.Commit
-	commit := request.GetStart()
-	commitsSearched := 0
-	returnResp := func(found []*pfs.Commit, commitsSearched int, lastSearchedCommit *pfs.Commit) *pfs.SearchForFileInBranchResponse {
-		resp := &pfs.SearchForFileInBranchResponse{}
-		resp.FoundCommits = found
-		resp.CommitsSearched = int32(commitsSearched)
-		resp.LastSearchedCommit = commit
-		return resp
-	}
-	searchDone := false
-	for {
-		if searchDone {
-			return returnResp(found, commitsSearched, commit), err
-		}
-		if err := log.LogStep(ctx, "searchForFileInCommit", func(ctx context.Context) error {
-			inspectCommitResp, err := a.InspectCommit(ctx, &pfs.InspectCommitRequest{Commit: commit})
-			if err != nil {
-				return err
-			}
-			commit = inspectCommitResp.Commit
-			inCommit, err := a.searchForFileInCommit(ctx, commit, request.FilePath)
-			if err != nil {
-				return err
-			}
-			if inCommit {
-				log.Info(ctx, "found file", zap.String("commit", commit.ID), zap.String("branch", commit.Branch.String()), zap.String("targetFile", request.FilePath))
-				found = append(found, commit)
-			}
-			commitsSearched++
-			if len(found) == int(request.Limit) || inspectCommitResp.ParentCommit == nil {
-				searchDone = true
-				return nil
-			}
-			commit = inspectCommitResp.ParentCommit
-			return nil
-		}, zap.String("commit", commit.ID), zap.String("branch", commit.Branch.String()), zap.String("targetFile", request.FilePath)); err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return returnResp(found, commitsSearched, commit), nil
-			}
-			return nil, errors.EnsureStack(err)
-		}
-	}
-}
-
-func (a *apiServer) searchForFileInCommit(ctx context.Context, commit *pfs.Commit, filePath string) (bool, error) {
-	diffID, err := a.driver.commitStore.GetDiffFileSet(ctx, commit)
-	if err != nil {
-		return false, err
-	}
-	diffFileSet, err := a.driver.storage.Open(ctx, []fileset.ID{*diffID})
-	if err != nil {
-		return false, err
-	}
-	found := false
-	if err = diffFileSet.Iterate(ctx, func(file fileset.File) error {
-		if file.Index().Path == filePath {
-			found = true
-			return errutil.ErrBreak
-		}
-		return nil
-	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
-		return false, err
-	}
-	// a file cannot be in the additive and deletive set, so if its found, skip iteration over deletive.
-	if found {
-		return found, nil
-	}
-	if err = diffFileSet.IterateDeletes(ctx, func(file fileset.File) error {
-		if file.Index().Path == filePath {
-			found = true
-			return errutil.ErrBreak
-		}
-		return nil
-	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
-		return false, err
-	}
-	return found, nil
 }
 
 // CreateProject implements the protobuf pfs.CreateProject RPC

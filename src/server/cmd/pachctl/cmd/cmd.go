@@ -764,7 +764,7 @@ This resets the cluster to its initial state.`,
 		Short: "Search for file addition, modification, or deletion in a commit.",
 		Long:  "Search for file addition, modification, or deletion in a commit.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAlias(searchDocs, "search"))
+	subcommands = append(subcommands, cmdutil.CreateAlias(searchDocs, "find"))
 
 	waitDocs := &cobra.Command{
 		Short: "Wait for the side-effects of a Pachyderm resource to propagate.",

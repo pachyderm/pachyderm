@@ -498,6 +498,94 @@ func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs
 	return pi, nil
 }
 
+func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsRequest, cb func(response *pfs.FindCommitsResponse) error) error {
+	commit := request.Start
+	foundCommits, commitsSearched := uint32(0), uint32(0)
+	searchDone := false
+	var found *pfs.Commit
+	makeResp := func(found *pfs.Commit, commitsSearched uint32, lastSearchedCommit *pfs.Commit) *pfs.FindCommitsResponse {
+		resp := &pfs.FindCommitsResponse{}
+		if found != nil {
+			resp.Result = &pfs.FindCommitsResponse_FoundCommit{FoundCommit: found}
+		} else {
+			resp.Result = &pfs.FindCommitsResponse_LastSearchedCommit{LastSearchedCommit: commit}
+		}
+		resp.CommitsSearched = commitsSearched
+		return resp
+	}
+	for {
+		if searchDone {
+			return errors.EnsureStack(cb(makeResp(nil, commitsSearched, commit)))
+		}
+		if err := log.LogStep(ctx, "searchingCommit", func(ctx context.Context) error {
+			inspectCommitResp, err := d.inspectCommit(ctx, commit, pfs.CommitState_FINISHED)
+			if err != nil {
+				return err
+			}
+			commit = inspectCommitResp.Commit
+			inCommit, err := d.isFileInCommit(ctx, commit, request.FilePath)
+			if err != nil {
+				return err
+			}
+			if inCommit {
+				log.Info(ctx, "found target", zap.String("commit", commit.ID), zap.String("branch", commit.Branch.String()), zap.String("target", request.FilePath))
+				found = commit
+				foundCommits++
+				if err := cb(makeResp(found, commitsSearched, nil)); err != nil {
+					return err
+				}
+			}
+			commitsSearched++
+			if (foundCommits == request.Limit && request.Limit != 0) || inspectCommitResp.ParentCommit == nil {
+				searchDone = true
+				return nil
+			}
+			commit = inspectCommitResp.ParentCommit
+			return nil
+		}, zap.String("commit", commit.ID), zap.String("branch", commit.Branch.String()), zap.String("target", request.FilePath)); err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return errors.EnsureStack(cb(makeResp(nil, commitsSearched, commit)))
+			}
+			return errors.EnsureStack(err)
+		}
+	}
+}
+
+func (d *driver) isFileInCommit(ctx context.Context, commit *pfs.Commit, filePath string) (bool, error) {
+	diffID, err := d.commitStore.GetDiffFileSet(ctx, commit)
+	if err != nil {
+		return false, err
+	}
+	diffFileSet, err := d.storage.Open(ctx, []fileset.ID{*diffID})
+	if err != nil {
+		return false, err
+	}
+	found := false
+	if err = diffFileSet.Iterate(ctx, func(file fileset.File) error {
+		if file.Index().Path == filePath {
+			found = true
+			return errutil.ErrBreak
+		}
+		return nil
+	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
+		return false, err
+	}
+	// we don't care about the file operation, so if a file was already found, skip iterating over deletive set.
+	if found {
+		return found, nil
+	}
+	if err = diffFileSet.IterateDeletes(ctx, func(file fileset.File) error {
+		if file.Index().Path == filePath {
+			found = true
+			return errutil.ErrBreak
+		}
+		return nil
+	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
+		return false, err
+	}
+	return found, nil
+}
+
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
 func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
 	projectInfo := &pfs.ProjectInfo{}

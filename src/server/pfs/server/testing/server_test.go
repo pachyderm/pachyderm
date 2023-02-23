@@ -4273,9 +4273,10 @@ func TestPFS(suite *testing.T) {
 		//	}
 	})
 
-	suite.Run("SearchFileInBranch", func(t *testing.T) {
+	suite.Run("FindCommits", func(t *testing.T) {
 		t.Parallel()
-		ctx := pctx.TestContext(t)
+		ctx, cf := context.WithTimeout(pctx.TestContext(t), time.Minute)
+		defer cf()
 		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
@@ -4302,18 +4303,18 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.DeleteFile(commit4, "/files/b"))
 		require.NoError(t, finishCommit(env.PachClient, repo, commit4.Branch.Name, commit4.ID))
 
-		resp, err := env.PachClient.SearchForFileInBranch(&pfs.SearchForFileInBranchRequest{FilePath: "/files/b", Start: commit4,
-			Timeout: types.DurationProto(time.Minute), Limit: 0})
+		resp, err := env.PachClient.FindCommits(&pfs.FindCommitsRequest{FilePath: "/files/b", Start: commit4, Limit: 0})
 		require.NoError(t, err)
 
 		require.Equal(t, []*pfs.Commit{commit4, commit3, commit1}, resp.FoundCommits)
-		require.Equal(t, int32(4), resp.CommitsSearched)
+		require.Equal(t, uint32(4), resp.CommitsSearched)
 		require.Equal(t, commit1, resp.LastSearchedCommit)
 	})
 
-	suite.Run("SearchFileInBranchLimit", func(t *testing.T) {
+	suite.Run("FindCommitsLimit", func(t *testing.T) {
 		t.Parallel()
-		ctx := pctx.TestContext(t)
+		ctx, cf := context.WithTimeout(pctx.TestContext(t), time.Minute)
+		defer cf()
 		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 		repo := "test"
@@ -4330,12 +4331,11 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.PutFile(commit2, "/files/b", strings.NewReader("foo")))
 		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID))
 
-		resp, err := env.PachClient.SearchForFileInBranch(&pfs.SearchForFileInBranchRequest{FilePath: "/files/b", Start: commit2,
-			Timeout: types.DurationProto(time.Minute), Limit: 1})
+		resp, err := env.PachClient.FindCommits(&pfs.FindCommitsRequest{FilePath: "/files/b", Start: commit2, Limit: 1})
 		require.NoError(t, err)
 
 		require.Equal(t, []*pfs.Commit{commit2}, resp.FoundCommits)
-		require.Equal(t, int32(1), resp.CommitsSearched)
+		require.Equal(t, uint32(1), resp.CommitsSearched)
 		require.Equal(t, commit2, resp.LastSearchedCommit)
 	})
 

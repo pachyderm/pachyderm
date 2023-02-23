@@ -433,6 +433,40 @@ func (c APIClient) ListCommitByRepo(repo *pfs.Repo) ([]*pfs.CommitInfo, error) {
 	return c.ListCommit(repo, nil, nil, 0)
 }
 
+// FindCommitsResponse is a merged response of *pfs.FindCommitsResponse items that is presented to users.
+type FindCommitsResponse struct {
+	FoundCommits       []*pfs.Commit
+	LastSearchedCommit *pfs.Commit
+	CommitsSearched    uint32
+}
+
+// FindCommits searches for commits that reference a supplied file being modified in a branch.
+func (c APIClient) FindCommits(req *pfs.FindCommitsRequest) (*FindCommitsResponse, error) {
+	ctx, cf := context.WithCancel(c.Ctx())
+	defer cf()
+	client, err := c.PfsAPIClient.FindCommits(ctx, req)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	resp := &FindCommitsResponse{}
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	if err := grpcutil.ForEach[*pfs.FindCommitsResponse](client, func(x *pfs.FindCommitsResponse) error {
+		switch x.Result.(type) {
+		case *pfs.FindCommitsResponse_LastSearchedCommit:
+			resp.LastSearchedCommit = x.GetLastSearchedCommit()
+			resp.CommitsSearched = x.CommitsSearched
+		case *pfs.FindCommitsResponse_FoundCommit:
+			resp.FoundCommits = append(resp.FoundCommits, x.GetFoundCommit())
+		}
+		return nil
+	}); err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return resp, nil
+}
+
 // CreateBranch creates a new branch.
 //
 // Deprecated: use CreateProjectBranch instead.
@@ -766,17 +800,6 @@ func (c APIClient) ClearProjectCommit(projectName, repoName, branchName, commitI
 		},
 	)
 	return err
-}
-
-// SearchForFileInBranch searches for commits that reference a supplied file being modified in a branch.
-func (c APIClient) SearchForFileInBranch(req *pfs.SearchForFileInBranchRequest) (*pfs.SearchForFileInBranchResponse, error) {
-	ctx, cf := context.WithCancel(c.Ctx())
-	defer cf()
-	resp, err := c.PfsAPIClient.SearchForFileInBranch(ctx, req)
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return resp, nil
 }
 
 type FsckOption func(*pfs.FsckRequest)

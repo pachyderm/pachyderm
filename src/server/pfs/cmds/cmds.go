@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bufio"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -64,7 +65,7 @@ func Cmds(pachCtx *config.Context) []*cobra.Command {
 	timestampFlags := cmdutil.TimestampFlags(&fullTimestamps)
 
 	var timeout time.Duration
-	var limit int32
+	var limit uint32
 
 	var noPager bool
 	pagerFlags := cmdutil.PagerFlags(&noPager)
@@ -1020,7 +1021,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	shell.RegisterCompletionFunc(deleteBranch, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteBranch, "delete branch", branches))
 
-	searchForFileInBranch := &cobra.Command{
+	FindCommits := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs> [flags]",
 		Short: "search for commits with reference to <filePath> within a branch starting from <repo@commitID>",
 		Long:  "search for commits with reference to <filePath> within a branch starting from <repo@commitID>",
@@ -1035,43 +1036,50 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 				return err
 			}
 			defer c.Close()
-			resp, err := c.SearchForFileInBranch(&pfs.SearchForFileInBranchRequest{
+			ctx := c.Ctx()
+			var cf context.CancelFunc
+			if timeout != time.Duration(0) {
+				ctx, cf = context.WithTimeout(c.Ctx(), timeout)
+				defer cf()
+			}
+			findCommitClient, err := c.PfsAPIClient.FindCommits(ctx, &pfs.FindCommitsRequest{
 				Start:    commit,
 				FilePath: file.Path,
-				Timeout:  types.DurationProto(timeout),
 				Limit:    limit,
 			})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
 			writer := tabwriter.NewWriter(os.Stdout, "FOUND IN COMMITS\n")
-			for _, commit := range resp.FoundCommits {
-				_, err := writer.Write([]byte(commit.ID + "\n"))
-				if err != nil {
-					return errors.EnsureStack(err)
+			return grpcutil.ScrubGRPC(grpcutil.ForEach[*pfs.FindCommitsResponse](findCommitClient, func(x *pfs.FindCommitsResponse) error {
+				switch x.Result.(type) {
+				case *pfs.FindCommitsResponse_FoundCommit:
+					_, err := writer.Write([]byte(x.GetFoundCommit().ID + "\n"))
+					if err != nil {
+						return errors.EnsureStack(err)
+					}
+				case *pfs.FindCommitsResponse_LastSearchedCommit:
+					if _, err = writer.Write([]byte("\n")); err != nil {
+						return errors.EnsureStack(err)
+					}
+					if err = writer.Flush(); err != nil {
+						return errors.EnsureStack(err)
+					}
+					writer = tabwriter.NewWriter(os.Stdout, "LAST SEARCHED COMMIT\n")
+					if _, err = writer.Write([]byte(x.GetLastSearchedCommit().ID + "\n")); err != nil {
+						return errors.EnsureStack(err)
+					}
+					return errors.EnsureStack(writer.Flush())
 				}
-			}
-			if _, err = writer.Write([]byte("\n")); err != nil {
-				return errors.EnsureStack(err)
-			}
-			if err = writer.Flush(); err != nil {
-				return errors.EnsureStack(err)
-			}
-			writer = tabwriter.NewWriter(os.Stdout, "LAST SEARCHED COMMIT\n")
-			if _, err = writer.Write([]byte(resp.LastSearchedCommit.ID + "\n")); err != nil {
-				return errors.EnsureStack(err)
-			}
-			if err = writer.Flush(); err != nil {
-				return errors.EnsureStack(err)
-			}
-			return nil
+				return nil
+			}))
 		}),
 	}
-	searchForFileInBranch.Flags().Int32Var(&limit, "limit", limit, "Number of matching commits to return")
-	searchForFileInBranch.Flags().DurationVar(&timeout, "timeout", timeout, "Search duration timeout")
-	searchForFileInBranch.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
-	shell.RegisterCompletionFunc(searchForFileInBranch, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAliases(searchForFileInBranch, "search branch", branches))
+	FindCommits.Flags().Uint32Var(&limit, "limit", limit, "Number of matching commits to return")
+	FindCommits.Flags().DurationVar(&timeout, "timeout", timeout, "Search duration timeout")
+	FindCommits.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	shell.RegisterCompletionFunc(FindCommits, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAliases(FindCommits, "find commit", commits))
 
 	projectDocs := &cobra.Command{
 		Short: "Docs for projects.",
