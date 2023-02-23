@@ -1,6 +1,6 @@
 import React from 'react';
 
-import {Button, Tooltip, UploadSVG} from '@pachyderm/components';
+import {Button, UploadSVG, Tooltip} from '@pachyderm/components';
 
 import useUploadFilesButton from './hooks/useUploadFilesButton';
 

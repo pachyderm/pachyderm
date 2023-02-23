@@ -12,7 +12,7 @@ diffResponseUpdated.setNewFile(
     },
     fileType: FileType.FILE,
     hash: 'P2fxZjakvux5dNsEfc0iCx1n3Kzo2QcDlzu9y3Ra1gc=',
-    sizeBytes: 80588,
+    sizeBytes: 90588,
   }),
 );
 diffResponseUpdated.setOldFile(
@@ -26,6 +26,21 @@ diffResponseUpdated.setOldFile(
     fileType: FileType.FILE,
     hash: 'P2fxZjakvux5dNsEfc0iCx1n3Kzo2QcDlzu9y3Ra1gc=',
     sizeBytes: 80588,
+  }),
+);
+
+const diffResponseDeleted = new DiffFileResponse();
+diffResponseDeleted.setOldFile(
+  fileInfoFromObject({
+    committed: {seconds: 1614126189, nanos: 0},
+    file: {
+      commitId: 'd350c8d08a644ed5b2ee98c035ab6b33',
+      path: '/liberty.png',
+      branch: {name: 'master', repo: {name: 'images'}},
+    },
+    fileType: FileType.FILE,
+    hash: 'P2fxZjakvux5dNsEfc0iCx1n3Kzo2QcDlzu9y3Ra1gc=',
+    sizeBytes: 50588,
   }),
 );
 
@@ -54,6 +69,10 @@ const customer = {
   '/': diffResponseAdded,
 };
 
+const deleted = {
+  '/': diffResponseDeleted,
+};
+
 export type Diffs = {
   [projectId: string]: {
     [path: string]: DiffFileResponse;
@@ -64,7 +83,7 @@ const files: Diffs = {
   'Solar-Panel-Data-Sorting': customer,
   'Data-Cleaning-Process': tutorial,
   'Solar-Power-Data-Logger-Team-Collab': customer,
-  'Solar-Price-Prediction-Modal': emptyDiffResponse,
+  'Solar-Price-Prediction-Modal': deleted,
   'Egress-Examples': emptyDiffResponse,
   'Empty-Project': emptyDiffResponse,
   'Trait-Discovery': emptyDiffResponse,

@@ -2,7 +2,13 @@ import formatDiff from '@dash-backend/lib/formatDiff';
 import {toProtoCommitOrigin} from '@dash-backend/lib/gqlEnumMappers';
 import {PachClient} from '@dash-backend/lib/types';
 import {CommitState} from '@dash-backend/proto';
-import {MutationResolvers, OriginKind, QueryResolvers} from '@graphqlTypes';
+import {
+  MutationResolvers,
+  OriginKind,
+  QueryResolvers,
+  Diff,
+  Commit,
+} from '@graphqlTypes';
 
 import {commitInfoToGQLCommit, commitToGQLCommit} from './builders/pfs';
 
@@ -44,20 +50,46 @@ const commitResolver: CommitResolver = {
       {args: {projectId, id, repoName, branchName, withDiff}},
       {pachClient},
     ) => {
-      let diff = undefined;
+      let diff: Diff | undefined;
+      let commit: Commit;
       const jobSetIds = await getJobSetIds({pachClient, projectId});
 
-      const commit = commitInfoToGQLCommit(
-        await pachClient.pfs().inspectCommit({
-          projectId,
-          wait: CommitState.COMMIT_STATE_UNKNOWN,
-          commit: {
-            id,
-            branch: {name: branchName || 'master', repo: {name: repoName}},
-          },
-        }),
-      );
-
+      if (!id) {
+        try {
+          const commits = await pachClient.pfs().listCommit({
+            projectId,
+            repo: {
+              name: repoName,
+            },
+            number: 1,
+            to: branchName
+              ? {
+                  id: '',
+                  branch: {
+                    name: branchName,
+                    repo: {
+                      name: repoName,
+                    },
+                  },
+                }
+              : undefined,
+          });
+          commit = commitInfoToGQLCommit(commits[0]);
+        } catch (err) {
+          return null;
+        }
+      } else {
+        commit = commitInfoToGQLCommit(
+          await pachClient.pfs().inspectCommit({
+            projectId,
+            wait: CommitState.COMMIT_STATE_UNKNOWN,
+            commit: {
+              id,
+              branch: {name: branchName || 'master', repo: {name: repoName}},
+            },
+          }),
+        );
+      }
       if (
         withDiff &&
         commit.originKind !== OriginKind.ALIAS &&
@@ -66,7 +98,7 @@ const commitResolver: CommitResolver = {
         const diffResponse = await pachClient.pfs().diffFile({
           projectId,
           newFileObject: {
-            commitId: id || 'master',
+            commitId: id || commit.id,
             path: '/',
             branch: {name: branchName || 'master', repo: {name: repoName}},
           },

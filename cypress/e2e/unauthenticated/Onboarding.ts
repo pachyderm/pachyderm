@@ -53,10 +53,6 @@ describe('Onboarding', () => {
     // DAG view
     cy.findByText('NewRepo').click();
 
-    // Side panel
-    cy.findByRole('tab', {
-      name: /info/i,
-    }).click();
     cy.findByText('A repo', {timeout: 15000}).should('be.visible');
   });
 });

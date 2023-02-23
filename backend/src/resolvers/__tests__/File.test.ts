@@ -30,7 +30,10 @@ describe('File Resolver', () => {
       expect(files).toHaveLength(17);
       expect(data?.files.diff?.size).toBe(58644);
       expect(data?.files.diff?.sizeDisplay).toBe('58.65 kB');
-      expect(data?.files.diff?.filesAdded).toBe(1);
+      expect(data?.files.diff?.filesAdded.count).toBe(1);
+      expect(data?.files.diff?.filesUpdated.count).toBe(0);
+      expect(data?.files.diff?.filesDeleted.count).toBe(0);
+      expect(data?.files.diff?.filesAdded.sizeDelta).toBe(58644);
       expect(files?.[0]?.path).toBe('/AT-AT.png');
       expect(files?.[1]?.path).toBe('/liberty.png');
       expect(files?.[2]?.path).toBe('/cats/');
@@ -53,6 +56,52 @@ describe('File Resolver', () => {
       expect(files?.[0]?.sizeDisplay).toBe('80.59 kB');
       expect(files?.[0]?.type).toBe(FileType.FILE);
       expect(files?.[1]?.commitAction).toBe('ADDED');
+    });
+
+    it('should return diff data for updated files in a commit', async () => {
+      const {data, errors = []} = await executeQuery<{
+        files: FileQueryResponse;
+      }>(GET_FILES_QUERY, {
+        args: {
+          projectId: 'Data-Cleaning-Process',
+          path: '/',
+          branchName: 'master',
+          repoName: 'images',
+        },
+      });
+
+      const files = data?.files.files;
+      expect(errors?.length).toBe(0);
+      expect(files?.length).toBe(3);
+      expect(data?.files.diff?.size).toBe(10000);
+      expect(data?.files.diff?.sizeDisplay).toBe('10 kB');
+      expect(data?.files.diff?.filesAdded.count).toBe(0);
+      expect(data?.files.diff?.filesDeleted.count).toBe(0);
+      expect(data?.files.diff?.filesUpdated.count).toBe(1);
+      expect(data?.files.diff?.filesUpdated.sizeDelta).toBe(10000);
+    });
+
+    it('should return diff data for deleted files in a commit', async () => {
+      const {data, errors = []} = await executeQuery<{
+        files: FileQueryResponse;
+      }>(GET_FILES_QUERY, {
+        args: {
+          projectId: 'Solar-Price-Prediction-Modal',
+          path: '/',
+          branchName: 'master',
+          repoName: 'images',
+        },
+      });
+
+      const files = data?.files.files;
+      expect(errors?.length).toBe(0);
+      expect(files?.length).toBe(3);
+      expect(data?.files.diff?.size).toBe(-50588);
+      expect(data?.files.diff?.sizeDisplay).toBe('-50.59 kB');
+      expect(data?.files.diff?.filesAdded.count).toBe(0);
+      expect(data?.files.diff?.filesUpdated.count).toBe(0);
+      expect(data?.files.diff?.filesDeleted.count).toBe(1);
+      expect(data?.files.diff?.filesDeleted.sizeDelta).toBe(-50588);
     });
 
     it('should return files for a directory commit', async () => {

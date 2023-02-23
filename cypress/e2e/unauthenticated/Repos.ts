@@ -66,20 +66,13 @@ describe('Repos', () => {
     cy.waitUntil(() => cy.findByLabelText('Upload Selected Files').should('not.be.disabled'));
     cy.findByLabelText('Upload Selected Files').click();
     cy.findByLabelText('Commit Selected Files').click();
-    cy.findAllByText('Commits').click();
 
     // Needs to wait for commit polling to update
-    cy.findAllByText('View Files', {timeout: 30000}).first().click();
+    cy.visit('/lineage/default/repos/TestRepo/branch/default')
+    cy.findByText('532.13 kB', {timeout: 30000})
+    cy.findByText('2');
+    cy.findByText('New');
 
-    cy.findByText('2 Files added');
-    cy.findByText('451.54 kB')
-    cy.findByText('80.59 kB');
-    cy.findByText('AT-AT.png');
-    cy.findByText('puppy.png');
-  
-    cy.findByTestId('FullPageModal__close').click({force: true});
-
-    cy.waitUntil(() => cy.findByLabelText('Upload Files').should('not.be.disabled'));
     cy.findByLabelText('Upload Files').click();
     cy.findByText('For large file uploads via CTL');
 
@@ -92,9 +85,8 @@ describe('Repos', () => {
     cy.waitUntil(() => cy.findByLabelText('Upload Selected Files').should('be.visible').click());
     cy.findByLabelText('Commit Selected Files').click();
 
-    cy.findAllByText('Commits').click();
-    cy.findAllByText('View Files', {timeout: 30000}).should('have.length', 2).first().click();
-    cy.findAllByText('80.59 kB').should('have.length', 2);
+    cy.visit('/lineage/default/repos/TestRepo/branch/default')
+    cy.findByText('161.18 kB', {timeout: 30000});
   })
 
   it('should allow a user to delete a repo', () => {

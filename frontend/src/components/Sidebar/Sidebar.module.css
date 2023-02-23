@@ -52,7 +52,7 @@
 
 .sideBarToolbar {
   display: flex;
-  padding: 1rem 1.375rem;
+  padding: 1rem;
   align-items: baseline;
   justify-content: space-between;
 }

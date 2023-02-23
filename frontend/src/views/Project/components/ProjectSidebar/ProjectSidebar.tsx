@@ -39,7 +39,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
         <Sidebar data-testid="ProjectSidebar__sidebar" {...resizableProps}>
           <Switch>
             <Route path={LINEAGE_REPO_PATH}>
-              <RepoDetails inputOutputNodesMap={inputOutputNodesMap} />
+              <RepoDetails />
             </Route>
             <Route path={LINEAGE_PIPELINE_PATH} exact>
               <PipelineDetails inputOutputNodesMap={inputOutputNodesMap} />

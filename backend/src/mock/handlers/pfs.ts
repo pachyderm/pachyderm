@@ -122,11 +122,13 @@ const pfs = () => {
           const [accountId] = call.metadata.get('authn-token');
           const commitId = call.request.getCommit()?.getId();
           const repo = call.request.getCommit()?.getBranch()?.getRepo();
-          const commit = (
-            projectId
-              ? MockState.state.commits[projectId.toString()]
-              : MockState.state.commits['tutorial']
-          ).find((c) => c.getCommit()?.getId() === commitId);
+
+          const projectCommits = projectId
+            ? MockState.state.commits[projectId.toString()]
+            : MockState.state.commits['Data-Cleaning-Process'];
+          const commit = commitId
+            ? projectCommits.find((c) => c.getCommit()?.getId() === commitId)
+            : projectCommits[0];
 
           const authInfo =
             repoAuthInfos[accountId.toString()] || repoAuthInfos.default;

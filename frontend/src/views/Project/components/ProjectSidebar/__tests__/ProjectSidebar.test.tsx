@@ -7,9 +7,9 @@ import {
 import React from 'react';
 
 import {
-  withContextProviders,
   click,
   mockServer,
+  withContextProviders,
 } from '@dash-frontend/testHelpers';
 
 import ProjectSidebar from '../ProjectSidebar';
@@ -170,99 +170,57 @@ describe('ProjectSidebar', () => {
       render(<Project />);
 
       const repoName = await screen.findByTestId('Title__name');
-      const size = screen.getByText('621.86 kB');
+      const size = screen.getByText('543.22 kB');
 
       expect(repoName).toHaveTextContent('cron');
       expect(size).toBeInTheDocument();
       await screen.findByText('9d5daa0918ac4c43a476b86e3bb5e88e');
+      expect(screen.getByText('484.57 kB')).toBeInTheDocument();
+
+      await waitFor(() =>
+        expect(
+          screen.queryByTestId('CommitList__loadingdots'),
+        ).not.toBeInTheDocument(),
+      );
+
+      expect(screen.queryAllByTestId('CommitList__commit')).toHaveLength(5);
+      expect(screen.getByText('0918a...@master | user')).toBeInTheDocument();
+      expect(screen.getByText('0518a...@master | auto')).toBeInTheDocument();
     });
 
-    it('should not show a linked job when there is no job for the commit', async () => {
+    it('should filter commits by originKind', async () => {
       window.history.replaceState(
         '',
         '',
         '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
       );
-
       render(<Project />);
 
-      await waitForElementToBeRemoved(() =>
-        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
-      );
-      await waitForElementToBeRemoved(() =>
-        screen.queryByTestId('CommitBrowser__loadingdots'),
+      await screen.findByText('9d5daa0918ac4c43a476b86e3bb5e88e');
+      await waitFor(() =>
+        expect(
+          screen.queryByTestId('CommitList__loadingdots'),
+        ).not.toBeInTheDocument(),
       );
 
-      await screen.findByTestId('Title__name');
+      expect(screen.queryAllByTestId('CommitList__commit')).toHaveLength(5);
+      expect(screen.getByText('0918a...@master | user')).toBeInTheDocument();
+      expect(screen.getByText('0518a...@master | auto')).toBeInTheDocument();
 
+      await click(screen.getAllByText('All origins')[0]);
+      await click(screen.getByText('User commits only'));
+
+      await waitFor(() =>
+        expect(
+          screen.queryByTestId('CommitList__loadingdots'),
+        ).not.toBeInTheDocument(),
+      );
+
+      expect(screen.getByTestId('CommitList__commit')).toBeInTheDocument();
+      expect(screen.getByText('0918a...@master | user')).toBeInTheDocument();
       expect(
-        screen.queryByRole('link', {name: 'Linked Job'}),
+        screen.queryByText('0518a...@master | auto'),
       ).not.toBeInTheDocument();
-    });
-
-    it('should show a linked job for a commit', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/lineage/Data-Cleaning-Process/repos/models/branch/master/commits',
-      );
-
-      render(<Project />);
-
-      await waitForElementToBeRemoved(() =>
-        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
-      );
-      await waitForElementToBeRemoved(() =>
-        screen.queryByTestId('CommitBrowser__loadingdots'),
-      );
-
-      expect(
-        await screen.findByRole('button', {name: 'Linked Job'}),
-      ).toBeInTheDocument();
-    });
-
-    it('should show a linked job for a input repo commit', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/lineage/Data-Cleaning-Process/repos/training/branch/master/commits',
-      );
-
-      render(<Project />);
-
-      await waitForElementToBeRemoved(() =>
-        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
-      );
-      await waitForElementToBeRemoved(() =>
-        screen.queryByTestId('CommitBrowser__loadingdots'),
-      );
-
-      expect(
-        await screen.findByRole('button', {name: 'Linked Job'}),
-      ).toBeInTheDocument();
-    });
-
-    it('should show no commits when the branch has no commits', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/lineage/Data-Cleaning-Process/repos/training/branch/develop',
-      );
-
-      render(<Project />);
-
-      await waitForElementToBeRemoved(() =>
-        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
-      );
-      await waitForElementToBeRemoved(() =>
-        screen.queryByTestId('CommitBrowser__loadingdots'),
-      );
-
-      const emptyMessage = await screen.findByText(
-        'There are no commits for this branch',
-      );
-
-      expect(emptyMessage).toBeInTheDocument();
     });
 
     it('should show no branches when the repo has no branches', async () => {
@@ -279,49 +237,7 @@ describe('ProjectSidebar', () => {
       );
 
       const emptyMessage = await screen.findByText(
-        'There are no branches on this repo!',
-      );
-
-      expect(emptyMessage).toBeInTheDocument();
-    });
-
-    it('should default to the first available branch on repos', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/lineage/Data-Cleaning-Process/repos/model/branch/default',
-      );
-
-      render(<Project />);
-
-      await waitForElementToBeRemoved(() =>
-        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
-      );
-      await waitForElementToBeRemoved(() =>
-        screen.queryByTestId('CommitBrowser__loadingdots'),
-      );
-
-      expect(await screen.findByText('Branch: develop')).toBeInTheDocument();
-    });
-
-    it('should show empty repo message when repo has no commits', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/lineage/Data-Cleaning-Process/repos/select/branch/master',
-      );
-
-      render(<Project />);
-
-      await waitForElementToBeRemoved(() =>
-        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
-      );
-      await waitForElementToBeRemoved(() =>
-        screen.queryByTestId('CommitBrowser__loadingdots'),
-      );
-
-      const emptyMessage = await screen.findByText(
-        'There are no commits for this branch',
+        `This repo doesn't have any branches`,
       );
 
       expect(emptyMessage).toBeInTheDocument();
@@ -369,67 +285,5 @@ describe('ProjectSidebar', () => {
         expect(mockServer.getState().repos['OpenCV-Tutorial']).toHaveLength(2),
       );
     });
-
-    it('should display a link to pipeline egress', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/lineage/Egress-Examples/repos/egress_sql/branch/master/info',
-      );
-
-      render(
-        <Project
-          inputOutputNodesMap={{
-            'Egress-Examples_egress_sql_repo': [
-              {
-                id: 'Egress-Examples_snowflake://pachyderm@WHMUWUD-CJ80657/PACH_DB/PUBLIC?warehouse=COMPUTE_WH',
-                name: 'snowflake://pachyderm@WHMUWUD-CJ80657/PACH_DB/PUBLIC?warehouse=COMPUTE_WH',
-              },
-            ],
-          }}
-        />,
-      );
-      const egress = await screen.findByText(
-        'snowflake://pachyderm@WHMUWUD-CJ80657/PACH_DB/PUBLIC?warehouse=COMPUTE_WH',
-      );
-      await click(egress);
-      expect(window.document.execCommand).toHaveBeenCalledWith('copy');
-    });
-
-    it('should show a link to view files', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/lineage/Data-Cleaning-Process/repos/models/branch/master/commits',
-      );
-
-      render(<Project />);
-
-      await waitForElementToBeRemoved(() =>
-        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
-      );
-      await waitForElementToBeRemoved(() =>
-        screen.queryByTestId('CommitBrowser__loadingdots'),
-      );
-      expect(await screen.findByText('View Files')).toBeInTheDocument();
-      expect(screen.getByText('View Files')).toBeEnabled();
-    });
-  });
-
-  it('should filter commits by auto origin', async () => {
-    window.history.replaceState(
-      '',
-      '',
-      '/lineage/Solar-Power-Data-Logger-Team-Collab/repos/cron/branch/master',
-    );
-
-    render(<Project />);
-
-    const hideAutoCommits = await screen.findByLabelText('Auto Commits');
-    expect(screen.queryAllByText('View Files')).toHaveLength(6);
-    await click(hideAutoCommits);
-    await waitFor(() =>
-      expect(screen.queryAllByText('View Files')).toHaveLength(2),
-    );
   });
 });

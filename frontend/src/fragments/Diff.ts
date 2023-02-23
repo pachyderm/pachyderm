@@ -4,8 +4,17 @@ export const DiffFragment = gql`
   fragment DiffFragment on Diff {
     size
     sizeDisplay
-    filesUpdated
-    filesAdded
-    filesDeleted
+    filesUpdated {
+      count
+      sizeDelta
+    }
+    filesAdded {
+      count
+      sizeDelta
+    }
+    filesDeleted {
+      count
+      sizeDelta
+    }
   }
 `;

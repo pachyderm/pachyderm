@@ -353,10 +353,12 @@ const commits: {[projectId: string]: CommitInfo[]} = {
   'Solar-Panel-Data-Sorting': tutorial,
   'Data-Cleaning-Process': customerTeam,
   'Solar-Power-Data-Logger-Team-Collab': tutorial,
+  'Solar-Price-Prediction-Modal': tutorial,
   'Egress-Examples': nestedFolderCommits,
   'Trait-Discovery': [],
   'Empty-Project': [],
   'Load-Project': getLoadCommits(1, COMMITS),
+
   default: [...tutorial],
 };
 

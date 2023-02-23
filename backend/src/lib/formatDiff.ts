@@ -3,13 +3,23 @@ import formatBytes from '@dash-backend/lib/formatBytes';
 import {DiffFileResponse} from '@dash-backend/proto';
 
 const formatDiff = (diff: DiffFileResponse.AsObject[]) => {
-  let counts = {added: 0, updated: 0, deleted: 0};
+  let counts = {
+    added: {count: 0, sizeDelta: 0},
+    updated: {count: 0, sizeDelta: 0},
+    deleted: {count: 0, sizeDelta: 0},
+  };
 
   const diffTotals = diff.reduce<Record<string, FileCommitState>>(
     (acc, fileDiff) => {
       if (fileDiff.newFile?.file && !fileDiff.oldFile?.file) {
         if (!fileDiff.newFile.file.path.endsWith('/')) {
-          counts = {...counts, added: counts.added + 1};
+          counts = {
+            ...counts,
+            added: {
+              count: counts.added.count + 1,
+              sizeDelta: counts.added.sizeDelta + fileDiff.newFile?.sizeBytes,
+            },
+          };
         }
         return {
           ...acc,
@@ -18,7 +28,14 @@ const formatDiff = (diff: DiffFileResponse.AsObject[]) => {
       }
       if (!fileDiff.newFile?.file && fileDiff.oldFile?.file) {
         if (!fileDiff.oldFile.file.path.endsWith('/')) {
-          counts = {...counts, deleted: counts.deleted + 1};
+          counts = {
+            ...counts,
+            deleted: {
+              count: counts.deleted.count + 1,
+              sizeDelta:
+                counts.deleted.sizeDelta - (fileDiff.oldFile?.sizeBytes || 0),
+            },
+          };
         }
         return {
           ...acc,
@@ -27,7 +44,16 @@ const formatDiff = (diff: DiffFileResponse.AsObject[]) => {
       }
       if (fileDiff.newFile?.file && fileDiff.oldFile?.file) {
         if (!fileDiff.newFile.file.path.endsWith('/')) {
-          counts = {...counts, updated: counts.updated + 1};
+          counts = {
+            ...counts,
+            updated: {
+              count: counts.updated.count + 1,
+              sizeDelta:
+                counts.updated.sizeDelta +
+                fileDiff.newFile?.sizeBytes -
+                fileDiff.oldFile?.sizeBytes,
+            },
+          };
         }
         return {
           ...acc,

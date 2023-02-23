@@ -68,12 +68,12 @@ const FileHeader: React.FC<FileHeaderProps> = ({
     const updates = [];
     let updatesString = '';
 
-    if (files?.diff?.filesAdded && files?.diff.filesAdded > 0)
-      updates.push({count: files.diff.filesAdded, status: 'added'});
-    if (files?.diff?.filesUpdated && files?.diff.filesUpdated > 0)
-      updates.push({count: files.diff.filesUpdated, status: 'updated'});
-    if (files?.diff?.filesDeleted && files?.diff.filesDeleted > 0)
-      updates.push({count: files.diff.filesDeleted, status: 'deleted'});
+    if (files?.diff?.filesAdded && files?.diff.filesAdded.count > 0)
+      updates.push({count: files.diff.filesAdded.count, status: 'added'});
+    if (files?.diff?.filesUpdated && files?.diff.filesUpdated.count > 0)
+      updates.push({count: files.diff.filesUpdated.count, status: 'updated'});
+    if (files?.diff?.filesDeleted && files?.diff.filesDeleted.count > 0)
+      updates.push({count: files.diff.filesDeleted.count, status: 'deleted'});
 
     if (updates[0])
       updatesString = `${updates[0].count} ${

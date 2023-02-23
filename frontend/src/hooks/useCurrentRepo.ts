@@ -3,13 +3,14 @@ import useUrlState from './useUrlState';
 
 const useCurrentRepo = () => {
   const {repoId, projectId} = useUrlState();
-  const {repo, loading} = useRepo({
+  const {repo, loading, error} = useRepo({
     id: repoId,
     projectId,
   });
 
   return {
     repo,
+    error,
     loading,
   };
 };

@@ -65,6 +65,13 @@ const cacheConfig: InMemoryCacheConfig = {
     },
     Commit: {
       keyFields: ['id', 'repoName'],
+      fields: {
+        diff: {
+          merge(existing, incoming) {
+            return {...existing, ...incoming};
+          },
+        },
+      },
     },
     Branch: {
       keyFields: ['name'],

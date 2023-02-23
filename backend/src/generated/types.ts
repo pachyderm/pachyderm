@@ -90,7 +90,7 @@ export type CommitInput = {
 
 export type CommitQueryArgs = {
   branchName?: InputMaybe<Scalars['String']>;
-  id: Scalars['ID'];
+  id?: InputMaybe<Scalars['ID']>;
   projectId: Scalars['String'];
   repoName: Scalars['String'];
   withDiff?: InputMaybe<Scalars['Boolean']>;
@@ -212,11 +212,17 @@ export type DeleteRepoArgs = {
 
 export type Diff = {
   __typename?: 'Diff';
-  filesAdded: Scalars['Int'];
-  filesDeleted: Scalars['Int'];
-  filesUpdated: Scalars['Int'];
+  filesAdded: DiffCount;
+  filesDeleted: DiffCount;
+  filesUpdated: DiffCount;
   size: Scalars['Float'];
   sizeDisplay: Scalars['String'];
+};
+
+export type DiffCount = {
+  __typename?: 'DiffCount';
+  count: Scalars['Int'];
+  sizeDelta: Scalars['Int'];
 };
 
 export type EnterpriseInfo = {
@@ -626,7 +632,7 @@ export type Query = {
   adminInfo: AdminInfo;
   authConfig: AuthConfig;
   branch: Branch;
-  commit: Commit;
+  commit?: Maybe<Commit>;
   commits: Array<Commit>;
   dag: Array<Vertex>;
   datum: Datum;
@@ -994,6 +1000,7 @@ export type ResolversTypes = ResolversObject<{
   DeletePipelineArgs: DeletePipelineArgs;
   DeleteRepoArgs: DeleteRepoArgs;
   Diff: ResolverTypeWrapper<Diff>;
+  DiffCount: ResolverTypeWrapper<DiffCount>;
   EnterpriseInfo: ResolverTypeWrapper<EnterpriseInfo>;
   EnterpriseState: EnterpriseState;
   File: ResolverTypeWrapper<File>;
@@ -1091,6 +1098,7 @@ export type ResolversParentTypes = ResolversObject<{
   DeletePipelineArgs: DeletePipelineArgs;
   DeleteRepoArgs: DeleteRepoArgs;
   Diff: Diff;
+  DiffCount: DiffCount;
   EnterpriseInfo: EnterpriseInfo;
   File: File;
   FileFromURL: FileFromUrl;
@@ -1275,11 +1283,20 @@ export type DiffResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Diff'] = ResolversParentTypes['Diff'],
 > = ResolversObject<{
-  filesAdded?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  filesDeleted?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  filesUpdated?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  filesAdded?: Resolver<ResolversTypes['DiffCount'], ParentType, ContextType>;
+  filesDeleted?: Resolver<ResolversTypes['DiffCount'], ParentType, ContextType>;
+  filesUpdated?: Resolver<ResolversTypes['DiffCount'], ParentType, ContextType>;
   size?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type DiffCountResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['DiffCount'] = ResolversParentTypes['DiffCount'],
+> = ResolversObject<{
+  count?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  sizeDelta?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1718,7 +1735,7 @@ export type QueryResolvers<
     RequireFields<QueryBranchArgs, 'args'>
   >;
   commit?: Resolver<
-    ResolversTypes['Commit'],
+    Maybe<ResolversTypes['Commit']>,
     ParentType,
     ContextType,
     RequireFields<QueryCommitArgs, 'args'>
@@ -1995,6 +2012,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   CronInput?: CronInputResolvers<ContextType>;
   Datum?: DatumResolvers<ContextType>;
   Diff?: DiffResolvers<ContextType>;
+  DiffCount?: DiffCountResolvers<ContextType>;
   EnterpriseInfo?: EnterpriseInfoResolvers<ContextType>;
   File?: FileResolvers<ContextType>;
   FileQueryResponse?: FileQueryResponseResolvers<ContextType>;
@@ -2070,9 +2088,9 @@ export type DiffFragmentFragment = {
   __typename?: 'Diff';
   size: number;
   sizeDisplay: string;
-  filesUpdated: number;
-  filesAdded: number;
-  filesDeleted: number;
+  filesUpdated: {__typename?: 'DiffCount'; count: number; sizeDelta: number};
+  filesAdded: {__typename?: 'DiffCount'; count: number; sizeDelta: number};
+  filesDeleted: {__typename?: 'DiffCount'; count: number; sizeDelta: number};
 };
 
 export type JobOverviewFragment = {
@@ -2315,7 +2333,7 @@ export type CommitQueryVariables = Exact<{
 
 export type CommitQuery = {
   __typename?: 'Query';
-  commit: {
+  commit?: {
     __typename?: 'Commit';
     repoName: string;
     description?: string | null;
@@ -2330,12 +2348,20 @@ export type CommitQuery = {
       __typename?: 'Diff';
       size: number;
       sizeDisplay: string;
-      filesUpdated: number;
-      filesAdded: number;
-      filesDeleted: number;
+      filesUpdated: {
+        __typename?: 'DiffCount';
+        count: number;
+        sizeDelta: number;
+      };
+      filesAdded: {__typename?: 'DiffCount'; count: number; sizeDelta: number};
+      filesDeleted: {
+        __typename?: 'DiffCount';
+        count: number;
+        sizeDelta: number;
+      };
     } | null;
     branch?: {__typename?: 'Branch'; name: string} | null;
-  };
+  } | null;
 };
 
 export type GetCommitsQueryVariables = Exact<{
@@ -2524,9 +2550,17 @@ export type GetFilesQuery = {
       __typename?: 'Diff';
       size: number;
       sizeDisplay: string;
-      filesUpdated: number;
-      filesAdded: number;
-      filesDeleted: number;
+      filesUpdated: {
+        __typename?: 'DiffCount';
+        count: number;
+        sizeDelta: number;
+      };
+      filesAdded: {__typename?: 'DiffCount'; count: number; sizeDelta: number};
+      filesDeleted: {
+        __typename?: 'DiffCount';
+        count: number;
+        sizeDelta: number;
+      };
     } | null;
     files: Array<{
       __typename?: 'File';

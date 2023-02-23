@@ -30,16 +30,35 @@ describe('resolvers/Commits', () => {
       );
 
       expect(errors).toHaveLength(0);
-      expect(data?.commit.id).toBe(id);
-      expect(data?.commit.repoName).toBe(repoName);
-      expect(data?.commit.branch?.name).toBe('master');
-      expect(data?.commit.description).toBe('added mako');
-      expect(data?.commit.originKind).toBe('AUTO');
-      expect(data?.commit.hasLinkedJob).toBeFalsy();
-      expect(data?.commit.started).toBe(1614136389);
-      expect(data?.commit.finished).toBe(1614136391);
-      expect(data?.commit.sizeBytes).toBe(44276);
-      expect(data?.commit.sizeDisplay).toBe('44.28 kB');
+      expect(data?.commit?.id).toBe(id);
+      expect(data?.commit?.repoName).toBe(repoName);
+      expect(data?.commit?.branch?.name).toBe('master');
+      expect(data?.commit?.description).toBe('added mako');
+      expect(data?.commit?.originKind).toBe('AUTO');
+      expect(data?.commit?.hasLinkedJob).toBeFalsy();
+      expect(data?.commit?.started).toBe(1614136389);
+      expect(data?.commit?.finished).toBe(1614136391);
+      expect(data?.commit?.sizeBytes).toBe(44276);
+      expect(data?.commit?.sizeDisplay).toBe('44.28 kB');
+    });
+
+    it('should inspect the latest commit if not given commit id', async () => {
+      const projectId = 'Solar-Power-Data-Logger-Team-Collab';
+      const repoName = 'cron';
+      const {data, errors = []} = await executeQuery<CommitQuery>(
+        GET_COMMIT_QUERY,
+        {
+          args: {
+            projectId,
+            repoName,
+            withDiff: true,
+          },
+        },
+      );
+
+      expect(errors).toHaveLength(0);
+      expect(data?.commit?.id).toBe('9d5daa0918ac4c43a476b86e3bb5e88e');
+      expect(data?.commit?.repoName).toBe(repoName);
     });
   });
   describe('commits', () => {

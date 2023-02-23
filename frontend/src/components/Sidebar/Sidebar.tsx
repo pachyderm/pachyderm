@@ -13,7 +13,7 @@ import {
   LINEAGE_REPO_PATH,
   LINEAGE_PIPELINE_PATH,
 } from '@dash-frontend/views/Project/constants/projectPaths';
-import {Button, ButtonGroup, CloseSVG} from '@pachyderm/components';
+import {Button, ButtonGroup, CloseSVG, RepoSVG} from '@pachyderm/components';
 
 import useSidebar from './hooks/useSidebar';
 import styles from './Sidebar.module.css';
@@ -84,6 +84,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             <ButtonGroup>
               <Route path={LINEAGE_PIPELINE_PATH}>
                 <ReadLogsButton buttonText="Inspect Jobs" />
+              </Route>
+              <Route path={LINEAGE_REPO_PATH}>
+                <Button buttonType="secondary" IconSVG={RepoSVG}>
+                  Inspect Commits
+                </Button>
               </Route>
             </ButtonGroup>
             <ButtonGroup>

@@ -1,139 +1,112 @@
 import {format, fromUnixTime} from 'date-fns';
-import capitalize from 'lodash/capitalize';
-import React, {useRef, useCallback} from 'react';
+import React from 'react';
 import {Helmet} from 'react-helmet';
 
+import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
 import Description from '@dash-frontend/components/Description';
-import EmptyState from '@dash-frontend/components/EmptyState';
-import {LETS_START_TITLE} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
-import {PipelineLink, EgressLink} from '@dash-frontend/components/ResourceLink';
-import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
-import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {InputOutputNodesMap} from '@dash-frontend/lib/types';
-import {LINEAGE_REPO_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
-import {SkeletonDisplayText, Tabs} from '@pachyderm/components';
+import {standardFormat} from '@dash-frontend/constants/dateFormats';
+import {
+  SkeletonDisplayText,
+  ElephantEmptyState,
+  Link,
+  CaptionTextSmall,
+} from '@pachyderm/components';
 
-import CommitBrowser from '../CommitBrowser';
 import Title from '../Title';
 
-import {TAB_ID} from './constants/tabIds';
+import CommitDetails from './components/CommitDetails';
+import CommitList from './components/CommitList';
+import useRepoDetails from './hooks/useRepoDetails';
 import styles from './RepoDetails.module.css';
 
-type RepoDetailsProps = {
-  inputOutputNodesMap?: InputOutputNodesMap;
-};
+const RepoDetails: React.FC = () => {
+  const {repo, commit, repoError, currentRepoLoading} = useRepoDetails();
 
-const noBranchRepoMessage = 'There are no branches on this repo!';
-
-const RepoDetails: React.FC<RepoDetailsProps> = ({inputOutputNodesMap}) => {
-  const {loading, repo} = useCurrentRepo();
-  const {repoId} = useUrlState();
-
-  const currentRepoLoading = loading || repoId !== repo?.id;
-
-  const repoBaseRef = useRef<HTMLDivElement>(null);
-  const filterEgressLink = useCallback(
-    (egress: boolean) =>
-      ({name}: {name: string}) => {
-        try {
-          const url = new URL(name);
-          return egress === Boolean(url);
-        } catch {
-          return egress === false;
-        }
-      },
-    [],
-  );
-
-  const inputs =
-    (inputOutputNodesMap &&
-      inputOutputNodesMap[`${repo?.projectId}_${repo?.name}_repo`]) ||
-    [];
-
-  const egressOutputs = inputs.filter(filterEgressLink(true));
-  const pipelineOutputs = inputs.filter(filterEgressLink(false));
-
-  const tabsBasePath = LINEAGE_REPO_PATH;
-
-  const BranchBrowser = () =>
-    repo?.branches?.length ? (
-      <CommitBrowser repo={repo} repoBaseRef={repoBaseRef} />
-    ) : (
-      <EmptyState title={LETS_START_TITLE} message={noBranchRepoMessage} />
+  if (!currentRepoLoading && repoError) {
+    return (
+      <div className={styles.emptyRepoMessage}>
+        <ElephantEmptyState className={styles.emptyElephant} />
+        <h5>Unable to load Repo and commit data</h5>
+        <p>
+          We weren&apos;t able to fetch any information about this repo,
+          including its latest commit. Please try refreshing this page. If this
+          issue keeps happening, contact our customer team.
+        </p>
+      </div>
     );
+  }
 
   return (
-    <div className={styles.base} ref={repoBaseRef}>
+    <div className={styles.base}>
       <Helmet>
         <title>Repo - Pachyderm Console</title>
       </Helmet>
-      <div className={styles.title}>
+      <div className={styles.titleSection}>
         {currentRepoLoading ? (
           <SkeletonDisplayText data-testid="RepoDetails__repoNameSkeleton" />
         ) : (
           <Title>{repo?.name}</Title>
         )}
+        {repo?.description && (
+          <div className={styles.description}>{repo?.description}</div>
+        )}
+        <Description
+          loading={currentRepoLoading}
+          term="Repo Created"
+          error={repoError}
+        >
+          {repo ? format(fromUnixTime(repo.createdAt), standardFormat) : 'N/A'}
+        </Description>
+        {(currentRepoLoading || commit) && (
+          <Description
+            loading={currentRepoLoading}
+            term="Most Recent Commit Start"
+          >
+            {commit
+              ? format(fromUnixTime(commit.started), standardFormat)
+              : 'N/A'}
+          </Description>
+        )}
+        {(currentRepoLoading || commit) && (
+          <Description
+            loading={currentRepoLoading}
+            term="Most Recent Commit ID"
+          >
+            {commit ? (
+              <CommitIdCopy commit={commit.id} clickable small longId />
+            ) : (
+              'N/A'
+            )}
+          </Description>
+        )}
       </div>
 
-      <Tabs.RouterTabs basePathTabId={TAB_ID.COMMITS} basePath={tabsBasePath}>
-        <Tabs.TabsHeader className={styles.tabsHeader}>
-          {Object.values(TAB_ID).map((tabId) => {
-            return (
-              <Tabs.Tab id={tabId} key={tabId}>
-                {capitalize(tabId)}
-              </Tabs.Tab>
-            );
-          })}
-        </Tabs.TabsHeader>
-
-        <Tabs.TabPanel id={TAB_ID.INFO}>
-          <dl className={styles.repoInfo}>
-            {repo?.linkedPipeline && (
-              <Description loading={currentRepoLoading} term="Linked Pipeline">
-                <div className={styles.pipelineGroup}>
-                  <PipelineLink name={repo?.linkedPipeline?.id} />
-                </div>
-              </Description>
-            )}
-            {pipelineOutputs.length > 0 && (
-              <Description loading={currentRepoLoading} term="Inputs To">
-                <div className={styles.pipelineGroup}>
-                  {pipelineOutputs.map(({name}) => (
-                    <PipelineLink name={name} key={name} />
-                  ))}
-                </div>
-              </Description>
-            )}
-            {egressOutputs.length > 0 && (
-              <Description loading={currentRepoLoading} term="Egress To">
-                <div className={styles.pipelineGroup}>
-                  {egressOutputs.map(({name}) => (
-                    <EgressLink name={name} key={name} />
-                  ))}
-                </div>
-              </Description>
-            )}
-            <Description loading={currentRepoLoading} term="Created">
-              {repo ? format(fromUnixTime(repo.createdAt), 'MM/d/yyyy') : 'N/A'}
-            </Description>
-            <Description loading={currentRepoLoading} term="Description">
-              {repo?.description ? repo.description : 'N/A'}
-            </Description>
-            <Description term="Size">
-              {!currentRepoLoading ? (
-                repo?.sizeDisplay
-              ) : (
-                <SkeletonDisplayText />
-              )}
-            </Description>
-          </dl>
-        </Tabs.TabPanel>
-        <div className={styles.commitsTab}>
-          <Tabs.TabPanel id={TAB_ID.COMMITS}>
-            {!currentRepoLoading && <BranchBrowser />}
-          </Tabs.TabPanel>
+      {!currentRepoLoading && (!commit || repo?.branches.length === 0) && (
+        <div className={styles.emptyRepoMessage}>
+          <ElephantEmptyState className={styles.emptyElephant} />
+          <Title>This repo doesn&apos;t have any branches</Title>
+          <p>
+            This is normal for new repositories, but we still wanted to notify
+            you because Pachyderm didn&apos;t detect a branch on our end.{' '}
+            <Link
+              externalLink
+              to="https://docs.pachyderm.com/2.3.x/concepts/data-concepts/branch/"
+            >
+              Try creating a branch and pushing a commit.
+            </Link>
+          </p>
         </div>
-      </Tabs.RouterTabs>
+      )}
+
+      {commit?.id && (
+        <>
+          <CaptionTextSmall className={styles.commitDetailsLabel}>
+            Current Commit Stats
+          </CaptionTextSmall>
+          <CommitDetails commit={commit} repo={repo} />
+        </>
+      )}
+      {repo && commit && <CommitList repo={repo} />}
     </div>
   );
 };
