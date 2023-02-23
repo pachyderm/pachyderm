@@ -19,19 +19,23 @@ const disconnectedComponents = (nodes: Node[], links: Link[]) => {
       if (link.source.id === node.id) result.links.push(link);
 
       if (link.source.id === node.id && !isVisited[link.target.id]) {
-        const target = nodes.find((node) => node.id === link.target.id);
+        const target = nodeByName[link.target.id];
         if (target) {
           const dfsResult = dfs(target);
           result.nodes.push(...dfsResult.nodes);
           result.links.push(...dfsResult.links);
+        } else {
+          console.error("Could not find a link's target node in DAG");
         }
       }
       if (link.target.id === node.id && !isVisited[link.source.id]) {
-        const source = nodes.find((node) => node.id === link.source.id);
+        const source = nodeByName[link.source.id];
         if (source) {
           const dfsResult = dfs(source);
           result.nodes.push(...dfsResult.nodes);
           result.links.push(...dfsResult.links);
+        } else {
+          console.error("Could not find a link's source node in DAG");
         }
       }
     });

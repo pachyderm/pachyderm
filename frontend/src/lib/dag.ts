@@ -1,7 +1,6 @@
 /* eslint-disable import/no-named-as-default */
 import {NodeType, Vertex, NodeState} from '@graphqlTypes';
 import ELK from 'elkjs/lib/elk.bundled.js';
-import flatten from 'lodash/flatten';
 import keyBy from 'lodash/keyBy';
 import minBy from 'lodash/minBy';
 import uniqueId from 'lodash/uniqueId';
@@ -25,73 +24,49 @@ const normalizeDAGData = async (
   // to reference the index from the "nodes" list. This prevents
   // us from needing to run "indexOf" on each individual node
   // when building the list of links for the client.
-  const correspondingIndex: {[key: string]: number} = vertices.reduce(
-    (acc, val, index) => ({
-      ...acc,
-      [val.id]: index,
-    }),
-    {},
-  );
+  const nodeIndexMap: Record<string, number> = {};
+  for (let i = 0; i < vertices.length; i++) {
+    nodeIndexMap[vertices[i].id] = i;
+  }
 
   const vertMap = keyBy(vertices, (v) => v.id);
 
   // create elk edges
-  const elkEdges = flatten(
-    vertices.map<LinkInputData[]>((node) => {
-      if (node.type === NodeType.PIPELINE) {
-        return node.parents.reduce<LinkInputData[]>((acc, parent) => {
-          const parentName =
-            correspondingIndex[`${parent}_repo`] > -1
-              ? `${parent}_repo`
-              : parent;
-          const sourceIndex = correspondingIndex[parentName];
-          const sourceVertex = vertices[sourceIndex];
-          if (sourceIndex >= 0) {
-            return [
-              ...acc,
-              {
-                id: objectHash({node: node, parentName}),
-                sources: [parentName],
-                targets: [node.id],
-                state: sourceVertex?.jobState || undefined,
-                sourceState: sourceVertex?.state || undefined,
-                targetstate: node.state || undefined,
-                sections: [],
-                transferring: node.jobState === NodeState.RUNNING,
-              },
-            ];
-          } else {
-            // edge case: if pipeline has input repos that cannot be found, the link is not valid
-            return acc;
-          }
-        }, []);
+  const elkEdges: LinkInputData[] = [];
+  for (const vertex of vertices) {
+    for (const vertexParentName of vertex.parents) {
+      let parentName = vertexParentName;
+      if (vertex.type === NodeType.PIPELINE) {
+        parentName =
+          `${vertexParentName}_repo` in nodeIndexMap
+            ? `${vertexParentName}_repo`
+            : vertexParentName;
+      } else if (vertex.type === NodeType.EGRESS) {
+        parentName = parentName.replace(/_repo$/, '');
       }
 
-      return node.parents.reduce<LinkInputData[]>((acc, parentName) => {
-        let nodeName = parentName;
-        if (node.type === NodeType.EGRESS) {
-          nodeName = parentName.replace(/_repo$/, '');
-        }
-        const sourceIndex = correspondingIndex[nodeName || ''];
-        const sourceVertex = vertices[sourceIndex];
+      const parentIndex = nodeIndexMap[parentName];
+      const parentVertex = vertices[parentIndex];
 
-        return [
-          ...acc,
-          {
-            // hashing here for consistency
-            id: objectHash(`${parentName}-${node.id}`),
-            sources: [nodeName],
-            targets: [node.id],
-            state: sourceVertex?.jobState || undefined,
-            sourceState: sourceVertex?.state || undefined,
-            targetstate: node.state || undefined,
-            sections: [],
-            transferring: node.jobState === NodeState.RUNNING,
-          },
-        ];
-      }, []);
-    }),
-  );
+      // edge case: if pipeline has input repos that cannot be found, the link is not valid
+      // it might be in another project
+      if (vertex.type === NodeType.PIPELINE && !(parentName in nodeIndexMap)) {
+        continue;
+      }
+
+      elkEdges.push({
+        // hashing here for consistency
+        id: objectHash({node: vertex, parentName}),
+        sources: [parentName],
+        targets: [vertex.id],
+        state: parentVertex?.jobState || undefined,
+        sourceState: parentVertex?.state || undefined,
+        targetState: vertex.state || undefined,
+        sections: [],
+        transferring: vertex.jobState === NodeState.RUNNING,
+      });
+    }
+  }
 
   // create elk children
   const elkChildren = vertices.map<NodeInputData>((node) => ({
@@ -131,9 +106,9 @@ const normalizeDAGData = async (
     },
   );
 
-  // convert elk edges to graphl Link
-  const links = elkEdges.map<Link>((edge) => {
-    const {
+  // convert elk edges to graphql Link
+  const links = elkEdges.map<Link>(
+    ({
       sections,
       sources,
       targets,
@@ -141,31 +116,27 @@ const normalizeDAGData = async (
       labels,
       layoutOptions,
       ...rest
-    } = edge;
-
-    return {
+    }) => ({
       ...rest,
       source: {id: sources[0], name: vertMap[sources[0]].name},
       target: {id: targets[0], name: vertMap[targets[0]].name},
       startPoint: sections?.[0].startPoint || {x: 0, y: 0},
       endPoint: sections?.[0].endPoint || {x: 0, y: 0},
       bendPoints: sections?.[0].bendPoints || [],
-    };
-  });
+    }),
+  );
 
-  //convert elk children to graphl Node
-  const nodes = elkChildren.map<Node>((node) => {
-    return {
-      id: node.id,
-      x: node.x || 0,
-      y: node.y || 0,
-      name: node.name,
-      type: node.type,
-      state: node.state,
-      jobState: node.jobState,
-      access: node.access,
-    };
-  });
+  // convert elk children to graphql Node
+  const nodes = elkChildren.map<Node>((node) => ({
+    id: node.id,
+    x: node.x || 0,
+    y: node.y || 0,
+    name: node.name,
+    type: node.type,
+    state: node.state,
+    jobState: node.jobState,
+    access: node.access,
+  }));
 
   return {
     nodes,
@@ -181,6 +152,7 @@ const buildDags = async (
   setDagError: React.Dispatch<React.SetStateAction<string | undefined>>,
   showOutputRepos: boolean,
 ) => {
+  const verticesMap = keyBy(vertices, (v) => v.id);
   try {
     const {nodes, links} = await normalizeDAGData(
       vertices.filter((n) => showOutputRepos || n.type !== 'OUTPUT_REPO'),
@@ -189,12 +161,13 @@ const buildDags = async (
       direction,
     );
     const dags = disconnectedComponents(nodes, links).map((component) => {
-      const componentRepos = vertices.filter((v) =>
-        component.nodes.find(
-          (c) => c.type === NodeType.INPUT_REPO && c.id === v.id,
-        ),
+      const componentRepos = component.nodes.filter(
+        (c) => c.type === NodeType.INPUT_REPO,
       );
-      const id = minBy(componentRepos, (r) => r.createdAt)?.id || uniqueId();
+
+      const id =
+        minBy(componentRepos, (r) => verticesMap[r.id]?.createdAt)?.id ||
+        uniqueId();
 
       return {
         id,
