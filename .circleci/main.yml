@@ -758,10 +758,6 @@ jobs:
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
 
-            # Revert repo setup back to fixture in test_integrations.py
-            # once python-pachyderm has Projects support
-            scripts/integration_tests_setup.sh
-
             # Run integration tests
             pytest -v jupyterlab_pachyderm/tests/test_integrations.py
 
