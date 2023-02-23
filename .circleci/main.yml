@@ -1366,10 +1366,10 @@ workflows:
       - nightly-load:
           name: nightly-load-<< matrix.bucket >>
           requires:
-            - pulumi-aws-test-env-LOAD5
-            - pulumi-aws-test-env-LOAD6
-            - pulumi-aws-test-env-LOAD7
-            - pulumi-aws-test-env-LOAD8
+            - nightly-load-LOAD5
+            - nightly-load-LOAD6
+            - nightly-load-LOAD7
+            - nightly-load-LOAD8
           matrix:
             parameters:
               bucket:
@@ -1381,10 +1381,10 @@ workflows:
           name: destroy-aws-testing-env-<< matrix.env >>
           action: destroy
           requires:
-            - pulumi-aws-test-env-LOAD9
-            - pulumi-aws-test-env-LOAD10
-            - pulumi-aws-test-env-LOAD11
-            - pulumi-aws-test-env-LOAD12
+            - nightly-load-LOAD9
+            - nightly-load-LOAD10
+            - nightly-load-LOAD11
+            - nightly-load-LOAD12
           matrix:
             parameters:
               env:
