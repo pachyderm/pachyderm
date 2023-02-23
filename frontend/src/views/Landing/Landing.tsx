@@ -3,8 +3,14 @@ import {Helmet} from 'react-helmet';
 
 import Sidebar from '@dash-frontend/components/Sidebar';
 import View from '@dash-frontend/components/View';
-import {Group, TableView, DefaultDropdown} from '@pachyderm/components';
+import {
+  Group,
+  TableView,
+  DefaultDropdown,
+  useModal,
+} from '@pachyderm/components';
 
+import CreateProjectModal from './components/CreateRepoModal';
 import LandingHeader from './components/LandingHeader';
 import LandingSkeleton from './components/LandingSkeleton';
 import ProjectPreview from './components/ProjectPreview';
@@ -28,6 +34,7 @@ const Landing: React.FC = () => {
     setSelectedProject,
     sortDropdown,
   } = useLandingView();
+  const {openModal, closeModal, isOpen} = useModal(false);
 
   if (loading) return <LandingSkeleton />;
 
@@ -41,7 +48,11 @@ const Landing: React.FC = () => {
       <div className={styles.base}>
         <View data-testid="Landing__view">
           <TableView title="Projects" errorMessage="Error loading projects">
-            <TableView.Header heading="Projects" headerButtonHidden />
+            <TableView.Header
+              heading="Projects"
+              headerButtonText="Create Project"
+              headerButtonAction={openModal}
+            />
             <TableView.Body
               initialActiveTabId={'Projects'}
               showSkeleton={false}
@@ -110,6 +121,7 @@ const Landing: React.FC = () => {
         <Sidebar>
           {selectedProject && <ProjectPreview project={selectedProject} />}
         </Sidebar>
+        <CreateProjectModal show={isOpen} onHide={closeModal} />
       </div>
     </>
   );

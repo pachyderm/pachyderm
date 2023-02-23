@@ -123,6 +123,11 @@ export type CreatePipelineArgs = {
   update?: InputMaybe<Scalars['Boolean']>;
 };
 
+export type CreateProjectArgs = {
+  description?: InputMaybe<Scalars['String']>;
+  name: Scalars['String'];
+};
+
 export type CreateRepoArgs = {
   description?: InputMaybe<Scalars['String']>;
   name: Scalars['String'];
@@ -401,6 +406,7 @@ export type Mutation = {
   __typename?: 'Mutation';
   createBranch: Branch;
   createPipeline: Pipeline;
+  createProject: ProjectWithoutStatus;
   createRepo: Repo;
   deleteFile: Scalars['ID'];
   deletePipeline?: Maybe<Scalars['Boolean']>;
@@ -417,6 +423,10 @@ export type MutationCreateBranchArgs = {
 
 export type MutationCreatePipelineArgs = {
   args: CreatePipelineArgs;
+};
+
+export type MutationCreateProjectArgs = {
+  args: CreateProjectArgs;
 };
 
 export type MutationCreateRepoArgs = {
@@ -595,6 +605,13 @@ export enum ProjectStatus {
   HEALTHY = 'HEALTHY',
   UNHEALTHY = 'UNHEALTHY',
 }
+
+export type ProjectWithoutStatus = {
+  __typename?: 'ProjectWithoutStatus';
+  description?: Maybe<Scalars['String']>;
+  id: Scalars['String'];
+  status?: Maybe<ProjectStatus>;
+};
 
 export type PutFilesFromUrLsArgs = {
   branch: Scalars['String'];
@@ -964,6 +981,7 @@ export type ResolversTypes = ResolversObject<{
   CommitsQueryArgs: CommitsQueryArgs;
   CreateBranchArgs: CreateBranchArgs;
   CreatePipelineArgs: CreatePipelineArgs;
+  CreateProjectArgs: CreateProjectArgs;
   CreateRepoArgs: CreateRepoArgs;
   CronInput: ResolverTypeWrapper<CronInput>;
   DagQueryArgs: DagQueryArgs;
@@ -1024,6 +1042,7 @@ export type ResolversTypes = ResolversObject<{
   ProjectDetails: ResolverTypeWrapper<ProjectDetails>;
   ProjectDetailsQueryArgs: ProjectDetailsQueryArgs;
   ProjectStatus: ProjectStatus;
+  ProjectWithoutStatus: ResolverTypeWrapper<ProjectWithoutStatus>;
   PutFilesFromURLsArgs: PutFilesFromUrLsArgs;
   Query: ResolverTypeWrapper<{}>;
   Repo: ResolverTypeWrapper<Repo>;
@@ -1061,6 +1080,7 @@ export type ResolversParentTypes = ResolversObject<{
   CommitsQueryArgs: CommitsQueryArgs;
   CreateBranchArgs: CreateBranchArgs;
   CreatePipelineArgs: CreatePipelineArgs;
+  CreateProjectArgs: CreateProjectArgs;
   CreateRepoArgs: CreateRepoArgs;
   CronInput: CronInput;
   DagQueryArgs: DagQueryArgs;
@@ -1108,6 +1128,7 @@ export type ResolversParentTypes = ResolversObject<{
   Project: Project;
   ProjectDetails: ProjectDetails;
   ProjectDetailsQueryArgs: ProjectDetailsQueryArgs;
+  ProjectWithoutStatus: ProjectWithoutStatus;
   PutFilesFromURLsArgs: PutFilesFromUrLsArgs;
   Query: {};
   Repo: Repo;
@@ -1476,6 +1497,12 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationCreatePipelineArgs, 'args'>
   >;
+  createProject?: Resolver<
+    ResolversTypes['ProjectWithoutStatus'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationCreateProjectArgs, 'args'>
+  >;
   createRepo?: Resolver<
     ResolversTypes['Repo'],
     ParentType,
@@ -1656,6 +1683,24 @@ export type ProjectDetailsResolvers<
   repoCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ProjectWithoutStatusResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['ProjectWithoutStatus'] = ResolversParentTypes['ProjectWithoutStatus'],
+> = ResolversObject<{
+  description?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  status?: Resolver<
+    Maybe<ResolversTypes['ProjectStatus']>,
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1969,6 +2014,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Pipeline?: PipelineResolvers<ContextType>;
   Project?: ProjectResolvers<ContextType>;
   ProjectDetails?: ProjectDetailsResolvers<ContextType>;
+  ProjectWithoutStatus?: ProjectWithoutStatusResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   Repo?: RepoResolvers<ContextType>;
   RepoInfo?: RepoInfoResolvers<ContextType>;
@@ -2128,6 +2174,19 @@ export type CreatePipelineMutation = {
     egress: boolean;
     jsonSpec: string;
     reason?: string | null;
+  };
+};
+
+export type CreateProjectMutationVariables = Exact<{
+  args: CreateProjectArgs;
+}>;
+
+export type CreateProjectMutation = {
+  __typename?: 'Mutation';
+  createProject: {
+    __typename?: 'ProjectWithoutStatus';
+    id: string;
+    description?: string | null;
   };
 };
 

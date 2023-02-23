@@ -2,7 +2,7 @@ import formatBytes from '@dash-backend/lib/formatBytes';
 import getSizeBytes from '@dash-backend/lib/getSizeBytes';
 import {PipelineInfo, PipelineState} from '@dash-backend/proto';
 import {ProjectInfo} from '@dash-backend/proto/proto/pfs/pfs_pb';
-import {ProjectStatus, QueryResolvers} from '@graphqlTypes';
+import {MutationResolvers, ProjectStatus, QueryResolvers} from '@graphqlTypes';
 
 import {jobSetsToGQLJobSets} from './builders/pps';
 
@@ -11,6 +11,9 @@ interface ProjectsResolver {
     project: QueryResolvers['project'];
     projects: QueryResolvers['projects'];
     projectDetails: QueryResolvers['projectDetails'];
+  };
+  Mutation: {
+    createProject: MutationResolvers['createProject'];
   };
 }
 
@@ -87,6 +90,23 @@ const projectsResolver: ProjectsResolver = {
         pipelineCount: pipelines.length,
         jobSets: jobSetsToGQLJobSets(jobSets),
         status: getProjectHealth(pipelines),
+      };
+    },
+  },
+  Mutation: {
+    createProject: async (
+      _parent,
+      {args: {name, description}},
+      {pachClient},
+    ) => {
+      await pachClient.pfs().createProject({
+        name,
+        description: description || undefined,
+      });
+      const project = await pachClient.pfs().inspectProject(name);
+      return {
+        id: project.project?.name || '',
+        description: project.description,
       };
     },
   },

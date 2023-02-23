@@ -286,6 +286,12 @@ type Project {
   description: String
 }
 
+type ProjectWithoutStatus {
+  id: String!
+  status: ProjectStatus
+  description: String
+}
+
 type ProjectDetails {
   repoCount: Int!
   pipelineCount: Int!
@@ -452,6 +458,11 @@ input CreateRepoArgs {
   description: String
   update: Boolean
   projectId: String!
+}
+
+input CreateProjectArgs {
+  name: String!
+  description: String
 }
 
 input DeleteRepoArgs {
@@ -640,6 +651,7 @@ type Mutation {
   deleteRepo(args: DeleteRepoArgs!): Boolean
   createPipeline(args: CreatePipelineArgs!): Pipeline!
   deletePipeline(args: DeletePipelineArgs!): Boolean
+  createProject(args: CreateProjectArgs!): ProjectWithoutStatus!
   createBranch(args: CreateBranchArgs!): Branch!
   putFilesFromURLs(args: PutFilesFromURLsArgs!): [String!]!
   deleteFile(args: DeleteFileArgs!): ID!

@@ -161,3 +161,8 @@ export type AddFileSetRequestArgs = {
   fileSetId: string;
   commit: CommitObject;
 };
+
+export type CreateProjectRequestArgs = {
+  name: string;
+  description?: string;
+};

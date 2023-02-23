@@ -215,6 +215,57 @@ export type CreatePipelineMutationOptions = Apollo.BaseMutationOptions<
   Types.CreatePipelineMutation,
   Types.CreatePipelineMutationVariables
 >;
+export const CreateProjectDocument = gql`
+  mutation createProject($args: CreateProjectArgs!) {
+    createProject(args: $args) {
+      id
+      description
+    }
+  }
+`;
+export type CreateProjectMutationFn = Apollo.MutationFunction<
+  Types.CreateProjectMutation,
+  Types.CreateProjectMutationVariables
+>;
+
+/**
+ * __useCreateProjectMutation__
+ *
+ * To run a mutation, you first call `useCreateProjectMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useCreateProjectMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [createProjectMutation, { data, loading, error }] = useCreateProjectMutation({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useCreateProjectMutation(
+  baseOptions?: Apollo.MutationHookOptions<
+    Types.CreateProjectMutation,
+    Types.CreateProjectMutationVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useMutation<
+    Types.CreateProjectMutation,
+    Types.CreateProjectMutationVariables
+  >(CreateProjectDocument, options);
+}
+export type CreateProjectMutationHookResult = ReturnType<
+  typeof useCreateProjectMutation
+>;
+export type CreateProjectMutationResult =
+  Apollo.MutationResult<Types.CreateProjectMutation>;
+export type CreateProjectMutationOptions = Apollo.BaseMutationOptions<
+  Types.CreateProjectMutation,
+  Types.CreateProjectMutationVariables
+>;
 export const CreateRepoDocument = gql`
   mutation createRepo($args: CreateRepoArgs!) {
     createRepo(args: $args) {

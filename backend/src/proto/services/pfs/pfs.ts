@@ -28,6 +28,7 @@ import {
   SubscribeCommitRequestArgs,
   RenewFileSetRequestArgs,
   AddFileSetRequestArgs,
+  CreateProjectRequestArgs,
 } from '../../lib/types';
 import {APIClient} from '../../proto/pfs/pfs_grpc_pb';
 import {
@@ -69,6 +70,7 @@ import {
   Project,
   ProjectInfo,
   InspectProjectRequest,
+  CreateProjectRequest,
 } from '../../proto/pfs/pfs_pb';
 import streamToObjectArray from '../../utils/streamToObjectArray';
 import {RPC_DEADLINE_MS} from '../constants/rpc';
@@ -692,6 +694,24 @@ const pfs = ({
           }
           return resolve({});
         });
+      });
+    },
+    createProject: ({name, description}: CreateProjectRequestArgs) => {
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        const createProjectRequest = new CreateProjectRequest();
+
+        createProjectRequest.setProject(new Project().setName(name));
+        if (description) createProjectRequest.setDescription(description);
+        client.createProject(
+          createProjectRequest,
+          credentialMetadata,
+          (error) => {
+            if (error) {
+              return reject(error);
+            }
+            return resolve({});
+          },
+        );
       });
     },
     addFileSet: ({

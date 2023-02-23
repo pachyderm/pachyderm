@@ -21,6 +21,8 @@ import {
   FileType,
   OriginKind,
   CreateFileSetResponse,
+  ProjectInfo,
+  Project,
 } from '@dash-backend/proto';
 import {
   commitInfoFromObject,
@@ -76,6 +78,7 @@ const pfs = () => {
       | 'addFileSet'
       | 'listProject'
       | 'inspectProject'
+      | 'createProject'
     > => {
       return {
         listRepo: (call) => {
@@ -788,6 +791,32 @@ const pfs = () => {
           } else {
             callback({code: Status.NOT_FOUND, details: 'Project not found'});
           }
+        },
+        createProject: (call, callback) => {
+          const projectName = call.request.getProject()?.getName();
+          const projectDescription = call.request.getDescription();
+
+          if (!projectName) {
+            callback({
+              code: Status.UNKNOWN,
+              details: `provide a name`,
+            });
+            return;
+          }
+
+          if (projectName && projectName in MockState.state.projects) {
+            callback({
+              code: Status.ALREADY_EXISTS,
+              details: `projects ${projectName} already exists.`,
+            });
+            return;
+          }
+
+          MockState.state.projects[projectName] = new ProjectInfo()
+            .setProject(new Project().setName(projectName))
+            .setDescription(projectDescription);
+
+          callback(null, new Empty());
         },
       };
     },

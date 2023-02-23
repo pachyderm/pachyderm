@@ -1,3 +1,4 @@
+import {mockServer} from '@dash-backend/testHelpers';
 import {render, waitFor, within, screen} from '@testing-library/react';
 import React from 'react';
 
@@ -250,5 +251,119 @@ describe('Landing', () => {
     expect(
       await screen.findByText('Create your first repo/pipeline!'),
     ).toBeInTheDocument();
+  });
+
+  describe('Create Project Modal', () => {
+    it('should create a project', async () => {
+      render(<Landing />);
+
+      const createButton = await screen.findByText('Create Project');
+      await click(createButton);
+
+      const modal = screen.getByRole('dialog');
+      const nameInput = await within(modal).findByLabelText('Name', {
+        exact: false,
+      });
+      const descriptionInput = await within(modal).findByLabelText(
+        'Description (optional)',
+        {
+          exact: false,
+        },
+      );
+
+      await type(nameInput, 'New-Project');
+      await type(descriptionInput, 'description text');
+
+      expect(mockServer.getState().projects).not.toHaveProperty('New-Project');
+
+      await click(within(modal).getByText('Create'));
+
+      await waitFor(() =>
+        expect(mockServer.getState().projects).toHaveProperty('New-Project'),
+      );
+    });
+
+    it('should error if the project already exists', async () => {
+      render(<Landing />);
+
+      const createButton = await screen.findByText('Create Project');
+      await click(createButton);
+
+      const modal = screen.getByRole('dialog');
+      const nameInput = await within(modal).findByLabelText('Name', {
+        exact: false,
+      });
+
+      await type(nameInput, 'Empty-Project');
+
+      expect(
+        await within(modal).findByText('Project name already in use'),
+      ).toBeInTheDocument();
+    });
+
+    const validInputs = [
+      ['goodproject'],
+      ['good-project'],
+      ['good_project'],
+      ['goodproject1'],
+      ['a'.repeat(51)],
+    ];
+    const invalidInputs = [
+      [
+        'bad project',
+        'Name can only contain alphanumeric characters, underscores, and dashes',
+      ],
+      [
+        'bad!',
+        'Name can only contain alphanumeric characters, underscores, and dashes',
+      ],
+      [
+        '_bad',
+        'Name can only contain alphanumeric characters, underscores, and dashes',
+      ],
+      [
+        'bad.',
+        'Name can only contain alphanumeric characters, underscores, and dashes',
+      ],
+      ['a'.repeat(52), 'Project name exceeds maximum allowed length'],
+    ];
+    test.each(validInputs)(
+      'should not error with a valid project name (%j)',
+      async (input) => {
+        render(<Landing />);
+
+        const createButton = await screen.findByText('Create Project');
+        await click(createButton);
+
+        const modal = screen.getByRole('dialog');
+
+        const nameInput = await within(modal).findByLabelText('Name', {
+          exact: false,
+        });
+
+        await type(nameInput, input);
+
+        expect(within(modal).queryByRole('alert')).not.toBeInTheDocument();
+      },
+    );
+    test.each(invalidInputs)(
+      'should error with an invalid project name (%j)',
+      async (input, assertionText) => {
+        render(<Landing />);
+
+        const createButton = await screen.findByText('Create Project');
+        await click(createButton);
+
+        const modal = screen.getByRole('dialog');
+
+        const nameInput = await within(modal).findByLabelText('Name', {
+          exact: false,
+        });
+
+        await type(nameInput, input);
+
+        expect(within(modal).getByText(assertionText)).toBeInTheDocument();
+      },
+    );
   });
 });
