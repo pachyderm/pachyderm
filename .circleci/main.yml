@@ -411,6 +411,7 @@ jobs:
         type: string
       env:
         type: string
+        default: ""
     resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -1350,11 +1351,6 @@ workflows:
           matrix:
             parameters:
               bucket:
-                - LOAD1
-                - LOAD2
-                - LOAD3
-                - LOAD4
-              env:
                 - LOAD1
                 - LOAD2
                 - LOAD3
