@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 func (j *Job) String() string {
@@ -50,12 +49,6 @@ func MasterField(master bool) zap.Field {
 
 func UserField(user bool) zap.Field {
 	return zap.Bool("user", user)
-}
-
-func (f *InputFile) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("path", f.GetPath())
-	enc.AddBinary("hash", f.GetHash()) // I think the intent is for this to be base64'd on the wire.
-	return nil
 }
 
 func DataField(data []*InputFile) zap.Field {

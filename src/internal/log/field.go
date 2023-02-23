@@ -3,40 +3,41 @@ package log
 import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/v2/src/protoextensions"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-type conciseBytes []byte
-
-func (b conciseBytes) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddInt("len", len(b))
-	if len(b) > 30 {
-		enc.AddBinary("firstBytes", b[:30])
-	} else {
-		enc.AddBinary("bytes", b)
-	}
-	return nil
-}
-
 // Proto is a Field containing a protocol buffer message.
 func Proto(name string, msg proto.Message) Field {
-	if bv, ok := msg.(*types.BytesValue); ok {
-		return zap.Object(name, conciseBytes(bv.GetValue()))
-	}
-	if _, ok := msg.(*types.Empty); ok {
+	switch x := msg.(type) {
+	case zapcore.ObjectMarshaler:
+		return zap.Object(name, x)
+	case *types.Empty:
 		return zap.Skip()
-	}
-	if a, ok := msg.(*types.Any); ok {
-		var msg types.DynamicAny
-		if err := types.UnmarshalAny(a, &msg); err == nil {
-			return zap.Any(name, msg)
+	case *types.Timestamp:
+		t, err := types.TimestampFromProto(x)
+		if err != nil {
+			return zap.Any(name, x)
 		}
+		return zap.Time(name, t)
+	case *types.Duration:
+		d, err := types.DurationFromProto(x)
+		if err != nil {
+			return zap.Any(name, x)
+		}
+		return zap.Duration(name, d)
+	case *types.BytesValue:
+		return zap.Object(name, protoextensions.ConciseBytes(x.GetValue()))
+	case *types.Int64Value:
+		return zap.Int64(name, x.GetValue())
+	case *types.Any:
+		var any types.DynamicAny
+		if err := types.UnmarshalAny(x, &any); err != nil {
+			return zap.Any(name, x)
+		}
+		return Proto(name, any.Message)
 	}
-
-	// The plan is to use some sort of proto compiler that adds zap.ObjectMarshaler methods, and
-	// then switch this to zap.Object.  The various marshalers available also have tools for
-	// redacting sensitive data, so that will be nice.
 	return zap.Any(name, msg)
 }
 

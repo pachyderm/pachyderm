@@ -15,6 +15,7 @@ import (
 type WorkerInterface interface {
 	GetStatus() (*pps.WorkerStatus, error)
 	Cancel(jobID string, datumFilter []string) bool
+	NextDatum(context.Context, error) ([]string, error)
 }
 
 // APIServer implements the worker API
@@ -47,4 +48,16 @@ func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStat
 func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*CancelResponse, error) {
 	success := a.workerInterface.Cancel(request.JobID, request.DataFilters)
 	return &CancelResponse{Success: success}, nil
+}
+
+func (a *APIServer) NextDatum(ctx context.Context, request *NextDatumRequest) (*NextDatumResponse, error) {
+	var err error
+	if request.Error != "" {
+		err = errors.New(request.Error)
+	}
+	env, err := a.workerInterface.NextDatum(ctx, err)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return &NextDatumResponse{Env: env}, nil
 }

@@ -17,10 +17,10 @@ import (
 	"unicode"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	taskcmds "github.com/pachyderm/pachyderm/v2/src/internal/task/cmds"
@@ -509,7 +509,7 @@ This resets the cluster to its initial state.`,
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
-			if err := clientsdk.ForEachPipelineInfo(c, func(pi *pps.PipelineInfo) error {
+			if err := grpcutil.ForEach[*pps.PipelineInfo](c, func(pi *pps.PipelineInfo) error {
 				pipelines = append(pipelines, red(pi.Pipeline.String()))
 				return nil
 			}); err != nil {
@@ -837,6 +837,12 @@ This resets the cluster to its initial state.`,
 		Long:  "Draw an ASCII representation of an existing Pachyderm resource.",
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(drawDocs, "draw"))
+
+	nextDocs := &cobra.Command{
+		Short: "Used internally for datum batching.",
+		Long:  "Used internally for datum batching.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(nextDocs, "next"))
 
 	subcommands = append(subcommands, pfscmds.Cmds(pachCtx)...)
 	subcommands = append(subcommands, ppscmds.Cmds(pachCtx)...)

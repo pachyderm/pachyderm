@@ -34,6 +34,7 @@ describe('sortable list components', () => {
         items={items}
         updateData={updateData}
         mountedItems={[]}
+        type={'unmounted'}
       />,
     );
     const listItem = getByTestId('ListItem__noBranches');
@@ -58,6 +59,7 @@ describe('sortable list components', () => {
         items={items}
         updateData={updateData}
         mountedItems={[]}
+        type={'unmounted'}
       />,
     );
     const listItem = getByTestId('ListItem__unauthorized');
@@ -91,17 +93,18 @@ describe('sortable list components', () => {
         items={items}
         updateData={updateData}
         mountedItems={[]}
+        type={'unmounted'}
       />,
     );
     let listItems = getAllByTestId('ListItem__noBranches');
-    expect(listItems.length).toEqual(2);
+    expect(listItems).toHaveLength(2);
     expect(listItems[0]).toHaveTextContent('data');
     expect(listItems[1]).toHaveTextContent('images');
 
     getByText('Name').click();
 
     listItems = getAllByTestId('ListItem__noBranches');
-    expect(listItems.length).toEqual(2);
+    expect(listItems).toHaveLength(2);
     expect(listItems[0]).toHaveTextContent('images');
     expect(listItems[1]).toHaveTextContent('data');
   });
@@ -122,9 +125,10 @@ describe('sortable list components', () => {
         items={items}
         updateData={updateData}
         mountedItems={[]}
+        type={'unmounted'}
       />,
     );
-    const listItem = getByTestId('ListItem__branches');
+    const listItem = getByTestId('ListItem__repo');
     const mountButton = getByTestId('ListItem__mount');
 
     expect(listItem).toHaveTextContent('images');
@@ -145,7 +149,7 @@ describe('sortable list components', () => {
       });
     });
     expect(mountButton).toBeDisabled();
-    expect(updateData).toBeCalledWith([]);
+    expect(updateData).toHaveBeenCalledWith([]);
   });
 
   it('should allow user to unmount mounted repo', async () => {
@@ -173,9 +177,10 @@ describe('sortable list components', () => {
         items={items}
         updateData={updateData}
         mountedItems={[]}
+        type={'mounted'}
       />,
     );
-    const listItem = getByTestId('ListItem__branches');
+    const listItem = getByTestId('ListItem__repo');
     const unmountButton = getByTestId('ListItem__unmount');
 
     expect(listItem).toHaveTextContent('images');
@@ -193,7 +198,7 @@ describe('sortable list components', () => {
       );
     });
     expect(unmountButton).toBeDisabled();
-    expect(updateData).toBeCalledWith([]);
+    expect(updateData).toHaveBeenCalledWith([]);
   });
 
   it('should open mounted repo on click', async () => {
@@ -221,6 +226,7 @@ describe('sortable list components', () => {
         items={items}
         updateData={updateData}
         mountedItems={[]}
+        type={'mounted'}
       />,
     );
     getByText('images').click();
@@ -243,11 +249,12 @@ describe('sortable list components', () => {
         items={items}
         updateData={updateData}
         mountedItems={[]}
+        type={'unmounted'}
       />,
     );
     const select = getByTestId('ListItem__select') as HTMLSelectElement;
 
-    expect(select.value).toEqual('master');
+    expect(select.value).toBe('master');
     fireEvent.change(select, {target: {value: 'develop'}});
 
     getByText('Mount').click();
@@ -289,11 +296,12 @@ describe('sortable list components', () => {
         items={items}
         updateData={updateData}
         mountedItems={[]}
+        type={'mounted'}
       />,
     );
 
     const statusIcon = getByTestId('ListItem__statusIcon');
-    expect(statusIcon.title).toEqual('Error: error mounting branch');
+    expect(statusIcon.title).toBe('Error: error mounting branch');
     const commitBehindnessText = getByTestId('ListItem__commitBehindness');
     expect(commitBehindnessText.textContent).toContain('up to date');
   });
@@ -352,6 +360,7 @@ describe('sortable list components', () => {
         items={items}
         updateData={updateData}
         mountedItems={[]}
+        type={'mounted'}
       />,
     );
     const unmountButtons = getAllByTestId('ListItem__unmount');
@@ -385,6 +394,7 @@ describe('sortable list components', () => {
         items={items}
         updateData={updateData}
         mountedItems={[]}
+        type={'mounted'}
       />,
     );
 
@@ -417,6 +427,7 @@ describe('sortable list components', () => {
         items={items}
         updateData={updateData}
         mountedItems={[]}
+        type={'mounted'}
       />,
     );
 
@@ -449,6 +460,7 @@ describe('sortable list components', () => {
         items={items}
         updateData={updateData}
         mountedItems={[]}
+        type={'mounted'}
       />,
     );
 
@@ -490,6 +502,7 @@ describe('sortable list components', () => {
         items={items}
         updateData={updateData}
         mountedItems={mountedItems}
+        type={'unmounted'}
       />,
     );
 
@@ -500,5 +513,59 @@ describe('sortable list components', () => {
 
     fireEvent.change(getByTestId('ListItem__select'), {target: {value: 'dev'}});
     expect(getByTestId('ListItem__mount')).not.toBeDisabled();
+  });
+
+  it('project filtering', async () => {
+    const items: Repo[] = [
+      {
+        repo: 'images',
+        project: 'p1',
+        authorization: 'off',
+        branches: ['master'],
+      },
+      {
+        repo: 'edges',
+        project: 'p1',
+        authorization: 'off',
+        branches: ['master'],
+      },
+      {
+        repo: 'edges',
+        project: 'default',
+        authorization: 'off',
+        branches: ['master'],
+      },
+    ];
+
+    const {getAllByTestId, getByTestId} = render(
+      <SortableList
+        open={open}
+        items={items}
+        updateData={updateData}
+        mountedItems={[]}
+        type={'unmounted'}
+      />,
+    );
+
+    let listItems = getAllByTestId('ListItem__repo');
+    expect(listItems).toHaveLength(3);
+
+    fireEvent.change(getByTestId('ProjectList__select'), {
+      target: {value: 'p1'},
+    });
+    listItems = getAllByTestId('ListItem__repo');
+    expect(listItems).toHaveLength(2);
+
+    fireEvent.change(getByTestId('ProjectList__select'), {
+      target: {value: 'default'},
+    });
+    listItems = getAllByTestId('ListItem__repo');
+    expect(listItems).toHaveLength(1);
+
+    fireEvent.change(getByTestId('ProjectList__select'), {
+      target: {value: 'All projects'},
+    });
+    listItems = getAllByTestId('ListItem__repo');
+    expect(listItems).toHaveLength(3);
   });
 });

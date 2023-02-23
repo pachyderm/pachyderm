@@ -22,16 +22,16 @@ describe('help plugin', () => {
     await help.activate(app, mainMenu);
 
     const appCommands = app.commands.listCommands();
-    expect(appCommands.length).toEqual(2);
-    expect(appCommands[0]).toEqual('jupyterlab-pachyderm:open-docs');
-    expect(appCommands[1]).toEqual('jupyterlab-pachyderm:contact-support');
+    expect(appCommands).toHaveLength(2);
+    expect(appCommands[0]).toBe('jupyterlab-pachyderm:open-docs');
+    expect(appCommands[1]).toBe('jupyterlab-pachyderm:contact-support');
   });
 
   it('should add options to the help menu', async () => {
     await help.activate(app, mainMenu);
     const helpMenuItems = mainMenu.helpMenu.items;
-    expect(helpMenuItems[1].command).toEqual('jupyterlab-pachyderm:open-docs');
-    expect(helpMenuItems[2].command).toEqual(
+    expect(helpMenuItems[1].command).toBe('jupyterlab-pachyderm:open-docs');
+    expect(helpMenuItems[2].command).toBe(
       'jupyterlab-pachyderm:contact-support',
     );
   });

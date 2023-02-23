@@ -8,11 +8,13 @@ import (
 )
 
 // Stream is a sorted stream that can be iterated.
+// DEPRECATED: use Iterator instead
 type Stream interface {
 	Next() error
 }
 
 // CompareFunc is a comparision function for two streams.
+// DEPRECATED
 type CompareFunc func(Stream, Stream) int
 
 type stream struct {
@@ -21,6 +23,7 @@ type stream struct {
 }
 
 // PriorityQueue implements a priority queue that operates on streams.
+// DEPRECATED: use Merger instead
 type PriorityQueue struct {
 	queue []*stream
 	size  int
@@ -29,6 +32,7 @@ type PriorityQueue struct {
 }
 
 // NewPriorityQueue creates a new priority queue.
+// DEPRECATED: use Merger instead
 func NewPriorityQueue(ss []Stream, cmp CompareFunc) *PriorityQueue {
 	var streams []*stream
 	for _, s := range ss {

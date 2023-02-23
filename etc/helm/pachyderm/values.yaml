@@ -233,6 +233,11 @@ loki-stack:
       nodeSelector: {}
       tolerations: []
     config:
+      server:
+        grpc_server_max_recv_msg_size: 67108864 # 64MiB
+      query_scheduler:
+        grpc_client_config:
+          max_send_msg_size: 67108864 # 64MiB
       limits_config:
         retention_period: 24h
         retention_stream:
@@ -357,12 +362,18 @@ loki-stack:
 # The pachw controller creates a pool of pachd instances running in 'pachw' mode which can dynamically scale to handle
 # storage related tasks
 pachw:
-  # inSidecars can be enabled to process storage related tasks in pipeline storage sidecars like version 2.4 or less.
-  inSidecars: false
+  # When set to true, inheritFromPachd defaults below configuration options like 'resources' and 'tolerations' to
+  # values from pachd. These values can be overridden by defining the corresponding pachw values below.
+  # When set to false, a nil value will be used by default instead. Some configuration variables will always use their
+  # corresponding pachd value, regardless of whether 'inheritFromPachd' is true, such as 'serviceAccountName'
+  inheritFromPachd: true
+  # inSidecars is enabled by default to also process storage related tasks in pipeline storage sidecars like version 2.4 or less.
+  # when enabled, pachw instances can still run in their own dedicated kubernetes deployment if maxReplicas is greater than 0.
+  # For more control of where pachw instances run, 'inSidecars' can be disabled.
+  inSidecars: true
   maxReplicas: 1
   # minReplicas: 0
-  # resources defines the kubernetes resource configuration for pachw pods. If not defined, the resource configuration
-  # from pachd will be reused. We recommend defining resources when running pachw with a high value of maxReplicas.
+  # We recommend defining resources when running pachw with a high value of maxReplicas.
   #resources:
   #  limits:
   #    cpu: "1"
@@ -370,6 +381,10 @@ pachw:
   #  requests:
   #    cpu: "1"
   #  memory: "2G"
+  #
+  #tolerations: []
+  #affinity: {}
+  #nodeSelector: {}
 pachd:
   enabled: true
   preflightChecks:
@@ -945,6 +960,9 @@ proxy:
       oidc: 0 # legacy 30657
       identity: 0 # legacy 30658
       metrics: 0 # legacy 30656
+    # externalTrafficPolicy determines cluster-wide routing policy; see "kubectl explain
+    # service.spec.externalTrafficPolicy".
+    externalTrafficPolicy: ""
   # Configuration for TLS (SSL, HTTPS).
   tls:
     # If true, enable TLS serving.  Enabling TLS is incompatible with support for legacy ports (you
