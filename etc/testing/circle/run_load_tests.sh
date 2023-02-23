@@ -58,5 +58,8 @@ fi
 pachctl delete pipeline --all
 pachctl delete repo --all
 
+# give 5 mins for gc to get ahead before next load test is run.
+sleep 300
+
 set -e
 pachctl debug dump /tmp/debug-dump
