@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"io"
 	"path"
 	"strings"
 
@@ -148,7 +147,7 @@ func (s *source) checkFileInfoCache(ctx context.Context, cache map[string]*pfs.F
 func (s *source) computeFileInfo(ctx context.Context, cache map[string]*pfs.FileInfo, iter fileset.Iterator, target string) (*pfs.FileInfo, error) {
 	f, err := stream.Next[fileset.File](ctx, iter)
 	if err != nil {
-		if errors.Is(err, io.EOF) {
+		if stream.IsEOS(err) {
 			return nil, errors.Errorf("stream is done, can't compute hash for %s", target)
 		}
 		return nil, err
@@ -165,7 +164,7 @@ func (s *source) computeFileInfo(ctx context.Context, cache map[string]*pfs.File
 	for {
 		f2, err := stream.Peek(ctx, iter)
 		if err != nil {
-			if errors.Is(err, io.EOF) {
+			if stream.IsEOS(err) {
 				break
 			}
 			return nil, err
