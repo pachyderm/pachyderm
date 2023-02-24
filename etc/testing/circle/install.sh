@@ -46,7 +46,7 @@ fi
 
 # Install kubeval
 if [ ! -f cached-deps/kubeval ] && [ "$ARCH" = "amd64" ]; then
-  KUBEVAL_VERSION=0.16.1
+  KUBEVAL_VERSION=v0.16.1
   curl -L https://github.com/instrumenta/kubeval/releases/download/${KUBEVAL_VERSION}/kubeval-linux-${ARCH}.tar.gz \
       | tar xzf - kubeval
       mv ./kubeval cached-deps/kubeval
