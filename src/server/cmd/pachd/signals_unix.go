@@ -1,7 +1,4 @@
-//go:build aix || android || darwin || dragonfly || freebsd || hurd || illumos || ios || linux || netbsd || openbsd || solaris
-// +build aix android darwin dragonfly freebsd hurd illumos ios linux netbsd openbsd solaris
-
-// TODO: in go v1.19+, the above can simply be “unix”
+//go:build unix
 
 package main
 
