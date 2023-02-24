@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"os"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -67,9 +68,12 @@ func Cmds() []*cobra.Command {
 				fmt.Printf("IP: %v\n", result)
 			}
 			if errs != nil {
-				fmt.Printf("\nDo not be alarmed by the below errors; some lookups are expected to fail.\n")
+				fmt.Fprintf(os.Stderr, "some lookups not successful, this is normally fine:\n")
+				for _, err := range multierr.Errors(errs) {
+					fmt.Fprintf(os.Stderr, "    %v\n", err)
+				}
 			}
-			return errs
+			return nil
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(dnsLookup, "misc dns-lookup"))
