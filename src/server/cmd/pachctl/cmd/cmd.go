@@ -33,6 +33,7 @@ import (
 	enterprisecmds "github.com/pachyderm/pachyderm/v2/src/server/enterprise/cmds"
 	identitycmds "github.com/pachyderm/pachyderm/v2/src/server/identity/cmds"
 	licensecmds "github.com/pachyderm/pachyderm/v2/src/server/license/cmds"
+	misccmds "github.com/pachyderm/pachyderm/v2/src/server/misc/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/v2/src/server/pfs/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/v2/src/server/pps/cmds"
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
@@ -856,6 +857,7 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, configcmds.Cmds()...)
 	subcommands = append(subcommands, configcmds.ConnectCmds()...)
 	subcommands = append(subcommands, taskcmds.Cmds()...)
+	subcommands = append(subcommands, misccmds.Cmds()...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
 
