@@ -35,6 +35,9 @@ func Cmds() []*cobra.Command {
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.DialContext = d.DialContext
 	t.TLSClientConfig.VerifyConnection = func(cs tls.ConnectionState) error {
+		for _, cert := range cs.PeerCertificates {
+			fmt.Printf("tls: cert: %v\n", cert.Subject.String())
+		}
 		fmt.Printf("tls: server name: %v\n", cs.ServerName)
 		fmt.Printf("tls: negotiated protocol: %v\n", cs.NegotiatedProtocol)
 		fmt.Println()
