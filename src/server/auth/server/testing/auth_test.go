@@ -2679,6 +2679,7 @@ func TestListPipelinesWithProjectAccessControl(t *testing.T) {
 			lpClient, err := tc.c.PpsAPIClient.ListPipeline(ctx, &pps.ListPipelineRequest{Projects: tc.projects})
 			require.NoError(t, err)
 			pipelineInfos, err := grpcutil.Collect[*pps.PipelineInfo](lpClient, 10)
+			require.NoError(t, err)
 			var pipelines []string
 			for _, pipelineInfo := range pipelineInfos {
 				pipelines = append(pipelines, pipelineInfo.Pipeline.Name)
