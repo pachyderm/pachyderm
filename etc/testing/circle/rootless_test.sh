@@ -2,7 +2,7 @@
 
 set -ve
 
-VERSION=v1.19.0
+VERSION=v1.26.1
 
 # wait for docker or timeout
 timeout=120
@@ -20,7 +20,7 @@ minikube start \
     --vm-driver=docker \
     --kubernetes-version=${VERSION} \
     --cpus=4 \
-    --memory=12Gi \
+    --memory=13g \
     --wait=all \
 
 # install gatekeeper
@@ -29,7 +29,7 @@ kubectl -n gatekeeper-system wait --for=condition=ready pod -l control-plane=aud
 # install gatekeeper OPA Templates
 kubectl apply -f etc/testing/opa-policies/
 sleep 20
-#Install gatekeeper OPA constraints 
+#Install gatekeeper OPA constraints
 kubectl apply -f etc/testing/opa-constraints.yaml
 
 ./etc/testing/circle/build.sh

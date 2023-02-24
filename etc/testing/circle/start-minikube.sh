@@ -3,12 +3,12 @@
 set -Eex
 
 # Parse flags
-VERSION=v1.19.0
+VERSION=v1.26.1
 minikube_args=(
   "--vm-driver=docker"
   "--kubernetes-version=${VERSION}"
   "--cpus=7"
-  "--memory=12Gi"
+  "--memory=13g"
   "--wait=all"
 )
 while getopts ":v" opt; do
