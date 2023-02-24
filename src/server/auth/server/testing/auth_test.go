@@ -2621,3 +2621,69 @@ func TestListRepoWithProjectAccessControl(t *testing.T) {
 		})
 	}
 }
+
+func TestListPipelinesWithProjectAccessControl(t *testing.T) {
+	createPipeline := func(client *client.APIClient, project string, name string, inputRepo *pps.PFSInput) {
+		inputRepo.Name = "in"
+		require.NoError(t, client.CreateProjectPipeline(project, name, "", []string{"cp", "/pfs/in/*", "/pfs/out"}, nil, nil, &pps.Input{Pfs: inputRepo}, "", false))
+
+	}
+	t.Parallel()
+	c := envWithAuth(t).PachClient
+	// create uers
+	admin := tu.AuthenticateClient(t, c, auth.RootUser)
+	aliceName, alice := tu.RandomRobot(t, c, "alice")
+	bobName, bob := tu.RandomRobot(t, c, "bob")
+	// create projects and pipelines
+	project1, project2 := tu.UniqueString("project1-"), tu.UniqueString("project2-")
+	require.NoError(t, admin.CreateProject(project1))
+	require.NoError(t, admin.CreateProject(project2))
+	// create input repo in default project
+	inputRepo := tu.UniqueString("input")
+	require.NoError(t, admin.CreateProjectRepo(pfs.DefaultProjectName, inputRepo))
+	// create 3 pipelines, one in each project
+	defaultPipeline, pipeline1, pipeline2 := tu.UniqueString("pipeline-default"), tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
+	createPipeline(admin, pfs.DefaultProjectName, defaultPipeline, &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: inputRepo, Glob: "/*"})
+	createPipeline(admin, project1, pipeline1, &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: inputRepo, Glob: "/*"})
+	createPipeline(admin, project2, pipeline2, &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: inputRepo, Glob: "/*"})
+	// give the appropriate access to Alice
+	_, err := admin.ModifyRoleBinding(admin.Ctx(), &auth.ModifyRoleBindingRequest{
+		Principal: aliceName,
+		Roles:     []string{auth.ProjectViewerRole},
+		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project1},
+	})
+	require.NoError(t, err)
+	_, err = admin.ModifyRoleBinding(admin.Ctx(), &auth.ModifyRoleBindingRequest{
+		Principal: bobName,
+		Roles:     []string{auth.RepoReaderRole},
+		Resource:  &auth.Resource{Type: auth.ResourceType_REPO, Name: project2 + "/" + pipeline2},
+	})
+	require.NoError(t, err)
+
+	tests := map[string]struct {
+		c        *client.APIClient
+		projects []*pfs.Project
+		expected []string
+	}{
+		"admin list all":           {c: admin, projects: nil, expected: []string{defaultPipeline, pipeline1, pipeline2}},
+		"alice list all":           {c: alice, projects: nil, expected: []string{defaultPipeline, pipeline1}},
+		"alice filter by default":  {c: alice, projects: []*pfs.Project{{Name: pfs.DefaultProjectName}}, expected: []string{defaultPipeline}},
+		"alice filter by project1": {c: alice, projects: []*pfs.Project{{Name: project1}}, expected: []string{pipeline1}},
+		"alice filter by project2": {c: alice, projects: []*pfs.Project{{Name: project2}}, expected: nil},
+		"bob list all":             {c: bob, projects: nil, expected: []string{defaultPipeline, pipeline2}},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(tc.c.Ctx())
+			defer cancel()
+			lpClient, err := tc.c.PpsAPIClient.ListPipeline(ctx, &pps.ListPipelineRequest{Projects: tc.projects})
+			require.NoError(t, err)
+			pipelineInfos, err := grpcutil.Collect[*pps.PipelineInfo](lpClient, 10)
+			var pipelines []string
+			for _, pipelineInfo := range pipelineInfos {
+				pipelines = append(pipelines, pipelineInfo.Pipeline.Name)
+			}
+			require.ElementsEqual(t, tc.expected, pipelines)
+		})
+	}
+}

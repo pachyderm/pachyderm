@@ -85,12 +85,11 @@ func (i *Iterator) Next() (interface{}, error) {
 }
 
 // CacheFunc caches any function with a single input and output. Uses a LRU with the given size.
-// LRU defaults to 100 if the size is not valid.
+// The size defualts to 100 to avoid errors.
 func CacheFunc[K comparable, V any](f func(K) V, size int) func(K) V {
 	if size <= 0 {
 		size = 100
 	}
-	// Can ignore the error here because we default to size = 100.
 	cache, _ := simplelru.NewLRU[K, V](size, nil)
 	return func(a K) V {
 		if ent, ok := cache.Get(a); ok {
