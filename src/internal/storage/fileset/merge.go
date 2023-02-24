@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
+	"golang.org/x/exp/slices"
 )
 
 // MergeReader is an abstraction for reading merged file sets.
@@ -58,7 +59,8 @@ func (mr *MergeReader) Iterate(ctx context.Context, cb func(File) error, opts ..
 		ss = append(ss, pkDel)
 	}
 	m := stream.NewMerger(ss, func(a, b fileEntry) bool {
-		return fileLessThan(a.File, b.File)
+		// path-wise merge, equal paths are equal.
+		return a.File.Index().Path < b.File.Index().Path
 	})
 	return stream.ForEach[stream.Merged[fileEntry]](ctx, m, func(x stream.Merged[fileEntry]) error {
 		var ents []fileEntry
@@ -74,6 +76,10 @@ func (mr *MergeReader) Iterate(ctx context.Context, cb func(File) error, opts ..
 		if len(ents) == 1 {
 			return cb(newFileReader(mr.chunks, ents[0].File.Index()))
 		}
+		slices.SortStableFunc(ents, func(a, b fileEntry) bool {
+			// all of these will have the same path, so now we are only sorting by tag
+			return a.File.Index().File.Datum < b.File.Index().File.Datum
+		})
 		var dataRefs []*chunk.DataRef
 		for _, fe := range ents {
 			idx := fe.File.Index()
