@@ -18,17 +18,19 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 )
 
-func newDockerClient() docker.APIClient {
+func newDockerClient(ctx context.Context) (docker.APIClient, error) {
 	dclient, err := docker.NewClientWithOpts(docker.FromEnv)
 	if err != nil {
 		panic(err)
 	}
-	return dclient
+	err = log.LogStep(ctx, "pinging docker service", func(ctx context.Context) error {
+		_, err := dclient.Ping(ctx)
+		return err
+	})
+	return dclient, err
 }
 
-func getDockerHost() string {
-	client := newDockerClient()
-	defer client.Close()
+func getDockerHost(client docker.APIClient) string {
 	host := client.DaemonHost()
 	u, err := url.Parse(host)
 	if err != nil {

@@ -33,8 +33,11 @@ func NewMySQLURL(ctx context.Context, t testing.TB) pachsql.URL {
 }
 
 func newMySQLEphemeralURL(ctx context.Context, t testing.TB, name string) pachsql.URL {
-	dclient := newDockerClient()
-	err := backoff.Retry(func() error {
+	dclient, err := newDockerClient(ctx)
+	if err != nil {
+		return pachsql.URL{}
+	}
+	err = backoff.Retry(func() error {
 		return ensureContainer(ctx, dclient, "pach_test_mysql", containerSpec{
 			Image: "mysql:latest",
 			PortMap: map[uint16]uint16{
@@ -49,7 +52,7 @@ func newMySQLEphemeralURL(ctx context.Context, t testing.TB, name string) pachsq
 	u := pachsql.URL{
 		Protocol: pachsql.ProtocolMySQL,
 		User:     mysqlUser,
-		Host:     getDockerHost(),
+		Host:     getDockerHost(dclient),
 		Port:     mysqlPort,
 		Database: "",
 	}

@@ -23,13 +23,14 @@ const (
 
 func NewTestObjClient(ctx context.Context, t testing.TB) obj.Client {
 	t.Helper()
-	dclient := newDockerClient()
+	dclient, err := newDockerClient(ctx)
+	require.NoError(t, err)
 	defer dclient.Close()
-	err := backoff.Retry(func() error {
+	err = backoff.Retry(func() error {
 		return ensureMinio(ctx, dclient)
 	}, backoff.NewConstantBackOff(time.Second*3))
 	require.NoError(t, err)
-	endpoint := getMinioEndpoint()
+	endpoint := getMinioEndpoint(dclient)
 	id := "minioadmin"
 	secret := "minioadmin"
 	client, err := minio.New(endpoint, &minio.Options{
@@ -56,8 +57,8 @@ func newTestMinioBucket(ctx context.Context, t testing.TB, client *minio.Client)
 	return bucketName
 }
 
-func getMinioEndpoint() string {
-	host := getDockerHost()
+func getMinioEndpoint(dclient docker.APIClient) string {
+	host := getDockerHost(dclient)
 	return fmt.Sprintf("%s:%d", host, minioPort)
 }
 
