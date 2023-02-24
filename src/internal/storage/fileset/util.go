@@ -104,7 +104,3 @@ func SizeFromIndex(idx *index.Index) (size int64) {
 	}
 	return size
 }
-
-func fileLessThan(a, b File) bool {
-	return index.LessThan(a.Index(), b.Index())
-}

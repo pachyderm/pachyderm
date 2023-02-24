@@ -101,7 +101,9 @@ func (mr *MergeReader) IterateDeletes(ctx context.Context, cb func(File) error, 
 		pk := stream.NewPeekable(it, copyFile)
 		ss = append(ss, pk)
 	}
-	m := stream.NewMerger(ss, fileLessThan)
+	m := stream.NewMerger(ss, func(a, b File) bool {
+		return index.LessThan(a.Index(), b.Index())
+	})
 	return stream.ForEach[stream.Merged[File]](ctx, m, func(x stream.Merged[File]) error {
 		f, _ := x.First()
 		return cb(newFileReader(mr.chunks, f.Index()))
