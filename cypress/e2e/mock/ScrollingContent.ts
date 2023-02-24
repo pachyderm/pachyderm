@@ -43,13 +43,9 @@ describe(
     });
 
     it('should display the last item properly when scrolling a list of job sets', () => {
-      cy.findByRole('heading', {
-        name: /Solar-Power-Data-Logger-Team-Collab/i,
+      cy.findByRole('button', {
+        name: /View project Solar-Power-Data-Logger-Team-Collab/i,
       })
-        .parent()
-        .findByRole('button', {
-          name: /view/i,
-        })
         .scrollIntoView()
         .click();
       cy.findByText('Jobs').click();
@@ -57,13 +53,9 @@ describe(
     });
 
     it('should display the last item properly when scrolling a list of repos', () => {
-      cy.findByRole('heading', {
-        name: /Trait-Discovery/i,
+      cy.findByRole('button', {
+        name: /View project Trait-Discovery/i,
       })
-        .parent()
-        .findByRole('button', {
-          name: /view/i,
-        })
         .scrollIntoView()
         .click();
       cy.findByText('Repositories').click();
@@ -71,13 +63,9 @@ describe(
     });
 
     it('should display the last item properly when scrolling a list of pipelines', () => {
-      cy.findByRole('heading', {
-        name: /Trait-Discovery/i,
+      cy.findByRole('button', {
+        name: /View project Trait-Discovery/i,
       })
-        .parent()
-        .findByRole('button', {
-          name: /view/i,
-        })
         .scrollIntoView()
         .click();
       cy.findByText('Pipeline Steps').click();
@@ -85,13 +73,9 @@ describe(
     });
 
     it('should display the last item properly when scrolling info from pipelines in lineage view', () => {
-      cy.findByRole('heading', {
-        name: /Solar-Power-Data-Logger-Team-Collab/i,
+      cy.findByRole('button', {
+        name: /View project Solar-Power-Data-Logger-Team-Collab/i,
       })
-        .parent()
-        .findByRole('button', {
-          name: /view/i,
-        })
         .scrollIntoView()
         .click();
       cy.findByText('DAG').click();
@@ -127,13 +111,9 @@ describe(
     });
 
     it('should display the last item properly when scrolling commits from repos in lineage view', () => {
-      cy.findByRole('heading', {
-        name: /Solar-Power-Data-Logger-Team-Collab/i,
+      cy.findByRole('button', {
+        name: /View project Solar-Power-Data-Logger-Team-Collab/i,
       })
-        .parent()
-        .findByRole('button', {
-          name: /view/i,
-        })
         .scrollIntoView()
         .click();
       cy.findByText('DAG').click();

@@ -3,10 +3,7 @@ describe('Dag', () => {
     cy.setupProject('error-opencv').visit('/');
   });
   beforeEach(() => {
-    cy.findByText('default')
-      .parent()
-      .findByRole('button', {name: /View/i})
-      .click();
+    cy.findByRole('button', {name: /View project default/i}).click();
   });
   afterEach(() => {
     cy.visit('/');

@@ -46,6 +46,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
               buttonType="secondary"
               onClick={onClick}
               className={styles.button}
+              aria-label={`View project ${project.id}`}
             >
               <span>View</span>
               <span className={styles.responsiveHide}> Project</span>

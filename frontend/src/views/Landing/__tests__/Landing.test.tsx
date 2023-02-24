@@ -112,12 +112,8 @@ describe('Landing', () => {
 
     expect(window.location.pathname).not.toBe('/lineage/Data-Cleaning-Process');
 
-    const cell = await screen.findByRole('cell', {
-      name: /Data-Cleaning-Process view project project status description/i,
-    });
-
-    const viewProjectButton = within(cell).getByRole('button', {
-      name: /view project/i,
+    const viewProjectButton = await screen.findByRole('button', {
+      name: /View project Data-Cleaning-Process/i,
     });
     await click(viewProjectButton);
     expect(window.location.pathname).toBe('/lineage/Data-Cleaning-Process');
