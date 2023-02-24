@@ -117,7 +117,7 @@ func Cmds() []*cobra.Command {
 				return errors.Wrap(err, "Dial")
 			}
 			fmt.Printf("OK: %s -> %s\n", conn.LocalAddr(), conn.RemoteAddr())
-			return conn.Close()
+			return errors.Wrap(conn.Close(), "Close")
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(dial, "misc dial"))
