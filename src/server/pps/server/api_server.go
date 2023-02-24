@@ -2752,7 +2752,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 	// Cache the project level access because it applies to every pipeline within the same project.
 	checkProjectAccess := miscutil.CacheFunc(func(project string) error {
 		return a.env.AuthServer.CheckProjectIsAuthorized(ctx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
-	})
+	}, 100 /* size */)
 	checkAccess := func(ctx context.Context, pipeline *pps.Pipeline) error {
 		if err := checkProjectAccess(pipeline.Project.String()); err != nil {
 			if !errors.As(err, &auth.ErrNotAuthorized{}) {

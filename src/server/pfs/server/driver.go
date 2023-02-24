@@ -283,7 +283,7 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 	// Cache the project level access because it applies to every repo within the same project.
 	checkProjectAccess := miscutil.CacheFunc(func(project string) error {
 		return d.env.AuthServer.CheckProjectIsAuthorized(ctx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
-	})
+	}, 100 /* size */)
 	checkAccess := func(ctx context.Context, repo *pfs.Repo) error {
 		if err := checkProjectAccess(repo.Project.String()); err != nil {
 			if !errors.As(err, &auth.ErrNotAuthorized{}) {
