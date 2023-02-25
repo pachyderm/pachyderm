@@ -100,7 +100,10 @@ const commitResolver: CommitResolver = {
           newFileObject: {
             commitId: id || commit.id,
             path: '/',
-            branch: {name: branchName || 'master', repo: {name: repoName}},
+            branch: {
+              name: commit.branch?.name || 'master',
+              repo: {name: repoName},
+            },
           },
         });
         diff = formatDiff(diffResponse).diff;

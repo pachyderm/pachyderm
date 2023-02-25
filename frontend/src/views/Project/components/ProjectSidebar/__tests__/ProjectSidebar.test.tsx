@@ -59,7 +59,7 @@ describe('ProjectSidebar', () => {
 
       render(<Project />);
       const logsLink = await screen.findByRole('link', {name: 'Inspect Jobs'});
-      expect(logsLink as HTMLElement).toHaveAttribute(
+      expect(logsLink).toHaveAttribute(
         'href',
         '/lineage/Solar-Panel-Data-Sorting/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs?view=eyJkYXR1bUZpbHRlcnMiOltdfQ%3D%3D',
       );
@@ -77,9 +77,27 @@ describe('ProjectSidebar', () => {
         () => screen.findByRole('link', {name: '2 Success'}),
         {timeout: 4000},
       );
-      expect(logsLink as HTMLElement).toHaveAttribute(
+      expect(logsLink).toHaveAttribute(
         'href',
         '/lineage/Solar-Panel-Data-Sorting/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs/datum?view=eyJkYXR1bUZpbHRlcnMiOlsiU1VDQ0VTUyJdfQ%3D%3D',
+      );
+    });
+
+    it('should show a link to file browser for most recent commit', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/lineage/Data-Cleaning-Process/repos/training/branch/default',
+      );
+
+      render(<Project />);
+
+      const fileBrowserLink = await screen.findByRole('link', {
+        name: 'Inspect Commits',
+      });
+      expect(fileBrowserLink).toHaveAttribute(
+        'href',
+        '/lineage/Data-Cleaning-Process/repos/training/branch/master/commit/23b9af7d5d4343219bc8e02ff4acd33a?view=eyJwcmV2UGF0aCI6Ii9saW5lYWdlL0RhdGEtQ2xlYW5pbmctUHJvY2Vzcy9yZXBvcy90cmFpbmluZy9icmFuY2gvZGVmYXVsdCJ9',
       );
     });
 

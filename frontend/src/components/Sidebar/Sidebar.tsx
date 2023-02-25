@@ -5,6 +5,7 @@ import {Route} from 'react-router';
 import {DEFAULT_SIDEBAR_SIZE} from '@dash-frontend/hooks/useSidebarInfo';
 import DeletePipelineButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/DeletePipelineButton';
 import DeleteRepoButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/DeleteRepoButton';
+import InspectCommitsButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/InspectCommitsButton';
 import ReadLogsButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/ReadLogsButton';
 import UploadFilesButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/UploadFilesButton';
 import {
@@ -13,7 +14,7 @@ import {
   LINEAGE_REPO_PATH,
   LINEAGE_PIPELINE_PATH,
 } from '@dash-frontend/views/Project/constants/projectPaths';
-import {Button, ButtonGroup, CloseSVG, RepoSVG} from '@pachyderm/components';
+import {Button, ButtonGroup, CloseSVG} from '@pachyderm/components';
 
 import useSidebar from './hooks/useSidebar';
 import styles from './Sidebar.module.css';
@@ -86,9 +87,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <ReadLogsButton buttonText="Inspect Jobs" />
               </Route>
               <Route path={LINEAGE_REPO_PATH}>
-                <Button buttonType="secondary" IconSVG={RepoSVG}>
-                  Inspect Commits
-                </Button>
+                <InspectCommitsButton />
               </Route>
             </ButtonGroup>
             <ButtonGroup>
