@@ -1323,34 +1323,57 @@ workflows:
     jobs:
       - build-docker-images
       - pulumi-aws-test-env:
-          name: pulumi-aws-test-env-<< matrix.env >>
+          name: create-aws-test-env-LOAD1
           pachdVersion: $CIRCLE_SHA1
           action: update
+          env: LOAD1
           requires:
             - build-docker-images
-          matrix:
-            parameters:
-              env:
-                - LOAD1
-                - LOAD2
-                - LOAD3
-                - LOAD4
-      - nightly-load:
-          name: nightly-load-<< matrix.bucket >>
+      - pulumi-aws-test-env:
+          name: create-aws-test-env-LOAD2
+          pachdVersion: $CIRCLE_SHA1
+          action: update
+          env: LOAD2
           requires:
-            - pulumi-aws-test-env-<< matrix.bucket >>
-          matrix:
-            parameters:
-              bucket:
-                - LOAD1
-                - LOAD2
-                - LOAD3
-                - LOAD4
-              env:
-                - LOAD1
-                - LOAD2
-                - LOAD3
-                - LOAD4
+            - build-docker-images
+      - pulumi-aws-test-env:
+          name: create-aws-test-env-LOAD3
+          pachdVersion: $CIRCLE_SHA1
+          action: update
+          env: LOAD3
+          requires:
+            - build-docker-images
+      - pulumi-aws-test-env:
+          name: create-aws-test-env-LOAD4
+          pachdVersion: $CIRCLE_SHA1
+          action: update
+          env: LOAD4
+          requires:
+            - build-docker-images
+      - nightly-load:
+          name: nightly-load-LOAD1
+          requires:
+            - create-aws-test-env-LOAD1
+          bucket: LOAD1
+          env: LOAD1
+      - nightly-load:
+          name: nightly-load-LOAD2
+          requires:
+            - create-aws-test-env-LOAD2
+          bucket: LOAD2
+          env: LOAD2
+      - nightly-load:
+          name: nightly-load-LOAD3
+          requires:
+            - create-aws-test-env-LOAD3
+          bucket: LOAD3
+          env: LOAD3
+      - nightly-load:
+          name: nightly-load-LOAD4
+          requires:
+            - create-aws-test-env-LOAD4
+          bucket: LOAD4
+          env: LOAD4
       - nightly-load:
           name: nightly-load-LOAD5
           requires:
