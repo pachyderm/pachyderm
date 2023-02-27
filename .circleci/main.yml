@@ -1323,7 +1323,6 @@ workflows:
       - build-docker-images
       - pulumi-aws-test-env:
           name: pulumi-aws-test-env-<< matrix.env >>
-          helmChartVersion: 2.4.5
           pachdVersion: $CIRCLE_SHA1
           action: update
           requires:
