@@ -1,10 +1,16 @@
+import {CREATE_PROJECT_MUTATION} from '@dash-frontend/mutations/CreateProject';
 import {GET_PROJECT_DETAILS_QUERY} from '@dash-frontend/queries/GetProjectDetailsQuery';
 import {GET_PROJECT_QUERY} from '@dash-frontend/queries/GetProjectQuery';
 import {GET_PROJECTS_QUERY} from '@dash-frontend/queries/GetProjectsQuery';
+import {Status} from '@grpc/grpc-js/build/src/constants';
 
 import projects from '@dash-backend/mock/fixtures/projects';
-import {executeQuery} from '@dash-backend/testHelpers';
-import {Project, ProjectDetails} from '@graphqlTypes';
+import {
+  executeMutation,
+  executeQuery,
+  mockServer,
+} from '@dash-backend/testHelpers';
+import {CreateProjectMutation, Project, ProjectDetails} from '@graphqlTypes';
 
 describe('Projects Resolver', () => {
   describe('project', () => {
@@ -138,6 +144,51 @@ describe('Projects Resolver', () => {
       expect(projectDetails?.repoCount).toBe(3);
       expect(projectDetails?.pipelineCount).toBe(2);
       expect(projectDetails?.jobSets).toHaveLength(4);
+    });
+  });
+
+  describe('createProject', () => {
+    it('should create a Project', async () => {
+      expect(mockServer.getState().projects).not.toHaveProperty(
+        'new-test-project',
+      );
+
+      const {errors} = await executeMutation<CreateProjectMutation>(
+        CREATE_PROJECT_MUTATION,
+        {
+          args: {
+            name: 'new-test-project',
+            description: 'desc',
+          },
+        },
+      );
+
+      expect(errors).toBeUndefined();
+      expect(mockServer.getState().projects).toHaveProperty('new-test-project');
+      expect(
+        mockServer.getState().projects['new-test-project'].getDescription(),
+      ).toBe('desc');
+    });
+    it('should return an error if a project with that name already exists', async () => {
+      expect(mockServer.getState().projects).toHaveProperty(
+        'Data-Cleaning-Process',
+      );
+
+      const {errors} = await executeMutation<CreateProjectMutation>(
+        CREATE_PROJECT_MUTATION,
+        {
+          args: {
+            name: 'Data-Cleaning-Process',
+            description: 'desc',
+          },
+        },
+      );
+
+      expect(errors).toHaveLength(1);
+      expect(errors?.[0].extensions.grpcCode).toEqual(Status.ALREADY_EXISTS);
+      expect(errors?.[0].extensions.details).toBe(
+        'projects Data-Cleaning-Process already exists.',
+      );
     });
   });
 });
