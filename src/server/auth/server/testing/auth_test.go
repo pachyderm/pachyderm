@@ -1175,6 +1175,35 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 	require.Matches(t, "no authentication token", err.Error())
 }
 
+// TestProjectWriter tests the access control related to the ProjectWriter role.
+func TestProjectWriter(t *testing.T) {
+	t.Parallel()
+	env := envWithAuth(t)
+	c := env.PachClient
+
+	admin := tu.AuthenticateClient(t, c, auth.RootUser)
+	aliceName, alice := tu.RandomRobot(t, c, "alice")
+
+	project, repo := tu.UniqueString("project"), tu.UniqueString("repo")
+
+	// Without ProjectWriter's PROJECT_CREATE_REPO permission, Alice cannot create a repo in project
+	require.NoError(t, admin.CreateProject(project))
+	require.ErrorContains(t, alice.CreateProjectRepo(project, repo), "not authorized")
+
+	// Admin grants Alice the ProjectWriter role, which allows Alice to create a repo in the project.
+	admin.ModifyRoleBinding(admin.Ctx(), &auth.ModifyRoleBindingRequest{
+		Principal: aliceName,
+		Roles:     []string{auth.ProjectWriterRole},
+		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project},
+	})
+	require.NoError(t, alice.CreateProjectRepo(project, repo))
+
+	// Pipeline creation depends on Repo creation. Bob cannot create repos in the project, but Alice can.
+	_, bob := tu.RandomRobot(t, c, "bob")
+	require.ErrorContains(t, bob.CreateProjectPipeline(project, "pipeline", "", []string{"cp", "/pfs/in/*", "/pfs/out"}, nil, nil, &pps.Input{Pfs: &pps.PFSInput{Project: project, Repo: repo, Glob: "/*", Name: "in"}}, "", false), "not authorized")
+	require.NoError(t, alice.CreateProjectPipeline(project, "pipeline", "", []string{"cp", "/pfs/in/*", "/pfs/out"}, nil, nil, &pps.Input{Pfs: &pps.PFSInput{Project: project, Repo: repo, Glob: "/*", Name: "in"}}, "", false))
+}
+
 // Creating a pipeline when the output repo already exists gives is not allowed
 func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 	t.Parallel()
