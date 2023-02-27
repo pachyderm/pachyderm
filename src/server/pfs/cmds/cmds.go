@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -66,6 +67,7 @@ func Cmds(pachCtx *config.Context) []*cobra.Command {
 
 	var timeout time.Duration
 	var limit uint32
+	var jsonOutput bool
 
 	var noPager bool
 	pagerFlags := cmdutil.PagerFlags(&noPager)
@@ -1023,8 +1025,8 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 
 	FindCommits := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs> [flags]",
-		Short: "search for commits with reference to <filePath> within a branch starting from <repo@commitID>",
-		Long:  "search for commits with reference to <filePath> within a branch starting from <repo@commitID>",
+		Short: "find commits with reference to <filePath> within a branch starting from <repo@commitID>",
+		Long:  "find commits with reference to <filePath> within a branch starting from <repo@commitID>",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
@@ -1042,39 +1044,31 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 				ctx, cf = context.WithTimeout(c.Ctx(), timeout)
 				defer cf()
 			}
-			findCommitClient, err := c.PfsAPIClient.FindCommits(ctx, &pfs.FindCommitsRequest{
+			req := &pfs.FindCommitsRequest{
 				Start:    commit,
 				FilePath: file.Path,
 				Limit:    limit,
-			})
+			}
+			if jsonOutput {
+				resp, err := c.FindCommits(req)
+				if err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
+				jsonResp, err := json.Marshal(resp)
+				if err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
+				_, err = fmt.Fprintf(os.Stdout, "%s\n", string(jsonResp))
+				return grpcutil.ScrubGRPC(err)
+			}
+			findCommitClient, err := c.PfsAPIClient.FindCommits(ctx, req)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			writer := tabwriter.NewWriter(os.Stdout, "FOUND IN COMMITS\n")
-			return grpcutil.ScrubGRPC(grpcutil.ForEach[*pfs.FindCommitsResponse](findCommitClient, func(x *pfs.FindCommitsResponse) error {
-				switch x.Result.(type) {
-				case *pfs.FindCommitsResponse_FoundCommit:
-					_, err := writer.Write([]byte(x.GetFoundCommit().ID + "\n"))
-					if err != nil {
-						return errors.EnsureStack(err)
-					}
-				case *pfs.FindCommitsResponse_LastSearchedCommit:
-					if _, err = writer.Write([]byte("\n")); err != nil {
-						return errors.EnsureStack(err)
-					}
-					if err = writer.Flush(); err != nil {
-						return errors.EnsureStack(err)
-					}
-					writer = tabwriter.NewWriter(os.Stdout, "LAST SEARCHED COMMIT\n")
-					if _, err = writer.Write([]byte(x.GetLastSearchedCommit().ID + "\n")); err != nil {
-						return errors.EnsureStack(err)
-					}
-					return errors.EnsureStack(writer.Flush())
-				}
-				return nil
-			}))
+			return grpcutil.ScrubGRPC(pretty.PrintFindCommits(findCommitClient))
 		}),
 	}
+	FindCommits.Flags().BoolVar(&jsonOutput, "json", jsonOutput, "print the response in json")
 	FindCommits.Flags().Uint32Var(&limit, "limit", limit, "Number of matching commits to return")
 	FindCommits.Flags().DurationVar(&timeout, "timeout", timeout, "Search duration timeout")
 	FindCommits.Flags().StringVar(&project, "project", project, "Project in which repo is located.")

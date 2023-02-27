@@ -17,6 +17,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -518,12 +519,15 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 			return errors.EnsureStack(cb(makeResp(nil, commitsSearched, commit)))
 		}
 		if err := log.LogStep(ctx, "searchingCommit", func(ctx context.Context) error {
-			inspectCommitResp, err := d.inspectCommit(ctx, commit, pfs.CommitState_FINISHED)
+			inspectCommitResp, err := d.resolveCommitWithAuth(ctx, commit)
 			if err != nil {
 				return err
 			}
+			if inspectCommitResp.Finished == nil {
+				return pfsserver.ErrCommitNotFinished{Commit: commit}
+			}
 			commit = inspectCommitResp.Commit
-			inCommit, err := d.isFileInCommit(ctx, commit, request.FilePath)
+			inCommit, err := d.isPathModifiedInCommit(ctx, commit, request.FilePath)
 			if err != nil {
 				return err
 			}
@@ -551,7 +555,7 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 	}
 }
 
-func (d *driver) isFileInCommit(ctx context.Context, commit *pfs.Commit, filePath string) (bool, error) {
+func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit, filePath string) (bool, error) {
 	diffID, err := d.commitStore.GetDiffFileSet(ctx, commit)
 	if err != nil {
 		return false, err
@@ -561,13 +565,18 @@ func (d *driver) isFileInCommit(ctx context.Context, commit *pfs.Commit, filePat
 		return false, err
 	}
 	found := false
+	pathOption := []index.Option{
+		index.WithRange(&index.PathRange{
+			Lower: filePath,
+		}),
+	}
 	if err = diffFileSet.Iterate(ctx, func(file fileset.File) error {
 		if file.Index().Path == filePath {
 			found = true
 			return errutil.ErrBreak
 		}
 		return nil
-	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
+	}, pathOption...); err != nil && !errors.Is(err, errutil.ErrBreak) {
 		return false, err
 	}
 	// we don't care about the file operation, so if a file was already found, skip iterating over deletive set.
@@ -580,7 +589,7 @@ func (d *driver) isFileInCommit(ctx context.Context, commit *pfs.Commit, filePat
 			return errutil.ErrBreak
 		}
 		return nil
-	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
+	}, pathOption...); err != nil && !errors.Is(err, errutil.ErrBreak) {
 		return false, err
 	}
 	return found, nil
@@ -1132,32 +1141,8 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 // As a side effect, this function also replaces the ID in the given commit
 // with a real commit ID.
 func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs.CommitState) (*pfs.CommitInfo, error) {
-	if commit.Branch.Repo.Name == fileSetsRepo {
-		cinfo := &pfs.CommitInfo{
-			Commit:      commit,
-			Description: "FileSet - Virtual Commit",
-			Finished:    &types.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
-		}
-		return cinfo, nil
-	}
-	if commit == nil {
-		return nil, errors.Errorf("cannot inspect nil commit")
-	}
-	if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, commit.Branch.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-
-	// TODO(global ids): it's possible the commit doesn't exist yet (but will,
-	// following a trigger).  If the commit isn't found, check if the associated
-	// commitset _could_ reach the requested branch or ID via a trigger and wait
-	// to find out.
-	// Resolve the commit in case it specifies a branch head or commit ancestry
-	var commitInfo *pfs.CommitInfo
-	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		var err error
-		commitInfo, err = d.resolveCommit(txnCtx.SqlTx, commit)
-		return err
-	}); err != nil {
+	commitInfo, err := d.resolveCommitWithAuth(ctx, commit)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1197,6 +1182,40 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 				return nil, errors.EnsureStack(err)
 			}
 		}
+	}
+
+	return commitInfo, nil
+}
+
+// resolveCommitWithAuth is like resolveCommit, but it does some pre-resolution checks like repo authorization.
+func (d *driver) resolveCommitWithAuth(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	if commit.Branch.Repo.Name == fileSetsRepo {
+		cinfo := &pfs.CommitInfo{
+			Commit:      commit,
+			Description: "FileSet - Virtual Commit",
+			Finished:    &types.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
+		}
+		return cinfo, nil
+	}
+	if commit == nil {
+		return nil, errors.Errorf("cannot inspect nil commit")
+	}
+	if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, commit.Branch.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+
+	// TODO(global ids): it's possible the commit doesn't exist yet (but will,
+	// following a trigger).  If the commit isn't found, check if the associated
+	// commitset _could_ reach the requested branch or ID via a trigger and wait
+	// to find out.
+	// Resolve the commit in case it specifies a branch head or commit ancestry
+	var commitInfo *pfs.CommitInfo
+	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		var err error
+		commitInfo, err = d.resolveCommit(txnCtx.SqlTx, commit)
+		return err
+	}); err != nil {
+		return nil, err
 	}
 
 	return commitInfo, nil

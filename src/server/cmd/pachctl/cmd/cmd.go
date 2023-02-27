@@ -760,11 +760,11 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(finishDocs, "finish"))
 
-	searchDocs := &cobra.Command{
-		Short: "Search for file addition, modification, or deletion in a commit.",
-		Long:  "Search for file addition, modification, or deletion in a commit.",
+	findDocs := &cobra.Command{
+		Short: "Find a file addition, modification, or deletion in a commit.",
+		Long:  "fInd a file addition, modification, or deletion in a commit.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAlias(searchDocs, "find"))
+	subcommands = append(subcommands, cmdutil.CreateAlias(findDocs, "find"))
 
 	waitDocs := &cobra.Command{
 		Short: "Wait for the side-effects of a Pachyderm resource to propagate.",

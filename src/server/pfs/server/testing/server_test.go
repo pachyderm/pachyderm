@@ -4339,6 +4339,23 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, commit2, resp.LastSearchedCommit)
 	})
 
+	suite.Run("FindCommitsOpenCommit", func(t *testing.T) {
+		t.Parallel()
+		ctx, cf := context.WithTimeout(pctx.TestContext(t), time.Minute)
+		defer cf()
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+
+		commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+
+		_, err = env.PachClient.FindCommits(&pfs.FindCommitsRequest{FilePath: "/files/b", Start: commit1, Limit: 1})
+		require.YesError(t, err)
+		require.Equal(t, err.Error(), pfsserver.ErrCommitNotFinished{Commit: commit1}.Error())
+	})
+
 	suite.Run("CopyFile", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
