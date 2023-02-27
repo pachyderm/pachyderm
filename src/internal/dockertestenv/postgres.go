@@ -21,7 +21,7 @@ import (
 
 const (
 	postgresPort  = 30228
-	PGBouncerPort = 30229
+	pgBouncerPort = 30229
 	maxOpenConns  = 10
 )
 
@@ -31,6 +31,15 @@ func postgresHost(dclient docker.APIClient) string {
 
 func pgBouncerHost(dclient docker.APIClient) string {
 	return postgresHost(dclient)
+}
+
+func PGBouncerHostPort() (string, int, error) {
+	dclient, err := newDockerClient(context.TODO())
+	if err != nil {
+		return "", 0, err
+	}
+	defer dclient.Close()
+	return getDockerHost(dclient), pgBouncerPort, nil
 }
 
 func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
@@ -48,7 +57,7 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 	db := testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
-		dbutil.WithHostPort(pgBouncerHost(dclient), PGBouncerPort),
+		dbutil.WithHostPort(pgBouncerHost(dclient), pgBouncerPort),
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 	)
 	testutil.CreateEphemeralDB(t, db, dbName)
@@ -63,7 +72,7 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 		c.PostgresPort = postgresPort
 		// pg_bouncer
 		c.PGBouncerHost = pgBouncerHost(dclient)
-		c.PGBouncerPort = PGBouncerPort
+		c.PGBouncerPort = pgBouncerPort
 
 		c.PostgresUser = testutil.DefaultPostgresUser
 	}
@@ -88,14 +97,14 @@ func NewEphemeralPostgresDB(ctx context.Context, t testing.TB) (*pachsql.DB, str
 	db := testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
-		dbutil.WithHostPort(pgBouncerHost(dclient), PGBouncerPort),
+		dbutil.WithHostPort(pgBouncerHost(dclient), pgBouncerPort),
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 	)
 	testutil.CreateEphemeralDB(t, db, name)
 	return testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
-		dbutil.WithHostPort(pgBouncerHost(dclient), PGBouncerPort),
+		dbutil.WithHostPort(pgBouncerHost(dclient), pgBouncerPort),
 		dbutil.WithDBName(name),
 	), name
 }
@@ -110,7 +119,7 @@ func NewTestDBOptions(t testing.TB) []dbutil.Option {
 	require.NoError(t, err)
 	return testutil.NewTestDBOptions(t, []dbutil.Option{
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
-		dbutil.WithHostPort(pgBouncerHost(dclient), PGBouncerPort),
+		dbutil.WithHostPort(pgBouncerHost(dclient), pgBouncerPort),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
 		dbutil.WithMaxOpenConns(maxOpenConns),
 	})
@@ -194,7 +203,7 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 	return backoff.RetryUntilCancel(ctx, func() error {
 		db, err := dbutil.NewDB(
 			dbutil.WithDBName(testutil.DefaultPostgresDatabase),
-			dbutil.WithHostPort(pgBouncerHost(dclient), PGBouncerPort),
+			dbutil.WithHostPort(pgBouncerHost(dclient), pgBouncerPort),
 			dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
 		)
 		if err != nil {

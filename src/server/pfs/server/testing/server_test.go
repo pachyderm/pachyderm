@@ -6990,10 +6990,12 @@ func TestPFS(suite *testing.T) {
 				// setup target database
 				dbName := tu.GenerateEphemeralDBName(t)
 				tu.CreateEphemeralDB(t, sqlx.NewDb(env.ServiceEnv.GetDBClient().DB, "postgres"), dbName)
+				pgbHost, pgbPort, err := dockertestenv.PGBouncerHostPort()
+				require.NoError(t, err)
 				db := tu.OpenDB(t,
 					dbutil.WithMaxOpenConns(1),
 					dbutil.WithUserPassword(tu.DefaultPostgresUser, tu.DefaultPostgresPassword),
-					dbutil.WithHostPort(dockertestenv.PGBouncerHost(), dockertestenv.PGBouncerPort),
+					dbutil.WithHostPort(pgbHost, pgbPort),
 					dbutil.WithDBName(dbName),
 				)
 				for _, tableName := range test.tables {
@@ -7012,7 +7014,7 @@ func TestPFS(suite *testing.T) {
 
 				// run Egress to copy data from source commit to target database
 				test.options.Secret = &pfs.SQLDatabaseEgress_Secret{Name: "does not matter", Key: "does not matter"}
-				test.options.Url = fmt.Sprintf("postgres://%s@%s:%d/%s", tu.DefaultPostgresUser, dockertestenv.PGBouncerHost(), dockertestenv.PGBouncerPort, dbName)
+				test.options.Url = fmt.Sprintf("postgres://%s@%s:%d/%s", tu.DefaultPostgresUser, pgbHost, pgbPort, dbName)
 				resp, err := env.PachClient.Egress(env.PachClient.Ctx(),
 					&pfs.EgressRequest{
 						Commit: commit,
