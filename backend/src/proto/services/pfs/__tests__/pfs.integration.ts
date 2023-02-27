@@ -458,6 +458,27 @@ describe('services/pfs', () => {
     });
   });
 
+  describe('createProject', () => {
+    it('should create a project', async () => {
+      const client = await createSandbox('createProject');
+
+      const initialProjects = await client.pfs().listProject();
+      expect(initialProjects).toHaveLength(1);
+
+      await client.pfs().createProject({name: 'name', description: 'desc'});
+
+      const updatedProjects = await client.pfs().listProject();
+      expect(updatedProjects).toHaveLength(2);
+      expect(updatedProjects[0]).toEqual(
+        expect.objectContaining({
+          project: {
+            name: 'name',
+          },
+          description: 'desc',
+        }),
+      );
+    });
+  });
   describe('listProject', () => {
     it('should return a list of projects in the pachyderm cluster', async () => {
       const client = await createSandbox('listProject');
@@ -467,7 +488,6 @@ describe('services/pfs', () => {
       expect(projects).toHaveLength(1);
     });
   });
-
   describe('inspectProject', () => {
     it('should return information about the specified', async () => {
       const client = await createSandbox('inspectProject');
