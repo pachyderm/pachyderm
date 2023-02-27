@@ -139,13 +139,19 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	}
 	repo.EnsureProject()
 
-	// Check that the user is logged in (user doesn't need any access level to
-	// create a repo, but they must be authenticated if auth is active)
+	authIsActivated := true
 	whoAmI, err := txnCtx.WhoAmI()
-	authIsActivated := !auth.IsErrNotActivated(err)
-	if authIsActivated && err != nil {
-		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error authenticating (must log in to create a repo)")
+	if err != nil {
+		if !errors.Is(err, auth.ErrNotActivated) {
+			return errors.Wrap(err, "error authenticating (must log in to create a repo)")
+		}
+		authIsActivated = false
 	}
+	// If auth is activated, user needs permission to create a repo within a project.
+	if err := d.env.AuthServer.CheckProjectIsAuthorizedInTransaction(txnCtx, repo.Project, auth.Permission_PROJECT_CREATE_REPO); err != nil {
+		return errors.Wrap(err, "cannot create repo in project")
+	}
+
 	if err := ancestry.ValidateName(repo.Name); err != nil {
 		return err
 	}
@@ -157,7 +163,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 
 	// Check that the repo’s project exists; if not, return an error.
 	var project pfs.ProjectInfo
-	if err = d.projects.ReadWrite(txnCtx.SqlTx).Get(repo.Project, &project); err != nil {
+	if err := d.projects.ReadWrite(txnCtx.SqlTx).Get(repo.Project, &project); err != nil {
 		return errors.Wrapf(err, "cannot find project %q", repo.Project)
 	}
 
