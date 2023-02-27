@@ -36,7 +36,7 @@ parameters:
     default: ubuntu-2204:2022.10.1
   go-version:
     type: string
-    default: "1.19"
+    default: "1.20.1"
   run_load_tests:
     type: boolean
     default: false
@@ -766,10 +766,6 @@ jobs:
 
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
-
-            # Revert repo setup back to fixture in test_integrations.py
-            # once python-pachyderm has Projects support
-            scripts/integration_tests_setup.sh
 
             # Run integration tests
             pytest -v jupyterlab_pachyderm/tests/test_integrations.py

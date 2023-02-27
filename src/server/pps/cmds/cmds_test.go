@@ -37,10 +37,14 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
@@ -1434,6 +1438,64 @@ func TestSynonymsDocs(t *testing.T) {
 		t.Logf("Testing %s -h\n", resource)
 		require.NoError(t, tu.BashCmd(synonymCommand).Run())
 	}
+}
+
+// TestListDatumFromFile sets up input repos in a non-default project
+// and tests the ability to list datums from a pps-spec file without creating a pipeline.
+func TestListDatumFromFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
+		return &admin.ClusterInfo{
+			ID:                "dev",
+			DeploymentID:      "dev",
+			VersionWarningsOk: true,
+		}, nil
+	})
+
+	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
+		pachctl create project {{.project}}
+		pachctl config update context --project {{.project}}
+		pachctl create repo {{.repo1}}
+		pachctl create repo {{.repo2}}
+		echo "foo" | pachctl put file {{.repo1}}@master:/foo
+		echo "foo" | pachctl put file {{.repo2}}@master:/foo
+
+		cat <<EOF | pachctl list datums -f -
+		{
+			"pipeline": {
+				"name": "does-not-matter"
+			},
+			"input": {
+				"cross":[
+					{
+						"pfs": {
+							"repo": "{{.repo1}}",
+							"glob": "/*",
+						}
+					},
+					{
+						"pfs": {
+							"repo": "{{.repo2}}",
+							"glob": "/*",
+						}
+					},
+				],
+			},
+			"transform": {
+				"cmd": ["does", "not", "matter"]
+			}
+		}
+		EOF
+	`,
+		"project", tu.UniqueString("project-"),
+		"repo1", tu.UniqueString("repo1-"),
+		"repo2", tu.UniqueString("repo2-"),
+	).Run())
+
 }
 
 func resourcesMap() map[string][]string {
