@@ -377,13 +377,10 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_DELETE); err != nil {
 		return errors.EnsureStack(err)
 	}
-
-	if !force {
-		if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(repo)); err == nil {
-			return errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
-		} else if err != nil && !errutil.IsNotFoundError(err) {
-			return errors.EnsureStack(err)
-		}
+	if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(repo)); err == nil {
+		return errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
+	} else if err != nil && !errutil.IsNotFoundError(err) {
+		return errors.EnsureStack(err)
 	}
 	// if this is a user repo, delete any dependent repos
 	if repo.Type == pfs.UserRepoType {
