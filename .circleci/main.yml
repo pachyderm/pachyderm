@@ -428,18 +428,21 @@ jobs:
       - gcp-cli/initialize
       - go/install:
           version: << pipeline.parameters.go-version >>
+      - install-pulumi-deps
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
           command: etc/testing/circle/run_all_load_tests.sh
           no_output_timeout: 1h
+      - run:
+          name: Destroy test env on fail
+          command: |
+            sleep 300 #wait for CNI warm pool population to acquiesce before destroy
+            pulumi destroy --yes --stack << parameters.env >> --cwd etc/testing/circle/workloads/pulumi/aws
+          when: on_fail 
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
-      - run:
-          command: destroy-aws-test-env-cmd
-          env: << parameters.env >>
-          when: on_fail
   rootless:
     resource_class: large
     machine:
@@ -1047,6 +1050,13 @@ jobs:
           command: |
             etc/testing/circle/run_release_tests.sh
           no_output_timeout: 1h
+      - install-pulumi-deps
+      - run:
+          name: Destroy test env on fail
+          command: |
+            sleep 300 #wait for CNI warm pool population to acquiesce before destroy
+            pulumi destroy --yes --stack qa1 --cwd etc/testing/circle/workloads/pulumi/aws
+          when: on_fail
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
@@ -1067,18 +1077,18 @@ jobs:
       image: << pipeline.parameters.machine_image >>
     steps:
       - checkout
+      - node/install
+      - kubernetes/install
+      - aws-eks/install-aws-iam-authenticator
+      - aws-cli/setup
+      - pulumi/login
+      - run: |
+          pulumi plugin install resource eks v0.40.0
       - when:
           condition:
             and:
               - equal: ["update", << parameters.action >>]
           steps:
-            - node/install
-            - kubernetes/install
-            - aws-eks/install-aws-iam-authenticator
-            - aws-cli/setup
-            - pulumi/login
-            - run: |
-                pulumi plugin install resource eks v0.40.0
             - run:
                 name: set few config values
                 command: |
@@ -1111,11 +1121,18 @@ jobs:
             and:
               - equal: ["destroy", << parameters.action >>]
           steps:
-            - destroy-aws-test-env-cmd:
-                env: << parameters.env >>
+            - run:
+                name: wait for CNI warm pool population to acquiesce before destroy
+                command: |
+                  sleep 300
+            - pulumi/destroy:
+                stack: pachyderm/core/<< parameters.env >>
+                working_directory: ./etc/testing/circle/workloads/pulumi/aws/
   cust-prerelease-testing:
     parameters:
       customer:
+        type: string
+      env:
         type: string
     resource_class: large
     machine:
@@ -1136,6 +1153,13 @@ jobs:
           command: |
             etc/testing/circle/run_cust_release_tests.sh << parameters.customer >>
           no_output_timeout: 1h
+      - install-pulumi-deps
+      - run:
+          name: Destroy test env on fail
+          command: |
+            sleep 300 #wait for CNI warm pool population to acquiesce before destroy
+            pulumi destroy --yes --stack << parameters.env >> --cwd etc/testing/circle/workloads/pulumi/aws
+          when: on_fail 
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
@@ -1598,12 +1622,14 @@ workflows:
       - cust-prerelease-testing:
           name: wp-testing
           customer: wp
+          env: qa2
           filters: *only-alpha-tags
           requires:
             - aws-prerelease-testing-env-2
       - cust-prerelease-testing:
           name: btl-testing
           customer: btl
+          env: qa3
           filters: *only-alpha-tags
           requires:
             - aws-prerelease-testing-env-3
@@ -1821,10 +1847,7 @@ commands:
           command: |-
             echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' | pachctl config set context local --overwrite
             pachctl config set active-context local
-  destroy-aws-test-env-cmd:
-    parameters:
-      env:
-        type: string
+  install-pulumi-deps:
     steps:
       - node/install
       - kubernetes/install
@@ -1833,10 +1856,3 @@ commands:
       - pulumi/login
       - run: |
           pulumi plugin install resource eks v0.40.0
-      - run:
-          name: wait for CNI warm pool population to acquiesce before destroy
-          command: |
-            sleep 300
-      - pulumi/destroy:
-          stack: pachyderm/core/<< parameters.env >>
-          working_directory: ./etc/testing/circle/workloads/pulumi/aws/
