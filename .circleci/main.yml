@@ -724,7 +724,7 @@ jobs:
 
             . venv/bin/activate
             npm run eslint:check
-            python -m pip install --no-deps -e '.[dev]'
+            python -m pip install -e '.[dev]'
 
             tail -F /tmp/mount-server.log &
 
@@ -1277,7 +1277,7 @@ workflows:
       - jupyter-extension-test:
           matrix:
             parameters:
-              python-version: ["3.7", "3.8", "3.9", "3.10"]
+              python-version: ["3.8", "3.9", "3.10"]
       - jupyter-extension-frontend-test
       - jupyter-extension-integration-test:
           requires:
