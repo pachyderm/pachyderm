@@ -74,6 +74,9 @@ func parseMethod(fullMethod string) (string, string) {
 func (li *LoggingInterceptor) logUnaryAfter(ctx context.Context, lvl log.Level, service, method string, start time.Time, err error) {
 	duration := time.Since(start)
 	go li.reportDuration(service, method, duration, err)
+	if err != nil {
+		lvl = log.ErrorLevel
+	}
 	dolog(ctx, lvl, "response for "+service+"/"+method, zap.Duration("duration", duration))
 }
 

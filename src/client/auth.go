@@ -91,3 +91,15 @@ func (c APIClient) ModifyProjectRepoRoleBinding(projectName, repoName, principal
 	}
 	return nil
 }
+
+func (c APIClient) ModifyProjectRoleBinding(projectName, principal string, roles []string) error {
+	_, err := c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
+		Resource:  NewProject(projectName).AuthResource(),
+		Principal: principal,
+		Roles:     roles,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}

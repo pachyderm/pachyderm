@@ -2544,7 +2544,9 @@ func TestDeleteRepos(t *testing.T) {
 
 	//////////
 	/// alice adds bob to the ACL of repo1 as an owner
+	/// alice grants bob projectWriter so that bob can create repos later
 	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(projectName, "repoA", bob, []string{auth.RepoOwnerRole}))
+	require.NoError(t, aliceClient.ModifyProjectRoleBinding(projectName, bob, []string{auth.ProjectWriterRole}))
 
 	// repoC belongs to bob and should be deleted
 	require.NoError(t, bobClient.CreateProjectRepo(projectName, "repoC"))
