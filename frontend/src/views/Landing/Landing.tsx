@@ -10,7 +10,7 @@ import {
   useModal,
 } from '@pachyderm/components';
 
-import CreateProjectModal from './components/CreateRepoModal';
+import CreateProjectModal from './components/CreateProjectModal';
 import LandingHeader from './components/LandingHeader';
 import LandingSkeleton from './components/LandingSkeleton';
 import ProjectPreview from './components/ProjectPreview';
