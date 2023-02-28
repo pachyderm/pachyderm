@@ -2722,10 +2722,10 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 	// Helper func to filter out pipelines based on projects
 	projectsFilter := make(map[string]bool)
 	for _, project := range request.Projects {
-		projectsFilter[project.String()] = true
+		projectsFilter[project.GetName()] = true
 	}
 	keep := func(pipelineInfo *pps.PipelineInfo) bool {
-		if len(projectsFilter) > 0 && !projectsFilter[pipelineInfo.Pipeline.Project.String()] {
+		if len(projectsFilter) > 0 && !projectsFilter[pipelineInfo.Pipeline.Project.GetName()] {
 			return false
 		}
 
@@ -2754,7 +2754,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		return a.env.AuthServer.CheckProjectIsAuthorized(ctx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
 	}, 100 /* size */)
 	checkAccess := func(ctx context.Context, pipeline *pps.Pipeline) error {
-		if err := checkProjectAccess(pipeline.Project.String()); err != nil {
+		if err := checkProjectAccess(pipeline.Project.GetName()); err != nil {
 			if !errors.As(err, &auth.ErrNotAuthorized{}) {
 				return err
 			}

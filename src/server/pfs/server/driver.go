@@ -269,14 +269,14 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 	// Helper func to filter out repos based on projects.
 	projectsFilter := make(map[string]bool)
 	for _, project := range projects {
-		projectsFilter[project.String()] = true
+		projectsFilter[project.GetName()] = true
 	}
 	keep := func(repo *pfs.Repo) bool {
 		// Assume the user meant all projects by not providing any projects to filter on.
 		if len(projectsFilter) == 0 {
 			return true
 		}
-		return projectsFilter[repo.Project.String()]
+		return projectsFilter[repo.Project.GetName()]
 	}
 
 	// Helper func to check whether a user is allowed to see the given repo in the result.
@@ -285,7 +285,7 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 		return d.env.AuthServer.CheckProjectIsAuthorized(ctx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
 	}, 100 /* size */)
 	checkAccess := func(ctx context.Context, repo *pfs.Repo) error {
-		if err := checkProjectAccess(repo.Project.String()); err != nil {
+		if err := checkProjectAccess(repo.Project.GetName()); err != nil {
 			if !errors.As(err, &auth.ErrNotAuthorized{}) {
 				return err
 			}
