@@ -724,7 +724,7 @@ jobs:
 
             . venv/bin/activate
             npm run eslint:check
-            python -m pip install -e '.[dev]'
+            python -m pip install --no-deps -e '.[dev]'
 
             tail -F /tmp/mount-server.log &
 
