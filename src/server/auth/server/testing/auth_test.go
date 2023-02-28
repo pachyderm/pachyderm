@@ -1191,11 +1191,12 @@ func TestProjectWriter(t *testing.T) {
 	require.ErrorContains(t, alice.CreateProjectRepo(project, repo), "not authorized")
 
 	// Admin grants Alice the ProjectWriter role, which allows Alice to create a repo in the project.
-	admin.ModifyRoleBinding(admin.Ctx(), &auth.ModifyRoleBindingRequest{
+	_, err := admin.ModifyRoleBinding(admin.Ctx(), &auth.ModifyRoleBindingRequest{
 		Principal: aliceName,
 		Roles:     []string{auth.ProjectWriterRole},
 		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project},
 	})
+	require.NoError(t, err)
 	require.NoError(t, alice.CreateProjectRepo(project, repo))
 
 	// Pipeline creation depends on Repo creation. Bob cannot create repos in the project, but Alice can.
