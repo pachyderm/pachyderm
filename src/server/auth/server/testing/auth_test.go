@@ -2410,14 +2410,15 @@ func TestModifyRoleBindingAccess(t *testing.T) {
 	// setup
 	c := envWithAuth(t).PachClient
 	clusterAdmin := tu.AuthenticateClient(t, c, auth.RootUser)
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
+	_, aliceClient := tu.RandomRobot(t, c, "alice")
+	bob, bobClient := tu.RandomRobot(t, c, "bob")
 	project1, project2 := tu.UniqueString("project1"), tu.UniqueString("project2")
 	repo1, repo2 := tu.UniqueString("repo1"), tu.UniqueString("repo2")
 	// alice owns project1 and project1/repo1
 	// bob owns project2 and project1/repo2
 	require.NoError(t, aliceClient.CreateProject(project1))
 	require.NoError(t, aliceClient.CreateProjectRepo(project1, repo1))
+	require.NoError(t, aliceClient.ModifyProjectRoleBinding(project1, bob, []string{auth.ProjectWriterRole}))
 	require.NoError(t, bobClient.CreateProjectRepo(project1, repo2))
 	require.NoError(t, bobClient.CreateProject(project2))
 	// auth resources
