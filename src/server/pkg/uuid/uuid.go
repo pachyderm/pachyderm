@@ -14,7 +14,10 @@ import (
 func New() string {
 	var result string
 	backoff.RetryNotify(func() error {
-		uuid := uuid.NewV4()
+		uuid, err := uuid.NewV4()
+		if err != nil {
+			return err
+		}
 		result = uuid.String()
 		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {

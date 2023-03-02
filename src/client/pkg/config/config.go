@@ -97,7 +97,10 @@ func Read(ignoreCache, readOnly bool) (*Config, error) {
 		if value.UserID == "" {
 			updated = true
 			log.Debugln("No UserID present in config - generating new one.")
-			uuid := uuid.NewV4()
+			uuid, err := uuid.NewV4()
+			if err != nil {
+				return nil, errors.Wrapf(err, "generate uuid")
+			}
 			value.UserID = uuid.String()
 		}
 
