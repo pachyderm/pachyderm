@@ -519,7 +519,7 @@ func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	deleteCommits := make(map[string]*pfs.CommitInfo)
 	for _, ci := range cis {
-		for _, b := range ci.DirectProvenance {
+		for _, b := range ci.OldDirectProvenance {
 			if err := addCommitProvenance(ctx, tx, ci.Commit, b.NewCommit(ci.Commit.ID)); err != nil {
 				return errors.Wrapf(err, "add commit provenance from %q to %q", commitKey(ci.Commit), commitKey(b.NewCommit(ci.Commit.ID)))
 			}
