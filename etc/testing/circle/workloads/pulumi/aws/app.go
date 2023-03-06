@@ -51,6 +51,7 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 			"enabled": pulumi.Bool(false),
 		},
 		"pachd": pulumi.Map{
+			"logLevel": pulumi.String("debug"),
 			"image": pulumi.Map{
 				"tag": pulumi.String(pachdImageTag),
 			},
