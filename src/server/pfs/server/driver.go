@@ -1014,9 +1014,6 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 			commit = cis[i%len(cis)].ParentCommit
 		}
 	}
-	if commitInfo.Details == nil {
-		commitInfo.Details = &pfs.CommitInfo_Details{}
-	}
 	return commitInfo, nil
 }
 
@@ -1445,7 +1442,12 @@ func (d *driver) validateDAGStructure(txnCtx *txncontext.TransactionContext, bi 
 				continue
 			}
 			expanded[bi.Branch.String()] = struct{}{}
-			for _, b := range append(bi.Provenance, bi.Subvenance...) {
+			for _, b := range bi.Provenance {
+				if _, err := getBranchInfo(b); err != nil {
+					return err
+				}
+			}
+			for _, b := range bi.Subvenance {
 				if _, err := getBranchInfo(b); err != nil {
 					return err
 				}
@@ -1507,7 +1509,7 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		return errors.EnsureStack(err)
 	}
 	// Validate request
-	allBranches := make([]*pfs.Branch, 0)
+	var allBranches []*pfs.Branch
 	allBranches = append(allBranches, provenance...)
 	allBranches = append(allBranches, branch)
 	for _, b := range allBranches {

@@ -149,10 +149,7 @@ func Commits(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollecti
 			if ci.Commit.Repo == nil {
 				return errors.New("Commits must have the repo field populated")
 			}
-			if err := AddCommit(tx, ci.Commit); err != nil {
-				return err
-			}
-			return nil
+			return AddCommit(tx, ci.Commit)
 		}),
 		col.WithDeleteHook(func(tx *pachsql.Tx, commitKey string) error {
 			return DeleteCommit(tx, commitKey)
@@ -174,11 +171,6 @@ var branchesIndexes = []*col.Index{BranchesRepoIndex}
 
 func BranchKey(branch *pfs.Branch) string {
 	return RepoKey(branch.Repo) + "@" + branch.Name
-}
-
-func ParseBranch(key string) *pfs.Branch {
-	split := strings.Split(key, "@")
-	return &pfs.Branch{Name: split[1], Repo: ParseRepo(split[0])}
 }
 
 // Branches returns a collection of branches
