@@ -68,22 +68,11 @@ const CreateProjectModal: FunctionComponent<ModalProps> = ({show, onHide}) => {
           </div>
 
           <div>
-            <Label
-              htmlFor="description"
-              optional
-              label="Description"
-              // maxLength={90}
-            />
+            <Label htmlFor="description" optional label="Description" />
             <TextArea
               data-testid="CreateProjectModal__description"
               id="description"
               name="description"
-              // validationOptions={{
-              //   maxLength: {
-              //     value: 90,
-              //     message: 'Repo description exceeds maximum allowed length',
-              //   },
-              // }}
               autoExpand
               clearable
               disabled={loading}
