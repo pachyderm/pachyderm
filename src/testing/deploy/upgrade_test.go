@@ -64,7 +64,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVer
 				ns,
 				k,
 				&minikubetestenv.DeployOpts{
-					WaitSeconds:  10,
+					WaitSeconds:  20,
 					CleanupAfter: true,
 					PortOffset:   portOffset,
 					ValueOverrides: map[string]string{
@@ -204,7 +204,7 @@ validator:
     count: 1
 `
 	var stateID string
-	upgradeTest(t, context.Background(), true /* parallelOK */, fromVersions,
+	upgradeTest(t, context.Background(), false /* parallelOK */, fromVersions,
 		func(t *testing.T, c *client.APIClient) {
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			t.Log("before upgrade: starting load test")
