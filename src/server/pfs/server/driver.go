@@ -265,7 +265,6 @@ func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Per
 func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string, projects []*pfs.Project, cb func(*pfs.RepoInfo) error) error {
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
-
 	// Helper func to filter out repos based on projects.
 	projectsFilter := make(map[string]bool)
 	for _, project := range projects {
