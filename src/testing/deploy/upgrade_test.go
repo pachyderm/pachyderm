@@ -67,6 +67,9 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVer
 					WaitSeconds:  10,
 					CleanupAfter: true,
 					PortOffset:   portOffset,
+					ValueOverrides: map[string]string{
+						"pachw.minReplicas": "1",
+					},
 				}))
 			t.Logf("postUpgrade done")
 		})

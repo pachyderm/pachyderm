@@ -2,12 +2,18 @@ package pachd
 
 import (
 	"context"
+	"path"
 
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
 
@@ -36,7 +42,10 @@ func (pachwb *pachwBuilder) registerPFSServer(ctx context.Context) error {
 }
 
 func (pachwb *pachwBuilder) registerAuthServer(ctx context.Context) error {
-	apiServer, err := authserver.NewAuthServer(authserver.EnvFromServiceEnv(pachwb.env, pachwb.txnEnv), false, false, false)
+	apiServer, err := authserver.NewAuthServer(
+		authserver.EnvFromServiceEnv(pachwb.env, pachwb.txnEnv),
+		true, !pachwb.daemon.criticalServersOnly, false,
+	)
 	if err != nil {
 		return err
 	}
@@ -44,6 +53,43 @@ func (pachwb *pachwBuilder) registerAuthServer(ctx context.Context) error {
 		auth.RegisterAPIServer(s, apiServer)
 	})
 	pachwb.env.SetAuthServer(apiServer)
+	return nil
+}
+
+func (pachwb *pachwBuilder) registerEnterpriseServer(ctx context.Context) error {
+	pachwb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
+		pachwb.env,
+		path.Join(pachwb.env.Config().EtcdPrefix, pachwb.env.Config().EnterpriseEtcdPrefix),
+		pachwb.txnEnv,
+	)
+	apiServer, err := eprsserver.NewEnterpriseServer(
+		pachwb.enterpriseEnv,
+		false,
+	)
+	if err != nil {
+		return err
+	}
+	pachwb.forGRPCServer(func(s *grpc.Server) {
+		enterprise.RegisterAPIServer(s, apiServer)
+	})
+	// pachwb.bootstrappers = append(pachwb.bootstrappers, apiServer)
+	pachwb.env.SetEnterpriseServer(apiServer)
+	// pachwb.licenseEnv.EnterpriseServer = apiServer
+	return nil
+}
+
+func (pachwb *pachwBuilder) setupDB(ctx context.Context) error {
+	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
+	if err := dbutil.WaitUntilReady(ctx, pachwb.env.GetDBClient()); err != nil {
+		return err
+	}
+	// if err := migrations.ApplyMigrations(ctx, b.env.GetDBClient(), migrations.MakeEnv(nil, b.env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
+	// 	return err
+	// }
+	if err := migrations.BlockUntil(ctx, pachwb.env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -59,6 +105,8 @@ func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 		pachwb.initInternalServer,
 		pachwb.registerAuthServer,
 		pachwb.registerPFSServer, //PFS seems to need a non-nil auth server.
+		pachwb.registerPPSServer,
+		pachwb.registerEnterpriseServer,
 		pachwb.registerTransactionServer,
 		pachwb.registerHealthServer,
 		pachwb.resumeHealth,
