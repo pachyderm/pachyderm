@@ -202,7 +202,7 @@ func (e ErrProjectNotFound) GRPCStatus() *status.Status {
 }
 
 func (e ErrProjectExists) Error() string {
-	return fmt.Sprintf("project %q already exists", e.Project.Name)
+	return fmt.Sprintf("project %s already exists", e.Project.Name)
 }
 
 func (e ErrProjectExists) GRPCStatus() *status.Status {
