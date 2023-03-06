@@ -17,10 +17,10 @@ import (
 	"unicode"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	taskcmds "github.com/pachyderm/pachyderm/v2/src/internal/task/cmds"
@@ -33,6 +33,7 @@ import (
 	enterprisecmds "github.com/pachyderm/pachyderm/v2/src/server/enterprise/cmds"
 	identitycmds "github.com/pachyderm/pachyderm/v2/src/server/identity/cmds"
 	licensecmds "github.com/pachyderm/pachyderm/v2/src/server/license/cmds"
+	misccmds "github.com/pachyderm/pachyderm/v2/src/server/misc/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/v2/src/server/pfs/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/v2/src/server/pps/cmds"
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
@@ -509,7 +510,7 @@ This resets the cluster to its initial state.`,
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
-			if err := clientsdk.ForEachPipelineInfo(c, func(pi *pps.PipelineInfo) error {
+			if err := grpcutil.ForEach[*pps.PipelineInfo](c, func(pi *pps.PipelineInfo) error {
 				pipelines = append(pipelines, red(pi.Pipeline.String()))
 				return nil
 			}); err != nil {
@@ -856,6 +857,7 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, configcmds.Cmds()...)
 	subcommands = append(subcommands, configcmds.ConnectCmds()...)
 	subcommands = append(subcommands, taskcmds.Cmds()...)
+	subcommands = append(subcommands, misccmds.Cmds()...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
 

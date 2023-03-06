@@ -18,27 +18,26 @@ ROOT_TOKEN = "iamroot"
 DEFAULT_PROJECT = "default"
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def pachyderm_resources():
-    # TODO: uncomment when python pachyderm has Projects support
-    # print("creating pachyderm resources")
-    # import python_pachyderm
-    # from python_pachyderm.pfs import Commit
+    print("creating pachyderm resources")
+    import python_pachyderm
+    from python_pachyderm.pfs import Commit
 
     repos = ["images", "edges", "montage"]
     branches = ["master", "dev"]
     files = ["file1", "file2"]
 
-    # client = python_pachyderm.Client()
-    # client.delete_all()
+    client = python_pachyderm.Client()
+    client.delete_all()
 
-    # for repo in repos:
-    #     client.create_repo(repo)
-    #     for branch in branches:
-    #         for file in files:
-    #             client.put_file_bytes(
-    #                 Commit(repo=repo, branch=branch), file, value=b"some data"
-    #             )
+    for repo in repos:
+        client.create_repo(repo)
+        for branch in branches:
+            for file in files:
+                client.put_file_bytes(
+                    Commit(repo=repo, branch=branch), file, value=b"some data"
+                )
 
     yield repos, branches, files
 

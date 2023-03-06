@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
@@ -32,7 +33,7 @@ type Storage struct {
 	tracker       track.Tracker
 	store         kv.Store
 	memCache      kv.GetPut
-	deduper       *miscutil.WorkDeduper
+	deduper       *miscutil.WorkDeduper[pachhash.Output]
 	prefetchLimit int
 
 	createOpts CreateOptions
@@ -45,7 +46,7 @@ func NewStorage(objC obj.Client, memCache kv.GetPut, db *pachsql.DB, tracker tra
 		db:            db,
 		tracker:       tracker,
 		memCache:      memCache,
-		deduper:       &miscutil.WorkDeduper{},
+		deduper:       &miscutil.WorkDeduper[pachhash.Output]{},
 		prefetchLimit: DefaultPrefetchLimit,
 		createOpts: CreateOptions{
 			Compression: CompressionAlgo_GZIP_BEST_SPEED,

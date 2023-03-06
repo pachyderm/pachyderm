@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -38,7 +38,7 @@ func TestListDatum(t *testing.T) {
 	request := &pps.ListDatumRequest{Input: input}
 	listDatumClient, err := env.PachClient.PpsAPIClient.ListDatum(ctx, request)
 	require.NoError(t, err)
-	dis, err := clientsdk.ListDatum(listDatumClient)
+	dis, err := grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
 	require.NoError(t, err)
 	require.Equal(t, 9, len(dis))
 	var datumIDs []string
@@ -50,7 +50,7 @@ func TestListDatum(t *testing.T) {
 	request = &pps.ListDatumRequest{Input: input, Number: 3}
 	listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
 	require.NoError(t, err)
-	dis, err = clientsdk.ListDatum(listDatumClient)
+	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(dis))
 	for _, di := range dis {
@@ -61,7 +61,7 @@ func TestListDatum(t *testing.T) {
 		request = &pps.ListDatumRequest{Input: input, Number: 3, PaginationMarker: dis[2].Datum.ID}
 		listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
 		require.NoError(t, err)
-		dis, err = clientsdk.ListDatum(listDatumClient)
+		dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(dis))
 		for _, di := range dis {
@@ -73,7 +73,7 @@ func TestListDatum(t *testing.T) {
 	request = &pps.ListDatumRequest{Input: input, Number: 1, PaginationMarker: dis[2].Datum.ID}
 	listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
 	require.NoError(t, err)
-	dis, err = clientsdk.ListDatum(listDatumClient)
+	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(dis))
 	// Test getting the datums in three pages of 3 in reverse order
@@ -82,7 +82,7 @@ func TestListDatum(t *testing.T) {
 	request = &pps.ListDatumRequest{Input: input, Number: 3, Reverse: true}
 	listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
 	require.NoError(t, err)
-	dis, err = clientsdk.ListDatum(listDatumClient)
+	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(dis))
 	for _, di := range dis {
@@ -93,7 +93,7 @@ func TestListDatum(t *testing.T) {
 		request = &pps.ListDatumRequest{Input: input, Number: 3, PaginationMarker: dis[2].Datum.ID, Reverse: true}
 		listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
 		require.NoError(t, err)
-		dis, err = clientsdk.ListDatum(listDatumClient)
+		dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(dis))
 		for _, di := range dis {
@@ -103,7 +103,7 @@ func TestListDatum(t *testing.T) {
 	request = &pps.ListDatumRequest{Input: input, Number: 1, PaginationMarker: dis[2].Datum.ID, Reverse: true}
 	listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
 	require.NoError(t, err)
-	dis, err = clientsdk.ListDatum(listDatumClient)
+	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(dis))
 	for i, di := range datumIDs {
@@ -305,7 +305,7 @@ func TestListJobSetWithProjects(t *testing.T) {
 	rpcClient, err := env.PachClient.ListJobSet(ctx, &pps.ListJobSetRequest{})
 	require.NoError(t, err)
 	gotPipelines := []string{}
-	require.NoError(t, clientsdk.ForEachJobSet(rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
+	require.NoError(t, grpcutil.ForEach[*pps.JobSetInfo](rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
 		for _, job := range jobSetInfo.Jobs {
 			gotPipelines = append(gotPipelines, job.Job.Pipeline.Name)
 		}
@@ -318,7 +318,7 @@ func TestListJobSetWithProjects(t *testing.T) {
 	rpcClient, err = env.PachClient.ListJobSet(ctx, &pps.ListJobSetRequest{Projects: []*pfs.Project{{Name: pfs.DefaultProjectName}}})
 	require.NoError(t, err)
 	gotPipelines = []string{}
-	require.NoError(t, clientsdk.ForEachJobSet(rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
+	require.NoError(t, grpcutil.ForEach[*pps.JobSetInfo](rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
 		for _, job := range jobSetInfo.Jobs {
 			gotPipelines = append(gotPipelines, job.Job.Pipeline.Name)
 		}
@@ -331,7 +331,7 @@ func TestListJobSetWithProjects(t *testing.T) {
 	rpcClient, err = env.PachClient.ListJobSet(ctx, &pps.ListJobSetRequest{Projects: []*pfs.Project{{Name: project}}})
 	require.NoError(t, err)
 	gotPipelines = []string{}
-	require.NoError(t, clientsdk.ForEachJobSet(rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
+	require.NoError(t, grpcutil.ForEach[*pps.JobSetInfo](rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
 		for _, job := range jobSetInfo.Jobs {
 			gotPipelines = append(gotPipelines, job.Job.Pipeline.Name)
 		}
@@ -344,7 +344,7 @@ func TestListJobSetWithProjects(t *testing.T) {
 	rpcClient, err = env.PachClient.ListJobSet(ctx, &pps.ListJobSetRequest{Projects: []*pfs.Project{{Name: "bogus"}}})
 	require.NoError(t, err)
 	gotPipelines = []string{}
-	require.NoError(t, clientsdk.ForEachJobSet(rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
+	require.NoError(t, grpcutil.ForEach[*pps.JobSetInfo](rpcClient, func(jobSetInfo *pps.JobSetInfo) error {
 		for _, job := range jobSetInfo.Jobs {
 			gotPipelines = append(gotPipelines, job.Job.Pipeline.Name)
 		}

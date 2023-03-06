@@ -41,6 +41,7 @@ type Iterator struct {
 }
 
 // NewIterator creates a new iterator.
+// DEPRECATED: use stream.NewFromForEach instead
 func NewIterator(ctx context.Context, iterate func(func(interface{}) error) error) *Iterator {
 	dataChan := make(chan interface{})
 	errChan := make(chan error, 1)
