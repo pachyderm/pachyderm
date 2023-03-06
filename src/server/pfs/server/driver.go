@@ -2247,6 +2247,9 @@ func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Projec
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
+	if _, err := d.deleteAllRepos(ctx); err != nil {
+		return errors.Wrap(err, "could not delete all repos")
+	}
 	var projectInfos []*pfs.ProjectInfo
 	if err := d.listProject(ctx, func(pi *pfs.ProjectInfo) error {
 		projectInfos = append(projectInfos, proto.Clone(pi).(*pfs.ProjectInfo))
