@@ -7,6 +7,7 @@ import {
   RepoObject,
   TriggerObject,
 } from '../builders/pfs';
+import {TimestampObject} from '../builders/protobuf';
 import {
   CommitState,
   CreateBranchRequest,
@@ -70,6 +71,7 @@ export type ListCommitArgs = {
   from?: CommitObject;
   to?: CommitObject;
   projectId: string;
+  started_time?: TimestampObject;
 };
 
 export type InspectCommitSetArgs = {

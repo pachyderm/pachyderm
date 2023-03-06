@@ -1,6 +1,8 @@
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb';
 import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
 
+import {timestampFromObject} from '@dash-backend/proto/builders/protobuf';
+
 import {
   commitSetFromObject,
   CommitSetObject,
@@ -237,6 +239,7 @@ const pfs = ({
       to,
       repo,
       reverse = false,
+      started_time,
     }: ListCommitArgs) => {
       const listCommitRequest = new ListCommitRequest();
       if (repo) {
@@ -273,6 +276,10 @@ const pfs = ({
 
       listCommitRequest.setAll(all);
       listCommitRequest.setReverse(reverse);
+
+      if (started_time) {
+        listCommitRequest.setStartedTime(timestampFromObject(started_time));
+      }
 
       const stream = client.listCommit(listCommitRequest, credentialMetadata, {
         deadline: Date.now() + RPC_DEADLINE_MS,

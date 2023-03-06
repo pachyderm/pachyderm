@@ -73,8 +73,9 @@ describe('resolvers/Commits', () => {
       );
 
       expect(errors).toHaveLength(0);
-      expect(data?.commits).toHaveLength(6);
-      expect(data?.commits[0].hasLinkedJob).toBeFalsy();
+      const commits = data?.commits.items;
+      expect(commits).toHaveLength(6);
+      expect(commits?.[0].hasLinkedJob).toBeFalsy();
     });
 
     it('should return commits for a given branch', async () => {
@@ -89,7 +90,88 @@ describe('resolvers/Commits', () => {
       );
 
       expect(errors).toHaveLength(0);
-      expect(data?.commits).toHaveLength(1);
+      const commits = data?.commits.items;
+      expect(commits).toHaveLength(1);
+    });
+
+    describe('paging', () => {
+      it('should return the first page if no cursor is specified', async () => {
+        const projectId = 'Solar-Power-Data-Logger-Team-Collab';
+        const repo = 'cron';
+        const {data, errors = []} = await executeQuery<GetCommitsQuery>(
+          GET_COMMITS_QUERY,
+          {
+            args: {projectId, repoName: repo, number: 3},
+          },
+        );
+
+        expect(errors).toHaveLength(0);
+        const commits = data?.commits.items;
+        expect(commits).toHaveLength(3);
+        expect(data?.commits.cursor).toEqual(
+          expect.objectContaining({
+            seconds: 1614136389,
+            nanos: 0,
+          }),
+        );
+        expect(data?.commits.hasNextPage).toBe(true);
+      });
+
+      it('should return the next page if cursor is specified', async () => {
+        const projectId = 'Solar-Power-Data-Logger-Team-Collab';
+        const repo = 'cron';
+        const {data, errors = []} = await executeQuery<GetCommitsQuery>(
+          GET_COMMITS_QUERY,
+          {
+            args: {
+              projectId,
+              repoName: repo,
+              number: 3,
+              cursor: {
+                seconds: 1614136289,
+                nanos: 0,
+              },
+            },
+          },
+        );
+
+        expect(errors).toHaveLength(0);
+        const commits = data?.commits.items;
+        expect(errors).toHaveLength(0);
+        expect(commits).toHaveLength(3);
+        expect(data?.commits.cursor).toEqual(
+          expect.objectContaining({
+            seconds: 1614133389,
+            nanos: 3,
+          }),
+        );
+        expect(data?.commits.hasNextPage).toBe(true);
+      });
+
+      it('should return no cursor if there are no more commits after the requested page', async () => {
+        const projectId = 'Solar-Power-Data-Logger-Team-Collab';
+        const repo = 'cron';
+        const {data, errors = []} = await executeQuery<GetCommitsQuery>(
+          GET_COMMITS_QUERY,
+          {
+            args: {
+              projectId,
+              repoName: repo,
+              number: 3,
+              cursor: {
+                seconds: 1614133389,
+                nanos: 3,
+              },
+            },
+          },
+        );
+
+        expect(errors).toHaveLength(0);
+        const commits = data?.commits.items;
+        expect(commits).toHaveLength(1);
+        expect(data?.commits.cursor).toBeNull();
+        expect(data?.commits.hasNextPage).toBe(false);
+      });
     });
   });
   describe('startCommit', () => {
@@ -97,14 +179,14 @@ describe('resolvers/Commits', () => {
       const projectId = 'Solar-Power-Data-Logger-Team-Collab';
       const repo = 'cron';
 
-      const {data: initialCommits} = await executeQuery<GetCommitsQuery>(
+      const {data: initialData} = await executeQuery<GetCommitsQuery>(
         GET_COMMITS_QUERY,
         {
           args: {projectId, repoName: repo, number: 100},
         },
       );
-
-      expect(initialCommits?.commits).toHaveLength(6);
+      const initialCommits = initialData?.commits.items;
+      expect(initialCommits).toHaveLength(6);
 
       const {errors = []} = await executeMutation<StartCommitMutation>(
         START_COMMIT_MUTATION,
@@ -115,14 +197,15 @@ describe('resolvers/Commits', () => {
 
       expect(errors).toHaveLength(0);
 
-      const {data: updatedCommits} = await executeQuery<GetCommitsQuery>(
+      const {data: updatedData} = await executeQuery<GetCommitsQuery>(
         GET_COMMITS_QUERY,
         {
           args: {projectId, repoName: repo, number: 100},
         },
       );
 
-      expect(updatedCommits?.commits).toHaveLength(7);
+      const updatedCommits = updatedData?.commits.items;
+      expect(updatedCommits).toHaveLength(7);
     });
   });
 
@@ -138,14 +221,15 @@ describe('resolvers/Commits', () => {
         },
       );
 
-      const {data: initialCommits} = await executeQuery<GetCommitsQuery>(
+      const {data: initialData} = await executeQuery<GetCommitsQuery>(
         GET_COMMITS_QUERY,
         {
           args: {projectId, repoName: repo, number: 100},
         },
       );
 
-      const startCommit = initialCommits?.commits.find(
+      const initialCommits = initialData?.commits.items;
+      const startCommit = initialCommits?.find(
         (commit) => commit.id === data?.startCommit.id,
       );
 
@@ -172,14 +256,15 @@ describe('resolvers/Commits', () => {
 
       expect(errors).toHaveLength(0);
 
-      const {data: updatedCommits} = await executeQuery<GetCommitsQuery>(
+      const {data: updatedData} = await executeQuery<GetCommitsQuery>(
         GET_COMMITS_QUERY,
         {
           args: {projectId, repoName: repo, number: 100},
         },
       );
 
-      const finishedCommit = updatedCommits?.commits.find(
+      const updatedCommits = updatedData?.commits.items;
+      const finishedCommit = updatedCommits?.find(
         (commit) => commit.id === data?.startCommit.id,
       );
 

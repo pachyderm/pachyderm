@@ -3,7 +3,12 @@ import {GET_COMMITS_QUERY} from '@dash-frontend/queries/GetCommitsQuery';
 import {GET_REPO_QUERY} from '@dash-frontend/queries/GetRepoQuery';
 
 import {executeMutation, executeQuery} from '@dash-backend/testHelpers';
-import {RepoQuery, CreateBranchMutation, GetCommitsQuery} from '@graphqlTypes';
+import {
+  RepoQuery,
+  CreateBranchMutation,
+  GetCommitsQuery,
+  Commit,
+} from '@graphqlTypes';
 
 describe('createBranch', () => {
   const projectId = 'Solar-Power-Data-Logger-Team-Collab';
@@ -37,7 +42,9 @@ describe('createBranch', () => {
         args: {repoName: 'cron', projectId},
       },
     );
-    expect(response?.commits).toHaveLength(6);
+
+    const commits = response?.commits.items as Commit[];
+    expect(commits).toHaveLength(6);
 
     const {data, errors = []} = await executeMutation<CreateBranchMutation>(
       CREATE_BRANCH_MUTATION,
@@ -57,6 +64,7 @@ describe('createBranch', () => {
         args: {repoName: 'cron', projectId},
       },
     );
-    expect(response2?.commits).toHaveLength(2);
+    const commits2 = response2?.commits.items as Commit[];
+    expect(commits2).toHaveLength(2);
   });
 });

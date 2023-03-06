@@ -4,7 +4,6 @@ import {DATUMS_QUERY} from '@dash-frontend/queries/GetDatumsQuery';
 
 import {executeQuery} from '@dash-backend/testHelpers';
 import {
-  Datum,
   DatumFilter,
   DatumQuery,
   DatumSearchQuery,
@@ -76,7 +75,7 @@ describe('Datum resolver', () => {
           },
         },
       );
-      const datums = data?.datums.items as Datum[];
+      const datums = data?.datums.items;
       expect(errors).toHaveLength(0);
       expect(datums).toHaveLength(4);
     });
@@ -94,9 +93,9 @@ describe('Datum resolver', () => {
         },
       );
       expect(errors).toHaveLength(0);
-      const datums = data?.datums.items as Datum[];
+      const datums = data?.datums.items;
       expect(datums).toHaveLength(1);
-      expect(datums[0].id).toBe(
+      expect(datums?.[0].id).toBe(
         '01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155',
       );
     });
@@ -114,7 +113,7 @@ describe('Datum resolver', () => {
           },
         },
       );
-      const datums = data?.datums.items as Datum[];
+      const datums = data?.datums.items;
       expect(errors).toHaveLength(0);
       expect(datums).toHaveLength(10);
       expect(data?.datums.cursor).toBe(
@@ -137,7 +136,7 @@ describe('Datum resolver', () => {
           },
         },
       );
-      const datums = data?.datums.items as Datum[];
+      const datums = data?.datums.items;
       expect(errors).toHaveLength(0);
       expect(datums).toHaveLength(27);
       expect(data?.datums.cursor).toBe(
@@ -160,7 +159,7 @@ describe('Datum resolver', () => {
           },
         },
       );
-      const datums = data?.datums.items as Datum[];
+      const datums = data?.datums.items;
       expect(errors).toHaveLength(0);
       expect(datums).toHaveLength(7);
       expect(data?.datums.cursor).toBeNull();

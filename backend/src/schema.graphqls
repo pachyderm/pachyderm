@@ -20,6 +20,11 @@ enum InputType {
   GIT
 }
 
+input TimestampInput {
+  seconds: Int!
+  nanos: Int!
+}
+
 type Input {
   id: ID! # This will need to be assigned on the API side
   type: InputType!
@@ -419,6 +424,7 @@ input CommitsQueryArgs {
   pipelineName: String
   originKind: OriginKind
   number: Int
+  cursor: TimestampInput
 }
 
 input SearchResultQueryArgs {
@@ -583,15 +589,17 @@ type AdminInfo {
   clusterId: String
 }
 
-type PageableResponse {
-  items: [Pageable!]!
-
-  # Add paging specific info here
+type PageableDatum {
+  items: [Datum!]!
   cursor: String
   hasNextPage: Boolean
 }
 
-union Pageable = Datum | File
+type PageableCommit {
+  items: [Commit!]!
+  cursor: Timestamp
+  hasNextPage: Boolean
+}
 
 type Query {
   project(id: ID!): Project!
@@ -613,11 +621,11 @@ type Query {
   workspaceLogs(args: WorkspaceLogsArgs!): [Log]!
   logs(args: LogsArgs!): [Log]!
   commit(args: CommitQueryArgs!): Commit
-  commits(args: CommitsQueryArgs!): [Commit!]!
+  commits(args: CommitsQueryArgs!): PageableCommit!
   branch(args: BranchQueryArgs!): Branch!
   datum(args: DatumQueryArgs!): Datum!
   datumSearch(args: DatumQueryArgs!): Datum
-  datums(args: DatumsQueryArgs!): PageableResponse!
+  datums(args: DatumsQueryArgs!): PageableDatum!
   enterpriseInfo: EnterpriseInfo!
   adminInfo: AdminInfo!
 }

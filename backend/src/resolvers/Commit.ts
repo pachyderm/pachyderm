@@ -12,6 +12,7 @@ import {
 
 import {commitInfoToGQLCommit, commitToGQLCommit} from './builders/pfs';
 
+const DEFAULT_LIMIT = 100;
 interface CommitResolver {
   Query: {
     commits: QueryResolvers['commits'];
@@ -117,39 +118,54 @@ const commitResolver: CommitResolver = {
     },
     commits: async (
       _parent,
-      {args: {projectId, repoName, branchName, number, originKind}},
+      {args: {projectId, repoName, branchName, number, originKind, cursor}},
       {pachClient},
     ) => {
+      number = number || DEFAULT_LIMIT;
+
       const jobSetIds = await getJobSetIds({projectId, pachClient});
-      return (
-        await pachClient.pfs().listCommit({
-          projectId,
-          repo: {
-            name: repoName,
-            project: {name: projectId},
-          },
-          number: number || 100,
-          originKind: originKind ? toProtoCommitOrigin(originKind) : undefined,
-          to: branchName
-            ? {
-                id: '',
-                branch: {
-                  name: branchName,
-                  repo: {
-                    name: repoName,
-                    project: {name: projectId},
-                  },
+      const commits = await pachClient.pfs().listCommit({
+        projectId,
+        repo: {
+          name: repoName,
+          project: {name: projectId},
+        },
+        number: number + 1,
+        originKind: originKind ? toProtoCommitOrigin(originKind) : undefined,
+        to: branchName
+          ? {
+              id: '',
+              branch: {
+                name: branchName,
+                repo: {
+                  name: repoName,
+                  project: {name: projectId},
                 },
-              }
-            : undefined,
-        })
-      ).map((c) => {
-        const gqlCommit = commitInfoToGQLCommit(c);
-        gqlCommit.hasLinkedJob = c.commit?.id
-          ? jobSetIds.has(c.commit?.id)
-          : false;
-        return gqlCommit;
+              },
+            }
+          : undefined,
+        started_time: cursor || undefined,
       });
+
+      let nextCursor = undefined;
+
+      //If commits.length is not greater than limit there are no pages left
+      if (commits.length > number) {
+        commits.pop(); //remove the extra commit from the response
+        nextCursor = commits[commits.length - 1].started;
+      }
+
+      return {
+        items: commits.map((c) => {
+          const gqlCommit = commitInfoToGQLCommit(c);
+          gqlCommit.hasLinkedJob = c.commit?.id
+            ? jobSetIds.has(c.commit?.id)
+            : false;
+          return gqlCommit;
+        }),
+        cursor: nextCursor,
+        hasNextPage: !!nextCursor,
+      };
     },
   },
   Mutation: {

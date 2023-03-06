@@ -206,7 +206,7 @@ const pfs = () => {
             MockState.state.commits[projectId.toString()] ||
             MockState.state.commits['Solar-Panel-Data-Sorting'];
 
-          allCommits.forEach((commit) => {
+          let commits = allCommits.filter((commit) => {
             if (
               commit.getCommit()?.getBranch()?.getRepo()?.getName() ===
                 repoName &&
@@ -214,9 +214,25 @@ const pfs = () => {
                 commit.getCommit()?.getBranch()?.getName() === branchName) &&
               (!originKind || commit.getOrigin()?.getKind() === originKind)
             ) {
-              call.write(commit);
+              return commit;
             }
           });
+
+          const cursor = call.request.getStartedTime();
+          if (cursor) {
+            const cursorIndex = commits.findIndex(
+              (commit) =>
+                commit.getStarted()?.getNanos() === cursor.getNanos() &&
+                commit.getStarted()?.getSeconds() === cursor.getSeconds(),
+            );
+            commits = commits.slice(cursorIndex !== -1 ? cursorIndex + 1 : -1);
+          }
+
+          const number = call.request.getNumber();
+          if (number) {
+            commits = commits.slice(0, number);
+          }
+          commits.forEach((commit) => call.write(commit));
 
           call.end();
         },

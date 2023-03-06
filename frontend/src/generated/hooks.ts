@@ -910,7 +910,14 @@ export type CommitQueryResult = Apollo.QueryResult<
 export const GetCommitsDocument = gql`
   query getCommits($args: CommitsQueryArgs!) {
     commits(args: $args) {
-      ...CommitFragment
+      items {
+        ...CommitFragment
+      }
+      cursor {
+        seconds
+        nanos
+      }
+      hasNextPage
     }
   }
   ${CommitFragmentFragmentDoc}
@@ -1189,9 +1196,7 @@ export const DatumsDocument = gql`
   query datums($args: DatumsQueryArgs!) {
     datums(args: $args) {
       items {
-        ... on Datum {
-          ...Datum
-        }
+        ...Datum
       }
       cursor
       hasNextPage

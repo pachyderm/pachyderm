@@ -252,6 +252,5 @@ export const datumInfoToGQLDatum = (
 
     downloadBytes: datumInfo.stats?.downloadBytes,
     uploadBytes: datumInfo.stats?.uploadBytes,
-    __typename: 'Datum',
   };
 };

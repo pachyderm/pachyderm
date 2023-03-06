@@ -116,7 +116,7 @@ const tutorial = [
     sizeBytes: 100,
     started: {
       seconds: 1614133389,
-      nanos: 0,
+      nanos: 3,
     },
   }),
   commitInfoFromObject({
@@ -136,7 +136,7 @@ const tutorial = [
     sizeBytes: 100,
     started: {
       seconds: 1614133389,
-      nanos: 0,
+      nanos: 9,
     },
   }),
   commitInfoFromObject({
@@ -156,7 +156,7 @@ const tutorial = [
     sizeBytes: 100,
     started: {
       seconds: 1614133389,
-      nanos: 0,
+      nanos: 11,
     },
     finished: {
       seconds: 1614136391,

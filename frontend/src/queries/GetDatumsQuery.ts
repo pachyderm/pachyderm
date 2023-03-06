@@ -6,9 +6,7 @@ export const DATUMS_QUERY = gql`
   query datums($args: DatumsQueryArgs!) {
     datums(args: $args) {
       items {
-        ... on Datum {
-          ...Datum
-        }
+        ...Datum
       }
       cursor
       hasNextPage

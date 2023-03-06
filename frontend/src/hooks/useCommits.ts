@@ -18,9 +18,11 @@ const useCommits = ({args, skip = false}: UseCommitArgs) => {
   });
 
   return {
-    commits: data?.commits,
+    commits: data?.commits.items || [],
     error,
     loading,
+    hasNextPage: data?.commits.hasNextPage,
+    cursor: data?.commits.cursor,
   };
 };
 
