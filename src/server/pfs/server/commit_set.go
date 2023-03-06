@@ -54,14 +54,14 @@ func TopologicalSort(cis []*pfs.CommitInfo) []*pfs.CommitInfo {
 	res := make([]*pfs.CommitInfo, 0)
 	// set up commitSubv
 	for _, ci := range commits {
-		for _, p := range ci.CommitProvenance {
+		for _, p := range ci.DirectProvenance {
 			if _, ok := commits[pfsdb.CommitKey(p)]; ok {
 				commitSubv[pfsdb.CommitKey(p)] = append(commitSubv[pfsdb.CommitKey(p)], pfsdb.CommitKey(ci.Commit))
 			}
 		}
 	}
 	canPop := func(k string) bool {
-		for _, p := range commits[k].CommitProvenance {
+		for _, p := range commits[k].DirectProvenance {
 			if _, ok := commitSubv[pfsdb.CommitKey(p)]; ok {
 				return false
 			}

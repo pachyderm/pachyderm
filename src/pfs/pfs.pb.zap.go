@@ -167,6 +167,13 @@ func (x *CommitInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	protoextensions.AddTimestamp(enc, "started", x.Started)
 	protoextensions.AddTimestamp(enc, "finishing", x.Finishing)
 	protoextensions.AddTimestamp(enc, "finished", x.Finished)
+	old_direct_provenanceArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.OldDirectProvenance {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("old_direct_provenance", zapcore.ArrayMarshalerFunc(old_direct_provenanceArrMarshaller))
 	direct_provenanceArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.DirectProvenance {
 			enc.AppendObject(v)
@@ -174,13 +181,6 @@ func (x *CommitInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("direct_provenance", zapcore.ArrayMarshalerFunc(direct_provenanceArrMarshaller))
-	commit_provenanceArrMarshaller := func(enc zapcore.ArrayEncoder) error {
-		for _, v := range x.CommitProvenance {
-			enc.AppendObject(v)
-		}
-		return nil
-	}
-	enc.AddArray("commit_provenance", zapcore.ArrayMarshalerFunc(commit_provenanceArrMarshaller))
 	enc.AddString("error", x.Error)
 	enc.AddInt64("size_bytes_upper_bound", x.SizeBytesUpperBound)
 	enc.AddObject("details", x.Details)

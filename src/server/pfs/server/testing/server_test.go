@@ -1946,7 +1946,7 @@ func TestPFS(suite *testing.T) {
 		// Now create a branch provenant on both branches A and B
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "output", "C", "", "", []*pfs.Branch{client.NewProjectBranch(pfs.DefaultProjectName, "input", "A"), client.NewProjectBranch(pfs.DefaultProjectName, "input", "B")}))
 		// The head commit of the C branch should have a different ID than the new heads
-		// of branches A and B, but should include them in its CommitProvenance
+		// of branches A and B, but should include them in its DirectProvenance
 		cHead, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "output", "C", "")
 		require.NoError(t, err)
 		aHead, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "input", "A", "")
@@ -1957,8 +1957,8 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, aHead.Commit.ID, bHead.Commit.ID)
 		// Chain of C should only have one commit, differing from A & B
 		require.NotEqual(t, cHead.Commit.ID, bHead.Commit.ID)
-		require.Equal(t, 1, len(cHead.CommitProvenance))
-		require.Equal(t, aHead.Commit.ID, cHead.CommitProvenance[0].ID)
+		require.Equal(t, 1, len(cHead.DirectProvenance))
+		require.Equal(t, aHead.Commit.ID, cHead.DirectProvenance[0].ID)
 		// We should be able to squash the parent commits of A and B Head
 		require.NoError(t, env.PachClient.SquashCommitSet(aHead.ParentCommit.ID))
 		aHead, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "input", "A", "")
@@ -1987,9 +1987,9 @@ func TestPFS(suite *testing.T) {
 		bHeadNew, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "input", "B", "")
 		require.NoError(t, err)
 		// check C.Head's commit provenance
-		require.Equal(t, 1, len(cHeadNew.CommitProvenance))
-		require.Equal(t, "input", cHeadNew.CommitProvenance[0].Repo.Name)
-		require.Equal(t, aHeadNew.Commit.ID, cHeadNew.CommitProvenance[0].ID)
+		require.Equal(t, 1, len(cHeadNew.DirectProvenance))
+		require.Equal(t, "input", cHeadNew.DirectProvenance[0].Repo.Name)
+		require.Equal(t, aHeadNew.Commit.ID, cHeadNew.DirectProvenance[0].ID)
 		// check that the head commits of A, B, & C have the same ID
 		require.Equal(t, aHeadNew.Commit.ID, cHeadNew.Commit.ID)
 		require.Equal(t, bHeadNew.Commit.ID, cHeadNew.Commit.ID)
@@ -5776,8 +5776,8 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 1, len(commitInfos)) // only input@master. output1@staging should now have a commit that's provenant on input@master
 		outputStagingCi, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "output1", "staging", "")
 		require.NoError(t, err)
-		require.Equal(t, commitInfoB.Commit.Repo, outputStagingCi.CommitProvenance[0].Repo)
-		require.Equal(t, commitInfoB.Commit.ID, outputStagingCi.CommitProvenance[0].ID)
+		require.Equal(t, commitInfoB.Commit.Repo, outputStagingCi.DirectProvenance[0].Repo)
+		require.Equal(t, commitInfoB.Commit.ID, outputStagingCi.DirectProvenance[0].ID)
 		// now kick off output2@staging by fast-forwarding output1@master -> output1@staging
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "output1", "master", "staging", "", nil))
 		require.NoError(t, finishCommit(env.PachClient, "output2", "staging", ""))
@@ -5788,8 +5788,8 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 2, len(commitInfos))
 		output2StagingCi, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "output2", "staging", "")
 		require.NoError(t, err)
-		require.Equal(t, outputStagingCi.Commit.Repo, output2StagingCi.CommitProvenance[0].Repo)
-		require.Equal(t, outputStagingCi.Commit.ID, output2StagingCi.CommitProvenance[0].ID)
+		require.Equal(t, outputStagingCi.Commit.Repo, output2StagingCi.DirectProvenance[0].Repo)
+		require.Equal(t, outputStagingCi.Commit.ID, output2StagingCi.DirectProvenance[0].ID)
 	})
 
 	suite.Run("SquashCommitEmptyChild", func(t *testing.T) {

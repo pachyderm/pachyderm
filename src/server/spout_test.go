@@ -377,8 +377,8 @@ func testSpout(t *testing.T, usePachctl bool) {
 		countBreakFunc := newCountBreakFunc(3)
 		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline), "", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
-				require.Equal(t, 1, len(ci.CommitProvenance))
-				require.Equal(t, specCi.Commit.Repo, ci.CommitProvenance[0].Repo)
+				require.Equal(t, 1, len(ci.DirectProvenance))
+				require.Equal(t, specCi.Commit.Repo, ci.DirectProvenance[0].Repo)
 				return nil
 			})
 		}))
@@ -404,8 +404,8 @@ func testSpout(t *testing.T, usePachctl bool) {
 		countBreakFunc = newCountBreakFunc(6)
 		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline), "", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
-				require.Equal(t, 1, len(ci.CommitProvenance))
-				require.Equal(t, specCi.Commit.Repo, ci.CommitProvenance[0].Repo)
+				require.Equal(t, 1, len(ci.DirectProvenance))
+				require.Equal(t, specCi.Commit.Repo, ci.DirectProvenance[0].Repo)
 				return nil
 			})
 		}))

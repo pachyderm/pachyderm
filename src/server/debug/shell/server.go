@@ -371,7 +371,7 @@ func (d *debugDump) listBranch(req *pfs.ListBranchRequest, srv pfs.API_ListBranc
 		return srv.Send(&pfs.BranchInfo{
 			Branch:           ci.Commit.Branch,
 			Head:             ci.Commit,
-			DirectProvenance: ci.DirectProvenance,
+			DirectProvenance: ci.OldDirectProvenance,
 		})
 	}); err != nil {
 		return err
@@ -392,7 +392,7 @@ func (d *debugDump) inspectBranch(_ context.Context, req *pfs.InspectBranchReque
 		bi = &pfs.BranchInfo{
 			Branch:           ci.Commit.Branch,
 			Head:             ci.Commit, // will be inaccurate if the head is moved to an old commit
-			DirectProvenance: ci.DirectProvenance,
+			DirectProvenance: ci.OldDirectProvenance,
 		}
 		return errutil.ErrBreak
 	}); err != nil {

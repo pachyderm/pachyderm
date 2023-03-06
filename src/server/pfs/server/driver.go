@@ -588,7 +588,7 @@ func (d *driver) addCommit(txnCtx *txncontext.TransactionContext, newCommitInfo 
 		provHeads[pfsdb.CommitKey(branchInfo.Head)] = branchInfo.Head
 	}
 	for _, p := range provHeads {
-		newCommitInfo.CommitProvenance = append(newCommitInfo.CommitProvenance, p)
+		newCommitInfo.DirectProvenance = append(newCommitInfo.DirectProvenance, p)
 	}
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(newCommitInfo.Commit, newCommitInfo); err != nil {
 		if col.IsErrExists(err) {
@@ -690,7 +690,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
 		return errors.Errorf("cannot finish an alias commit: %s", commitInfo.Commit)
 	}
-	if !force && len(commitInfo.CommitProvenance) > 0 {
+	if !force && len(commitInfo.DirectProvenance) > 0 {
 		if info, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil && !errutil.IsNotFoundError(err) {
 			return errors.EnsureStack(err)
 		} else if err == nil && info.Type == pps.PipelineInfo_PIPELINE_TYPE_TRANSFORM {
@@ -818,7 +818,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 					provCommit = provBranchInfo.Head
 				}
 			}
-			newCommitInfo.CommitProvenance = append(newCommitInfo.CommitProvenance, provCommit)
+			newCommitInfo.DirectProvenance = append(newCommitInfo.DirectProvenance, provCommit)
 		}
 		// we might be able to find an older parent commit that better reflects the provenance state, saving work
 		// Set 'newCommit's ParentCommit, 'branch.Head's ChildCommits and 'branch.Head'
@@ -844,7 +844,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			}
 		}
 		// add commit provenance
-		for _, c := range newCommitInfo.CommitProvenance {
+		for _, c := range newCommitInfo.DirectProvenance {
 			if err := pfsdb.AddCommitProvenance(txnCtx.SqlTx, newCommit, c); err != nil {
 				return errors.Wrapf(err, "add commit provenance from %q to %q", pfsdb.CommitKey(newCommit), pfsdb.CommitKey(c))
 			}
@@ -886,7 +886,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 		switch wait {
 		case pfs.CommitState_STARTED:
 		case pfs.CommitState_READY:
-			for _, c := range commitInfo.CommitProvenance {
+			for _, c := range commitInfo.DirectProvenance {
 				if _, err := d.inspectCommit(ctx, c, pfs.CommitState_FINISHED); err != nil {
 					return nil, err
 				}

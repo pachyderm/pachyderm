@@ -587,7 +587,7 @@ func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 			return errors.Wrapf(err, "delete real commit %q with ancestor", commitKey(ci.Commit), commitKey(ancstr))
 		}
 	}
-	// now set ci.CommitProvenance for each commit
+	// now set ci.DirectProvenance for each commit
 	cis = make([]*pfs.CommitInfo, 0)
 	if err := forEachCommit(ctx, tx, ci, func(string) error {
 		cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
@@ -597,12 +597,12 @@ func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	for _, ci := range cis {
 		var err error
-		ci.CommitProvenance, err = commitProvenance(tx, ci.Commit.Repo, ci.Commit.Branch, ci.Commit.ID)
+		ci.DirectProvenance, err = commitProvenance(tx, ci.Commit.Repo, ci.Commit.Branch, ci.Commit.ID)
 		if err != nil {
 			return err
 		}
 		if err := updateCommitInfo(ctx, tx, commitKey(ci.Commit), ci); err != nil {
-			return errors.Wrapf(err, "update CommitProvenance for %q", commitKey(ci.Commit))
+			return errors.Wrapf(err, "update DirectProvenance for %q", commitKey(ci.Commit))
 		}
 	}
 	// re-point branches if necessary
