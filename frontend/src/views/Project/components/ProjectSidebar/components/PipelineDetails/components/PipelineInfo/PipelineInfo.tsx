@@ -7,17 +7,10 @@ import {RepoLink} from '@dash-frontend/components/ResourceLink';
 import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import extractAndShortenIds from '@dash-frontend/lib/extractAndShortenIds';
-import {InputOutputNodesMap} from '@dash-frontend/lib/types';
 
 import styles from './PipelineInfo.module.css';
 
-type PipelineDetailsProps = {
-  inputOutputNodesMap?: InputOutputNodesMap;
-};
-
-const PipelineInfo: React.FC<PipelineDetailsProps> = ({
-  inputOutputNodesMap,
-}) => {
+const PipelineInfo: React.FC = () => {
   const {pipelineId} = useUrlState();
   const {pipeline, loading} = useCurrentPipeline();
 
@@ -26,16 +19,6 @@ const PipelineInfo: React.FC<PipelineDetailsProps> = ({
       <Description term="" loading={loading}>
         {pipeline && <PipelineStateComponent state={pipeline.state} />}
       </Description>
-
-      {inputOutputNodesMap && inputOutputNodesMap[pipeline?.id || ''] && (
-        <Description loading={loading} term="Inputs">
-          <div className={styles.repoGroup}>
-            {inputOutputNodesMap[pipeline?.id || ''].map(({name}) => (
-              <RepoLink name={name} key={name} />
-            ))}
-          </div>
-        </Description>
-      )}
 
       <Description term="Output Repo" loading={loading}>
         <div className={styles.repoGroup}>

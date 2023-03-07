@@ -303,5 +303,37 @@ describe('ProjectSidebar', () => {
         expect(mockServer.getState().repos['OpenCV-Tutorial']).toHaveLength(2),
       );
     });
+
+    it('should display a link to repo outputs', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/lineage/Egress-Examples/repos/edges/branch/default',
+      );
+
+      render(
+        <Project
+          pipelineOutputsMap={{
+            'Egress-Examples_edges': [
+              {
+                id: 'edges_output',
+                name: 'edges_output',
+              },
+              {
+                id: 'egress_output',
+                name: 'egress_output',
+              },
+            ],
+          }}
+        />,
+      );
+
+      await waitForElementToBeRemoved(() =>
+        screen.queryByTestId('RepoDetails__repoNameSkeleton'),
+      );
+
+      expect(screen.getByText('edges_output')).toBeInTheDocument();
+      expect(screen.getByText('egress_output')).toBeInTheDocument();
+    });
   });
 });

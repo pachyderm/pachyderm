@@ -53,15 +53,12 @@ const repoResolver: RepoResolver = {
   Repo: {
     linkedPipeline: async (repo, _args, {pachClient}) => {
       try {
-        if (repo.linkedPipeline) {
-          return pipelineInfoToGQLPipeline(
-            await pachClient.pps().inspectPipeline({
-              pipelineId: repo.id,
-              projectId: repo.projectId,
-            }),
-          );
-        }
-        return null;
+        return pipelineInfoToGQLPipeline(
+          await pachClient.pps().inspectPipeline({
+            pipelineId: repo.id,
+            projectId: repo.projectId,
+          }),
+        );
       } catch (err) {
         return null;
       }

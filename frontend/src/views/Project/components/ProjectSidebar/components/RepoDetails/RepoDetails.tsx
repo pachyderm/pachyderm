@@ -4,7 +4,9 @@ import {Helmet} from 'react-helmet';
 
 import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
 import Description from '@dash-frontend/components/Description';
+import {PipelineLink} from '@dash-frontend/components/ResourceLink';
 import {standardFormat} from '@dash-frontend/constants/dateFormats';
+import {InputOutputNodesMap} from '@dash-frontend/lib/types';
 import {
   SkeletonDisplayText,
   ElephantEmptyState,
@@ -19,7 +21,11 @@ import CommitList from './components/CommitList';
 import useRepoDetails from './hooks/useRepoDetails';
 import styles from './RepoDetails.module.css';
 
-const RepoDetails: React.FC = () => {
+type RepoDetailsProps = {
+  pipelineOutputsMap?: InputOutputNodesMap;
+};
+
+const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
   const {repo, commit, repoError, currentRepoLoading} = useRepoDetails();
 
   if (!currentRepoLoading && repoError) {
@@ -35,6 +41,11 @@ const RepoDetails: React.FC = () => {
       </div>
     );
   }
+  const repoNodeName = `${repo?.projectId}_${repo?.name}`;
+  const pipelineOutputs =
+    pipelineOutputsMap[`${repoNodeName}_repo`] ||
+    pipelineOutputsMap[repoNodeName] ||
+    [];
 
   return (
     <div className={styles.base}>
@@ -49,6 +60,13 @@ const RepoDetails: React.FC = () => {
         )}
         {repo?.description && (
           <div className={styles.description}>{repo?.description}</div>
+        )}
+        {pipelineOutputs.length > 0 && (
+          <Description loading={currentRepoLoading} term="Inputs To">
+            {pipelineOutputs.map(({name}) => (
+              <PipelineLink name={name} key={name} />
+            ))}
+          </Description>
         )}
         <Description
           loading={currentRepoLoading}

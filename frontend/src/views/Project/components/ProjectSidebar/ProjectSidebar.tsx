@@ -15,12 +15,12 @@ import useProjectSidebar from './hooks/useProjectSidebar';
 import styles from './ProjectSidebar.module.css';
 
 type ProjectSidebarProps = {
-  inputOutputNodesMap?: InputOutputNodesMap;
+  pipelineOutputsMap?: InputOutputNodesMap;
   resizable?: boolean;
 };
 
 const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
-  inputOutputNodesMap,
+  pipelineOutputsMap,
   resizable = true,
 }) => {
   const {handleClose} = useProjectSidebar();
@@ -39,10 +39,10 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
         <Sidebar data-testid="ProjectSidebar__sidebar" {...resizableProps}>
           <Switch>
             <Route path={LINEAGE_REPO_PATH}>
-              <RepoDetails />
+              <RepoDetails pipelineOutputsMap={pipelineOutputsMap} />
             </Route>
             <Route path={LINEAGE_PIPELINE_PATH} exact>
-              <PipelineDetails inputOutputNodesMap={inputOutputNodesMap} />
+              <PipelineDetails />
             </Route>
           </Switch>
         </Sidebar>

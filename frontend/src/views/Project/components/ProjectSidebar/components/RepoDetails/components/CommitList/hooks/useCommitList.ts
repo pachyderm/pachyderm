@@ -28,7 +28,6 @@ const useCommitList = (repo?: RepoQuery['repo']) => {
     args: {
       projectId,
       repoName: repoId,
-      pipelineName: repo?.linkedPipeline?.name,
       originKind: hideAutoCommits ? OriginKind.USER : undefined,
       number: COMMIT_LIMIT,
     },

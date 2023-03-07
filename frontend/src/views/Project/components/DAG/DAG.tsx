@@ -13,7 +13,7 @@ import styles from './DAG.module.css';
 import {useDAG} from './hooks/useDAG';
 
 const DAG: React.FC = () => {
-  const {dags, error, loading} = useDAG();
+  const {dags, error, loading, pipelineOutputsMap} = useDAG();
   const {isOpen} = useSidebarInfo();
 
   return (
@@ -30,7 +30,7 @@ const DAG: React.FC = () => {
         <>
           <Route path={LINEAGE_PATH}>
             <DAGView dags={dags} loading={loading} error={error} />
-            <ProjectSidebar />
+            <ProjectSidebar pipelineOutputsMap={pipelineOutputsMap} />
           </Route>
         </>
       )}
