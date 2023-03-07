@@ -128,13 +128,14 @@ describe('mount plugin', () => {
     expect(plugin.layout.title.caption).toBe('Pachyderm Mount');
     expect(plugin.layout.id).toBe('pachyderm-mount');
     expect(plugin.layout.orientation).toBe('vertical');
-    expect(plugin.layout.widgets).toHaveLength(7);
+    expect(plugin.layout.widgets).toHaveLength(8);
     expect(plugin.layout.widgets[0]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[1]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[2]).toBeInstanceOf(ReactWidget);
-    expect(plugin.layout.widgets[3]).toBeInstanceOf(FileBrowser);
-    expect(plugin.layout.widgets[4]).toBeInstanceOf(ReactWidget);
+    expect(plugin.layout.widgets[3]).toBeInstanceOf(ReactWidget);
+    expect(plugin.layout.widgets[4]).toBeInstanceOf(FileBrowser);
     expect(plugin.layout.widgets[5]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[6]).toBeInstanceOf(ReactWidget);
+    expect(plugin.layout.widgets[7]).toBeInstanceOf(ReactWidget);
   });
 });
