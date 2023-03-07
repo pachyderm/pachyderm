@@ -311,6 +311,11 @@ func (a *apiServer) ClearCommit(ctx context.Context, request *pfs.ClearCommitReq
 	return &types.Empty{}, a.driver.clearCommit(ctx, request.Commit)
 }
 
+// FindCommits searches for commits that reference a supplied file being modified in a branch.
+func (a *apiServer) FindCommits(request *pfs.FindCommitsRequest, srv pfs.API_FindCommitsServer) error {
+	return a.driver.findCommits(srv.Context(), request, srv.Send)
+}
+
 // CreateBranchInTransaction is identical to CreateBranch except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.CreateBranchRequest) error {
