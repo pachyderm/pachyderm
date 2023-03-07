@@ -410,6 +410,21 @@ func waitForPgbouncer(t testing.TB, ctx context.Context, kubeClient *kube.Client
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
 }
 
+func waitForPostgres(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string) {
+	require.NoError(t, backoff.Retry(func() error {
+		pbs, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app.kubernetes.io/name=postgresql"})
+		if err != nil {
+			return errors.Wrap(err, "error on pod list")
+		}
+		for _, p := range pbs.Items {
+			if p.Status.Phase == v1.PodRunning && p.Status.ContainerStatuses[0].Ready && len(pbs.Items) == 1 {
+				return nil
+			}
+		}
+		return errors.Errorf("deployment in progress")
+	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
+}
+
 func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, namespace string, certpool *x509.CertPool) *client.APIClient {
 	var c *client.APIClient
 	// retry connecting if it doesn't immediately work
@@ -544,6 +559,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
 	}
 	waitForPgbouncer(t, ctx, kubeClient, namespace)
+	waitForPostgres(t, ctx, kubeClient, namespace)
 	if opts.WaitSeconds > 0 {
 		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
 	}
