@@ -4,6 +4,8 @@ import (
 	"archive/tar"
 	"bufio"
 	"compress/gzip"
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +15,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/gogo/protobuf/proto"
@@ -61,6 +64,10 @@ func Cmds(pachCtx *config.Context) []*cobra.Command {
 
 	var fullTimestamps bool
 	timestampFlags := cmdutil.TimestampFlags(&fullTimestamps)
+
+	var timeout time.Duration
+	var limit uint32
+	var jsonOutput bool
 
 	var noPager bool
 	pagerFlags := cmdutil.PagerFlags(&noPager)
@@ -1015,6 +1022,58 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	deleteBranch.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(deleteBranch, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteBranch, "delete branch", branches))
+
+	FindCommits := &cobra.Command{
+		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs> [flags]",
+		Short: "find commits with reference to <filePath> within a branch starting from <repo@commitID>",
+		Long:  "find commits with reference to <filePath> within a branch starting from <repo@commitID>",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			file, err := cmdutil.ParseFile(project, args[0])
+			if err != nil {
+				return err
+			}
+			commit := file.Commit
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			ctx := c.Ctx()
+			var cf context.CancelFunc
+			if timeout != time.Duration(0) {
+				ctx, cf = context.WithTimeout(c.Ctx(), timeout)
+				defer cf()
+			}
+			req := &pfs.FindCommitsRequest{
+				Start:    commit,
+				FilePath: file.Path,
+				Limit:    limit,
+			}
+			if jsonOutput {
+				resp, err := c.FindCommits(req)
+				if err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
+				jsonResp, err := json.Marshal(resp)
+				if err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
+				_, err = fmt.Fprintf(os.Stdout, "%s\n", string(jsonResp))
+				return grpcutil.ScrubGRPC(err)
+			}
+			findCommitClient, err := c.PfsAPIClient.FindCommits(ctx, req)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			return grpcutil.ScrubGRPC(pretty.PrintFindCommits(findCommitClient))
+		}),
+	}
+	FindCommits.Flags().BoolVar(&jsonOutput, "json", jsonOutput, "print the response in json")
+	FindCommits.Flags().Uint32Var(&limit, "limit", limit, "Number of matching commits to return")
+	FindCommits.Flags().DurationVar(&timeout, "timeout", timeout, "Search duration timeout")
+	FindCommits.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	shell.RegisterCompletionFunc(FindCommits, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAliases(FindCommits, "find commit", commits))
 
 	projectDocs := &cobra.Command{
 		Short: "Docs for projects.",
