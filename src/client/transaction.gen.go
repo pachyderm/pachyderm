@@ -349,6 +349,10 @@ func (c *unsupportedPfsBuilderClient) Egress(_ context.Context, _ *pfs_v2.Egress
 	return nil, unsupportedError("Egress")
 }
 
+func (c *unsupportedPfsBuilderClient) FindCommits(_ context.Context, _ *pfs_v2.FindCommitsRequest, opts ...grpc.CallOption) (pfs_v2.API_FindCommitsClient, error) {
+	return nil, unsupportedError("FindCommits")
+}
+
 func (c *unsupportedPfsBuilderClient) FinishCommit(_ context.Context, _ *pfs_v2.FinishCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("FinishCommit")
 }

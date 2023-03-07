@@ -4273,6 +4273,89 @@ func TestPFS(suite *testing.T) {
 		//	}
 	})
 
+	suite.Run("FindCommits", func(t *testing.T) {
+		t.Parallel()
+		ctx, cf := context.WithTimeout(pctx.TestContext(t), time.Minute)
+		defer cf()
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+
+		commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFile(commit1, "/files/a", strings.NewReader("foo")))
+		require.NoError(t, env.PachClient.PutFile(commit1, "/files/b", strings.NewReader("bar")))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+
+		commit2, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFile(commit2, "/files/c", strings.NewReader("baz")))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID))
+
+		commit3, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFile(commit3, "/files/b", strings.NewReader("foo")))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.ID))
+
+		commit4, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.DeleteFile(commit4, "/files/b"))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit4.Branch.Name, commit4.ID))
+
+		resp, err := env.PachClient.FindCommits(&pfs.FindCommitsRequest{FilePath: "/files/b", Start: commit4, Limit: 0})
+		require.NoError(t, err)
+
+		require.Equal(t, []*pfs.Commit{commit4, commit3, commit1}, resp.FoundCommits)
+		require.Equal(t, uint32(4), resp.CommitsSearched)
+		require.Equal(t, commit1, resp.LastSearchedCommit)
+	})
+
+	suite.Run("FindCommitsLimit", func(t *testing.T) {
+		t.Parallel()
+		ctx, cf := context.WithTimeout(pctx.TestContext(t), time.Minute)
+		defer cf()
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+
+		commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFile(commit1, "/files/a", strings.NewReader("foo")))
+		require.NoError(t, env.PachClient.PutFile(commit1, "/files/b", strings.NewReader("bar")))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+
+		commit2, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFile(commit2, "/files/b", strings.NewReader("foo")))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID))
+
+		resp, err := env.PachClient.FindCommits(&pfs.FindCommitsRequest{FilePath: "/files/b", Start: commit2, Limit: 1})
+		require.NoError(t, err)
+
+		require.Equal(t, []*pfs.Commit{commit2}, resp.FoundCommits)
+		require.Equal(t, uint32(1), resp.CommitsSearched)
+		require.Equal(t, commit2, resp.LastSearchedCommit)
+	})
+
+	suite.Run("FindCommitsOpenCommit", func(t *testing.T) {
+		t.Parallel()
+		ctx, cf := context.WithTimeout(pctx.TestContext(t), time.Minute)
+		defer cf()
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+
+		commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+
+		_, err = env.PachClient.FindCommits(&pfs.FindCommitsRequest{FilePath: "/files/b", Start: commit1, Limit: 1})
+		require.YesError(t, err)
+		require.Equal(t, err.Error(), pfsserver.ErrCommitNotFinished{Commit: commit1}.Error())
+	})
+
 	suite.Run("CopyFile", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)

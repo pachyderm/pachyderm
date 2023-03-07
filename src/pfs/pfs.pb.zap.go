@@ -430,6 +430,26 @@ func (x *CreateBranchRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	return nil
 }
 
+func (x *FindCommitsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("start", x.Start)
+	enc.AddString("file_path", x.FilePath)
+	enc.AddUint32("limit", x.Limit)
+	return nil
+}
+
+func (x *FindCommitsResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("found_commit", x.GetFoundCommit())
+	enc.AddObject("last_searched_commit", x.GetLastSearchedCommit())
+	enc.AddUint32("commits_searched", x.CommitsSearched)
+	return nil
+}
+
 func (x *InspectBranchRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
