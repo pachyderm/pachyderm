@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"fmt"
 	"math"
 	"os"
 	"sort"
@@ -12,8 +13,11 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/hashicorp/go-multierror"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -612,20 +616,15 @@ func (d *driver) deleteProject(ctx context.Context, txnCtx *txncontext.Transacti
 		return errors.Wrapf(err, "user is not authorized to delete project %q", project)
 	}
 
-	var repoInfos []*pfs.RepoInfo
+	var errs error
 	if err := d.listRepo(ctx, false /* includeAuth */, "" /* repoType */, []*pfs.Project{project} /* projectsFilter */, func(repoInfo *pfs.RepoInfo) error {
-		repoInfos = append(repoInfos, repoInfo)
+		errs = multierror.Append(errs, fmt.Errorf("repo %v still exists", repoInfo.GetRepo()))
 		return nil
 	}); err != nil {
 		return err
 	}
-	if len(repoInfos) > 0 && !force {
-		return errors.Errorf("project %q contains %d repos", project, len(repoInfos))
-	}
-	for _, repoInfo := range repoInfos {
-		if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil {
-			return errors.Wrapf(err, "could not delete repo %v", repoInfo.Repo)
-		}
+	if errs != nil {
+		return status.Error(codes.FailedPrecondition, fmt.Sprintf("cannot delete project %s: %v", project.Name, errs))
 	}
 
 	if err := d.projects.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.ProjectKey(project)); err != nil {
@@ -2321,6 +2320,9 @@ func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Projec
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
+	if _, err := d.deleteAllRepos(ctx); err != nil {
+		return errors.Wrap(err, "could not delete all repos")
+	}
 	var projectInfos []*pfs.ProjectInfo
 	if err := d.listProject(ctx, func(pi *pfs.ProjectInfo) error {
 		projectInfos = append(projectInfos, proto.Clone(pi).(*pfs.ProjectInfo))
