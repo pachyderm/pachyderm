@@ -487,7 +487,7 @@ func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectReques
 			Project:     req.Project,
 			Description: req.Description,
 		}); err != nil {
-			if errors.Is(err, col.ErrExists{}) {
+			if errors.As(err, &col.ErrExists{}) {
 				return pfsserver.ErrProjectExists{
 					Project: req.Project,
 				}
