@@ -45,6 +45,15 @@ commands:
       - run:
           name: Deploy Pachyderm CE
           command: etc/testing/circle/deploy-pachyderm.sh
+  run-pachyderm-with-console:
+    steps:
+      - gh/setup:
+          version: 2.20.2
+      - run: etc/testing/circle/install.sh
+      - run: etc/testing/circle/start-kind.sh
+      - run:
+          name: Deploy Pachyderm With Console
+          command: etc/testing/circle/deploy-pachyderm-with-console.sh
   activate-pachyderm-enterprise:
     steps:
       - run:
@@ -307,6 +316,23 @@ jobs:
             \`\`\`
             </details>
             "
+            
+  test-image:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202201-02
+    steps:
+      - checkout
+      - node/install-packages
+      - run-pachyderm-with-console
+      - run: touch .env.development.local
+      - run:
+          name: Run Community Edition Cypress tests
+          command: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
+      - store_artifacts:
+          path: /tmp/cypress-screenshots
+      - store_artifacts:
+          path: /tmp/cypress-videos
 
 workflows:
   version: 2
@@ -357,7 +383,9 @@ workflows:
           filters:
             branches:
               ignore: master
-
+      - test-image:
+          requires:
+            - docker-manifest
   docker-release:
     jobs:
       - docker-build:
