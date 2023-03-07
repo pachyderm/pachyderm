@@ -97,7 +97,7 @@ describe('ProjectSidebar', () => {
       });
       expect(fileBrowserLink).toHaveAttribute(
         'href',
-        '/lineage/Data-Cleaning-Process/repos/training/branch/master/commit/23b9af7d5d4343219bc8e02ff4acd33a?view=eyJwcmV2UGF0aCI6Ii9saW5lYWdlL0RhdGEtQ2xlYW5pbmctUHJvY2Vzcy9yZXBvcy90cmFpbmluZy9icmFuY2gvZGVmYXVsdCJ9',
+        '/lineage/Data-Cleaning-Process/repos/training/branch/master/commit/23b9af7d5d4343219bc8e02ff4acd33a?prevPath=%2Flineage%2FData-Cleaning-Process%2Frepos%2Ftraining%2Fbranch%2Fdefault',
       );
     });
 
