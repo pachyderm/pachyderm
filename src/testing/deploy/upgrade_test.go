@@ -64,11 +64,12 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVer
 				ns,
 				k,
 				&minikubetestenv.DeployOpts{
-					WaitSeconds:  20,
-					CleanupAfter: true,
+					WaitSeconds:  10,
+					CleanupAfter: false,
 					PortOffset:   portOffset,
 					ValueOverrides: map[string]string{
 						"pachw.minReplicas": "1",
+						"pachd.logLevel":    "debug",
 					},
 				}))
 			t.Logf("postUpgrade done")

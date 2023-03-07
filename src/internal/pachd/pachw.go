@@ -44,7 +44,7 @@ func (pachwb *pachwBuilder) registerPFSServer(ctx context.Context) error {
 func (pachwb *pachwBuilder) registerAuthServer(ctx context.Context) error {
 	apiServer, err := authserver.NewAuthServer(
 		authserver.EnvFromServiceEnv(pachwb.env, pachwb.txnEnv),
-		true, !pachwb.daemon.criticalServersOnly, false,
+		false, !pachwb.daemon.criticalServersOnly, false,
 	)
 	if err != nil {
 		return err
@@ -72,9 +72,7 @@ func (pachwb *pachwBuilder) registerEnterpriseServer(ctx context.Context) error 
 	pachwb.forGRPCServer(func(s *grpc.Server) {
 		enterprise.RegisterAPIServer(s, apiServer)
 	})
-	// pachwb.bootstrappers = append(pachwb.bootstrappers, apiServer)
 	pachwb.env.SetEnterpriseServer(apiServer)
-	// pachwb.licenseEnv.EnterpriseServer = apiServer
 	return nil
 }
 
@@ -105,7 +103,6 @@ func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 		pachwb.initInternalServer,
 		pachwb.registerAuthServer,
 		pachwb.registerPFSServer, //PFS seems to need a non-nil auth server.
-		pachwb.registerPPSServer,
 		pachwb.registerEnterpriseServer,
 		pachwb.registerTransactionServer,
 		pachwb.registerHealthServer,
