@@ -93,7 +93,7 @@ const useDatumList = (
     if (filters && filters?.length !== 0) {
       return (
         filters?.reduce((acc, value) => {
-          return acc + datumMetrics[value];
+          return acc + datumMetrics[value as DatumFilter];
         }, 0) || 0
       );
     }
@@ -104,7 +104,7 @@ const useDatumList = (
     projectId,
     pipelineId,
     jobId: currentJobId,
-    filter: viewState.datumFilters,
+    filter: viewState.datumFilters as DatumFilter[],
     limit: DATUM_LIST_PAGE_SIZE,
     cursor: currentCursor,
   });
@@ -126,7 +126,7 @@ const useDatumList = (
           projectId,
           pipelineId,
           jobId: currentJobId,
-          filter: viewState.datumFilters,
+          filter: viewState.datumFilters as DatumFilter[],
           limit: DATUM_LIST_PAGE_SIZE,
           cursor: '',
         },

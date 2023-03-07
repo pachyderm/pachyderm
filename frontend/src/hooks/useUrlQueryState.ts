@@ -1,25 +1,17 @@
 import {DatumFilter, NodeState, OriginKind} from '@graphqlTypes';
 import isEmpty from 'lodash/isEmpty';
-import isEqual from 'lodash/isEqual';
-import omit from 'lodash/omit';
 import {useCallback, useMemo} from 'react';
 import {useHistory, useLocation} from 'react-router';
 
 import {DagDirection} from '@dash-frontend/lib/types';
 
-interface selectableResource {
-  selectedPipelines?: string[];
-  selectedRepos?: string[];
-  selectedJobs?: string[];
+interface SelectableResource {
+  selectedPipelines?: string[] | string;
+  selectedRepos?: string[] | string;
+  selectedJobs?: string[] | string;
 }
-export interface UrlState extends selectableResource {
-  dagDirection?: DagDirection;
-  sidebarWidth?: number;
-  skipCenterOnSelect?: boolean;
-  prevPath?: string;
-  tutorialId?: string;
-  sortBy?: string;
-  globalIdFilter?: string;
+
+interface ListParams extends SelectableResource {
   datumFilters?: DatumFilter[];
   jobStatus?: NodeState[];
   jobId?: string[];
@@ -29,113 +21,157 @@ export interface UrlState extends selectableResource {
   branchName?: string[];
   commitId?: string[];
 }
+export interface UrlState extends ListParams {
+  dagDirection?: DagDirection;
+  sidebarWidth?: number;
+  skipCenterOnSelect?: boolean;
+  prevPath?: string;
+  tutorialId?: string;
+  sortBy?: string;
+  globalIdFilter?: string;
+}
+export interface ViewStateLists {
+  selectedPipelines?: string[];
+  selectedRepos?: string[];
+  selectedJobs?: string[];
+  datumFilters?: string[];
+  jobStatus?: string[];
+  jobId?: string[];
+  pipelineStep?: string[];
+  pipelineState?: string[];
+  commitType?: string[];
+  branchName?: string[];
+  commitId?: string[];
+}
+export interface ViewStateValues {
+  dagDirection?: string;
+  sidebarWidth?: string;
+  skipCenterOnSelect?: string;
+  prevPath?: string;
+  tutorialId?: string;
+  sortBy?: string;
+  globalIdFilter?: string;
+}
+export interface ViewState extends ViewStateValues, ViewStateLists {}
 
-const getViewStateFromSearchParams = (searchParams: URLSearchParams) => {
-  const encodedViewState = searchParams.get('view');
-
-  let decodedViewState: UrlState = {};
-
-  if (encodedViewState) {
-    try {
-      decodedViewState = JSON.parse(atob(encodedViewState));
-    } catch (e) {
-      decodedViewState = {};
-    }
-  }
-
-  return decodedViewState;
-};
+const LIST_TYPES: (keyof ListParams)[] = [
+  'selectedPipelines',
+  'selectedRepos',
+  'selectedJobs',
+  'datumFilters',
+  'jobStatus',
+  'jobId',
+  'pipelineStep',
+  'pipelineState',
+  'commitType',
+  'branchName',
+  'commitId',
+];
 
 const useUrlQueryState = () => {
   const {search} = useLocation();
   const browserHistory = useHistory();
 
-  const searchParams = useMemo(() => {
-    return new URLSearchParams(search);
+  const viewState = useMemo(() => {
+    const searchParams = new URLSearchParams(search);
+    const viewState: ViewState = {};
+
+    for (const [key, value] of searchParams.entries()) {
+      if (LIST_TYPES.includes(key as keyof ListParams)) {
+        // use ListParams types as string[]
+        viewState[key as keyof ViewStateLists] = value.split(',');
+      } else {
+        // use all other values as string
+        viewState[key as keyof ViewStateValues] = value;
+      }
+    }
+    return viewState;
   }, [search]);
 
-  const viewState = useMemo(() => {
-    return getViewStateFromSearchParams(searchParams);
-  }, [searchParams]);
-
   const getUpdatedSearchParams = useCallback(
-    (newState: Partial<UrlState>) => {
-      const newSearchParams = new URLSearchParams(search);
+    (newState: UrlState, clearParams?: boolean) => {
+      const searchParams = new URLSearchParams(
+        clearParams ? undefined : window.location.search,
+      );
 
-      const updatedState: UrlState = {
-        ...viewState,
-        ...newState,
-      };
-
-      newSearchParams.set('view', btoa(JSON.stringify(updatedState)));
-
-      return newSearchParams;
+      Object.entries(newState).forEach(([key, value]) => {
+        // delete any search params that come back as falsy or empty values
+        // to trim the search string. E.g. a filter becoming an empty array
+        if (
+          value === '' ||
+          value === undefined ||
+          value === null ||
+          ((typeof value === 'object' || Array.isArray(value)) &&
+            isEmpty(value))
+        ) {
+          searchParams.delete(key);
+        } else {
+          searchParams.set(key, value);
+        }
+      });
+      return searchParams;
     },
-    [search, viewState],
+    [],
   );
 
   const getNewViewState = useCallback(
     (newState: Partial<UrlState>, path?: string) => {
-      const searchParams = new URLSearchParams();
       const pathname = window.location.pathname;
       const updatedPath = path || pathname;
 
-      searchParams.set('view', btoa(JSON.stringify(newState)));
+      const searchParams = getUpdatedSearchParams(newState, true);
 
       return browserHistory.push(`${updatedPath}?${searchParams}`);
     },
-    [browserHistory],
+    [browserHistory, getUpdatedSearchParams],
   );
 
   const updateViewState = useCallback(
     (newState: Partial<UrlState>, path?: string) => {
-      const searchParams = new URLSearchParams(window.location.search);
-      const decodedViewState = getViewStateFromSearchParams(searchParams);
+      const searchParams = getUpdatedSearchParams(newState);
 
-      const updatedState = Object.entries(newState).reduce(
-        (accViewState, [key, newValue]) => {
-          if (
-            newValue === '' ||
-            newValue === undefined ||
-            newValue === null ||
-            isEmpty(newValue)
-          ) {
-            return omit(accViewState, key);
-          }
-          return {...accViewState, [key]: newValue};
-        },
-        decodedViewState,
-      );
       const pathname = window.location.pathname;
       const updatedPath = path || pathname;
 
       // De-duplicating unecessary updates to the history API.
       if (
-        !isEqual(decodedViewState, updatedState) ||
+        searchParams.toString() !== window.location.search ||
         pathname !== updatedPath
       ) {
-        searchParams.set('view', btoa(JSON.stringify(updatedState)));
-
         return browserHistory.push(`${updatedPath}?${searchParams}`);
       }
     },
-    [browserHistory],
+    [browserHistory, getUpdatedSearchParams],
   );
 
-  const toggleSelection = (param: keyof selectableResource, value: string) => {
-    if (!viewState[param]) {
-      return updateViewState({
-        [param]: [value],
-      });
-    }
-    if (viewState[param] && Array.isArray(viewState[param])) {
-      return viewState[param]?.includes(value)
-        ? updateViewState({
-            [param]: viewState[param]?.filter((v) => v !== value),
-          })
-        : updateViewState({[param]: [...(viewState[param] || []), value]});
-    }
-  };
+  // params from SelectableResource are used to select subsets of a resource
+  // like selectedPipelines=A,B. This function either adds a new selection
+  // to the array or removes an existing one. (used in Table Views)
+  const toggleSelection = useCallback(
+    (param: keyof SelectableResource, value: string) => {
+      const selectableResourceArray = viewState[param];
+      if (!selectableResourceArray) {
+        return updateViewState({
+          [param]: [value],
+        });
+      }
+      if (selectableResourceArray && Array.isArray(selectableResourceArray)) {
+        if (selectableResourceArray.includes(value)) {
+          const filteredSelections = selectableResourceArray.filter(
+            (v: string) => v !== value,
+          );
+          updateViewState({
+            [param]: filteredSelections,
+          });
+        } else {
+          updateViewState({
+            [param]: [...selectableResourceArray, value],
+          });
+        }
+      }
+    },
+    [updateViewState, viewState],
+  );
 
   const clearViewState = useCallback(() => {
     return browserHistory.push(window.location.pathname);

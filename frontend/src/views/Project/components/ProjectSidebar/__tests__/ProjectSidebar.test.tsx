@@ -61,7 +61,7 @@ describe('ProjectSidebar', () => {
       const logsLink = await screen.findByRole('link', {name: 'Inspect Jobs'});
       expect(logsLink).toHaveAttribute(
         'href',
-        '/lineage/Solar-Panel-Data-Sorting/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs?view=eyJkYXR1bUZpbHRlcnMiOltdfQ%3D%3D',
+        '/lineage/Solar-Panel-Data-Sorting/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs',
       );
     });
 
@@ -79,7 +79,7 @@ describe('ProjectSidebar', () => {
       );
       expect(logsLink).toHaveAttribute(
         'href',
-        '/lineage/Solar-Panel-Data-Sorting/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs/datum?view=eyJkYXR1bUZpbHRlcnMiOlsiU1VDQ0VTUyJdfQ%3D%3D',
+        '/lineage/Solar-Panel-Data-Sorting/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs/datum?datumFilters=SUCCESS',
       );
     });
 
@@ -143,21 +143,6 @@ describe('ProjectSidebar', () => {
         expect(mockServer.getState().pipelines['OpenCV-Tutorial']).toHaveLength(
           0,
         ),
-      );
-    });
-
-    it('should show job details by default with a globalId filter', async () => {
-      window.history.replaceState(
-        '',
-        '',
-        '/lineage/Data-Cleaning-Process/pipelines/likelihoods?view=eyJnbG9iYWxJZEZpbHRlciI6IjIzYjlhZjdkNWQ0MzQzMjE5YmM4ZTAyZmY0YWNkMzNhIn0%3D',
-      );
-
-      render(<Project />);
-
-      await screen.findByTestId('InfoPanel__pipeline');
-      expect(screen.getByTestId('InfoPanel__pipeline')).toHaveTextContent(
-        'likelihoods',
       );
     });
 

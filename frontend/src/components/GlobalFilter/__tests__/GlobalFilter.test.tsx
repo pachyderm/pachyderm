@@ -59,7 +59,7 @@ describe('Global ID Filter', () => {
 
     await screen.findByText('23b9af...');
     expect(window.location.search).toBe(
-      '?view=eyJnbG9iYWxJZEZpbHRlciI6IjIzYjlhZjdkNWQ0MzQzMjE5YmM4ZTAyZmY0NGNkNTVhIn0%3D',
+      '?globalIdFilter=23b9af7d5d4343219bc8e02ff44cd55a',
     );
   });
 
@@ -81,6 +81,6 @@ describe('Global ID Filter', () => {
     screen.getByText('Clear ID').click();
 
     await screen.findByText('Filter by Global ID');
-    expect(window.location.search).toBe('?view=e30%3D');
+    expect(window.location.search).toBe('');
   });
 });

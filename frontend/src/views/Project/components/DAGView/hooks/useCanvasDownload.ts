@@ -1,10 +1,10 @@
 import {useEffect, useState} from 'react';
 
-import {UrlState} from '@dash-frontend/hooks/useUrlQueryState';
+import {ViewState} from '@dash-frontend/hooks/useUrlQueryState';
 import downloadSVG from '@dash-frontend/lib/downloadSVG';
 
 export const useCanvasDownload = (
-  viewState: UrlState,
+  viewState: ViewState,
   graphExtents: {
     xMin: number;
     xMax: number;

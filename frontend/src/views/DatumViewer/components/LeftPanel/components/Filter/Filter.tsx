@@ -48,7 +48,7 @@ export const Filter: React.FC<FilterProps> = ({formCtx}) => {
 
   const updateDatumSelection = (datumState: DatumFilter) => {
     updateViewState({
-      datumFilters: xor<DatumFilter>(filters, [datumState]),
+      datumFilters: xor<DatumFilter>(filters as DatumFilter[], [datumState]),
     });
   };
 
@@ -108,7 +108,7 @@ export const Filter: React.FC<FilterProps> = ({formCtx}) => {
             <Chip
               data-testid={`Filter__${item}Chip`}
               key={item}
-              onClick={() => updateDatumSelection(item)}
+              onClick={() => updateDatumSelection(item as DatumFilter)}
               RightIconSVG={CloseSVG}
             >
               {readableDatumState(item)}

@@ -2,11 +2,7 @@ import {mockServer} from '@dash-backend/testHelpers';
 import {render, waitFor, screen} from '@testing-library/react';
 import React from 'react';
 
-import {
-  withContextProviders,
-  click,
-  generateTutorialView,
-} from '@dash-frontend/testHelpers';
+import {withContextProviders, click} from '@dash-frontend/testHelpers';
 import {TutorialModalBodyProvider} from '@pachyderm/components';
 
 import ProjectTutorialComponent from '../../ProjectTutorial';
@@ -25,7 +21,7 @@ describe('Image Processing', () => {
     window.history.replaceState(
       {},
       '',
-      `/lineage/Empty-Project?view=${generateTutorialView('image-processing')}`,
+      '/lineage/Empty-Project?tutorialId=image-processing',
     );
   });
 

@@ -82,7 +82,7 @@ describe('Repo Commits List', () => {
     );
 
     expect(window.location.search).toBe(
-      '?view=eyJnbG9iYWxJZEZpbHRlciI6IjA5MThhYzlkNWRhYTc2Yjg2ZTNiYjVlODhlNGM0M2E0In0%3D',
+      '?globalIdFilter=0918ac9d5daa76b86e3bb5e88e4c43a4',
     );
   });
 

@@ -229,7 +229,7 @@ describe('Datum Viewer', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155?view=eyJkYXR1bUZpbHRlcnMiOlsiU0tJUFBFRCIsIkZBSUxFRCJdfQ',
+        '/project/Solar-Panel-Data-Sorting/jobs/23b9af7d5d4343219bc8e02ff44cd55a/pipeline/montage/logs/datum/01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155?datumFilters=FAILED,SKIPPED',
       );
 
       render(<JobDatumViewer />);

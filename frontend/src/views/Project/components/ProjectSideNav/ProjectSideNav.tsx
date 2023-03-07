@@ -32,7 +32,7 @@ const ProjectSideNav: React.FC = () => {
         <SideNav.SideNavList>
           <SideNav.SideNavItem
             IconSVG={DirectionsSVG}
-            to={lineageRoute({projectId})}
+            to={lineageRoute({projectId}, false)}
             tooltipContent="DAG"
             showIconWhenExpanded
           >
@@ -51,7 +51,7 @@ const ProjectSideNav: React.FC = () => {
         <SideNav.SideNavList label="Lists">
           <SideNav.SideNavItem
             IconSVG={JobsSVG}
-            to={projectJobsRoute({projectId})}
+            to={projectJobsRoute({projectId}, false)}
             tooltipContent="Jobs"
             showIconWhenExpanded
           >
@@ -59,7 +59,7 @@ const ProjectSideNav: React.FC = () => {
           </SideNav.SideNavItem>
           <SideNav.SideNavItem
             IconSVG={PipelineSVG}
-            to={projectPipelinesRoute({projectId})}
+            to={projectPipelinesRoute({projectId}, false)}
             tooltipContent="Pipeline Steps"
             showIconWhenExpanded
           >
@@ -67,7 +67,7 @@ const ProjectSideNav: React.FC = () => {
           </SideNav.SideNavItem>
           <SideNav.SideNavItem
             IconSVG={RepoSVG}
-            to={projectReposRoute({projectId})}
+            to={projectReposRoute({projectId}, false)}
             tooltipContent="Repositories"
             showIconWhenExpanded
           >

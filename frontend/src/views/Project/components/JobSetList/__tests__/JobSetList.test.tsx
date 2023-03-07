@@ -64,7 +64,7 @@ describe('JobSet Jobs List', () => {
     );
 
     expect(window.location.search).toBe(
-      '?view=eyJnbG9iYWxJZEZpbHRlciI6IjIzYjlhZjdkNWQ0MzQzMjE5YmM4ZTAyZmY0NGNkNTVhIn0%3D',
+      '?globalIdFilter=23b9af7d5d4343219bc8e02ff44cd55a',
     );
   });
 

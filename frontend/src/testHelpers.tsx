@@ -10,7 +10,6 @@ import {BrowserRouter} from 'react-router-dom';
 
 import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
 
-import {UrlState} from './hooks/useUrlQueryState';
 import LoggedInProvider from './providers/LoggedInProvider';
 
 export {default as server} from '@dash-backend/index';
@@ -74,13 +73,4 @@ export const type = async (element: Element, text: string) => {
   await act(async () => {
     await userEvent.type(element, text);
   });
-};
-
-export const getUrlState = (): UrlState => {
-  const searchParams = new URLSearchParams(window.location.search);
-  return JSON.parse(atob(searchParams.get('view') || '{}'));
-};
-
-export const generateTutorialView = (tutorialId: string) => {
-  return btoa(JSON.stringify({tutorialId}));
 };
