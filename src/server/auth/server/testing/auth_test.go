@@ -970,7 +970,7 @@ func TestListAndInspectRepo(t *testing.T) {
 	err := aliceClient.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, repoNone, "master", ""), "/test", strings.NewReader("test"))
 	require.NoError(t, err)
 
-	// bob creates a repo
+	// bob creates a repo, and becomes its owner
 	repoOwner := tu.UniqueString("repoOwner")
 	require.NoError(t, bobClient.CreateProjectRepo(pfs.DefaultProjectName, repoOwner))
 	require.Equal(t, tu.BuildBindings(bob, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, bobClient, pfs.DefaultProjectName, repoOwner))
@@ -1000,8 +1000,6 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_READ,
 			auth.Permission_REPO_REMOVE_PIPELINE_READER,
 			auth.Permission_REPO_WRITE,
-			auth.Permission_PROJECT_LIST_REPO,
-			auth.Permission_PROJECT_CREATE_REPO,
 		},
 		repoWriter: {
 			auth.Permission_PIPELINE_LIST_JOB,
@@ -1018,8 +1016,6 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_READ,
 			auth.Permission_REPO_REMOVE_PIPELINE_READER,
 			auth.Permission_REPO_WRITE,
-			auth.Permission_PROJECT_LIST_REPO,
-			auth.Permission_PROJECT_CREATE_REPO,
 		},
 		repoReader: {
 			auth.Permission_PIPELINE_LIST_JOB,
@@ -1031,13 +1027,8 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_LIST_FILE,
 			auth.Permission_REPO_READ,
 			auth.Permission_REPO_REMOVE_PIPELINE_READER,
-			auth.Permission_PROJECT_LIST_REPO,
-			auth.Permission_PROJECT_CREATE_REPO,
 		},
-		repoNone: {
-			auth.Permission_PROJECT_LIST_REPO,
-			auth.Permission_PROJECT_CREATE_REPO,
-		},
+		repoNone: {},
 	}
 	for _, info := range repoInfos {
 		require.ElementsEqual(t, expectedPermissions[info.Repo.Name], info.AuthInfo.Permissions)
@@ -1115,7 +1106,7 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
-		require.ElementsEqual(t, []auth.Permission{auth.Permission_PROJECT_LIST_REPO, auth.Permission_PROJECT_CREATE_REPO}, info.AuthInfo.Permissions)
+		require.ElementsEqual(t, []string{}, info.AuthInfo.Roles)
 	}
 
 	// Deactivate auth
@@ -2081,7 +2072,7 @@ func TestGetPermissions(t *testing.T) {
 
 	permissions, err = aliceClient.GetPermissions(aliceClient.Ctx(), &auth.GetPermissionsRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo}})
 	require.NoError(t, err)
-	require.Equal(t, []string{auth.ProjectWriterRole, auth.RepoOwnerRole}, permissions.Roles)
+	require.Equal(t, []string{auth.RepoOwnerRole}, permissions.Roles)
 
 	// the root user can get bob's permissions
 	permissions, err = rootClient.GetPermissionsForPrincipal(rootClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}, Principal: bob})
@@ -2090,7 +2081,7 @@ func TestGetPermissions(t *testing.T) {
 
 	permissions, err = rootClient.GetPermissionsForPrincipal(rootClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: pfs.DefaultProjectName + "/" + repo}, Principal: bob})
 	require.NoError(t, err)
-	require.Equal(t, []string{auth.ProjectWriterRole, auth.RepoWriterRole}, permissions.Roles)
+	require.Equal(t, []string{auth.RepoWriterRole}, permissions.Roles)
 
 	// alice cannot get bob's permissions
 	_, err = aliceClient.GetPermissionsForPrincipal(aliceClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}, Principal: bob})

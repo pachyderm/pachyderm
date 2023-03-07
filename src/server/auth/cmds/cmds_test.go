@@ -190,11 +190,7 @@ func TestCheckGetSetRepo(t *testing.T) {
 		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create repo {{.repo}}`, "repo", repo).Run())
 
 		// Test pachctl auth check
-		if project == pfs.DefaultProjectName {
-			require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} | match repoOwner | match projectWriter`, "repo", repo).Run())
-		} else {
-			require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} | match repoOwner | match -v projectWriter`, "repo", repo).Run())
-		}
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} | match repoOwner`, "repo", repo).Run())
 
 		// Test pachctl auth get
 		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth get repo {{.repo}} | match {{.alice}}`, "repo", repo, "alice", alice).Run())
@@ -210,11 +206,7 @@ func TestCheckGetSetRepo(t *testing.T) {
 
 		// Root user checks everyone's permissions
 		loginAsUser(t, c, auth.RootUser)
-		if project == pfs.DefaultProjectName {
-			require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} {{.alice}} | match repoOwner | match projectWriter`, "repo", repo, "alice", alice).Run())
-		} else {
-			require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} {{.alice}} | match repoOwner | match -v projectWriter`, "repo", repo, "alice", alice).Run())
-		}
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} {{.alice}} | match repoOwner`, "repo", repo, "alice", alice).Run())
 		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} {{.bob}} | match repoReader`, "repo", repo, "bob", bob).Run())
 	}
 }
