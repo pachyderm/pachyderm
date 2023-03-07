@@ -1217,10 +1217,29 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, repoInfos, 2) // should still have both repos
 
+		// this should fail because there is still a repo
 		_, err = env.PachClient.PfsAPIClient.DeleteProject(ctx,
 			&pfs.DeleteProjectRequest{
 				Project: &pfs.Project{Name: "test"},
 				Force:   true,
+			})
+		require.YesError(t, err)
+
+		_, err = env.PachClient.PfsAPIClient.DeleteRepo(ctx,
+			&pfs.DeleteRepoRequest{
+				Repo: &pfs.Repo{
+					Project: &pfs.Project{Name: "test"},
+					Name:    "test",
+					Type:    pfs.UserRepoType,
+				},
+			})
+		require.NoError(t, err)
+		repoInfos, err = env.PachClient.ListRepo()
+		require.NoError(t, err)
+		require.Len(t, repoInfos, 1) // should still have both repos
+		_, err = env.PachClient.PfsAPIClient.DeleteProject(ctx,
+			&pfs.DeleteProjectRequest{
+				Project: &pfs.Project{Name: "test"},
 			})
 		require.NoError(t, err)
 
