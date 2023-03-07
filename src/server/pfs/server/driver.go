@@ -13,6 +13,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/hashicorp/go-multierror"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -509,41 +510,6 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 	}))
 }
 
-type errReposExist []*pfs.Repo
-
-func (err errReposExist) Error() string {
-	switch len(err) {
-	case 0:
-		return "internal error: empty errReposExist"
-	case 1:
-		return fmt.Sprintf("repo %v still exists", err[0])
-	default:
-		var s string
-		for i, r := range err {
-			switch {
-			case i == 0:
-				s = r.String()
-			case i == len(err)-1:
-				s = s + " and " + r.String()
-			default:
-				s = s + ", " + r.String()
-			}
-		}
-		return fmt.Sprintf("repos %s still exist", s)
-	}
-}
-
-func (err errReposExist) Unwrap() (errs []error) {
-	for _, r := range err {
-		errs = append(errs, fmt.Errorf("repo %v still exists", r))
-	}
-	return errs
-}
-
-func (err errReposExist) GRPCStatus() *status.Status {
-	return status.New(codes.FailedPrecondition, err.Error())
-}
-
 // TODO: delete all repos and pipelines within project
 func (d *driver) deleteProject(ctx context.Context, txnCtx *txncontext.TransactionContext, project *pfs.Project, force bool) error {
 	if err := project.ValidateName(); err != nil {
@@ -553,15 +519,15 @@ func (d *driver) deleteProject(ctx context.Context, txnCtx *txncontext.Transacti
 		return errors.Wrapf(err, "user is not authorized to delete project %q", project)
 	}
 
-	var errs errReposExist
+	var errs error
 	if err := d.listRepo(ctx, false /* includeAuth */, "" /* repoType */, []*pfs.Project{project} /* projectsFilter */, func(repoInfo *pfs.RepoInfo) error {
-		errs = append(errs, repoInfo.GetRepo())
+		errs = multierror.Append(errs, fmt.Errorf("repo %v still exists", repoInfo.GetRepo()))
 		return nil
 	}); err != nil {
 		return err
 	}
-	if len(errs) > 0 {
-		return errors.Wrapf(errs, "cannot delete project %s", project.Name)
+	if errs != nil {
+		return status.Error(codes.FailedPrecondition, fmt.Sprintf("cannot delete project %s: %v", project.Name, errs))
 	}
 
 	if err := d.projects.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.ProjectKey(project)); err != nil {
