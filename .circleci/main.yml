@@ -439,7 +439,7 @@ jobs:
           command: |
             sleep 300 #wait for CNI warm pool population to acquiesce before destroy
             pulumi destroy --yes --stack << parameters.env >> --cwd etc/testing/circle/workloads/pulumi/aws
-          when: on_fail 
+          when: on_fail
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
@@ -1159,7 +1159,7 @@ jobs:
           command: |
             sleep 300 #wait for CNI warm pool population to acquiesce before destroy
             pulumi destroy --yes --stack << parameters.env >> --cwd etc/testing/circle/workloads/pulumi/aws
-          when: on_fail 
+          when: on_fail
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
