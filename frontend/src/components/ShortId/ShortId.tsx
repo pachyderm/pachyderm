@@ -13,7 +13,7 @@ const ShortId: React.FC<ShortIdProps> = ({inputString, error}) => {
 
   return (
     <CopiableField
-      inputString={shortId}
+      inputString={inputString}
       inline={true}
       successCheckmarkAriaLabel="You have successfully copied the id"
     >
