@@ -3,8 +3,6 @@ import isEmpty from 'lodash/isEmpty';
 import {useCallback, useMemo} from 'react';
 import {useHistory, useLocation} from 'react-router';
 
-import {DagDirection} from '@dash-frontend/lib/types';
-
 interface SelectableResource {
   selectedPipelines?: string[] | string;
   selectedRepos?: string[] | string;
@@ -22,9 +20,6 @@ interface ListParams extends SelectableResource {
   commitId?: string[];
 }
 export interface UrlState extends ListParams {
-  dagDirection?: DagDirection;
-  sidebarWidth?: number;
-  skipCenterOnSelect?: boolean;
   prevPath?: string;
   tutorialId?: string;
   sortBy?: string;
@@ -44,9 +39,6 @@ export interface ViewStateLists {
   commitId?: string[];
 }
 export interface ViewStateValues {
-  dagDirection?: string;
-  sidebarWidth?: string;
-  skipCenterOnSelect?: string;
   prevPath?: string;
   tutorialId?: string;
   sortBy?: string;

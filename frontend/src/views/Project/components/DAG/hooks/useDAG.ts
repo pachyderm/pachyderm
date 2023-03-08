@@ -16,8 +16,7 @@ export const useDAG = () => {
     key: 'dag_direction',
   });
 
-  const dagDirection =
-    viewState.dagDirection || dagDirectionSetting || DagDirection.DOWN;
+  const dagDirection = dagDirectionSetting || DagDirection.DOWN;
 
   const {dags, loading, error} = useProjectDagsData({
     jobSetId: viewState.globalIdFilter || undefined,

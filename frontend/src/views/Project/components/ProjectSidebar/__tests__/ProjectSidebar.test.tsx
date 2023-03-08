@@ -73,10 +73,7 @@ describe('ProjectSidebar', () => {
       );
       render(<Project />);
 
-      const logsLink = await waitFor(
-        () => screen.findByRole('link', {name: '2 Success'}),
-        {timeout: 4000},
-      );
+      const logsLink = await screen.findByRole('link', {name: '2 Success'});
       expect(logsLink).toHaveAttribute(
         'href',
         '/lineage/Solar-Panel-Data-Sorting/pipelines/montage/jobs/23b9af7d5d4343219bc8e02ff44cd55a/logs/datum?datumFilters=SUCCESS',

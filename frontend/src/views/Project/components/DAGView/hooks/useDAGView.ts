@@ -79,13 +79,13 @@ export const useDAGView = (
     width: window.innerWidth - SIDENAV_PADDING,
   });
   const {selectedNode} = useRouteController();
-  const {viewState, updateViewState} = useUrlQueryState();
+  const {viewState} = useUrlQueryState();
   const {pipelineId, repoId, projectId} = useUrlState();
   const {currentProject} = useCurrentProject();
   const [dagDirectionSetting, setDagDirectionSetting] = useLocalProjectSettings(
     {projectId, key: 'dag_direction'},
   );
-  const [skipCenterOnSelectSetting, setSkipCenterOnSelectSetting] =
+  const [skipCenterOnSelect, setSkipCenterOnSelectSetting] =
     useLocalProjectSettings({projectId, key: 'skip_center_on_select'});
   const [dagState, dispatch] = useReducer(dagReducer, {
     interacted: false,
@@ -95,19 +95,12 @@ export const useDAGView = (
   const [minScale, setMinScale] = useState(DEFAULT_MINIMUM_SCALE_VALUE);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
 
-  const dagDirection =
-    viewState.dagDirection || dagDirectionSetting || DagDirection.DOWN;
-
-  const skipCenterOnSelect =
-    viewState.skipCenterOnSelect || skipCenterOnSelectSetting;
+  const dagDirection = dagDirectionSetting || DagDirection.DOWN;
 
   const {interacted, reset} = dagState;
 
   const handleChangeCenterOnSelect = (shouldCenter: boolean) => {
-    setSkipCenterOnSelectSetting(!skipCenterOnSelectSetting);
-    updateViewState({
-      skipCenterOnSelect: !shouldCenter,
-    });
+    setSkipCenterOnSelectSetting(!shouldCenter);
   };
 
   const rotateDag = useCallback(() => {
@@ -116,9 +109,6 @@ export const useDAGView = (
     dispatch({type: 'ROTATE'});
 
     const handleChangeDirection = (nextDirection: DagDirection) => {
-      updateViewState({
-        dagDirection: nextDirection,
-      });
       setDagDirectionSetting(nextDirection);
     };
 
@@ -130,7 +120,7 @@ export const useDAGView = (
         handleChangeDirection(DagDirection.DOWN);
         break;
     }
-  }, [dagDirection, updateViewState, setDagDirectionSetting]);
+  }, [dagDirection, setDagDirectionSetting]);
 
   const graphExtents = useMemo(() => {
     const nodes = flatten((dags || []).map((dag) => dag.nodes));
