@@ -34,6 +34,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -6007,6 +6008,64 @@ func TestPFS(suite *testing.T) {
 		cis, err = c.ListCommit(testRepo, commit, nil, 0)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(cis))
+	})
+
+	suite.Run("TestTopologicalSortCommits", func(t *testing.T) {
+		t.Run("Empty", func(t *testing.T) {
+			require.True(t, len(server.TopologicalSort([]*pfs.CommitInfo{})) == 0)
+		})
+		t.Run("Fuzz", func(t *testing.T) {
+			// TODO: update gopls for generics
+			union := func(a map[string]struct{}, b map[string]struct{}) map[string]struct{} {
+				c := make(map[string]struct{})
+				for el := range a {
+					c[el] = struct{}{}
+				}
+				for el := range b {
+					c[el] = struct{}{}
+				}
+				return c
+			}
+			proj := "foo"
+			makeCommit := func(i int) *pfs.Commit {
+				return client.NewProjectCommit(proj, fmt.Sprintf("%d", i), "", fmt.Sprintf("%d", i))
+			}
+			// commit.String() -> number of total transitive provenant commits
+			totalProvenance := make(map[string]map[string]struct{})
+			var cis []*pfs.CommitInfo
+			// create random commits that
+			total := 300
+			for i := 0; i < total; i++ {
+				totalProv := make(map[string]struct{})
+				directProv := make([]*pfs.Commit, 0)
+				if i > 0 {
+					provCount := rand.Intn(i)
+					for j := 0; j < provCount; j++ {
+						k := rand.Intn(i)
+						totalProv[makeCommit(k).String()] = struct{}{}
+						totalProv = union(totalProv, totalProvenance[makeCommit(k).String()])
+						directProv = append(directProv, makeCommit(k))
+					}
+				}
+				ci := &pfs.CommitInfo{
+					Commit:           makeCommit(i),
+					DirectProvenance: directProv,
+				}
+				totalProvenance[makeCommit(i).String()] = totalProv
+				cis = append(cis, ci)
+			}
+			// shuffle cis
+			swaps := total / 2
+			for i := 0; i < swaps; i++ {
+				j, k := rand.Intn(total), rand.Intn(total)
+				cis[j], cis[k] = cis[k], cis[j]
+			}
+			// assert sort works
+			cis = server.TopologicalSort(cis)
+			for i, ci := range cis {
+				require.True(t, len(totalProvenance[ci.Commit.String()]) <= i)
+			}
+		})
 	})
 
 	const (
