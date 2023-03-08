@@ -688,6 +688,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 			return nil, errors.Wrapf(err, "could not determine sidecar resource limit")
 		}
 	}
+	// TODO check what to do here
 	if pipelineInfo.Details.SidecarResourceRequests != nil {
 		var err error
 		sidecarResourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(ctx, pipelineInfo)
