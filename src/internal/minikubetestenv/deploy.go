@@ -396,23 +396,16 @@ func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
 }
 
 func waitForPgbouncer(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string) {
-	require.NoError(t, backoff.Retry(func() error {
-		pbs, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=pg-bouncer"})
-		if err != nil {
-			return errors.Wrap(err, "error on pod list")
-		}
-		for _, p := range pbs.Items {
-			if p.Status.Phase == v1.PodRunning && p.Status.ContainerStatuses[0].Ready && len(pbs.Items) == 1 {
-				return nil
-			}
-		}
-		return errors.Errorf("deployment in progress")
-	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
+	waitForLabeledPod(t, ctx, kubeClient, namespace, "app=pg-bouncer")
 }
 
 func waitForPostgres(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string) {
+	waitForLabeledPod(t, ctx, kubeClient, namespace, "app.kubernetes.io/name=postgresql")
+}
+
+func waitForLabeledPod(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string, label string) {
 	require.NoError(t, backoff.Retry(func() error {
-		pbs, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app.kubernetes.io/name=postgresql"})
+		pbs, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
 		if err != nil {
 			return errors.Wrap(err, "error on pod list")
 		}
