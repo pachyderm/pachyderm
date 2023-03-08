@@ -1212,7 +1212,13 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 					Project: &pfs.Project{Name: args[0]},
 					Force:   force,
 				})
-			return grpcutil.ScrubGRPC(err)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if args[0] == pachCtx.Project {
+				fmt.Fprintf(os.Stderr, "warning: deleted current project %s; update context by running:\n   pachctl config update context --project PROJECT\n", pachCtx.Project)
+			}
+			return nil
 		}),
 	}
 	shell.RegisterCompletionFunc(deleteProject, shell.ProjectCompletion)
