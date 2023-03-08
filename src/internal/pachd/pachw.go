@@ -50,6 +50,7 @@ func (pachwb *pachwBuilder) registerAuthServer(ctx context.Context) error {
 		auth.RegisterAPIServer(s, apiServer)
 	})
 	pachwb.env.SetAuthServer(apiServer)
+	pachwb.enterpriseEnv.AuthServer = apiServer
 	return nil
 }
 
@@ -83,9 +84,9 @@ func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 		pachwb.initKube,
 		pachwb.setupDB,
 		pachwb.initInternalServer,
+		pachwb.registerEnterpriseServer,
 		pachwb.registerAuthServer,
 		pachwb.registerPFSServer, //PFS seems to need a non-nil auth server.
-		pachwb.registerEnterpriseServer,
 		pachwb.registerTransactionServer,
 		pachwb.registerHealthServer,
 		pachwb.resumeHealth,

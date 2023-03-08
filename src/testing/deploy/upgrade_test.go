@@ -57,9 +57,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVer
 				ns,
 				k,
 				&minikubetestenv.DeployOpts{
-					WaitSeconds:  0,
-					CleanupAfter: false,
-					PortOffset:   portOffset,
+					PortOffset: portOffset,
 				}))
 			t.Logf("postUpgrade done")
 		})
