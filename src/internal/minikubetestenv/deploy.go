@@ -396,8 +396,16 @@ func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
 }
 
 func waitForPgbouncer(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string) {
+	waitForLabeledPod(t, ctx, kubeClient, namespace, "app=pg-bouncer")
+}
+
+func waitForPostgres(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string) {
+	waitForLabeledPod(t, ctx, kubeClient, namespace, "app.kubernetes.io/name=postgresql")
+}
+
+func waitForLabeledPod(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string, label string) {
 	require.NoError(t, backoff.Retry(func() error {
-		pbs, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=pg-bouncer"})
+		pbs, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
 		if err != nil {
 			return errors.Wrap(err, "error on pod list")
 		}
@@ -544,6 +552,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
 	}
 	waitForPgbouncer(t, ctx, kubeClient, namespace)
+	waitForPostgres(t, ctx, kubeClient, namespace)
 	if opts.WaitSeconds > 0 {
 		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
 	}

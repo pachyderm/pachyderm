@@ -488,10 +488,18 @@ func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectReques
 		} else if !errors.Is(err, auth.ErrNotActivated) {
 			return errors.Wrap(err, "could not get caller's username")
 		}
-		return errors.EnsureStack(projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
+		if err := projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
 			Project:     req.Project,
 			Description: req.Description,
-		}))
+		}); err != nil {
+			if errors.As(err, &col.ErrExists{}) {
+				return pfsserver.ErrProjectExists{
+					Project: req.Project,
+				}
+			}
+			return errors.Wrap(err, "could not create project")
+		}
+		return nil
 	})
 }
 
