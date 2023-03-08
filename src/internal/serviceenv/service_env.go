@@ -351,7 +351,6 @@ func (env *NonblockingServiceEnv) initDirectDBClient(ctx context.Context) error 
 func (env *NonblockingServiceEnv) initDBClient(ctx context.Context) error {
 	ctx, end := log.SpanContext(ctx, "initDBClient")
 	defer end()
-
 	db, err := dbutil.NewDB(
 		dbutil.WithHostPort(env.config.PGBouncerHost, env.config.PGBouncerPort),
 		dbutil.WithDBName(env.config.PostgresDBName),
