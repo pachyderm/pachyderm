@@ -41,6 +41,7 @@ set +e
 PFS_RESPONSE_SPEC=$(pachctl run pfs-load-test "${@}")
 
 # shellcheck disable=SC2086
+# shellcheck disable=SC2046
 if [ "${?}" -ne 0 ] || [ $(jq 'has("error")' <<< $PFS_RESPONSE_SPEC) == true ]; then
 	pachctl debug dump /tmp/debug-dump
 	exit 1
