@@ -50,13 +50,6 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVer
 					Version:     from,
 					DisableLoki: true,
 					PortOffset:  portOffset,
-					// For 2.3 -> future upgrades, we'll want to delete these
-					// overrides.  They became the default (instead of random)
-					// in the 2.3 alpha cycle.
-					ValueOverrides: map[string]string{
-						"global.postgresql.postgresqlPassword":         "insecure-user-password",
-						"global.postgresql.postgresqlPostgresPassword": "insecure-root-password",
-					},
 				}))
 			t.Logf("preUpgrade done; starting postUpgrade")
 			postUpgrade(t, minikubetestenv.UpgradeRelease(t,
@@ -64,9 +57,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVer
 				ns,
 				k,
 				&minikubetestenv.DeployOpts{
-					WaitSeconds:  10,
-					CleanupAfter: true,
-					PortOffset:   portOffset,
+					PortOffset: portOffset,
 				}))
 			t.Logf("postUpgrade done")
 		})
