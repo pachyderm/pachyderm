@@ -83,7 +83,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 	// We use a long pipeline name (gt 64 chars) to test whether our auth tokens,
 	// which originally had a 64 limit, can handle the upgrade which adds the project names to the subject key.
 	montage := montageRepo + "01234567890123456789012345678901234567890"
-	upgradeTest(t, context.Background(), false /* parallelOK */, fromVersions,
+	upgradeTest(t, context.Background(), true /* parallelOK */, fromVersions,
 		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, imagesRepo))
@@ -194,7 +194,7 @@ validator:
     count: 1
 `
 	var stateID string
-	upgradeTest(t, context.Background(), true /* parallelOK */, fromVersions,
+	upgradeTest(t, context.Background(), false /* parallelOK */, fromVersions,
 		func(t *testing.T, c *client.APIClient) {
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			t.Log("before upgrade: starting load test")
