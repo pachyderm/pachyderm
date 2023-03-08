@@ -59,7 +59,8 @@ type useCommitsListFiltersProps = {
 };
 
 const useCommitsListFilters = ({commits = []}: useCommitsListFiltersProps) => {
-  const {viewState, updateViewState, getNewViewState} = useUrlQueryState();
+  const {searchParams, updateSearchParamsAndGo, getNewSearchParamsAndGo} =
+    useUrlQueryState();
   const formCtx = useForm<FormValues>({
     mode: 'onChange',
     defaultValues: {
@@ -77,24 +78,30 @@ const useCommitsListFilters = ({commits = []}: useCommitsListFiltersProps) => {
   const commitIds = watch('commitIds');
 
   useEffect(() => {
-    const {selectedRepos} = viewState;
+    const {selectedRepos} = searchParams;
     reset();
-    getNewViewState({
+    getNewSearchParamsAndGo({
       selectedRepos,
     });
     // We want to clear viewstate and form state on fresh renders
-    // but NOT on changes to viewState
+    // but NOT on changes to searchParams
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getNewViewState, reset, updateViewState]);
+  }, [getNewSearchParamsAndGo, reset, updateSearchParamsAndGo]);
 
   useEffect(() => {
-    updateViewState({
+    updateSearchParamsAndGo({
       sortBy: sortFilter,
       commitType: commitTypes,
       branchName: branchNames,
       commitId: commitIds,
     });
-  }, [branchNames, commitIds, commitTypes, sortFilter, updateViewState]);
+  }, [
+    branchNames,
+    commitIds,
+    commitTypes,
+    sortFilter,
+    updateSearchParamsAndGo,
+  ]);
 
   const multiselectFilters = [
     {
@@ -141,25 +148,30 @@ const useCommitsListFilters = ({commits = []}: useCommitsListFiltersProps) => {
       commits?.filter((commit) => {
         let included = true;
 
-        if (viewState.commitType && viewState.commitType.length > 0) {
+        if (searchParams.commitType && searchParams.commitType.length > 0) {
           included =
             !!commit.originKind &&
-            viewState.commitType.includes(commit.originKind);
+            searchParams.commitType.includes(commit.originKind);
         }
 
-        if (viewState.branchName && viewState.branchName.length > 0) {
+        if (searchParams.branchName && searchParams.branchName.length > 0) {
           included =
             !!commit.branch?.name &&
-            viewState.branchName.includes(commit.branch.name);
+            searchParams.branchName.includes(commit.branch.name);
         }
 
-        if (viewState.commitId && viewState.commitId.length > 0) {
-          included = viewState.commitId.includes(commit.id);
+        if (searchParams.commitId && searchParams.commitId.length > 0) {
+          included = searchParams.commitId.includes(commit.id);
         }
 
         return included;
       }),
-    [commits, viewState.commitType, viewState.branchName, viewState.commitId],
+    [
+      commits,
+      searchParams.commitType,
+      searchParams.branchName,
+      searchParams.commitId,
+    ],
   );
 
   const {
@@ -173,8 +185,8 @@ const useCommitsListFilters = ({commits = []}: useCommitsListFiltersProps) => {
   });
 
   useEffect(() => {
-    if (viewState.sortBy && comparatorName !== viewState.sortBy) {
-      setComparator(sortOptions[viewState.sortBy]);
+    if (searchParams.sortBy && comparatorName !== searchParams.sortBy) {
+      setComparator(sortOptions[searchParams.sortBy]);
     }
   });
 

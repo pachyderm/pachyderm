@@ -71,10 +71,10 @@ const RunsList: React.FC<RunsListProps> = ({
   error,
 }) => {
   const {iconItems, onOverflowMenuSelect} = useRunsList();
-  const {viewState, toggleSelection} = useUrlQueryState();
+  const {searchParams, toggleSearchParamsListEntry} = useUrlQueryState();
 
   const addSelection = (value: string) => {
-    toggleSelection('selectedJobs', value);
+    toggleSearchParamsListEntry('selectedJobs', value);
   };
 
   if (error) {
@@ -127,7 +127,7 @@ const RunsList: React.FC<RunsListProps> = ({
               key={jobSet?.id}
               data-testid="RunsList__row"
               onClick={() => addSelection(jobSet?.id || '')}
-              isSelected={viewState.selectedJobs?.includes(jobSet?.id || '')}
+              isSelected={searchParams.selectedJobs?.includes(jobSet?.id || '')}
               hasCheckbox
               overflowMenuItems={iconItems}
               dropdownOnSelect={onOverflowMenuSelect(jobSet?.id || '')}

@@ -65,7 +65,8 @@ type useRepoFiltersProps = {
 };
 
 const useRepoFilters = ({repos = []}: useRepoFiltersProps) => {
-  const {viewState, updateViewState, clearViewState} = useUrlQueryState();
+  const {searchParams, updateSearchParamsAndGo, clearSearchParamsAndGo} =
+    useUrlQueryState();
   const formCtx = useForm<FormValues>({
     mode: 'onChange',
     defaultValues: {
@@ -77,15 +78,15 @@ const useRepoFilters = ({repos = []}: useRepoFiltersProps) => {
   const sortFilter = watch('sortBy');
 
   useEffect(() => {
-    clearViewState();
+    clearSearchParamsAndGo();
     reset();
-  }, [clearViewState, reset]);
+  }, [clearSearchParamsAndGo, reset]);
 
   useEffect(() => {
-    updateViewState({
+    updateSearchParamsAndGo({
       sortBy: sortFilter,
     });
-  }, [sortFilter, updateViewState]);
+  }, [sortFilter, updateSearchParamsAndGo]);
 
   const staticFilterKeys = [sortFilter];
 
@@ -100,8 +101,8 @@ const useRepoFilters = ({repos = []}: useRepoFiltersProps) => {
   });
 
   useEffect(() => {
-    if (viewState.sortBy && comparatorName !== viewState.sortBy) {
-      setComparator(sortOptions[viewState.sortBy]);
+    if (searchParams.sortBy && comparatorName !== searchParams.sortBy) {
+      setComparator(sortOptions[searchParams.sortBy]);
     }
   });
 

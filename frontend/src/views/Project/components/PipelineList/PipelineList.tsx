@@ -12,7 +12,7 @@ const TAB_IDS = {pipelines: 'pipelines', jobs: 'jobs'};
 
 const PipelineList: React.FC = () => {
   const [filtersExpanded, setFiltersExpanded] = useState(false);
-  const {viewState} = useUrlQueryState();
+  const {searchParams} = useUrlQueryState();
 
   return (
     <TableView
@@ -20,7 +20,7 @@ const PipelineList: React.FC = () => {
       noun="pipeline"
       tabsBasePath={PROJECT_PIPELINES_PATH}
       tabs={TAB_IDS}
-      selectedItems={viewState.selectedPipelines || []}
+      selectedItems={searchParams.selectedPipelines || []}
       filtersExpanded={filtersExpanded}
       setFiltersExpanded={setFiltersExpanded}
     >
@@ -29,7 +29,7 @@ const PipelineList: React.FC = () => {
       </TableViewSection>
       <TableViewSection id={TAB_IDS.jobs}>
         <JobsList
-          selectedPipelines={viewState.selectedPipelines}
+          selectedPipelines={searchParams.selectedPipelines}
           filtersExpanded={filtersExpanded}
         />
       </TableViewSection>

@@ -28,7 +28,7 @@ const useDatumList = (
   setIsExpanded: React.Dispatch<React.SetStateAction<boolean>>,
 ) => {
   const {projectId, pipelineId} = useUrlState();
-  const {viewState} = useUrlQueryState();
+  const {searchParams} = useUrlQueryState();
   const {currentJobId, currentDatumId, updateSelectedDatum} = useDatumPath();
 
   const [searchValue, setSearchValue] = useState('');
@@ -89,7 +89,7 @@ const useDatumList = (
   }, [job]);
 
   const totalDatums = useMemo(() => {
-    const filters = viewState.datumFilters;
+    const filters = searchParams.datumFilters;
     if (filters && filters?.length !== 0) {
       return (
         filters?.reduce((acc, value) => {
@@ -98,13 +98,13 @@ const useDatumList = (
       );
     }
     return Object.values(datumMetrics).reduce((a, b) => a + b, 0);
-  }, [datumMetrics, viewState.datumFilters]);
+  }, [datumMetrics, searchParams.datumFilters]);
 
   const {datums, cursor, hasNextPage, loading, refetch} = useDatums({
     projectId,
     pipelineId,
     jobId: currentJobId,
-    filter: viewState.datumFilters as DatumFilter[],
+    filter: searchParams.datumFilters as DatumFilter[],
     limit: DATUM_LIST_PAGE_SIZE,
     cursor: currentCursor,
   });
@@ -126,7 +126,7 @@ const useDatumList = (
           projectId,
           pipelineId,
           jobId: currentJobId,
-          filter: viewState.datumFilters as DatumFilter[],
+          filter: searchParams.datumFilters as DatumFilter[],
           limit: DATUM_LIST_PAGE_SIZE,
           cursor: '',
         },
@@ -138,12 +138,12 @@ const useDatumList = (
     pipelineId,
     projectId,
     refetch,
-    viewState.datumFilters,
+    searchParams.datumFilters,
   ]);
 
   useEffect(() => {
     refresh();
-  }, [refresh, viewState.datumFilters]);
+  }, [refresh, searchParams.datumFilters]);
 
   useEffect(() => {
     if (wasProcessing && !isProcessing) {

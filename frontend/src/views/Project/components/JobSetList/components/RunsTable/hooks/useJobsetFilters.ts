@@ -60,7 +60,8 @@ type useJobSetsFiltersProps = {
 };
 
 const useJobSetFilters = ({jobSets = []}: useJobSetsFiltersProps) => {
-  const {viewState, updateViewState, clearViewState} = useUrlQueryState();
+  const {searchParams, updateSearchParamsAndGo, clearSearchParamsAndGo} =
+    useUrlQueryState();
   const formCtx = useForm<FormValues>({
     mode: 'onChange',
     defaultValues: {
@@ -74,16 +75,16 @@ const useJobSetFilters = ({jobSets = []}: useJobSetsFiltersProps) => {
   const jobsetStatusFilters = watch('jobsetStatus');
 
   useEffect(() => {
-    clearViewState();
+    clearSearchParamsAndGo();
     reset();
-  }, [clearViewState, reset]);
+  }, [clearSearchParamsAndGo, reset]);
 
   useEffect(() => {
-    updateViewState({
+    updateSearchParamsAndGo({
       sortBy: sortFilter,
       jobStatus: jobsetStatusFilters,
     });
-  }, [jobsetStatusFilters, sortFilter, updateViewState]);
+  }, [jobsetStatusFilters, sortFilter, updateSearchParamsAndGo]);
 
   const clearableFiltersMap = useMemo(
     () =>
@@ -111,13 +112,13 @@ const useJobSetFilters = ({jobSets = []}: useJobSetsFiltersProps) => {
           return false;
         }
 
-        if (viewState.jobStatus && viewState.jobStatus.length > 0) {
-          included = intersection(viewState.jobStatus, jobStates).length > 0;
+        if (searchParams.jobStatus && searchParams.jobStatus.length > 0) {
+          included = intersection(searchParams.jobStatus, jobStates).length > 0;
         }
 
         return included;
       }),
-    [jobSets, viewState.jobStatus],
+    [jobSets, searchParams.jobStatus],
   );
 
   const {
@@ -131,8 +132,8 @@ const useJobSetFilters = ({jobSets = []}: useJobSetsFiltersProps) => {
   });
 
   useEffect(() => {
-    if (viewState.sortBy && comparatorName !== viewState.sortBy) {
-      setComparator(sortOptions[viewState.sortBy]);
+    if (searchParams.sortBy && comparatorName !== searchParams.sortBy) {
+      setComparator(sortOptions[searchParams.sortBy]);
     }
   });
 

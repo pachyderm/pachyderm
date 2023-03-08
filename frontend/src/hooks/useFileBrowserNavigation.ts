@@ -6,7 +6,7 @@ import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import useUrlQueryState from './useUrlQueryState';
 
 const useFileBrowserNavigation = () => {
-  const {getUpdatedSearchParams, viewState} = useUrlQueryState();
+  const {getUpdatedSearchParams, searchParams} = useUrlQueryState();
   const {pathname} = useLocation();
 
   const getPathToFileBrowser = useCallback(
@@ -20,11 +20,11 @@ const useFileBrowserNavigation = () => {
 
   const getPathFromFileBrowser = useCallback(
     (path: string) => {
-      return `${viewState.prevPath || path}?${getUpdatedSearchParams({
+      return `${searchParams.prevPath || path}?${getUpdatedSearchParams({
         prevPath: undefined,
       })}`;
     },
-    [getUpdatedSearchParams, viewState],
+    [getUpdatedSearchParams, searchParams],
   );
 
   return {

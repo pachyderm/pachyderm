@@ -34,8 +34,8 @@ export type stateOptions = {
 };
 
 export const Filter: React.FC<FilterProps> = ({formCtx}) => {
-  const {viewState, updateViewState} = useUrlQueryState();
-  const filters = viewState.datumFilters || [];
+  const {searchParams, updateSearchParamsAndGo} = useUrlQueryState();
+  const filters = searchParams.datumFilters || [];
 
   const {watch, setValue} = formCtx;
   const jobsSort = watch('jobs');
@@ -47,7 +47,7 @@ export const Filter: React.FC<FilterProps> = ({formCtx}) => {
   };
 
   const updateDatumSelection = (datumState: DatumFilter) => {
-    updateViewState({
+    updateSearchParamsAndGo({
       datumFilters: xor<DatumFilter>(filters as DatumFilter[], [datumState]),
     });
   };

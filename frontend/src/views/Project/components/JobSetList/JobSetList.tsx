@@ -12,7 +12,7 @@ const TAB_IDS = {jobs: 'jobs', subjobs: 'subjobs'};
 
 const JobSetList: React.FC = () => {
   const [filtersExpanded, setFiltersExpanded] = useState(false);
-  const {viewState} = useUrlQueryState();
+  const {searchParams} = useUrlQueryState();
 
   return (
     <TableView
@@ -20,7 +20,7 @@ const JobSetList: React.FC = () => {
       noun="job"
       tabsBasePath={PROJECT_JOBS_PATH}
       tabs={TAB_IDS}
-      selectedItems={viewState.selectedJobs || []}
+      selectedItems={searchParams.selectedJobs || []}
       filtersExpanded={filtersExpanded}
       setFiltersExpanded={setFiltersExpanded}
     >
@@ -29,7 +29,7 @@ const JobSetList: React.FC = () => {
       </TableViewSection>
       <TableViewSection id={TAB_IDS.subjobs}>
         <JobsList
-          selectedJobSets={viewState.selectedJobs}
+          selectedJobSets={searchParams.selectedJobs}
           filtersExpanded={filtersExpanded}
         />
       </TableViewSection>

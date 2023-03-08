@@ -9,12 +9,12 @@ import {DropdownItem} from '@pachyderm/components';
 
 const useCommitsList = () => {
   const {projectId} = useUrlState();
-  const {getNewViewState} = useUrlQueryState();
+  const {getNewSearchParamsAndGo} = useUrlQueryState();
   const {getPathToFileBrowser} = useFileBrowserNavigation();
   const browserHistory = useHistory();
 
   const globalIdRedirect = (runId: string) => {
-    getNewViewState({
+    getNewSearchParamsAndGo({
       globalIdFilter: runId,
     });
     browserHistory.push(

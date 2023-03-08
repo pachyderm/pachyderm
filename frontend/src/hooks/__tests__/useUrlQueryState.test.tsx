@@ -8,40 +8,53 @@ import useUrlQueryState from '../useUrlQueryState';
 
 const ViewStateComponent = withContextProviders(({onRender}) => {
   const {
-    viewState,
-    getNewViewState,
-    updateViewState,
-    clearViewState,
-    toggleSelection,
+    searchParams,
+    getNewSearchParamsAndGo,
+    updateSearchParamsAndGo,
+    clearSearchParamsAndGo,
+    toggleSearchParamsListEntry,
   } = useUrlQueryState();
 
   onRender();
 
   return (
     <div>
-      {Object.entries(viewState).length === 0 && <span>Empty State</span>}
-      {Object.entries(viewState).map(([key, value]) => (
+      {Object.entries(searchParams).length === 0 && <span>Empty State</span>}
+      {Object.entries(searchParams).map(([key, value]) => (
         <span key={key}>{`${key}: ${value}`}</span>
       ))}
       <button
         onClick={() =>
-          getNewViewState({sortBy: 'Created: Newest', globalIdFilter: ''})
+          getNewSearchParamsAndGo({
+            sortBy: 'Created: Newest',
+            globalIdFilter: '',
+          })
         }
       >
-        getNewViewState
+        getNewSearchParamsAndGo
       </button>
       <button
         onClick={() =>
-          updateViewState({jobStatus: [NodeState.PAUSED], jobId: []})
+          updateSearchParamsAndGo({jobStatus: [NodeState.PAUSED], jobId: []})
         }
       >
-        updateViewState
+        updateSearchParamsAndGo
       </button>
-      <button onClick={() => clearViewState()}>clearViewState</button>
-      <button onClick={() => toggleSelection('selectedPipelines', 'edges')}>
+      <button onClick={() => clearSearchParamsAndGo()}>
+        clearSearchParamsAndGo
+      </button>
+      <button
+        onClick={() =>
+          toggleSearchParamsListEntry('selectedPipelines', 'edges')
+        }
+      >
         toggleSelectionEdges
       </button>
-      <button onClick={() => toggleSelection('selectedPipelines', 'montage')}>
+      <button
+        onClick={() =>
+          toggleSearchParamsListEntry('selectedPipelines', 'montage')
+        }
+      >
         toggleSelectionMontage
       </button>
     </div>
@@ -55,14 +68,14 @@ describe('useUrlQueryState', () => {
 
     expect(onRender).toHaveBeenCalledTimes(1);
 
-    screen.getByText('getNewViewState').click();
+    screen.getByText('getNewSearchParamsAndGo').click();
     expect(screen.getByText('sortBy: Created: Newest')).toBeInTheDocument();
 
-    screen.getByText('updateViewState').click();
+    screen.getByText('updateSearchParamsAndGo').click();
     expect(screen.getByText('sortBy: Created: Newest')).toBeInTheDocument();
     expect(screen.getByText('jobStatus: PAUSED')).toBeInTheDocument();
 
-    screen.getByText('clearViewState').click();
+    screen.getByText('clearSearchParamsAndGo').click();
     expect(screen.getByText('Empty State')).toBeInTheDocument();
 
     expect(onRender).toHaveBeenCalledTimes(4);

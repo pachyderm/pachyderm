@@ -7,11 +7,11 @@ import {DropdownItem} from '@pachyderm/components';
 
 const useRunsList = () => {
   const {projectId} = useUrlState();
-  const {getNewViewState} = useUrlQueryState();
+  const {getNewSearchParamsAndGo} = useUrlQueryState();
   const browserHistory = useHistory();
 
   const globalIdRedirect = (runId: string) => {
-    getNewViewState({
+    getNewSearchParamsAndGo({
       globalIdFilter: runId,
     });
     browserHistory.push(

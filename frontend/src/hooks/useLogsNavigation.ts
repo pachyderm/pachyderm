@@ -10,7 +10,7 @@ import {
 import useUrlQueryState from './useUrlQueryState';
 
 const useLogsNavigation = () => {
-  const {getUpdatedSearchParams, viewState} = useUrlQueryState();
+  const {getUpdatedSearchParams, searchParams} = useUrlQueryState();
   const {pathname} = useLocation();
 
   const getPathToJobLogs = useCallback(
@@ -37,11 +37,11 @@ const useLogsNavigation = () => {
 
   const getPathFromLogs = useCallback(
     (path: string) => {
-      return `${viewState.prevPath || path}?${getUpdatedSearchParams({
+      return `${searchParams.prevPath || path}?${getUpdatedSearchParams({
         prevPath: undefined,
       })}`;
     },
-    [getUpdatedSearchParams, viewState],
+    [getUpdatedSearchParams, searchParams],
   );
 
   return {

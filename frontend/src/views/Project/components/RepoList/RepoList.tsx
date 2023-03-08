@@ -11,7 +11,7 @@ const TAB_IDS = {repos: 'repos', commits: 'commits'};
 
 const RepoList: React.FC = () => {
   const [filtersExpanded, setFiltersExpanded] = useState(false);
-  const {viewState} = useUrlQueryState();
+  const {searchParams} = useUrlQueryState();
 
   return (
     <TableView
@@ -19,7 +19,7 @@ const RepoList: React.FC = () => {
       noun="repo"
       tabsBasePath={PROJECT_REPOS_PATH}
       tabs={TAB_IDS}
-      selectedItems={viewState.selectedRepos || []}
+      selectedItems={searchParams.selectedRepos || []}
       filtersExpanded={filtersExpanded}
       setFiltersExpanded={setFiltersExpanded}
       singleRowSelection
@@ -30,7 +30,7 @@ const RepoList: React.FC = () => {
       <TableViewSection id={TAB_IDS.commits}>
         <CommitsList
           selectedRepo={
-            viewState.selectedRepos ? viewState.selectedRepos[0] : ''
+            searchParams.selectedRepos ? searchParams.selectedRepos[0] : ''
           }
           filtersExpanded={filtersExpanded}
         />

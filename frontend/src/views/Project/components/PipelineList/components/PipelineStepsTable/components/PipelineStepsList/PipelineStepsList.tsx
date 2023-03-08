@@ -38,10 +38,10 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
   error,
 }) => {
   const {iconItems, onOverflowMenuSelect} = usePipelineStepsList();
-  const {viewState, toggleSelection} = useUrlQueryState();
+  const {searchParams, toggleSearchParamsListEntry} = useUrlQueryState();
 
   const addSelection = (value: string) => {
-    toggleSelection('selectedPipelines', value);
+    toggleSearchParamsListEntry('selectedPipelines', value);
   };
 
   if (loading) {
@@ -100,7 +100,7 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
               key={pipeline?.id}
               data-testid="PipelineStepsList__row"
               onClick={() => addSelection(pipeline?.name || '')}
-              isSelected={viewState.selectedPipelines?.includes(
+              isSelected={searchParams.selectedPipelines?.includes(
                 pipeline?.name || '',
               )}
               hasCheckbox

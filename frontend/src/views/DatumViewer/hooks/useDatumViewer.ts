@@ -8,14 +8,14 @@ import {useModal} from '@pachyderm/components';
 const useDatumViewer = (onCloseRoute: string) => {
   const {closeModal, isOpen} = useModal(true);
   const {jobId, datumId} = useUrlState();
-  const {updateViewState} = useUrlQueryState();
+  const {updateSearchParamsAndGo} = useUrlQueryState();
   const browserHistory = useHistory();
 
   const onClose = useCallback(() => {
     closeModal();
     setTimeout(() => browserHistory.push(onCloseRoute), 500);
-    updateViewState({datumFilters: []});
-  }, [browserHistory, closeModal, onCloseRoute, updateViewState]);
+    updateSearchParamsAndGo({datumFilters: []});
+  }, [browserHistory, closeModal, onCloseRoute, updateSearchParamsAndGo]);
 
   return {
     onClose,

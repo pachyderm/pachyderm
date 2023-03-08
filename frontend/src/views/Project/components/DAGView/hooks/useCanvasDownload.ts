@@ -4,7 +4,7 @@ import {ViewState} from '@dash-frontend/hooks/useUrlQueryState';
 import downloadSVG from '@dash-frontend/lib/downloadSVG';
 
 export const useCanvasDownload = (
-  viewState: ViewState,
+  searchParams: ViewState,
   graphExtents: {
     xMin: number;
     xMax: number;
@@ -26,7 +26,7 @@ export const useCanvasDownload = (
           graphExtents.xMax + 100,
           graphExtents.yMax + 100,
           projectName,
-          viewState.globalIdFilter,
+          searchParams.globalIdFilter,
         );
       download().then(() => setCanvasDownload(false));
     }
@@ -35,7 +35,7 @@ export const useCanvasDownload = (
     graphExtents.yMax,
     projectName,
     renderAndDownloadCanvas,
-    viewState.globalIdFilter,
+    searchParams.globalIdFilter,
   ]);
 
   return {

@@ -93,7 +93,8 @@ type usePipelineFiltersProps = {
 };
 
 const usePipelineFilters = ({pipelines = []}: usePipelineFiltersProps) => {
-  const {viewState, updateViewState, clearViewState} = useUrlQueryState();
+  const {searchParams, updateSearchParamsAndGo, clearSearchParamsAndGo} =
+    useUrlQueryState();
   const formCtx = useForm<FormValues>({
     mode: 'onChange',
     defaultValues: {
@@ -109,17 +110,22 @@ const usePipelineFilters = ({pipelines = []}: usePipelineFiltersProps) => {
   const pipelineStatusFilter = watch('pipelineStatus');
 
   useEffect(() => {
-    clearViewState();
+    clearSearchParamsAndGo();
     reset();
-  }, [clearViewState, reset]);
+  }, [clearSearchParamsAndGo, reset]);
 
   useEffect(() => {
-    updateViewState({
+    updateSearchParamsAndGo({
       sortBy: sortFilter,
       jobStatus: jobStatusFilter,
       pipelineState: pipelineStatusFilter,
     });
-  }, [jobStatusFilter, pipelineStatusFilter, sortFilter, updateViewState]);
+  }, [
+    jobStatusFilter,
+    pipelineStatusFilter,
+    sortFilter,
+    updateSearchParamsAndGo,
+  ]);
 
   const jobStatusFiltersMap = useMemo(
     () =>
@@ -160,17 +166,20 @@ const usePipelineFilters = ({pipelines = []}: usePipelineFiltersProps) => {
         if (!pipeline?.state) {
           return false;
         }
-        if (viewState.pipelineState && viewState.pipelineState.length > 0) {
-          included = viewState.pipelineState.includes(pipeline.nodeState);
+        if (
+          searchParams.pipelineState &&
+          searchParams.pipelineState.length > 0
+        ) {
+          included = searchParams.pipelineState.includes(pipeline.nodeState);
         }
-        if (viewState.jobStatus && viewState.jobStatus.length > 0) {
+        if (searchParams.jobStatus && searchParams.jobStatus.length > 0) {
           included =
             !!pipeline?.lastJobNodeState &&
-            viewState.jobStatus.includes(pipeline.lastJobNodeState);
+            searchParams.jobStatus.includes(pipeline.lastJobNodeState);
         }
         return included;
       }),
-    [pipelines, viewState.jobStatus, viewState.pipelineState],
+    [pipelines, searchParams.jobStatus, searchParams.pipelineState],
   );
 
   const {
@@ -184,8 +193,8 @@ const usePipelineFilters = ({pipelines = []}: usePipelineFiltersProps) => {
   });
 
   useEffect(() => {
-    if (viewState.sortBy && comparatorName !== viewState.sortBy) {
-      setComparator(sortOptions[viewState.sortBy]);
+    if (searchParams.sortBy && comparatorName !== searchParams.sortBy) {
+      setComparator(sortOptions[searchParams.sortBy]);
     }
   });
 

@@ -11,13 +11,13 @@ type GlobalIdFilterFormValues = {
 };
 
 const useGlobalFilter = () => {
-  const {viewState, updateViewState} = useUrlQueryState();
+  const {searchParams, updateSearchParamsAndGo} = useUrlQueryState();
   const {projectId} = useUrlState();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [getJobSet, {data, loading}] = useJobSetLazyQuery();
 
-  const globalIdFilter = viewState.globalIdFilter;
+  const globalIdFilter = searchParams.globalIdFilter;
   const formCtx = useForm<GlobalIdFilterFormValues>({
     mode: 'onChange',
     defaultValues: {globalId: globalIdFilter},
@@ -36,13 +36,13 @@ const useGlobalFilter = () => {
   const globalIdInput = watch('globalId');
 
   const clearFilter = useCallback(() => {
-    updateViewState({
+    updateSearchParamsAndGo({
       globalIdFilter: undefined,
     });
     getJobSet({variables: {args: {projectId, id: ''}}});
     setDropdownOpen(false);
     reset({globalId: ''});
-  }, [getJobSet, projectId, reset, updateViewState]);
+  }, [getJobSet, projectId, reset, updateSearchParamsAndGo]);
 
   const handleSubmit = useCallback(() => {
     const formGlobalId = getValues('globalId');
@@ -74,12 +74,12 @@ const useGlobalFilter = () => {
   // apply viewstate if the jobset id returned jobs
   useEffect(() => {
     if (data?.jobSet.jobs.length) {
-      updateViewState({
+      updateSearchParamsAndGo({
         globalIdFilter: data?.jobSet.id,
       });
       setDropdownOpen(false);
     }
-  }, [data, loading, setError, updateViewState]);
+  }, [data, loading, setError, updateSearchParamsAndGo]);
 
   // set error if we queried for the jobset but no jobs were returned
   useEffect(() => {

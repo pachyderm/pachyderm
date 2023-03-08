@@ -6,7 +6,7 @@ import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 const useOnCloseTutorial = ({clearProgress}: {clearProgress?: boolean}) => {
   const {projectId} = useUrlState();
-  const {updateViewState} = useUrlQueryState();
+  const {updateSearchParamsAndGo} = useUrlQueryState();
   const [, setTutorialData] = useLocalProjectSettings({
     projectId: 'account-data',
     key: 'tutorial_id',
@@ -22,7 +22,7 @@ const useOnCloseTutorial = ({clearProgress}: {clearProgress?: boolean}) => {
 
   const onCloseTutorial = useCallback(
     (tutorialName: string) => {
-      updateViewState({tutorialId: undefined});
+      updateSearchParamsAndGo({tutorialId: undefined});
       setActiveTutorial(null);
       setTutorialData(null);
       if (clearProgress) {
@@ -38,7 +38,7 @@ const useOnCloseTutorial = ({clearProgress}: {clearProgress?: boolean}) => {
       }
     },
     [
-      updateViewState,
+      updateSearchParamsAndGo,
       setActiveTutorial,
       setTutorialData,
       clearProgress,

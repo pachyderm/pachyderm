@@ -64,20 +64,20 @@ const useUrlQueryState = () => {
   const {search} = useLocation();
   const browserHistory = useHistory();
 
-  const viewState = useMemo(() => {
-    const searchParams = new URLSearchParams(search);
-    const viewState: ViewState = {};
+  const searchParams = useMemo(() => {
+    const searchParamsIn = new URLSearchParams(search);
+    const viewStateObject: ViewState = {};
 
-    for (const [key, value] of searchParams.entries()) {
+    for (const [key, value] of searchParamsIn.entries()) {
       if (LIST_TYPES.includes(key as keyof ListParams)) {
         // use ListParams types as string[]
-        viewState[key as keyof ViewStateLists] = value.split(',');
+        viewStateObject[key as keyof ViewStateLists] = value.split(',');
       } else {
         // use all other values as string
-        viewState[key as keyof ViewStateValues] = value;
+        viewStateObject[key as keyof ViewStateValues] = value;
       }
     }
-    return viewState;
+    return viewStateObject;
   }, [search]);
 
   const getUpdatedSearchParams = useCallback(
@@ -106,7 +106,7 @@ const useUrlQueryState = () => {
     [],
   );
 
-  const getNewViewState = useCallback(
+  const getNewSearchParamsAndGo = useCallback(
     (newState: Partial<UrlState>, path?: string) => {
       const pathname = window.location.pathname;
       const updatedPath = path || pathname;
@@ -118,7 +118,7 @@ const useUrlQueryState = () => {
     [browserHistory, getUpdatedSearchParams],
   );
 
-  const updateViewState = useCallback(
+  const updateSearchParamsAndGo = useCallback(
     (newState: Partial<UrlState>, path?: string) => {
       const searchParams = getUpdatedSearchParams(newState);
 
@@ -139,11 +139,11 @@ const useUrlQueryState = () => {
   // params from SelectableResource are used to select subsets of a resource
   // like selectedPipelines=A,B. This function either adds a new selection
   // to the array or removes an existing one. (used in Table Views)
-  const toggleSelection = useCallback(
+  const toggleSearchParamsListEntry = useCallback(
     (param: keyof SelectableResource, value: string) => {
-      const selectableResourceArray = viewState[param];
+      const selectableResourceArray = searchParams[param];
       if (!selectableResourceArray) {
-        return updateViewState({
+        return updateSearchParamsAndGo({
           [param]: [value],
         });
       }
@@ -152,30 +152,30 @@ const useUrlQueryState = () => {
           const filteredSelections = selectableResourceArray.filter(
             (v: string) => v !== value,
           );
-          updateViewState({
+          updateSearchParamsAndGo({
             [param]: filteredSelections,
           });
         } else {
-          updateViewState({
+          updateSearchParamsAndGo({
             [param]: [...selectableResourceArray, value],
           });
         }
       }
     },
-    [updateViewState, viewState],
+    [updateSearchParamsAndGo, searchParams],
   );
 
-  const clearViewState = useCallback(() => {
+  const clearSearchParamsAndGo = useCallback(() => {
     return browserHistory.push(window.location.pathname);
   }, [browserHistory]);
 
   return {
-    viewState,
-    getNewViewState,
-    updateViewState,
-    clearViewState,
-    toggleSelection,
+    searchParams,
     getUpdatedSearchParams,
+    getNewSearchParamsAndGo,
+    updateSearchParamsAndGo,
+    toggleSearchParamsListEntry,
+    clearSearchParamsAndGo,
   };
 };
 

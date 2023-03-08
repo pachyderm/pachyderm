@@ -59,7 +59,8 @@ type useJobsFiltersProps = {
 };
 
 const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
-  const {viewState, updateViewState, getNewViewState} = useUrlQueryState();
+  const {searchParams, updateSearchParamsAndGo, getNewSearchParamsAndGo} =
+    useUrlQueryState();
   const formCtx = useForm<FormValues>({
     mode: 'onChange',
     defaultValues: {
@@ -77,19 +78,19 @@ const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
   const pipelineStepsFilters = watch('pipelineSteps');
 
   useEffect(() => {
-    const {selectedPipelines, selectedJobs} = viewState;
+    const {selectedPipelines, selectedJobs} = searchParams;
     reset();
-    getNewViewState({
+    getNewSearchParamsAndGo({
       selectedPipelines,
       selectedJobs,
     });
     // We want to clear the form and viewstate on a fresh render,
-    // but NOT when viewState changes
+    // but NOT when searchParams changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getNewViewState, reset, updateViewState]);
+  }, [getNewSearchParamsAndGo, reset, updateSearchParamsAndGo]);
 
   useEffect(() => {
-    updateViewState({
+    updateSearchParamsAndGo({
       sortBy: sortFilter,
       jobStatus: jobStatusFilters,
       jobId: jobIdFilters,
@@ -100,7 +101,7 @@ const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
     jobStatusFilters,
     pipelineStepsFilters,
     sortFilter,
-    updateViewState,
+    updateSearchParamsAndGo,
   ]);
 
   const multiselectFilters = [
@@ -145,14 +146,19 @@ const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
     () =>
       jobs?.filter((job) => {
         return (
-          (!viewState.jobStatus ||
-            viewState.jobStatus.includes(job.nodeState)) &&
-          (!viewState.jobId || viewState.jobId.includes(job.id)) &&
-          (!viewState.pipelineStep ||
-            viewState.pipelineStep.includes(job.pipelineName))
+          (!searchParams.jobStatus ||
+            searchParams.jobStatus.includes(job.nodeState)) &&
+          (!searchParams.jobId || searchParams.jobId.includes(job.id)) &&
+          (!searchParams.pipelineStep ||
+            searchParams.pipelineStep.includes(job.pipelineName))
         );
       }),
-    [jobs, viewState.jobStatus, viewState.jobId, viewState.pipelineStep],
+    [
+      jobs,
+      searchParams.jobStatus,
+      searchParams.jobId,
+      searchParams.pipelineStep,
+    ],
   );
 
   const {
@@ -166,8 +172,8 @@ const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
   });
 
   useEffect(() => {
-    if (viewState.sortBy && comparatorName !== viewState.sortBy) {
-      setComparator(sortOptions[viewState.sortBy]);
+    if (searchParams.sortBy && comparatorName !== searchParams.sortBy) {
+      setComparator(sortOptions[searchParams.sortBy]);
     }
   });
 

@@ -9,7 +9,7 @@ import {DagDirection, InputOutputNodesMap} from '@dash-frontend/lib/types';
 import {NODE_HEIGHT, NODE_WIDTH} from './../../../constants/nodeSizes';
 
 export const useDAG = () => {
-  const {viewState} = useUrlQueryState();
+  const {searchParams} = useUrlQueryState();
   const {projectId} = useUrlState();
   const [dagDirectionSetting] = useLocalProjectSettings({
     projectId,
@@ -19,7 +19,7 @@ export const useDAG = () => {
   const dagDirection = dagDirectionSetting || DagDirection.DOWN;
 
   const {dags, loading, error} = useProjectDagsData({
-    jobSetId: viewState.globalIdFilter || undefined,
+    jobSetId: searchParams.globalIdFilter || undefined,
     projectId,
     nodeHeight: NODE_HEIGHT,
     nodeWidth: NODE_WIDTH,

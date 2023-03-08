@@ -79,7 +79,7 @@ export const useDAGView = (
     width: window.innerWidth - SIDENAV_PADDING,
   });
   const {selectedNode} = useRouteController();
-  const {viewState} = useUrlQueryState();
+  const {searchParams} = useUrlQueryState();
   const {pipelineId, repoId, projectId} = useUrlState();
   const {currentProject} = useCurrentProject();
   const [dagDirectionSetting, setDagDirectionSetting] = useLocalProjectSettings(
@@ -360,6 +360,6 @@ export const useDAGView = (
     handleChangeCenterOnSelect,
     graphExtents,
     projectName: currentProject?.id,
-    viewState,
+    searchParams,
   };
 };

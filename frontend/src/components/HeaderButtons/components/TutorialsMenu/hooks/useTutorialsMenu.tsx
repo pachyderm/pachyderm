@@ -5,7 +5,7 @@ import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 
 const useTutorialsMenu = (projectId?: string) => {
   const routerHistory = useHistory();
-  const {updateViewState} = useUrlQueryState();
+  const {updateSearchParamsAndGo} = useUrlQueryState();
   const [, setTutorialData] = useLocalProjectSettings({
     projectId: 'account-data',
     key: 'tutorial_id',
@@ -25,7 +25,7 @@ const useTutorialsMenu = (projectId?: string) => {
   };
 
   const deleteTutorialResources = (tutorial: string) => {
-    updateViewState({tutorialId: undefined});
+    updateSearchParamsAndGo({tutorialId: undefined});
     setTutorialProgress({...tutorialProgress, [tutorial]: null});
     setActiveTutorial(null);
     setTutorialData(null);

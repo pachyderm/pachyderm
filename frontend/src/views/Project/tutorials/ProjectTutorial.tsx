@@ -21,7 +21,7 @@ const TUTORIALS: TutorialMap = {
 
 const ProjectTutorial: React.FC = () => {
   const {projectId} = useUrlState();
-  const {viewState} = useUrlQueryState();
+  const {searchParams} = useUrlQueryState();
   const [id, setActiveTutorial] = useLocalProjectSettings({
     projectId,
     key: 'active_tutorial',
@@ -30,10 +30,10 @@ const ProjectTutorial: React.FC = () => {
   const onCloseTutorial = useOnCloseTutorial({});
 
   useEffect(() => {
-    if (viewState.tutorialId && viewState.tutorialId !== id) {
-      setActiveTutorial(viewState.tutorialId);
+    if (searchParams.tutorialId && searchParams.tutorialId !== id) {
+      setActiveTutorial(searchParams.tutorialId);
     }
-  }, [viewState.tutorialId, setActiveTutorial, id]);
+  }, [searchParams.tutorialId, setActiveTutorial, id]);
 
   if (id) {
     const Tutorial = TUTORIALS[id];

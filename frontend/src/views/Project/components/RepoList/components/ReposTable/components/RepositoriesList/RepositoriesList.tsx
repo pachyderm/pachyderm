@@ -28,15 +28,15 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
   error,
 }) => {
   const {iconItems, onOverflowMenuSelect} = useRepositoriesList();
-  const {viewState, updateViewState} = useUrlQueryState();
+  const {searchParams, updateSearchParamsAndGo} = useUrlQueryState();
 
   const addSelection = (value: string) => {
-    if (viewState.selectedRepos && viewState.selectedRepos[0] === value) {
-      updateViewState({
+    if (searchParams.selectedRepos && searchParams.selectedRepos[0] === value) {
+      updateSearchParamsAndGo({
         selectedRepos: [],
       });
     } else {
-      updateViewState({
+      updateSearchParamsAndGo({
         selectedRepos: [value],
       });
     }
@@ -98,7 +98,7 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
               onClick={
                 repo?.access ? () => addSelection(repo?.id || '') : undefined
               }
-              isSelected={viewState.selectedRepos?.includes(repo?.id || '')}
+              isSelected={searchParams.selectedRepos?.includes(repo?.id || '')}
               hasRadio={repo?.access}
               hasLock={!repo?.access}
               lockedTooltipText={!repo?.access ? NO_ACCESS_TOOLTIP : undefined}

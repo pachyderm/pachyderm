@@ -64,11 +64,11 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
     handleChangeCenterOnSelect,
     graphExtents,
     projectName,
-    viewState,
+    searchParams,
   } = useDAGView(NODE_WIDTH, NODE_HEIGHT, dags, loading);
   const {isOpen: isSidebarOpen, sidebarSize} = useSidebarInfo();
   const {renderAndDownloadCanvas, downloadCanvas} = useCanvasDownload(
-    viewState,
+    searchParams,
     graphExtents,
     projectName,
   );

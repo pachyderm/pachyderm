@@ -6,16 +6,16 @@ import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 const useImageProcessing = () => {
   const {projectId} = useUrlState();
-  const {updateViewState} = useUrlQueryState();
+  const {updateSearchParamsAndGo} = useUrlQueryState();
   const [, setActiveTutorial] = useLocalProjectSettings({
     projectId,
     key: 'active_tutorial',
   });
 
   const closeTutorial = useCallback(() => {
-    updateViewState({tutorialId: undefined});
+    updateSearchParamsAndGo({tutorialId: undefined});
     setActiveTutorial(null);
-  }, [setActiveTutorial, updateViewState]);
+  }, [setActiveTutorial, updateSearchParamsAndGo]);
 
   return {
     closeTutorial,
