@@ -8,9 +8,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
@@ -73,21 +70,6 @@ func (pachwb *pachwBuilder) registerEnterpriseServer(ctx context.Context) error 
 		enterprise.RegisterAPIServer(s, apiServer)
 	})
 	pachwb.env.SetEnterpriseServer(apiServer)
-	return nil
-}
-
-func (pachwb *pachwBuilder) setupDB(ctx context.Context) error {
-	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
-	if err := dbutil.WaitUntilReady(ctx, pachwb.env.GetDBClient()); err != nil {
-		return err
-	}
-	// if err := migrations.ApplyMigrations(ctx, b.env.GetDBClient(), migrations.MakeEnv(nil, b.env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
-	// 	return err
-	// }
-	if err := migrations.BlockUntil(ctx, pachwb.env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
-		return err
-	}
-
 	return nil
 }
 
