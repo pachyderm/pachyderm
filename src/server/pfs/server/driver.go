@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"fmt"
 	"math"
 	"os"
 	"sort"
@@ -12,11 +13,15 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/hashicorp/go-multierror"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -498,6 +503,102 @@ func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs
 	return pi, nil
 }
 
+func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsRequest, cb func(response *pfs.FindCommitsResponse) error) error {
+	commit := request.Start
+	foundCommits, commitsSearched := uint32(0), uint32(0)
+	searchDone := false
+	var found *pfs.Commit
+	makeResp := func(found *pfs.Commit, commitsSearched uint32, lastSearchedCommit *pfs.Commit) *pfs.FindCommitsResponse {
+		resp := &pfs.FindCommitsResponse{}
+		if found != nil {
+			resp.Result = &pfs.FindCommitsResponse_FoundCommit{FoundCommit: found}
+		} else {
+			resp.Result = &pfs.FindCommitsResponse_LastSearchedCommit{LastSearchedCommit: commit}
+		}
+		resp.CommitsSearched = commitsSearched
+		return resp
+	}
+	for {
+		if searchDone {
+			return errors.EnsureStack(cb(makeResp(nil, commitsSearched, commit)))
+		}
+		if err := log.LogStep(ctx, "searchingCommit", func(ctx context.Context) error {
+			inspectCommitResp, err := d.resolveCommitWithAuth(ctx, commit)
+			if err != nil {
+				return err
+			}
+			if inspectCommitResp.Finished == nil {
+				return pfsserver.ErrCommitNotFinished{Commit: commit}
+			}
+			commit = inspectCommitResp.Commit
+			inCommit, err := d.isPathModifiedInCommit(ctx, commit, request.FilePath)
+			if err != nil {
+				return err
+			}
+			if inCommit {
+				log.Info(ctx, "found target", zap.String("commit", commit.ID), zap.String("branch", commit.Branch.String()), zap.String("target", request.FilePath))
+				found = commit
+				foundCommits++
+				if err := cb(makeResp(found, commitsSearched, nil)); err != nil {
+					return err
+				}
+			}
+			commitsSearched++
+			if (foundCommits == request.Limit && request.Limit != 0) || inspectCommitResp.ParentCommit == nil {
+				searchDone = true
+				return nil
+			}
+			commit = inspectCommitResp.ParentCommit
+			return nil
+		}, zap.String("commit", commit.ID), zap.String("branch", commit.Branch.String()), zap.String("target", request.FilePath)); err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return errors.EnsureStack(cb(makeResp(nil, commitsSearched, commit)))
+			}
+			return errors.EnsureStack(err)
+		}
+	}
+}
+
+func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit, filePath string) (bool, error) {
+	diffID, err := d.commitStore.GetDiffFileSet(ctx, commit)
+	if err != nil {
+		return false, err
+	}
+	diffFileSet, err := d.storage.Open(ctx, []fileset.ID{*diffID})
+	if err != nil {
+		return false, err
+	}
+	found := false
+	pathOption := []index.Option{
+		index.WithRange(&index.PathRange{
+			Lower: filePath,
+		}),
+	}
+	if err = diffFileSet.Iterate(ctx, func(file fileset.File) error {
+		if file.Index().Path == filePath {
+			found = true
+			return errutil.ErrBreak
+		}
+		return nil
+	}, pathOption...); err != nil && !errors.Is(err, errutil.ErrBreak) {
+		return false, err
+	}
+	// we don't care about the file operation, so if a file was already found, skip iterating over deletive set.
+	if found {
+		return found, nil
+	}
+	if err = diffFileSet.IterateDeletes(ctx, func(file fileset.File) error {
+		if file.Index().Path == filePath {
+			found = true
+			return errutil.ErrBreak
+		}
+		return nil
+	}, pathOption...); err != nil && !errors.Is(err, errutil.ErrBreak) {
+		return false, err
+	}
+	return found, nil
+}
+
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
 func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
 	projectInfo := &pfs.ProjectInfo{}
@@ -515,20 +616,15 @@ func (d *driver) deleteProject(ctx context.Context, txnCtx *txncontext.Transacti
 		return errors.Wrapf(err, "user is not authorized to delete project %q", project)
 	}
 
-	var repoInfos []*pfs.RepoInfo
+	var errs error
 	if err := d.listRepo(ctx, false /* includeAuth */, "" /* repoType */, []*pfs.Project{project} /* projectsFilter */, func(repoInfo *pfs.RepoInfo) error {
-		repoInfos = append(repoInfos, repoInfo)
+		errs = multierror.Append(errs, fmt.Errorf("repo %v still exists", repoInfo.GetRepo()))
 		return nil
 	}); err != nil {
 		return err
 	}
-	if len(repoInfos) > 0 && !force {
-		return errors.Errorf("project %q contains %d repos", project, len(repoInfos))
-	}
-	for _, repoInfo := range repoInfos {
-		if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil {
-			return errors.Wrapf(err, "could not delete repo %v", repoInfo.Repo)
-		}
+	if errs != nil {
+		return status.Error(codes.FailedPrecondition, fmt.Sprintf("cannot delete project %s: %v", project.Name, errs))
 	}
 
 	if err := d.projects.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.ProjectKey(project)); err != nil {
@@ -1044,32 +1140,8 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 // As a side effect, this function also replaces the ID in the given commit
 // with a real commit ID.
 func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs.CommitState) (*pfs.CommitInfo, error) {
-	if commit.Branch.Repo.Name == fileSetsRepo {
-		cinfo := &pfs.CommitInfo{
-			Commit:      commit,
-			Description: "FileSet - Virtual Commit",
-			Finished:    &types.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
-		}
-		return cinfo, nil
-	}
-	if commit == nil {
-		return nil, errors.Errorf("cannot inspect nil commit")
-	}
-	if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, commit.Branch.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-
-	// TODO(global ids): it's possible the commit doesn't exist yet (but will,
-	// following a trigger).  If the commit isn't found, check if the associated
-	// commitset _could_ reach the requested branch or ID via a trigger and wait
-	// to find out.
-	// Resolve the commit in case it specifies a branch head or commit ancestry
-	var commitInfo *pfs.CommitInfo
-	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		var err error
-		commitInfo, err = d.resolveCommit(txnCtx.SqlTx, commit)
-		return err
-	}); err != nil {
+	commitInfo, err := d.resolveCommitWithAuth(ctx, commit)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1109,6 +1181,40 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 				return nil, errors.EnsureStack(err)
 			}
 		}
+	}
+
+	return commitInfo, nil
+}
+
+// resolveCommitWithAuth is like resolveCommit, but it does some pre-resolution checks like repo authorization.
+func (d *driver) resolveCommitWithAuth(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	if commit.Branch.Repo.Name == fileSetsRepo {
+		cinfo := &pfs.CommitInfo{
+			Commit:      commit,
+			Description: "FileSet - Virtual Commit",
+			Finished:    &types.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
+		}
+		return cinfo, nil
+	}
+	if commit == nil {
+		return nil, errors.Errorf("cannot inspect nil commit")
+	}
+	if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, commit.Branch.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+
+	// TODO(global ids): it's possible the commit doesn't exist yet (but will,
+	// following a trigger).  If the commit isn't found, check if the associated
+	// commitset _could_ reach the requested branch or ID via a trigger and wait
+	// to find out.
+	// Resolve the commit in case it specifies a branch head or commit ancestry
+	var commitInfo *pfs.CommitInfo
+	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		var err error
+		commitInfo, err = d.resolveCommit(txnCtx.SqlTx, commit)
+		return err
+	}); err != nil {
+		return nil, err
 	}
 
 	return commitInfo, nil
@@ -2214,6 +2320,9 @@ func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Projec
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
+	if _, err := d.deleteAllRepos(ctx); err != nil {
+		return errors.Wrap(err, "could not delete all repos")
+	}
 	var projectInfos []*pfs.ProjectInfo
 	if err := d.listProject(ctx, func(pi *pfs.ProjectInfo) error {
 		projectInfos = append(projectInfos, proto.Clone(pi).(*pfs.ProjectInfo))
