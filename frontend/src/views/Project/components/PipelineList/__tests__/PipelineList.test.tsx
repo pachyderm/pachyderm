@@ -9,7 +9,7 @@ import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
 import PipelineListComponent from '../PipelineList';
 
-describe('Pipeline Steps', () => {
+describe('Pipelines', () => {
   const PipelineList = withContextProviders(() => {
     return <PipelineListComponent />;
   });
@@ -22,7 +22,7 @@ describe('Pipeline Steps', () => {
     );
   });
 
-  it('should display pipeline step details', async () => {
+  it('should display pipeline details', async () => {
     render(<PipelineList />);
 
     await waitForElementToBeRemoved(() =>
@@ -37,7 +37,7 @@ describe('Pipeline Steps', () => {
     expect(pipelines[0]).toHaveTextContent('Not my favorite pipeline');
   });
 
-  it('should allow the user to select a subset of pipeline steps', async () => {
+  it('should allow the user to select a subset of pipelines', async () => {
     render(<PipelineList />);
 
     await waitForElementToBeRemoved(() =>
@@ -55,11 +55,11 @@ describe('Pipeline Steps', () => {
     await click(screen.getAllByText('edges')[0]);
 
     expect(
-      screen.getByText('Detailed info for 2 pipeline steps'),
+      screen.getByText('Detailed info for 2 pipelines'),
     ).toBeInTheDocument();
   });
 
-  it('should allow users to view a pipeline step in the DAG', async () => {
+  it('should allow users to view a pipeline in the DAG', async () => {
     render(<PipelineList />);
 
     await waitForElementToBeRemoved(() =>
@@ -74,7 +74,7 @@ describe('Pipeline Steps', () => {
     );
   });
 
-  it('should sort pipeline steps', async () => {
+  it('should sort pipelines', async () => {
     render(<PipelineList />);
 
     await waitForElementToBeRemoved(() =>

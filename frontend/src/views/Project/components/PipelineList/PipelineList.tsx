@@ -8,7 +8,7 @@ import JobsList from '../JobsList';
 
 import PipelineStepsTable from './components/PipelineStepsTable';
 
-const TAB_IDS = {steps: 'steps', jobs: 'jobs'};
+const TAB_IDS = {pipelines: 'pipelines', jobs: 'jobs'};
 
 const PipelineList: React.FC = () => {
   const [filtersExpanded, setFiltersExpanded] = useState(false);
@@ -16,15 +16,15 @@ const PipelineList: React.FC = () => {
 
   return (
     <TableView
-      title="Pipeline Steps"
-      noun="pipeline step"
+      title="Pipelines"
+      noun="pipeline"
       tabsBasePath={PROJECT_PIPELINES_PATH}
       tabs={TAB_IDS}
       selectedItems={viewState.selectedPipelines || []}
       filtersExpanded={filtersExpanded}
       setFiltersExpanded={setFiltersExpanded}
     >
-      <TableViewSection id={TAB_IDS.steps}>
+      <TableViewSection id={TAB_IDS.pipelines}>
         <PipelineStepsTable filtersExpanded={filtersExpanded} />
       </TableViewSection>
       <TableViewSection id={TAB_IDS.jobs}>

@@ -122,7 +122,7 @@ describe('JobSet SubJobs List', () => {
     expect(jobs[1]).toHaveTextContent('23b9af...');
   });
 
-  it('should filter jobs by ID or Pipeline step', async () => {
+  it('should filter jobs by ID or Pipeline', async () => {
     render(<JobSetList />);
 
     await waitForElementToBeRemoved(() =>

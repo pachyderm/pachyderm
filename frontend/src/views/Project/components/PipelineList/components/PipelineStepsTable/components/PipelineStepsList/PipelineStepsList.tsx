@@ -51,8 +51,8 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
   if (error) {
     return (
       <ErrorStateSupportLink
-        title="We couldn't load the pipeline step list"
-        message="Your pipeline steps exist, but we couldn't fetch a list of them from our end. Please try refreshing this page."
+        title="We couldn't load the pipelines list"
+        message="Your pipelines exist, but we couldn't fetch a list of them from our end. Please try refreshing this page."
       />
     );
   }
@@ -60,8 +60,8 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
   if (totalPipelinesLength === 0) {
     return (
       <EmptyState
-        title="This DAG has no pipeline steps"
-        message="This is normal for new DAGs, but we still wanted to notify you because Pachyderm didn't detect pipeline steps on our end."
+        title="This DAG has no pipelines"
+        message="This is normal for new DAGs, but we still wanted to notify you because Pachyderm didn't detect any pipelines on our end."
         linkToDocs={{
           text: 'Try creating a pipeline',
           link: 'https://docs.pachyderm.com/latest/how-tos/pipeline-operations/create-pipeline/',
@@ -84,7 +84,7 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
       <Table>
         <Table.Head sticky>
           <Table.Row>
-            <Table.HeaderCell>Pipeline Step</Table.HeaderCell>
+            <Table.HeaderCell>Name</Table.HeaderCell>
             <Table.HeaderCell>Pipeline State</Table.HeaderCell>
             <Table.HeaderCell>Last Job Status</Table.HeaderCell>
             <Table.HeaderCell>Version</Table.HeaderCell>

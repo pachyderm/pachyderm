@@ -80,9 +80,9 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
   return (
     <TableViewWrapper>
       <Table>
-        <Table.Head sticky hasCheckbox>
+        <Table.Head sticky>
           <Table.Row>
-            <Table.HeaderCell>Repository</Table.HeaderCell>
+            <Table.HeaderCell>Name</Table.HeaderCell>
             <Table.HeaderCell>Size</Table.HeaderCell>
             <Table.HeaderCell>Created</Table.HeaderCell>
             <Table.HeaderCell>Description</Table.HeaderCell>

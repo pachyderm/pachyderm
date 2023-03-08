@@ -60,10 +60,10 @@ const ProjectSideNav: React.FC = () => {
           <SideNav.SideNavItem
             IconSVG={PipelineSVG}
             to={projectPipelinesRoute({projectId}, false)}
-            tooltipContent="Pipeline Steps"
+            tooltipContent="Pipelines"
             showIconWhenExpanded
           >
-            Pipeline Steps
+            Pipelines
           </SideNav.SideNavItem>
           <SideNav.SideNavItem
             IconSVG={RepoSVG}

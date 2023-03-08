@@ -50,7 +50,7 @@ export const Default = () => (
           tooltipContent="Pipelines"
           showIconWhenExpanded
         >
-          Pipeline Steps
+          Pipelines
         </SideNav.SideNavItem>
         <SideNav.SideNavItem
           IconSVG={RepoSVG}

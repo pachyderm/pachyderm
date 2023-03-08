@@ -68,7 +68,7 @@ describe(
       })
         .scrollIntoView()
         .click();
-      cy.findByText('Pipeline Steps').click();
+      cy.findByText('Pipelines').click();
       inspectListItemScrolling('PipelineStepsList__row', 27);
     });
 

@@ -112,7 +112,7 @@ const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
       values: [...new Set(jobs?.map((job) => job.id))],
     },
     {
-      label: 'Pipeline Step',
+      label: 'Pipeline',
       name: 'pipelineSteps',
       noun: 'step',
       values: [...new Set(jobs?.map((job) => job.pipelineName))],

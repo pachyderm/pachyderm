@@ -79,7 +79,7 @@ const JobsList: React.FC<JobsListProps> = ({
           <Table>
             <Table.Head sticky>
               <Table.Row>
-                <Table.HeaderCell>Pipeline Step</Table.HeaderCell>
+                <Table.HeaderCell>Pipeline</Table.HeaderCell>
                 <Table.HeaderCell>Datums Processed</Table.HeaderCell>
                 <Table.HeaderCell>Started</Table.HeaderCell>
                 <Table.HeaderCell>Run ID</Table.HeaderCell>
