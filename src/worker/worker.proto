@@ -1,12 +1,11 @@
 syntax = "proto3";
 
-package server;
-option go_package = "github.com/pachyderm/pachyderm/v2/src/server/worker/server";
+package pachyderm.worker;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/worker";
 
 import "pps/pps.proto";
 import "gogoproto/gogo.proto";
 import "google/protobuf/empty.proto";
-import "server/worker/datum/datum.proto";
 
 message CancelRequest {
   string job_id = 1 [(gogoproto.customname) = "JobID"];
