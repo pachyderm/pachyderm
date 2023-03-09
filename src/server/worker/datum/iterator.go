@@ -230,8 +230,8 @@ func (li *listIterator) Iterate(cb func(*Meta) error) error {
 }
 
 // Merge merges multiple datum iterators (key is datum ID).
-func Merge(dits []Iterator, cb func([]*Meta) error) error {
-	return mergeByKey(dits, metaInputID, cb)
+func Merge(ctx context.Context, dits []Iterator, cb func([]*Meta) error) error {
+	return mergeByKey(ctx, dits, metaInputID, cb)
 }
 
 func metaInputID(meta *Meta) string {
@@ -240,8 +240,7 @@ func metaInputID(meta *Meta) string {
 
 type idGenerator = func(*Meta) string
 
-func mergeByKey(dits []Iterator, idFunc idGenerator, cb func([]*Meta) error) error {
-	ctx := context.TODO()
+func mergeByKey(ctx context.Context, dits []Iterator, idFunc idGenerator, cb func([]*Meta) error) error {
 	type metaEntry struct {
 		Meta *Meta
 		ID   string
