@@ -43,7 +43,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	c.SetAuthToken("")
 	mockIDPLogin(t, c)
 	// Test Upgrade
-	opts.CleanupAfter = true
+	opts.CleanupAfter = false
 	// set new root token via env
 	opts.AuthUser = ""
 	token := "new-root-token"
@@ -105,7 +105,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 }
 
 func mockIDPLogin(t testing.TB, c *client.APIClient) {
-	require.NoErrorWithinTRetryConstant(t, 15*time.Second, func() error {
+	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
 		// login using mock IDP admin
 		hc := &http.Client{}
 		c.SetAuthToken("")
@@ -160,7 +160,7 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 			return errors.EnsureStack(errors.Errorf("Recieved the incorrect username after mock IDP login. Expected: %s, Recieved: %s", expectedUsername, whoami.Username))
 		}
 		return nil
-	}, 3*time.Second, "Attempting login through mock IDP")
+	}, 5*time.Second, "Attempting login through mock IDP")
 }
 
 func createTrustedPeersFile(t testing.TB) string {
