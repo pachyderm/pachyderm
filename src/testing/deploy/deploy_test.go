@@ -8,12 +8,15 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -102,36 +105,62 @@ func TestEnterpriseServerMember(t *testing.T) {
 }
 
 func mockIDPLogin(t testing.TB, c *client.APIClient) {
-	// login using mock IDP admin
-	hc := &http.Client{}
-	c.SetAuthToken("")
-	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
-	require.NoError(t, err)
-	state := loginInfo.State
+	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
+		// login using mock IDP admin
+		hc := &http.Client{}
+		c.SetAuthToken("")
+		loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		state := loginInfo.State
 
-	// Get the initial URL from the grpc, which should point to the dex login page
-	getResp, err := hc.Get(loginInfo.LoginURL)
-	require.NoError(t, err)
-	require.Equal(t, 200, getResp.StatusCode, "Mock login could not retrieve the login page.")
+		// Get the initial URL from the grpc, which should point to the dex login page
+		getResp, err := hc.Get(loginInfo.LoginURL)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		if 200 != getResp.StatusCode {
+			return errors.EnsureStack(errors.Errorf("Could not retrieve the mock login page. Expected: 200, Recieved: %d", getResp.StatusCode))
+		}
 
-	vals := make(url.Values)
-	vals.Add("login", "admin")
-	vals.Add("password", "password")
+		vals := make(url.Values)
+		vals.Add("login", "admin")
+		vals.Add("password", "password")
+		postResp, err := hc.PostForm(getResp.Request.URL.String(), vals)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		if 200 != postResp.StatusCode {
+			return errors.EnsureStack(errors.Errorf("POST to perform mock login failed. Expected: 200, Recieved: %d", postResp.StatusCode))
+		}
+		postBody, err := io.ReadAll(postResp.Body)
+		if err != nil {
+			return errors.EnsureStack(errors.Errorf("Could not read login form POST response: %s", err.Error()))
+		}
+		// There is a login failure case in which the response returned is a redirect back to the login page that returns 200, but does not log in
+		expectedResponse := "^(You are now logged in).*$"
+		matches, err := regexp.Match(expectedResponse, postBody)
+		require.NoError(t, err, "Regex matching failed") // a regex compile error should be deterministic, so fail immediately
+		if !matches {
+			return errors.EnsureStack(errors.Errorf("Recieved an unexpected response body from mock IDP login form. Expected: %s, Recieved: %s", expectedResponse, string(postBody)))
+		}
 
-	postResp, err := hc.PostForm(getResp.Request.URL.String(), vals)
-	require.NoError(t, err)
-	require.Equal(t, 200, postResp.StatusCode, "POST to perform mock login failed.")
-	postBody, err := io.ReadAll(postResp.Body)
-	require.NoError(t, err, "Could not read login form POST response.")
-	// There is a login failure case in which the response returned is a redirect back to the login page that returns 200
-	require.Matches(t, "^(You are now logged in).*$", string(postBody), "Recieved an unexpected response from mock IDP login form POST.")
-
-	authResp, err := c.AuthAPIClient.Authenticate(c.Ctx(), &auth.AuthenticateRequest{OIDCState: state})
-	require.NoError(t, err)
-	c.SetAuthToken(authResp.PachToken)
-	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-	require.NoError(t, err)
-	require.Equal(t, "user:"+testutil.DexMockConnectorEmail, whoami.Username)
+		authResp, err := c.AuthAPIClient.Authenticate(c.Ctx(), &auth.AuthenticateRequest{OIDCState: state})
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		c.SetAuthToken(authResp.PachToken)
+		whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		expectedUsername := "user:" + testutil.DexMockConnectorEmail
+		if expectedUsername != whoami.Username {
+			return errors.EnsureStack(errors.Errorf("Recieved the incorrect username after mock IDP login. Expected: %s, Recieved: %s", expectedUsername, whoami.Username))
+		}
+		return nil
+	}, 5*time.Second, "Attempting login through mock IDP")
 }
 
 func createTrustedPeersFile(t testing.TB) string {
