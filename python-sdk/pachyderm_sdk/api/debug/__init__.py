@@ -139,7 +139,7 @@ class DebugBase(ServicerBase):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
-    __proto_path__ = "debug.Debug"
+    __proto_path__ = "debug_v2.Debug"
 
     @property
     def __rpc_methods__(self):

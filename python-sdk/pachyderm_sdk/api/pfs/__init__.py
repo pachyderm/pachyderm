@@ -425,6 +425,20 @@ class CreateBranchRequest(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class FindCommitsRequest(betterproto.Message):
+    start: "Commit" = betterproto.message_field(1)
+    file_path: str = betterproto.string_field(2)
+    limit: int = betterproto.uint32_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class FindCommitsResponse(betterproto.Message):
+    found_commit: "Commit" = betterproto.message_field(1, group="result")
+    last_searched_commit: "Commit" = betterproto.message_field(2, group="result")
+    commits_searched: int = betterproto.uint32_field(3)
+
+
+@dataclass(eq=False, repr=False)
 class InspectBranchRequest(betterproto.Message):
     branch: "Branch" = betterproto.message_field(1)
 
@@ -478,6 +492,7 @@ class AddFile(betterproto.Message):
 class AddFileUrlSource(betterproto.Message):
     url: str = betterproto.string_field(1)
     recursive: bool = betterproto.bool_field(2)
+    concurrency: int = betterproto.uint32_field(3)
 
 
 @dataclass(eq=False, repr=False)
@@ -832,6 +847,11 @@ class ApiStub:
             "/pfs_v2.API/DropCommitSet",
             request_serializer=DropCommitSetRequest.SerializeToString,
             response_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
+        )
+        self.__rpc_find_commits = channel.unary_stream(
+            "/pfs_v2.API/FindCommits",
+            request_serializer=FindCommitsRequest.SerializeToString,
+            response_deserializer=FindCommitsResponse.FromString,
         )
         self.__rpc_create_branch = channel.unary_unary(
             "/pfs_v2.API/CreateBranch",
@@ -1195,6 +1215,18 @@ class ApiStub:
             request.commit_set = commit_set
 
         return self.__rpc_drop_commit_set(request)
+
+    def find_commits(
+        self, *, start: "Commit" = None, file_path: str = "", limit: int = 0
+    ) -> Iterator["FindCommitsResponse"]:
+        request = FindCommitsRequest()
+        if start is not None:
+            request.start = start
+        request.file_path = file_path
+        request.limit = limit
+
+        for response in self.__rpc_find_commits(request):
+            yield response
 
     def create_branch(
         self,
@@ -1720,6 +1752,17 @@ class ApiBase(ServicerBase):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def find_commits(
+        self,
+        start: "Commit",
+        file_path: str,
+        limit: int,
+        context: "grpc.ServicerContext",
+    ) -> Iterator["FindCommitsResponse"]:
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def create_branch(
         self,
         head: "Commit",
@@ -2092,6 +2135,11 @@ class ApiBase(ServicerBase):
                 self.drop_commit_set,
                 request_deserializer=DropCommitSetRequest.FromString,
                 response_serializer=DropCommitSetRequest.SerializeToString,
+            ),
+            "FindCommits": grpc.unary_stream_rpc_method_handler(
+                self.find_commits,
+                request_deserializer=FindCommitsRequest.FromString,
+                response_serializer=FindCommitsRequest.SerializeToString,
             ),
             "CreateBranch": grpc.unary_unary_rpc_method_handler(
                 self.create_branch,

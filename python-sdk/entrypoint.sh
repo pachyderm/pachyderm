@@ -43,6 +43,7 @@ for i in ${PROTO_FILES}; do
     sed -i 's/task\/task.proto/taskapi\/task.proto/' "${i}"
     sed -i 's/version\/versionpb/version/' "${i}"
     sed -i 's/versionpb/version/' "${i}"
+    sed -i 's/pachyderm.worker/worker/' "${i}"
 done
 
 # Refactor IDP -> Idp, OIDC -> Oidc (for BetterProto)
@@ -59,6 +60,7 @@ for name in ${V2_APIS}; do
 done
 sed -i "s/debug.Debug/debug_v2.Debug/" ${OUTDIR}/debug/__init__.py
 sed -i "s/version.API/versionpb_v2.API/" ${OUTDIR}/version/__init__.py
+sed -i "s/worker.Worker/pachyderm.worker.Worker/" ${OUTDIR}/worker/__init__.py
 
 # Clean up
 find ${OUTDIR} -empty -type d -delete
