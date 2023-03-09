@@ -27,6 +27,7 @@ type Client interface {
 // a tracker and an kv.Store
 type trackedClient struct {
 	store   kv.Store
+	pool    *kv.Pool
 	db      *pachsql.DB
 	tracker track.Tracker
 	renewer *Renewer
@@ -35,9 +36,10 @@ type trackedClient struct {
 
 // NewClient returns a client which will write to objc, mdstore, and tracker.  Name is used
 // for the set of temporary objects
-func NewClient(store kv.Store, db *pachsql.DB, tr track.Tracker, renewer *Renewer) Client {
+func NewClient(store kv.Store, db *pachsql.DB, tr track.Tracker, renewer *Renewer, pool *kv.Pool) Client {
 	return &trackedClient{
 		store:   store,
+		pool:    pool,
 		db:      db,
 		tracker: tr,
 		renewer: renewer,
@@ -149,7 +151,7 @@ func (c *trackedClient) Get(ctx context.Context, chunkID ID, cb kv.ValueCallback
 		return err
 	}
 	key := chunkKey(chunkID, gen)
-	return errors.EnsureStack(c.store.Get(ctx, key, cb))
+	return errors.EnsureStack(c.pool.GetF(ctx, c.store, key, cb))
 }
 
 // Close closes the client, stopping the background renewal of created objects
@@ -177,7 +179,7 @@ func (c *trackedClient) CheckEntries(ctx context.Context, first []byte, limit in
 	}
 	for _, ent := range ents {
 		if readChunks {
-			if err := c.store.Get(ctx, chunkKey(ent.ChunkID, ent.Gen), func(data []byte) error {
+			if err := c.pool.GetF(ctx, c.store, chunkKey(ent.ChunkID, ent.Gen), func(data []byte) error {
 				return verifyData(ent.ChunkID, data)
 			}); err != nil {
 				if pacherr.IsNotExist(err) {

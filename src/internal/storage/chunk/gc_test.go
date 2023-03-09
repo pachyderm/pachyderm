@@ -10,11 +10,12 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 )
 
 func TestGC(t *testing.T) {
@@ -55,9 +56,10 @@ func TestGC(t *testing.T) {
 	require.Equal(t, 0, count)
 }
 
-func countObjects(ctx context.Context, client obj.Client) (int, error) {
+func countObjects(ctx context.Context, store kv.Store) (int, error) {
+	it := store.NewKeyIterator(kv.Span{})
 	var count int
-	if err := client.Walk(ctx, "", func(string) error {
+	if err := stream.ForEach(ctx, it, func([]byte) error {
 		count++
 		return nil
 	}); err != nil {

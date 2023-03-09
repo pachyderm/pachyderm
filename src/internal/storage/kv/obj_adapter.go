@@ -3,7 +3,7 @@ package kv
 import (
 	"bytes"
 	"context"
-	"sync"
+	"io"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -11,12 +11,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"go.uber.org/zap"
 )
 
 type objectAdapter struct {
-	objC    obj.Client
-	bufPool sync.Pool
+	objC obj.Client
 }
 
 // NewFromObjectClient converts an object client into a key value store.
@@ -24,11 +24,6 @@ type objectAdapter struct {
 func NewFromObjectClient(objC obj.Client) Store {
 	return &objectAdapter{
 		objC: objC,
-		bufPool: sync.Pool{
-			New: func() interface{} {
-				return bytes.NewBuffer(nil)
-			},
-		},
 	}
 }
 
@@ -38,15 +33,15 @@ func (s *objectAdapter) Put(ctx context.Context, key, value []byte) error {
 	})
 }
 
-func (s *objectAdapter) Get(ctx context.Context, key []byte, cb ValueCallback) error {
-	return s.retry(ctx, func() error {
-		return s.withBuffer(func(buf *bytes.Buffer) error {
-			if err := s.objC.Get(ctx, string(key), buf); err != nil {
-				return errors.EnsureStack(err)
-			}
-			return cb(buf.Bytes())
-		})
-	})
+func (s *objectAdapter) Get(ctx context.Context, key []byte, buf []byte) (int, error) {
+	// TODO: limitWriter
+	sw := &sliceWriter{buf: buf}
+	if err := s.retry(ctx, func() error {
+		return s.objC.Get(ctx, string(key), sw)
+	}); err != nil {
+		return 0, err
+	}
+	return sw.Len(), nil
 }
 
 func (s *objectAdapter) Delete(ctx context.Context, key []byte) error {
@@ -67,12 +62,8 @@ func (s *objectAdapter) Exists(ctx context.Context, key []byte) (bool, error) {
 	return res, nil
 }
 
-// TODO: Should a retry be added to this function? That behavior might be strange from a client standpoint.
-// Also, we may end up removing this functionality anyways because it has no current use.
-func (s *objectAdapter) Walk(ctx context.Context, prefix []byte, cb func(key []byte) error) error {
-	return errors.EnsureStack(s.objC.Walk(ctx, string(prefix), func(p string) error {
-		return cb([]byte(p))
-	}))
+func (s *objectAdapter) NewKeyIterator(span Span) stream.Iterator[[]byte] {
+	panic("not implemented")
 }
 
 func (s *objectAdapter) retry(ctx context.Context, cb func() error) error {
@@ -85,13 +76,20 @@ func (s *objectAdapter) retry(ctx context.Context, cb func() error) error {
 	})
 }
 
-// withBuffer gets a buffer from the pool, calls cb with it, resets it, then returns it to the pool.
-func (s *objectAdapter) withBuffer(cb func(*bytes.Buffer) error) error {
-	buf := s.bufPool.Get().(*bytes.Buffer)
-	defer func() {
-		buf.Reset()
-		s.bufPool.Put(buf)
-	}()
-	buf.Reset()
-	return cb(buf)
+type sliceWriter struct {
+	n   int
+	buf []byte
+}
+
+func (sw *sliceWriter) Write(data []byte) (int, error) {
+	if sw.n+len(data) > len(sw.buf) {
+		return 0, io.ErrShortBuffer
+	}
+	n := copy(sw.buf[sw.n:], data)
+	sw.n += n
+	return n, nil
+}
+
+func (sw *sliceWriter) Len() int {
+	return sw.n
 }

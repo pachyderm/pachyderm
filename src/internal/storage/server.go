@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"go.uber.org/zap"
 )
@@ -33,17 +34,16 @@ type Server struct {
 func New(env Env, config pachconfig.StorageConfiguration) (*Server, error) {
 	// Setup tracker and chunk / fileset storage.
 	tracker := track.NewPostgresTracker(env.DB)
-	chunkStorageOpts, err := makeChunkOptions(&config)
-	if err != nil {
-		return nil, err
-	}
+	chunkStorageOpts := makeChunkOptions(&config)
 	keyStore := chunk.NewPostgresKeyStore(env.DB)
 	secret, err := getOrCreateKey(context.TODO(), keyStore, "default")
 	if err != nil {
 		return nil, err
 	}
+	store := kv.NewFromObjectClient(env.ObjectStore)
+	store = addDiskCache(&config, store)
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
-	chunkStorage := chunk.NewStorage(env.ObjectStore, env.DB, tracker, chunkStorageOpts...)
+	chunkStorage := chunk.NewStorage(store, env.DB, tracker, chunkStorageOpts...)
 	filesetStorage := fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, makeFilesetOptions(&config)...)
 
 	return &Server{
