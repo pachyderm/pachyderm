@@ -79,8 +79,14 @@ func (mr *MergeReader) Iterate(ctx context.Context, cb func(File) error, opts ..
 				idx := fe.File.Index()
 				dataRefs = append(dataRefs, idx.File.DataRefs...)
 			}
-			mergeIdx := ents[0].File.Index()
-			mergeIdx.File.DataRefs = dataRefs
+			mergeIdx := &index.Index{
+				Path: ents[0].File.Index().Path,
+				File: &index.File{
+					Datum:    ents[0].File.Index().File.Datum,
+					DataRefs: dataRefs,
+				},
+				// TODO: Num_Files
+			}
 			return cb(newMergeFileReader(mr.chunks, mergeIdx))
 		}
 	})
@@ -91,7 +97,7 @@ func (mr *MergeReader) IterateDeletes(ctx context.Context, cb func(File) error, 
 	var ss []stream.Peekable[File]
 	for _, fs := range mr.fileSets {
 		it := stream.NewFromForEach(ctx, copyFile, func(fn func(File) error) error {
-			return fs.IterateDeletes(ctx, cb, opts...)
+			return fs.IterateDeletes(ctx, fn, opts...)
 		})
 		pk := stream.NewPeekable(it, copyFile)
 		ss = append(ss, pk)

@@ -11,9 +11,9 @@ func Merge(ctx context.Context, storage *chunk.Storage, indexes []*Index, cb fun
 	var its []stream.Peekable[*Index]
 	for _, index := range indexes {
 		ir := NewReader(storage, nil, index)
-		it := stream.NewFromForEach(ctx, CopyIndex, func(cb func(*Index) error) error {
+		it := stream.NewFromForEach(ctx, CopyIndex, func(fn func(*Index) error) error {
 			return ir.Iterate(ctx, func(index *Index) error {
-				return cb(index)
+				return fn(index)
 			})
 		})
 		peekIt := stream.NewPeekable(it, CopyIndex)
