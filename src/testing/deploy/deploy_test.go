@@ -142,7 +142,7 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 		expectedResponse := "^(You are now logged in).*$"
 		matches, err := regexp.Match(expectedResponse, postBody)
 		require.NoError(t, err, "Regex matching failed") // a regex compile error should be deterministic, so fail immediately
-		if matches {
+		if !matches {
 			return errors.EnsureStack(errors.Errorf("Recieved an unexpected response body from mock IDP login form. Expected: %s, Recieved: %s", expectedResponse, string(postBody)))
 		}
 
