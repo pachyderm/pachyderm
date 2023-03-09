@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-
 	"net/http"
 	"net/url"
 	"os"
@@ -14,7 +13,16 @@ import (
 	"strings"
 	"time"
 
+	prompt "github.com/c-bata/go-prompt"
 	"github.com/fatih/color"
+	docker "github.com/fsouza/go-dockerclient"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+	"github.com/itchyny/gojq"
+	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -36,15 +44,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
-	"go.uber.org/zap"
-
-	prompt "github.com/c-bata/go-prompt"
-	docker "github.com/fsouza/go-dockerclient"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
-	"github.com/itchyny/gojq"
-	"github.com/spf13/cobra"
+	workerapi "github.com/pachyderm/pachyderm/v2/src/worker"
 )
 
 const (
@@ -1392,7 +1392,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 			defer c.Close()
 			// TODO: Decide how to handle the environment variables in the response.
-			_, err = c.NextDatum(context.Background(), &workerserver.NextDatumRequest{Error: errStr})
+			_, err = c.NextDatum(context.Background(), &workerapi.NextDatumRequest{Error: errStr})
 			return err
 		}),
 		Hidden: true,

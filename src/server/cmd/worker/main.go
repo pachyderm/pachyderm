@@ -11,14 +11,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker"
-	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
-	"github.com/pachyderm/pachyderm/v2/src/version"
-	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -29,6 +21,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker"
+	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	"github.com/pachyderm/pachyderm/v2/src/version"
+	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
+	workerapi "github.com/pachyderm/pachyderm/v2/src/worker"
 )
 
 func main() {
@@ -87,7 +87,7 @@ func do(ctx context.Context, config interface{}) error {
 		return err
 	}
 
-	workerserver.RegisterWorkerServer(server.Server, workerInstance.APIServer)
+	workerapi.RegisterWorkerServer(server.Server, workerInstance.APIServer)
 	versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.Config().PodName, pachClient, env.GetDBClient()))
 
