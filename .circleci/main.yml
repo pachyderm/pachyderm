@@ -24,6 +24,11 @@ orbs:
   gcp-cli: circleci/gcp-cli@2.4.1
   gh: circleci/github-cli@2.1
   codecov: codecov/codecov@1.1.0
+  pulumi: pulumi/pulumi@2.1.0
+  aws-cli: circleci/aws-cli@3.1.1
+  node: circleci/node@5.0.2
+  kubernetes: circleci/kubernetes@1.3.0
+  aws-eks: circleci/aws-eks@2.2.0
 
 parameters:
   machine_image:
@@ -404,6 +409,8 @@ jobs:
     parameters:
       bucket:
         type: string
+      env:
+        type: string
     resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -413,15 +420,26 @@ jobs:
       GOOGLE_COMPUTE_ZONE: us-east1-b
       GOOGLE_COMPUTE_REGION: us-east1
     steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - run: |
+          cat /tmp/workspace/bash.env > $BASH_ENV
       - checkout
       - gcp-cli/initialize
       - go/install:
           version: << pipeline.parameters.go-version >>
+      - install-pulumi-deps
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
           command: etc/testing/circle/run_all_load_tests.sh
           no_output_timeout: 1h
+      - run:
+          name: Destroy test env on fail
+          command: |
+            sleep 300 #wait for CNI warm pool population to acquiesce before destroy
+            pulumi destroy --yes --stack << parameters.env >> --cwd etc/testing/circle/workloads/pulumi/aws
+          when: on_fail
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
@@ -1019,23 +1037,102 @@ jobs:
     steps:
       - checkout
       - attach_workspace:
-          at: ./
+          at: /tmp/workspace
+      - run: |
+          cat /tmp/workspace/bash.env > $BASH_ENV
       - run:
           name: echo bins
           command: |
-            ls -la dist-pach/*
-            ls -la cr-release-packages/*
+            ls -la /tmp/workspace/dist-pach/*
+            ls -la /tmp/workspace/cr-release-packages/*
       - run:
           name: "test aws examples"
           command: |
-            etc/testing/circle/run_release_tests.sh "aws"
+            etc/testing/circle/run_release_tests.sh
           no_output_timeout: 1h
+      - install-pulumi-deps
+      - run:
+          name: Destroy test env on fail
+          command: |
+            sleep 300 #wait for CNI warm pool population to acquiesce before destroy
+            pulumi destroy --yes --stack qa1 --cwd etc/testing/circle/workloads/pulumi/aws
+          when: on_fail
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
+  pulumi-aws-test-env:
+    parameters:
+      env:
+        type: string
+      action:
+        type: string
+      pachdVersion:
+        type: string
+        default: ""
+      helmChartVersion:
+        type: string
+        default: ""
+    resource_class: large
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    steps:
+      - checkout
+      - node/install
+      - kubernetes/install
+      - aws-eks/install-aws-iam-authenticator
+      - aws-cli/setup
+      - pulumi/login
+      - run: |
+          pulumi plugin install resource eks v0.40.0
+      - when:
+          condition:
+            and:
+              - equal: ["update", << parameters.action >>]
+          steps:
+            - run:
+                name: set few config values
+                command: |
+                  cd etc/testing/circle/workloads/pulumi/aws
+                  pulumi stack select pachyderm/core/<< parameters.env >> --create
+                  pulumi config set pachdVersion << parameters.pachdVersion >>
+                  [[ ! -z "<< parameters.helmChartVersion >>" ]] && pulumi config set helmChartVersion << parameters.helmChartVersion >>
+                  pulumi config set --secret rdsPGDBPassword ${PULUMI_TEST_DB_PW}
+            - pulumi/update:
+                stack: pachyderm/core/<< parameters.env >>
+                working_directory: ./etc/testing/circle/workloads/pulumi/aws/
+            - run:
+                name: gather stack output
+                command: |
+                  cd etc/testing/circle/workloads/pulumi/aws
+                  pulumi stack select pachyderm/core/<< parameters.env >>
+                  pulumi stack output kubeconfig > kubeconfig.yml
+                  KUBECONFIG=./kubeconfig.yml kubectl get nodes
+                  PACHD_IP=$(KUBECONFIG=./kubeconfig.yml kubectl get services --all-namespaces | grep pachyderm-proxy | awk '{print $5}')
+                  echo $PACHD_IP
+                  echo "export PACHD_IP=$PACHD_IP" >> $BASH_ENV
+                  mkdir -p workspace
+                  cp $BASH_ENV workspace/bash.env
+            - persist_to_workspace:
+                root: etc/testing/circle/workloads/pulumi/aws/workspace
+                paths:
+                  - bash.env
+      - when:
+          condition:
+            and:
+              - equal: ["destroy", << parameters.action >>]
+          steps:
+            - run:
+                name: wait for CNI warm pool population to acquiesce before destroy
+                command: |
+                  sleep 300
+            - pulumi/destroy:
+                stack: pachyderm/core/<< parameters.env >>
+                working_directory: ./etc/testing/circle/workloads/pulumi/aws/
   cust-prerelease-testing:
     parameters:
       customer:
+        type: string
+      env:
         type: string
     resource_class: large
     machine:
@@ -1043,17 +1140,26 @@ jobs:
     steps:
       - checkout
       - attach_workspace:
-          at: ./
+          at: /tmp/workspace
+      - run: |
+          cat /tmp/workspace/bash.env > $BASH_ENV
       - run:
           name: echo bins
           command: |
-            ls -la dist-pach/*
-            ls -la cr-release-packages/*
+            ls -la /tmp/workspace/dist-pach/*
+            ls -la /tmp/workspace/cr-release-packages/*
       - run:
           name: "test customer workload"
           command: |
             etc/testing/circle/run_cust_release_tests.sh << parameters.customer >>
           no_output_timeout: 1h
+      - install-pulumi-deps
+      - run:
+          name: Destroy test env on fail
+          command: |
+            sleep 300 #wait for CNI warm pool population to acquiesce before destroy
+            pulumi destroy --yes --stack << parameters.env >> --cwd etc/testing/circle/workloads/pulumi/aws
+          when: on_fail
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
@@ -1240,28 +1346,130 @@ workflows:
     when: << pipeline.parameters.run_load_tests >>
     jobs:
       - build-docker-images
-      - nightly-load:
+      - pulumi-aws-test-env:
+          name: create-aws-test-env-LOAD1
+          pachdVersion: $CIRCLE_SHA1
+          action: update
+          env: LOAD1
           requires:
             - build-docker-images
-          matrix:
-            parameters:
-              bucket:
-                - LOAD1
-                - LOAD2
-                - LOAD3
-                - LOAD4
-                - LOAD5
-                - LOAD6
-                - LOAD7
-                - LOAD8
-                - LOAD9
-                - LOAD10
-                - LOAD11
-                - LOAD12
-                  # Disabled for now since they take too long, may consider reenabling later.
-                  #- LOAD13
-                  #- LOAD14
-                  #- LOAD15
+      - pulumi-aws-test-env:
+          name: create-aws-test-env-LOAD2
+          pachdVersion: $CIRCLE_SHA1
+          action: update
+          env: LOAD2
+          requires:
+            - build-docker-images
+      - pulumi-aws-test-env:
+          name: create-aws-test-env-LOAD3
+          pachdVersion: $CIRCLE_SHA1
+          action: update
+          env: LOAD3
+          requires:
+            - build-docker-images
+      - pulumi-aws-test-env:
+          name: create-aws-test-env-LOAD4
+          pachdVersion: $CIRCLE_SHA1
+          action: update
+          env: LOAD4
+          requires:
+            - build-docker-images
+      - nightly-load:
+          name: nightly-load-LOAD1
+          requires:
+            - create-aws-test-env-LOAD1
+          bucket: LOAD1
+          env: LOAD1
+      - nightly-load:
+          name: nightly-load-LOAD2
+          requires:
+            - create-aws-test-env-LOAD2
+          bucket: LOAD2
+          env: LOAD2
+      - nightly-load:
+          name: nightly-load-LOAD3
+          requires:
+            - create-aws-test-env-LOAD3
+          bucket: LOAD3
+          env: LOAD3
+      - nightly-load:
+          name: nightly-load-LOAD4
+          requires:
+            - create-aws-test-env-LOAD4
+          bucket: LOAD4
+          env: LOAD4
+      - nightly-load:
+          name: nightly-load-LOAD5
+          requires:
+            - nightly-load-LOAD1
+          bucket: LOAD5
+          env: LOAD1
+      - nightly-load:
+          name: nightly-load-LOAD6
+          requires:
+            - nightly-load-LOAD2
+          bucket: LOAD6
+          env: LOAD2
+      - nightly-load:
+          name: nightly-load-LOAD7
+          requires:
+            - nightly-load-LOAD3
+          bucket: LOAD7
+          env: LOAD3
+      - nightly-load:
+          name: nightly-load-LOAD8
+          requires:
+            - nightly-load-LOAD4
+          bucket: LOAD8
+          env: LOAD4
+      - nightly-load:
+          name: nightly-load-LOAD9
+          requires:
+            - nightly-load-LOAD5
+          bucket: LOAD9
+          env: LOAD1
+      - nightly-load:
+          name: nightly-load-LOAD10
+          requires:
+            - nightly-load-LOAD6
+          bucket: LOAD10
+          env: LOAD2
+      - nightly-load:
+          name: nightly-load-LOAD11
+          requires:
+            - nightly-load-LOAD7
+          bucket: LOAD11
+          env: LOAD3
+      - nightly-load:
+          name: nightly-load-LOAD12
+          requires:
+            - nightly-load-LOAD8
+          bucket: LOAD12
+          env: LOAD4
+      - pulumi-aws-test-env:
+          name: destroy-aws-testing-env-LOAD1
+          action: destroy
+          requires:
+            - nightly-load-LOAD9
+          env: LOAD1
+      - pulumi-aws-test-env:
+          name: destroy-aws-testing-env-LOAD2
+          action: destroy
+          requires:
+            - nightly-load-LOAD10
+          env: LOAD2
+      - pulumi-aws-test-env:
+          name: destroy-aws-testing-env-LOAD3
+          action: destroy
+          requires:
+            - nightly-load-LOAD11
+          env: LOAD3
+      - pulumi-aws-test-env:
+          name: destroy-aws-testing-env-LOAD4
+          action: destroy
+          requires:
+            - nightly-load-LOAD12
+          env: LOAD4
   rootless-tests:
     when:
       or:
@@ -1370,38 +1578,82 @@ workflows:
           requires:
             - jupyter-extension-build
             - build-pachctl-bin
-      - gcp-prerelease-testing:
+      - pulumi-aws-test-env:
+          name: aws-prerelease-testing-env-1
+          env: qa1
+          action: update
+          pachdVersion: $CIRCLE_SHA1
+          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
           filters: *only-release-tags
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+            - publish-chart-preview
+            - release-github-draft
+      - pulumi-aws-test-env:
+          name: aws-prerelease-testing-env-2
+          env: qa2
+          action: update
+          pachdVersion: $CIRCLE_SHA1
+          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
+          filters: *only-alpha-tags
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+            - publish-chart-preview
+            - release-github-draft
+      - pulumi-aws-test-env:
+          name: aws-prerelease-testing-env-3
+          env: qa3
+          action: update
+          pachdVersion: $CIRCLE_SHA1
+          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
+          filters: *only-alpha-tags
           requires:
             - build-docker-images
             - build-pachctl-bin
             - publish-chart-preview
             - release-github-draft
       - aws-prerelease-testing:
+          name: aws-testing
           filters: *only-release-tags
           requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
+            - aws-prerelease-testing-env-1
       - cust-prerelease-testing:
           name: wp-testing
           customer: wp
+          env: qa2
           filters: *only-alpha-tags
           requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
+            - aws-prerelease-testing-env-2
       - cust-prerelease-testing:
           name: btl-testing
           customer: btl
+          env: qa3
           filters: *only-alpha-tags
           requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
+            - aws-prerelease-testing-env-3
+      - pulumi-aws-test-env:
+          name: destroy-aws-prerelease-testing-env-1
+          env: qa1
+          action: destroy
+          filters: *only-release-tags
+          requires:
+            - aws-testing
+      - pulumi-aws-test-env:
+          name: destroy-aws-prerelease-testing-env-2
+          env: qa2
+          action: destroy
+          filters: *only-alpha-tags
+          requires:
+            - wp-testing
+      - pulumi-aws-test-env:
+          name: destroy-aws-prerelease-testing-env-3
+          env: qa3
+          action: destroy
+          filters: *only-alpha-tags
+          requires:
+            - btl-testing
       - console-release-draft:
           filters: *only-release-tags
           requires:
@@ -1504,21 +1756,37 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - build-pachctl-bin
-      - gcp-prerelease-testing:
+      - pulumi-aws-test-env:
+          name: create-aws-test-env
+          env: qa1
+          action: update
+          pachdVersion: $CIRCLE_SHA1
+          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
           filters: *only-nightly-tags
           requires:
             - build-docker-images
             - build-pachctl-bin
             - publish-chart-preview
             - release-github-draft
+      - aws-prerelease-testing:
+          filters: *only-nightly-tags
+          requires:
+            - create-aws-test-env
+      - pulumi-aws-test-env:
+          name: destroy-aws-test-env
+          env: qa1
+          action: destroy
+          filters: *only-nightly-tags
+          requires:
+            - aws-prerelease-testing
       - release-docker-hub:
           filters: *only-nightly-tags
           requires:
-            - gcp-prerelease-testing
+            - aws-prerelease-testing
       - release-github:
           filters: *only-nightly-tags
           requires:
-            - gcp-prerelease-testing
+            - aws-prerelease-testing
       - release-hombrew-tap:
           filters: *only-nightly-tags
           requires:
@@ -1527,7 +1795,7 @@ workflows:
           name: publish-helm-chart
           filters: *only-nightly-tags
           requires:
-            - gcp-prerelease-testing
+            - aws-prerelease-testing
 
 commands:
   install-jupyter-test-deps:
@@ -1579,3 +1847,12 @@ commands:
           command: |-
             echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' | pachctl config set context local --overwrite
             pachctl config set active-context local
+  install-pulumi-deps:
+    steps:
+      - node/install
+      - kubernetes/install
+      - aws-eks/install-aws-iam-authenticator
+      - aws-cli/setup
+      - pulumi/login
+      - run: |
+          pulumi plugin install resource eks v0.40.0
