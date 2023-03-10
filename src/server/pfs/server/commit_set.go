@@ -446,18 +446,16 @@ func traverseToEdges(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.Commit
 	return result
 }
 
-// a commit set 'X' is subvenant to another commit set 'Y' if it contains commits
-// that are subvenant to commits in 'Y'.
-// commit set subvenance is transitivie. So if 'X' is subvenant to 'Y', and 'Y', is provenant to
+// A commit set 'X' is subvenant to another commit set 'Y' if it contains commits
+// that are subvenant to commits in 'Y'. Commit set subvenance is transitivie.
 //
-// imagine the commit provenance graph where r@X & q@Y are in p@Y's provenance. q@Y is also in s@Z's provenance.
-// i.e.
-// r@X    q@Y
-//  \     / \
-//   \   /   \
-//    p@Y    s@Z
-// CommitSetSubvenance(X) evaluates to [p@Y]. Since we delete commit sets in batches, we would delete all of
-// commit set Y. But this would inadvertently kill commit q@Y which is in s@Z's provenance. Therefore,
+// The implementation repeatedly applies CommitSetSubvenance() to compute all of the Subvenant commit sets.
+// To understand why, consider the commit provenance graph where r@X & q@Y are in p@Y's provenance.
+// For this graph, CommitSetSubvenance("X") evaluates to [p@Y] which we can use to infer
+// that commit set Y is subvenant to commit set X.
+// Now consider the same graph, with the addition of a commit s@Z that has q@Y in its subvenance.
+// In this case, CommitSetSubvenance(X) still evaluates to [p@Y]. But since a commit in 'Z', depends on a commit
+// in 'Y', we haven't yet computed all of 'X''s subvenant commit sets. Therefore,
 // we re-evaluate CommitSetSubvenance for each collected commit set until our resulting set becomes stable.
 func (d *driver) subvenantCommitSets(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) ([]*pfs.CommitSet, error) {
 	collectSubvCommitSets := func(setIDs map[string]struct{}) (map[string]struct{}, error) {

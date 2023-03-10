@@ -3,14 +3,13 @@
 package pfsdb
 
 import (
-	"errors"
-	"fmt"
 	"sort"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -47,7 +46,7 @@ func TestCommitSetProvenance(suite *testing.T) {
 		//             /
 		// E <--------
 		td, cf := NewTestDAG(proj)
-		defer cf(db)
+		defer require.NoError(t, cf(db))
 		withTx(t, db, func(tx *pachsql.Tx) {
 			require.NoError(t, td.addRepo(tx, "A"))
 			require.NoError(t, td.addRepo(tx, "B", "A"))
@@ -161,7 +160,7 @@ func NewTestDAG(project string) (*testDAG, func(*pachsql.DB) error) {
 
 func (td *testDAG) addRepo(tx *pachsql.Tx, repo string, provRepos ...string) error {
 	if _, ok := td.provDag[repo]; ok {
-		return errors.New(fmt.Sprintf("repo %q already exists", repo))
+		return errors.Errorf("repo %q already exists", repo)
 	}
 	commitID := uuid.New()
 	c := client.NewProjectCommit(td.project, repo, "", commitID)
@@ -173,7 +172,7 @@ func (td *testDAG) addRepo(tx *pachsql.Tx, repo string, provRepos ...string) err
 		if _, ok := td.provDag[r]; ok {
 			td.subvDag[r] = append(td.subvDag[r], repo)
 		} else {
-			return errors.New(fmt.Sprintf("prov repo %q must exist", r))
+			return errors.Errorf("prov repo %q must exist", r)
 		}
 		if err := AddCommitProvenance(tx, c, td.heads[r]); err != nil {
 			return err
@@ -190,7 +189,7 @@ func (td *testDAG) addRepo(tx *pachsql.Tx, repo string, provRepos ...string) err
 // simulates commit propagation
 func (td *testDAG) addCommitSet(tx *pachsql.Tx, commitID string, repo string) (*pfs.Commit, error) {
 	if _, ok := td.provDag[repo]; !ok {
-		return nil, errors.New(fmt.Sprintf("repo %q must exist", repo))
+		return nil, errors.Errorf("repo %q must exist", repo)
 	}
 	var bfsQueue []string
 	bfsQueue = append(bfsQueue, repo)
