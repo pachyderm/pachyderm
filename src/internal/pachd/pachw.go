@@ -7,9 +7,11 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
@@ -74,6 +76,17 @@ func (pachwb *pachwBuilder) registerEnterpriseServer(ctx context.Context) error 
 	return nil
 }
 
+func (pachwb *pachwBuilder) registerDebugServer(ctx context.Context) error {
+	apiServer := debugserver.NewDebugServer(
+		pachwb.env,
+		pachwb.env.Config().PachdPodName,
+		nil,
+		pachwb.env.GetDBClient(),
+	)
+	pachwb.forGRPCServer(func(s *grpc.Server) { debug.RegisterDebugServer(s, apiServer) })
+	return nil
+}
+
 // buildAndRun builds & starts a pachw-mode pachd.
 func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 	return pachwb.apply(ctx,
@@ -86,13 +99,14 @@ func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 		pachwb.initInternalServer,
 		pachwb.registerEnterpriseServer,
 		pachwb.registerAuthServer,
-		pachwb.registerPFSServer, //PFS seems to need a non-nil auth server.
+		pachwb.registerPFSServer, // PFS seems to need a non-nil auth server.
 		pachwb.registerTransactionServer,
+		pachwb.registerDebugServer,
 		pachwb.registerHealthServer,
-		pachwb.resumeHealth,
 
 		pachwb.initTransaction,
 		pachwb.internallyListen,
+		pachwb.resumeHealth,
 		pachwb.daemon.serve,
 	)
 }
