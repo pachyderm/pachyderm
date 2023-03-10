@@ -24,6 +24,12 @@ var state_2_6_0 migrations.State = state_2_5_0.
 		}
 		rb := &auth.RoleBinding{}
 		if err := roleBindingsCol.Upsert("PROJECT:default", rb, func() error {
+			if rb.Entries == nil {
+				rb.Entries = make(map[string]*auth.Roles)
+			}
+			if _, ok := rb.Entries[auth.AllClusterUsersSubject]; !ok {
+				rb.Entries[auth.AllClusterUsersSubject] = &auth.Roles{Roles: make(map[string]bool)}
+			}
 			rb.Entries[auth.AllClusterUsersSubject].Roles[auth.ProjectWriterRole] = true
 			return nil
 		}); err != nil {
