@@ -307,7 +307,8 @@ jobs:
             </details>
             "
 
-  test-image:
+
+  test-docker-console-can-render:
     resource_class: xlarge
     machine:
       image: ubuntu-2004:202201-02
@@ -317,8 +318,8 @@ jobs:
       - run-pachyderm-with-console
       - run: touch .env.development.local
       - run:
-          name: Run Community Edition Cypress tests
-          command: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
+          name: Run Build Cypress tests
+          command: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e-build
       - store_artifacts:
           path: /tmp/cypress-screenshots
       - store_artifacts:
@@ -373,7 +374,7 @@ workflows:
           filters:
             branches:
               ignore: master
-      - test-image:
+      - test-docker-console-can-render:
           requires:
             - docker-manifest
   docker-release:
