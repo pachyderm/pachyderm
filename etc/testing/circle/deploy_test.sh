@@ -11,4 +11,4 @@ helm repo add pachyderm https://helm.pachyderm.com
 
 helm repo update
 
-go test -v ./src/testing/deploy --timeout=3600s -v -tags=k8s | stdbuf -i0 tee -a /tmp/results
+go test -v -failfast -timeout 3600s ./src/testing/deploy -tags=k8s | stdbuf -i0 tee -a /tmp/results

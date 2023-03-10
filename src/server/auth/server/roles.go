@@ -172,22 +172,33 @@ func init() {
 	})
 
 	// Project related roles
+	projectViewerRole := registerRole(&auth.Role{
+		Name:          auth.ProjectViewerRole,
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
+		Permissions: []auth.Permission{
+			auth.Permission_PROJECT_LIST_REPO,
+		},
+	})
 
-	// TODO CORE-1049 projectViewerRole
-	// TODO CORE-1048 projectWriterRole
+	projectWriterRole := registerRole(&auth.Role{
+		Name:          auth.ProjectWriterRole,
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
+		Permissions: combinePermissions(projectViewerRole.Permissions, []auth.Permission{
+			auth.Permission_PROJECT_CREATE_REPO,
+		}),
+	})
 
-	// TODO inherit projectViewer and projectWriter roles
 	projectOwnerRole := registerRole(&auth.Role{
-		Name:          auth.ProjectOwner,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT, auth.ResourceType_REPO},
-		Permissions: combinePermissions(repoOwnerRole.Permissions, []auth.Permission{
+		Name:          auth.ProjectOwnerRole,
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
+		Permissions: combinePermissions(repoOwnerRole.Permissions, projectWriterRole.Permissions, []auth.Permission{
 			auth.Permission_PROJECT_DELETE,
 			auth.Permission_PROJECT_MODIFY_BINDINGS,
 		}),
 	})
 
 	projectCreatorRole := registerRole(&auth.Role{
-		Name:          auth.ProjectCreator,
+		Name:          auth.ProjectCreatorRole,
 		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER},
 		Permissions: []auth.Permission{
 			auth.Permission_PROJECT_CREATE,

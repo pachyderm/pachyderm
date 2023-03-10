@@ -32,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -269,23 +270,51 @@ func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Per
 func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string, projects []*pfs.Project, cb func(*pfs.RepoInfo) error) error {
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
+	// Helper func to filter out repos based on projects.
 	projectsFilter := make(map[string]bool)
 	for _, project := range projects {
-		projectsFilter[project.String()] = true
+		projectsFilter[project.GetName()] = true
+	}
+	keep := func(repo *pfs.Repo) bool {
+		// Assume the user meant all projects by not providing any projects to filter on.
+		if len(projectsFilter) == 0 {
+			return true
+		}
+		return projectsFilter[repo.Project.GetName()]
+	}
+
+	// Helper func to check whether a user is allowed to see the given repo in the result.
+	// Cache the project level access because it applies to every repo within the same project.
+	checkProjectAccess := miscutil.CacheFunc(func(project string) error {
+		return d.env.AuthServer.CheckProjectIsAuthorized(ctx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
+	}, 100 /* size */)
+	checkAccess := func(ctx context.Context, repo *pfs.Repo) error {
+		if err := checkProjectAccess(repo.Project.GetName()); err != nil {
+			if !errors.As(err, &auth.ErrNotAuthorized{}) {
+				return err
+			}
+			// Allow access if user has the right permissions at the individual Repo-level.
+			return d.env.AuthServer.CheckRepoIsAuthorized(ctx, repo, auth.Permission_REPO_READ)
+		}
+		return nil
 	}
 
 	processFunc := func(string) error {
-		// Assume the user meant all projects by not providing any projects to filter on.
-		if len(projectsFilter) > 0 && !projectsFilter[repoInfo.Repo.Project.String()] {
+		if !keep(repoInfo.Repo) {
 			return nil
 		}
+		if err := checkAccess(ctx, repoInfo.Repo); err != nil {
+			if !errors.As(err, &auth.ErrNotAuthorized{}) {
+				return errors.Wrapf(err, "could not check user is authorized to list repo, problem with repo %s", repoInfo.Repo)
+			}
+			return nil
+		}
+
 		size, err := d.repoSize(ctx, repoInfo.Repo)
 		if err != nil {
 			return err
 		}
 		repoInfo.SizeBytesUpperBound = size
-
-		// TODO CORE-1111 check whether user has PROJECT_LIST_REPO on project or REPO_READ on repo.
 		if authSeemsActive && includeAuth {
 			permissions, roles, err := d.getPermissions(ctx, repoInfo.Repo)
 			if err != nil {
@@ -480,7 +509,7 @@ func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectReques
 			if err := d.env.AuthServer.CreateRoleBindingInTransaction(
 				txnCtx,
 				whoAmI.Username,
-				[]string{auth.ProjectOwner},
+				[]string{auth.ProjectOwnerRole},
 				&auth.Resource{Type: auth.ResourceType_PROJECT, Name: req.Project.GetName()},
 			); err != nil && !errors.Is(err, col.ErrExists{}) {
 				return errors.Wrapf(err, "could not create role binding for new project %s", req.Project.GetName())
