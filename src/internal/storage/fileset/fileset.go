@@ -44,6 +44,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 )
 
 // ID is the unique identifier for a fileset
@@ -199,4 +200,16 @@ func idsToHex(xs []ID) []string {
 		ys[i] = xs[i].HexString()
 	}
 	return ys
+}
+
+// Iterator iterates over files in a Fileset
+type Iterator = stream.Peekable[File]
+
+// NewIterator returns an Iterator for iterating over a fileset.
+func NewIterator(ctx context.Context, fs FileSet, opts ...index.Option) Iterator {
+	cpFile := func(dst, src *File) { *dst = *src }
+	it := stream.NewFromForEach(ctx, func(fn func(File) error) error {
+		return fs.Iterate(ctx, fn, opts...)
+	})
+	return stream.NewPeekable(it, cpFile)
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
@@ -28,56 +27,87 @@ func newMergeReader(chunks *chunk.Storage, fileSets []FileSet) *MergeReader {
 
 // Iterate iterates over the files in the merge reader.
 func (mr *MergeReader) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
-	var ss []stream.Stream
-	for _, fs := range mr.fileSets {
-		ss = append(ss, &fileStream{
-			iterator: NewIterator(ctx, fs.IterateDeletes, opts...),
-			deletive: true,
-		})
-		ss = append(ss, &fileStream{
-			iterator: NewIterator(ctx, fs.Iterate, opts...),
-		})
+	type fileEntry struct {
+		File       File
+		IsDeletive bool
 	}
-	pq := stream.NewPriorityQueue(ss, compare)
-	return pq.Iterate(func(ss []stream.Stream) error {
-		var fss []*fileStream
-		for _, s := range ss {
-			fs := s.(*fileStream)
-			if fs.deletive {
-				fss = nil
+	copyFileEntry := func(dst, src *fileEntry) { *dst = *src }
+	var ss []stream.Peekable[fileEntry]
+	for _, fs := range mr.fileSets {
+		// additive
+		itAdd := stream.NewFromForEach(ctx, func(fn func(fileEntry) error) error {
+			return fs.Iterate(ctx, func(f File) error {
+				return fn(fileEntry{
+					File:       f,
+					IsDeletive: false,
+				})
+			}, opts...)
+		})
+		pkAdd := stream.NewPeekable(itAdd, copyFileEntry)
+		ss = append(ss, pkAdd)
+		// deletive
+		itDel := stream.NewFromForEach(ctx, func(fn func(fileEntry) error) error {
+			return fs.IterateDeletes(ctx, func(f File) error {
+				return fn(fileEntry{
+					File:       f,
+					IsDeletive: true,
+				})
+			}, opts...)
+		})
+		pkDel := stream.NewPeekable(itDel, copyFileEntry)
+		ss = append(ss, pkDel)
+	}
+	m := stream.NewMerger(ss, func(a, b fileEntry) bool {
+		return index.LessThan(a.File.Index(), b.File.Index())
+	})
+	return stream.ForEach[stream.Merged[fileEntry]](ctx, m, func(x stream.Merged[fileEntry]) error {
+		var ents []fileEntry
+		for _, fe := range x.Values {
+			if fe.IsDeletive {
 				continue
 			}
-			fss = append(fss, fs)
+			ents = append(ents, fe)
 		}
-		if len(fss) == 0 {
+		switch len(ents) {
+		case 0:
 			return nil
+		case 1:
+			return cb(newFileReader(mr.chunks, ents[0].File.Index()))
+		default:
+			var dataRefs []*chunk.DataRef
+			for _, fe := range ents {
+				idx := fe.File.Index()
+				dataRefs = append(dataRefs, idx.File.DataRefs...)
+			}
+			mergeIdx := &index.Index{
+				Path: ents[0].File.Index().Path,
+				File: &index.File{
+					Datum:    ents[0].File.Index().File.Datum,
+					DataRefs: dataRefs,
+				},
+				// TODO: Num_Files
+			}
+			return cb(newMergeFileReader(mr.chunks, mergeIdx))
 		}
-		if len(fss) == 1 {
-			return cb(newFileReader(mr.chunks, fss[0].file.Index()))
-		}
-		var dataRefs []*chunk.DataRef
-		for _, fs := range fss {
-			idx := fs.file.Index()
-			dataRefs = append(dataRefs, idx.File.DataRefs...)
-		}
-		mergeIdx := fss[0].file.Index()
-		mergeIdx.File.DataRefs = dataRefs
-		return cb(newMergeFileReader(mr.chunks, mergeIdx))
-
 	})
 }
 
 func (mr *MergeReader) IterateDeletes(ctx context.Context, cb func(File) error, opts ...index.Option) error {
-	var ss []stream.Stream
+	copyFile := func(dst, src *File) { *dst = *src }
+	var ss []stream.Peekable[File]
 	for _, fs := range mr.fileSets {
-		ss = append(ss, &fileStream{
-			iterator: NewIterator(ctx, fs.IterateDeletes, opts...),
+		it := stream.NewFromForEach(ctx, func(fn func(File) error) error {
+			return fs.IterateDeletes(ctx, fn, opts...)
 		})
+		pk := stream.NewPeekable(it, copyFile)
+		ss = append(ss, pk)
 	}
-	pq := stream.NewPriorityQueue(ss, compare)
-	return pq.Iterate(func(ss []stream.Stream) error {
-		fs := ss[0].(*fileStream)
-		return cb(newFileReader(mr.chunks, fs.file.Index()))
+	m := stream.NewMerger(ss, func(a, b File) bool {
+		return index.LessThan(a.Index(), b.Index())
+	})
+	return stream.ForEach[stream.Merged[File]](ctx, m, func(x stream.Merged[File]) error {
+		f, _ := x.First()
+		return cb(newFileReader(mr.chunks, f.Index()))
 	})
 }
 
@@ -147,25 +177,4 @@ func (mfr *MergeFileReader) Hash(ctx context.Context) ([]byte, error) {
 		hashes = [][]byte{chunk.Hash(buf.Bytes())}
 	}
 	return computeFileHash(hashes)
-}
-
-type fileStream struct {
-	iterator *Iterator
-	file     File
-	deletive bool
-}
-
-func (fs *fileStream) Next() error {
-	var err error
-	fs.file, err = fs.iterator.Next()
-	return err
-}
-
-func compare(s1, s2 stream.Stream) int {
-	idx1 := s1.(*fileStream).file.Index()
-	idx2 := s2.(*fileStream).file.Index()
-	if idx1.Path == idx2.Path {
-		return strings.Compare(idx1.File.Datum, idx2.File.Datum)
-	}
-	return strings.Compare(idx1.Path, idx2.Path)
 }

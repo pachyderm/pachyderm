@@ -231,6 +231,7 @@ func processKeyTask(pachClient *client.APIClient, task *KeyTask) (*types.Any, er
 }
 
 func processMergeTask(pachClient *client.APIClient, task *MergeTask) (*types.Any, error) {
+	ctx := pachClient.Ctx()
 	fileSetID, err := WithCreateFileSet(pachClient, "pachyderm-datums-merge", func(s *Set) error {
 		var fsmis []Iterator
 		for _, fileSetId := range task.FileSetIds {
@@ -238,7 +239,7 @@ func processMergeTask(pachClient *client.APIClient, task *MergeTask) (*types.Any
 		}
 		switch task.Type {
 		case MergeTask_JOIN:
-			return mergeByKey(fsmis, existingMetaHash, func(metas []*Meta) error {
+			return mergeByKey(ctx, fsmis, existingMetaHash, func(metas []*Meta) error {
 				var crossInputs [][]*common.Input
 				for _, m := range metas {
 					crossInputs = append(crossInputs, m.Inputs)
@@ -262,7 +263,7 @@ func processMergeTask(pachClient *client.APIClient, task *MergeTask) (*types.Any
 				return errors.EnsureStack(err)
 			})
 		case MergeTask_GROUP:
-			return mergeByKey(fsmis, existingMetaHash, func(metas []*Meta) error {
+			return mergeByKey(ctx, fsmis, existingMetaHash, func(metas []*Meta) error {
 				var allInputs []*common.Input
 				for _, m := range metas {
 					allInputs = append(allInputs, m.Inputs...)

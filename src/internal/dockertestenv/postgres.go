@@ -7,10 +7,13 @@ import (
 	"testing"
 	"time"
 
+	docker "github.com/docker/docker/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -18,16 +21,25 @@ import (
 
 const (
 	postgresPort  = 30228
-	PGBouncerPort = 30229
+	pgBouncerPort = 30229
 	maxOpenConns  = 10
 )
 
-func postgresHost() string {
-	return getDockerHost()
+func postgresHost(dclient docker.APIClient) string {
+	return getDockerHost(dclient)
 }
 
-func PGBouncerHost() string {
-	return postgresHost()
+func pgBouncerHost(dclient docker.APIClient) string {
+	return postgresHost(dclient)
+}
+
+func PGBouncerHostPort() (string, int, error) {
+	dclient, err := newDockerClient(context.TODO())
+	if err != nil {
+		return "", 0, err
+	}
+	defer dclient.Close()
+	return getDockerHost(dclient), pgBouncerPort, nil
 }
 
 func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
@@ -36,14 +48,16 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 		dbName  = testutil.GenerateEphemeralDBName(t)
 		dexName = testutil.UniqueString("dex")
 	)
-	err := backoff.Retry(func() error {
+	dclient, err := newDockerClient(context.TODO())
+	require.NoError(t, err)
+	err = backoff.Retry(func() error {
 		return ensureDBEnv(t, ctx)
 	}, backoff.NewConstantBackOff(time.Second*3))
 	require.NoError(t, err, "DB should be created")
 	db := testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
-		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
+		dbutil.WithHostPort(pgBouncerHost(dclient), pgBouncerPort),
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 	)
 	testutil.CreateEphemeralDB(t, db, dbName)
@@ -54,11 +68,11 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 		c.IdentityServerDatabase = dexName
 
 		// direct
-		c.PostgresHost = postgresHost()
+		c.PostgresHost = postgresHost(dclient)
 		c.PostgresPort = postgresPort
 		// pg_bouncer
-		c.PGBouncerHost = PGBouncerHost()
-		c.PGBouncerPort = PGBouncerPort
+		c.PGBouncerHost = pgBouncerHost(dclient)
+		c.PGBouncerPort = pgBouncerPort
 
 		c.PostgresUser = testutil.DefaultPostgresUser
 	}
@@ -78,30 +92,34 @@ func NewEphemeralPostgresDB(ctx context.Context, t testing.TB) (*pachsql.DB, str
 		return ensureDBEnv(t, ctx)
 	}, backoff.NewConstantBackOff(time.Second*3))
 	require.NoError(t, err, "DB should be created")
+	dclient, err := newDockerClient(ctx)
+	require.NoError(t, err)
 	db := testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
-		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
+		dbutil.WithHostPort(pgBouncerHost(dclient), pgBouncerPort),
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 	)
 	testutil.CreateEphemeralDB(t, db, name)
 	return testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
-		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
+		dbutil.WithHostPort(pgBouncerHost(dclient), pgBouncerPort),
 		dbutil.WithDBName(name),
 	), name
 }
 
 func NewTestDBOptions(t testing.TB) []dbutil.Option {
-	ctx := context.Background()
+	ctx := pctx.TODO()
 	err := backoff.Retry(func() error {
 		return ensureDBEnv(t, ctx)
 	}, backoff.NewConstantBackOff(time.Second*3))
 	require.NoError(t, err, "DB should be created")
+	dclient, err := newDockerClient(ctx)
+	require.NoError(t, err)
 	return testutil.NewTestDBOptions(t, []dbutil.Option{
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
-		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
+		dbutil.WithHostPort(pgBouncerHost(dclient), pgBouncerPort),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
 		dbutil.WithMaxOpenConns(maxOpenConns),
 	})
@@ -113,9 +131,11 @@ func NewTestDirectDBOptions(t testing.TB) []dbutil.Option {
 		return ensureDBEnv(t, ctx)
 	}, backoff.NewConstantBackOff(time.Second*3))
 	require.NoError(t, err, "DB should be created")
+	dclient, err := newDockerClient(ctx)
+	require.NoError(t, err)
 	return testutil.NewTestDBOptions(t, []dbutil.Option{
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
-		dbutil.WithHostPort(postgresHost(), postgresPort),
+		dbutil.WithHostPort(postgresHost(dclient), postgresPort),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
 		dbutil.WithMaxOpenConns(maxOpenConns),
 	})
@@ -133,9 +153,13 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 	ctx, cf := context.WithTimeout(ctx, timeout)
 	defer cf()
 
-	dclient := newDockerClient()
+	dclient, err := newDockerClient(ctx)
+	if err != nil {
+		return err
+	}
 	defer dclient.Close()
-	err := ensureContainer(ctx, dclient, "pach_test_postgres", containerSpec{
+	log.Info(ctx, "created docker client")
+	err = ensureContainer(ctx, dclient, "pach_test_postgres", containerSpec{
 		Env: map[string]string{
 			"POSTGRES_DB":               "pachyderm",
 			"POSTGRES_USER":             "pachyderm",
@@ -179,7 +203,7 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 	return backoff.RetryUntilCancel(ctx, func() error {
 		db, err := dbutil.NewDB(
 			dbutil.WithDBName(testutil.DefaultPostgresDatabase),
-			dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
+			dbutil.WithHostPort(pgBouncerHost(dclient), pgBouncerPort),
 			dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
 		)
 		if err != nil {
