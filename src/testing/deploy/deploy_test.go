@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -120,8 +119,10 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		if 200 != getResp.StatusCode {
-			return errors.EnsureStack(errors.Errorf("Could not retrieve the mock login page. Expected: 200, Recieved: %d", getResp.StatusCode))
+		defer getResp.Body.Close()
+		if got, want := http.StatusOK, getResp.StatusCode; got != want {
+			testutil.LogHttpResponse(t, getResp, "mock login get")
+			return errors.Errorf("retrieve mock login page satus code: got %v want %v", got, want)
 		}
 
 		vals := make(url.Values)
@@ -131,19 +132,18 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		if 200 != postResp.StatusCode {
-			return errors.EnsureStack(errors.Errorf("POST to perform mock login failed. Expected: 200, Recieved: %d", postResp.StatusCode))
+		defer postResp.Body.Close()
+		if got, want := http.StatusOK, getResp.StatusCode; got != want {
+			testutil.LogHttpResponse(t, postResp, "mock login post")
+			return errors.Errorf("POST to perform mock login got: %v, want: %v", got, want)
 		}
 		postBody, err := io.ReadAll(postResp.Body)
 		if err != nil {
-			return errors.EnsureStack(errors.Errorf("Could not read login form POST response: %s", err.Error()))
+			return errors.Errorf("Could not read login form POST response: %v", err.Error())
 		}
 		// There is a login failure case in which the response returned is a redirect back to the login page that returns 200, but does not log in
-		expectedResponse := "^(You are now logged in).*$"
-		matches, err := regexp.Match(expectedResponse, postBody)
-		require.NoError(t, err, "Regex matching failed") // a regex compile error should be deterministic, so fail immediately
-		if !matches {
-			return errors.EnsureStack(errors.Errorf("Recieved an unexpected response body from mock IDP login form. Expected: %s, Recieved: %s", expectedResponse, string(postBody)))
+		if got, want := string(postBody), "You are now logged in"; !strings.HasPrefix(got, want) {
+			return errors.Errorf("response body from mock IDP login form got: %v, want: %v", postBody, want)
 		}
 
 		authResp, err := c.AuthAPIClient.Authenticate(c.Ctx(), &auth.AuthenticateRequest{OIDCState: state})
@@ -157,7 +157,7 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 		}
 		expectedUsername := "user:" + testutil.DexMockConnectorEmail
 		if expectedUsername != whoami.Username {
-			return errors.EnsureStack(errors.Errorf("Recieved the incorrect username after mock IDP login. Expected: %s, Recieved: %s", expectedUsername, whoami.Username))
+			return errors.Errorf("username after mock IDP login got: %v, want: %v ", whoami.Username, expectedUsername)
 		}
 		return nil
 	}, 5*time.Second, "Attempting login through mock IDP")
