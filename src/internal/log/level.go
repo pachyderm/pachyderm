@@ -53,7 +53,7 @@ func (rl resettableLevel) String() string {
 func (rl resettableLevel) UnmarshalText(text []byte) error {
 	var l zapcore.Level
 	if err := l.UnmarshalText(text); err != nil {
-		return err
+		return err //nolint:wrapcheck
 	}
 	rl.SetLevel(l)
 	return nil
@@ -85,5 +85,4 @@ func (rl resettableLevel) SetLevelFor(l zapcore.Level, d time.Duration, notify f
 	}
 	rl.cur.Store(int32(l))
 	close(wasSet) // Avoid reverting before we actually change the log level.
-
 }

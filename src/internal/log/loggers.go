@@ -18,9 +18,20 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// LevelChanger is a log level that can be changed for a period of time.
+type LevelChanger interface {
+	// See resettableLevel.SetLevelFor.
+	SetLevelFor(zapcore.Level, time.Duration, func(string, string))
+}
+
 var (
 	logLevel  = NewResettableLevelAt(zapcore.InfoLevel)  // Current base logger level.
 	grpcLevel = NewResettableLevelAt(zapcore.FatalLevel) // The log level for the GRPC adaptor.
+
+	// These log levels are for the src/server/debug package, which changes log levels at
+	// runtime based on an RPC.  The Debug package takes special care to not change LogLevel
+	// level to one we don't use; zapcore.Level has more levels than Pachyderm.
+	LogLevel, GRPCLevel LevelChanger = logLevel, grpcLevel
 
 	healthCheckLogger *zap.Logger // A logger only for GRPC health checks.
 
@@ -60,19 +71,6 @@ func SetLevel(l Level) {
 // has more log levels than Pachyderm.
 func SetGRPCLogLevel(l zapcore.Level) {
 	grpcLevel.SetLevel(l)
-}
-
-// SetLevelFor changes the global logger level for the set duration, and then reverts to the log
-// level at process startup.  Subsequent calls before expiration completely override previous calls;
-// the new level takes effect immediately and the previous scheduled revert is canceled.
-// SetLevelFor is safe to call from multiple goroutines.
-func SetLevelFor(l Level, d time.Duration, notify func(from, to string)) {
-	logLevel.SetLevelFor(l.coreLevel(), d, notify)
-}
-
-// SetGRPCLogLevelFor changes the GRPC logger level for the set duration.  See SetLevelFor for details.
-func SetGRPCLogLevelFor(l zapcore.Level, d time.Duration, notify func(from, to string)) {
-	grpcLevel.SetLevelFor(l, d, notify)
 }
 
 // addInitWarningf logs a warning at logger initialization time.  The intent is to be able to log

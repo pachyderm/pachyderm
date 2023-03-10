@@ -51,16 +51,16 @@ func (s *debugServer) SetLogLevel(ctx context.Context, req *debug.SetLogLevelReq
 		}
 		switch x.Grpc {
 		case debug.SetLogLevelRequest_DEBUG:
-			log.SetGRPCLogLevelFor(zap.DebugLevel, d, notifyRevert)
+			s.grpcLevel.SetLevelFor(zap.DebugLevel, d, notifyRevert)
 			log.Info(ctx, "set grpc log level to debug", zap.Duration("revert_after", d))
 		case debug.SetLogLevelRequest_INFO:
-			log.SetGRPCLogLevelFor(zap.InfoLevel, d, notifyRevert)
+			s.grpcLevel.SetLevelFor(zap.InfoLevel, d, notifyRevert)
 			log.Info(ctx, "set grpc log level to info", zap.Duration("revert_after", d))
 		case debug.SetLogLevelRequest_ERROR:
-			log.SetGRPCLogLevelFor(zap.ErrorLevel, d, notifyRevert)
+			s.grpcLevel.SetLevelFor(zap.ErrorLevel, d, notifyRevert)
 			log.Info(ctx, "set grpc log level to error", zap.Duration("revert_after", d))
 		case debug.SetLogLevelRequest_OFF:
-			log.SetGRPCLogLevelFor(zap.FatalLevel, d, notifyRevert)
+			s.grpcLevel.SetLevelFor(zap.FatalLevel, d, notifyRevert)
 			log.Info(ctx, "set grpc log level to fatal", zap.Duration("revert_after", d))
 		default:
 			return result, status.Errorf(codes.InvalidArgument, "cannot set grpc log level to %v", x.Grpc.String())
@@ -68,17 +68,17 @@ func (s *debugServer) SetLogLevel(ctx context.Context, req *debug.SetLogLevelReq
 	case *debug.SetLogLevelRequest_Pachyderm:
 		switch x.Pachyderm {
 		case debug.SetLogLevelRequest_DEBUG:
-			log.SetLevelFor(log.DebugLevel, d, func(from, to string) {
+			s.logLevel.SetLevelFor(zap.DebugLevel, d, func(from, to string) {
 				log.Info(ctx, "reverted log level", zap.String("from", from), zap.String("to", to))
 			})
 			log.Info(ctx, "set log level to debug", zap.Duration("revert_after", d))
 		case debug.SetLogLevelRequest_INFO:
-			log.SetLevelFor(log.InfoLevel, d, func(from, to string) {
+			s.logLevel.SetLevelFor(zap.InfoLevel, d, func(from, to string) {
 				log.Info(ctx, "reverted log level", zap.String("from", from), zap.String("to", to))
 			})
 			log.Info(ctx, "set log level to info", zap.Duration("revert_after", d))
 		case debug.SetLogLevelRequest_ERROR:
-			log.SetLevelFor(log.ErrorLevel, d, func(from, to string) {
+			s.logLevel.SetLevelFor(zap.ErrorLevel, d, func(from, to string) {
 				log.Error(ctx, "reverted log level", zap.String("from", from), zap.String("to", to))
 			})
 			log.Error(ctx, "set log level to error", zap.Duration("revert_after", d))
@@ -115,9 +115,9 @@ func (s *debugServer) SetLogLevel(ctx context.Context, req *debug.SetLogLevelReq
 	pods := map[string]string{}
 	apps := map[string]string{
 		"pach-enterprise": strconv.Itoa(int(s.env.Config().Port)),
-		//"pachw": strconv.Itoa(int(s.env.Config().PeerPort)),
-		"pachd":    strconv.Itoa(int(s.env.Config().Port)),
-		"pipeline": os.Getenv(client.PPSWorkerPortEnv),
+		"pachw":           strconv.Itoa(int(s.env.Config().PeerPort)),
+		"pachd":           strconv.Itoa(int(s.env.Config().Port)),
+		"pipeline":        os.Getenv(client.PPSWorkerPortEnv),
 	}
 	var enumerateErrs error
 	for app, port := range apps {
@@ -178,7 +178,7 @@ func propagateLogLevel(ctx context.Context, req *debug.SetLogLevelRequest, pod, 
 	if err != nil {
 		return nil, errors.Wrap(err, "dial")
 	}
-	defer cc.Close() //nolint:errcheck (Only returns an error if the cc is already closing.)
+	defer cc.Close()
 	client := debug.NewDebugClient(cc)
 	res, err := client.SetLogLevel(propagateMetadata(ctx), req)
 	if err != nil {
