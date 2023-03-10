@@ -39,9 +39,6 @@ setup-ci-auth:
 install:
 	npm install & npm install --prefix ./backend & npm install --prefix ./frontend
 
-ci:
-	npm ci & npm ci --prefix ./backend & npm ci --prefix ./frontend
-
 prune-deps:
 	rm -rf ./frontend/node_modules && npm ci --prefix ./backend --only=production
 

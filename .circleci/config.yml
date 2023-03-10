@@ -12,7 +12,6 @@ orbs:
   browser-tools: circleci/browser-tools@1.2.3
   gh: circleci/github-cli@2.1.1
   jq: circleci/jq@2.2.0
-  node: circleci/node@5.1.0
 
 executors:
   small-node:
@@ -31,11 +30,14 @@ executors:
 commands:
   node-install-all:
     steps:
-      - node/install-packages
-      - node/install-packages:
-          app-dir: backend
-      - node/install-packages:
-          app-dir: frontend
+      - run:
+          name: Npm install project root, frontend and backend
+          command: npm ci & npm ci --prefix ./backend & npm ci --prefix ./frontend
+  node-install-frontend-backend:
+    steps:
+      - run:
+          name: Npm install frontend and backend
+          command: npm ci --prefix ./backend & npm ci --prefix ./frontend
   run-pachyderm-ce:
     steps:
       - gh/setup:
@@ -79,8 +81,7 @@ jobs:
     executor: small-node
     steps:
       - checkout
-      - node/install-packages:
-          app-dir: frontend
+      - run: cd frontend && npm ci
       - run: cd frontend && npm run lint:js:no-fix
   lint-graphql-validate-generation:
     executor: small-node
@@ -96,18 +97,14 @@ jobs:
     executor: small-node
     steps:
       - checkout
-      - node/install-packages:
-          app-dir: ./backend
+      - run: cd backend && npm ci
       - run: cd backend && npm run lint:no-fix
 
   test-backend:
     executor: xlarge-node
     steps:
       - checkout
-      - node/install-packages:
-          app-dir: backend
-      - node/install-packages:
-          app-dir: frontend
+      - node-install-frontend-backend
       - run: cd backend && npm run test -- --collect-coverage
       - codecov/upload:
           file: backend/coverage/lcov.info
@@ -117,18 +114,14 @@ jobs:
       image: ubuntu-2004:202111-01
     steps:
       - checkout
-      - node/install-packages:
-          app-dir: backend
+      - run: cd backend && npm ci
       - run-pachyderm-ce
       - run: pachctl port-forward & cd backend && npm run integration-test
   test-frontend-components:
     executor: xlarge-node
     steps:
       - checkout
-      - node/install-packages:
-          app-dir: backend
-      - node/install-packages:
-          app-dir: frontend
+      - node-install-frontend-backend
       - run: cd frontend && npm run components:test -- --collect-coverage
       - codecov/upload:
           file: frontend/coverage/lcov.info
@@ -136,10 +129,7 @@ jobs:
     executor: xlarge-node
     steps:
       - checkout
-      - node/install-packages:
-          app-dir: backend
-      - node/install-packages:
-          app-dir: frontend
+      - node-install-frontend-backend
       - run: cd frontend && npm run frontend:test -- --collect-coverage
       - codecov/upload:
           file: frontend/coverage/lcov.info
@@ -316,14 +306,14 @@ jobs:
             \`\`\`
             </details>
             "
-            
+
   test-image:
     resource_class: xlarge
     machine:
       image: ubuntu-2004:202201-02
     steps:
       - checkout
-      - node/install-packages
+      - run: npm ci
       - run-pachyderm-with-console
       - run: touch .env.development.local
       - run:
