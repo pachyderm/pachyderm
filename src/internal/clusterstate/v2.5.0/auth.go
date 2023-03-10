@@ -65,6 +65,11 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 		return errors.Wrap(err, "could not update default project's role bindings")
 	}
 
+	// Need to extend the character length limit for the subject column because we are adding project name to it.
+	if _, err := tx.ExecContext(ctx, `ALTER TABLE auth.auth_tokens ALTER COLUMN subject TYPE varchar(128)`); err != nil {
+		return errors.Wrap(err, "could not alter column subject in table auth.auth_tokens from varchar(64) to varchar(128)")
+	}
+
 	// Rename pipeline users from "pipeline:<repo>" to "pipeline:default/<repo>"
 	if _, err := tx.ExecContext(ctx, `UPDATE auth.auth_tokens SET subject = regexp_replace(subject, '^pipeline:([-a-zA-Z0-9_]+)$', 'pipeline:default/\1') WHERE subject ~ '^pipeline:[^/]+$'`); err != nil {
 		return errors.Wrap(err, "could not update auth tokens")

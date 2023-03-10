@@ -19,11 +19,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
@@ -980,7 +980,7 @@ func TestListAndInspectRepo(t *testing.T) {
 	// above. Bob's access to those should be NONE
 	lrClient, err := bobClient.PfsAPIClient.ListRepo(bobClient.Ctx(), &pfs.ListRepoRequest{})
 	require.NoError(t, err)
-	repoInfos, err := clientsdk.ListRepoInfo(lrClient)
+	repoInfos, err := grpcutil.Collect[*pfs.RepoInfo](lrClient, 1000)
 	require.NoError(t, err)
 	expectedPermissions := map[string][]auth.Permission{
 		repoOwner: {
@@ -1083,7 +1083,7 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 	c, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
 		&pfs.ListRepoRequest{})
 	require.NoError(t, err)
-	_, err = clientsdk.ListRepoInfo(c)
+	_, err = grpcutil.Collect[*pfs.RepoInfo](c, 1000)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
 }

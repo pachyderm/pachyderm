@@ -192,3 +192,109 @@ func TestPipelineEgressURL(t *testing.T) {
 		}
 	}
 }
+
+func TestParseKubeEvent(t *testing.T) {
+	testData := []struct {
+		name        string
+		line        string
+		wantMessage string
+		wantErr     bool
+	}{
+		{
+			name:    "empty",
+			line:    "",
+			wantErr: true,
+		},
+		{
+			name:    "invalid json",
+			line:    "{this is not json}",
+			wantErr: true,
+		},
+		{
+			name:    "useless json",
+			line:    "{}",
+			wantErr: true,
+		},
+		{
+			name:        "docker json",
+			line:        `{"log":"{\"msg\":\"ok\"}"}`,
+			wantMessage: "ok",
+		},
+		{
+			name:    "docker with invalid json inside",
+			line:    `{"log":"{this is not json}"}`,
+			wantErr: true,
+		},
+		{
+			name:        "native json",
+			line:        `{"msg":"ok"}`,
+			wantMessage: "ok",
+		},
+		{
+			name:        "cri format with flags and valid message",
+			line:        `2022-01-01T00:00:00.1234 stdout F {"msg":"ok"}`,
+			wantMessage: "ok",
+		},
+		{
+			name:        "cri format without flags and valid message",
+			line:        `2022-01-01T00:00:00.1234 stdout {"msg":"ok"}`,
+			wantMessage: "ok",
+		},
+		{
+			name:        "cri format with flags and valid message and extra fields",
+			line:        `2022-01-01T00:00:00.1234 stdout F {"msg":"ok","extraField":42}`,
+			wantMessage: "ok",
+		},
+		{
+			name:        "cri format without flags and valid message and extra fields",
+			line:        `2022-01-01T00:00:00.1234 stdout {"msg":"ok","extraField":42}`,
+			wantMessage: "ok",
+		},
+		{
+			name:    "cri format with flags and EOF",
+			line:    `2022-01-01T00:00:00.1234 stdout F`,
+			wantErr: true,
+		},
+		{
+			name:    "cri format without flags and EOF",
+			line:    `2022-01-01T00:00:00.1234 stdout`,
+			wantErr: true,
+		},
+		{
+			name:    "cri format with flags and invalid json",
+			line:    `2022-01-01T00:00:00.1234 stdout F this is not json`,
+			wantErr: true,
+		},
+		{
+			name:    "cri format without flags and invalid json",
+			line:    `2022-01-01T00:00:00.1234 stdout this is not json`,
+			wantErr: true,
+		},
+		{
+			name:    "cri format with flags and EOF right after {",
+			line:    `2022-01-01T00:00:00.1234 stdout F {`,
+			wantErr: true,
+		},
+		{
+			name:    "cri format without flags and EOF right after {",
+			line:    `2022-01-01T00:00:00.1234 stdout {`,
+			wantErr: true,
+		},
+	}
+
+	for _, test := range testData {
+		t.Run(test.name, func(t *testing.T) {
+			var event pretty.KubeEvent
+			err := pretty.ParseKubeEvent(test.line, &event)
+			t.Logf("err: %v", err)
+			if test.wantErr && err == nil {
+				t.Fatal("parse: got success, want error")
+			} else if !test.wantErr && err != nil {
+				t.Fatalf("parse: unexpected error: %v", err)
+			}
+			if got, want := event.Message, test.wantMessage; got != want {
+				t.Fatalf("parse: message:\n  got: %v\n want: %v", got, want)
+			}
+		})
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
+	workerapi "github.com/pachyderm/pachyderm/v2/src/worker"
 )
 
 // WorkerInterface is an interface for getting or canceling the
@@ -15,6 +16,7 @@ import (
 type WorkerInterface interface {
 	GetStatus() (*pps.WorkerStatus, error)
 	Cancel(jobID string, datumFilter []string) bool
+	NextDatum(context.Context, error) ([]string, error)
 }
 
 // APIServer implements the worker API
@@ -44,7 +46,19 @@ func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStat
 }
 
 // Cancel cancels the currently running datum
-func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*CancelResponse, error) {
+func (a *APIServer) Cancel(ctx context.Context, request *workerapi.CancelRequest) (*workerapi.CancelResponse, error) {
 	success := a.workerInterface.Cancel(request.JobID, request.DataFilters)
-	return &CancelResponse{Success: success}, nil
+	return &workerapi.CancelResponse{Success: success}, nil
+}
+
+func (a *APIServer) NextDatum(ctx context.Context, request *workerapi.NextDatumRequest) (*workerapi.NextDatumResponse, error) {
+	var err error
+	if request.Error != "" {
+		err = errors.New(request.Error)
+	}
+	env, err := a.workerInterface.NextDatum(ctx, err)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return &workerapi.NextDatumResponse{Env: env}, nil
 }

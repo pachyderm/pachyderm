@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	workerapi "github.com/pachyderm/pachyderm/v2/src/worker"
 )
 
 const (
@@ -56,7 +57,7 @@ func Cancel(ctx context.Context, pipelineInfo *pps.PipelineInfo, etcdClient *etc
 	etcdPrefix string, workerGrpcPort uint16, jobID string, dataFilter []string) (retErr error) {
 	success := false
 	if err := forEachWorker(ctx, pipelineInfo, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
-		resp, err := c.Cancel(ctx, &CancelRequest{
+		resp, err := c.Cancel(ctx, &workerapi.CancelRequest{
 			JobID:       jobID,
 			DataFilters: dataFilter,
 		})
@@ -78,14 +79,14 @@ func Cancel(ctx context.Context, pipelineInfo *pps.PipelineInfo, etcdClient *etc
 
 // Client combines the WorkerAPI and the DebugAPI into a single client.
 type Client struct {
-	WorkerClient
+	workerapi.WorkerClient
 	debug.DebugClient
 	clientConn *grpc.ClientConn
 }
 
 func newClient(conn *grpc.ClientConn) Client {
 	return Client{
-		NewWorkerClient(conn),
+		workerapi.NewWorkerClient(conn),
 		debug.NewDebugClient(conn),
 		conn,
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -179,7 +178,7 @@ func (c APIClient) ListProjectRepo(r *pfs.ListRepoRequest) ([]*pfs.RepoInfo, err
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return clientsdk.ListRepoInfo(client)
+	return grpcutil.Collect[*pfs.RepoInfo](client, 1000)
 }
 
 // DeleteRepo deletes a repo and reclaims the storage space it was using.  Note
@@ -435,6 +434,40 @@ func (c APIClient) ListCommitByRepo(repo *pfs.Repo) ([]*pfs.CommitInfo, error) {
 	return c.ListCommit(repo, nil, nil, 0)
 }
 
+// FindCommitsResponse is a merged response of *pfs.FindCommitsResponse items that is presented to users.
+type FindCommitsResponse struct {
+	FoundCommits       []*pfs.Commit
+	LastSearchedCommit *pfs.Commit
+	CommitsSearched    uint32
+}
+
+// FindCommits searches for commits that reference a supplied file being modified in a branch.
+func (c APIClient) FindCommits(req *pfs.FindCommitsRequest) (*FindCommitsResponse, error) {
+	ctx, cf := context.WithCancel(c.Ctx())
+	defer cf()
+	client, err := c.PfsAPIClient.FindCommits(ctx, req)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	resp := &FindCommitsResponse{}
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	if err := grpcutil.ForEach[*pfs.FindCommitsResponse](client, func(x *pfs.FindCommitsResponse) error {
+		switch x.Result.(type) {
+		case *pfs.FindCommitsResponse_LastSearchedCommit:
+			resp.LastSearchedCommit = x.GetLastSearchedCommit()
+			resp.CommitsSearched = x.CommitsSearched
+		case *pfs.FindCommitsResponse_FoundCommit:
+			resp.FoundCommits = append(resp.FoundCommits, x.GetFoundCommit())
+		}
+		return nil
+	}); err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return resp, nil
+}
+
 // CreateBranch creates a new branch.
 //
 // Deprecated: use CreateProjectBranch instead.
@@ -529,7 +562,7 @@ func (c APIClient) ListProjectBranch(projectName, repoName string) ([]*pfs.Branc
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return clientsdk.ListBranchInfo(client)
+	return grpcutil.Collect[*pfs.BranchInfo](client, 1000)
 }
 
 // DeleteBranch deletes a branch, but leaves the commits themselves intact.
@@ -607,7 +640,7 @@ func (c APIClient) ListProject() (_ []*pfs.ProjectInfo, retErr error) {
 	if err != nil {
 		return nil, err
 	}
-	return clientsdk.ListProjectInfo(client)
+	return grpcutil.Collect[*pfs.ProjectInfo](client, 1000)
 }
 
 // DeleteProject deletes a project.

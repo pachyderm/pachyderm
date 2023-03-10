@@ -5,6 +5,8 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
+
 	"golang.org/x/sync/semaphore"
 )
 
@@ -23,7 +25,7 @@ type UploadFunc = func(interface{}, []*DataRef) error
 type Uploader struct {
 	ctx       context.Context
 	client    Client
-	taskChain *TaskChain
+	taskChain *taskchain.TaskChain
 	chunkSem  *semaphore.Weighted
 	noUpload  bool
 	cb        UploadFunc
@@ -34,7 +36,7 @@ func (s *Storage) NewUploader(ctx context.Context, name string, noUpload bool, c
 	return &Uploader{
 		ctx:       ctx,
 		client:    client,
-		taskChain: NewTaskChain(ctx, semaphore.NewWeighted(taskParallelism)),
+		taskChain: taskchain.New(ctx, semaphore.NewWeighted(taskParallelism)),
 		chunkSem:  semaphore.NewWeighted(chunkParallelism),
 		noUpload:  noUpload,
 		cb:        cb,
@@ -43,7 +45,7 @@ func (s *Storage) NewUploader(ctx context.Context, name string, noUpload bool, c
 
 // TODO: Need to think more about the context / error handling with the nested task chains.
 func (u *Uploader) Upload(meta interface{}, r io.Reader) error {
-	taskChain := NewTaskChain(u.ctx, u.chunkSem)
+	taskChain := taskchain.New(u.ctx, u.chunkSem)
 	var dataRefs []*DataRef
 	if err := ComputeChunks(r, func(chunkBytes []byte) error {
 		return taskChain.CreateTask(func(ctx context.Context) (func() error, error) {

@@ -31,13 +31,17 @@ const (
 var skip bool
 
 // runs the upgrade test from all versions specified in "fromVersions" against the local image
-func upgradeTest(suite *testing.T, ctx context.Context, fromVersions []string, preUpgrade func(*testing.T, *client.APIClient), postUpgrade func(*testing.T, *client.APIClient)) {
+func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVersions []string, preUpgrade func(*testing.T, *client.APIClient), postUpgrade func(*testing.T, *client.APIClient)) {
 	k := testutil.GetKubeClient(suite)
 	for _, from := range fromVersions {
+		from := from // suite.Run runs in a background goroutine if parallelOK is true
 		suite.Run(fmt.Sprintf("UpgradeFrom_%s", from), func(t *testing.T) {
-			t.Parallel()
+			if parallelOK {
+				t.Parallel()
+			}
 			ns, portOffset := minikubetestenv.ClaimCluster(t)
 			minikubetestenv.PutNamespace(t, ns)
+			t.Logf("starting preUpgrade; version %v, namespace %v", from, ns)
 			preUpgrade(t, minikubetestenv.InstallRelease(t,
 				context.Background(),
 				ns,
@@ -46,23 +50,16 @@ func upgradeTest(suite *testing.T, ctx context.Context, fromVersions []string, p
 					Version:     from,
 					DisableLoki: true,
 					PortOffset:  portOffset,
-					// For 2.3 -> future upgrades, we'll want to delete these
-					// overrides.  They became the default (instead of random)
-					// in the 2.3 alpha cycle.
-					ValueOverrides: map[string]string{
-						"global.postgresql.postgresqlPassword":         "insecure-user-password",
-						"global.postgresql.postgresqlPostgresPassword": "insecure-root-password",
-					},
 				}))
+			t.Logf("preUpgrade done; starting postUpgrade")
 			postUpgrade(t, minikubetestenv.UpgradeRelease(t,
 				context.Background(),
 				ns,
 				k,
 				&minikubetestenv.DeployOpts{
-					WaitSeconds:  10,
-					CleanupAfter: true,
-					PortOffset:   portOffset,
+					PortOffset: portOffset,
 				}))
+			t.Logf("postUpgrade done")
 		})
 	}
 }
@@ -78,14 +75,14 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 		t.Skip("Skipping upgrade test")
 	}
 	fromVersions := []string{
-		"2.0.4",
-		"2.1.0",
-		"2.2.0",
 		"2.3.9",
-		"2.4.3",
+		"2.4.6",
 	}
-	upgradeTest(t, context.Background(), fromVersions,
-		func(t *testing.T, c *client.APIClient) {
+	// We use a long pipeline name (gt 64 chars) to test whether our auth tokens,
+	// which originally had a 64 limit, can handle the upgrade which adds the project names to the subject key.
+	montage := montageRepo + "01234567890123456789012345678901234567890"
+	upgradeTest(t, context.Background(), true /* parallelOK */, fromVersions,
+		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, imagesRepo))
 			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
@@ -100,7 +97,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			))
 			require.NoError(t,
 				c.CreateProjectPipeline(pfs.DefaultProjectName,
-					montageRepo,
+					montage,
 					"dpokidov/imagemagick:7.1.0-23",
 					[]string{"sh"}, /* cmd */
 					[]string{"montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png"}, /* stdin */
@@ -117,22 +114,23 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 				return errors.EnsureStack(mf.PutFileURL("/liberty.png", "http://i.imgur.com/46Q8nDz.png", false))
 			}))
 
-			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montageRepo, "master", "")
+			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montage, "master", "")
 			require.NoError(t, err)
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 			defer cancel()
+			t.Log("before upgrade: waiting for montage commit")
 			commitInfos, err := c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.ID)
+			t.Log("before upgrade: wait is done")
 			require.NoError(t, err)
 
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montageRepo)) {
+				if proto.Equal(info.Commit.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montage)) {
 					require.NoError(t, c.GetFile(info.Commit, "montage.png", &buf))
 				}
 			}
 		},
-
-		func(t *testing.T, c *client.APIClient) {
+		func(t *testing.T, c *client.APIClient) { /* postUpgrade */
 			c = testutil.AuthenticateClient(t, c, upgradeSubject)
 			state, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 			require.NoError(t, err)
@@ -141,16 +139,18 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 				return errors.EnsureStack(mf.PutFileURL("/kitten.png", "https://i.imgur.com/g2QnNqa.png", false))
 			}))
 
-			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montageRepo, "master", "")
+			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, montage, "master", "")
 			require.NoError(t, err)
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
+			t.Log("after upgrade: waiting for montage commit")
 			commitInfos, err := c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.ID)
+			t.Log("after upgrade: wait is done")
 			require.NoError(t, err)
 
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montageRepo)) {
+				if proto.Equal(info.Commit.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montage)) {
 					require.NoError(t, c.GetFile(info.Commit, "montage.png", &buf))
 				}
 			}
@@ -162,7 +162,7 @@ func TestUpgradeLoad(t *testing.T) {
 	if skip {
 		t.Skip("Skipping upgrade test")
 	}
-	fromVersions := []string{"2.3.9"}
+	fromVersions := []string{"2.3.9", "2.4.6"}
 	dagSpec := `
 default-load-test-source:
 default-load-test-pipeline: default-load-test-source
@@ -192,24 +192,28 @@ validator:
     count: 1
 `
 	var stateID string
-	upgradeTest(t, context.Background(), fromVersions,
+	upgradeTest(t, context.Background(), false /* parallelOK */, fromVersions,
 		func(t *testing.T, c *client.APIClient) {
 			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
+			t.Log("before upgrade: starting load test")
 			resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pps.RunLoadTestRequest{
 				DagSpec:  dagSpec,
 				LoadSpec: loadSpec,
 			})
+			t.Log("before upgrade: load test done")
 			require.NoError(t, err)
 			require.Equal(t, "", resp.Error)
 			stateID = resp.StateId
 		},
 		func(t *testing.T, c *client.APIClient) {
 			c = testutil.AuthenticateClient(t, c, upgradeSubject)
+			t.Log("after upgrade: starting load test")
 			resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pps.RunLoadTestRequest{
 				DagSpec:  dagSpec,
 				LoadSpec: loadSpec,
 				StateId:  stateID,
 			})
+			t.Log("after upgrade: load test done")
 			require.NoError(t, err)
 			require.Equal(t, "", resp.Error)
 		},

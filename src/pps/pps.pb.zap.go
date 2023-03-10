@@ -86,6 +86,7 @@ func (x *Transform) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("working_dir", x.WorkingDir)
 	enc.AddString("dockerfile", x.Dockerfile)
 	enc.AddBool("memory_volume", x.MemoryVolume)
+	enc.AddBool("datum_batching", x.DatumBatching)
 	return nil
 }
 
@@ -1045,5 +1046,21 @@ func (x *RenderTemplateResponse) MarshalLogObject(enc zapcore.ObjectEncoder) err
 		return nil
 	}
 	enc.AddArray("specs", zapcore.ArrayMarshalerFunc(specsArrMarshaller))
+	return nil
+}
+
+func (x *LokiRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	protoextensions.AddDuration(enc, "since", x.Since)
+	return nil
+}
+
+func (x *LokiLogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("message", x.Message)
 	return nil
 }

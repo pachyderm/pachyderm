@@ -149,6 +149,10 @@ func (c *unsupportedDebugBuilderClient) Profile(_ context.Context, _ *debug_v2.P
 	return nil, unsupportedError("Profile")
 }
 
+func (c *unsupportedDebugBuilderClient) SetLogLevel(_ context.Context, _ *debug_v2.SetLogLevelRequest, opts ...grpc.CallOption) (*debug_v2.SetLogLevelResponse, error) {
+	return nil, unsupportedError("SetLogLevel")
+}
+
 type unsupportedEnterpriseBuilderClient struct{}
 
 func (c *unsupportedEnterpriseBuilderClient) Activate(_ context.Context, _ *enterprise_v2.ActivateRequest, opts ...grpc.CallOption) (*enterprise_v2.ActivateResponse, error) {
@@ -349,6 +353,10 @@ func (c *unsupportedPfsBuilderClient) Egress(_ context.Context, _ *pfs_v2.Egress
 	return nil, unsupportedError("Egress")
 }
 
+func (c *unsupportedPfsBuilderClient) FindCommits(_ context.Context, _ *pfs_v2.FindCommitsRequest, opts ...grpc.CallOption) (pfs_v2.API_FindCommitsClient, error) {
+	return nil, unsupportedError("FindCommits")
+}
+
 func (c *unsupportedPfsBuilderClient) FinishCommit(_ context.Context, _ *pfs_v2.FinishCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("FinishCommit")
 }
@@ -501,6 +509,10 @@ func (c *unsupportedPpsBuilderClient) DeletePipelines(_ context.Context, _ *pps_
 
 func (c *unsupportedPpsBuilderClient) DeleteSecret(_ context.Context, _ *pps_v2.DeleteSecretRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DeleteSecret")
+}
+
+func (c *unsupportedPpsBuilderClient) GetKubeEvents(_ context.Context, _ *pps_v2.LokiRequest, opts ...grpc.CallOption) (pps_v2.API_GetKubeEventsClient, error) {
+	return nil, unsupportedError("GetKubeEvents")
 }
 
 func (c *unsupportedPpsBuilderClient) GetLogs(_ context.Context, _ *pps_v2.GetLogsRequest, opts ...grpc.CallOption) (pps_v2.API_GetLogsClient, error) {

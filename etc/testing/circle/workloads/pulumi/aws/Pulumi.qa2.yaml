@@ -1,0 +1,4 @@
+config:
+  aws:region: us-west-2
+  postgresql:host: wp-postgresql
+  eksNodeInstanceType: m5.2xlarge

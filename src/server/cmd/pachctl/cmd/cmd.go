@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -16,11 +15,13 @@ import (
 	"time"
 	"unicode"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	taskcmds "github.com/pachyderm/pachyderm/v2/src/internal/task/cmds"
@@ -33,12 +34,12 @@ import (
 	enterprisecmds "github.com/pachyderm/pachyderm/v2/src/server/enterprise/cmds"
 	identitycmds "github.com/pachyderm/pachyderm/v2/src/server/identity/cmds"
 	licensecmds "github.com/pachyderm/pachyderm/v2/src/server/license/cmds"
+	misccmds "github.com/pachyderm/pachyderm/v2/src/server/misc/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/v2/src/server/pfs/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/v2/src/server/pps/cmds"
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
@@ -509,7 +510,7 @@ This resets the cluster to its initial state.`,
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
-			if err := clientsdk.ForEachPipelineInfo(c, func(pi *pps.PipelineInfo) error {
+			if err := grpcutil.ForEach[*pps.PipelineInfo](c, func(pi *pps.PipelineInfo) error {
 				pipelines = append(pipelines, red(pi.Pipeline.String()))
 				return nil
 			}); err != nil {
@@ -760,6 +761,12 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(finishDocs, "finish"))
 
+	findDocs := &cobra.Command{
+		Short: "Find a file addition, modification, or deletion in a commit.",
+		Long:  "fInd a file addition, modification, or deletion in a commit.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(findDocs, "find"))
+
 	waitDocs := &cobra.Command{
 		Short: "Wait for the side-effects of a Pachyderm resource to propagate.",
 		Long:  "Wait for the side-effects of a Pachyderm resource to propagate.",
@@ -838,6 +845,12 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(drawDocs, "draw"))
 
+	nextDocs := &cobra.Command{
+		Short: "Used internally for datum batching.",
+		Long:  "Used internally for datum batching.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(nextDocs, "next"))
+
 	subcommands = append(subcommands, pfscmds.Cmds(pachCtx)...)
 	subcommands = append(subcommands, ppscmds.Cmds(pachCtx)...)
 	subcommands = append(subcommands, authcmds.Cmds(pachCtx)...)
@@ -850,6 +863,7 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, configcmds.Cmds()...)
 	subcommands = append(subcommands, configcmds.ConnectCmds()...)
 	subcommands = append(subcommands, taskcmds.Cmds()...)
+	subcommands = append(subcommands, misccmds.Cmds()...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
 

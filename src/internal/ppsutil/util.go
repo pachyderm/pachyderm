@@ -56,7 +56,7 @@ func PipelineRcName(pi *pps.PipelineInfo) string {
 	pipelineName := strings.ReplaceAll(pi.Pipeline.Name, "_", "-")
 	if projectName := pi.Pipeline.Project.GetName(); projectName != "" {
 		projectName = strings.ReplaceAll(projectName, "_", "-")
-		return fmt.Sprintf("pipeline-%s-%s-v%d", strings.ToLower(projectName), strings.ToLower(pipelineName), pi.Version)
+		return fmt.Sprintf("%s-%s-v%d", strings.ToLower(projectName), strings.ToLower(pipelineName), pi.Version)
 	}
 	return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(pipelineName), pi.Version)
 }

@@ -3,11 +3,12 @@ package auth
 import (
 	"context"
 
+	"go.uber.org/zap"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
-	"go.uber.org/zap"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -66,9 +67,10 @@ var authHandlers = map[string]authHandler{
 	// Debug API
 	//
 
-	"/debug_v2.Debug/Profile": authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
-	"/debug_v2.Debug/Binary":  authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
-	"/debug_v2.Debug/Dump":    authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
+	"/debug_v2.Debug/Profile":     authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
+	"/debug_v2.Debug/Binary":      authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
+	"/debug_v2.Debug/Dump":        authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
+	"/debug_v2.Debug/SetLogLevel": authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
 
 	//
 	// Enterprise API
@@ -145,6 +147,7 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/InspectBranch":    authDisabledOr(authenticated),
 	"/pfs_v2.API/ListBranch":       authDisabledOr(authenticated),
 	"/pfs_v2.API/DeleteBranch":     authDisabledOr(authenticated),
+	"/pfs_v2.API/FindCommits":      authDisabledOr(authenticated),
 	"/pfs_v2.API/CreateProject":    authDisabledOr(clusterPermissions(auth.Permission_PROJECT_CREATE)),
 	"/pfs_v2.API/InspectProject":   authDisabledOr(authenticated),
 	"/pfs_v2.API/ListProject":      authDisabledOr(authenticated),
@@ -218,6 +221,7 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/RunLoadTestDefault": authDisabledOr(authenticated),
 	"/pps_v2.API/RenderTemplate":     authDisabledOr(authenticated),
 	"/pps_v2.API/ListTask":           authDisabledOr(authenticated),
+	"/pps_v2.API/GetKubeEvents":      authDisabledOr(authenticated),
 
 	//
 	// TransactionAPI
