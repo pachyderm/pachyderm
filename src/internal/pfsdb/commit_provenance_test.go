@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -23,7 +24,12 @@ func TestCommitSetProvenance(suite *testing.T) {
 	defer db.Close()
 	// setup schema
 	withTx(suite, db, func(tx *pachsql.Tx) {
-		_, err := tx.ExecContext(ctx, `CREATE SCHEMA pfs`)
+		_, err := tx.ExecContext(ctx, `CREATE SCHEMA collections`)
+		require.NoError(suite, err)
+		require.NoError(suite, col.SetupPostgresV0(ctx, tx))
+		require.NoError(suite, col.SetupPostgresCollections(ctx, tx,
+			col.NewPostgresCollection("commits", db, nil, &pfs.CommitInfo{}, nil)))
+		_, err = tx.ExecContext(ctx, `CREATE SCHEMA pfs`)
 		require.NoError(suite, err)
 		require.NoError(suite, SetupCommitProvenanceV0(ctx, tx))
 	})
@@ -63,7 +69,7 @@ func TestCommitSetProvenance(suite *testing.T) {
 			a, err = td.addCommitSet(tx, "v", "A")
 			require.NoError(t, err)
 			b, err = td.addCommitSet(tx, "x", "B")
-			require.NoError(t, AddCommit(tx, b))
+			require.NoError(t, err)
 			c, err = td.addCommitSet(tx, "y", "C")
 			require.NoError(t, err)
 			e, err = td.addCommitSet(tx, "w", "E")
@@ -159,7 +165,7 @@ func (td *testDAG) addRepo(tx *pachsql.Tx, repo string, provRepos ...string) err
 	}
 	commitID := uuid.New()
 	c := client.NewProjectCommit(td.project, repo, "", commitID)
-	if err := AddCommit(tx, c); err != nil {
+	if err := addCommitWrapper(tx, c); err != nil {
 		return err
 	}
 	td.heads[repo] = c
@@ -188,12 +194,16 @@ func (td *testDAG) addCommitSet(tx *pachsql.Tx, commitID string, repo string) (*
 	}
 	var bfsQueue []string
 	bfsQueue = append(bfsQueue, repo)
+	seen := make(map[string]struct{})
 	for len(bfsQueue) > 0 {
 		var r string
 		r, bfsQueue = bfsQueue[0], bfsQueue[1:]
 		c := client.NewProjectCommit(td.project, r, "", commitID)
-		if err := AddCommit(tx, c); err != nil {
-			return nil, err
+		if _, ok := seen[CommitKey(c)]; !ok {
+			if err := addCommitWrapper(tx, c); err != nil {
+				return nil, err
+			}
+			seen[CommitKey(c)] = struct{}{}
 		}
 		td.heads[r] = c
 		for _, prov := range td.provDag[r] {
@@ -204,6 +214,13 @@ func (td *testDAG) addCommitSet(tx *pachsql.Tx, commitID string, repo string) (*
 		bfsQueue = append(bfsQueue, td.subvDag[r]...)
 	}
 	return client.NewProjectCommit(td.project, repo, "", commitID), nil
+}
+
+func addCommitWrapper(tx *pachsql.Tx, c *pfs.Commit) error {
+	if _, err := tx.Exec(`INSERT INTO collections.commits(key) VALUES ($1);`, CommitKey(c)); err != nil {
+		return err
+	}
+	return AddCommit(tx, c)
 }
 
 func withTx(t *testing.T, db *pachsql.DB, f func(*pachsql.Tx)) {
