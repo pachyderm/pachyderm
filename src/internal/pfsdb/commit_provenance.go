@@ -141,12 +141,17 @@ func SetupCommitProvenanceV0(ctx context.Context, tx *pachsql.Tx) error {
 	return errors.EnsureStack(err)
 }
 
+// TODO(acohen4): verify how postgres behaves when does altering a table affect foreign key constraints?
 var schema = `
 	CREATE TABLE pfs.commits (
 		int_id BIGSERIAL PRIMARY KEY,
 		commit_id VARCHAR(4096) UNIQUE,
                 commit_set_id VARCHAR(4096) NOT NULL,
-		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT fk_col_commit
+                  FOREIGN KEY(commit_id)
+                  REFERENCES collections.commits(key)
+                  ON DELETE CASCADE
 	);
 
 	CREATE TABLE pfs.commit_provenance (

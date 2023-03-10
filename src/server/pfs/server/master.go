@@ -196,7 +196,6 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 				}); err != nil {
 					return err
 				}
-				// TODO(acohen4): this might replace an existing details object
 				details := &pfs.CommitInfo_Details{
 					CompactingTime: types.DurationProto(time.Since(start)),
 				}

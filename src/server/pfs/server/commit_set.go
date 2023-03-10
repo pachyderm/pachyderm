@@ -217,7 +217,7 @@ func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset 
 	return nil
 }
 
-func (d *driver) squashCommitSets(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, force bool) error {
+func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, force bool) error {
 	css, err := d.subvenantCommitSets(txnCtx, commitset)
 	if err != nil {
 		return err
@@ -263,7 +263,7 @@ func (d *driver) squashCommitSets(txnCtx *txncontext.TransactionContext, commits
 // no more than one time.
 //
 // to delete a single commit
-// 1. delete the commit's file set
+// 1. delete the commit and its associated file set
 // 2. check to whether the commit was at the head of a branch, and update the branch head if necessary
 // 3. updating the ChildCommits pointers of deletedCommit.ParentCommit
 // 4. updating the ParentCommit pointer of deletedCommit.ChildCommits
@@ -326,7 +326,9 @@ func (d *driver) deleteCommits(txnCtx *txncontext.TransactionContext, commitInfo
 			}
 		}
 	}
-	sort.Slice(headlessBranches, func(i, j int) bool { return len(headlessBranches[i].Provenance) < len(headlessBranches[j].Provenance) })
+	sort.Slice(headlessBranches, func(i, j int) bool {
+		return len(headlessBranches[i].Provenance) < len(headlessBranches[j].Provenance)
+	})
 	newRepoCommits := make(map[string]*pfs.Commit)
 	for _, bi := range headlessBranches {
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(bi.Branch, bi, func() error {
@@ -456,7 +458,7 @@ func traverseToEdges(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.Commit
 //    p@Y    s@Z
 // CommitSetSubvenance(X) evaluates to [p@Y]. Since we delete commit sets in batches, we would delete all of
 // commit set Y. But this would inadvertently kill commit q@Y which is in s@Z's provenance. Therefore,
-// we re-evaluate CommitSetSubvenance for each collected commit set until or resulting set becomes stable.
+// we re-evaluate CommitSetSubvenance for each collected commit set until our resulting set becomes stable.
 func (d *driver) subvenantCommitSets(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) ([]*pfs.CommitSet, error) {
 	collectSubvCommitSets := func(setIDs map[string]struct{}) (map[string]struct{}, error) {
 		subvCommitSets := make(map[string]struct{})

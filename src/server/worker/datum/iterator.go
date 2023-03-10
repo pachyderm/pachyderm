@@ -124,9 +124,16 @@ func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pf
 		if err := jsonpb.Unmarshal(tr, meta); err != nil {
 			return errors.EnsureStack(err)
 		}
+		migrateMetaInputsV2_6_0(meta)
 		if err := cb(hdr.Name, meta); err != nil {
 			return err
 		}
+	}
+}
+
+func migrateMetaInputsV2_6_0(meta *Meta) {
+	for _, i := range meta.Inputs {
+		i.FileInfo.File.Commit.Repo = i.FileInfo.File.Commit.Branch.Repo
 	}
 }
 

@@ -38,8 +38,6 @@ type postgresCollection struct {
 	exists             func(interface{}) string
 	listBufferCapacity int
 	putHook            func(*pachsql.Tx, interface{}) error
-	deleteHook         func(*pachsql.Tx, string) error
-	deleteJoinHook     func() (hookJoinTable string, colJoinColumn string, hookJoinColumn string)
 }
 
 func indexFieldName(idx *Index) string {
@@ -89,18 +87,6 @@ func WithListBufferCapacity(cap int) Option {
 func WithPutHook(putHook func(*pachsql.Tx, interface{}) error) Option {
 	return func(c *postgresCollection) {
 		c.putHook = putHook
-	}
-}
-
-func WithDeleteHook(deleteHook func(*pachsql.Tx, string) error) Option {
-	return func(c *postgresCollection) {
-		c.deleteHook = deleteHook
-	}
-}
-
-func WithDeleteJoinHook(deleteJoinHook func() (hookJoinTable string, colJoinColumn string, hookJoinColumn string)) Option {
-	return func(c *postgresCollection) {
-		c.deleteJoinHook = deleteJoinHook
 	}
 }
 
@@ -873,24 +859,11 @@ func (c *postgresReadWriteCollection) delete(key string) error {
 	} else if count == 0 {
 		return errors.WithStack(ErrNotFound{Type: c.table, Key: key})
 	}
-	if c.deleteHook != nil {
-		if err := c.deleteHook(c.tx, key); err != nil {
-			return c.mapSQLError(err, key)
-		}
-	}
 	return nil
 }
 
 func (c *postgresReadWriteCollection) DeleteAll() error {
 	colTable := fmt.Sprintf("collections.%s", c.table)
-	if c.deleteJoinHook != nil {
-		hookJoinTable, colJoinColumn, hookJoinColumn := c.deleteJoinHook()
-		query := fmt.Sprintf("delete from %s using %s where %s.%s = %s.%s;", hookJoinTable, colTable, colTable, colJoinColumn, hookJoinTable, hookJoinColumn)
-		_, err := c.tx.Exec(query)
-		if err != nil {
-			return c.mapSQLError(err, "")
-		}
-	}
 	query := fmt.Sprintf("delete from %s;", colTable)
 	_, err := c.tx.Exec(query)
 	return c.mapSQLError(err, "")
@@ -901,15 +874,6 @@ func (c *postgresReadWriteCollection) DeleteByIndex(index *Index, indexVal strin
 		return err
 	}
 	colTable := fmt.Sprintf("collections.%s", c.table)
-	if c.deleteJoinHook != nil {
-		hookJoinTable, colJoinColumn, hookJoinColumn := c.deleteJoinHook()
-		query := fmt.Sprintf("delete from %s using (select %s from %s where %s = $1) as col_rows where col_rows.%s = %s.%s;",
-			hookJoinTable, colJoinColumn, colTable, indexFieldName(index), colJoinColumn, hookJoinTable, hookJoinColumn)
-		_, err := c.tx.Exec(query, indexVal)
-		if err != nil {
-			return c.mapSQLError(err, "")
-		}
-	}
 	query := fmt.Sprintf("delete from %s where %s = $1", colTable, indexFieldName(index))
 	_, err := c.tx.Exec(query, indexVal)
 	return c.mapSQLError(err, "")

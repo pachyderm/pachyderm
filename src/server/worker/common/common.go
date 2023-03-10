@@ -37,15 +37,8 @@ func DatumID(inputs []*Input) string {
 		hash.Write([]byte(input.Name))
 		_ = binary.Write(hash, binary.BigEndian, int64(len(input.Name)))
 		file := input.FileInfo.File
-		// TODO(acohen4): this isn't cute
-		var repoName string
-		if file.Commit.Repo != nil {
-			repoName = file.Commit.Repo.Name
-		} else {
-			repoName = file.Commit.Branch.Repo.Name
-		}
-		hash.Write([]byte(repoName))
-		_ = binary.Write(hash, binary.BigEndian, int64(len(repoName)))
+		hash.Write([]byte(file.Commit.Repo.Name))
+		_ = binary.Write(hash, binary.BigEndian, int64(len(file.Commit.Repo.Name)))
 		hash.Write([]byte(input.Branch))
 		_ = binary.Write(hash, binary.BigEndian, int64(len(input.Branch)))
 		hash.Write([]byte(input.FileInfo.File.Path))

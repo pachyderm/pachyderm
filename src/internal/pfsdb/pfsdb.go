@@ -151,12 +151,6 @@ func Commits(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollecti
 			}
 			return AddCommit(tx, ci.Commit)
 		}),
-		col.WithDeleteHook(func(tx *pachsql.Tx, commitKey string) error {
-			return DeleteCommit(tx, commitKey)
-		}),
-		col.WithDeleteJoinHook(func() (hookJoinTable string, colJoinColumn string, hookJoinColumn string) {
-			return "pfs.commits", "key", "commit_id"
-		}),
 	)
 }
 

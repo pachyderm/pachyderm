@@ -780,7 +780,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 	seenAliases := make(map[string]*pfs.BranchInfo)
 	// add new commits, set their ancestry + provenance pointers, and advance branch heads
 	for _, bi := range propagatedBranches {
-		// TODO(acohen4): can we just make calls to startCommit() here?
+		// TODO(acohen4): can we just make calls to addCommit() here?
 		// Do not propagate an open commit onto spout output branches (which should
 		// only have a single provenance on a spec commit)
 		if len(bi.Provenance) == 1 && bi.Provenance[0].Repo.Type == pfs.SpecRepoType {
@@ -828,7 +828,6 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			return errors.Wrapf(err, "put branch %q with head %q", pfsdb.BranchKey(bi.Branch), pfsdb.CommitKey(bi.Head))
 		}
 		// create open 'commit'.
-		// it's possible that this commit has already been created if there are two branches with the same head that are propagated.
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(newCommit, newCommitInfo); err != nil {
 			return errors.Wrapf(err, "create new commit %q", pfsdb.CommitKey(newCommit))
 		}

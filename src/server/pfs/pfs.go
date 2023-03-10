@@ -101,13 +101,6 @@ type ErrBaseCommitNotFinished struct {
 	Commit     *pfs.Commit
 }
 
-// ErrAmbiguousCommit represents an error where a user-specified commit did not
-// specify a branch and resolved to multiple commits on different branches.
-type ErrAmbiguousCommit struct {
-	Commit          *pfs.Commit
-	PossibleCommits []*pfs.Commit
-}
-
 // ErrInconsistentCommit represents an error where a transaction attempts to
 // create a CommitSet with multiple commits in the same branch, which would
 // result in inconsistent data dependencies.
@@ -279,10 +272,6 @@ func (e ErrBaseCommitNotFinished) Error() string {
 	return fmt.Sprintf("base commit %v for commit %v unfinished", e.BaseCommit, e.Commit)
 }
 
-func (e ErrAmbiguousCommit) Error() string {
-	return fmt.Sprintf("commit %v is ambiguous; possible resolutions are: %v", e.Commit, e.PossibleCommits)
-}
-
 func (e ErrInconsistentCommit) Error() string {
 	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s; repo (%s) already has a commit in this transaction", e.Commit, e.Commit.Repo.Name)
 }
@@ -325,7 +314,6 @@ var (
 	commitOnOutputBranchRe    = regexp.MustCompile("cannot start a commit on an output branch")
 	squashWithoutChildrenRe   = regexp.MustCompile("cannot squash a commit that has no children")
 	dropWithChildrenRe        = regexp.MustCompile("cannot drop a commit that has children")
-	deleteWithDependentSetsRe = regexp.MustCompile("cannot be squashed in isolation; to delete them also squash")
 	invalidBranchStructureRe  = regexp.MustCompile("multiple branches from the same repo, .+, cannot participate in a DAG")
 	squashWithSubvenanceRe    = regexp.MustCompile("commit set .+ cannot be dropped because it has subvenant commit sets: .+")
 )
@@ -482,13 +470,6 @@ func IsDropWithChildrenErr(err error) bool {
 		return false
 	}
 	return dropWithChildrenRe.MatchString(err.Error())
-}
-
-func IsDeleteWithDependentCommitSetsErr(err error) bool {
-	if err == nil {
-		return false
-	}
-	return deleteWithDependentSetsRe.MatchString(err.Error())
 }
 
 func IsInvalidBranchStructureErr(err error) bool {

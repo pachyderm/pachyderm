@@ -289,7 +289,7 @@ func (a *apiServer) ListCommitSet(request *pfs.ListCommitSetRequest, serv pfs.AP
 // SquashCommitSetInTransaction is identical to SquashCommitSet except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) SquashCommitSetInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.SquashCommitSetRequest) error {
-	return a.driver.squashCommitSets(txnCtx, request.CommitSet, request.Force)
+	return a.driver.squashCommitSet(txnCtx, request.CommitSet, request.Force)
 }
 
 // SquashCommitSet implements the protobuf pfs.SquashCommitSet RPC
