@@ -363,7 +363,7 @@ func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb 
 		copyFileEntry := func(dst, src *fileEntry) {
 			*dst = *src
 		}
-		datumFSIt := stream.NewFromForEach(ctx, copyFileEntry, func(fn func(fileEntry) error) error {
+		datumFSIt := stream.NewFromForEach(ctx, func(fn func(fileEntry) error) error {
 			return datumsFS.Iterate(ctx, func(f fileset.File) error {
 				return fn(fileEntry{
 					file:       f,
@@ -372,7 +372,7 @@ func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb 
 			})
 		})
 		datumFSPk := stream.NewPeekable(datumFSIt, copyFileEntry)
-		metaFSIt := stream.NewFromForEach(ctx, copyFileEntry, func(fn func(fileEntry) error) error {
+		metaFSIt := stream.NewFromForEach(ctx, func(fn func(fileEntry) error) error {
 			return metaFS.Iterate(ctx, func(f fileset.File) error {
 				return fn(fileEntry{
 					file:       f,

@@ -208,7 +208,7 @@ type Iterator = stream.Peekable[File]
 // NewIterator returns an Iterator for iterating over a fileset.
 func NewIterator(ctx context.Context, fs FileSet, opts ...index.Option) Iterator {
 	cpFile := func(dst, src *File) { *dst = *src }
-	it := stream.NewFromForEach(ctx, cpFile, func(fn func(File) error) error {
+	it := stream.NewFromForEach(ctx, func(fn func(File) error) error {
 		return fs.Iterate(ctx, fn, opts...)
 	})
 	return stream.NewPeekable(it, cpFile)

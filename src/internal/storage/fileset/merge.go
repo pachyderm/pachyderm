@@ -35,7 +35,7 @@ func (mr *MergeReader) Iterate(ctx context.Context, cb func(File) error, opts ..
 	var ss []stream.Peekable[fileEntry]
 	for _, fs := range mr.fileSets {
 		// additive
-		itAdd := stream.NewFromForEach(ctx, copyFileEntry, func(fn func(fileEntry) error) error {
+		itAdd := stream.NewFromForEach(ctx, func(fn func(fileEntry) error) error {
 			return fs.Iterate(ctx, func(f File) error {
 				return fn(fileEntry{
 					File:       f,
@@ -46,7 +46,7 @@ func (mr *MergeReader) Iterate(ctx context.Context, cb func(File) error, opts ..
 		pkAdd := stream.NewPeekable(itAdd, copyFileEntry)
 		ss = append(ss, pkAdd)
 		// deletive
-		itDel := stream.NewFromForEach(ctx, copyFileEntry, func(fn func(fileEntry) error) error {
+		itDel := stream.NewFromForEach(ctx, func(fn func(fileEntry) error) error {
 			return fs.IterateDeletes(ctx, func(f File) error {
 				return fn(fileEntry{
 					File:       f,
@@ -96,7 +96,7 @@ func (mr *MergeReader) IterateDeletes(ctx context.Context, cb func(File) error, 
 	copyFile := func(dst, src *File) { *dst = *src }
 	var ss []stream.Peekable[File]
 	for _, fs := range mr.fileSets {
-		it := stream.NewFromForEach(ctx, copyFile, func(fn func(File) error) error {
+		it := stream.NewFromForEach(ctx, func(fn func(File) error) error {
 			return fs.IterateDeletes(ctx, fn, opts...)
 		})
 		pk := stream.NewPeekable(it, copyFile)

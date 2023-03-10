@@ -248,7 +248,7 @@ func mergeByKey(ctx context.Context, dits []Iterator, idFunc idGenerator, cb fun
 	cpMetaEntry := func(dst, src *metaEntry) { *dst = *src }
 	var ss []stream.Peekable[metaEntry]
 	for _, dit := range dits {
-		it := stream.NewFromForEach(ctx, cpMetaEntry, func(fn func(metaEntry) error) error {
+		it := stream.NewFromForEach(ctx, func(fn func(metaEntry) error) error {
 			return dit.Iterate(func(x *Meta) error {
 				return fn(metaEntry{
 					Meta: x,

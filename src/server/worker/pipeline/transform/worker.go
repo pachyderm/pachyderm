@@ -87,7 +87,7 @@ func processCreateParallelDatumsTask(pachClient *client.APIClient, task *CreateP
 	dits = append(dits, dit)
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	outputFileSetID, err := datum.WithCreateFileSet(pachClient, "pachyderm-create-parallel-datums", func(outputSet *datum.Set) error {
-		return datum.Merge(dits, func(metas []*datum.Meta) error {
+		return datum.Merge(pachClient.Ctx(), dits, func(metas []*datum.Meta) error {
 			// Datum exists in both jobs.
 			if len(metas) > 1 {
 				stats.Total++
@@ -125,7 +125,7 @@ func processCreateSerialDatumsTask(pachClient *client.APIClient, task *CreateSer
 	outputFileSetID, err := datum.WithCreateFileSet(pachClient, "pachyderm-create-serial-datums", func(outputSet *datum.Set) error {
 		var err error
 		outputDeleteFileSetID, metaDeleteFileSetID, err = withDeleter(pachClient, task.BaseMetaCommit, func(deleter datum.Deleter) error {
-			return datum.Merge(dits, func(metas []*datum.Meta) error {
+			return datum.Merge(pachClient.Ctx(), dits, func(metas []*datum.Meta) error {
 				if len(metas) == 1 {
 					// Datum was processed in the parallel step.
 					if proto.Equal(metas[0].Job, task.Job) {

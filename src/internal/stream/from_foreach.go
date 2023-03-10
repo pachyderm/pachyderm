@@ -9,20 +9,25 @@ import (
 // fromForEach provides functionality for generic imperative iteration.
 // TODO: Move file set merge and datum merge to this abstraction.
 type forEach[T any] struct {
-	dataChan chan T
+	dataChan chan forEachMsg[T]
 	errChan  chan error
-	copy     func(dst, src *T)
+	prev     chan struct{}
 }
 
 // NewFromForEach creates a new iterator from a forEachFunc
 // Don't write new code that needs this.
-func NewFromForEach[T any](ctx context.Context, cp func(dst, src *T), forEachFunc func(func(T) error) error) Iterator[T] {
-	dataChan := make(chan T)
+func NewFromForEach[T any](ctx context.Context, forEachFunc func(func(T) error) error) Iterator[T] {
+	dataChan := make(chan forEachMsg[T])
 	errChan := make(chan error, 1)
 	go func() {
 		if err := forEachFunc(func(data T) error {
+			msg := forEachMsg[T]{
+				data: data,
+				done: make(chan struct{}),
+			}
 			select {
-			case dataChan <- data:
+			case dataChan <- msg:
+				<-msg.done // do not allow the iterator to advance until the next call to Next.
 				return nil
 			case <-ctx.Done():
 				return errutil.ErrBreak
@@ -36,20 +41,29 @@ func NewFromForEach[T any](ctx context.Context, cp func(dst, src *T), forEachFun
 	return &forEach[T]{
 		dataChan: dataChan,
 		errChan:  errChan,
-		copy:     cp,
 	}
 }
 
 // Next returns the next item and progresses the iterator.
-func (i *forEach[T]) Next(ctx context.Context, dst *T) error {
+func (it *forEach[T]) Next(ctx context.Context, dst *T) error {
+	if it.prev != nil {
+		close(it.prev)
+		it.prev = nil
+	}
 	select {
-	case data, more := <-i.dataChan:
-		if !more {
+	case msg, isOpen := <-it.dataChan:
+		if !isOpen {
 			return EOS
 		}
-		i.copy(dst, &data)
+		*dst = msg.data
+		it.prev = msg.done
 		return nil
-	case err := <-i.errChan:
+	case err := <-it.errChan:
 		return err
 	}
+}
+
+type forEachMsg[T any] struct {
+	data T
+	done chan struct{}
 }
