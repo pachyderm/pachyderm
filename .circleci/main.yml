@@ -684,7 +684,8 @@ jobs:
           command: go install golang.org/x/vuln/cmd/govulncheck@latest
       - run:
           name: Check for known security vulnerabilities
-          command: govulncheck ./...
+          command: |
+            find -name go.mod -print0 | xargs -0 -I{} sh -c 'cd $(dirname {}); echo; echo '---'; echo $PWD; exec govulncheck ./...'
   push_redhat:
     executor: docker-go
     steps:
