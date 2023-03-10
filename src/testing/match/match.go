@@ -20,15 +20,15 @@ import (
 	"strings"
 )
 
-var invert = flag.Bool("v", false, "If set, match returns an error if the "+
-	"given regex does not match any text on stdin")
-
 func die(f string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, f, args...)
 	os.Exit(1)
 }
 
 func main() {
+	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	var invert = flag.Bool("v", false, "If set, match returns an error if the "+
+		"given regex does not match any text on stdin")
 	flag.Parse()
 	if flag.NArg() == 0 {
 		die("Must provide a regex to match")

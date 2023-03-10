@@ -18,16 +18,29 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var (
-	logLevel          = zap.NewAtomicLevelAt(zapcore.InfoLevel)
-	grpcLevel         = zap.NewAtomicLevelAt(zapcore.FatalLevel)
-	healthCheckLogger *zap.Logger
-	developmentLogger bool
-	samplingDisabled  bool
+// LevelChanger is a log level that can be changed for a period of time.
+type LevelChanger interface {
+	// See resettableLevel.SetLevelFor.
+	SetLevelFor(zapcore.Level, time.Duration, func(string, string))
+}
 
-	initOnce       sync.Once
-	warningsLogged atomic.Bool
-	warnings       []string
+var (
+	logLevel  = NewResettableLevelAt(zapcore.InfoLevel)  // Current base logger level.
+	grpcLevel = NewResettableLevelAt(zapcore.FatalLevel) // The log level for the GRPC adaptor.
+
+	// These log levels are for the src/server/debug package, which changes log levels at
+	// runtime based on an RPC.  The Debug package takes special care to not change LogLevel
+	// level to one we don't use; zapcore.Level has more levels than Pachyderm.
+	LogLevel, GRPCLevel LevelChanger = logLevel, grpcLevel
+
+	healthCheckLogger *zap.Logger // A logger only for GRPC health checks.
+
+	developmentLogger bool // True if a development logger was requested via the environment.
+	samplingDisabled  bool // True if log sampling was disabled via the environment.
+
+	initOnce       sync.Once   // initOnce gates creating the zap global logger
+	warningsLogged atomic.Bool // True if startup warnings have already been printed.
+	warnings       []string    // Any warnings generated during startup (before the logger was ready).
 
 	// droppedLogs and droppedHealthLogs record how many logs or health check logs we dropped
 	// because of log sampling.
@@ -46,13 +59,16 @@ func SetLevel(l Level) {
 	logLevel.SetLevel(l.coreLevel())
 }
 
-// SetGRPCLogLevel changes the grpc logger level.  To see messages, the overall log level has to be
-// lower than the grpc log level.  (For example, if you SetLevel to FATAL and then SetGRPCLogLevel
-// to DEBUG, you will only see FATAL logs from grpc.  But, if you SetLogLevel(DEBUG) and
-// SetGRPCLogLevel(DEBUG), you will see DEBUG grpc logs.)
+// SetGRPCLogLevel changes the grpc logger level.  It is safe to call at any time from multiple
+// goroutines.
 //
-// Note that SetGRPCLogLevel takes a zapcore.Level instead of a internal/log.Level.  That's because
-// GRPC has more log levels than Pachyderm.
+// Note: to see any messages, the overall log level has to be lower than the grpc log level.  (For
+// example, if you SetLevel to ERROR and then SetGRPCLogLevel to DEBUG, you will only see ERROR logs
+// from GRPC.  But, if you SetLogLevel(DEBUG) and SetGRPCLogLevel(DEBUG), you will see DEBUG grpc
+// logs.)
+//
+// Note: SetGRPCLogLevel takes a zapcore.Level instead of a internal/log.Level.  That's because GRPC
+// has more log levels than Pachyderm.
 func SetGRPCLogLevel(l zapcore.Level) {
 	grpcLevel.SetLevel(l)
 }

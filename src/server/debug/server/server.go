@@ -63,6 +63,8 @@ type debugServer struct {
 	sidecarClient *client.APIClient
 	marshaller    *jsonpb.Marshaler
 	database      *pachsql.DB
+
+	logLevel, grpcLevel log.LevelChanger
 }
 
 // NewDebugServer creates a new server that serves the debug api over GRPC
@@ -73,6 +75,8 @@ func NewDebugServer(env serviceenv.ServiceEnv, name string, sidecarClient *clien
 		sidecarClient: sidecarClient,
 		marshaller:    &jsonpb.Marshaler{Indent: "  "},
 		database:      db,
+		logLevel:      log.LogLevel,
+		grpcLevel:     log.GRPCLevel,
 	}
 }
 
@@ -124,7 +128,7 @@ func (s *debugServer) handleRedirect(
 				case *debug.Filter_Worker:
 					if f.Worker.Redirected {
 						var errs error
-						// Collect the storage container.
+						// Collect self if we're not a worker.
 						if s.sidecarClient == nil {
 							return collect(ctx, tw, pachClient, client.PPSWorkerSidecarContainerName)
 						}
