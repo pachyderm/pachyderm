@@ -29,11 +29,11 @@
 // performance.  Analysis code can make the decision on which fields to discard to decrease the
 // cardinality for long-term storage, if desired.
 //
-// Aggregating each operations on a metric over time recovers the value of the metric at a
-// particular time.  Any sort of smartness or validation comes from the reader, not from this
-// writing code.  If you want to treat a certain metric name as a string gauge, integer counter, and
-// sampler of proto messages, that is OK.  The analysis code that processes the logs will need to be
-// ready for that, or at least ready to ignore values it doesn't think are valid.
+// Aggregating each operation on a metric over time recovers the value of the metric at a particular
+// time.  Any sort of smartness or validation comes from the reader, not from this writing code.  If
+// you want to treat a certain metric name as a string gauge, integer counter, and sampler of proto
+// messages, that is OK.  The analysis code that processes the logs will need to be ready for that,
+// or at least ready to ignore values it doesn't think are valid.
 //
 // To emit metrics, simply call these public functions in this package:
 //
@@ -53,7 +53,7 @@
 // An aggregator can be registered on a context (with pctx.Child), causing all future writes to that
 // metric on that context to be aggregated.  (The code that writes the metric need not be aware of
 // the aggregated nature; the above public API automatically does the right thing.)
-
+//
 // Aggregated metrics are emitted to the logs based on a time interval set at registration time.  If
 // a write occurs, and the metric hasn't been logged for that interval, then a log line will be
 // produced showing the current value of the metric.  If unflushed data exists when the context is
@@ -237,10 +237,14 @@ func counterFromContext[T Monoid](ctx context.Context, metric string) *counter[T
 	return nil
 }
 
+func shouldFlush(now bool, m *aggregatedMetric) bool {
+	return (now && !m.wroteOnce) || (now && m.dirty) || (m.dirty && time.Since(m.last) > m.flushInterval)
+}
+
 func (g *gauge[T]) flush(ctx context.Context, skip int, now bool) {
 	g.Lock()
 	defer g.Unlock()
-	if (now && (!g.wroteOnce || g.dirty)) || (g.dirty && time.Since(g.last) > g.flushInterval) {
+	if shouldFlush(now, &g.aggregatedMetric) {
 		logGauge(ctx, skip, g.metric, g.value)
 		g.wroteOnce = true
 		g.dirty = false
@@ -251,7 +255,7 @@ func (g *gauge[T]) flush(ctx context.Context, skip int, now bool) {
 func (c *counter[T]) flush(ctx context.Context, skip int, now bool) {
 	c.Lock()
 	defer c.Unlock()
-	if (now && (!c.wroteOnce || c.dirty)) || (c.dirty && time.Since(c.last) > c.flushInterval) {
+	if shouldFlush(now, &c.aggregatedMetric) {
 		logCounter(ctx, skip, c.metric, c.delta)
 		c.wroteOnce = true
 		c.dirty = false
