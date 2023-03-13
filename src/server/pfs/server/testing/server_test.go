@@ -1931,31 +1931,30 @@ func TestPFS(suite *testing.T) {
 	})
 
 	suite.Run("CommitBranch", func(t *testing.T) {
-		t.Skip("TODO(acohen4): FIXME - Rethink this one")
 		t.Parallel()
 		ctx := pctx.TestContext(t)
 		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "input"))
-		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "output"))
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "output1"))
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "output2"))
 		// Make two branches provenant on the master branch
-		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "output", "A", "", "", []*pfs.Branch{client.NewProjectBranch(pfs.DefaultProjectName, "input", "master")}))
-		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "output", "B", "", "", []*pfs.Branch{client.NewProjectBranch(pfs.DefaultProjectName, "input", "master")}))
+		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "output1", "master", "", "", []*pfs.Branch{client.NewProjectBranch(pfs.DefaultProjectName, "input", "master")}))
+		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "output2", "master", "", "", []*pfs.Branch{client.NewProjectBranch(pfs.DefaultProjectName, "input", "master")}))
 		// Now make a commit on the master branch, which should trigger a downstream commit on each of the two branches
 		masterCommit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "input", "master")
 		require.NoError(t, err)
 		require.NoError(t, finishCommit(env.PachClient, "input", masterCommit.Branch.Name, masterCommit.ID))
-		// Check that the commit in branch A has the information and provenance we expect
-		commitInfo, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "output", "A", "")
+		// Check that the commit in output1 has the information and provenance we expect
+		commitInfo, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "output1", "master", "")
 		require.NoError(t, err)
 		require.Equal(t, masterCommit.ID, commitInfo.Commit.ID)
-		// Check that the commit in branch B has the information and provenance we expect
-		commitInfo, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "output", "B", "")
+		// Check that the commit in output2 has the information and provenance we expect
+		commitInfo, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "output2", "master", "")
 		require.NoError(t, err)
 		require.Equal(t, masterCommit.ID, commitInfo.Commit.ID)
 	})
 
-	suite.Run("CommitOnTwoBranchesProvenance", func(t *testing.T) {
-		t.Skip("TODO(acohen4): FIXME - Rethink this one")
+	suite.Run("CommitBranchProvenanceMovement", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
 		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
@@ -1968,67 +1967,41 @@ func TestPFS(suite *testing.T) {
 		masterCommit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "input", "master")
 		require.NoError(t, err)
 		require.NoError(t, finishCommit(env.PachClient, "input", masterCommit.Branch.Name, masterCommit.ID))
-		// Make two branches pointing to the commit on the master branch
+		// Make input@A set to input@master
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "input", "A", masterCommit.Branch.Name, masterCommit.ID, nil))
-		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "input", "B", masterCommit.Branch.Name, masterCommit.ID, nil))
-		// Now create a branch provenant on both branches A and B
-		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "output", "C", "", "", []*pfs.Branch{client.NewProjectBranch(pfs.DefaultProjectName, "input", "A"), client.NewProjectBranch(pfs.DefaultProjectName, "input", "B")}))
+		// Now create a branch provenant on input@A
+		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "output", "C", "", "", []*pfs.Branch{client.NewProjectBranch(pfs.DefaultProjectName, "input", "A")}))
+		require.NoError(t, finishCommit(env.PachClient, "output", "C", ""))
 		// The head commit of the C branch should have a different ID than the new heads
 		// of branches A and B, but should include them in its DirectProvenance
 		cHead, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "output", "C", "")
 		require.NoError(t, err)
 		aHead, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "input", "A", "")
 		require.NoError(t, err)
-		bHead, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "input", "B", "")
-		require.NoError(t, err)
-		// Chains on A & B should look the same
-		require.Equal(t, aHead.Commit.ID, bHead.Commit.ID)
 		// Chain of C should only have one commit, differing from A & B
-		require.NotEqual(t, cHead.Commit.ID, bHead.Commit.ID)
+		require.NotEqual(t, cHead.Commit.ID, aHead.Commit.ID)
 		require.Equal(t, 1, len(cHead.DirectProvenance))
 		require.Equal(t, aHead.Commit.ID, cHead.DirectProvenance[0].ID)
-		// We should be able to squash the parent commits of A and B Head
+		// We should be able to squash input@A^
 		require.NoError(t, env.PachClient.SquashCommitSet(aHead.ParentCommit.ID))
 		aHead, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "input", "A", "")
 		require.NoError(t, err)
 		require.Nil(t, aHead.ParentCommit)
-		bHead, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "input", "B", "")
-		require.NoError(t, err)
-		require.Nil(t, bHead.ParentCommit)
-		// Now, dropping the head of A and B and C should leave each of them with just an empty head commit
-		// TODO(acohen4): fix this too
-		// _, err = env.PFSServer.DropCommitSets(context.TODO(), &pfs.DropCommitSetsRequest{
-		// 	CommitSets: []*pfs.CommitSet{
-		// 		{
-		// 			ID: aHead.Commit.ID,
-		// 		},
-		// 		{
-		// 			ID: cHead.Commit.ID,
-		// 		},
-		// 	},
-		// })
+		_, err = env.PFSServer.DropCommitSet(ctx, &pfs.DropCommitSetRequest{CommitSet: &pfs.CommitSet{ID: cHead.Commit.ID}})
 		require.NoError(t, err)
 		cHeadNew, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "output", "C", "")
 		require.NoError(t, err)
 		aHeadNew, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "input", "A", "")
 		require.NoError(t, err)
-		bHeadNew, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "input", "B", "")
-		require.NoError(t, err)
 		// check C.Head's commit provenance
 		require.Equal(t, 1, len(cHeadNew.DirectProvenance))
 		require.Equal(t, "input", cHeadNew.DirectProvenance[0].Repo.Name)
 		require.Equal(t, aHeadNew.Commit.ID, cHeadNew.DirectProvenance[0].ID)
-		// check that the head commits of A, B, & C have the same ID
-		require.Equal(t, aHeadNew.Commit.ID, cHeadNew.Commit.ID)
-		require.Equal(t, bHeadNew.Commit.ID, cHeadNew.Commit.ID)
 		require.NotEqual(t, cHead.Commit.ID, cHeadNew.Commit.ID)
-		// It should also be ok to make new commits on branches A and B
+		// It should also be ok to make new commits on branch A
 		aCommit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "input", "A")
 		require.NoError(t, err)
 		require.NoError(t, finishCommit(env.PachClient, "input", aCommit.Branch.Name, aCommit.ID))
-		bCommit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "input", "B")
-		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, "input", bCommit.Branch.Name, bCommit.ID))
 	})
 
 	// For the "V" shaped DAG:
