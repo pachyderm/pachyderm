@@ -154,7 +154,7 @@ func NewTestDAG(project string) (*testDAG, func(*pachsql.DB) error) {
 		}, func(db *pachsql.DB) error {
 			stmt := `DELETE FROM pfs.commits`
 			_, err := db.Exec(stmt)
-			return err
+			return errors.Wrapf(err, "delete pfs.commits")
 		}
 }
 
@@ -217,7 +217,7 @@ func (td *testDAG) addCommitSet(tx *pachsql.Tx, commitID string, repo string) (*
 
 func addCommitWrapper(tx *pachsql.Tx, c *pfs.Commit) error {
 	if _, err := tx.Exec(`INSERT INTO collections.commits(key) VALUES ($1);`, CommitKey(c)); err != nil {
-		return err
+		return errors.Wrapf(err, "insert %q to collections.commits", CommitKey(c))
 	}
 	return AddCommit(tx, c)
 }

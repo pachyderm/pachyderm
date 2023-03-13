@@ -702,13 +702,15 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, commit1, cis[1].Commit)
 	})
 
-	// TODO(acohen4): should we allow moving a branch with provenance? Probably not since this would break Branch/Head invariant
+	// TODO(acohen4): should we dis-allow moving a branch with provenance? Probably since this would break Branch/Head invariant.
+	//
+	// When a branch head is moved to an older commit (commonly referred to as a rewind), the expected behavior is for
+	// that branch ID to match the assigned ID, and for commit with a new Global ID to propagate to all downstream branches.
 	suite.Run("RewindBranch", func(t *testing.T) {
-		t.Skip()
 		t.Parallel()
 		ctx := pctx.TestContext(t)
 		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
-
+		// for provenance DAG: { a.master <- b.master <- c.master }
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "a"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "b"))
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "c"))
@@ -716,7 +718,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "b", "master", "", "", provB))
 		provC := []*pfs.Branch{client.NewProjectBranch(pfs.DefaultProjectName, "b", "master")}
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "c", "master", "", "", provC))
-
+		// create and finish 3 commits on a.master, each with "/file" containing data "1", "2", & "3" respectively
 		commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "a", "master")
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit1, "file", strings.NewReader("1")))
@@ -729,7 +731,6 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.PutFile(commit3, "file", strings.NewReader("3")))
 		require.NoError(t, finishCommit(env.PachClient, commit3.Branch.Repo.Name, commit1.Branch.Name, commit3.ID))
-
 		checkRepoCommits := func(repos []string, commits []*pfs.Commit) {
 			ids := []string{}
 			for _, c := range commits {
@@ -751,42 +752,39 @@ func TestPFS(suite *testing.T) {
 				}
 			}
 		}
-
 		checkRepoCommits([]string{"a", "b", "c"}, []*pfs.Commit{commit3, commit2, commit1})
-
-		// Rewinding branch b.master to commit2 can reuse the old commit
+		// Rewinding branch b.master to commit2 can reuses that commit, and propagates a new commit to C
 		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "b", "master", "master", commit2.ID, provB))
 		ci, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "b", "master", "")
 		require.NoError(t, err)
 		require.Equal(t, ci.Commit.ID, commit2.ID)
-
 		checkRepoCommits([]string{"a", "b"}, []*pfs.Commit{commit3, commit2, commit1})
-
+		// Check that a@<new-global-id> resolves to commit2
 		ci, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "c", "master", "")
 		require.NoError(t, err)
 		checkRepoCommits([]string{"c"}, []*pfs.Commit{ci.Commit, commit3, commit2, commit1})
-
 		// The commit4 data in "a" should be the same as what we wrote into commit2 (as that's the source data in "b")
-		aHead := client.NewProjectCommit(pfs.DefaultProjectName, "a", "master", "")
+		ci, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "c", "master", "")
+		require.NoError(t, err)
+		latestCommit := ci.Commit.ID
+		aCommit := client.NewProjectCommit(pfs.DefaultProjectName, "a", "", latestCommit)
 		var b bytes.Buffer
-		require.NoError(t, env.PachClient.GetFile(aHead, "file", &b))
+		require.NoError(t, env.PachClient.GetFile(aCommit, "file", &b))
 		require.Equal(t, "2", b.String())
-
-		// Now rewind branch b.master to commit1 and force using a new commit by going through an explicit transaction
-		_, err = env.PachClient.ExecuteInTransaction(func(c *client.APIClient) error {
-			return c.CreateProjectBranch(pfs.DefaultProjectName, "b", "master", "master", commit1.ID, provB)
-		})
+		// Rewinding branch b.master to commit1 can reuses that commit, and propagates a new commit to C
+		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "b", "master", "master", commit1.ID, provB))
 		require.NoError(t, err)
 		ci, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "b", "master", "")
 		require.NoError(t, err)
 		commit4 := ci.Commit
-		require.NotEqual(t, commit4.ID, commit1.ID)
-
-		checkRepoCommits([]string{"a", "b", "c"}, []*pfs.Commit{commit4, commit3, commit2, commit1})
-
+		require.Equal(t, commit4.ID, commit1.ID)
 		// The commit4 data in "a" should be from commit1
+		ci, err = env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, "c", "master", "")
+		require.NoError(t, err)
+		latestCommit = ci.Commit.ID
+		aCommit = client.NewProjectCommit(pfs.DefaultProjectName, "a", "", latestCommit)
 		b.Reset()
-		require.NoError(t, env.PachClient.GetFile(aHead, "file", &b))
+		require.NoError(t, env.PachClient.GetFile(aCommit, "file", &b))
 		require.Equal(t, "1", b.String())
 	})
 
@@ -3681,16 +3679,9 @@ func TestPFS(suite *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
 		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
-
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "A"))
 		_, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "A", "master")
 		require.NoError(t, err)
-
-		// Blocking on a branch that doesn't exist does not work
-		// TODO(acohen4): is this actually the expected behavior?
-		// _, err = env.PachClient.WaitProjectCommit(pfs.DefaultProjectName, "A", "foo", commit.ID)
-		// require.YesError(t, err)
-
 		_, err = env.PachClient.WaitProjectCommit(pfs.DefaultProjectName, "A", "foo", "")
 		require.YesError(t, err)
 	})
@@ -6307,7 +6298,7 @@ func TestPFS(suite *testing.T) {
 						// The commitset cannot be squashed or dropped as some commits have children and some commits don't
 						continue
 					}
-				} else if pfsserver.IsDeleteWithDependentCommitSetsErr(err) || pfsserver.IsSquashWithSuvenanceErr(err) {
+				} else if pfsserver.IsSquashWithSuvenanceErr(err) {
 					// TODO(acohen4): destructure error and successfully squash all the dependent commit sets
 					continue
 				}

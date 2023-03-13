@@ -905,16 +905,12 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			if pbi, ok := seen[pfsdb.BranchKey(b)]; ok {
 				provCommit = client.NewProjectCommit(pbi.Branch.Repo.Project.Name, pbi.Branch.Repo.Name, pbi.Branch.Name, txnCtx.CommitSetID)
 			} else {
-				if pbi, ok := seen[pfsdb.BranchKey(b)]; ok {
-					provCommit = pbi.Head
-				} else {
-					provBranchInfo := &pfs.BranchInfo{}
-					if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(b), provBranchInfo); err != nil {
-						return errors.Wrapf(err, "get provenant branch %q", pfsdb.BranchKey(b))
-					}
-					seenAliases[pfsdb.BranchKey(b)] = provBranchInfo
-					provCommit = provBranchInfo.Head
+				provBranchInfo := &pfs.BranchInfo{}
+				if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(b), provBranchInfo); err != nil {
+					return errors.Wrapf(err, "get provenant branch %q", pfsdb.BranchKey(b))
 				}
+				seenAliases[pfsdb.BranchKey(b)] = provBranchInfo
+				provCommit = provBranchInfo.Head
 			}
 			newCommitInfo.DirectProvenance = append(newCommitInfo.DirectProvenance, provCommit)
 		}
