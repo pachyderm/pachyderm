@@ -1,3 +1,4 @@
 {
-    "go.inferGopath": false
+    "go.inferGopath": false,
+    "go.buildTags": "unit_test,k8s"
 }
