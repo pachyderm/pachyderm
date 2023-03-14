@@ -71,6 +71,7 @@ export interface ListJobArgs extends ListArgs {
   pipelineId?: string | null;
   jqFilter?: string;
   projectId: string;
+  history?: number;
 }
 
 export interface ListJobSetArgs extends ListArgs {
@@ -275,10 +276,19 @@ const pps = ({
     },
 
     // TODO: should implement multi project list ?
-    listJobs: ({projectId, limit, pipelineId, jqFilter}: ListJobArgs) => {
+    // SEE PROTO: History -1 means return jobs from all historical versions.
+    listJobs: ({
+      projectId,
+      limit,
+      pipelineId,
+      jqFilter,
+      history = -1,
+    }: ListJobArgs) => {
       const listJobRequest = new ListJobRequest().setDetails(true);
 
       listJobRequest.setProjectsList([new Project().setName(projectId)]);
+
+      listJobRequest.setHistory(history);
 
       if (pipelineId && projectId) {
         listJobRequest.setPipeline(
