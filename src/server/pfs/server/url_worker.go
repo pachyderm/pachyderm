@@ -72,9 +72,17 @@ func (d *driver) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 	if err := log.LogStep(ctx, "putFileURLTask", func(ctx context.Context) error {
 		return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 			id, err := d.withUnorderedWriter(ctx, renewer, func(uw *fileset.UnorderedWriter) error {
-				for _, path := range task.Paths {
+				startOffset := task.StartOffset
+				length := int64(-1) // -1 means to read until end of file.
+				for i, path := range task.Paths {
+					if i != 0 {
+						startOffset = 0
+					}
+					if i == len(task.Paths)-1 && task.EndOffset != int64(-1) {
+						length = task.EndOffset - startOffset
+					}
 					if err := func() error {
-						r, err := bucket.NewReader(ctx, path, nil)
+						r, err := bucket.NewRangeReader(ctx, path, startOffset, length, nil)
 						if err != nil {
 							return errors.EnsureStack(err)
 						}

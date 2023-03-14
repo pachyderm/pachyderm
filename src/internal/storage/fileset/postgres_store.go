@@ -23,7 +23,7 @@ var _ MetadataStore = &postgresStore{}
 type postgresStore struct {
 	db      *pachsql.DB
 	cache   kv.GetPut
-	deduper *miscutil.WorkDeduper
+	deduper *miscutil.WorkDeduper[ID]
 }
 
 // NewPostgresStore returns a Store backed by db
@@ -32,7 +32,7 @@ func NewPostgresStore(db *pachsql.DB) MetadataStore {
 	return &postgresStore{
 		db:      db,
 		cache:   kv.NewMemCache(100),
-		deduper: &miscutil.WorkDeduper{},
+		deduper: &miscutil.WorkDeduper[ID]{},
 	}
 }
 

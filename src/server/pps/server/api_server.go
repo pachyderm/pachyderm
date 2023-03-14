@@ -39,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
@@ -79,6 +80,12 @@ const (
 	// default we return logs from up to 24 hours ago.
 	DefaultLogsFrom  = time.Hour * 24
 	ppsTaskNamespace = "/pps"
+
+	maxPipelineNameLength = 51
+
+	// dnsLabelLimit is the maximum length of a ReplicationController
+	// or Service name.
+	dnsLabelLimit = 63
 )
 
 var (
@@ -1343,6 +1350,22 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 	return errors.EnsureStack(err)
 }
 
+func (a *apiServer) GetKubeEvents(request *pps.LokiRequest, apiGetKubeEventsServer pps.API_GetKubeEventsServer) (retErr error) {
+	loki, err := a.env.GetLokiClient()
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	since := time.Time{}
+	if request.Since != nil {
+		since = time.Now().Add(-time.Duration(request.Since.Seconds) * time.Second)
+	}
+	return lokiutil.QueryRange(apiGetKubeEventsServer.Context(), loki, `{app="pachyderm-kube-event-tail"}`, since, time.Time{}, false, func(t time.Time, line string) error {
+		return errors.EnsureStack(apiGetKubeEventsServer.Send(&pps.LokiLogMessage{
+			Message: strings.TrimSuffix(line, "\n"),
+		}))
+	})
+}
+
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	ctx := apiGetLogsServer.Context()
 
@@ -1546,8 +1569,7 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 	if err := a.authorizePipelineOp(apiGetLogsServer.Context(), pipelineOpGetLogs, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name); err != nil {
 		return err
 	}
-	// TODO (CORE-1039): make project-aware
-	query := fmt.Sprintf(`{pipelineName=%q, container="user"}`, pipelineInfo.Pipeline.Name)
+	query := fmt.Sprintf(`{pipelineProject=%q, pipelineName=%q, container="user"}`, pipelineInfo.Pipeline.Project.Name, pipelineInfo.Pipeline.Name)
 	if request.Master {
 		query += contains("master")
 	}
@@ -1751,9 +1773,14 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	if err := ancestry.ValidateName(request.Pipeline.Name); err != nil {
 		return errors.Wrapf(err, "invalid pipeline name")
 	}
-	if len(request.Pipeline.Name) > 63 {
-		return errors.Errorf("pipeline name is %d characters long, but must have at most 63: %q",
-			len(request.Pipeline.Name), request.Pipeline.Name)
+	if len(request.Pipeline.Name) > maxPipelineNameLength {
+		return errors.Errorf("pipeline name %q is %d characters longer than the %d max",
+			request.Pipeline.Name, maxPipelineNameLength-len(request.Pipeline.Name), maxPipelineNameLength)
+	}
+	// TODO(CORE-1489): Remove dependency of name length on Kubernetes
+	// resource naming convention.
+	if k8sName := ppsutil.PipelineRcName(&pps.PipelineInfo{Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: request.Pipeline.GetProject().GetName()}, Name: request.Pipeline.Name}, Version: 99}); len(k8sName) > dnsLabelLimit {
+		return errors.Errorf("Kubernetes name %q is %d characters longer than the %d max", k8sName, dnsLabelLimit-len(k8sName), dnsLabelLimit)
 	}
 	// TODO(msteffen) eventually TFJob and Transform will be alternatives, but
 	// currently TFJob isn't supported
@@ -2691,20 +2718,17 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		// ensure field names and enum values match with --raw output
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
-	projectsFilterSet := make(map[string]bool)
+
+	// Helper func to filter out pipelines based on projects
+	projectsFilter := make(map[string]bool)
 	for _, project := range request.Projects {
-		projectsFilterSet[project.Name] = true
+		projectsFilter[project.GetName()] = true
 	}
-	keepPipelineGivenProject := func(pipelineInfo *pps.PipelineInfo) bool {
-		if len(request.Projects) == 0 {
-			return true
-		}
-		return projectsFilterSet[pipelineInfo.Pipeline.Project.Name]
-	}
-	keepPipeline := func(pipelineInfo *pps.PipelineInfo) bool {
-		if !keepPipelineGivenProject(pipelineInfo) {
+	keep := func(pipelineInfo *pps.PipelineInfo) bool {
+		if len(projectsFilter) > 0 && !projectsFilter[pipelineInfo.Pipeline.Project.GetName()] {
 			return false
 		}
+
 		if jqCode != nil {
 			jsonBuffer.Reset()
 			// convert pipelineInfo to a map[string]interface{} for use with gojq
@@ -2723,6 +2747,23 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		}
 		return true
 	}
+
+	// Helper func to check whether a user is allowed to see the given pipeline in the result.
+	// Cache the project level access because it applies to every pipeline within the same project.
+	checkProjectAccess := miscutil.CacheFunc(func(project string) error {
+		return a.env.AuthServer.CheckProjectIsAuthorized(ctx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
+	}, 100 /* size */)
+	checkAccess := func(ctx context.Context, pipeline *pps.Pipeline) error {
+		if err := checkProjectAccess(pipeline.Project.GetName()); err != nil {
+			if !errors.As(err, &auth.ErrNotAuthorized{}) {
+				return err
+			}
+			// Use the pipeline's output repo as the reference to the pipeline itself
+			return a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Name: pipeline.Name, Type: pfs.UserRepoType, Project: pipeline.Project}, auth.Permission_REPO_READ)
+		}
+		return nil
+	}
+
 	loadPipelineAtCommit := func(pi *pps.PipelineInfo, commitSetID string) error { // mutates pi
 		return a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 			key, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, pi.Pipeline, commitSetID)
@@ -2743,7 +2784,13 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		})
 	}
 	return ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(pi *pps.PipelineInfo) error {
-		if !keepPipeline(pi) {
+		if !keep(pi) {
+			return nil
+		}
+		if err := checkAccess(ctx, pi.Pipeline); err != nil {
+			if !errors.As(err, &auth.ErrNotAuthorized{}) {
+				return errors.Wrapf(err, "could not check user is authorized to list pipeline, problem with pipeline %s", pi.Pipeline)
+			}
 			return nil
 		}
 		if request.GetCommitSet().GetID() != "" {

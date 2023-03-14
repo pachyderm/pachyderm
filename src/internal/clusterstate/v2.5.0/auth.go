@@ -29,8 +29,7 @@ func authIsActive(c collection.PostgresReadWriteCollection) bool {
 }
 
 // migrateAuth migrates auth to be fully project-aware with a default project.
-// It uses some internal knowledge about how cols.PostgresCollection works to do
-// so.
+// It uses some internal knowledge about how cols.PostgresCollection works to do so.
 func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 	if _, err := tx.ExecContext(ctx, `UPDATE collections.role_bindings SET key = regexp_replace(key, '^REPO:([-a-zA-Z0-9_]+)$', 'REPO:default/\1') where key ~ '^REPO:([-a-zA-Z0-9_]+)'`); err != nil {
 		return errors.Wrap(err, "could not update role bindings")
@@ -63,6 +62,11 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 		return nil
 	}); err != nil {
 		return errors.Wrap(err, "could not update default project's role bindings")
+	}
+
+	// Need to extend the character length limit for the subject column because we are adding project name to it.
+	if _, err := tx.ExecContext(ctx, `ALTER TABLE auth.auth_tokens ALTER COLUMN subject TYPE varchar(128)`); err != nil {
+		return errors.Wrap(err, "could not alter column subject in table auth.auth_tokens from varchar(64) to varchar(128)")
 	}
 
 	// Rename pipeline users from "pipeline:<repo>" to "pipeline:default/<repo>"

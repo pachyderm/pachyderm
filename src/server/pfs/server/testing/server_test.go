@@ -32,17 +32,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -54,6 +51,8 @@ import (
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
 func CommitToID(commit interface{}) interface{} {
@@ -143,7 +142,7 @@ func TestPFS(suite *testing.T) {
 		request := &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), Number: 4}
 		walkFileClient, err := env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.WalkFile(walkFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](walkFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 4, len(fis))
 		require.ElementsEqual(t, []string{"/dir/", "/dir/dir1/", "/dir/dir1/file1.1", "/dir/dir1/file1.2"}, finfosToPaths(fis))
@@ -152,14 +151,14 @@ func TestPFS(suite *testing.T) {
 		request = &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), PaginationMarker: commit1.NewFile(lastFilePath)}
 		walkFileClient, err = env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.WalkFile(walkFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](walkFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 7, len(fis))
 
 		request = &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), Number: 2, Reverse: true}
 		walkFileClient, err = env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.WalkFile(walkFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](walkFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 		require.ElementsEqual(t, []string{"/dir/dir3/file3.1", "/dir/dir3/file3.2"}, finfosToPaths(fis))
@@ -168,13 +167,13 @@ func TestPFS(suite *testing.T) {
 		request = &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), Reverse: true}
 		walkFileClient, err = env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.WalkFile(walkFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](walkFileClient, 1000)
 		require.YesError(t, err)
 
 		request = &pfs.WalkFileRequest{File: commit1.NewFile("/dir"), PaginationMarker: commit1.NewFile("/dir/dir1/file1.2"), Number: 3, Reverse: true}
 		walkFileClient, err = env.PachClient.PfsAPIClient.WalkFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.WalkFile(walkFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](walkFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(fis))
 		require.ElementsEqual(t, []string{"/dir/dir1/file1.1", "/dir/dir1/", "/dir/"}, finfosToPaths(fis))
@@ -217,7 +216,7 @@ func TestPFS(suite *testing.T) {
 		request := &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.2")}
 		listFileClient, err := env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](listFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 		require.ElementsEqual(t, []string{"/dir1/file1.2", "/dir1/file1.5"}, finfosToPaths(fis))
@@ -225,7 +224,7 @@ func TestPFS(suite *testing.T) {
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.1"), Number: 2}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](listFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(fis))
@@ -233,7 +232,7 @@ func TestPFS(suite *testing.T) {
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), Number: 1, Reverse: true}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](listFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(fis))
 		require.ElementsEqual(t, []string{"/dir1/file1.5"}, finfosToPaths(fis))
@@ -241,20 +240,20 @@ func TestPFS(suite *testing.T) {
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), Reverse: true}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](listFileClient, 1000)
 		require.YesError(t, err)
 
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.1"), Number: 2, Reverse: true}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](listFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(fis))
 
 		request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), PaginationMarker: commit1.NewFile("/dir1/file1.5"), Number: 2, Reverse: true}
 		listFileClient, err = env.PachClient.PfsAPIClient.ListFile(env.PachClient.Ctx(), request)
 		require.NoError(t, err)
-		fis, err = clientsdk.ListFile(listFileClient)
+		fis, err = grpcutil.Collect[*pfs.FileInfo](listFileClient, 1000)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(fis))
 		require.ElementsEqual(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, finfosToPaths(fis))
@@ -279,7 +278,7 @@ func TestPFS(suite *testing.T) {
 		listCommitsAndCheck := func(request *pfs.ListCommitRequest, expectedIDs []string) []*pfs.CommitInfo {
 			listCommitClient, err := env.PachClient.PfsAPIClient.ListCommit(env.PachClient.Ctx(), request)
 			require.NoError(t, err)
-			cis, err := clientsdk.ListCommit(listCommitClient)
+			cis, err := grpcutil.Collect[*pfs.CommitInfo](listCommitClient, 1000)
 			require.NoError(t, err)
 			require.Equal(t, len(expectedIDs), len(cis))
 			for i, ci := range cis {
@@ -478,6 +477,17 @@ func TestPFS(suite *testing.T) {
 			}
 		}
 		require.Equal(t, numGoros, successCount)
+	})
+
+	suite.Run("CreateProject", func(t *testing.T) {
+		t.Parallel()
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+		// 51-character project names are allowed
+		require.NoError(t, env.PachClient.CreateProject("123456789A123456789B123456789C123456789D123456789E1"))
+		// 52-character project names are not allowed
+		require.YesError(t, env.PachClient.CreateProject("123456789A123456789B123456789C123456789D123456789E12"))
 	})
 
 	suite.Run("CreateRepoNonExistentProject", func(t *testing.T) {
@@ -700,7 +710,7 @@ func TestPFS(suite *testing.T) {
 					All:  true,
 				})
 				require.NoError(t, err)
-				cis, err := clientsdk.ListCommit(listCommitClient)
+				cis, err := grpcutil.Collect[*pfs.CommitInfo](listCommitClient, 1000)
 				require.NoError(t, err)
 				// There will be some empty commits on each branch from creation, ignore
 				// those and just check that the latest commits match.
@@ -1207,10 +1217,29 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, repoInfos, 2) // should still have both repos
 
+		// this should fail because there is still a repo
 		_, err = env.PachClient.PfsAPIClient.DeleteProject(ctx,
 			&pfs.DeleteProjectRequest{
 				Project: &pfs.Project{Name: "test"},
 				Force:   true,
+			})
+		require.YesError(t, err)
+
+		_, err = env.PachClient.PfsAPIClient.DeleteRepo(ctx,
+			&pfs.DeleteRepoRequest{
+				Repo: &pfs.Repo{
+					Project: &pfs.Project{Name: "test"},
+					Name:    "test",
+					Type:    pfs.UserRepoType,
+				},
+			})
+		require.NoError(t, err)
+		repoInfos, err = env.PachClient.ListRepo()
+		require.NoError(t, err)
+		require.Len(t, repoInfos, 1) // should still have both repos
+		_, err = env.PachClient.PfsAPIClient.DeleteProject(ctx,
+			&pfs.DeleteProjectRequest{
+				Project: &pfs.Project{Name: "test"},
 			})
 		require.NoError(t, err)
 
@@ -4136,6 +4165,59 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, expected.String(), output.String())
 	})
 
+	suite.Run("PathRange", func(t *testing.T) {
+		t.Parallel()
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+		masterCommit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+		var paths []string
+		for i := 0; i < 3; i++ {
+			paths = append(paths, fmt.Sprintf("/dir%v/", i))
+			for j := 0; j < 3; j++ {
+				path := fmt.Sprintf("/dir%v/file%v", i, j)
+				require.NoError(t, env.PachClient.PutFile(masterCommit, path, &bytes.Buffer{}))
+				paths = append(paths, path)
+			}
+		}
+
+		type test struct {
+			pathRange     *pfs.PathRange
+			expectedPaths []string
+		}
+		var tests []*test
+		for i := 1; i < len(paths); i++ {
+			for j := 0; j+i < len(paths); j += i {
+				tests = append(tests, &test{
+					pathRange: &pfs.PathRange{
+						Lower: paths[j],
+						Upper: paths[j+i],
+					},
+					expectedPaths: paths[j : j+i],
+				})
+			}
+		}
+		for i, test := range tests {
+			t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+				c, err := env.PachClient.PfsAPIClient.GlobFile(ctx, &pfs.GlobFileRequest{
+					Commit:    masterCommit,
+					Pattern:   "**",
+					PathRange: test.pathRange,
+				})
+				require.NoError(t, err)
+				expectedPaths := test.expectedPaths
+				require.NoError(t, grpcutil.ForEach[*pfs.FileInfo](c, func(fi *pfs.FileInfo) error {
+					require.Equal(t, expectedPaths[0], fi.File.Path)
+					expectedPaths = expectedPaths[1:]
+					return nil
+				}))
+				require.Equal(t, 0, len(expectedPaths))
+			})
+		}
+	})
+
 	suite.Run("ApplyWriteOrder", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
@@ -4208,6 +4290,89 @@ func TestPFS(suite *testing.T) {
 		//		require.NoError(t, env.PachClient.GetFile(repo, "master", fmt.Sprintf("file3/%016x", i), &buffer))
 		//		require.Equal(t, fmt.Sprintf("%d\n", i), buffer.String())
 		//	}
+	})
+
+	suite.Run("FindCommits", func(t *testing.T) {
+		t.Parallel()
+		ctx, cf := context.WithTimeout(pctx.TestContext(t), time.Minute)
+		defer cf()
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+
+		commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFile(commit1, "/files/a", strings.NewReader("foo")))
+		require.NoError(t, env.PachClient.PutFile(commit1, "/files/b", strings.NewReader("bar")))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+
+		commit2, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFile(commit2, "/files/c", strings.NewReader("baz")))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID))
+
+		commit3, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFile(commit3, "/files/b", strings.NewReader("foo")))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.ID))
+
+		commit4, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.DeleteFile(commit4, "/files/b"))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit4.Branch.Name, commit4.ID))
+
+		resp, err := env.PachClient.FindCommits(&pfs.FindCommitsRequest{FilePath: "/files/b", Start: commit4, Limit: 0})
+		require.NoError(t, err)
+
+		require.Equal(t, []*pfs.Commit{commit4, commit3, commit1}, resp.FoundCommits)
+		require.Equal(t, uint32(4), resp.CommitsSearched)
+		require.Equal(t, commit1, resp.LastSearchedCommit)
+	})
+
+	suite.Run("FindCommitsLimit", func(t *testing.T) {
+		t.Parallel()
+		ctx, cf := context.WithTimeout(pctx.TestContext(t), time.Minute)
+		defer cf()
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+
+		commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFile(commit1, "/files/a", strings.NewReader("foo")))
+		require.NoError(t, env.PachClient.PutFile(commit1, "/files/b", strings.NewReader("bar")))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.ID))
+
+		commit2, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, env.PachClient.PutFile(commit2, "/files/b", strings.NewReader("foo")))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.ID))
+
+		resp, err := env.PachClient.FindCommits(&pfs.FindCommitsRequest{FilePath: "/files/b", Start: commit2, Limit: 1})
+		require.NoError(t, err)
+
+		require.Equal(t, []*pfs.Commit{commit2}, resp.FoundCommits)
+		require.Equal(t, uint32(1), resp.CommitsSearched)
+		require.Equal(t, commit2, resp.LastSearchedCommit)
+	})
+
+	suite.Run("FindCommitsOpenCommit", func(t *testing.T) {
+		t.Parallel()
+		ctx, cf := context.WithTimeout(pctx.TestContext(t), time.Minute)
+		defer cf()
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+
+		commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+
+		_, err = env.PachClient.FindCommits(&pfs.FindCommitsRequest{FilePath: "/files/b", Start: commit1, Limit: 1})
+		require.YesError(t, err)
+		require.Equal(t, err.Error(), pfsserver.ErrCommitNotFinished{Commit: commit1}.Error())
 	})
 
 	suite.Run("CopyFile", func(t *testing.T) {
@@ -4413,6 +4578,7 @@ func TestPFS(suite *testing.T) {
 		},
 		}
 		for i, test := range tests {
+			test := test
 			t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 				t.Parallel()
 				ctx := pctx.TestContext(t)
@@ -4439,9 +4605,9 @@ func TestPFS(suite *testing.T) {
 						sort.Strings(expectedProv)
 						require.Equal(t, len(expectedProv), len(bi.Provenance))
 						for _, b := range bi.Provenance {
-							i := sort.SearchStrings(expectedProv, b.Name)
-							if i >= len(expectedProv) || expectedProv[i] != b.Name {
-								t.Fatalf("provenance for %s contains: %s, but should only contain: %v", repo, b, expectedProv)
+							i := sort.SearchStrings(expectedProv, b.Repo.Name)
+							if i >= len(expectedProv) || expectedProv[i] != b.Repo.Name {
+								t.Fatalf("provenance for %s contains: %s, but should only contain: %v", repo, b.Repo.Name, expectedProv)
 							}
 						}
 					}
@@ -4451,9 +4617,9 @@ func TestPFS(suite *testing.T) {
 						sort.Strings(expectedSubv)
 						require.Equal(t, len(expectedSubv), len(bi.Subvenance))
 						for _, b := range bi.Subvenance {
-							i := sort.SearchStrings(expectedSubv, b.Name)
-							if i >= len(expectedSubv) || expectedSubv[i] != b.Name {
-								t.Fatalf("subvenance for %s contains: %s, but should only contain: %v", repo, b, expectedSubv)
+							i := sort.SearchStrings(expectedSubv, b.Repo.Name)
+							if i >= len(expectedSubv) || expectedSubv[i] != b.Repo.Name {
+								t.Fatalf("subvenance for %s contains: %s, but should only contain: %v", repo, b.Repo.Name, expectedSubv)
 							}
 						}
 					}
@@ -5338,6 +5504,14 @@ func TestPFS(suite *testing.T) {
 			for _, path := range paths {
 				require.NoError(t, env.PachClient.GetFileURL(commit, path, bucketURL))
 			}
+			for _, path := range paths {
+				buf := &bytes.Buffer{}
+				err := objC.Get(context.Background(), path, buf)
+				require.NoError(t, err)
+				require.True(t, bytes.Equal([]byte(path), buf.Bytes()))
+			}
+			require.NoError(t, objC.Delete(ctx, "files/*"))
+			require.NoError(t, env.PachClient.GetFileURL(commit, "files/*", bucketURL))
 			for _, path := range paths {
 				buf := &bytes.Buffer{}
 				err := objC.Get(context.Background(), path, buf)

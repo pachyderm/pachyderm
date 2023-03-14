@@ -35,6 +35,8 @@ const (
 	SecretHeader = "NAME\tTYPE\tCREATED\t\n"
 	// jobReasonLen is the amount of the job reason that we print
 	jobReasonLen = 25
+	// KubeEventsHeader is the header for kubernetes events
+	KubeEventsHeader = "LAST SEEN\tTYPE\tREASON\tOBJECT\tMESSAGE\t\n"
 )
 
 func safeTrim(s string, l int) string {
@@ -42,6 +44,60 @@ func safeTrim(s string, l int) string {
 		return s
 	}
 	return strings.TrimSpace(s[:l]) + "..."
+}
+
+type KubeEvent struct {
+	Message string `json:"msg"`
+	Event   struct {
+		Type     string `json:"type"`
+		LastSeen uint64 `json:"lastTimestamp"`
+		Reason   string `json:"reason"`
+		Object   struct {
+			Name string `json:"name"`
+		} `json:"involvedObject"`
+	} `json:"event"`
+}
+
+func PrintKubeEvent(w io.Writer, event string) {
+	var kubeEvent KubeEvent
+	if err := ParseKubeEvent(event, &kubeEvent); err != nil {
+		fmt.Fprintf(w, "parse kube event: %v", errors.EnsureStack(err))
+		return
+	}
+	lastSeen := types.Timestamp{Seconds: int64(kubeEvent.Event.LastSeen)}
+	fmt.Fprintf(w, "%s\t", pretty.Ago(&lastSeen))
+	fmt.Fprintf(w, "%s\t", kubeEvent.Event.Type)
+	fmt.Fprintf(w, "%s\t", kubeEvent.Event.Reason)
+	fmt.Fprintf(w, "%s\t", kubeEvent.Event.Object.Name)
+	fmt.Fprintf(w, "%s\t", kubeEvent.Message)
+	fmt.Fprintln(w)
+}
+
+func ParseKubeEvent(s string, event *KubeEvent) error {
+	// CRI formatted log lines have a timestamp at the beginning of the line
+	b := []byte(s)
+	i := bytes.IndexByte(b, '{')
+	if i > 0 {
+		s = string(b[i:])
+	}
+	if err := json.Unmarshal([]byte(s), &event); err != nil {
+		return errors.Wrap(err, "unmarshal kube event")
+	}
+	// if the message is empty, it might be a docker formatted log line
+	if event.Message == "" {
+		type DockerLog struct {
+			Event string `json:"log"`
+		}
+		var log DockerLog
+		// might be docker formatted logs
+		if err := json.Unmarshal([]byte(s), &log); err != nil {
+			return errors.Wrap(err, "unmarshal docker log")
+		}
+		if err := json.Unmarshal([]byte(log.Event), &event); err != nil {
+			return errors.Wrap(err, "unmarshal kube event")
+		}
+	}
+	return nil
 }
 
 // PrintJobInfo pretty-prints job info.

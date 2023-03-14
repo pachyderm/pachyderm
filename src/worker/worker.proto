@@ -1,7 +1,7 @@
 syntax = "proto3";
 
-package server;
-option go_package = "github.com/pachyderm/pachyderm/v2/src/server/worker/server";
+package pachyderm.worker;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/worker";
 
 import "pps/pps.proto";
 import "gogoproto/gogo.proto";
@@ -16,7 +16,16 @@ message CancelResponse {
   bool success = 1;
 }
 
+message NextDatumRequest {
+  string error = 1;
+}
+
+message NextDatumResponse {
+  repeated string env = 1;
+}
+
 service Worker {
   rpc Status(google.protobuf.Empty) returns (pps_v2.WorkerStatus) {}
   rpc Cancel(CancelRequest) returns (CancelResponse) {}
+  rpc NextDatum(NextDatumRequest) returns (NextDatumResponse) {}
 }

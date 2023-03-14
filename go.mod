@@ -1,6 +1,6 @@
 module github.com/pachyderm/pachyderm/v2
 
-go 1.19
+go 1.20
 
 require (
 	cloud.google.com/go/profiler v0.3.0
@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-lambda-go v1.17.0
 	github.com/aws/aws-sdk-go v1.44.68
 	github.com/breml/rootcerts v0.2.4
-	github.com/c-bata/go-prompt v0.2.3
+	github.com/c-bata/go-prompt v0.2.5
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/coreos/go-oidc v2.2.1+incompatible
@@ -40,6 +40,7 @@ require (
 	github.com/hanwen/go-fuse/v2 v2.1.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/golang-lru v0.5.4
+	github.com/hashicorp/golang-lru/v2 v2.0.1
 	github.com/itchyny/gojq v0.11.2
 	github.com/jackc/pgconn v1.12.1
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451
@@ -60,6 +61,8 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/common v0.37.0
+	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.17.0
+	github.com/pulumi/pulumi/sdk/v3 v3.50.1
 	github.com/robfig/cron v1.2.0
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b
 	github.com/segmentio/analytics-go v0.0.0-20160426181448-2d840d861c32
@@ -79,15 +82,15 @@ require (
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.24.0
 	gocloud.dev v0.27.0
-	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
+	golang.org/x/crypto v0.0.0-20220824171710-5757bc0c5503
 	golang.org/x/exp v0.0.0-20221019170559-20944726eadf
 	golang.org/x/mod v0.7.0
-	golang.org/x/net v0.4.0
+	golang.org/x/net v0.7.0
 	golang.org/x/oauth2 v0.0.0-20220722155238-128564f6959c
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
-	golang.org/x/sys v0.3.0
-	golang.org/x/term v0.3.0
-	golang.org/x/text v0.5.0
+	golang.org/x/sys v0.5.0
+	golang.org/x/term v0.5.0
+	golang.org/x/text v0.7.0
 	google.golang.org/api v0.91.0
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.1
@@ -98,6 +101,37 @@ require (
 	k8s.io/klog/v2 v2.80.1
 	k8s.io/kubectl v0.26.0
 	k8s.io/utils v0.0.0-20221107191617-1a15be271d1d
+)
+
+require (
+	github.com/Masterminds/semver v1.5.0 // indirect
+	github.com/ProtonMail/go-crypto v0.0.0-20210428141323-04723f9f07d7 // indirect
+	github.com/acomagu/bufpipe v1.0.3 // indirect
+	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da // indirect
+	github.com/blang/semver v3.5.1+incompatible // indirect
+	github.com/cheggaaa/pb v1.0.27 // indirect
+	github.com/djherbis/times v1.2.0 // indirect
+	github.com/emirpasic/gods v1.12.0 // indirect
+	github.com/go-git/gcfg v1.5.0 // indirect
+	github.com/go-git/go-billy/v5 v5.3.1 // indirect
+	github.com/go-git/go-git/v5 v5.4.2 // indirect
+	github.com/golang/glog v1.0.0 // indirect
+	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645 // indirect
+	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
+	github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351 // indirect
+	github.com/mitchellh/go-ps v1.0.0 // indirect
+	github.com/opentracing/basictracer-go v1.0.0 // indirect
+	github.com/pulumi/pulumi-docker/sdk/v3 v3.2.0 // indirect
+	github.com/rogpeppe/go-internal v1.8.1 // indirect
+	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94 // indirect
+	github.com/santhosh-tekuri/jsonschema/v5 v5.0.0 // indirect
+	github.com/sergi/go-diff v1.1.0 // indirect
+	github.com/texttheater/golang-levenshtein v0.0.0-20191208221605-eb6844b05fc6 // indirect
+	github.com/tweekmonster/luser v0.0.0-20161003172636-3fa38070dbd7 // indirect
+	github.com/xanzy/ssh-agent v0.3.2 // indirect
+	gopkg.in/warnings.v0 v0.1.2 // indirect
+	lukechampine.com/frand v1.4.2 // indirect
+	sourcegraph.com/sourcegraph/appdash v0.0.0-20190731080439-ebfcffb1b5c0 // indirect
 )
 
 require (
@@ -245,12 +279,16 @@ require (
 	github.com/opencontainers/runc v1.1.3 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pierrec/lz4/v4 v4.1.11 // indirect
-	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
+	github.com/pkg/term v1.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
 	github.com/pquerna/otp v1.2.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
+	github.com/pulumi/pulumi-aws/sdk/v5 v5.28.0
+	github.com/pulumi/pulumi-awsx/sdk v1.0.1
+	github.com/pulumi/pulumi-eks/sdk v1.0.1
+	github.com/pulumi/pulumi-postgresql/sdk/v3 v3.6.0
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rs/xid v1.4.0 // indirect
 	github.com/russellhaering/goxmldsig v1.2.0 // indirect

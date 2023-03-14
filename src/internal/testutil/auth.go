@@ -103,7 +103,7 @@ func Robot(robot string) string {
 
 func BuildClusterBindings(s ...string) *auth.RoleBinding {
 	return BuildBindings(append(s,
-		auth.AllClusterUsersSubject, auth.ProjectCreator,
+		auth.AllClusterUsersSubject, auth.ProjectCreatorRole,
 		auth.RootUser, auth.ClusterAdminRole,
 		auth.InternalPrefix+"auth-server", auth.ClusterAdminRole,
 	)...)
