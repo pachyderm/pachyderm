@@ -1,6 +1,7 @@
 import os.path
 import json
 import subprocess
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 
@@ -37,10 +38,21 @@ class PPSClient:
         """
         get_logger().debug(f"path: {path} | body: {config}")
         input_spec = config.get("input")
+        pipeline_name = config.get("pipeline_name")
         with NamedTemporaryFile() as temp_config:
+            same_file = Path(temp_config, "same.yaml")
+            same_file.write_text(
+                "apiVersion: sameproject.ml/v1alpha1\n"
+                "metadata:\n"
+                f"  name: {pipeline_name}\n"
+                "notebook:\n"
+                f"  name: {os.path.basename(path)}\n"
+                f"  path: {path}\n"
+            )
+
             # TODO: Write the SAME config as a yaml file
             subprocess.run(
-                ["same", "run", "--same-file", temp_config.name, "--target", "pachyderm", "--input", str(input_spec)]
+                ["same", "run", "--same-file", str(same_file), "--target", "pachyderm", "--input", str(input_spec)]
             )
         return json.dumps(dict())
 
