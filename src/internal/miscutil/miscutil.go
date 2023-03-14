@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/hashicorp/golang-lru/v2/simplelru"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -80,5 +81,22 @@ func (i *Iterator) Next() (interface{}, error) {
 		return data, nil
 	case err := <-i.errChan:
 		return nil, err
+	}
+}
+
+// CacheFunc caches any function with a single input and output. Uses a LRU with the given size.
+// The size defualts to 100 to avoid errors.
+func CacheFunc[K comparable, V any](f func(K) V, size int) func(K) V {
+	if size <= 0 {
+		size = 100
+	}
+	cache, _ := simplelru.NewLRU[K, V](size, nil)
+	return func(a K) V {
+		if ent, ok := cache.Get(a); ok {
+			return ent
+		}
+		v := f(a)
+		cache.Add(a, v)
+		return v
 	}
 }

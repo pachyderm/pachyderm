@@ -251,7 +251,8 @@ func TestParseLokiLine(t *testing.T) {
 }
 
 func TestListJobSetWithProjects(t *testing.T) {
-	env := realenv.NewRealEnv(pctx.TestContext(t), t, dockertestenv.NewTestDBConfig(t))
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 	inputRepo := tu.UniqueString("repo")
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, inputRepo))
@@ -298,8 +299,6 @@ func TestListJobSetWithProjects(t *testing.T) {
 		_, err := env.PachClient.WaitProjectCommit(project, pipeline2, "master", "")
 		return err
 	})
-
-	ctx := env.Context
 
 	// don't filter on any projects
 	rpcClient, err := env.PachClient.ListJobSet(ctx, &pps.ListJobSetRequest{})

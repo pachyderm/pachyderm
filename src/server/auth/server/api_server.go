@@ -472,13 +472,13 @@ func (a *apiServer) activateInTransaction(ctx context.Context, txCtx *txncontext
 			Entries: map[string]*auth.Roles{
 				auth.RootUser:               {Roles: map[string]bool{auth.ClusterAdminRole: true}},
 				authdb.InternalUser:         {Roles: map[string]bool{auth.ClusterAdminRole: true}},
-				auth.AllClusterUsersSubject: {Roles: map[string]bool{auth.ProjectCreator: true}},
+				auth.AllClusterUsersSubject: {Roles: map[string]bool{auth.ProjectCreatorRole: true}},
 			},
 		}); err != nil {
 			return errors.EnsureStack(err)
 		}
-		// TODO CORE-1048 make all users ProjectWriter for default project
-		if err := a.CreateRoleBindingInTransaction(txCtx, "", nil, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: pfs.DefaultProjectName}); err != nil {
+		// Grant all users ProjectWriter role for default project
+		if err := a.CreateRoleBindingInTransaction(txCtx, auth.AllClusterUsersSubject, []string{auth.ProjectWriterRole}, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: pfs.DefaultProjectName}); err != nil {
 			return errors.Wrapf(err, "could not create role binding for project %q", pfs.DefaultProjectName)
 		}
 		return a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(pachToken), auth.RootUser)
