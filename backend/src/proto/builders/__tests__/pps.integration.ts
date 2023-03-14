@@ -608,15 +608,15 @@ it('should create JobInfo from an object', () => {
     state: 1,
     reason: 'everything broke',
     job: {id: '1', pipeline: {name: 'montage'}},
-    createdAt: {
+    created: {
       seconds: 564645,
       nanos: 564645000000000,
     },
-    startedAt: {
+    started: {
       seconds: 10000,
       nanos: 10000000000000,
     },
-    finishedAt: {
+    finished: {
       seconds: 20000,
       nanos: 20000000000000,
     },

@@ -205,9 +205,9 @@ export type JobObject = {
 
 export type JobInfoObject = {
   job: Job.AsObject;
-  createdAt?: JobInfo.AsObject['created'];
-  startedAt?: JobInfo.AsObject['started'];
-  finishedAt?: JobInfo.AsObject['finished'];
+  created?: JobInfo.AsObject['created'];
+  started?: JobInfo.AsObject['started'];
+  finished?: JobInfo.AsObject['finished'];
   state: JobState;
   reason?: JobInfo.AsObject['reason'];
   input?: InputObject;
@@ -664,9 +664,9 @@ export const jobFromObject = ({id, pipeline}: JobObject) => {
 
 export const jobInfoFromObject = ({
   job: {id, pipeline: {name, project} = {name: ''}},
-  createdAt,
-  startedAt,
-  finishedAt,
+  created,
+  started,
+  finished,
   state,
   reason,
   input,
@@ -696,29 +696,29 @@ export const jobInfoFromObject = ({
     jobInfo.setReason(reason);
   }
 
-  if (createdAt) {
+  if (created) {
     jobInfo.setCreated(
       timestampFromObject({
-        seconds: createdAt?.seconds || 0,
-        nanos: createdAt?.nanos || 0,
+        seconds: created?.seconds || 0,
+        nanos: created?.nanos || 0,
       }),
     );
   }
 
-  if (startedAt) {
+  if (started) {
     jobInfo.setStarted(
       timestampFromObject({
-        seconds: startedAt?.seconds || 0,
-        nanos: startedAt?.nanos || 0,
+        seconds: started?.seconds || 0,
+        nanos: started.nanos || 0,
       }),
     );
   }
 
-  if (finishedAt) {
+  if (finished) {
     jobInfo.setFinished(
       timestampFromObject({
-        seconds: finishedAt?.seconds || 0,
-        nanos: finishedAt?.nanos || 0,
+        seconds: finished?.seconds || 0,
+        nanos: finished?.nanos || 0,
       }),
     );
   }

@@ -6,9 +6,9 @@ import {JOBS} from './loadLimits';
 const solarPanelDataSorting = [
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
-    createdAt: {seconds: 1616533099, nanos: 100},
-    startedAt: {seconds: 1616533100, nanos: 100},
-    finishedAt: {seconds: 1616533103, nanos: 100},
+    created: {seconds: 1616533099, nanos: 100},
+    started: {seconds: 1616533100, nanos: 100},
+    finished: {seconds: 1616533103, nanos: 100},
     job: {id: '23b9af7d5d4343219bc8e02ff44cd55a', pipeline: {name: 'montage'}},
     input: {
       crossList: [
@@ -46,9 +46,9 @@ const solarPanelDataSorting = [
   }),
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
-    createdAt: {seconds: 1614126189, nanos: 100},
-    startedAt: {seconds: 1614126190, nanos: 100},
-    finishedAt: {seconds: 1614126193, nanos: 100},
+    created: {seconds: 1614126189, nanos: 100},
+    started: {seconds: 1614126190, nanos: 100},
+    finished: {seconds: 1614126193, nanos: 100},
     job: {id: '23b9af7d5d4343219bc8e02ff44cd55a', pipeline: {name: 'edges'}},
     input: {
       pfs: {
@@ -74,9 +74,9 @@ const solarPanelDataSorting = [
     state: JobState.JOB_FAILURE,
     reason:
       'datum 64b95f0fe1a787b6c26ec7ede800be6f2b97616f3224592d91cbfe1cfccd00a1 failed',
-    createdAt: {seconds: 1614126189, nanos: 100},
-    startedAt: {seconds: 1614126191, nanos: 100},
-    finishedAt: {seconds: 1614126194, nanos: 100},
+    created: {seconds: 1614126189, nanos: 100},
+    started: {seconds: 1614126191, nanos: 100},
+    finished: {seconds: 1614126194, nanos: 100},
     job: {
       id: '33b9af7d5d4343219bc8e02ff44cd55a',
       pipeline: {name: 'montage', project: {name: 'Solar-Panel-Data-Sorting'}},
@@ -125,8 +125,8 @@ const solarPanelDataSorting = [
 
   jobInfoFromObject({
     state: JobState.JOB_FINISHING,
-    createdAt: {seconds: 1614125000, nanos: 100},
-    startedAt: {seconds: 1614125000, nanos: 100},
+    created: {seconds: 1614125000, nanos: 100},
+    started: {seconds: 1614125000, nanos: 100},
     job: {
       id: '7798fhje5d4343219bc8e02ff4acd33a',
       pipeline: {name: 'montage', project: {name: 'Solar-Panel-Data-Sorting'}},
@@ -134,8 +134,8 @@ const solarPanelDataSorting = [
   }),
   jobInfoFromObject({
     state: JobState.JOB_KILLED,
-    createdAt: {seconds: 1614123000, nanos: 100},
-    startedAt: {seconds: 1614123000, nanos: 100},
+    created: {seconds: 1614123000, nanos: 100},
+    started: {seconds: 1614123000, nanos: 100},
     job: {
       id: 'o90du4js5d4343219bc8e02ff4acd33a',
       pipeline: {name: 'montage', project: {name: 'Solar-Panel-Data-Sorting'}},
@@ -146,9 +146,9 @@ const solarPanelDataSorting = [
 const cron = [
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
-    createdAt: {seconds: 1616533099, nanos: 100},
-    startedAt: {seconds: 1616533100, nanos: 100},
-    finishedAt: {seconds: 1616533103, nanos: 100},
+    created: {seconds: 1616533099, nanos: 100},
+    started: {seconds: 1616533100, nanos: 100},
+    finished: {seconds: 1616533103, nanos: 100},
     job: {
       id: '290989c8a294ce1064041f0caa405c85',
       pipeline: {
@@ -178,9 +178,9 @@ const cron = [
   }),
   jobInfoFromObject({
     state: JobState.JOB_KILLED,
-    createdAt: {seconds: 1616533099, nanos: 100},
-    startedAt: {seconds: 1616533100, nanos: 100},
-    finishedAt: {seconds: 1616533103, nanos: 100},
+    created: {seconds: 1616533099, nanos: 100},
+    started: {seconds: 1616533100, nanos: 100},
+    finished: {seconds: 1616533103, nanos: 100},
     job: {
       id: '249a1835a00b64422e30a0fdcb32deaf',
       pipeline: {
@@ -210,9 +210,9 @@ const cron = [
   }),
   jobInfoFromObject({
     state: JobState.JOB_FAILURE,
-    createdAt: {seconds: 1616533099, nanos: 100},
-    startedAt: {seconds: 1616533100, nanos: 100},
-    finishedAt: {seconds: 1616533103, nanos: 100},
+    created: {seconds: 1616533099, nanos: 100},
+    started: {seconds: 1616533100, nanos: 100},
+    finished: {seconds: 1616533103, nanos: 100},
     job: {
       id: 'abdf311864379b0cedd95932628935a0',
       pipeline: {
@@ -242,9 +242,9 @@ const cron = [
   }),
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
-    createdAt: {seconds: 1616533099, nanos: 100},
-    startedAt: {seconds: 1616533100, nanos: 100},
-    finishedAt: {seconds: 1616533103, nanos: 100},
+    created: {seconds: 1616533099, nanos: 100},
+    started: {seconds: 1616533100, nanos: 100},
+    finished: {seconds: 1616533103, nanos: 100},
     job: {
       id: 'a7811954e2828d76b4642ac214f2a0e6',
       pipeline: {
@@ -274,9 +274,9 @@ const cron = [
   }),
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
-    createdAt: {seconds: 1616533099, nanos: 100},
-    startedAt: {seconds: 1616533100, nanos: 100},
-    finishedAt: {seconds: 1616533103, nanos: 100},
+    created: {seconds: 1616533099, nanos: 100},
+    started: {seconds: 1616533100, nanos: 100},
+    finished: {seconds: 1616533103, nanos: 100},
     job: {
       id: '24fcfa133462bfcf3bbecfdc43614349',
       pipeline: {
@@ -306,9 +306,9 @@ const cron = [
   }),
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
-    createdAt: {seconds: 1616533099, nanos: 100},
-    startedAt: {seconds: 1616533100, nanos: 100},
-    finishedAt: {seconds: 1616533103, nanos: 100},
+    created: {seconds: 1616533099, nanos: 100},
+    started: {seconds: 1616533100, nanos: 100},
+    finished: {seconds: 1616533103, nanos: 100},
     job: {
       id: '85c09e20958ac73f8005b37815f747a9',
       pipeline: {
@@ -338,9 +338,9 @@ const cron = [
   }),
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
-    createdAt: {seconds: 1616533099, nanos: 100},
-    startedAt: {seconds: 1616533100, nanos: 100},
-    finishedAt: {seconds: 1616533103, nanos: 100},
+    created: {seconds: 1616533099, nanos: 100},
+    started: {seconds: 1616533100, nanos: 100},
+    finished: {seconds: 1616533103, nanos: 100},
     job: {
       id: '7be17147600af973b162ad795e09ac80',
       pipeline: {
@@ -370,9 +370,9 @@ const cron = [
   }),
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
-    createdAt: {seconds: 1616533099, nanos: 100},
-    startedAt: {seconds: 1616533100, nanos: 100},
-    finishedAt: {seconds: 1616533103, nanos: 100},
+    created: {seconds: 1616533099, nanos: 100},
+    started: {seconds: 1616533100, nanos: 100},
+    finished: {seconds: 1616533103, nanos: 100},
     job: {
       id: '6dd9d64968e97d35821ce84fd03c8fef',
       pipeline: {
@@ -402,9 +402,9 @@ const cron = [
   }),
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
-    createdAt: {seconds: 1616533099, nanos: 100},
-    startedAt: {seconds: 1616533100, nanos: 100},
-    finishedAt: {seconds: 1616533103, nanos: 100},
+    created: {seconds: 1616533099, nanos: 100},
+    started: {seconds: 1616533100, nanos: 100},
+    finished: {seconds: 1616533103, nanos: 100},
     job: {
       id: '2ca0773cbc32b569b27450e4f13adf65',
       pipeline: {
@@ -437,9 +437,9 @@ const cron = [
 const dataCleaningProcess = [
   jobInfoFromObject({
     state: JobState.JOB_FAILURE,
-    createdAt: {seconds: 1614136189, nanos: 100},
-    startedAt: {seconds: 1614136190, nanos: 100},
-    finishedAt: {seconds: 1614136193, nanos: 100},
+    created: {seconds: 1614136189, nanos: 100},
+    started: {seconds: 1614136190, nanos: 100},
+    finished: {seconds: 1614136193, nanos: 100},
     job: {
       id: '23b9af7d5d4343219bc8e02ff4acd33a',
       pipeline: {
@@ -453,8 +453,8 @@ const dataCleaningProcess = [
   }),
   jobInfoFromObject({
     state: JobState.JOB_EGRESSING,
-    createdAt: {seconds: 1614136189, nanos: 100},
-    startedAt: {seconds: 1614136191, nanos: 100},
+    created: {seconds: 1614136189, nanos: 100},
+    started: {seconds: 1614136191, nanos: 100},
     job: {
       id: '23b9af7d5d4343219bc8e02ff4acd33a',
       pipeline: {name: 'models', project: {name: 'Data-Cleaning-Process'}},
@@ -473,8 +473,8 @@ const dataCleaningProcess = [
   }),
   jobInfoFromObject({
     state: JobState.JOB_KILLED,
-    createdAt: {seconds: 1614136189, nanos: 100},
-    startedAt: {seconds: 1614136192, nanos: 100},
+    created: {seconds: 1614136189, nanos: 100},
+    started: {seconds: 1614136192, nanos: 100},
     job: {
       id: '23b9af7d5d4343219bc8e02ff4acd33a',
       pipeline: {name: 'joint_call', project: {name: 'Data-Cleaning-Process'}},
@@ -486,8 +486,8 @@ const dataCleaningProcess = [
   }),
   jobInfoFromObject({
     state: JobState.JOB_RUNNING,
-    createdAt: {seconds: 1614136189, nanos: 100},
-    startedAt: {seconds: 1614136193, nanos: 100},
+    created: {seconds: 1614136189, nanos: 100},
+    started: {seconds: 1614136193, nanos: 100},
     job: {
       id: '23b9af7d5d4343219bc8e02ff4acd33a',
       pipeline: {name: 'split', project: {name: 'Data-Cleaning-Process'}},
@@ -497,8 +497,8 @@ const dataCleaningProcess = [
   }),
   jobInfoFromObject({
     state: JobState.JOB_STARTING,
-    createdAt: {seconds: 1614136189, nanos: 100},
-    startedAt: {seconds: 1614136194, nanos: 100},
+    created: {seconds: 1614136189, nanos: 100},
+    started: {seconds: 1614136194, nanos: 100},
     job: {
       id: '23b9af7d5d4343219bc8e02ff4acd33a',
       pipeline: {name: 'test', project: {name: 'Data-Cleaning-Process'}},
@@ -511,9 +511,9 @@ const dataCleaningProcess = [
 const multiProjectPipelineA = [
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
-    createdAt: {seconds: 1616533099, nanos: 100},
-    startedAt: {seconds: 1616533100, nanos: 100},
-    finishedAt: {seconds: 1616533103, nanos: 100},
+    created: {seconds: 1616533099, nanos: 100},
+    started: {seconds: 1616533100, nanos: 100},
+    finished: {seconds: 1616533103, nanos: 100},
     job: {id: '23b9af7d5d4343219bc8e02ff44cd55a', pipeline: {name: 'Node_2'}},
     input: {
       pfs: {
@@ -542,9 +542,9 @@ const multiProjectPipelineA = [
 const multiProjectPipelineB = [
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
-    createdAt: {seconds: 1616533099, nanos: 100},
-    startedAt: {seconds: 1616533100, nanos: 100},
-    finishedAt: {seconds: 1616533103, nanos: 100},
+    created: {seconds: 1616533099, nanos: 100},
+    started: {seconds: 1616533100, nanos: 100},
+    finished: {seconds: 1616533103, nanos: 100},
     job: {id: '23b9af7d5d4343219bc8e02ff44cd55a', pipeline: {name: 'Node_2'}},
     input: {
       pfs: {
@@ -578,8 +578,8 @@ const getLoadJobs = (jobCount: number) => {
       state: jobStates[
         Math.floor(Math.random() * jobStates.length)
       ] as JobState,
-      createdAt: {seconds: now - jobIndex * 100, nanos: jobIndex * 100},
-      startedAt: {seconds: now - jobIndex * 100, nanos: jobIndex * 100},
+      created: {seconds: now - jobIndex * 100, nanos: jobIndex * 100},
+      started: {seconds: now - jobIndex * 100, nanos: jobIndex * 100},
       job: {
         id: `0-${jobIndex}`,
         pipeline: {
