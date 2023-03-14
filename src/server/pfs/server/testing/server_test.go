@@ -97,6 +97,18 @@ func assertMasterHeads(t *testing.T, c *client.APIClient, repoToCommitIDs map[st
 	}
 }
 
+// helper function for building DAGs by creating a repo with specified provenant repos
+// this function sets up a master branch for each repo
+func buildDAG(t *testing.T, c *client.APIClient, repo string, provenance ...string) {
+	require.NoError(t, c.CreateRepo(repo))
+	var provs []*pfs.Branch
+	for _, p := range provenance {
+		provs = append(provs, client.NewProjectBranch(pfs.DefaultProjectName, p, "master"))
+	}
+	require.NoError(t, c.CreateBranch(repo, "master", "", "", provs))
+	require.NoError(t, finishCommit(c, repo, "master", ""))
+}
+
 type fileSetSpec map[string]tarutil.File
 
 func (fs fileSetSpec) makeTarStream() io.Reader {
@@ -2040,12 +2052,128 @@ func TestPFS(suite *testing.T) {
 
 	})
 
-	// TODO(acohen4): write test
-	suite.Run("BigSquash", func(t *testing.T) {
+	// In general a commit set can be squashed without use of force whenever the following commit set was initiated
+	// by from the same branch.
+	// For example, consider the following branch provenance graph (where A & B are input branches):
+	// C: {A, B}
+	// D: {B}
+	// Now consider the following sequence of commits against input branches A & B, mapped to the expanded commit set they initiate.
+	// A@1 -> { A@1, C@1, B@0 }
+	// A@2 -> { A@2, C@2, B@0 }
+	// A@3 -> { A@3, C@3, B@0 }
+	// B@4 -> { B@4, C@4, D@4, A@3 }
+	// B@5 -> { B@5, C@5, D@5, A@3 }
+	// A@6 -> { A@6, C@6, B@5 }
+	// A@7 -> { A@7, C@7, B@5 }
+	// The commit sets that can be safely squashed here are: {1, 2, 4, 6}. The reason is that no other commit set referenes commits
+	// from those commit sets except the commit sets that produced them. On the other hand, commit set 3 cannot be
+	// independently deleted since commit set 4 references its commit A@3. Similarly, commit set 5 has its commit B@5 referenced
+	// in commit set 6 & 7.
+	// These commit sets that we'll consider troublesome for deletes, become troublesome when the next commit set originates from a
+	// different branch; i.e. when one commit set in the sequence originates from branch A, and the following from B.
+	// So conversely, we can conclude that whenever we have a sequence of commit sets that are originated from the
+	// same branch, all but the last commit set in the sequence can be considered safe to delete.
+	suite.Run("SquashComplex", func(t *testing.T) {
 		t.Parallel()
-		env := realenv.NewRealEnv(pctx.TestContext(t), t, dockertestenv.NewTestDBConfig(t))
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 		c := env.PachClient
-		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "A"))
+		var benches []string
+		start := time.Now()
+		checkpoint := func(label string) {
+			benches = append(benches, fmt.Sprintf("%s: %v\n", label, time.Now().Sub(start)))
+			start = time.Now()
+		}
+		makeCommit := func(c *client.APIClient, repos ...string) *pfs.CommitSet {
+			totalSubvenance := make(map[string]*pfs.Branch)
+			txn, err := c.StartTransaction()
+			require.NoError(t, err)
+			txnClient := env.PachClient.WithTransaction(txn)
+			cs := []*pfs.Commit{}
+			for _, r := range repos {
+				commit, err := txnClient.StartProjectCommit(pfs.DefaultProjectName, r, "master")
+				require.NoError(t, err)
+				cs = append(cs, commit)
+			}
+			txnInfo, err := env.PachClient.FinishTransaction(txn)
+			for _, commit := range cs {
+				require.NoError(t, c.PutFile(commit, "foo", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+				require.NoError(t, finishCommit(c, commit.Repo.Name, "master", ""))
+				bi, err := c.InspectProjectBranch(pfs.DefaultProjectName, commit.Repo.Name, "master")
+				require.NoError(t, err)
+				for _, subv := range bi.Subvenance {
+					totalSubvenance[subv.String()] = subv
+				}
+			}
+			for _, subv := range totalSubvenance {
+				require.NoError(t, finishCommit(c, subv.Repo.Name, subv.Name, ""))
+			}
+			checkpoint(fmt.Sprintf("makeCommit: %v", repos))
+			return &pfs.CommitSet{ID: txnInfo.Transaction.ID}
+		}
+		listCommitSets := func() []*pfs.CommitSetInfo {
+			csClient, err := c.ListCommitSet(ctx, &pfs.ListCommitSetRequest{Project: client.NewProject(pfs.DefaultProjectName)})
+			require.NoError(t, err)
+			css, err := grpcutil.Collect[*pfs.CommitSetInfo](csClient, 1000)
+			require.NoError(t, err)
+			checkpoint("list commit sets")
+			return css
+		}
+		buildDAG(t, c, "A")
+		checkpoint("build A")
+		buildDAG(t, c, "B")
+		checkpoint("build B")
+		buildDAG(t, c, "C", "B", "A")
+		checkpoint("build C")
+		buildDAG(t, c, "D", "B")
+		checkpoint("build D")
+		// first test a simple squash - removing an independent commit set from the middle of the DAG
+		squashCandidate := makeCommit(c, "A")
+		makeCommit(c, "A")
+		require.Equal(t, 6, len(listCommitSets()))
+		_, err := c.PfsAPIClient.SquashCommitSet(ctx, &pfs.SquashCommitSetRequest{CommitSet: squashCandidate})
+		require.NoError(t, err)
+		checkpoint("squash first")
+		require.Equal(t, 5, len(listCommitSets()))
+		badCandidate1 := makeCommit(c, "B")
+		badCandidate2 := makeCommit(c, "A")
+		squashCandidate = makeCommit(c, "B")
+		squashCandidate2 := makeCommit(c, "B")
+		latest := makeCommit(c, "B")
+		start = time.Now()
+		_, err = c.PfsAPIClient.SquashCommitSet(ctx, &pfs.SquashCommitSetRequest{CommitSet: badCandidate1})
+		require.YesError(t, err)
+		checkpoint("bad squash 1")
+		_, err = c.PfsAPIClient.SquashCommitSet(ctx, &pfs.SquashCommitSetRequest{CommitSet: badCandidate2})
+		require.YesError(t, err)
+		checkpoint("bad squash 2")
+		_, err = c.PfsAPIClient.SquashCommitSet(ctx, &pfs.SquashCommitSetRequest{CommitSet: squashCandidate2})
+		require.NoError(t, err)
+		checkpoint("good squash")
+		require.Equal(t, 9, len(listCommitSets()))
+		_, err = c.PfsAPIClient.SquashCommitSet(ctx, &pfs.SquashCommitSetRequest{CommitSet: squashCandidate})
+		require.NoError(t, err)
+		checkpoint("good squash")
+		require.Equal(t, 8, len(listCommitSets()))
+		// ok now lets do something crazy
+		for i := 0; i < 10; i++ {
+			for _, b := range []string{"A", "B"} {
+				makeCommit(c, b)
+			}
+		}
+		require.Equal(t, 28, len(listCommitSets()))
+		_, err = c.PfsAPIClient.SquashCommitSet(ctx, &pfs.SquashCommitSetRequest{CommitSet: latest})
+		require.YesError(t, err)
+		checkpoint("bad squash latest")
+		// add slice to top so that we can successfully force squash
+		realLatest := makeCommit(c, "A", "B")
+		_, err = c.PfsAPIClient.SquashCommitSet(ctx, &pfs.SquashCommitSetRequest{CommitSet: latest, Force: true})
+		require.NoError(t, err)
+		checkpoint("good squash latest")
+		css := listCommitSets()
+		require.Equal(t, 8, len(css))
+		require.Equal(t, realLatest.ID, css[0].CommitSet.ID)
+		fmt.Println(benches)
 	})
 
 	suite.Run("Branch1", func(t *testing.T) {
