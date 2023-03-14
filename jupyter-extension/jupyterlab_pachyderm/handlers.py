@@ -1,4 +1,4 @@
-from jupyter_server.base.handlers import APIHandler, path_regex, JupyterHandler
+from jupyter_server.base.handlers import APIHandler, path_regex
 from jupyter_server.services.contents.handlers import ContentsHandler, validate_model
 from jupyter_server.utils import url_path_join, ensure_async
 import tornado
