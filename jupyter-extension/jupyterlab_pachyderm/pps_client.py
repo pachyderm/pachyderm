@@ -1,9 +1,9 @@
 import os.path
 import json
 import subprocess
+import sys
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-
 
 from tornado.httpclient import AsyncHTTPClient
 
@@ -39,20 +39,26 @@ class PPSClient:
         get_logger().debug(f"path: {path} | body: {config}")
         input_spec = config.get("input")
         pipeline_name = config.get("pipeline_name")
+
         with NamedTemporaryFile() as temp_config:
-            same_file = Path(temp_config, "same.yaml")
-            same_file.write_text(
+            Path(temp_config.name).write_text(
                 "apiVersion: sameproject.ml/v1alpha1\n"
                 "metadata:\n"
                 f"  name: {pipeline_name}\n"
+                f"  version: 0.0.1\n"
+                "environments:\n"
+                "  default:\n"
+                "    image_tag: combinatorml/jupyterlab-tensorflow-opencv:0.9\n"
                 "notebook:\n"
-                f"  name: {os.path.basename(path)}\n"
-                f"  path: {path}\n"
+                f"  name: TestNotebook\n"
+                f"  path: {Path(__file__).parent}/tests/data/TestNotebook.ipynb\n"
+                # f"  name: {os.path.basename(path)}\n"
+                # f"  path: {path}\n"
             )
 
-            # TODO: Write the SAME config as a yaml file
-            subprocess.run(
-                ["same", "run", "--same-file", str(same_file), "--target", "pachyderm", "--input", str(input_spec)]
+            call = subprocess.run(
+                [sys.executable, "-m", "sameproject.main", "run", "--same-file", temp_config.name, "--target", "pachyderm", "--input", json.dumps(input_spec)],
+                check=True
             )
         return json.dumps(dict())
 

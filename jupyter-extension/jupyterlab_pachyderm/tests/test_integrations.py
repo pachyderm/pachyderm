@@ -384,9 +384,8 @@ def simple_pachyderm_env():
     from python_pachyderm import Client
     client = Client()
 
-    suffix = os.urandom(4)
-    repo_name = f"images_{suffix}"
-    pipeline_name = f"test_pipeline_{suffix}"
+    repo_name = f"images"
+    pipeline_name = f"test_pipeline"
     client.create_repo(repo_name)
     yield client, repo_name, pipeline_name
     client.delete_pipeline(pipeline_name, force=True)
@@ -398,9 +397,8 @@ def test_pps(dev_server, simple_pachyderm_env):
 
     input_spec = dict(pfs=dict(repo=repo_name, glob="/*"))
     data = dict(pipeline_name=pipeline_name, input=input_spec)
-    notebook_path = "jupyter-extension/jupyterlab_pachyderm/tests/data/TestNotebook.ipynb"
-    r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data))
+    r = requests.put(f"{BASE_URL}/pps/_create", data=json.dumps(data))
     assert r.status_code == 200
 
-    client.inpect_pipeline(pipeline_name)
+    assert next(client.inspect_pipeline(pipeline_name))
 
