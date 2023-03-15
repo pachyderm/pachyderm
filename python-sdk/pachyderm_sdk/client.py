@@ -20,15 +20,18 @@ from .api.pfs.extension import ApiStub as _PfsStub
 from .api.pps.extension import ApiStub as _PpsStub
 from .api.transaction.extension import ApiStub as _TransactionStub
 from .api.version import ApiStub as _VersionStub, Version
+from .api.worker.extension import WorkerStub as _WorkerStub
 from .constants import (
     AUTH_TOKEN_ENV,
     GRPC_CHANNEL_OPTIONS,
     OIDC_TOKEN_ENV,
     PACHD_SERVICE_HOST_ENV,
     PACHD_SERVICE_PORT_ENV,
+    WORKER_PORT_ENV,
 )
 from .errors import AuthServiceNotActivated, BadClusterDeploymentID, ConfigError
 from .interceptor import MetadataClientInterceptor, MetadataType
+from ._classproperty import classproperty
 
 __all__ = ("Client", )
 
@@ -45,6 +48,9 @@ class Client:
     env_config = "PACH_CONFIG"
     spout_config = Path("/pachctl/config.json")
     local_config = Path.home().joinpath("pachyderm/config.json")
+
+    # Worker stub is loaded when accessed through the worker property.
+    _worker: Optional[_WorkerStub] = None
 
     def __init__(
         self,
@@ -280,6 +286,34 @@ class Client:
             metadata=self._metadata,
         )
         self._init_api()
+
+    @classmethod
+    @classproperty
+    def worker(cls):
+        """Access the worker API stub.
+
+        This is dynamically loaded in order to provide a helpful error message
+        to the user if they try to interact the worker API from outside a worker.
+
+        This is a class property since the worker API is accessed over a gRPC
+        channel that does not use auth or tls, and therefore requires no user
+        configuration.
+        """
+        if cls._worker is None:
+            port = os.environ.get(WORKER_PORT_ENV)
+            if port is None:
+                raise ConnectionError(
+                    f"Cannot connect to the worker since {WORKER_PORT_ENV} is not set. "
+                    "Are you running inside a pipeline?"
+                )
+            # Note: This channel does not go through the metadata interceptor.
+            channel = _create_channel(
+                address=f"localhost:{port}",
+                root_certs=None,
+                options=GRPC_CHANNEL_OPTIONS
+            )
+            cls._worker = _WorkerStub(channel)
+        return cls._worker
 
     def _build_metadata(self):
         metadata = []
