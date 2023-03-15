@@ -37,7 +37,7 @@ def _check_connection_error(grpc_future: grpc.Future):
                 error_message += (
                     "\tPACHD_PEER_SERVICE_HOST is detected. "
                     "Please use Client.new_in_cluster() when using"
-                    " python_pachyderm within the a pipeline. "
+                    " python_pachyderm within the pipeline. "
                 )
             raise ConnectionError(error_message) from error
         raise AuthServiceNotActivated.try_from(error)
