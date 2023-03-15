@@ -399,6 +399,4 @@ def test_pps(dev_server, simple_pachyderm_env):
     data = dict(pipeline_name=pipeline_name, input=input_spec)
     r = requests.put(f"{BASE_URL}/pps/_create", data=json.dumps(data))
     assert r.status_code == 200
-
     assert next(client.inspect_pipeline(pipeline_name))
-
