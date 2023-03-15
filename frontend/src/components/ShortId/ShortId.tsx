@@ -17,7 +17,7 @@ const ShortId: React.FC<ShortIdProps> = ({inputString, error}) => {
       inline={true}
       successCheckmarkAriaLabel="You have successfully copied the id"
     >
-      {shortId}
+      {shortId}...
     </CopiableField>
   );
 };
