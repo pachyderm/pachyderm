@@ -753,6 +753,7 @@ export type Repo = {
   createdAt: Scalars['Int'];
   description: Scalars['String'];
   id: Scalars['ID'];
+  lastCommit?: Maybe<Commit>;
   linkedPipeline?: Maybe<Pipeline>;
   name: Scalars['ID'];
   projectId: Scalars['String'];
@@ -1895,6 +1896,11 @@ export type RepoResolvers<
   createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  lastCommit?: Resolver<
+    Maybe<ResolversTypes['Commit']>,
+    ParentType,
+    ContextType
+  >;
   linkedPipeline?: Resolver<
     Maybe<ResolversTypes['Pipeline']>,
     ParentType,
@@ -2175,6 +2181,20 @@ export type LogFieldsFragment = {
   user: boolean;
   message: string;
   timestamp?: {__typename?: 'Timestamp'; seconds: number; nanos: number} | null;
+};
+
+export type RepoFragmentFragment = {
+  __typename?: 'Repo';
+  createdAt: number;
+  description: string;
+  id: string;
+  name: string;
+  sizeDisplay: string;
+  sizeBytes: number;
+  access: boolean;
+  projectId: string;
+  branches: Array<{__typename?: 'Branch'; name: string}>;
+  linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
 };
 
 export type CreateBranchMutationVariables = Exact<{
@@ -3001,6 +3021,40 @@ export type RepoQuery = {
   };
 };
 
+export type RepoWithCommitQueryVariables = Exact<{
+  args: RepoQueryArgs;
+}>;
+
+export type RepoWithCommitQuery = {
+  __typename?: 'Query';
+  repo: {
+    __typename?: 'Repo';
+    createdAt: number;
+    description: string;
+    id: string;
+    name: string;
+    sizeDisplay: string;
+    sizeBytes: number;
+    access: boolean;
+    projectId: string;
+    lastCommit?: {
+      __typename?: 'Commit';
+      repoName: string;
+      description?: string | null;
+      originKind?: OriginKind | null;
+      id: string;
+      started: number;
+      finished: number;
+      sizeBytes: number;
+      sizeDisplay: string;
+      hasLinkedJob: boolean;
+      branch?: {__typename?: 'Branch'; name: string} | null;
+    } | null;
+    branches: Array<{__typename?: 'Branch'; name: string}>;
+    linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
+  };
+};
+
 export type ReposQueryVariables = Exact<{
   args: ReposQueryArgs;
 }>;
@@ -3016,6 +3070,41 @@ export type ReposQuery = {
     sizeDisplay: string;
     sizeBytes: number;
     access: boolean;
+    projectId: string;
+    branches: Array<{__typename?: 'Branch'; name: string}>;
+    linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
+  } | null>;
+};
+
+export type ReposWithCommitQueryVariables = Exact<{
+  args: ReposQueryArgs;
+}>;
+
+export type ReposWithCommitQuery = {
+  __typename?: 'Query';
+  repos: Array<{
+    __typename?: 'Repo';
+    createdAt: number;
+    description: string;
+    id: string;
+    name: string;
+    sizeDisplay: string;
+    sizeBytes: number;
+    access: boolean;
+    projectId: string;
+    lastCommit?: {
+      __typename?: 'Commit';
+      repoName: string;
+      description?: string | null;
+      originKind?: OriginKind | null;
+      id: string;
+      started: number;
+      finished: number;
+      sizeBytes: number;
+      sizeDisplay: string;
+      hasLinkedJob: boolean;
+      branch?: {__typename?: 'Branch'; name: string} | null;
+    } | null;
     branches: Array<{__typename?: 'Branch'; name: string}>;
     linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
   } | null>;

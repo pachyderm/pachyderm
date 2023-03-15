@@ -109,6 +109,25 @@ export const LogFieldsFragmentDoc = gql`
     message
   }
 `;
+export const RepoFragmentFragmentDoc = gql`
+  fragment RepoFragment on Repo {
+    branches {
+      name
+    }
+    createdAt
+    description
+    id
+    name
+    sizeDisplay
+    sizeBytes
+    access
+    projectId
+    linkedPipeline {
+      id
+      name
+    }
+  }
+`;
 export const CreateBranchDocument = gql`
   mutation createBranch($args: CreateBranchArgs!) {
     createBranch(args: $args) {
@@ -2153,23 +2172,10 @@ export type ProjectsQueryResult = Apollo.QueryResult<
 export const RepoDocument = gql`
   query repo($args: RepoQueryArgs!) {
     repo(args: $args) {
-      branches {
-        name
-      }
-      createdAt
-      description
-      id
-      linkedPipeline {
-        id
-        name
-      }
-      name
-      sizeDisplay
-      sizeBytes
-      access
-      projectId
+      ...RepoFragment
     }
   }
+  ${RepoFragmentFragmentDoc}
 `;
 
 /**
@@ -2218,25 +2224,76 @@ export type RepoQueryResult = Apollo.QueryResult<
   Types.RepoQuery,
   Types.RepoQueryVariables
 >;
+export const RepoWithCommitDocument = gql`
+  query repoWithCommit($args: RepoQueryArgs!) {
+    repo(args: $args) {
+      ...RepoFragment
+      lastCommit {
+        ...CommitFragment
+      }
+    }
+  }
+  ${RepoFragmentFragmentDoc}
+  ${CommitFragmentFragmentDoc}
+`;
+
+/**
+ * __useRepoWithCommitQuery__
+ *
+ * To run a query within a React component, call `useRepoWithCommitQuery` and pass it any options that fit your needs.
+ * When your component renders, `useRepoWithCommitQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useRepoWithCommitQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useRepoWithCommitQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.RepoWithCommitQuery,
+    Types.RepoWithCommitQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<
+    Types.RepoWithCommitQuery,
+    Types.RepoWithCommitQueryVariables
+  >(RepoWithCommitDocument, options);
+}
+export function useRepoWithCommitLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.RepoWithCommitQuery,
+    Types.RepoWithCommitQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.RepoWithCommitQuery,
+    Types.RepoWithCommitQueryVariables
+  >(RepoWithCommitDocument, options);
+}
+export type RepoWithCommitQueryHookResult = ReturnType<
+  typeof useRepoWithCommitQuery
+>;
+export type RepoWithCommitLazyQueryHookResult = ReturnType<
+  typeof useRepoWithCommitLazyQuery
+>;
+export type RepoWithCommitQueryResult = Apollo.QueryResult<
+  Types.RepoWithCommitQuery,
+  Types.RepoWithCommitQueryVariables
+>;
 export const ReposDocument = gql`
   query repos($args: ReposQueryArgs!) {
     repos(args: $args) {
-      branches {
-        name
-      }
-      createdAt
-      description
-      id
-      linkedPipeline {
-        id
-        name
-      }
-      name
-      sizeDisplay
-      sizeBytes
-      access
+      ...RepoFragment
     }
   }
+  ${RepoFragmentFragmentDoc}
 `;
 
 /**
@@ -2284,6 +2341,69 @@ export type ReposLazyQueryHookResult = ReturnType<typeof useReposLazyQuery>;
 export type ReposQueryResult = Apollo.QueryResult<
   Types.ReposQuery,
   Types.ReposQueryVariables
+>;
+export const ReposWithCommitDocument = gql`
+  query reposWithCommit($args: ReposQueryArgs!) {
+    repos(args: $args) {
+      ...RepoFragment
+      lastCommit {
+        ...CommitFragment
+      }
+    }
+  }
+  ${RepoFragmentFragmentDoc}
+  ${CommitFragmentFragmentDoc}
+`;
+
+/**
+ * __useReposWithCommitQuery__
+ *
+ * To run a query within a React component, call `useReposWithCommitQuery` and pass it any options that fit your needs.
+ * When your component renders, `useReposWithCommitQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useReposWithCommitQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useReposWithCommitQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.ReposWithCommitQuery,
+    Types.ReposWithCommitQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<
+    Types.ReposWithCommitQuery,
+    Types.ReposWithCommitQueryVariables
+  >(ReposWithCommitDocument, options);
+}
+export function useReposWithCommitLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.ReposWithCommitQuery,
+    Types.ReposWithCommitQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.ReposWithCommitQuery,
+    Types.ReposWithCommitQueryVariables
+  >(ReposWithCommitDocument, options);
+}
+export type ReposWithCommitQueryHookResult = ReturnType<
+  typeof useReposWithCommitQuery
+>;
+export type ReposWithCommitLazyQueryHookResult = ReturnType<
+  typeof useReposWithCommitLazyQuery
+>;
+export type ReposWithCommitQueryResult = Apollo.QueryResult<
+  Types.ReposWithCommitQuery,
+  Types.ReposWithCommitQueryVariables
 >;
 export const SearchResultsDocument = gql`
   query searchResults($args: SearchResultQueryArgs!) {

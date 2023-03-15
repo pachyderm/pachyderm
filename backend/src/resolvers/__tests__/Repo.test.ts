@@ -1,10 +1,18 @@
 import {CREATE_REPO_MUTATION} from '@dash-frontend/mutations/CreateRepo';
 import {GET_REPO_QUERY} from '@dash-frontend/queries/GetRepoQuery';
 import {GET_REPOS_QUERY} from '@dash-frontend/queries/GetReposQuery';
+import {GET_REPOS_WITH_COMMIT_QUERY} from '@dash-frontend/queries/GetReposWithCommitQuery';
+import {GET_REPO_WITH_COMMIT_QUERY} from '@dash-frontend/queries/GetRepoWithCommitQuery';
 import {Status} from '@grpc/grpc-js/build/src/constants';
 
 import {executeMutation, executeQuery} from '@dash-backend/testHelpers';
-import {CreateRepoMutation, RepoQuery, ReposQuery} from '@graphqlTypes';
+import {
+  CreateRepoMutation,
+  RepoQuery,
+  ReposQuery,
+  RepoWithCommitQuery,
+  ReposWithCommitQuery,
+} from '@graphqlTypes';
 
 describe('resolvers/Repo', () => {
   const id = 'cron';
@@ -38,6 +46,21 @@ describe('resolvers/Repo', () => {
       expect(errors).toHaveLength(1);
       expect(data).toBeNull();
       expect(errors[0].extensions.code).toBe('NOT_FOUND');
+    });
+
+    it('should return repo with last commit', async () => {
+      const {data, errors = []} = await executeQuery<RepoWithCommitQuery>(
+        GET_REPO_WITH_COMMIT_QUERY,
+        {
+          args: {id, projectId},
+        },
+      );
+
+      expect(errors).toHaveLength(0);
+      expect(data?.repo.id).toBe(id);
+      expect(data?.repo?.lastCommit?.id).toBe(
+        '9d5daa0918ac4c43a476b86e3bb5e88e',
+      );
     });
   });
 
@@ -73,6 +96,25 @@ describe('resolvers/Repo', () => {
 
       expect(filteredData?.repos).toHaveLength(1);
       expect(filteredData?.repos[0]?.id).toBe('montage');
+    });
+
+    it('should return repo list with last commit for each repo', async () => {
+      const {data} = await executeQuery<ReposWithCommitQuery>(
+        GET_REPOS_WITH_COMMIT_QUERY,
+        {
+          args: {projectId},
+        },
+      );
+
+      expect(data?.repos).toHaveLength(2);
+      expect(data?.repos[0]?.id).toBe('cron');
+      expect(data?.repos[0]?.lastCommit?.id).toBe(
+        '9d5daa0918ac4c43a476b86e3bb5e88e',
+      );
+      expect(data?.repos[1]?.id).toBe('processor');
+      expect(data?.repos[1]?.lastCommit?.id).toBe(
+        'f4e23cf347c342d98bd9015e4c3ad52a',
+      );
     });
   });
 

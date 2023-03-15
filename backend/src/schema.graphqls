@@ -224,8 +224,9 @@ type Repo {
   access: Boolean!
   projectId: String!
 
-  # The Dash API will have to derive this field until core pach can expose it for us
+  # The Dash API will have to derive the following two fields until core pach can expose then for us
   linkedPipeline: Pipeline
+  lastCommit: Commit
 }
 
 type Pach {

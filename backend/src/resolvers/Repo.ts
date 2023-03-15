@@ -2,6 +2,7 @@ import getJobsFromJobSet from '@dash-backend/lib/getJobsFromJobSet';
 import {JobInfo} from '@dash-backend/proto';
 import {MutationResolvers, QueryResolvers, RepoResolvers} from '@graphqlTypes';
 
+import {commitInfoToGQLCommit} from './builders/pfs';
 import {pipelineInfoToGQLPipeline, repoInfoToGQLRepo} from './builders/pps';
 
 interface RepoResolver {
@@ -59,6 +60,21 @@ const repoResolver: RepoResolver = {
             projectId: repo.projectId,
           }),
         );
+      } catch (err) {
+        return null;
+      }
+    },
+    lastCommit: async (repo, _args, {pachClient}) => {
+      try {
+        const commits = await pachClient.pfs().listCommit({
+          repo: {
+            name: repo.name,
+          },
+          projectId: repo.projectId,
+          number: 1,
+        });
+
+        return commitInfoToGQLCommit(commits[0]);
       } catch (err) {
         return null;
       }
