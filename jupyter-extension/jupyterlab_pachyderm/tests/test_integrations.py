@@ -384,8 +384,9 @@ def simple_pachyderm_env():
     from python_pachyderm import Client
     client = Client()
 
-    repo_name = f"images"
-    pipeline_name = f"test_pipeline"
+    repo_name = f"images_194837"
+    pipeline_name = f"test_pipeline_194837"
+    client.delete_repo(repo_name, force=True)
     client.create_repo(repo_name)
     yield client, repo_name, pipeline_name
     client.delete_pipeline(pipeline_name, force=True)
