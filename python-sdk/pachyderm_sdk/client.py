@@ -43,8 +43,8 @@ class Client:
 
     # Class variables for checking config
     env_config = "PACH_CONFIG"
-    spout_config = "/pachctl/config.json"
-    local_config = f"{Path.home()}/.pachyderm/config.json"
+    spout_config = Path("/pachctl/config.json")
+    local_config = Path.home().joinpath("pachyderm/config.json")
 
     def __init__(
         self,
@@ -142,10 +142,26 @@ class Client:
         Client
             A python_pachyderm client instance.
         """
+        if cls.spout_config.exists():
+            # TODO: Should we notify the user that we are using spout config?
+            return cls.from_config(cls.spout_config)
+
+        host = os.environ.get(PACHD_SERVICE_HOST_ENV)
+        if host is None:
+            raise RuntimeError(
+                f"Environment variable {PACHD_SERVICE_HOST_ENV} not set "
+                f"-- cannot connect. Are you running in a cluster?"
+            )
+        port = os.environ.get(PACHD_SERVICE_PORT_ENV)
+        if port is None:
+            raise RuntimeError(
+                f"Environment variable {PACHD_SERVICE_PORT_ENV} not set "
+                f"-- cannot connect. Are you running in a cluster?"
+            )
 
         return cls(
-            host=os.environ[PACHD_SERVICE_HOST_ENV],
-            port=int(os.environ[PACHD_SERVICE_PORT_ENV]),
+            host=host,
+            port=int(port),
             auth_token=auth_token,
             transaction_id=transaction_id,
         )
@@ -211,6 +227,8 @@ class Client:
         Client
             A properly configured Client.
         """
+        # TODO: Should config_file be nullable?
+        #  If null should we search for the local config?
         config = _ConfigFile(config_file)
         active_context = config.active_context
         client = cls.from_pachd_address(
