@@ -1,4 +1,4 @@
-import {createLogger as createBunyanLogger, LogLevel} from 'bunyan';
+import {createLogger, LogLevel, stdSerializers} from 'bunyan';
 
 const {LOG_LEVEL} = process.env;
 
@@ -13,6 +13,10 @@ if (LOG_LEVEL?.match(/^\d+$/)) {
   level = (process.env.LOG_LEVEL as LogLevel) || 'trace';
 }
 
-const logger = createBunyanLogger({name: 'dash-api', level});
+const logger = createLogger({
+  name: 'dash-api',
+  level,
+  serializers: {err: stdSerializers.err},
+});
 
 export default logger;

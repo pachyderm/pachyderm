@@ -89,6 +89,7 @@ const authResolver: AuthResolver = {
           log.error(
             {
               eventSource: 'oidc client',
+              err: e,
             },
             String(e),
           );
