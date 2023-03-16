@@ -1496,7 +1496,7 @@ workflows:
       - jupyter-extension-test:
           matrix:
             parameters:
-              python-version: ["3.7", "3.8", "3.9", "3.10"]
+              python-version: ["3.8", "3.9", "3.10"]
       - jupyter-extension-frontend-test
       - jupyter-extension-integration-test:
           requires:
