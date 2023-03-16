@@ -449,6 +449,8 @@ jobs:
       image: << pipeline.parameters.machine_image >>
     steps:
       - checkout
+      - go/install:
+          version: << pipeline.parameters.go-version >>
       - run:
           name: setup env vars
           command: |
