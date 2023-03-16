@@ -1,4 +1,4 @@
-import {ReposQuery} from '@graphqlTypes';
+import {ReposWithCommitQuery} from '@graphqlTypes';
 import {useEffect} from 'react';
 import {useForm} from 'react-hook-form';
 
@@ -11,7 +11,7 @@ import {
 } from '@pachyderm/components';
 
 type sortOptionsType = {
-  [key: string]: SortableItem<ReposQuery['repos'][number] | null>;
+  [key: string]: SortableItem<ReposWithCommitQuery['repos'][number] | null>;
 };
 
 const sortOptions: sortOptionsType = {
@@ -19,28 +19,31 @@ const sortOptions: sortOptionsType = {
     name: 'Created: Newest',
     reverse: true,
     func: numberComparator,
-    accessor: (repo: ReposQuery['repos'][number]) => repo?.createdAt || 0,
+    accessor: (repo: ReposWithCommitQuery['repos'][number]) =>
+      repo?.createdAt || 0,
   },
   'Created: Oldest': {
     name: 'Created: Oldest',
     func: numberComparator,
-    accessor: (repo: ReposQuery['repos'][number]) => repo?.createdAt || 0,
+    accessor: (repo: ReposWithCommitQuery['repos'][number]) =>
+      repo?.createdAt || 0,
   },
   'Alphabetical: A-Z': {
     name: 'Alphabetical: A-Z',
     func: stringComparator,
-    accessor: (repo: ReposQuery['repos'][number]) => repo?.id || '',
+    accessor: (repo: ReposWithCommitQuery['repos'][number]) => repo?.id || '',
   },
   'Alphabetical: Z-A': {
     name: 'Alphabetical: Z-A',
     reverse: true,
     func: stringComparator,
-    accessor: (repo: ReposQuery['repos'][number]) => repo?.id || '',
+    accessor: (repo: ReposWithCommitQuery['repos'][number]) => repo?.id || '',
   },
   Size: {
     name: 'Size',
     func: numberComparator,
-    accessor: (repo: ReposQuery['repos'][number]) => repo?.sizeBytes || 0,
+    accessor: (repo: ReposWithCommitQuery['repos'][number]) =>
+      repo?.sizeBytes || 0,
   },
 };
 
@@ -61,7 +64,7 @@ type FormValues = {
 };
 
 type useRepoFiltersProps = {
-  repos?: ReposQuery['repos'];
+  repos?: ReposWithCommitQuery['repos'];
 };
 
 const useRepoFilters = ({repos = []}: useRepoFiltersProps) => {

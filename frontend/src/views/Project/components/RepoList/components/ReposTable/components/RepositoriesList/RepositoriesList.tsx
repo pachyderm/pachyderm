@@ -1,5 +1,5 @@
 import {ApolloError} from '@apollo/client';
-import {ReposQuery} from '@graphqlTypes';
+import {ReposWithCommitQuery} from '@graphqlTypes';
 import {format, fromUnixTime} from 'date-fns';
 import React from 'react';
 
@@ -18,7 +18,7 @@ type RepositoriesListProps = {
   error?: ApolloError;
   loading: boolean;
   totalReposLength: number;
-  repos?: ReposQuery['repos'];
+  repos?: ReposWithCommitQuery['repos'];
 };
 
 const RepositoriesList: React.FC<RepositoriesListProps> = ({
@@ -27,7 +27,7 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
   loading,
   error,
 }) => {
-  const {iconItems, onOverflowMenuSelect} = useRepositoriesList();
+  const {generateIconItems, onOverflowMenuSelect} = useRepositoriesList();
   const {searchParams, updateSearchParamsAndGo} = useUrlQueryState();
 
   const addSelection = (value: string) => {
@@ -102,8 +102,8 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
               hasRadio={repo?.access}
               hasLock={!repo?.access}
               lockedTooltipText={!repo?.access ? NO_ACCESS_TOOLTIP : undefined}
-              overflowMenuItems={iconItems}
-              dropdownOnSelect={onOverflowMenuSelect(repo?.id || '')}
+              overflowMenuItems={generateIconItems(repo?.lastCommit?.id)}
+              dropdownOnSelect={onOverflowMenuSelect(repo)}
             >
               <Table.DataCell>{repo?.name}</Table.DataCell>
               <Table.DataCell>{repo?.sizeDisplay || '-'}</Table.DataCell>

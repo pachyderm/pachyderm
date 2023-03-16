@@ -96,4 +96,25 @@ describe('Repo List', () => {
     expect(repos[1]).toHaveTextContent('images');
     expect(repos[2]).toHaveTextContent('montage');
   });
+
+  it('should allow users to inspect latest commit in repo', async () => {
+    window.history.replaceState(
+      '',
+      '',
+      '/project/Solar-Power-Data-Logger-Team-Collab/repos',
+    );
+
+    render(<RepoList />);
+
+    await waitForElementToBeRemoved(() =>
+      screen.queryByTestId('ReposTable__loadingDots'),
+    );
+
+    await click((await screen.findAllByTestId('DropdownButton__button'))[0]);
+    await click((await screen.findAllByText('Inspect commits'))[0]);
+
+    expect(window.location.pathname).toBe(
+      '/project/Solar-Power-Data-Logger-Team-Collab/repos/processor/branch/master/commit/f4e23cf347c342d98bd9015e4c3ad52a',
+    );
+  });
 });

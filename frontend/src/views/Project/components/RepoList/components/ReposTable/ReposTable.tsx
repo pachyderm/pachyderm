@@ -4,7 +4,7 @@ import {
   TableViewFilters,
   TableViewLoadingDots,
 } from '@dash-frontend/components/TableView';
-import useRepos from '@dash-frontend/hooks/useRepos';
+import useReposWithCommit from '@dash-frontend/hooks/useReposWithCommit';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {Form} from '@pachyderm/components';
 
@@ -17,7 +17,7 @@ type ReposTableProps = {
 
 const ReposTable: React.FC<ReposTableProps> = ({filtersExpanded}) => {
   const {projectId} = useUrlState();
-  const {repos, loading, error} = useRepos({projectId});
+  const {repos, loading, error} = useReposWithCommit({projectId});
   const {sortedRepos, formCtx, staticFilterKeys} = useRepoFilters({repos});
 
   return (
