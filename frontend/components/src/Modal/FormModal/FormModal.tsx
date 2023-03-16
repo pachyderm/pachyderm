@@ -11,6 +11,7 @@ import ModalHeader from '../components/ModalHeader';
 import ModalStatus from '../components/ModalStatus';
 
 import {Form} from './../../Form';
+import styles from './FormModal.module.css';
 
 export interface FormModalProps<T extends FieldValues> {
   children: React.ReactNode;
@@ -52,8 +53,14 @@ const FormModal = <T extends FieldValues>({
   const modalStatusMessage = error || (success && "You're all set!") || '';
 
   return (
-    <Form formContext={formContext} onSubmit={onSubmit}>
-      <Modal show={isOpen} onHide={onHide} small={small} actionable>
+    <Modal show={isOpen} onHide={onHide} small={small} actionable>
+      <Form
+        className={styles.form}
+        formContext={formContext}
+        onSubmit={() => {
+          formContext.handleSubmit(onSubmit)();
+        }}
+      >
         {modalStatus ? (
           <ModalStatus status={modalStatus}>{modalStatusMessage}</ModalStatus>
         ) : null}
@@ -68,13 +75,10 @@ const FormModal = <T extends FieldValues>({
           buttonType="submit"
           confirmText={confirmText}
           disabled={disabled}
-          onConfirm={() => {
-            formContext.handleSubmit(onSubmit)();
-          }}
           onHide={onHide}
         />
-      </Modal>
-    </Form>
+      </Form>
+    </Modal>
   );
 };
 

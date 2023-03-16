@@ -9,7 +9,7 @@ export interface ModalProps {
   cancelTestId?: string;
   confirmText: string;
   confirmTestId?: string;
-  onConfirm: () => void;
+  onConfirm?: () => void;
   onHide: () => void;
   buttonType?: ButtonHTMLAttributes<HTMLButtonElement>['type'];
   disabled?: boolean;
