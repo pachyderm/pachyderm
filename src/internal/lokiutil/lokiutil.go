@@ -7,7 +7,9 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"go.uber.org/zap"
 )
 
 const (
@@ -47,8 +49,9 @@ func forEachLine(resp loki.QueryResponse, f func(t time.Time, line string) error
 }
 
 // QueryRange calls QueryRange on the passed loki.Client and calls f with each logline.
-func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, through time.Time, follow bool, f func(t time.Time, line string) error) error {
+func QueryRange(rctx context.Context, c *loki.Client, queryStr string, from, through time.Time, follow bool, f func(t time.Time, line string) error) error {
 	for {
+		ctx, done := log.SpanContext(rctx, "QueryRange", zap.Time("from", from), zap.Time("to", through))
 		resp, err := c.QueryRange(ctx, queryStr, maxLogMessages, from, through, "FORWARD", 0, 0, true)
 		if err != nil {
 			return errors.EnsureStack(err)
@@ -59,8 +62,10 @@ func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, thro
 			nMsgs++
 			return f(t, line)
 		}); err != nil {
+			done(zap.Error(err))
 			return err
 		}
+		done(zap.Int("nMsgs", nMsgs))
 		if !follow && nMsgs < maxLogMessages {
 			return nil
 		}
