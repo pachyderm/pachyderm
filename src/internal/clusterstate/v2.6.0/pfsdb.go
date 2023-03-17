@@ -506,12 +506,12 @@ func migrateToBranchlessCommits(ctx context.Context, tx *pachsql.Tx) error {
 		params["oldKey"] = oldCommitKey(oldCommit.Commit)
 		params["proto"] = data
 		params["newKey"] = commitBranchlessKey(oldCommit.Commit)
-		stmt := fmt.Sprintf("update pfs.commits set commit_id = :newKey where commit_id = :oldKey")
+		stmt := "update pfs.commits set commit_id = :newKey where commit_id = :oldKey"
 		_, err = tx.NamedExecContext(ctx, stmt, params)
 		if err != nil {
 			return errors.Wrapf(err, "update pfs.commits")
 		}
-		stmt = fmt.Sprintf("update collections.commits set key = :newKey, proto = :proto where key = :oldKey")
+		stmt = "update collections.commits set key = :newKey, proto = :proto where key = :oldKey"
 		_, err = tx.NamedExecContext(ctx, stmt, params)
 		if err != nil {
 			return errors.Wrapf(err, "update collections.commits")
