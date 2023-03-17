@@ -114,5 +114,5 @@ export type SameNotebookMetadata = {
 
 export type SameRunMetadata = {
   name: string;
-  input?: string;
+  input?: string; //Note: SAME doesn't actually read this field when reading from the notebook and instead inspects you to pass it on the command line
 };
