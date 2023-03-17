@@ -363,7 +363,7 @@ func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContex
 
 func (d *driver) deleteAllRepos(ctx context.Context) ([]*pfs.Repo, error) {
 	var repoInfos []*pfs.RepoInfo
-	if err := d.listRepo(ctx, false /* includeAuth */, "" /* repoType */, nil /* projectsFilter */, func(repoInfo *pfs.RepoInfo) error {
+	if err := d.listRepo(ctx, false, "", nil, func(repoInfo *pfs.RepoInfo) error {
 		repoInfos = append(repoInfos, repoInfo)
 		return nil
 	}); err != nil {
@@ -374,10 +374,12 @@ func (d *driver) deleteAllRepos(ctx context.Context) ([]*pfs.Repo, error) {
 	}
 	var deleted []*pfs.Repo
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		// the list does not use the transaction
-		var err error
-		if deleted, err = d.deleteRepos(txnCtx, repoInfos, true); err != nil && !auth.IsErrNotAuthorized(err) {
-			return err
+		for _, ri := range repoInfos {
+			dels, err := d.deleteRepoInfo(txnCtx, ri, true)
+			if err != nil && !auth.IsErrNotAuthorized(err) {
+				return err
+			}
+			deleted = append(deleted, dels...)
 		}
 		return nil
 	}); err != nil {
@@ -395,47 +397,35 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		}
 		return nil
 	}
-	_, err := d.deleteRepos(txnCtx, []*pfs.RepoInfo{repoInfo}, force)
+	_, err := d.deleteRepoInfo(txnCtx, repoInfo, force)
 	return err
 }
 
-// NOTE: repoInfos should all exist in the system, or else we'll get an awkward ACCESS DENIED error when doing the auth check
-func (d *driver) deleteRepos(txnCtx *txncontext.TransactionContext, repoInfos []*pfs.RepoInfo, force bool) ([]*pfs.Repo, error) {
+func (d *driver) deleteRepoInfo(txnCtx *txncontext.TransactionContext, ri *pfs.RepoInfo, force bool) ([]*pfs.Repo, error) {
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
-	// convert to map so we don't add duplicate repos
-	repoMap := make(map[string]struct{})
-	for _, ri := range repoInfos {
-		repoMap[pfsdb.RepoKey(ri.Repo)] = struct{}{}
-	}
-	completeRepos := make([]*pfs.RepoInfo, 0)
-	// collect the repoInfos that need to be deleted
-	for _, ri := range repoInfos {
-		// Check if the caller is authorized to delete this repo
-		if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, ri.Repo, auth.Permission_REPO_DELETE); err != nil {
-			if auth.IsErrNotAuthorized(err) {
-				continue
-			}
+	completeRepos := []*pfs.RepoInfo{ri}
+	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, ri.Repo, auth.Permission_REPO_DELETE); err != nil {
+		if !auth.IsErrNotAuthorized(err) {
 			return nil, errors.EnsureStack(err)
 		}
-		completeRepos = append(completeRepos, proto.Clone(ri).(*pfs.RepoInfo))
-		if !force {
-			if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(ri.Repo)); err == nil {
-				return nil, errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
-			} else if err != nil && !errutil.IsNotFoundError(err) {
-				return nil, errors.EnsureStack(err)
-			}
+	}
+	if !force {
+		if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(ri.Repo)); err == nil {
+			return nil, errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
+		} else if err != nil && !errutil.IsNotFoundError(err) {
+			return nil, errors.EnsureStack(err)
 		}
-		// if this is a user repo, delete any dependent repos
-		if ri.Repo.Type == pfs.UserRepoType {
-			otherRepo := &pfs.RepoInfo{}
-			if err := repos.GetByIndex(pfsdb.ReposNameIndex, pfsdb.ReposNameKey(ri.Repo), otherRepo, col.DefaultOptions(), func(key string) error {
-				if _, ok := repoMap[pfsdb.RepoKey(otherRepo.Repo)]; !ok {
-					completeRepos = append(completeRepos, proto.Clone(otherRepo).(*pfs.RepoInfo))
-				}
-				return nil
-			}); err != nil && !col.IsErrNotFound(err) { // TODO(acohen4): remove this !NotFound condition - I think it's unnecessary
-				return nil, errors.Wrapf(err, "error finding dependent repos for %q", ri.Repo.Name)
+	}
+	// if this is a user repo, delete any dependent repos
+	if ri.Repo.Type == pfs.UserRepoType {
+		otherRepo := &pfs.RepoInfo{}
+		if err := repos.GetByIndex(pfsdb.ReposNameIndex, pfsdb.ReposNameKey(ri.Repo), otherRepo, col.DefaultOptions(), func(key string) error {
+			if pfsdb.RepoKey(ri.Repo) != pfsdb.RepoKey(otherRepo.Repo) {
+				completeRepos = append(completeRepos, proto.Clone(otherRepo).(*pfs.RepoInfo))
 			}
+			return nil
+		}); err != nil && !col.IsErrNotFound(err) { // TODO(acohen4): remove this !NotFound condition - I think it's unnecessary
+			return nil, errors.Wrapf(err, "error finding dependent repos for %q", ri.Repo.Name)
 		}
 	}
 	// we expect potentially complicated provenance relationships between dependent repos
@@ -1895,10 +1885,12 @@ func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Projec
 	}
 	var deleted []*pfs.Repo
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		var err error
-		deleted, err = d.deleteRepos(txnCtx, repoInfos, true)
-		if err != nil && !auth.IsErrNotAuthorized(err) {
-			return err
+		for _, ri := range repoInfos {
+			dels, err := d.deleteRepoInfo(txnCtx, ri, true)
+			if err != nil && !auth.IsErrNotAuthorized(err) {
+				return err
+			}
+			deleted = append(deleted, dels...)
 		}
 		return nil
 	}); err != nil {
