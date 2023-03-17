@@ -2002,7 +2002,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 
 	// Add the mount commands (which aren't available on Windows, so they're in
 	// their own file)
-	commands = append(commands, mountCmds()...)
+	commands = append(commands, mountCmds(mainCtx, pachctlCfg)...)
 
 	return commands
 }

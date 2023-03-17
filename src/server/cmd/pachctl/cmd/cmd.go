@@ -852,10 +852,10 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, admincmds.Cmds(mainCtx, pachctlCfg)...)
 	subcommands = append(subcommands, debugcmds.Cmds(mainCtx, pachctlCfg)...)
 	subcommands = append(subcommands, txncmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, configcmds.Cmds()...)
+	subcommands = append(subcommands, configcmds.Cmds(mainCtx, pachctlCfg)...)
 	subcommands = append(subcommands, configcmds.ConnectCmds(mainCtx, pachctlCfg)...)
 	subcommands = append(subcommands, taskcmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, misccmds.Cmds(mainCtx, pachctlCfg)...)
+	subcommands = append(subcommands, misccmds.Cmds(mainCtx)...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
 

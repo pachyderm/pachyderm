@@ -3,6 +3,8 @@ package pachctl
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	ci "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
@@ -26,6 +28,9 @@ func (cfg *Config) NewOnUserMachine(ctx context.Context, enterprise bool, opts .
 	}
 	if err != nil {
 		return nil, err
+	}
+	if enterprise {
+		fmt.Fprintf(os.Stderr, "Using enterprise context: %v\n", c.ClientContextName())
 	}
 	return c.WithCtx(ctx), nil
 }

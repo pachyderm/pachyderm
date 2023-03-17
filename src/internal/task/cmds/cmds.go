@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"os"
 
-	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
@@ -32,7 +31,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				return errors.Errorf("must set a task namespace to list a group")
 			}
 
-			client, err := pachdclient.NewOnUserMachine("user")
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}

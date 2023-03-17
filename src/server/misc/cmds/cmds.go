@@ -12,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/spf13/cobra"
@@ -20,7 +19,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
+func Cmds(ctx context.Context) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var d net.Dialer

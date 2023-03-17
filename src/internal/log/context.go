@@ -48,13 +48,13 @@ func extractLogger(ctx context.Context) *zap.Logger {
 	const skip = 2
 	if ctx == nil {
 		zap.L().WithOptions(zap.AddCallerSkip(skip)).DPanic("log: internal error: nil context provided to ExtractLogger", zap.Stack("stack"))
-		return zap.L()
+		return zap.L().WithOptions(zap.AddCallerSkip(1))
 	}
 	if l := ctx.Value(pachydermLogger{}); l != nil {
 		return l.(*zap.Logger) // let this panic; indicates a bug in this package
 	}
 	zap.L().WithOptions(zap.AddCallerSkip(skip)).DPanic("log: internal error: no logger in provided context", zap.Stack("stack"))
-	return zap.L()
+	return zap.L().WithOptions(zap.AddCallerSkip(1))
 }
 
 // LogOption is an option to add to a logger.
