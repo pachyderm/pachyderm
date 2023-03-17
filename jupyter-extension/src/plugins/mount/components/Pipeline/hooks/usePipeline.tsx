@@ -40,7 +40,12 @@ export const usePipeline = (
     setRequirements(
       metadata?.notebook.requirements ? metadata?.notebook.requirements : '',
     );
-    //TODO Pipeline spec
+    if (metadata?.run.input) {
+      const input = JSON.parse(metadata?.run.input);
+      setInputSpec(YAML.stringify(input));
+    } else {
+      setInputSpec('');
+    }
   }, [metadata]);
 
   const callCreatePipeline = async () => {
@@ -74,6 +79,17 @@ export const usePipeline = (
   };
 
   const callSavePipeline = async () => {
+    let input;
+    try {
+      input = YAML.parse(inputSpec);
+    } catch (e) {
+      if (e instanceof YAML.YAMLParseError) {
+        input = JSON.parse(inputSpec);
+      } else {
+        throw e;
+      }
+    }
+
     const samemeta: SameMetadata = {
       apiVersion: 'sameproject.ml/v1alpha1',
       environments: {
@@ -90,6 +106,7 @@ export const usePipeline = (
       },
       run: {
         name: pipelineName + ' run',
+        input: JSON.stringify(input),
       },
     };
 
