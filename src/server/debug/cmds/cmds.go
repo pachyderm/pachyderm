@@ -14,12 +14,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/spf13/cobra"
 )
 
 // Cmds returns a slice containing debug commands.
-func Cmds() []*cobra.Command {
+func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var duration time.Duration

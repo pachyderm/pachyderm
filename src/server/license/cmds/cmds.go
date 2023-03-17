@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
@@ -9,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
@@ -270,7 +272,7 @@ func GetStateCmd() *cobra.Command {
 }
 
 // Cmds returns pachctl commands related to Pachyderm Enterprise
-func Cmds() []*cobra.Command {
+func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	enterprise := &cobra.Command{

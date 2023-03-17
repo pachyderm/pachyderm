@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/server/transaction/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -16,7 +18,7 @@ import (
 
 // Cmds returns the set of commands used for managing transactions with the
 // Pachyderm CLI tool pachctl.
-func Cmds() []*cobra.Command {
+func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var raw bool

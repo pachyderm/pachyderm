@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 
 	prompt "github.com/c-bata/go-prompt"
@@ -53,7 +54,7 @@ func deduceActiveEnterpriseContext(cfg *config.Config) (string, error) {
 	return activeEnterpriseContext, nil
 }
 
-func ConnectCmds() []*cobra.Command {
+func ConnectCmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	connect := &cobra.Command{
