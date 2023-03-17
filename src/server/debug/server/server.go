@@ -183,9 +183,6 @@ func (s *debugServer) handleRedirect(
 					multierr.AppendInto(&errs, errors.Wrap(err, "collectDatabaseDump"))
 				}
 			}
-			if err := s.helmReleases(ctx, tw); err != nil {
-				multierr.AppendInto(&errs, errors.Wrap(err, "helmReleases"))
-			}
 			return errs
 		})
 	})
@@ -539,6 +536,10 @@ func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
 		defer end(log.Errorp(&retErr))
 
 		var errs error
+		// Collect helm info.
+		if err := s.helmReleases(ctx, tw); err != nil {
+			multierr.AppendInto(&errs, errors.Wrap(err, "helmReleases"))
+		}
 		// Collect input repos.
 		if err := s.collectInputRepos(ctx, tw, pachClient, limit); err != nil {
 			multierr.AppendInto(&errs, errors.Wrap(err, "collectInputRepos"))
