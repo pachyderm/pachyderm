@@ -19,7 +19,7 @@ import {mockedRequestAPI} from 'utils/testUtils';
 import {MountPlugin} from '../mount';
 import * as requestAPI from '../../../handler';
 import {waitFor} from '@testing-library/react';
-import {INotebookTracker} from '@jupyterlab/notebook';
+import {INotebookTracker, NotebookTracker} from '@jupyterlab/notebook';
 
 jest.mock('../../../handler');
 
@@ -70,7 +70,7 @@ describe('mount plugin', () => {
       defaultBrowser: fileBrowser,
       tracker: new WidgetTracker<FileBrowser>({namespace: 'test'}),
     };
-
+    tracker = new NotebookTracker({namespace: 'test'});
     restorer = new LayoutRestorer({
       connector: new StateDB(),
       first: Promise.resolve<void>(void 0),
