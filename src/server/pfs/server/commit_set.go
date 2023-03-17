@@ -69,19 +69,21 @@ func TopologicalSort(cis []*pfs.CommitInfo) []*pfs.CommitInfo {
 	for i := 0; i < len(cis); i++ {
 		k := pfsdb.CommitKey(res[i].Commit)
 		for _, c := range commitSubv[k] {
-			satisfied := true
-			ci := commits[c]
-			for _, p := range ci.DirectProvenance {
-				pk := pfsdb.CommitKey(p)
-				_, commitExists := commits[pk]
-				_, commitSorted := sorted[pk]
-				if commitExists && !commitSorted {
-					satisfied = false
+			if _, ok := sorted[c]; !ok {
+				satisfied := true
+				ci := commits[c]
+				for _, p := range ci.DirectProvenance {
+					pk := pfsdb.CommitKey(p)
+					_, commitExists := commits[pk]
+					_, commitSorted := sorted[pk]
+					if commitExists && !commitSorted {
+						satisfied = false
+					}
 				}
-			}
-			if satisfied {
-				res = append(res, ci)
-				sorted[c] = struct{}{}
+				if satisfied {
+					res = append(res, ci)
+					sorted[c] = struct{}{}
+				}
 			}
 		}
 	}
