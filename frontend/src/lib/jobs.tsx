@@ -106,5 +106,5 @@ export const getJobRuntime = (
       fromUnixTime(createdAt),
     )} - In Progress`;
   }
-  return 'In Progresss';
+  return 'In Progress';
 };

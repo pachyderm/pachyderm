@@ -18,6 +18,8 @@ import DropdownFilter, {
 } from './components/DropdownFilter/DropdownFilter';
 import styles from './TableViewFilters.module.css';
 
+export const MAX_FILTER_HEIGHT_REM = 12;
+
 type optionType = {
   name: string;
   value: string;
@@ -84,7 +86,10 @@ const TableViewFilters: React.FC<TableViewFiltersProps> = ({
   const {setValue} = formCtx;
   return (
     <>
-      <ExpandableSection expanded={filtersExpanded} maxHeightRem={12}>
+      <ExpandableSection
+        expanded={filtersExpanded}
+        maxHeightRem={MAX_FILTER_HEIGHT_REM}
+      >
         {filters.map((section) => (
           <div className={styles.filterSection} key={section.label}>
             <CaptionTextSmall className={styles.filterLabel}>
@@ -105,37 +110,43 @@ const TableViewFilters: React.FC<TableViewFiltersProps> = ({
           </div>
         ))}
       </ExpandableSection>
-      <ChipGroup className={styles.chipGroup}>
-        {clearableFiltersMap.map(({field, name, value}) => {
-          // prepare an array of filter values without the given filter
-          // if the user clicks on the chip to remove it
-          const filterOmitted = clearableFiltersMap
-            .filter(
-              (filter) => filter.field === field && filter.value !== value,
-            )
-            .map((filter) => filter.value);
-          return (
+      {!(clearableFiltersMap.length === 0 && staticFilterKeys.length === 0) && (
+        <ChipGroup className={styles.chipGroup}>
+          {clearableFiltersMap.map(({field, name, value}) => {
+            // prepare an array of filter values without the given filter
+            // if the user clicks on the chip to remove it
+            const filterOmitted = clearableFiltersMap
+              .filter(
+                (filter) => filter.field === field && filter.value !== value,
+              )
+              .map((filter) => filter.value);
+            return (
+              <Chip
+                data-testid={`Filter__${field}${name}Chip`}
+                key={`${field}${name}`}
+                onClick={() => setValue(field, filterOmitted)}
+                RightIconSVG={CloseSVG}
+              >
+                {capitalize(name)}
+              </Chip>
+            );
+          })}
+          {staticFilterKeys.map((item) => (
             <Chip
-              data-testid={`Filter__${field}${name}Chip`}
-              key={`${field}${name}`}
-              onClick={() => setValue(field, filterOmitted)}
-              RightIconSVG={CloseSVG}
+              data-testid={`Filter__${item}Chip`}
+              key={item}
+              isButton={false}
             >
-              {capitalize(name)}
+              {item}
             </Chip>
-          );
-        })}
-        {staticFilterKeys.map((item) => (
-          <Chip data-testid={`Filter__${item}Chip`} key={item} isButton={false}>
-            {item}
-          </Chip>
-        ))}
-        {clearableFiltersMap.length > 0 && (
-          <Button buttonType="ghost" onClick={() => formCtx.reset()}>
-            Clear
-          </Button>
-        )}
-      </ChipGroup>
+          ))}
+          {clearableFiltersMap.length > 0 && (
+            <Button buttonType="ghost" onClick={() => formCtx.reset()}>
+              Clear
+            </Button>
+          )}
+        </ChipGroup>
+      )}
     </>
   );
 };

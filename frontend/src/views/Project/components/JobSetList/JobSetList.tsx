@@ -5,10 +5,11 @@ import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import {PROJECT_JOBS_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 
 import JobsList from '../JobsList';
+import RuntimesChart from '../RuntimesChart';
 
 import RunsTable from './components/RunsTable';
 
-const TAB_IDS = {jobs: 'jobs', subjobs: 'subjobs'};
+const TAB_IDS = {jobs: 'jobs', subjobs: 'subjobs', runtimes: 'runtimes'};
 
 const JobSetList: React.FC = () => {
   const [filtersExpanded, setFiltersExpanded] = useState(false);
@@ -29,6 +30,12 @@ const JobSetList: React.FC = () => {
       </TableViewSection>
       <TableViewSection id={TAB_IDS.subjobs}>
         <JobsList
+          selectedJobSets={searchParams.selectedJobs}
+          filtersExpanded={filtersExpanded}
+        />
+      </TableViewSection>
+      <TableViewSection id={TAB_IDS.runtimes}>
+        <RuntimesChart
           selectedJobSets={searchParams.selectedJobs}
           filtersExpanded={filtersExpanded}
         />

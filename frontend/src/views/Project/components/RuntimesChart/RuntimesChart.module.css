@@ -1,0 +1,29 @@
+.base {
+  background-color: var(--white);
+  padding: 1rem;
+  padding-top: 2rem;
+  overflow-y: scroll;
+  border-top: solid 1px var(--border-grey);
+}
+
+.legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.legendItem {
+  margin-right: 1rem;
+}
+
+.legendBox,
+.failedBox {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+  display: inline-block;
+}
+
+.failedBox {
+  border: dashed 2px var(--error-red);
+}
