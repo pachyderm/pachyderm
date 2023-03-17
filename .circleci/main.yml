@@ -449,6 +449,8 @@ jobs:
       image: << pipeline.parameters.machine_image >>
     steps:
       - checkout
+      - go/install:
+          version: << pipeline.parameters.go-version >>
       - run:
           name: setup env vars
           command: |
@@ -476,11 +478,22 @@ jobs:
       resource_class:
         type: string
         default: xlarge
+      arch:
+        type: string
+        default: amd64
     resource_class: << parameters.resource_class >>
     machine:
       image: << pipeline.parameters.machine_image >>
     steps:
       - checkout
+      # go/install doesn't support arm64 yet
+      - run:
+          name: install go
+          command: |
+            sudo rm -rf /usr/local/go && curl --fail --location -sS "https://dl.google.com/go/go<< pipeline.parameters.go-version >>.linux-<< parameters.arch >>.tar.gz" | sudo tar --no-same-owner -xz -C /usr/local
+            echo "export PATH=$PATH:/usr/local/go/bin" >> "$BASH_ENV"
+            sudo chown -R "$(whoami)": /usr/local/go
+            echo "Installed " && go version
       - run:
           name: setup env vars
           command: |
@@ -1486,9 +1499,11 @@ workflows:
       - deploy-tests:
           name: amd64 deploy tests
           resource_class: xlarge # amd64
+          arch: amd64
       - deploy-tests:
           name: arm64 deploy tests
           resource_class: arm.xlarge # arm64
+          arch: arm64
   jupyter-extension:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
