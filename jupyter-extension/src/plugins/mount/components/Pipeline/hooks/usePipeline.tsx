@@ -74,7 +74,7 @@ export const usePipeline = (
   };
 
   const callSavePipeline = async () => {
-    const kalemeta: SameMetadata = {
+    const samemeta: SameMetadata = {
       apiVersion: 'sameproject.ml/v1alpha1',
       environments: {
         default: {
@@ -93,7 +93,7 @@ export const usePipeline = (
       },
     };
 
-    saveNotebookMetaData(kalemeta);
+    saveNotebookMetaData(samemeta);
     console.log('save pipeline called');
   };
 
