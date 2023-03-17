@@ -8,8 +8,9 @@ import {
   LinearScale,
   CategoryScale,
 } from 'chart.js';
+import zoomPlugin from 'chartjs-plugin-zoom';
 import {format, fromUnixTime} from 'date-fns';
-import React, {useRef, useCallback} from 'react';
+import React, {useRef, useCallback, useMemo} from 'react';
 import {getElementAtEvent} from 'react-chartjs-2';
 import {useHistory} from 'react-router-dom';
 
@@ -20,7 +21,7 @@ import {
   TableViewLoadingDots,
 } from '@dash-frontend/components/TableView';
 import {MAX_FILTER_HEIGHT_REM} from '@dash-frontend/components/TableView/components/TableViewFilters/TableViewFilters';
-import {useJobs} from '@dash-frontend/hooks/useJobs';
+import {useJobsQuery} from '@dash-frontend/generated/hooks';
 import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {Form} from '@pachyderm/components';
@@ -34,7 +35,14 @@ import styles from './RuntimesChart.module.css';
 
 const TABLEVIEW_HEADER_OFFSET = 13.5 * 16;
 
-ChartJS.register(BarElement, Title, Legend, CategoryScale, LinearScale);
+ChartJS.register(
+  BarElement,
+  Title,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  zoomPlugin,
+);
 
 type RuntimesChartProps = {
   selectedJobSets?: string[];
@@ -65,46 +73,6 @@ const DEFAULT_FONT = {
   size: 14,
 };
 
-const BASE_OPTIONS: ChartOptions<'bar'> = {
-  animation: false,
-  indexAxis: 'y',
-  layout: {
-    padding: 20,
-  },
-  scales: {
-    y: {
-      ticks: {
-        font: DEFAULT_FONT,
-      },
-      beginAtZero: true,
-      border: {
-        color: '#000',
-      },
-    },
-    x: {
-      ticks: {
-        font: DEFAULT_FONT,
-      },
-      title: {
-        display: true,
-        text: 'Job Duration (Seconds)',
-        font: {
-          family: 'Public Sans',
-          weight: '600',
-          size: 12,
-        },
-      },
-      beginAtZero: true,
-      position: 'top',
-      border: {
-        color: '#000',
-      },
-    },
-  },
-  responsive: true,
-  maintainAspectRatio: false,
-};
-
 const RuntimesChart: React.FC<RuntimesChartProps> = ({
   selectedJobSets,
   selectedPipelines,
@@ -114,29 +82,87 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
   const {projectId} = useUrlState();
   const browserHistory = useHistory();
   const {getPathToDatumLogs} = useLogsNavigation();
-  const {jobs, loading, error} = useJobs({
-    projectId,
-    jobSetIds: selectedJobSets,
-    pipelineIds: selectedPipelines,
+  const {data, error, loading} = useJobsQuery({
+    variables: {
+      args: {
+        projectId,
+        jobSetIds: selectedJobSets,
+        pipelineIds: selectedPipelines,
+      },
+    },
   });
   const {filteredJobs, formCtx, clearableFiltersMap, multiselectFilters} =
-    useRuntimesChartFilters({jobs});
+    useRuntimesChartFilters({jobs: data?.jobs});
   const {chartData, pipelineDatasets, jobsCrossReference, pipelines, jobIds} =
     useRuntimesChartData(filteredJobs);
   const {tooltip, setTooltipState} = useRuntimesChartTooltip();
 
-  const options = {
-    ...BASE_OPTIONS,
-    plugins: {
-      legend: {
-        display: false,
+  const options: ChartOptions<'bar'> = useMemo(
+    () => ({
+      animation: false,
+      indexAxis: 'y',
+      layout: {
+        padding: 20,
       },
-      tooltip: {
-        enabled: false,
-        external: setTooltipState,
+      scales: {
+        y: {
+          ticks: {
+            font: DEFAULT_FONT,
+          },
+          beginAtZero: true,
+          border: {
+            color: '#000',
+          },
+        },
+        x: {
+          ticks: {
+            font: DEFAULT_FONT,
+          },
+          title: {
+            display: true,
+            text: 'Job Duration (Seconds)',
+            font: {
+              family: 'Public Sans',
+              weight: '600',
+              size: 12,
+            },
+          },
+          beginAtZero: true,
+          position: 'top',
+          border: {
+            color: '#000',
+          },
+        },
       },
-    },
-  };
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false,
+        },
+        tooltip: {
+          enabled: false,
+          external: setTooltipState,
+        },
+        zoom: {
+          limits: {
+            x: {min: 0},
+          },
+          pan: {
+            enabled: true,
+            mode: 'x',
+          },
+          zoom: {
+            wheel: {
+              enabled: true,
+            },
+            mode: 'x',
+          },
+        },
+      },
+    }),
+    [setTooltipState],
+  );
 
   const handleClick = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement, MouseEvent>) => {

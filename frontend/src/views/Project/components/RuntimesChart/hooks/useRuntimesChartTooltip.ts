@@ -11,29 +11,23 @@ const useRuntimesChartTooltip = () => {
     runtime: '',
   });
 
-  const setTooltipState = useCallback(
-    (context) => {
-      const tooltipModel = context.tooltip;
+  const setTooltipState = useCallback((context) => {
+    const tooltipModel = context.tooltip;
 
-      if (tooltipModel.opacity === 0) {
-        if (tooltip.opacity !== 0)
-          setTooltip((prev) => ({...prev, opacity: 0}));
-        return;
-      }
-      const newTooltipData = {
-        opacity: 1,
-        left: context.tooltip._eventPosition.x + TOOLTIP_OFFSET_X,
-        top: context.tooltip._eventPosition.y + TOOLTIP_OFFSET_Y,
-        runtime: String(
-          tooltipModel.dataPoints[0].raw[1] - tooltipModel.dataPoints[0].raw[0],
-        ),
-      };
-      if (tooltip.opacity !== newTooltipData.opacity) {
-        setTooltip(newTooltipData);
-      }
-    },
-    [tooltip],
-  );
+    if (tooltipModel.opacity === 0) {
+      setTooltip((prev) => ({...prev, opacity: 0}));
+      return;
+    }
+    const newTooltipData = {
+      opacity: 1,
+      left: context.tooltip._eventPosition.x + TOOLTIP_OFFSET_X,
+      top: context.tooltip._eventPosition.y + TOOLTIP_OFFSET_Y,
+      runtime: String(
+        tooltipModel.dataPoints[0].raw[1] - tooltipModel.dataPoints[0].raw[0],
+      ),
+    };
+    setTooltip(newTooltipData);
+  }, []);
 
   return {tooltip, setTooltipState};
 };
