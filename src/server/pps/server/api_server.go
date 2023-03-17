@@ -3200,13 +3200,13 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 }
 
 func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
-	commitInfos, err := a.env.PFSServer.InspectCommitSetInTransaction(txnCtx, client.NewCommitSet(txnCtx.CommitSetID))
+	commitInfos, err := a.env.PFSServer.InspectCommitSetInTransaction(txnCtx, client.NewCommitSet(txnCtx.CommitSetID), false)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 	for _, commitInfo := range commitInfos {
 		// Skip alias commits and any commits which have already been finished
-		if commitInfo.Finishing != nil || commitInfo.Commit.ID != txnCtx.CommitSetID {
+		if commitInfo.Finishing != nil {
 			continue
 		}
 		// Skip commits from system repos

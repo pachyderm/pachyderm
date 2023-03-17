@@ -669,8 +669,6 @@ func (d *driver) linkParent(txnCtx *txncontext.TransactionContext, child *pfs.Co
 	// Resolve 'parent' if it's a branch that isn't 'branch' (which can
 	// happen if 'branch' is new and diverges from the existing branch in
 	// 'parent').
-	// Clone the parent proto because resolveCommit will modify it.
-	parent = proto.Clone(parent).(*pfs.Commit)
 	parentCommitInfo, err := d.resolveCommit(txnCtx.SqlTx, parent)
 	if err != nil {
 		return errors.Wrapf(err, "parent commit not found")
@@ -681,8 +679,6 @@ func (d *driver) linkParent(txnCtx *txncontext.TransactionContext, child *pfs.Co
 	}
 	child.ParentCommit = parentCommitInfo.Commit
 	parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, child.Commit)
-	// Note: error is emitted if parent.ID is a missing/invalid branch OR a
-	// missing/invalid commit ID
 	return errors.Wrapf(d.commits.ReadWrite(txnCtx.SqlTx).Put(parentCommitInfo.Commit, parentCommitInfo),
 		"could not resolve parent commit %s", parent)
 }
@@ -783,7 +779,7 @@ func (d *driver) startCommit(
 		// Otherwise, we don't allow user code to start commits on output branches
 		return nil, pfsserver.ErrCommitOnOutputBranch{Branch: branch}
 	}
-	if err := d.addCommit(txnCtx, newCommitInfo, parent, branchInfo.DirectProvenance, true /* needsFinishedParent */); err != nil {
+	if err := d.addCommit(txnCtx, newCommitInfo, parent, branchInfo.DirectProvenance, true); err != nil {
 		return nil, err
 	}
 	// Defer propagation of the commit until the end of the transaction so we can
@@ -894,7 +890,6 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 	sort.Slice(propagatedBranches, func(i, j int) bool {
 		return len(propagatedBranches[i].Provenance) < len(propagatedBranches[j].Provenance)
 	})
-	seenAliases := make(map[string]*pfs.BranchInfo)
 	// add new commits, set their ancestry + provenance pointers, and advance branch heads
 	for _, bi := range propagatedBranches {
 		// TODO(acohen4): can we just make calls to addCommit() here?
@@ -928,12 +923,10 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 				if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(b), provBranchInfo); err != nil {
 					return errors.Wrapf(err, "get provenant branch %q", pfsdb.BranchKey(b))
 				}
-				seenAliases[pfsdb.BranchKey(b)] = provBranchInfo
 				provCommit = provBranchInfo.Head
 			}
 			newCommitInfo.DirectProvenance = append(newCommitInfo.DirectProvenance, provCommit)
 		}
-		// we might be able to find an older parent commit that better reflects the provenance state, saving work
 		// Set 'newCommit's ParentCommit, 'branch.Head's ChildCommits and 'branch.Head'
 		newCommitInfo.ParentCommit = proto.Clone(bi.Head).(*pfs.Commit)
 		bi.Head = newCommit
@@ -1090,7 +1083,6 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 				return nil, err
 			}
 			commit.ID = resolvedCommit.ID
-			// re-query
 			if err := d.commits.ReadWrite(sqlTx).Get(commit, commitInfo); err != nil {
 				return nil, errors.EnsureStack(err)
 			}
@@ -1581,7 +1573,7 @@ func (d *driver) validateDAGStructure(txnCtx *txncontext.TransactionContext, bi 
 	foundRepos := make(map[string]struct{})
 	for _, bi := range branchInfoCache {
 		if _, ok := foundRepos[bi.Branch.Repo.String()]; ok {
-			return &pfsserver.ErrInvalidBranchStructure{Branch: bi.Branch}
+			return &pfsserver.ErrInvalidProvenanceStructure{Branch: bi.Branch}
 		}
 		foundRepos[bi.Branch.Repo.String()] = struct{}{}
 	}

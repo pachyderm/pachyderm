@@ -38,8 +38,8 @@ func CommitSetProvenance(tx *pachsql.Tx, id string) ([]*pfs.Commit, error) {
           )
           SELECT DISTINCT commit_id
           FROM pfs.commits, prov 
-          WHERE int_id = prov.to_id AND commit_set_id != $2;`
-	rows, err := tx.Queryx(q, id, id)
+          WHERE int_id = prov.to_id AND commit_set_id != $1;`
+	rows, err := tx.Queryx(q, id)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -70,8 +70,8 @@ func CommitSetSubvenance(tx *pachsql.Tx, id string) ([]*pfs.Commit, error) {
           )
           SELECT DISTINCT commit_id 
           FROM pfs.commits, subv 
-          WHERE int_id = subv.from_id AND commit_set_id != $2;`
-	rows, err := tx.Queryx(q, id, id)
+          WHERE int_id = subv.from_id AND commit_set_id != $1;`
+	rows, err := tx.Queryx(q, id)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -93,17 +93,8 @@ func AddCommit(tx *pachsql.Tx, commit *pfs.Commit) error {
 	return errors.Wrapf(err, "insert commit %q into pfs.commits", CommitKey(commit))
 }
 
-func DeleteCommit(tx *pachsql.Tx, commitKey string) error {
-	id, err := getCommitTableID(tx, commitKey)
-	if err != nil {
-		return err
-	}
-	stmt := `DELETE FROM pfs.commits WHERE int_id = $1;`
-	_, err = tx.Exec(stmt, id)
-	return errors.Wrapf(err, "delete from pfs.commits")
-}
-
-func getCommitTableID(tx *pachsql.Tx, commitKey string) (int, error) {
+func getCommitTableID(tx *pachsql.Tx, commit *pfs.Commit) (int, error) {
+	commitKey := CommitKey(commit)
 	query := `SELECT int_id FROM pfs.commits WHERE commit_id = $1;`
 	rows, err := tx.Queryx(query, commitKey)
 	if err != nil {
@@ -119,11 +110,11 @@ func getCommitTableID(tx *pachsql.Tx, commitKey string) (int, error) {
 }
 
 func AddCommitProvenance(tx *pachsql.Tx, from, to *pfs.Commit) error {
-	fromId, err := getCommitTableID(tx, CommitKey(from))
+	fromId, err := getCommitTableID(tx, from)
 	if err != nil {
 		return errors.Wrapf(err, "get int id for 'from' commit, %q", CommitKey(from))
 	}
-	toId, err := getCommitTableID(tx, CommitKey(to))
+	toId, err := getCommitTableID(tx, to)
 	if err != nil {
 		return errors.Wrapf(err, "get int id for 'to' commit, %q", CommitKey(to))
 	}

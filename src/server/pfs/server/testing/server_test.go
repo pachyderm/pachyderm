@@ -100,12 +100,12 @@ func assertMasterHeads(t *testing.T, c *client.APIClient, repoToCommitIDs map[st
 // helper function for building DAGs by creating a repo with specified provenant repos
 // this function sets up a master branch for each repo
 func buildDAG(t *testing.T, c *client.APIClient, repo string, provenance ...string) {
-	require.NoError(t, c.CreateRepo(repo))
+	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	var provs []*pfs.Branch
 	for _, p := range provenance {
 		provs = append(provs, client.NewProjectBranch(pfs.DefaultProjectName, p, "master"))
 	}
-	require.NoError(t, c.CreateBranch(repo, "master", "", "", provs))
+	require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, repo, "master", "", "", provs))
 	require.NoError(t, finishCommit(c, repo, "master", ""))
 }
 
@@ -2081,7 +2081,7 @@ func TestPFS(suite *testing.T) {
 		var benches []string
 		start := time.Now()
 		checkpoint := func(label string) {
-			benches = append(benches, fmt.Sprintf("%s: %v\n", label, time.Now().Sub(start)))
+			benches = append(benches, fmt.Sprintf("%s: %v\n", label, time.Since(start)))
 			start = time.Now()
 		}
 		makeCommit := func(c *client.APIClient, repos ...string) *pfs.CommitSet {
@@ -2096,6 +2096,7 @@ func TestPFS(suite *testing.T) {
 				cs = append(cs, commit)
 			}
 			txnInfo, err := env.PachClient.FinishTransaction(txn)
+			require.NoError(t, err)
 			for _, commit := range cs {
 				require.NoError(t, c.PutFile(commit, "foo", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 				require.NoError(t, finishCommit(c, commit.Repo.Name, "master", ""))

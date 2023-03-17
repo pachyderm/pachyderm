@@ -139,9 +139,9 @@ type ErrDropWithChildren struct {
 	Commit *pfs.Commit
 }
 
-// ErrInvalidBranchStructure represents an error where more than one branch
+// ErrInvalidProvenanceStructure represents an error where more than one branch
 // from a repo is reachable in a DAG. Such a DAG structure is unsupported.
-type ErrInvalidBranchStructure struct {
+type ErrInvalidProvenanceStructure struct {
 	Branch *pfs.Branch
 }
 
@@ -288,7 +288,7 @@ func (e ErrDropWithChildren) Error() string {
 	return fmt.Sprintf("cannot drop a commit that has children: %s", e.Commit)
 }
 
-func (e ErrInvalidBranchStructure) Error() string {
+func (e ErrInvalidProvenanceStructure) Error() string {
 	return fmt.Sprintf("multiple branches from the same repo, %q, cannot participate in a DAG", e.Branch.Repo.String())
 }
 

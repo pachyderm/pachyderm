@@ -17,10 +17,10 @@ import (
 // returns CommitInfos in a commit set, topologically sorted.
 // A commit set will include all the commits that were created across repos for a run, along
 // with all of the commits that the run's commit's rely on (present in previous commit sets).
-func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, filterAliases bool) ([]*pfs.CommitInfo, error) {
-	cis := make([]*pfs.CommitInfo, 0)
+func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitSet *pfs.CommitSet, filterAliases bool) ([]*pfs.CommitInfo, error) {
+	var cis []*pfs.CommitInfo
 	if !filterAliases {
-		cs, err := pfsdb.CommitSetProvenance(txnCtx.SqlTx, commitset.ID)
+		cs, err := pfsdb.CommitSetProvenance(txnCtx.SqlTx, commitSet.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -33,7 +33,7 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 		}
 	}
 	ci := &pfs.CommitInfo{}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitset.ID, ci, col.DefaultOptions(), func(string) error {
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitSet.ID, ci, col.DefaultOptions(), func(string) error {
 		cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
 		return nil
 	}); err != nil {
@@ -107,7 +107,6 @@ func (d *driver) inspectCommitSetImmediate(ctx context.Context, commitset *pfs.C
 	return nil
 }
 
-// applies a callback, cb, to all the commits in a commit set. A commit set includes
 func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet, wait bool, cb func(*pfs.CommitInfo) error) error {
 	if !wait {
 		return d.inspectCommitSetImmediate(ctx, commitset, cb)
@@ -121,7 +120,7 @@ func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet,
 		return cb(ci)
 
 	}
-	unfinishedCommits := make([]*pfs.Commit, 0)
+	var unfinishedCommits []*pfs.Commit
 	// NOTE: before 2.5, a triggered commits would be included as part of the same commit set as the triggering commit set,
 	// so we would wait for all of the current commit set to finish, then check if new previously unknown commits are added due to triggers.
 	if err := d.inspectCommitSetImmediate(ctx, commitset, func(ci *pfs.CommitInfo) error {
