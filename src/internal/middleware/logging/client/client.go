@@ -28,11 +28,11 @@ func (s *loggingStream) RecvMsg(m any) error {
 	if err := s.ClientStream.RecvMsg(m); err != nil {
 		if err == io.EOF {
 			s.done(log.Metadata("trailer", s.Trailer()))
-			return err
+			return err //nolint:wrapcheck
 		}
 		log.Debug(s.Context(), "stream ended unexpectedly", zap.Error(err))
 		s.done(zap.Error(err), log.Metadata("trailer", s.Trailer()))
-		return err
+		return err //nolint:wrapcheck
 	}
 	var field log.Field
 	if p, ok := m.(proto.Message); ok {
@@ -60,7 +60,7 @@ func (s *loggingStream) SendMsg(m any) (retErr error) {
 	}
 	if err := s.ClientStream.SendMsg(m); err != nil {
 		log.Debug(s.Context(), "error sending message", zap.Error(err), field)
-		return err
+		return err //nolint:wrapcheck
 	}
 	log.Debug(s.Context(), "sent message", field)
 	return nil
@@ -70,7 +70,7 @@ func (s *loggingStream) CloseSend() error {
 	err := s.ClientStream.CloseSend()
 	log.Debug(s.Context(), "send side of stream closed", zap.Error(err))
 	s.closedSend.Store(true)
-	return err
+	return err //nolint:wrapcheck
 }
 
 func LogStream(rctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {

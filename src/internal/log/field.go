@@ -7,7 +7,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/constants"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/protoextensions"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -78,14 +79,16 @@ func Metadata(name string, md metadata.MD) Field {
 			case 1:
 				enc.AddString(strings.ToLower(k), v[0])
 			default:
-				enc.AddArray(strings.ToLower(k), zapcore.ArrayMarshalerFunc(
+				if err := enc.AddArray(strings.ToLower(k), zapcore.ArrayMarshalerFunc(
 					func(enc zapcore.ArrayEncoder) error {
 						for _, x := range v {
 							enc.AppendString(x)
 						}
 						return nil
 					},
-				))
+				)); err != nil {
+					return errors.Wrap(err, "add metadata value array")
+				}
 			}
 		}
 		return nil
@@ -98,8 +101,8 @@ func OutgoingMetadata(ctx context.Context) Field {
 	if !ok {
 		return zap.Skip()
 	}
-	if _, ok := md[auth.ContextTokenKey]; ok {
-		md[auth.ContextTokenKey] = []string{"..."}
+	if _, ok := md[constants.ContextTokenKey]; ok {
+		md[constants.ContextTokenKey] = []string{"..."}
 	}
 	return Metadata("metadata", md)
 }
