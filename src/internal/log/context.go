@@ -98,7 +98,7 @@ func WithoutRatelimit() LogOption {
 // AddLogger is used by the pctx package to create empty contexts.  It should not be used outside of
 // the pctx package.
 func AddLogger(ctx context.Context) context.Context {
-	return withLogger(context.TODO(), zap.L().WithOptions(zap.AddCallerSkip(1)))
+	return withLogger(ctx, zap.L().WithOptions(zap.AddCallerSkip(1)))
 }
 
 // ChildLogger is used by the pctx package to create child contexts.  It should not be used outside of the

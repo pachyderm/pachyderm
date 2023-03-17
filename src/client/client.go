@@ -179,6 +179,12 @@ func NewFromURI(uri string, options ...Option) (*APIClient, error) {
 
 // NewFromPachdAddress creates a new client given a parsed GRPC address
 func NewFromPachdAddress(pachdAddress *grpcutil.PachdAddress, options ...Option) (*APIClient, error) {
+	return NewFromPachdAddressContext(pctx.TODO(), pachdAddress, options...)
+}
+
+// NewFromPachdAddressContext is like NewFromPachdAddress, but accepts a context to use for dialing
+// and future RPCs.
+func NewFromPachdAddressContext(ctx context.Context, pachdAddress *grpcutil.PachdAddress, options ...Option) (*APIClient, error) {
 	// By default, use the system CAs for secure connections
 	// if no others are specified.
 	if pachdAddress.Secured {
@@ -204,7 +210,7 @@ func NewFromPachdAddress(pachdAddress *grpcutil.PachdAddress, options ...Option)
 		caCerts:      settings.caCerts,
 		gzipCompress: settings.gzipCompress,
 	}
-	if err := c.connect(settings.dialTimeout, settings.unaryInterceptors, settings.streamInterceptors); err != nil {
+	if err := c.connect(ctx, settings.dialTimeout, settings.unaryInterceptors, settings.streamInterceptors); err != nil {
 		return nil, err
 	}
 	return c, nil
@@ -533,6 +539,12 @@ func NewEnterpriseClientForTest() (*APIClient, error) {
 // NewOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
 // if it exists. This is intended to be used in the pachctl binary.
 func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
+	return NewOnUserMachineContext(pctx.TODO(), prefix, options...)
+}
+
+// NewOnUserMachineContext is like NewOnUserMachine, but accepts a context for dialing and future
+// RPCs.
+func NewOnUserMachineContext(ctx context.Context, prefix string, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
@@ -541,13 +553,19 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get active context")
 	}
-	return newOnUserMachine(cfg, context, name, prefix, options...)
+	return newOnUserMachine(ctx, cfg, context, name, prefix, options...)
 }
 
 // NewEnterpriseClientOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
 // if it exists. This is intended to be used in the pachctl binary to communicate with the
 // enterprise server.
 func NewEnterpriseClientOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
+	return NewOnUserMachineContext(pctx.TODO(), prefix, options...)
+}
+
+// NewEnterpriseClientOnUserMachineContext is like NewEnterpriseClientOnUserMachine, but accepts a
+// context for dialing and future RPCs.
+func NewEnterpriseClientOnUserMachineContext(ctx context.Context, prefix string, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
@@ -556,14 +574,14 @@ func NewEnterpriseClientOnUserMachine(prefix string, options ...Option) (*APICli
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get active context")
 	}
-	return newOnUserMachine(cfg, context, name, prefix, options...)
+	return newOnUserMachine(ctx, cfg, context, name, prefix, options...)
 }
 
 // TODO(msteffen) this logic is fairly linux/unix specific, and makes the
 // pachyderm client library incompatible with Windows. We may want to move this
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
-func newOnUserMachine(cfg *config.Config, context *config.Context, contextName, prefix string, options ...Option) (*APIClient, error) {
+func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.Context, contextName, prefix string, options ...Option) (*APIClient, error) {
 	// create new pachctl client
 	pachdAddress, cfgOptions, err := getUserMachineAddrAndOpts(context)
 	if err != nil {
@@ -806,7 +824,7 @@ func DefaultDialOptions() []grpc.DialOption {
 	}
 }
 
-func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.UnaryClientInterceptor, streamInterceptors []grpc.StreamClientInterceptor) error {
+func (c *APIClient) connect(rctx context.Context, timeout time.Duration, unaryInterceptors []grpc.UnaryClientInterceptor, streamInterceptors []grpc.StreamClientInterceptor) error {
 	dialOptions := DefaultDialOptions()
 	if c.caCerts == nil {
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -823,7 +841,7 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	if len(streamInterceptors) > 0 {
 		dialOptions = append(dialOptions, grpc.WithChainStreamInterceptor(streamInterceptors...))
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(rctx, timeout)
 	defer cancel()
 
 	// By default GRPC will attempt to get service config from a TXT record when
@@ -849,6 +867,7 @@ func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.Unar
 	c.ProxyClient = proxy.NewAPIClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = grpc_health_v1.NewHealthClient(clientConn)
+	c.ctx = rctx
 	return nil
 }
 
