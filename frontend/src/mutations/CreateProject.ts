@@ -5,6 +5,7 @@ export const CREATE_PROJECT_MUTATION = gql`
     createProject(args: $args) {
       id
       description
+      status
     }
   }
 `;

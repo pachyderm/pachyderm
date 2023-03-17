@@ -813,6 +813,7 @@ const pfs = () => {
         createProject: (call, callback) => {
           const projectName = call.request.getProject()?.getName();
           const projectDescription = call.request.getDescription();
+          const update = call.request.getUpdate();
 
           if (!projectName) {
             callback({
@@ -822,19 +823,36 @@ const pfs = () => {
             return;
           }
 
-          if (projectName && projectName in MockState.state.projects) {
-            callback({
-              code: Status.ALREADY_EXISTS,
-              details: `projects ${projectName} already exists.`,
-            });
-            return;
+          const projectExists =
+            projectName && projectName in MockState.state.projects;
+
+          if (!update) {
+            if (projectExists) {
+              callback({
+                code: Status.ALREADY_EXISTS,
+                details: `project ${projectName} already exists.`,
+              });
+              return;
+            }
+
+            MockState.state.projects[projectName] = new ProjectInfo()
+              .setProject(new Project().setName(projectName))
+              .setDescription(projectDescription);
+
+            callback(null, new Empty());
+          } else {
+            if (!projectExists) {
+              callback({
+                code: Status.NOT_FOUND,
+                details: `project ${projectName} not found`,
+              });
+              return;
+            }
+
+            const project = MockState.state.projects[projectName];
+            project.setDescription(projectDescription);
+            callback(null, new Empty());
           }
-
-          MockState.state.projects[projectName] = new ProjectInfo()
-            .setProject(new Project().setName(projectName))
-            .setDescription(projectDescription);
-
-          callback(null, new Empty());
         },
       };
     },

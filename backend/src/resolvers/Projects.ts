@@ -14,6 +14,7 @@ interface ProjectsResolver {
   };
   Mutation: {
     createProject: MutationResolvers['createProject'];
+    updateProject: MutationResolvers['updateProject'];
   };
 }
 
@@ -107,7 +108,26 @@ const projectsResolver: ProjectsResolver = {
       return {
         id: project.project?.name || '',
         description: project.description,
+        status: ProjectStatus.HEALTHY,
       };
+    },
+    updateProject: async (
+      _parent,
+      {args: {name, description}},
+      {pachClient},
+    ) => {
+      await pachClient.pfs().createProject({
+        name,
+        description: description,
+        update: true,
+      });
+      const pipelines = await pachClient
+        .pps()
+        .listPipeline({projectIds: [name]});
+      return rpcToGraphqlProject(
+        await pachClient.pfs().inspectProject(name),
+        pipelines,
+      );
     },
   },
 };

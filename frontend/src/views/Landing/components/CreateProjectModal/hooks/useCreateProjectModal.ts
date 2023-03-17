@@ -4,7 +4,6 @@ import {useForm} from 'react-hook-form';
 
 import useCreateProject from '@dash-frontend/hooks/useCreateProject';
 import {useProjects} from '@dash-frontend/hooks/useProjects';
-import useRefetchOnCreate from '@dash-frontend/hooks/useRefetchOnCreate';
 
 type CreateProjectFormValues = {
   name: string;
@@ -21,10 +20,7 @@ const useCreateProjectModal = (onHide?: () => void) => {
     projects,
     loading: projectsLoading,
     error: projectsError,
-    refetch,
   } = useProjects();
-
-  useRefetchOnCreate({refetch, loading: createProjectLoading});
 
   const formCtx = useForm<CreateProjectFormValues>({mode: 'onChange'});
 

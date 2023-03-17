@@ -412,7 +412,7 @@ export type Mutation = {
   __typename?: 'Mutation';
   createBranch: Branch;
   createPipeline: Pipeline;
-  createProject: ProjectWithoutStatus;
+  createProject: Project;
   createRepo: Repo;
   deleteFile: Scalars['ID'];
   deletePipeline?: Maybe<Scalars['Boolean']>;
@@ -421,6 +421,7 @@ export type Mutation = {
   finishCommit: Scalars['Boolean'];
   putFilesFromURLs: Array<Scalars['String']>;
   startCommit: OpenCommit;
+  updateProject: Project;
 };
 
 export type MutationCreateBranchArgs = {
@@ -465,6 +466,10 @@ export type MutationPutFilesFromUrLsArgs = {
 
 export type MutationStartCommitArgs = {
   args: StartCommitArgs;
+};
+
+export type MutationUpdateProjectArgs = {
+  args: UpdateProjectArgs;
 };
 
 export type NodeSelector = {
@@ -857,6 +862,11 @@ export type TransformInput = {
   stdinList?: InputMaybe<Array<Scalars['String']>>;
 };
 
+export type UpdateProjectArgs = {
+  description: Scalars['String'];
+  name: Scalars['String'];
+};
+
 export type Vertex = {
   __typename?: 'Vertex';
   access: Scalars['Boolean'];
@@ -1077,6 +1087,7 @@ export type ResolversTypes = ResolversObject<{
   Tokens: ResolverTypeWrapper<Tokens>;
   Transform: ResolverTypeWrapper<Transform>;
   TransformInput: TransformInput;
+  UpdateProjectArgs: UpdateProjectArgs;
   Vertex: ResolverTypeWrapper<Vertex>;
   WorkspaceLogsArgs: WorkspaceLogsArgs;
 }>;
@@ -1163,6 +1174,7 @@ export type ResolversParentTypes = ResolversObject<{
   Tokens: Tokens;
   Transform: Transform;
   TransformInput: TransformInput;
+  UpdateProjectArgs: UpdateProjectArgs;
   Vertex: Vertex;
   WorkspaceLogsArgs: WorkspaceLogsArgs;
 }>;
@@ -1524,7 +1536,7 @@ export type MutationResolvers<
     RequireFields<MutationCreatePipelineArgs, 'args'>
   >;
   createProject?: Resolver<
-    ResolversTypes['ProjectWithoutStatus'],
+    ResolversTypes['Project'],
     ParentType,
     ContextType,
     RequireFields<MutationCreateProjectArgs, 'args'>
@@ -1576,6 +1588,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationStartCommitArgs, 'args'>
+  >;
+  updateProject?: Resolver<
+    ResolversTypes['Project'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationUpdateProjectArgs, 'args'>
   >;
 }>;
 
@@ -2241,9 +2259,10 @@ export type CreateProjectMutationVariables = Exact<{
 export type CreateProjectMutation = {
   __typename?: 'Mutation';
   createProject: {
-    __typename?: 'ProjectWithoutStatus';
+    __typename?: 'Project';
     id: string;
     description?: string | null;
+    status: ProjectStatus;
   };
 };
 
@@ -2332,6 +2351,20 @@ export type StartCommitMutation = {
         type?: string | null;
       } | null;
     };
+  };
+};
+
+export type UpdateProjectMutationVariables = Exact<{
+  args: UpdateProjectArgs;
+}>;
+
+export type UpdateProjectMutation = {
+  __typename?: 'Mutation';
+  updateProject: {
+    __typename?: 'Project';
+    id: string;
+    description?: string | null;
+    status: ProjectStatus;
   };
 };
 

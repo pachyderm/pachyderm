@@ -5,14 +5,13 @@ interface UseProjectArgs {
 }
 
 const useProject = ({id}: UseProjectArgs) => {
-  const {data, error, loading} = useProjectQuery({
+  const projectQuery = useProjectQuery({
     variables: {id},
   });
 
   return {
-    project: data?.project,
-    error,
-    loading,
+    ...projectQuery,
+    project: projectQuery?.data?.project,
   };
 };
 

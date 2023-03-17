@@ -1,5 +1,12 @@
 import {mockServer} from '@dash-backend/testHelpers';
-import {render, waitFor, within, screen} from '@testing-library/react';
+import {
+  render,
+  waitFor,
+  within,
+  screen,
+  waitForElementToBeRemoved,
+} from '@testing-library/react';
+import userEvent from '@testing-library/user-event/';
 import React from 'react';
 
 import {withContextProviders, click, type} from '@dash-frontend/testHelpers';
@@ -361,5 +368,105 @@ describe('Landing', () => {
         expect(within(modal).getByText(assertionText)).toBeInTheDocument();
       },
     );
+  });
+
+  describe('Update Project Modal', () => {
+    it('should update a project description with no text then with text', async () => {
+      render(<Landing />);
+
+      // wait for page to populate
+      expect(await screen.findByText('Egress-Examples')).toBeInTheDocument();
+
+      // open the modal on the correct row
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(
+        screen.queryByRole('menuitem', {
+          name: /edit project info/i,
+        }),
+      ).toBeNull();
+      await click(
+        screen.getByRole('button', {
+          name: /egress-examples overflow menu/i,
+        }),
+      );
+      const menuItem = await screen.findByRole('menuitem', {
+        name: /edit project info/i,
+      });
+      expect(menuItem).toBeVisible();
+      await click(menuItem);
+
+      const modal = await screen.findByRole('dialog');
+      expect(modal).toBeInTheDocument();
+
+      const descriptionInput = await within(modal).findByRole('textbox', {
+        name: /description/i,
+        exact: false,
+      });
+      expect(descriptionInput).toHaveValue(
+        'Multiple pipelines outputting to different forms of egress',
+      ); // Element should be prepopulated with the existing description.
+
+      const user = userEvent.setup();
+      user.clear(descriptionInput);
+
+      await click(
+        within(modal).getByRole('button', {
+          name: /confirm changes/i,
+        }),
+      );
+
+      await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
+
+      const cell = await screen.findByRole('cell', {
+        name: /egress-examples/i,
+        exact: false,
+      });
+
+      expect(within(cell).getByText('N/A')).toBeInTheDocument();
+
+      // reopen it to edit and save some data
+      expect(
+        screen.queryByRole('menuitem', {
+          name: /edit project info/i,
+        }),
+      ).toBeNull();
+      await click(
+        screen.getByRole('button', {
+          name: /egress-examples overflow menu/i,
+        }),
+      );
+      const menuItem2 = await screen.findByRole('menuitem', {
+        name: /edit project info/i,
+      });
+      expect(menuItem2).toBeVisible();
+      await click(menuItem2);
+
+      const modal2 = await screen.findByRole('dialog');
+      expect(modal2).toBeInTheDocument();
+
+      const descriptionInput2 = await within(modal2).findByRole('textbox', {
+        name: /description/i,
+        exact: false,
+      });
+      expect(descriptionInput2).toHaveValue('');
+
+      user.clear(descriptionInput2);
+      await type(descriptionInput2, 'new desc');
+
+      await click(
+        within(modal2).getByRole('button', {
+          name: /confirm changes/i,
+        }),
+      );
+
+      await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
+
+      const cell2 = await screen.findByRole('cell', {
+        name: /egress-examples/i,
+        exact: false,
+      });
+
+      expect(within(cell2).getByText('new desc')).toBeInTheDocument();
+    });
   });
 });

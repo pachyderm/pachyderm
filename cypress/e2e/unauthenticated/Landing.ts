@@ -8,9 +8,6 @@ describe('Landing', () => {
     cy.visit('/');
   });
 
-  afterEach(() => {
-    cy.visit('/');
-  });
   after(() => {
     cy.deleteReposAndPipelines();
     cy.exec('pachctl delete project new-project', {failOnNonZeroExit: false});
@@ -33,31 +30,75 @@ describe('Landing', () => {
     cy.findByText('Last Job');
   });
 
-  it('should create a new project', () => {
+  it('should create a new project and edit its description', () => {
+    // create new project
     cy.findByRole('button', {
       name: /create project/i,
       timeout: 12000,
     }).click();
 
-    cy.findByRole('textbox', {
-      name: /name/i,
-      exact: false,
-    }).type('new-project');
+    cy.findByRole('dialog', {timeout: 12000}).within(() => {
+      cy.findByRole('textbox', {
+        name: /name/i,
+        exact: false,
+      }).type('new-project');
 
-    cy.findByRole('textbox', {
-      name: /description/i,
-      exact: false,
-    }).type('New project description');
+      cy.findByRole('textbox', {
+        name: /description/i,
+        exact: false,
+      }).type('New desc');
 
-    cy.findByRole('button', {
-      name: /create/i,
-    }).click();
+      cy.findByRole('button', {
+        name: /create/i,
+      }).click();
+    });
 
     cy.findByRole('heading', {
       name: /new-project/i,
       timeout: 15000,
     });
 
-    cy.findByText('New project description');
+    cy.findByRole('cell', {
+      name: /new-project/i,
+      exact: false,
+    }).within(() => {
+      // because we run cypress at a small screen size, the text will be hidden
+      cy.findByText('New desc').should('not.be.visible');
+    });
+
+    // edit project description
+    cy.findByRole('button', {
+      name: /new-project overflow menu/i,
+    }).click();
+
+    cy.findByRole('menuitem', {
+      name: /edit project info/i,
+    })
+      .findByText(/edit project info/i)
+      .click();
+
+    cy.findByRole('dialog', {timeout: 12000}).within(() => {
+      cy.findByRole('textbox', {
+        name: /description/i,
+        exact: false,
+      })
+        .should('have.value', 'New desc')
+        .clear()
+        .type('Edit desc');
+
+      cy.findByRole('button', {
+        name: /confirm changes/i,
+      }).click();
+    });
+
+    cy.findByRole('dialog').should('not.exist');
+
+    cy.findByRole('cell', {
+      name: /new-project/i,
+      exact: false,
+    }).within(() => {
+      // because we run cypress at a small screen size, the text will be hidden
+      cy.findByText('Edit desc').should('not.be.visible');
+    });
   });
 });

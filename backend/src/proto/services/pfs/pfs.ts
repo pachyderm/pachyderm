@@ -703,12 +703,17 @@ const pfs = ({
         });
       });
     },
-    createProject: ({name, description}: CreateProjectRequestArgs) => {
+    createProject: ({
+      name,
+      description,
+      update = false,
+    }: CreateProjectRequestArgs) => {
       return new Promise<Empty.AsObject>((resolve, reject) => {
         const createProjectRequest = new CreateProjectRequest();
 
         createProjectRequest.setProject(new Project().setName(name));
         if (description) createProjectRequest.setDescription(description);
+        createProjectRequest.setUpdate(update);
         client.createProject(
           createProjectRequest,
           credentialMetadata,

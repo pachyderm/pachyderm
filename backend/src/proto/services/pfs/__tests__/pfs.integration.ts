@@ -478,6 +478,35 @@ describe('services/pfs', () => {
         }),
       );
     });
+
+    it('should update a project', async () => {
+      const client = await createSandbox('updateProject');
+
+      const initialProjects = await client.pfs().listProject();
+      expect(initialProjects).toHaveLength(1);
+      expect(initialProjects[0]).toEqual(
+        expect.objectContaining({
+          project: {
+            name: 'default',
+          },
+          description: '',
+        }),
+      );
+
+      await client
+        .pfs()
+        .createProject({name: 'default', description: 'desc', update: true});
+
+      const updatedProjects = await client.pfs().listProject();
+      expect(updatedProjects[0]).toEqual(
+        expect.objectContaining({
+          project: {
+            name: 'default',
+          },
+          description: 'desc',
+        }),
+      );
+    });
   });
   describe('listProject', () => {
     it('should return a list of projects in the pachyderm cluster', async () => {

@@ -1,5 +1,5 @@
 import classNames from 'classnames';
-import React, {useCallback, TextareaHTMLAttributes, useMemo} from 'react';
+import React, {TextareaHTMLAttributes, useMemo, useEffect, useRef} from 'react';
 import {RegisterOptions} from 'react-hook-form';
 
 import useRHFInputProps from '@pachyderm/components/hooks/useRHFInputProps';
@@ -60,14 +60,13 @@ const TextArea: React.FC<TextAreaProps> = ({
     currentValue,
   );
 
-  const handleInput = useCallback(
-    (e: React.FormEvent<HTMLTextAreaElement>) => {
-      if (autoExpand) {
-        expandInput(e.target as HTMLTextAreaElement);
-      }
-    },
-    [autoExpand],
-  );
+  const textArea = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    if (textArea.current && autoExpand) {
+      expandInput(textArea.current as HTMLTextAreaElement);
+    }
+  }, [autoExpand, currentValue]);
 
   const rows = autoExpand ? 1 : undefined;
 
@@ -80,7 +79,7 @@ const TextArea: React.FC<TextAreaProps> = ({
     [styles.autoExpand]: autoExpand,
   });
 
-  const {handleChange, handleBlur, ...inputProps} = useRHFInputProps({
+  const {handleChange, handleBlur, ref, ...inputProps} = useRHFInputProps({
     onChange,
     onBlur,
     registerOutput: register(name, validationOptions),
@@ -93,12 +92,15 @@ const TextArea: React.FC<TextAreaProps> = ({
           aria-invalid={hasError}
           aria-describedby={errorId}
           className={classes}
-          onInput={handleInput}
           rows={rows}
           readOnly={readOnly}
           disabled={disabled}
           onChange={handleChange}
           onBlur={handleBlur}
+          ref={(e) => {
+            ref(e);
+            textArea.current = e;
+          }}
           {...rest}
           {...inputProps}
         />

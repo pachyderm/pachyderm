@@ -167,4 +167,5 @@ export type AddFileSetRequestArgs = {
 export type CreateProjectRequestArgs = {
   name: string;
   description?: string;
+  update?: boolean;
 };

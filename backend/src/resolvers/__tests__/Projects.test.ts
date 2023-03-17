@@ -1,4 +1,5 @@
 import {CREATE_PROJECT_MUTATION} from '@dash-frontend/mutations/CreateProject';
+import {UPDATE_PROJECT_MUTATION} from '@dash-frontend/mutations/UpdateProject';
 import {GET_PROJECT_DETAILS_QUERY} from '@dash-frontend/queries/GetProjectDetailsQuery';
 import {GET_PROJECT_QUERY} from '@dash-frontend/queries/GetProjectQuery';
 import {GET_PROJECTS_QUERY} from '@dash-frontend/queries/GetProjectsQuery';
@@ -10,7 +11,12 @@ import {
   executeQuery,
   mockServer,
 } from '@dash-backend/testHelpers';
-import {CreateProjectMutation, Project, ProjectDetails} from '@graphqlTypes';
+import {
+  CreateProjectMutation,
+  Project,
+  ProjectDetails,
+  UpdateProjectMutation,
+} from '@graphqlTypes';
 
 describe('Projects Resolver', () => {
   describe('project', () => {
@@ -187,8 +193,61 @@ describe('Projects Resolver', () => {
       expect(errors).toHaveLength(1);
       expect(errors?.[0].extensions.grpcCode).toEqual(Status.ALREADY_EXISTS);
       expect(errors?.[0].extensions.details).toBe(
-        'projects Data-Cleaning-Process already exists.',
+        'project Data-Cleaning-Process already exists.',
       );
+    });
+
+    it('should update a Project', async () => {
+      expect(mockServer.getState().projects).toHaveProperty(
+        'Data-Cleaning-Process',
+      );
+      expect(
+        mockServer
+          .getState()
+          .projects['Data-Cleaning-Process'].getDescription(),
+      ).not.toBe('desc');
+
+      const {errors} = await executeMutation<UpdateProjectMutation>(
+        UPDATE_PROJECT_MUTATION,
+        {
+          args: {
+            name: 'Data-Cleaning-Process',
+            description: 'desc',
+          },
+        },
+      );
+
+      expect(errors).toBeUndefined();
+      expect(mockServer.getState().projects).toHaveProperty(
+        'Data-Cleaning-Process',
+      );
+      expect(
+        mockServer
+          .getState()
+          .projects['Data-Cleaning-Process'].getDescription(),
+      ).toBe('desc');
+    });
+    it('should return an error if updating a project with that name that does not exist', async () => {
+      expect(mockServer.getState().projects).not.toHaveProperty(
+        'this-project-does-not-exist',
+      );
+
+      const {errors} = await executeMutation<UpdateProjectMutation>(
+        UPDATE_PROJECT_MUTATION,
+        {
+          args: {
+            name: 'this-project-does-not-exist',
+            description: 'desc',
+          },
+        },
+      );
+
+      expect(errors).toHaveLength(1);
+      // expect(errors?.[0].extensions.grpcCode).toEqual(Status.NOT_FOUND); // this is not working???
+      expect(errors?.[0].extensions.code).toBe('NOT_FOUND');
+      expect(errors?.[0].message).toBe(
+        'project this-project-does-not-exist not found',
+      ); // this should be extensions.details ???
     });
   });
 });
