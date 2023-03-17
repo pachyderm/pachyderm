@@ -114,5 +114,5 @@ export type SameNotebookMetadata = {
 
 export type SameRunMetadata = {
   name: string;
-  // Input spec?
+  input?: string;
 };
