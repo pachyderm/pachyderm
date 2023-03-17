@@ -22,9 +22,9 @@ func (cfg *Config) NewOnUserMachine(ctx context.Context, enterprise bool, opts .
 	var c *client.APIClient
 	var err error
 	if enterprise {
-		c, err = client.NewEnterpriseClientOnUserMachine("user", opts...)
+		c, err = client.NewEnterpriseClientOnUserMachineContext(ctx, "user", opts...)
 	} else {
-		c, err = client.NewOnUserMachine("user", opts...)
+		c, err = client.NewOnUserMachineContext(ctx, "user", opts...)
 	}
 	if err != nil {
 		return nil, err
