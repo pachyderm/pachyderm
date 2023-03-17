@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
@@ -70,7 +69,7 @@ func RegisterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 			}
 			defer c.Close()
 
-			ec, err := client.NewEnterpriseClientOnUserMachine("user")
+			ec, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -196,7 +195,7 @@ func SyncContextsCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Com
 				return err
 			}
 
-			ec, err := client.NewEnterpriseClientOnUserMachine("user")
+			ec, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
