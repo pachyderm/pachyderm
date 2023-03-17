@@ -18,27 +18,26 @@ ROOT_TOKEN = "iamroot"
 DEFAULT_PROJECT = "default"
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def pachyderm_resources():
-    # TODO: uncomment when python pachyderm has Projects support
-    # print("creating pachyderm resources")
-    # import python_pachyderm
-    # from python_pachyderm.pfs import Commit
+    print("creating pachyderm resources")
+    import python_pachyderm
+    from python_pachyderm.pfs import Commit
 
     repos = ["images", "edges", "montage"]
     branches = ["master", "dev"]
     files = ["file1", "file2"]
 
-    # client = python_pachyderm.Client()
-    # client.delete_all()
+    client = python_pachyderm.Client()
+    client.delete_all()
 
-    # for repo in repos:
-    #     client.create_repo(repo)
-    #     for branch in branches:
-    #         for file in files:
-    #             client.put_file_bytes(
-    #                 Commit(repo=repo, branch=branch), file, value=b"some data"
-    #             )
+    for repo in repos:
+        client.create_repo(repo)
+        for branch in branches:
+            for file in files:
+                client.put_file_bytes(
+                    Commit(repo=repo, branch=branch), file, value=b"some data"
+                )
 
     yield repos, branches, files
 
@@ -378,3 +377,27 @@ def test_config(dev_server):
 
     assert r.status_code == 200
     assert r.json()["cluster_status"] != "INVALID"
+
+
+@pytest.fixture
+def simple_pachyderm_env():
+    from python_pachyderm import Client
+    client = Client()
+
+    repo_name = f"images_194837"
+    pipeline_name = f"test_pipeline_194837"
+    client.delete_repo(repo_name, force=True)
+    client.create_repo(repo_name)
+    yield client, repo_name, pipeline_name
+    client.delete_pipeline(pipeline_name, force=True)
+    client.delete_repo(repo_name, force=True)
+
+
+def test_pps(dev_server, simple_pachyderm_env):
+    client, repo_name, pipeline_name = simple_pachyderm_env
+
+    input_spec = dict(pfs=dict(repo=repo_name, glob="/*"))
+    data = dict(pipeline_name=pipeline_name, input=input_spec)
+    r = requests.put(f"{BASE_URL}/pps/_create", data=json.dumps(data))
+    assert r.status_code == 200
+    assert next(client.inspect_pipeline(pipeline_name))

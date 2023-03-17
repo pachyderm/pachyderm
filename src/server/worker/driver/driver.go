@@ -333,7 +333,11 @@ func (d *driver) RunUserCode(
 	logger.Logf("beginning to run user code")
 	defer func(start time.Time) {
 		if retErr != nil {
-			logger.Logf("errored running user code after %v: %v", time.Since(start), retErr)
+			if ctxErr := context.Cause(ctx); ctxErr != nil {
+				logger.Errf("errored running user code after %v: %v because %v", time.Since(start), retErr, ctxErr)
+			} else {
+				logger.Errf("errored running user code after %v: %v", time.Since(start), retErr)
+			}
 		} else {
 			logger.Logf("finished running user code after %v", time.Since(start))
 		}
@@ -408,7 +412,11 @@ func (d *driver) RunUserErrorHandlingCode(
 	logger.Logf("beginning to run user error handling code")
 	defer func(start time.Time) {
 		if retErr != nil {
-			logger.Logf("errored running user error handling code after %v: %v", time.Since(start), retErr)
+			if ctxErr := context.Cause(ctx); ctxErr != nil {
+				logger.Errf("errored running user error handling code after %v: %v because %v", time.Since(start), retErr, ctxErr)
+			} else {
+				logger.Errf("errored running user error handling code after %v: %v", time.Since(start), retErr)
+			}
 		} else {
 			logger.Logf("finished running user error handling code after %v", time.Since(start))
 		}

@@ -50,7 +50,7 @@ func newTestEtcdService(ctx context.Context, t *testing.T) Service {
 
 func seedRand() string {
 	seed := time.Now().UTC().UnixNano()
-	rand.Seed(seed)
+	rand.Seed(seed) //nolint:staticcheck // CORE-1512
 	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
 }
 

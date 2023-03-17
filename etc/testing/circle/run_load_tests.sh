@@ -21,34 +21,8 @@ pachctl version --client-only
 VERSION="$(pachctl version --client-only)"
 export VERSION
 
-
-JOB=$(echo "$CIRCLE_JOB" | tr '[:upper:]' '[:lower:]')
-
-# # provision a pulumi load test env
-curl --fail -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
- -F name=commit-"${CIRCLE_SHA1:0:7}-${JOB}" -F pachdVersion="${CIRCLE_SHA1}" -F backend=gcp_namespace_only -F clusterStack="pachyderm/helium/nightly-cluster" \
-  -F disableNotebooks="True" -F valuesYaml=@etc/testing/circle/helm-load-env-values.yaml \
-  https://helium.pachyderm.io/v1/api/workspace
-
-# wait for helium to kick off to pulumi before pinging it.
-sleep 5
-
-for _ in $(seq 108); do
-  STATUS=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/commit-${CIRCLE_SHA1:0:7}-${JOB}" | jq .Workspace.Status | tr -d '"')
-  if [[ ${STATUS} == "ready" ]]
-  then
-    echo "success"
-    break
-  fi
-  echo 'sleeping'
-  sleep 10
-done
-
-pachdIp=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/commit-${CIRCLE_SHA1:0:7}-${JOB}"  | jq .Workspace.PachdIp)
-
-echo "{\"pachd_address\": ${pachdIp}, \"source\": 2}" | tr -d \\ | pachctl config set context "commit-${CIRCLE_SHA1:0:7}-${JOB}" --overwrite && pachctl config set active-context "commit-${CIRCLE_SHA1:0:7}-${JOB}"
-
-echo "${HELIUM_PACHCTL_AUTH_TOKEN}" | pachctl auth use-auth-token
+echo "{\"pachd_address\": \"grpc://${PACHD_IP}:80\", \"session_token\": \"test\"}" | tr -d \\ | pachctl config set context "test" --overwrite
+pachctl config set active-context "test"
 
 # Print client and server versions, for debugging.  (Also waits for proxy to discover pachd, etc.)
 for i in $(seq 1 20); do
@@ -66,7 +40,9 @@ set +e
 
 PFS_RESPONSE_SPEC=$(pachctl run pfs-load-test "${@}")
 
-if [ "${?}" -ne 0 ]; then
+# shellcheck disable=SC2086
+# shellcheck disable=SC2046
+if [ "${?}" -ne 0 ] || [ $(jq 'has("error")' <<< $PFS_RESPONSE_SPEC) == true ]; then
 	pachctl debug dump /tmp/debug-dump
 	exit 1
 fi
@@ -80,6 +56,12 @@ bq insert --ignore_unknown_values insights.load-tests << EOF
 EOF
 
 fi
+
+pachctl delete pipeline --all
+pachctl delete repo --all
+
+# give 5 mins for gc to get ahead before next load test is run.
+sleep 300
 
 set -e
 pachctl debug dump /tmp/debug-dump

@@ -300,6 +300,20 @@ message CreateBranchRequest {
   bool new_commit_set = 5; // overrides the default behavior of using the same CommitSet as 'head'
 }
 
+message FindCommitsRequest {
+  Commit start = 1;
+  string file_path = 2;
+  uint32 limit = 3; // a limit of 0 means there is no upper bound on the limit.
+}
+
+message FindCommitsResponse {
+  oneof result {
+    Commit found_commit = 1;
+    Commit last_searched_commit = 2;
+  }
+  uint32 commits_searched = 3;
+}
+
 message InspectBranchRequest {
   Branch branch = 1;
 }
@@ -632,6 +646,8 @@ service API {
   rpc SquashCommitSet(SquashCommitSetRequest) returns (google.protobuf.Empty) {}
   // DropCommitSet drops the commits of a CommitSet and all data included in the commits.
   rpc DropCommitSet(DropCommitSetRequest) returns (google.protobuf.Empty) {}
+  // FindCommits searches for commits that reference a supplied file being modified in a branch.
+  rpc FindCommits(FindCommitsRequest) returns (stream FindCommitsResponse) {}
 
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}

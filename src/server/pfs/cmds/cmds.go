@@ -4,6 +4,8 @@ import (
 	"archive/tar"
 	"bufio"
 	"compress/gzip"
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +15,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/gogo/protobuf/proto"
@@ -21,7 +24,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -62,6 +64,10 @@ func Cmds(pachCtx *config.Context) []*cobra.Command {
 
 	var fullTimestamps bool
 	timestampFlags := cmdutil.TimestampFlags(&fullTimestamps)
+
+	var timeout time.Duration
+	var limit uint32
+	var jsonOutput bool
 
 	var noPager bool
 	pagerFlags := cmdutil.PagerFlags(&noPager)
@@ -500,7 +506,7 @@ $ {{alias}} foo@master --from XXX`,
 				if !expand {
 					if raw {
 						e := cmdutil.Encoder(output, os.Stdout)
-						return clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+						return grpcutil.ForEach[*pfs.CommitSetInfo](listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
 							if err := e.EncodeProto(commitSetInfo); err != nil {
 								return errors.EnsureStack(err)
 							}
@@ -514,7 +520,7 @@ $ {{alias}} foo@master --from XXX`,
 
 					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 						writer := tabwriter.NewWriter(w, pretty.CommitSetHeader)
-						if err := clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+						if err := grpcutil.ForEach[*pfs.CommitSetInfo](listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
 							pretty.PrintCommitSetInfo(writer, commitSetInfo, fullTimestamps)
 							count++
 							if number != 0 && count >= int(number) {
@@ -529,7 +535,7 @@ $ {{alias}} foo@master --from XXX`,
 				} else {
 					if raw {
 						e := cmdutil.Encoder(output, os.Stdout)
-						return clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+						return grpcutil.ForEach[*pfs.CommitSetInfo](listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
 							for _, commitInfo := range commitSetInfo.Commits {
 								if err := e.EncodeProto(commitInfo); err != nil {
 									return errors.EnsureStack(err)
@@ -545,7 +551,7 @@ $ {{alias}} foo@master --from XXX`,
 
 					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 						writer := tabwriter.NewWriter(w, pretty.CommitHeader)
-						if err := clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+						if err := grpcutil.ForEach[*pfs.CommitSetInfo](listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
 							for _, commitInfo := range commitSetInfo.Commits {
 								pretty.PrintCommitInfo(writer, commitInfo, fullTimestamps)
 								count++
@@ -634,12 +640,12 @@ $ {{alias}} foo@master --from XXX`,
 
 				if raw {
 					encoder := cmdutil.Encoder(output, os.Stdout)
-					return clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
+					return grpcutil.ForEach[*pfs.CommitInfo](listClient, func(ci *pfs.CommitInfo) error {
 						return errors.EnsureStack(encoder.EncodeProto(ci))
 					})
 				}
 				writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-				if err := clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
+				if err := grpcutil.ForEach[*pfs.CommitInfo](listClient, func(ci *pfs.CommitInfo) error {
 					pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 					return nil
 				}); err != nil {
@@ -758,7 +764,7 @@ $ {{alias}} test@master --new`,
 
 			if raw {
 				encoder := cmdutil.Encoder(output, os.Stdout)
-				return clientsdk.ForEachSubscribeCommit(subscribeClient, func(ci *pfs.CommitInfo) error {
+				return grpcutil.ForEach[*pfs.CommitInfo](subscribeClient, func(ci *pfs.CommitInfo) error {
 					return errors.EnsureStack(encoder.EncodeProto(ci))
 				})
 			} else if output != "" {
@@ -771,7 +777,7 @@ $ {{alias}} test@master --new`,
 					retErr = err
 				}
 			}()
-			if err := clientsdk.ForEachSubscribeCommit(subscribeClient, func(ci *pfs.CommitInfo) error {
+			if err := grpcutil.ForEach[*pfs.CommitInfo](subscribeClient, func(ci *pfs.CommitInfo) error {
 				pretty.PrintCommitInfo(w, ci, fullTimestamps)
 				return nil
 			}); err != nil {
@@ -968,7 +974,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 
 			if raw {
 				encoder := cmdutil.Encoder(output, os.Stdout)
-				err := clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
+				err := grpcutil.ForEach[*pfs.BranchInfo](branchClient, func(branch *pfs.BranchInfo) error {
 					return errors.EnsureStack(encoder.EncodeProto(branch))
 				})
 				return grpcutil.ScrubGRPC(err)
@@ -977,7 +983,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 			}
 
 			writer := tabwriter.NewWriter(os.Stdout, pretty.BranchHeader)
-			if err := clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
+			if err := grpcutil.ForEach[*pfs.BranchInfo](branchClient, func(branch *pfs.BranchInfo) error {
 				pretty.PrintBranch(writer, branch)
 				return nil
 			}); err != nil {
@@ -1016,6 +1022,58 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	deleteBranch.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
 	shell.RegisterCompletionFunc(deleteBranch, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteBranch, "delete branch", branches))
+
+	FindCommits := &cobra.Command{
+		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs> [flags]",
+		Short: "find commits with reference to <filePath> within a branch starting from <repo@commitID>",
+		Long:  "find commits with reference to <filePath> within a branch starting from <repo@commitID>",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			file, err := cmdutil.ParseFile(project, args[0])
+			if err != nil {
+				return err
+			}
+			commit := file.Commit
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			ctx := c.Ctx()
+			var cf context.CancelFunc
+			if timeout != time.Duration(0) {
+				ctx, cf = context.WithTimeout(c.Ctx(), timeout)
+				defer cf()
+			}
+			req := &pfs.FindCommitsRequest{
+				Start:    commit,
+				FilePath: file.Path,
+				Limit:    limit,
+			}
+			if jsonOutput {
+				resp, err := c.FindCommits(req)
+				if err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
+				jsonResp, err := json.Marshal(resp)
+				if err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
+				_, err = fmt.Fprintf(os.Stdout, "%s\n", string(jsonResp))
+				return grpcutil.ScrubGRPC(err)
+			}
+			findCommitClient, err := c.PfsAPIClient.FindCommits(ctx, req)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			return grpcutil.ScrubGRPC(pretty.PrintFindCommits(findCommitClient))
+		}),
+	}
+	FindCommits.Flags().BoolVar(&jsonOutput, "json", jsonOutput, "print the response in json")
+	FindCommits.Flags().Uint32Var(&limit, "limit", limit, "Number of matching commits to return")
+	FindCommits.Flags().DurationVar(&timeout, "timeout", timeout, "Search duration timeout")
+	FindCommits.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	shell.RegisterCompletionFunc(FindCommits, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAliases(FindCommits, "find commit", commits))
 
 	projectDocs := &cobra.Command{
 		Short: "Docs for projects.",
@@ -1154,7 +1212,13 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 					Project: &pfs.Project{Name: args[0]},
 					Force:   force,
 				})
-			return grpcutil.ScrubGRPC(err)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if args[0] == pachCtx.Project {
+				fmt.Fprintf(os.Stderr, "warning: deleted current project %s; update context by running:\n   pachctl config update context --project PROJECT\n", pachCtx.Project)
+			}
+			return nil
 		}),
 	}
 	shell.RegisterCompletionFunc(deleteProject, shell.ProjectCompletion)

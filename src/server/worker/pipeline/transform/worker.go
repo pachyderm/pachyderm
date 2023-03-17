@@ -373,7 +373,7 @@ func handleDatumSetBatching(ctx context.Context, driver driver.Driver, logger lo
 type datumCallback = func(ctx context.Context, logger logs.TaggedLogger, env []string) error
 
 // TODO: There are way too many parameters here. Consider grouping them into a reasonable struct or storing some of these in the driver.
-func forEachDatum(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger, task *DatumSetTask, status *Status, cacheClient *pfssync.CacheClient, di datum.Iterator, setOpts []datum.SetOption, cb datumCallback) error {
+func forEachDatum(ctx context.Context, driver driver.Driver, baseLogger logs.TaggedLogger, task *DatumSetTask, status *Status, cacheClient *pfssync.CacheClient, di datum.Iterator, setOpts []datum.SetOption, cb datumCallback) error {
 	// TODO: Can this just be refactored into the datum package such that we don't need to specify a storage root for the sets?
 	// The sets would just create a temporary directory under /tmp.
 	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
@@ -388,7 +388,7 @@ func forEachDatum(ctx context.Context, driver driver.Driver, logger logs.TaggedL
 			meta = proto.Clone(meta).(*datum.Meta)
 			meta.ImageId = userImageID
 			inputs := meta.Inputs
-			logger = logger.WithData(inputs)
+			logger := baseLogger.WithData(inputs)
 			env := driver.UserCodeEnv(logger.JobID(), task.OutputCommit, inputs)
 			var opts []datum.Option
 			if driver.PipelineInfo().Details.DatumTimeout != nil {

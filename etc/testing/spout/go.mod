@@ -1,3 +1,3 @@
 module etc/testing/spout/main
 
-go 1.19
+go 1.20
