@@ -49,45 +49,39 @@ func TopologicalSort(cis []*pfs.CommitInfo) []*pfs.CommitInfo {
 		commits[pfsdb.CommitKey(ci.Commit)] = ci
 	}
 	commitSubv := make(map[string][]string) // maps commit key -> []commit keys
-	queue := make([]string, 0)
-	seenQueue := make(map[string]struct{})
+	sorted := make(map[string]struct{})
 	res := make([]*pfs.CommitInfo, 0)
 	// set up commitSubv
 	for _, ci := range commits {
+		provCount := 0
 		for _, p := range ci.DirectProvenance {
-			if _, ok := commits[pfsdb.CommitKey(p)]; ok {
-				commitSubv[pfsdb.CommitKey(p)] = append(commitSubv[pfsdb.CommitKey(p)], pfsdb.CommitKey(ci.Commit))
+			pKey := pfsdb.CommitKey(p)
+			if _, ok := commits[pKey]; ok {
+				commitSubv[pKey] = append(commitSubv[pKey], pfsdb.CommitKey(ci.Commit))
+				provCount++
 			}
 		}
-	}
-	canPop := func(k string) bool {
-		for _, p := range commits[k].DirectProvenance {
-			if _, ok := commitSubv[pfsdb.CommitKey(p)]; ok {
-				return false
-			}
-		}
-		return true
-	}
-	// load queue with commits that can be popped
-	for _, ci := range commits {
-		if canPop(pfsdb.CommitKey(ci.Commit)) {
-			queue = append(queue, pfsdb.CommitKey(ci.Commit))
+		if provCount == 0 {
+			res = append(res, ci)
+			sorted[pfsdb.CommitKey(ci.Commit)] = struct{}{}
 		}
 	}
-	for len(res) < len(commits) {
-		for i, k := range queue {
-			if canPop(k) {
-				res = append(res, commits[k])
-				// add k's commitSubv to queue
-				for _, s := range commitSubv[k] {
-					if _, seen := seenQueue[s]; !seen {
-						queue = append(queue, s)
-						seenQueue[s] = struct{}{}
-					}
+	for i := 0; i < len(cis); i++ {
+		k := pfsdb.CommitKey(res[i].Commit)
+		for _, c := range commitSubv[k] {
+			satisfied := true
+			ci := commits[c]
+			for _, p := range ci.DirectProvenance {
+				pk := pfsdb.CommitKey(p)
+				_, commitExists := commits[pk]
+				_, commitSorted := sorted[pk]
+				if commitExists && !commitSorted {
+					satisfied = false
 				}
-				delete(commitSubv, k)
-				queue = append(queue[:i], queue[i+1:]...) // pop from queue
-				break
+			}
+			if satisfied {
+				res = append(res, ci)
+				sorted[c] = struct{}{}
 			}
 		}
 	}
