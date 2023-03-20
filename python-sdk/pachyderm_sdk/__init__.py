@@ -1,4 +1,5 @@
 from .client import Client
+from .batch_datums import batch_datums
 
 # Python version compatibility.
 try:
@@ -13,14 +14,7 @@ __pdoc__ = {"proto": False}
 
 __all__ = [
     "Client",
-    "RpcError",
-    "put_files",
-    "PFSFile",
-    "ModifyFileClient",
-    "parse_json_pipeline_spec",
-    "parse_dict_pipeline_spec",
-    "ConfigError",
-    "BadClusterDeploymentID",
+    "batch_datums"
 ]
 
 __version__ = ""

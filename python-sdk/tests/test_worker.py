@@ -6,11 +6,11 @@ from tests.utils import count
 
 from pachyderm_sdk.api import pfs, pps
 
-IMAGE_NAME = "bonenfan5ben/datum_batching:0035"
+IMAGE_NAME = "bonenfan5ben/datum_batching:0036"
 
 
-def generate_std_in(func: Callable[[], None]):
-    """Generates the std_in field of for the test pipelines.
+def generate_stdin(func: Callable[[], None]):
+    """Generates the stdin field of for the test pipelines.
 
     Args:
         func: The function containing the "user code" of the test pipeline.
@@ -61,7 +61,22 @@ def test_datum_batching(client: TestClient):
     with client.pfs.commit(branch=branch) as commit:
         for file in input_files:
             commit.put_file_from_file(path=file, file=io.BytesIO(b"DATA"))
+    script = """
+import os
+import shutil
+from pachyderm_sdk import batch_datums
 
+@batch_datums
+def main():
+    datum_files = os.listdir(f"/pfs/batch_datums_input")
+    print(datum_files)
+    assert len(datum_files) == 1
+    shutil.copy(f"/pfs/batch_datums_input/{datum_files[0]}", f"/pfs/out/{datum_files[0]}")
+
+if __name__ == "__main__":
+    main()
+"""
+    stdin = [f"echo '{script}' > main.py", "python3 main.py"]
     pipeline = pps.Pipeline(name=client._generate_name())
     try:
         client.pps.create_pipeline(
@@ -78,7 +93,7 @@ def test_datum_batching(client: TestClient):
                 cmd=["bash", ],
                 datum_batching=True,
                 image=IMAGE_NAME,
-                stdin=generate_std_in(user_code)
+                stdin=stdin,  # generate_stdin(user_code)
             )
         )
         job_info = next(client.pps.list_job(pipeline=pipeline))
