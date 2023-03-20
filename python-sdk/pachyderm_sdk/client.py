@@ -287,9 +287,8 @@ class Client:
         )
         self._init_api()
 
-    @classmethod
     @classproperty
-    def worker(cls):
+    def worker(cls) -> "_WorkerStub":
         """Access the worker API stub.
 
         This is dynamically loaded in order to provide a helpful error message

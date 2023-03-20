@@ -1,16 +1,26 @@
 import os
-from typing import Dict, Generator
+from contextlib import contextmanager
+from typing import ContextManager, Dict, Optional
 
 from . import WorkerStub as _GeneratedWorkerStub
 
 
 class WorkerStub(_GeneratedWorkerStub):
 
-    def batch_datums(self) -> Generator:
-        """A Generator that, on iteration, calls the NextDatum endpoint
-        within the worker to step forward during datum batching. This
-        generator will also prepare the environment for user and report
-        and errors that occur.
+    __env: Dict[str, str] = dict()  # used by batch_datums
+    __error: Optional[str] = None   # used by batch_datums
+
+    @contextmanager
+    def batch_datums(self) -> ContextManager:
+        """A ContextManager that, when entered, calls the NextDatum
+        endpoint within the worker to step forward during datum batching.
+        This context manager will also prepare the environment for the user
+        and report errors that occur back to the worker.
+
+        This context manager expects to be called within an infinite while
+        loop -- see the examples section. This context can only be entered
+        from within a Pachyderm worker and the worker will terminate your
+        code when all datums have been processed.
 
         Note: The API stub must have an open gRPC channel with the worker
         for NextDatum to function correctly. The ``Client`` object
@@ -21,25 +31,25 @@ class WorkerStub(_GeneratedWorkerStub):
         Examples
         --------
         >>> from pachyderm_sdk import Client
-        >>> while Client.worker.batch_datums():
-        >>>     # process datums
-        >>>     pass
+        >>> while True:
+        >>>     with Client.worker.batch_datums():
+        >>>         # process datums
+        >>>         pass
         """
-        env_vars: Dict[str, str] = dict()
-        while True:
-            response = self.next_datum()
-            for _var in response.env:
-                # TODO: set env vars here and update env_vars dict
-                pass
+        for key in self.__env.keys():
+            del os.environ[key]
+        self.__env.clear()
 
-            try:
-                yield response
-            except Exception as error:
-                # If an error happens that is not caught by the user,
-                #   alert the worker and reraise.
-                self.next_datum(error=str(error))
-                raise error
+        response = self.next_datum(error=self.__error or "")
 
-            for key in env_vars.keys():
-                del os.environ[key]
-            env_vars.clear()
+        for _var in response.env:
+            # TODO: set env vars here and update __env dict
+            pass
+
+        self.__error = None
+        try:
+            yield
+        except Exception as error:
+            self.__error = repr(error)
+            # TODO: Probably want better logging here than a print statement.
+            print(f"{self.__error}\nReporting above error to worker.")
