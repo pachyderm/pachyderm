@@ -131,8 +131,7 @@ message CommitInfo {
   google.protobuf.Timestamp started = 6;
   google.protobuf.Timestamp finishing = 7;
   google.protobuf.Timestamp finished = 8;
-  repeated Branch old_direct_provenance = 9;
-  repeated Commit direct_provenance = 13;
+  repeated Commit direct_provenance = 9;
   string error = 10;
   int64 size_bytes_upper_bound = 11;
 

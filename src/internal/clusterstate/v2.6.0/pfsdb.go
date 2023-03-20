@@ -8,12 +8,11 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	idxProto "github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 func updateOldCommit(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit, f func(ci *pfs.CommitInfo)) error {
@@ -182,21 +181,37 @@ func sameFileSets(ctx context.Context, tx *pachsql.Tx, c1 *pfs.Commit, c2 *pfs.C
 	}
 }
 
+func convertCommitInfoToV2_6_0(ci *CommitInfo_V2_5_0) *pfs.CommitInfo {
+	return &pfs.CommitInfo{
+		Commit:              ci.Commit,
+		Origin:              ci.Origin,
+		Description:         ci.Description,
+		ParentCommit:        ci.ParentCommit,
+		ChildCommits:        ci.ChildCommits,
+		Started:             ci.Started,
+		Finishing:           ci.Finishing,
+		Finished:            ci.Finished,
+		Error:               ci.Error,
+		SizeBytesUpperBound: ci.SizeBytesUpperBound,
+		Details:             ci.Details,
+	}
+}
+
 func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
-	var cis []*pfs.CommitInfo
+	var oldCIs []*CommitInfo_V2_5_0
 	var err error
 	// first fill commit provenance to all the existing commit sets
-	if cis, err = listCollectionProtos(ctx, tx, "commits", &pfs.CommitInfo{}); err != nil {
+	if oldCIs, err = listCollectionProtos(ctx, tx, "commits", &CommitInfo_V2_5_0{}); err != nil {
 		return errors.Wrap(err, "populate the pfs.commits table")
 	}
-	for _, ci := range cis {
+	for _, ci := range oldCIs {
 		if err := addCommit(ctx, tx, ci.Commit); err != nil {
 			return err
 		}
 	}
 	deleteCommits := make(map[string]*pfs.CommitInfo)
-	for _, ci := range cis {
-		for _, b := range ci.OldDirectProvenance {
+	for _, ci := range oldCIs {
+		for _, b := range ci.DirectProvenance {
 			if err := addCommitProvenance(ctx, tx, ci.Commit, b.NewCommit(ci.Commit.ID)); err != nil {
 				return errors.Wrapf(err, "add commit provenance from %q to %q", oldCommitKey(ci.Commit), oldCommitKey(b.NewCommit(ci.Commit.ID)))
 			}
@@ -265,11 +280,12 @@ func migrateAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 		}
 	}
 	// now set ci.DirectProvenance for each commit
-	if cis, err = listCollectionProtos(ctx, tx, "commits", &pfs.CommitInfo{}); err != nil {
+	if oldCIs, err = listCollectionProtos(ctx, tx, "commits", &CommitInfo_V2_5_0{}); err != nil {
 		return errors.Wrap(err, "recollect commits")
 	}
-	for _, ci := range cis {
+	for _, oldCI := range oldCIs {
 		var err error
+		ci := convertCommitInfoToV2_6_0(oldCI)
 		ci.DirectProvenance, err = commitProvenance(tx, ci.Commit.Repo, ci.Commit.Branch, ci.Commit.ID)
 		if err != nil {
 			return err

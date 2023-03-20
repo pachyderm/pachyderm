@@ -150,9 +150,9 @@ func migrateCommitInfo(c *pfs.CommitInfo) *pfs.CommitInfo {
 	for i, cc := range c.ChildCommits {
 		c.ChildCommits[i] = migrateCommit(cc)
 	}
-	for i, bb := range c.OldDirectProvenance {
-		c.OldDirectProvenance[i] = migrateBranch(bb)
-	}
+	// for i, bb := range c.OldDirectProvenance {
+	// 	c.OldDirectProvenance[i] = migrateBranch(bb)
+	// }
 	return c
 }
 

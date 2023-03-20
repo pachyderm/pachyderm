@@ -689,7 +689,6 @@ func (d *driver) addCommit(txnCtx *txncontext.TransactionContext, newCommitInfo 
 	if err := d.linkParent(txnCtx, newCommitInfo, parent, needsFinishedParent); err != nil {
 		return err
 	}
-	provHeads := make(map[string]*pfs.Commit)
 	for _, prov := range directProvenance {
 		branchInfo := &pfs.BranchInfo{}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(prov), branchInfo); err != nil {
@@ -698,10 +697,7 @@ func (d *driver) addCommit(txnCtx *txncontext.TransactionContext, newCommitInfo 
 			}
 			return errors.EnsureStack(err)
 		}
-		provHeads[pfsdb.CommitKey(branchInfo.Head)] = branchInfo.Head
-	}
-	for _, p := range provHeads {
-		newCommitInfo.DirectProvenance = append(newCommitInfo.DirectProvenance, p)
+		newCommitInfo.DirectProvenance = append(newCommitInfo.DirectProvenance, branchInfo.Head)
 	}
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Create(newCommitInfo.Commit, newCommitInfo); err != nil {
 		if col.IsErrExists(err) {
@@ -709,7 +705,7 @@ func (d *driver) addCommit(txnCtx *txncontext.TransactionContext, newCommitInfo 
 		}
 		return errors.EnsureStack(err)
 	}
-	for _, p := range provHeads {
+	for _, p := range newCommitInfo.DirectProvenance {
 		if err := pfsdb.AddCommitProvenance(txnCtx.SqlTx, newCommitInfo.Commit, p); err != nil {
 			return err
 		}
@@ -854,9 +850,7 @@ func (d *driver) repoSize(ctx context.Context, repo *pfs.Repo) (int64, error) {
 //	branch B is provenant on branch A
 //
 // The implementation assumes that the invariant already holds for all branches
-// upstream of 'branches', but not necessarily for each 'branch' itself. Despite
-// the name, 'branches' do not need a HEAD commit to propagate, though one may
-// be created.
+// upstream of 'branches', but not necessarily for each 'branch' itself.
 //
 // In other words, propagateBranches scans all branches b_downstream that are
 // equal to or downstream of 'branches', and if the HEAD of b_downstream isn't
@@ -940,9 +934,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		if newCommitInfo.ParentCommit != nil {
 			parentCommitInfo := &pfs.CommitInfo{}
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(newCommitInfo.ParentCommit, parentCommitInfo, func() error {
-				if !hasCommit(parentCommitInfo.ChildCommits, newCommit) {
-					parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
-				}
+				parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
 				return nil
 			}); err != nil {
 				return errors.Wrapf(err, "update parent commit %q with child %q", pfsdb.CommitKey(newCommitInfo.ParentCommit), pfsdb.CommitKey(newCommit))
@@ -2024,15 +2016,6 @@ func same(bs []*pfs.Branch, branches []*pfs.Branch) bool {
 		}
 	}
 	return true
-}
-
-func hasCommit(cs []*pfs.Commit, commit *pfs.Commit) bool {
-	for _, c := range cs {
-		if pfsdb.CommitKey(c) == pfsdb.CommitKey(commit) {
-			return true
-		}
-	}
-	return false
 }
 
 func getOrCreateKey(ctx context.Context, keyStore chunk.KeyStore, name string) ([]byte, error) {
