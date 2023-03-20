@@ -4,7 +4,7 @@
 // NOTE: the only difference between CommitInfoV2_5_0 is that the type of DirectProvenance. Before v2.6.0, this field represents a slice
 // of provenant branches. From v2.6.0, the field represents a slice of provenant commits.
 
-package v2_6_0
+package common
 import (
 	"github.com/gogo/protobuf/proto"
 	types "github.com/gogo/protobuf/types"

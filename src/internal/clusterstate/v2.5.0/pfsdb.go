@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/common"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -48,21 +49,21 @@ func repoKeyCheck(key string) error {
 var commitsRepoIndex = &index{
 	Name: "repo",
 	Extract: func(val proto.Message) string {
-		return repoKey(val.(*pfs.CommitInfo).Commit.Branch.Repo)
+		return repoKey(val.(*common.CommitInfo_V2_5_0).Commit.Branch.Repo)
 	},
 }
 
 var commitsBranchlessIndex = &index{
 	Name: "branchless",
 	Extract: func(val proto.Message) string {
-		return commitBranchlessKey(val.(*pfs.CommitInfo).Commit)
+		return commitBranchlessKey(val.(*common.CommitInfo_V2_5_0).Commit)
 	},
 }
 
 var commitsCommitSetIndex = &index{
 	Name: "commitset",
 	Extract: func(val proto.Message) string {
-		return val.(*pfs.CommitInfo).Commit.ID
+		return val.(*common.CommitInfo_V2_5_0).Commit.ID
 	},
 }
 
@@ -142,7 +143,7 @@ func migrateCommit(c *pfs.Commit) *pfs.Commit {
 	return c
 }
 
-func migrateCommitInfo(c *pfs.CommitInfo) *pfs.CommitInfo {
+func migrateCommitInfo(c *common.CommitInfo_V2_5_0) *common.CommitInfo_V2_5_0 {
 	c.Commit = migrateCommit(c.Commit)
 	if c.ParentCommit != nil {
 		c.ParentCommit = migrateCommit(c.ParentCommit)
@@ -150,9 +151,9 @@ func migrateCommitInfo(c *pfs.CommitInfo) *pfs.CommitInfo {
 	for i, cc := range c.ChildCommits {
 		c.ChildCommits[i] = migrateCommit(cc)
 	}
-	// for i, bb := range c.OldDirectProvenance {
-	// 	c.OldDirectProvenance[i] = migrateBranch(bb)
-	// }
+	for i, bb := range c.DirectProvenance {
+		c.DirectProvenance[i] = migrateBranch(bb)
+	}
 	return c
 }
 
@@ -222,7 +223,7 @@ func migratePFSDB(ctx context.Context, tx *pachsql.Tx) error {
 		})); err != nil {
 		return errors.Wrap(err, "could not migrate branches")
 	}
-	var oldCommit = new(pfs.CommitInfo)
+	var oldCommit = new(common.CommitInfo_V2_5_0)
 	if err := migratePostgreSQLCollection(ctx, tx, "commits", commitsIndexes, oldCommit, func(oldKey string) (newKey string, newVal proto.Message, err error) {
 		oldCommit = migrateCommitInfo(oldCommit)
 		return commitKey(oldCommit.Commit), oldCommit, nil
