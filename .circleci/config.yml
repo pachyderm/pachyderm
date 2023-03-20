@@ -166,7 +166,7 @@ jobs:
       - store_artifacts:
           path: /tmp/cypress-videos
   test-e2e-enterprise-edition:
-    resource_class: large
+    resource_class: xlarge
     machine:
       image: ubuntu-2004:202201-02
     steps:
