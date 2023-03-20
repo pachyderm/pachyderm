@@ -1,9 +1,12 @@
 import React from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
 import {usePipeline} from './hooks/usePipeline';
+import {SameMetadata} from '../../types';
 
 type PipelineProps = {
   setShowPipeline: (shouldShow: boolean) => void;
+  saveNotebookMetadata: (metadata: any) => void;
+  metadata: SameMetadata | undefined;
 };
 
 const placeholderInputSpec = `pfs:
@@ -13,7 +16,11 @@ const placeholderInputSpec = `pfs:
 `;
 const placeholderRequirements = './requirements.txt';
 
-const Pipeline: React.FC<PipelineProps> = ({setShowPipeline}) => {
+const Pipeline: React.FC<PipelineProps> = ({
+  setShowPipeline,
+  saveNotebookMetadata,
+  metadata,
+}) => {
   const {
     loading,
     pipelineName,
@@ -25,8 +32,9 @@ const Pipeline: React.FC<PipelineProps> = ({setShowPipeline}) => {
     requirements,
     setRequirements,
     callCreatePipeline,
+    callSavePipeline,
     errorMessage,
-  } = usePipeline();
+  } = usePipeline(metadata, saveNotebookMetadata);
 
   return (
     <div className="pachyderm-mount-pipeline-base">
@@ -53,9 +61,7 @@ const Pipeline: React.FC<PipelineProps> = ({setShowPipeline}) => {
         <button
           data-testid="Pipeline__save"
           className="pachyderm-button-link"
-          onClick={async () => {
-            return;
-          }}
+          onClick={callSavePipeline}
         >
           Save
         </button>
