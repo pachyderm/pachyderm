@@ -384,6 +384,12 @@ export enum JobState {
   JOB_UNRUNNABLE = 'JOB_UNRUNNABLE',
 }
 
+export type JobsByPipelineQueryArgs = {
+  limit?: InputMaybe<Scalars['Int']>;
+  pipelineIds: Array<InputMaybe<Scalars['String']>>;
+  projectId: Scalars['ID'];
+};
+
 export type JobsQueryArgs = {
   jobSetIds?: InputMaybe<Array<InputMaybe<Scalars['String']>>>;
   limit?: InputMaybe<Scalars['Int']>;
@@ -654,6 +660,7 @@ export type Query = {
   jobSet: JobSet;
   jobSets: Array<JobSet>;
   jobs: Array<Job>;
+  jobsByPipeline: Array<Job>;
   loggedIn: Scalars['Boolean'];
   logs: Array<Maybe<Log>>;
   pipeline: Pipeline;
@@ -713,6 +720,10 @@ export type QueryJobSetsArgs = {
 
 export type QueryJobsArgs = {
   args: JobsQueryArgs;
+};
+
+export type QueryJobsByPipelineArgs = {
+  args: JobsByPipelineQueryArgs;
 };
 
 export type QueryLogsArgs = {
@@ -1044,6 +1055,7 @@ export type ResolversTypes = ResolversObject<{
   JobSetQueryArgs: JobSetQueryArgs;
   JobSetsQueryArgs: JobSetsQueryArgs;
   JobState: JobState;
+  JobsByPipelineQueryArgs: JobsByPipelineQueryArgs;
   JobsQueryArgs: JobsQueryArgs;
   Log: ResolverTypeWrapper<Log>;
   LogsArgs: LogsArgs;
@@ -1137,6 +1149,7 @@ export type ResolversParentTypes = ResolversObject<{
   JobSet: JobSet;
   JobSetQueryArgs: JobSetQueryArgs;
   JobSetsQueryArgs: JobSetsQueryArgs;
+  JobsByPipelineQueryArgs: JobsByPipelineQueryArgs;
   JobsQueryArgs: JobsQueryArgs;
   Log: Log;
   LogsArgs: LogsArgs;
@@ -1842,6 +1855,12 @@ export type QueryResolvers<
     ParentType,
     ContextType,
     RequireFields<QueryJobsArgs, 'args'>
+  >;
+  jobsByPipeline?: Resolver<
+    Array<ResolversTypes['Job']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryJobsByPipelineArgs, 'args'>
   >;
   loggedIn?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   logs?: Resolver<
@@ -2737,6 +2756,45 @@ export type JobSetsQuery = {
         image: string;
       } | null;
     }>;
+  }>;
+};
+
+export type JobsByPipelineQueryVariables = Exact<{
+  args: JobsByPipelineQueryArgs;
+}>;
+
+export type JobsByPipelineQuery = {
+  __typename?: 'Query';
+  jobsByPipeline: Array<{
+    __typename?: 'Job';
+    inputString?: string | null;
+    inputBranch?: string | null;
+    outputBranch?: string | null;
+    outputCommit?: string | null;
+    reason?: string | null;
+    jsonDetails: string;
+    transformString?: string | null;
+    id: string;
+    state: JobState;
+    nodeState: NodeState;
+    createdAt?: number | null;
+    startedAt?: number | null;
+    finishedAt?: number | null;
+    restarts: number;
+    pipelineName: string;
+    dataProcessed: number;
+    dataSkipped: number;
+    dataFailed: number;
+    dataTotal: number;
+    dataRecovered: number;
+    downloadBytesDisplay: string;
+    uploadBytesDisplay: string;
+    transform?: {
+      __typename?: 'Transform';
+      cmdList: Array<string>;
+      image: string;
+      debug: boolean;
+    } | null;
   }>;
 };
 

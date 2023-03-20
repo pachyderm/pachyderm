@@ -13,6 +13,7 @@ interface PipelineJobResolver {
   Query: {
     job: QueryResolvers['job'];
     jobs: QueryResolvers['jobs'];
+    jobsByPipeline: QueryResolvers['jobs'];
     jobSet: QueryResolvers['jobSet'];
     jobSets: QueryResolvers['jobSets'];
   };
@@ -67,6 +68,25 @@ const pipelineJobResolver: PipelineJobResolver = {
       });
 
       return jobs.map(jobInfoToGQLJob);
+    },
+    jobsByPipeline: async (
+      _parent,
+      {args: {limit, pipelineIds, projectId}},
+      {pachClient},
+    ) => {
+      const pipelineJobs = await Promise.all(
+        pipelineIds
+          ? pipelineIds.map((pipelineId) =>
+              pachClient.pps().listJobs({
+                limit,
+                pipelineId,
+                projectId,
+              }),
+            )
+          : [],
+      );
+
+      return pipelineJobs.flat().map(jobInfoToGQLJob);
     },
     jobSet: async (_parent, {args: {id, projectId}}, {pachClient}) => {
       return jobInfosToGQLJobSet(

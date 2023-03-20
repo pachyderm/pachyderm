@@ -1,10 +1,17 @@
+import {JOBS_BY_PIPELINE_QUERY} from '@dash-frontend/queries/GetJobsByPipelineQuery';
 import {JOB_SET_QUERY} from '@dash-frontend/queries/GetJobsetQuery';
 import {JOB_SETS_QUERY} from '@dash-frontend/queries/GetJobSetsQuery';
 import {JOBS_QUERY} from '@dash-frontend/queries/GetJobsQuery';
 
 import jobs from '@dash-backend/mock/fixtures/jobs';
 import {executeQuery} from '@dash-backend/testHelpers';
-import {JobSetQuery, JobSetsQuery, JobsQuery, JobState} from '@graphqlTypes';
+import {
+  JobSetQuery,
+  JobSetsQuery,
+  JobsQuery,
+  JobState,
+  JobsByPipelineQuery,
+} from '@graphqlTypes';
 
 describe('Jobs', () => {
   describe('Pipeline Jobs', () => {
@@ -59,6 +66,35 @@ describe('Jobs', () => {
       expect(errors).toHaveLength(0);
       expect(data?.jobs).toHaveLength(expectedJobs.length);
       expect(data?.jobs[0].id).toBe(expectedJobs[0].getJob()?.getId());
+    });
+
+    it('should find jobs per pipeline for multiple given pipelineIds', async () => {
+      const {data, errors = []} = await executeQuery<JobsByPipelineQuery>(
+        JOBS_BY_PIPELINE_QUERY,
+        {
+          args: {
+            projectId: 'Solar-Panel-Data-Sorting',
+            pipelineIds: ['montage', 'edges'],
+            limit: 1,
+          },
+        },
+      );
+      const montageJob = jobs['Solar-Panel-Data-Sorting'].find(
+        (jobs) => jobs.getJob()?.getPipeline()?.getName() === 'montage',
+      );
+      const edgesJob = jobs['Solar-Panel-Data-Sorting'].find(
+        (jobs) => jobs.getJob()?.getPipeline()?.getName() === 'edges',
+      );
+      const expectedJobs = [montageJob, edgesJob];
+
+      expect(errors).toHaveLength(0);
+      expect(data?.jobsByPipeline).toHaveLength(expectedJobs.length);
+      expect(data?.jobsByPipeline[0].id).toBe(
+        expectedJobs[0] && expectedJobs[0].getJob()?.getId(),
+      );
+      expect(data?.jobsByPipeline[1].id).toBe(
+        expectedJobs[1] && expectedJobs[1].getJob()?.getId(),
+      );
     });
 
     it('should find jobs for multiple given jobSetIds', async () => {

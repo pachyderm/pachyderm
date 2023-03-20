@@ -290,6 +290,12 @@ input JobsQueryArgs {
   jobSetIds: [String]
 }
 
+input JobsByPipelineQueryArgs {
+  projectId: ID!
+  limit: Int
+  pipelineIds: [String]!
+}
+
 type Project {
   id: String!
   status: ProjectStatus!
@@ -617,6 +623,7 @@ type Query {
   projectDetails(args: ProjectDetailsQueryArgs!): ProjectDetails!
   jobs(args: JobsQueryArgs!): [Job!]!
   job(args: JobQueryArgs!): Job!
+  jobsByPipeline(args: JobsByPipelineQueryArgs!): [Job!]!
   dag(args: DagQueryArgs!): [Vertex!]!
   files(args: FileQueryArgs!): FileQueryResponse!
   account: Account!
