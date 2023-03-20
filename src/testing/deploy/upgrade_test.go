@@ -165,9 +165,9 @@ func TestUpgradeLoad(t *testing.T) {
 	fromVersions := []string{"2.3.9", "2.4.6"}
 	dagSpec := `
 default-load-test-source-1:
-default-load-test-source-2:
-default-load-test-pipeline-1: default-load-test-source-1, default-load-test-source-2
 default-load-test-pipeline-1: default-load-test-source-1
+default-load-test-source-2:
+default-load-test-pipeline-2: default-load-test-source-1, default-load-test-source-2
 `
 	loadSpec := `
 count: 5
