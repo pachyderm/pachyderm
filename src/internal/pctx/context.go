@@ -78,6 +78,15 @@ func WithCounter[T m.Monoid](metric string, zero T, options ...m.Option) Option 
 	}
 }
 
+// WithDelta adds an aggregated delta metric to the context.
+func WithDelta[T m.Signed](metric string, threshold T, options ...m.Option) Option {
+	return Option{
+		modifyContext: func(ctx context.Context) context.Context {
+			return m.NewAggregatedDelta(ctx, metric, threshold, options...)
+		},
+	}
+}
+
 // Child returns a named child context, with additional options.  The new name can be empty.
 // Options are applied in an arbitrary order.
 func Child(ctx context.Context, name string, opts ...Option) context.Context {

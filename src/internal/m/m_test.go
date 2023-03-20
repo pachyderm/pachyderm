@@ -2,6 +2,8 @@ package m
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -27,11 +29,15 @@ func TestAggregatedGauge(t *testing.T) {
 	ctx = NewAggregatedGauge(ctx, "test", 0, withDoneCh(doneCh)) // No log expected.
 	Set(ctx, "test", 42)                                         // No log expected.
 	for i := 0; i < 1000; i++ {
-		Set(ctx, "test", 43) // No log expected.
+		if i%2 == 0 {
+			Set(ctx, "test", 43) // No log expected.
+		} else {
+			SetGauge(ctx, "test", 43) // No log expected.
+		} // Both operations above do the same thing on this numeric gauge.
 	}
-	Set(ctx, "test", "string") // Log expected because "string" doesn't match the gauge type.
-	Inc(ctx, "test", 44)       // Log expected because this is a non-gauge operation.
-	Sample(ctx, "test", 123)   // Log expected because this is a non-gauge operation.
+	SetGauge(ctx, "test", "string") // Log expected because "string" doesn't match the gauge type.
+	Inc(ctx, "test", 44)            // Log expected because this is a non-gauge operation.
+	Sample(ctx, "test", 123)        // Log expected because this is a non-gauge operation.
 	for i := 0; i < 1000; i++ {
 		Set(ctx, "test", i) // 1 log expected after flush.
 	}
@@ -85,7 +91,96 @@ func TestAggregatedCounter(t *testing.T) {
 	if diff := cmp.Diff(got, want); diff != "" {
 		t.Errorf("diff logged metrics (-got +want):\n%s", diff)
 	}
+}
 
+func TestAggregatedDelta(t *testing.T) {
+	ctx, h := log.TestWithCapture(t)
+	ctx, c := context.WithCancel(ctx)
+	doneCh := make(chan struct{})
+	ctx = NewAggregatedDelta(ctx, "test", 500, withDoneCh(doneCh))
+	for i := 0; i < 1000; i++ {
+		Set(ctx, "test", i)
+	}
+	c()
+	<-doneCh
+	var got []string
+	for _, l := range h.Logs() {
+		if l.Message == "metric: test" {
+			if x, ok := l.Keys["value"]; ok {
+				got = append(got, fmt.Sprintf("value: %v", int(x.(float64))))
+			}
+			if x, ok := l.Keys["delta"]; ok {
+				got = append(got, fmt.Sprintf("delta: %v", int(x.(float64))))
+			}
+		} else {
+			t.Errorf("unexpected log line: %v", l.String())
+		}
+	}
+	want := []string{"value: 500", "delta: 499"} // last value is 999
+	if diff := cmp.Diff(got, want); diff != "" {
+		t.Errorf("diff logged metrics (-got +want):\n%s", diff)
+		t.Logf("logs: %v", h.Logs())
+	}
+}
+
+func TestWithNewFields(t *testing.T) {
+	ctx, h := log.TestWithCapture(t)
+	ctx, c := context.WithCancel(ctx)
+	ctx = log.ChildLogger(ctx, "a", log.WithFields(zap.Bool("a", true)))
+	t.Logf("ctx: %s", reflect.ValueOf(ctx))
+	ctxA := NewAggregatedCounter(ctx, "test", 0, Deferred())
+	ctxA = NewAggregatedGauge(ctxA, "gauge", 0, Deferred())
+	t.Logf("ctxA: %s", reflect.ValueOf(ctxA))
+	ctxB := WithNewFields(log.ChildLogger(ctxA, "b", log.WithFields(zap.Bool("b", true))))
+	t.Logf("ctxB: %s", reflect.ValueOf(ctxB))
+	for i := 0; i < 1000; i++ {
+		Inc(ctxA, "test", 1)
+		Set(ctxA, "gauge", 42)
+		Inc(ctxB, "test", -1)
+		// If WithNewFields doesn't work, the value of the metric after c() will be 0.  If
+		// it does, there will be 1000 for A and -1000 for B.
+	}
+	c()
+	time.Sleep(100 * time.Millisecond) // can't use doneCh because of the cloning
+
+	var gotLines, gotA, gotB, gotGauge int
+	wantLines := 3
+	for _, l := range h.Logs() {
+		switch l.Message {
+		case "metric: test":
+			if x, ok := l.Keys["delta"]; ok {
+				if _, ok := l.Keys["b"]; ok {
+					gotLines++
+					gotB = int(x.(float64))
+				} else {
+					gotLines++
+					gotA = int(x.(float64))
+				}
+			}
+		case "metric: gauge":
+			if _, ok := l.Keys["b"]; !ok {
+				if x, ok := l.Keys["value"]; ok {
+					gotLines++
+					gotGauge = int(x.(float64))
+				}
+			}
+		}
+	}
+	if got, want := gotLines, wantLines; got != want {
+		t.Errorf("line count:\n  got: %v\n want: %v", got, want)
+		for _, l := range h.Logs() {
+			t.Logf("log: %s", l)
+		}
+	}
+	if got, want := gotA, 1000; got != want {
+		t.Errorf("value of test{a}:\n  got: %v\n want: %v", got, want)
+	}
+	if got, want := gotB, -1000; got != want {
+		t.Errorf("value of test{b}:\n  got: %v\n want: %v", got, want)
+	}
+	if got, want := gotGauge, 42; got != want {
+		t.Errorf("value of gauge:\n  got: %v\n want: %v", got, want)
+	}
 }
 
 func BenchmarkGauge(b *testing.B) {
@@ -121,44 +216,5 @@ func BenchmarkAggregatedGauge(b *testing.B) {
 	<-doneCh
 	if w.Load() == 0 {
 		b.Fatal("no bytes added to logger")
-	}
-}
-
-func TestWithNewFields(t *testing.T) {
-	ctx, h := log.TestWithCapture(t)
-	ctx, c := context.WithCancel(ctx)
-	ctxA := NewAggregatedCounter(ctx, "test", 0, Deferred())
-	ctxB := WithNewFields(log.ChildLogger(ctxA, "b", log.WithFields(zap.Bool("b", true))))
-	for i := 0; i < 1000; i++ {
-		Inc(ctxA, "test", 1)
-		Inc(ctxB, "test", -1)
-		// If WithNewFields doesn't work, the value of the metric after c() will be 0.  If
-		// it does, there will be 1000 for A and -1000 for B.
-	}
-	c()
-	time.Sleep(100 * time.Millisecond) // can't use doneCh because of the cloning
-
-	var gotA, gotB int
-	for i, l := range h.Logs() {
-		if l.Message == "metric: test" {
-			if x, ok := l.Keys["delta"]; ok {
-				if _, ok := l.Keys["b"]; ok {
-					gotB = int(x.(float64))
-				} else {
-					gotA = int(x.(float64))
-				}
-			}
-		} else {
-			t.Errorf("unexpected log line: %v", l.String())
-		}
-		if i > 1 {
-			t.Errorf("unexpected extra line: %v", l.String())
-		}
-	}
-	if got, want := gotA, 1000; got != want {
-		t.Errorf("value of a:\n  got: %v\n want: %v", got, want)
-	}
-	if got, want := gotB, -1000; got != want {
-		t.Errorf("value of b:\n  got: %v\n want: %v", got, want)
 	}
 }
