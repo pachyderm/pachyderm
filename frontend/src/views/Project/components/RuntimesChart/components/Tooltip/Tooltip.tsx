@@ -14,9 +14,10 @@ type TooltipProps = {
     opacity: number;
     runtime: string;
   };
+  useHoursAsUnit: boolean;
 };
 
-const Tooltip: React.FC<TooltipProps> = ({tooltipState}) => {
+const Tooltip: React.FC<TooltipProps> = ({tooltipState, useHoursAsUnit}) => {
   return (
     <div
       className={styles.base}
@@ -27,7 +28,10 @@ const Tooltip: React.FC<TooltipProps> = ({tooltipState}) => {
       }}
     >
       <div className={styles.tooltipLine}>
-        <CaptionTextSmall>{tooltipState.runtime} seconds</CaptionTextSmall>
+        <CaptionTextSmall>
+          {parseFloat(tooltipState.runtime).toFixed(1)}{' '}
+          {useHoursAsUnit ? 'hours' : 'seconds'}
+        </CaptionTextSmall>
         <CaptionTextSmall>Runtime</CaptionTextSmall>
       </div>
       <CaptionTextSmall className={styles.tooltipText}>

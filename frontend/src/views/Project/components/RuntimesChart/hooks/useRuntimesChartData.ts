@@ -4,6 +4,8 @@ import {useMemo, useCallback} from 'react';
 
 import {CHART_COLORS} from '../RuntimesChart';
 
+const SECONDS_IN_HOUR = 60 * 60;
+
 const useRuntimesChartData = (filteredJobs: Job[]) => {
   const jobIds = useMemo(
     () => [...new Set(filteredJobs.map((job: Job) => job.id))],
@@ -30,13 +32,27 @@ const useRuntimesChartData = (filteredJobs: Job[]) => {
     (id: string, step: string) => {
       const job = jobsCrossReference[id][step];
       if (job) {
-        return (job.finishedAt || Date.now()) - (job.createdAt || 0);
+        return (
+          (job.finishedAt || Math.floor(Date.now() / 1000)) -
+          (job.createdAt || 0)
+        );
       } else {
         return null;
       }
     },
     [jobsCrossReference],
   );
+
+  const longestJob = useMemo(
+    () =>
+      Math.max(
+        ...filteredJobs.map(
+          (job) => getJobDuration(job.id, `@${job.pipelineName}`) || 0,
+        ),
+      ),
+    [filteredJobs, getJobDuration],
+  );
+  const useHoursAsUnit = longestJob > SECONDS_IN_HOUR;
 
   const pipelineDatasets = useMemo(() => {
     return jobIds.map((id, index) => {
@@ -47,7 +63,9 @@ const useRuntimesChartData = (filteredJobs: Job[]) => {
       const jobSetData: [number, number][] = [];
       let durationSoFar = 0;
       pipelines.forEach((pipeline) => {
-        const latestDuration = getJobDuration(id, pipeline) || 0;
+        const latestDuration =
+          (getJobDuration(id, pipeline) || 0) /
+          (useHoursAsUnit ? SECONDS_IN_HOUR : 1);
         jobSetData.push([durationSoFar, durationSoFar + latestDuration]);
         durationSoFar += latestDuration;
       });
@@ -57,14 +75,21 @@ const useRuntimesChartData = (filteredJobs: Job[]) => {
         backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
       };
     });
-  }, [getJobDuration, jobIds, pipelines]);
+  }, [getJobDuration, jobIds, useHoursAsUnit, pipelines]);
 
   const chartData: ChartData<'bar'> = {
     labels: pipelines,
     datasets: pipelineDatasets,
   };
 
-  return {chartData, pipelineDatasets, jobsCrossReference, pipelines, jobIds};
+  return {
+    chartData,
+    pipelineDatasets,
+    jobsCrossReference,
+    pipelines,
+    jobIds,
+    useHoursAsUnit,
+  };
 };
 
 export default useRuntimesChartData;

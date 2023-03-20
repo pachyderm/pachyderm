@@ -93,8 +93,14 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
   });
   const {filteredJobs, formCtx, clearableFiltersMap, multiselectFilters} =
     useRuntimesChartFilters({jobs: data?.jobs});
-  const {chartData, pipelineDatasets, jobsCrossReference, pipelines, jobIds} =
-    useRuntimesChartData(filteredJobs);
+  const {
+    chartData,
+    pipelineDatasets,
+    jobsCrossReference,
+    pipelines,
+    jobIds,
+    useHoursAsUnit,
+  } = useRuntimesChartData(filteredJobs);
   const {tooltip, setTooltipState} = useRuntimesChartTooltip();
 
   const options: ChartOptions<'bar'> = useMemo(
@@ -120,7 +126,7 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
           },
           title: {
             display: true,
-            text: 'Job Duration (Seconds)',
+            text: `Job Duration (${useHoursAsUnit ? 'Hours' : 'Seconds'})`,
             font: {
               family: 'Public Sans',
               weight: '600',
@@ -161,7 +167,7 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
         },
       },
     }),
-    [setTooltipState],
+    [setTooltipState, useHoursAsUnit],
   );
 
   const handleClick = useCallback(
@@ -266,7 +272,7 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
             pipelinesLength={pipelines.length}
             handleBarClick={handleClick}
           />
-          <Tooltip tooltipState={tooltip} />
+          <Tooltip tooltipState={tooltip} useHoursAsUnit={useHoursAsUnit} />
         </div>
       )}
     </Form>
