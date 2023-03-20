@@ -98,7 +98,7 @@ export const usePipeline = (
         requirements: requirements,
       },
       run: {
-        name: pipelineName + ' run',
+        name: pipelineName,
         input: JSON.stringify(input),
       },
     };
