@@ -6,9 +6,29 @@ import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
 import Pipeline from '../Pipeline';
 jest.mock('../../../../../handler');
+import {SameMetadata} from '../../../types';
 
 describe('PPS screen', () => {
   let setShowPipeline = jest.fn();
+  const saveNotebookMetaData = jest.fn();
+  const md: SameMetadata = {
+    apiVersion: '',
+    environments: {
+      default: {
+        image_tag: '',
+      },
+    },
+    metadata: {
+      name: '',
+    },
+    notebook: {
+      requirements: '',
+    },
+    run: {
+      name: '',
+    },
+  };
+
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
 
   beforeEach(() => {
@@ -19,7 +39,11 @@ describe('PPS screen', () => {
   describe('spec preview', () => {
     it('proper preview', async () => {
       const {getByTestId, findByTestId} = render(
-        <Pipeline setShowPipeline={setShowPipeline} />,
+        <Pipeline
+          metadata={md}
+          setShowPipeline={setShowPipeline}
+          saveNotebookMetadata={saveNotebookMetaData}
+        />,
       );
 
       const inputPipelineName = await findByTestId(

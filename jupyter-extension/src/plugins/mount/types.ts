@@ -85,3 +85,34 @@ export interface IMountPlugin {
   layout: SplitPanel;
   ready: Promise<void>;
 }
+
+export type SameMetadata = {
+  apiVersion: string;
+  environments: SameEnv;
+  metadata: SameMetaMetadata;
+  notebook: SameNotebookMetadata;
+  run: SameRunMetadata;
+};
+
+export type SameEnv = {
+  default: DefaultSameEnv;
+};
+
+export type DefaultSameEnv = {
+  image_tag: string;
+};
+export type SameMetaMetadata = {
+  labels?: string[];
+  name: string;
+  version?: string;
+};
+
+export type SameNotebookMetadata = {
+  // Note: name and path are filled in when you pass the notebook to SAME
+  requirements: string;
+};
+
+export type SameRunMetadata = {
+  name: string;
+  input?: string; //Note: SAME doesn't actually read this field when reading from the notebook and instead expects you to pass it on the command line
+};

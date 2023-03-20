@@ -1,5 +1,6 @@
 import React from 'react';
 import {ILayoutRestorer, JupyterFrontEnd} from '@jupyterlab/application';
+import {INotebookTracker, NotebookPanel} from '@jupyterlab/notebook';
 import {IDocumentManager} from '@jupyterlab/docmanager';
 import {SplitPanel} from '@lumino/widgets';
 import {ReactWidget, UseSignal} from '@jupyterlab/apputils';
@@ -20,6 +21,7 @@ import {
   PfsInput,
   ListMountsResponse,
   CrossInputSpec,
+  SameMetadata,
 } from './types';
 import Config from './components/Config/Config';
 import Datum from './components/Datum/Datum';
@@ -30,6 +32,8 @@ import FullPageError from './components/FullPageError/FullPageError';
 import {requestAPI} from '../../handler';
 
 export const MOUNT_BROWSER_NAME = 'mount-browser:';
+
+export const METADATA_KEY = 'same_config';
 
 export class MountPlugin implements IMountPlugin {
   private _app: JupyterFrontEnd<JupyterFrontEnd.IShell, 'desktop' | 'mobile'>;
@@ -43,6 +47,7 @@ export class MountPlugin implements IMountPlugin {
   private _mountBrowser: FileBrowser;
   private _poller: PollMounts;
   private _panel: SplitPanel;
+  private _tracker: INotebookTracker;
 
   private _showConfig = false;
   private _showConfigSignal = new Signal<this, boolean>(this);
@@ -58,16 +63,19 @@ export class MountPlugin implements IMountPlugin {
     this,
   );
   private _showPipelineSignal = new Signal<this, boolean>(this);
+  private _showMetadataSignal = new Signal<this, SameMetadata>(this);
 
   constructor(
     app: JupyterFrontEnd,
     manager: IDocumentManager,
     factory: IFileBrowserFactory,
     restorer: ILayoutRestorer,
+    tracker: INotebookTracker,
   ) {
     this._app = app;
     this._poller = new PollMounts('PollMounts');
     this._repoViewInputSpec = {};
+    this._tracker = tracker;
 
     // This is used to detect if the config goes bad (pachd address changes)
     this._poller.configSignal.connect((_, config) => {
@@ -218,7 +226,17 @@ export class MountPlugin implements IMountPlugin {
     this._datum.addClass('pachyderm-mount-datum-wrapper');
 
     this._pipeline = ReactWidget.create(
-      <Pipeline setShowPipeline={this.setShowPipeline} />,
+      <UseSignal signal={this._showMetadataSignal}>
+        {(_, metadata) => (
+          <>
+            <Pipeline
+              setShowPipeline={this.setShowPipeline}
+              saveNotebookMetadata={this.saveNotebookMetaData}
+              metadata={metadata}
+            />
+          </>
+        )}
+      </UseSignal>,
     );
     this._pipeline.addClass('pachyderm-mount-pipeline-wrapper');
 
@@ -239,6 +257,8 @@ export class MountPlugin implements IMountPlugin {
     this._poller.mountedSignal.connect(this.verifyBrowserPath);
     this._poller.mountedSignal.connect(this.refresh);
     this._poller.unmountedSignal.connect(this.refresh);
+
+    this._tracker.currentChanged.connect(this.handleNotebookChanged, this);
 
     this._panel = new SplitPanel();
     this._panel.orientation = 'vertical';
@@ -273,6 +293,45 @@ export class MountPlugin implements IMountPlugin {
     restorer.add(this._panel, 'jupyterlab-pachyderm');
     app.shell.add(this._panel, 'left', {rank: 100});
   }
+
+  getActiveNotebook = (): NotebookPanel | null => {
+    return this._tracker.currentWidget;
+  };
+
+  /**
+   * This handles when a notebook is switched to another notebook.
+   * The parameters are automatically passed from the signal when a switch occurs.
+   */
+  handleNotebookChanged = async (
+    tracker: INotebookTracker,
+    notebook: NotebookPanel | null,
+  ): Promise<void> => {
+    // Set the current notebook and wait for the session to be ready
+    if (notebook) {
+      await notebook.sessionContext.ready;
+      const md = notebook?.model?.metadata.get(METADATA_KEY);
+
+      this._showMetadataSignal.emit(md as SameMetadata);
+      await Promise.resolve();
+    } else {
+      await Promise.resolve();
+    }
+  };
+
+  getNotebookMetadata = (notebook: NotebookPanel | null): any | null => {
+    return notebook?.model?.metadata.get(METADATA_KEY);
+  };
+
+  saveNotebookMetaData = (metadata: any): void => {
+    const currentNotebook = this.getActiveNotebook();
+
+    if (currentNotebook !== null) {
+      currentNotebook?.model?.metadata.set(METADATA_KEY, metadata);
+      console.log('notebook metadata saved');
+    } else {
+      console.log('No active notebook');
+    }
+  };
 
   open = (path: string): void => {
     this._app.commands.execute('filebrowser:open-path', {
