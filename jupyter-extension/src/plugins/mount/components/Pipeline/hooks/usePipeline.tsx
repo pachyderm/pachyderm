@@ -30,18 +30,11 @@ export const usePipeline = (
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    console.log('use effect: metadata: ', metadata);
-    setImageName(
-      metadata?.environments.default.image_tag
-        ? metadata?.environments.default.image_tag
-        : '',
-    );
-    setPipelineName(metadata?.metadata.name ? metadata?.metadata.name : '');
-    setRequirements(
-      metadata?.notebook.requirements ? metadata?.notebook.requirements : '',
-    );
+    setImageName(metadata?.environments.default.image_tag ?? '');
+    setPipelineName(metadata?.metadata.name ?? '');
+    setRequirements(metadata?.notebook.requirements ?? '');
     if (metadata?.run.input) {
-      const input = JSON.parse(metadata?.run.input);
+      const input = JSON.parse(metadata?.run.input); //TODO: Catch errors
       setInputSpec(YAML.stringify(input));
     } else {
       setInputSpec('');

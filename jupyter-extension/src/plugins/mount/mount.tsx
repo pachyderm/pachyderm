@@ -227,17 +227,15 @@ export class MountPlugin implements IMountPlugin {
 
     this._pipeline = ReactWidget.create(
       <UseSignal signal={this._showMetadataSignal}>
-        {(_, metadata) => {
-          return (
-            <>
-              <Pipeline
-                setShowPipeline={this.setShowPipeline}
-                saveNotebookMetadata={this.saveNotebookMetaData}
-                metadata={metadata}
-              />
-            </>
-          );
-        }}
+        {(_, metadata) => (
+          <>
+            <Pipeline
+              setShowPipeline={this.setShowPipeline}
+              saveNotebookMetadata={this.saveNotebookMetaData}
+              metadata={metadata}
+            />
+          </>
+        )}
       </UseSignal>,
     );
     this._pipeline.addClass('pachyderm-mount-pipeline-wrapper');
@@ -311,15 +309,11 @@ export class MountPlugin implements IMountPlugin {
     // Set the current notebook and wait for the session to be ready
     if (notebook) {
       await notebook.sessionContext.ready;
-      console.log('notebook changed! notebook', notebook);
       const md = notebook?.model?.metadata.get(METADATA_KEY);
-      console.log('metadata:', md);
 
       this._showMetadataSignal.emit(md as SameMetadata);
       await Promise.resolve();
     } else {
-      //await this.setNotebookPanel(null);
-      console.log('notebook changed, no notebook');
       await Promise.resolve();
     }
   };
@@ -328,11 +322,11 @@ export class MountPlugin implements IMountPlugin {
     return notebook?.model?.metadata.get(METADATA_KEY);
   };
 
-  saveNotebookMetaData = (value: any): void => {
+  saveNotebookMetaData = (metadata: any): void => {
     const currentNotebook = this.getActiveNotebook();
 
     if (currentNotebook !== null) {
-      currentNotebook?.model?.metadata.set(METADATA_KEY, value);
+      currentNotebook?.model?.metadata.set(METADATA_KEY, metadata);
       console.log('notebook metadata saved');
     } else {
       console.log('No active notebook');
