@@ -36,9 +36,9 @@ func (s *loggingStream) RecvMsg(m any) error {
 	}
 	var field log.Field
 	if p, ok := m.(proto.Message); ok {
-		field = log.Proto("message", p)
+		field = log.Proto("reply", p)
 	} else {
-		field = zap.Any("message", m)
+		field = zap.Any("reply", m)
 	}
 	log.Debug(s.Context(), "received message", field)
 	if !s.desc.ServerStreams && s.closedSend.Load() {
@@ -54,9 +54,9 @@ func (s *loggingStream) RecvMsg(m any) error {
 func (s *loggingStream) SendMsg(m any) (retErr error) {
 	var field log.Field
 	if p, ok := m.(proto.Message); ok {
-		field = log.Proto("message", p)
+		field = log.Proto("request", p)
 	} else {
-		field = zap.Any("message", m)
+		field = zap.Any("request", m)
 	}
 	if err := s.ClientStream.SendMsg(m); err != nil {
 		log.Debug(s.Context(), "error sending message", zap.Error(err), field)
