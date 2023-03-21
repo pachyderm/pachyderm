@@ -15,6 +15,7 @@ import {
   useModal,
 } from '@pachyderm/components';
 
+import DeleteProjectModal from '../DeleteProjectModal';
 import ProjectStatus from '../ProjectStatus';
 import UpdateProjectModal from '../UpdateProjectModal';
 
@@ -34,7 +35,16 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   setSelectedProject = noop,
 }) => {
   const browserHistory = useHistory();
-  const {openModal, closeModal, isOpen} = useModal(false);
+  const {
+    openModal: openUpdateModal,
+    closeModal: closeUpdateModal,
+    isOpen: updateModalIsOpen,
+  } = useModal(false);
+  const {
+    openModal: openDeleteModal,
+    closeModal: closeDeleteModal,
+    isOpen: deleteModalIsOpen,
+  } = useModal(false);
 
   const onClick = () =>
     browserHistory.push(lineageRoute({projectId: project.id}));
@@ -45,12 +55,20 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
       content: 'Edit Project Info',
       closeOnClick: true,
     },
+    {
+      id: 'delete-project',
+      content: 'Delete Project',
+      closeOnClick: true,
+    },
   ];
 
   const onSelect = (id: string) => {
     switch (id) {
       case 'edit-project-info':
-        openModal();
+        openUpdateModal();
+        return null;
+      case 'delete-project':
+        openDeleteModal();
         return null;
       default:
         return null;
@@ -114,10 +132,15 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
         </td>
       </tr>
       <UpdateProjectModal
-        show={isOpen}
-        onHide={closeModal}
+        show={updateModalIsOpen}
+        onHide={closeUpdateModal}
         projectName={project.id}
         description={project.description}
+      />
+      <DeleteProjectModal
+        show={deleteModalIsOpen}
+        onHide={closeDeleteModal}
+        projectName={project.id}
       />
     </>
   );
