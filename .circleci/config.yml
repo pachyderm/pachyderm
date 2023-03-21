@@ -242,8 +242,6 @@ workflows:
           matrix:
             parameters:
               version:
-                - v2.0.0
-                - v2.3.9
-                - v2.4.0
-                - v2.5.0-alpha.4
+                - v2.4.6
+                - v2.5.1
                 - latest
