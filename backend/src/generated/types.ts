@@ -95,6 +95,12 @@ export type CommitQueryArgs = {
   withDiff?: InputMaybe<Scalars['Boolean']>;
 };
 
+export type CommitSearchQueryArgs = {
+  id: Scalars['ID'];
+  projectId: Scalars['String'];
+  repoName: Scalars['String'];
+};
+
 export type CommitsQueryArgs = {
   branchName?: InputMaybe<Scalars['String']>;
   cursor?: InputMaybe<TimestampInput>;
@@ -649,6 +655,7 @@ export type Query = {
   authConfig: AuthConfig;
   branch: Branch;
   commit?: Maybe<Commit>;
+  commitSearch?: Maybe<Commit>;
   commits: PageableCommit;
   dag: Array<Vertex>;
   datum: Datum;
@@ -680,6 +687,10 @@ export type QueryBranchArgs = {
 
 export type QueryCommitArgs = {
   args: CommitQueryArgs;
+};
+
+export type QueryCommitSearchArgs = {
+  args: CommitSearchQueryArgs;
 };
 
 export type QueryCommitsArgs = {
@@ -1016,6 +1027,7 @@ export type ResolversTypes = ResolversObject<{
   Commit: ResolverTypeWrapper<Commit>;
   CommitInput: CommitInput;
   CommitQueryArgs: CommitQueryArgs;
+  CommitSearchQueryArgs: CommitSearchQueryArgs;
   CommitsQueryArgs: CommitsQueryArgs;
   CreateBranchArgs: CreateBranchArgs;
   CreatePipelineArgs: CreatePipelineArgs;
@@ -1117,6 +1129,7 @@ export type ResolversParentTypes = ResolversObject<{
   Commit: Commit;
   CommitInput: CommitInput;
   CommitQueryArgs: CommitQueryArgs;
+  CommitSearchQueryArgs: CommitSearchQueryArgs;
   CommitsQueryArgs: CommitsQueryArgs;
   CreateBranchArgs: CreateBranchArgs;
   CreatePipelineArgs: CreatePipelineArgs;
@@ -1791,6 +1804,12 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryCommitArgs, 'args'>
   >;
+  commitSearch?: Resolver<
+    Maybe<ResolversTypes['Commit']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryCommitSearchArgs, 'args'>
+  >;
   commits?: Resolver<
     ResolversTypes['PageableCommit'],
     ParentType,
@@ -2451,6 +2470,27 @@ export type CommitQuery = {
         sizeDelta: number;
       };
     } | null;
+    branch?: {__typename?: 'Branch'; name: string} | null;
+  } | null;
+};
+
+export type CommitSearchQueryVariables = Exact<{
+  args: CommitSearchQueryArgs;
+}>;
+
+export type CommitSearchQuery = {
+  __typename?: 'Query';
+  commitSearch?: {
+    __typename?: 'Commit';
+    repoName: string;
+    description?: string | null;
+    originKind?: OriginKind | null;
+    id: string;
+    started: number;
+    finished: number;
+    sizeBytes: number;
+    sizeDisplay: string;
+    hasLinkedJob: boolean;
     branch?: {__typename?: 'Branch'; name: string} | null;
   } | null;
 };

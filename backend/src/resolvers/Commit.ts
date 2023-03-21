@@ -1,6 +1,9 @@
+import {ApolloError} from 'apollo-server-errors';
+
+import {UUID_WITHOUT_DASHES_REGEX} from '@dash-backend/constants/pachCore';
 import formatDiff from '@dash-backend/lib/formatDiff';
 import {toProtoCommitOrigin} from '@dash-backend/lib/gqlEnumMappers';
-import {PachClient} from '@dash-backend/lib/types';
+import {NotFoundError, PachClient} from '@dash-backend/lib/types';
 import {CommitState} from '@dash-backend/proto';
 import {
   MutationResolvers,
@@ -17,6 +20,7 @@ interface CommitResolver {
   Query: {
     commits: QueryResolvers['commits'];
     commit: QueryResolvers['commit'];
+    commitSearch: QueryResolvers['commitSearch'];
   };
   Mutation: {
     startCommit: MutationResolvers['startCommit'];
@@ -166,6 +170,34 @@ const commitResolver: CommitResolver = {
         cursor: nextCursor,
         hasNextPage: !!nextCursor,
       };
+    },
+    commitSearch: async (
+      _parent,
+      {args: {projectId, id, repoName}},
+      {pachClient},
+    ) => {
+      if (!UUID_WITHOUT_DASHES_REGEX.test(id)) {
+        throw new ApolloError(`invalid commit id`, 'INVALID_ARGUMENT');
+      }
+      try {
+        const commit = await pachClient.pfs().inspectCommit({
+          projectId,
+          wait: CommitState.COMMIT_STATE_UNKNOWN,
+          // We want to specify the repo name but not the branch name
+          // as we are searching with only commit id.
+          commit: {
+            id,
+            branch: {name: '', repo: {name: repoName}},
+          },
+        });
+
+        return commitInfoToGQLCommit(commit);
+      } catch (e) {
+        if (e instanceof NotFoundError) {
+          return null;
+        }
+        throw e;
+      }
     },
   },
   Mutation: {

@@ -45,6 +45,25 @@ describe('Datum resolver', () => {
       expect(errors).toHaveLength(0);
       expect(data?.datumSearch?.state).toBe(DatumState.SUCCESS);
     });
+
+    it('should return error if id is not the correct format', async () => {
+      const {data, errors = []} = await executeQuery<DatumSearchQuery>(
+        DATUM_SEARCH_QUERY,
+        {
+          args: {
+            projectId: 'Solar-Panel-Data-Sorting',
+            id: '0752b20131461a255d',
+            jobId: '23b9af7d5d4343219bc8e02ff44cd55a',
+            pipelineId: 'montage',
+          },
+        },
+      );
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0].extensions.code).toBe('INVALID_ARGUMENT');
+      expect(data?.datumSearch).toBeUndefined();
+    });
+
     it('should return null if datum does not exist', async () => {
       const {data, errors = []} = await executeQuery<DatumSearchQuery>(
         DATUM_SEARCH_QUERY,

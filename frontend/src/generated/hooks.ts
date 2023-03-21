@@ -979,6 +979,65 @@ export type CommitQueryResult = Apollo.QueryResult<
   Types.CommitQuery,
   Types.CommitQueryVariables
 >;
+export const CommitSearchDocument = gql`
+  query commitSearch($args: CommitSearchQueryArgs!) {
+    commitSearch(args: $args) {
+      ...CommitFragment
+    }
+  }
+  ${CommitFragmentFragmentDoc}
+`;
+
+/**
+ * __useCommitSearchQuery__
+ *
+ * To run a query within a React component, call `useCommitSearchQuery` and pass it any options that fit your needs.
+ * When your component renders, `useCommitSearchQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useCommitSearchQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useCommitSearchQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.CommitSearchQuery,
+    Types.CommitSearchQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<
+    Types.CommitSearchQuery,
+    Types.CommitSearchQueryVariables
+  >(CommitSearchDocument, options);
+}
+export function useCommitSearchLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.CommitSearchQuery,
+    Types.CommitSearchQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.CommitSearchQuery,
+    Types.CommitSearchQueryVariables
+  >(CommitSearchDocument, options);
+}
+export type CommitSearchQueryHookResult = ReturnType<
+  typeof useCommitSearchQuery
+>;
+export type CommitSearchLazyQueryHookResult = ReturnType<
+  typeof useCommitSearchLazyQuery
+>;
+export type CommitSearchQueryResult = Apollo.QueryResult<
+  Types.CommitSearchQuery,
+  Types.CommitSearchQueryVariables
+>;
 export const GetCommitsDocument = gql`
   query getCommits($args: CommitsQueryArgs!) {
     commits(args: $args) {

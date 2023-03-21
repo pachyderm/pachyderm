@@ -424,6 +424,12 @@ input CommitQueryArgs {
   withDiff: Boolean
 }
 
+input CommitSearchQueryArgs {
+  id: ID!
+  repoName: String!
+  projectId: String!
+}
+
 input CommitsQueryArgs {
   projectId: String!
   repoName: String!
@@ -634,6 +640,7 @@ type Query {
   workspaceLogs(args: WorkspaceLogsArgs!): [Log]!
   logs(args: LogsArgs!): [Log]!
   commit(args: CommitQueryArgs!): Commit
+  commitSearch(args: CommitSearchQueryArgs!): Commit
   commits(args: CommitsQueryArgs!): PageableCommit!
   branch(args: BranchQueryArgs!): Branch!
   datum(args: DatumQueryArgs!): Datum!

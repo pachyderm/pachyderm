@@ -1,3 +1,5 @@
+import {ApolloError} from 'apollo-server-errors';
+
 import {toProtoDatumState} from '@dash-backend/lib/gqlEnumMappers';
 import {NotFoundError} from '@dash-backend/lib/types';
 import {DatumState} from '@dash-backend/proto';
@@ -75,7 +77,7 @@ const datumResolver: DatumResolver = {
     ) => {
       //TODO: Update once we get regex
       if (id.length !== 64) {
-        return null;
+        throw new ApolloError(`invalid datum id`, 'INVALID_ARGUMENT');
       }
       try {
         const datum = await pachClient

@@ -1,6 +1,7 @@
 import {FINISH_COMMIT_MUTATION} from '@dash-frontend/mutations/FinishCommit';
 import {START_COMMIT_MUTATION} from '@dash-frontend/mutations/StartCommit';
 import {GET_COMMIT_QUERY} from '@dash-frontend/queries/GetCommitQuery';
+import {COMMIT_SEARCH_QUERY} from '@dash-frontend/queries/GetCommitSearchQuery';
 import {GET_COMMITS_QUERY} from '@dash-frontend/queries/GetCommitsQuery';
 
 import {executeMutation, executeQuery} from '@dash-backend/testHelpers';
@@ -9,6 +10,7 @@ import {
   GetCommitsQuery,
   CommitQuery,
   StartCommitMutation,
+  CommitSearchQuery,
 } from '@graphqlTypes';
 
 describe('resolvers/Commits', () => {
@@ -61,6 +63,74 @@ describe('resolvers/Commits', () => {
       expect(data?.commit?.repoName).toBe(repoName);
     });
   });
+
+  describe('commitSearch', () => {
+    it('should return a commit based on search criteria', async () => {
+      const projectId = 'Solar-Power-Data-Logger-Team-Collab';
+      const repoName = 'cron';
+      const id = '9d5daa0918ac4c43a476b86e3bb5e88e';
+
+      const {data, errors = []} = await executeQuery<CommitSearchQuery>(
+        COMMIT_SEARCH_QUERY,
+        {
+          args: {
+            id,
+            repoName,
+            projectId,
+          },
+        },
+      );
+
+      expect(errors).toHaveLength(0);
+      expect(data?.commitSearch).toMatchObject({
+        id,
+        repoName,
+        branch: {name: 'master'},
+        description: 'added shinra hq building specs',
+      });
+    });
+    it('should return error if id is not the correct format', async () => {
+      const projectId = 'Solar-Power-Data-Logger-Team-Collab';
+      const repoName = 'cron';
+      const id = '0918zzzd5daa76b86e3bb5e88e4c43a4';
+
+      const {data, errors = []} = await executeQuery<CommitSearchQuery>(
+        COMMIT_SEARCH_QUERY,
+        {
+          args: {
+            id,
+            repoName,
+            projectId,
+          },
+        },
+      );
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0].extensions.code).toBe('INVALID_ARGUMENT');
+      expect(data?.commitSearch).toBeUndefined();
+    });
+
+    it('should return null if commit does not exist', async () => {
+      const projectId = 'Solar-Power-Data-Logger-Team-Collab';
+      const repoName = 'cron';
+      const id = '2d5daa0918ac4c43a412386e3bb5e88e';
+
+      const {data, errors = []} = await executeQuery<CommitSearchQuery>(
+        COMMIT_SEARCH_QUERY,
+        {
+          args: {
+            id,
+            repoName,
+            projectId,
+          },
+        },
+      );
+
+      expect(errors).toHaveLength(0);
+      expect(data?.commitSearch).toBeNull();
+    });
+  });
+
   describe('commits', () => {
     it('should return commits for a given repo', async () => {
       const projectId = 'Solar-Power-Data-Logger-Team-Collab';
