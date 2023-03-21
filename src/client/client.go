@@ -178,6 +178,8 @@ func NewFromURI(uri string, options ...Option) (*APIClient, error) {
 }
 
 // NewFromPachdAddress creates a new client given a parsed GRPC address
+//
+// Deprecated: Use NewFromPachdAddressContext.
 func NewFromPachdAddress(pachdAddress *grpcutil.PachdAddress, options ...Option) (*APIClient, error) {
 	return NewFromPachdAddressContext(pctx.TODO(), pachdAddress, options...)
 }
@@ -538,6 +540,8 @@ func NewEnterpriseClientForTest() (*APIClient, error) {
 
 // NewOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
 // if it exists. This is intended to be used in the pachctl binary.
+//
+// Deprecated: Use NewOnUserMachineContext().
 func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	return NewOnUserMachineContext(pctx.TODO(), prefix, options...)
 }

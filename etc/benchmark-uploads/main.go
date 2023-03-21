@@ -140,7 +140,7 @@ func main() {
 	}()
 
 	// Setup pach context for creating destination repo, etc.
-	c, err := client.NewOnUserMachine("")
+	c, err := client.NewOnUserMachineContext(ctx, "")
 	if err != nil {
 		log.Fatal(err)
 	}
