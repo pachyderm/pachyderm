@@ -145,7 +145,6 @@ func Set[T Signed](ctx context.Context, metric string, val T) {
 		g.set(ctx, val)
 		return
 	}
-	log.Debug(ctx, "Set is falling back to slow path", zap.String("metric", metric))
 	logGauge(ctx, 0, metric, val)
 }
 

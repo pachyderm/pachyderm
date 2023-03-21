@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/m"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/prometheus/procfs"
 	"go.uber.org/multierr"
@@ -30,7 +31,7 @@ type ProcessStats struct {
 	OOMScore       int
 }
 
-func getProcessStats(p procfs.Proc, stat procfs.ProcStat) (*ProcessStats, error) {
+func getOneProcessStats(p procfs.Proc, stat procfs.ProcStat) (*ProcessStats, error) {
 	var errs error
 	var pstat ProcessStats
 
@@ -66,14 +67,9 @@ func getProcessStats(p procfs.Proc, stat procfs.ProcStat) (*ProcessStats, error)
 	return &pstat, errs
 }
 
-// GetProcessStats returns information about the provided process; 0 is "self", less than 0 is a
-// process group.
-func GetProcessStats(pid int) (*ProcessStats, error) {
-	fs, err := procfs.NewDefaultFS()
-	if err != nil {
-		return nil, errors.Wrap(err, "init procfs")
-	}
-
+// getProcessStats returns information about the provided process; 0 is "self", less than 0 is an
+// entire process group.
+func getProcessStats(fs procfs.FS, pid int) (*ProcessStats, error) {
 	var stats []*ProcessStats
 	if pid >= 0 { // one process, maybe self
 		var p procfs.Proc
@@ -90,7 +86,7 @@ func GetProcessStats(pid int) (*ProcessStats, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "Stat(%v)", p.PID)
 		}
-		pstat, err := getProcessStats(p, stat)
+		pstat, err := getOneProcessStats(p, stat)
 		if err != nil {
 			return nil, errors.Wrapf(err, "getProcessStats(%v)", p.PID)
 		}
@@ -111,7 +107,7 @@ func GetProcessStats(pid int) (*ProcessStats, error) {
 			if stat.PGRP != pgid {
 				continue
 			}
-			pstat, err := getProcessStats(p, stat)
+			pstat, err := getOneProcessStats(p, stat)
 			if err != nil {
 				multierr.AppendInto(&errs, errors.Wrapf(err, "getProcessStats(%v)", p.PID))
 				continue
@@ -127,7 +123,6 @@ func GetProcessStats(pid int) (*ProcessStats, error) {
 		result.CPUTime += s.CPUTime
 		result.CanceledWBytes += s.CanceledWBytes
 		result.FDCount += s.FDCount
-		result.OOMScore += s.OOMScore
 		result.RBytes += s.RBytes
 		result.WBytes += s.WBytes
 		result.CanceledWBytes += s.CanceledWBytes
@@ -136,19 +131,17 @@ func GetProcessStats(pid int) (*ProcessStats, error) {
 		result.ResidentMemory += s.ResidentMemory
 		result.RSysc += s.RSysc
 		result.WSysc += s.WSysc
+		result.OOMScore = miscutil.Max(result.OOMScore, s.OOMScore)
 	}
 	return &result, nil
 }
 
 type SystemStats struct {
 	CPUTime float64
+	// TODO(jonathan): We should monitor disk usage of /tmp, /pfs, and /pach.
 }
 
-func GetSystemStats() (*SystemStats, error) {
-	fs, err := procfs.NewDefaultFS()
-	if err != nil {
-		return nil, errors.Wrap(err, "init procfs")
-	}
+func getSystemStats(fs procfs.FS) (*SystemStats, error) {
 	sys, err := fs.Stat()
 	if err != nil {
 		return nil, errors.Wrap(err, "Stat")
@@ -160,17 +153,17 @@ func GetSystemStats() (*SystemStats, error) {
 
 func MonitorSelf(ctx context.Context) {
 	ctx = pctx.Child(ctx, "",
-		pctx.WithDelta("open_fd_count", 10, m.Deferred()),
-		pctx.WithDelta("rchar_bytes", int(1e6), m.Deferred()),
-		pctx.WithDelta("wchar_bytes", int(1e6), m.Deferred()),
-		pctx.WithDelta("bytes_written_bytes", int(1e6), m.Deferred()),
-		pctx.WithDelta("bytes_read_bytes", int(1e6), m.Deferred()),
-		pctx.WithDelta("canceled_write_bytes", int(1e6), m.Deferred()),
-		pctx.WithDelta("read_syscall_count", int(1e5), m.Deferred()),
-		pctx.WithDelta("write_syscall_count", int(1e5), m.Deferred()),
-		pctx.WithDelta("cpu_time_seconds", float64(runtime.GOMAXPROCS(-1)), m.Deferred()),
-		pctx.WithDelta("resident_memory_bytes", int(100e6), m.Deferred()),
-		pctx.WithGauge("oom_score", 0, m.WithFlushInterval(30*time.Minute)),
+		pctx.WithDelta("self_open_fd_count", 10, m.Deferred()),
+		pctx.WithDelta("self_rchar_bytes", int(1e6), m.Deferred()),
+		pctx.WithDelta("self_wchar_bytes", int(1e6), m.Deferred()),
+		pctx.WithDelta("self_bytes_written_bytes", int(1e6), m.Deferred()),
+		pctx.WithDelta("self_bytes_read_bytes", int(1e6), m.Deferred()),
+		pctx.WithDelta("self_canceled_write_bytes", int(1e6), m.Deferred()),
+		pctx.WithDelta("self_read_syscall_count", int(1e5), m.Deferred()),
+		pctx.WithDelta("self_write_syscall_count", int(1e5), m.Deferred()),
+		pctx.WithDelta("self_cpu_time_seconds", float64(runtime.GOMAXPROCS(-1)), m.Deferred()),
+		pctx.WithDelta("self_resident_memory_bytes", int(100e6), m.Deferred()),
+		pctx.WithGauge("self_oom_score", 0, m.WithFlushInterval(30*time.Minute)),
 		pctx.WithDelta("system_cpu_time_seconds", float64(60), m.Deferred()),
 	)
 	for {
@@ -180,7 +173,67 @@ func MonitorSelf(ctx context.Context) {
 			log.Info(ctx, "MonitorSelf thread exiting", zap.Error(context.Cause(ctx)))
 			return
 		}
-		stats, err := GetProcessStats(0)
+		fs, err := procfs.NewDefaultFS()
+		if err != nil {
+			log.Info(ctx, "problem opening procfs")
+			continue
+		}
+
+		stats, err := getProcessStats(fs, 0)
+		if err != nil {
+			log.Info(ctx, "problem getting self stats", zap.Error(err))
+			continue
+		}
+		m.Set(ctx, "self_open_fd_count", stats.FDCount)
+		m.Set(ctx, "self_rchar_bytes", int(stats.RChars))
+		m.Set(ctx, "self_wchar_bytes", int(stats.WChars))
+		m.Set(ctx, "self_bytes_read_bytes", int(stats.RBytes))
+		m.Set(ctx, "self_bytes_written_bytes", int(stats.WBytes))
+		m.Set(ctx, "self_canceled_write_bytes", int(stats.CanceledWBytes))
+		m.Set(ctx, "self_read_syscall_count", int(stats.RSysc))
+		m.Set(ctx, "self_write_syscall_count", int(stats.WSysc))
+		m.Set(ctx, "self_cpu_time_seconds", stats.CPUTime)
+		m.Set(ctx, "self_resident_memory_bytes", stats.ResidentMemory)
+		m.Set(ctx, "self_oom_score", stats.OOMScore)
+
+		sys, err := getSystemStats(fs)
+		if err != nil {
+			log.Info(ctx, "problem getting system stats", zap.Error(err))
+			continue
+		}
+		m.Set(ctx, "system_cpu_time_seconds", sys.CPUTime)
+	}
+}
+
+func MonitorProcessGroup(ctx context.Context, pid int) error {
+	if pid > 0 {
+		pid = -pid
+	}
+	fs, err := procfs.NewDefaultFS()
+	if err != nil {
+		return errors.Wrap(err, "new procfs")
+	}
+	ctx = pctx.Child(ctx, "",
+		pctx.WithGauge("open_fd_count", 0, m.WithFlushInterval(30*time.Second)),
+		pctx.WithDelta("rchar_bytes", int(1e6), m.Deferred()),
+		pctx.WithDelta("wchar_bytes", int(1e6), m.Deferred()),
+		pctx.WithDelta("bytes_written_bytes", int(1e6), m.Deferred()),
+		pctx.WithDelta("bytes_read_bytes", int(1e6), m.Deferred()),
+		pctx.WithDelta("canceled_write_bytes", int(1e6), m.Deferred()),
+		pctx.WithDelta("read_syscall_count", int(1e4), m.Deferred()),
+		pctx.WithDelta("write_syscall_count", int(1e4), m.Deferred()),
+		pctx.WithDelta("cpu_time_seconds", float64(30), m.WithFlushInterval(30*time.Second)),
+		pctx.WithDelta("resident_memory_bytes", int(100e6), m.WithFlushInterval(30*time.Second)),
+		pctx.WithGauge("oom_score", 0, m.WithFlushInterval(30*time.Minute)),
+	)
+	for {
+		select {
+		case <-time.After(2 * time.Second):
+		case <-ctx.Done():
+			log.Debug(ctx, "MonitorUserCode exiting", zap.Int("pid", pid))
+			return nil
+		}
+		stats, err := getProcessStats(fs, pid)
 		if err != nil {
 			log.Info(ctx, "problem getting self stats", zap.Error(err))
 			continue
@@ -196,12 +249,5 @@ func MonitorSelf(ctx context.Context) {
 		m.Set(ctx, "cpu_time_seconds", stats.CPUTime)
 		m.Set(ctx, "resident_memory_bytes", stats.ResidentMemory)
 		m.Set(ctx, "oom_score", stats.OOMScore)
-
-		sys, err := GetSystemStats()
-		if err != nil {
-			log.Info(ctx, "problem getting system stats", zap.Error(err))
-			continue
-		}
-		m.Set(ctx, "system_cpu_time_seconds", sys.CPUTime)
 	}
 }
