@@ -34,3 +34,14 @@ func (cfg *Config) NewOnUserMachine(ctx context.Context, enterprise bool, opts .
 	}
 	return c.WithCtx(ctx), nil
 }
+
+func (cfg *Config) NewInWorker(ctx context.Context, opts ...client.Option) (*client.APIClient, error) {
+	if cfg.Verbose {
+		opts = append(opts, client.WithAdditionalStreamClientInterceptors(ci.LogStream), client.WithAdditionalUnaryClientInterceptors(ci.LogUnary))
+	}
+	c, err := client.NewInWorkerContext(ctx, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return c.WithCtx(ctx), nil
+}

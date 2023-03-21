@@ -95,7 +95,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	}
 	cluster.ClusterDeploymentId = a.env.Config.DeploymentID
 	cluster.Secret = a.env.Config.EnterpriseSecret
-	es, err := client.NewFromURI(a.env.Config.EnterpriseServerAddress)
+	es, err := client.NewFromURIContext(ctx, a.env.Config.EnterpriseServerAddress)
 	if err != nil {
 		return errors.Wrap(err, "connect to enterprise server")
 	}
@@ -215,7 +215,7 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 		clientID = config.Configuration.ClientID
 	}
 
-	pachClient, err := client.NewFromURI(licenseServer)
+	pachClient, err := client.NewFromURIContext(ctx, licenseServer)
 	if err != nil {
 		return nil, err
 	}

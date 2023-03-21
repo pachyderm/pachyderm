@@ -2158,7 +2158,7 @@ func newClient(ctx context.Context, pachctlCfg *pachctl.Config, options ...clien
 			return nil, errors.Wrap(err, "couldn't parse PACH_IN_WORKER")
 		}
 		if inWorker {
-			return client.NewInWorker(options...)
+			return pachctlCfg.NewInWorker(ctx, options...)
 		}
 	}
 	return pachctlCfg.NewOnUserMachine(ctx, false, options...)

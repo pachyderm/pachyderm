@@ -167,17 +167,24 @@ type clientSettings struct {
 	streamInterceptors   []grpc.StreamClientInterceptor
 }
 
-// NewFromURI creates a new client given a GRPC URI ex. grpc://test.example.com.
-// If no scheme is specified `grpc://` is assumed. A scheme of `grpcs://` enables TLS.
+// NewFromURI creates a new client given a GRPC URI.
+//
+// Deprecated:  Use NewFromURIContext.
 func NewFromURI(uri string, options ...Option) (*APIClient, error) {
+	return NewFromURIContext(pctx.TODO(), uri, options...)
+}
+
+// NewFromURIContext creates a new client given a GRPC URI ex. grpc://test.example.com.
+// If no scheme is specified `grpc://` is assumed. A scheme of `grpcs://` enables TLS.
+func NewFromURIContext(ctx context.Context, uri string, options ...Option) (*APIClient, error) {
 	pachdAddress, err := grpcutil.ParsePachdAddress(uri)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not parse the pachd address")
 	}
-	return NewFromPachdAddress(pachdAddress, options...)
+	return NewFromPachdAddressContext(ctx, pachdAddress, options...)
 }
 
-// NewFromPachdAddress creates a new client given a parsed GRPC address
+// NewFromPachdAddress creates a new client given a parsed GRPC address.
 //
 // Deprecated: Use NewFromPachdAddressContext.
 func NewFromPachdAddress(pachdAddress *grpcutil.PachdAddress, options ...Option) (*APIClient, error) {
@@ -682,7 +689,15 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 // NewInCluster constructs a new APIClient using env vars that Kubernetes creates.
 // This should be used to access Pachyderm from within a Kubernetes cluster
 // with Pachyderm running on it.
+//
+// Deprecated: Use NewInClusterContext.
 func NewInCluster(options ...Option) (*APIClient, error) {
+	return NewInClusterContext(pctx.TODO(), options...)
+}
+
+// NewInClusterContext constructs a new APIClient using env vars that Kubernetes creates.  This
+// should be used to access Pachyderm from within a Kubernetes cluster with Pachyderm running on it.
+func NewInClusterContext(ctx context.Context, options ...Option) (*APIClient, error) {
 	// first try the pachd peer service (only supported on pachyderm >= 1.10),
 	// which will work when TLS is enabled
 	internalHost := os.Getenv("PACHD_PEER_SERVICE_HOST")
@@ -700,12 +715,20 @@ func NewInCluster(options ...Option) (*APIClient, error) {
 		return nil, errors.Errorf("PACHD_SERVICE_PORT not set")
 	}
 	// create new pachctl client
-	return NewFromURI(fmt.Sprintf("%s:%s", host, port), options...)
+	return NewFromURIContext(ctx, fmt.Sprintf("%s:%s", host, port), options...)
 }
 
 // NewInWorker constructs a new APIClient intended to be used from a worker
 // to talk to the sidecar pachd container
+//
+// Deprecated: Use NewInWorkerContext.
 func NewInWorker(options ...Option) (*APIClient, error) {
+	return NewInWorkerContext(pctx.TODO(), options...)
+}
+
+// NewInWorker constructs a new APIClient intended to be used from a worker
+// to talk to the sidecar pachd container
+func NewInWorkerContext(ctx context.Context, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read(false, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
@@ -716,7 +739,7 @@ func NewInWorker(options ...Option) (*APIClient, error) {
 	}
 
 	if localPort, ok := os.LookupEnv("PEER_PORT"); ok {
-		client, err := NewFromURI(fmt.Sprintf("127.0.0.1:%s", localPort), options...)
+		client, err := NewFromURIContext(ctx, fmt.Sprintf("127.0.0.1:%s", localPort), options...)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create client")
 		}
