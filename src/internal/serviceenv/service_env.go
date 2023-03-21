@@ -30,6 +30,7 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	mlc "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
@@ -241,8 +242,8 @@ func (env *NonblockingServiceEnv) initPachClient(ctx context.Context) error {
 		pachClient, err := client.NewFromURIContext(
 			ctx,
 			env.pachAddress,
-			client.WithAdditionalUnaryClientInterceptors(grpc_prometheus.UnaryClientInterceptor),
-			client.WithAdditionalStreamClientInterceptors(grpc_prometheus.StreamClientInterceptor),
+			client.WithAdditionalUnaryClientInterceptors(grpc_prometheus.UnaryClientInterceptor, mlc.LogUnary),
+			client.WithAdditionalStreamClientInterceptors(grpc_prometheus.StreamClientInterceptor, mlc.LogStream),
 		)
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize pach client")
