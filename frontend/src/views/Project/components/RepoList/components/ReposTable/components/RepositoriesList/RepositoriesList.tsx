@@ -85,6 +85,7 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
             <Table.HeaderCell>Name</Table.HeaderCell>
             <Table.HeaderCell>Size</Table.HeaderCell>
             <Table.HeaderCell>Created</Table.HeaderCell>
+            <Table.HeaderCell>Last Commit</Table.HeaderCell>
             <Table.HeaderCell>Description</Table.HeaderCell>
             <Table.HeaderCell />
           </Table.Row>
@@ -113,6 +114,15 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
                       fromUnixTime(repo?.createdAt),
                       'MMM dd, yyyy; h:mmaaa',
                     )
+                  : '-'}
+              </Table.DataCell>
+              <Table.DataCell>
+                {repo?.lastCommit
+                  ? repo?.lastCommit?.finished &&
+                    `${format(
+                      fromUnixTime(repo?.lastCommit?.finished),
+                      'MMM dd, yyyy; h:mmaaa',
+                    )}; ${repo.lastCommit.id.slice(0, 6)}...`
                   : '-'}
               </Table.DataCell>
               <Table.DataCell>{repo?.description}</Table.DataCell>

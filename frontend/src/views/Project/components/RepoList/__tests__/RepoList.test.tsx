@@ -23,6 +23,12 @@ describe('Repo List', () => {
   });
 
   it('should display repo details', async () => {
+    window.history.replaceState(
+      '',
+      '',
+      '/project/Solar-Power-Data-Logger-Team-Collab/repos',
+    );
+
     render(<RepoList />);
 
     await waitForElementToBeRemoved(() =>
@@ -30,8 +36,10 @@ describe('Repo List', () => {
     );
 
     const repos = screen.getAllByTestId('RepositoriesList__row');
-    expect(repos[0]).toHaveTextContent('montage');
-    expect(repos[0]).toHaveTextContent('0 B');
+    expect(repos[1]).toHaveTextContent('cron');
+    expect(repos[1]).toHaveTextContent('621.86 kB');
+    expect(repos[1]).toHaveTextContent('9d5daa..');
+    expect(repos[1]).toHaveTextContent('cron job');
   });
 
   it('should allow the user to select a repo', async () => {

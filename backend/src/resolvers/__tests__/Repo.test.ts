@@ -30,7 +30,7 @@ describe('resolvers/Repo', () => {
       expect(errors).toHaveLength(0);
       expect(data?.repo.id).toBe(id);
       expect(data?.repo.name).toBe(id);
-      expect(data?.repo.description).toBe('');
+      expect(data?.repo.description).toBe('cron job');
       expect(data?.repo.sizeDisplay).toBe('621.86 kB');
       expect(data?.repo.linkedPipeline).toBeNull();
     });
@@ -165,7 +165,7 @@ describe('resolvers/Repo', () => {
       const {data: repo} = await executeQuery<RepoQuery>(GET_REPO_QUERY, {
         args: {id: 'cron', projectId},
       });
-      expect(repo?.repo.description).toBe('');
+      expect(repo?.repo.description).toBe('cron job');
 
       const {data, errors = []} = await executeMutation<CreateRepoMutation>(
         CREATE_REPO_MUTATION,

@@ -563,6 +563,7 @@ const cron = [
         ),
     )
     .setCreated(timestampFromObject({seconds: 1614126189, nanos: 0}))
+    .setDescription('cron job')
     .setBranchesList([new Branch().setName('master')])
     .setDetails(new RepoInfo.Details().setSizeBytes(621858))
     .setSizeBytesUpperBound(621858),
