@@ -46,6 +46,10 @@ parameters:
   run-core-jobs:
     type: boolean
     default: false
+  run-python-sdk-jobs:
+    type: boolean
+    default: false
+
 executors:
   docker-go:
     docker:
@@ -1320,13 +1324,55 @@ jobs:
           command: |
             stable=$(if [[ "$CIRCLE_TAG" == *"-"* ]]; then echo 0; else echo 1; fi;)
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${stable}
-
+  test-python-sdk:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202107-02
+    working_directory: ~/project/python-sdk
+    steps:
+      - checkout:
+          path: ~/project
+      - run:
+          name: Install Poetry
+          command: |
+            mkdir -p /home/circleci/.local/poetry/venv
+            export POETRY_HOME=/home/circleci/.local/poetry/venv
+            python3 -m venv $POETRY_HOME
+            $POETRY_HOME/bin/pip install poetry==1.4.1
+            $POETRY_HOME/bin/poetry --version
+            ln -s $POETRY_HOME/bin/poetry /home/circleci/bin/poetry
+      - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
+          name: Install Python Dependencies with Poetry
+          command: poetry --no-ansi install
+      - install-jupyter-test-deps
+      - run:
+          name: Run Tests
+          command: |
+            export AUTH_TOKEN_ENV=iamroot
+            export ENTERPRISE_CODE_ENV=${ENT_ACT_CODE}
+            nohup pachctl port-forward &
+            poetry run pytest -vvv tests
+  build-python-sdk:
+    executor: python
+    working_directory: ~/project/python-sdk
+    steps:
+      - checkout:
+          path: ~/project
+      - run:
+          name: Install Deps # Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
+          command: poetry --no-ansi install
+      - run:
+          name: Build Package
+          command: poetry build
+      - run:
+          name: Publish
+          command: |
+            poetry config repositories.test-pypi https://test.pypi.org/legacy/
+            poetry config pypi-token.test-pypi ${TEST_PYPI_PASSWORD}
+            poetry publish -r test-pypi
 workflows:
   integration-tests:
-    when:
-      or:
-        - << pipeline.parameters.run-core-jobs >>
-        - not: << pipeline.parameters.run-jupyter-jobs >>
+    when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - build-docker-images
       #- build-pachctl-bin:
@@ -1349,10 +1395,7 @@ workflows:
                 - EXAMPLES
                 - CONNECTORS
   helm-tests:
-    when:
-      or:
-        - << pipeline.parameters.run-core-jobs >>
-        - not: << pipeline.parameters.run-jupyter-jobs >>
+    when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - helm-tests
   nightly_load_tests:
@@ -1484,17 +1527,11 @@ workflows:
             - nightly-load-LOAD12
           env: LOAD4
   rootless-tests:
-    when:
-      or:
-        - << pipeline.parameters.run-core-jobs >>
-        - not: << pipeline.parameters.run-jupyter-jobs >>
+    when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - rootless
   deploy-tests:
-    when:
-      or:
-        - << pipeline.parameters.run-core-jobs >>
-        - not: << pipeline.parameters.run-jupyter-jobs >>
+    when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - deploy-tests:
           name: amd64 deploy tests
@@ -1529,6 +1566,17 @@ workflows:
             - build-pachctl-bin
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
+  python-sdk:
+    when: << pipeline.parameters.run-python-sdk-jobs >>
+    jobs:
+      - test-python-sdk:
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+      - build-docker-images
+      - build-pachctl-bin:
+          version: $CIRCLE_SHA1
+      #- build-python-sdk
 
   release:
     jobs:
@@ -1813,7 +1861,7 @@ workflows:
             - aws-prerelease-testing
 
 commands:
-  install-jupyter-test-deps:
+  install-jupyter-test-deps: # Requires build-docker-images and build-pachctl-bin
     steps:
       - attach_workspace:
           at: ./
@@ -1850,7 +1898,7 @@ commands:
           command: kind create cluster && kubectl config set current-context kind-kind
       - run:
           name: Install pach
-          command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.service.type=NodePort,pachd.image.tag=${CIRCLE_SHA1}
+          command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.service.type=NodePort,pachd.image.tag=${CIRCLE_SHA1},pachd.enterpriseLicenseKey=${ENT_ACT_CODE},pachd.rootToken=iamroot
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |
@@ -1862,6 +1910,7 @@ commands:
           command: |-
             echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' | pachctl config set context local --overwrite
             pachctl config set active-context local
+            echo 'iamroot' | pachctl auth use-auth-token
   install-pulumi-deps:
     steps:
       - node/install
