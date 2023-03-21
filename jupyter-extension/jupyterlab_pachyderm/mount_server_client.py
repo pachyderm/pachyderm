@@ -68,7 +68,7 @@ class MountServerClient(MountInterface):
                 self._unmount()
 
                 mount_server_cmd = f"mount-server --mount-dir {self.mount_dir}"
-                if MOUNT_SERVER_LOG_DIR is not None:
+                if MOUNT_SERVER_LOG_DIR is not None and MOUNT_SERVER_LOG_DIR:
                   mount_server_cmd += f" >> {MOUNT_SERVER_LOG_DIR} 2>&1"
 
                 subprocess.Popen(
