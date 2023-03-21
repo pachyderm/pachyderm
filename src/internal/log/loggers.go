@@ -129,7 +129,7 @@ func InitWorkerLogger() {
 	makeLoggerOnce(enc, os.Stdout, true, []zap.Option{zap.AddCaller()})
 }
 
-// InitPachctlLogger creates a new
+// InitPachctlLogger creates a new logger for command-line tools like pachctl.
 func InitPachctlLogger() {
 	if pachctlJSON {
 		InitPachdLogger()
