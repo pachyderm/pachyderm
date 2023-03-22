@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -54,7 +55,7 @@ var (
 
 func getPachClient() *client.APIClient {
 	pachClientOnce.Do(func() {
-		c, err := client.NewOnUserMachine("user-completion")
+		c, err := client.NewOnUserMachineContext(pctx.TODO(), "user-completion")
 		if err != nil {
 			Fatal(err)
 		}

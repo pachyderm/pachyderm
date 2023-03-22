@@ -24,6 +24,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	taskcmds "github.com/pachyderm/pachyderm/v2/src/internal/task/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	admincmds "github.com/pachyderm/pachyderm/v2/src/server/admin/cmds"
@@ -302,22 +304,10 @@ __custom_func() {
 }`
 )
 
-func newClient(enterprise bool, options ...client.Option) (*client.APIClient, error) {
-	if enterprise {
-		c, err := client.NewEnterpriseClientOnUserMachine("user", options...)
-		if err != nil {
-			return nil, err
-		}
-		fmt.Fprintf(os.Stderr, "Using enterprise context: %v\n", c.ClientContextName())
-		return c, nil
-	}
-	return client.NewOnUserMachine("user", options...)
-}
-
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
 // interact with them (it implements the pachctl binary).
 func PachctlCmd() (*cobra.Command, error) {
-	var verbose bool
+	pachctlCfg := new(pachctl.Config)
 
 	var raw bool
 	var output string
@@ -331,6 +321,8 @@ func PachctlCmd() (*cobra.Command, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	mainCtx := pctx.Background("")
 
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
@@ -346,7 +338,7 @@ Environment variables:
     a pipeline after 'pachctl create-pipeline' (PACH_TRACE must also be set).
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			if verbose {
+			if pachctlCfg.Verbose {
 				log.SetLevel(log.DebugLevel)
 				log.SetGRPCLogLevel(zapcore.DebugLevel)
 				cmdutil.PrintErrorStacks = true
@@ -354,7 +346,7 @@ Environment variables:
 		},
 		BashCompletionFunction: bashCompletionFunc,
 	}
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
+	rootCmd.PersistentFlags().BoolVarP(&pachctlCfg.Verbose, "verbose", "v", false, "Output verbose logs")
 	rootCmd.PersistentFlags().BoolVar(&color.NoColor, "no-color", false, "Turn off colors.")
 
 	var subcommands []*cobra.Command
@@ -409,15 +401,15 @@ Environment variables:
 				if err != nil {
 					return errors.Wrapf(err, "could not parse timeout duration %q", timeout)
 				}
-				pachClient, err = newClient(enterprise, client.WithDialTimeout(timeout))
+				pachClient, err = pachctlCfg.NewOnUserMachine(mainCtx, enterprise, client.WithDialTimeout(timeout))
 			} else {
-				pachClient, err = newClient(enterprise)
+				pachClient, err = pachctlCfg.NewOnUserMachine(mainCtx, enterprise)
 			}
 			if err != nil {
 				return err
 			}
 			defer pachClient.Close()
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			ctx, cancel := context.WithTimeout(mainCtx, time.Second)
 			defer cancel()
 			version, err := pachClient.GetVersion(ctx, &types.Empty{})
 
@@ -492,7 +484,7 @@ Environment variables:
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewOnUserMachine("user")
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -851,19 +843,19 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(nextDocs, "next"))
 
-	subcommands = append(subcommands, pfscmds.Cmds(pachCtx)...)
-	subcommands = append(subcommands, ppscmds.Cmds(pachCtx)...)
-	subcommands = append(subcommands, authcmds.Cmds(pachCtx)...)
-	subcommands = append(subcommands, enterprisecmds.Cmds()...)
-	subcommands = append(subcommands, licensecmds.Cmds()...)
-	subcommands = append(subcommands, identitycmds.Cmds()...)
-	subcommands = append(subcommands, admincmds.Cmds()...)
-	subcommands = append(subcommands, debugcmds.Cmds()...)
-	subcommands = append(subcommands, txncmds.Cmds()...)
-	subcommands = append(subcommands, configcmds.Cmds()...)
-	subcommands = append(subcommands, configcmds.ConnectCmds()...)
-	subcommands = append(subcommands, taskcmds.Cmds()...)
-	subcommands = append(subcommands, misccmds.Cmds()...)
+	subcommands = append(subcommands, pfscmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
+	subcommands = append(subcommands, ppscmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
+	subcommands = append(subcommands, authcmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
+	subcommands = append(subcommands, enterprisecmds.Cmds(mainCtx, pachctlCfg)...)
+	subcommands = append(subcommands, licensecmds.Cmds(mainCtx, pachctlCfg)...)
+	subcommands = append(subcommands, identitycmds.Cmds(mainCtx, pachctlCfg)...)
+	subcommands = append(subcommands, admincmds.Cmds(mainCtx, pachctlCfg)...)
+	subcommands = append(subcommands, debugcmds.Cmds(mainCtx, pachctlCfg)...)
+	subcommands = append(subcommands, txncmds.Cmds(mainCtx, pachctlCfg)...)
+	subcommands = append(subcommands, configcmds.Cmds(mainCtx, pachctlCfg)...)
+	subcommands = append(subcommands, configcmds.ConnectCmds(mainCtx, pachctlCfg)...)
+	subcommands = append(subcommands, taskcmds.Cmds(mainCtx, pachctlCfg)...)
+	subcommands = append(subcommands, misccmds.Cmds(mainCtx)...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
 

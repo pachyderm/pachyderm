@@ -10,16 +10,16 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/debug/shell"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/spf13/cobra"
 )
 
 // Cmds returns a slice containing debug commands.
-func Cmds() []*cobra.Command {
+func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var duration time.Duration
@@ -35,7 +35,7 @@ func Cmds() []*cobra.Command {
 		Short: "Collect a set of pprof profiles.",
 		Long:  "Collect a set of pprof profiles.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewOnUserMachine("debug-profile")
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -68,7 +68,7 @@ func Cmds() []*cobra.Command {
 		Short: "Collect a set of binaries.",
 		Long:  "Collect a set of binaries.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine("debug-binary")
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -94,7 +94,7 @@ func Cmds() []*cobra.Command {
 		Short: "Collect a standard set of debugging information.",
 		Long:  "Collect a standard set of debugging information.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine("debug-dump")
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -141,7 +141,7 @@ func Cmds() []*cobra.Command {
 		Short: "Change the log level across Pachyderm.",
 		Long:  "Change the log level across Pachyderm.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine("debug-log-level")
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}

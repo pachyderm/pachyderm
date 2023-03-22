@@ -10,12 +10,12 @@ import (
 	"sort"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 
 	prompt "github.com/c-bata/go-prompt"
@@ -30,12 +30,12 @@ const (
 // returns the active-enterprise-context if set in the config
 // otherwise return the active-context if the enterprise license
 // is activated on that context's cluster
-func deduceActiveEnterpriseContext(cfg *config.Config) (string, error) {
+func deduceActiveEnterpriseContext(ctx context.Context, cfg *config.Config, pachctlCfg *pachctl.Config) (string, error) {
 	var activeEnterpriseContext string
 	if cfg.V2.ActiveEnterpriseContext != "" {
 		activeEnterpriseContext = cfg.V2.ActiveEnterpriseContext
 	} else {
-		c, err := client.NewEnterpriseClientOnUserMachine("user")
+		c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 		if err != nil {
 			return "", err
 		}
@@ -53,7 +53,7 @@ func deduceActiveEnterpriseContext(cfg *config.Config) (string, error) {
 	return activeEnterpriseContext, nil
 }
 
-func ConnectCmds() []*cobra.Command {
+func ConnectCmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	connect := &cobra.Command{
@@ -91,7 +91,7 @@ func ConnectCmds() []*cobra.Command {
 }
 
 // Cmds returns a slice containing admin commands.
-func Cmds() []*cobra.Command {
+func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	getMetrics := &cobra.Command{
@@ -480,7 +480,7 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 
-			activeEnterpriseContext, err := deduceActiveEnterpriseContext(cfg)
+			activeEnterpriseContext, err := deduceActiveEnterpriseContext(mainCtx, cfg, pachctlCfg)
 			if err != nil {
 				fmt.Printf("Unable to connect with server to deduce enterprise context: %v\n", err.Error())
 			}
