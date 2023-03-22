@@ -253,6 +253,7 @@ func (s *Storage) Concat(ctx context.Context, ids []ID, ttl time.Duration) (*ID,
 		i := i
 		id := id
 		eg.Go(func() error {
+			defer sem.Release(1)
 			md, err := s.store.Get(ctx, id)
 			if err != nil {
 				return errors.EnsureStack(err)
