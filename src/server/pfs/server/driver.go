@@ -336,7 +336,7 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 	return errors.Wrapf(d.repos.ReadOnly(ctx).GetByIndex(pfsdb.ReposTypeIndex, repoType, repoInfo, col.DefaultOptions(), processFunc), "could not get repos of type %q: ERROR FROM GetByIndex", repoType)
 }
 
-func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContext, repos []*pfs.RepoInfo, force bool) error {
+func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContext, repos []*pfs.RepoInfo) error {
 	var branchInfos []*pfs.BranchInfo
 	for _, repo := range repos {
 		for _, branch := range repo.Branches {
@@ -354,10 +354,33 @@ func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContex
 		// branch is provenant on another (which is likely the case when
 		// multiple repos are provided) we delete them in the right order.
 		branch := branchInfos[len(branchInfos)-1-i].Branch
-		if err := d.deleteBranch(txnCtx, branch, force); err != nil {
+		if err := d.deleteBranch(txnCtx, branch); err != nil {
 			return errors.Wrapf(err, "delete branch %s", branch)
 		}
 	}
+	return nil
+}
+
+func (d *driver) topologicalSortRepos(ctx context.Context, ris []*pfs.RepoInfo) error {
+	repoProvenanceLen := make(map[string]int)
+	bi := &pfs.BranchInfo{}
+	for _, ri := range ris {
+		if err := d.branches.ReadOnly(ctx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(ri.Repo), bi, col.DefaultOptions(), func(string) error {
+			max := -1
+			if m, ok := repoProvenanceLen[ri.Repo.String()]; ok {
+				max = m
+			}
+			if len(bi.Provenance) > max {
+				repoProvenanceLen[ri.Repo.String()] = max
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	sort.Slice(ris, func(i, j int) bool {
+		return repoProvenanceLen[ris[i].String()] < repoProvenanceLen[ris[j].String()]
+	})
 	return nil
 }
 
@@ -372,10 +395,14 @@ func (d *driver) deleteAllRepos(ctx context.Context) ([]*pfs.Repo, error) {
 	if len(repoInfos) == 0 {
 		return nil, nil
 	}
+	if err := d.topologicalSortRepos(ctx, repoInfos); err != nil {
+		return nil, err
+	}
 	var deleted []*pfs.Repo
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		for _, ri := range repoInfos {
-			dels, err := d.deleteRepoInfo(txnCtx, ri, true)
+		for i := len(repoInfos) - 1; i >= 0; i-- {
+			ri := repoInfos[i]
+			dels, err := d.deleteRepoInfo(txnCtx, ri)
 			if err != nil && !auth.IsErrNotAuthorized(err) {
 				return err
 			}
@@ -388,7 +415,7 @@ func (d *driver) deleteAllRepos(ctx context.Context) ([]*pfs.Repo, error) {
 	return deleted, nil
 }
 
-func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) error {
+func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo) error {
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 	repoInfo := &pfs.RepoInfo{}
 	if err := repos.Get(repo, repoInfo); err != nil {
@@ -397,11 +424,11 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		}
 		return nil
 	}
-	_, err := d.deleteRepoInfo(txnCtx, repoInfo, force)
+	_, err := d.deleteRepoInfo(txnCtx, repoInfo)
 	return err
 }
 
-func (d *driver) deleteRepoInfo(txnCtx *txncontext.TransactionContext, ri *pfs.RepoInfo, force bool) ([]*pfs.Repo, error) {
+func (d *driver) deleteRepoInfo(txnCtx *txncontext.TransactionContext, ri *pfs.RepoInfo) ([]*pfs.Repo, error) {
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 	completeRepos := []*pfs.RepoInfo{ri}
 	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, ri.Repo, auth.Permission_REPO_DELETE); err != nil {
@@ -409,12 +436,10 @@ func (d *driver) deleteRepoInfo(txnCtx *txncontext.TransactionContext, ri *pfs.R
 			return nil, errors.EnsureStack(err)
 		}
 	}
-	if !force {
-		if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(ri.Repo)); err == nil {
-			return nil, errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
-		} else if err != nil && !errutil.IsNotFoundError(err) {
-			return nil, errors.EnsureStack(err)
-		}
+	if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(ri.Repo)); err == nil {
+		return nil, errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
+	} else if err != nil && !errutil.IsNotFoundError(err) {
+		return nil, errors.EnsureStack(err)
 	}
 	// if this is a user repo, delete any dependent repos
 	if ri.Repo.Type == pfs.UserRepoType {
@@ -430,7 +455,7 @@ func (d *driver) deleteRepoInfo(txnCtx *txncontext.TransactionContext, ri *pfs.R
 	}
 	// we expect potentially complicated provenance relationships between dependent repos
 	// deleting all branches at once allows for topological sorting, avoiding deletion order issues
-	if err := d.deleteAllBranchesFromRepos(txnCtx, completeRepos, force); err != nil {
+	if err := d.deleteAllBranchesFromRepos(txnCtx, completeRepos); err != nil {
 		return nil, errors.Wrap(err, "error deleting branches")
 	}
 	for _, ri := range completeRepos {
@@ -1799,7 +1824,7 @@ func (d *driver) listBranchInTransaction(txnCtx *txncontext.TransactionContext, 
 	return errors.EnsureStack(err)
 }
 
-func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, force bool) error {
+func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs.Branch) error {
 	// Validate arguments
 	if branch == nil {
 		return errors.New("branch cannot be nil")
@@ -1818,10 +1843,8 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		}
 	}
 	if branchInfo.Branch != nil {
-		if !force {
-			if len(branchInfo.Subvenance) > 0 {
-				return errors.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
-			}
+		if len(branchInfo.Subvenance) > 0 {
+			return errors.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
 		}
 		// For provenant branches, remove this branch from subvenance
 		for _, provBranch := range branchInfo.Provenance {
@@ -1853,7 +1876,7 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		del(&repoInfo.Branches, branch)
 		return nil
 	}); err != nil {
-		if !col.IsErrNotFound(err) || !force {
+		if !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
 		}
 	}
