@@ -190,13 +190,12 @@ func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset 
 		return err
 	}
 	for _, ci := range cis {
-		if ci.Commit.Branch.Repo.Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {
+		if ci.Commit.AccessRepo().Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {
 			return errors.Errorf("cannot squash commit %s because it updated a pipeline", ci.Commit)
 		}
-		// TODO(acohen4): can drop commits & squash just be modeled the same for now?
-		// if len(ci.ChildCommits) > 0 {
-		// 	return &pfsserver.ErrDropWithChildren{Commit: ci.Commit}
-		// }
+		if len(ci.ChildCommits) > 0 {
+			return &pfsserver.ErrDropWithChildren{Commit: ci.Commit}
+		}
 	}
 	// While this is a 'drop' operation and not a 'squash', proper drop semantics
 	// aren't implemented at the moment.  Squashing the head of a branch is

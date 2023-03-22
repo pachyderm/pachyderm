@@ -400,11 +400,11 @@ func TestMountCommit(t *testing.T) {
 	c1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "repo", "master")
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(c1, "foo", strings.NewReader("foo")))
-	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", c1.Branch.Name, c1.ID))
+	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.ID))
 	c2, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "repo", "master")
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(c2, "bar", strings.NewReader("bar")))
-	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", c1.Branch.Name, c1.ID))
+	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c2.ID))
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
@@ -443,8 +443,9 @@ func TestMountCommit(t *testing.T) {
 
 		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
-		require.Equal(t, 1, len(files))
-		require.Equal(t, "bar", filepath.Base(files[0].Name()))
+		require.Equal(t, 2, len(files))
+		require.Equal(t, "foo", filepath.Base(files[0].Name()))
+		require.Equal(t, "bar", filepath.Base(files[1].Name()))
 
 		data, err := os.ReadFile(filepath.Join(mountPoint, "repo", "bar"))
 		require.NoError(t, err)
