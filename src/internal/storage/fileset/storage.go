@@ -266,7 +266,7 @@ func (s *Storage) Concat(ctx context.Context, ids []ID, ttl time.Duration) (*ID,
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	additive := index.NewWriter(ctx, s.ChunkStorage(), "additive-index-writer")
 	deletive := index.NewWriter(ctx, s.ChunkStorage(), "deletive-index-writer")
