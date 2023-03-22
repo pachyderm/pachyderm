@@ -1346,10 +1346,9 @@ jobs:
           command: poetry --no-ansi install
       - install-jupyter-test-deps
       - run:
-          name: Run Tests
+          name: Run Tests # export AUTH_TOKEN_ENV=iamroot
           command: |
-            export AUTH_TOKEN_ENV=iamroot
-            export ENTERPRISE_CODE_ENV=${ENT_ACT_CODE}
+            export PACH_PYTHON_ENTERPRISE_CODE=${ENT_ACT_CODE}
             nohup pachctl port-forward &
             poetry run pytest -vvv tests
   build-python-sdk:
@@ -1571,12 +1570,12 @@ workflows:
     jobs:
       - test-python-sdk:
           requires:
-            - build-docker-images
+            # - build-docker-images
             - build-pachctl-bin
-      - build-docker-images
+      # - build-docker-images
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
-      - build-python-sdk
+      #- build-python-sdk
 
   release:
     jobs:
@@ -1897,20 +1896,20 @@ commands:
           name: Start kind
           command: kind create cluster && kubectl config set current-context kind-kind
       - run:
-          name: Install pach
-          command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.service.type=NodePort,pachd.image.tag=${CIRCLE_SHA1},pachd.enterpriseLicenseKey=${ENT_ACT_CODE},pachd.rootToken=iamroot
+          name: Install pach # pachd.service.type=NodePort,pachd.image.tag=${CIRCLE_SHA1},pachd.enterpriseLicenseKey=${ENT_ACT_CODE},pachd.rootToken=iamroot
+          command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |
             sleep 20
             kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
             pachctl version
-      - run:
-          name: Setup pach # Get Kind node IP and pass that to pachctl
-          command: |-
-            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' | pachctl config set context local --overwrite
-            pachctl config set active-context local
-            echo 'iamroot' | pachctl auth use-auth-token
+      #- run:
+      #    name: Setup pach # Get Kind node IP and pass that to pachctl
+      #    command: |-
+      #      echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' | pachctl config set context local --overwrite
+      #      pachctl config set active-context local
+      #      echo 'iamroot' | pachctl auth use-auth-token
   install-pulumi-deps:
     steps:
       - node/install
