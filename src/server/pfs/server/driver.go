@@ -683,8 +683,11 @@ func (d *driver) linkParent(txnCtx *txncontext.TransactionContext, child *pfs.Co
 		"could not resolve parent commit %s", parent)
 }
 
-// TODO(acohen4): reassess need for "needsFinishedParent" parameter
 // creates a new commit, and adds both commit ancestry, and commit provenance pointers
+//
+// NOTE: Requiring source commits to have finishing / finished parents ensures that the commits are not compacted
+// in a pathological order (finishing later commits before earlier commits will result with us compacting
+// the earlier commits multiple times).
 func (d *driver) addCommit(txnCtx *txncontext.TransactionContext, newCommitInfo *pfs.CommitInfo, parent *pfs.Commit, directProvenance []*pfs.Branch, needsFinishedParent bool) error {
 	if err := d.linkParent(txnCtx, newCommitInfo, parent, needsFinishedParent); err != nil {
 		return err
@@ -1124,6 +1127,8 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 
 // getCommit is like inspectCommit, without the blocking.
 // It does not add the size to the CommitInfo
+//
+// TODO(acohen4): consider more an architecture where a commit is resolved at the API boundary
 func (d *driver) getCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
 	if commit.Branch.Repo.Name == fileSetsRepo {
 		cinfo := &pfs.CommitInfo{

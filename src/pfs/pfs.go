@@ -94,6 +94,13 @@ func (c *Commit) String() string {
 	return c.Repo.String() + "@" + c.ID
 }
 
+func (c *Commit) AccessRepo() *Repo {
+	if c.GetRepo() != nil {
+		return c.GetRepo()
+	}
+	return c.GetBranch().GetRepo()
+}
+
 func (b *Branch) NewCommit(id string) *Commit {
 	return &Commit{
 		Branch: proto.Clone(b).(*Branch),

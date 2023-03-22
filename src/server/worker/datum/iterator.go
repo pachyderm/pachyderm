@@ -131,9 +131,10 @@ func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pf
 	}
 }
 
+// TODO(acohen4,prov): call getter internally, and leave note for future
 func migrateMetaInputsV2_6_0(meta *Meta) {
 	for _, i := range meta.Inputs {
-		i.FileInfo.File.Commit.Repo = i.FileInfo.File.Commit.Branch.Repo
+		i.FileInfo.File.Commit.Repo = i.FileInfo.File.Commit.AccessRepo()
 	}
 }
 

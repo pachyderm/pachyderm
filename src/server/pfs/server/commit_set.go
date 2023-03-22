@@ -72,12 +72,14 @@ func TopologicalSort(cis []*pfs.CommitInfo) []*pfs.CommitInfo {
 			if _, ok := sorted[c]; !ok {
 				satisfied := true
 				ci := commits[c]
+				// TODO(aochen4,prov) consider for performance improvement if this check seems expensive
 				for _, p := range ci.DirectProvenance {
 					pk := pfsdb.CommitKey(p)
 					_, commitExists := commits[pk]
 					_, commitSorted := sorted[pk]
 					if commitExists && !commitSorted {
 						satisfied = false
+						break
 					}
 				}
 				if satisfied {
@@ -121,8 +123,6 @@ func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet,
 
 	}
 	var unfinishedCommits []*pfs.Commit
-	// NOTE: before 2.5, a triggered commits would be included as part of the same commit set as the triggering commit set,
-	// so we would wait for all of the current commit set to finish, then check if new previously unknown commits are added due to triggers.
 	if err := d.inspectCommitSetImmediate(ctx, commitset, func(ci *pfs.CommitInfo) error {
 		if ci.Finished != nil {
 			return send(ci)
@@ -445,9 +445,8 @@ func traverseToEdges(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.Commit
 // that are subvenant to commits in 'Y'. Commit set subvenance is transitivie.
 //
 // The implementation repeatedly applies CommitSetSubvenance() to compute all of the Subvenant commit sets.
-// To understand why, consider the commit provenance graph where r@X & q@Y are in p@Y's provenance.
-// For this graph, CommitSetSubvenance("X") evaluates to [p@Y] which we can use to infer
-// that commit set Y is subvenant to commit set X.
+// To understand why, first consider the simple case with the commit provenance graph where r@X & q@Y are in p@Y's provenance.
+// For this graph, CommitSetSubvenance("X") evaluates to [p@Y] which we can use to infer that commit set Y is subvenant to commit set X.
 // Now consider the same graph, with the addition of a commit s@Z that has q@Y in its subvenance.
 // In this case, CommitSetSubvenance(X) still evaluates to [p@Y]. But since a commit in 'Z', depends on a commit
 // in 'Y', we haven't yet computed all of 'X”s subvenant commit sets. Therefore,

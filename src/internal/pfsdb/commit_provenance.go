@@ -160,10 +160,14 @@ var schema = `
 	);
 
 	CREATE INDEX ON pfs.commit_provenance (
-		to_id,
 		from_id
 	);
+
+	CREATE INDEX ON pfs.commit_provenance (
+		to_id
+	);
 `
+
 var schemaUpdate = `
        ALTER TABLE pfs.commits ADD CONSTRAINT fk_col_commit
                   FOREIGN KEY(commit_id)

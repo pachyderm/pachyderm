@@ -6447,7 +6447,7 @@ func TestPFS(suite *testing.T) {
 					}
 				}
 			case deleteOutputBranch:
-				if len(outputBranches) == 0 || true {
+				if len(outputBranches) == 0 {
 					continue OpLoop
 				}
 				i := r.Intn(len(outputBranches))
