@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
 const (
@@ -382,25 +383,28 @@ func TestOpenCommit(t *testing.T) {
 	})
 }
 
+func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id string) error {
+	if err := pachClient.FinishProjectCommit(project, repo, branch, id); err != nil {
+		if !pfsserver.IsCommitFinishedErr(err) {
+			return err
+		}
+	}
+	_, err := pachClient.WaitProjectCommit(project, repo, branch, id)
+	return err
+}
+
 func TestMountCommit(t *testing.T) {
-	t.Skip("FIXME - skipping for now. We don't want to allow creating multiple commits in the same transaction on the same repo")
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
-	txn, err := env.PachClient.StartTransaction()
+	c1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "repo", "master")
 	require.NoError(t, err)
-	c := env.PachClient.WithTransaction(txn)
-	c1, err := c.StartProjectCommit(pfs.DefaultProjectName, "repo", "b1")
+	require.NoError(t, env.PachClient.PutFile(c1, "foo", strings.NewReader("foo")))
+	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", c1.Branch.Name, c1.ID))
+	c2, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "repo", "master")
 	require.NoError(t, err)
-	c2, err := c.StartProjectCommit(pfs.DefaultProjectName, "repo", "b2")
-	require.NoError(t, err)
-	_, err = env.PachClient.FinishTransaction(txn)
-	require.NoError(t, err)
-
-	err = env.PachClient.PutFile(c1, "foo", strings.NewReader("foo"))
-	require.NoError(t, err)
-	err = env.PachClient.PutFile(c2, "bar", strings.NewReader("bar"))
-	require.NoError(t, err)
+	require.NoError(t, env.PachClient.PutFile(c2, "bar", strings.NewReader("bar")))
+	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", c1.Branch.Name, c1.ID))
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
