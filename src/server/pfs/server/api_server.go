@@ -175,9 +175,9 @@ func (a *apiServer) DeleteRepos(ctx context.Context, request *pfs.DeleteReposReq
 	var repos []*pfs.Repo
 	switch {
 	case request.All:
-		repos, err = a.driver.deleteAllRepos(ctx)
+		repos, err = a.driver.deleteRepos(ctx, nil)
 	case len(request.Projects) > 0:
-		repos, err = a.driver.deleteProjectsRepos(ctx, request.Projects)
+		repos, err = a.driver.deleteRepos(ctx, request.Projects)
 	}
 	if err != nil {
 		return nil, err

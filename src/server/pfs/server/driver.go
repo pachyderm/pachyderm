@@ -384,9 +384,9 @@ func (d *driver) topologicalSortRepos(ctx context.Context, ris []*pfs.RepoInfo) 
 	return nil
 }
 
-func (d *driver) deleteAllRepos(ctx context.Context) ([]*pfs.Repo, error) {
+func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
 	var repoInfos []*pfs.RepoInfo
-	if err := d.listRepo(ctx, false, "", nil, func(repoInfo *pfs.RepoInfo) error {
+	if err := d.listRepo(ctx, false, "", projects, func(repoInfo *pfs.RepoInfo) error {
 		repoInfos = append(repoInfos, repoInfo)
 		return nil
 	}); err != nil {
@@ -1884,35 +1884,8 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	return nil
 }
 
-func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
-	var repoInfos []*pfs.RepoInfo
-	if err := d.listRepo(ctx, false, "", projects, func(repoInfo *pfs.RepoInfo) error {
-		repoInfos = append(repoInfos, proto.Clone(repoInfo).(*pfs.RepoInfo))
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	if len(repoInfos) == 0 {
-		return nil, nil
-	}
-	var deleted []*pfs.Repo
-	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		for _, ri := range repoInfos {
-			dels, err := d.deleteRepoInfo(txnCtx, ri, true)
-			if err != nil && !auth.IsErrNotAuthorized(err) {
-				return err
-			}
-			deleted = append(deleted, dels...)
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return deleted, nil
-}
-
 func (d *driver) deleteAll(ctx context.Context) error {
-	if _, err := d.deleteAllRepos(ctx); err != nil {
+	if _, err := d.deleteRepos(ctx, nil); err != nil {
 		return errors.Wrap(err, "could not delete all repos")
 	}
 	var projectInfos []*pfs.ProjectInfo
