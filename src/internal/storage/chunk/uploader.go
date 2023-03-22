@@ -14,8 +14,7 @@ import (
 )
 
 const (
-	taskParallelism  = 100
-	chunkParallelism = 100
+	taskParallelism = 100
 )
 
 // UploadFunc is a function that provides the metadata for a task and the corresponding set of chunk references.
@@ -30,7 +29,6 @@ type Uploader struct {
 	storage   *Storage
 	client    Client
 	taskChain *taskchain.TaskChain
-	chunkSem  *semaphore.Weighted
 	noUpload  bool
 	cb        UploadFunc
 }
@@ -42,18 +40,15 @@ func (s *Storage) NewUploader(ctx context.Context, name string, noUpload bool, c
 		storage:   s,
 		client:    client,
 		taskChain: taskchain.New(ctx, semaphore.NewWeighted(taskParallelism)),
-		chunkSem:  semaphore.NewWeighted(chunkParallelism),
 		noUpload:  noUpload,
 		cb:        cb,
 	}
 }
 
-// TODO: Need to think more about the context / error handling with the nested task chains.
 func (u *Uploader) Upload(meta interface{}, r io.Reader) error {
-	taskChain := taskchain.New(u.ctx, u.chunkSem)
 	var dataRefs []*DataRef
 	if err := ComputeChunks(r, func(chunkBytes []byte) error {
-		return taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
+		return u.taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
 			dataRef, err := upload(ctx, u.client, chunkBytes, nil, u.noUpload)
 			if err != nil {
 				return nil, err
@@ -66,15 +61,12 @@ func (u *Uploader) Upload(meta interface{}, r io.Reader) error {
 	}); err != nil {
 		return err
 	}
-	return u.taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
-		if err := taskChain.Wait(); err != nil {
-			return nil, err
-		}
-		if len(dataRefs) > 0 {
-			dataRefs[0].Ref.Edge = true
-			dataRefs[len(dataRefs)-1].Ref.Edge = true
-		}
+	return u.taskChain.CreateTask(func(_ context.Context) (func() error, error) {
 		return func() error {
+			if len(dataRefs) > 0 {
+				dataRefs[0].Ref.Edge = true
+				dataRefs[len(dataRefs)-1].Ref.Edge = true
+			}
 			return u.cb(meta, dataRefs)
 		}, nil
 	})
@@ -82,9 +74,8 @@ func (u *Uploader) Upload(meta interface{}, r io.Reader) error {
 
 func (u *Uploader) Copy(meta interface{}, dataRefs []*DataRef) error {
 	var stableDataRefs, nextDataRefs []*DataRef
-	taskChain := taskchain.New(u.ctx, u.chunkSem)
 	appendDataRefs := func(dataRefs []*DataRef) error {
-		return taskChain.CreateTask(func(_ context.Context) (func() error, error) {
+		return u.taskChain.CreateTask(func(_ context.Context) (func() error, error) {
 			return func() error {
 				for _, dataRef := range dataRefs {
 					stableDataRefs = append(stableDataRefs, proto.Clone(dataRef).(*DataRef))
@@ -101,7 +92,7 @@ func (u *Uploader) Copy(meta interface{}, dataRefs []*DataRef) error {
 			nextDataRefs = nil
 			var err error
 			i, err = u.align(u.ctx, dataRefs, i, func(chunk []byte) error {
-				return taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
+				return u.taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
 					dataRef, err := upload(ctx, u.client, chunk, nil, u.noUpload)
 					if err != nil {
 						return nil, err
@@ -123,14 +114,11 @@ func (u *Uploader) Copy(meta interface{}, dataRefs []*DataRef) error {
 		return err
 	}
 	return u.taskChain.CreateTask(func(_ context.Context) (func() error, error) {
-		if err := taskChain.Wait(); err != nil {
-			return nil, err
-		}
-		if len(dataRefs) > 0 {
-			stableDataRefs[0].Ref.Edge = true
-			stableDataRefs[len(stableDataRefs)-1].Ref.Edge = true
-		}
 		return func() error {
+			if len(stableDataRefs) > 0 {
+				stableDataRefs[0].Ref.Edge = true
+				stableDataRefs[len(stableDataRefs)-1].Ref.Edge = true
+			}
 			return u.cb(meta, stableDataRefs)
 		}, nil
 	})
