@@ -1,14 +1,15 @@
 package cmds
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
@@ -16,21 +17,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newClient() (*client.APIClient, error) {
-	c, err := client.NewEnterpriseClientOnUserMachine("user")
-	if err != nil {
-		return nil, err
-	}
-	fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
-	return c, nil
-}
-
 // ActivateCmd returns a cobra.Command to activate the license service,
 // register the current pachd and activate enterprise features.
 // This always runs against the current enterprise context, and can
 // be used to activate a single-node pachd deployment or the enterprise
 // server in a multi-node deployment.
-func ActivateCmd() *cobra.Command {
+func ActivateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var onlyActivate bool
 	activate := &cobra.Command{
 		Use:   "{{alias}}",
@@ -42,7 +34,7 @@ func ActivateCmd() *cobra.Command {
 				return errors.Wrapf(err, "could not read enterprise key")
 			}
 
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -101,13 +93,13 @@ func ActivateCmd() *cobra.Command {
 }
 
 // AddClusterCmd returns a cobra.Command to register a cluster with the license server
-func AddClusterCmd() *cobra.Command {
+func AddClusterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var id, address, secret string
 	addCluster := &cobra.Command{
 		Short: "Register a new cluster with the license server.",
 		Long:  "Register a new cluster with the license server.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -134,13 +126,13 @@ func AddClusterCmd() *cobra.Command {
 }
 
 // UpdateClusterCmd returns a cobra.Command to register a cluster with the license server
-func UpdateClusterCmd() *cobra.Command {
+func UpdateClusterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var id, address, userAddress, clusterDeploymentId string
 	updateCluster := &cobra.Command{
 		Short: "Update an existing cluster registered with the license server.",
 		Long:  "Update an existing cluster registered with the license server.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -163,13 +155,13 @@ func UpdateClusterCmd() *cobra.Command {
 }
 
 // DeleteClusterCmd returns a cobra.Command to delete a cluster from the license server
-func DeleteClusterCmd() *cobra.Command {
+func DeleteClusterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var id string
 	deleteCluster := &cobra.Command{
 		Short: "Delete a cluster registered with the license server.",
 		Long:  "Delete a cluster registered with the license server.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -186,12 +178,12 @@ func DeleteClusterCmd() *cobra.Command {
 }
 
 // ListClustersCmd returns a cobra.Command to list clusters registered with the license server
-func ListClustersCmd() *cobra.Command {
+func ListClustersCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	listClusters := &cobra.Command{
 		Short: "List clusters registered with the license server.",
 		Long:  "List clusters registered with the license server.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -214,13 +206,13 @@ func ListClustersCmd() *cobra.Command {
 
 // DeleteAllCmd returns a cobra.Command to disable enterprise features and
 // clear the configuration of the license service.
-func DeleteAllCmd() *cobra.Command {
+func DeleteAllCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	activate := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Delete all data from the license server",
 		Long:  "Delete all data from the license server",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -238,12 +230,12 @@ func DeleteAllCmd() *cobra.Command {
 }
 
 // GetStateCmd returns a cobra.Command to get the state of the license service.
-func GetStateCmd() *cobra.Command {
+func GetStateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	getState := &cobra.Command{
 		Short: "Get the configuration of the license service.",
 		Long:  "Get the configuration of the license service.",
 		Run: cmdutil.Run(func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -270,7 +262,7 @@ func GetStateCmd() *cobra.Command {
 }
 
 // Cmds returns pachctl commands related to Pachyderm Enterprise
-func Cmds() []*cobra.Command {
+func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	enterprise := &cobra.Command{
@@ -278,13 +270,13 @@ func Cmds() []*cobra.Command {
 		Long:  "License commands manage the Enterprise License service",
 	}
 	commands = append(commands, cmdutil.CreateAlias(enterprise, "license"))
-	commands = append(commands, ActivateCmd())
-	commands = append(commands, AddClusterCmd())
-	commands = append(commands, UpdateClusterCmd())
-	commands = append(commands, DeleteClusterCmd())
-	commands = append(commands, ListClustersCmd())
-	commands = append(commands, DeleteAllCmd())
-	commands = append(commands, GetStateCmd())
+	commands = append(commands, ActivateCmd(mainCtx, pachctlCfg))
+	commands = append(commands, AddClusterCmd(mainCtx, pachctlCfg))
+	commands = append(commands, UpdateClusterCmd(mainCtx, pachctlCfg))
+	commands = append(commands, DeleteClusterCmd(mainCtx, pachctlCfg))
+	commands = append(commands, ListClustersCmd(mainCtx, pachctlCfg))
+	commands = append(commands, DeleteAllCmd(mainCtx, pachctlCfg))
+	commands = append(commands, GetStateCmd(mainCtx, pachctlCfg))
 
 	return commands
 }

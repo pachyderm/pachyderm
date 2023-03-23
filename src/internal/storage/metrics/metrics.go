@@ -38,14 +38,17 @@ const (
 // This function also labels the request as successful or not, and records
 // the time spent in a separate metric.
 func ReportRequest(f func() error, skip ...int) (retErr error) {
-	ci := retrieveCallInfo(skip...)
-	ms, err := maybeRegisterSubsystem(ci.packageName)
-	if err != nil {
-		return err
-	}
-	operation := ci.funcName
 	start := time.Now()
 	defer func() {
+		ci, err := retrieveCallInfo(skip...)
+		if err != nil {
+			return
+		}
+		ms, err := maybeRegisterSubsystem(ci.packageName)
+		if err != nil {
+			return
+		}
+		operation := ci.funcName
 		result := "success"
 		if retErr != nil {
 			result = retErr.Error()
@@ -59,17 +62,22 @@ func ReportRequest(f func() error, skip ...int) (retErr error) {
 // ReportRequestWithThroughput functions the same as ReportRequest, but also
 // reports the throughput in a separate metric.
 func ReportRequestWithThroughput(f func() (int64, error)) error {
-	ci := retrieveCallInfo()
-	ms, err := maybeRegisterSubsystem(ci.packageName)
-	if err != nil {
-		return err
-	}
-	operation := ci.funcName
 	start := time.Now()
 	return ReportRequest(func() error {
 		bytesProcessed, err := f()
-		throughput := float64(bytesProcessed) / units.MB / time.Since(start).Seconds()
-		ms.requestSummaryThroughput.WithLabelValues(operation).Observe(throughput)
+		defer func() {
+			ci, err := retrieveCallInfo()
+			if err != nil {
+				return
+			}
+			ms, err := maybeRegisterSubsystem(ci.packageName)
+			if err != nil {
+				return
+			}
+			operation := ci.funcName
+			throughput := float64(bytesProcessed) / units.MB / time.Since(start).Seconds()
+			ms.requestSummaryThroughput.WithLabelValues(operation).Observe(throughput)
+		}()
 		return err
 	}, 1)
 }
@@ -81,14 +89,21 @@ type callInfo struct {
 	line        int
 }
 
-func retrieveCallInfo(skip ...int) *callInfo {
+func retrieveCallInfo(skip ...int) (*callInfo, error) {
 	skipFrames := 2
 	if len(skip) > 0 {
 		skipFrames += skip[0]
 	}
-	pc, file, line, _ := runtime.Caller(skipFrames)
+	pc, file, line, ok := runtime.Caller(skipFrames)
+	if !ok {
+		return nil, errors.Errorf("could not retrieve caller info")
+	}
 	_, fileName := path.Split(file)
-	parts := strings.Split(runtime.FuncForPC(pc).Name(), ".")
+	fn := runtime.FuncForPC(pc)
+	if fn == nil {
+		return nil, errors.Errorf("could not retrieve function for program counter")
+	}
+	parts := strings.Split(fn.Name(), ".")
 	pl := len(parts)
 	packageName := ""
 	funcName := parts[pl-1]
@@ -105,7 +120,7 @@ func retrieveCallInfo(skip ...int) *callInfo {
 		fileName:    fileName,
 		funcName:    funcName,
 		line:        line,
-	}
+	}, nil
 }
 
 func maybeRegisterSubsystem(packageName string) (*metrics, error) {

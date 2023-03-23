@@ -37,6 +37,7 @@ var (
 
 	developmentLogger bool // True if a development logger was requested via the environment.
 	samplingDisabled  bool // True if log sampling was disabled via the environment.
+	pachctlJSON       bool // True if pachctl should log JSON logs.
 
 	initOnce       sync.Once   // initOnce gates creating the zap global logger
 	warningsLogged atomic.Bool // True if startup warnings have already been printed.
@@ -107,6 +108,13 @@ func init() {
 			addInitWarningf("$DISABLE_LOG_SAMPLING set but unparsable; got %q, want 'true' or '1'", s)
 		}
 	}
+	if j := os.Getenv("PACHCTL_JSON_LOGS"); j != "" {
+		if j == "true" || j == "1" {
+			pachctlJSON = true
+		} else {
+			addInitWarningf("$PACHCTL_JSON_LOGS is set but unparsable; got %q, want 'true' or '1'", j)
+		}
+	}
 }
 
 // InitPachdLogger creates a new global zap logger suitable for use in pachd/enterprise server/etc.
@@ -121,8 +129,12 @@ func InitWorkerLogger() {
 	makeLoggerOnce(enc, os.Stdout, true, []zap.Option{zap.AddCaller()})
 }
 
-// InitPachctlLogger creates a new
+// InitPachctlLogger creates a new logger for command-line tools like pachctl.
 func InitPachctlLogger() {
+	if pachctlJSON {
+		InitPachdLogger()
+		return
+	}
 	cfg := pachctlEncoder
 	if !color.NoColor { // Enable color if it's not disabled via flags.
 		cfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
