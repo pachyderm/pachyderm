@@ -38,6 +38,7 @@ class PPSClient:
         """
         get_logger().debug(f"path: {path} | body: {config}")
 
+        # TODO: There's a lot of data-munging here that can error.
         input_spec = config['run'].pop("input")  # Input not allowed in SAME metadata.
         # Paths are relative to the config file. Since the config is being written into
         #  a temporary file, we need to specify an absolute path.
