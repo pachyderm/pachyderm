@@ -336,7 +336,7 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 	return errors.Wrapf(d.repos.ReadOnly(ctx).GetByIndex(pfsdb.ReposTypeIndex, repoType, repoInfo, col.DefaultOptions(), processFunc), "could not get repos of type %q: ERROR FROM GetByIndex", repoType)
 }
 
-func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContext, repos []*pfs.RepoInfo) error {
+func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContext, repos []*pfs.RepoInfo, force bool) error {
 	var branchInfos []*pfs.BranchInfo
 	for _, repo := range repos {
 		for _, branch := range repo.Branches {
@@ -354,7 +354,7 @@ func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContex
 		// branch is provenant on another (which is likely the case when
 		// multiple repos are provided) we delete them in the right order.
 		branch := branchInfos[len(branchInfos)-1-i].Branch
-		if err := d.deleteBranch(txnCtx, branch); err != nil {
+		if err := d.deleteBranch(txnCtx, branch, force); err != nil {
 			return errors.Wrapf(err, "delete branch %s", branch)
 		}
 	}
@@ -402,7 +402,7 @@ func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*p
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		for i := len(repoInfos) - 1; i >= 0; i-- {
 			ri := repoInfos[i]
-			dels, err := d.deleteRepoInfo(txnCtx, ri)
+			dels, err := d.deleteRepoInfo(txnCtx, ri, false)
 			if err != nil && !auth.IsErrNotAuthorized(err) {
 				return err
 			}
@@ -415,7 +415,7 @@ func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*p
 	return deleted, nil
 }
 
-func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo) error {
+func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) error {
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 	repoInfo := &pfs.RepoInfo{}
 	if err := repos.Get(repo, repoInfo); err != nil {
@@ -424,11 +424,11 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		}
 		return nil
 	}
-	_, err := d.deleteRepoInfo(txnCtx, repoInfo)
+	_, err := d.deleteRepoInfo(txnCtx, repoInfo, force)
 	return err
 }
 
-func (d *driver) deleteRepoInfo(txnCtx *txncontext.TransactionContext, ri *pfs.RepoInfo) ([]*pfs.Repo, error) {
+func (d *driver) deleteRepoInfo(txnCtx *txncontext.TransactionContext, ri *pfs.RepoInfo, force bool) ([]*pfs.Repo, error) {
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 	completeRepos := []*pfs.RepoInfo{ri}
 	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, ri.Repo, auth.Permission_REPO_DELETE); err != nil {
@@ -455,7 +455,7 @@ func (d *driver) deleteRepoInfo(txnCtx *txncontext.TransactionContext, ri *pfs.R
 	}
 	// we expect potentially complicated provenance relationships between dependent repos
 	// deleting all branches at once allows for topological sorting, avoiding deletion order issues
-	if err := d.deleteAllBranchesFromRepos(txnCtx, completeRepos); err != nil {
+	if err := d.deleteAllBranchesFromRepos(txnCtx, completeRepos, force); err != nil {
 		return nil, errors.Wrap(err, "error deleting branches")
 	}
 	for _, ri := range completeRepos {
@@ -1824,7 +1824,7 @@ func (d *driver) listBranchInTransaction(txnCtx *txncontext.TransactionContext, 
 	return errors.EnsureStack(err)
 }
 
-func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs.Branch) error {
+func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, force bool) error {
 	// Validate arguments
 	if branch == nil {
 		return errors.New("branch cannot be nil")
@@ -1843,8 +1843,10 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		}
 	}
 	if branchInfo.Branch != nil {
-		if len(branchInfo.Subvenance) > 0 {
-			return errors.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
+		if !force {
+			if len(branchInfo.Subvenance) > 0 {
+				return errors.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
+			}
 		}
 		// For provenant branches, remove this branch from subvenance
 		for _, provBranch := range branchInfo.Provenance {
@@ -1876,7 +1878,7 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		del(&repoInfo.Branches, branch)
 		return nil
 	}); err != nil {
-		if !col.IsErrNotFound(err) {
+		if !col.IsErrNotFound(err) || !force {
 			return errors.EnsureStack(err)
 		}
 	}
