@@ -5,8 +5,8 @@ import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import {PROJECT_JOBS_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 
 import JobsList from '../JobsList';
-import RuntimesChart from '../RuntimesChart';
 
+import JobsRuntimeChart from './components/JobsRuntimeChart';
 import RunsTable from './components/RunsTable';
 
 const TAB_IDS = {jobs: 'jobs', subjobs: 'subjobs', runtimes: 'runtimes'};
@@ -35,7 +35,7 @@ const JobSetList: React.FC = () => {
         />
       </TableViewSection>
       <TableViewSection id={TAB_IDS.runtimes}>
-        <RuntimesChart
+        <JobsRuntimeChart
           selectedJobSets={searchParams.selectedJobs}
           filtersExpanded={filtersExpanded}
         />

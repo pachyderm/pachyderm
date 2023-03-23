@@ -6,9 +6,14 @@ import {PROJECT_PIPELINES_PATH} from '@dash-frontend/views/Project/constants/pro
 
 import JobsList from '../JobsList';
 
+import PipelinesRuntimeChart from './components/PipelinesRuntimeChart';
 import PipelineStepsTable from './components/PipelineStepsTable';
 
-const TAB_IDS = {pipelines: 'pipelines', jobs: 'jobs'};
+const TAB_IDS = {
+  pipelines: 'pipelines',
+  jobs: 'jobs',
+  runtimes: 'runtimes',
+};
 
 const PipelineList: React.FC = () => {
   const [filtersExpanded, setFiltersExpanded] = useState(false);
@@ -29,6 +34,12 @@ const PipelineList: React.FC = () => {
       </TableViewSection>
       <TableViewSection id={TAB_IDS.jobs}>
         <JobsList
+          selectedPipelines={searchParams.selectedPipelines}
+          filtersExpanded={filtersExpanded}
+        />
+      </TableViewSection>
+      <TableViewSection id={TAB_IDS.runtimes}>
+        <PipelinesRuntimeChart
           selectedPipelines={searchParams.selectedPipelines}
           filtersExpanded={filtersExpanded}
         />

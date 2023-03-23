@@ -76,7 +76,7 @@ const CommitsList: React.FC<CommitsListProps> = ({
             <Table.Row>
               <Table.HeaderCell>Repository</Table.HeaderCell>
               <Table.HeaderCell>Finished</Table.HeaderCell>
-              <Table.HeaderCell>Run ID</Table.HeaderCell>
+              <Table.HeaderCell>ID</Table.HeaderCell>
               <Table.HeaderCell>Branch</Table.HeaderCell>
               <Table.HeaderCell>Size</Table.HeaderCell>
               <Table.HeaderCell>Origin</Table.HeaderCell>

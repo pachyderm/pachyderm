@@ -1,4 +1,5 @@
-import {Job} from '@graphqlTypes';
+import {ApolloError} from '@apollo/client';
+import {JobsQuery, Job} from '@graphqlTypes';
 import {
   Chart as ChartJS,
   ChartOptions,
@@ -21,7 +22,6 @@ import {
   TableViewLoadingDots,
 } from '@dash-frontend/components/TableView';
 import {MAX_FILTER_HEIGHT_REM} from '@dash-frontend/components/TableView/components/TableViewFilters/TableViewFilters';
-import {useJobsQuery} from '@dash-frontend/generated/hooks';
 import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {Form} from '@pachyderm/components';
@@ -45,8 +45,11 @@ ChartJS.register(
 );
 
 type RuntimesChartProps = {
-  selectedJobSets?: string[];
-  selectedPipelines?: string[];
+  jobs?: JobsQuery['jobs'];
+  loading: boolean;
+  error?: ApolloError;
+  resource: 'job' | 'pipeline';
+  viewOptions?: JSX.Element;
   filtersExpanded: boolean;
 };
 
@@ -74,25 +77,19 @@ const DEFAULT_FONT = {
 };
 
 const RuntimesChart: React.FC<RuntimesChartProps> = ({
-  selectedJobSets,
-  selectedPipelines,
+  jobs,
+  loading,
+  error,
+  resource,
+  viewOptions,
   filtersExpanded,
 }) => {
   const chartRef = useRef<ChartJS<'bar'>>(null);
   const {projectId} = useUrlState();
   const browserHistory = useHistory();
   const {getPathToDatumLogs} = useLogsNavigation();
-  const {data, error, loading} = useJobsQuery({
-    variables: {
-      args: {
-        projectId,
-        jobSetIds: selectedJobSets,
-        pipelineIds: selectedPipelines,
-      },
-    },
-  });
   const {filteredJobs, formCtx, clearableFiltersMap, multiselectFilters} =
-    useRuntimesChartFilters({jobs: data?.jobs});
+    useRuntimesChartFilters({jobs});
   const {
     chartData,
     pipelineDatasets,
@@ -234,36 +231,50 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
           }}
           data-testid="RuntimesChart__chart"
         >
-          <h5>
-            Runtimes for {jobIds.length} {jobIds.length > 1 ? 'runs' : 'run'}
-          </h5>
-          <div className={styles.legend}>
-            {Object.keys(jobsCrossReference).map((jobId, index) => {
-              const oldestJob = Math.min(
-                ...Object.values(jobsCrossReference[jobId]).map(
-                  (job: Job) => job.createdAt || 0,
-                ),
-              );
-              return (
-                <div key={jobId} className={styles.legendItem}>
-                  <div
-                    className={styles.legendBox}
-                    style={{
-                      backgroundColor:
-                        CHART_COLORS[index % CHART_COLORS.length],
-                    }}
-                  />
-                  {oldestJob &&
-                    format(fromUnixTime(oldestJob), 'MMM dd, yyyy; h:mmaaa')}
-                  ; {jobId.slice(0, 6)}...
-                </div>
-              );
-            })}
-            {/* To be added with datum errors */}
-            {/* <div className={styles.legendItem}>
+          <div className={styles.titleContent}>
+            {resource === 'job' && (
+              <h5>
+                Runtimes for {jobIds.length}{' '}
+                {jobIds.length > 1 ? 'jobs' : 'job'}
+              </h5>
+            )}
+            {resource === 'pipeline' && (
+              <h5>
+                Runtimes for {pipelines.length}{' '}
+                {pipelines.length > 1 ? 'pipelines' : 'pipeline'}
+              </h5>
+            )}
+            {viewOptions && (
+              <div className={styles.viewOptions}>{viewOptions}</div>
+            )}
+            <div className={styles.legend}>
+              {Object.keys(jobsCrossReference).map((jobId, index) => {
+                const oldestJob = Math.min(
+                  ...Object.values(jobsCrossReference[jobId]).map(
+                    (job: Job) => job.createdAt || 0,
+                  ),
+                );
+                return (
+                  <div key={jobId} className={styles.legendItem}>
+                    <div
+                      className={styles.legendBox}
+                      style={{
+                        backgroundColor:
+                          CHART_COLORS[index % CHART_COLORS.length],
+                      }}
+                    />
+                    {oldestJob &&
+                      format(fromUnixTime(oldestJob), 'MMM dd, yyyy; h:mmaaa')}
+                    ; {jobId.slice(0, 6)}...
+                  </div>
+                );
+              })}
+              {/* To be added with datum errors */}
+              {/* <div className={styles.legendItem}>
               <div className={styles.failedBox} />
               Failed Datums
             </div> */}
+            </div>
           </div>
           <BarChart
             chartData={chartData}

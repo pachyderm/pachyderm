@@ -1,9 +1,13 @@
 .base {
   background-color: var(--white);
-  padding: 1rem;
+  padding-right: 3rem;
   padding-top: 2rem;
   overflow-y: scroll;
   border-top: solid 1px var(--border-grey);
+}
+
+.titleContent {
+  margin-left: 2rem;
 }
 
 .legend {
@@ -26,4 +30,8 @@
 
 .failedBox {
   border: dashed 2px var(--error-red);
+}
+
+.viewOptions {
+  margin-top: 1rem;
 }
