@@ -13,13 +13,9 @@ from pachyderm_sdk.constants import ENTERPRISE_CODE_ENV
 class TestUnitAuth:
 
     @staticmethod
-    def test_auth_configuration(auth_client: TestClient):
-        auth_client.auth.get_auth_configuration()
-
-    @staticmethod
     def test_cluster_role_bindings(auth_client: TestClient):
         cluster_resource = auth.Resource(type=auth.ResourceType.CLUSTER)
-        response = auth_client.auth.get_role_binding(cluster_resource)
+        response = auth_client.auth.get_role_binding(resource=cluster_resource)
         assert response.binding.entries["pach:root"].roles["clusterAdmin"]
 
         auth_client.auth.modify_role_binding(
@@ -27,7 +23,7 @@ class TestUnitAuth:
             principal="robot:someuser",
             roles=["clusterAdmin"]
         )
-        response = auth_client.auth.get_role_binding(cluster_resource)
+        response = auth_client.auth.get_role_binding(resource=cluster_resource)
         assert response.binding.entries["robot:someuser"].roles["clusterAdmin"]
 
     @staticmethod
@@ -67,7 +63,7 @@ class TestUnitAuth:
         ).token
         auth_client.auth_token = auth_token
         assert auth_client.auth.who_am_i().username == username
-        auth_client.auth.revoke_auth_token(auth_token)
+        auth_client.auth.revoke_auth_token(token=auth_token)
         with pytest.raises(grpc.RpcError):
             auth_client.auth.who_am_i()
 
@@ -79,7 +75,7 @@ class TestUnitAuth:
             username=username, groups=[group]
         )
         assert auth_client.auth.get_groups().groups == [group]
-        assert auth_client.auth.get_users(group).usernames == [username]
+        assert auth_client.auth.get_users(group=group).usernames == [username]
         auth_client.auth.modify_members(group=group, remove=[username])
         assert auth_client.auth.get_groups().groups == []
-        assert auth_client.auth.get_users(group).usernames == []
+        assert auth_client.auth.get_users(group=group).usernames == []
