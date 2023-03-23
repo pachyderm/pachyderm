@@ -138,83 +138,54 @@ func newDriver(env Env) (*driver, error) {
 }
 
 func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, description string, update bool) error {
-	// Validate arguments
 	if repo == nil {
 		return errors.New("repo cannot be nil")
 	}
 	repo.EnsureProject()
-
-	// Check that the user is logged in (user doesn't need any access level to
-	// create a repo, but they must be authenticated if auth is active)
-	whoAmI, err := txnCtx.WhoAmI()
-	authIsActivated := !auth.IsErrNotActivated(err)
-	if authIsActivated && err != nil {
-		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error authenticating (must log in to create a repo)")
-	}
-	if err := ancestry.ValidateName(repo.Name); err != nil {
-		return err
-	}
-
 	if repo.Type == "" {
 		// default to user type
 		repo.Type = pfs.UserRepoType
 	}
 
+	if err := ancestry.ValidateName(repo.Name); err != nil {
+		return err
+	}
+
 	// Check that the repo’s project exists; if not, return an error.
 	var project pfs.ProjectInfo
-	if err = d.projects.ReadWrite(txnCtx.SqlTx).Get(repo.Project, &project); err != nil {
+	if err := d.projects.ReadWrite(txnCtx.SqlTx).Get(repo.Project, &project); err != nil {
 		return errors.Wrapf(err, "cannot find project %q", repo.Project)
 	}
 
+	// Check whether the user has the permission to create a repo in this project.
+	if err := d.env.AuthServer.CheckProjectIsAuthorizedInTransaction(txnCtx, repo.Project, auth.Permission_PROJECT_CREATE_REPO); err != nil {
+		return errors.Wrap(err, "failed to create repo")
+	}
+
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
-
-	// Check if 'repo' already exists. If so, return that error.  Otherwise,
-	// proceed with ACL creation (avoids awkward "access denied" error when
-	// calling "createRepo" on a repo that already exists).
 	var existingRepoInfo pfs.RepoInfo
-	err = repos.Get(repo, &existingRepoInfo)
-	if err != nil && !col.IsErrNotFound(err) {
-		return errors.Wrapf(err, "error checking whether %q exists", repo)
-	} else if err == nil {
-		// Existing repo case--just update the repo description.
-		if !update {
-			return pfsserver.ErrRepoExists{
-				Repo: repo,
-			}
+	if err := repos.Get(repo, &existingRepoInfo); err != nil {
+		if !col.IsErrNotFound(err) {
+			return errors.Wrapf(err, "error checking whether repo %q exists", repo)
 		}
-
-		if existingRepoInfo.Description == description {
-			// Don't overwrite the stored proto with an identical value. This
-			// optimization is impactful because pps will frequently update the spec
-			// repo to make sure it exists.
-			return nil
-		}
-
-		// Check if the caller is authorized to modify this repo
-		// Note, we don't do this before checking if the description changed because
-		// there is client code that calls CreateRepo(R, update=true) as an
-		// idempotent way to ensure that R exists. By permitting these calls when
-		// they don't actually change anything, even if the caller doesn't have
-		// WRITER access, we make the pattern more generally useful.
-		if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_WRITE); err != nil {
-			return errors.Wrapf(err, "could not update description of %q", repo)
-		}
-		existingRepoInfo.Description = description
-		return errors.EnsureStack(repos.Put(repo, &existingRepoInfo))
-	} else {
 		// if this is a system repo, make sure the corresponding user repo already exists
 		if repo.Type != pfs.UserRepoType {
-			baseRepo := client.NewProjectRepo(repo.Project.GetName(), repo.Name)
-			err = repos.Get(baseRepo, &existingRepoInfo)
-			if err != nil && col.IsErrNotFound(err) {
-				return errors.Errorf("cannot create a system repo without a corresponding 'user' repo")
-			} else if err != nil {
-				return errors.Wrapf(err, "error checking whether user repo for %q exists", repo.Name)
+			baseRepo := &pfs.Repo{Project: &pfs.Project{Name: repo.Project.GetName()}, Name: repo.GetName(), Type: pfs.UserRepoType}
+			if err := repos.Get(baseRepo, &existingRepoInfo); err != nil {
+				if !col.IsErrNotFound(err) {
+					return errors.Wrapf(err, "error checking whether user repo for %q exists", baseRepo)
+				}
+				return errors.Wrap(err, "cannot create a system repo without a corresponding 'user' repo")
 			}
 		}
 
 		// New repo case
-		if authIsActivated {
+		if whoAmI, err := txnCtx.WhoAmI(); err != nil {
+			if !errors.Is(err, auth.ErrNotActivated) {
+				return errors.Wrap(err, "error authenticating (must log in to create a repo)")
+			}
+			// ignore ErrNotActivated because we simply don't need to create the role bindings.
+		} else {
 			// Create ACL for new repo. Make caller the sole owner. If this is a user repo,
 			// and the ACL already exists with a different owner, this will fail.
 			// For now, we expect system repos to share auth info with their corresponding
@@ -229,6 +200,31 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 			Description: description,
 		}))
 	}
+
+	// Existing repo case--just update the repo description.
+	if !update {
+		return pfsserver.ErrRepoExists{
+			Repo: repo,
+		}
+	}
+	if existingRepoInfo.Description == description {
+		// Don't overwrite the stored proto with an identical value. This
+		// optimization is impactful because pps will frequently update the spec
+		// repo to make sure it exists.
+		return nil
+	}
+
+	// Check if the caller is authorized to modify this repo
+	// Note, we don't do this before checking if the description changed because
+	// there is client code that calls CreateRepo(R, update=true) as an
+	// idempotent way to ensure that R exists. By permitting these calls when
+	// they don't actually change anything, even if the caller doesn't have
+	// WRITER access, we make the pattern more generally useful.
+	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_WRITE); err != nil {
+		return errors.Wrapf(err, "could not update description of %q", repo)
+	}
+	existingRepoInfo.Description = description
+	return errors.EnsureStack(repos.Put(repo, &existingRepoInfo))
 }
 
 func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, includeAuth bool) (*pfs.RepoInfo, error) {
