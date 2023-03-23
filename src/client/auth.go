@@ -86,10 +86,7 @@ func (c APIClient) ModifyProjectRepoRoleBinding(projectName, repoName, principal
 		Principal: principal,
 		Roles:     roles,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // ModifyProjectRoleBinding binds a user's roles to a project.
@@ -99,8 +96,5 @@ func (c APIClient) ModifyProjectRoleBinding(projectName, principal string, roles
 		Principal: principal,
 		Roles:     roles,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
