@@ -13,7 +13,6 @@ from typing import (
 import betterproto
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
 import grpc
-from betterproto.grpc.grpcio_server import ServicerBase
 
 from .. import version as _version__
 
@@ -53,7 +52,7 @@ class ApiStub:
         return self.__rpc_inspect_cluster(request)
 
 
-class ApiBase(ServicerBase):
+class ApiBase:
     def inspect_cluster(
         self, client_version: "_version__.Version", context: "grpc.ServicerContext"
     ) -> "ClusterInfo":

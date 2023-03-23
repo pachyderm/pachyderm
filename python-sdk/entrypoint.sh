@@ -51,7 +51,7 @@ sed -i 's/IDP/Idp/g' ${OUTDIR}/identity/identity.proto
 sed -i 's/OIDC/Oidc/g' ${OUTDIR}/identity/identity.proto
 
 # Generate python files.
-echo "${PROTO_FILES}" | xargs poetry run python3 -m grpc_tools.protoc -I. --python_betterproto_out=${OUTDIR}
+echo "${PROTO_FILES}" | xargs python3 -m grpc_tools.protoc -I. --python_betterproto_out=${OUTDIR}
 
 # Fix routing addresses.
 V2_APIS="admin auth enterprise identity license pfs pps transaction"

@@ -14,7 +14,6 @@ from typing import (
 import betterproto
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
 import grpc
-from betterproto.grpc.grpcio_server import ServicerBase
 
 
 if TYPE_CHECKING:
@@ -47,7 +46,7 @@ class ApiStub:
             yield response
 
 
-class ApiBase(ServicerBase):
+class ApiBase:
     def listen(
         self, channel: str, context: "grpc.ServicerContext"
     ) -> Iterator["ListenResponse"]:
