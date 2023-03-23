@@ -384,6 +384,8 @@ spec:
         - name: PIPELINE_DEFAULT_STORAGE_REQUEST
           value: {{ .Values.pachd.defaultPipelineStorageRequest | quote }}
         {{- end }}
+        - name: GOCOVERDIR
+          value: /tmp
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret

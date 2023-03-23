@@ -8,6 +8,7 @@ from .filemanager import PFSContentsManager
 from .log import get_logger
 from .pachyderm import MountInterface
 from .mount_server_client import MountServerClient
+from .pps_client import PPSClient
 
 
 # Frontend hard codes this in src/handler.ts
@@ -19,6 +20,10 @@ class BaseHandler(APIHandler):
     @property
     def mount_client(self) -> MountInterface:
         return self.settings["pachyderm_mount_client"]
+
+    @property
+    def pps_client(self) -> PPSClient:
+        return self.settings["pachyderm_pps_client"]
 
 
 class ReposHandler(BaseHandler):
@@ -265,10 +270,28 @@ class HealthHandler(BaseHandler):
             )
 
 
+class PPSCreateHandler(BaseHandler):
+
+    @tornado.web.authenticated
+    async def get(self, path):
+        """Get the pipeline spec for the specified notebook."""
+        body = self.get_json_body()
+        response = await self.pps_client.generate(path, body)
+        self.finish(response)
+
+    @tornado.web.authenticated
+    async def put(self, path):
+        """Create the pipeline for the specified notebook."""
+        body = self.get_json_body()
+        response = await self.pps_client.create(path, body)
+        self.finish(response)
+
+
 def setup_handlers(web_app):
     get_logger().info(f"Using PFS_MOUNT_DIR={PFS_MOUNT_DIR}")
     web_app.settings["pfs_contents_manager"] = PFSContentsManager(PFS_MOUNT_DIR)
     web_app.settings["pachyderm_mount_client"] = MountServerClient(PFS_MOUNT_DIR)
+    web_app.settings["pachyderm_pps_client"] = PPSClient()
 
     _handlers = [
         ("/repos", ReposHandler),
@@ -285,6 +308,7 @@ def setup_handlers(web_app):
         ("/auth/_login", AuthLoginHandler),
         ("/auth/_logout", AuthLogoutHandler),
         ("/health", HealthHandler),
+        (r"/pps/_create%s" % path_regex, PPSCreateHandler),
     ]
 
     base_url = web_app.settings["base_url"]

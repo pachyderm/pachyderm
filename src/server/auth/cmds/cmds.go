@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"sort"
@@ -15,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pkg/browser"
@@ -59,20 +61,8 @@ func printRoleBinding(b *auth.RoleBinding) {
 	}
 }
 
-func newClient(enterprise bool) (*client.APIClient, error) {
-	if enterprise {
-		c, err := client.NewEnterpriseClientOnUserMachine("user")
-		if err != nil {
-			return nil, err
-		}
-		fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
-		return c, nil
-	}
-	return client.NewOnUserMachine("user")
-}
-
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
-func ActivateCmd() *cobra.Command {
+func ActivateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var enterprise, supplyRootToken, onlyActivate bool
 	var issuer, redirect, clientId string
 	var trustedPeers, scopes []string
@@ -81,7 +71,7 @@ func ActivateCmd() *cobra.Command {
 		Long: `
 Activate Pachyderm's auth system, and restrict access to existing data to the root user`[1:],
 		Run: cmdutil.Run(func(args []string) error {
-			c, err := newClient(enterprise)
+			c, err := pachctlCfg.NewOnUserMachine(ctx, enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -189,7 +179,7 @@ Activate Pachyderm's auth system, and restrict access to existing data to the ro
 					return err
 				}
 			} else {
-				ec, err := newClient(true)
+				ec, err := pachctlCfg.NewOnUserMachine(ctx, true)
 				if err != nil {
 					return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to get enterprise server client")
 				}
@@ -248,7 +238,7 @@ Prompt the user to input a root token on stdin, rather than generating a random 
 
 // DeactivateCmd returns a cobra.Command to delete all ACLs, tokens, and admins,
 // deactivating Pachyderm's auth system
-func DeactivateCmd() *cobra.Command {
+func DeactivateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var enterprise bool
 	deactivate := &cobra.Command{
 		Short: "Delete all ACLs, tokens, admins, IDP integrations and OIDC clients, and deactivate Pachyderm auth",
@@ -265,7 +255,7 @@ func DeactivateCmd() *cobra.Command {
 			if !strings.Contains("yY", confirm[:1]) {
 				return errors.Errorf("operation aborted")
 			}
-			c, err := newClient(enterprise)
+			c, err := pachctlCfg.NewOnUserMachine(ctx, enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -286,7 +276,7 @@ func DeactivateCmd() *cobra.Command {
 // LoginCmd returns a cobra.Command to login to a Pachyderm cluster with your
 // GitHub account. Any resources that have been restricted to the email address
 // registered with your GitHub account will subsequently be accessible.
-func LoginCmd() *cobra.Command {
+func LoginCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var noBrowser, enterprise, idToken bool
 	login := &cobra.Command{
 		Short: "Log in to Pachyderm",
@@ -294,7 +284,7 @@ func LoginCmd() *cobra.Command {
 			"the account you have with your ID provider (e.g. GitHub, Okta) " +
 			"account will subsequently be accessible.",
 		Run: cmdutil.Run(func([]string) error {
-			c, err := newClient(enterprise)
+			c, err := pachctlCfg.NewOnUserMachine(ctx, enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -387,13 +377,13 @@ func LogoutCmd() *cobra.Command {
 // WhoamiCmd returns a cobra.Command that deletes your local Pachyderm
 // credential, logging you out of your cluster. Note that this is not necessary
 // to do before logging in as another user, but is useful for testing.
-func WhoamiCmd() *cobra.Command {
+func WhoamiCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var enterprise bool
 	whoami := &cobra.Command{
 		Short: "Print your Pachyderm identity",
 		Long:  "Print your Pachyderm identity.",
 		Run: cmdutil.Run(func([]string) error {
-			c, err := newClient(enterprise)
+			c, err := pachctlCfg.NewOnUserMachine(ctx, enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -415,7 +405,7 @@ func WhoamiCmd() *cobra.Command {
 
 // GetRobotTokenCmd returns a cobra command that lets a user get a pachyderm
 // token on behalf of themselves or another user
-func GetRobotTokenCmd() *cobra.Command {
+func GetRobotTokenCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var enterprise bool
 	var quiet bool
 	var ttl string
@@ -424,7 +414,7 @@ func GetRobotTokenCmd() *cobra.Command {
 		Short: "Get an auth token for a robot user with the specified name.",
 		Long:  "Get an auth token for a robot user with the specified name.",
 		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
-			c, err := newClient(enterprise)
+			c, err := pachctlCfg.NewOnUserMachine(ctx, enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -463,7 +453,7 @@ func GetRobotTokenCmd() *cobra.Command {
 }
 
 // RevokeCmd returns a cobra.Command that revokes a Pachyderm token.
-func RevokeCmd() *cobra.Command {
+func RevokeCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var enterprise bool
 	var token string
 	var user string
@@ -477,7 +467,7 @@ func RevokeCmd() *cobra.Command {
 				return errors.Errorf("only one of --token or --user may be set")
 			}
 
-			c, err := newClient(enterprise)
+			c, err := pachctlCfg.NewOnUserMachine(ctx, enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -512,14 +502,14 @@ func RevokeCmd() *cobra.Command {
 	return cmdutil.CreateAlias(revoke, "auth revoke")
 }
 
-func GetGroupsCmd() *cobra.Command {
+func GetGroupsCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var enterprise bool
 	getGroups := &cobra.Command{
 		Use:   "{{alias}} [username]",
 		Short: "Get the list of groups a user belongs to",
 		Long:  "Get the list of groups a user belongs to. If no user is specified, the current user's groups are listed.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := newClient(enterprise)
+			c, err := pachctlCfg.NewOnUserMachine(ctx, enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -567,7 +557,7 @@ func UseAuthTokenCmd() *cobra.Command {
 
 // CheckRepoCmd returns a cobra command that sends a GetPermissions request to
 // pachd to determine what permissions a user has on the repo.
-func CheckRepoCmd(pachCtx *config.Context) *cobra.Command {
+func CheckRepoCmd(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	project := pachCtx.Project
 	check := &cobra.Command{
 		Use:   "{{alias}} <repo> [<user>]",
@@ -575,7 +565,7 @@ func CheckRepoCmd(pachCtx *config.Context) *cobra.Command {
 		Long:  "Check the permissions a user has on 'repo'",
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			repoResource := client.NewProjectRepo(project, args[0]).AuthResource()
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -604,7 +594,7 @@ func CheckRepoCmd(pachCtx *config.Context) *cobra.Command {
 }
 
 // SetRepoRoleBindingCmd returns a cobra command that sets the roles for a user on a repo
-func SetRepoRoleBindingCmd(pachCtx *config.Context) *cobra.Command {
+func SetRepoRoleBindingCmd(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	project := pachCtx.Project
 	setScope := &cobra.Command{
 		Use:   "{{alias}} <repo> [role1,role2 | none ] <subject>",
@@ -619,7 +609,7 @@ func SetRepoRoleBindingCmd(pachCtx *config.Context) *cobra.Command {
 			}
 
 			subject, repo := args[2], args[0]
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -633,14 +623,14 @@ func SetRepoRoleBindingCmd(pachCtx *config.Context) *cobra.Command {
 }
 
 // GetRepoRoleBindingCmd returns a cobra command that gets the role bindings for a repo
-func GetRepoRoleBindingCmd(pachCtx *config.Context) *cobra.Command {
+func GetRepoRoleBindingCmd(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	project := pachCtx.Project
 	get := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Get the role bindings for 'repo'",
 		Long:  "Get the role bindings for 'repo'",
 		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -660,14 +650,14 @@ func GetRepoRoleBindingCmd(pachCtx *config.Context) *cobra.Command {
 
 // CheckProjectCmd returns a cobra command that sends a GetPermissions request to
 // pachd to determine what permissions a user has on the project.
-func CheckProjectCmd() *cobra.Command {
+func CheckProjectCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	check := &cobra.Command{
 		Use:   "{{alias}} <project> [user]",
 		Short: "Check the permissions a user has on 'project'",
 		Long:  "Check the permissions a user has on 'project'",
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			project := client.NewProject(args[0]).AuthResource()
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -695,13 +685,13 @@ func CheckProjectCmd() *cobra.Command {
 }
 
 // SetProjectRoleBindingCmd returns a cobra command that sets the roles for a user on a project
-func SetProjectRoleBindingCmd() *cobra.Command {
+func SetProjectRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "{{alias}} <project> [role1,role2 | none ] <subject>",
 		Short: "Set the roles that 'subject' has on 'project'",
 		Long:  "Set the roles that 'subject' has on 'project'",
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -730,13 +720,13 @@ func SetProjectRoleBindingCmd() *cobra.Command {
 }
 
 // GetProjectRoleBindingCmd returns a cobra command that gets the role bindings for a resource
-func GetProjectRoleBindingCmd() *cobra.Command {
+func GetProjectRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	get := &cobra.Command{
 		Use:   "{{alias}} <project>",
 		Short: "Get the role bindings for 'project'",
 		Long:  "Get the role bindings for 'project'",
 		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -754,7 +744,7 @@ func GetProjectRoleBindingCmd() *cobra.Command {
 }
 
 // SetClusterRoleBindingCmd returns a cobra command that sets the roles for a user on a resource
-func SetClusterRoleBindingCmd() *cobra.Command {
+func SetClusterRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	setScope := &cobra.Command{
 		Use:   "{{alias}} [role1,role2 | none ] subject",
 		Short: "Set the roles that 'subject' has on the 'cluster'",
@@ -768,7 +758,7 @@ func SetClusterRoleBindingCmd() *cobra.Command {
 			}
 
 			subject := args[1]
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -781,13 +771,13 @@ func SetClusterRoleBindingCmd() *cobra.Command {
 }
 
 // GetClusterRoleBindingCmd returns a cobra command that gets the role bindings for a resource
-func GetClusterRoleBindingCmd() *cobra.Command {
+func GetClusterRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	get := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Get the role bindings for 'cluster'",
 		Long:  "Get the role bindings for 'cluster'",
 		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -805,7 +795,7 @@ func GetClusterRoleBindingCmd() *cobra.Command {
 }
 
 // SetEnterpriseRoleBindingCmd returns a cobra command that sets the roles for a user on a resource
-func SetEnterpriseRoleBindingCmd() *cobra.Command {
+func SetEnterpriseRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	setScope := &cobra.Command{
 		Use:   "{{alias}} [role1,role2 | none ] subject",
 		Short: "Set the roles that 'subject' has on the enterprise server",
@@ -819,7 +809,7 @@ func SetEnterpriseRoleBindingCmd() *cobra.Command {
 			}
 
 			subject := args[1]
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -832,13 +822,13 @@ func SetEnterpriseRoleBindingCmd() *cobra.Command {
 }
 
 // GetEnterpriseRoleBindingCmd returns a cobra command that gets the role bindings for a resource
-func GetEnterpriseRoleBindingCmd() *cobra.Command {
+func GetEnterpriseRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	get := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Get the role bindings for the enterprise server",
 		Long:  "Get the role bindings for the enterprise server",
 		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) error {
-			c, err := client.NewEnterpriseClientOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -856,14 +846,14 @@ func GetEnterpriseRoleBindingCmd() *cobra.Command {
 }
 
 // RotateRootToken returns a cobra command that rotates the auth token for the Root User
-func RotateRootToken() *cobra.Command {
+func RotateRootToken(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var rootToken string
 	rotateRootToken := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Rotate the root user's auth token",
 		Long:  "Rotate the root user's auth token",
 		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) error {
-			c, err := newClient(false)
+			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -889,13 +879,13 @@ func RotateRootToken() *cobra.Command {
 }
 
 // RolesForPermissionCmd lists the roles that would give a user a specific permission
-func RolesForPermissionCmd() *cobra.Command {
+func RolesForPermissionCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	rotateRootToken := &cobra.Command{
 		Use:   "{{alias}} <permission>",
 		Short: "List roles that grant the given permission",
 		Long:  "List roles that grant the given permission",
 		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
-			c, err := newClient(false)
+			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -926,7 +916,7 @@ func RolesForPermissionCmd() *cobra.Command {
 
 // Cmds returns a list of cobra commands for authenticating and authorizing
 // users in an auth-enabled Pachyderm cluster.
-func Cmds(pachCtx *config.Context) []*cobra.Command {
+func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	auth := &cobra.Command{
@@ -953,28 +943,28 @@ func Cmds(pachCtx *config.Context) []*cobra.Command {
 	commands = append(commands, cmdutil.CreateAlias(get, "auth get"))
 	commands = append(commands, cmdutil.CreateAlias(set, "auth set"))
 	commands = append(commands, cmdutil.CreateAlias(check, "auth check"))
-	commands = append(commands, ActivateCmd())
-	commands = append(commands, DeactivateCmd())
-	commands = append(commands, LoginCmd())
+	commands = append(commands, ActivateCmd(mainCtx, pachctlCfg))
+	commands = append(commands, DeactivateCmd(mainCtx, pachctlCfg))
+	commands = append(commands, LoginCmd(mainCtx, pachctlCfg))
 	commands = append(commands, LogoutCmd())
-	commands = append(commands, WhoamiCmd())
-	commands = append(commands, GetRobotTokenCmd())
+	commands = append(commands, WhoamiCmd(mainCtx, pachctlCfg))
+	commands = append(commands, GetRobotTokenCmd(mainCtx, pachctlCfg))
 	commands = append(commands, UseAuthTokenCmd())
-	commands = append(commands, GetConfigCmd())
-	commands = append(commands, SetConfigCmd())
-	commands = append(commands, RevokeCmd())
-	commands = append(commands, GetGroupsCmd())
-	commands = append(commands, CheckRepoCmd(pachCtx))
-	commands = append(commands, GetRepoRoleBindingCmd(pachCtx))
-	commands = append(commands, SetRepoRoleBindingCmd(pachCtx))
-	commands = append(commands, CheckProjectCmd())
-	commands = append(commands, GetProjectRoleBindingCmd())
-	commands = append(commands, SetProjectRoleBindingCmd())
-	commands = append(commands, GetClusterRoleBindingCmd())
-	commands = append(commands, SetClusterRoleBindingCmd())
-	commands = append(commands, GetEnterpriseRoleBindingCmd())
-	commands = append(commands, SetEnterpriseRoleBindingCmd())
-	commands = append(commands, RotateRootToken())
-	commands = append(commands, RolesForPermissionCmd())
+	commands = append(commands, GetConfigCmd(mainCtx, pachctlCfg))
+	commands = append(commands, SetConfigCmd(mainCtx, pachctlCfg))
+	commands = append(commands, RevokeCmd(mainCtx, pachctlCfg))
+	commands = append(commands, GetGroupsCmd(mainCtx, pachctlCfg))
+	commands = append(commands, CheckRepoCmd(mainCtx, pachCtx, pachctlCfg))
+	commands = append(commands, GetRepoRoleBindingCmd(mainCtx, pachCtx, pachctlCfg))
+	commands = append(commands, SetRepoRoleBindingCmd(mainCtx, pachCtx, pachctlCfg))
+	commands = append(commands, CheckProjectCmd(mainCtx, pachctlCfg))
+	commands = append(commands, GetProjectRoleBindingCmd(mainCtx, pachctlCfg))
+	commands = append(commands, SetProjectRoleBindingCmd(mainCtx, pachctlCfg))
+	commands = append(commands, GetClusterRoleBindingCmd(mainCtx, pachctlCfg))
+	commands = append(commands, SetClusterRoleBindingCmd(mainCtx, pachctlCfg))
+	commands = append(commands, GetEnterpriseRoleBindingCmd(mainCtx, pachctlCfg))
+	commands = append(commands, SetEnterpriseRoleBindingCmd(mainCtx, pachctlCfg))
+	commands = append(commands, RotateRootToken(mainCtx, pachctlCfg))
+	commands = append(commands, RolesForPermissionCmd(mainCtx, pachctlCfg))
 	return commands
 }

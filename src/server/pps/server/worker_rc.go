@@ -177,6 +177,9 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 	}, {
 		Name:  log.EnvLogLevel,
 		Value: kd.config.LogLevel,
+	}, {
+		Name:  "GOCOVERDIR",
+		Value: "/tmp",
 	},
 		// These are set explicitly below to prevent kubernetes from setting them to the service host and port.
 		{

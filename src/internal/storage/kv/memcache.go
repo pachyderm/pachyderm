@@ -2,6 +2,7 @@ package kv
 
 import (
 	"context"
+	"encoding/hex"
 	"sync"
 
 	"github.com/hashicorp/golang-lru/simplelru"
@@ -36,7 +37,7 @@ func (mc *memoryCache) Put(ctx context.Context, key, value []byte) error {
 func (mc *memoryCache) Get(ctx context.Context, key []byte, cb ValueCallback) error {
 	v := mc.get(key)
 	if v == nil {
-		return pacherr.NewNotExist("kv.memoryCache", string(key))
+		return pacherr.NewNotExist("kv.memoryCache", hex.EncodeToString(key))
 	}
 	return cb(v)
 }

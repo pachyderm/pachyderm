@@ -1,11 +1,19 @@
 package log
 
 import (
+	"context"
+	"sort"
+	"strings"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/v2/src/constants"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/protoextensions"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/maps"
+	"google.golang.org/grpc/metadata"
 )
 
 // Proto is a Field containing a protocol buffer message.
@@ -55,4 +63,46 @@ func (a attempt) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 // bound "i < max".
 func RetryAttempt(i int, max int) Field {
 	return zap.Inline(&attempt{i: i, max: max})
+}
+
+// Metadata is a Field that logs the provided metadata (canonicalizing keys, and collapsing
+// single-element values to strings).
+func Metadata(name string, md metadata.MD) Field {
+	return zap.Object(name, zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+		keys := maps.Keys(md)
+		sort.Strings(keys)
+		for _, k := range keys {
+			v := md[k]
+			switch len(v) {
+			case 0:
+				continue
+			case 1:
+				enc.AddString(strings.ToLower(k), v[0])
+			default:
+				if err := enc.AddArray(strings.ToLower(k), zapcore.ArrayMarshalerFunc(
+					func(enc zapcore.ArrayEncoder) error {
+						for _, x := range v {
+							enc.AppendString(x)
+						}
+						return nil
+					},
+				)); err != nil {
+					return errors.Wrap(err, "add metadata value array")
+				}
+			}
+		}
+		return nil
+	}))
+}
+
+// OutgoingMetadata is a Field that logs the outgoing metadata associated with the provided context.
+func OutgoingMetadata(ctx context.Context) Field {
+	md, ok := metadata.FromOutgoingContext(ctx)
+	if !ok {
+		return zap.Skip()
+	}
+	if _, ok := md[constants.ContextTokenKey]; ok {
+		md[constants.ContextTokenKey] = []string{"..."}
+	}
+	return Metadata("metadata", md)
 }

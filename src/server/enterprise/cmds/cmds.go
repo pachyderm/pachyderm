@@ -1,32 +1,21 @@
 package cmds
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 )
-
-func newClient(enterprise bool) (*client.APIClient, error) {
-	if enterprise {
-		c, err := client.NewEnterpriseClientOnUserMachine("user")
-		if err != nil {
-			return nil, err
-		}
-		fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
-		return c, nil
-	}
-	return client.NewOnUserMachine("user")
-}
 
 func getIsActiveContextEnterpriseServer() (bool, error) {
 	cfg, err := config.Read(false, true)
@@ -41,13 +30,13 @@ func getIsActiveContextEnterpriseServer() (bool, error) {
 }
 
 // DeactivateCmd returns a cobra.Command to deactivate the enterprise service.
-func DeactivateCmd() *cobra.Command {
+func DeactivateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	deactivate := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Deactivate the enterprise service",
 		Long:  "Deactivate the enterprise service",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -67,20 +56,20 @@ func DeactivateCmd() *cobra.Command {
 }
 
 // RegisterCmd returns a cobra.Command that registers this cluster with a remote Enterprise Server.
-func RegisterCmd() *cobra.Command {
+func RegisterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var id, pachdAddr, pachdUsrAddr, enterpriseAddr, clusterId string
 	register := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Register the cluster with an enterprise license server",
 		Long:  "Register the cluster with an enterprise license server",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 
-			ec, err := client.NewEnterpriseClientOnUserMachine("user")
+			ec, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -161,7 +150,7 @@ func RegisterCmd() *cobra.Command {
 // Pachyderm within a Pachyderm cluster. All repos will go from
 // publicly-accessible to accessible only by the owner, who can subsequently add
 // users
-func GetStateCmd() *cobra.Command {
+func GetStateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var isEnterprise bool
 	getState := &cobra.Command{
 		Short: "Check whether the Pachyderm cluster has enterprise features " +
@@ -169,7 +158,7 @@ func GetStateCmd() *cobra.Command {
 		Long: "Check whether the Pachyderm cluster has enterprise features " +
 			"activated",
 		Run: cmdutil.Run(func(args []string) error {
-			c, err := newClient(isEnterprise)
+			c, err := pachctlCfg.NewOnUserMachine(ctx, isEnterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -196,7 +185,7 @@ func GetStateCmd() *cobra.Command {
 	return cmdutil.CreateAlias(getState, "enterprise get-state")
 }
 
-func SyncContextsCmd() *cobra.Command {
+func SyncContextsCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	syncContexts := &cobra.Command{
 		Short: "Pull all available Pachyderm Cluster contexts into your pachctl config",
 		Long:  "Pull all available Pachyderm Cluster contexts into your pachctl config",
@@ -206,7 +195,7 @@ func SyncContextsCmd() *cobra.Command {
 				return err
 			}
 
-			ec, err := client.NewEnterpriseClientOnUserMachine("user")
+			ec, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -248,13 +237,13 @@ func SyncContextsCmd() *cobra.Command {
 }
 
 // HeartbeatCmd triggers an explicit heartbeat to the license server
-func HeartbeatCmd() *cobra.Command {
+func HeartbeatCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var isEnterprise bool
 	heartbeat := &cobra.Command{
 		Short: "Sync the enterprise state with the license server immediately.",
 		Long:  "Sync the enterprise state with the license server immediately.",
 		Run: cmdutil.Run(func(args []string) error {
-			c, err := newClient(isEnterprise)
+			c, err := pachctlCfg.NewOnUserMachine(ctx, isEnterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -271,12 +260,12 @@ func HeartbeatCmd() *cobra.Command {
 }
 
 // PauseCmd pauses the cluster.
-func PauseCmd() *cobra.Command {
+func PauseCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	pause := &cobra.Command{
 		Short: "Pause the cluster.",
 		Long:  "Pause the cluster.",
 		Run: cmdutil.Run(func(args []string) error {
-			c, err := newClient(true)
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -292,12 +281,12 @@ func PauseCmd() *cobra.Command {
 }
 
 // UnpauseCmd pauses the cluster.
-func UnpauseCmd() *cobra.Command {
+func UnpauseCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	unpause := &cobra.Command{
 		Short: "Unpause the cluster.",
 		Long:  "Unpause the cluster.",
 		Run: cmdutil.Run(func(args []string) error {
-			c, err := newClient(true)
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -314,12 +303,12 @@ func UnpauseCmd() *cobra.Command {
 
 // PauseStatusCmd returns the pause status of the cluster: unpaused; partially
 // paused; or completely paused.
-func PauseStatusCmd() *cobra.Command {
+func PauseStatusCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	pauseStatus := &cobra.Command{
 		Short: "Get the pause status of the cluster.",
 		Long:  "Get the pause the cluster: normal, partially-paused or paused.",
 		Run: cmdutil.Run(func(args []string) error {
-			c, err := newClient(true)
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -343,7 +332,7 @@ func PauseStatusCmd() *cobra.Command {
 }
 
 // Cmds returns pachctl commands related to Pachyderm Enterprise
-func Cmds() []*cobra.Command {
+func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	enterprise := &cobra.Command{
@@ -352,14 +341,14 @@ func Cmds() []*cobra.Command {
 	}
 	commands = append(commands, cmdutil.CreateAlias(enterprise, "enterprise"))
 
-	commands = append(commands, RegisterCmd())
-	commands = append(commands, DeactivateCmd())
-	commands = append(commands, GetStateCmd())
-	commands = append(commands, SyncContextsCmd())
-	commands = append(commands, HeartbeatCmd())
-	commands = append(commands, PauseCmd())
-	commands = append(commands, UnpauseCmd())
-	commands = append(commands, PauseStatusCmd())
+	commands = append(commands, RegisterCmd(mainCtx, pachctlCfg))
+	commands = append(commands, DeactivateCmd(mainCtx, pachctlCfg))
+	commands = append(commands, GetStateCmd(mainCtx, pachctlCfg))
+	commands = append(commands, SyncContextsCmd(mainCtx, pachctlCfg))
+	commands = append(commands, HeartbeatCmd(mainCtx, pachctlCfg))
+	commands = append(commands, PauseCmd(mainCtx, pachctlCfg))
+	commands = append(commands, UnpauseCmd(mainCtx, pachctlCfg))
+	commands = append(commands, PauseStatusCmd(mainCtx, pachctlCfg))
 
 	return commands
 }

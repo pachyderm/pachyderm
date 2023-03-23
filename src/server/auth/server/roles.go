@@ -174,7 +174,7 @@ func init() {
 	// Project related roles
 	projectViewerRole := registerRole(&auth.Role{
 		Name:          auth.ProjectViewerRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_PROJECT, auth.ResourceType_REPO},
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
 		Permissions: []auth.Permission{
 			auth.Permission_PROJECT_LIST_REPO,
 		},
@@ -182,7 +182,7 @@ func init() {
 
 	projectWriterRole := registerRole(&auth.Role{
 		Name:          auth.ProjectWriterRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_PROJECT, auth.ResourceType_REPO},
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
 		Permissions: combinePermissions(projectViewerRole.Permissions, []auth.Permission{
 			auth.Permission_PROJECT_CREATE_REPO,
 		}),
@@ -190,7 +190,7 @@ func init() {
 
 	projectOwnerRole := registerRole(&auth.Role{
 		Name:          auth.ProjectOwnerRole,
-		ResourceTypes: []auth.ResourceType{auth.ResourceType_PROJECT, auth.ResourceType_REPO},
+		ResourceTypes: []auth.ResourceType{auth.ResourceType_CLUSTER, auth.ResourceType_PROJECT},
 		Permissions: combinePermissions(repoOwnerRole.Permissions, projectWriterRole.Permissions, []auth.Permission{
 			auth.Permission_PROJECT_DELETE,
 			auth.Permission_PROJECT_MODIFY_BINDINGS,

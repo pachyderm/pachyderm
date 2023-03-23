@@ -48,13 +48,13 @@ func extractLogger(ctx context.Context) *zap.Logger {
 	const skip = 2
 	if ctx == nil {
 		zap.L().WithOptions(zap.AddCallerSkip(skip)).DPanic("log: internal error: nil context provided to ExtractLogger", zap.Stack("stack"))
-		return zap.L()
+		return zap.L().WithOptions(zap.AddCallerSkip(1))
 	}
 	if l := ctx.Value(pachydermLogger{}); l != nil {
 		return l.(*zap.Logger) // let this panic; indicates a bug in this package
 	}
 	zap.L().WithOptions(zap.AddCallerSkip(skip)).DPanic("log: internal error: no logger in provided context", zap.Stack("stack"))
-	return zap.L()
+	return zap.L().WithOptions(zap.AddCallerSkip(1))
 }
 
 // LogOption is an option to add to a logger.
@@ -98,7 +98,7 @@ func WithoutRatelimit() LogOption {
 // AddLogger is used by the pctx package to create empty contexts.  It should not be used outside of
 // the pctx package.
 func AddLogger(ctx context.Context) context.Context {
-	return withLogger(context.TODO(), zap.L().WithOptions(zap.AddCallerSkip(1)))
+	return withLogger(ctx, zap.L().WithOptions(zap.AddCallerSkip(1)))
 }
 
 // ChildLogger is used by the pctx package to create child contexts.  It should not be used outside of the

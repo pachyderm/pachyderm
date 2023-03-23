@@ -1,4 +1,4 @@
-ARG GOVERSION=golang:1.20.1
+ARG GOVERSION=golang:1.20.2
 FROM $GOVERSION
 
 LABEL maintainer="msteffen@pachyderm.io"

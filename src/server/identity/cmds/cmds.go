@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,11 +12,11 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/server/identityutil"
 )
@@ -68,15 +69,6 @@ func (c connectorConfig) toIDPConnector() (*identity.IDPConnector, error) {
 	}, nil
 }
 
-func newClient() (*client.APIClient, error) {
-	c, err := client.NewEnterpriseClientOnUserMachine("user")
-	if err != nil {
-		return nil, err
-	}
-	fmt.Printf("Using enterprise context: %v\n", c.ClientContextName())
-	return c, nil
-}
-
 func deserializeYAML(file string, target interface{}) error {
 	var rawConfigBytes []byte
 	if file == "-" {
@@ -99,13 +91,13 @@ func deserializeYAML(file string, target interface{}) error {
 }
 
 // SetIdentityServerConfigCmd returns a cobra.Command to configure the identity server
-func SetIdentityServerConfigCmd() *cobra.Command {
+func SetIdentityServerConfigCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var file string
 	setConfig := &cobra.Command{
 		Short: "Set the identity server config",
 		Long:  `Set the identity server config`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -125,12 +117,12 @@ func SetIdentityServerConfigCmd() *cobra.Command {
 }
 
 // GetIdentityServerConfigCmd returns a cobra.Command to fetch the current ID server config
-func GetIdentityServerConfigCmd() *cobra.Command {
+func GetIdentityServerConfigCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	getConfig := &cobra.Command{
 		Short: "Get the identity server config",
 		Long:  `Get the identity server config`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -153,13 +145,13 @@ func GetIdentityServerConfigCmd() *cobra.Command {
 }
 
 // CreateIDPConnectorCmd returns a cobra.Command to create a new IDP integration
-func CreateIDPConnectorCmd() *cobra.Command {
+func CreateIDPConnectorCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var file string
 	createConnector := &cobra.Command{
 		Short: "Create a new identity provider connector.",
 		Long:  `Create a new identity provider connector.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -183,14 +175,14 @@ func CreateIDPConnectorCmd() *cobra.Command {
 }
 
 // UpdateIDPConnectorCmd returns a cobra.Command to create a new IDP integration
-func UpdateIDPConnectorCmd() *cobra.Command {
+func UpdateIDPConnectorCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var file string
 	updateConnector := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Update an existing identity provider connector.",
 		Long:  `Update an existing identity provider connector. Only fields which are specified are updated.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -217,13 +209,13 @@ func UpdateIDPConnectorCmd() *cobra.Command {
 }
 
 // GetIDPConnectorCmd returns a cobra.Command to get an IDP connector configuration
-func GetIDPConnectorCmd() *cobra.Command {
+func GetIDPConnectorCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	getConnector := &cobra.Command{
 		Use:   "{{alias}} <connector id>",
 		Short: "Get the config for an identity provider connector.",
 		Long:  "Get the config for an identity provider connector.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -248,12 +240,12 @@ func GetIDPConnectorCmd() *cobra.Command {
 }
 
 // DeleteIDPConnectorCmd returns a cobra.Command to delete an IDP connector
-func DeleteIDPConnectorCmd() *cobra.Command {
+func DeleteIDPConnectorCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	deleteConnector := &cobra.Command{
 		Short: "Delete an identity provider connector",
 		Long:  "Delete an identity provider connector",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -267,12 +259,12 @@ func DeleteIDPConnectorCmd() *cobra.Command {
 }
 
 // ListIDPConnectorsCmd returns a cobra.Command to list IDP integrations
-func ListIDPConnectorsCmd() *cobra.Command {
+func ListIDPConnectorsCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	listConnectors := &cobra.Command{
 		Short: "List identity provider connectors",
 		Long:  `List identity provider connectors`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -293,13 +285,13 @@ func ListIDPConnectorsCmd() *cobra.Command {
 }
 
 // CreateOIDCClientCmd returns a cobra.Command to create a new OIDC client
-func CreateOIDCClientCmd() *cobra.Command {
+func CreateOIDCClientCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var file string
 	createClient := &cobra.Command{
 		Short: "Create a new OIDC client.",
 		Long:  `Create a new OIDC client.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -324,13 +316,13 @@ func CreateOIDCClientCmd() *cobra.Command {
 }
 
 // DeleteOIDCClientCmd returns a cobra.Command to delete an OIDC client
-func DeleteOIDCClientCmd() *cobra.Command {
+func DeleteOIDCClientCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	deleteClient := &cobra.Command{
 		Use:   "{{alias}} <client ID>",
 		Short: "Delete an OIDC client.",
 		Long:  `Delete an OIDC client.`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -344,13 +336,13 @@ func DeleteOIDCClientCmd() *cobra.Command {
 }
 
 // GetOIDCClientCmd returns a cobra.Command to get an OIDC client
-func GetOIDCClientCmd() *cobra.Command {
+func GetOIDCClientCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	getClient := &cobra.Command{
 		Use:   "{{alias}} <client ID>",
 		Short: "Get an OIDC client.",
 		Long:  `Get an OIDC client.`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -373,14 +365,14 @@ func GetOIDCClientCmd() *cobra.Command {
 }
 
 // UpdateOIDCClientCmd returns a cobra.Command to update an existing OIDC client
-func UpdateOIDCClientCmd() *cobra.Command {
+func UpdateOIDCClientCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var file string
 	updateClient := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Update an OIDC client.",
 		Long:  `Update an OIDC client.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -401,12 +393,12 @@ func UpdateOIDCClientCmd() *cobra.Command {
 }
 
 // ListOIDCClientsCmd returns a cobra.Command to list IDP integrations
-func ListOIDCClientsCmd() *cobra.Command {
+func ListOIDCClientsCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	listConnectors := &cobra.Command{
 		Short: "List OIDC clients.",
 		Long:  `List OIDC clients.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -428,7 +420,7 @@ func ListOIDCClientsCmd() *cobra.Command {
 
 // Cmds returns a list of cobra commands for authenticating and authorizing
 // users in an auth-enabled Pachyderm cluster.
-func Cmds() []*cobra.Command {
+func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	idp := &cobra.Command{
@@ -437,18 +429,18 @@ func Cmds() []*cobra.Command {
 	}
 
 	commands = append(commands, cmdutil.CreateAlias(idp, "idp"))
-	commands = append(commands, GetIdentityServerConfigCmd())
-	commands = append(commands, SetIdentityServerConfigCmd())
-	commands = append(commands, CreateIDPConnectorCmd())
-	commands = append(commands, GetIDPConnectorCmd())
-	commands = append(commands, UpdateIDPConnectorCmd())
-	commands = append(commands, DeleteIDPConnectorCmd())
-	commands = append(commands, ListIDPConnectorsCmd())
-	commands = append(commands, CreateOIDCClientCmd())
-	commands = append(commands, GetOIDCClientCmd())
-	commands = append(commands, UpdateOIDCClientCmd())
-	commands = append(commands, DeleteOIDCClientCmd())
-	commands = append(commands, ListOIDCClientsCmd())
+	commands = append(commands, GetIdentityServerConfigCmd(mainCtx, pachctlCfg))
+	commands = append(commands, SetIdentityServerConfigCmd(mainCtx, pachctlCfg))
+	commands = append(commands, CreateIDPConnectorCmd(mainCtx, pachctlCfg))
+	commands = append(commands, GetIDPConnectorCmd(mainCtx, pachctlCfg))
+	commands = append(commands, UpdateIDPConnectorCmd(mainCtx, pachctlCfg))
+	commands = append(commands, DeleteIDPConnectorCmd(mainCtx, pachctlCfg))
+	commands = append(commands, ListIDPConnectorsCmd(mainCtx, pachctlCfg))
+	commands = append(commands, CreateOIDCClientCmd(mainCtx, pachctlCfg))
+	commands = append(commands, GetOIDCClientCmd(mainCtx, pachctlCfg))
+	commands = append(commands, UpdateOIDCClientCmd(mainCtx, pachctlCfg))
+	commands = append(commands, DeleteOIDCClientCmd(mainCtx, pachctlCfg))
+	commands = append(commands, ListOIDCClientsCmd(mainCtx, pachctlCfg))
 
 	return commands
 }

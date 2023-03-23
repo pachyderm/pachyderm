@@ -1,5 +1,6 @@
 import React from 'react';
 import {ILayoutRestorer, JupyterFrontEnd} from '@jupyterlab/application';
+import {INotebookTracker, NotebookPanel} from '@jupyterlab/notebook';
 import {IDocumentManager} from '@jupyterlab/docmanager';
 import {SplitPanel} from '@lumino/widgets';
 import {ReactWidget, UseSignal} from '@jupyterlab/apputils';
@@ -20,9 +21,11 @@ import {
   PfsInput,
   ListMountsResponse,
   CrossInputSpec,
+  SameMetadata,
 } from './types';
 import Config from './components/Config/Config';
 import Datum from './components/Datum/Datum';
+import Pipeline from './components/Pipeline/Pipeline';
 import SortableList from './components/SortableList/SortableList';
 import LoadingDots from '../../utils/components/LoadingDots/LoadingDots';
 import FullPageError from './components/FullPageError/FullPageError';
@@ -30,23 +33,28 @@ import {requestAPI} from '../../handler';
 
 export const MOUNT_BROWSER_NAME = 'mount-browser:';
 
+export const METADATA_KEY = 'same_config';
+
 export class MountPlugin implements IMountPlugin {
   private _app: JupyterFrontEnd<JupyterFrontEnd.IShell, 'desktop' | 'mobile'>;
   private _loader: ReactWidget;
   private _fullPageError: ReactWidget;
   private _config: ReactWidget;
+  private _pipeline: ReactWidget;
   private _mountedList: ReactWidget;
   private _unmountedList: ReactWidget;
   private _datum: ReactWidget;
   private _mountBrowser: FileBrowser;
   private _poller: PollMounts;
   private _panel: SplitPanel;
+  private _tracker: INotebookTracker;
 
   private _showConfig = false;
   private _showConfigSignal = new Signal<this, boolean>(this);
   private _readyPromise: Promise<void> = Promise.resolve();
 
   private _showDatum = false;
+  private _showPipeline = false;
   private _keepMounted = false;
   private _currentDatumInfo: CurrentDatumResponse | undefined;
   private _showDatumSignal = new Signal<this, boolean>(this);
@@ -54,16 +62,20 @@ export class MountPlugin implements IMountPlugin {
   private _saveInputSpecSignal = new Signal<this, CrossInputSpec | PfsInput>(
     this,
   );
+  private _showPipelineSignal = new Signal<this, boolean>(this);
+  private _showMetadataSignal = new Signal<this, SameMetadata>(this);
 
   constructor(
     app: JupyterFrontEnd,
     manager: IDocumentManager,
     factory: IFileBrowserFactory,
     restorer: ILayoutRestorer,
+    tracker: INotebookTracker,
   ) {
     this._app = app;
     this._poller = new PollMounts('PollMounts');
     this._repoViewInputSpec = {};
+    this._tracker = tracker;
 
     // This is used to detect if the config goes bad (pachd address changes)
     this._poller.configSignal.connect((_, config) => {
@@ -120,6 +132,16 @@ export class MountPlugin implements IMountPlugin {
                 Mounted Repositories
               </div>
               <div style={{display: 'flex'}}>
+                <button
+                  className="pachyderm-button-link"
+                  onClick={() => this.setShowPipeline(true)}
+                >
+                  Pipeline{' '}
+                  <spreadsheetIcon.react
+                    tag="span"
+                    className="pachyderm-mount-icon-padding"
+                  />
+                </button>
                 <button
                   className="pachyderm-button-link"
                   data-testid="Datum__mode"
@@ -203,7 +225,23 @@ export class MountPlugin implements IMountPlugin {
     );
     this._datum.addClass('pachyderm-mount-datum-wrapper');
 
+    this._pipeline = ReactWidget.create(
+      <UseSignal signal={this._showMetadataSignal}>
+        {(_, metadata) => (
+          <>
+            <Pipeline
+              setShowPipeline={this.setShowPipeline}
+              saveNotebookMetadata={this.saveNotebookMetaData}
+              metadata={metadata}
+            />
+          </>
+        )}
+      </UseSignal>,
+    );
+    this._pipeline.addClass('pachyderm-mount-pipeline-wrapper');
+
     this._loader = ReactWidget.create(<LoadingDots />);
+
     this._loader.addClass('pachyderm-mount-react-wrapper');
 
     this._fullPageError = ReactWidget.create(
@@ -220,6 +258,8 @@ export class MountPlugin implements IMountPlugin {
     this._poller.mountedSignal.connect(this.refresh);
     this._poller.unmountedSignal.connect(this.refresh);
 
+    this._tracker.currentChanged.connect(this.handleNotebookChanged, this);
+
     this._panel = new SplitPanel();
     this._panel.orientation = 'vertical';
     this._panel.spacing = 0;
@@ -229,6 +269,7 @@ export class MountPlugin implements IMountPlugin {
     this._panel.addWidget(this._mountedList);
     this._panel.addWidget(this._unmountedList);
     this._panel.addWidget(this._datum);
+    this._panel.addWidget(this._pipeline);
     this._panel.addWidget(this._mountBrowser);
     this._panel.setRelativeSizes([1, 1, 3, 3]);
 
@@ -242,6 +283,7 @@ export class MountPlugin implements IMountPlugin {
     this._mountedList.setHidden(true);
     this._unmountedList.setHidden(true);
     this._datum.setHidden(true);
+    this._pipeline.setHidden(true);
     this._mountBrowser.setHidden(true);
 
     window.addEventListener('resize', () => {
@@ -251,6 +293,45 @@ export class MountPlugin implements IMountPlugin {
     restorer.add(this._panel, 'jupyterlab-pachyderm');
     app.shell.add(this._panel, 'left', {rank: 100});
   }
+
+  getActiveNotebook = (): NotebookPanel | null => {
+    return this._tracker.currentWidget;
+  };
+
+  /**
+   * This handles when a notebook is switched to another notebook.
+   * The parameters are automatically passed from the signal when a switch occurs.
+   */
+  handleNotebookChanged = async (
+    tracker: INotebookTracker,
+    notebook: NotebookPanel | null,
+  ): Promise<void> => {
+    // Set the current notebook and wait for the session to be ready
+    if (notebook) {
+      await notebook.sessionContext.ready;
+      const md = notebook?.model?.metadata.get(METADATA_KEY);
+
+      this._showMetadataSignal.emit(md as SameMetadata);
+      await Promise.resolve();
+    } else {
+      await Promise.resolve();
+    }
+  };
+
+  getNotebookMetadata = (notebook: NotebookPanel | null): any | null => {
+    return notebook?.model?.metadata.get(METADATA_KEY);
+  };
+
+  saveNotebookMetaData = (metadata: any): void => {
+    const currentNotebook = this.getActiveNotebook();
+
+    if (currentNotebook !== null) {
+      currentNotebook?.model?.metadata.set(METADATA_KEY, metadata);
+      console.log('notebook metadata saved');
+    } else {
+      console.log('No active notebook');
+    }
+  };
 
   open = (path: string): void => {
     this._app.commands.execute('filebrowser:open-path', {
@@ -293,6 +374,7 @@ export class MountPlugin implements IMountPlugin {
     }
     this._mountBrowser.setHidden(false);
     this._config.setHidden(true);
+    this._pipeline.setHidden(true);
     this._fullPageError.setHidden(true);
     this._showDatum = shouldShow;
     this._showDatumSignal.emit(shouldShow);
@@ -377,6 +459,24 @@ export class MountPlugin implements IMountPlugin {
     this.open('');
   };
 
+  setShowPipeline = (shouldShow: boolean): void => {
+    if (shouldShow) {
+      this._pipeline.setHidden(false);
+      this._mountedList.setHidden(true);
+      this._unmountedList.setHidden(true);
+    } else {
+      this._pipeline.setHidden(true);
+      this._mountedList.setHidden(false);
+      this._unmountedList.setHidden(false);
+    }
+    this._mountBrowser.setHidden(true);
+    this._config.setHidden(true);
+    this._datum.setHidden(true);
+    this._fullPageError.setHidden(true);
+    this._showPipeline = shouldShow;
+    this._showPipelineSignal.emit(shouldShow);
+  };
+
   setKeepMounted = (keep: boolean): void => {
     this._keepMounted = keep;
   };
@@ -394,6 +494,7 @@ export class MountPlugin implements IMountPlugin {
       this._mountBrowser.setHidden(false);
     }
     this._datum.setHidden(true);
+    this._pipeline.setHidden(true);
     this._fullPageError.setHidden(true);
     this._showConfig = shouldShow;
     this._showConfigSignal.emit(shouldShow);
@@ -407,6 +508,7 @@ export class MountPlugin implements IMountPlugin {
       this._mountedList.setHidden(true);
       this._unmountedList.setHidden(true);
       this._mountBrowser.setHidden(true);
+      this._pipeline.setHidden(true);
     } else {
       this._fullPageError.setHidden(true);
       this._config.setHidden(false);
@@ -414,6 +516,7 @@ export class MountPlugin implements IMountPlugin {
       this._mountedList.setHidden(false);
       this._unmountedList.setHidden(false);
       this._mountBrowser.setHidden(false);
+      this._pipeline.setHidden(false);
     }
   };
 

@@ -1,13 +1,14 @@
 package cmds
 
 import (
+	"context"
 	"fmt"
 	"os"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/server/transaction/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -16,7 +17,7 @@ import (
 
 // Cmds returns the set of commands used for managing transactions with the
 // Pachyderm CLI tool pachctl.
-func Cmds() []*cobra.Command {
+func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var raw bool
@@ -52,7 +53,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Short: "List transactions.",
 		Long:  "List transactions.",
 		Run: cmdutil.RunFixedArgs(0, func([]string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -87,7 +88,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Short: "Start a new transaction.",
 		Long:  "Start a new transaction.",
 		Run: cmdutil.RunFixedArgs(0, func([]string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -143,7 +144,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Short: "Execute and clear the currently active transaction.",
 		Long:  "Execute and clear the currently active transaction.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -182,7 +183,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Short: "Cancel and delete an existing transaction.",
 		Long:  "Cancel and delete an existing transaction.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -230,7 +231,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Short: "Print information about an open transaction.",
 		Long:  "Print information about an open transaction.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -273,7 +274,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Short: "Set an existing transaction as active.",
 		Long:  "Set an existing transaction as active.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}

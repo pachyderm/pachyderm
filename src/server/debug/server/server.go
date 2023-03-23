@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"path"
 	"reflect"
 	"runtime"
+	"runtime/coverage"
 	runtimedebug "runtime/debug"
 	"runtime/pprof"
 	"sort"
@@ -63,6 +65,8 @@ type debugServer struct {
 	sidecarClient *client.APIClient
 	marshaller    *jsonpb.Marshaler
 	database      *pachsql.DB
+
+	logLevel, grpcLevel log.LevelChanger
 }
 
 // NewDebugServer creates a new server that serves the debug api over GRPC
@@ -73,6 +77,8 @@ func NewDebugServer(env serviceenv.ServiceEnv, name string, sidecarClient *clien
 		sidecarClient: sidecarClient,
 		marshaller:    &jsonpb.Marshaler{Indent: "  "},
 		database:      db,
+		logLevel:      log.LogLevel,
+		grpcLevel:     log.GRPCLevel,
 	}
 }
 
@@ -124,7 +130,7 @@ func (s *debugServer) handleRedirect(
 				case *debug.Filter_Worker:
 					if f.Worker.Redirected {
 						var errs error
-						// Collect the storage container.
+						// Collect self if we're not a worker.
 						if s.sidecarClient == nil {
 							return collect(ctx, tw, pachClient, client.PPSWorkerSidecarContainerName)
 						}
@@ -181,9 +187,6 @@ func (s *debugServer) handleRedirect(
 				if err := s.collectDatabaseDump(ctx, tw, databasePrefix); err != nil {
 					multierr.AppendInto(&errs, errors.Wrap(err, "collectDatabaseDump"))
 				}
-			}
-			if err := s.helmReleases(ctx, tw); err != nil {
-				multierr.AppendInto(&errs, errors.Wrap(err, "helmReleases"))
 			}
 			return errs
 		})
@@ -407,7 +410,34 @@ func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_
 
 func collectProfileFunc(profile *debug.Profile) collectFunc {
 	return func(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
-		return collectProfile(ctx, tw, profile, prefix...)
+		switch profile.GetName() {
+		case "cover":
+			var errs error
+			// "go tool covdata" relies on these files being named the same as what is
+			// written out automatically.  See go/src/runtime/coverage/emit.go.
+			// (covcounters.<16 byte hex-encoded hash that nothing checks>.<pid>.<unix
+			// nanos>, covmeta.<same hash>.)
+			hash := [16]byte{}
+			if _, err := rand.Read(hash[:]); err != nil {
+				return errors.Wrap(err, "generate random coverage id")
+			}
+			if err := collectDebugFile(tw, fmt.Sprintf("cover/covcounters.%x.%d.%d", hash, os.Getpid(), time.Now().UnixNano()), "", coverage.WriteCounters, prefix...); err != nil {
+				multierr.AppendInto(&errs, errors.Wrap(err, "counters"))
+			}
+			if err := collectDebugFile(tw, fmt.Sprintf("cover/covmeta.%x", hash), "", coverage.WriteMeta, prefix...); err != nil {
+				multierr.AppendInto(&errs, errors.Wrap(err, "meta"))
+			}
+			if errs == nil {
+				log.Debug(ctx, "clearing coverage counters")
+				if err := coverage.ClearCounters(); err != nil {
+					log.Debug(ctx, "problem clearing coverage counters", zap.Error(err))
+				}
+			}
+			return errs
+		default:
+			return collectProfile(ctx, tw, profile, prefix...)
+		}
+
 	}
 }
 
@@ -538,6 +568,10 @@ func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
 		defer end(log.Errorp(&retErr))
 
 		var errs error
+		// Collect helm info.
+		if err := s.helmReleases(ctx, tw); err != nil {
+			multierr.AppendInto(&errs, errors.Wrap(err, "helmReleases"))
+		}
 		// Collect input repos.
 		if err := s.collectInputRepos(ctx, tw, pachClient, limit); err != nil {
 			multierr.AppendInto(&errs, errors.Wrap(err, "collectInputRepos"))

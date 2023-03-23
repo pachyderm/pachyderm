@@ -19,6 +19,7 @@ import {mockedRequestAPI} from 'utils/testUtils';
 import {MountPlugin} from '../mount';
 import * as requestAPI from '../../../handler';
 import {waitFor} from '@testing-library/react';
+import {INotebookTracker, NotebookTracker} from '@jupyterlab/notebook';
 
 jest.mock('../../../handler');
 
@@ -43,6 +44,7 @@ describe('mount plugin', () => {
   let factory: IFileBrowserFactory;
   let fileBrowser: FileBrowser;
   let restorer: ILayoutRestorer;
+  let tracker: INotebookTracker;
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
   beforeEach(() => {
     mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI(items));
@@ -68,7 +70,7 @@ describe('mount plugin', () => {
       defaultBrowser: fileBrowser,
       tracker: new WidgetTracker<FileBrowser>({namespace: 'test'}),
     };
-
+    tracker = new NotebookTracker({namespace: 'test'});
     restorer = new LayoutRestorer({
       connector: new StateDB(),
       first: Promise.resolve<void>(void 0),
@@ -102,7 +104,7 @@ describe('mount plugin', () => {
           ],
         }),
       );
-    const plugin = new MountPlugin(app, docManager, factory, restorer);
+    const plugin = new MountPlugin(app, docManager, factory, restorer, tracker);
 
     await plugin.ready;
 
@@ -124,17 +126,18 @@ describe('mount plugin', () => {
   });
 
   it('should generate the correct layout', async () => {
-    const plugin = new MountPlugin(app, docManager, factory, restorer);
+    const plugin = new MountPlugin(app, docManager, factory, restorer, tracker);
     expect(plugin.layout.title.caption).toBe('Pachyderm Mount');
     expect(plugin.layout.id).toBe('pachyderm-mount');
     expect(plugin.layout.orientation).toBe('vertical');
-    expect(plugin.layout.widgets).toHaveLength(7);
+    expect(plugin.layout.widgets).toHaveLength(8);
     expect(plugin.layout.widgets[0]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[1]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[2]).toBeInstanceOf(ReactWidget);
-    expect(plugin.layout.widgets[3]).toBeInstanceOf(FileBrowser);
-    expect(plugin.layout.widgets[4]).toBeInstanceOf(ReactWidget);
+    expect(plugin.layout.widgets[3]).toBeInstanceOf(ReactWidget);
+    expect(plugin.layout.widgets[4]).toBeInstanceOf(FileBrowser);
     expect(plugin.layout.widgets[5]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[6]).toBeInstanceOf(ReactWidget);
+    expect(plugin.layout.widgets[7]).toBeInstanceOf(ReactWidget);
   });
 });

@@ -49,7 +49,7 @@ func NewMockEnv(rctx context.Context, t testing.TB, options ...InterceptorOption
 		return errorWait(ctx, mockEnv.MockPachd.Err())
 	})
 
-	mockEnv.PachClient, err = client.NewFromURI(mockEnv.MockPachd.Addr.String())
+	mockEnv.PachClient, err = client.NewFromURIContext(ctx, mockEnv.MockPachd.Addr.String())
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, mockEnv.PachClient.Close())
