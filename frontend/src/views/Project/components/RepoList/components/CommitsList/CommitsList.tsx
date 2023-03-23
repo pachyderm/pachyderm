@@ -1,4 +1,3 @@
-import {format, fromUnixTime} from 'date-fns';
 import React from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
@@ -9,6 +8,7 @@ import {
 } from '@dash-frontend/components/TableView';
 import useCommits, {COMMIT_LIMIT} from '@dash-frontend/hooks/useCommits';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {Table, Form} from '@pachyderm/components';
 
 import useCommitsList from './hooks/useCommitsList';
@@ -95,12 +95,7 @@ const CommitsList: React.FC<CommitsListProps> = ({
               >
                 <Table.DataCell>{`@${commit.repoName}`}</Table.DataCell>
                 <Table.DataCell>
-                  {commit?.finished
-                    ? format(
-                        fromUnixTime(commit?.finished),
-                        'MMM dd, yyyy; h:mmaaa',
-                      )
-                    : '-'}
+                  {commit?.finished ? getStandardDate(commit?.finished) : '-'}
                 </Table.DataCell>
                 <Table.DataCell>{commit?.id.slice(0, 6)}...</Table.DataCell>
                 <Table.DataCell>{commit?.branch?.name || '-'}</Table.DataCell>

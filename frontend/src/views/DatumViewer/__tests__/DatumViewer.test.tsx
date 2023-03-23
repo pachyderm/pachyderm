@@ -1,15 +1,13 @@
 import {render, waitFor, within, screen} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {format, fromUnixTime} from 'date-fns';
 import React from 'react';
 
 import {useClipboardCopy} from '@dash-frontend/../components/src';
 import useDownloadText from '@dash-frontend/hooks/useDownloadText';
+import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {withContextProviders, click, type} from '@dash-frontend/testHelpers';
 
 import {default as MiddleSectionComponent} from '../components/MiddleSection';
-import {LOGS_DATE_FORMAT} from '../components/MiddleSection/components/LogsViewer/constants/logsViewersConstants';
-import {JOB_DATE_FORMAT} from '../constants/DatumViewer';
 import {
   PipelineDatumViewer as PipelineDatumViewerComponent,
   JobDatumViewer as JobDatumViewerComponent,
@@ -116,15 +114,15 @@ describe('Datum Viewer', () => {
 
       expect(await screen.findByText('Success')).toBeVisible();
 
-      const runtimeDropDown = await screen.findByText('6.15 seconds');
+      const runtimeDropDown = await screen.findByText('6 s');
       expect(runtimeDropDown).toBeVisible();
 
       userEvent.click(runtimeDropDown);
 
-      expect(await screen.findByText('1.12 seconds')).toBeVisible();
+      expect(await screen.findByText('1 s')).toBeVisible();
       expect(await screen.findByText('1 kB')).toBeVisible();
-      expect(await screen.findByText('3 seconds')).toBeVisible();
-      expect(await screen.findByText('2.02 seconds')).toBeVisible();
+      expect(await screen.findByText('3 s')).toBeVisible();
+      expect(await screen.findByText('2 s')).toBeVisible();
       expect(await screen.findByText('2 kB')).toBeVisible();
     });
 
@@ -181,7 +179,7 @@ describe('Datum Viewer', () => {
           '2222b20131461a629431125793336672cdf30fff4a01406021603bbc98b4255d',
         ),
       ).toBeVisible();
-      expect(await screen.findByText('6.15 seconds')).toBeVisible();
+      expect(await screen.findByText('6 s')).toBeVisible();
     });
   });
 
@@ -218,10 +216,7 @@ describe('Datum Viewer', () => {
       expect(
         (await screen.findAllByTestId('JobList__listItem'))[0],
       ).toHaveTextContent(
-        `${format(
-          fromUnixTime(1614126189),
-          JOB_DATE_FORMAT,
-        )}23b9af7d5d4343219bc8e02ff44cd55a`,
+        `${getStandardDate(1614126189)}23b9af7d5d4343219bc8e02ff44cd55a`,
       );
     });
 
@@ -536,12 +531,10 @@ describe('Datum Viewer', () => {
       expect(copyButton).toBeEnabled();
       expect(downloadButton).toBeEnabled();
 
-      const selectedLogs = `${format(
-        fromUnixTime(1614126189),
-        LOGS_DATE_FORMAT,
-      )} started datum task\n${format(
-        fromUnixTime(1614126190),
-        LOGS_DATE_FORMAT,
+      const selectedLogs = `${getStandardDate(
+        1614126189,
+      )} started datum task\n${getStandardDate(
+        1614126190,
       )} finished datum task`;
 
       expect(copy).toHaveBeenCalledTimes(0);
@@ -564,16 +557,10 @@ describe('Datum Viewer', () => {
       const rows = await screen.findAllByTestId('LogRow__base');
       expect(rows).toHaveLength(2);
       expect(rows[0]).toHaveTextContent(
-        `${format(
-          fromUnixTime(1614126189),
-          LOGS_DATE_FORMAT,
-        )} started datum task`,
+        `${getStandardDate(1614126189)} started datum task`,
       );
       expect(rows[1]).toHaveTextContent(
-        `${format(
-          fromUnixTime(1614126190),
-          LOGS_DATE_FORMAT,
-        )} finished datum task`,
+        `${getStandardDate(1614126190)} finished datum task`,
       );
     });
 
@@ -673,16 +660,10 @@ describe('Datum Viewer', () => {
         const rows = await screen.findAllByTestId('LogRow__base');
         expect(rows).toHaveLength(6);
         expect(rows[0]).toHaveTextContent(
-          `${format(
-            fromUnixTime(1616533099),
-            LOGS_DATE_FORMAT,
-          )} started datum task`,
+          `${getStandardDate(1616533099)} started datum task`,
         );
         expect(rows[5]).toHaveTextContent(
-          `${format(
-            fromUnixTime(1616533220),
-            LOGS_DATE_FORMAT,
-          )} finished datum task`,
+          `${getStandardDate(1616533220)} finished datum task`,
         );
       });
     });
@@ -724,16 +705,10 @@ describe('Datum Viewer', () => {
         const rows = await screen.findAllByTestId('LogRow__base');
         expect(rows).toHaveLength(4);
         expect(rows[0]).toHaveTextContent(
-          `${format(
-            fromUnixTime(1616533099),
-            LOGS_DATE_FORMAT,
-          )} started datum task`,
+          `${getStandardDate(1616533099)} started datum task`,
         );
         expect(rows[3]).toHaveTextContent(
-          `${format(
-            fromUnixTime(1616533106),
-            LOGS_DATE_FORMAT,
-          )} finished datum task`,
+          `${getStandardDate(1616533106)} finished datum task`,
         );
       });
 

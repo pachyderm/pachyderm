@@ -1,11 +1,10 @@
-import {format, fromUnixTime} from 'date-fns';
 import React from 'react';
 import {Helmet} from 'react-helmet';
 
 import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
 import Description from '@dash-frontend/components/Description';
 import {PipelineLink} from '@dash-frontend/components/ResourceLink';
-import {standardFormat} from '@dash-frontend/constants/dateFormats';
+import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {InputOutputNodesMap} from '@dash-frontend/lib/types';
 import {
   SkeletonDisplayText,
@@ -73,16 +72,14 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
           term="Repo Created"
           error={repoError}
         >
-          {repo ? format(fromUnixTime(repo.createdAt), standardFormat) : 'N/A'}
+          {repo ? getStandardDate(repo.createdAt) : 'N/A'}
         </Description>
         {(currentRepoLoading || commit) && (
           <Description
             loading={currentRepoLoading}
             term="Most Recent Commit Start"
           >
-            {commit
-              ? format(fromUnixTime(commit.started), standardFormat)
-              : 'N/A'}
+            {commit ? getStandardDate(commit.started) : 'N/A'}
           </Description>
         )}
         {(currentRepoLoading || commit) && (

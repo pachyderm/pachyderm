@@ -1,7 +1,7 @@
 import classnames from 'classnames';
-import {formatDistanceToNowStrict, fromUnixTime} from 'date-fns';
 import React from 'react';
 
+import {getDurationToNow} from '@dash-frontend/lib/dateTime';
 import {Button} from '@pachyderm/components';
 
 import styles from './CommunityEditionBanner.module.css';
@@ -30,9 +30,7 @@ const CommunityEditionBanner: React.FC<CommunityEditionBannerProps> = ({
       </div>
       <div className={styles.limits}>
         {expiration
-          ? `Access ends in ${formatDistanceToNowStrict(
-              fromUnixTime(expiration),
-            )}`
+          ? `Access ends in ${getDurationToNow(expiration)}`
           : `Pipelines: ${pipelines?.length || 0}/${PIPELINE_LIMIT}`}
       </div>
 

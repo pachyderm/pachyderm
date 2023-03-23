@@ -16,7 +16,7 @@ type DatumDetailsProps = {
 const DatumDetails: React.FC<DatumDetailsProps> = ({className}) => {
   const {
     datum,
-    duration,
+    totalRuntime,
     loading,
     started,
     runtimeMetrics,
@@ -54,7 +54,7 @@ const DatumDetails: React.FC<DatumDetailsProps> = ({className}) => {
           previousJobId={skippedWithPreviousJob ? previousJobId : undefined}
           loading={loading}
           started={started}
-          duration={duration}
+          totalRuntime={totalRuntime}
           runtimeMetrics={runtimeMetrics}
         />
       </div>

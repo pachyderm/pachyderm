@@ -1,6 +1,5 @@
 import {ApolloError} from '@apollo/client';
 import {Pipeline} from '@graphqlTypes';
-import {format, fromUnixTime} from 'date-fns';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
 
@@ -8,6 +7,7 @@ import EmptyState from '@dash-frontend/components/EmptyState';
 import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLink';
 import {TableViewWrapper} from '@dash-frontend/components/TableView';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
+import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {readableJobState} from '@dash-frontend/lib/jobs';
 import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
 import {Table, LoadingDots} from '@pachyderm/components';
@@ -123,10 +123,7 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
               <Table.DataCell>v:{pipeline?.version}</Table.DataCell>
               <Table.DataCell>
                 {pipeline?.createdAt
-                  ? format(
-                      fromUnixTime(pipeline?.createdAt),
-                      'MMM dd, yyyy; h:mmaaa',
-                    )
+                  ? getStandardDate(pipeline?.createdAt)
                   : '-'}
               </Table.DataCell>
               <Table.DataCell>{pipeline?.description || '-'}</Table.DataCell>

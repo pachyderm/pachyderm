@@ -18,13 +18,13 @@ import styles from './RuntimeStats.module.css';
 const RuntimeStats = ({
   loading,
   started,
-  duration,
+  totalRuntime,
   runtimeMetrics,
   previousJobId,
 }: {
   loading: boolean;
   started?: string;
-  duration: string;
+  totalRuntime: string;
   runtimeMetrics: {
     label: string;
     duration: string;
@@ -79,7 +79,7 @@ const RuntimeStats = ({
           })}
           onClick={toggleRunTimeDetailsOpen}
         >
-          {duration ? duration : 'N/A'}
+          {totalRuntime}
           <Icon>
             {runtimeDetailsOpen ? <ChevronUpSVG /> : <ChevronDownSVG />}
           </Icon>

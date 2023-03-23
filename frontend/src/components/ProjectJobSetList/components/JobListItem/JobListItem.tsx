@@ -1,9 +1,9 @@
 import {JobState, ProjectDetailsQuery} from '@graphqlTypes';
 import classNames from 'classnames';
-import {formatDistanceToNowStrict, fromUnixTime} from 'date-fns';
 import React from 'react';
 import {Link} from 'react-router-dom';
 
+import {getDurationToNow} from '@dash-frontend/lib/dateTime';
 import {readableJobState} from '@dash-frontend/lib/jobs';
 import {useSelectedRunRoute} from '@dash-frontend/views/Project/utils/routes';
 import {ArrowRightSVG, Group, Icon} from '@pachyderm/components';
@@ -36,12 +36,7 @@ const JobListItem: React.FC<JobListItemProps> = ({job, projectId}) => {
           </span>
           <span className={styles.timestamp}>
             {job.createdAt
-              ? `Created ${formatDistanceToNowStrict(
-                  fromUnixTime(job.createdAt),
-                  {
-                    addSuffix: true,
-                  },
-                )}`
+              ? `Created ${getDurationToNow(job.createdAt, true)}`
               : 'Creating...'}
           </span>
 

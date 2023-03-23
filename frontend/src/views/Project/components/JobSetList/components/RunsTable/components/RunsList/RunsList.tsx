@@ -1,6 +1,5 @@
 import {ApolloError} from '@apollo/client';
 import {JobSetsQuery, NodeState} from '@graphqlTypes';
-import {format, fromUnixTime} from 'date-fns';
 import React from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
@@ -8,6 +7,7 @@ import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLi
 import IconBadge from '@dash-frontend/components/IconBadge';
 import {TableViewWrapper} from '@dash-frontend/components/TableView';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
+import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {getJobRuntime} from '@dash-frontend/lib/jobs';
 import {
   Table,
@@ -133,12 +133,7 @@ const RunsList: React.FC<RunsListProps> = ({
               dropdownOnSelect={onOverflowMenuSelect(jobSet?.id || '')}
             >
               <Table.DataCell>
-                {jobSet?.createdAt
-                  ? format(
-                      fromUnixTime(jobSet?.createdAt),
-                      'MMM dd, yyyy; h:mmaaa',
-                    )
-                  : '-'}
+                {jobSet?.createdAt ? getStandardDate(jobSet?.createdAt) : '-'}
               </Table.DataCell>
               <Table.DataCell>
                 {`${jobSet?.jobs.length} Job${

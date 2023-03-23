@@ -1,15 +1,14 @@
 import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
 import classNames from 'classnames';
-import {fromUnixTime, format} from 'date-fns';
 import React, {useCallback} from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
+import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {
   getJobStateColor,
   getJobStateSVG,
   getVisualJobState,
 } from '@dash-frontend/lib/jobs';
-import {JOB_DATE_FORMAT} from '@dash-frontend/views/DatumViewer/constants/DatumViewer';
 import useDatumPath from '@dash-frontend/views/DatumViewer/hooks/useDatumPath';
 import {CaretRightSVG, LoadingDots} from '@pachyderm/components';
 
@@ -73,11 +72,7 @@ const JobList: React.FC<jobListProps> = ({
             data-testid="JobList__listItem"
             key={job.id}
             state={deriveState(job.id)}
-            text={
-              job.createdAt
-                ? format(fromUnixTime(job.createdAt), JOB_DATE_FORMAT)
-                : 'N/A'
-            }
+            text={job.createdAt ? getStandardDate(job.createdAt) : 'N/A'}
             LeftIconSVG={
               getJobStateSVG(getVisualJobState(job.state)) || undefined
             }

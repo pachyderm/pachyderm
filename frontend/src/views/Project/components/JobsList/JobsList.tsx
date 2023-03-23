@@ -1,4 +1,3 @@
-import {format, fromUnixTime} from 'date-fns';
 import React from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
@@ -10,6 +9,7 @@ import {
 } from '@dash-frontend/components/TableView';
 import {useJobs} from '@dash-frontend/hooks/useJobs';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {
   getJobStateIcon,
   getVisualJobState,
@@ -112,12 +112,7 @@ const JobsList: React.FC<JobsListProps> = ({
                     {getDatumStateBadges(job)}
                   </Table.DataCell>
                   <Table.DataCell>
-                    {job?.createdAt
-                      ? format(
-                          fromUnixTime(job?.createdAt),
-                          'MMM dd, yyyy; h:mmaaa',
-                        )
-                      : '-'}
+                    {job?.createdAt ? getStandardDate(job?.createdAt) : '-'}
                   </Table.DataCell>
                   <Table.DataCell>{job?.id.slice(0, 6)}...</Table.DataCell>
                   <Table.DataCell>

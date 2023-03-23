@@ -395,8 +395,9 @@ describe('File Browser', () => {
       render(<FileBrowser />);
 
       expect(
-        await screen.findByText('Uploaded: January 8, 2021 (58.65 kB)'),
+        await screen.findByText(/Uploaded: Jan 8, 2021/),
       ).toBeInTheDocument();
+      expect(await screen.findByText(/(\+58.65 kB)/)).toBeInTheDocument();
       expect(await screen.findByRole('img')).toHaveAttribute(
         'src',
         //download/images/master/d350c8d08a644ed5b2ee98c035ab6b33/liberty.png/,

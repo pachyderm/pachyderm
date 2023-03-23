@@ -1,16 +1,13 @@
 import {JobQuery, DatumFilter} from '@graphqlTypes';
-import {
-  formatDistanceStrict,
-  formatDistanceToNowStrict,
-  formatDuration,
-  fromUnixTime,
-} from 'date-fns';
 import {useCallback, useMemo} from 'react';
 
 import {useJob} from '@dash-frontend/hooks/useJob';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {timestampToSeconds} from '@dash-frontend/lib/timestampToSeconds';
+import {
+  getStandardDate,
+  formatDurationFromSeconds,
+} from '@dash-frontend/lib/dateTime';
 import {Input} from '@dash-frontend/lib/types';
 import {logsViewerDatumRoute} from '@dash-frontend/views/Project/utils/routes';
 
@@ -34,19 +31,12 @@ const useInfoPanel = ({pipelineJob, pipelineLoading}: infoPanelProps) => {
   const job = pipelineJob || specifiedJob;
 
   const started = useMemo(() => {
-    return job?.startedAt
-      ? formatDistanceToNowStrict(fromUnixTime(job?.startedAt), {
-          addSuffix: true,
-        })
-      : 'N/A';
+    return job?.startedAt ? getStandardDate(job?.startedAt) : 'N/A';
   }, [job]);
 
-  const duration = useMemo(() => {
+  const totalRuntime = useMemo(() => {
     return job?.finishedAt && job?.startedAt
-      ? formatDistanceStrict(
-          fromUnixTime(job.startedAt),
-          fromUnixTime(job.finishedAt),
-        )
+      ? formatDurationFromSeconds(job.finishedAt - job.startedAt)
       : 'N/A';
   }, [job?.startedAt, job?.finishedAt]);
 
@@ -60,9 +50,9 @@ const useInfoPanel = ({pipelineJob, pipelineLoading}: infoPanelProps) => {
       salt: details?.salt,
       downloadBytes: details?.stats?.downloadBytes,
       uploadBytes: details?.stats?.uploadBytes,
-      downloadTime: timestampToSeconds(details?.stats?.downloadTime),
-      processTime: timestampToSeconds(details?.stats?.processTime),
-      uploadTime: timestampToSeconds(details?.stats?.uploadTime),
+      downloadTime: details?.stats?.downloadTime?.seconds,
+      processTime: details?.stats?.processTime?.seconds,
+      uploadTime: details?.stats?.uploadTime?.seconds,
     };
   }, [job?.jsonDetails]);
 
@@ -117,31 +107,29 @@ const useInfoPanel = ({pipelineJob, pipelineLoading}: infoPanelProps) => {
       {
         duration:
           job?.finishedAt && job?.startedAt
-            ? formatDistanceStrict(
-                fromUnixTime(
-                  job.startedAt +
+            ? formatDurationFromSeconds(
+                job.finishedAt -
+                  (job.startedAt +
                     jobDetails.downloadTime +
                     jobDetails.processTime +
-                    jobDetails.uploadTime,
-                ),
-                fromUnixTime(job.finishedAt),
+                    jobDetails.uploadTime),
               )
             : 'N/A',
         label: 'Setup',
         bytes: undefined,
       },
       {
-        duration: formatDuration({seconds: jobDetails.downloadTime}),
+        duration: formatDurationFromSeconds(jobDetails.downloadTime),
         bytes: jobDetails?.stats?.downloadBytes,
         label: 'Download',
       },
       {
-        duration: formatDuration({seconds: jobDetails.processTime}),
+        duration: formatDurationFromSeconds(jobDetails.processTime),
         label: 'Processing',
         bytes: undefined,
       },
       {
-        duration: formatDuration({seconds: jobDetails.uploadTime}),
+        duration: formatDurationFromSeconds(jobDetails.uploadTime),
         bytes: jobDetails?.stats?.uploadBytes,
         label: 'Upload',
       },
@@ -192,7 +180,7 @@ const useInfoPanel = ({pipelineJob, pipelineLoading}: infoPanelProps) => {
 
   return {
     job,
-    duration,
+    totalRuntime,
     jobDetails,
     loading: jobLoading,
     started,

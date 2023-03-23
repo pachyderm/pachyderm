@@ -1,9 +1,9 @@
-import {format, fromUnixTime} from 'date-fns';
 import React from 'react';
 import {Helmet} from 'react-helmet';
 
 import Description from '@dash-frontend/components/Description';
 import InfoPanel from '@dash-frontend/components/InfoPanel';
+import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {SkeletonDisplayText, Tabs} from '@pachyderm/components';
 
 import Title from '../Title';
@@ -37,9 +37,7 @@ const PipelineDetails: React.FC = () => {
             <div className={styles.description}>{pipeline?.description}</div>
           )}
           <Description term="Most Recent Job Start" loading={loading}>
-            {lastJob?.createdAt
-              ? format(fromUnixTime(lastJob?.createdAt), 'MMM d, yyyy; h:mma')
-              : 'N/A'}
+            {lastJob?.createdAt ? getStandardDate(lastJob?.createdAt) : 'N/A'}
           </Description>
           <Description term="Most Recent Job ID" loading={loading}>
             {lastJob?.id}

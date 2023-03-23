@@ -1,4 +1,3 @@
-import {format, fromUnixTime, formatDistanceStrict} from 'date-fns';
 import findIndex from 'lodash/findIndex';
 import React, {useMemo} from 'react';
 
@@ -6,6 +5,10 @@ import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
 import Header from '@dash-frontend/components/Header';
 import useCommits, {COMMIT_LIMIT} from '@dash-frontend/hooks/useCommits';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {
+  getStandardDate,
+  formatDurationFromSeconds,
+} from '@dash-frontend/lib/dateTime';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
   Group,
@@ -96,9 +99,8 @@ const FileHeader: React.FC<FileHeaderProps> = ({
       {currentCommit.started !== -1 && currentCommit.finished !== -1 ? (
         <>
           Duration:{' '}
-          {formatDistanceStrict(
-            fromUnixTime(currentCommit.started),
-            fromUnixTime(currentCommit.finished),
+          {formatDurationFromSeconds(
+            currentCommit.finished - currentCommit.started,
           )}
         </>
       ) : null}
@@ -197,10 +199,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({
                 <>
                   <b>Started:</b>
                   {` `}
-                  {format(
-                    fromUnixTime(currentCommit.started),
-                    'MM/dd/yyyy h:mm:ssaaa',
-                  )}
+                  {getStandardDate(currentCommit.started)}
                 </>
               )
             )}
@@ -213,10 +212,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({
                 <span>
                   <b>Ended:</b>
                   {` `}
-                  {format(
-                    fromUnixTime(currentCommit.finished),
-                    'MM/dd/yyyy h:mm:ssaaa',
-                  )}
+                  {getStandardDate(currentCommit.finished)}
                 </span>
               )
             )}

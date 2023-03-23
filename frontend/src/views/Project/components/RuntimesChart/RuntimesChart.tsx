@@ -10,7 +10,6 @@ import {
   CategoryScale,
 } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
-import {format, fromUnixTime} from 'date-fns';
 import React, {useRef, useCallback, useMemo} from 'react';
 import {getElementAtEvent} from 'react-chartjs-2';
 import {useHistory} from 'react-router-dom';
@@ -24,6 +23,7 @@ import {
 import {MAX_FILTER_HEIGHT_REM} from '@dash-frontend/components/TableView/components/TableViewFilters/TableViewFilters';
 import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {Form} from '@pachyderm/components';
 
 import BarChart from './components/BarChart';
@@ -263,9 +263,9 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
                           CHART_COLORS[index % CHART_COLORS.length],
                       }}
                     />
-                    {oldestJob &&
-                      format(fromUnixTime(oldestJob), 'MMM dd, yyyy; h:mmaaa')}
-                    ; {jobId.slice(0, 6)}...
+                    {oldestJob && getStandardDate(oldestJob)};{' '}
+                    {jobId.slice(0, 6)}
+                    ...
                   </div>
                 );
               })}

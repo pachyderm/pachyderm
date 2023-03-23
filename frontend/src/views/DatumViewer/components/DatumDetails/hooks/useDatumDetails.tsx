@@ -1,39 +1,9 @@
-import {DatumState, Timestamp} from '@graphqlTypes';
-import {formatDuration} from 'date-fns';
+import {DatumState} from '@graphqlTypes';
 
 import useDatum from '@dash-frontend/hooks/useDatum';
 import {useJob} from '@dash-frontend/hooks/useJob';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {timestampToSeconds} from '@dash-frontend/lib/timestampToSeconds';
-
-export const _deriveDuration = (times: Array<Timestamp | null | undefined>) => {
-  const derivedDurationTimestamp = times.reduce<{
-    seconds: number;
-    nanos: number;
-  }>(
-    (acc, curr) => ({
-      seconds: acc?.seconds + (curr?.seconds ?? 0),
-      nanos: acc?.nanos + (curr?.nanos ?? 0),
-    }),
-    {seconds: 0, nanos: 0},
-  );
-
-  const derivedDuration = formatDuration({
-    seconds: timestampToSeconds(derivedDurationTimestamp),
-  });
-
-  return derivedDuration;
-};
-
-export const _processDuration = (timestamp?: Timestamp | null) => {
-  return (
-    formatDuration({
-      seconds: timestampToSeconds(timestamp || {}),
-    }) ||
-    (timestamp && '< 0.01 seconds') ||
-    'N/A'
-  );
-};
+import {formatDurationFromSeconds} from '@dash-frontend/lib/dateTime';
 
 export const useDatumDetails = () => {
   const {datumId, jobId, pipelineId, projectId} = useUrlState();
@@ -65,26 +35,31 @@ export const useDatumDetails = () => {
   const runtimeMetrics = [
     {
       label: 'Download',
-      duration: _processDuration(datum?.downloadTimestamp),
+      duration: formatDurationFromSeconds(datum?.downloadTimestamp?.seconds),
       bytes: datum?.downloadBytes,
     },
     {
       label: 'Processing',
-      duration: _processDuration(datum?.processTimestamp),
+      duration: formatDurationFromSeconds(datum?.processTimestamp?.seconds),
       bytes: undefined,
     },
     {
       label: 'Upload',
-      duration: _processDuration(datum?.uploadTimestamp),
+      duration: formatDurationFromSeconds(datum?.uploadTimestamp?.seconds),
       bytes: datum?.uploadBytes,
     },
   ];
 
-  const duration = _deriveDuration([
-    datum?.downloadTimestamp,
-    datum?.processTimestamp,
-    datum?.uploadTimestamp,
-  ]);
+  const totalRuntime =
+    datum?.downloadTimestamp?.seconds ||
+    datum?.processTimestamp?.seconds ||
+    datum?.uploadTimestamp?.seconds
+      ? formatDurationFromSeconds(
+          (datum?.downloadTimestamp?.seconds || 0) +
+            (datum?.processTimestamp?.seconds || 0) +
+            (datum?.uploadTimestamp?.seconds || 0),
+        )
+      : 'N/A';
 
   const inputSpec = {input: JSON.parse(job?.inputString || '{}')};
 
@@ -93,7 +68,7 @@ export const useDatumDetails = () => {
     datum,
     loading: loadingJob || loadingDatum,
     started,
-    duration,
+    totalRuntime,
     runtimeMetrics,
     inputSpec,
     skippedWithPreviousJob,

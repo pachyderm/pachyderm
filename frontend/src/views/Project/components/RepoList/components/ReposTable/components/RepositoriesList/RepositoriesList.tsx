@@ -1,12 +1,12 @@
 import {ApolloError} from '@apollo/client';
 import {ReposWithCommitQuery} from '@graphqlTypes';
-import {format, fromUnixTime} from 'date-fns';
 import React from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
 import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLink';
 import {TableViewWrapper} from '@dash-frontend/components/TableView';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
+import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {Table, LoadingDots} from '@pachyderm/components';
 
 import useRepositoriesList from './hooks/useRepositoriesList';
@@ -109,19 +109,13 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
               <Table.DataCell>{repo?.name}</Table.DataCell>
               <Table.DataCell>{repo?.sizeDisplay || '-'}</Table.DataCell>
               <Table.DataCell>
-                {repo?.createdAt
-                  ? format(
-                      fromUnixTime(repo?.createdAt),
-                      'MMM dd, yyyy; h:mmaaa',
-                    )
-                  : '-'}
+                {repo?.createdAt ? getStandardDate(repo?.createdAt) : '-'}
               </Table.DataCell>
               <Table.DataCell>
                 {repo?.lastCommit
                   ? repo?.lastCommit?.finished &&
-                    `${format(
-                      fromUnixTime(repo?.lastCommit?.finished),
-                      'MMM dd, yyyy; h:mmaaa',
+                    `${getStandardDate(
+                      repo?.lastCommit?.finished,
                     )}; ${repo.lastCommit.id.slice(0, 6)}...`
                   : '-'}
               </Table.DataCell>

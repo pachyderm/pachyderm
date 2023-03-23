@@ -27,7 +27,7 @@ describe('JobSet Jobs List', () => {
 
     const jobs = screen.getAllByTestId('RunsList__row');
     expect(jobs[0]).toHaveTextContent('23b9af7d5d4343219bc8e02ff44cd55a');
-    expect(jobs[0]).toHaveTextContent('28 days');
+    expect(jobs[0]).toHaveTextContent('27 d 20 h 35 mins');
     expect(jobs[0]).toHaveTextContent('2 Jobs Total');
   });
 

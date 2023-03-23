@@ -1,8 +1,8 @@
 import {File, FileType} from '@graphqlTypes';
-import {format, fromUnixTime} from 'date-fns';
 import {useMemo} from 'react';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import getFileMajorType from '@dash-frontend/lib/getFileMajorType';
 import {FileMajorType} from '@dash-frontend/lib/types';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
@@ -50,10 +50,7 @@ const useFileDisplay = (file: File) => {
   );
 
   const dateDisplay = useMemo(
-    () =>
-      file.committed
-        ? format(fromUnixTime(file.committed.seconds), 'MMMM d, yyyy')
-        : 'N/A',
+    () => (file.committed ? getStandardDate(file.committed.seconds) : 'N/A'),
     [file.committed],
   );
 

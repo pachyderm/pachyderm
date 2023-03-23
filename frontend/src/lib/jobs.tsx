@@ -1,12 +1,11 @@
 import {JobState} from '@graphqlTypes';
-import {
-  fromUnixTime,
-  formatDistanceStrict,
-  formatDistanceToNowStrict,
-} from 'date-fns';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
 
+import {
+  formatDurationFromSeconds,
+  formatDurationFromSecondsToNow,
+} from '@dash-frontend/lib/dateTime';
 import {
   StatusWarningSVG,
   StatusDotsSVG,
@@ -96,15 +95,10 @@ export const getJobRuntime = (
   finishedAt?: number | null,
 ) => {
   if (finishedAt && createdAt) {
-    return formatDistanceStrict(
-      fromUnixTime(createdAt),
-      fromUnixTime(finishedAt),
-    );
+    return formatDurationFromSeconds(finishedAt - createdAt);
   }
   if (createdAt) {
-    return `${formatDistanceToNowStrict(
-      fromUnixTime(createdAt),
-    )} - In Progress`;
+    return `${formatDurationFromSecondsToNow(createdAt)} - In Progress`;
   }
   return 'In Progress';
 };

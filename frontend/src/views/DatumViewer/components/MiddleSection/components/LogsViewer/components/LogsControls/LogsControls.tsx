@@ -1,11 +1,11 @@
 import {GetLogsQuery} from '@graphqlTypes';
 import classnames from 'classnames';
-import {format, fromUnixTime} from 'date-fns';
 import React, {useEffect, useMemo, useState} from 'react';
 import {UseFormReturn} from 'react-hook-form';
 
 import useDownloadText from '@dash-frontend/hooks/useDownloadText';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {
   Button,
   ButtonGroup,
@@ -21,10 +21,7 @@ import {
   useClipboardCopy,
 } from '@pachyderm/components';
 
-import {
-  LOGS_DATE_FORMAT,
-  LOGS_DEFAULT_DROPDOWN_OPTIONS,
-} from '../../constants/logsViewersConstants';
+import {LOGS_DEFAULT_DROPDOWN_OPTIONS} from '../../constants/logsViewersConstants';
 import {LogsViewerFormValues} from '../../hooks/useLogsViewer';
 
 import styles from './LogsControls.module.css';
@@ -58,11 +55,9 @@ const LogsControls: React.FC<LogsControlsProps> = ({
           const message = logs[Number(index)]?.message;
           const timestamp = logs[Number(index)]?.timestamp;
           acc.push(
-            `${
-              timestamp
-                ? format(fromUnixTime(timestamp.seconds), LOGS_DATE_FORMAT)
-                : LOGS_DATE_FORMAT.replace(/(.*?)/, ' ')
-            } ${message || ''}`,
+            `${timestamp ? getStandardDate(timestamp.seconds) : '-'} ${
+              message || ''
+            }`,
           );
         }
         return acc;

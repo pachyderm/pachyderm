@@ -1,8 +1,7 @@
 import {RepoQuery} from '@graphqlTypes';
-import {format, fromUnixTime} from 'date-fns';
 import React from 'react';
 
-import {standardFormat} from '@dash-frontend/constants/dateFormats';
+import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {
   LoadingDots,
   CaptionTextSmall,
@@ -95,7 +94,7 @@ const CommitList: React.FC<CommitListProps> = ({repo}) => {
               data-testid="CommitList__commit"
             >
               <CaptionTextSmall className={styles.commitText}>
-                {format(fromUnixTime(commit.started), standardFormat)}
+                {getStandardDate(commit.started)}
               </CaptionTextSmall>
               <CaptionTextSmall
                 className={styles.commitText}

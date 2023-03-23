@@ -1,6 +1,5 @@
 import {GetLogsQuery} from '@graphqlTypes';
 import classnames from 'classnames';
-import {format, fromUnixTime} from 'date-fns';
 import React, {
   CSSProperties,
   memo,
@@ -11,9 +10,8 @@ import React, {
 } from 'react';
 import {areEqual} from 'react-window';
 
+import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {CodeText, PureCheckbox} from '@pachyderm/components';
-
-import {LOGS_DATE_FORMAT} from '../../../../constants/logsViewersConstants';
 
 import styles from './LogRow.module.css';
 
@@ -53,7 +51,7 @@ const LogRow: React.FC<LogRowProps> = ({
 
   const formattedTimestamp = useMemo(() => {
     if (timestamp) {
-      return format(fromUnixTime(timestamp.seconds), LOGS_DATE_FORMAT);
+      return getStandardDate(timestamp.seconds);
     }
     return '';
   }, [timestamp]);

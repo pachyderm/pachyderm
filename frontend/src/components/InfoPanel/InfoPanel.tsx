@@ -47,7 +47,7 @@ const InfoPanel: React.FC<InfoPanelProps> = ({
 }) => {
   const {
     job,
-    duration,
+    totalRuntime,
     jobDetails,
     loading,
     started,
@@ -153,7 +153,7 @@ const InfoPanel: React.FC<InfoPanelProps> = ({
         <RuntimeStats
           loading={loading}
           started={started}
-          duration={duration}
+          totalRuntime={totalRuntime}
           runtimeMetrics={runtimeMetrics}
         />
       </div>
