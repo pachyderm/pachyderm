@@ -1,7 +1,9 @@
 import YAML from 'yaml';
 
 import {useEffect, useState} from 'react';
-import {SameMetadata} from '../../../types';
+import {CreatePipelineResponse, SameMetadata} from '../../../types';
+import {requestAPI} from '../../../../../handler';
+import {ReadonlyJSONObject} from '@lumino/coreutils';
 
 export type usePipelineResponse = {
   loading: boolean;
@@ -20,6 +22,7 @@ export type usePipelineResponse = {
 
 export const usePipeline = (
   metadata: SameMetadata | undefined,
+  notebookPath: string | undefined,
   saveNotebookMetaData: (metadata: any) => void,
 ): usePipelineResponse => {
   const [loading, setLoading] = useState(false);
@@ -41,68 +44,54 @@ export const usePipeline = (
     }
   }, [metadata]);
 
+  let input;
+  try {
+    input = YAML.parse(inputSpec);
+  } catch (e) {
+    if (e instanceof YAML.YAMLParseError) {
+      input = JSON.parse(inputSpec);
+    } else {
+      throw e;
+    }
+  }
+
+  const samemeta: SameMetadata = {
+    apiVersion: 'sameproject.ml/v1alpha1',
+    environments: {
+      default: {
+        image_tag: imageName,
+      },
+    },
+    metadata: {
+      name: pipelineName,
+      version: '0.0.0',
+    },
+    notebook: {
+      requirements: requirements,
+    },
+    run: {
+      name: pipelineName,
+      input: JSON.stringify(input),
+    },
+  };
+
   const callCreatePipeline = async () => {
     setLoading(true);
     setErrorMessage('');
 
-    let input;
-    try {
-      input = YAML.parse(inputSpec);
-    } catch (e) {
-      if (e instanceof YAML.YAMLParseError) {
-        input = JSON.parse(inputSpec);
-      } else {
-        throw e;
-      }
+    const response = await requestAPI<CreatePipelineResponse>(
+      `pps/_create/${notebookPath}`,
+      'PUT',
+      samemeta as ReadonlyJSONObject,
+    );
+    if (response.error) {
+      setErrorMessage(response.error);
     }
-
-    let reqsParsed;
-    try {
-      reqsParsed = YAML.parse(requirements);
-    } catch (e) {
-      if (e instanceof YAML.YAMLParseError) {
-        reqsParsed = JSON.parse(requirements);
-      } else {
-        throw e;
-      }
-    }
-
-    setErrorMessage('No action hooked up');
+    console.log('create pipeline called');
     setLoading(false);
   };
 
   const callSavePipeline = async () => {
-    let input;
-    try {
-      input = YAML.parse(inputSpec);
-    } catch (e) {
-      if (e instanceof YAML.YAMLParseError) {
-        input = JSON.parse(inputSpec);
-      } else {
-        throw e;
-      }
-    }
-
-    const samemeta: SameMetadata = {
-      apiVersion: 'sameproject.ml/v1alpha1',
-      environments: {
-        default: {
-          image_tag: imageName,
-        },
-      },
-      metadata: {
-        name: pipelineName,
-        version: '0.0.0',
-      },
-      notebook: {
-        requirements: requirements,
-      },
-      run: {
-        name: pipelineName,
-        input: JSON.stringify(input),
-      },
-    };
-
     saveNotebookMetaData(samemeta);
     console.log('save pipeline called');
   };
