@@ -1229,7 +1229,7 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
 					return err
 				} else if !ok {
-					return nil
+					return errors.Errorf("cannot delete project with %d repos", len(rr))
 				}
 				for _, r := range rr {
 					if _, err := c.PfsAPIClient.DeleteRepo(c.Ctx(), &pfs.DeleteRepoRequest{Repo: r.Repo}); err != nil {
@@ -1258,7 +1258,7 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
 					return err
 				} else if !ok {
-					return nil
+					return errors.Errorf("cannot delete project with %d pipelines", len(pp))
 				}
 				for _, p := range pp {
 					if _, err := c.PpsAPIClient.DeletePipeline(c.Ctx(), &pps.DeletePipelineRequest{Pipeline: p.Pipeline}); err != nil {
