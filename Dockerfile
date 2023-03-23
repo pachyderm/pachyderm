@@ -20,6 +20,9 @@ RUN npm i module-alias
 
 FROM node:16.15.0-buster-slim
 
+ARG DOCKER_TAG=${DOCKER_TAG:-local}
+ENV CONSOLE_VERSION=${DOCKER_TAG:-local}
+
 WORKDIR /usr/src/app
 
 COPY --from=0 /usr /usr
