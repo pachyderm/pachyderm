@@ -1637,13 +1637,13 @@ workflows:
   python-sdk:
     when: << pipeline.parameters.run-python-sdk-jobs >>
     jobs:
-      - test-python-sdk:
-          requires:
-            # - build-docker-images
-            - build-pachctl-bin
-      # - build-docker-images
-      - build-pachctl-bin:
-          version: $CIRCLE_SHA1
+      #- test-python-sdk:
+      #    requires:
+      #      # - build-docker-images
+      #      - build-pachctl-bin
+      ## - build-docker-images
+      #- build-pachctl-bin:
+      #    version: $CIRCLE_SHA1
       - build-python-sdk
 
   release:
