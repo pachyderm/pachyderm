@@ -1575,7 +1575,7 @@ workflows:
       # - build-docker-images
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
-      #- build-python-sdk
+      - build-python-sdk
 
   release:
     jobs:
