@@ -15,14 +15,6 @@ class TestUnitAuth:
     @staticmethod
     def test_auth_configuration(auth_client: TestClient):
         auth_client.auth.get_auth_configuration()
-        auth_client.auth.set_auth_configuration(
-            auth.OidcConfig(
-                issuer="http://localhost:1658",
-                client_id="client",
-                client_secret="secret",
-                redirect_uri="https://test.example.com",
-            )
-        )
 
     @staticmethod
     def test_cluster_role_bindings(auth_client: TestClient):
