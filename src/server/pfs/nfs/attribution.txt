@@ -1,0 +1,32 @@
+The following files were copied, in whole or in part, from
+github.com/willscott/go-nfs-client, commit 271fa9065b3377f1124f3ce74f957d8a2dd3ab0c,
+and are used under the permissive terms of its BSD 2-clause license:
+
+conn.go
+errors.go
+file.go
+nfs.go
+nfsinterface.go
+nfs_onaccess.go
+nfs_oncommit.go
+nfs_oncreate.go
+nfs_onfsinfo.go
+nfs_onfsstat.go
+nfs_ongetattr.go
+nfs_onlink.go
+nfs_onlookup.go
+nfs_onmkdir.go
+nfs_onmknod.go
+nfs_onpathconf.go
+nfs_onreaddir.go
+nfs_onreaddirplus.go
+nfs_onread.go
+nfs_onreadlink.go
+nfs_onremove.go
+nfs_onrename.go
+nfs_onrmdir.go
+nfs_onsetattr.go
+nfs_onsymlink.go
+nfs_onwrite.go
+server.go
+time.go
