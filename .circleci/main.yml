@@ -1412,11 +1412,12 @@ jobs:
           name: Install Python Dependencies with Poetry
           command: poetry --no-ansi install
       - install-jupyter-test-deps
+
+      # export PACH_PYTHON_ENTERPRISE_CODE=${ENT_ACT_CODE}
+      # export export PACH_PYTHON_AUTH_TOKEN=iamroot
       - run:
-          name: Run Tests #
+          name: Run Tests
           command: |
-            export PACH_PYTHON_ENTERPRISE_CODE=${ENT_ACT_CODE}
-            export export PACH_PYTHON_AUTH_TOKEN=iamroot
             nohup pachctl port-forward &
             poetry run pytest -vvv tests
   build-python-sdk:
