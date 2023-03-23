@@ -1973,8 +1973,8 @@ commands:
           name: Start kind
           command: kind create cluster && kubectl config set current-context kind-kind
       - run:
-          name: Install pach # pachd.service.type=NodePort,pachd.image.tag=${CIRCLE_SHA1}
-          command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.enterpriseLicenseKey=${ENT_ACT_CODE},pachd.rootToken=iamroot
+          name: Install pach # pachd.service.type=NodePort,pachd.image.tag=${CIRCLE_SHA1},pachd.enterpriseLicenseKey=${ENT_ACT_CODE},pachd.rootToken=iamroot
+          command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |
