@@ -37,6 +37,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
@@ -1207,6 +1208,66 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 				return err
 			}
 			defer c.Close()
+			project := args[0]
+			repoResp, err := c.PfsAPIClient.ListRepo(
+				c.Ctx(),
+				&pfs.ListRepoRequest{
+					Projects: []*pfs.Project{{Name: project}},
+					Type:     pfs.UserRepoType,
+				},
+			)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			rr, err := grpcutil.Collect[*pfs.RepoInfo](repoResp, 1000)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if len(rr) > 0 {
+				for _, r := range rr {
+					fmt.Printf("This will delete repo %s\n", r.Repo)
+				}
+				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+					return err
+				} else if !ok {
+					return errors.Errorf("cannot delete project with %d repos", len(rr))
+				}
+				for _, r := range rr {
+					if _, err := c.PfsAPIClient.DeleteRepo(c.Ctx(), &pfs.DeleteRepoRequest{Repo: r.Repo}); err != nil {
+						return grpcutil.ScrubGRPC(err)
+					}
+				}
+			}
+
+			pipelineResp, err := c.PpsAPIClient.ListPipeline(
+				c.Ctx(),
+				&pps.ListPipelineRequest{
+					Projects: []*pfs.Project{{Name: project}},
+				},
+			)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			pp, err := grpcutil.Collect[*pps.PipelineInfo](pipelineResp, 1000)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if len(pp) > 0 {
+				for _, p := range pp {
+					fmt.Printf("This will delete pipeline %s\n?", p.Pipeline)
+				}
+				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+					return err
+				} else if !ok {
+					return errors.Errorf("cannot delete project with %d pipelines", len(pp))
+				}
+				for _, p := range pp {
+					if _, err := c.PpsAPIClient.DeletePipeline(c.Ctx(), &pps.DeletePipelineRequest{Pipeline: p.Pipeline}); err != nil {
+						return grpcutil.ScrubGRPC(err)
+					}
+				}
+			}
+
 			_, err = c.PfsAPIClient.DeleteProject(
 				c.Ctx(),
 				&pfs.DeleteProjectRequest{

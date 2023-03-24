@@ -156,7 +156,7 @@ func PachctlBashCmd(t *testing.T, c *client.APIClient, scriptTemplate string, su
 	p, err := NewPachctl(ctx, c, config)
 	// NOTE: p is not closed in order to retain config file between runs;
 	// for the same reason, it is okay if the config file already exists.
-	require.True(t, err == nil || errors.Is(err, fs.ErrExist), "could not create new Pachctl environment:", err)
+	require.True(t, err == nil || errors.Is(err, fs.ErrExist), "could not create new Pachctl environment in config %q: %v", config, err)
 	t.Cleanup(func() {
 		// since this call gets run multiple times, ignore error
 		_ = os.Remove(config)
