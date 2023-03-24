@@ -408,8 +408,7 @@ validate-circle:
 
 python-sdk:
 	docker build -t pachyderm-python-sdk-builder python-sdk
-	rm -rf python-sdk/pachyderm_sdk/api
-	find src -regex ".*\.proto" | grep -v 'internal' | grep -v 'server' | xargs tar cf - | docker run -i pachyderm-python-sdk-builder | tar -C python-sdk/pachyderm_sdk -xf -
+	find src -regex ".*\.proto" | grep -v 'internal' | grep -v 'server' | grep -v 'enterprise' | grep -v 'license' | xargs tar cf - | docker run -i pachyderm-python-sdk-builder | tar -C python-sdk/pachyderm_sdk -xf -
 
 .PHONY: \
 	install \
