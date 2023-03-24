@@ -1348,8 +1348,7 @@ workflows:
                 - EXAMPLES
                 - CONNECTORS
   helm-tests:
-    when:
-      condition: << pipeline.parameters.run-core-jobs >>
+    when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - helm-tests
   nightly_load_tests:
