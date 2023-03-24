@@ -1325,10 +1325,7 @@ jobs:
 
 workflows:
   integration-tests:
-    when:
-      or:
-        - << pipeline.parameters.run-core-jobs >>
-        - not: << pipeline.parameters.run-jupyter-jobs >>
+    when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - build-docker-images
       #- build-pachctl-bin:
@@ -1352,9 +1349,7 @@ workflows:
                 - CONNECTORS
   helm-tests:
     when:
-      or:
-        - << pipeline.parameters.run-core-jobs >>
-        - not: << pipeline.parameters.run-jupyter-jobs >>
+      condition: << pipeline.parameters.run-core-jobs >>
     jobs:
       - helm-tests
   nightly_load_tests:
@@ -1486,17 +1481,11 @@ workflows:
             - nightly-load-LOAD12
           env: LOAD4
   rootless-tests:
-    when:
-      or:
-        - << pipeline.parameters.run-core-jobs >>
-        - not: << pipeline.parameters.run-jupyter-jobs >>
+    when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - rootless
   deploy-tests:
-    when:
-      or:
-        - << pipeline.parameters.run-core-jobs >>
-        - not: << pipeline.parameters.run-jupyter-jobs >>
+    when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - deploy-tests:
           name: amd64 deploy tests
