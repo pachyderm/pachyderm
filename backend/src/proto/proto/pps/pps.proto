@@ -710,11 +710,29 @@ message ListPipelineRequest {
   repeated pfs_v2.Project projects = 6;
 }
 
+// Delete a pipeline.  If the deprecated all member is true, then delete all
+// pipelines in the default project.
 message DeletePipelineRequest {
   Pipeline pipeline = 1;
-  bool all = 2;
+  bool all = 2 [deprecated = true];
   bool force = 3;
   bool keep_repo = 4;
+}
+
+// Delete more than one pipeline.
+message DeletePipelinesRequest {
+  // All pipelines in each project will be deleted if the caller has
+  // permission.
+  repeated pfs_v2.Project projects = 1;
+  bool force = 2;
+  bool keep_repo = 3;
+  // If set, all pipelines in all projects will be deleted if the caller has
+  // permission.
+  bool all = 4;
+}
+
+message DeletePipelinesResponse {
+  repeated Pipeline pipelines = 1;
 }
 
 message StartPipelineRequest {
@@ -806,6 +824,7 @@ service API {
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
   rpc ListPipeline(ListPipelineRequest) returns (stream PipelineInfo) {}
   rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}
+  rpc DeletePipelines(DeletePipelinesRequest) returns (DeletePipelinesResponse) {}
   rpc StartPipeline(StartPipelineRequest) returns (google.protobuf.Empty) {}
   rpc StopPipeline(StopPipelineRequest) returns (google.protobuf.Empty) {}
   rpc RunPipeline(RunPipelineRequest) returns (google.protobuf.Empty) {}

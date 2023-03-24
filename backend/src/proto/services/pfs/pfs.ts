@@ -73,6 +73,8 @@ import {
   ProjectInfo,
   InspectProjectRequest,
   CreateProjectRequest,
+  DeleteReposRequest,
+  DeleteProjectRequest,
 } from '../../proto/pfs/pfs_pb';
 import streamToObjectArray from '../../utils/streamToObjectArray';
 import {RPC_DEADLINE_MS} from '../constants/rpc';
@@ -693,6 +695,28 @@ const pfs = ({
         });
       });
     },
+    deleteRepos: ({
+      projectIds,
+      force = false,
+    }: {
+      projectIds: string[];
+      force?: boolean;
+    }) => {
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        const deleteReposRequest = new DeleteReposRequest();
+
+        const projects = projectIds.map((id) => new Project().setName(id));
+        deleteReposRequest.setProjectsList(projects);
+
+        deleteReposRequest.setForce(force);
+        client.deleteRepos(deleteReposRequest, credentialMetadata, (error) => {
+          if (error) {
+            return reject(error);
+          }
+          return resolve({});
+        });
+      });
+    },
     deleteAll: () => {
       return new Promise<Empty.AsObject>((resolve, reject) => {
         client.deleteAll(new Empty(), (error) => {
@@ -716,6 +740,22 @@ const pfs = ({
         createProjectRequest.setUpdate(update);
         client.createProject(
           createProjectRequest,
+          credentialMetadata,
+          (error) => {
+            if (error) {
+              return reject(error);
+            }
+            return resolve({});
+          },
+        );
+      });
+    },
+    deleteProject: ({projectId}: {projectId: string}) => {
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        const deleteProjectRequest = new DeleteProjectRequest();
+        deleteProjectRequest.setProject(new Project().setName(projectId));
+        client.deleteProject(
+          deleteProjectRequest,
           credentialMetadata,
           (error) => {
             if (error) {

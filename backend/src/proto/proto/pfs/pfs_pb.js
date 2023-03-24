@@ -6807,7 +6807,8 @@ proto.pfs_v2.DeleteReposRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     projectsList: jspb.Message.toObjectList(msg.getProjectsList(),
     proto.pfs_v2.Project.toObject, includeInstance),
-    force: jspb.Message.getBooleanFieldWithDefault(msg, 2, false)
+    force: jspb.Message.getBooleanFieldWithDefault(msg, 2, false),
+    all: jspb.Message.getBooleanFieldWithDefault(msg, 3, false)
   };
 
   if (includeInstance) {
@@ -6853,6 +6854,10 @@ proto.pfs_v2.DeleteReposRequest.deserializeBinaryFromReader = function(msg, read
       var value = /** @type {boolean} */ (reader.readBool());
       msg.setForce(value);
       break;
+    case 3:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setAll(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -6894,6 +6899,13 @@ proto.pfs_v2.DeleteReposRequest.serializeBinaryToWriter = function(message, writ
   if (f) {
     writer.writeBool(
       2,
+      f
+    );
+  }
+  f = message.getAll();
+  if (f) {
+    writer.writeBool(
+      3,
       f
     );
   }
@@ -6953,6 +6965,24 @@ proto.pfs_v2.DeleteReposRequest.prototype.getForce = function() {
  */
 proto.pfs_v2.DeleteReposRequest.prototype.setForce = function(value) {
   return jspb.Message.setProto3BooleanField(this, 2, value);
+};
+
+
+/**
+ * optional bool all = 3;
+ * @return {boolean}
+ */
+proto.pfs_v2.DeleteReposRequest.prototype.getAll = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 3, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.pfs_v2.DeleteReposRequest} returns this
+ */
+proto.pfs_v2.DeleteReposRequest.prototype.setAll = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 3, value);
 };
 
 

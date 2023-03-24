@@ -28,6 +28,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     inspectPipeline: IAPIService_IInspectPipeline;
     listPipeline: IAPIService_IListPipeline;
     deletePipeline: IAPIService_IDeletePipeline;
+    deletePipelines: IAPIService_IDeletePipelines;
     startPipeline: IAPIService_IStartPipeline;
     stopPipeline: IAPIService_IStopPipeline;
     runPipeline: IAPIService_IRunPipeline;
@@ -171,6 +172,15 @@ interface IAPIService_IDeletePipeline extends grpc.MethodDefinition<pps_pps_pb.D
     requestDeserialize: grpc.deserialize<pps_pps_pb.DeletePipelineRequest>;
     responseSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
+}
+interface IAPIService_IDeletePipelines extends grpc.MethodDefinition<pps_pps_pb.DeletePipelinesRequest, pps_pps_pb.DeletePipelinesResponse> {
+    path: "/pps_v2.API/DeletePipelines";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pps_pps_pb.DeletePipelinesRequest>;
+    requestDeserialize: grpc.deserialize<pps_pps_pb.DeletePipelinesRequest>;
+    responseSerialize: grpc.serialize<pps_pps_pb.DeletePipelinesResponse>;
+    responseDeserialize: grpc.deserialize<pps_pps_pb.DeletePipelinesResponse>;
 }
 interface IAPIService_IStartPipeline extends grpc.MethodDefinition<pps_pps_pb.StartPipelineRequest, google_protobuf_empty_pb.Empty> {
     path: "/pps_v2.API/StartPipeline";
@@ -334,6 +344,7 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     inspectPipeline: grpc.handleUnaryCall<pps_pps_pb.InspectPipelineRequest, pps_pps_pb.PipelineInfo>;
     listPipeline: grpc.handleServerStreamingCall<pps_pps_pb.ListPipelineRequest, pps_pps_pb.PipelineInfo>;
     deletePipeline: grpc.handleUnaryCall<pps_pps_pb.DeletePipelineRequest, google_protobuf_empty_pb.Empty>;
+    deletePipelines: grpc.handleUnaryCall<pps_pps_pb.DeletePipelinesRequest, pps_pps_pb.DeletePipelinesResponse>;
     startPipeline: grpc.handleUnaryCall<pps_pps_pb.StartPipelineRequest, google_protobuf_empty_pb.Empty>;
     stopPipeline: grpc.handleUnaryCall<pps_pps_pb.StopPipelineRequest, google_protobuf_empty_pb.Empty>;
     runPipeline: grpc.handleUnaryCall<pps_pps_pb.RunPipelineRequest, google_protobuf_empty_pb.Empty>;
@@ -389,6 +400,9 @@ export interface IAPIClient {
     deletePipeline(request: pps_pps_pb.DeletePipelineRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     deletePipeline(request: pps_pps_pb.DeletePipelineRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     deletePipeline(request: pps_pps_pb.DeletePipelineRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    deletePipelines(request: pps_pps_pb.DeletePipelinesRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.DeletePipelinesResponse) => void): grpc.ClientUnaryCall;
+    deletePipelines(request: pps_pps_pb.DeletePipelinesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.DeletePipelinesResponse) => void): grpc.ClientUnaryCall;
+    deletePipelines(request: pps_pps_pb.DeletePipelinesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.DeletePipelinesResponse) => void): grpc.ClientUnaryCall;
     startPipeline(request: pps_pps_pb.StartPipelineRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     startPipeline(request: pps_pps_pb.StartPipelineRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     startPipeline(request: pps_pps_pb.StartPipelineRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
@@ -475,6 +489,9 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public deletePipeline(request: pps_pps_pb.DeletePipelineRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public deletePipeline(request: pps_pps_pb.DeletePipelineRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public deletePipeline(request: pps_pps_pb.DeletePipelineRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public deletePipelines(request: pps_pps_pb.DeletePipelinesRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.DeletePipelinesResponse) => void): grpc.ClientUnaryCall;
+    public deletePipelines(request: pps_pps_pb.DeletePipelinesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.DeletePipelinesResponse) => void): grpc.ClientUnaryCall;
+    public deletePipelines(request: pps_pps_pb.DeletePipelinesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.DeletePipelinesResponse) => void): grpc.ClientUnaryCall;
     public startPipeline(request: pps_pps_pb.StartPipelineRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public startPipeline(request: pps_pps_pb.StartPipelineRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public startPipeline(request: pps_pps_pb.StartPipelineRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;

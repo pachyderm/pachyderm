@@ -11,6 +11,7 @@ import {
   RepoInfo,
   Repo,
   Branch,
+  DeletePipelinesResponse,
 } from '@dash-backend/proto';
 import {
   jobInfoFromObject,
@@ -38,6 +39,7 @@ const pps = () => {
       | 'getLogs'
       | 'createPipeline'
       | 'deletePipeline'
+      | 'deletePipelines'
       | 'inspectDatum'
       | 'listDatum'
     > => {
@@ -295,6 +297,21 @@ const pps = () => {
             });
 
           callback(null, new Empty());
+        },
+        deletePipelines: (call, callback) => {
+          const projects = call.request.getProjectsList();
+          if (!projects.some((project) => !!project)) {
+            callback({
+              code: Status.UNKNOWN,
+              details: `no projects were provided`,
+            });
+            return;
+          }
+          for (const project of projects) {
+            delete MockState.state.pipelines[project.toString()];
+          }
+
+          callback(null, new DeletePipelinesResponse());
         },
         listDatum: async (call) => {
           const [projectId] = call.metadata.get('project-id');

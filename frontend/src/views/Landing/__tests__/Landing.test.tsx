@@ -6,10 +6,14 @@ import {
   screen,
   waitForElementToBeRemoved,
 } from '@testing-library/react';
-import userEvent from '@testing-library/user-event/';
 import React from 'react';
 
-import {withContextProviders, click, type} from '@dash-frontend/testHelpers';
+import {
+  withContextProviders,
+  click,
+  clear,
+  type,
+} from '@dash-frontend/testHelpers';
 
 import LandingComponent from '../Landing';
 
@@ -406,8 +410,7 @@ describe('Landing', () => {
         'Multiple pipelines outputting to different forms of egress',
       ); // Element should be prepopulated with the existing description.
 
-      const user = userEvent.setup();
-      user.clear(descriptionInput);
+      await clear(descriptionInput);
 
       await click(
         within(modal).getByRole('button', {
@@ -450,7 +453,7 @@ describe('Landing', () => {
       });
       expect(descriptionInput2).toHaveValue('');
 
-      user.clear(descriptionInput2);
+      await clear(descriptionInput2);
       await type(descriptionInput2, 'new desc');
 
       await click(
@@ -467,6 +470,61 @@ describe('Landing', () => {
       });
 
       expect(within(cell2).getByText('new desc')).toBeInTheDocument();
+    });
+  });
+
+  describe('Delete Project Modal', () => {
+    it('should delete a project', async () => {
+      render(<Landing />);
+      // wait for page to populate
+      expect(await screen.findByText('Egress-Examples')).toBeInTheDocument();
+      // open the modal on the correct row
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(
+        screen.queryByRole('menuitem', {
+          name: /delete project/i,
+        }),
+      ).toBeNull();
+      await click(
+        screen.getByRole('button', {
+          name: 'Egress-Examples overflow menu', // should be case-sensitive since projects are not case sensitive
+        }),
+      );
+      const menuItem = await screen.findByRole('menuitem', {
+        name: /delete project/i,
+      });
+      expect(menuItem).toBeVisible();
+      await click(menuItem);
+
+      const modal = await screen.findByRole('dialog');
+      expect(modal).toBeInTheDocument();
+      const projectNameInput = await within(modal).findByRole('textbox');
+      expect(projectNameInput).toHaveValue('');
+
+      await clear(projectNameInput);
+
+      const confirmButton = within(modal).getByRole('button', {
+        name: /delete project/i,
+      });
+
+      expect(confirmButton).toBeDisabled();
+      await type(projectNameInput, 'egress');
+      expect(confirmButton).toBeDisabled();
+      await type(projectNameInput, '-example');
+      expect(confirmButton).toBeDisabled();
+      await type(projectNameInput, 's');
+      expect(confirmButton).toBeEnabled();
+
+      await click(confirmButton);
+      await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
+      await waitFor(() => {
+        expect(
+          screen.queryByRole('cell', {
+            name: 'Egress-Examples', // should be case-sensitive since projects are not case sensitive
+            exact: false,
+          }),
+        ).not.toBeInTheDocument();
+      });
     });
   });
 });

@@ -397,6 +397,33 @@ describe('services/pfs', () => {
       expect(updatedRepos).toHaveLength(0);
     });
   });
+  describe('deleteRepos', () => {
+    it('should delete all repos across projects', async () => {
+      const client = await createSandbox('deleteRepos');
+      await client
+        .pfs()
+        .createRepo({projectId: 'default', repo: {name: 'a-repo'}});
+      await client.pfs().createProject({name: 'project-2'});
+      await client
+        .pfs()
+        .createRepo({projectId: 'project-2', repo: {name: 'a-repo1'}});
+      await client
+        .pfs()
+        .createRepo({projectId: 'project-2', repo: {name: 'a-repo2'}});
+
+      const initialRepos = await client
+        .pfs()
+        .listRepo({projectIds: ['default', 'project-2']});
+      expect(initialRepos).toHaveLength(4);
+
+      await client.pfs().deleteRepos({projectIds: ['default', 'project-2']});
+
+      const updatedRepos = await client
+        .pfs()
+        .listRepo({projectIds: ['default', 'project-2']});
+      expect(updatedRepos).toHaveLength(0);
+    });
+  });
   describe('diffFile', () => {
     it('should return a list of file diffs', async () => {
       const client = await createSandbox('diffFile');
@@ -524,6 +551,20 @@ describe('services/pfs', () => {
 
       expect(projectInfo?.project?.name).toBe('default');
       expect(projectInfo?.description).toBe('');
+    });
+  });
+  describe('deleteProject', () => {
+    it('should delete a project', async () => {
+      const client = await createSandbox('deleteProject');
+      await client.pfs().deleteAll();
+      expect(await client.pfs().listProject()).toHaveLength(1);
+
+      await client.pfs().createProject({name: 'test-delete-project'});
+      expect(await client.pfs().listProject()).toHaveLength(2);
+
+      await client.pfs().deleteProject({projectId: 'test-delete-project'});
+      expect(await client.pfs().listProject()).toHaveLength(1);
+      expect(await client.pfs().inspectProject('default')).toBeTruthy();
     });
   });
 });

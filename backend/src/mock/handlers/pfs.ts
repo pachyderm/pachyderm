@@ -23,6 +23,7 @@ import {
   CreateFileSetResponse,
   ProjectInfo,
   Project,
+  DeleteReposResponse,
 } from '@dash-backend/proto';
 import {
   commitInfoFromObject,
@@ -74,11 +75,13 @@ const pfs = () => {
       | 'startCommit'
       | 'finishCommit'
       | 'deleteRepo'
+      | 'deleteRepos'
       | 'createFileSet'
       | 'addFileSet'
       | 'listProject'
       | 'inspectProject'
       | 'createProject'
+      | 'deleteProject'
     > => {
       return {
         listRepo: (call) => {
@@ -89,7 +92,7 @@ const pfs = () => {
           const [accountId] = call.metadata.get('authn-token');
           const projectRepos = setAuthInfoForRepos(
             projectId
-              ? MockState.state.repos[projectId.toString()]
+              ? MockState.state.repos[projectId.toString()] || []
               : MockState.state.repos['Solar-Panel-Data-Sorting'],
             accountId.toString(),
           );
@@ -329,6 +332,21 @@ const pfs = () => {
           );
 
           callback(null, new Empty());
+        },
+        deleteRepos: (call, callback) => {
+          const projects = call.request.getProjectsList();
+          if (!projects.some((project) => !!project)) {
+            callback({
+              code: Status.UNKNOWN,
+              details: `no projects were provided`,
+            });
+            return;
+          }
+          for (const project of projects) {
+            delete MockState.state.repos[project.toString()];
+          }
+
+          callback(null, new DeleteReposResponse());
         },
         inspectBranch: (call, callback) => {
           const [projectId] = call.metadata.get('project-id');
@@ -853,6 +871,18 @@ const pfs = () => {
             project.setDescription(projectDescription);
             callback(null, new Empty());
           }
+        },
+        deleteProject: (call, callback) => {
+          const projectName = call.request.getProject()?.getName();
+          if (!projectName) {
+            callback({
+              code: Status.UNKNOWN,
+              details: `provide a name`,
+            });
+            return;
+          }
+          delete MockState.state.projects[projectName];
+          callback(null, new Empty());
         },
       };
     },

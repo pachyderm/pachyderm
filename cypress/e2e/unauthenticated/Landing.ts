@@ -30,7 +30,7 @@ describe('Landing', () => {
     cy.findByText('Last Job');
   });
 
-  it('should create a new project and edit its description', () => {
+  it('should create a new project, edit its description, then delete it', () => {
     // create new project
     cy.findByRole('button', {
       name: /create project/i,
@@ -73,9 +73,7 @@ describe('Landing', () => {
 
     cy.findByRole('menuitem', {
       name: /edit project info/i,
-    })
-      .findByText(/edit project info/i)
-      .click();
+    }).click();
 
     cy.findByRole('dialog', {timeout: 12000}).within(() => {
       cy.findByRole('textbox', {
@@ -100,5 +98,29 @@ describe('Landing', () => {
       // because we run cypress at a small screen size, the text will be hidden
       cy.findByText('Edit desc').should('not.be.visible');
     });
+
+    // delete project
+    cy.findByRole('button', {
+      name: /new-project overflow menu/i,
+    }).click();
+
+    cy.findByRole('menuitem', {
+      name: /delete project/i,
+    }).click();
+
+    cy.findByRole('dialog', {timeout: 12000}).within(() => {
+      cy.findByRole('textbox').should('have.value', '').type('new-project');
+
+      cy.findByRole('button', {
+        name: /delete project/i,
+      }).click();
+    });
+
+    cy.findByRole('dialog').should('not.exist');
+
+    cy.findByRole('cell', {
+      name: /new-project/i,
+      exact: false,
+    }).should('not.exist');
   });
 });

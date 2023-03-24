@@ -683,6 +683,8 @@ export class DeleteReposRequest extends jspb.Message {
     addProjects(value?: Project, index?: number): Project;
     getForce(): boolean;
     setForce(value: boolean): DeleteReposRequest;
+    getAll(): boolean;
+    setAll(value: boolean): DeleteReposRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): DeleteReposRequest.AsObject;
@@ -698,6 +700,7 @@ export namespace DeleteReposRequest {
     export type AsObject = {
         projectsList: Array<Project.AsObject>,
         force: boolean,
+        all: boolean,
     }
 }
 

@@ -445,6 +445,55 @@ export type DeletePipelineMutationOptions = Apollo.BaseMutationOptions<
   Types.DeletePipelineMutation,
   Types.DeletePipelineMutationVariables
 >;
+export const DeleteProjectAndResourcesDocument = gql`
+  mutation deleteProjectAndResources($args: DeleteProjectAndResourcesArgs!) {
+    deleteProjectAndResources(args: $args)
+  }
+`;
+export type DeleteProjectAndResourcesMutationFn = Apollo.MutationFunction<
+  Types.DeleteProjectAndResourcesMutation,
+  Types.DeleteProjectAndResourcesMutationVariables
+>;
+
+/**
+ * __useDeleteProjectAndResourcesMutation__
+ *
+ * To run a mutation, you first call `useDeleteProjectAndResourcesMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useDeleteProjectAndResourcesMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [deleteProjectAndResourcesMutation, { data, loading, error }] = useDeleteProjectAndResourcesMutation({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useDeleteProjectAndResourcesMutation(
+  baseOptions?: Apollo.MutationHookOptions<
+    Types.DeleteProjectAndResourcesMutation,
+    Types.DeleteProjectAndResourcesMutationVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useMutation<
+    Types.DeleteProjectAndResourcesMutation,
+    Types.DeleteProjectAndResourcesMutationVariables
+  >(DeleteProjectAndResourcesDocument, options);
+}
+export type DeleteProjectAndResourcesMutationHookResult = ReturnType<
+  typeof useDeleteProjectAndResourcesMutation
+>;
+export type DeleteProjectAndResourcesMutationResult =
+  Apollo.MutationResult<Types.DeleteProjectAndResourcesMutation>;
+export type DeleteProjectAndResourcesMutationOptions =
+  Apollo.BaseMutationOptions<
+    Types.DeleteProjectAndResourcesMutation,
+    Types.DeleteProjectAndResourcesMutationVariables
+  >;
 export const DeleteRepoDocument = gql`
   mutation deleteRepo($args: DeleteRepoArgs!) {
     deleteRepo(args: $args)

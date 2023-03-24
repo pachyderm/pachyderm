@@ -196,6 +196,21 @@ describe('services/pps', () => {
     });
   });
 
+  describe('deletePipelines', () => {
+    it('should delete pipelines', async () => {
+      const {pachClient} = await createSandBox('deletePipelines');
+      const pipelines = await pachClient.pps().listPipeline({projectIds: []});
+      expect(pipelines).toHaveLength(2);
+      await pachClient.pps().deletePipelines({
+        projectIds: ['default'],
+      });
+      const updatedPipelines = await pachClient
+        .pps()
+        .listPipeline({projectIds: []});
+      expect(updatedPipelines).toHaveLength(0);
+    });
+  });
+
   describe('listDatums + inspectDatum', () => {
     jest.setTimeout(60000);
 

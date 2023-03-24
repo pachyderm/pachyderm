@@ -2171,6 +2171,59 @@ export namespace DeletePipelineRequest {
     }
 }
 
+export class DeletePipelinesRequest extends jspb.Message { 
+    clearProjectsList(): void;
+    getProjectsList(): Array<pfs_pfs_pb.Project>;
+    setProjectsList(value: Array<pfs_pfs_pb.Project>): DeletePipelinesRequest;
+    addProjects(value?: pfs_pfs_pb.Project, index?: number): pfs_pfs_pb.Project;
+    getForce(): boolean;
+    setForce(value: boolean): DeletePipelinesRequest;
+    getKeepRepo(): boolean;
+    setKeepRepo(value: boolean): DeletePipelinesRequest;
+    getAll(): boolean;
+    setAll(value: boolean): DeletePipelinesRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DeletePipelinesRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: DeletePipelinesRequest): DeletePipelinesRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DeletePipelinesRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DeletePipelinesRequest;
+    static deserializeBinaryFromReader(message: DeletePipelinesRequest, reader: jspb.BinaryReader): DeletePipelinesRequest;
+}
+
+export namespace DeletePipelinesRequest {
+    export type AsObject = {
+        projectsList: Array<pfs_pfs_pb.Project.AsObject>,
+        force: boolean,
+        keepRepo: boolean,
+        all: boolean,
+    }
+}
+
+export class DeletePipelinesResponse extends jspb.Message { 
+    clearPipelinesList(): void;
+    getPipelinesList(): Array<Pipeline>;
+    setPipelinesList(value: Array<Pipeline>): DeletePipelinesResponse;
+    addPipelines(value?: Pipeline, index?: number): Pipeline;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DeletePipelinesResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: DeletePipelinesResponse): DeletePipelinesResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DeletePipelinesResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DeletePipelinesResponse;
+    static deserializeBinaryFromReader(message: DeletePipelinesResponse, reader: jspb.BinaryReader): DeletePipelinesResponse;
+}
+
+export namespace DeletePipelinesResponse {
+    export type AsObject = {
+        pipelinesList: Array<Pipeline.AsObject>,
+    }
+}
+
 export class StartPipelineRequest extends jspb.Message { 
 
     hasPipeline(): boolean;

@@ -1,3 +1,5 @@
+import {ApolloError} from 'apollo-server-errors';
+
 import formatBytes from '@dash-backend/lib/formatBytes';
 import getSizeBytes from '@dash-backend/lib/getSizeBytes';
 import {PipelineInfo, PipelineState} from '@dash-backend/proto';
@@ -15,6 +17,7 @@ interface ProjectsResolver {
   Mutation: {
     createProject: MutationResolvers['createProject'];
     updateProject: MutationResolvers['updateProject'];
+    deleteProjectAndResources: MutationResolvers['deleteProjectAndResources'];
   };
 }
 
@@ -128,6 +131,20 @@ const projectsResolver: ProjectsResolver = {
         await pachClient.pfs().inspectProject(name),
         pipelines,
       );
+    },
+    deleteProjectAndResources: async (
+      _parent,
+      {args: {name}},
+      {pachClient},
+    ) => {
+      try {
+        await pachClient.pps().deletePipelines({projectIds: [name]});
+        await pachClient.pfs().deleteRepos({projectIds: [name]});
+        await pachClient.pfs().deleteProject({projectId: name});
+        return true;
+      } catch (e) {
+        throw new ApolloError(`Failed to delete project '${name}'`);
+      }
     },
   },
 };

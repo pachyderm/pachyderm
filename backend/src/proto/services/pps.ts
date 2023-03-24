@@ -58,6 +58,7 @@ import {
   DatumInfo,
   Datum,
   Job,
+  DeletePipelinesRequest,
 } from '../proto/pps/pps_pb';
 import {DEFAULT_JOBS_LIMIT} from '../services/constants/pps';
 import streamToObjectArray from '../utils/streamToObjectArray';
@@ -268,6 +269,25 @@ const pps = ({
           (error) => {
             if (error) {
               reject(error);
+            }
+            return resolve({});
+          },
+        );
+      });
+    },
+    deletePipelines: ({projectIds}: {projectIds: string[]}) => {
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        const deletePipelinesRequest = new DeletePipelinesRequest();
+
+        const projects = projectIds.map((id) => new Project().setName(id));
+        deletePipelinesRequest.setProjectsList(projects);
+
+        client.deletePipelines(
+          deletePipelinesRequest,
+          credentialMetadata,
+          (error) => {
+            if (error) {
+              return reject(error);
             }
             return resolve({});
           },

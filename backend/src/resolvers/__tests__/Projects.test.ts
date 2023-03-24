@@ -1,4 +1,5 @@
 import {CREATE_PROJECT_MUTATION} from '@dash-frontend/mutations/CreateProject';
+import {DELETE_PROJECT_PSEUDO_FORCE_MUTATION} from '@dash-frontend/mutations/DeleteProject';
 import {UPDATE_PROJECT_MUTATION} from '@dash-frontend/mutations/UpdateProject';
 import {GET_PROJECT_DETAILS_QUERY} from '@dash-frontend/queries/GetProjectDetailsQuery';
 import {GET_PROJECT_QUERY} from '@dash-frontend/queries/GetProjectQuery';
@@ -13,6 +14,7 @@ import {
 } from '@dash-backend/testHelpers';
 import {
   CreateProjectMutation,
+  DeleteProjectAndResourcesMutation,
   Project,
   ProjectDetails,
   UpdateProjectMutation,
@@ -248,6 +250,40 @@ describe('Projects Resolver', () => {
       expect(errors?.[0].message).toBe(
         'project this-project-does-not-exist not found',
       ); // this should be extensions.details ???
+    });
+  });
+
+  describe('deleteProjectAndResources', () => {
+    it('should delete a Project and its repos and pipelines', async () => {
+      expect(mockServer.getState().projects).toHaveProperty(
+        'Data-Cleaning-Process',
+      );
+      expect(
+        mockServer.getState().pipelines['Data-Cleaning-Process'],
+      ).toHaveLength(8);
+      expect(mockServer.getState().repos['Data-Cleaning-Process']).toHaveLength(
+        14,
+      );
+
+      const {errors} = await executeMutation<DeleteProjectAndResourcesMutation>(
+        DELETE_PROJECT_PSEUDO_FORCE_MUTATION,
+        {
+          args: {
+            name: 'Data-Cleaning-Process',
+          },
+        },
+      );
+
+      expect(errors).toBeUndefined();
+      expect(
+        mockServer.getState().pipelines['Data-Cleaning-Process'],
+      ).toBeUndefined();
+      expect(
+        mockServer.getState().repos['Data-Cleaning-Process'],
+      ).toBeUndefined();
+      expect(mockServer.getState().projects).not.toHaveProperty(
+        'Data-Cleaning-Process',
+      );
     });
   });
 });

@@ -98,6 +98,28 @@ function deserialize_pps_v2_DeletePipelineRequest(buffer_arg) {
   return pps_pps_pb.DeletePipelineRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pps_v2_DeletePipelinesRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.DeletePipelinesRequest)) {
+    throw new Error('Expected argument of type pps_v2.DeletePipelinesRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_DeletePipelinesRequest(buffer_arg) {
+  return pps_pps_pb.DeletePipelinesRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_DeletePipelinesResponse(arg) {
+  if (!(arg instanceof pps_pps_pb.DeletePipelinesResponse)) {
+    throw new Error('Expected argument of type pps_v2.DeletePipelinesResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_DeletePipelinesResponse(buffer_arg) {
+  return pps_pps_pb.DeletePipelinesResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pps_v2_DeleteSecretRequest(arg) {
   if (!(arg instanceof pps_pps_pb.DeleteSecretRequest)) {
     throw new Error('Expected argument of type pps_v2.DeleteSecretRequest');
@@ -596,6 +618,17 @@ listDatum: {
     requestDeserialize: deserialize_pps_v2_DeletePipelineRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
+  },
+  deletePipelines: {
+    path: '/pps_v2.API/DeletePipelines',
+    requestStream: false,
+    responseStream: false,
+    requestType: pps_pps_pb.DeletePipelinesRequest,
+    responseType: pps_pps_pb.DeletePipelinesResponse,
+    requestSerialize: serialize_pps_v2_DeletePipelinesRequest,
+    requestDeserialize: deserialize_pps_v2_DeletePipelinesRequest,
+    responseSerialize: serialize_pps_v2_DeletePipelinesResponse,
+    responseDeserialize: deserialize_pps_v2_DeletePipelinesResponse,
   },
   startPipeline: {
     path: '/pps_v2.API/StartPipeline',

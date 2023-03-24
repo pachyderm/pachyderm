@@ -210,6 +210,10 @@ export type DeletePipelineArgs = {
   projectId: Scalars['String'];
 };
 
+export type DeleteProjectAndResourcesArgs = {
+  name: Scalars['String'];
+};
+
 export type DeleteRepoArgs = {
   force?: InputMaybe<Scalars['Boolean']>;
   projectId: Scalars['String'];
@@ -428,6 +432,7 @@ export type Mutation = {
   createRepo: Repo;
   deleteFile: Scalars['ID'];
   deletePipeline?: Maybe<Scalars['Boolean']>;
+  deleteProjectAndResources: Scalars['Boolean'];
   deleteRepo?: Maybe<Scalars['Boolean']>;
   exchangeCode: Tokens;
   finishCommit: Scalars['Boolean'];
@@ -458,6 +463,10 @@ export type MutationDeleteFileArgs = {
 
 export type MutationDeletePipelineArgs = {
   args: DeletePipelineArgs;
+};
+
+export type MutationDeleteProjectAndResourcesArgs = {
+  args: DeleteProjectAndResourcesArgs;
 };
 
 export type MutationDeleteRepoArgs = {
@@ -1042,6 +1051,7 @@ export type ResolversTypes = ResolversObject<{
   DatumsQueryArgs: DatumsQueryArgs;
   DeleteFileArgs: DeleteFileArgs;
   DeletePipelineArgs: DeletePipelineArgs;
+  DeleteProjectAndResourcesArgs: DeleteProjectAndResourcesArgs;
   DeleteRepoArgs: DeleteRepoArgs;
   Diff: ResolverTypeWrapper<Diff>;
   DiffCount: ResolverTypeWrapper<DiffCount>;
@@ -1142,6 +1152,7 @@ export type ResolversParentTypes = ResolversObject<{
   DatumsQueryArgs: DatumsQueryArgs;
   DeleteFileArgs: DeleteFileArgs;
   DeletePipelineArgs: DeletePipelineArgs;
+  DeleteProjectAndResourcesArgs: DeleteProjectAndResourcesArgs;
   DeleteRepoArgs: DeleteRepoArgs;
   Diff: Diff;
   DiffCount: DiffCount;
@@ -1584,6 +1595,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationDeletePipelineArgs, 'args'>
+  >;
+  deleteProjectAndResources?: Resolver<
+    ResolversTypes['Boolean'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationDeleteProjectAndResourcesArgs, 'args'>
   >;
   deleteRepo?: Resolver<
     Maybe<ResolversTypes['Boolean']>,
@@ -2333,6 +2350,15 @@ export type DeletePipelineMutationVariables = Exact<{
 export type DeletePipelineMutation = {
   __typename?: 'Mutation';
   deletePipeline?: boolean | null;
+};
+
+export type DeleteProjectAndResourcesMutationVariables = Exact<{
+  args: DeleteProjectAndResourcesArgs;
+}>;
+
+export type DeleteProjectAndResourcesMutation = {
+  __typename?: 'Mutation';
+  deleteProjectAndResources: boolean;
 };
 
 export type DeleteRepoMutationVariables = Exact<{
