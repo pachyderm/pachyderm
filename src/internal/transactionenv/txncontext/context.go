@@ -2,6 +2,7 @@ package txncontext
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -33,6 +34,17 @@ type TransactionContext struct {
 	// PpsJobStopper stops Jobs in any pipelines that are associated with a removed commitset
 	PpsJobStopper  PpsJobStopper
 	PpsJobFinisher PpsJobFinisher
+
+	// We rely on listener events to determine whether or not auth is activated, but this is
+	// problematic when activating auth in a transaction.  The cache isn't updated because the
+	// transaction hasn't committed, but this transaction should assume that auth IS activated,
+	// because it will be when the transaction commits.  (If it rolls back, fine; inside the
+	// transaction, auth was on!)
+	//
+	// We rely on the listener events because pretty much every RPC in Pachyderm calls
+	// "auth.isActiveInTransaction", and the performance overhead of going to the database to
+	// determine this is too high.
+	AuthBeingActivated atomic.Bool
 
 	ctx context.Context
 }

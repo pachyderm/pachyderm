@@ -381,7 +381,7 @@ func (a *apiServer) isActiveInTransaction(txnCtx *txncontext.TransactionContext)
 // and returns an error if auth is not activated. This can require hitting
 // postgres if watches are not enabled (in the worker sidecar).
 func (a *apiServer) getClusterRoleBindingInTransaction(txnCtx *txncontext.TransactionContext) (*auth.RoleBinding, error) {
-	if a.watchesEnabled {
+	if a.watchesEnabled && !txnCtx.AuthBeingActivated.Load() {
 		bindings, ok := a.clusterRoleBindingCache.Load().(*auth.RoleBinding)
 		if !ok {
 			return nil, errors.New("cached cluster binding had unexpected type")
@@ -532,7 +532,7 @@ func (a *apiServer) activateInTransaction(ctx context.Context, txCtx *txncontext
 	if err := a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(pachToken), auth.RootUser); err != nil {
 		return nil, errors.Wrap(err, "insert root token")
 	}
-
+	txCtx.AuthBeingActivated.Store(true)
 	return &auth.ActivateResponse{PachToken: pachToken}, nil
 }
 

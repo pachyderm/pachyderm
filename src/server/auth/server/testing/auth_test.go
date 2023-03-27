@@ -2466,6 +2466,10 @@ func TestListRepoAfterAuthActivation(t *testing.T) {
 	err := c.CreateProjectRepo("default", "test")
 	require.NoError(t, err, "should create the default/test repo")
 
+	// Create a pipeline, to ensure that PPS auth activation works.
+	err = c.CreateProjectPipeline("default", "pipeline", "", nil, nil, &pps.ParallelismSpec{}, client.NewPFSInput("test", "*"), "", false)
+	require.NoError(t, err, "should create the default/pipeline pipeline")
+
 	// Ensure we can list repos, and that this one shows up.
 	ensureTestRepoExists := func(c *client.APIClient) {
 		t.Helper()
@@ -2476,7 +2480,7 @@ func TestListRepoAfterAuthActivation(t *testing.T) {
 		for _, r := range repos {
 			got[r.GetRepo().String()] = struct{}{}
 		}
-		require.Equal(t, map[string]struct{}{"default/test": {}}, got, "should have one repo: default/test")
+		require.Equal(t, map[string]struct{}{"default/test": {}, "default/pipeline": {}}, got, "should have one repo: default/test")
 	}
 	ensureTestRepoExists(c)
 
