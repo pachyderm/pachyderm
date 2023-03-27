@@ -57,21 +57,21 @@ def dev_server():
     # Give time for python test server to start
     time.sleep(3)
 
-    # r = requests.put(
-    #     f"{BASE_URL}/config", data=json.dumps({"pachd_address": "localhost:30650"})
-    # )
+    r = requests.put(
+        f"{BASE_URL}/config", data=json.dumps({"pachd_address": "localhost:30650"})
+    )
 
     # Give time for mount server to start
-    running = True
-    # for _ in range(15):
-    #     try:
-    #         r = requests.get(f"{BASE_URL}/config", timeout=1)
-    #         if r.status_code == 200 and r.json()["cluster_status"] != "INVALID":
-    #             running = True
-    #             break
-    #     except Exception:
-    #         pass
-    #     time.sleep(1)
+    running = False
+    for _ in range(15):
+        try:
+            r = requests.get(f"{BASE_URL}/config", timeout=1)
+            if r.status_code == 200 and r.json()["cluster_status"] != "INVALID":
+                running = True
+                break
+        except Exception:
+            pass
+        time.sleep(1)
 
     if running:
         yield
