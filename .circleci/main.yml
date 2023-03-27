@@ -127,10 +127,8 @@ jobs:
       - run: etc/testing/circle/install.sh
       - go/install:
           version: << pipeline.parameters.go-version >>
-      - run:
-          name: Start minikube
-          command: etc/testing/circle/start-minikube.sh
-          background: true
+      - wait-for-docker
+      - start-minikube
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
       - run: "echo $(($(date +%s)/604800)) > current_week"
@@ -238,10 +236,8 @@ jobs:
             - cached-deps/
       - go/install:
           version: << pipeline.parameters.go-version >>
-      - run:
-          name: Start minikube
-          command: etc/testing/circle/start-minikube.sh
-          background: true
+      - wait-for-docker
+      - start-minikube
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
       - run: "echo $(($(date +%s)/604800)) > current_week"
@@ -512,7 +508,8 @@ jobs:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
-      - run: etc/testing/circle/start-minikube.sh
+      - wait-for-docker
+      - start-minikube
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
       - run: "echo $(($(date +%s)/604800)) > current_week"
@@ -1873,3 +1870,24 @@ commands:
       - pulumi/login
       - run: |
           pulumi plugin install resource eks v0.40.0
+  wait-for-docker:
+    steps:
+      - run:
+          name: Wait for docker
+          command: |
+            # wait for docker or timeout
+            timeout=120
+            while ! docker version >/dev/null 2>&1; do
+              timeout=$((timeout - 1))
+              if [ $timeout -eq 0 ]; then
+                echo "Timed out waiting for docker daemon"
+                exit 1
+              fi
+              sleep 1
+            done
+  start-minikube:
+    steps:
+      - run:
+          name: Start minikube
+          command: minikube start --vm-driver=docker --kubernetes-version=v1.19.0 --cpus=7 --memory=12Gi --wait=all
+          background: true
