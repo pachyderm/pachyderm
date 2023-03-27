@@ -710,7 +710,7 @@ each datum.`,
 					if err != nil {
 						return errors.Wrapf(err, "could not convert %v to time", resp.Finished)
 					}
-					since = since + time.Now().Sub(finished)
+					since = since + time.Since(finished)
 				}
 			}
 
