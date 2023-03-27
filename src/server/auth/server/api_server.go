@@ -519,21 +519,20 @@ func (a *apiServer) activateInTransaction(ctx context.Context, txCtx *txncontext
 
 	// Store a new Pachyderm token (as the caller is authenticating) and
 	// initialize the root user as a cluster admin
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
-		roleBindings := a.roleBindings.ReadWrite(txCtx.SqlTx)
-		if err := roleBindings.Put(auth.ClusterRoleBindingKey, &auth.RoleBinding{
-			Entries: map[string]*auth.Roles{
-				auth.RootUser:               {Roles: map[string]bool{auth.ClusterAdminRole: true}},
-				authdb.InternalUser:         {Roles: map[string]bool{auth.ClusterAdminRole: true}},
-				auth.AllClusterUsersSubject: {Roles: map[string]bool{auth.ProjectCreatorRole: true}},
-			},
-		}); err != nil {
-			return errors.EnsureStack(err)
-		}
-		return a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(pachToken), auth.RootUser)
+	roleBindings := a.roleBindings.ReadWrite(txCtx.SqlTx)
+	if err := roleBindings.Put(auth.ClusterRoleBindingKey, &auth.RoleBinding{
+		Entries: map[string]*auth.Roles{
+			auth.RootUser:               {Roles: map[string]bool{auth.ClusterAdminRole: true}},
+			authdb.InternalUser:         {Roles: map[string]bool{auth.ClusterAdminRole: true}},
+			auth.AllClusterUsersSubject: {Roles: map[string]bool{auth.ProjectCreatorRole: true}},
+		},
 	}); err != nil {
-		return nil, errors.Wrapf(err, "insert root token")
+		return nil, errors.Wrap(err, "add cluster role binding")
 	}
+	if err := a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(pachToken), auth.RootUser); err != nil {
+		return nil, errors.Wrap(err, "insert root token")
+	}
+
 	return &auth.ActivateResponse{PachToken: pachToken}, nil
 }
 
