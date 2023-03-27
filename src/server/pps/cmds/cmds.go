@@ -700,6 +700,18 @@ each datum.`,
 				}
 				pipelineName = job.Pipeline.Name
 				jobID = job.ID
+				// adjust since to be aware of the job end time
+				resp, err := client.PpsAPIClient.InspectJob(client.Ctx(), &pps.InspectJobRequest{Job: job})
+				if err != nil {
+					return errors.Wrapf(err, "could not inspect job %s", jobStr)
+				}
+				if resp.Finished != nil {
+					finished, err := types.TimestampFromProto(resp.Finished)
+					if err != nil {
+						return errors.Wrapf(err, "could not convert %v to time", resp.Finished)
+					}
+					since = since + time.Now().Sub(finished)
+				}
 			}
 
 			// Issue RPC
