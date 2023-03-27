@@ -44,45 +44,48 @@ export const usePipeline = (
     }
   }, [metadata]);
 
-  let input;
-  try {
-    input = YAML.parse(inputSpec);
-  } catch (e) {
-    if (e instanceof YAML.YAMLParseError) {
-      input = JSON.parse(inputSpec);
-    } else {
-      throw e;
+  const createSameMetadata = (): SameMetadata => {
+    let input: string;
+    try {
+      input = YAML.parse(inputSpec);
+    } catch (e) {
+      if (e instanceof YAML.YAMLParseError) {
+        input = JSON.parse(inputSpec);
+      } else {
+        throw e;
+      }
     }
-  }
 
-  const samemeta: SameMetadata = {
-    apiVersion: 'sameproject.ml/v1alpha1',
-    environments: {
-      default: {
-        image_tag: imageName,
+    return {
+      apiVersion: 'sameproject.ml/v1alpha1',
+      environments: {
+        default: {
+          image_tag: imageName,
+        },
       },
-    },
-    metadata: {
-      name: pipelineName,
-      version: '0.0.0',
-    },
-    notebook: {
-      requirements: requirements,
-    },
-    run: {
-      name: pipelineName,
-      input: JSON.stringify(input),
-    },
+      metadata: {
+        name: pipelineName,
+        version: '0.0.0',
+      },
+      notebook: {
+        requirements: requirements,
+      },
+      run: {
+        name: pipelineName,
+        input: JSON.stringify(input),
+      },
+    };
   };
 
   const callCreatePipeline = async () => {
     setLoading(true);
     setErrorMessage('');
 
+    const sameMetadata = createSameMetadata();
     const response = await requestAPI<CreatePipelineResponse>(
       `pps/_create/${notebookPath}`,
       'PUT',
-      samemeta as ReadonlyJSONObject,
+      sameMetadata as ReadonlyJSONObject,
     );
     if (response.error) {
       setErrorMessage(response.error);
@@ -92,7 +95,8 @@ export const usePipeline = (
   };
 
   const callSavePipeline = async () => {
-    saveNotebookMetaData(samemeta);
+    const sameMetadata = createSameMetadata();
+    saveNotebookMetaData(sameMetadata);
     console.log('save pipeline called');
   };
 
