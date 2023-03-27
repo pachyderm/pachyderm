@@ -245,7 +245,7 @@ describe('Landing', () => {
 
   it('should display the project details', async () => {
     render(<Landing />);
-    click(await screen.findByText('Solar-Panel-Data-Sorting'));
+    await click(await screen.findByText('Solar-Panel-Data-Sorting'));
 
     expect(await screen.findByText('3/2')).toBeInTheDocument();
     expect(await screen.findByText('3 kB')).toBeInTheDocument();

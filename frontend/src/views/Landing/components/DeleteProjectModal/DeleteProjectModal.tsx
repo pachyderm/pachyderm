@@ -16,7 +16,7 @@ const DeleteProjectModal: FunctionComponent<ModalProps> = ({
   projectName,
 }) => {
   const {formCtx, error, handleSubmit, isFormComplete, loading, reset} =
-    useDeleteProjectModal(projectName, onHide);
+    useDeleteProjectModal(projectName);
 
   return (
     <FormModal
