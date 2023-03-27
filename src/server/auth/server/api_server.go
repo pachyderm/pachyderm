@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
 	"os"
 	"path"
@@ -127,44 +128,88 @@ func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bo
 	return s, nil
 }
 
+// ActivationScope is an additional service to activate auth for.
+type ActivationScope int
+
+const (
+	ActivationScopePFS ActivationScope = iota // Activate auth for PFS.
+	ActivationScopePPS                        // Activate auth for PPS.
+)
+
+// String implements fmt.Stringer.
+func (s ActivationScope) String() string {
+	switch s { //exhaustive:enforce
+	case ActivationScopePFS:
+		return "PFS"
+	case ActivationScopePPS:
+		return "PPS"
+	}
+	panic(fmt.Sprintf("invalid auth scope %d", int(s)))
+}
+
+// ActivateAuthEverywhere activates auth, and PPS and PFS auth, in a single transaction.  It is only
+// exposed publicly for testing; do not call it from outside this package.
+func (a *apiServer) ActivateAuthEverywhere(ctx context.Context, scopes []ActivationScope, rootToken string) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
+		log.Debug(ctx, "attempting to activate auth")
+		if _, err := a.activateInTransaction(ctx, txCtx, &auth.ActivateRequest{
+			RootToken: rootToken,
+		}); err != nil {
+			if !errors.Is(err, auth.ErrAlreadyActivated) {
+				return errors.Wrap(err, "activate auth")
+			}
+			log.Debug(ctx, "auth already active; rotating root token")
+			_, err := a.rotateRootTokenInTransaction(txCtx,
+				&auth.RotateRootTokenRequest{
+					RootToken: rootToken,
+				})
+			return errors.Wrap(err, "rotate root token")
+		}
+		for _, s := range scopes {
+			switch s { //exhaustive:enforce
+			case ActivationScopePFS:
+				log.Debug(ctx, "attempting to activate PFS auth")
+				if _, err := a.env.GetPfsServer().ActivateAuthInTransaction(txCtx, &pfs.ActivateAuthRequest{}); err != nil {
+					return errors.Wrap(err, "activate auth for pfs")
+				}
+			case ActivationScopePPS:
+				log.Debug(ctx, "attempting to activate PPS auth")
+				if _, err := a.env.GetPpsServer().ActivateAuthInTransaction(txCtx, &pps.ActivateAuthRequest{}); err != nil {
+					return errors.Wrap(err, "activate auth for pps")
+				}
+			}
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrapf(err, "activate auth everywhere (%v)", scopes)
+	}
+	log.Info(ctx, "activated auth ok", zap.Stringers("scopes", scopes))
+	return nil
+}
+
 func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	if !a.env.Config.ActivateAuth {
 		return nil
 	}
 	log.Info(ctx, "Started to configure auth server via environment")
 	ctx = internalauth.AsInternalUser(ctx, authdb.InternalUser)
-	if err := func() error {
-		// handle auth activation
-		if a.env.Config.AuthRootToken != "" {
-			if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
-				if _, err := a.activateInTransaction(ctx, txCtx, &auth.ActivateRequest{
-					RootToken: a.env.Config.AuthRootToken,
-				}); err != nil {
-					if !errors.Is(err, auth.ErrAlreadyActivated) {
-						return errors.Wrapf(err, "activate auth")
-					}
-					_, err := a.rotateRootTokenInTransaction(txCtx,
-						&auth.RotateRootTokenRequest{
-							RootToken: a.env.Config.AuthRootToken,
-						})
-					return errors.Wrapf(err, "rotate root token")
-				} else {
-					if a.env.Config.PachdSpecificConfiguration != nil {
-						if _, err := a.env.GetPfsServer().ActivateAuthInTransaction(txCtx, &pfs.ActivateAuthRequest{}); err != nil {
-							return errors.Wrap(err, "activate auth for pfs")
-						}
-						if _, err := a.env.GetPpsServer().ActivateAuthInTransaction(txCtx, &pps.ActivateAuthRequest{}); err != nil {
-							return errors.Wrap(err, "activate auth for pps")
-						}
-					}
-				}
-				return nil
-			}); err != nil {
-				return errors.Wrapf(err, "activate auth via environment")
-			}
+	// handle auth activation
+	if rootToken := a.env.Config.AuthRootToken; rootToken != "" {
+		var scopes []ActivationScope
+		if a.env.Config.PachdSpecificConfiguration != nil {
+			// If this is pachd and not the enterprise server, activate auth for PFS and
+			// PPS.
+			scopes = []ActivationScope{ActivationScopePFS, ActivationScopePPS}
 		}
+		if err := a.ActivateAuthEverywhere(ctx, scopes, rootToken); err != nil {
+			return errors.Wrapf(err, "activate auth via environment")
+		}
+	}
+
+	if err := func() error {
 		// handle oidc clients & this cluster's auth config
 		if a.env.Config.AuthConfig != "" && a.env.Config.IdentityClients != "" {
+			log.Info(ctx, "attempting to add or update ODIC clients")
 			var config auth.OIDCConfig
 			var clients []identity.OIDCClient
 			if err := yaml.Unmarshal([]byte(a.env.Config.AuthConfig), &config); err != nil {
@@ -175,7 +220,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 				return errors.Wrapf(err, "unmarshal identity clients: %q", a.env.Config.IdentityClients)
 			}
 			if a.env.Config.IdentityAdditionalClients != "" {
-				log.Info(ctx, "Adding extra oidc clients configured via environment")
+				log.Info(ctx, "adding extra oidc clients configured via environment")
 				var extras []identity.OIDCClient
 				if err := yaml.Unmarshal([]byte(a.env.Config.IdentityAdditionalClients), &extras); err != nil {
 					return errors.Wrapf(err, "unmarshal extra identity clients: %q", a.env.Config.IdentityAdditionalClients)
@@ -183,10 +228,11 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 				clients = append(clients, extras...)
 			}
 			for _, c := range clients {
+				log.Info(ctx, "adding odic client", zap.String("client_id", config.ClientID), zap.Bool("via_enterprise_server", a.env.Config.EnterpriseMember))
 				if c.Id == config.ClientID { // c represents pachd
 					c.Secret = config.ClientSecret
 					if a.env.Config.TrustedPeers != "" {
-						log.Info(ctx, "Adding additional pachd trusted peers configured via environment")
+						log.Info(ctx, "adding additional pachd trusted peers configured via environment")
 						var tps []string
 						if err := yaml.Unmarshal([]byte(a.env.Config.TrustedPeers), &tps); err != nil {
 							return errors.Wrapf(err, "unmarshal trusted peers: %q", a.env.Config.TrustedPeers)
@@ -230,12 +276,14 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 					}
 				}
 			}
+			log.Info(ctx, "setting auth configuration", log.Proto("config", &config))
 			if _, err := a.SetConfiguration(ctx, &auth.SetConfigurationRequest{Configuration: &config}); err != nil {
 				return err
 			}
 		}
 		// cluster role bindings
 		if a.env.Config.AuthClusterRoleBindings != "" {
+			log.Info(ctx, "setting up cluster role bindings")
 			var roleBinding map[string][]string
 			if err := yaml.Unmarshal([]byte(a.env.Config.AuthClusterRoleBindings), &roleBinding); err != nil {
 				return errors.Wrapf(err, "unmarshal auth cluster role bindings: %q", a.env.Config.AuthClusterRoleBindings)
@@ -249,11 +297,14 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 			for p := range existing.Binding.Entries {
 				// `pach:` user role bindings cannot be modified
 				if strings.HasPrefix(p, auth.PachPrefix) || strings.HasPrefix(p, auth.InternalPrefix) {
+					log.Info(ctx, "skipping role binding because pach: role bindings cannot be modified", zap.String("principal", p))
 					continue
 				}
 				if _, ok := roleBinding[p]; !ok {
+					rsc := &auth.Resource{Type: auth.ResourceType_CLUSTER}
+					log.Debug(ctx, "unsetting existing role binding", log.Proto("resource", rsc), zap.String("principal", p))
 					if _, err := a.ModifyRoleBinding(ctx, &auth.ModifyRoleBindingRequest{
-						Resource:  &auth.Resource{Type: auth.ResourceType_CLUSTER},
+						Resource:  rsc,
 						Principal: p,
 					}); err != nil {
 						return errors.Wrapf(err, "unset principal cluster role bindings for principal %q", p)
@@ -261,8 +312,10 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 				}
 			}
 			for p, r := range roleBinding {
+				rsc := &auth.Resource{Type: auth.ResourceType_CLUSTER}
+				log.Info(ctx, "modifying existing role binding", log.Proto("resource", rsc), zap.String("principal", p), zap.Strings("roles", r))
 				if _, err := a.ModifyRoleBinding(ctx, &auth.ModifyRoleBindingRequest{
-					Resource:  &auth.Resource{Type: auth.ResourceType_CLUSTER},
+					Resource:  rsc,
 					Principal: p,
 					Roles:     r,
 				}); err != nil {
