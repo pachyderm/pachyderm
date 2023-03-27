@@ -10,6 +10,7 @@ import requests
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
 from jupyterlab_pachyderm.env import PFS_MOUNT_DIR
+from jupyterlab_pachyderm.pps_client import SAME_METADATA_FIELDS
 
 
 ADDRESS = "http://localhost:8888"
@@ -56,21 +57,21 @@ def dev_server():
     # Give time for python test server to start
     time.sleep(3)
 
-    r = requests.put(
-        f"{BASE_URL}/config", data=json.dumps({"pachd_address": "localhost:30650"})
-    )
+    # r = requests.put(
+    #     f"{BASE_URL}/config", data=json.dumps({"pachd_address": "localhost:30650"})
+    # )
 
     # Give time for mount server to start
-    running = False
-    for _ in range(15):
-        try:
-            r = requests.get(f"{BASE_URL}/config", timeout=1)
-            if r.status_code == 200 and r.json()["cluster_status"] != "INVALID":
-                running = True
-                break
-        except Exception:
-            pass
-        time.sleep(1)
+    running = True
+    # for _ in range(15):
+    #     try:
+    #         r = requests.get(f"{BASE_URL}/config", timeout=1)
+    #         if r.status_code == 200 and r.json()["cluster_status"] != "INVALID":
+    #             running = True
+    #             break
+    #     except Exception:
+    #         pass
+    #     time.sleep(1)
 
     if running:
         yield
@@ -411,3 +412,16 @@ def test_pps(dev_server, simple_pachyderm_env):
     r = requests.put(f"{BASE_URL}/pps/_create/{path}", data=json.dumps(data))
     assert r.status_code == 200
     assert next(client.inspect_pipeline(pipeline_name))
+
+
+@pytest.mark.parametrize('excluded_field', SAME_METADATA_FIELDS)
+def test_pps_validation_errors(dev_server, excluded_field):
+    path = TEST_NOTEBOOK.relative_to(Path.cwd())
+    data = dict()
+    for field in SAME_METADATA_FIELDS:
+        if field != excluded_field:
+            data[field] = dict()
+
+    r = requests.put(f"{BASE_URL}/pps/_create/{path}", data=json.dumps(data))
+    assert r.status_code == 500
+    assert r.json()['reason'] == f"Bad Request: field {excluded_field} not set"

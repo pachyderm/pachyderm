@@ -118,5 +118,5 @@ export type SameRunMetadata = {
 };
 
 export type CreatePipelineResponse = {
-  error: string | null;
+  message: string | null;
 };

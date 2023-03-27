@@ -6,8 +6,11 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from tornado.httpclient import AsyncHTTPClient
+from tornado.web import HTTPError
 
 from .log import get_logger
+
+SAME_METADATA_FIELDS = ('apiVersion', 'environments', 'metadata', 'run', 'notebook')
 
 
 class PPSClient:
@@ -38,7 +41,14 @@ class PPSClient:
         """
         get_logger().debug(f"path: {path} | body: {config}")
 
-        # TODO: There's a lot of data-munging here that can error.
+        # Validate config structure.
+        # Error codes are 500, we are unable to override this.
+        for field in SAME_METADATA_FIELDS:
+            if field not in config:
+                raise HTTPError(reason=f"Bad Request: field {field} not set")
+        if 'input' not in config['run']:
+            raise HTTPError(reason=f"Bad Request: field run.input not set")
+
         input_spec = config['run'].pop("input")  # Input not allowed in SAME metadata.
         # Paths are relative to the config file. Since the config is being written into
         #  a temporary file, we need to specify an absolute path.
@@ -56,9 +66,16 @@ class PPSClient:
             command.extend(["--target", "pachyderm"])
             command.extend(["--input", input_spec])
             call = subprocess.run(command, capture_output=True)
-            error = call.stderr.decode() if call.returncode else None
+            if call.returncode:
+                raise HTTPError(
+                    code=500,
+                    log_message=call.stderr.decode(),
+                    reason="Internal Error: SAME could not create pipeline"
+                )
 
-        return json.dumps(dict(error=error))
+        return json.dumps(
+            dict(message=None)  # We can send back console link here.
+        )
 
 
 def create_pipeline_spec(

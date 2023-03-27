@@ -4,6 +4,7 @@ import {useEffect, useState} from 'react';
 import {CreatePipelineResponse, SameMetadata} from '../../../types';
 import {requestAPI} from '../../../../../handler';
 import {ReadonlyJSONObject} from '@lumino/coreutils';
+import {ServerConnection} from '@jupyterlab/services';
 
 export type usePipelineResponse = {
   loading: boolean;
@@ -82,13 +83,18 @@ export const usePipeline = (
     setErrorMessage('');
 
     const sameMetadata = createSameMetadata();
-    const response = await requestAPI<CreatePipelineResponse>(
-      `pps/_create/${notebookPath}`,
-      'PUT',
-      sameMetadata as ReadonlyJSONObject,
-    );
-    if (response.error) {
-      setErrorMessage(response.error);
+    try {
+      const response = await requestAPI<CreatePipelineResponse>(
+        `pps/_create/${notebookPath}`,
+        'PUT',
+        sameMetadata as ReadonlyJSONObject,
+      );
+    } catch (e) {
+      if (e instanceof ServerConnection.ResponseError) {
+        setErrorMessage(e.message);
+      } else {
+        throw e;
+      }
     }
     console.log('create pipeline called');
     setLoading(false);
