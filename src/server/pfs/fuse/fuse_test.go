@@ -409,7 +409,8 @@ func TestMountCommit(t *testing.T) {
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
 				Name: "repo",
-				File: &pfs.File{Commit: c1},
+				File: &pfs.File{
+					Commit: &pfs.Commit{Repo: c1.Repo, ID: c1.ID}},
 			},
 		},
 	}, func(mountPoint string) {
