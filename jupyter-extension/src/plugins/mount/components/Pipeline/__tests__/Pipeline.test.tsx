@@ -42,6 +42,7 @@ describe('PPS screen', () => {
         <Pipeline
           metadata={md}
           setShowPipeline={setShowPipeline}
+          notebookPath={'FakeNotebook.ipynb'}
           saveNotebookMetadata={saveNotebookMetaData}
         />,
       );

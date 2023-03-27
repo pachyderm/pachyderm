@@ -116,3 +116,7 @@ export type SameRunMetadata = {
   name: string;
   input?: string; //Note: SAME doesn't actually read this field when reading from the notebook and instead expects you to pass it on the command line
 };
+
+export type CreatePipelineResponse = {
+  message: string | null;
+};
