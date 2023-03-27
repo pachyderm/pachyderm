@@ -209,7 +209,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	if err := func() error {
 		// handle oidc clients & this cluster's auth config
 		if a.env.Config.AuthConfig != "" && a.env.Config.IdentityClients != "" {
-			log.Info(ctx, "attempting to add or update ODIC clients")
+			log.Info(ctx, "attempting to add or update oidc clients")
 			var config auth.OIDCConfig
 			var clients []identity.OIDCClient
 			if err := yaml.Unmarshal([]byte(a.env.Config.AuthConfig), &config); err != nil {
@@ -220,7 +220,6 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 				return errors.Wrapf(err, "unmarshal identity clients: %q", a.env.Config.IdentityClients)
 			}
 			if a.env.Config.IdentityAdditionalClients != "" {
-				log.Info(ctx, "adding extra oidc clients configured via environment")
 				var extras []identity.OIDCClient
 				if err := yaml.Unmarshal([]byte(a.env.Config.IdentityAdditionalClients), &extras); err != nil {
 					return errors.Wrapf(err, "unmarshal extra identity clients: %q", a.env.Config.IdentityAdditionalClients)
@@ -228,16 +227,17 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 				clients = append(clients, extras...)
 			}
 			for _, c := range clients {
-				log.Info(ctx, "adding odic client", zap.String("client_id", config.ClientID), zap.Bool("via_enterprise_server", a.env.Config.EnterpriseMember))
+				log.Info(ctx, "adding oidc client", zap.String("id", c.Id), zap.Bool("via_enterprise_server", a.env.Config.EnterpriseMember))
 				if c.Id == config.ClientID { // c represents pachd
 					c.Secret = config.ClientSecret
 					if a.env.Config.TrustedPeers != "" {
-						log.Info(ctx, "adding additional pachd trusted peers configured via environment")
 						var tps []string
 						if err := yaml.Unmarshal([]byte(a.env.Config.TrustedPeers), &tps); err != nil {
 							return errors.Wrapf(err, "unmarshal trusted peers: %q", a.env.Config.TrustedPeers)
 						}
 						c.TrustedPeers = append(c.TrustedPeers, tps...)
+						log.Info(ctx, "adding additional pachd trusted peers configured via environment", zap.Strings("trusted_peers", c.TrustedPeers), zap.String("id", c.Id))
+
 					}
 				}
 				if c.Id == a.env.Config.ConsoleOAuthID {

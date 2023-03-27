@@ -18,16 +18,17 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/authdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -2497,11 +2498,11 @@ func TestListRepoAfterAuthActivation(t *testing.T) {
 	// Then setup auth in a single transaction.
 	err = env.AuthServer.(interface {
 		ActivateAuthEverywhere(context.Context, []authserver.ActivationScope, string) error
-	}).ActivateAuthEverywhere(ctx, []authserver.ActivationScope{authserver.ActivationScopePFS, authserver.ActivationScopePPS}, testutil.RootToken)
+	}).ActivateAuthEverywhere(internalauth.AsInternalUser(ctx, authdb.InternalUser), []authserver.ActivationScope{authserver.ActivationScopePFS, authserver.ActivationScopePPS}, tu.RootToken)
 	require.NoError(t, err, "should activate auth everywhere")
 
 	// Ensure we can still list repos.
-	c.SetAuthToken(testutil.RootToken)
+	c.SetAuthToken(tu.RootToken)
 	ensureTestRepoExists(c)
 }
 
