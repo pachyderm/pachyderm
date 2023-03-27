@@ -2467,7 +2467,7 @@ func TestListRepoAfterAuthActivation(t *testing.T) {
 	require.NoError(t, err, "should create the default/test repo")
 
 	// Create a pipeline, to ensure that PPS auth activation works.
-	err = c.CreateProjectPipeline("default", "pipeline", "", nil, nil, &pps.ParallelismSpec{}, client.NewPFSInput("test", "*"), "", false)
+	err = c.CreateProjectPipeline("default", "pipeline", "", nil, nil, &pps.ParallelismSpec{}, client.NewProjectPFSInput("default", "test", "*"), "", false)
 	require.NoError(t, err, "should create the default/pipeline pipeline")
 
 	// Ensure we can list repos, and that this one shows up.
