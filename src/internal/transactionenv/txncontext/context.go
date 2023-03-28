@@ -39,7 +39,7 @@ type TransactionContext struct {
 	// problematic when activating auth in a transaction.  The cache isn't updated because the
 	// transaction hasn't committed, but this transaction should assume that auth IS activated,
 	// because it will be when the transaction commits.  (If it rolls back, fine; inside the
-	// transaction, auth was on!) The reason wwe rely on caching the listener events is because
+	// transaction, auth was on!) The reason we rely on caching the listener events is because
 	// pretty much every RPC in Pachyderm calls "auth.isActiveInTransaction", and the
 	// performance overhead of going to the database to determine this is too high.
 	//
