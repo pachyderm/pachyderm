@@ -6247,8 +6247,7 @@ func TestPFS(suite *testing.T) {
 			// commit.String() -> number of total transitive provenant commits
 			totalProvenance := make(map[string]map[string]struct{})
 			var cis []*pfs.CommitInfo
-			// create random commits that
-			total := 300
+			total := 500
 			for i := 0; i < total; i++ {
 				totalProv := make(map[string]struct{})
 				directProv := make([]*pfs.Commit, 0)

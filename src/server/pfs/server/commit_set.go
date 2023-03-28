@@ -42,54 +42,31 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	return TopologicalSort(cis), nil
 }
 
+func topSortHelper(ci *pfs.CommitInfo, visited map[string]struct{}, commits map[string]*pfs.CommitInfo) []*pfs.CommitInfo {
+	var result []*pfs.CommitInfo
+	for _, p := range ci.DirectProvenance {
+		provCI, commitExists := commits[p.String()]
+		_, commitVisited := visited[p.String()]
+		if commitExists && !commitVisited {
+			result = append(result, topSortHelper(provCI, visited, commits)...)
+		}
+	}
+	visited[ci.Commit.String()] = struct{}{}
+	return result
+}
+
 // TopologicalSort sorts a slice of commit infos topologically based on their provenance
 func TopologicalSort(cis []*pfs.CommitInfo) []*pfs.CommitInfo {
 	commits := make(map[string]*pfs.CommitInfo)
+	visited := make(map[string]struct{})
 	for _, ci := range cis {
 		commits[pfsdb.CommitKey(ci.Commit)] = ci
 	}
-	commitSubv := make(map[string][]string) // maps commit key -> []commit keys
-	sorted := make(map[string]struct{})
-	res := make([]*pfs.CommitInfo, 0)
-	// set up commitSubv
-	for _, ci := range commits {
-		provCount := 0
-		for _, p := range ci.DirectProvenance {
-			pKey := pfsdb.CommitKey(p)
-			if _, ok := commits[pKey]; ok {
-				commitSubv[pKey] = append(commitSubv[pKey], pfsdb.CommitKey(ci.Commit))
-				provCount++
-			}
-		}
-		if provCount == 0 {
-			res = append(res, ci)
-			sorted[pfsdb.CommitKey(ci.Commit)] = struct{}{}
-		}
+	var result []*pfs.CommitInfo
+	for _, ci := range cis {
+		result = append(result, topSortHelper(ci, visited, commits)...)
 	}
-	for i := 0; i < len(cis); i++ {
-		k := pfsdb.CommitKey(res[i].Commit)
-		for _, c := range commitSubv[k] {
-			if _, ok := sorted[c]; !ok {
-				satisfied := true
-				ci := commits[c]
-				// TODO(aochen4,prov) consider for performance improvement if this check seems expensive
-				for _, p := range ci.DirectProvenance {
-					pk := pfsdb.CommitKey(p)
-					_, commitExists := commits[pk]
-					_, commitSorted := sorted[pk]
-					if commitExists && !commitSorted {
-						satisfied = false
-						break
-					}
-				}
-				if satisfied {
-					res = append(res, ci)
-					sorted[c] = struct{}{}
-				}
-			}
-		}
-	}
-	return res
+	return result
 }
 
 func (d *driver) inspectCommitSetImmediate(ctx context.Context, commitset *pfs.CommitSet, cb func(*pfs.CommitInfo) error) error {
