@@ -383,17 +383,17 @@ func TestOpenCommit(t *testing.T) {
 	})
 }
 
-func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id string) (*pfs.CommitInfo, error) {
+func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id string) error {
 	if err := pachClient.FinishProjectCommit(project, repo, branch, id); err != nil {
 		if !pfsserver.IsCommitFinishedErr(err) {
-			return nil, err
+			return err
 		}
 	}
-	ci, err := pachClient.WaitProjectCommit(project, repo, branch, id)
+	_, err := pachClient.WaitProjectCommit(project, repo, branch, id)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return ci, nil
+	return nil
 }
 
 func TestMountCommit(t *testing.T) {
@@ -403,18 +403,17 @@ func TestMountCommit(t *testing.T) {
 	c1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "repo", "master")
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(c1, "foo", strings.NewReader("foo")))
-	ci1, err := finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.ID)
-	require.NoError(t, err)
-	c2, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "repo", "master")
+	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.ID))
+	require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "repo", "dev", "master", "", nil))
+	c2, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "repo", "dev")
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(c2, "bar", strings.NewReader("bar")))
-	ci2, err := finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.ID)
-	require.NoError(t, err)
+	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.ID))
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
 				Name: "repo",
-				File: &pfs.File{Commit: ci1.Commit},
+				File: &pfs.File{Commit: c1},
 			},
 		},
 	}, func(mountPoint string) {
@@ -437,7 +436,7 @@ func TestMountCommit(t *testing.T) {
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
 				Name: "repo",
-				File: &pfs.File{Commit: ci2.Commit},
+				File: &pfs.File{Commit: c2},
 			},
 		},
 	}, func(mountPoint string) {
