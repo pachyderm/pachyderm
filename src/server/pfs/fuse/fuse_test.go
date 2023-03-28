@@ -383,14 +383,17 @@ func TestOpenCommit(t *testing.T) {
 	})
 }
 
-func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id string) error {
+func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id string) (*pfs.CommitInfo, error) {
 	if err := pachClient.FinishProjectCommit(project, repo, branch, id); err != nil {
 		if !pfsserver.IsCommitFinishedErr(err) {
-			return err
+			return nil, err
 		}
 	}
-	_, err := pachClient.WaitProjectCommit(project, repo, branch, id)
-	return err
+	ci, err := pachClient.WaitProjectCommit(project, repo, branch, id)
+	if err != nil {
+		return nil, err
+	}
+	return ci, nil
 }
 
 func TestMountCommit(t *testing.T) {
@@ -400,17 +403,18 @@ func TestMountCommit(t *testing.T) {
 	c1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "repo", "master")
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(c1, "foo", strings.NewReader("foo")))
-	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.ID))
+	ci1, err := finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.ID)
+	require.NoError(t, err)
 	c2, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "repo", "master")
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(c2, "bar", strings.NewReader("bar")))
-	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c2.ID))
+	ci2, err := finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.ID)
+	require.NoError(t, err)
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
 				Name: "repo",
-				File: &pfs.File{
-					Commit: &pfs.Commit{Repo: c1.Repo, ID: c1.ID}},
+				File: &pfs.File{Commit: ci1.Commit},
 			},
 		},
 	}, func(mountPoint string) {
@@ -433,7 +437,7 @@ func TestMountCommit(t *testing.T) {
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
 				Name: "repo",
-				File: &pfs.File{Commit: c2},
+				File: &pfs.File{Commit: ci2.Commit},
 			},
 		},
 	}, func(mountPoint string) {
