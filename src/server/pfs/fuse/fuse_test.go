@@ -448,9 +448,8 @@ func TestMountCommit(t *testing.T) {
 		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(files))
-		require.Equal(t, "foo", filepath.Base(files[0].Name()))
-		require.Equal(t, "bar", filepath.Base(files[1].Name()))
-
+		require.Equal(t, "bar", filepath.Base(files[0].Name()))
+		require.Equal(t, "foo", filepath.Base(files[1].Name()))
 		data, err := os.ReadFile(filepath.Join(mountPoint, "repo", "bar"))
 		require.NoError(t, err)
 		require.Equal(t, "bar", string(data))
