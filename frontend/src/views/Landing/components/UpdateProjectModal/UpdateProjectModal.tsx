@@ -32,7 +32,7 @@ const UpdateProjectModal: React.FC<ModalProps> = ({
       onSubmit={handleSubmit}
       loading={loading}
       confirmText="Confirm Changes"
-      headerText={`Edit Project ${projectName}'s Description`}
+      headerText={`Edit Project: ${projectName}`}
       disabled={!isFormComplete}
       isOpen={show}
     >
