@@ -1,6 +1,6 @@
 .base {
   background-color: var(--white);
-  padding-right: 3rem;
+  padding-left: 3rem;
   padding-top: 2rem;
   overflow-y: scroll;
   border-top: solid 1px var(--border-grey);
@@ -8,6 +8,12 @@
 
 .titleContent {
   margin-left: 2rem;
+}
+
+.titleLine {
+  display: inline-flex;
+  width: 100%;
+  justify-content: space-between;
 }
 
 .legend {
@@ -29,7 +35,13 @@
 }
 
 .failedBox {
-  border: dashed 2px var(--error-red);
+  background: repeating-linear-gradient(
+    45deg,
+    var(--black),
+    var(--black) 3px,
+    var(--white) 3px,
+    var(--white) 5px
+  );
 }
 
 .viewOptions {

@@ -1,0 +1,32 @@
+.base {
+  width: 20rem;
+  overflow-y: auto;
+}
+
+.title {
+  margin: 0rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.listItem {
+  padding: 1rem;
+  cursor: pointer;
+}
+
+.listItem:nth-of-type(even) {
+  background-color: var(--background-grey);
+}
+
+.listItem.selected {
+  border-left: solid 2px var(--banner-green);
+  background-color: var(--background-blue);
+}
+
+.listItemText {
+  display: block;
+  color: var(--pachyderm-black);
+}
+
+.button {
+  width: auto;
+}

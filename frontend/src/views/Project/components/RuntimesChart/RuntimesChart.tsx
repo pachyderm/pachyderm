@@ -10,7 +10,7 @@ import {
   CategoryScale,
 } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
-import React, {useRef, useCallback, useMemo} from 'react';
+import React, {useRef, useCallback, useMemo, useState} from 'react';
 import {getElementAtEvent} from 'react-chartjs-2';
 import {useHistory} from 'react-router-dom';
 
@@ -24,9 +24,10 @@ import {MAX_FILTER_HEIGHT_REM} from '@dash-frontend/components/TableView/compone
 import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {getStandardDate} from '@dash-frontend/lib/dateTime';
-import {Form} from '@pachyderm/components';
+import {Form, Button} from '@pachyderm/components';
 
 import BarChart from './components/BarChart';
+import DatumsSidebar from './components/DatumsSidebar';
 import Tooltip from './components/Tooltip';
 import useRuntimesChartData from './hooks/useRuntimesChartData';
 import useRuntimesChartFilters from './hooks/useRuntimesChartFilters';
@@ -53,22 +54,26 @@ type RuntimesChartProps = {
   filtersExpanded: boolean;
 };
 
-export const CHART_COLORS = [
-  '#6929c4',
-  '#1192e8',
-  '#005d5d',
-  '#9f1853',
-  '#fa4d56',
-  '#570408',
-  '#198038',
-  '#002d9c',
-  '#ee538b',
-  '#b28600',
-  '#009d9a',
-  '#012749',
-  '#8a3800',
-  '#a56eff',
-];
+export const getChartColor = (index: number, opacity = 1) => {
+  const chartColorsRGB = [
+    [105, 41, 196],
+    [17, 146, 232],
+    [0, 93, 93],
+    [159, 23, 83],
+    [250, 77, 86],
+    [87, 4, 8],
+    [25, 128, 56],
+    [0, 45, 156],
+    [238, 83, 139],
+    [178, 134, 0],
+    [0, 157, 154],
+    [1, 39, 73],
+    [138, 56, 0],
+    [165, 110, 255],
+  ];
+  const [r, g, b] = chartColorsRGB[index % chartColorsRGB.length];
+  return `rgba(${r},${g},${b},${opacity})`;
+};
 
 const DEFAULT_FONT = {
   family: 'Public Sans',
@@ -87,6 +92,8 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
   const chartRef = useRef<ChartJS<'bar'>>(null);
   const {projectId} = useUrlState();
   const browserHistory = useHistory();
+  const [datumsSidebarOpen, setDatumsSidebarOpen] = useState(false);
+  const [selectedJob, selectFailedDatumJob] = useState('');
   const {getPathToDatumLogs} = useLogsNavigation();
   const {filteredJobs, formCtx, clearableFiltersMap, multiselectFilters} =
     useRuntimesChartFilters({jobs});
@@ -97,8 +104,10 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
     pipelines,
     jobIds,
     useHoursAsUnit,
-  } = useRuntimesChartData(filteredJobs);
-  const {tooltip, setTooltipState} = useRuntimesChartTooltip();
+    jobsWithFailedDatums,
+  } = useRuntimesChartData(filteredJobs, selectedJob);
+  const {tooltip, setTooltipState} =
+    useRuntimesChartTooltip(jobsCrossReference);
 
   const options: ChartOptions<'bar'> = useMemo(
     () => ({
@@ -232,18 +241,28 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
           data-testid="RuntimesChart__chart"
         >
           <div className={styles.titleContent}>
-            {resource === 'job' && (
-              <h5>
-                Runtimes for {jobIds.length}{' '}
-                {jobIds.length > 1 ? 'jobs' : 'job'}
-              </h5>
-            )}
-            {resource === 'pipeline' && (
-              <h5>
-                Runtimes for {pipelines.length}{' '}
-                {pipelines.length > 1 ? 'pipelines' : 'pipeline'}
-              </h5>
-            )}
+            <div className={styles.titleLine}>
+              {resource === 'job' && (
+                <h5>
+                  Runtimes for {jobIds.length}{' '}
+                  {jobIds.length > 1 ? 'jobs' : 'job'}
+                </h5>
+              )}
+              {resource === 'pipeline' && (
+                <h5>
+                  Runtimes for {pipelines.length}{' '}
+                  {pipelines.length > 1 ? 'pipelines' : 'pipeline'}
+                </h5>
+              )}
+              {jobsWithFailedDatums.length > 0 && (
+                <Button
+                  buttonType="secondary"
+                  onClick={() => setDatumsSidebarOpen(!datumsSidebarOpen)}
+                >
+                  Jobs with failed datums
+                </Button>
+              )}
+            </div>
             {viewOptions && (
               <div className={styles.viewOptions}>{viewOptions}</div>
             )}
@@ -259,8 +278,7 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
                     <div
                       className={styles.legendBox}
                       style={{
-                        backgroundColor:
-                          CHART_COLORS[index % CHART_COLORS.length],
+                        backgroundColor: getChartColor(index),
                       }}
                     />
                     {oldestJob && getStandardDate(oldestJob)};{' '}
@@ -269,11 +287,10 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
                   </div>
                 );
               })}
-              {/* To be added with datum errors */}
-              {/* <div className={styles.legendItem}>
-              <div className={styles.failedBox} />
-              Failed Datums
-            </div> */}
+              <div className={styles.legendItem}>
+                <div className={styles.failedBox} />
+                Failed Datums
+              </div>
             </div>
           </div>
           <BarChart
@@ -284,6 +301,14 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
             handleBarClick={handleClick}
           />
           <Tooltip tooltipState={tooltip} useHoursAsUnit={useHoursAsUnit} />
+          {datumsSidebarOpen && (
+            <DatumsSidebar
+              jobs={jobsWithFailedDatums}
+              selectedJob={selectedJob}
+              selectFailedDatumJob={selectFailedDatumJob}
+              onClose={() => setDatumsSidebarOpen(false)}
+            />
+          )}
         </div>
       )}
     </Form>

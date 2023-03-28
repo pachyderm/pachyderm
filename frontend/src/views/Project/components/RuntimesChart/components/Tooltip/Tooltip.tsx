@@ -13,6 +13,7 @@ type TooltipProps = {
     left: number;
     opacity: number;
     runtime: string;
+    failedDatums: number;
   };
   useHoursAsUnit: boolean;
 };
@@ -27,6 +28,12 @@ const Tooltip: React.FC<TooltipProps> = ({tooltipState, useHoursAsUnit}) => {
         opacity: tooltipState.opacity,
       }}
     >
+      {tooltipState.failedDatums > 0 && (
+        <div className={styles.tooltipLine}>
+          <CaptionTextSmall>{tooltipState.failedDatums}</CaptionTextSmall>
+          <CaptionTextSmall>Failed Datums</CaptionTextSmall>
+        </div>
+      )}
       <div className={styles.tooltipLine}>
         <CaptionTextSmall>
           {parseFloat(tooltipState.runtime).toFixed(1)}{' '}

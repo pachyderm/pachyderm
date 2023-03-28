@@ -1,12 +1,13 @@
 import {Job} from '@graphqlTypes';
 import {ChartData} from 'chart.js';
+import {draw} from 'patternomaly';
 import {useMemo, useCallback} from 'react';
 
-import {CHART_COLORS} from '../RuntimesChart';
+import {getChartColor} from '../RuntimesChart';
 
 const SECONDS_IN_HOUR = 60 * 60;
 
-const useRuntimesChartData = (filteredJobs: Job[]) => {
+const useRuntimesChartData = (filteredJobs: Job[], selectedJob: string) => {
   const jobIds = useMemo(
     () => [...new Set(filteredJobs.map((job: Job) => job.id))],
     [filteredJobs],
@@ -62,25 +63,53 @@ const useRuntimesChartData = (filteredJobs: Job[]) => {
       // ex: [[0,15],[15,30]] for 2 jobs in a DAG that took 15 seconds each.
       const jobSetData: [number, number][] = [];
       let durationSoFar = 0;
+      const backgroundColors: (string | CanvasPattern)[] = [];
+      const colorOpacity = selectedJob && selectedJob !== id ? 0.25 : 1;
+
       pipelines.forEach((pipeline) => {
         const latestDuration =
           (getJobDuration(id, pipeline) || 0) /
           (useHoursAsUnit ? SECONDS_IN_HOUR : 1);
         jobSetData.push([durationSoFar, durationSoFar + latestDuration]);
         durationSoFar += latestDuration;
+
+        if (
+          jobsCrossReference[id][pipeline] &&
+          jobsCrossReference[id][pipeline].dataFailed > 0
+        ) {
+          backgroundColors.push(
+            draw('diagonal', getChartColor(index, colorOpacity)),
+          );
+        } else {
+          backgroundColors.push(getChartColor(index, colorOpacity));
+        }
       });
+
       return {
         label: id,
         data: jobSetData,
-        backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
+        minBarLength: 10,
+        backgroundColor: backgroundColors,
       };
     });
-  }, [getJobDuration, jobIds, useHoursAsUnit, pipelines]);
+  }, [
+    jobIds,
+    pipelines,
+    selectedJob,
+    getJobDuration,
+    useHoursAsUnit,
+    jobsCrossReference,
+  ]);
 
   const chartData: ChartData<'bar'> = {
     labels: pipelines,
     datasets: pipelineDatasets,
   };
+
+  const jobsWithFailedDatums = useMemo(
+    () => filteredJobs?.filter((job) => job.dataFailed > 0),
+    [filteredJobs],
+  );
 
   return {
     chartData,
@@ -89,6 +118,7 @@ const useRuntimesChartData = (filteredJobs: Job[]) => {
     pipelines,
     jobIds,
     useHoursAsUnit,
+    jobsWithFailedDatums,
   };
 };
 
