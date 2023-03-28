@@ -22,7 +22,7 @@ Object.defineProperty(window, 'crypto', {
   writable: true,
 });
 
-class MockIntersectionObserver implements IntersectionObserver {
+class MockObserver implements IntersectionObserver {
   readonly root: Element | null = null;
   readonly rootMargin: string = '';
   readonly thresholds: ReadonlyArray<number> = [];
@@ -35,13 +35,19 @@ class MockIntersectionObserver implements IntersectionObserver {
 Object.defineProperty(window, 'IntersectionObserver', {
   writable: true,
   configurable: true,
-  value: MockIntersectionObserver,
+  value: MockObserver,
 });
 
 Object.defineProperty(global, 'IntersectionObserver', {
   writable: true,
   configurable: true,
-  value: MockIntersectionObserver,
+  value: MockObserver,
+});
+
+Object.defineProperty(global, 'ResizeObserver', {
+  writable: true,
+  configurable: true,
+  value: MockObserver,
 });
 
 Object.defineProperty(window.document, 'queryCommandSupported', {

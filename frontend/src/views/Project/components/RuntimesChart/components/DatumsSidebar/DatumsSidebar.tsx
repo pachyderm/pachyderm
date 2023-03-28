@@ -61,6 +61,7 @@ const DatumsSidebar: React.FC<DatumsSidebarProps> = ({
             [styles.selected]: job.id === selectedJob,
           })}
           onClick={() => handleSelection(job.id)}
+          aria-label={`${job.id} failed datums`}
         >
           <CaptionTextSmall className={styles.listItemText}>
             {job.id.slice(0, 6)}; @{job.pipelineName}

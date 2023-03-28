@@ -4,6 +4,7 @@
   padding-top: 2rem;
   overflow-y: scroll;
   border-top: solid 1px var(--border-grey);
+  position: relative;
 }
 
 .titleContent {
