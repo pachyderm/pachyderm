@@ -858,7 +858,14 @@ func (c APIClient) GetKubeEvents(since time.Duration) ([]*pps.LokiLogMessage, er
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return grpcutil.Collect[*pps.LokiLogMessage](client, 1000)
+	var resp []*pps.LokiLogMessage
+	if err := grpcutil.ForEach[*pps.LokiLogMessage](client, func(msg *pps.LokiLogMessage) error {
+		resp = append(resp, msg)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 // CreatePipeline creates a new pipeline, pipelines are the main computation
