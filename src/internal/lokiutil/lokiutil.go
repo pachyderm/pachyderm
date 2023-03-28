@@ -47,12 +47,9 @@ func forEachLine(resp loki.QueryResponse, f func(t time.Time, line string) error
 }
 
 // QueryRange calls QueryRange on the passed loki.Client and calls f with each logline.
-func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, through time.Time, follow bool, maxLogs int, f func(t time.Time, line string) error) error {
-	if maxLogs == 0 || maxLogs > maxLogMessages {
-		maxLogs = maxLogMessages
-	}
+func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, through time.Time, follow bool, f func(t time.Time, line string) error) error {
 	for {
-		resp, err := c.QueryRange(ctx, queryStr, maxLogs, from, through, "FORWARD", 0, 0, true)
+		resp, err := c.QueryRange(ctx, queryStr, maxLogMessages, from, through, "FORWARD", 0, 0, true)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}

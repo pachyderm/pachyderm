@@ -1360,7 +1360,7 @@ func (a *apiServer) GetKubeEvents(request *pps.LokiRequest, apiGetKubeEventsServ
 	if request.Since != nil {
 		since = time.Now().Add(-time.Duration(request.Since.Seconds) * time.Second)
 	}
-	return lokiutil.QueryRange(apiGetKubeEventsServer.Context(), loki, `{app="pachyderm-kube-event-tail"}`, since, time.Time{}, false, 1000, func(t time.Time, line string) error {
+	return lokiutil.QueryRange(apiGetKubeEventsServer.Context(), loki, `{app="pachyderm-kube-event-tail"}`, since, time.Time{}, false, func(t time.Time, line string) error {
 		return errors.EnsureStack(apiGetKubeEventsServer.Send(&pps.LokiLogMessage{
 			Message: strings.TrimSuffix(line, "\n"),
 		}))
@@ -1550,7 +1550,7 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 		if err := a.env.AuthServer.CheckClusterIsAuthorized(apiGetLogsServer.Context(), auth.Permission_CLUSTER_GET_PACHD_LOGS); err != nil {
 			return errors.EnsureStack(err)
 		}
-		return lokiutil.QueryRange(apiGetLogsServer.Context(), loki, `{app="pachd"}`, time.Now().Add(-since), time.Time{}, request.Follow, 0, func(t time.Time, line string) error {
+		return lokiutil.QueryRange(apiGetLogsServer.Context(), loki, `{app="pachd"}`, time.Now().Add(-since), time.Time{}, request.Follow, func(t time.Time, line string) error {
 			return errors.EnsureStack(apiGetLogsServer.Send(&pps.LogMessage{
 				Message: strings.TrimSuffix(line, "\n"),
 			}))
@@ -1599,7 +1599,7 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 	for _, filter := range request.DataFilters {
 		query += contains(filter)
 	}
-	return lokiutil.QueryRange(ctx, loki, query, time.Now().Add(-since), time.Time{}, request.Follow, 0, func(t time.Time, line string) error {
+	return lokiutil.QueryRange(ctx, loki, query, time.Now().Add(-since), time.Time{}, request.Follow, func(t time.Time, line string) error {
 		msg := new(pps.LogMessage)
 		if err := ParseLokiLine(line, msg); err != nil {
 			log.Debug(ctx, "get logs (loki): unparseable log line", zap.String("line", line), zap.Error(err))
