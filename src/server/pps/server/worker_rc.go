@@ -688,10 +688,9 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 			return nil, errors.Wrapf(err, "could not determine sidecar resource limit")
 		}
 	}
-	// TODO check what to do here
 	if pipelineInfo.Details.SidecarResourceRequests != nil {
 		var err error
-		sidecarResourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(ctx, pipelineInfo)
+		sidecarResourceRequests, err = ppsutil.GetLimitsResourceList(ctx, pipelineInfo.Details.SidecarResourceRequests)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not determine sidecar resource request")
 		}
@@ -859,26 +858,27 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 
 	// Generate options for new RC
 	return &workerOptions{
-		rcName:                ppsutil.PipelineRcName(pipelineInfo),
-		s3GatewayPort:         s3GatewayPort,
-		specCommit:            pipelineInfo.SpecCommit.ID,
-		labels:                labels,
-		annotations:           annotations,
-		parallelism:           int32(0), // pipelines start w/ 0 workers & are scaled up
-		resourceRequests:      resourceRequests,
-		resourceLimits:        resourceLimits,
-		sidecarResourceLimits: sidecarResourceLimits,
-		userImage:             userImage,
-		workerEnv:             workerEnv,
-		volumes:               volumes,
-		volumeMounts:          volumeMounts,
-		postgresSecret:        postgresSecretRef,
-		imagePullSecrets:      imagePullSecrets,
-		service:               service,
-		schedulingSpec:        pipelineInfo.Details.SchedulingSpec,
-		podSpec:               pipelineInfo.Details.PodSpec,
-		podPatch:              pipelineInfo.Details.PodPatch,
-		tolerations:           tolerations,
+		rcName:                  ppsutil.PipelineRcName(pipelineInfo),
+		s3GatewayPort:           s3GatewayPort,
+		specCommit:              pipelineInfo.SpecCommit.ID,
+		labels:                  labels,
+		annotations:             annotations,
+		parallelism:             int32(0), // pipelines start w/ 0 workers & are scaled up
+		resourceRequests:        resourceRequests,
+		resourceLimits:          resourceLimits,
+		sidecarResourceLimits:   sidecarResourceLimits,
+		sidecarResourceRequests: sidecarResourceRequests,
+		userImage:               userImage,
+		workerEnv:               workerEnv,
+		volumes:                 volumes,
+		volumeMounts:            volumeMounts,
+		postgresSecret:          postgresSecretRef,
+		imagePullSecrets:        imagePullSecrets,
+		service:                 service,
+		schedulingSpec:          pipelineInfo.Details.SchedulingSpec,
+		podSpec:                 pipelineInfo.Details.PodSpec,
+		podPatch:                pipelineInfo.Details.PodPatch,
+		tolerations:             tolerations,
 	}, nil
 }
 
