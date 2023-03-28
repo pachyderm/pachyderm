@@ -3,7 +3,6 @@ import YAML from 'yaml';
 import {useEffect, useState} from 'react';
 import {CreatePipelineResponse, SameMetadata} from '../../../types';
 import {requestAPI} from '../../../../../handler';
-import {ReadonlyJSONObject} from '@lumino/coreutils';
 import {ServerConnection} from '@jupyterlab/services';
 
 export type usePipelineResponse = {
@@ -82,12 +81,28 @@ export const usePipeline = (
     setLoading(true);
     setErrorMessage('');
 
-    const sameMetadata = createSameMetadata();
+    let input: string;
+    try {
+      input = YAML.parse(inputSpec);
+    } catch (e) {
+      if (e instanceof YAML.YAMLParseError) {
+        input = JSON.parse(inputSpec);
+      } else {
+        throw e;
+      }
+    }
+
+    // const sameMetadata = createSameMetadata();
     try {
       const response = await requestAPI<CreatePipelineResponse>(
         `pps/_create/${notebookPath}`,
         'PUT',
-        sameMetadata as ReadonlyJSONObject,
+        {
+          pipeline_name: pipelineName,
+          image: imageName,
+          requirements: requirements,
+          input_spec: input,
+        },
       );
     } catch (e) {
       if (e instanceof ServerConnection.ResponseError) {
