@@ -1567,15 +1567,12 @@ func (d *driver) validateDAGStructure(txnCtx *txncontext.TransactionContext, bi 
 	}
 	expanded := make(map[string]struct{}) // expanded branches
 	for {
-		lastExpansion := len(branchInfoCache)
-		bis := make([]*pfs.BranchInfo, 0)
+		hasExpanded := false
 		for _, bi := range branchInfoCache {
-			bis = append(bis, bi)
-		}
-		for _, bi := range bis {
 			if _, ok := expanded[bi.Branch.String()]; ok {
 				continue
 			}
+			hasExpanded = true
 			expanded[bi.Branch.String()] = struct{}{}
 			for _, b := range bi.Provenance {
 				if _, err := getBranchInfo(b); err != nil {
@@ -1588,7 +1585,7 @@ func (d *driver) validateDAGStructure(txnCtx *txncontext.TransactionContext, bi 
 				}
 			}
 		}
-		if lastExpansion == len(branchInfoCache) {
+		if !hasExpanded {
 			break
 		}
 	}
