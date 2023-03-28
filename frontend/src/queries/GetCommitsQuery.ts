@@ -12,7 +12,7 @@ export const GET_COMMITS_QUERY = gql`
         seconds
         nanos
       }
-      hasNextPage
+      parentCommit
     }
   }
   ${CommitFragment}

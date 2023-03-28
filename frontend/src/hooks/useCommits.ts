@@ -21,7 +21,6 @@ const useCommits = ({args, skip = false}: UseCommitArgs) => {
     commits: data?.commits.items || [],
     error,
     loading,
-    hasNextPage: data?.commits.hasNextPage,
     cursor: data?.commits.cursor,
   };
 };

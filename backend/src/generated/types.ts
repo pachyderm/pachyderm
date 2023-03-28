@@ -103,6 +103,7 @@ export type CommitSearchQueryArgs = {
 
 export type CommitsQueryArgs = {
   branchName?: InputMaybe<Scalars['String']>;
+  commitIdCursor?: InputMaybe<Scalars['String']>;
   cursor?: InputMaybe<TimestampInput>;
   number?: InputMaybe<Scalars['Int']>;
   originKind?: InputMaybe<OriginKind>;
@@ -555,8 +556,8 @@ export type Pach = {
 export type PageableCommit = {
   __typename?: 'PageableCommit';
   cursor?: Maybe<Timestamp>;
-  hasNextPage?: Maybe<Scalars['Boolean']>;
   items: Array<Commit>;
+  parentCommit?: Maybe<Scalars['String']>;
 };
 
 export type PageableDatum = {
@@ -1684,12 +1685,12 @@ export type PageableCommitResolvers<
     ParentType,
     ContextType
   >;
-  hasNextPage?: Resolver<
-    Maybe<ResolversTypes['Boolean']>,
+  items?: Resolver<Array<ResolversTypes['Commit']>, ParentType, ContextType>;
+  parentCommit?: Resolver<
+    Maybe<ResolversTypes['String']>,
     ParentType,
     ContextType
   >;
-  items?: Resolver<Array<ResolversTypes['Commit']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -2529,7 +2530,7 @@ export type GetCommitsQuery = {
   __typename?: 'Query';
   commits: {
     __typename?: 'PageableCommit';
-    hasNextPage?: boolean | null;
+    parentCommit?: string | null;
     items: Array<{
       __typename?: 'Commit';
       repoName: string;

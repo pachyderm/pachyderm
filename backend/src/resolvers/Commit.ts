@@ -122,10 +122,35 @@ const commitResolver: CommitResolver = {
     },
     commits: async (
       _parent,
-      {args: {projectId, repoName, branchName, number, originKind, cursor}},
+      {
+        args: {
+          projectId,
+          repoName,
+          branchName,
+          commitIdCursor,
+          number,
+          originKind,
+          cursor,
+        },
+      },
       {pachClient},
     ) => {
       number = number || DEFAULT_LIMIT;
+
+      // You can only use one cursor in a query at a time.
+      if (cursor && commitIdCursor) {
+        throw new ApolloError(
+          `received cursor and commitIdCursor arguments`,
+          'INVALID_ARGUMENT',
+        );
+      }
+      // The branch parameter only works when not using the cursor argument
+      if (cursor && branchName) {
+        throw new ApolloError(
+          `can not specify cursor and branchName in query`,
+          'INVALID_ARGUMENT',
+        );
+      }
 
       const jobSetIds = await getJobSetIds({projectId, pachClient});
       const commits = await pachClient.pfs().listCommit({
@@ -136,18 +161,19 @@ const commitResolver: CommitResolver = {
         },
         number: number + 1,
         originKind: originKind ? toProtoCommitOrigin(originKind) : undefined,
-        to: branchName
-          ? {
-              id: '',
-              branch: {
-                name: branchName,
-                repo: {
-                  name: repoName,
-                  project: {name: projectId},
+        to:
+          commitIdCursor || branchName
+            ? {
+                id: commitIdCursor || '',
+                branch: {
+                  name: branchName || '',
+                  repo: {
+                    name: repoName,
+                    project: {name: projectId},
+                  },
                 },
-              },
-            }
-          : undefined,
+              }
+            : undefined,
         started_time: cursor || undefined,
       });
 
@@ -156,7 +182,7 @@ const commitResolver: CommitResolver = {
       //If commits.length is not greater than limit there are no pages left
       if (commits.length > number) {
         commits.pop(); //remove the extra commit from the response
-        nextCursor = commits[commits.length - 1].started;
+        nextCursor = commits[commits.length - 1];
       }
 
       return {
@@ -167,8 +193,8 @@ const commitResolver: CommitResolver = {
             : false;
           return gqlCommit;
         }),
-        cursor: nextCursor,
-        hasNextPage: !!nextCursor,
+        cursor: nextCursor && nextCursor.started,
+        parentCommit: nextCursor && nextCursor.parentCommit?.id,
       };
     },
     commitSearch: async (

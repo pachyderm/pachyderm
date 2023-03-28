@@ -1097,7 +1097,7 @@ export const GetCommitsDocument = gql`
         seconds
         nanos
       }
-      hasNextPage
+      parentCommit
     }
   }
   ${CommitFragmentFragmentDoc}

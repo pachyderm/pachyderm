@@ -135,6 +135,7 @@ describe('resolvers/Commits', () => {
     it('should return commits for a given repo', async () => {
       const projectId = 'Solar-Power-Data-Logger-Team-Collab';
       const repo = 'cron';
+
       const {data, errors = []} = await executeQuery<GetCommitsQuery>(
         GET_COMMITS_QUERY,
         {
@@ -184,7 +185,6 @@ describe('resolvers/Commits', () => {
             nanos: 0,
           }),
         );
-        expect(data?.commits.hasNextPage).toBe(true);
       });
 
       it('should return the next page if cursor is specified', async () => {
@@ -215,7 +215,6 @@ describe('resolvers/Commits', () => {
             nanos: 3,
           }),
         );
-        expect(data?.commits.hasNextPage).toBe(true);
       });
 
       it('should return no cursor if there are no more commits after the requested page', async () => {
@@ -240,7 +239,58 @@ describe('resolvers/Commits', () => {
         const commits = data?.commits.items;
         expect(commits).toHaveLength(1);
         expect(data?.commits.cursor).toBeNull();
-        expect(data?.commits.hasNextPage).toBe(false);
+      });
+
+      it('should return error if both cursors are passed to the query', async () => {
+        const projectId = 'Solar-Power-Data-Logger-Team-Collab';
+        const repoName = 'cron';
+        const id = '0918zzzd5daa76b86e3bb5e88e4c43a4';
+
+        const {data, errors = []} = await executeQuery<GetCommitsQuery>(
+          GET_COMMITS_QUERY,
+          {
+            args: {
+              projectId,
+              repoName,
+              number: 3,
+              cursor: {
+                seconds: 1614133389,
+                nanos: 3,
+              },
+              commitIdCursor: id,
+            },
+          },
+        );
+
+        expect(errors).toHaveLength(1);
+        expect(errors[0].extensions.code).toBe('INVALID_ARGUMENT');
+        expect(data?.commits).toBeUndefined();
+      });
+
+      it('should return error if both cursor and branch are passed to the query', async () => {
+        const projectId = 'Solar-Power-Data-Logger-Team-Collab';
+        const repoName = 'cron';
+        const branchName = 'test';
+
+        const {data, errors = []} = await executeQuery<GetCommitsQuery>(
+          GET_COMMITS_QUERY,
+          {
+            args: {
+              projectId,
+              repoName,
+              number: 3,
+              cursor: {
+                seconds: 1614133389,
+                nanos: 3,
+              },
+              branchName,
+            },
+          },
+        );
+
+        expect(errors).toHaveLength(1);
+        expect(errors[0].extensions.code).toBe('INVALID_ARGUMENT');
+        expect(data?.commits).toBeUndefined();
       });
     });
   });

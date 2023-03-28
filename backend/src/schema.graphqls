@@ -438,6 +438,7 @@ input CommitsQueryArgs {
   originKind: OriginKind
   number: Int
   cursor: TimestampInput
+  commitIdCursor: String
 }
 
 input SearchResultQueryArgs {
@@ -617,10 +618,12 @@ type PageableDatum {
   hasNextPage: Boolean
 }
 
+# Paging on the cursor will return commits from all branches, you can not filter out commits from a single branch this way.
+# If you want get a paged list of commits for a single branch you can page off of the parentCommit instead of the cursor.
 type PageableCommit {
   items: [Commit!]!
   cursor: Timestamp
-  hasNextPage: Boolean
+  parentCommit: String
 }
 
 type Query {
