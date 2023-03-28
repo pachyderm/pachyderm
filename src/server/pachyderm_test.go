@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -3451,32 +3452,35 @@ func TestManyFilesSingleOutputCommit(t *testing.T) {
 	dataRepo := tu.UniqueString("TestManyFilesSingleOutputCommit_data")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	file := "file"
+	pipelineName := tu.UniqueString("TestManyFilesSingleOutputCommit")
+	req := &pps.CreatePipelineRequest{
+		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{
+			Cmd:   []string{"sh"},
+			Stdin: []string{fmt.Sprintf("cp /pfs/%s/* pfs/out", dataRepo)},
+		},
+		Input: client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		// ResourceLimits:        &pps.ResourceSpec{Disk: "25M"},
+		// SidecarResourceLimits: &pps.ResourceSpec{Disk: "820M"},
+	}
 
 	// Setup pipeline.
-	pipelineName := tu.UniqueString("TestManyFilesSingleOutputCommit")
-	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
-			Transform: &pps.Transform{
-				Cmd:   []string{"sh"},
-				Stdin: []string{"while read line; do echo $line > /pfs/out/$line; done < " + path.Join("/pfs", dataRepo, file)},
-			},
-			Input: client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
-		},
-	)
+	_, err := c.PpsAPIClient.CreatePipeline(context.Background(), req)
 	require.NoError(t, err)
 
 	// Setup input.
 	commit, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
-	numFiles := 20000
-	var data string
+	numFiles := 200
 	for i := 0; i < numFiles; i++ {
+		t.Logf("file put %v\n", i)
+		var data string
 		data += strconv.Itoa(i) + "\n"
+		require.NoError(t, c.PutFile(commit, file+strconv.Itoa(i), io.LimitReader(rand.Reader, 10*units.MB), client.WithAppendPutFile()))
 	}
-	require.NoError(t, c.PutFile(commit, file, strings.NewReader(data), client.WithAppendPutFile()))
+	stamp := time.Now()
 	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, "master", commit.ID))
-
+	t.Logf("FINISHED COMMIT %v\n", time.Since(stamp))
 	// Check results.
 	jis, err := c.WaitJobSetAll(commit.ID, false)
 	require.NoError(t, err)

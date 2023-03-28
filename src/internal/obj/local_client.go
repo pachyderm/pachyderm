@@ -5,9 +5,11 @@ import (
 	"context"
 	"encoding/base64"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -43,6 +45,22 @@ func newFSClient(rootDir string) (Client, error) {
 	if err := c.init(); err != nil {
 		return nil, err
 	}
+
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			var n int64
+			err := filepath.Walk(c.rootDir, func(path string, info fs.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				n += info.Size()
+				return nil
+			})
+			log.Info(pctx.TODO(), "local client report", zap.Int64("size", n), zap.Error(err))
+		}
+	}()
+
 	return c, nil
 }
 
@@ -76,6 +94,13 @@ func (c *fsClient) Get(ctx context.Context, name string, w io.Writer) (retErr er
 }
 
 func (c *fsClient) Delete(ctx context.Context, name string) error {
+	var size int64
+	if fi, err := os.Stat(c.finalPathFor(name)); err == nil {
+		size = fi.Size()
+	}
+	log.Info(ctx, "deleting from fs client", zap.String("path",
+		c.finalPathFor(name)),
+		zap.Int64("size", size))
 	err := os.Remove(c.finalPathFor(name))
 	if os.IsNotExist(err) {
 		err = nil
