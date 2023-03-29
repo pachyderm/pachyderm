@@ -1,5 +1,580 @@
 
 # Changelog
+
+## 2.5.2
+
+* Djanicek/core 1481/debug fix (#8639) by @djanicekpach in https://github.com/pachyderm/pachyderm/pull/8646
+* back port new nightly load iac envs by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8654
+* bump console version to 2.5.2 by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8657
+## 2.5.1 
+
+* [2.5.x Backport][CORE-1463] pgbouncer pg_isready (#8578) by @tybritten in https://github.com/pachyderm/pachyderm/pull/8630
+* bump console version to 2.5.1-1 by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8632
+
+
+## 2.5.0
+### Projects
+- Add Projects as a Pachyderm resource - #8078
+- Create migration for default project - #8108
+- Link projects to resources - #8114
+- Add current project to pachctl config context - #8150
+- Make PPS pipeline inspection project-aware - #8154
+- Update data structures - #8156
+- Update PFS client library to support projects - #8159
+- Update PPS client library to be project-aware - #8191
+- Pipeline lifecycle - #8272
+- Make repo role bindings aware of projects - #8272
+- scope 'pachctl draw' to projects - #8536
+- list project active marker - #8461
+- diff file should apply --project to both files unless --old-project is set - #8474
+- include project field in 'pachctl list job <ID>' & in 'pachctl inspect job' - #8462
+- project names must start with an alphanumeric character - #8450
+- Make `pachctl copy file` able to copy files between projects - #8507
+- Add `pachctl auth check|set project` - #8467
+- Make `pachctl list pipelines` filter on projects - #8446
+- Migrate pipeline user names to be aware of default project - #8442
+- Make `pachctl auth check|get|set repo` aware of current project - #8431
+- Add PROJECT column to PFS pprinter - #8433
+- Remove ProjectViewer and ProjectWriter - #8419
+- Authorize DeleteProject - #8410
+- ListRepo - filter on projects and check permissions - #8382
+- Create role bindings for projects created before auth activation - #8409
+- Make ModifyRoleBinding project aware - #8354
+- Make ListJob project-aware - #8211
+- Extend auth with project primitives, and implement CreateProject - #8235
+- Do not delete projects with repos or pipelines unless forced - #8526
+- Update ListJobSetRequest and ListJobRequest to take Project messages - #8477
+- Disallow changing project or pipeline name in pachctl edit pipeline - #8465
+- Add project name to AddSpanToAnyExisting calls - #8466
+- Change ListRepo to take a list of Project messages rather than strings - #8435
+- Correct pachctl delete repo --all for projects - #8393
+- Check that project exists before creating repo - #8448
+- Project-aware pachctl list commit - #8447
+- Update debug service to be project-aware - #8376
+- Support for projects in extended traces - #8390
+- Update S3 sidecar to be project-aware - #8370
+- Default project in transactional repo creation - #8380
+- Plumb contextual project through pachctl commands - #8348
+- S3 gateway and projects - #8365
+- Update FUSE mounts for projects - #8311
+- Add short flag -A for --all-projects - #8561
+- Address the issue of overlong Kubernetes resource names - #8559
+- Address getLogsLoki project TODO - #8553
+
+### Pachctl
+- ListJobSet pagination - #8351
+- ListJob pagination - #8350		
+- WalkFile pagination - #8475	
+- Add Pachctl connect command - #8514	
+- support tgz extension for pachctl put file untar - #8361
+- Add kubernetes event logs to pachctl - #8518
+
+### Monitoring/Logging
+- Add kubernetes event logs to pachctl - #8518
+- re-introduce explicit audit log - #8540
+- log http error logs at Debug level - #8470
+- paused: scaleDownWorkers: supply objectmeta; capture all errors - #8508
+- Debug dump improvements; take 2 - #8487
+- Some adjustments to logging - #8471
+- Implement the `log` package - #8411
+- dlock: add logging around lock acquisition and release - #8469
+- script to benchmark putfile - #8404
+- envoy: switch to JSON; log listener events - #8398
+- Adjust envoy default stream window to increase upload throughput - #8397
+
+### Performance Improvements		
+- Modify GetFileURL Coordination Algorithm to Batch Files into Tasks by Size - #8544
+- Fix setting environment variables for non s3 storage backends - #8552
+- Update PutFileURL Task Model to Utilize PathRanges and Offsets  - #8520
+- Enable 'inSidecars' in pachw by default - #8543
+- Add support for affinity and tolerations - #8537
+- Migrate PutFileURL and GetFileURL to Go-Cloud-SDK - #8506
+- Bugfix for Pachw - #8483
+- Add Helm Configuration for Storage Parameters - #8458
+- Run Pachd in 'PachW' Mode and Autoscale To Handle Tasks - #8424
+- Deal with subprocesses cleanly in the worker - #8385
+- Datum batching - #8443
+
+### Extensions
+- Projects support - #8459
+- Add project filter to UI - #8523
+- Show message if datum cycler hidden - #8511
+- Qualify unmounted repos keys by project - #8515
+- Projects support - #8415
+- Prevent mounting non-existent branch in a read-only mount - #8341
+
+#### Bugs/Fixes
+- GetPermissionsResponse.Permissions should respect the requested resource type - #8460
+- Use the correct SQL to update auth tokens in migration - #8513
+- Ensure ListJobSet is actually returning the filtered list of jobs - #8484
+- Fix pachctl auth get --help message - #8413
+- Fix the locking in the consistent hashing package - #8502
+- Ensure we only create jobs for output branch commits - #8486
+- Fix several goroutine leaks when closing a service environment - #8476
+- Scale down pipeline workers when finishing a commit - #8464
+- Distributed put / get file url - #8394
+- Revert "Test tweaking default shard threshold - #8230)" - #8355
+- Tweak default shard threshold - #8230
+- Don't bail if the cluster deployment ID of the cluster doesn't match - #8529
+- envoy: ignore 200s served to kube-probe - #8402
+- Allow pipeline spec to directly specify k8s tolerations - #8517
+- helm: enable proxy by default; add NOTE about externalService deprecation - #8434
+- proxy: allow helm chart to set tolerations and node selector; don't mount service account token - #8279
+- worker_rc: set default requests if resource_requests and resource_limits are both empty - #8386
+- oidc: avoid panicking on invalid input - #8387
+- Implement the S3 Gateway bucket name proposal - #8516
+- Update version of jaeger all-in-one image - #8425
+- re-add pool size for pgbouncer image - #8345
+- Don't print warning about default login config when a real ID provider is configured for helm deployment - #8535
+- More accurate stop pipeline message - #8389
+- Correct nil pointer dereference from ListFile - #8422
+- Fix bad branch not found message - #8416
+- Make DeleteRepos and DeletePipelines similar - #8510
+- schema migration to extend length limit of auth_token subjects - #8580
+- Don't log clients that don't send a version number - #8582
+- helm: allow loki internal comms to use large message sizes; necessary… - #8589
+- Propagate pachw in sidecar variable to sidecars. - #8599
+- concurrency options - #8601
+- handle different formats of loki logs for kube events - #8603
+- list datum fix - #8610
+- Fix datum logger - #8612
+
+## 2.4.6
+
+* [2.4.x Backport] [CORE-1463] switch pgbouncer liveness to pg_isready (#8578) by @tybritten in https://github.com/pachyderm/pachyderm/pull/8584
+* bump console version 2.4.6 by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8587
+* bump jupyter-extension-build python cache by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8588
+## 2.4.5
+
+* [PFS-46] Fix directory creation with path range requests (2.4.x) by @brycemcanally in https://github.com/pachyderm/pachyderm/pull/8545
+* bump console version 2.4.5-1 by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8560
+
+## 2.4.4
+
+* cycle new fingerprints (#8504) by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8505
+* [CORE-1441] [2.4.x] leave pipelines in STANDBY until they're FINISHED by @msteffen in https://github.com/pachyderm/pachyderm/pull/8500
+* [2.4.x] Warn about outdated pachctl (#8478) by @jrockway in https://github.com/pachyderm/pachyderm/pull/8492
+* [CORE-1391] Make a 'pachyderm-tap/pachctl' formula represent the latest stable release (#8473) by @acohen4 in https://github.com/pachyderm/pachyderm/pull/8519
+* bump console version by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8521
+
+## 2.4.3 
+
+* [2.4.x port][CORE-1231] pass pachctl args to server for audit logging by @armaanv in https://github.com/pachyderm/pachyderm/pull/8423
+* security: update http2 (#8428) by @jrockway in https://github.com/pachyderm/pachyderm/pull/8432
+* [Backport 2.4.x] Add timeout to queryLoki (#8449) by @albscui in https://github.com/pachyderm/pachyderm/pull/8451
+* s3: log net/http errors at Debug level by @jrockway in https://github.com/pachyderm/pachyderm/pull/8456
+* [Backport 2.4.x] Add number of tokens revoked to RevokeToken response (#8453) by @albscui in https://github.com/pachyderm/pachyderm/pull/8457
+* [2.4.x backport][Jupyter] Fix datums-related error message when notebooks starts up by @smalyala in https://github.com/pachyderm/pachyderm/pull/8479
+* [2.4.x] Increase the reliability of debug dumps by @jrockway in https://github.com/pachyderm/pachyderm/pull/8488
+* [2.4.x Backport] Gracefully handle old pipelines where output commit is ALIAS and metacommit is AUTO (#8485) by @acohen4 in https://github.com/pachyderm/pachyderm/pull/8493
+* bump console version by @djanicekpach in https://github.com/pachyderm/pachyderm/pull/8494
+* 2.4.x update release test by @djanicekpach in https://github.com/pachyderm/pachyderm/pull/8495
+* disable cgo in pachctl by @djanicekpach in https://github.com/pachyderm/pachyderm/pull/8498
+## 2.4.2
+
+* [PFS-10] Fix Misleading Version Check Logic 2.4.x Backport by @FahadBSyed in https://github.com/pachyderm/pachyderm/pull/8399
+* [2.4.x Backport] Remove default controlplane tolerations from promtail (#8396) by @tybritten in https://github.com/pachyderm/pachyderm/pull/8406
+* [2.4.x backport] s3gateway: remove limits on file uploads by @jrockway in https://github.com/pachyderm/pachyderm/pull/8420
+## 2.4.1
+
+* [2.4.x backport][Mount Server] Mount latest non-alias commit on branch by @smalyala in https://github.com/pachyderm/pachyderm/pull/8366
+* Core 1123 2.4.x Backport by @FahadBSyed in https://github.com/pachyderm/pachyderm/pull/8384
+## 2.4.0
+
+## Core Worker & `pachd` Improvements
+- Enable Memory-Backed Pachyderm Worker Volumes - #8262
+- Fix worker keepalive timeout - #8246
+- Disable S3 server when running in paused mode - #8168
+- regenerate protos as they've gone out of sync - #8166
+- Factor out S3 server	- #8019
+- Handle signals uniformly	- #8033
+- Use service environment interface - #8027
+- Plumb a context through cmdutil.Main	- #8013
+- Start sidecar PFS server in sidecar mode - #8124
+
+## Logging
+- loki timeout and line num change - #8329
+- Remove error wrap checking from some internal interfaces.	- #7447
+- Update inspectPipeline error message for non-existent pipelines	- #8101
+- add additional buildinfo to version	- #8034
+- Use errgroups to manage goroutines in pachd	- #8020
+- Factor out Prometheus server	- #8018
+- grpc: log request ID	- #8222
+
+## `pachctl` Improvements 
+- Draw pach DAGs on the command line	- #7304
+- List pipelines at a commit set	- #8221
+- Fix issue with pretty printing JobInfo.Started	- #8135
+- pachctl: add "buildinfo" command - #8031
+
+## Pagabale API
+- add startedTime marker for ListCommit - #8174
+- ListFile pagination - #8335
+- ListDatum pagination- #8336
+
+## Performance 
+- Propagate shard config to pachd sidecar - #8369
+- changes compactionShard settings to str - #8368
+- Fix input reordering with cross inputs - #8357
+- metadata and data sharding configurations - #8363
+- Fix file set renewal in new compaction algorithm	- #8227
+- Cache Symlink Commit Uploads	- #8172
+- Implement pachctl put file untar	- #8167
+- Implement PPS datum sharding	- #7851
+- Support Locking Repos Across Multiple PFS Masters Using Consistent Hashing Library - #8045
+- Implement chunk prefetcher - #8200
+
+## Proxy 
+- Fix file set renewal in new compaction algorithm - #8227
+
+## Security
+- Fix list datum input with auth - #8359
+- Cache Symlink Commit Uploads	- #8172
+- Implement pachctl put file untar	- #8167
+- Implement PPS datum sharding	- #7851
+- Support Locking Repos Across Multiple PFS Masters Using Consistent Hashing Library - #8045	
+
+## Snowflake Integration
+- Implement chunk prefetcher - #8200	
+
+## New Contributors
+* @Juneezee made their first contribution in https://github.com/pachyderm/pachyderm/pull/7660
+* @harrisonfang made their first contribution in https://github.com/pachyderm/pachyderm/pull/8058
+
+**Full Changelog**: https://github.com/pachyderm/pachyderm/compare/v2.1.0...v2.4.0
+
+## 2.3.9
+
+* Migration load testing (2.3.x) by @brycemcanally in https://github.com/pachyderm/pachyderm/pull/8343
+
+## 2.3.8 
+
+* Backport [CORE-1198] Add a timeout to loki requests from debug dump (#8329) by @armaanv in https://github.com/pachyderm/pachyderm/pull/8331
+## 2.3.7
+
+* Backport CORE-1123 to Pachyderm 2.3 by @FahadBSyed in https://github.com/pachyderm/pachyderm/pull/8283
+* Backport Fix for Spout pipelines not able to restart by @albscui in https://github.com/pachyderm/pachyderm/pull/8310
+* bump console version 2.3.7 by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8326
+* try temp removing python cache by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8328
+## 2.3.6 
+
+* [2.3.x backport] update etcd to an image that has an arm64 build (#8169) by @jrockway in https://github.com/pachyderm/pachyderm/pull/8224
+* Add extension build as a dependency to publish by @chainlink in https://github.com/pachyderm/pachyderm/pull/8250
+* [2.3.x] Jupyter cache bump by @chainlink in https://github.com/pachyderm/pachyderm/pull/8248
+* [2.3.x backport] PPS: Be more careful about k8s errors during RC updates by @jrockway in https://github.com/pachyderm/pachyderm/pull/8264
+* [2.3.x] Proxy infer issuerURI by @seslattery in https://github.com/pachyderm/pachyderm/pull/8271
+* [2.3.x] require scheme on userAccessibleOauthIssuerHost by @seslattery in https://github.com/pachyderm/pachyderm/pull/8275
+* bump console version by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8274
+## 2.3.5 
+
+* [2.3.x Backport] Use external postgres secret when requested (#8138) by @acohen4 in https://github.com/pachyderm/pachyderm/pull/8215
+## 2.3.4
+
+* [2.3.x] Don't bother deleting stack if one does not exist, set correct working directory  by @chainlink in https://github.com/pachyderm/pachyderm/pull/8207
+* [2.3.x] Install current version of pach in jupyter CI by @chainlink in https://github.com/pachyderm/pachyderm/pull/8204
+* bump console version by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8217
+## 2.3.3
+
+* [2.3.x Backport] liveness probe to not use URI (#8128) by @tybritten in https://github.com/pachyderm/pachyderm/pull/8155
+* Add govulncheck to CI, fix vulnerable dependency (#8147) by @jrockway in https://github.com/pachyderm/pachyderm/pull/8152
+* [2.3.x] upgrade loki-stack (#8092) by @jrockway in https://github.com/pachyderm/pachyderm/pull/8141
+* bump console version by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8178
+* Jupyter merge 23x backport by @chainlink in https://github.com/pachyderm/pachyderm/pull/8177
+* images needed for tests (#8185) by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8186
+* updated base branch in config by @chainlink in https://github.com/pachyderm/pachyderm/pull/8184
+* Don't run preview on 2.3.x branch by @chainlink in https://github.com/pachyderm/pachyderm/pull/8187
+* Shell check fix for config.sh by @chainlink in https://github.com/pachyderm/pachyderm/pull/8190
+
+## 2.3.2
+
+* [2.3.x] Enable IAM Login for Cloud SQL Auth Proxy by @BOsterbuhr in https://github.com/pachyderm/pachyderm/pull/8086
+* update image path (#8104) by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8106
+* Reintroduce UPGRADE_NO_OP (#8113) by @acohen4 in https://github.com/pachyderm/pachyderm/pull/8118
+* fix circle ci nightly load test jobs (#8117) by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8119
+* [CORE-824] Disallow configuring logs in text format by @FahadBSyed in https://github.com/pachyderm/pachyderm/pull/8112
+* [CORE-448] Spread alias commits from output branches to meta branches… by @acohen4 in https://github.com/pachyderm/pachyderm/pull/8116
+* Spark compatibility in the S3 gateway by @lukemarsden in https://github.com/pachyderm/pachyderm/pull/8115
+* add build-docker-image dependency for load tests (#8127) by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8131
+* Add mount server to GH release by @chainlink in https://github.com/pachyderm/pachyderm/pull/8132
+* build mount server for distribution in release workflow (#8136) by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8137
+
+## 2.3.1
+
+- Remove Loki storageClassName default by - #8089
+- helm: make upgrades idempotent with respect to the Values dictionary - #8081
+- Fix service pipelines not picking up new jobs. - #8076
+- Adds Proxy.host   - #8074
+- use localhostIssuer=true even when network routing allows it to be false - #8070
+- Raise kubeEventTail mem limit default to 100Mi  - #8051
+- Go 1.19 and ioutil refactor - #8054
+- Set --platform for docker builds; backport go version improvements - #8046
+- PG Bouncer Liveness Probe fix  - #8043
+- release: integrate manifests into the release process - #8040
+- build info - #8037
+- Backport ARM64 builds - #8032
+- Disable Automount at the ServiceAccount Level - #7993
+- Parallel Deploy Tests - #8003
+- Filter ListDatum results - #7986
+- Configure Additional Dex Clients via Helm  - #8002
+- Deprecate enterprise root token and activateEnterprise helm values  - #7962
+- Fix user configured resources for pgbouncer deployment - #7997
+- Add errcheck to golangci-lint - #7944
+- fix MatchInvertedFail test - #7989
+- Prevent multiple lokis from mixing logs - #7983
+- Implement PPS load test DAG functionality - #7807
+- Make logs clearer - #7969
+- Disable service account token automounting for loki by default - #7972
+- Support YAML Connector Configs - #7872
+- Improve file iteration for debug analyze. - #7954
+- Fix License Count Error - #7951
+- use the right 'context' - #7950
+- Append custom Cluster RBAC to mock RBAC - #7952
+- fix userAccessibleOauthIssuerHost - #7947
+- added data-clickid tracking - #7935
+- Update more dependencies in spout example - #7949
+- Update deps & increment Go version in Spouts example - #7946
+- Add SSL config to listener config - #7756
+- Update insecure dependencies - #7932
+- Add command to serve pach API from a debug dump - #7926
+- New SQL ingest pipeline architecture design - #7900
+- Fix lint and upgrade to go1.18.4 - #7928
+- Console should restart on helm upgrades - #7925
+- Remove liveness probes for pachd - #7894
+- Rewrite Gatk make target to more closely match the Gatk README.md - #7903
+- postgres: hard-code a known password; allowing upgrades without specifying a password - #7922
+- worker_rc: make the created service headless - #7877
+- Support 63-character pipeline names - #7897
+- Re-enable S3 tests. - #7906
+- Fixes/adds commit mounting. - #7673
+- Add runAsUser/Group to all containers - #7893
+- Consolidate the kube-event-tail and pgbouncer images. - #7895
+- Fix copy url params - #7890
+- alpha.0 fixes - #7884
+- Keep only Pachyderm logs - #7882
+- Bootstrap Pachyderm before serving external traffic  - #7879
+- Give the internal auth user cluster admin perms  - #7885
+- Reduce the default cluster pool to 3 - #7886
+- Fix Update OIDC Client in Bootstrap - #7862
+- Log processing of tasks - #7850
+- bump ci release job to 1.18 - #7859
+- Add helm templates and config for kube-event-tail - #7847
+- Register one service instance with both the Internal + External GRPC Servers  - #7846
+- Add zombie data detection option to fsck. - #7749
+- Continue to use pachd.oauthClientSecretSecretName - #7857
+- helm: add a startup probe for pachd - #7860
+- update go 1.18 - #7855
+- Remove explicit OauthClientSecret decl from test infra - #7852
+- Continue deduplicating main.go - #7845
+- Add codecov for unit tests. Separate out unit tests using buildtags - #7763
+- Remove refs to pachtf docker image - #7849
+- Enable Loki by default - #7759
+- Distinguish transaction metrics with ErrTxDone. - #7842
+- Start deduplicating code in main.go - #7841
+- Add missing probes and resources - #7828
+- Remove hardcoded images and move to values file - #7827
+- [Mount Server] Read from config file on startup - #7836
+- Transactionify Auth activation in EnvBootstrap - #7817
+- Look for upstream-idps as secret key - #7840
+- Update Upgrade test versions - #7839
+- Add List() to ReadWrite Postgres Collections - #7835
+- add oidc health check to envoy - #7834
+- Reorganize load tests and add new load tests - #7703
+- env bootstrap enterprise member cluster - #7833
+- Add a simple log wrapper to Loki stream entries - #7823
+- envoy: use the default idle_timeout - #7765
+- Remove pachtf Docker image - #7830
+- worker: driver: improve error handling around /etc/passwd and /etc/group inspection - #7831
+- priority class names - #7770
+- Add comma to json - #7829
+- Configurable Security Contexts - #7745
+- make EnvBootstrap interface consistent - #7818
+- Bootstrap Embedded Pach Cluster's Auth via environment - #7804
+- [Mount Server] Upload mount server binary for each commit - #7790
+- circle: make run_tests set pipefail - #7811
+- Index cache - #7789
+- Few changes to reduce per file overhead - #7796
+- Add code to dump a database using pagination - #7786
+- Fix chomp in pachyderm-bootstrap-config - #7809
+- NewAuthServer should include EnvBootstrap - #7771
+- Fix TestEnterpriseServerMember - #7797
+- Fix Wikipedia test - #7800
+- Mount server - API to support refresh button in Jupyter extension - #7788
+- Deflake TestUpdatePipelineRunningJob - #7781
+- Mount server separate binary - #7747
+- Avoid scrubbing get file error message. - #7782
+- Pachctl ARM64 - #7305
+- Fix IDP Connectors Gitops upgrade - #7774
+- Decouple minikubetestenv address from pachctl config - #7773
+- [Mount Server] Add endpoint to check if mount server is running - #7767
+- Add basic postgres stats to pachctl debug dump - #7761
+- Pure Refactor - Reordering in preparation for more bootstrapping - #7772
+- makefile: protos: build proto compilation container for the host - #7766
+- Let Envoy terminate TLS - #7664
+- Clean glob in multiple places. - #7754
+- Bootstrap Identity Service Via environment - #7755
+- driver: avoid an unlikely-to-succeed call to setgroups() when running non-root user code - #7757
+- Add Enterprise Server/Member deploy test - #7744
+- Expose whether to write header via pachtf - #7742
+- [Mount Server] API modifications for sidecar change - #7693
+- Check status code when importing jsonnet. - #7728
+- Use load balancer on windows - #7727
+- add a http handler for oidc health check - #7634
+- Consult RC when un-crashing pipeline. - #7717
+- Create enterprise secret when a pachd.enterpriseSecret is provided - #7710
+- Fix Enterprise Gitops deployment - #7709
+- Sensible enterprise dev values.yaml - #7708
+- Bootstrap License Server via environment - #7679
+- refactor: replace strings.Replace with strings.ReplaceAll - #7660
+- [Mount Server] Add logic for repo access - #7653
+- ActivateAuth with a root token injected via pachd's environment - #7654
+- Adds a churn example. - #7588
+- Make inputs failed message clearer - #7558
+- Split out PPS auth tests - #7652
+- Surface missing secret - #7628
+- Mount server commit - #7632
+- Capture docker image SHA for datums - #7587
+- add retry to egress - #7610
+- Capture the relevant error in test retry loop. - #7615
+- Show total input datums rather than running total - #7581
+
+## 2.3.0 
+## What's Changed
+- helm: make upgrades idempotent with respect to the Values dictionary - #8081
+- Fix service pipelines not picking up new jobs. - #8076
+- Adds Proxy.host   - #8074
+- use localhostIssuer=true even when network routing allows it to be false - #8070
+- Raise kubeEventTail mem limit default to 100Mi  - #8051
+- Go 1.19 and ioutil refactor - #8054
+- Set --platform for docker builds; backport go version improvements - #8046
+- PG Bouncer Liveness Probe fix  - #8043
+- release: integrate manifests into the release process - #8040
+- build info - #8037
+- Backport ARM64 builds - #8032
+- Disable Automount at the ServiceAccount Level - #7993
+- Parallel Deploy Tests - #8003
+- Filter ListDatum results - #7986
+- Configure Additional Dex Clients via Helm  - #8002
+- Deprecate enterprise root token and activateEnterprise helm values  - #7962
+- Fix user configured resources for pgbouncer deployment - #7997
+- Add errcheck to golangci-lint - #7944
+- fix MatchInvertedFail test - #7989
+- Prevent multiple lokis from mixing logs - #7983
+- Implement PPS load test DAG functionality - #7807
+- Make logs clearer - #7969
+- Disable service account token automounting for loki by default - #7972
+- Support YAML Connector Configs - #7872
+- Improve file iteration for debug analyze. - #7954
+- Fix License Count Error - #7951
+- use the right 'context' - #7950
+- Append custom Cluster RBAC to mock RBAC - #7952
+- fix userAccessibleOauthIssuerHost - #7947
+- added data-clickid tracking - #7935
+- Update more dependencies in spout example - #7949
+- Update deps & increment Go version in Spouts example - #7946
+- Add SSL config to listener config - #7756
+- Update insecure dependencies - #7932
+- Add command to serve pach API from a debug dump - #7926
+- New SQL ingest pipeline architecture design - #7900
+- Fix lint and upgrade to go1.18.4 - #7928
+- Console should restart on helm upgrades - #7925
+- Remove liveness probes for pachd - #7894
+- Rewrite Gatk make target to more closely match the Gatk README.md - #7903
+- postgres: hard-code a known password; allowing upgrades without specifying a password - #7922
+- worker_rc: make the created service headless - #7877
+- Support 63-character pipeline names - #7897
+- Re-enable S3 tests. - #7906
+- Fixes/adds commit mounting. - #7673
+- Add runAsUser/Group to all containers - #7893
+- Consolidate the kube-event-tail and pgbouncer images. - #7895
+- Fix copy url params - #7890
+- alpha.0 fixes - #7884
+- Keep only Pachyderm logs - #7882
+- Bootstrap Pachyderm before serving external traffic  - #7879
+- Give the internal auth user cluster admin perms  - #7885
+- Reduce the default cluster pool to 3 - #7886
+- Fix Update OIDC Client in Bootstrap - #7862
+- Log processing of tasks - #7850
+- bump ci release job to 1.18 - #7859
+- Add helm templates and config for kube-event-tail - #7847
+- Register one service instance with both the Internal + External GRPC Servers  - #7846
+- Add zombie data detection option to fsck. - #7749
+- Continue to use pachd.oauthClientSecretSecretName - #7857
+- helm: add a startup probe for pachd - #7860
+- update go 1.18 - #7855
+- Remove explicit OauthClientSecret decl from test infra - #7852
+- Continue deduplicating main.go - #7845
+- Add codecov for unit tests. Separate out unit tests using buildtags - #7763
+- Remove refs to pachtf docker image - #7849
+- Enable Loki by default - #7759
+- Distinguish transaction metrics with ErrTxDone. - #7842
+- Start deduplicating code in main.go - #7841
+- Add missing probes and resources - #7828
+- Remove hardcoded images and move to values file - #7827
+- [Mount Server] Read from config file on startup - #7836
+- Transactionify Auth activation in EnvBootstrap - #7817
+- Look for upstream-idps as secret key - #7840
+- Update Upgrade test versions - #7839
+- Add List() to ReadWrite Postgres Collections - #7835
+- add oidc health check to envoy - #7834
+- Reorganize load tests and add new load tests - #7703
+- env bootstrap enterprise member cluster - #7833
+- Add a simple log wrapper to Loki stream entries - #7823
+- envoy: use the default idle_timeout - #7765
+- Remove pachtf Docker image - #7830
+- worker: driver: improve error handling around /etc/passwd and /etc/group inspection - #7831
+- priority class names - #7770
+- Add comma to json - #7829
+- Configurable Security Contexts - #7745
+- make EnvBootstrap interface consistent - #7818
+- Bootstrap Embedded Pach Cluster's Auth via environment - #7804
+- [Mount Server] Upload mount server binary for each commit - #7790
+- circle: make run_tests set pipefail - #7811
+- Index cache - #7789
+- Few changes to reduce per file overhead - #7796
+- Add code to dump a database using pagination - #7786
+- Fix chomp in pachyderm-bootstrap-config - #7809
+- NewAuthServer should include EnvBootstrap - #7771
+- Fix TestEnterpriseServerMember - #7797
+- Fix Wikipedia test - #7800
+- Mount server - API to support refresh button in Jupyter extension - #7788
+- Deflake TestUpdatePipelineRunningJob - #7781
+- Mount server separate binary - #7747
+- Avoid scrubbing get file error message. - #7782
+- Pachctl ARM64 - #7305
+- Fix IDP Connectors Gitops upgrade - #7774
+- Decouple minikubetestenv address from pachctl config - #7773
+- [Mount Server] Add endpoint to check if mount server is running - #7767
+- Add basic postgres stats to pachctl debug dump - #7761
+- Pure Refactor - Reordering in preparation for more bootstrapping - #7772
+- makefile: protos: build proto compilation container for the host - #7766
+- Let Envoy terminate TLS - #7664
+- Clean glob in multiple places. - #7754
+- Bootstrap Identity Service Via environment - #7755
+- driver: avoid an unlikely-to-succeed call to setgroups() when running non-root user code - #7757
+- Add Enterprise Server/Member deploy test - #7744
+- Expose whether to write header via pachtf - #7742
+- [Mount Server] API modifications for sidecar change - #7693
+- Check status code when importing jsonnet. - #7728
+- Use load balancer on windows - #7727
+- add a http handler for oidc health check - #7634
+- Consult RC when un-crashing pipeline. - #7717
+- Create enterprise secret when a pachd.enterpriseSecret is provided - #7710
+- Fix Enterprise Gitops deployment - #7709
+- Sensible enterprise dev values.yaml - #7708
+- Bootstrap License Server via environment - #7679
+- refactor: replace strings.Replace with strings.ReplaceAll - #7660
+- [Mount Server] Add logic for repo access - #7653
+- ActivateAuth with a root token injected via pachd's environment - #7654
+- Adds a churn example. - #7588
+- Make inputs failed message clearer - #7558
+- Split out PPS auth tests - #7652
+- Surface missing secret - #7628
+- Mount server commit - #7632
+- Capture docker image SHA for datums - #7587
+- add retry to egress - #7610
+- Capture the relevant error in test retry loop. - #7615
+- Show total input datums rather than running total - #7581
+  
 ## 2.2.7
 - Don’t segfault on nil field - #8001
 - Update RCs unconditionally. - #7995
