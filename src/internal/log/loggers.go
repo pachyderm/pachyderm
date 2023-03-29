@@ -53,8 +53,8 @@ const (
 	// EnvLogLevel is the name of the log level environment variable.  It's read by worker_rc.go
 	// to propagate our value to any workers the PPS master creates.
 	EnvLogLevel           = "PACHYDERM_LOG_LEVEL"
-	EnvDevelopmentLogger  = "DEVELOPMENT_LOGGER"
-	EnvDisableLogSampling = "DISABLE_LOG_SAMPLING"
+	EnvDevelopmentLogger  = "PACHYDERM_DEVELOPMENT_LOGGER"
+	EnvDisableLogSampling = "PACHYDERM_DISABLE_LOG_SAMPLING"
 )
 
 // SetLevel changes the global logger level.  It is safe to call at any time from multiple
@@ -127,11 +127,13 @@ func (c StartupLogConfig) AsKubernetesEnvironment() []v1.EnvVar {
 func init() {
 	if lvl := os.Getenv(EnvLogLevel); lvl != "" {
 		if err := logLevel.UnmarshalText([]byte(lvl)); err != nil {
-			addInitWarningf("parse $PACHYDERM_LOG_LEVEL: %v; proceeding at %v level", err, logLevel.Level().String())
+			addInitWarningf("parse $%s: %v; proceeding at %v level", EnvLogLevel, err, logLevel.Level().String())
 		}
 	} else if lvl := os.Getenv("LOG_LEVEL"); lvl != "" {
 		if err := logLevel.UnmarshalText([]byte(lvl)); err != nil {
 			addInitWarningf("parse $LOG_LEVEL: %v; proceeding at %v level", err, logLevel.Level().String())
+		} else {
+			addInitWarningf("$LOG_LEVEL has been renamed to $PACHYDERM_LOG_LEVEL; please set pachd.logLevel in the helm chart rather than passing in LOG_LEVEL as a patch")
 		}
 	}
 	WorkerLogConfig.LogLevel = logLevel.Level()
@@ -141,7 +143,7 @@ func init() {
 			developmentLogger = true
 			WorkerLogConfig.DevelopmentLogger = true
 		} else {
-			addInitWarningf("$DEVELOPMENT_LOGGER set but unparsable; got %q, want 'true' or '1'", d)
+			addInitWarningf("$%s set but unparsable; got %q, want 'true' or '1'", EnvDevelopmentLogger, d)
 		}
 	}
 
@@ -150,7 +152,7 @@ func init() {
 			samplingDisabled = true
 			WorkerLogConfig.DisableLogSampling = true
 		} else {
-			addInitWarningf("$DISABLE_LOG_SAMPLING set but unparsable; got %q, want 'true' or '1'", s)
+			addInitWarningf("$%s set but unparsable; got %q, want 'true' or '1'", EnvDisableLogSampling, s)
 		}
 	}
 
