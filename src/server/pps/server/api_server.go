@@ -1991,7 +1991,7 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 			case input.Pfs != nil:
 				repo = new(pfs.Repo)
 				if input.Pfs.Project == "" {
-					repo.Project = pipelineInfo.Pipeline.Project
+					repo.Project = prevPipelineInfo.Pipeline.Project
 				} else {
 					repo.Project = &pfs.Project{Name: input.Pfs.Project}
 				}
@@ -2000,7 +2000,7 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 				repo = new(pfs.Repo)
 				repo.Name = input.Cron.Repo
 				if input.Cron.Project == "" {
-					repo.Project = pipelineInfo.Pipeline.Project
+					repo.Project = prevPipelineInfo.Pipeline.Project
 				} else {
 					repo.Project = &pfs.Project{Name: input.Cron.Project}
 				}
