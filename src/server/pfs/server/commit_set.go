@@ -8,10 +8,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"go.uber.org/zap"
 )
 
 // returns CommitInfos in a commit set, topologically sorted.
@@ -39,19 +41,34 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	}); err != nil {
 		return nil, err
 	}
-	return TopologicalSort(cis), nil
+	var cs []*pfs.Commit
+	for _, ci := range cis {
+		cs = append(cs, ci.Commit)
+	}
+	log.Info(txnCtx.Context(), "inspect commit set pre-sort", zap.Any("commits", cs))
+	postSort := TopologicalSort(cis)
+	cs = nil
+	for _, ci := range postSort {
+		cs = append(cs, ci.Commit)
+	}
+	log.Info(txnCtx.Context(), "inspect commit set post-sort", zap.Any("commits", cs))
+	return postSort, nil
 }
 
 func topSortHelper(ci *pfs.CommitInfo, visited map[string]struct{}, commits map[string]*pfs.CommitInfo) []*pfs.CommitInfo {
+	if _, ok := visited[pfsdb.CommitKey(ci.Commit)]; ok {
+		return nil
+	}
 	var result []*pfs.CommitInfo
 	for _, p := range ci.DirectProvenance {
-		provCI, commitExists := commits[p.String()]
-		_, commitVisited := visited[p.String()]
+		provCI, commitExists := commits[pfsdb.CommitKey(p)]
+		_, commitVisited := visited[pfsdb.CommitKey(p)]
 		if commitExists && !commitVisited {
 			result = append(result, topSortHelper(provCI, visited, commits)...)
 		}
 	}
-	visited[ci.Commit.String()] = struct{}{}
+	result = append(result, ci)
+	visited[pfsdb.CommitKey(ci.Commit)] = struct{}{}
 	return result
 }
 
@@ -97,7 +114,6 @@ func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet,
 		}
 		sent[pfsdb.CommitKey(ci.Commit)] = struct{}{}
 		return cb(ci)
-
 	}
 	var unfinishedCommits []*pfs.Commit
 	if err := d.inspectCommitSetImmediate(ctx, commitset, func(ci *pfs.CommitInfo) error {
@@ -137,11 +153,10 @@ func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb fun
 		}
 		seen[commitInfo.Commit.ID] = struct{}{}
 		var commitInfos []*pfs.CommitInfo
-		err := d.inspectCommitSet(ctx, &pfs.CommitSet{ID: commitInfo.Commit.ID}, false, func(ci *pfs.CommitInfo) error {
+		if err := d.inspectCommitSet(ctx, &pfs.CommitSet{ID: commitInfo.Commit.ID}, false, func(ci *pfs.CommitInfo) error {
 			commitInfos = append(commitInfos, ci)
 			return nil
-		})
-		if err != nil {
+		}); err != nil {
 			return err
 		}
 		return cb(&pfs.CommitSetInfo{
