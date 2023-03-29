@@ -322,6 +322,7 @@ func cronTick(pachClient *client.APIClient, now time.Time, cron *pps.CronInput) 
 		}); err != nil {
 		return errors.Wrap(err, "WithModifyFileClient")
 	}
+	return nil
 }
 
 // makeCronCommits makes commits to a single cron input's repo. It's
