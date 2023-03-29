@@ -58,92 +58,94 @@ const FileBrowser: React.FC = () => {
       <Helmet>
         <title>Files - Pachyderm Console</title>
       </Helmet>
-      <FullPageModal
-        show={isOpen}
-        onHide={handleHide}
-        hideType="exit"
-        className={styles.fullModal}
-      >
-        <div className={styles.base}>
-          <FileHeader
-            fileFilter={fileFilter}
-            setFileFilter={setFileFilter}
-            setDiffOnly={setDiffOnly}
-            diffOnly={diffOnly}
-          />
-          <div className={styles.subHeader}>
-            <Breadcrumb />
-            {isDirectory && (
-              <>
-                <Tooltip
-                  tooltipText="List View"
-                  placement="left"
-                  tooltipKey="List View"
-                >
-                  <Button
-                    buttonType="ghost"
-                    onClick={() => setFileView('list')}
-                    className={classnames({
-                      [styles.inactiveIcon]: fileView === 'list',
-                    })}
-                    aria-label="switch to list view"
-                    IconSVG={ViewListSVG}
-                  />
-                </Tooltip>
-                <Tooltip
-                  tooltipText="Icon View"
-                  placement="left"
-                  tooltipKey="Icon View"
-                >
-                  <Button
-                    buttonType="ghost"
-                    onClick={() => setFileView('icon')}
-                    className={classnames({
-                      [styles.inactiveIcon]: fileView === 'icon',
-                    })}
-                    aria-label="switch to icon view"
-                    IconSVG={ViewIconSVG}
-                  />
-                </Tooltip>
-              </>
+      {isOpen && (
+        <FullPageModal
+          show={isOpen}
+          onHide={handleHide}
+          hideType="exit"
+          className={styles.fullModal}
+        >
+          <div className={styles.base}>
+            <FileHeader
+              fileFilter={fileFilter}
+              setFileFilter={setFileFilter}
+              setDiffOnly={setDiffOnly}
+              diffOnly={diffOnly}
+            />
+            <div className={styles.subHeader}>
+              <Breadcrumb />
+              {isDirectory && (
+                <>
+                  <Tooltip
+                    tooltipText="List View"
+                    placement="left"
+                    tooltipKey="List View"
+                  >
+                    <Button
+                      buttonType="ghost"
+                      onClick={() => setFileView('list')}
+                      className={classnames({
+                        [styles.inactiveIcon]: fileView === 'list',
+                      })}
+                      aria-label="switch to list view"
+                      IconSVG={ViewListSVG}
+                    />
+                  </Tooltip>
+                  <Tooltip
+                    tooltipText="Icon View"
+                    placement="left"
+                    tooltipKey="Icon View"
+                  >
+                    <Button
+                      buttonType="ghost"
+                      onClick={() => setFileView('icon')}
+                      className={classnames({
+                        [styles.inactiveIcon]: fileView === 'icon',
+                      })}
+                      aria-label="switch to icon view"
+                      IconSVG={ViewIconSVG}
+                    />
+                  </Tooltip>
+                </>
+              )}
+            </div>
+            <Switch>
+              {isDirectory ? (
+                <>
+                  {fileView === 'icon' && filteredFiles.length > 0 && (
+                    <div
+                      className={styles.fileIcons}
+                      data-testid="FileBrowser__iconView"
+                    >
+                      {filteredFiles.map((file) => (
+                        <IconView key={file.path} file={file} />
+                      ))}
+                    </div>
+                  )}
+                  {fileView === 'list' && filteredFiles.length > 0 && (
+                    <ListViewTable files={filteredFiles} />
+                  )}
+                </>
+              ) : (
+                <>{fileToPreview && <FilePreview file={fileToPreview} />}</>
+              )}
+            </Switch>
+            {loading && <LoadingDots />}
+            {!loading && filteredFiles?.length === 0 && !fileToPreview && (
+              <div className={styles.emptyResults}>
+                <GenericErrorSVG />
+                <h4 className={styles.emptyHeading}>
+                  No Matching Results Found.
+                </h4>
+                <p className={styles.emptySubheading}>
+                  {`The folder or file might have been deleted or doesn't exist.
+                  Please try searching another keyword.`}
+                </p>
+              </div>
             )}
           </div>
-          <Switch>
-            {isDirectory ? (
-              <>
-                {fileView === 'icon' && filteredFiles.length > 0 && (
-                  <div
-                    className={styles.fileIcons}
-                    data-testid="FileBrowser__iconView"
-                  >
-                    {filteredFiles.map((file) => (
-                      <IconView key={file.path} file={file} />
-                    ))}
-                  </div>
-                )}
-                {fileView === 'list' && filteredFiles.length > 0 && (
-                  <ListViewTable files={filteredFiles} />
-                )}
-              </>
-            ) : (
-              <>{fileToPreview && <FilePreview file={fileToPreview} />}</>
-            )}
-          </Switch>
-          {loading && <LoadingDots />}
-          {!loading && filteredFiles?.length === 0 && !fileToPreview && (
-            <div className={styles.emptyResults}>
-              <GenericErrorSVG />
-              <h4 className={styles.emptyHeading}>
-                No Matching Results Found.
-              </h4>
-              <p className={styles.emptySubheading}>
-                {`The folder or file might have been deleted or doesn't exist.
-                  Please try searching another keyword.`}
-              </p>
-            </div>
-          )}
-        </div>
-      </FullPageModal>
+        </FullPageModal>
+      )}
     </>
   );
 };

@@ -131,17 +131,21 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
           </Group>
         </td>
       </tr>
-      <UpdateProjectModal
-        show={updateModalIsOpen}
-        onHide={closeUpdateModal}
-        projectName={project.id}
-        description={project.description}
-      />
-      <DeleteProjectModal
-        show={deleteModalIsOpen}
-        onHide={closeDeleteModal}
-        projectName={project.id}
-      />
+      {updateModalIsOpen && (
+        <UpdateProjectModal
+          show={updateModalIsOpen}
+          onHide={closeUpdateModal}
+          projectName={project.id}
+          description={project.description}
+        />
+      )}
+      {deleteModalIsOpen && (
+        <DeleteProjectModal
+          show={deleteModalIsOpen}
+          onHide={closeDeleteModal}
+          projectName={project.id}
+        />
+      )}
     </>
   );
 };

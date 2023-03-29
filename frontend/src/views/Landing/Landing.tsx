@@ -121,7 +121,7 @@ const Landing: React.FC = () => {
         <Sidebar>
           {selectedProject && <ProjectPreview project={selectedProject} />}
         </Sidebar>
-        <CreateProjectModal show={isOpen} onHide={closeModal} />
+        {isOpen && <CreateProjectModal show={isOpen} onHide={closeModal} />}
       </div>
     </>
   );

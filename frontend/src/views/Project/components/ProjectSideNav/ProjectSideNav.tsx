@@ -74,7 +74,7 @@ const ProjectSideNav: React.FC = () => {
             Repositories
           </SideNav.SideNavItem>
         </SideNav.SideNavList>
-        <CreateRepoModal show={isOpen} onHide={closeModal} />
+        {isOpen && <CreateRepoModal show={isOpen} onHide={closeModal} />}
       </SideNav>
     </div>
   );

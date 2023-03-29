@@ -19,17 +19,21 @@ const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
   const {isOpen, onClose, datumId} = useDatumViewer(onCloseRoute);
 
   return (
-    <FullPagePanelModal show={isOpen} onHide={onClose} hideType="exit">
-      <LeftPanel />
-      <MiddleSection />
-      <FullPagePanelModal.RightPanel>
-        {datumId ? (
-          <DatumDetails className={styles.overflowYScroll} />
-        ) : (
-          <InfoPanel className={styles.overflowYScroll} />
-        )}
-      </FullPagePanelModal.RightPanel>
-    </FullPagePanelModal>
+    <>
+      {isOpen && (
+        <FullPagePanelModal show={isOpen} onHide={onClose} hideType="exit">
+          <LeftPanel />
+          <MiddleSection />
+          <FullPagePanelModal.RightPanel>
+            {datumId ? (
+              <DatumDetails className={styles.overflowYScroll} />
+            ) : (
+              <InfoPanel className={styles.overflowYScroll} />
+            )}
+          </FullPagePanelModal.RightPanel>
+        </FullPagePanelModal>
+      )}
+    </>
   );
 };
 

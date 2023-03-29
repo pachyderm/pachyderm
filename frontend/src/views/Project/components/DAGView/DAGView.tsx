@@ -303,7 +303,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
           </g>
         </svg>
       </HoveredNodeProvider>
-      <CreateRepoModal show={isOpen} onHide={closeModal} />
+      {isOpen && <CreateRepoModal show={isOpen} onHide={closeModal} />}
     </View>
   );
 };
