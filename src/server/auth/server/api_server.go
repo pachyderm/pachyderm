@@ -276,7 +276,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 					}
 				}
 			}
-			log.Info(ctx, "setting auth configuration", log.Proto("config", &config))
+			log.Info(ctx, "setting auth configuration")
 			if _, err := a.SetConfiguration(ctx, &auth.SetConfigurationRequest{Configuration: &config}); err != nil {
 				return err
 			}
