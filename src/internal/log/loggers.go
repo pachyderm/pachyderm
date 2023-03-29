@@ -132,9 +132,8 @@ func init() {
 	} else if lvl := os.Getenv("LOG_LEVEL"); lvl != "" {
 		if err := logLevel.UnmarshalText([]byte(lvl)); err != nil {
 			addInitWarningf("parse $LOG_LEVEL: %v; proceeding at %v level", err, logLevel.Level().String())
-		} else {
-			addInitWarningf("$LOG_LEVEL has been renamed to $PACHYDERM_LOG_LEVEL; please set pachd.logLevel in the helm chart rather than passing in LOG_LEVEL as a patch")
 		}
+		addInitWarningf("$LOG_LEVEL has been renamed to $PACHYDERM_LOG_LEVEL; please set pachd.logLevel in the helm chart rather than passing in LOG_LEVEL as a patch")
 	}
 	WorkerLogConfig.LogLevel = logLevel.Level()
 
