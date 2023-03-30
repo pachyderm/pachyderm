@@ -412,6 +412,8 @@ pachd:
     # This sets the worker image tag as well (they should be kept in lock step)
     tag: ""
   logLevel: "info"
+  disableLogSampling: false
+  developmentLogger: false
   # If lokiDeploy is true, a Pachyderm-specific instance of Loki will
   # be deployed.
   lokiDeploy: true

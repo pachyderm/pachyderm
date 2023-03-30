@@ -175,9 +175,6 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 		Name:  "LOKI_SERVICE_PORT",
 		Value: kd.config.LokiPort,
 	}, {
-		Name:  log.EnvLogLevel,
-		Value: kd.config.LogLevel,
-	}, {
 		Name:  "GOCOVERDIR",
 		Value: "/tmp",
 	},
@@ -190,6 +187,7 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 			Value: "",
 		},
 	}
+	commonEnv = append(commonEnv, log.WorkerLogConfig.AsKubernetesEnvironment()...)
 
 	// Set up sidecar env vars
 	sidecarEnv := []v1.EnvVar{{
