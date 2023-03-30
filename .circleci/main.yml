@@ -531,6 +531,7 @@ jobs:
       - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
+      - run: etc/testing/circle/wait-minikube.sh
       - run:
           name: Run Tests
           command: etc/testing/circle/deploy_test.sh | ts '%Y-%m-%dT%H:%M:%S'
