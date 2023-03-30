@@ -283,12 +283,12 @@ ParallelismSpec: {{.Details.ParallelismSpec}}
   {{ if .Details.ResourceLimits.Gpu }}GPU:
     Type: {{ .Details.ResourceLimits.Gpu.Type }}
     Number: {{ .Details.ResourceLimits.Gpu.Number }} {{end}} {{end}}
-{{ if .Details.SidecarResourceLimits }}SidecarResourceLimits:
-  CPU: {{ .Details.SidecarResourceLimits.Cpu }}
-  Memory: {{ .Details.SidecarResourceLimits.Memory }} {{end}}
 {{ if .Details.SidecarResourceRequests }}SidecarResourceRequests:
   CPU: {{ .Details.SidecarResourceRequests.Cpu }}
   Memory: {{ .Details.SidecarResourceRequests.Memory }} {{end}}
+{{ if .Details.SidecarResourceLimits }}SidecarResourceLimits:
+  CPU: {{ .Details.SidecarResourceLimits.Cpu }}
+  Memory: {{ .Details.SidecarResourceLimits.Memory }} {{end}}
 {{ if .Details.Service }}Service:
 	{{ if .Details.Service.InternalPort }}InternalPort: {{ .Details.Service.InternalPort }} {{end}}
 	{{ if .Details.Service.ExternalPort }}ExternalPort: {{ .Details.Service.ExternalPort }} {{end}} {{end}}Input:
