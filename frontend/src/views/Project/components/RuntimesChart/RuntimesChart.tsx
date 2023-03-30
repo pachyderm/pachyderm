@@ -105,6 +105,7 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
     jobIds,
     useHoursAsUnit,
     jobsWithFailedDatums,
+    longestJob,
   } = useRuntimesChartData(filteredJobs, selectedJob);
   const {tooltip, setTooltipState} =
     useRuntimesChartTooltip(jobsCrossReference);
@@ -158,7 +159,7 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
         },
         zoom: {
           limits: {
-            x: {min: 0},
+            x: {min: 0, max: longestJob},
           },
           pan: {
             enabled: true,
@@ -173,7 +174,7 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
         },
       },
     }),
-    [setTooltipState, useHoursAsUnit],
+    [longestJob, setTooltipState, useHoursAsUnit],
   );
 
   const handleClick = useCallback(
@@ -287,9 +288,13 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
                   </div>
                 );
               })}
-              <div className={styles.legendItem}>
+              <div className={styles.halfLegendItem}>
                 <div className={styles.failedBox} />
                 Failed Datums
+              </div>
+              <div className={styles.halfLegendItem}>
+                <div className={styles.inProgressBox} />
+                In Progress
               </div>
             </div>
           </div>

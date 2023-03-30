@@ -1,7 +1,6 @@
 .base {
   background-color: var(--white);
-  padding-left: 3rem;
-  padding-top: 2rem;
+  padding: 2rem;
   overflow-y: scroll;
   border-top: solid 1px var(--border-grey);
   position: relative;
@@ -27,15 +26,22 @@
   margin-right: 1rem;
 }
 
+.halfLegendItem {
+  display: inline-block;
+  width: 8rem;
+  margin-right: 1rem;
+}
+
 .legendBox,
-.failedBox {
+.failedBox,
+.inProgressBox {
   width: 1rem;
   height: 1rem;
   margin-right: 0.5rem;
   display: inline-block;
 }
 
-.failedBox {
+.inProgressBox {
   background: repeating-linear-gradient(
     45deg,
     var(--black),
@@ -43,6 +49,15 @@
     var(--white) 3px,
     var(--white) 5px
   );
+}
+
+.failedBox {
+  --patternSize: 4px;
+  background: linear-gradient(135deg, var(--black) 25%, transparent 25%) -4px 0,
+    linear-gradient(-135deg, var(--black) 25%, transparent 25%) -4px 0,
+    linear-gradient(45deg, var(--black) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--black) 25%, transparent 25%);
+  background-size: 8px 8px;
 }
 
 .viewOptions {

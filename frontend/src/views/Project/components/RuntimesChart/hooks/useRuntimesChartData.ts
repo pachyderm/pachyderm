@@ -61,21 +61,34 @@ const useRuntimesChartData = (filteredJobs: Job[], selectedJob: string) => {
       // jobSet where a is the arbitrary point in time the job started, starting
       // at 0 and b is that point in time plus the job's duration.
       // ex: [[0,15],[15,30]] for 2 jobs in a DAG that took 15 seconds each.
-      const jobSetData: [number, number][] = [];
+      const jobSetData: ([number, number] | null)[] = [];
       let durationSoFar = 0;
       const backgroundColors: (string | CanvasPattern)[] = [];
       const colorOpacity = selectedJob && selectedJob !== id ? 0.25 : 1;
 
       pipelines.forEach((pipeline) => {
-        const latestDuration =
-          (getJobDuration(id, pipeline) || 0) /
-          (useHoursAsUnit ? SECONDS_IN_HOUR : 1);
-        jobSetData.push([durationSoFar, durationSoFar + latestDuration]);
-        durationSoFar += latestDuration;
+        const latestDuration = getJobDuration(id, pipeline);
+        const outputDuration =
+          latestDuration !== null
+            ? latestDuration / (useHoursAsUnit ? SECONDS_IN_HOUR : 1)
+            : null;
+        jobSetData.push(
+          outputDuration
+            ? [durationSoFar, durationSoFar + outputDuration]
+            : null,
+        );
+        durationSoFar += outputDuration || 0;
 
         if (
           jobsCrossReference[id][pipeline] &&
           jobsCrossReference[id][pipeline].dataFailed > 0
+        ) {
+          backgroundColors.push(
+            draw('zigzag', getChartColor(index, colorOpacity)),
+          );
+        } else if (
+          jobsCrossReference[id][pipeline] &&
+          !jobsCrossReference[id][pipeline].finishedAt
         ) {
           backgroundColors.push(
             draw('diagonal', getChartColor(index, colorOpacity)),
@@ -88,7 +101,7 @@ const useRuntimesChartData = (filteredJobs: Job[], selectedJob: string) => {
       return {
         label: id,
         data: jobSetData,
-        minBarLength: 10,
+        minBarLength: 8,
         backgroundColor: backgroundColors,
       };
     });
@@ -119,6 +132,7 @@ const useRuntimesChartData = (filteredJobs: Job[], selectedJob: string) => {
     jobIds,
     useHoursAsUnit,
     jobsWithFailedDatums,
+    longestJob,
   };
 };
 

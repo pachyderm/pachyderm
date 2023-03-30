@@ -29,8 +29,9 @@ const useRuntimesChartTooltip = (
         left: context.tooltip._eventPosition.x + TOOLTIP_OFFSET_X,
         top: context.tooltip._eventPosition.y + TOOLTIP_OFFSET_Y,
         runtime: String(data.raw[1] - data.raw[0]),
-        failedDatums:
-          jobsCrossReference[data.dataset.label][data.label].dataFailed,
+        failedDatums: jobsCrossReference[data.dataset.label][data.label]
+          ? jobsCrossReference[data.dataset.label][data.label].dataFailed
+          : 0,
       };
       setTooltip(newTooltipData);
     },
