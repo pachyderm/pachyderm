@@ -1573,7 +1573,7 @@ workflows:
       - jupyter-extension-test:
           matrix:
             parameters:
-              python-version: ["3.7", "3.8", "3.9", "3.10"]
+              python-version: ["3.8", "3.9", "3.10"]
           filters: *only-release-tags
       - jupyter-extension-frontend-test:
           filters: *only-release-tags
