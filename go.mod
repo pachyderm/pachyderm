@@ -228,7 +228,7 @@ require (
 	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
-	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
+	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.10.2 // indirect
 	github.com/gruntwork-io/go-commons v0.8.0 // indirect
@@ -284,7 +284,7 @@ require (
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
 	github.com/pquerna/otp v1.2.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
-	github.com/prometheus/procfs v0.7.3 // indirect
+	github.com/prometheus/procfs v0.7.3
 	github.com/pulumi/pulumi-aws/sdk/v5 v5.28.0
 	github.com/pulumi/pulumi-awsx/sdk v1.0.1
 	github.com/pulumi/pulumi-eks/sdk v1.0.1
