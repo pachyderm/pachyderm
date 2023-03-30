@@ -96,13 +96,15 @@ func (realEnv *RealEnv) ActivateIdentity(t testing.TB) {
 	// walk directory parents until the dex-assets directory is found
 	var dexDir string
 	for {
+		dir = filepath.Clean(dir)
 		dexDir = filepath.Join(dir, "dex-assets/")
-		if _, err := os.Stat(dexDir); err != nil {
+		if _, err := os.Stat(dexDir); err == nil {
 			break
 		}
 		parent, _ := filepath.Split(dir)
 		if parent == dir {
-			t.Errorf("could not find dex-assets")
+			t.Error("could not find dex-assets")
+			return
 		}
 		dir = parent
 	}
