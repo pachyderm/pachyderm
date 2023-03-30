@@ -1,6 +1,15 @@
 
 # Changelog
 
+## 2.5.3
+* Basic PPS UI by @bbonenfant in https://github.com/pachyderm/pachyderm/pull/8557
+* Return error instead of deleting a project containing repos by @robert-uhl in https://github.com/pachyderm/pachyderm/pull/8631
+* Correct context for processPutFileTask in pfload worker by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8638
+* Add a warning message when deleting the current project by @robert-uhl in https://github.com/pachyderm/pachyderm/pull/8637
+* Correct project-already-exists error message by @robert-uhl in https://github.com/pachyderm/pachyderm/pull/8628
+* Update Go version to 1.20.2 by @robert-uhl in https://github.com/pachyderm/pachyderm/pull/8640
+* Djanicek/core 1481/debug fix by @djanicekpach in https://github.com/pachyderm/pachyderm/pull/8639
+
 ## 2.5.2
 
 * Djanicek/core 1481/debug fix (#8639) by @djanicekpach in https://github.com/pachyderm/pachyderm/pull/8646
