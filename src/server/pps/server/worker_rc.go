@@ -174,9 +174,6 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 	}, {
 		Name:  "LOKI_SERVICE_PORT",
 		Value: kd.config.LokiPort,
-	}, {
-		Name:  log.EnvLogLevel,
-		Value: kd.config.LogLevel,
 	},
 		// These are set explicitly below to prevent kubernetes from setting them to the service host and port.
 		{
@@ -187,6 +184,7 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 			Value: "",
 		},
 	}
+	commonEnv = append(commonEnv, log.WorkerLogConfig.AsKubernetesEnvironment()...)
 
 	// Set up sidecar env vars
 	sidecarEnv := []v1.EnvVar{{
