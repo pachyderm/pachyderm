@@ -1,6 +1,7 @@
 package cronutil
 
 import (
+  "strings"
   "time"
 
   "github.com/robfig/cron"
@@ -24,7 +25,7 @@ func (Year9999) Next(_ time.Time) time.Time {
 // supports the following cron syntax enhancements
 // @never: returns year 9999 timepoint, a 4-digit year far enough in the future to act as never
 func ParseCronExpression(cronExpr string) (cron.Schedule, error) {
-  if(cronExpr == "@never") {
+  if(strings.TrimSpace(cronExpr) == "@never") {
     return Year9999{}, nil
   }
   return cron.ParseStandard(cronExpr)
