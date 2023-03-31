@@ -735,7 +735,7 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 }
 
 func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit, filePath string) (bool, error) {
-	diffID, err := d.getCompactedDiffFileset(ctx, commit)
+	diffID, err := d.getCompactedDiffFileSet(ctx, commit)
 	if err != nil {
 		return false, err
 	}
@@ -774,7 +774,7 @@ func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit,
 	return found, nil
 }
 
-func (d *driver) getCompactedDiffFileset(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
+func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
 	var compactedDiff *fileset.ID
 	return compactedDiff, backoff.RetryUntilCancel(ctx, func() error {
 		diff, err := d.getDiffFileSetIfCompacted(ctx, commit)
@@ -785,8 +785,8 @@ func (d *driver) getCompactedDiffFileset(ctx context.Context, commit *pfs.Commit
 			compactedDiff = diff
 			return nil
 		}
-		return errors.Errorf("diff fileset for commit %s is not compacted yet", commit.ID)
-	}, backoff.NewConstantBackOff(time.Second), backoff.NotifyCtx(ctx, "getCompactedDiffFileset for "+commit.ID))
+		return errors.Errorf("diff file set for commit %s is not compacted yet", commit.ID)
+	}, backoff.NewConstantBackOff(time.Second), backoff.NotifyCtx(ctx, "getCompactedDiffFileSet for "+commit.ID))
 }
 
 func (d *driver) getDiffFileSetIfCompacted(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
@@ -794,7 +794,7 @@ func (d *driver) getDiffFileSetIfCompacted(ctx context.Context, commit *pfs.Comm
 	if err != nil {
 		return nil, err
 	}
-	isCompacted, err := d.storage.IsCompacted(ctx, []fileset.ID{*diff})
+	isCompacted, err := d.storage.IsCompacted(ctx, *diff)
 	if err != nil {
 		return nil, err
 	}
@@ -806,7 +806,7 @@ func (d *driver) getDiffFileSetIfCompacted(ctx context.Context, commit *pfs.Comm
 		return nil, err
 	}
 	if commitInfo.Finished != nil {
-		return nil, errors.Errorf("cannot get compacted diff fileset for commit %s that is not finished", commit.ID)
+		return nil, errors.Errorf("cannot get compacted diff file set for commit %s that is not finished", commit.ID)
 	}
 	return nil, d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return d.finishCommit(txnCtx, commit, "", "", false)
