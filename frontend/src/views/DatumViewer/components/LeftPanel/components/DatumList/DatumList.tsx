@@ -1,6 +1,5 @@
 import React from 'react';
 
-import {SimplePager} from '@dash-frontend/../components/src/Pager';
 import {Chip} from '@dash-frontend/components/Chip/Chip';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import {getDatumStateColor, getDatumStateSVG} from '@dash-frontend/lib/datums';
@@ -13,6 +12,7 @@ import {
   Search,
   SpinnerSVG,
   StatusStopSVG,
+  SimplePager,
 } from '@pachyderm/components';
 
 import ListItem from '../ListItem';

@@ -17,7 +17,7 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
   pin = 'left',
   ...rest
 }) => {
-  const {isOpen, sideOpen} = useDropdown();
+  const {isOpen, sideOpen, openUpwards} = useDropdown();
   const previouslyOpened = usePreviousValue(isOpen);
 
   const classes = classnames(styles.base, className, {
@@ -26,6 +26,7 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
     [styles.left]: pin === 'left',
     [styles.right]: pin === 'right',
     [styles.sideOpen]: sideOpen,
+    [styles.openUpwards]: openUpwards,
   });
 
   return (

@@ -9,6 +9,7 @@ export interface IDropdownContext {
   setFilteredResults: React.Dispatch<React.SetStateAction<ItemObject[]>>;
   filter: Required<DropdownProps>['filter'];
   sideOpen: boolean;
+  openUpwards: boolean;
 }
 
 export default createContext<IDropdownContext>({
@@ -17,4 +18,5 @@ export default createContext<IDropdownContext>({
   setFilteredResults: noop,
   filter: () => true,
   sideOpen: false,
+  openUpwards: false,
 });

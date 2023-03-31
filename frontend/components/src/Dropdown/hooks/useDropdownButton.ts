@@ -7,8 +7,14 @@ import findFocusableChild from '../utils/findFocusableChild';
 import useDropdown from './useDropdown';
 
 const useDropdownButton = (ref: React.RefObject<HTMLButtonElement>) => {
-  const {toggleDropdown, isOpen, openDropdown, closeDropdown, sideOpen} =
-    useDropdown();
+  const {
+    toggleDropdown,
+    isOpen,
+    openDropdown,
+    closeDropdown,
+    sideOpen,
+    openUpwards,
+  } = useDropdown();
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -37,7 +43,7 @@ const useDropdownButton = (ref: React.RefObject<HTMLButtonElement>) => {
     [closeDropdown, isOpen, openDropdown, ref],
   );
 
-  return {toggleDropdown, isOpen, handleKeyDown, sideOpen};
+  return {toggleDropdown, isOpen, handleKeyDown, sideOpen, openUpwards};
 };
 
 export default useDropdownButton;

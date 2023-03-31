@@ -11,7 +11,7 @@ export const Default = () => {
   const content = Array.from(Array(103).keys());
 
   return (
-    <>
+    <div style={{marginTop: '5rem'}}>
       {content
         .slice((page - 1) * pageSize, page * pageSize)
         .map((i) => i + ' ')}
@@ -23,7 +23,7 @@ export const Default = () => {
         updatePageSize={setPageSize}
         pageSize={pageSize}
       />
-    </>
+    </div>
   );
 };
 
@@ -37,7 +37,7 @@ export const NoPageCount = () => {
     .map((i) => i + ' ');
 
   return (
-    <>
+    <div style={{marginTop: '5rem'}}>
       {pageContent}
       <Pager
         page={page}
@@ -47,7 +47,7 @@ export const NoPageCount = () => {
         updatePageSize={setPageSize}
         pageSize={pageSize}
       />
-    </>
+    </div>
   );
 };
 

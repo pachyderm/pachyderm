@@ -38,6 +38,7 @@ export * from './Modal';
 export * from './NotificationBanner';
 export * from './PachctlConnectDetails';
 export * from './Page';
+export * from './Pager';
 export * from './RadioButton';
 export * from './Search';
 export * from './Select';

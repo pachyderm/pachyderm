@@ -46,6 +46,7 @@ export const Pager: React.FC<PagerProps> = ({
             content: i.toString(),
             closeOnClick: true,
           }))}
+          openUpwards
           buttonOpts={{buttonType: 'quaternary'}}
           storeSelected
           initialSelectId={pageSize.toString()}

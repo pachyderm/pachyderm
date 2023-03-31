@@ -78,6 +78,16 @@ export const SideOpen = () => {
   );
 };
 
+export const OpenUpwards = () => {
+  return (
+    <div style={{marginTop: '10rem'}}>
+      <DefaultDropdown items={items} storeSelected openUpwards>
+        Difficulty
+      </DefaultDropdown>
+    </div>
+  );
+};
+
 const iconItems: DropdownItem[] = [
   {
     id: 'start',

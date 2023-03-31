@@ -1,7 +1,11 @@
 import classnames from 'classnames';
 import React, {useRef, useMemo} from 'react';
 
-import {ChevronDownSVG, ChevronRightSVG} from '@pachyderm/components';
+import {
+  ChevronDownSVG,
+  ChevronRightSVG,
+  ChevronUpSVG,
+} from '@pachyderm/components';
 
 import {Button, ButtonProps} from '../../../Button';
 import useDropdownButton from '../../hooks/useDropdownButton';
@@ -25,7 +29,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
   ...rest
 }) => {
   const dropdownButtonRef = useRef<HTMLButtonElement>(null);
-  const {toggleDropdown, isOpen, handleKeyDown, sideOpen} =
+  const {toggleDropdown, isOpen, handleKeyDown, sideOpen, openUpwards} =
     useDropdownButton(dropdownButtonRef);
   const mergedClasses = classnames(styles.base, className);
 
@@ -36,12 +40,20 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
       return IconSVG;
     }
 
-    if (!hideChevron) {
-      return sideOpen ? ChevronRightSVG : ChevronDownSVG;
+    if (hideChevron) {
+      return undefined;
     }
 
-    return undefined;
-  }, [IconSVG, hideChevron, sideOpen]);
+    if (sideOpen) {
+      return ChevronRightSVG;
+    }
+
+    if (openUpwards) {
+      return ChevronUpSVG;
+    }
+
+    return ChevronDownSVG;
+  }, [IconSVG, hideChevron, sideOpen, openUpwards]);
 
   return (
     <Button
