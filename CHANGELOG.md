@@ -1,15 +1,24 @@
 
 # Changelog
 
+## 2.5.3
+* Basic PPS UI  https://github.com/pachyderm/pachyderm/pull/8557
+* Return error instead of deleting a project containing repos https://github.com/pachyderm/pachyderm/pull/8631
+* Correct context for processPutFileTask in pfload worker https://github.com/pachyderm/pachyderm/pull/8638
+* Add a warning message when deleting the current project https://github.com/pachyderm/pachyderm/pull/8637
+* Correct project-already-exists error message https://github.com/pachyderm/pachyderm/pull/8628
+* Update Go version to 1.20.2 https://github.com/pachyderm/pachyderm/pull/8640
+* Djanicek/core 1481/debug fix https://github.com/pachyderm/pachyderm/pull/8639
+
 ## 2.5.2
 
-* Djanicek/core 1481/debug fix (#8639) by @djanicekpach in https://github.com/pachyderm/pachyderm/pull/8646
-* back port new nightly load iac envs by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8654
-* bump console version to 2.5.2 by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8657
+* Djanicek/core 1481/debug fix https://github.com/pachyderm/pachyderm/pull/8646
+* back port new nightly load iac envshttps://github.com/pachyderm/pachyderm/pull/8654
+* bump console version to 2.5.2 https://github.com/pachyderm/pachyderm/pull/8657
 ## 2.5.1 
 
-* [2.5.x Backport][CORE-1463] pgbouncer pg_isready (#8578) by @tybritten in https://github.com/pachyderm/pachyderm/pull/8630
-* bump console version to 2.5.1-1 by @molinamelendezj in https://github.com/pachyderm/pachyderm/pull/8632
+* [2.5.x Backport][CORE-1463] pgbouncer pg_isready https://github.com/pachyderm/pachyderm/pull/8630
+* bump console version to 2.5.1-1 https://github.com/pachyderm/pachyderm/pull/8632
 
 
 ## 2.5.0
