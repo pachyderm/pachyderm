@@ -10,7 +10,6 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/robfig/cron"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
@@ -25,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 )
 
 // startMonitor starts a new goroutine running monitorPipeline for
@@ -328,7 +328,7 @@ func cronTick(pachClient *client.APIClient, now time.Time, cron *pps.CronInput) 
 // makeCronCommits makes commits to a single cron input's repo. It's
 // a helper function called by monitorPipeline.
 func makeCronCommits(ctx context.Context, env Env, in *pps.Input) error {
-	schedule, err := cron.ParseStandard(in.Cron.Spec)
+	schedule, err := cronutil.ParseCronExpression(in.Cron.Spec)
 	if err != nil {
 		return errors.EnsureStack(err) // Shouldn't happen, as the input is validated in CreatePipeline
 	}
