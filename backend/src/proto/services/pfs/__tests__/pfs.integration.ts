@@ -273,7 +273,7 @@ describe('services/pfs', () => {
       });
       const updatedBranches = await client
         .pfs()
-        .listBranch({repo: {name: 'createBranch'}});
+        .listBranch({projectId: 'default', repoName: 'createBranch'});
 
       expect(updatedBranches).toHaveLength(2);
       expect(updatedBranches[0].branch?.name).toBe('test');
@@ -308,7 +308,7 @@ describe('services/pfs', () => {
       });
       const branches = await client
         .pfs()
-        .listBranch({repo: {name: 'listBranch'}});
+        .listBranch({projectId: 'default', repoName: 'listBranch'});
       expect(branches).toHaveLength(1);
 
       expect(branches).toHaveLength(1);
@@ -322,7 +322,7 @@ describe('services/pfs', () => {
       const client = await createSandbox('deleteBranch');
       const initialBranches = await client
         .pfs()
-        .listBranch({repo: {name: 'deleteBranch'}});
+        .listBranch({projectId: 'default', repoName: 'deleteBranch'});
       expect(initialBranches).toHaveLength(0);
 
       await client.pfs().startCommit({
@@ -332,7 +332,7 @@ describe('services/pfs', () => {
 
       const updatedBranches = await client
         .pfs()
-        .listBranch({repo: {name: 'deleteBranch'}});
+        .listBranch({projectId: 'default', repoName: 'deleteBranch'});
 
       expect(updatedBranches).toHaveLength(1);
 
@@ -342,7 +342,7 @@ describe('services/pfs', () => {
 
       const finalBranches = await client
         .pfs()
-        .listBranch({repo: {name: 'deleteBranch'}});
+        .listBranch({projectId: 'default', repoName: 'deleteBranch'});
 
       expect(finalBranches).toHaveLength(0);
     });

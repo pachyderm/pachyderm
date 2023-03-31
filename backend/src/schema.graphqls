@@ -408,6 +408,11 @@ input BranchQueryArgs {
   branch: BranchInput!
 }
 
+input BranchesQueryArgs {
+  projectId: String!
+  repoName: String!
+}
+
 input RepoQueryArgs {
   projectId: String!
   id: ID!
@@ -667,6 +672,7 @@ type Query {
   commitSearch(args: CommitSearchQueryArgs!): Commit
   commits(args: CommitsQueryArgs!): PageableCommit!
   branch(args: BranchQueryArgs!): Branch!
+  branches(args: BranchesQueryArgs!): [Branch]!
   datum(args: DatumQueryArgs!): Datum!
   datumSearch(args: DatumQueryArgs!): Datum
   datums(args: DatumsQueryArgs!): PageableDatum!

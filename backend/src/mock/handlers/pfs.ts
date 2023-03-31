@@ -71,6 +71,7 @@ const pfs = () => {
       | 'getFile'
       | 'createBranch'
       | 'inspectBranch'
+      | 'listBranch'
       | 'modifyFile'
       | 'startCommit'
       | 'finishCommit'
@@ -393,6 +394,53 @@ const pfs = () => {
             .setBranch(branch)
             .setHead(head?.getCommit());
           callback(null, branchInfo);
+        },
+        listBranch: (call) => {
+          const projectId =
+            call.request.getRepo()?.getProject()?.getName() || 'default';
+          const requestBranch = call.request.getRepo();
+          const projectRepos = MockState.state.repos[projectId.toString()];
+          if (!projectRepos) {
+            call.emit(
+              'error',
+              createServiceError({
+                code: Status.NOT_FOUND,
+                details: `project ${projectId.toString()} does not exist`,
+              }),
+            );
+            return;
+          }
+          const repo = projectRepos.find(
+            (repo) => repo.getRepo()?.getName() === requestBranch?.getName(),
+          );
+          if (!repo) {
+            call.emit(
+              'error',
+              createServiceError({
+                code: Status.NOT_FOUND,
+                details: `repo ${requestBranch?.getName()} does not exist`,
+              }),
+            );
+            return;
+          }
+          const branches = repo.getBranchesList();
+
+          branches.forEach((branch) => {
+            const projectCommits =
+              MockState.state.commits[projectId.toString()] || [];
+            const head = projectCommits.find(
+              (commitInfo) =>
+                commitInfo.getCommit()?.getBranch()?.getName() ===
+                requestBranch?.getName(),
+            );
+            const branchInfo = new BranchInfo()
+              .setBranch(branch)
+              .setHead(head?.getCommit());
+
+            call.write(branchInfo);
+          });
+
+          call.end();
         },
         createBranch: (call, callback) => {
           try {

@@ -67,6 +67,11 @@ export type BranchQueryArgs = {
   projectId: Scalars['String'];
 };
 
+export type BranchesQueryArgs = {
+  projectId: Scalars['String'];
+  repoName: Scalars['String'];
+};
+
 export type Commit = {
   __typename?: 'Commit';
   branch?: Maybe<Branch>;
@@ -683,6 +688,7 @@ export type Query = {
   adminInfo: AdminInfo;
   authConfig: AuthConfig;
   branch: Branch;
+  branches: Array<Maybe<Branch>>;
   commit?: Maybe<Commit>;
   commitSearch?: Maybe<Commit>;
   commits: PageableCommit;
@@ -712,6 +718,10 @@ export type Query = {
 
 export type QueryBranchArgs = {
   args: BranchQueryArgs;
+};
+
+export type QueryBranchesArgs = {
+  args: BranchesQueryArgs;
 };
 
 export type QueryCommitArgs = {
@@ -1053,6 +1063,7 @@ export type ResolversTypes = ResolversObject<{
   BranchInfo: ResolverTypeWrapper<BranchInfo>;
   BranchInput: BranchInput;
   BranchQueryArgs: BranchQueryArgs;
+  BranchesQueryArgs: BranchesQueryArgs;
   Commit: ResolverTypeWrapper<Commit>;
   CommitInput: CommitInput;
   CommitQueryArgs: CommitQueryArgs;
@@ -1158,6 +1169,7 @@ export type ResolversParentTypes = ResolversObject<{
   BranchInfo: BranchInfo;
   BranchInput: BranchInput;
   BranchQueryArgs: BranchQueryArgs;
+  BranchesQueryArgs: BranchesQueryArgs;
   Commit: Commit;
   CommitInput: CommitInput;
   CommitQueryArgs: CommitQueryArgs;
@@ -1875,6 +1887,12 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryBranchArgs, 'args'>
   >;
+  branches?: Resolver<
+    Array<Maybe<ResolversTypes['Branch']>>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryBranchesArgs, 'args'>
+  >;
   commit?: Resolver<
     Maybe<ResolversTypes['Commit']>,
     ParentType,
@@ -2205,6 +2223,16 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Vertex?: VertexResolvers<ContextType>;
 }>;
 
+export type BranchFragmentFragment = {
+  __typename?: 'Branch';
+  name: string;
+  repo?: {
+    __typename?: 'RepoInfo';
+    name?: string | null;
+    type?: string | null;
+  } | null;
+};
+
 export type CommitFragmentFragment = {
   __typename?: 'Commit';
   repoName: string;
@@ -2523,6 +2551,23 @@ export type AuthConfigQuery = {
     clientId: string;
     pachdClientId: string;
   };
+};
+
+export type GetBranchesQueryVariables = Exact<{
+  args: BranchesQueryArgs;
+}>;
+
+export type GetBranchesQuery = {
+  __typename?: 'Query';
+  branches: Array<{
+    __typename?: 'Branch';
+    name: string;
+    repo?: {
+      __typename?: 'RepoInfo';
+      name?: string | null;
+      type?: string | null;
+    } | null;
+  } | null>;
 };
 
 export type CommitQueryVariables = Exact<{

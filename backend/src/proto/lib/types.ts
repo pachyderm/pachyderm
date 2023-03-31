@@ -121,7 +121,8 @@ export type SubscribeCommitRequestArgs = {
 };
 
 export type ListBranchRequestArgs = {
-  repo: RepoObject;
+  repoName: string;
+  projectId: string;
   reverse?: ListBranchRequest.AsObject['reverse'];
 };
 

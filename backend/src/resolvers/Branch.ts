@@ -7,6 +7,7 @@ import {branchInfoToGQLBranch} from './builders/pps';
 interface BranchResolver {
   Query: {
     branch: QueryResolvers['branch'];
+    branches: QueryResolvers['branches'];
   };
   Mutation: {
     createBranch: MutationResolvers['createBranch'];
@@ -27,6 +28,16 @@ const branchResolver: BranchResolver = {
       } else {
         throw new ApolloError(`branch not found`);
       }
+    },
+    branches: async (_field, {args: {projectId, repoName}}, {pachClient}) => {
+      const branches = await pachClient.pfs().listBranch({repoName, projectId});
+      return branches.map((branch) => {
+        if (branch.branch) {
+          return branchInfoToGQLBranch(branch.branch);
+        } else {
+          throw new ApolloError(`branch not found`);
+        }
+      });
     },
   },
   Mutation: {

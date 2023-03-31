@@ -2,6 +2,15 @@ import {gql} from '@apollo/client';
 import * as Apollo from '@apollo/client';
 import * as Types from '@graphqlTypes';
 const defaultOptions = {} as const;
+export const BranchFragmentFragmentDoc = gql`
+  fragment BranchFragment on Branch {
+    name
+    repo {
+      name
+      type
+    }
+  }
+`;
 export const CommitFragmentFragmentDoc = gql`
   fragment CommitFragment on Commit {
     repoName
@@ -968,6 +977,63 @@ export type AuthConfigLazyQueryHookResult = ReturnType<
 export type AuthConfigQueryResult = Apollo.QueryResult<
   Types.AuthConfigQuery,
   Types.AuthConfigQueryVariables
+>;
+export const GetBranchesDocument = gql`
+  query getBranches($args: BranchesQueryArgs!) {
+    branches(args: $args) {
+      ...BranchFragment
+    }
+  }
+  ${BranchFragmentFragmentDoc}
+`;
+
+/**
+ * __useGetBranchesQuery__
+ *
+ * To run a query within a React component, call `useGetBranchesQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetBranchesQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetBranchesQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useGetBranchesQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.GetBranchesQuery,
+    Types.GetBranchesQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<
+    Types.GetBranchesQuery,
+    Types.GetBranchesQueryVariables
+  >(GetBranchesDocument, options);
+}
+export function useGetBranchesLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.GetBranchesQuery,
+    Types.GetBranchesQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.GetBranchesQuery,
+    Types.GetBranchesQueryVariables
+  >(GetBranchesDocument, options);
+}
+export type GetBranchesQueryHookResult = ReturnType<typeof useGetBranchesQuery>;
+export type GetBranchesLazyQueryHookResult = ReturnType<
+  typeof useGetBranchesLazyQuery
+>;
+export type GetBranchesQueryResult = Apollo.QueryResult<
+  Types.GetBranchesQuery,
+  Types.GetBranchesQueryVariables
 >;
 export const CommitDocument = gql`
   query commit($args: CommitQueryArgs!) {

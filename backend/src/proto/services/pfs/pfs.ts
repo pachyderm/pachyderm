@@ -575,12 +575,14 @@ const pfs = ({
         );
       });
     },
-    listBranch: ({repo, reverse = false}: ListBranchRequestArgs) => {
+    listBranch: ({
+      repoName,
+      projectId,
+      reverse = false,
+    }: ListBranchRequestArgs) => {
       const listBranchRequest = new ListBranchRequest();
-
-      listBranchRequest.setRepo(
-        new Repo().setName(repo?.name || '').setType('user'),
-      );
+      const repo = repoFromObject({name: repoName, projectId});
+      listBranchRequest.setRepo(repo);
       listBranchRequest.setReverse(reverse);
       const stream = client.listBranch(listBranchRequest, credentialMetadata, {
         deadline: Date.now() + RPC_DEADLINE_MS,
@@ -643,8 +645,6 @@ const pfs = ({
       return new Promise<RepoInfo.AsObject>((resolve, reject) => {
         const inspectRepoRequest = new InspectRepoRequest();
         const repo = repoFromObject({name, projectId});
-        new Repo().setName(name).setType('user');
-
         inspectRepoRequest.setRepo(repo);
 
         client.inspectRepo(
