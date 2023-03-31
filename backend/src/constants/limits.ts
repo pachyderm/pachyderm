@@ -1,0 +1,3 @@
+export const DEFAULT_JOBS_LIMIT = 100;
+export const DEFAULT_COMMITS_LIMIT = 100;
+export const DEFAULT_DATUMS_LIMIT = 100;

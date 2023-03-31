@@ -379,7 +379,10 @@ export type JobSetQueryArgs = {
 };
 
 export type JobSetsQueryArgs = {
+  cursor?: InputMaybe<TimestampInput>;
+  limit?: InputMaybe<Scalars['Int']>;
   projectId: Scalars['String'];
+  reverse?: InputMaybe<Scalars['Boolean']>;
 };
 
 export enum JobState {
@@ -402,11 +405,13 @@ export type JobsByPipelineQueryArgs = {
 };
 
 export type JobsQueryArgs = {
+  cursor?: InputMaybe<TimestampInput>;
   jobSetIds?: InputMaybe<Array<InputMaybe<Scalars['String']>>>;
   limit?: InputMaybe<Scalars['Int']>;
   pipelineId?: InputMaybe<Scalars['String']>;
   pipelineIds?: InputMaybe<Array<InputMaybe<Scalars['String']>>>;
   projectId: Scalars['ID'];
+  reverse?: InputMaybe<Scalars['Boolean']>;
 };
 
 export type Log = {
@@ -567,6 +572,20 @@ export type PageableDatum = {
   items: Array<Datum>;
 };
 
+export type PageableJob = {
+  __typename?: 'PageableJob';
+  cursor?: Maybe<Timestamp>;
+  hasNextPage?: Maybe<Scalars['Boolean']>;
+  items: Array<Job>;
+};
+
+export type PageableJobSet = {
+  __typename?: 'PageableJobSet';
+  cursor?: Maybe<Timestamp>;
+  hasNextPage?: Maybe<Scalars['Boolean']>;
+  items: Array<JobSet>;
+};
+
 export type Pipeline = {
   __typename?: 'Pipeline';
   createdAt: Scalars['Int'];
@@ -675,8 +694,8 @@ export type Query = {
   files: FileQueryResponse;
   job: Job;
   jobSet: JobSet;
-  jobSets: Array<JobSet>;
-  jobs: Array<Job>;
+  jobSets: PageableJobSet;
+  jobs: PageableJob;
   jobsByPipeline: Array<Job>;
   loggedIn: Scalars['Boolean'];
   logs: Array<Maybe<Log>>;
@@ -1094,6 +1113,8 @@ export type ResolversTypes = ResolversObject<{
   Pach: ResolverTypeWrapper<Pach>;
   PageableCommit: ResolverTypeWrapper<PageableCommit>;
   PageableDatum: ResolverTypeWrapper<PageableDatum>;
+  PageableJob: ResolverTypeWrapper<PageableJob>;
+  PageableJobSet: ResolverTypeWrapper<PageableJobSet>;
   Pipeline: ResolverTypeWrapper<Pipeline>;
   PipelineQueryArgs: PipelineQueryArgs;
   PipelineState: PipelineState;
@@ -1187,6 +1208,8 @@ export type ResolversParentTypes = ResolversObject<{
   Pach: Pach;
   PageableCommit: PageableCommit;
   PageableDatum: PageableDatum;
+  PageableJob: PageableJob;
+  PageableJobSet: PageableJobSet;
   Pipeline: Pipeline;
   PipelineQueryArgs: PipelineQueryArgs;
   PipelinesQueryArgs: PipelinesQueryArgs;
@@ -1708,6 +1731,42 @@ export type PageableDatumResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type PageableJobResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['PageableJob'] = ResolversParentTypes['PageableJob'],
+> = ResolversObject<{
+  cursor?: Resolver<
+    Maybe<ResolversTypes['Timestamp']>,
+    ParentType,
+    ContextType
+  >;
+  hasNextPage?: Resolver<
+    Maybe<ResolversTypes['Boolean']>,
+    ParentType,
+    ContextType
+  >;
+  items?: Resolver<Array<ResolversTypes['Job']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type PageableJobSetResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['PageableJobSet'] = ResolversParentTypes['PageableJobSet'],
+> = ResolversObject<{
+  cursor?: Resolver<
+    Maybe<ResolversTypes['Timestamp']>,
+    ParentType,
+    ContextType
+  >;
+  hasNextPage?: Resolver<
+    Maybe<ResolversTypes['Boolean']>,
+    ParentType,
+    ContextType
+  >;
+  items?: Resolver<Array<ResolversTypes['JobSet']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type PipelineResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Pipeline'] = ResolversParentTypes['Pipeline'],
@@ -1882,13 +1941,13 @@ export type QueryResolvers<
     RequireFields<QueryJobSetArgs, 'args'>
   >;
   jobSets?: Resolver<
-    Array<ResolversTypes['JobSet']>,
+    ResolversTypes['PageableJobSet'],
     ParentType,
     ContextType,
     RequireFields<QueryJobSetsArgs, 'args'>
   >;
   jobs?: Resolver<
-    Array<ResolversTypes['Job']>,
+    ResolversTypes['PageableJob'],
     ParentType,
     ContextType,
     RequireFields<QueryJobsArgs, 'args'>
@@ -2128,6 +2187,8 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Pach?: PachResolvers<ContextType>;
   PageableCommit?: PageableCommitResolvers<ContextType>;
   PageableDatum?: PageableDatumResolvers<ContextType>;
+  PageableJob?: PageableJobResolvers<ContextType>;
+  PageableJobSet?: PageableJobSetResolvers<ContextType>;
   Pipeline?: PipelineResolvers<ContextType>;
   Project?: ProjectResolvers<ContextType>;
   ProjectDetails?: ProjectDetailsResolvers<ContextType>;
@@ -2788,42 +2849,47 @@ export type JobSetsQueryVariables = Exact<{
 
 export type JobSetsQuery = {
   __typename?: 'Query';
-  jobSets: Array<{
-    __typename?: 'JobSet';
-    id: string;
-    state: JobState;
-    createdAt?: number | null;
-    finishedAt?: number | null;
-    inProgress: boolean;
-    jobs: Array<{
-      __typename?: 'Job';
-      inputString?: string | null;
-      inputBranch?: string | null;
-      transformString?: string | null;
+  jobSets: {
+    __typename?: 'PageableJobSet';
+    hasNextPage?: boolean | null;
+    items: Array<{
+      __typename?: 'JobSet';
       id: string;
       state: JobState;
-      nodeState: NodeState;
       createdAt?: number | null;
-      startedAt?: number | null;
       finishedAt?: number | null;
-      restarts: number;
-      pipelineName: string;
-      reason?: string | null;
-      dataProcessed: number;
-      dataSkipped: number;
-      dataFailed: number;
-      dataTotal: number;
-      dataRecovered: number;
-      downloadBytesDisplay: string;
-      uploadBytesDisplay: string;
-      outputCommit?: string | null;
-      transform?: {
-        __typename?: 'Transform';
-        cmdList: Array<string>;
-        image: string;
-      } | null;
+      inProgress: boolean;
+      jobs: Array<{
+        __typename?: 'Job';
+        inputString?: string | null;
+        inputBranch?: string | null;
+        transformString?: string | null;
+        id: string;
+        state: JobState;
+        nodeState: NodeState;
+        createdAt?: number | null;
+        startedAt?: number | null;
+        finishedAt?: number | null;
+        restarts: number;
+        pipelineName: string;
+        reason?: string | null;
+        dataProcessed: number;
+        dataSkipped: number;
+        dataFailed: number;
+        dataTotal: number;
+        dataRecovered: number;
+        downloadBytesDisplay: string;
+        uploadBytesDisplay: string;
+        outputCommit?: string | null;
+        transform?: {
+          __typename?: 'Transform';
+          cmdList: Array<string>;
+          image: string;
+        } | null;
+      }>;
     }>;
-  }>;
+    cursor?: {__typename?: 'Timestamp'; seconds: number; nanos: number} | null;
+  };
 };
 
 export type JobsByPipelineQueryVariables = Exact<{
@@ -2871,37 +2937,42 @@ export type JobsQueryVariables = Exact<{
 
 export type JobsQuery = {
   __typename?: 'Query';
-  jobs: Array<{
-    __typename?: 'Job';
-    inputString?: string | null;
-    inputBranch?: string | null;
-    outputBranch?: string | null;
-    outputCommit?: string | null;
-    reason?: string | null;
-    jsonDetails: string;
-    transformString?: string | null;
-    id: string;
-    state: JobState;
-    nodeState: NodeState;
-    createdAt?: number | null;
-    startedAt?: number | null;
-    finishedAt?: number | null;
-    restarts: number;
-    pipelineName: string;
-    dataProcessed: number;
-    dataSkipped: number;
-    dataFailed: number;
-    dataTotal: number;
-    dataRecovered: number;
-    downloadBytesDisplay: string;
-    uploadBytesDisplay: string;
-    transform?: {
-      __typename?: 'Transform';
-      cmdList: Array<string>;
-      image: string;
-      debug: boolean;
-    } | null;
-  }>;
+  jobs: {
+    __typename?: 'PageableJob';
+    hasNextPage?: boolean | null;
+    items: Array<{
+      __typename?: 'Job';
+      inputString?: string | null;
+      inputBranch?: string | null;
+      outputBranch?: string | null;
+      outputCommit?: string | null;
+      reason?: string | null;
+      jsonDetails: string;
+      transformString?: string | null;
+      id: string;
+      state: JobState;
+      nodeState: NodeState;
+      createdAt?: number | null;
+      startedAt?: number | null;
+      finishedAt?: number | null;
+      restarts: number;
+      pipelineName: string;
+      dataProcessed: number;
+      dataSkipped: number;
+      dataFailed: number;
+      dataTotal: number;
+      dataRecovered: number;
+      downloadBytesDisplay: string;
+      uploadBytesDisplay: string;
+      transform?: {
+        __typename?: 'Transform';
+        cmdList: Array<string>;
+        image: string;
+        debug: boolean;
+      } | null;
+    }>;
+    cursor?: {__typename?: 'Timestamp'; seconds: number; nanos: number} | null;
+  };
 };
 
 export type JobSetQueryVariables = Exact<{

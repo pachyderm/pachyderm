@@ -78,7 +78,7 @@ const useRunsList = () => {
   ];
 
   const getDatumStateBadges = useCallback(
-    (job: JobsQuery['jobs'][number]) => {
+    (job: JobsQuery['jobs']['items'][number]) => {
       const Badge: React.FC<DatumBadgeProps> = ({
         count,
         tooltip,

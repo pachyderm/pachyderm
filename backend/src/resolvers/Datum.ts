@@ -1,5 +1,6 @@
 import {ApolloError} from 'apollo-server-errors';
 
+import {DEFAULT_DATUMS_LIMIT} from '@dash-backend/constants/limits';
 import {toProtoDatumState} from '@dash-backend/lib/gqlEnumMappers';
 import {NotFoundError} from '@dash-backend/lib/types';
 import {DatumState} from '@dash-backend/proto';
@@ -7,7 +8,6 @@ import {QueryResolvers} from '@graphqlTypes';
 
 import {datumInfoToGQLDatum} from './builders/pps';
 
-const DEFAULT_LIMIT = 100;
 // We do not want to show UNKNOWN and STARTING statuses in the datum list.
 // These two statuses are not being used by core so we will not allow users to ask for them.
 const DEFAULT_FILTERS = [
@@ -41,7 +41,7 @@ const datumResolver: DatumResolver = {
       {args: {projectId, jobId, pipelineId, limit, filter, cursor}},
       {pachClient},
     ) => {
-      limit = limit || DEFAULT_LIMIT;
+      limit = limit || DEFAULT_DATUMS_LIMIT;
 
       const enumFilter = filter
         ? filter.map((state) => toProtoDatumState(state))

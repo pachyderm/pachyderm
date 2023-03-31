@@ -46,7 +46,7 @@ ChartJS.register(
 );
 
 type RuntimesChartProps = {
-  jobs?: JobsQuery['jobs'];
+  jobs?: JobsQuery['jobs']['items'];
   loading: boolean;
   error?: ApolloError;
   resource: 'job' | 'pipeline';

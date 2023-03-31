@@ -1631,7 +1631,14 @@ export type JobQueryResult = Apollo.QueryResult<
 export const JobSetsDocument = gql`
   query jobSets($args: JobSetsQueryArgs!) {
     jobSets(args: $args) {
-      ...JobSetFields
+      items {
+        ...JobSetFields
+      }
+      cursor {
+        seconds
+        nanos
+      }
+      hasNextPage
     }
   }
   ${JobSetFieldsFragmentDoc}
@@ -1757,19 +1764,26 @@ export type JobsByPipelineQueryResult = Apollo.QueryResult<
 export const JobsDocument = gql`
   query jobs($args: JobsQueryArgs!) {
     jobs(args: $args) {
-      ...JobOverview
-      inputString
-      inputBranch
-      outputBranch
-      outputCommit
-      reason
-      jsonDetails
-      transformString
-      transform {
-        cmdList
-        image
-        debug
+      items {
+        ...JobOverview
+        inputString
+        inputBranch
+        outputBranch
+        outputCommit
+        reason
+        jsonDetails
+        transformString
+        transform {
+          cmdList
+          image
+          debug
+        }
       }
+      cursor {
+        seconds
+        nanos
+      }
+      hasNextPage
     }
   }
   ${JobOverviewFragmentDoc}

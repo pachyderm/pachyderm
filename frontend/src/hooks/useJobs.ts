@@ -12,8 +12,10 @@ export const useJobs = (args: JobsQueryArgs, opts?: QueryFunctionOptions) => {
   });
 
   return {
-    error,
-    jobs: data?.jobs || [],
+    jobs: data?.jobs.items || [],
     loading,
+    error,
+    hasNextPage: data?.jobs.hasNextPage,
+    cursor: data?.jobs.cursor,
   };
 };

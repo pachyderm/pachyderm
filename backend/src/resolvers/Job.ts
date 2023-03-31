@@ -1,5 +1,6 @@
 import {ApolloError} from 'apollo-server-errors';
 
+import {DEFAULT_JOBS_LIMIT} from '@dash-backend/constants/limits';
 import {QueryResolvers} from '@dash-backend/generated/types';
 import getJobsFromJobSet from '@dash-backend/lib/getJobsFromJobSet';
 
@@ -8,12 +9,11 @@ import {
   jobInfoToGQLJob,
   jobSetsToGQLJobSets,
 } from './builders/pps';
-
 interface PipelineJobResolver {
   Query: {
     job: QueryResolvers['job'];
     jobs: QueryResolvers['jobs'];
-    jobsByPipeline: QueryResolvers['jobs'];
+    jobsByPipeline: QueryResolvers['jobsByPipeline'];
     jobSet: QueryResolvers['jobSet'];
     jobSets: QueryResolvers['jobSets'];
   };
@@ -32,10 +32,21 @@ const pipelineJobResolver: PipelineJobResolver = {
     },
     jobs: async (
       _parent,
-      {args: {limit, pipelineId, pipelineIds, jobSetIds, projectId}},
+      {
+        args: {
+          limit,
+          pipelineId,
+          pipelineIds,
+          jobSetIds,
+          projectId,
+          cursor,
+          reverse,
+        },
+      },
       {pachClient},
     ) => {
       let jqFilter = '';
+      limit = limit || DEFAULT_JOBS_LIMIT;
 
       if (
         jobSetIds &&
@@ -61,24 +72,39 @@ const pipelineJobResolver: PipelineJobResolver = {
       }
 
       const jobs = await pachClient.pps().listJobs({
-        limit,
         pipelineId,
         jqFilter,
         projectId,
+        cursor: cursor || undefined,
+        number: limit + 1,
+        reverse: reverse || undefined,
       });
 
-      return jobs.map(jobInfoToGQLJob);
+      let nextCursor = undefined;
+
+      //If jobs.length is not greater than limit there are no pages left
+      if (jobs.length > limit) {
+        jobs.pop(); //remove the extra job from the response
+        nextCursor = jobs[jobs.length - 1].started;
+      }
+
+      return {
+        items: jobs.map(jobInfoToGQLJob),
+        cursor: nextCursor,
+        hasNextPage: !!nextCursor,
+      };
     },
     jobsByPipeline: async (
       _parent,
       {args: {limit, pipelineIds, projectId}},
       {pachClient},
     ) => {
+      const number = limit || DEFAULT_JOBS_LIMIT;
       const pipelineJobs = await Promise.all(
         pipelineIds
           ? pipelineIds.map((pipelineId) =>
               pachClient.pps().listJobs({
-                limit,
+                number,
                 pipelineId,
                 projectId,
               }),
@@ -100,12 +126,33 @@ const pipelineJobResolver: PipelineJobResolver = {
         id,
       );
     },
-    jobSets: async (_parent, {args: {projectId}}, {pachClient}) => {
-      return jobSetsToGQLJobSets(
-        await pachClient
-          .pps()
-          .listJobSets({projectIds: [projectId], details: false}),
-      );
+    jobSets: async (
+      _parent,
+      {args: {projectId, cursor, limit, reverse}},
+      {pachClient},
+    ) => {
+      limit = limit || DEFAULT_JOBS_LIMIT;
+
+      const jobSets = await pachClient.pps().listJobSets({
+        projectIds: [projectId],
+        details: false,
+        cursor: cursor || undefined,
+        number: limit + 1,
+        reverse: reverse || undefined,
+      });
+      let nextCursor = undefined;
+
+      //If jobSets.length is not greater than limit there are no pages left
+      if (jobSets.length > limit) {
+        jobSets.pop(); //remove the extra job from the response
+        nextCursor = jobSets[jobSets.length - 1].jobsList[0].started;
+      }
+
+      return {
+        items: jobSetsToGQLJobSets(jobSets),
+        cursor: nextCursor,
+        hasNextPage: !!nextCursor,
+      };
     },
   },
 };

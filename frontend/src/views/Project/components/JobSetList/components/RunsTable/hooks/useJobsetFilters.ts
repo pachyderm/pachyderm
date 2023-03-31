@@ -7,7 +7,7 @@ import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import {useSort, numberComparator, SortableItem} from '@pachyderm/components';
 
 type sortOptionsType = {
-  [key: string]: SortableItem<JobSetsQuery['jobSets'][number]>;
+  [key: string]: SortableItem<JobSetsQuery['jobSets']['items'][number]>;
 };
 
 const sortOptions: sortOptionsType = {
@@ -15,13 +15,13 @@ const sortOptions: sortOptionsType = {
     name: 'Created: Newest',
     reverse: true,
     func: numberComparator,
-    accessor: (jobset: JobSetsQuery['jobSets'][number]) =>
+    accessor: (jobset: JobSetsQuery['jobSets']['items'][number]) =>
       jobset?.createdAt || 0,
   },
   'Created: Oldest': {
     name: 'Created: Oldest',
     func: numberComparator,
-    accessor: (jobset: JobSetsQuery['jobSets'][number]) =>
+    accessor: (jobset: JobSetsQuery['jobSets']['items'][number]) =>
       jobset?.createdAt || 0,
   },
 };
@@ -56,7 +56,7 @@ type FormValues = {
 };
 
 type useJobSetsFiltersProps = {
-  jobSets?: JobSetsQuery['jobSets'];
+  jobSets?: JobSetsQuery['jobSets']['items'];
 };
 
 const useJobSetFilters = ({jobSets = []}: useJobSetsFiltersProps) => {

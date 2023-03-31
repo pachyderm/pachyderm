@@ -288,6 +288,8 @@ input JobsQueryArgs {
   pipelineId: String
   pipelineIds: [String]
   jobSetIds: [String]
+  cursor: TimestampInput 
+  reverse: Boolean
 }
 
 input JobsByPipelineQueryArgs {
@@ -455,6 +457,9 @@ input JobSetQueryArgs {
 
 input JobSetsQueryArgs {
   projectId: String!
+  cursor: TimestampInput
+  limit: Int
+  reverse: Boolean
 }
 
 input JobQueryArgs {
@@ -626,6 +631,18 @@ type PageableCommit {
   parentCommit: String
 }
 
+type PageableJob {
+  items: [Job!]!
+  cursor: Timestamp
+  hasNextPage: Boolean
+}
+
+type PageableJobSet {
+  items: [JobSet!]!
+  cursor: Timestamp
+  hasNextPage: Boolean
+}
+
 type Query {
   project(id: ID!): Project!
   projects: [Project!]!
@@ -634,7 +651,7 @@ type Query {
   pipelines(args: PipelinesQueryArgs!): [Pipeline]!
   repos(args: ReposQueryArgs!): [Repo]!
   projectDetails(args: ProjectDetailsQueryArgs!): ProjectDetails!
-  jobs(args: JobsQueryArgs!): [Job!]!
+  jobs(args: JobsQueryArgs!): PageableJob!
   job(args: JobQueryArgs!): Job!
   jobsByPipeline(args: JobsByPipelineQueryArgs!): [Job!]!
   dag(args: DagQueryArgs!): [Vertex!]!
@@ -643,7 +660,7 @@ type Query {
   searchResults(args: SearchResultQueryArgs!): SearchResults!
   authConfig: AuthConfig!
   jobSet(args: JobSetQueryArgs!): JobSet!
-  jobSets(args: JobSetsQueryArgs!): [JobSet!]!
+  jobSets(args: JobSetsQueryArgs!): PageableJobSet!
   workspaceLogs(args: WorkspaceLogsArgs!): [Log]!
   logs(args: LogsArgs!): [Log]!
   commit(args: CommitQueryArgs!): Commit

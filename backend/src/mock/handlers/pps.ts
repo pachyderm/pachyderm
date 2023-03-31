@@ -93,12 +93,32 @@ const pps = () => {
             });
           }
 
+          const reverse = call.request.getReverse();
+          if (reverse) {
+            replyJobs = replyJobs.reverse();
+          }
+
           const pipeline = call.request.getPipeline();
           if (pipeline) {
             replyJobs = replyJobs.filter(
               (job) =>
                 job.getJob()?.getPipeline()?.getName() === pipeline.getName(),
             );
+          }
+
+          const cursor = call.request.getPaginationmarker();
+          if (cursor) {
+            const cursorIndex = replyJobs.findIndex(
+              (job) =>
+                job.getStarted()?.getNanos() === cursor.getNanos() &&
+                job.getStarted()?.getSeconds() === cursor.getSeconds(),
+            );
+            replyJobs = replyJobs.slice(cursorIndex + 1);
+          }
+
+          const number = call.request.getNumber();
+          if (number) {
+            replyJobs = replyJobs.slice(0, number);
           }
 
           replyJobs.forEach((job) => call.write(job));

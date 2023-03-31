@@ -22,10 +22,12 @@ import styles from './RunsList.module.css';
 type RunsListProps = {
   error?: ApolloError;
   totalJobsetsLength: number;
-  jobSets?: JobSetsQuery['jobSets'];
+  jobSets?: JobSetsQuery['jobSets']['items'];
 };
 
-const getJobStateBadges = (jobSet: JobSetsQuery['jobSets'][number]) => {
+const getJobStateBadges = (
+  jobSet: JobSetsQuery['jobSets']['items'][number],
+) => {
   const nodeStates = jobSet.jobs.reduce(
     (acc, job) => {
       acc[job.nodeState] += 1;

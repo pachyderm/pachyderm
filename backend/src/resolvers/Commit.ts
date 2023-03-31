@@ -1,5 +1,6 @@
 import {ApolloError} from 'apollo-server-errors';
 
+import {DEFAULT_COMMITS_LIMIT} from '@dash-backend/constants/limits';
 import {UUID_WITHOUT_DASHES_REGEX} from '@dash-backend/constants/pachCore';
 import formatDiff from '@dash-backend/lib/formatDiff';
 import {toProtoCommitOrigin} from '@dash-backend/lib/gqlEnumMappers';
@@ -14,8 +15,6 @@ import {
 } from '@graphqlTypes';
 
 import {commitInfoToGQLCommit, commitToGQLCommit} from './builders/pfs';
-
-const DEFAULT_LIMIT = 100;
 interface CommitResolver {
   Query: {
     commits: QueryResolvers['commits'];
@@ -135,7 +134,7 @@ const commitResolver: CommitResolver = {
       },
       {pachClient},
     ) => {
-      number = number || DEFAULT_LIMIT;
+      number = number || DEFAULT_COMMITS_LIMIT;
 
       // You can only use one cursor in a query at a time.
       if (cursor && commitIdCursor) {

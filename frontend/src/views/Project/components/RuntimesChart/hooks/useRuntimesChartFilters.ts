@@ -10,7 +10,7 @@ type FormValues = {
 };
 
 type useRuntimesChartFiltersProps = {
-  jobs?: JobsQuery['jobs'];
+  jobs?: JobsQuery['jobs']['items'];
 };
 
 const useRuntimesChartFilters = ({jobs = []}: useRuntimesChartFiltersProps) => {

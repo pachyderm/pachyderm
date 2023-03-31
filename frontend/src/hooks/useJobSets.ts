@@ -15,8 +15,10 @@ export const useJobSets = (
   });
 
   return {
-    error,
-    jobSets: data?.jobSets || [],
+    jobSets: data?.jobSets.items || [],
     loading,
+    error,
+    hasNextPage: data?.jobSets.hasNextPage,
+    cursor: data?.jobSets.cursor,
   };
 };

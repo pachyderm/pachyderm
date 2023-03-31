@@ -1,5 +1,6 @@
 import {ApolloError} from 'apollo-server-errors';
 
+import {DEFAULT_JOBS_LIMIT} from '@dash-backend/constants/limits';
 import formatBytes from '@dash-backend/lib/formatBytes';
 import getSizeBytes from '@dash-backend/lib/getSizeBytes';
 import {PipelineInfo, PipelineState} from '@dash-backend/proto';
@@ -80,7 +81,7 @@ const projectsResolver: ProjectsResolver = {
         pachClient.pps().listPipeline({projectIds: [projectId]}),
         pachClient.pps().listJobSets({
           projectIds: [projectId],
-          limit: jobSetsLimit,
+          number: jobSetsLimit || DEFAULT_JOBS_LIMIT,
           details: false,
         }),
       ]);

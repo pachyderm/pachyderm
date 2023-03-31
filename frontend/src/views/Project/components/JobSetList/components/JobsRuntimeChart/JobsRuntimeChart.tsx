@@ -25,7 +25,7 @@ const JobsRuntimeChart: React.FC<JobsRuntimeChartProps> = ({
 
   return (
     <RuntimesChart
-      jobs={data?.jobs}
+      jobs={data?.jobs.items}
       loading={loading}
       error={error}
       resource="job"

@@ -27,7 +27,12 @@ import {
   DatumSetSpecObject,
   getLogsRequestFromArgs,
 } from '../builders/pps';
-import {durationFromObject, DurationObject} from '../builders/protobuf';
+import {
+  durationFromObject,
+  DurationObject,
+  timestampFromObject,
+  TimestampObject,
+} from '../builders/protobuf';
 import {
   JobSetQueryArgs,
   JobQueryArgs,
@@ -60,24 +65,26 @@ import {
   Job,
   DeletePipelinesRequest,
 } from '../proto/pps/pps_pb';
-import {DEFAULT_JOBS_LIMIT} from '../services/constants/pps';
 import streamToObjectArray from '../utils/streamToObjectArray';
 
 import {RPC_DEADLINE_MS} from './constants/rpc';
 
-export interface ListArgs {
-  limit?: number | null;
-}
-export interface ListJobArgs extends ListArgs {
+export interface ListJobArgs {
   pipelineId?: string | null;
   jqFilter?: string;
   projectId: string;
   history?: number;
+  number?: number;
+  reverse?: boolean;
+  cursor?: TimestampObject;
 }
 
-export interface ListJobSetArgs extends ListArgs {
+export interface ListJobSetArgs {
   details?: boolean;
   projectIds: string[];
+  number?: number;
+  reverse?: boolean;
+  cursor?: TimestampObject;
 }
 
 export interface PipelineArgs {
@@ -299,10 +306,12 @@ const pps = ({
     // SEE PROTO: History -1 means return jobs from all historical versions.
     listJobs: ({
       projectId,
-      limit,
       pipelineId,
       jqFilter,
       history = -1,
+      cursor,
+      reverse,
+      number,
     }: ListJobArgs) => {
       const listJobRequest = new ListJobRequest().setDetails(true);
 
@@ -328,14 +337,23 @@ const pps = ({
         listJobRequest.setProjectsList([new Project().setName(projectId)]);
       }
 
+      if (cursor) {
+        listJobRequest.setPaginationmarker(timestampFromObject(cursor));
+      }
+
+      if (number) {
+        listJobRequest.setNumber(number);
+      }
+
+      if (reverse) {
+        listJobRequest.setReverse(reverse);
+      }
+
       const stream = client.listJob(listJobRequest, credentialMetadata, {
         deadline: Date.now() + RPC_DEADLINE_MS,
       });
 
-      return streamToObjectArray<JobInfo, JobInfo.AsObject>(
-        stream,
-        limit || DEFAULT_JOBS_LIMIT,
-      );
+      return streamToObjectArray<JobInfo, JobInfo.AsObject>(stream);
     },
 
     inspectPipeline: ({
@@ -385,7 +403,9 @@ const pps = ({
     },
 
     listJobSets: (
-      {projectIds, limit, details = true}: ListJobSetArgs = {projectIds: []},
+      {projectIds, details = true, cursor, number, reverse}: ListJobSetArgs = {
+        projectIds: [],
+      },
     ) => {
       const listJobSetRequest = new ListJobSetRequest().setDetails(details);
 
@@ -393,14 +413,23 @@ const pps = ({
         projectIds.map((projectName) => new Project().setName(projectName)),
       );
 
+      if (cursor) {
+        listJobSetRequest.setPaginationmarker(timestampFromObject(cursor));
+      }
+
+      if (number) {
+        listJobSetRequest.setNumber(number);
+      }
+
+      if (reverse) {
+        listJobSetRequest.setReverse(reverse);
+      }
+
       const stream = client.listJobSet(listJobSetRequest, credentialMetadata, {
         deadline: Date.now() + RPC_DEADLINE_MS,
       });
 
-      return streamToObjectArray<JobSetInfo, JobSetInfo.AsObject>(
-        stream,
-        limit || DEFAULT_JOBS_LIMIT,
-      );
+      return streamToObjectArray<JobSetInfo, JobSetInfo.AsObject>(stream);
     },
 
     inspectJob: ({projectId, id, pipelineName, wait = false}: JobQueryArgs) => {
