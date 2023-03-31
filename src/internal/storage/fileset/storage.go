@@ -7,25 +7,22 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
+	"golang.org/x/sync/semaphore"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
-	"golang.org/x/sync/semaphore"
 )
 
 const (
 	// DefaultMemoryThreshold is the default for the memory threshold that must
 	// be met before a file set part is serialized (excluding close).
 	DefaultMemoryThreshold = units.GB
-	// DefaultCompactionFixedDelay is the default fixed delay for compaction.
-	// This is expressed as the number of primitive filesets.
-	// TODO: Potentially remove this configuration.
-	// It is easy to footgun with this configuration.
-	DefaultCompactionFixedDelay = 1
 	// DefaultCompactionLevelFactor is the default factor that level sizes increase by in a compacted fileset.
 	DefaultCompactionLevelFactor = 10
 	DefaultPrefetchLimit         = 10
@@ -65,7 +62,7 @@ type Storage struct {
 }
 
 type CompactionConfig struct {
-	FixedDelay, LevelFactor int64
+	LevelFactor int64
 }
 
 // NewStorage creates a new Storage.
@@ -81,7 +78,6 @@ func NewStorage(mds MetadataStore, tr track.Tracker, chunks *chunk.Storage, opts
 			SizeBytes: index.DefaultShardSizeThreshold,
 		},
 		compactionConfig: &CompactionConfig{
-			FixedDelay:  DefaultCompactionFixedDelay,
 			LevelFactor: DefaultCompactionLevelFactor,
 		},
 		filesetSem:    semaphore.NewWeighted(math.MaxInt64),
@@ -126,7 +122,7 @@ func (s *Storage) newReader(id ID) *Reader {
 // Open opens a file set for reading.
 func (s *Storage) Open(ctx context.Context, ids []ID) (FileSet, error) {
 	var err error
-	ids, err = s.Flatten(ctx, ids)
+	ids, err = s.FlattenAll(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -185,39 +181,55 @@ func (s *Storage) CloneTx(tx *pachsql.Tx, id ID, ttl time.Duration) (*ID, error)
 	}
 }
 
-// Flatten takes a list of IDs and replaces references to composite FileSets
+// FlattenAll takes a list of IDs and replaces references to composite FileSets
 // with references to all their layers inplace.
 // The returned IDs will only contain ids of Primitive FileSets
-func (s *Storage) Flatten(ctx context.Context, ids []ID) ([]ID, error) {
+func (s *Storage) FlattenAll(ctx context.Context, ids []ID) ([]ID, error) {
 	flattened := make([]ID, 0, len(ids))
-	for _, id := range ids {
-		md, err := s.store.Get(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		switch x := md.Value.(type) {
-		case *Metadata_Primitive:
-			flattened = append(flattened, id)
-		case *Metadata_Composite:
-			ids, err := x.Composite.PointsTo()
-			if err != nil {
-				return nil, err
-			}
-			ids2, err := s.Flatten(ctx, ids)
-			if err != nil {
-				return nil, err
-			}
-			flattened = append(flattened, ids2...)
-		default:
-			// TODO: should it be?
-			return nil, errors.Errorf("Flatten is not defined for empty filesets")
-		}
+	if err := s.flatten(ctx, ids, func(id ID) error {
+		flattened = append(flattened, id)
+		return nil
+	}); err != nil {
+		return nil, errors.EnsureStack(err)
 	}
 	return flattened, nil
 }
 
+func (s *Storage) flatten(ctx context.Context, ids []ID, cb func(id ID) error) error {
+	for _, id := range ids {
+		md, err := s.store.Get(ctx, id)
+		if err != nil {
+			return err
+		}
+		switch x := md.Value.(type) {
+		case *Metadata_Primitive:
+			if err := cb(id); err != nil {
+				if err != errutil.ErrBreak {
+					return err
+				}
+				return nil
+			}
+		case *Metadata_Composite:
+			ids, err := x.Composite.PointsTo()
+			if err != nil {
+				return err
+			}
+			if err := s.flatten(ctx, ids, cb); err != nil {
+				if err != errutil.ErrBreak {
+					return err
+				}
+				return nil
+			}
+		default:
+			// TODO: should it be?
+			return errors.Errorf("flatten is not defined for empty filesets")
+		}
+	}
+	return nil
+}
+
 func (s *Storage) flattenPrimitives(ctx context.Context, ids []ID) ([]*Primitive, error) {
-	ids, err := s.Flatten(ctx, ids)
+	ids, err := s.FlattenAll(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
