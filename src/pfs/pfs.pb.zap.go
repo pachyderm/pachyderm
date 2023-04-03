@@ -238,6 +238,7 @@ func (x *ProjectInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddObject("project", x.Project)
 	enc.AddString("description", x.Description)
+	enc.AddObject("auth_info", x.AuthInfo)
 	return nil
 }
 

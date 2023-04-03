@@ -2763,3 +2763,46 @@ func TestListPipelinesWithProjectAccessControl(t *testing.T) {
 		})
 	}
 }
+
+func TestListProjectWithAuth(t *testing.T) {
+	t.Parallel()
+	c := envWithAuth(t).PachClient
+
+	admin := tu.AuthenticateClient(t, c, auth.RootUser)
+	_, alice := tu.RandomRobot(t, c, "alice")
+
+	adminProject := tu.UniqueString("adminProject")
+	aliceProject := tu.UniqueString("aliceProject")
+	require.NoError(t, admin.CreateProject(adminProject))
+	require.NoError(t, alice.CreateProject(aliceProject))
+
+	// map from project name to projectInfo
+	// adminExpectedAuthInfo := map[string]*auth.AuthInfo
+	tests := map[string]struct {
+		client   *client.APIClient
+		expected map[string]*auth.AuthInfo
+	}{
+		"admin": {client: admin, expected: map[string]*auth.AuthInfo{
+			pfs.DefaultProjectName: {Roles: []string{auth.ClusterAdminRole, auth.ProjectWriterRole}},
+			adminProject:           {Roles: []string{auth.ClusterAdminRole, auth.ProjectOwnerRole}},
+			aliceProject:           {Roles: []string{auth.ClusterAdminRole}},
+		}},
+		"alice": {client: alice, expected: map[string]*auth.AuthInfo{
+			pfs.DefaultProjectName: {Roles: []string{auth.ProjectWriterRole}},
+			adminProject:           {Roles: []string{}},
+			aliceProject:           {Roles: []string{auth.ProjectOwnerRole}},
+		}},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			projectInfos, err := tc.client.ListProject()
+			require.NoError(t, err)
+			for _, projectInfo := range projectInfos {
+				if expected, ok := tc.expected[projectInfo.Project.Name]; ok {
+					require.ElementsEqual(t, expected.Roles, projectInfo.AuthInfo.Roles)
+				}
+			}
+		})
+	}
+
+}

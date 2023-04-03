@@ -173,6 +173,8 @@ message Project {
 message ProjectInfo {
   Project project = 1;
   string description = 2;
+
+  auth_v2.AuthInfo auth_info = 3; 
 }
 
 // PFS API
