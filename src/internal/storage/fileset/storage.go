@@ -181,12 +181,10 @@ func (s *Storage) CloneTx(tx *pachsql.Tx, id ID, ttl time.Duration) (*ID, error)
 	}
 }
 
-// FlattenAll takes a list of IDs and replaces references to composite FileSets
-// with references to all their layers inplace.
-// The returned IDs will only contain ids of Primitive FileSets
+// FlattenAll is like Flatten, but collects the primitives to return to the user.
 func (s *Storage) FlattenAll(ctx context.Context, ids []ID) ([]ID, error) {
 	flattened := make([]ID, 0, len(ids))
-	if err := s.flatten(ctx, ids, func(id ID) error {
+	if err := s.Flatten(ctx, ids, func(id ID) error {
 		flattened = append(flattened, id)
 		return nil
 	}); err != nil {
@@ -195,7 +193,10 @@ func (s *Storage) FlattenAll(ctx context.Context, ids []ID) ([]ID, error) {
 	return flattened, nil
 }
 
-func (s *Storage) flatten(ctx context.Context, ids []ID, cb func(id ID) error) error {
+// Flatten iterates through IDs and replaces references to composite file sets
+// with all their layers in place and executes the user provided callback
+// against each primitive file set.
+func (s *Storage) Flatten(ctx context.Context, ids []ID, cb func(id ID) error) error {
 	for _, id := range ids {
 		md, err := s.store.Get(ctx, id)
 		if err != nil {
@@ -204,25 +205,25 @@ func (s *Storage) flatten(ctx context.Context, ids []ID, cb func(id ID) error) e
 		switch x := md.Value.(type) {
 		case *Metadata_Primitive:
 			if err := cb(id); err != nil {
-				if err != errutil.ErrBreak {
-					return err
+				if errors.Is(err, errutil.ErrBreak) {
+					return nil
 				}
-				return nil
+				return err
 			}
 		case *Metadata_Composite:
 			ids, err := x.Composite.PointsTo()
 			if err != nil {
 				return err
 			}
-			if err := s.flatten(ctx, ids, cb); err != nil {
-				if err != errutil.ErrBreak {
-					return err
+			if err := s.Flatten(ctx, ids, cb); err != nil {
+				if errors.Is(err, errutil.ErrBreak) {
+					return nil
 				}
-				return nil
+				return err
 			}
 		default:
 			// TODO: should it be?
-			return errors.Errorf("flatten is not defined for empty filesets")
+			return errors.Errorf("Flatten is not defined for empty filesets")
 		}
 	}
 	return nil

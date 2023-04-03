@@ -21,7 +21,7 @@ import (
 func (s *Storage) IsCompacted(ctx context.Context, id ID) (bool, error) {
 	var prev *Primitive
 	compacted := true
-	if err := s.flatten(ctx, []ID{id}, func(fsId ID) error {
+	if err := s.Flatten(ctx, []ID{id}, func(fsId ID) error {
 		curr, err := s.getPrimitive(ctx, fsId)
 		if err != nil {
 			return err

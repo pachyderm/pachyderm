@@ -776,41 +776,35 @@ func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit,
 
 func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
 	var compactedDiff *fileset.ID
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = time.Minute
 	return compactedDiff, backoff.RetryUntilCancel(ctx, func() error {
-		diff, err := d.getDiffFileSetIfCompacted(ctx, commit)
+		diff, err := d.commitStore.GetDiffFileSet(ctx, commit)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
-		if diff != nil {
+		isCompacted, err := d.storage.IsCompacted(ctx, *diff)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		if isCompacted {
 			compactedDiff = diff
 			return nil
 		}
+		commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		if commitInfo.Finished != nil {
+			return errors.Errorf("cannot get compacted diff file set for commit %s that is not finished", commit.ID)
+		}
+		if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+			return d.finishCommit(txnCtx, commit, "", "", false)
+		}); err != nil {
+			return errors.EnsureStack(err)
+		}
 		return errors.Errorf("diff file set for commit %s is not compacted yet", commit.ID)
-	}, backoff.NewConstantBackOff(time.Second), backoff.NotifyCtx(ctx, "getCompactedDiffFileSet for "+commit.ID))
-}
-
-func (d *driver) getDiffFileSetIfCompacted(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
-	diff, err := d.commitStore.GetDiffFileSet(ctx, commit)
-	if err != nil {
-		return nil, err
-	}
-	isCompacted, err := d.storage.IsCompacted(ctx, *diff)
-	if err != nil {
-		return nil, err
-	}
-	if isCompacted {
-		return diff, nil
-	}
-	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return nil, err
-	}
-	if commitInfo.Finished != nil {
-		return nil, errors.Errorf("cannot get compacted diff file set for commit %s that is not finished", commit.ID)
-	}
-	return nil, d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return d.finishCommit(txnCtx, commit, "", "", false)
-	})
+	}, b, backoff.NotifyCtx(ctx, "getCompactedDiffFileSet for "+commit.ID))
 }
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
