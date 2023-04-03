@@ -361,29 +361,6 @@ func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContex
 	return nil
 }
 
-func (d *driver) topologicalSortRepos(ctx context.Context, ris []*pfs.RepoInfo) error {
-	repoProvenanceLen := make(map[string]int)
-	bi := &pfs.BranchInfo{}
-	for _, ri := range ris {
-		if err := d.branches.ReadOnly(ctx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(ri.Repo), bi, col.DefaultOptions(), func(string) error {
-			max := -1
-			if m, ok := repoProvenanceLen[ri.Repo.String()]; ok {
-				max = m
-			}
-			if len(bi.Provenance) > max {
-				repoProvenanceLen[ri.Repo.String()] = max
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-	}
-	sort.Slice(ris, func(i, j int) bool {
-		return repoProvenanceLen[ris[i].String()] < repoProvenanceLen[ris[j].String()]
-	})
-	return nil
-}
-
 func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
 	var repoInfos []*pfs.RepoInfo
 	if err := d.listRepo(ctx, false, "", projects, func(repoInfo *pfs.RepoInfo) error {
@@ -395,14 +372,11 @@ func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*p
 	if len(repoInfos) == 0 {
 		return nil, nil
 	}
-	if err := d.topologicalSortRepos(ctx, repoInfos); err != nil {
-		return nil, err
-	}
 	var deleted []*pfs.Repo
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		for i := len(repoInfos) - 1; i >= 0; i-- {
 			ri := repoInfos[i]
-			dels, err := d.deleteRepoInfo(txnCtx, ri, false)
+			dels, err := d.deleteRepoInfo(txnCtx, ri, true)
 			if err != nil && !auth.IsErrNotAuthorized(err) {
 				return err
 			}
