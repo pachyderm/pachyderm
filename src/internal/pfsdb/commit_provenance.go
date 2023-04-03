@@ -25,6 +25,8 @@ func ResolveCommitProvenance(tx *pachsql.Tx, repo *pfs.Repo, commitSet string) (
 
 // CommitSetProvenance returns all the commit IDs that are in the provenance
 // of all the commits in this commit set.
+//
+// TODO(provenance): is 'SELECT DISTINCT commit_id' a performance concern?
 func CommitSetProvenance(tx *pachsql.Tx, id string) ([]*pfs.Commit, error) {
 	q := `
           WITH RECURSIVE prov(from_id, to_id) AS (

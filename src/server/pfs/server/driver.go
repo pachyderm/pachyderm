@@ -1389,6 +1389,7 @@ func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {
 	return errors.EnsureStack(d.commitStore.DropFileSets(ctx, commit))
 }
 
+// TODO(provenance): consider removing this functionality
 func (d *driver) fillNewBranches(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, provenance []*pfs.Branch) error {
 	repoBranches := map[*pfs.Repo][]*pfs.Branch{branch.Repo: {branch}}
 	newRepoCommits := make(map[string]*pfs.Commit)

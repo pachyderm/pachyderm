@@ -138,6 +138,7 @@ func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet,
 	return nil
 }
 
+// TODO(provenance): performance concerns in inspecting each commit set
 func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb func(*pfs.CommitSetInfo) error) error {
 	// Track the commitsets we've already processed
 	seen := map[string]struct{}{}
@@ -250,7 +251,7 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 //
 // to delete a single commit
 // 1. delete the commit and its associated file set
-// 2. check to whether the commit was at the head of a branch, and update the branch head if necessary
+// 2. check whether the commit was at the head of a branch, and update the branch head if necessary
 // 3. updating the ChildCommits pointers of deletedCommit.ParentCommit
 // 4. updating the ParentCommit pointer of deletedCommit.ChildCommits
 func (d *driver) deleteCommits(txnCtx *txncontext.TransactionContext, commitInfos []*pfs.CommitInfo) error {
