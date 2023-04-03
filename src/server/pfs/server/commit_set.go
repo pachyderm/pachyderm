@@ -145,7 +145,7 @@ func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb fun
 	// timestamp due to triggers or deferred processing)
 	commitInfo := &pfs.CommitInfo{}
 	err := d.commits.ReadOnly(ctx).List(commitInfo, col.DefaultOptions(), func(string) error {
-		if project != nil && commitInfo.Commit.Repo.Project.Name != project.Name {
+		if project != nil && commitInfo.Commit.AccessRepo().Project.Name != project.Name {
 			return nil
 		}
 		if _, ok := seen[commitInfo.Commit.ID]; ok {
