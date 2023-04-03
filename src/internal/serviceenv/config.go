@@ -10,7 +10,9 @@ type Configuration struct {
 	*EnterpriseSpecificConfiguration
 }
 
-// GlobalConfiguration contains the global configuration.
+// GlobalConfiguration contains the global configuration.  Note that the logger is initialized
+// before service environment setup, but uses environment variables.  See the documentation for the
+// src/internal/log package for those.
 type GlobalConfiguration struct {
 	FeatureFlags
 	EtcdHost                       string `env:"ETCD_SERVICE_HOST,required"`
@@ -50,7 +52,6 @@ type GlobalConfiguration struct {
 
 	EtcdPrefix           string `env:"ETCD_PREFIX,default="`
 	DeploymentID         string `env:"CLUSTER_DEPLOYMENT_ID,default="`
-	LogLevel             string `env:"LOG_LEVEL,default=info"` // Note: actually read in internal/log/loggers.go.
 	EnterpriseEtcdPrefix string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
 	Metrics              bool   `env:"METRICS,default=true"`
 	MetricsEndpoint      string `env:"METRICS_ENDPOINT,default="`

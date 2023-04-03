@@ -7,9 +7,9 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strconv"
-	"strings"
 	"testing"
 
 	units "github.com/docker/go-units"
@@ -93,9 +93,21 @@ func NewRealEnvWithPPSTransactionMock(ctx context.Context, t testing.TB, customO
 func (realEnv *RealEnv) ActivateIdentity(t testing.TB) {
 	dir, err := os.Getwd()
 	require.NoError(t, err)
-	dexDir := strings.Split(dir, "src")[0] + "dex-assets"
-	_, err = os.Stat(dexDir)
-	require.NoError(t, err)
+	// walk directory parents until the dex-assets directory is found
+	var dexDir string
+	for {
+		dir = filepath.Clean(dir)
+		dexDir = filepath.Join(dir, "dex-assets/")
+		if _, err := os.Stat(dexDir); err == nil {
+			break
+		}
+		parent, _ := filepath.Split(dir)
+		if parent == dir {
+			t.Error("could not find dex-assets")
+			return
+		}
+		dir = parent
+	}
 	realEnv.ServiceEnv.InitDexDB()
 	identityEnv := identityserver.EnvFromServiceEnv(realEnv.ServiceEnv)
 	identityAddr := realEnv.PachClient.GetAddress().Host + ":" + strconv.Itoa(int(realEnv.PachClient.GetAddress().Port+8))

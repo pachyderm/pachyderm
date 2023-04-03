@@ -5,6 +5,7 @@ import {SameMetadata} from '../../types';
 
 type PipelineProps = {
   setShowPipeline: (shouldShow: boolean) => void;
+  notebookPath: string | undefined;
   saveNotebookMetadata: (metadata: any) => void;
   metadata: SameMetadata | undefined;
 };
@@ -18,6 +19,7 @@ const placeholderRequirements = './requirements.txt';
 
 const Pipeline: React.FC<PipelineProps> = ({
   setShowPipeline,
+  notebookPath,
   saveNotebookMetadata,
   metadata,
 }) => {
@@ -34,7 +36,7 @@ const Pipeline: React.FC<PipelineProps> = ({
     callCreatePipeline,
     callSavePipeline,
     errorMessage,
-  } = usePipeline(metadata, saveNotebookMetadata);
+  } = usePipeline(metadata, notebookPath, saveNotebookMetadata);
 
   return (
     <div className="pachyderm-mount-pipeline-base">
