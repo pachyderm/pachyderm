@@ -18,12 +18,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/authdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
@@ -31,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 )
 
 func envWithAuth(t *testing.T) *realenv.RealEnv {
@@ -2451,6 +2454,62 @@ func TestModifyRoleBindingAccess(t *testing.T) {
 	}
 }
 
+func TestListRepoAfterAuthActivation(t *testing.T) {
+	// This test ensures that CORE-1548 doesn't come back.
+	t.Parallel()
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	c := env.PachClient.WithCtx(ctx)
+	ctx = c.Ctx()
+
+	// Create a repo in the default project.
+	err := c.CreateProjectRepo("default", "test")
+	require.NoError(t, err, "should create the default/test repo")
+
+	// Create a pipeline, to ensure that PPS auth activation works.
+	err = c.CreateProjectPipeline("default", "pipeline", "", nil, nil, &pps.ParallelismSpec{}, client.NewProjectPFSInput("default", "test", "*"), "", false)
+	require.NoError(t, err, "should create the default/pipeline pipeline")
+
+	// Ensure we can list repos, and that this one shows up.
+	ensureTestRepoExists := func(c *client.APIClient) {
+		t.Helper()
+		repos, err := c.ListRepo()
+		require.NoError(t, err, "should be able to list repos")
+
+		got := make(map[string]struct{})
+		for _, r := range repos {
+			got[r.GetRepo().String()] = struct{}{}
+		}
+		require.Equal(t, map[string]struct{}{"default/test": {}, "default/pipeline": {}}, got, "should have one repo: default/test")
+	}
+	ensureTestRepoExists(c)
+
+	// Prepare to activate auth.
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+
+	// Enterprise needs a license.
+	tu.ActivateLicense(t, c, peerPort)
+
+	// Activate enterprise.
+	_, err = env.PachClient.Enterprise.Activate(env.PachClient.Ctx(),
+		&enterprise.ActivateRequest{
+			LicenseServer: "grpc://localhost:" + peerPort,
+			Id:            "localhost",
+			Secret:        "localhost",
+		})
+	require.NoError(t, err, "should activate enterprise")
+
+	// Then setup auth in a single transaction.
+	err = env.AuthServer.(interface {
+		ActivateAuthEverywhere(context.Context, []authserver.ActivationScope, string) error
+	}).ActivateAuthEverywhere(internalauth.AsInternalUser(ctx, authdb.InternalUser), []authserver.ActivationScope{authserver.ActivationScopePFS, authserver.ActivationScopePPS}, tu.RootToken)
+	require.NoError(t, err, "should activate auth everywhere")
+
+	// Ensure we can still list repos.
+	c.SetAuthToken(tu.RootToken)
+	ensureTestRepoExists(c)
+}
+
 func TestPreAuthProjects(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
@@ -2459,7 +2518,7 @@ func TestPreAuthProjects(t *testing.T) {
 	project := tu.UniqueString("project")
 	require.NoError(t, c.CreateProject(project))
 
-	// activate auth auth
+	// activate enterprise + auth
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateLicense(t, c, peerPort)
 	_, err := env.PachClient.Enterprise.Activate(env.PachClient.Ctx(),
@@ -2473,7 +2532,11 @@ func TestPreAuthProjects(t *testing.T) {
 	require.NoError(t, err)
 	c.SetAuthToken(tu.RootToken)
 
-	// default project's role binding should be created automatically via auth activation
+	// activate pfs auth
+	_, err = c.PfsAPIClient.ActivateAuth(c.Ctx(), &pfs.ActivateAuthRequest{})
+	require.NoError(t, err)
+
+	// default project's role binding should be created automatically via PFS auth activation
 	_, err = c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
 		Principal: tu.Robot("marvin"),
 		Roles:     []string{},
@@ -2481,19 +2544,7 @@ func TestPreAuthProjects(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// however non-defualt projects get their role bindings through pfs auth activation
-	_, err = c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
-		Principal: tu.Robot("marvin"),
-		Roles:     []string{},
-		Resource:  &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project},
-	})
-	require.YesError(t, err)
-
-	// activate pfs auth
-	_, err = c.PfsAPIClient.ActivateAuth(c.Ctx(), &pfs.ActivateAuthRequest{})
-	require.NoError(t, err)
-
-	// We are just using ModifyRoleBinding to trigger some code that checks for the project's role binding.
+	// non-default projects also get their role bindings through pfs auth activation
 	_, err = c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
 		Principal: tu.Robot("marvin"),
 		Roles:     []string{},

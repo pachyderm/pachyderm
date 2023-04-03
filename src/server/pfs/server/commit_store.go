@@ -26,6 +26,10 @@ type commitStore interface {
 	SetTotalFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error
 	// SetTotalFileSetTx is like SetTotalFileSet, but in a transaction
 	SetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, id fileset.ID) error
+	// SetDiffFileSet sets the diff fileset for the commit, overwriting whatever is there.
+	SetDiffFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error
+	// SetDiffFileSetTx is like SetDiffFileSet, but in a transaction
+	SetDiffFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, id fileset.ID) error
 	// GetTotalFileSet returns the total fileset for a commit.
 	GetTotalFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error)
 	// GetTotalFileSetTx is like GetTotalFileSet, but in a transaction
@@ -136,6 +140,19 @@ func (cs *postgresCommitStore) SetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Com
 	return setTotal(tx, cs.tr, commit, id)
 }
 
+func (cs *postgresCommitStore) SetDiffFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
+	return dbutil.WithTx(ctx, cs.db, func(tx *pachsql.Tx) error {
+		return cs.SetDiffFileSetTx(tx, commit, id)
+	})
+}
+
+func (cs *postgresCommitStore) SetDiffFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, id fileset.ID) error {
+	if err := cs.dropDiff(tx, commit); err != nil {
+		return err
+	}
+	return setDiff(tx, cs.tr, commit, id)
+}
+
 func (cs *postgresCommitStore) DropFileSets(ctx context.Context, commit *pfs.Commit) error {
 	return dbutil.WithTx(ctx, cs.db, func(tx *pachsql.Tx) error {
 		return cs.DropFileSetsTx(tx, commit)
@@ -216,6 +233,18 @@ func setTotal(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.I
 	ON CONFLICT (commit_id) DO UPDATE
 	SET fileset_id = $2
 	WHERE commit_totals.commit_id = $1
+	`, pfsdb.CommitKey(commit), id)
+	return errors.EnsureStack(err)
+}
+
+func setDiff(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.ID) error {
+	oid := commitDiffTrackerID(commit, id)
+	pointsTo := []string{id.TrackerID()}
+	if err := tr.CreateTx(tx, oid, pointsTo, track.NoTTL); err != nil {
+		return errors.EnsureStack(err)
+	}
+	_, err := tx.Exec(`INSERT INTO pfs.commit_diffs (commit_id, fileset_id)
+	VALUES ($1, $2)
 	`, pfsdb.CommitKey(commit), id)
 	return errors.EnsureStack(err)
 }
