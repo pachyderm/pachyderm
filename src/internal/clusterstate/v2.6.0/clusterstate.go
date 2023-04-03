@@ -42,13 +42,13 @@ func Migrate(state migrations.State) migrations.State {
 			return pfsdb.SetupCommitProvenanceV0(ctx, env.Tx)
 		}).
 		Apply("Remove Alias Commits", func(ctx context.Context, env migrations.Env) error {
-			return migrateAliasCommits(ctx, env.Tx)
+			return removeAliasCommits(ctx, env.Tx)
 		}).
 		Apply("Remove branch from the Commit key", func(ctx context.Context, env migrations.Env) error {
-			if err := migrateToBranchlessCommits(ctx, env.Tx); err != nil {
+			if err := branchlessCommitsPFS(ctx, env.Tx); err != nil {
 				return err
 			}
-			return migrateBranchlessCommitsPPS(ctx, env.Tx)
+			return branchlessCommitsPPS(ctx, env.Tx)
 		}).
 		Apply("Add foreign key constraints on pfs.commits.commit_id -> collections.commits.key", func(ctx context.Context, env migrations.Env) error {
 			return pfsdb.SetupCommitProvenanceV01(ctx, env.Tx)
