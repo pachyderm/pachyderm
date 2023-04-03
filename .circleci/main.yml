@@ -1969,7 +1969,6 @@ commands:
           command: |-
             echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' | pachctl config set context local --overwrite
             pachctl config set active-context local
-            echo 'iamroot' | pachctl auth use-auth-token
   install-pulumi-deps:
     steps:
       - node/install
