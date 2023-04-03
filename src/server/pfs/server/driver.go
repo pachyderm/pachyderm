@@ -699,7 +699,7 @@ func (d *driver) linkParent(txnCtx *txncontext.TransactionContext, child *pfs.Co
 		return errors.Wrapf(err, "parent commit not found")
 	}
 	// fail if the parent commit has not been finished
-	if needsFinishedParent && parentCommitInfo.Finished == nil {
+	if needsFinishedParent && parentCommitInfo.Finishing == nil {
 		return errors.Errorf("parent commit %s has not been finished", parentCommitInfo.Commit)
 	}
 	child.ParentCommit = parentCommitInfo.Commit
