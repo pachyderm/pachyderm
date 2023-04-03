@@ -1420,24 +1420,7 @@ jobs:
           command: |
             nohup pachctl port-forward &
             poetry run pytest -vvv tests
-  build-python-sdk:
-    executor: python
-    working_directory: ~/project/python-sdk
-    steps:
-      - checkout:
-          path: ~/project
-      - run:
-          name: Install Deps # Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
-          command: poetry --no-ansi install
-      - run:
-          name: Build Package
-          command: poetry build
-      - run:
-          name: Publish
-          command: |
-            poetry config repositories.test-pypi https://test.pypi.org/legacy/
-            poetry config pypi-token.test-pypi ${TEST_PYPI_PASSWORD}
-            poetry publish -r test-pypi
+
 workflows:
   integration-tests:
     when: << pipeline.parameters.run-core-jobs >>
@@ -1641,12 +1624,11 @@ workflows:
     jobs:
       - test-python-sdk:
           requires:
-            # - build-docker-images
+            - build-docker-images
             - build-pachctl-bin
-      # - build-docker-images
+      - build-docker-images
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
-      #- build-python-sdk
 
   release:
     jobs:
@@ -1974,8 +1956,8 @@ commands:
           name: Start kind
           command: kind create cluster && kubectl config set current-context kind-kind
       - run:
-          name: Install pach # pachd.service.type=NodePort,pachd.image.tag=${CIRCLE_SHA1},pachd.enterpriseLicenseKey=${ENT_ACT_CODE},pachd.rootToken=iamroot
-          command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL
+          name: Install pach
+          command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.service.type=NodePort,pachd.image.tag=${CIRCLE_SHA1}
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |
