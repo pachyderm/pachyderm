@@ -454,19 +454,7 @@ func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, 
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	curr = commitInfo.Commit
-	for commitInfo.Origin.Kind != pfs.OriginKind_USER {
-		curr = commitInfo.ParentCommit
-		if curr == nil {
-			return nil, errors.Wrapf(ppsServer.ErrPipelineNotFound{}, "spec commit for pipeline %s not found", pipeline)
-		}
-		if commitInfo, err = pfsServer.InspectCommitInTransaction(txnCtx,
-			&pfs.InspectCommitRequest{Commit: curr}); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-	}
-
-	return curr, nil
+	return commitInfo.Commit, nil
 }
 
 // ListPipelineInfo calls f on each pipeline in the database matching filter (on
