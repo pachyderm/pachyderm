@@ -5,6 +5,8 @@ import {GRPCPlugin} from '@dash-backend/lib/types';
 
 import isServiceError from '../utils/isServiceError';
 
+import {INACTIVE_AUTH_MESSAGE} from './errorPlugin';
+
 const loggingPlugin: (log?: Logger) => GRPCPlugin = (log = baseLogger) => ({
   onCall: ({requestName}) => {
     log.info(`${requestName} request started`);
@@ -14,6 +16,10 @@ const loggingPlugin: (log?: Logger) => GRPCPlugin = (log = baseLogger) => ({
   },
   onError: ({requestName, error}) => {
     if (isServiceError(error)) {
+      if (error.details === INACTIVE_AUTH_MESSAGE) {
+        log.info({info: error.details}, `${requestName} request failed`);
+        return;
+      }
       log.error({error: error.details}, `${requestName} request failed`);
     } else {
       log.error({error}, `${requestName} request failed`);

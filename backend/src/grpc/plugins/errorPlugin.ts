@@ -7,7 +7,7 @@ import isServiceError from '../utils/isServiceError';
 
 const TOKEN_EXPIRED_MESSAGE = 'token expiration';
 const NO_AUTHENTICATION_METADATA_MESSAGE = 'no authentication metadata';
-const INACTIVE_AUTH_MESSAGE = 'the auth service is not activated';
+export const INACTIVE_AUTH_MESSAGE = 'the auth service is not activated';
 const ENTERPRISE_LIMIT =
   'Pachyderm Community Edition requires an activation key';
 
