@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zapgrpc"
 	"google.golang.org/grpc/grpclog"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 )
 
@@ -51,7 +52,9 @@ var (
 const (
 	// EnvLogLevel is the name of the log level environment variable.  It's read by worker_rc.go
 	// to propagate our value to any workers the PPS master creates.
-	EnvLogLevel = "LOG_LEVEL"
+	EnvLogLevel           = "PACHYDERM_LOG_LEVEL"
+	EnvDevelopmentLogger  = "PACHYDERM_DEVELOPMENT_LOGGER"
+	EnvDisableLogSampling = "PACHYDERM_DISABLE_LOG_SAMPLING"
 )
 
 // SetLevel changes the global logger level.  It is safe to call at any time from multiple
@@ -85,29 +88,73 @@ func addInitWarningf(format string, args ...any) {
 	warnings = append(warnings, msg)
 }
 
+// StartupLogConfig is the logging configuration at startup time.
+type StartupLogConfig struct {
+	LogLevel           zapcore.Level
+	DevelopmentLogger  bool
+	DisableLogSampling bool
+}
+
+// WorkerLogConfig is the configuration that worker_rc.go reads to propagate the startup state of
+// the logging subsystem to new workers.  Some of this state can change as pachd runs (the log
+// level), so we capture a view at app startup and only propagate that view to the workers.
+var WorkerLogConfig = StartupLogConfig{}
+
+// AsKubernetesEnvironment returns environment variables that should be set to propagate the logging
+// config.
+func (c StartupLogConfig) AsKubernetesEnvironment() []v1.EnvVar {
+	result := []v1.EnvVar{
+		{
+			Name:  EnvLogLevel,
+			Value: c.LogLevel.String(),
+		},
+	}
+	if c.DevelopmentLogger {
+		result = append(result, v1.EnvVar{
+			Name:  EnvDevelopmentLogger,
+			Value: "1",
+		})
+	}
+	if c.DisableLogSampling {
+		result = append(result, v1.EnvVar{
+			Name:  EnvDisableLogSampling,
+			Value: "1",
+		})
+	}
+	return result
+}
+
 func init() {
-	// Note: the service enviroment also has a LOG_LEVEL field. It's not used here (servieenv
-	// initialization is too late), but it is used to copy the log level to the workers in
-	// worker_rc.go.
 	if lvl := os.Getenv(EnvLogLevel); lvl != "" {
 		if err := logLevel.UnmarshalText([]byte(lvl)); err != nil {
-			addInitWarningf("parse $LOG_LEVEL: %v; proceeding at %v level", err.Error(), logLevel.Level().String())
+			addInitWarningf("parse $%s: %v; proceeding at %v level", EnvLogLevel, err, logLevel.Level().String())
 		}
+	} else if lvl := os.Getenv("LOG_LEVEL"); lvl != "" {
+		if err := logLevel.UnmarshalText([]byte(lvl)); err != nil {
+			addInitWarningf("parse $LOG_LEVEL: %v; proceeding at %v level", err, logLevel.Level().String())
+		}
+		addInitWarningf("$LOG_LEVEL has been renamed to $PACHYDERM_LOG_LEVEL; please set pachd.logLevel in the helm chart rather than passing in LOG_LEVEL as a patch")
 	}
-	if d := os.Getenv("DEVELOPMENT_LOGGER"); d != "" {
+	WorkerLogConfig.LogLevel = logLevel.Level()
+
+	if d := os.Getenv(EnvDevelopmentLogger); d != "" {
 		if d == "true" || d == "1" {
 			developmentLogger = true
+			WorkerLogConfig.DevelopmentLogger = true
 		} else {
-			addInitWarningf("$DEVELOPMENT_LOGGER set but unparsable; got %q, want 'true' or '1'", d)
+			addInitWarningf("$%s set but unparsable; got %q, want 'true' or '1'", EnvDevelopmentLogger, d)
 		}
 	}
-	if s := os.Getenv("DISABLE_LOG_SAMPLING"); s != "" {
+
+	if s := os.Getenv(EnvDisableLogSampling); s != "" {
 		if s == "true" || s == "1" {
 			samplingDisabled = true
+			WorkerLogConfig.DisableLogSampling = true
 		} else {
-			addInitWarningf("$DISABLE_LOG_SAMPLING set but unparsable; got %q, want 'true' or '1'", s)
+			addInitWarningf("$%s set but unparsable; got %q, want 'true' or '1'", EnvDisableLogSampling, s)
 		}
 	}
+
 	if j := os.Getenv("PACHCTL_JSON_LOGS"); j != "" {
 		if j == "true" || j == "1" {
 			pachctlJSON = true

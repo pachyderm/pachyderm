@@ -861,6 +861,12 @@
                 "logLevel": {
                     "type": "string"
                 },
+                "disableLogSampling": {
+                    "type": "boolean"
+                },
+                "developmentLogger": {
+                    "type": "boolean"
+                },
                 "lokiDeploy": {
                     "type": "boolean"
                 },
