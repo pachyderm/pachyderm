@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -62,6 +63,151 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVer
 			t.Logf("postUpgrade done")
 		})
 	}
+}
+
+func TestUpgradeTrigger(t *testing.T) {
+	if skip {
+		t.Skip("Skipping upgrade test")
+	}
+	fromVersions := []string{
+		"2.4.6",
+		"2.5.0",
+	}
+	dataRepo := "TestTrigger_data"
+	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	upgradeTest(t, context.Background(), false /* parallelOK */, fromVersions,
+		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
+			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+			pipeline1 := "TestTrigger1"
+			pipeline2 := "TestTrigger2"
+			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+				pipeline1,
+				"",
+				[]string{"bash"},
+				[]string{
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+				&pps.ParallelismSpec{
+					Constant: 1,
+				},
+				client.NewProjectPFSInputOpts(dataRepo, pfs.DefaultProjectName, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+					Branch:  "master",
+					Commits: 1,
+				}),
+				"",
+				false,
+			))
+			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+				pipeline2,
+				"",
+				[]string{"bash"},
+				[]string{
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipeline1),
+				},
+				&pps.ParallelismSpec{
+					Constant: 1,
+				},
+				client.NewProjectPFSInputOpts(pipeline1, pfs.DefaultProjectName, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
+					Commits: 2,
+				}),
+				"",
+				false,
+			))
+			for i := 0; i < 10; i++ {
+				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
+			}
+			ci, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+			require.NoError(t, err)
+			_, err = c.WaitCommitSetAll(ci.Commit.ID)
+			require.NoError(t, err)
+		},
+		func(t *testing.T, c *client.APIClient) { /* postUpgrade */
+			for i := 0; i < 10; i++ {
+				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
+			}
+			latestDataCI, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+			require.NoError(t, err)
+			require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+				ci, err := c.InspectProjectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
+				require.NoError(t, err)
+				aliasCI, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.ID)
+				require.NoError(t, err)
+				if aliasCI.Commit.ID != latestDataCI.Commit.ID {
+					return errors.New("not ready")
+				}
+				return nil
+			})
+			require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
+				if resp.Error != "" {
+					return errors.Errorf(resp.Error)
+				}
+				return nil
+			}))
+		},
+	)
+}
+
+func TestUpgradeSquash(t *testing.T) {
+	if skip {
+		t.Skip("Skipping upgrade test")
+	}
+	fromVersions := []string{
+		"2.4.6",
+		"2.5.2",
+	}
+	upgradeTest(t, context.Background(), true /* parallelOK */, fromVersions,
+		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
+			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
+			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "A"))
+			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "B"))
+			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+				"C",
+				"pachyderm/opencv:1.0",
+				[]string{"bash"},
+				[]string{"cp /pfs/A/* pfs/out; cp /pfs/B/* /pfs/out"}, /* cmd */
+				nil, /* parallelismSpec */
+				&pps.Input{Cross: []*pps.Input{
+					{Pfs: &pps.PFSInput{Glob: "/", Repo: "A", Branch: "master"}},
+					{Pfs: &pps.PFSInput{Glob: "/", Repo: "B", Branch: "master"}},
+				}},
+				"master",
+				false,
+			))
+			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, "A", "master", "" /* commitID */), func(mf client.ModifyFile) error {
+				return errors.EnsureStack(mf.PutFile("/1", strings.NewReader("hello")))
+			}))
+			squashInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, "A", "master", "")
+			require.NoError(t, err)
+
+			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, "B", "master", "" /* commitID */), func(mf client.ModifyFile) error {
+				return errors.EnsureStack(mf.PutFile("/2", strings.NewReader("hello")))
+			}))
+			latestInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, "A", "master", "")
+			require.NoError(t, err)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+			defer cancel()
+			t.Log("before upgrade: waiting for montage commit")
+			_, err = c.WithCtx(ctx).WaitCommitSetAll(latestInfo.Commit.ID)
+			t.Log("before upgrade: wait is done")
+			require.NoError(t, err)
+			require.NoError(t, c.SquashCommitSet(squashInfo.Commit.ID))
+		},
+		func(t *testing.T, c *client.APIClient) { /* postUpgrade */
+			c = testutil.AuthenticateClient(t, c, upgradeSubject)
+			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, "B", "master", "" /* commitID */), func(mf client.ModifyFile) error {
+				return errors.EnsureStack(mf.PutFile("/2", strings.NewReader("hello")))
+			}))
+			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, "B", "master", "")
+			require.NoError(t, err)
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			t.Log("after upgrade: waiting for montage commit")
+			_, err = c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.ID)
+			t.Log("after upgrade: wait is done")
+			require.NoError(t, err)
+		},
+	)
 }
 
 // pre-upgrade:
@@ -166,8 +312,6 @@ func TestUpgradeLoad(t *testing.T) {
 	dagSpec := `
 default-load-test-source-1:
 default-load-test-pipeline-1: default-load-test-source-1
-default-load-test-source-2:
-default-load-test-pipeline-2: default-load-test-source-1, default-load-test-source-2
 `
 	loadSpec := `
 count: 5

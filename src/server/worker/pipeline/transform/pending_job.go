@@ -102,13 +102,14 @@ func (pj *pendingJob) load() error {
 			return errors.EnsureStack(err)
 		}
 		if metaCI.Origin.Kind == pfs.OriginKind_AUTO {
+			// TODO(acohen4): should this be WaitCommit()??
 			outputCI, err := pachClient.InspectProjectCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
 			// both commits must have succeeded - a validation error will only show up in the output
 			// the commit must also not be of type ALIAS, to ensure that we have a corresponding job
-			if metaCI.Error == "" && outputCI.Error == "" && outputCI.Origin.Kind != pfs.OriginKind_ALIAS {
+			if metaCI.Error == "" && outputCI.Error == "" {
 				break
 			}
 		}

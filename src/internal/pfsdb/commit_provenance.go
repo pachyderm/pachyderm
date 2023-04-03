@@ -100,6 +100,7 @@ func getCommitTableID(tx *pachsql.Tx, commit *pfs.Commit) (int, error) {
 	if err != nil {
 		return 0, errors.EnsureStack(err)
 	}
+	defer rows.Close()
 	var id int
 	for rows.Next() {
 		if err := rows.Scan(&id); err != nil {

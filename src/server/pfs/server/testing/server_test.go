@@ -6319,10 +6319,9 @@ func TestPFS(suite *testing.T) {
 			total += v
 		}
 		var (
-			inputRepos    []string
-			inputBranches []*pfs.Branch
-			commits       []*pfs.Commit
-			// outputRepos    []string
+			inputRepos     []string
+			inputBranches  []*pfs.Branch
+			commits        []*pfs.Commit
 			outputBranches []*pfs.Branch
 		)
 	OpLoop:
