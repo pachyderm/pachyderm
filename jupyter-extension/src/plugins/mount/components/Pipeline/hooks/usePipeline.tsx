@@ -1,7 +1,10 @@
 import YAML from 'yaml';
 
 import {useEffect, useState} from 'react';
-import {SameMetadata} from '../../../types';
+import {CreatePipelineResponse, SameMetadata} from '../../../types';
+import {requestAPI} from '../../../../../handler';
+import {ReadonlyJSONObject} from '@lumino/coreutils';
+import {ServerConnection} from '@jupyterlab/services';
 
 export type usePipelineResponse = {
   loading: boolean;
@@ -20,6 +23,7 @@ export type usePipelineResponse = {
 
 export const usePipeline = (
   metadata: SameMetadata | undefined,
+  notebookPath: string | undefined,
   saveNotebookMetaData: (metadata: any) => void,
 ): usePipelineResponse => {
   const [loading, setLoading] = useState(false);
@@ -41,11 +45,8 @@ export const usePipeline = (
     }
   }, [metadata]);
 
-  const callCreatePipeline = async () => {
-    setLoading(true);
-    setErrorMessage('');
-
-    let input;
+  const createSameMetadata = (): SameMetadata => {
+    let input: string;
     try {
       input = YAML.parse(inputSpec);
     } catch (e) {
@@ -56,34 +57,7 @@ export const usePipeline = (
       }
     }
 
-    let reqsParsed;
-    try {
-      reqsParsed = YAML.parse(requirements);
-    } catch (e) {
-      if (e instanceof YAML.YAMLParseError) {
-        reqsParsed = JSON.parse(requirements);
-      } else {
-        throw e;
-      }
-    }
-
-    setErrorMessage('No action hooked up');
-    setLoading(false);
-  };
-
-  const callSavePipeline = async () => {
-    let input;
-    try {
-      input = YAML.parse(inputSpec);
-    } catch (e) {
-      if (e instanceof YAML.YAMLParseError) {
-        input = JSON.parse(inputSpec);
-      } else {
-        throw e;
-      }
-    }
-
-    const samemeta: SameMetadata = {
+    return {
       apiVersion: 'sameproject.ml/v1alpha1',
       environments: {
         default: {
@@ -102,8 +76,33 @@ export const usePipeline = (
         input: JSON.stringify(input),
       },
     };
+  };
 
-    saveNotebookMetaData(samemeta);
+  const callCreatePipeline = async () => {
+    setLoading(true);
+    setErrorMessage('');
+
+    const sameMetadata = createSameMetadata();
+    try {
+      const response = await requestAPI<CreatePipelineResponse>(
+        `pps/_create/${notebookPath}`,
+        'PUT',
+        sameMetadata as ReadonlyJSONObject,
+      );
+    } catch (e) {
+      if (e instanceof ServerConnection.ResponseError) {
+        setErrorMessage(e.message);
+      } else {
+        throw e;
+      }
+    }
+    console.log('create pipeline called');
+    setLoading(false);
+  };
+
+  const callSavePipeline = async () => {
+    const sameMetadata = createSameMetadata();
+    saveNotebookMetaData(sameMetadata);
     console.log('save pipeline called');
   };
 

@@ -550,3 +550,24 @@ func TestCopyFile(t *testing.T) {
 		"srcRepo", srcRepo,
 		"destRepo", destRepo).Run())
 }
+
+func TestDeleteProject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	mockInspectCluster(env)
+	c := env.PachClient
+	project := tu.UniqueString("project")
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create project {{.project}}
+		pachctl create repo {{.repo}} --project {{.project}}
+		(pachctl delete project {{.project}} </dev/null) && exit 1
+		(yes | pachctl delete project {{.project}}) || exit 1
+		if [ $(pachctl list project | tail -n +2 | wc -l) -ne 1 ]; then exit 1; fi
+		`,
+		"project", project,
+		"repo", tu.UniqueString("repo"),
+	).Run())
+}

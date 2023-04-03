@@ -2,6 +2,12 @@
 
 set -exo pipefail
 
+function get_test_idx {
+    # Basically, this formula is modulo for round robin distribution. When i=0 it's just the current node index.
+    # Each iteration after, we add the total node number to get the next value who's modulo would be the current node index.
+    echo $(( "${CIRCLE_NODE_INDEX}" + ( "$1" * "${CIRCLE_NODE_TOTAL}" ) ))
+}
+
 pachctl config update context "$(pachctl config get active-context)" --pachd-address="$(minikube ip):30650"
 
 # deploy object storage
@@ -11,4 +17,24 @@ helm repo add pachyderm https://helm.pachyderm.com
 
 helm repo update
 
-go test -v -failfast -timeout 3600s ./src/testing/deploy -tags=k8s | stdbuf -i0 tee -a /tmp/results
+if [ "$CI" ] && [ "$CIRCLE_NODE_TOTAL" -gt 0 ]
+then
+    mapfile -t tests < <(go test -v -tags k8s ./src/testing/deploy/ -list=. | grep -v '^ok')
+    total_tests="${#tests[@]}"
+    test_names=""
+    i=0
+    test_idx=$(get_test_idx "$i")
+    while [ "$test_idx" -lt "$total_tests" ]
+    do 
+        test_names+="^${tests[${test_idx}]}\$|"
+        i=$((i+1))
+        test_idx=$(get_test_idx "$i")
+    done
+    if [ "${#test_names}" -gt 0 ]
+    then
+        test_names="${test_names::-1}" # trim last |
+        go test -v  -run "$test_names" -failfast -timeout 3600s ./src/testing/deploy  -tags=k8s | stdbuf -i0 tee -a /tmp/results
+    fi
+else
+    go test -v -failfast -timeout 3600s ./src/testing/deploy -tags=k8s | stdbuf -i0 tee -a /tmp/results
+fi

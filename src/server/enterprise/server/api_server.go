@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	mlc "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
@@ -95,7 +96,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	}
 	cluster.ClusterDeploymentId = a.env.Config.DeploymentID
 	cluster.Secret = a.env.Config.EnterpriseSecret
-	es, err := client.NewFromURI(a.env.Config.EnterpriseServerAddress)
+	es, err := client.NewFromURIContext(ctx, a.env.Config.EnterpriseServerAddress, client.WithAdditionalStreamClientInterceptors(mlc.LogStream), client.WithAdditionalUnaryClientInterceptors(mlc.LogUnary))
 	if err != nil {
 		return errors.Wrap(err, "connect to enterprise server")
 	}
@@ -215,7 +216,7 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 		clientID = config.Configuration.ClientID
 	}
 
-	pachClient, err := client.NewFromURI(licenseServer)
+	pachClient, err := client.NewFromURIContext(ctx, licenseServer, client.WithAdditionalStreamClientInterceptors(mlc.LogStream), client.WithAdditionalUnaryClientInterceptors(mlc.LogUnary))
 	if err != nil {
 		return nil, err
 	}

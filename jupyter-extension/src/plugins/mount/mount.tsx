@@ -231,6 +231,9 @@ export class MountPlugin implements IMountPlugin {
           <>
             <Pipeline
               setShowPipeline={this.setShowPipeline}
+              notebookPath={
+                this.getActiveNotebook()?.sessionContext?.session?.path
+              }
               saveNotebookMetadata={this.saveNotebookMetaData}
               metadata={metadata}
             />

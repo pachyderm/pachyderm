@@ -19,7 +19,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func Cmds() []*cobra.Command {
+func Cmds(ctx context.Context) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var d net.Dialer
@@ -53,7 +53,6 @@ func Cmds() []*cobra.Command {
 		Short: "Do a DNS lookup on a hostname.",
 		Long:  "Do a DNS lookup on a hostname.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			ctx := pctx.Background("")
 			var errs error
 			if result, err := r.LookupHost(ctx, args[0]); err != nil {
 				multierr.AppendInto(&errs, errors.Wrap(err, "lookup host"))

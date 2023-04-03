@@ -306,16 +306,23 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 }
 
 func cronTick(pachClient *client.APIClient, now time.Time, cron *pps.CronInput) error {
-	return pachClient.WithModifyFileClient(
+	if err := pachClient.WithModifyFileClient(
 		client.NewProjectRepo(cron.Project, cron.Repo).NewCommit("master", ""),
 		func(m client.ModifyFile) error {
 			if cron.Overwrite {
 				if err := m.DeleteFile("/"); err != nil {
-					return errors.EnsureStack(err)
+					return errors.Wrap(err, "DeleteFile(/)")
 				}
 			}
-			return errors.EnsureStack(m.PutFile(now.Format(time.RFC3339), bytes.NewReader(nil)))
-		})
+			file := now.Format(time.RFC3339)
+			if err := m.PutFile(file, bytes.NewReader(nil)); err != nil {
+				return errors.Wrapf(err, "PutFile(%s)", file)
+			}
+			return nil
+		}); err != nil {
+		return errors.Wrap(err, "WithModifyFileClient")
+	}
+	return nil
 }
 
 // makeCronCommits makes commits to a single cron input's repo. It's
@@ -328,7 +335,7 @@ func makeCronCommits(ctx context.Context, env Env, in *pps.Input) error {
 	pachClient := env.GetPachClient(ctx)
 	latestTime, err := getLatestCronTime(ctx, env, in)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "getLatestCronTime")
 	}
 
 	for {
@@ -338,7 +345,7 @@ func makeCronCommits(ctx context.Context, env Env, in *pps.Input) error {
 			log.Debug(ctx, "no more scheduled ticks; exiting loop")
 			return nil // zero time indicates there will never be another tick
 		}
-		log.Debug(ctx, "waiting for next cron tick", zap.Time("tick", next), zap.Time("latestTick", latestTime))
+		log.Info(ctx, "waiting for next cron tick", zap.Time("tick", next), zap.Time("latestTick", latestTime))
 		// and wait until then to make the next commit
 		select {
 		case <-time.After(time.Until(next)):
@@ -346,9 +353,9 @@ func makeCronCommits(ctx context.Context, env Env, in *pps.Input) error {
 			return errors.EnsureStack(ctx.Err())
 		}
 		if err := cronTick(pachClient, next, in.Cron); err != nil {
-			return err
+			return errors.Wrap(err, "cronTick")
 		}
-		log.Debug(ctx, "cron tick committed", zap.Time("tick", next))
+		log.Info(ctx, "cron tick committed", zap.Time("tick", next))
 		// set latestTime to the next time
 		latestTime = next
 	}

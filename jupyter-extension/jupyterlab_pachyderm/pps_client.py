@@ -6,8 +6,11 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from tornado.httpclient import AsyncHTTPClient
+from tornado.web import HTTPError
 
 from .log import get_logger
+
+SAME_METADATA_FIELDS = ('apiVersion', 'environments', 'metadata', 'run', 'notebook')
 
 
 class PPSClient:
@@ -29,7 +32,7 @@ class PPSClient:
         pipeline_spec = create_pipeline_spec("test_pipeline", "python:3.10", dict(pfs=dict(repo="data")), script_name)
         return json.dumps(pipeline_spec)
 
-    async def create(self, path, config):
+    async def create(self, path: str, config: dict):
         """Creates the pipeline from the Notebook file specified.
 
         Args:
@@ -37,30 +40,42 @@ class PPSClient:
             config: The PPS configuration for the Notebook file.
         """
         get_logger().debug(f"path: {path} | body: {config}")
-        input_spec = config.get("input")
-        pipeline_name = config.get("pipeline_name")
+
+        # Validate config structure.
+        # Error codes are 500, we are unable to override this.
+        for field in SAME_METADATA_FIELDS:
+            if field not in config:
+                raise HTTPError(reason=f"Bad Request: field {field} not set")
+        if 'input' not in config['run']:
+            raise HTTPError(reason=f"Bad Request: field run.input not set")
+
+        input_spec = config['run'].pop("input")  # Input not allowed in SAME metadata.
+        # Paths are relative to the config file. Since the config is being written into
+        #  a temporary file, we need to specify an absolute path.
+        config['notebook']['path'] = os.path.join(os.getcwd(), os.path.relpath(path, '/'))
+        config['notebook']['name'] = os.path.basename(path)
+
+        if 'requirements' in config['notebook'] and not config['notebook']['requirements']:
+            # Remove requirements field if none are specified.
+            del config['notebook']['requirements']
 
         with NamedTemporaryFile() as temp_config:
-            Path(temp_config.name).write_text(
-                "apiVersion: sameproject.ml/v1alpha1\n"
-                "metadata:\n"
-                f"  name: {pipeline_name}\n"
-                f"  version: 0.0.1\n"
-                "environments:\n"
-                "  default:\n"
-                "    image_tag: combinatorml/jupyterlab-tensorflow-opencv:0.9\n"
-                "notebook:\n"
-                f"  name: TestNotebook\n"
-                f"  path: {Path(__file__).parent}/tests/data/TestNotebook.ipynb\n"
-                # f"  name: {os.path.basename(path)}\n"
-                # f"  path: {path}\n"
-            )
+            Path(temp_config.name).write_text(json.dumps(config))
+            command = [sys.executable, "-m", "sameproject.main", "run"]
+            command.extend(["--same-file", temp_config.name])
+            command.extend(["--target", "pachyderm"])
+            command.extend(["--input", input_spec])
+            call = subprocess.run(command, capture_output=True)
+            if call.returncode:
+                raise HTTPError(
+                    code=500,
+                    log_message=call.stderr.decode(),
+                    reason="Internal Error: SAME could not create pipeline"
+                )
 
-            call = subprocess.run(
-                [sys.executable, "-m", "sameproject.main", "run", "--same-file", temp_config.name, "--target", "pachyderm", "--input", json.dumps(input_spec)],
-                check=True
-            )
-        return json.dumps(dict())
+        return json.dumps(
+            dict(message=None)  # We can send back console link here.
+        )
 
 
 def create_pipeline_spec(
