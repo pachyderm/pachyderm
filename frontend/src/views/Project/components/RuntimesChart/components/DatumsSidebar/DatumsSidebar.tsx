@@ -12,7 +12,7 @@ import {CaptionTextSmall, Button} from '@pachyderm/components';
 import styles from './DatumsSidebar.module.css';
 
 type DatumsSidebarProps = {
-  jobs?: JobsQuery['jobs'];
+  jobs?: JobsQuery['jobs']['items'];
   onClose: () => void;
   selectedJob: string;
   selectFailedDatumJob: React.Dispatch<React.SetStateAction<string>>;
@@ -29,7 +29,7 @@ const DatumsSidebar: React.FC<DatumsSidebarProps> = ({
   const {getPathToDatumLogs} = useLogsNavigation();
 
   const inpectDatumsLink = useCallback(
-    (job: JobsQuery['jobs'][number]) => {
+    (job: JobsQuery['jobs']['items'][number]) => {
       const logsLink = getPathToDatumLogs(
         {
           projectId,
