@@ -139,3 +139,11 @@ func DeleteEnterpriseConfigFromEtcd(ctx context.Context, etcd *clientv3.Client) 
 func (env Env) StopWorkers(ctx context.Context) error {
 	return scaleDownWorkers(ctx, env.getKubeClient(), env.namespace)
 }
+
+func (env Env) PauseStatus(ctx context.Context) (*ec.PauseStatusResponse, error) {
+	resp, err := pauseStatus(ctx, &env, &ec.PauseStatusRequest{})
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return resp, nil
+}

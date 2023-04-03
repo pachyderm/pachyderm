@@ -569,8 +569,12 @@ func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *
 // after the ConfigMap was updated then it has taken effect and the cluster is
 // in the indicated state.
 func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest) (resp *ec.PauseStatusResponse, retErr error) {
-	kc := a.env.getKubeClient()
-	cc := kc.CoreV1().ConfigMaps(a.env.namespace)
+	return pauseStatus(ctx, a.env, req)
+}
+
+func pauseStatus(ctx context.Context, env *Env, req *ec.PauseStatusRequest) (resp *ec.PauseStatusResponse, retErr error) {
+	kc := env.getKubeClient()
+	cc := kc.CoreV1().ConfigMaps(env.namespace)
 	c, err := cc.Get(ctx, "pachd-config", metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		// If there is no configmap, then the pachd pods must be
@@ -593,7 +597,7 @@ func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest)
 		return nil, errors.Errorf("could not parse update time %v: %v", c.Annotations[updatedAtFieldName], err)
 	}
 
-	pods := kc.CoreV1().Pods(a.env.namespace)
+	pods := kc.CoreV1().Pods(env.namespace)
 	pp, err := pods.List(ctx, metav1.ListOptions{
 		LabelSelector: "app=pachd",
 	})

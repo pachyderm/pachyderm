@@ -4,11 +4,13 @@ import (
 	"context"
 	"os"
 	"path"
-
-	"google.golang.org/grpc"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	"google.golang.org/grpc"
 )
 
 // A pausedBuilder builds a paused-mode pachd.
@@ -53,9 +55,23 @@ func (pb *pausedBuilder) registerEnterpriseServer(ctx context.Context) error {
 
 	// Stop workers because unpaused pachds in the process
 	// of rolling may have started them back up.
-	if err := pb.enterpriseEnv.StopWorkers(ctx); err != nil {
-		return err
-	}
+	go func() error {
+		backoff.Retry(func() error {
+			ps, err := pb.enterpriseEnv.PauseStatus(ctx)
+			if err != nil {
+				return err
+			}
+			if ps.GetStatus() != enterprise.PauseStatusResponse_PAUSED {
+				return errors.Errorf("pausing not finished, waiting to stop workers")
+			}
+			if err := pb.enterpriseEnv.StopWorkers(ctx); err != nil {
+				return err
+			}
+			return nil
+		}, backoff.RetryEvery(time.Second))
+
+		return nil
+	}()
 	return nil
 }
 
