@@ -279,11 +279,11 @@ func sameFileSets(ctx context.Context, tx *pachsql.Tx, c1 *pfs.Commit, c2 *pfs.C
 	if md1.GetPrimitive() != nil && md2.GetPrimitive() != nil {
 		ser1, err := proto.Marshal(md1.GetPrimitive())
 		if err != nil {
-			return false, err
+			return false, errors.Wrap(err, "marshal first primitive fileset")
 		}
 		ser2, err := proto.Marshal(md2.GetPrimitive())
 		if err != nil {
-			return false, err
+			return false, errors.Wrap(err, "marshal second primitive fileset")
 		}
 		return bytes.Equal(ser1, ser2), nil
 	} else if md1.GetComposite() != nil && md2.GetComposite() != nil {
