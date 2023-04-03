@@ -955,8 +955,11 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 				return nil
 			}
 		}
+		if err := keep(jobInfo); err != nil {
+			return err
+		}
 		number--
-		return keep(jobInfo)
+		return nil
 	}
 	opts := &col.Options{Target: col.SortByCreateRevision, Order: col.SortDescend}
 	if request.Reverse {
