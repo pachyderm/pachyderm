@@ -23,8 +23,8 @@ import (
 // errors that are returned by the run commands.
 var PrintErrorStacks bool
 
-// RunFixedArgs wraps a function in a function
-// that checks its exact argument count.
+// RunFixedArgs wraps a function in a function that checks its exact argument
+// count.
 func RunFixedArgs(numArgs int, run func([]string) error) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
 		if len(args) != numArgs {
@@ -32,6 +32,21 @@ func RunFixedArgs(numArgs int, run func([]string) error) func(*cobra.Command, []
 			cmd.Usage()
 		} else {
 			if err := run(args); err != nil {
+				ErrorAndExitf("%v", err)
+			}
+		}
+	}
+}
+
+// RunFixedArgsCmd wraps a function in a function that checks its exact argument
+// count.
+func RunFixedArgsCmd(numArgs int, run func(*cobra.Command, []string) error) func(*cobra.Command, []string) {
+	return func(cmd *cobra.Command, args []string) {
+		if len(args) != numArgs {
+			fmt.Printf("expected %d arguments, got %d\n\n", numArgs, len(args))
+			cmd.Usage()
+		} else {
+			if err := run(cmd, args); err != nil {
 				ErrorAndExitf("%v", err)
 			}
 		}
