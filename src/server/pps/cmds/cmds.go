@@ -588,7 +588,7 @@ each datum.`,
 		Long:  "Query the loki logs.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			query := args[0]
-			client, err := pachdclient.NewOnUserMachine("user")
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -597,12 +597,19 @@ each datum.`,
 			if err != nil {
 				return errors.Wrapf(err, "parse since(%q)", since)
 			}
-			logs, err := client.QueryLoki(query, since)
-			if err != nil {
-				return err
+			request := pps.LokiRequest{
+				Query: query,
+				Since: types.DurationProto(since),
 			}
-			for _, log := range logs {
+			lokiClient, err := client.PpsAPIClient.QueryLoki(client.Ctx(), &request)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if err := grpcutil.ForEach[*pps.LokiLogMessage](lokiClient, func(log *pps.LokiLogMessage) error {
 				fmt.Println(log.Message)
+				return nil
+			}); err != nil {
+				return err
 			}
 			return nil
 		}),
