@@ -2,6 +2,7 @@
 package pfsdb
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -109,7 +110,17 @@ var CommitsCommitSetIndex = &col.Index{
 	},
 }
 
-var commitsIndexes = []*col.Index{CommitsRepoIndex, CommitsBranchlessIndex, CommitsCommitSetIndex}
+var CommitsTerminalIndex = &col.Index{
+	Name: "commit_terminal",
+	Extract: func(val proto.Message) string {
+		if val.(*pfs.CommitInfo).Finished != nil {
+			return CommitTerminalKey(RepoKey(val.(*pfs.CommitInfo).Commit.Branch.Repo), true)
+		}
+		return CommitTerminalKey(RepoKey(val.(*pfs.CommitInfo).Commit.Branch.Repo), false)
+	},
+}
+
+var commitsIndexes = []*col.Index{CommitsRepoIndex, CommitsBranchlessIndex, CommitsCommitSetIndex, CommitsTerminalIndex}
 
 func ParseCommit(key string) *pfs.Commit {
 	split := strings.Split(key, "@")
@@ -121,6 +132,10 @@ func ParseCommit(key string) *pfs.Commit {
 
 func CommitKey(commit *pfs.Commit) string {
 	return RepoKey(commit.Repo) + "@" + commit.ID
+}
+
+func CommitTerminalKey(repoKey string, isTerminal bool) string {
+	return fmt.Sprintf("%s_%v", repoKey, isTerminal)
 }
 
 // Commits returns a collection of commits

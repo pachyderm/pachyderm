@@ -131,6 +131,7 @@ func (d *driver) finishCommits(ctx context.Context) (retErr error) {
 								retErr = multierror.Append(retErr, errors.Wrap(err, "error unlocking"))
 							}
 						}()
+
 						return d.finishRepoCommits(lockCtx, key)
 					}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 						log.Error(ctx, "error finishing commits", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
@@ -145,7 +146,7 @@ func (d *driver) finishCommits(ctx context.Context) (retErr error) {
 }
 
 func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
-	return errors.EnsureStack(d.commits.ReadOnly(ctx).WatchByIndexF(pfsdb.CommitsRepoIndex, repoKey, func(ev *watch.Event) error {
+	return errors.EnsureStack(d.commits.ReadOnly(ctx).WatchByIndexF(pfsdb.CommitsTerminalIndex, pfsdb.CommitTerminalKey(repoKey, false), func(ev *watch.Event) error {
 		if ev.Type == watch.EventError {
 			return ev.Err
 		}
