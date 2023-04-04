@@ -1,4 +1,4 @@
-package m
+package meters
 
 import (
 	"context"
@@ -46,7 +46,7 @@ func TestAggregatedGauge(t *testing.T) {
 
 	var got []any
 	for _, l := range h.Logs() {
-		if l.Message == "metric: test" {
+		if l.Message == "meter: test" {
 			if x, ok := l.Keys["value"]; ok {
 				got = append(got, x)
 			}
@@ -62,7 +62,7 @@ func TestAggregatedGauge(t *testing.T) {
 	}
 	want := []any{"string", float64(44), float64(123), float64(999)} // float64 because of JSON -> Go conversion in the log history.
 	if diff := cmp.Diff(got, want); diff != "" {
-		t.Errorf("diff logged metrics (-got +want):\n%s", diff)
+		t.Errorf("diff logged meters (-got +want):\n%s", diff)
 	}
 }
 
@@ -79,7 +79,7 @@ func TestAggregatedCounter(t *testing.T) {
 
 	var got []any
 	for _, l := range h.Logs() {
-		if l.Message == "metric: test" {
+		if l.Message == "meter: test" {
 			if x, ok := l.Keys["delta"]; ok {
 				got = append(got, x)
 			}
@@ -89,7 +89,7 @@ func TestAggregatedCounter(t *testing.T) {
 	}
 	want := []any{float64(10000)}
 	if diff := cmp.Diff(got, want); diff != "" {
-		t.Errorf("diff logged metrics (-got +want):\n%s", diff)
+		t.Errorf("diff logged meters (-got +want):\n%s", diff)
 	}
 }
 
@@ -105,7 +105,7 @@ func TestAggregatedDelta(t *testing.T) {
 	<-doneCh
 	var got []string
 	for _, l := range h.Logs() {
-		if l.Message == "metric: test" {
+		if l.Message == "meter: test" {
 			if x, ok := l.Keys["value"]; ok {
 				got = append(got, fmt.Sprintf("value: %v", int(x.(float64))))
 			}
@@ -118,7 +118,7 @@ func TestAggregatedDelta(t *testing.T) {
 	}
 	want := []string{"value: 500", "delta: 499"} // last value is 999
 	if diff := cmp.Diff(got, want); diff != "" {
-		t.Errorf("diff logged metrics (-got +want):\n%s", diff)
+		t.Errorf("diff logged meters (-got +want):\n%s", diff)
 		t.Logf("logs: %v", h.Logs())
 	}
 }
@@ -137,7 +137,7 @@ func TestWithNewFields(t *testing.T) {
 		Inc(ctxA, "test", 1)
 		Set(ctxA, "gauge", 42)
 		Inc(ctxB, "test", -1)
-		// If WithNewFields doesn't work, the value of the metric after c() will be 0.  If
+		// If WithNewFields doesn't work, the value of the meter after c() will be 0.  If
 		// it does, there will be 1000 for A and -1000 for B.
 	}
 	c()
@@ -147,7 +147,7 @@ func TestWithNewFields(t *testing.T) {
 	wantLines := 3
 	for _, l := range h.Logs() {
 		switch l.Message {
-		case "metric: test":
+		case "meter: test":
 			if x, ok := l.Keys["delta"]; ok {
 				if _, ok := l.Keys["b"]; ok {
 					gotLines++
@@ -157,7 +157,7 @@ func TestWithNewFields(t *testing.T) {
 					gotA = int(x.(float64))
 				}
 			}
-		case "metric: gauge":
+		case "meter: gauge":
 			if _, ok := l.Keys["b"]; !ok {
 				if x, ok := l.Keys["value"]; ok {
 					gotLines++
@@ -199,7 +199,7 @@ func BenchmarkAggregatedGauge(b *testing.B) {
 	doneCh := make(chan struct{})
 	ctx = NewAggregatedGauge(ctx, "bench", 0, withDoneCh(doneCh), WithFlushInterval(100*time.Millisecond))
 	writesDoneCh := make(chan struct{})
-	// Write metrics from 10 goroutines, so the writes contend with each other.
+	// Write meters from 10 goroutines, so the writes contend with each other.
 	for i := 0; i < 10; i++ {
 		go func() {
 			for j := 0; j < 1+b.N/10; j++ {

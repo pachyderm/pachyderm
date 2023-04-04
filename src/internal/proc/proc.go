@@ -12,7 +12,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/m"
+	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/prometheus/procfs"
@@ -153,18 +153,18 @@ func getSystemStats(fs procfs.FS) (*SystemStats, error) {
 
 func MonitorSelf(ctx context.Context) {
 	ctx = pctx.Child(ctx, "",
-		pctx.WithDelta("self_open_fd_count", 10, m.Deferred()),
-		pctx.WithDelta("self_rchar_bytes", int(1e6), m.Deferred()),
-		pctx.WithDelta("self_wchar_bytes", int(1e6), m.Deferred()),
-		pctx.WithDelta("self_bytes_written_bytes", int(1e6), m.Deferred()),
-		pctx.WithDelta("self_bytes_read_bytes", int(1e6), m.Deferred()),
-		pctx.WithDelta("self_canceled_write_bytes", int(1e6), m.Deferred()),
-		pctx.WithDelta("self_read_syscall_count", int(1e5), m.Deferred()),
-		pctx.WithDelta("self_write_syscall_count", int(1e5), m.Deferred()),
-		pctx.WithDelta("self_cpu_time_seconds", float64(runtime.GOMAXPROCS(-1)), m.Deferred()),
-		pctx.WithDelta("self_resident_memory_bytes", int(100e6), m.Deferred()),
-		pctx.WithGauge("self_oom_score", 0, m.WithFlushInterval(30*time.Minute)),
-		pctx.WithDelta("system_cpu_time_seconds", float64(60), m.Deferred()),
+		pctx.WithDelta("self_open_fd_count", 10, meters.Deferred()),
+		pctx.WithDelta("self_rchar_bytes", int(1e6), meters.Deferred()),
+		pctx.WithDelta("self_wchar_bytes", int(1e6), meters.Deferred()),
+		pctx.WithDelta("self_bytes_written_bytes", int(1e6), meters.Deferred()),
+		pctx.WithDelta("self_bytes_read_bytes", int(1e6), meters.Deferred()),
+		pctx.WithDelta("self_canceled_write_bytes", int(1e6), meters.Deferred()),
+		pctx.WithDelta("self_read_syscall_count", int(1e5), meters.Deferred()),
+		pctx.WithDelta("self_write_syscall_count", int(1e5), meters.Deferred()),
+		pctx.WithDelta("self_cpu_time_seconds", float64(runtime.GOMAXPROCS(-1)), meters.Deferred()),
+		pctx.WithDelta("self_resident_memory_bytes", int(100e6), meters.Deferred()),
+		pctx.WithGauge("self_oom_score", 0, meters.WithFlushInterval(30*time.Minute)),
+		pctx.WithDelta("system_cpu_time_seconds", float64(60), meters.Deferred()),
 	)
 	for {
 		select {
@@ -184,24 +184,24 @@ func MonitorSelf(ctx context.Context) {
 			log.Info(ctx, "problem getting self stats", zap.Error(err))
 			continue
 		}
-		m.Set(ctx, "self_open_fd_count", stats.FDCount)
-		m.Set(ctx, "self_rchar_bytes", int(stats.RChars))
-		m.Set(ctx, "self_wchar_bytes", int(stats.WChars))
-		m.Set(ctx, "self_bytes_read_bytes", int(stats.RBytes))
-		m.Set(ctx, "self_bytes_written_bytes", int(stats.WBytes))
-		m.Set(ctx, "self_canceled_write_bytes", int(stats.CanceledWBytes))
-		m.Set(ctx, "self_read_syscall_count", int(stats.RSysc))
-		m.Set(ctx, "self_write_syscall_count", int(stats.WSysc))
-		m.Set(ctx, "self_cpu_time_seconds", stats.CPUTime)
-		m.Set(ctx, "self_resident_memory_bytes", stats.ResidentMemory)
-		m.Set(ctx, "self_oom_score", stats.OOMScore)
+		meters.Set(ctx, "self_open_fd_count", stats.FDCount)
+		meters.Set(ctx, "self_rchar_bytes", int(stats.RChars))
+		meters.Set(ctx, "self_wchar_bytes", int(stats.WChars))
+		meters.Set(ctx, "self_bytes_read_bytes", int(stats.RBytes))
+		meters.Set(ctx, "self_bytes_written_bytes", int(stats.WBytes))
+		meters.Set(ctx, "self_canceled_write_bytes", int(stats.CanceledWBytes))
+		meters.Set(ctx, "self_read_syscall_count", int(stats.RSysc))
+		meters.Set(ctx, "self_write_syscall_count", int(stats.WSysc))
+		meters.Set(ctx, "self_cpu_time_seconds", stats.CPUTime)
+		meters.Set(ctx, "self_resident_memory_bytes", stats.ResidentMemory)
+		meters.Set(ctx, "self_oom_score", stats.OOMScore)
 
 		sys, err := getSystemStats(fs)
 		if err != nil {
 			log.Info(ctx, "problem getting system stats", zap.Error(err))
 			continue
 		}
-		m.Set(ctx, "system_cpu_time_seconds", sys.CPUTime)
+		meters.Set(ctx, "system_cpu_time_seconds", sys.CPUTime)
 	}
 }
 
@@ -214,17 +214,17 @@ func MonitorProcessGroup(ctx context.Context, pid int) error {
 		return errors.Wrap(err, "new procfs")
 	}
 	ctx = pctx.Child(ctx, "",
-		pctx.WithGauge("open_fd_count", 0, m.WithFlushInterval(30*time.Second)),
-		pctx.WithDelta("rchar_bytes", int(1e6), m.Deferred()),
-		pctx.WithDelta("wchar_bytes", int(1e6), m.Deferred()),
-		pctx.WithDelta("bytes_written_bytes", int(1e6), m.Deferred()),
-		pctx.WithDelta("bytes_read_bytes", int(1e6), m.Deferred()),
-		pctx.WithDelta("canceled_write_bytes", int(1e6), m.Deferred()),
-		pctx.WithDelta("read_syscall_count", int(1e4), m.Deferred()),
-		pctx.WithDelta("write_syscall_count", int(1e4), m.Deferred()),
-		pctx.WithDelta("cpu_time_seconds", float64(30), m.WithFlushInterval(30*time.Second)),
-		pctx.WithDelta("resident_memory_bytes", int(100e6), m.WithFlushInterval(30*time.Second)),
-		pctx.WithGauge("oom_score", 0, m.WithFlushInterval(30*time.Minute)),
+		pctx.WithGauge("open_fd_count", 0, meters.WithFlushInterval(30*time.Second)),
+		pctx.WithDelta("rchar_bytes", int(1e6), meters.Deferred()),
+		pctx.WithDelta("wchar_bytes", int(1e6), meters.Deferred()),
+		pctx.WithDelta("bytes_written_bytes", int(1e6), meters.Deferred()),
+		pctx.WithDelta("bytes_read_bytes", int(1e6), meters.Deferred()),
+		pctx.WithDelta("canceled_write_bytes", int(1e6), meters.Deferred()),
+		pctx.WithDelta("read_syscall_count", int(1e4), meters.Deferred()),
+		pctx.WithDelta("write_syscall_count", int(1e4), meters.Deferred()),
+		pctx.WithDelta("cpu_time_seconds", float64(30), meters.WithFlushInterval(30*time.Second)),
+		pctx.WithDelta("resident_memory_bytes", int(100e6), meters.WithFlushInterval(30*time.Second)),
+		pctx.WithGauge("oom_score", 0, meters.WithFlushInterval(30*time.Minute)),
 	)
 	for {
 		select {
@@ -238,16 +238,16 @@ func MonitorProcessGroup(ctx context.Context, pid int) error {
 			log.Info(ctx, "problem getting self stats", zap.Error(err))
 			continue
 		}
-		m.Set(ctx, "open_fd_count", stats.FDCount)
-		m.Set(ctx, "rchar_bytes", int(stats.RChars))
-		m.Set(ctx, "wchar_bytes", int(stats.WChars))
-		m.Set(ctx, "bytes_read_bytes", int(stats.RBytes))
-		m.Set(ctx, "bytes_written_bytes", int(stats.WBytes))
-		m.Set(ctx, "canceled_write_bytes", int(stats.CanceledWBytes))
-		m.Set(ctx, "read_syscall_count", int(stats.RSysc))
-		m.Set(ctx, "write_syscall_count", int(stats.WSysc))
-		m.Set(ctx, "cpu_time_seconds", stats.CPUTime)
-		m.Set(ctx, "resident_memory_bytes", stats.ResidentMemory)
-		m.Set(ctx, "oom_score", stats.OOMScore)
+		meters.Set(ctx, "open_fd_count", stats.FDCount)
+		meters.Set(ctx, "rchar_bytes", int(stats.RChars))
+		meters.Set(ctx, "wchar_bytes", int(stats.WChars))
+		meters.Set(ctx, "bytes_read_bytes", int(stats.RBytes))
+		meters.Set(ctx, "bytes_written_bytes", int(stats.WBytes))
+		meters.Set(ctx, "canceled_write_bytes", int(stats.CanceledWBytes))
+		meters.Set(ctx, "read_syscall_count", int(stats.RSysc))
+		meters.Set(ctx, "write_syscall_count", int(stats.WSysc))
+		meters.Set(ctx, "cpu_time_seconds", stats.CPUTime)
+		meters.Set(ctx, "resident_memory_bytes", stats.ResidentMemory)
+		meters.Set(ctx, "oom_score", stats.OOMScore)
 	}
 }

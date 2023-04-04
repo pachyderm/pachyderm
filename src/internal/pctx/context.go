@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/m"
+	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
 	"go.uber.org/zap"
 )
 
@@ -61,28 +61,28 @@ func WithoutRatelimit() Option {
 }
 
 // WithGauge adds an aggregated gauge metric to the context.
-func WithGauge[T any](metric string, zero T, options ...m.Option) Option {
+func WithGauge[T any](metric string, zero T, options ...meters.Option) Option {
 	return Option{
 		modifyContext: func(ctx context.Context) context.Context {
-			return m.NewAggregatedGauge(ctx, metric, zero, options...)
+			return meters.NewAggregatedGauge(ctx, metric, zero, options...)
 		},
 	}
 }
 
 // WithCounter adds an aggregated counter metric to the context.
-func WithCounter[T m.Monoid](metric string, zero T, options ...m.Option) Option {
+func WithCounter[T meters.Monoid](metric string, zero T, options ...meters.Option) Option {
 	return Option{
 		modifyContext: func(ctx context.Context) context.Context {
-			return m.NewAggregatedCounter(ctx, metric, zero, options...)
+			return meters.NewAggregatedCounter(ctx, metric, zero, options...)
 		},
 	}
 }
 
 // WithDelta adds an aggregated delta metric to the context.
-func WithDelta[T m.Signed](metric string, threshold T, options ...m.Option) Option {
+func WithDelta[T meters.Signed](metric string, threshold T, options ...meters.Option) Option {
 	return Option{
 		modifyContext: func(ctx context.Context) context.Context {
-			return m.NewAggregatedDelta(ctx, metric, threshold, options...)
+			return meters.NewAggregatedDelta(ctx, metric, threshold, options...)
 		},
 	}
 }
@@ -91,11 +91,18 @@ func WithDelta[T m.Signed](metric string, threshold T, options ...m.Option) Opti
 // Options are applied in an arbitrary order.
 func Child(ctx context.Context, name string, opts ...Option) context.Context {
 	var logOptions []log.LogOption
+	var newAggregatesNeeded bool
 	for _, opt := range opts {
 		if opt.addsFields {
-			ctx = m.WithNewFields(ctx)
+			newAggregatesNeeded = true
 			break
 		}
+	}
+	if name != "" {
+		newAggregatesNeeded = true
+	}
+	if newAggregatesNeeded {
+		ctx = meters.WithNewFields(ctx)
 	}
 	for _, opt := range opts {
 		if o := opt.modifyLogger; o != nil {
