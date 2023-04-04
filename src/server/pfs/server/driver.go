@@ -249,7 +249,7 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 			}
 			return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "error getting access level for %q", repo)
 		}
-		repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
+		repoInfo.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 	}
 	return repoInfo, nil
 }
@@ -321,7 +321,7 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 					return errors.Wrapf(err, "error getting access level for %q", repoInfo.Repo)
 				}
 			}
-			repoInfo.AuthInfo = &pfs.RepoAuthInfo{Permissions: permissions, Roles: roles}
+			repoInfo.AuthInfo = &pfs.AuthInfo{Permissions: permissions, Roles: roles}
 		}
 		return cb(proto.Clone(repoInfo).(*pfs.RepoInfo))
 	}
@@ -648,7 +648,7 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 					return errors.Wrapf(err, "error getting permissions for project %s", projectInfo.Project)
 				}
 			}
-			projectInfo.AuthInfo = &auth.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
+			projectInfo.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 		}
 		return cb(projectInfo)
 	}), "could not list projects")

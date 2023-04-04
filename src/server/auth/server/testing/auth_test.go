@@ -2779,14 +2779,14 @@ func TestListProjectWithAuth(t *testing.T) {
 	// For each project, we have a list of expected roles given the client.
 	tests := map[string]struct {
 		client   *client.APIClient
-		expected map[string]*auth.AuthInfo
+		expected map[string]*pfs.AuthInfo
 	}{
-		"admin": {client: admin, expected: map[string]*auth.AuthInfo{
+		"admin": {client: admin, expected: map[string]*pfs.AuthInfo{
 			pfs.DefaultProjectName: {Roles: []string{auth.ClusterAdminRole, auth.ProjectWriterRole}},
 			adminProject:           {Roles: []string{auth.ClusterAdminRole, auth.ProjectOwnerRole}},
 			aliceProject:           {Roles: []string{auth.ClusterAdminRole}},
 		}},
-		"alice": {client: alice, expected: map[string]*auth.AuthInfo{
+		"alice": {client: alice, expected: map[string]*pfs.AuthInfo{
 			pfs.DefaultProjectName: {Roles: []string{auth.ProjectWriterRole}},
 			adminProject:           {Roles: []string{}},
 			aliceProject:           {Roles: []string{auth.ProjectOwnerRole}},
@@ -2803,5 +2803,4 @@ func TestListProjectWithAuth(t *testing.T) {
 			}
 		})
 	}
-
 }

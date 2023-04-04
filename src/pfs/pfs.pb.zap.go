@@ -67,7 +67,7 @@ func (x *RepoInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (x *RepoAuthInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (x *AuthInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}

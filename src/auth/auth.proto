@@ -145,11 +145,6 @@ message RoleBinding {
   map<string, Roles> entries = 1;
 }
 
-message AuthInfo {
-  repeated Permission permissions = 1;
-  repeated string roles = 2;
-}
-
 // Permission represents the ability to perform a given operation on a Resource
 enum Permission {
   PERMISSION_UNKNOWN = 0;

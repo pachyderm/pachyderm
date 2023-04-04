@@ -202,27 +202,6 @@ func (x *RoleBinding) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (x *AuthInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if x == nil {
-		return nil
-	}
-	permissionsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
-		for _, v := range x.Permissions {
-			enc.AppendString(v.String())
-		}
-		return nil
-	}
-	enc.AddArray("permissions", zapcore.ArrayMarshalerFunc(permissionsArrMarshaller))
-	rolesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
-		for _, v := range x.Roles {
-			enc.AppendString(v)
-		}
-		return nil
-	}
-	enc.AddArray("roles", zapcore.ArrayMarshalerFunc(rolesArrMarshaller))
-	return nil
-}
-
 func (x *Resource) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
