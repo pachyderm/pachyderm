@@ -107,7 +107,7 @@ export const usePipeline = (
           input_spec: input,
         },
       );
-      if (response.message != null) {
+      if (response.message !== null) {
         setResponseMessage(response.message);
       }
     } catch (e) {
