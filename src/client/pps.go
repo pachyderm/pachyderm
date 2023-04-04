@@ -861,21 +861,6 @@ func (c APIClient) GetKubeEvents(since time.Duration) ([]*pps.LokiLogMessage, er
 	return grpcutil.Collect[*pps.LokiLogMessage](client, 1000)
 }
 
-// QueryLoki queries the loki service for logs.
-func (c APIClient) QueryLoki(query string, since time.Duration) (pps.API_QueryLokiClient, error) {
-	ctx, cf := context.WithCancel(c.Ctx())
-	defer cf()
-	request := pps.LokiRequest{
-		Query: query,
-		Since: types.DurationProto(since),
-	}
-	client, err := c.PpsAPIClient.QueryLoki(ctx, &request)
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return client, nil
-}
-
 // CreatePipeline creates a new pipeline, pipelines are the main computation
 // object in PPS they create a flow of data from a set of input Repos to an
 // output Repo (which has the same name as the pipeline).  Whenever new data is

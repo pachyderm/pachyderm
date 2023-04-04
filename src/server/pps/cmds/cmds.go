@@ -597,11 +597,15 @@ each datum.`,
 			if err != nil {
 				return errors.Wrapf(err, "parse since(%q)", since)
 			}
-			logClient, err := client.QueryLoki(query, since)
-			if err != nil {
-				return err
+			request := pps.LokiRequest{
+				Query: query,
+				Since: types.DurationProto(since),
 			}
-			if err := grpcutil.ForEach[*pps.LokiLogMessage](logClient, func(log *pps.LokiLogMessage) error {
+			lokiClient, err := client.PpsAPIClient.QueryLoki(client.Ctx(), &request)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if err := grpcutil.ForEach[*pps.LokiLogMessage](lokiClient, func(log *pps.LokiLogMessage) error {
 				fmt.Println(log.Message)
 				return nil
 			}); err != nil {
