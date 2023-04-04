@@ -180,6 +180,9 @@ func withBase(namespace string) *helm.Options {
 			"pachd.defaultPipelineCPURequest":     "100m",
 			"pachd.defaultPipelineMemoryRequest":  "64M",
 			"pachd.defaultPipelineStorageRequest": "100Mi",
+			"pachd.defaultSidecarCPURequest":      "100m",
+			"pachd.defaultSidecarMemoryRequest":   "64M",
+			"pachd.defaultSidecarStorageRequest":  "100Mi",
 			"console.enabled":                     "false",
 		},
 	}
