@@ -336,43 +336,6 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 	return errors.Wrapf(d.repos.ReadOnly(ctx).GetByIndex(pfsdb.ReposTypeIndex, repoType, repoInfo, col.DefaultOptions(), processFunc), "could not get repos of type %q: ERROR FROM GetByIndex", repoType)
 }
 
-func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContext, repos []*pfs.RepoInfo, force bool) error {
-	var branchInfos []*pfs.BranchInfo
-	for _, repo := range repos {
-		bis, err := d.listRepoBranches(txnCtx, repo)
-		if err != nil {
-			return err
-		}
-		branchInfos = append(branchInfos, bis...)
-	}
-	// sort ascending provenance
-	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
-	for i := range branchInfos {
-		// delete branches from most provenance to least, that way if one
-		// branch is provenant on another (which is likely the case when
-		// multiple repos are provided) we delete them in the right order.
-		branch := branchInfos[len(branchInfos)-1-i].Branch
-		if err := d.deleteBranch(txnCtx, branch, force); err != nil {
-			return errors.Wrapf(err, "delete branch %s", branch)
-		}
-	}
-	return nil
-}
-
-func (d *driver) deleteBranches(txnCtx *txncontext.TransactionContext, branchInfos []*pfs.BranchInfo) error {
-	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
-	for i := range branchInfos {
-		// delete branches from most provenance to least, that way if one
-		// branch is provenant on another (which is likely the case when
-		// multiple repos are provided) we delete them in the right order.
-		branch := branchInfos[len(branchInfos)-1-i].Branch
-		if err := d.deleteBranch(txnCtx, branch, false); err != nil {
-			return errors.Wrapf(err, "delete branch %s", branch)
-		}
-	}
-	return nil
-}
-
 func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
 	var repoInfos []*pfs.RepoInfo
 	if err := d.listRepo(ctx, false, "", projects, func(repoInfo *pfs.RepoInfo) error {
@@ -413,7 +376,7 @@ func (d *driver) deleteReposInternal(ctx context.Context, repoInfos []*pfs.RepoI
 			}
 			bis = append(bis, bs...)
 		}
-		if err := d.deleteBranches(txnCtx, bis); err != nil {
+		if err := d.deleteBranches(txnCtx, bis, false); err != nil {
 			return err
 		}
 		for _, ri := range repoInfos {
@@ -455,12 +418,26 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		}
 		bis = append(bis, bs...)
 	}
-	if err := d.deleteBranches(txnCtx, bis); err != nil {
+	if err := d.deleteBranches(txnCtx, bis, force); err != nil {
 		return err
 	}
 	for _, ri := range related {
 		if err := d.deleteRepoInfo(txnCtx, ri); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func (d *driver) deleteBranches(txnCtx *txncontext.TransactionContext, branchInfos []*pfs.BranchInfo, force bool) error {
+	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
+	for i := range branchInfos {
+		// delete branches from most provenance to least, that way if one
+		// branch is provenant on another (which is likely the case when
+		// multiple repos are provided) we delete them in the right order.
+		branch := branchInfos[len(branchInfos)-1-i].Branch
+		if err := d.deleteBranch(txnCtx, branch, force); err != nil {
+			return errors.Wrapf(err, "delete branch %s", branch)
 		}
 	}
 	return nil
