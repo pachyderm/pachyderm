@@ -36,7 +36,7 @@ const Pipeline: React.FC<PipelineProps> = ({
     callCreatePipeline,
     callSavePipeline,
     errorMessage,
-    responseMessage
+    responseMessage,
   } = usePipeline(metadata, notebookPath, saveNotebookMetadata);
 
   return (
