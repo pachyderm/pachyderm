@@ -16,7 +16,7 @@
     "@babel/preset-typescript": "7.18.6",
     "@types/k6": "0.29.1",
     "babel-loader": "9.1.0",
-    "core-js": "3.26.1",
+    "core-js": "3.30.0",
     "glob": "8.0.3",
     "graphql": "16.6.0",
     "graphql-tag": "2.12.6",
