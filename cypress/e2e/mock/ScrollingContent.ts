@@ -129,26 +129,14 @@ describe(
     });
 
     it('should display the last item properly when scrolling pipeline specs in lineage view', () => {
-      it('should display the last item properly when scrolling pipeline specs in lineage view', () => {
-        /* 
-      The app seems to require a full loading of `/`. Otherwise it will redirect
-      when visiting '/project/1/pipelines/montage'. This was happening when
-      Cypress had to do a full page load to skip the tutorial.
-      Since that is temporarily disabled, we can get the same behavior by just
-      waiting for some page text to render. I think this is happening because the
-      app needs to load an auth token and put it in local storage.
-      */
-        cy.findByText('Projects');
-        cy.visit('/project/Solar-Panel-Data-Sorting/pipelines/montage');
+      cy.findByText('Projects');
+      cy.visit('/lineage/Solar-Panel-Data-Sorting/pipelines/montage');
 
-        cy.findByText('Spec').click();
-        cy.findByText('priorityClassName:').should('not.be.visible');
-        cy.findByTestId('PipelineDetails__scrollableContent').scrollTo(
-          'bottom',
-        );
-        cy.findByText('priorityClassName:').should('be.visible');
-        cy.isInViewport(() => cy.findByText('priorityClassName:'));
-      });
+      cy.findByText('Spec').click();
+      cy.findByText('priorityClassName:').should('not.be.visible');
+      cy.findByTestId('PipelineDetails__scrollableContent').scrollTo('bottom');
+      cy.findByText('priorityClassName:').should('be.visible');
+      cy.isInViewport(() => cy.findByText('priorityClassName:'));
     });
   },
 );
