@@ -31,7 +31,7 @@ func ParseCronExpression(cronExpr string) (cron.Schedule, error) {
 	}
 	schedule, err := cron.ParseStandard(cronExpr)
 	if err != nil {
-		return schedule, fmt.Errorf("cron parse error %w", err)
+		return schedule, fmt.Errorf("cron parse error %v", err)
 	}
 	return schedule, nil
 }
