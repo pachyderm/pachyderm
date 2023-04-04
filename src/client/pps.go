@@ -862,7 +862,7 @@ func (c APIClient) GetKubeEvents(since time.Duration) ([]*pps.LokiLogMessage, er
 }
 
 // QueryLoki queries the loki service for logs.
-func (c APIClient) QueryLoki(query string, since time.Duration) ([]*pps.LokiLogMessage, error) {
+func (c APIClient) QueryLoki(query string, since time.Duration) (pps.API_QueryLokiClient, error) {
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
 	request := pps.LokiRequest{
@@ -873,7 +873,7 @@ func (c APIClient) QueryLoki(query string, since time.Duration) ([]*pps.LokiLogM
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return clientsdk.ListLokiLogs(client)
+	return client, nil
 }
 
 // CreatePipeline creates a new pipeline, pipelines are the main computation
