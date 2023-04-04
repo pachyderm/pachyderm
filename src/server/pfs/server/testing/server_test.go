@@ -2157,22 +2157,22 @@ func TestPFS(suite *testing.T) {
 		checkpoint("good squash")
 		require.Equal(t, 8, len(listCommitSets()))
 		// ok now lets do something crazy
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 5; i++ {
 			for _, b := range []string{"A", "B"} {
-				makeCommit(c, b)
+				latest = makeCommit(c, b)
 			}
 		}
-		require.Equal(t, 28, len(listCommitSets()))
+		require.Equal(t, 18, len(listCommitSets()))
 		_, err = c.PfsAPIClient.SquashCommitSet(ctx, &pfs.SquashCommitSetRequest{CommitSet: latest})
 		require.YesError(t, err)
 		checkpoint("bad squash latest")
-		// add slice to top so that we can successfully force squash
+		// add slice to top so that we can successfully squash
 		realLatest := makeCommit(c, "A", "B")
 		_, err = c.PfsAPIClient.SquashCommitSet(ctx, &pfs.SquashCommitSetRequest{CommitSet: latest})
-		require.YesError(t, err)
+		require.NoError(t, err)
 		checkpoint("good squash latest")
 		css := listCommitSets()
-		require.Equal(t, 8, len(css))
+		require.Equal(t, 18, len(css))
 		require.Equal(t, realLatest.ID, css[0].CommitSet.ID)
 		fmt.Println(benches)
 	})

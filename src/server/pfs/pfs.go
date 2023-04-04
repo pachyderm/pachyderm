@@ -293,7 +293,7 @@ func (e ErrInvalidProvenanceStructure) Error() string {
 }
 
 func (e ErrSquashWithSubvenance) Error() string {
-	return fmt.Sprintf("commit set %q cannot be dropped because it has subvenant commit sets: %v; to delete all of the subvenant commit sets, pass the force argument", e.CommitSet, e.SubvenantCommitSets)
+	return fmt.Sprintf("commit set %q cannot be dropped because it has subvenant commit sets: %v", e.CommitSet, e.SubvenantCommitSets)
 }
 
 var (
