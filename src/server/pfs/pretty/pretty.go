@@ -30,9 +30,9 @@ const (
 	// BranchHeader is the header for branches.
 	BranchHeader = "BRANCH\tHEAD\tTRIGGER\t\n"
 	// ProjectHeader is the header for the projects.
-	ProjectHeader = "ACTIVE\tPROJECT\tDESCRIPTION\t\n"
+	ProjectHeader = "ACTIVE\tPROJECT\tDESCRIPTION\n"
 	// ProjectAuthHeader is the header for the projects with auth info attached.
-	ProjectAuthHeader = "ACTIVE\tPROJECT\tACCESS_LEVEL\tDESCRIPTION\t\n"
+	ProjectAuthHeader = "ACTIVE\tPROJECT\tACCESS_LEVEL\tDESCRIPTION\n"
 	// FileHeader is the header for files.
 	FileHeader = "NAME\tTYPE\tSIZE\t\n"
 	// FileHeaderWithCommit is the header for files that includes a commit field.
@@ -136,19 +136,26 @@ func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
 
 // PrintProjectInfo pretty-prints a project.
 func PrintProjectInfo(w io.Writer, projectInfo *pfs.ProjectInfo, currentProject *pfs.Project) {
+	var line []string
+	// ACTIVE
 	if projectInfo.Project.Name == currentProject.Name {
-		fmt.Fprint(w, "*")
-	}
-	fmt.Fprintf(w, "\t%s", projectInfo.Project.Name)
-	if projectInfo.AuthInfo != nil {
-		fmt.Fprintf(w, "\t%v", projectInfo.AuthInfo.Roles)
-	}
-	if projectInfo.Description != "" {
-		fmt.Fprintf(w, "\t%s", projectInfo.Description)
+		line = append(line, "*")
 	} else {
-		fmt.Fprintf(w, "\t-")
+		line = append(line, " ")
 	}
-	fmt.Fprintln(w)
+	// PROJECT
+	line = append(line, projectInfo.Project.Name)
+	// ACCESS_LEVEL
+	if projectInfo.AuthInfo != nil {
+		line = append(line, fmt.Sprintf("%v", projectInfo.AuthInfo.Roles))
+	}
+	// DESCRIPTION
+	if projectInfo.Description != "" {
+		line = append(line, projectInfo.Description)
+	} else {
+		line = append(line, "-")
+	}
+	fmt.Fprintln(w, strings.Join(line, "\t"))
 }
 
 // PrintDetailedBranchInfo pretty-prints detailed branch info.

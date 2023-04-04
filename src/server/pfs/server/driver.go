@@ -634,7 +634,6 @@ func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit,
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
 func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
-	// add auth info if auth is active
 	authIsActive := true
 	projectInfo := &pfs.ProjectInfo{}
 	return errors.Wrap(d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
@@ -642,6 +641,7 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 			resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: projectInfo.GetProject().AuthResource()})
 			if err != nil {
 				if errors.Is(err, auth.ErrNotActivated) {
+					// Avoid unnecessary subsequent Auth API calls.
 					authIsActive = false
 					return cb(projectInfo)
 				} else {
@@ -649,7 +649,6 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 				}
 			}
 			projectInfo.AuthInfo = &auth.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
-
 		}
 		return cb(projectInfo)
 	}), "could not list projects")

@@ -833,6 +833,7 @@ func (a *apiServer) GetPermissions(ctx context.Context, req *auth.GetPermissions
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot get authenticated user")
 	}
+
 	resp, err = a.GetPermissionsForPrincipal(ctx, &auth.GetPermissionsForPrincipalRequest{Principal: callerInfo.Subject, Resource: req.Resource})
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot get permissions for principal")

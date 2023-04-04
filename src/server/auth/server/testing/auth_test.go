@@ -2776,8 +2776,7 @@ func TestListProjectWithAuth(t *testing.T) {
 	require.NoError(t, admin.CreateProject(adminProject))
 	require.NoError(t, alice.CreateProject(aliceProject))
 
-	// map from project name to projectInfo
-	// adminExpectedAuthInfo := map[string]*auth.AuthInfo
+	// For each project, we have a list of expected roles given the client.
 	tests := map[string]struct {
 		client   *client.APIClient
 		expected map[string]*auth.AuthInfo
