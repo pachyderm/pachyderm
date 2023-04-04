@@ -525,9 +525,7 @@ func (d *driver) relatedRepos(txnCtx *txncontext.TransactionContext, repo *pfs.R
 	if repo.Type == pfs.UserRepoType {
 		otherRepo := &pfs.RepoInfo{}
 		if err := repos.GetByIndex(pfsdb.ReposNameIndex, pfsdb.ReposNameKey(repo), otherRepo, col.DefaultOptions(), func(key string) error {
-			if pfsdb.RepoKey(repo) != pfsdb.RepoKey(otherRepo.Repo) {
-				related = append(related, proto.Clone(otherRepo).(*pfs.RepoInfo))
-			}
+			related = append(related, proto.Clone(otherRepo).(*pfs.RepoInfo))
 			return nil
 		}); err != nil && !col.IsErrNotFound(err) { // TODO(acohen4): remove this !NotFound condition - I think it's unnecessary
 			return nil, errors.Wrapf(err, "error finding dependent repos for %q", repo.Name)
