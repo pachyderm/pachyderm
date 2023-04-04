@@ -309,6 +309,14 @@ func (d *driver) deleteCommit(txnCtx *txncontext.TransactionContext, ci *pfs.Com
 	if ci.ParentCommit != nil {
 		parentInfo := &pfs.CommitInfo{}
 		if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(ci.ParentCommit, parentInfo, func() error {
+			var i int
+			for j, c := range parentInfo.ChildCommits {
+				if c.ID == ci.Commit.ID {
+					i = j
+					break
+				}
+			}
+			parentInfo.ChildCommits = append(parentInfo.ChildCommits[:i], parentInfo.ChildCommits[i+1:]...)
 			parentInfo.ChildCommits = append(parentInfo.ChildCommits, ci.ChildCommits...)
 			return nil
 		}); err != nil {
@@ -325,38 +333,6 @@ func (d *driver) deleteCommit(txnCtx *txncontext.TransactionContext, ci *pfs.Com
 		}
 	}
 	return nil
-}
-
-// oldestAncestor returns the oldest ancestor commit of 'startCommit' leveraging the pool of known commits in the 'skipSet'
-func oldestAncestor(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.CommitInfo) *pfs.Commit {
-	oldest := traverseToEdges(startCommit, skipSet, func(commitInfo *pfs.CommitInfo) []*pfs.Commit {
-		return []*pfs.Commit{commitInfo.ParentCommit}
-	})
-	if len(oldest) == 0 {
-		return nil
-	}
-	return oldest[0]
-}
-
-// traverseToEdges does a breadth first search using a traverse function.
-// returns all of the commits that can not continue traversal within the skip set, hence returning the known 'leaves' of the skipSet graph
-func traverseToEdges(startCommit *pfs.CommitInfo, skipSet map[string]*pfs.CommitInfo, traverse func(*pfs.CommitInfo) []*pfs.Commit) []*pfs.Commit {
-	cs := []*pfs.Commit{startCommit.Commit}
-	result := make([]*pfs.Commit, 0)
-	var c *pfs.Commit
-	for len(cs) > 0 {
-		c, cs = cs[0], cs[1:]
-		if c == nil {
-			continue
-		}
-		ci, ok := skipSet[pfsdb.CommitKey(c)]
-		if ok {
-			cs = append(cs, traverse(ci)...)
-		} else {
-			result = append(result, proto.Clone(c).(*pfs.Commit))
-		}
-	}
-	return result
 }
 
 // A commit set 'X' is subvenant to another commit set 'Y' if it contains commits
