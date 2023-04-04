@@ -89,6 +89,12 @@ func WithDelta[T meters.Signed](metric string, threshold T, options ...meters.Op
 
 // Child returns a named child context, with additional options.  The new name can be empty.
 // Options are applied in an arbitrary order.
+//
+// Calling Child with a name adds the name to the current name, separated by a dot.  For example,
+// Child(Child(Background(), "PPS"), "master") would result in logs and metrics in the PPS.master
+// namespace.  It is okay to add interesting data to these names, like
+// fmt.Sprintf("pipelineController(%s)", pipeline.Name).  We prefer camel case names, and () to
+// quote dynamic data.
 func Child(ctx context.Context, name string, opts ...Option) context.Context {
 	var logOptions []log.LogOption
 	var newAggregatesNeeded bool

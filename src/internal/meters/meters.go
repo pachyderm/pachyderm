@@ -23,6 +23,10 @@
 // can ignore the extra fields and add everything up to show a program-wide count of bytes
 // transmitted.
 //
+// Because pctx.Child allows the caller to define a namespace for logs and metrics, meter names do
+// not need to be namespaced.  Prefer a meter named `tx_bytes` in the `chunk_storage.Upload` logger
+// over one named `chunk_storage.upload.tx_bytes`.
+//
 // Normally it's considered "too expensive" to store metrics with such a high cardinality (per-user,
 // per-IP, per-request), but this system has no such limitation.  Cardinality has no impact on write
 // performance.  Analysis code can make the decision on which fields to discard to decrease the

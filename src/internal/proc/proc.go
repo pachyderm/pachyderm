@@ -205,13 +205,15 @@ func MonitorSelf(ctx context.Context) {
 	}
 }
 
-func MonitorProcessGroup(ctx context.Context, pid int) error {
+// MonitorProcessGroup produces metrics about a process group until the context is canceled.
+func MonitorProcessGroup(ctx context.Context, pid int) {
 	if pid > 0 {
 		pid = -pid
 	}
 	fs, err := procfs.NewDefaultFS()
 	if err != nil {
-		return errors.Wrap(err, "new procfs")
+		log.Error(ctx, "unable to monitor process group", zap.Int("pid", pid), zap.Error(err))
+		return
 	}
 	ctx = pctx.Child(ctx, "",
 		pctx.WithGauge("open_fd_count", 0, meters.WithFlushInterval(30*time.Second)),
@@ -231,7 +233,6 @@ func MonitorProcessGroup(ctx context.Context, pid int) error {
 		case <-time.After(2 * time.Second):
 		case <-ctx.Done():
 			log.Debug(ctx, "MonitorUserCode exiting", zap.Int("pid", pid))
-			return nil
 		}
 		stats, err := getProcessStats(fs, pid)
 		if err != nil {
