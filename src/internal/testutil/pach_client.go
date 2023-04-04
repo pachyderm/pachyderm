@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 )
 
 const DefaultTransformImage = "ubuntu:20.04"
@@ -17,7 +18,7 @@ func NewPachClient(t testing.TB) *client.APIClient {
 	var pachErr error
 	if _, ok := os.LookupEnv("PACHD_PORT_1650_TCP_ADDR"); ok {
 		t.Log("creating pach client using cluster config")
-		c, pachErr = client.NewInCluster()
+		c, pachErr = client.NewInClusterContext(pctx.TODO())
 	} else {
 		t.Log("creating pach client using NewForTest")
 		c, pachErr = client.NewForTest()

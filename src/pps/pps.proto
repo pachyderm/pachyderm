@@ -300,6 +300,7 @@ message JobInfo {
     SchedulingSpec scheduling_spec = 16;
     string pod_spec = 17;
     string pod_patch = 18;
+    ResourceSpec sidecar_resource_requests = 19;
   }
   Details details = 16;
 }
@@ -457,6 +458,7 @@ message PipelineInfo {
     string worker_rc = 32;
     bool autoscaling = 33;
     repeated Toleration tolerations = 34;
+    ResourceSpec sidecar_resource_requests = 35;
   }
   Details details = 12;
 }
@@ -710,6 +712,7 @@ message CreatePipelineRequest {
   string reprocess_spec = 29;
   bool autoscaling = 30;
   repeated Toleration tolerations = 34;
+  ResourceSpec sidecar_resource_requests = 35;
 }
 
 message InspectPipelineRequest {
@@ -843,6 +846,7 @@ message RenderTemplateResponse {
 
 message LokiRequest {
   google.protobuf.Duration since = 1;
+  string query = 2;
 }
 
 message LokiLogMessage {
@@ -902,4 +906,7 @@ service API {
 
   // GetKubeEvents returns a stream of kubernetes events
   rpc GetKubeEvents(LokiRequest) returns (stream LokiLogMessage) {}
+
+  // QueryLoki returns a stream of loki log messages given a query string
+  rpc QueryLoki(LokiRequest) returns (stream LokiLogMessage) {}
 }

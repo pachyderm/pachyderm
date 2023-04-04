@@ -162,6 +162,16 @@ func newCmd(ctx context.Context, name string, args []string, stdin io.Reader) Cm
 	return cmd
 }
 
+func (cmd *Cmd) Run() error {
+	if err := cmd.Cmd.Run(); err != nil {
+		if cmd.Cmd.Stderr != cmd.stderr {
+			return errors.Wrap(err, "command failed without buffered stderr")
+		}
+		return errors.Wrapf(err, "command failed\n====== BEGIN STDERR ======\n%s\n====== END STDERR ======\n", cmd.stderr.String())
+	}
+	return nil
+}
+
 // Command provides a Cmd to execute script with Bash.  If context is cancelled
 // then the command will be terminated.
 func (p Pachctl) Command(ctx context.Context, script string) (Cmd, error) {

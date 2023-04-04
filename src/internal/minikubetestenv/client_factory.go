@@ -17,6 +17,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -186,7 +187,7 @@ var localLock sync.Mutex
 func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	t.Helper()
 	if *forceLocal {
-		c, err := client.NewOnUserMachine("")
+		c, err := client.NewOnUserMachineContext(pctx.TODO(), "")
 		if err != nil {
 			t.Fatalf("create local client: %v", err)
 		}

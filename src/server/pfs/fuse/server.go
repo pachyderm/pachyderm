@@ -982,7 +982,7 @@ func getNewClient(cfgReq ConfigRequest) (*client.APIClient, error) {
 		options = append(options, client.WithAdditionalRootCAs(pemBytes))
 	}
 	options = append(options, client.WithDialTimeout(5*time.Second))
-	newClient, err := client.NewFromPachdAddress(pachdAddress, options...)
+	newClient, err := client.NewFromPachdAddressContext(pctx.TODO(), pachdAddress, options...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to %s", pachdAddress.Qualified())
 	}

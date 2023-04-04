@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/constants"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
 	oidc "github.com/coreos/go-oidc"
@@ -17,7 +18,7 @@ import (
 const (
 	// ContextTokenKey is the key of the auth token in an
 	// authenticated context
-	ContextTokenKey = "authn-token"
+	ContextTokenKey = constants.ContextTokenKey
 
 	// ClusterRoleBindingKey is a key in etcd, in the roleBindings collection,
 	// that contains the set of role bindings for the cluster. These are frequently

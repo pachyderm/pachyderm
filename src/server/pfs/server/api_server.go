@@ -73,7 +73,15 @@ func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionCont
 	// Create role bindings for projects created before auth activation
 	var projectInfo pfs.ProjectInfo
 	if err := a.driver.projects.ReadWrite(txnCtx.SqlTx).List(&projectInfo, col.DefaultOptions(), func(string) error {
-		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: projectInfo.Project.Name})
+		var principal string
+		var roleSlice []string
+		if projectInfo.Project.Name == pfs.DefaultProjectName {
+			// Grant all users ProjectWriter role for default project.
+			principal = auth.AllClusterUsersSubject
+			roleSlice = []string{auth.ProjectWriterRole}
+		}
+
+		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, principal, roleSlice, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: projectInfo.Project.Name})
 		if err != nil && !col.IsErrExists(err) {
 			return errors.EnsureStack(err)
 		}

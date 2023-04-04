@@ -8,7 +8,7 @@ from tornado import locks
 
 from .pachyderm import MountInterface
 from .log import get_logger
-from .env import SIDECAR_MODE
+from .env import SIDECAR_MODE, MOUNT_SERVER_LOG_DIR
 
 lock = locks.Lock()
 MOUNT_SERVER_PORT = 9002
@@ -66,13 +66,17 @@ class MountServerClient(MountInterface):
         async with lock:
             if not await self._is_mount_server_running():
                 self._unmount()
+
+                mount_server_cmd = f"mount-server --mount-dir {self.mount_dir}"
+                if MOUNT_SERVER_LOG_DIR is not None and MOUNT_SERVER_LOG_DIR:
+                  mount_server_cmd += f" >> {MOUNT_SERVER_LOG_DIR} 2>&1"
+
                 subprocess.Popen(
                     [
                         "bash",
                         "-c",
                         "set -o pipefail; "
-                        + f"mount-server --mount-dir {self.mount_dir}"
-                        + " >> /tmp/mount-server.log 2>&1",
+                        + mount_server_cmd
                     ]
                 )
 
