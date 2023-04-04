@@ -2168,8 +2168,8 @@ func TestPFS(suite *testing.T) {
 		checkpoint("bad squash latest")
 		// add slice to top so that we can successfully force squash
 		realLatest := makeCommit(c, "A", "B")
-		_, err = c.PfsAPIClient.SquashCommitSet(ctx, &pfs.SquashCommitSetRequest{CommitSet: latest, Force: true})
-		require.NoError(t, err)
+		_, err = c.PfsAPIClient.SquashCommitSet(ctx, &pfs.SquashCommitSetRequest{CommitSet: latest})
+		require.YesError(t, err)
 		checkpoint("good squash latest")
 		css := listCommitSets()
 		require.Equal(t, 8, len(css))

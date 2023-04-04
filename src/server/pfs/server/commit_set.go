@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"sort"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -195,8 +194,10 @@ func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset 
 	// effectively a drop, though, because there is no child commit that contains
 	// the data from the given commits, which is why it is an error to drop any
 	// non-head commits (until generalized drop semantics are implemented).
-	if err := d.deleteCommits(txnCtx, cis); err != nil {
-		return err
+	for _, ci := range cis {
+		if err := d.deleteCommit(txnCtx, ci); err != nil {
+			return err
+		}
 	}
 	// notify PPS that this commitset has been dropped so it can clean up any
 	// jobs associated with it at the end of the transaction
@@ -204,45 +205,37 @@ func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset 
 	return nil
 }
 
-func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet, force bool) error {
+func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) error {
 	css, err := d.subvenantCommitSets(txnCtx, commitset)
 	if err != nil {
 		return err
 	}
-	if len(css) > 0 && !force {
+	if len(css) > 0 {
 		return &pfsserver.ErrSquashWithSubvenance{CommitSet: commitset, SubvenantCommitSets: css}
 	}
-	commitsets := append([]*pfs.CommitSet{commitset}, css...)
-	var commitInfos []*pfs.CommitInfo
-	for _, commitset := range commitsets {
-		var err error
-		cis, err := d.inspectCommitSetImmediateTx(txnCtx, commitset, true)
-		if err != nil {
-			return err
-		}
-		commitInfos = append(commitInfos, cis...)
+	commitInfos, err := d.inspectCommitSetImmediateTx(txnCtx, commitset, true)
+	if err != nil {
+		return err
 	}
 	for _, ci := range commitInfos {
-		if ci.Commit.Branch.Repo.Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {
+		if ci.Commit.Repo.Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {
 			return errors.Errorf("cannot squash commit %s because it updated a pipeline", ci.Commit)
 		}
 		if len(ci.ChildCommits) == 0 {
 			return &pfsserver.ErrSquashWithoutChildren{Commit: ci.Commit}
 		}
 	}
-	if err := d.deleteCommits(txnCtx, commitInfos); err != nil {
-		return err
+	for _, ci := range commitInfos {
+		if err := d.deleteCommit(txnCtx, ci); err != nil {
+			return err
+		}
 	}
 	// notify PPS that this commitset has been squashed so it can clean up any
 	// jobs associated with it at the end of the transaction
-	for _, commitset := range commitsets {
-		txnCtx.StopJobs(commitset)
-	}
+	txnCtx.StopJobs(commitset)
 	return nil
 }
 
-// deleteCommits() accepts commitInfos that may span commit sets.
-//
 // Since commits are only deleted as part of deleting a commit set, in most cases
 // we will delete many commits at a time. The graph traversal computations can result
 // in many I/Os. Therefore, this function bulkifies the graph traversals to run the
@@ -254,145 +247,78 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 // 2. check whether the commit was at the head of a branch, and update the branch head if necessary
 // 3. updating the ChildCommits pointers of deletedCommit.ParentCommit
 // 4. updating the ParentCommit pointer of deletedCommit.ChildCommits
-func (d *driver) deleteCommits(txnCtx *txncontext.TransactionContext, commitInfos []*pfs.CommitInfo) error {
-	deleteCommits := make(map[string]*pfs.CommitInfo)
-	repos := make(map[string]*pfs.Repo)
-	for _, ci := range commitInfos {
-		deleteCommits[pfsdb.CommitKey(ci.Commit)] = ci
-		repos[pfsdb.RepoKey(ci.Commit.Repo)] = ci.Commit.Repo
+func (d *driver) deleteCommit(txnCtx *txncontext.TransactionContext, ci *pfs.CommitInfo) error {
+	// make sure all children are finished, so we don't lose data
+	for _, child := range ci.ChildCommits {
+		var childInfo pfs.CommitInfo
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(child, &childInfo); err != nil {
+			return errors.Wrapf(err, "error checking child commit state")
+		}
+		if childInfo.Finished == nil {
+			var suffix string
+			if childInfo.Finishing != nil {
+				// user might already have called "finish",
+				suffix = ", consider using WaitCommit"
+			}
+			return errors.Errorf("cannot squash until child commit %s is finished%s", child, suffix)
+		}
 	}
-	// delete the commits and their filesets
-	for _, ci := range commitInfos {
-		// make sure all children are finished, so we don't lose data
-		for _, child := range ci.ChildCommits {
-			if _, ok := deleteCommits[pfsdb.CommitKey(child)]; ok {
-				// this child is being deleted, any files from this commit will end up
-				// as part of *its* children, which have already been checked
-				continue
-			}
-			var childInfo pfs.CommitInfo
-			if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(child, &childInfo); err != nil {
-				return errors.Wrapf(err, "error checking child commit state")
-			}
-			if childInfo.Finished == nil {
-				var suffix string
-				if childInfo.Finishing != nil {
-					// user might already have called "finish",
-					suffix = ", consider using WaitCommit"
-				}
-				return errors.Errorf("cannot squash until child commit %s is finished%s", child, suffix)
-			}
-		}
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Delete(ci.Commit); err != nil {
-			return errors.EnsureStack(err)
-		}
-		// Delete the commit's filesets
-		if err := d.commitStore.DropFileSetsTx(txnCtx.SqlTx, ci.Commit); err != nil {
-			return errors.EnsureStack(err)
-		}
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).Delete(ci.Commit); err != nil {
+		return errors.EnsureStack(err)
+	}
+	// Delete the commit's filesets
+	if err := d.commitStore.DropFileSetsTx(txnCtx.SqlTx, ci.Commit); err != nil {
+		return errors.EnsureStack(err)
 	}
 	// update branch heads
 	headlessBranches := make([]*pfs.BranchInfo, 0)
-	for _, repo := range repos {
-		repoInfo := &pfs.RepoInfo{}
-		if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(repo, repoInfo); err != nil {
-			return err
-		}
-		branchInfo := &pfs.BranchInfo{}
-		for _, b := range repoInfo.Branches {
-			if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(b, branchInfo, func() error {
-				if ci, ok := deleteCommits[pfsdb.CommitKey(branchInfo.Head)]; ok {
-					branchInfo.Head = oldestAncestor(ci, deleteCommits)
-					if branchInfo.Head == nil {
-						headlessBranches = append(headlessBranches, proto.Clone(branchInfo).(*pfs.BranchInfo))
-					}
-				}
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
+	repoInfo := &pfs.RepoInfo{}
+	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(ci.Commit.Repo, repoInfo); err != nil {
+		return err
 	}
-	sort.Slice(headlessBranches, func(i, j int) bool {
-		return len(headlessBranches[i].Provenance) < len(headlessBranches[j].Provenance)
-	})
-	newRepoCommits := make(map[string]*pfs.Commit)
-	for _, bi := range headlessBranches {
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(bi.Branch, bi, func() error {
-			// Create a new empty commit for the branch head
-			var repoCommit *pfs.Commit
-			var err error
-			if c, ok := newRepoCommits[pfsdb.RepoKey(bi.Branch.Repo)]; !ok {
-				repoCommit, err = d.makeEmptyCommit(txnCtx, bi.Branch, bi.DirectProvenance, nil)
-				if err != nil {
-					return err
+	branchInfo := &pfs.BranchInfo{}
+	for _, b := range repoInfo.Branches {
+		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(b, branchInfo, func() error {
+			if pfsdb.CommitKey(branchInfo.Head) == pfsdb.CommitKey(ci.Commit) {
+				if ci.ParentCommit == nil {
+					headlessBranches = append(headlessBranches, proto.Clone(branchInfo).(*pfs.BranchInfo))
+				} else {
+					branchInfo.Head = ci.ParentCommit
 				}
-				newRepoCommits[pfsdb.RepoKey(bi.Branch.Repo)] = repoCommit
-			} else {
-				repoCommit = c
 			}
-			bi.Head = repoCommit
 			return nil
 		}); err != nil {
-			return errors.Wrapf(err, "error updating branch %s", bi.Branch)
+			return err
 		}
 	}
-	// update parent/child relationships on commits where necessary.
-	// for each deleted commit, update its parent's children and childrens' parents.
-	parentsToNewChildren := make(map[*pfs.Commit]map[*pfs.Commit]struct{})
-	parentsToDeleteChildren := make(map[*pfs.Commit]map[*pfs.Commit]struct{})
-	childrenToNewParent := make(map[*pfs.Commit]*pfs.Commit)
-	for _, ci := range commitInfos {
-		parent := oldestAncestor(ci, deleteCommits)
-		newDescendants := traverseToEdges(ci, deleteCommits, func(commitInfo *pfs.CommitInfo) []*pfs.Commit {
-			return commitInfo.ChildCommits
-		})
-		for _, descendant := range newDescendants {
-			childrenToNewParent[descendant] = parent
+	if len(headlessBranches) > 0 {
+		repoCommit, err := d.makeEmptyCommit(txnCtx, headlessBranches[0].Branch, headlessBranches[0].DirectProvenance, nil)
+		if err != nil {
+			return err
 		}
-		if parent != nil {
-			deleteChildren, ok := parentsToDeleteChildren[parent]
-			if !ok {
-				deleteChildren = make(map[*pfs.Commit]struct{})
-				parentsToDeleteChildren[parent] = deleteChildren
-			}
-			deleteChildren[ci.Commit] = struct{}{}
-			newChildren, ok := parentsToNewChildren[parent]
-			if !ok {
-				newChildren = make(map[*pfs.Commit]struct{})
-				parentsToNewChildren[parent] = newChildren
-			}
-			for _, child := range newDescendants {
-				newChildren[child] = struct{}{}
+		for _, bi := range headlessBranches {
+			if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(bi.Branch, bi, func() error {
+				bi.Head = repoCommit
+				return nil
+			}); err != nil {
+				return errors.Wrapf(err, "error updating branch %s", bi.Branch)
 			}
 		}
+
 	}
-	for child, parent := range childrenToNewParent {
-		childInfo := &pfs.CommitInfo{}
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(child, childInfo, func() error {
-			childInfo.ParentCommit = parent
+	if ci.ParentCommit != nil {
+		parentInfo := &pfs.CommitInfo{}
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(ci.ParentCommit, parentInfo, func() error {
+			parentInfo.ChildCommits = append(parentInfo.ChildCommits, ci.ChildCommits...)
 			return nil
 		}); err != nil {
 			return errors.Wrapf(err, "error updating parent/child pointers")
 		}
 	}
-	for parent := range parentsToNewChildren {
-		parentInfo := &pfs.CommitInfo{}
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(parent, parentInfo, func() error {
-			childrenSet := make(map[string]*pfs.Commit)
-			for _, fc := range parentInfo.ChildCommits {
-				childrenSet[pfsdb.CommitKey(fc)] = fc
-			}
-			for newChild := range parentsToNewChildren[parent] {
-				childrenSet[pfsdb.CommitKey(newChild)] = newChild
-			}
-			for deleteChild := range parentsToDeleteChildren[parent] {
-				delete(childrenSet, pfsdb.CommitKey(deleteChild))
-			}
-			parentInfo.ChildCommits = make([]*pfs.Commit, 0)
-			for _, c := range childrenSet {
-				parentInfo.ChildCommits = append(parentInfo.ChildCommits, c)
-			}
+	for _, child := range ci.ChildCommits {
+		childInfo := &pfs.CommitInfo{}
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(child, childInfo, func() error {
+			childInfo.ParentCommit = ci.ParentCommit
 			return nil
 		}); err != nil {
 			return errors.Wrapf(err, "error updating parent/child pointers")
