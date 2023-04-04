@@ -8,8 +8,8 @@ import (
 )
 
 const (
-  // epoch seconds for date 9999-01-01
-  epoch_9999_01_01 = 253_370_782_800
+  // epoch seconds for UTC 9999-01-01T00:00:00
+  epoch_9999_01_01 = 253_370_764_800
 )
 
 // empty struct for implementing cron.Schedule interface
@@ -25,7 +25,7 @@ func (Year9999) Next(_ time.Time) time.Time {
 // supports the following cron syntax enhancements
 // @never: returns year 9999 timepoint, a 4-digit year far enough in the future to act as never
 func ParseCronExpression(cronExpr string) (cron.Schedule, error) {
-  if(strings.TrimSpace(cronExpr) == "@never") {
+  if strings.TrimSpace(cronExpr) == "@never" {
     return Year9999{}, nil
   }
   return cron.ParseStandard(cronExpr)
