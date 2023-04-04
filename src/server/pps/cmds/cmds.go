@@ -588,7 +588,7 @@ each datum.`,
 		Long:  "Query the loki logs.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			query := args[0]
-			client, err := pachdclient.NewOnUserMachine("user")
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
