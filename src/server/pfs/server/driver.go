@@ -339,13 +339,11 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContext, repos []*pfs.RepoInfo, force bool) error {
 	var branchInfos []*pfs.BranchInfo
 	for _, repo := range repos {
-		for _, branch := range repo.Branches {
-			bi, err := d.inspectBranch(txnCtx, branch)
-			if err != nil {
-				return errors.Wrapf(err, "error inspecting branch %s", branch)
-			}
-			branchInfos = append(branchInfos, bi)
+		bis, err := d.listRepoBranches(txnCtx, repo)
+		if err != nil {
+			return err
 		}
+		branchInfos = append(branchInfos, bis...)
 	}
 	// sort ascending provenance
 	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
@@ -361,6 +359,20 @@ func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContex
 	return nil
 }
 
+func (d *driver) deleteBranches(txnCtx *txncontext.TransactionContext, branchInfos []*pfs.BranchInfo) error {
+	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
+	for i := range branchInfos {
+		// delete branches from most provenance to least, that way if one
+		// branch is provenant on another (which is likely the case when
+		// multiple repos are provided) we delete them in the right order.
+		branch := branchInfos[len(branchInfos)-1-i].Branch
+		if err := d.deleteBranch(txnCtx, branch, false); err != nil {
+			return errors.Wrapf(err, "delete branch %s", branch)
+		}
+	}
+	return nil
+}
+
 func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
 	var repoInfos []*pfs.RepoInfo
 	if err := d.listRepo(ctx, false, "", projects, func(repoInfo *pfs.RepoInfo) error {
@@ -369,18 +381,46 @@ func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*p
 	}); err != nil {
 		return nil, err
 	}
+	deleted, err := d.deleteReposInternal(ctx, repoInfos)
+	if err != nil {
+		return nil, err
+	}
+	return deleted, nil
+}
+
+func (d *driver) deleteReposInternal(ctx context.Context, repoInfos []*pfs.RepoInfo) ([]*pfs.Repo, error) {
 	if len(repoInfos) == 0 {
 		return nil, nil
 	}
 	var deleted []*pfs.Repo
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		for i := len(repoInfos) - 1; i >= 0; i-- {
-			ri := repoInfos[i]
-			dels, err := d.deleteRepoInfo(txnCtx, ri, true)
-			if err != nil && !auth.IsErrNotAuthorized(err) {
+		// filter out repos that cannot be deleted
+		var tmp []*pfs.RepoInfo
+		for _, ri := range repoInfos {
+			if ok, err := d.canDeleteRepo(txnCtx, ri.Repo); err != nil {
+				return err
+			} else if !ok {
+				continue
+			}
+			tmp = append(tmp, ri)
+		}
+		repoInfos = tmp
+		var bis []*pfs.BranchInfo
+		for _, ri := range repoInfos {
+			bs, err := d.listRepoBranches(txnCtx, ri)
+			if err != nil {
 				return err
 			}
-			deleted = append(deleted, dels...)
+			bis = append(bis, bs...)
+		}
+		if err := d.deleteBranches(txnCtx, bis); err != nil {
+			return err
+		}
+		for _, ri := range repoInfos {
+			if err := d.deleteRepoInfo(txnCtx, ri); err != nil {
+				return err
+			}
+			deleted = append(deleted, ri.Repo)
 		}
 		return nil
 	}); err != nil {
@@ -398,82 +438,117 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		}
 		return nil
 	}
-	_, err := d.deleteRepoInfo(txnCtx, repoInfo, force)
-	return err
-}
-
-func (d *driver) deleteRepoInfo(txnCtx *txncontext.TransactionContext, ri *pfs.RepoInfo, force bool) ([]*pfs.Repo, error) {
-	repos := d.repos.ReadWrite(txnCtx.SqlTx)
-	completeRepos := []*pfs.RepoInfo{ri}
-	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, ri.Repo, auth.Permission_REPO_DELETE); err != nil {
-		if !auth.IsErrNotAuthorized(err) {
-			return nil, errors.EnsureStack(err)
+	if ok, err := d.canDeleteRepo(txnCtx, repo); err != nil {
+		return err
+	} else if !ok {
+		return nil
+	}
+	related, err := d.relatedRepos(txnCtx, repo)
+	if err != nil {
+		return err
+	}
+	var bis []*pfs.BranchInfo
+	for _, ri := range related {
+		bs, err := d.listRepoBranches(txnCtx, ri)
+		if err != nil {
+			return err
+		}
+		bis = append(bis, bs...)
+	}
+	if err := d.deleteBranches(txnCtx, bis); err != nil {
+		return err
+	}
+	for _, ri := range related {
+		if err := d.deleteRepoInfo(txnCtx, ri); err != nil {
+			return err
 		}
 	}
-	if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(ri.Repo)); err == nil {
-		return nil, errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
-	} else if err != nil && !errutil.IsNotFoundError(err) {
-		return nil, errors.EnsureStack(err)
+	return nil
+}
+
+func (d *driver) listRepoBranches(txnCtx *txncontext.TransactionContext, repo *pfs.RepoInfo) ([]*pfs.BranchInfo, error) {
+	var bis []*pfs.BranchInfo
+	for _, branch := range repo.Branches {
+		bi, err := d.inspectBranch(txnCtx, branch)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error inspecting branch %s", branch)
+		}
+		bis = append(bis, bi)
 	}
-	// if this is a user repo, delete any dependent repos
+	return bis, nil
+}
+
+// before this method is called, a caller should make sure this repo can be deleted with d.canDeleteRepo() and that
+// all of the repo's branches are deleted using d.deleteBranches()
+func (d *driver) deleteRepoInfo(txnCtx *txncontext.TransactionContext, ri *pfs.RepoInfo) error {
+	// make a list of all the commits
+	commitInfos := make(map[string]*pfs.CommitInfo)
+	commitInfo := &pfs.CommitInfo{}
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(ri.Repo), commitInfo, col.DefaultOptions(), func(string) error {
+		commitInfos[commitInfo.Commit.ID] = proto.Clone(commitInfo).(*pfs.CommitInfo)
+		return nil
+	}); err != nil {
+		return errors.EnsureStack(err)
+	}
+	// and then delete them
+	for _, ci := range commitInfos {
+		if err := d.commitStore.DropFileSetsTx(txnCtx.SqlTx, ci.Commit); err != nil {
+			return errors.EnsureStack(err)
+		}
+	}
+	// Despite the fact that we already deleted each branch with
+	// deleteBranch, we also do branches.DeleteAll(), this insulates us
+	// against certain corruption situations where the RepoInfo doesn't
+	// exist in postgres but branches do.
+	if err := d.branches.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(ri.Repo)); err != nil {
+		return errors.EnsureStack(err)
+	}
+	// Similarly with commits
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(ri.Repo)); err != nil {
+		return errors.EnsureStack(err)
+	}
+	if err := d.repos.ReadWrite(txnCtx.SqlTx).Delete(ri.Repo); err != nil && !col.IsErrNotFound(err) {
+		return errors.Wrapf(err, "repos.Delete")
+	}
+	// since system repos share a role binding, only delete it if this is the user repo, in which case the other repos will be deleted anyway
 	if ri.Repo.Type == pfs.UserRepoType {
+		if err := d.env.AuthServer.DeleteRoleBindingInTransaction(txnCtx, ri.Repo.AuthResource()); err != nil && !auth.IsErrNotActivated(err) {
+			return grpcutil.ScrubGRPC(err)
+		}
+	}
+	return nil
+}
+
+func (d *driver) relatedRepos(txnCtx *txncontext.TransactionContext, repo *pfs.Repo) ([]*pfs.RepoInfo, error) {
+	repos := d.repos.ReadWrite(txnCtx.SqlTx)
+	var related []*pfs.RepoInfo
+	if repo.Type == pfs.UserRepoType {
 		otherRepo := &pfs.RepoInfo{}
-		if err := repos.GetByIndex(pfsdb.ReposNameIndex, pfsdb.ReposNameKey(ri.Repo), otherRepo, col.DefaultOptions(), func(key string) error {
-			if pfsdb.RepoKey(ri.Repo) != pfsdb.RepoKey(otherRepo.Repo) {
-				completeRepos = append(completeRepos, proto.Clone(otherRepo).(*pfs.RepoInfo))
+		if err := repos.GetByIndex(pfsdb.ReposNameIndex, pfsdb.ReposNameKey(repo), otherRepo, col.DefaultOptions(), func(key string) error {
+			if pfsdb.RepoKey(repo) != pfsdb.RepoKey(otherRepo.Repo) {
+				related = append(related, proto.Clone(otherRepo).(*pfs.RepoInfo))
 			}
 			return nil
 		}); err != nil && !col.IsErrNotFound(err) { // TODO(acohen4): remove this !NotFound condition - I think it's unnecessary
-			return nil, errors.Wrapf(err, "error finding dependent repos for %q", ri.Repo.Name)
+			return nil, errors.Wrapf(err, "error finding dependent repos for %q", repo.Name)
 		}
 	}
-	// we expect potentially complicated provenance relationships between dependent repos
-	// deleting all branches at once allows for topological sorting, avoiding deletion order issues
-	if err := d.deleteAllBranchesFromRepos(txnCtx, completeRepos, force); err != nil {
-		return nil, errors.Wrap(err, "error deleting branches")
+	return related, nil
+}
+
+func (d *driver) canDeleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo) (bool, error) {
+	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_DELETE); err != nil {
+		if auth.IsErrNotAuthorized(err) {
+			return false, nil
+		}
+		return false, errors.EnsureStack(err)
 	}
-	for _, ri := range completeRepos {
-		// make a list of all the commits
-		commitInfos := make(map[string]*pfs.CommitInfo)
-		commitInfo := &pfs.CommitInfo{}
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(ri.Repo), commitInfo, col.DefaultOptions(), func(string) error {
-			commitInfos[commitInfo.Commit.ID] = proto.Clone(commitInfo).(*pfs.CommitInfo)
-			return nil
-		}); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-		// and then delete them
-		for _, ci := range commitInfos {
-			if err := d.commitStore.DropFileSetsTx(txnCtx.SqlTx, ci.Commit); err != nil {
-				return nil, errors.EnsureStack(err)
-			}
-		}
-		// Despite the fact that we already deleted each branch with
-		// deleteBranch, we also do branches.DeleteAll(), this insulates us
-		// against certain corruption situations where the RepoInfo doesn't
-		// exist in postgres but branches do.
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(ri.Repo)); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-		// Similarly with commits
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(ri.Repo)); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-		if err := repos.Delete(ri.Repo); err != nil && !col.IsErrNotFound(err) {
-			return nil, errors.Wrapf(err, "repos.Delete")
-		}
-		// since system repos share a role binding, only delete it if this is the user repo, in which case the other repos will be deleted anyway
-		if ri.Repo.Type == pfs.UserRepoType {
-			if err := d.env.AuthServer.DeleteRoleBindingInTransaction(txnCtx, ri.Repo.AuthResource()); err != nil && !auth.IsErrNotActivated(err) {
-				return nil, grpcutil.ScrubGRPC(err)
-			}
-		}
+	if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(repo)); err == nil {
+		return false, errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
+	} else if err != nil && !errutil.IsNotFoundError(err) {
+		return false, errors.EnsureStack(err)
 	}
-	deleted := make([]*pfs.Repo, 0)
-	for _, ri := range completeRepos {
-		deleted = append(deleted, ri.Repo)
-	}
-	return deleted, nil
+	return true, nil
 }
 
 func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectRequest) error {
@@ -1435,8 +1510,8 @@ func (d *driver) fillNewBranches(txnCtx *txncontext.TransactionContext, branch *
 	return nil
 }
 
-// Given branchInfo.DirectProvenance and its oldProvenance, compute Provenance of branchInfo,
-// and its Subvenance. Also update the Subvenance of branchInfo's old and new provenant branches.
+// Given branchInfo.DirectProvenance and its oldProvenance, compute Provenance & Subvenance of branchInfo.
+// Also update the Subvenance of branchInfo's old and new provenant branches.
 //
 // This algorithm updates every branch in branchInfo's Subvenance, new Provenance, and old Provenance.
 // Complexity is O(m*n*log(n)) where m is the complete Provenance of branchInfo, and n is the Subvenance of branchInfo
@@ -1658,7 +1733,8 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		}
 		// if we don't have a branch head, or the provenance has changed, add a new commit to the branch to capture the changed structure
 		// the one edge case here, is that it's undesirable to add a commit in the case where provenance is completely removed...
-		// TODO(acohen4): This sort of hurts Branch Provenance invariant. See if we can re-assess....
+		//
+		// TODO(provenance): This sort of hurts Branch Provenance invariant. See if we can re-assess....
 		if branchInfo.Head == nil || (!same(oldProvenance, provenance) && len(provenance) != 0) {
 			c, err := d.makeEmptyCommit(txnCtx, branch, provenance, branchInfo.Head)
 			if err != nil {
@@ -1804,7 +1880,6 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 	if branch.Repo == nil {
 		return errors.New("branch repo cannot be nil")
 	}
-
 	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Permission_REPO_DELETE_BRANCH); err != nil {
 		return errors.EnsureStack(err)
 	}
