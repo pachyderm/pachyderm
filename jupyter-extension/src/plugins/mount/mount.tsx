@@ -312,18 +312,20 @@ export class MountPlugin implements IMountPlugin {
     notebook: NotebookPanel | null,
   ): Promise<void> => {
     // Set the current notebook and wait for the session to be ready
+    let context: PpsContext;
     if (notebook) {
       console.log('handleNotebookChanged called with notebook value');
       await notebook.sessionContext.ready;
       notebook.context.fileChanged.connect(this.handleNotebookReload);
-      const context: PpsContext = {
+      context = {
         config: this.getNotebookMetadata(notebook),
         notebookModel: notebook.context.contentsModel,
       };
-      this._ppsContextSignal.emit(context);
     } else {
       console.log('handleNotebookChanged called without notebook value');
+      context = {config: null, notebookModel: null};
     }
+    this._ppsContextSignal.emit(context);
     await Promise.resolve();
   };
 
