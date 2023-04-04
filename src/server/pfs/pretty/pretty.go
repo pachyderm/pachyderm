@@ -31,6 +31,8 @@ const (
 	BranchHeader = "BRANCH\tHEAD\tTRIGGER\t\n"
 	// ProjectHeader is the header for the projects.
 	ProjectHeader = "ACTIVE\tPROJECT\tDESCRIPTION\t\n"
+	// ProjectAuthHeader is the header for the projects with auth info attached.
+	ProjectAuthHeader = "ACTIVE\tPROJECT\tACCESS_LEVEL\tDESCRIPTION\t\n"
 	// FileHeader is the header for files.
 	FileHeader = "NAME\tTYPE\tSIZE\t\n"
 	// FileHeaderWithCommit is the header for files that includes a commit field.
@@ -137,11 +139,14 @@ func PrintProjectInfo(w io.Writer, projectInfo *pfs.ProjectInfo, currentProject 
 	if projectInfo.Project.Name == currentProject.Name {
 		fmt.Fprint(w, "*")
 	}
-	fmt.Fprintf(w, "\t%s\t", projectInfo.Project.Name)
+	fmt.Fprintf(w, "\t%s", projectInfo.Project.Name)
+	if projectInfo.AuthInfo != nil {
+		fmt.Fprintf(w, "\t%v", projectInfo.AuthInfo.Roles)
+	}
 	if projectInfo.Description != "" {
-		fmt.Fprintf(w, "%s", projectInfo.Description)
+		fmt.Fprintf(w, "\t%s", projectInfo.Description)
 	} else {
-		fmt.Fprintf(w, "-\t")
+		fmt.Fprintf(w, "\t-")
 	}
 	fmt.Fprintln(w)
 }
