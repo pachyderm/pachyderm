@@ -381,7 +381,6 @@ func (x *SquashCommitSetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) err
 		return nil
 	}
 	enc.AddObject("commit_set", x.CommitSet)
-	enc.AddBool("force", x.Force)
 	return nil
 }
 
