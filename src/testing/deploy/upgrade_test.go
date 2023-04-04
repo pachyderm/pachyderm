@@ -173,18 +173,14 @@ func TestUpgradeSquash(t *testing.T) {
 				"master",
 				false,
 			))
-			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, "A", "master", "" /* commitID */), func(mf client.ModifyFile) error {
-				return errors.EnsureStack(mf.PutFile("/1", strings.NewReader("hello")))
-			}))
+			aMaster := client.NewProjectCommit(pfs.DefaultProjectName, "A", "master", "")
+			bMaster := client.NewProjectCommit(pfs.DefaultProjectName, "B", "master", "")
+			require.NoError(t, c.PutFile(aMaster, "/1", strings.NewReader("foo")))
 			squashInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, "A", "master", "")
 			require.NoError(t, err)
-
-			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, "B", "master", "" /* commitID */), func(mf client.ModifyFile) error {
-				return errors.EnsureStack(mf.PutFile("/2", strings.NewReader("hello")))
-			}))
+			require.NoError(t, c.PutFile(bMaster, "/2", strings.NewReader("hello")))
 			latestInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, "A", "master", "")
 			require.NoError(t, err)
-
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 			defer cancel()
 			t.Log("before upgrade: waiting for montage commit")
