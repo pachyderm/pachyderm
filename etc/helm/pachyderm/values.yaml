@@ -705,6 +705,9 @@ pachd:
   defaultPipelineCPURequest: ""
   defaultPipelineMemoryRequest: ""
   defaultPipelineStorageRequest: ""
+  defaultSidecarCPURequest: ""
+  defaultSidecarMemoryRequest: ""
+  defaultSidecarStorageRequest: ""
 kubeEventTail:
   # Deploys a lightweight app that watches kubernetes events and echos them to logs.
   enabled: true

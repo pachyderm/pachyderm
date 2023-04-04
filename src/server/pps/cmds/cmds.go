@@ -582,6 +582,41 @@ each datum.`,
 	kubeEvents.Flags().StringVar(&since, "since", "0", "Return log messages more recent than \"since\".")
 	commands = append(commands, cmdutil.CreateAlias(kubeEvents, "kube-events"))
 
+	queryLoki := &cobra.Command{
+		Use:   "{{alias}} <query>",
+		Short: "Query the loki logs.",
+		Long:  "Query the loki logs.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			query := args[0]
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			since, err := time.ParseDuration(since)
+			if err != nil {
+				return errors.Wrapf(err, "parse since(%q)", since)
+			}
+			request := pps.LokiRequest{
+				Query: query,
+				Since: types.DurationProto(since),
+			}
+			lokiClient, err := client.PpsAPIClient.QueryLoki(client.Ctx(), &request)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if err := grpcutil.ForEach[*pps.LokiLogMessage](lokiClient, func(log *pps.LokiLogMessage) error {
+				fmt.Println(log.Message)
+				return nil
+			}); err != nil {
+				return err
+			}
+			return nil
+		}),
+	}
+	queryLoki.Flags().StringVar(&since, "since", "0", "Return log messages more recent than \"since\".")
+	commands = append(commands, cmdutil.CreateAlias(queryLoki, "loki"))
+
 	inspectDatum := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job> <datum>",
 		Short: "Display detailed info about a single datum.",

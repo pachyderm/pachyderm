@@ -563,6 +563,10 @@ func (c *unsupportedPpsBuilderClient) ListTask(_ context.Context, _ *taskapi.Lis
 	return nil, unsupportedError("ListTask")
 }
 
+func (c *unsupportedPpsBuilderClient) QueryLoki(_ context.Context, _ *pps_v2.LokiRequest, opts ...grpc.CallOption) (pps_v2.API_QueryLokiClient, error) {
+	return nil, unsupportedError("QueryLoki")
+}
+
 func (c *unsupportedPpsBuilderClient) RenderTemplate(_ context.Context, _ *pps_v2.RenderTemplateRequest, opts ...grpc.CallOption) (*pps_v2.RenderTemplateResponse, error) {
 	return nil, unsupportedError("RenderTemplate")
 }
