@@ -112,7 +112,7 @@ const JobsList: React.FC<JobsListProps> = ({
                     {getDatumStateBadges(job)}
                   </Table.DataCell>
                   <Table.DataCell>
-                    {job?.createdAt ? getStandardDate(job?.createdAt) : '-'}
+                    {job?.startedAt ? getStandardDate(job?.startedAt) : '-'}
                   </Table.DataCell>
                   <Table.DataCell>{job?.id.slice(0, 6)}...</Table.DataCell>
                   <Table.DataCell>
