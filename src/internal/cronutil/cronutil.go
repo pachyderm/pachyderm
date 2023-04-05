@@ -30,4 +30,3 @@ func ParseCronExpression(cronExpr string) (cron.Schedule, error) {
 	}
 	return cron.ParseStandard(cronExpr) //nolint:wrapcheck
 }
-
