@@ -82,4 +82,3 @@ func TestInvalidAtReboot(t *testing.T) {
 		t.Fatalf("unexpected time %q returned for invalid cron expression %q", schedule.Next(time.Now()), expr)
 	}
 }
-
