@@ -84,14 +84,14 @@ func (u *Uploader) Copy(meta interface{}, dataRefs []*DataRef) error {
 			}, nil
 		})
 	}
-	for i := 0; i < len(dataRefs); i++ {
-		if !stableDataRef(dataRefs[i]) {
+	for len(dataRefs) > 0 {
+		if !isStableDataRef(dataRefs[0]) {
 			if err := appendDataRefs(nextDataRefs); err != nil {
 				return err
 			}
 			nextDataRefs = nil
 			var err error
-			i, err = u.align(u.ctx, dataRefs, i, func(chunk []byte) error {
+			dataRefs, err = u.align(u.ctx, dataRefs, func(chunk []byte) error {
 				return u.taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
 					dataRef, err := upload(ctx, u.client, chunk, nil, u.noUpload)
 					if err != nil {
@@ -108,7 +108,8 @@ func (u *Uploader) Copy(meta interface{}, dataRefs []*DataRef) error {
 			}
 			continue
 		}
-		nextDataRefs = append(nextDataRefs, dataRefs[i])
+		nextDataRefs = append(nextDataRefs, dataRefs[0])
+		dataRefs = dataRefs[1:]
 	}
 	if err := appendDataRefs(nextDataRefs); err != nil {
 		return err
@@ -125,18 +126,18 @@ func (u *Uploader) Copy(meta interface{}, dataRefs []*DataRef) error {
 }
 
 // A data reference is stable if it does not reference an edge chunk and references the full chunk.
-func stableDataRef(dataRef *DataRef) bool {
+func isStableDataRef(dataRef *DataRef) bool {
 	return !dataRef.Ref.Edge && dataRef.OffsetBytes == 0 && dataRef.SizeBytes == dataRef.Ref.SizeBytes
 }
 
-func (u *Uploader) align(ctx context.Context, dataRefs []*DataRef, i int, cb func([]byte) error) (int, error) {
+func (u *Uploader) align(ctx context.Context, dataRefs []*DataRef, cb func([]byte) error) ([]*DataRef, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	r := u.storage.NewReader(ctx, dataRefs, WithPrefetchLimit(3))
 	if err := miscutil.WithPipe(func(w2 io.Writer) error {
-		r := u.storage.NewReader(ctx, dataRefs[i:], WithPrefetchLimit(3))
 		return r.Get(w2)
 	}, func(r io.Reader) error {
-		splitBytesLeft := dataRefs[i].SizeBytes
+		splitBytesLeft := dataRefs[0].SizeBytes
 		return ComputeChunks(r, func(chunk []byte) error {
 			chunkBytesLeft := int64(len(chunk))
 			if err := cb(chunk); err != nil {
@@ -144,8 +145,8 @@ func (u *Uploader) align(ctx context.Context, dataRefs []*DataRef, i int, cb fun
 			}
 			for chunkBytesLeft > splitBytesLeft {
 				chunkBytesLeft -= splitBytesLeft
-				i++
-				splitBytesLeft = dataRefs[i].SizeBytes
+				dataRefs = dataRefs[1:]
+				splitBytesLeft = dataRefs[0].SizeBytes
 			}
 			if chunkBytesLeft == splitBytesLeft {
 				return errutil.ErrBreak
@@ -154,9 +155,9 @@ func (u *Uploader) align(ctx context.Context, dataRefs []*DataRef, i int, cb fun
 			return nil
 		})
 	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
-		return 0, err
+		return nil, err
 	}
-	return i, nil
+	return dataRefs[1:], nil
 }
 
 func (u *Uploader) CopyByReference(meta interface{}, dataRefs []*DataRef) error {
