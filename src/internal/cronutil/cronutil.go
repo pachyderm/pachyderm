@@ -1,7 +1,6 @@
 package cronutil
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -29,9 +28,6 @@ func ParseCronExpression(cronExpr string) (cron.Schedule, error) {
 	if strings.TrimSpace(cronExpr) == "@never" {
 		return Year9999{}, nil
 	}
-	schedule, err := cron.ParseStandard(cronExpr)
-	if err != nil {
-		return schedule, fmt.Errorf("cron parse error %v", err)
-	}
-	return schedule, nil
+	return cron.ParseStandard(cronExpr) //nolint:wrapcheck
 }
+

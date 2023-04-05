@@ -59,10 +59,27 @@ func TestEveryOneMinute(t *testing.T) {
 	}
 }
 
+func TestInvalidAtSpaceNever(t *testing.T) {
+	expr := "@ never"
+	schedule, err := ParseCronExpression(expr)
+	if err == nil {
+		t.Fatalf("unexpected time %q returned for invalid cron expression %q", schedule.Next(time.Now()), expr)
+	}
+}
+
 func TestInvalidSixFields(t *testing.T) {
 	expr := "* * * * * *"
 	schedule, err := ParseCronExpression(expr)
 	if err == nil {
-		t.Fatalf("unexpected time %q returned for invalid cron expression %q", schedule, expr)
+		t.Fatalf("unexpected time %q returned for invalid cron expression %q", schedule.Next(time.Now()), expr)
 	}
 }
+
+func TestInvalidAtReboot(t *testing.T) {
+	expr := "@reboot"
+	schedule, err := ParseCronExpression(expr)
+	if err == nil {
+		t.Fatalf("unexpected time %q returned for invalid cron expression %q", schedule.Next(time.Now()), expr)
+	}
+}
+
