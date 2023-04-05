@@ -3500,20 +3500,6 @@ func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) ma
 	return labels
 }
 
-func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
-	pachClient := a.env.GetPachClient(ctx)
-	ci, err := pachClient.PfsAPIClient.InspectCommit(
-		pachClient.Ctx(),
-		&pfs.InspectCommitRequest{
-			Commit: commit,
-			Wait:   pfs.CommitState_STARTED,
-		})
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return ci, nil
-}
-
 func spoutLabels(pipeline *pps.Pipeline) map[string]string {
 	m := map[string]string{
 		appLabel:          "spout",
