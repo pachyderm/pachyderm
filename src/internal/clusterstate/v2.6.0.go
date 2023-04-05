@@ -16,7 +16,7 @@ func authIsActive(c collection.PostgresReadWriteCollection) bool {
 	return !errors.Is(c.Get("CLUSTER:", &auth.RoleBinding{}), collection.ErrNotFound{})
 }
 
-var state_2_6_0 migrations.State = state_2_5_0.
+var state_2_6_0 migrations.State = state_2_5_4.
 	Apply("Grant all users ProjectWriter role for the default project", func(ctx context.Context, env migrations.Env) error {
 		roleBindingsCol := authdb.RoleBindingCollection(nil, nil).ReadWrite(env.Tx)
 		if !authIsActive(roleBindingsCol) {
@@ -34,12 +34,6 @@ var state_2_6_0 migrations.State = state_2_5_0.
 			return nil
 		}); err != nil {
 			return errors.Wrap(err, "could not update default project role bindings for allClusterUsers")
-		}
-		return nil
-	}).
-	Apply("Lengthen auth token column length for projects", func(ctx context.Context, env migrations.Env) error {
-		if _, err := env.Tx.ExecContext(ctx, `ALTER TABLE auth.auth_tokens ALTER COLUMN subject TYPE varchar(128)`); err != nil {
-			return errors.Wrap(err, "could not alter column subject in table auth.auth_tokens from varchar(64) to varchar(128)")
 		}
 		return nil
 	})
