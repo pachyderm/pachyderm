@@ -408,6 +408,8 @@ def test_pps(dev_server, simple_pachyderm_env):
     r = requests.put(f"{BASE_URL}/pps/_create/{path}", data=json.dumps(data))
     assert r.status_code == 200
     assert next(client.inspect_pipeline(pipeline_name))
+    assert r.json()["message"] == ("Create pipeline request sent. You may monitor its "
+    "status by running \"pachctl list pipelines\" in a terminal.")
 
 
 @pytest.mark.parametrize('excluded_field', ('pipeline_name', 'image', 'input_spec'))
