@@ -3486,20 +3486,6 @@ func (a *apiServer) rcPods(ctx context.Context, pi *pps.PipelineInfo) ([]v1.Pod,
 	return pp, nil
 }
 
-func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
-	pachClient := a.env.GetPachClient(ctx)
-	ci, err := pachClient.PfsAPIClient.InspectCommit(
-		pachClient.Ctx(),
-		&pfs.InspectCommitRequest{
-			Commit: commit,
-			Wait:   pfs.CommitState_STARTED,
-		})
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return ci, nil
-}
-
 func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) map[string]string {
 	labels := map[string]string{
 		appLabel:             "pipeline",
