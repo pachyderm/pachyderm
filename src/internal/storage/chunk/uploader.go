@@ -21,7 +21,7 @@ const (
 type UploadFunc = func(interface{}, []*DataRef) error
 
 // Uploader uploads chunks.
-// Each upload call creates an upload task with the provided metadata.
+// Each upload call creates at least one upload task with the provided metadata.
 // Upload tasks are performed asynchronously, which is why the interface is callback based.
 // Callbacks will be executed with respect to the order the upload tasks are created.
 type Uploader struct {
@@ -72,6 +72,9 @@ func (u *Uploader) Upload(meta interface{}, r io.Reader) error {
 	})
 }
 
+// Copy performs an upload using a list of data references as the data source.
+// Stable data references will be reused.
+// Unstable data references will have their data downloaded and uploaded similar to a normal upload.
 func (u *Uploader) Copy(meta interface{}, dataRefs []*DataRef) error {
 	var stableDataRefs, nextDataRefs []*DataRef
 	appendDataRefs := func(dataRefs []*DataRef) error {
@@ -130,6 +133,12 @@ func isStableDataRef(dataRef *DataRef) bool {
 	return !dataRef.Ref.Edge && dataRef.OffsetBytes == 0 && dataRef.SizeBytes == dataRef.Ref.SizeBytes
 }
 
+// align performs a chunk boundary alignment on a list of data references.
+// Alignment involves iterating through the passed in list of data references
+// until a data reference is found that begins at a chunk boundary. Chunks
+// encountered up to that point will be returned through the provided callback.
+// The returned list of data references is the slice that begins at the first
+// data reference found that begins at a chunk boundary.
 func (u *Uploader) align(ctx context.Context, dataRefs []*DataRef, cb func([]byte) error) ([]*DataRef, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
