@@ -12,6 +12,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
@@ -177,4 +179,19 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 	}
 
 	return nil
+}
+
+func printRusage(ctx context.Context, state *os.ProcessState) {
+	if state == nil {
+		log.Info(ctx, "no process state information after user code exited")
+		return
+	}
+	meters.Set(ctx, "cpu_time_seconds", state.UserTime().Seconds()+state.SystemTime().Seconds())
+	rusage, ok := state.SysUsage().(*syscall.Rusage)
+	if !ok {
+		return
+	}
+	// Maxrss is reported in "kilobytes", which means KiB in the Linux kernel world.  (See
+	// getrusage(2).)
+	meters.Set(ctx, "resident_memory_bytes", rusage.Maxrss*1024)
 }
