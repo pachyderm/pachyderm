@@ -18,7 +18,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/itchyny/gojq"
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/robfig/cron"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -33,6 +32,7 @@ import (
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -265,7 +265,7 @@ func (a *apiServer) validateInput(pipeline *pps.Pipeline, input *pps.Input) erro
 			if len(input.Cron.Name) == 0 {
 				return errors.Errorf("input must specify a name")
 			}
-			if _, err := cron.ParseStandard(input.Cron.Spec); err != nil {
+			if _, err := cronutil.ParseCronExpression(input.Cron.Spec); err != nil {
 				return errors.Wrapf(err, "error parsing cron-spec")
 			}
 		}
