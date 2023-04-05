@@ -38,6 +38,7 @@ export const usePipeline = (
     setImageName(metadata?.environments.default.image_tag ?? '');
     setPipelineName(metadata?.metadata.name ?? '');
     setRequirements(metadata?.notebook.requirements ?? '');
+    setResponseMessage('');
     if (metadata?.run.input) {
       const input = JSON.parse(metadata?.run.input); //TODO: Catch errors
       setInputSpec(YAML.stringify(input));
