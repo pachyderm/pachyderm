@@ -24,7 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/proc"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -367,8 +366,8 @@ func (d *driver) RunUserCode(
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	monctx, endMonitoring := context.WithCancelCause(ctx)
-	go proc.MonitorProcessGroup(logger.Context(monctx), cmd.Process.Pid)
+	//monctx, endMonitoring := context.WithCancelCause(ctx)
+	// go proc.MonitorProcessGroup(logger.Context(monctx), cmd.Process.Pid)
 	killChildren := makeProcessGroupKiller(ctx, logger, cmd.Process.Pid)
 	if ok, err := blockUntilWaitable(cmd.Process.Pid); ok {
 		// Since cmd.Process.Pid is dead, we can kill its children now.
@@ -385,7 +384,7 @@ func (d *driver) RunUserCode(
 	killChildren()
 	stdout.Close()
 	stderr.Close()
-	endMonitoring(errors.New("child exited"))
+	//endMonitoring(errors.New("child exited"))
 
 	// Print final rusage metrics.
 	printRusage(logger.Context(ctx), cmd.ProcessState)
@@ -443,8 +442,8 @@ func (d *driver) RunUserErrorHandlingCode(
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	monctx, endMonitoring := context.WithCancelCause(ctx)
-	go proc.MonitorProcessGroup(logger.Context(monctx), cmd.Process.Pid)
+	//monctx, endMonitoring := context.WithCancelCause(ctx)
+	//go proc.MonitorProcessGroup(logger.Context(monctx), cmd.Process.Pid)
 	killChildren := makeProcessGroupKiller(ctx, logger, cmd.Process.Pid)
 	if ok, err := blockUntilWaitable(cmd.Process.Pid); ok {
 		// Since cmd.Process.Pid is dead, we can kill its children now.
@@ -461,7 +460,7 @@ func (d *driver) RunUserErrorHandlingCode(
 	killChildren()
 	stdout.Close()
 	stderr.Close()
-	endMonitoring(errors.New("child exited"))
+	//endMonitoring(errors.New("child exited"))
 
 	// Print final rusage metrics.
 	printRusage(logger.Context(ctx), cmd.ProcessState)

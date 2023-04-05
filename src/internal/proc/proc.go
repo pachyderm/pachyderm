@@ -233,6 +233,7 @@ func MonitorProcessGroup(ctx context.Context, pid int) {
 		case <-time.After(2 * time.Second):
 		case <-ctx.Done():
 			log.Debug(ctx, "MonitorUserCode exiting", zap.Int("pid", pid))
+			return
 		}
 		stats, err := getProcessStats(fs, pid)
 		if err != nil {

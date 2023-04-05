@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/proc"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	_ "github.com/pachyderm/pachyderm/v2/src/internal/task/taskprotos"
 )
@@ -38,7 +37,7 @@ func main() {
 	logMode := func(mode string) {
 		log.Info(ctx, "pachd: starting", zap.String("mode", mode))
 	}
-	go proc.MonitorSelf(ctx)
+	// go proc.MonitorSelf(ctx)
 
 	switch {
 	case readiness:
