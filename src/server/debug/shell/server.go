@@ -196,8 +196,7 @@ func (d *debugDump) listCommit(req *pfs.ListCommitRequest, srv pfs.API_ListCommi
 	var ci pfs.CommitInfo
 	if found, err := d.globTarProtos(glob, &ci, func() error {
 		if req.All ||
-			(req.OriginKind != pfs.OriginKind_ORIGIN_KIND_UNKNOWN && ci.Origin.Kind == req.OriginKind) ||
-			ci.Origin.Kind != pfs.OriginKind_ALIAS {
+			(req.OriginKind != pfs.OriginKind_ORIGIN_KIND_UNKNOWN && ci.Origin.Kind == req.OriginKind) {
 			return srv.Send(&ci)
 		}
 		return nil

@@ -707,30 +707,37 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	return nil
 }
 
+// TODO(provenance): rewrite in terms of CommitSubvenance.
 // intersectCommitSets finds all commitsets which involve the specified commits
-// (or aliases of the specified commits)
 func (a *apiServer) intersectCommitSets(ctx context.Context, commits []*pfs.Commit) (map[string]struct{}, error) {
-	var intersection map[string]struct{}
-	for _, commit := range commits {
-		css := map[string]struct{}{}
-		cis, err := a.env.GetPachClient(ctx).InspectCommitSet(commit.ID)
-		if err != nil {
-			return nil, err
-		}
-		for _, ci := range cis {
-			css[ci.Commit.ID] = struct{}{}
-		}
-		if intersection == nil {
-			intersection = css
-		} else {
-			newIntersection := map[string]struct{}{}
-			for commitsetID := range css {
-				if _, ok := intersection[commitsetID]; ok {
-					newIntersection[commitsetID] = struct{}{}
-				}
+	intersection := map[string]struct{}{}
+	if len(commits) == 0 {
+		return intersection, nil
+	}
+	listClient, err := a.env.GetPachClient(ctx).ListCommitSet(ctx, &pfs.ListCommitSetRequest{})
+	if err != nil {
+		return nil, err
+	}
+	if err := grpcutil.ForEach[*pfs.CommitSetInfo](listClient, func(cs *pfs.CommitSetInfo) error {
+		provCommits := map[string]struct{}{}
+		for _, c := range cs.Commits {
+			for _, p := range c.DirectProvenance {
+				provCommits[p.String()] = struct{}{}
 			}
-			intersection = newIntersection
 		}
+		allCommits := true
+		for _, c := range commits {
+			if _, ok := provCommits[c.String()]; !ok {
+				allCommits = false
+				break
+			}
+		}
+		if allCommits {
+			intersection[cs.CommitSet.ID] = struct{}{}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	return intersection, nil
 }
@@ -830,15 +837,6 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 			return errors.EnsureStack(err)
 		}
 	}
-
-	// For each specified input commit, build the set of commitset IDs which
-	// belong to all of them.
-	inputCommits := request.GetInputCommit()
-	commitsets, err := a.intersectCommitSets(ctx, inputCommits)
-	if err != nil {
-		return err
-	}
-
 	var jqCode *gojq.Code
 	var enc serde.Encoder
 	var jsonBuffer bytes.Buffer
@@ -891,14 +889,16 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 				return err
 			}
 		}
-
-		if len(inputCommits) > 0 {
+		if len(request.GetInputCommit()) > 0 {
 			// Only include the job if it's in the set of intersected commitset IDs
+			commitsets, err := a.intersectCommitSets(ctx, request.GetInputCommit())
+			if err != nil {
+				return err
+			}
 			if _, ok := commitsets[jobInfo.Job.ID]; !ok {
 				return nil
 			}
 		}
-
 		if !pipelineVersions[ppsdb.VersionKey(jobInfo.Job.Pipeline, jobInfo.PipelineVersion)] {
 			return nil
 		}
@@ -3498,6 +3498,20 @@ func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) ma
 		labels[pipelineProjectLabel] = projectName
 	}
 	return labels
+}
+
+func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	pachClient := a.env.GetPachClient(ctx)
+	ci, err := pachClient.PfsAPIClient.InspectCommit(
+		pachClient.Ctx(),
+		&pfs.InspectCommitRequest{
+			Commit: commit,
+			Wait:   pfs.CommitState_STARTED,
+		})
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return ci, nil
 }
 
 func spoutLabels(pipeline *pps.Pipeline) map[string]string {

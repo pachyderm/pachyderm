@@ -693,7 +693,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 					return err
 				}
 				// we will be reading the whole file system, so unfinished commits would be very slow
-				if info.Error == "" && info.Finished != nil && info.Origin.Kind != pfs.OriginKind_ALIAS {
+				if info.Error == "" && info.Finished != nil {
 					break
 				}
 				output = info.ParentCommit
