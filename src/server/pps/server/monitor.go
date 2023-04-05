@@ -366,47 +366,47 @@ func makeCronCommits(ctx context.Context, env Env, in *pps.Input) error {
 // ticks are in 'in's cron repo, it retuns the 'Start' time set in 'in.Cron'
 // (typically set by 'pachctl extract')
 func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (retTime time.Time, retErr error) {
-  var latestTime time.Time
-  pachClient := env.GetPachClient(ctx)
-  defer log.Span(ctx, "getLatestCronTime")(zap.Timep("latest", &retTime), log.Errorp(&retErr))
-  files, err := pachClient.ListFileAll(client.NewProjectCommit(in.Cron.Project, in.Cron.Repo, "master", ""), "")
+	var latestTime time.Time
+	pachClient := env.GetPachClient(ctx)
+	defer log.Span(ctx, "getLatestCronTime")(zap.Timep("latest", &retTime), log.Errorp(&retErr))
+	files, err := pachClient.ListFileAll(client.NewProjectCommit(in.Cron.Project, in.Cron.Repo, "master", ""), "")
 
-  // bail if cron repo is not accessible
-  if err != nil {
-    return latestTime, err
-  }
+	// bail if cron repo is not accessible
+	if err != nil {
+		return latestTime, err
+	}
 
-  // otherwise get timestamp from latest filename
-  if len(files) > 0 {
+	// otherwise get timestamp from latest filename
+	if len(files) > 0 {
 
-    // Take the name of the most recent file as the latest timestamp
-    // ListFile returns the files in lexicographical order, and the RFC3339 format goes
-    // from largest unit of time to smallest, so the most recent file will be the last one
-    latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
+		// Take the name of the most recent file as the latest timestamp
+		// ListFile returns the files in lexicographical order, and the RFC3339 format goes
+		// from largest unit of time to smallest, so the most recent file will be the last one
+		latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
 
-    // bail if filename format is bad
-    if err != nil {
-      return latestTime, err
-    }
-    // get cron start time to compare if previous start time was updated
+		// bail if filename format is bad
+		if err != nil {
+			return latestTime, err
+		}
+		// get cron start time to compare if previous start time was updated
 		startTime, err := types.TimestampFromProto(in.Cron.Start)
 
-    // return latest time from filename if start time cannot be determined
-    if err != nil {
-      return latestTime, nil
-    }
+		// return latest time from filename if start time cannot be determined
+		if err != nil {
+			return latestTime, nil
+		}
 
-    if latestTime.After(startTime) {
-      return latestTime, errors.EnsureStack(nil)
-    } else {
-      return startTime, errors.EnsureStack(nil)
-    }
-  }
+		if latestTime.After(startTime) {
+			return latestTime, errors.EnsureStack(nil)
+		} else {
+			return startTime, errors.EnsureStack(nil)
+		}
+	}
 
-  // otherwise return cron start time since there are no files in cron repo
+	// otherwise return cron start time since there are no files in cron repo
 	startTime, err := types.TimestampFromProto(in.Cron.Start)
-  if err != nil {
-    return startTime, err
-  }
-  return startTime, errors.EnsureStack(nil)
+	if err != nil {
+		return startTime, err
+	}
+	return startTime, errors.EnsureStack(nil)
 }
