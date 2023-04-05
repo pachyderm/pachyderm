@@ -35,6 +35,4 @@
 // Prefer:
 //
 //	go s.worker(pctx.Child(ctx, "worker"))
-//
-// Instead.
 package pctx
