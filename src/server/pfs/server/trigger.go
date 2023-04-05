@@ -5,10 +5,10 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/gogo/protobuf/types"
-	"github.com/robfig/cron"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -109,7 +109,7 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 	}
 	if t.CronSpec != "" {
 		// Shouldn't be possible to error here since we validate on ingress
-		schedule, err := cron.ParseStandard(t.CronSpec)
+		schedule, err := cronutil.ParseCronExpression(t.CronSpec)
 		if err != nil {
 			// Shouldn't be possible to error here since we validate on ingress
 			return false, errors.EnsureStack(err)
@@ -160,7 +160,7 @@ func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *
 	if err := ancestry.ValidateName(trigger.Branch); err != nil {
 		return err
 	}
-	if _, err := cron.ParseStandard(trigger.CronSpec); trigger.CronSpec != "" && err != nil {
+	if _, err := cronutil.ParseCronExpression(trigger.CronSpec); trigger.CronSpec != "" && err != nil {
 		return errors.Wrapf(err, "invalid trigger cron spec")
 	}
 	if _, err := units.FromHumanSize(trigger.Size_); trigger.Size_ != "" && err != nil {
