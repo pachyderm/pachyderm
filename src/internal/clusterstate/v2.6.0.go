@@ -36,4 +36,10 @@ var state_2_6_0 migrations.State = state_2_5_0.
 			return errors.Wrap(err, "could not update default project role bindings for allClusterUsers")
 		}
 		return nil
+	}).
+	Apply("Lengthen auth token column length for projects", func(ctx context.Context, env migrations.Env) error {
+		if _, err := env.Tx.ExecContext(ctx, `ALTER TABLE auth.auth_tokens ALTER COLUMN subject TYPE varchar(128)`); err != nil {
+			return errors.Wrap(err, "could not alter column subject in table auth.auth_tokens from varchar(64) to varchar(128)")
+		}
+		return nil
 	})
