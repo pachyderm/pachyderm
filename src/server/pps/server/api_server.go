@@ -579,7 +579,7 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 	}
 
 	if err := forEachCommitInJob(pachClient, request.JobSet.ID, request.Wait, func(ci *pfs.CommitInfo) error {
-		if ci.Commit.Repo.Type != pfs.UserRepoType || ci.Origin.Kind == pfs.OriginKind_ALIAS {
+		if ci.Commit.Repo.Type != pfs.UserRepoType {
 			return nil
 		}
 		return cb(ci.Commit.Repo.Project.GetName(), ci.Commit.Repo.Name)
@@ -709,57 +709,22 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 
 // intersectCommitSets finds all commitsets which involve the specified commits
 // (or aliases of the specified commits)
-// TODO(global ids): this assumes that all aliases are equivalent to their first
-// ancestor non-alias commit, but that may not be true if the ancestor has been
-// squashed.  We may need to recursively squash commitsets to prevent this.
 func (a *apiServer) intersectCommitSets(ctx context.Context, commits []*pfs.Commit) (map[string]struct{}, error) {
-	walkCommits := func(startCommit *pfs.Commit) (map[string]struct{}, error) {
-		result := map[string]struct{}{} // key is the commitset id
-		queue := []*pfs.Commit{}
-
-		// Walk upwards until finding a concrete commit
-		cursor := startCommit
-		for {
-			commitInfo, err := a.resolveCommit(ctx, cursor)
-			if err != nil {
-				return nil, err
-			}
-			if commitInfo.Origin.Kind != pfs.OriginKind_ALIAS || commitInfo.ParentCommit == nil {
-				result[cursor.ID] = struct{}{}
-				queue = append(queue, commitInfo.ChildCommits...)
-				break
-			}
-			cursor = commitInfo.ParentCommit
-		}
-
-		// Now find all descendent aliases
-		for len(queue) > 0 {
-			cursor = queue[0]
-			queue = queue[1:]
-
-			commitInfo, err := a.resolveCommit(ctx, cursor)
-			if err != nil {
-				return nil, err
-			}
-			if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
-				result[cursor.ID] = struct{}{}
-				queue = append(queue, commitInfo.ChildCommits...)
-			}
-		}
-		return result, nil
-	}
-
 	var intersection map[string]struct{}
 	for _, commit := range commits {
-		result, err := walkCommits(commit)
+		css := map[string]struct{}{}
+		cis, err := a.env.GetPachClient(ctx).InspectCommitSet(commit.ID)
 		if err != nil {
 			return nil, err
 		}
+		for _, ci := range cis {
+			css[ci.Commit.ID] = struct{}{}
+		}
 		if intersection == nil {
-			intersection = result
+			intersection = css
 		} else {
 			newIntersection := map[string]struct{}{}
-			for commitsetID := range result {
+			for commitsetID := range css {
 				if _, ok := intersection[commitsetID]; ok {
 					newIntersection[commitsetID] = struct{}{}
 				}

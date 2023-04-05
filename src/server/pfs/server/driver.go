@@ -429,15 +429,14 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	return nil
 }
 
+// delete branches from most provenance to least, that way if one
+// branch is provenant on another (which is likely the case when
+// multiple repos are provided) we delete them in the right order.
 func (d *driver) deleteBranches(txnCtx *txncontext.TransactionContext, branchInfos []*pfs.BranchInfo, force bool) error {
-	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
-	for i := range branchInfos {
-		// delete branches from most provenance to least, that way if one
-		// branch is provenant on another (which is likely the case when
-		// multiple repos are provided) we delete them in the right order.
-		branch := branchInfos[len(branchInfos)-1-i].Branch
-		if err := d.deleteBranch(txnCtx, branch, force); err != nil {
-			return errors.Wrapf(err, "delete branch %s", branch)
+	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) > len(branchInfos[j].Provenance) })
+	for _, bi := range branchInfos {
+		if err := d.deleteBranch(txnCtx, bi.Branch, force); err != nil {
+			return errors.Wrapf(err, "delete branch %s", bi.Branch)
 		}
 	}
 	return nil
@@ -855,9 +854,6 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 			Commit: commitInfo.Commit,
 		}
 	}
-	if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
-		return errors.Errorf("cannot finish an alias commit: %s", commitInfo.Commit)
-	}
 	if !force && len(commitInfo.DirectProvenance) > 0 {
 		if info, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil && !errutil.IsNotFoundError(err) {
 			return errors.EnsureStack(err)
@@ -1211,16 +1207,17 @@ func (d *driver) getCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Commit
 }
 
 // passesCommitOriginFilter is a helper function for listCommit and
-// subscribeCommit to apply filtering to the returned commits.  By default we
-// skip over alias commits, but we allow users to request all the commits with
+// subscribeCommit to apply filtering to the returned commits.  By default
+// we allow users to request all the commits with
 // 'all', or a specific type of commit with 'originKind'.
 func passesCommitOriginFilter(commitInfo *pfs.CommitInfo, all bool, originKind pfs.OriginKind) bool {
 	if all {
 		return true
-	} else if originKind != pfs.OriginKind_ORIGIN_KIND_UNKNOWN {
+	}
+	if originKind != pfs.OriginKind_ORIGIN_KIND_UNKNOWN {
 		return commitInfo.Origin.Kind == originKind
 	}
-	return commitInfo.Origin.Kind != pfs.OriginKind_ALIAS
+	return true
 }
 
 func (d *driver) listCommit(

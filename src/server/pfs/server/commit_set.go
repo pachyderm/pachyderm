@@ -7,20 +7,18 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"go.uber.org/zap"
 )
 
 // returns CommitInfos in a commit set, topologically sorted.
 // A commit set will include all the commits that were created across repos for a run, along
 // with all of the commits that the run's commit's rely on (present in previous commit sets).
-func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitSet *pfs.CommitSet, filterAliases bool) ([]*pfs.CommitInfo, error) {
+func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionContext, commitSet *pfs.CommitSet, includeAliases bool) ([]*pfs.CommitInfo, error) {
 	var cis []*pfs.CommitInfo
-	if !filterAliases {
+	if includeAliases {
 		cs, err := pfsdb.CommitSetProvenance(txnCtx.SqlTx, commitSet.ID)
 		if err != nil {
 			return nil, err
@@ -40,18 +38,7 @@ func (d *driver) inspectCommitSetImmediateTx(txnCtx *txncontext.TransactionConte
 	}); err != nil {
 		return nil, err
 	}
-	var cs []*pfs.Commit
-	for _, ci := range cis {
-		cs = append(cs, ci.Commit)
-	}
-	log.Info(txnCtx.Context(), "inspect commit set pre-sort", zap.Any("commits", cs))
-	postSort := TopologicalSort(cis)
-	cs = nil
-	for _, ci := range postSort {
-		cs = append(cs, ci.Commit)
-	}
-	log.Info(txnCtx.Context(), "inspect commit set post-sort", zap.Any("commits", cs))
-	return postSort, nil
+	return TopologicalSort(cis), nil
 }
 
 func topSortHelper(ci *pfs.CommitInfo, visited map[string]struct{}, commits map[string]*pfs.CommitInfo) []*pfs.CommitInfo {
@@ -89,7 +76,7 @@ func (d *driver) inspectCommitSetImmediate(ctx context.Context, commitset *pfs.C
 	var commitInfos []*pfs.CommitInfo
 	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		commitInfos, err = d.inspectCommitSetImmediateTx(txnCtx, commitset, false)
+		commitInfos, err = d.inspectCommitSetImmediateTx(txnCtx, commitset, true)
 		return err
 	}); err != nil {
 		return err
@@ -177,7 +164,7 @@ func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset 
 	if len(css) > 0 {
 		return &pfsserver.ErrSquashWithSubvenance{CommitSet: commitset, SubvenantCommitSets: css}
 	}
-	cis, err := d.inspectCommitSetImmediateTx(txnCtx, commitset, true)
+	cis, err := d.inspectCommitSetImmediateTx(txnCtx, commitset, false)
 	if err != nil {
 		return err
 	}
@@ -213,7 +200,7 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 	if len(css) > 0 {
 		return &pfsserver.ErrSquashWithSubvenance{CommitSet: commitset, SubvenantCommitSets: css}
 	}
-	commitInfos, err := d.inspectCommitSetImmediateTx(txnCtx, commitset, true)
+	commitInfos, err := d.inspectCommitSetImmediateTx(txnCtx, commitset, false)
 	if err != nil {
 		return err
 	}

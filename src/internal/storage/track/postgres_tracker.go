@@ -303,7 +303,7 @@ var schema = `
 	);
 
 	CREATE INDEX ON storage.tracker_refs (
-		from_id,
-		to_id
+		to_id,
+		from_id
 	);
 `

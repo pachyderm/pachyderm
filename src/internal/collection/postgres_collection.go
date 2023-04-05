@@ -863,8 +863,7 @@ func (c *postgresReadWriteCollection) delete(key string) error {
 }
 
 func (c *postgresReadWriteCollection) DeleteAll() error {
-	colTable := fmt.Sprintf("collections.%s", c.table)
-	query := fmt.Sprintf("delete from %s;", colTable)
+	query := fmt.Sprintf("delete from collections.%s", c.table)
 	_, err := c.tx.Exec(query)
 	return c.mapSQLError(err, "")
 }
@@ -873,8 +872,7 @@ func (c *postgresReadWriteCollection) DeleteByIndex(index *Index, indexVal strin
 	if err := c.validateIndex(index); err != nil {
 		return err
 	}
-	colTable := fmt.Sprintf("collections.%s", c.table)
-	query := fmt.Sprintf("delete from %s where %s = $1", colTable, indexFieldName(index))
+	query := fmt.Sprintf("delete from collections.%s where %s = $1", c.table, indexFieldName(index))
 	_, err := c.tx.Exec(query, indexVal)
 	return c.mapSQLError(err, "")
 }

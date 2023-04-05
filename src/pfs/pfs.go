@@ -94,6 +94,7 @@ func (c *Commit) String() string {
 	return c.Repo.String() + "@" + c.ID
 }
 
+// TODO(provenance): there's a concern client code will unknowningly call GetRepo() when it shouldn't
 func (c *Commit) AccessRepo() *Repo {
 	if c.GetRepo() != nil {
 		return c.GetRepo()

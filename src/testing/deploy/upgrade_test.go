@@ -147,65 +147,6 @@ func TestUpgradeTrigger(t *testing.T) {
 	)
 }
 
-func TestUpgradeSquash(t *testing.T) {
-	if skip {
-		t.Skip("Skipping upgrade test")
-	}
-	fromVersions := []string{
-		"2.4.6",
-		"2.5.2",
-	}
-	upgradeTest(t, context.Background(), true /* parallelOK */, fromVersions,
-		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
-			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
-			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "A"))
-			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, "B"))
-			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
-				"C",
-				"pachyderm/opencv:1.0",
-				[]string{"bash"},
-				[]string{"cp /pfs/A/* pfs/out; cp /pfs/B/* /pfs/out"}, /* cmd */
-				nil, /* parallelismSpec */
-				&pps.Input{Cross: []*pps.Input{
-					{Pfs: &pps.PFSInput{Glob: "/", Repo: "A", Branch: "master"}},
-					{Pfs: &pps.PFSInput{Glob: "/", Repo: "B", Branch: "master"}},
-				}},
-				"master",
-				false,
-			))
-			aMaster := client.NewProjectCommit(pfs.DefaultProjectName, "A", "master", "")
-			bMaster := client.NewProjectCommit(pfs.DefaultProjectName, "B", "master", "")
-			require.NoError(t, c.PutFile(aMaster, "/1", strings.NewReader("foo")))
-			squashInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, "A", "master", "")
-			require.NoError(t, err)
-			require.NoError(t, c.PutFile(bMaster, "/2", strings.NewReader("hello")))
-			latestInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, "A", "master", "")
-			require.NoError(t, err)
-			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
-			defer cancel()
-			t.Log("before upgrade: waiting for montage commit")
-			_, err = c.WithCtx(ctx).WaitCommitSetAll(latestInfo.Commit.ID)
-			t.Log("before upgrade: wait is done")
-			require.NoError(t, err)
-			require.NoError(t, c.SquashCommitSet(squashInfo.Commit.ID))
-		},
-		func(t *testing.T, c *client.APIClient) { /* postUpgrade */
-			c = testutil.AuthenticateClient(t, c, upgradeSubject)
-			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit(pfs.DefaultProjectName, "B", "master", "" /* commitID */), func(mf client.ModifyFile) error {
-				return errors.EnsureStack(mf.PutFile("/2", strings.NewReader("hello")))
-			}))
-			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, "B", "master", "")
-			require.NoError(t, err)
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-			defer cancel()
-			t.Log("after upgrade: waiting for montage commit")
-			_, err = c.WithCtx(ctx).WaitCommitSetAll(commitInfo.Commit.ID)
-			t.Log("after upgrade: wait is done")
-			require.NoError(t, err)
-		},
-	)
-}
-
 // pre-upgrade:
 // - create a pipeline "output" that copies contents from repo "input"
 // - create file input@master:/foo
