@@ -3,6 +3,7 @@ import sys
 import subprocess
 import time
 import json
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from random import randint
@@ -12,6 +13,7 @@ import requests
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
 from jupyterlab_pachyderm.env import PFS_MOUNT_DIR
+from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
 
 from . import TEST_NOTEBOOK
 
@@ -411,10 +413,10 @@ def notebook_path(simple_pachyderm_env) -> Path:
 
     # Do a considerable amount of data munging.
     notebook_data = json.loads(TEST_NOTEBOOK.read_bytes())
-    notebook_data['metadata']['same_config']['metadata']['name'] = pipeline_name
-    input_spec = json.loads(notebook_data['metadata']['same_config']['run']['input'])
-    input_spec['pfs']['repo'] = repo_name
-    notebook_data['metadata']['same_config']['run']['input'] = json.dumps(input_spec)
+    config = PpsConfig.from_notebook(TEST_NOTEBOOK)
+    config.pipeline_name = pipeline_name
+    config.input_spec['pfs']['repo'] = repo_name
+    notebook_data['metadata'][METADATA_KEY] = asdict(config)
 
     notebook_path = TEST_NOTEBOOK.with_stem(f"{TEST_NOTEBOOK.stem}_generated")
     notebook_path.write_text(json.dumps(notebook_data))
