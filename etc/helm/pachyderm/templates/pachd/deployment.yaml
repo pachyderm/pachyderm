@@ -392,6 +392,18 @@ spec:
         - name: PIPELINE_DEFAULT_STORAGE_REQUEST
           value: {{ .Values.pachd.defaultPipelineStorageRequest | quote }}
         {{- end }}
+        {{- if ne .Values.pachd.defaultSidecarCPURequest "" }}
+        - name: SIDECAR_DEFAULT_CPU_REQUEST
+          value: {{ .Values.pachd.defaultSidecarCPURequest | quote }}
+        {{- end }}
+        {{- if ne .Values.pachd.defaultSidecarMemoryRequest "" }}
+        - name: SIDECAR_DEFAULT_MEMORY_REQUEST
+          value: {{ .Values.pachd.defaultSidecarMemoryRequest | quote }}
+        {{- end }}
+        {{- if ne .Values.pachd.defaultSidecarStorageRequest "" }}
+        - name: SIDECAR_DEFAULT_STORAGE_REQUEST
+          value: {{ .Values.pachd.defaultSidecarStorageRequest | quote }}
+        {{- end }}
         - name: GOCOVERDIR
           value: /tmp
         envFrom:

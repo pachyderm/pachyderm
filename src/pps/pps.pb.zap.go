@@ -430,6 +430,7 @@ func (x *JobInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddObject("scheduling_spec", x.SchedulingSpec)
 	enc.AddString("pod_spec", x.PodSpec)
 	enc.AddString("pod_patch", x.PodPatch)
+	enc.AddObject("sidecar_resource_requests", x.SidecarResourceRequests)
 	return nil
 }
 
@@ -523,6 +524,7 @@ func (x *PipelineInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		return nil
 	}
 	enc.AddArray("tolerations", zapcore.ArrayMarshalerFunc(tolerationsArrMarshaller))
+	enc.AddObject("sidecar_resource_requests", x.SidecarResourceRequests)
 	return nil
 }
 
@@ -815,6 +817,7 @@ func (x *CreatePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 		return nil
 	}
 	enc.AddArray("tolerations", zapcore.ArrayMarshalerFunc(tolerationsArrMarshaller))
+	enc.AddObject("sidecar_resource_requests", x.SidecarResourceRequests)
 	return nil
 }
 
@@ -1054,6 +1057,7 @@ func (x *LokiRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	protoextensions.AddDuration(enc, "since", x.Since)
+	enc.AddString("query", x.Query)
 	return nil
 }
 
