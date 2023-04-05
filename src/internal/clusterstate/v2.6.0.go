@@ -17,6 +17,14 @@ func authIsActive(c collection.PostgresReadWriteCollection) bool {
 }
 
 var state_2_6_0 migrations.State = state_2_5_0.
+	Apply("Extend length of subject field in auth_tokens table", func(ctx context.Context, env migrations.Env) error {
+		// Out prev attempt at doing this was incomplete because it only applied the migration when auth is active.
+		// Need to extend the character length limit for the subject column because we are adding project name to it.
+		if _, err := env.Tx.ExecContext(ctx, `ALTER TABLE auth.auth_tokens ALTER COLUMN subject TYPE varchar(128)`); err != nil {
+			return errors.Wrap(err, "failed to run `ALTER TABLE auth.auth_tokens ALTER COLUMN subject TYPE varchar(128)`")
+		}
+		return nil
+	}).
 	Apply("Grant all users ProjectWriter role for the default project", func(ctx context.Context, env migrations.Env) error {
 		roleBindingsCol := authdb.RoleBindingCollection(nil, nil).ReadWrite(env.Tx)
 		if !authIsActive(roleBindingsCol) {
