@@ -27,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -179,6 +180,9 @@ func withBase(namespace string) *helm.Options {
 			"pachd.defaultPipelineCPURequest":     "100m",
 			"pachd.defaultPipelineMemoryRequest":  "64M",
 			"pachd.defaultPipelineStorageRequest": "100Mi",
+			"pachd.defaultSidecarCPURequest":      "100m",
+			"pachd.defaultSidecarMemoryRequest":   "64M",
+			"pachd.defaultSidecarStorageRequest":  "100Mi",
 			"console.enabled":                     "false",
 		},
 	}
@@ -396,8 +400,16 @@ func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
 }
 
 func waitForPgbouncer(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string) {
+	waitForLabeledPod(t, ctx, kubeClient, namespace, "app=pg-bouncer")
+}
+
+func waitForPostgres(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string) {
+	waitForLabeledPod(t, ctx, kubeClient, namespace, "app.kubernetes.io/name=postgresql")
+}
+
+func waitForLabeledPod(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string, label string) {
 	require.NoError(t, backoff.Retry(func() error {
-		pbs, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=pg-bouncer"})
+		pbs, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
 		if err != nil {
 			return errors.Wrap(err, "error on pod list")
 		}
@@ -420,7 +432,7 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 		if certpool != nil {
 			opts = append(opts, client.WithCertPool(certpool))
 		}
-		c, err = client.NewFromPachdAddress(pachAddress, opts...)
+		c, err = client.NewFromPachdAddressContext(pctx.TODO(), pachAddress, opts...)
 		if err != nil {
 			t.Logf("retryable: failed to connect to pachd on port %v: %v", pachAddress.Port, err)
 			return errors.Wrapf(err, "failed to connect to pachd on port %v", pachAddress.Port)
@@ -544,6 +556,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
 	}
 	waitForPgbouncer(t, ctx, kubeClient, namespace)
+	waitForPostgres(t, ctx, kubeClient, namespace)
 	if opts.WaitSeconds > 0 {
 		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
 	}

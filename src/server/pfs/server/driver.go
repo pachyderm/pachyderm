@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"fmt"
 	"math"
 	"os"
 	"sort"
@@ -12,11 +13,15 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/hashicorp/go-multierror"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -27,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -132,83 +138,54 @@ func newDriver(env Env) (*driver, error) {
 }
 
 func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, description string, update bool) error {
-	// Validate arguments
 	if repo == nil {
 		return errors.New("repo cannot be nil")
 	}
 	repo.EnsureProject()
-
-	// Check that the user is logged in (user doesn't need any access level to
-	// create a repo, but they must be authenticated if auth is active)
-	whoAmI, err := txnCtx.WhoAmI()
-	authIsActivated := !auth.IsErrNotActivated(err)
-	if authIsActivated && err != nil {
-		return errors.Wrapf(grpcutil.ScrubGRPC(err), "error authenticating (must log in to create a repo)")
-	}
-	if err := ancestry.ValidateName(repo.Name); err != nil {
-		return err
-	}
-
 	if repo.Type == "" {
 		// default to user type
 		repo.Type = pfs.UserRepoType
 	}
 
+	if err := ancestry.ValidateName(repo.Name); err != nil {
+		return err
+	}
+
 	// Check that the repo’s project exists; if not, return an error.
 	var project pfs.ProjectInfo
-	if err = d.projects.ReadWrite(txnCtx.SqlTx).Get(repo.Project, &project); err != nil {
+	if err := d.projects.ReadWrite(txnCtx.SqlTx).Get(repo.Project, &project); err != nil {
 		return errors.Wrapf(err, "cannot find project %q", repo.Project)
 	}
 
+	// Check whether the user has the permission to create a repo in this project.
+	if err := d.env.AuthServer.CheckProjectIsAuthorizedInTransaction(txnCtx, repo.Project, auth.Permission_PROJECT_CREATE_REPO); err != nil {
+		return errors.Wrap(err, "failed to create repo")
+	}
+
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
-
-	// Check if 'repo' already exists. If so, return that error.  Otherwise,
-	// proceed with ACL creation (avoids awkward "access denied" error when
-	// calling "createRepo" on a repo that already exists).
 	var existingRepoInfo pfs.RepoInfo
-	err = repos.Get(repo, &existingRepoInfo)
-	if err != nil && !col.IsErrNotFound(err) {
-		return errors.Wrapf(err, "error checking whether %q exists", repo)
-	} else if err == nil {
-		// Existing repo case--just update the repo description.
-		if !update {
-			return pfsserver.ErrRepoExists{
-				Repo: repo,
-			}
+	if err := repos.Get(repo, &existingRepoInfo); err != nil {
+		if !col.IsErrNotFound(err) {
+			return errors.Wrapf(err, "error checking whether repo %q exists", repo)
 		}
-
-		if existingRepoInfo.Description == description {
-			// Don't overwrite the stored proto with an identical value. This
-			// optimization is impactful because pps will frequently update the spec
-			// repo to make sure it exists.
-			return nil
-		}
-
-		// Check if the caller is authorized to modify this repo
-		// Note, we don't do this before checking if the description changed because
-		// there is client code that calls CreateRepo(R, update=true) as an
-		// idempotent way to ensure that R exists. By permitting these calls when
-		// they don't actually change anything, even if the caller doesn't have
-		// WRITER access, we make the pattern more generally useful.
-		if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_WRITE); err != nil {
-			return errors.Wrapf(err, "could not update description of %q", repo)
-		}
-		existingRepoInfo.Description = description
-		return errors.EnsureStack(repos.Put(repo, &existingRepoInfo))
-	} else {
 		// if this is a system repo, make sure the corresponding user repo already exists
 		if repo.Type != pfs.UserRepoType {
-			baseRepo := client.NewProjectRepo(repo.Project.GetName(), repo.Name)
-			err = repos.Get(baseRepo, &existingRepoInfo)
-			if err != nil && col.IsErrNotFound(err) {
-				return errors.Errorf("cannot create a system repo without a corresponding 'user' repo")
-			} else if err != nil {
-				return errors.Wrapf(err, "error checking whether user repo for %q exists", repo.Name)
+			baseRepo := &pfs.Repo{Project: &pfs.Project{Name: repo.Project.GetName()}, Name: repo.GetName(), Type: pfs.UserRepoType}
+			if err := repos.Get(baseRepo, &existingRepoInfo); err != nil {
+				if !col.IsErrNotFound(err) {
+					return errors.Wrapf(err, "error checking whether user repo for %q exists", baseRepo)
+				}
+				return errors.Wrap(err, "cannot create a system repo without a corresponding 'user' repo")
 			}
 		}
 
 		// New repo case
-		if authIsActivated {
+		if whoAmI, err := txnCtx.WhoAmI(); err != nil {
+			if !errors.Is(err, auth.ErrNotActivated) {
+				return errors.Wrap(err, "error authenticating (must log in to create a repo)")
+			}
+			// ignore ErrNotActivated because we simply don't need to create the role bindings.
+		} else {
 			// Create ACL for new repo. Make caller the sole owner. If this is a user repo,
 			// and the ACL already exists with a different owner, this will fail.
 			// For now, we expect system repos to share auth info with their corresponding
@@ -223,6 +200,31 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 			Description: description,
 		}))
 	}
+
+	// Existing repo case--just update the repo description.
+	if !update {
+		return pfsserver.ErrRepoExists{
+			Repo: repo,
+		}
+	}
+	if existingRepoInfo.Description == description {
+		// Don't overwrite the stored proto with an identical value. This
+		// optimization is impactful because pps will frequently update the spec
+		// repo to make sure it exists.
+		return nil
+	}
+
+	// Check if the caller is authorized to modify this repo
+	// Note, we don't do this before checking if the description changed because
+	// there is client code that calls CreateRepo(R, update=true) as an
+	// idempotent way to ensure that R exists. By permitting these calls when
+	// they don't actually change anything, even if the caller doesn't have
+	// WRITER access, we make the pattern more generally useful.
+	if err := d.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, repo, auth.Permission_REPO_WRITE); err != nil {
+		return errors.Wrapf(err, "could not update description of %q", repo)
+	}
+	existingRepoInfo.Description = description
+	return errors.EnsureStack(repos.Put(repo, &existingRepoInfo))
 }
 
 func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, includeAuth bool) (*pfs.RepoInfo, error) {
@@ -264,23 +266,51 @@ func (d *driver) getPermissions(ctx context.Context, repo *pfs.Repo) ([]auth.Per
 func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string, projects []*pfs.Project, cb func(*pfs.RepoInfo) error) error {
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
+	// Helper func to filter out repos based on projects.
 	projectsFilter := make(map[string]bool)
 	for _, project := range projects {
-		projectsFilter[project.String()] = true
+		projectsFilter[project.GetName()] = true
+	}
+	keep := func(repo *pfs.Repo) bool {
+		// Assume the user meant all projects by not providing any projects to filter on.
+		if len(projectsFilter) == 0 {
+			return true
+		}
+		return projectsFilter[repo.Project.GetName()]
+	}
+
+	// Helper func to check whether a user is allowed to see the given repo in the result.
+	// Cache the project level access because it applies to every repo within the same project.
+	checkProjectAccess := miscutil.CacheFunc(func(project string) error {
+		return d.env.AuthServer.CheckProjectIsAuthorized(ctx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
+	}, 100 /* size */)
+	checkAccess := func(ctx context.Context, repo *pfs.Repo) error {
+		if err := checkProjectAccess(repo.Project.GetName()); err != nil {
+			if !errors.As(err, &auth.ErrNotAuthorized{}) {
+				return err
+			}
+			// Allow access if user has the right permissions at the individual Repo-level.
+			return d.env.AuthServer.CheckRepoIsAuthorized(ctx, repo, auth.Permission_REPO_READ)
+		}
+		return nil
 	}
 
 	processFunc := func(string) error {
-		// Assume the user meant all projects by not providing any projects to filter on.
-		if len(projectsFilter) > 0 && !projectsFilter[repoInfo.Repo.Project.String()] {
+		if !keep(repoInfo.Repo) {
 			return nil
 		}
+		if err := checkAccess(ctx, repoInfo.Repo); err != nil {
+			if !errors.As(err, &auth.ErrNotAuthorized{}) {
+				return errors.Wrapf(err, "could not check user is authorized to list repo, problem with repo %s", repoInfo.Repo)
+			}
+			return nil
+		}
+
 		size, err := d.repoSize(ctx, repoInfo.Repo)
 		if err != nil {
 			return err
 		}
 		repoInfo.SizeBytesUpperBound = size
-
-		// TODO CORE-1111 check whether user has PROJECT_LIST_REPO on project or REPO_READ on repo.
 		if authSeemsActive && includeAuth {
 			permissions, roles, err := d.getPermissions(ctx, repoInfo.Repo)
 			if err != nil {
@@ -475,7 +505,7 @@ func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectReques
 			if err := d.env.AuthServer.CreateRoleBindingInTransaction(
 				txnCtx,
 				whoAmI.Username,
-				[]string{auth.ProjectOwner},
+				[]string{auth.ProjectOwnerRole},
 				&auth.Resource{Type: auth.ResourceType_PROJECT, Name: req.Project.GetName()},
 			); err != nil && !errors.Is(err, col.ErrExists{}) {
 				return errors.Wrapf(err, "could not create role binding for new project %s", req.Project.GetName())
@@ -483,10 +513,18 @@ func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectReques
 		} else if !errors.Is(err, auth.ErrNotActivated) {
 			return errors.Wrap(err, "could not get caller's username")
 		}
-		return errors.EnsureStack(projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
+		if err := projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
 			Project:     req.Project,
 			Description: req.Description,
-		}))
+		}); err != nil {
+			if errors.As(err, &col.ErrExists{}) {
+				return pfsserver.ErrProjectExists{
+					Project: req.Project,
+				}
+			}
+			return errors.Wrap(err, "could not create project")
+		}
+		return nil
 	})
 }
 
@@ -496,6 +534,102 @@ func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs
 		return nil, errors.EnsureStack(err)
 	}
 	return pi, nil
+}
+
+func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsRequest, cb func(response *pfs.FindCommitsResponse) error) error {
+	commit := request.Start
+	foundCommits, commitsSearched := uint32(0), uint32(0)
+	searchDone := false
+	var found *pfs.Commit
+	makeResp := func(found *pfs.Commit, commitsSearched uint32, lastSearchedCommit *pfs.Commit) *pfs.FindCommitsResponse {
+		resp := &pfs.FindCommitsResponse{}
+		if found != nil {
+			resp.Result = &pfs.FindCommitsResponse_FoundCommit{FoundCommit: found}
+		} else {
+			resp.Result = &pfs.FindCommitsResponse_LastSearchedCommit{LastSearchedCommit: commit}
+		}
+		resp.CommitsSearched = commitsSearched
+		return resp
+	}
+	for {
+		if searchDone {
+			return errors.EnsureStack(cb(makeResp(nil, commitsSearched, commit)))
+		}
+		if err := log.LogStep(ctx, "searchingCommit", func(ctx context.Context) error {
+			inspectCommitResp, err := d.resolveCommitWithAuth(ctx, commit)
+			if err != nil {
+				return err
+			}
+			if inspectCommitResp.Finished == nil {
+				return pfsserver.ErrCommitNotFinished{Commit: commit}
+			}
+			commit = inspectCommitResp.Commit
+			inCommit, err := d.isPathModifiedInCommit(ctx, commit, request.FilePath)
+			if err != nil {
+				return err
+			}
+			if inCommit {
+				log.Info(ctx, "found target", zap.String("commit", commit.ID), zap.String("branch", commit.Branch.String()), zap.String("target", request.FilePath))
+				found = commit
+				foundCommits++
+				if err := cb(makeResp(found, commitsSearched, nil)); err != nil {
+					return err
+				}
+			}
+			commitsSearched++
+			if (foundCommits == request.Limit && request.Limit != 0) || inspectCommitResp.ParentCommit == nil {
+				searchDone = true
+				return nil
+			}
+			commit = inspectCommitResp.ParentCommit
+			return nil
+		}, zap.String("commit", commit.ID), zap.String("branch", commit.Branch.String()), zap.String("target", request.FilePath)); err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return errors.EnsureStack(cb(makeResp(nil, commitsSearched, commit)))
+			}
+			return errors.EnsureStack(err)
+		}
+	}
+}
+
+func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit, filePath string) (bool, error) {
+	diffID, err := d.commitStore.GetDiffFileSet(ctx, commit)
+	if err != nil {
+		return false, err
+	}
+	diffFileSet, err := d.storage.Open(ctx, []fileset.ID{*diffID})
+	if err != nil {
+		return false, err
+	}
+	found := false
+	pathOption := []index.Option{
+		index.WithRange(&index.PathRange{
+			Lower: filePath,
+		}),
+	}
+	if err = diffFileSet.Iterate(ctx, func(file fileset.File) error {
+		if file.Index().Path == filePath {
+			found = true
+			return errutil.ErrBreak
+		}
+		return nil
+	}, pathOption...); err != nil && !errors.Is(err, errutil.ErrBreak) {
+		return false, err
+	}
+	// we don't care about the file operation, so if a file was already found, skip iterating over deletive set.
+	if found {
+		return found, nil
+	}
+	if err = diffFileSet.IterateDeletes(ctx, func(file fileset.File) error {
+		if file.Index().Path == filePath {
+			found = true
+			return errutil.ErrBreak
+		}
+		return nil
+	}, pathOption...); err != nil && !errors.Is(err, errutil.ErrBreak) {
+		return false, err
+	}
+	return found, nil
 }
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
@@ -515,20 +649,15 @@ func (d *driver) deleteProject(ctx context.Context, txnCtx *txncontext.Transacti
 		return errors.Wrapf(err, "user is not authorized to delete project %q", project)
 	}
 
-	var repoInfos []*pfs.RepoInfo
+	var errs error
 	if err := d.listRepo(ctx, false /* includeAuth */, "" /* repoType */, []*pfs.Project{project} /* projectsFilter */, func(repoInfo *pfs.RepoInfo) error {
-		repoInfos = append(repoInfos, repoInfo)
+		errs = multierror.Append(errs, fmt.Errorf("repo %v still exists", repoInfo.GetRepo()))
 		return nil
 	}); err != nil {
 		return err
 	}
-	if len(repoInfos) > 0 && !force {
-		return errors.Errorf("project %q contains %d repos", project, len(repoInfos))
-	}
-	for _, repoInfo := range repoInfos {
-		if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil {
-			return errors.Wrapf(err, "could not delete repo %v", repoInfo.Repo)
-		}
+	if errs != nil {
+		return status.Error(codes.FailedPrecondition, fmt.Sprintf("cannot delete project %s: %v", project.Name, errs))
 	}
 
 	if err := d.projects.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.ProjectKey(project)); err != nil {
@@ -1044,32 +1173,8 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 // As a side effect, this function also replaces the ID in the given commit
 // with a real commit ID.
 func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs.CommitState) (*pfs.CommitInfo, error) {
-	if commit.Branch.Repo.Name == fileSetsRepo {
-		cinfo := &pfs.CommitInfo{
-			Commit:      commit,
-			Description: "FileSet - Virtual Commit",
-			Finished:    &types.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
-		}
-		return cinfo, nil
-	}
-	if commit == nil {
-		return nil, errors.Errorf("cannot inspect nil commit")
-	}
-	if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, commit.Branch.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-
-	// TODO(global ids): it's possible the commit doesn't exist yet (but will,
-	// following a trigger).  If the commit isn't found, check if the associated
-	// commitset _could_ reach the requested branch or ID via a trigger and wait
-	// to find out.
-	// Resolve the commit in case it specifies a branch head or commit ancestry
-	var commitInfo *pfs.CommitInfo
-	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		var err error
-		commitInfo, err = d.resolveCommit(txnCtx.SqlTx, commit)
-		return err
-	}); err != nil {
+	commitInfo, err := d.resolveCommitWithAuth(ctx, commit)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1109,6 +1214,40 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 				return nil, errors.EnsureStack(err)
 			}
 		}
+	}
+
+	return commitInfo, nil
+}
+
+// resolveCommitWithAuth is like resolveCommit, but it does some pre-resolution checks like repo authorization.
+func (d *driver) resolveCommitWithAuth(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	if commit.Branch.Repo.Name == fileSetsRepo {
+		cinfo := &pfs.CommitInfo{
+			Commit:      commit,
+			Description: "FileSet - Virtual Commit",
+			Finished:    &types.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
+		}
+		return cinfo, nil
+	}
+	if commit == nil {
+		return nil, errors.Errorf("cannot inspect nil commit")
+	}
+	if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, commit.Branch.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+
+	// TODO(global ids): it's possible the commit doesn't exist yet (but will,
+	// following a trigger).  If the commit isn't found, check if the associated
+	// commitset _could_ reach the requested branch or ID via a trigger and wait
+	// to find out.
+	// Resolve the commit in case it specifies a branch head or commit ancestry
+	var commitInfo *pfs.CommitInfo
+	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		var err error
+		commitInfo, err = d.resolveCommit(txnCtx.SqlTx, commit)
+		return err
+	}); err != nil {
+		return nil, err
 	}
 
 	return commitInfo, nil
@@ -2214,6 +2353,9 @@ func (d *driver) deleteProjectsRepos(ctx context.Context, projects []*pfs.Projec
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
+	if _, err := d.deleteAllRepos(ctx); err != nil {
+		return errors.Wrap(err, "could not delete all repos")
+	}
 	var projectInfos []*pfs.ProjectInfo
 	if err := d.listProject(ctx, func(pi *pfs.ProjectInfo) error {
 		projectInfos = append(projectInfos, proto.Clone(pi).(*pfs.ProjectInfo))

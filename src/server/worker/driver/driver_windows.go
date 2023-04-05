@@ -10,6 +10,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
@@ -85,4 +86,12 @@ func (d *driver) unmoveData(inputs []*common.Input, dir string) error {
 		}
 	}
 	return nil
+}
+
+func printRusage(ctx context.Context, state *os.ProcessState) {
+	if state == nil {
+		log.Info(ctx, "no process state information after user code exited")
+		return
+	}
+	m.Set(ctx, "cpu_time_seconds", state.UserTime().Seconds()+state.SystemTime().Seconds())
 }

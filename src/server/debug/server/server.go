@@ -2,13 +2,20 @@ package server
 
 import (
 	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
 	"os"
+	"path"
 	"reflect"
 	"runtime"
+	"runtime/coverage"
 	runtimedebug "runtime/debug"
 	"runtime/pprof"
 	"sort"
@@ -19,6 +26,8 @@ import (
 	"github.com/wcharczuk/go-chart"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+	"golang.org/x/exp/maps"
+	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,7 +38,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -57,6 +65,8 @@ type debugServer struct {
 	sidecarClient *client.APIClient
 	marshaller    *jsonpb.Marshaler
 	database      *pachsql.DB
+
+	logLevel, grpcLevel log.LevelChanger
 }
 
 // NewDebugServer creates a new server that serves the debug api over GRPC
@@ -67,6 +77,8 @@ func NewDebugServer(env serviceenv.ServiceEnv, name string, sidecarClient *clien
 		sidecarClient: sidecarClient,
 		marshaller:    &jsonpb.Marshaler{Indent: "  "},
 		database:      db,
+		logLevel:      log.LogLevel,
+		grpcLevel:     log.GRPCLevel,
 	}
 }
 
@@ -118,7 +130,7 @@ func (s *debugServer) handleRedirect(
 				case *debug.Filter_Worker:
 					if f.Worker.Redirected {
 						var errs error
-						// Collect the storage container.
+						// Collect self if we're not a worker.
 						if s.sidecarClient == nil {
 							return collect(ctx, tw, pachClient, client.PPSWorkerSidecarContainerName)
 						}
@@ -398,7 +410,34 @@ func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_
 
 func collectProfileFunc(profile *debug.Profile) collectFunc {
 	return func(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
-		return collectProfile(ctx, tw, profile, prefix...)
+		switch profile.GetName() {
+		case "cover":
+			var errs error
+			// "go tool covdata" relies on these files being named the same as what is
+			// written out automatically.  See go/src/runtime/coverage/emit.go.
+			// (covcounters.<16 byte hex-encoded hash that nothing checks>.<pid>.<unix
+			// nanos>, covmeta.<same hash>.)
+			hash := [16]byte{}
+			if _, err := rand.Read(hash[:]); err != nil {
+				return errors.Wrap(err, "generate random coverage id")
+			}
+			if err := collectDebugFile(tw, fmt.Sprintf("cover/covcounters.%x.%d.%d", hash, os.Getpid(), time.Now().UnixNano()), "", coverage.WriteCounters, prefix...); err != nil {
+				multierr.AppendInto(&errs, errors.Wrap(err, "counters"))
+			}
+			if err := collectDebugFile(tw, fmt.Sprintf("cover/covmeta.%x", hash), "", coverage.WriteMeta, prefix...); err != nil {
+				multierr.AppendInto(&errs, errors.Wrap(err, "meta"))
+			}
+			if errs == nil {
+				log.Debug(ctx, "clearing coverage counters")
+				if err := coverage.ClearCounters(); err != nil {
+					log.Debug(ctx, "problem clearing coverage counters", zap.Error(err))
+				}
+			}
+			return errs
+		default:
+			return collectProfile(ctx, tw, profile, prefix...)
+		}
+
 	}
 }
 
@@ -529,6 +568,10 @@ func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
 		defer end(log.Errorp(&retErr))
 
 		var errs error
+		// Collect helm info.
+		if err := s.helmReleases(ctx, tw); err != nil {
+			multierr.AppendInto(&errs, errors.Wrap(err, "helmReleases"))
+		}
 		// Collect input repos.
 		if err := s.collectInputRepos(ctx, tw, pachClient, limit); err != nil {
 			multierr.AppendInto(&errs, errors.Wrap(err, "collectInputRepos"))
@@ -618,7 +661,7 @@ func (s *debugServer) collectCommits(rctx context.Context, tw *tar.Writer, pachC
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		return clientsdk.ForEachCommit(client, func(ci *pfs.CommitInfo) error {
+		return grpcutil.ForEach[*pfs.CommitInfo](client, func(ci *pfs.CommitInfo) error {
 			if ci.Finished != nil && ci.Details != nil && ci.Details.CompactingTime != nil && ci.Details.ValidatingTime != nil {
 				compactingDuration, err := types.DurationFromProto(ci.Details.CompactingTime)
 				if err != nil {
@@ -1162,4 +1205,147 @@ func redirectDump(ctx context.Context, c debug.DebugClient, filter *debug.Filter
 		return nil, errors.EnsureStack(err)
 	}
 	return grpcutil.NewStreamingBytesReader(dumpC, nil), nil
+}
+
+// handleHelmSecret decodes a helm release secret into its various components.  A returned error
+// should be written into error.txt.
+func handleHelmSecret(ctx context.Context, tw *tar.Writer, secret v1.Secret) error {
+	var errs error
+	name := secret.Name
+	if got, want := string(secret.Type), "helm.sh/release.v1"; got != want {
+		return errors.Errorf("helm-owned secret of unknown version; got %v want %v", got, want)
+	}
+	if secret.Data == nil {
+		log.Info(ctx, "skipping helm secret with no data", zap.String("secretName", name))
+		return nil
+	}
+	releaseData, ok := secret.Data["release"]
+	if !ok {
+		log.Info(ctx, "secret data doesn't have a release key", zap.String("secretName", name), zap.Strings("keys", maps.Keys(secret.Data)))
+		return nil
+	}
+
+	// There are a few labels that helm adds that are interesting (the "release
+	// status").  Grab those and write to metadata.json.
+	if err := collectDebugFile(tw, path.Join("helm", name, "metadata"), "json", func(w io.Writer) error {
+		text, err := json.Marshal(secret.ObjectMeta)
+		if err != nil {
+			return errors.Wrap(err, "marshal ObjectMeta")
+		}
+		if _, err := w.Write(text); err != nil {
+			return errors.Wrap(err, "write ObjectMeta json")
+		}
+		return nil
+	}); err != nil {
+		// We can still try to get the release JSON if the metadata doesn't marshal
+		// or write cleanly.
+		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: collect metadata", name))
+	}
+
+	// Get the text of the release and write it to release.json.
+	var releaseJSON []byte
+	if err := collectDebugFile(tw, path.Join("helm", name, "release"), "json", func(w io.Writer) error {
+		// The helm release data is base64-encoded gzipped JSON-marshalled protobuf.
+		// The base64 encoding is IN ADDITION to the base64 encoding that k8s does
+		// when serving secrets through the API; client-go removes that for us.
+		var err error
+		releaseJSON, err = base64.StdEncoding.DecodeString(string(releaseData))
+		if err != nil {
+			releaseJSON = nil
+			return errors.Wrap(err, "decode base64")
+		}
+
+		// Older versions of helm do not compress the data; this check is for the
+		// gzip header; if deteced, decompress.
+		if len(releaseJSON) > 3 && bytes.Equal(releaseJSON[0:3], []byte{0x1f, 0x8b, 0x08}) {
+			gz, err := gzip.NewReader(bytes.NewReader(releaseJSON))
+			if err != nil {
+				return errors.Wrap(err, "create gzip reader")
+			}
+			releaseJSON, err = io.ReadAll(gz)
+			if err != nil {
+				return errors.Wrap(err, "decompress")
+			}
+			if err := gz.Close(); err != nil {
+				return errors.Wrap(err, "close gzip reader")
+			}
+		}
+
+		// Write out the raw release JSON, so fields we don't pick out in the next
+		// phase can be parsed out by the person analyzing the dump if necessary.
+		if _, err := w.Write(releaseJSON); err != nil {
+			return errors.Wrap(err, "write release")
+		}
+		return nil
+	}); err != nil {
+		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: collect release", name))
+		// The next steps need the release JSON, so we have to give up if any of
+		// this failed.  Technically if the write fails, we could continue, but it
+		// doesn't seem worth the effort because the next writes are also likely to
+		// fail.
+		return errs
+	}
+
+	// Unmarshal the release JSON, and start writing files for each interesting part.
+	var release struct {
+		// Config is the merged values.yaml that aren't in the chart.
+		Config map[string]any `json:"config"`
+		// Manifest is the rendered manifest that was applied to the cluster.
+		Manifest string `json:"manifest"`
+	}
+	if err := json.Unmarshal(releaseJSON, &release); err != nil {
+		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: unmarshal release json", name))
+		return errs
+	}
+
+	// Write the manifest YAML.
+	if err := collectDebugFile(tw, path.Join("helm", name, "manifest"), "yaml", func(w io.Writer) error {
+		// Helm adds a newline at the end of the manifest.
+		if _, err := fmt.Fprintf(w, "%s", release.Manifest); err != nil {
+			return errors.Wrap(err, "print manifest")
+		}
+		return nil
+	}); err != nil {
+		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: write manifest.yaml", name))
+		// We can try the next step if this fails.
+	}
+
+	// Write values.yaml.
+	if err := collectDebugFile(tw, path.Join("helm", name, "values"), "yaml", func(w io.Writer) error {
+		b, err := yaml.Marshal(release.Config)
+		if err != nil {
+			return errors.Wrap(err, "marshal values to yaml")
+		}
+		if _, err := w.Write(b); err != nil {
+			return errors.Wrap(err, "print values")
+		}
+		return nil
+	}); err != nil {
+		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: write values.yaml", name))
+	}
+	return errs
+}
+
+func (s *debugServer) helmReleases(ctx context.Context, tw *tar.Writer) (retErr error) {
+	ctx, end := log.SpanContext(ctx, "collectHelmReleases")
+	defer end(log.Errorp(&retErr))
+	// Helm stores release data in secrets by default.  Users can override this by exporting
+	// HELM_DRIVER and using something else, in which case, we won't get anything here.
+	// https://helm.sh/docs/topics/advanced/#storage-backends
+	secrets, err := s.env.GetKubeClient().CoreV1().Secrets(s.env.Config().Namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: "owner=helm",
+	})
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	var writeErrs error
+	for _, secret := range secrets.Items {
+		if err := handleHelmSecret(ctx, tw, secret); err != nil {
+			if err := writeErrorFile(tw, err, path.Join("helm", secret.Name)); err != nil {
+				multierr.AppendInto(&writeErrs, errors.Wrapf(err, "%v: write error.txt", secret.Name))
+				continue
+			}
+		}
+	}
+	return writeErrs
 }

@@ -10,8 +10,11 @@ import (
 	units "github.com/docker/go-units"
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -250,6 +253,43 @@ func PrintCommitSetInfo(w io.Writer, commitSetInfo *pfs.CommitSetInfo, fullTimes
 		fmt.Fprintf(w, "-\t")
 	}
 	fmt.Fprintln(w)
+}
+
+func PrintFindCommits(client pfs.API_FindCommitsClient) error {
+	foundCommits := false
+	writer := tabwriter.NewWriter(os.Stdout, "FOUND IN COMMITS\n")
+	return grpcutil.ForEach[*pfs.FindCommitsResponse](client, func(x *pfs.FindCommitsResponse) error {
+		switch x.Result.(type) {
+		case *pfs.FindCommitsResponse_FoundCommit:
+			if _, err := writer.Write([]byte(x.GetFoundCommit().ID)); err != nil {
+				return errors.EnsureStack(err)
+			}
+			if _, err := writer.Write([]byte("\n")); err != nil {
+				return errors.EnsureStack(err)
+			}
+			foundCommits = true
+		case *pfs.FindCommitsResponse_LastSearchedCommit:
+			if !foundCommits {
+				if _, err := writer.Write([]byte("no commits found.")); err != nil {
+					return errors.EnsureStack(err)
+				}
+				if _, err := writer.Write([]byte("\n")); err != nil {
+					return errors.EnsureStack(err)
+				}
+			}
+			if _, err := writer.Write([]byte("\n")); err != nil {
+				return errors.EnsureStack(err)
+			}
+			if err := writer.Flush(); err != nil {
+				return errors.EnsureStack(err)
+			}
+			if _, err := fmt.Fprintf(os.Stdout, "LAST SEARCHED COMMIT\n%s\n", x.GetLastSearchedCommit().ID); err != nil {
+				return errors.EnsureStack(err)
+			}
+			return errors.EnsureStack(writer.Flush())
+		}
+		return nil
+	})
 }
 
 // PrintableCommitInfo is a wrapper around CommitInfo containing any formatting options

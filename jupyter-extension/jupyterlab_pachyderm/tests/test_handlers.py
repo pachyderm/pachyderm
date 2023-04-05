@@ -536,3 +536,13 @@ async def test_health(mock_client, jp_fetch):
     mock_client.health.return_value = json.dumps({"status": "running"})
     r = await jp_fetch(f"/{NAMESPACE}/{VERSION}/health")
     assert json.loads(r.body) == {"status": "running"}
+
+
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+async def test_pps_get(jp_fetch):
+    response = await jp_fetch(f"/{NAMESPACE}/{VERSION}/pps/_create/NOT_REAL.ipynb")
+    assert response.code == 200
+    body = json.loads(response.body)
+    for expected_key in ("pipeline", "description", "transform", "input"):
+        assert expected_key in body
+

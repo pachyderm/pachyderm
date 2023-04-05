@@ -963,6 +963,7 @@ type squashCommitSetFunc func(context.Context, *pfs.SquashCommitSetRequest) (*ty
 type dropCommitSetFunc func(context.Context, *pfs.DropCommitSetRequest) (*types.Empty, error)
 type inspectCommitSetFunc func(*pfs.InspectCommitSetRequest, pfs.API_InspectCommitSetServer) error
 type listCommitSetFunc func(*pfs.ListCommitSetRequest, pfs.API_ListCommitSetServer) error
+type FindCommitsFunc func(*pfs.FindCommitsRequest, pfs.API_FindCommitsServer) error
 type subscribeCommitFunc func(*pfs.SubscribeCommitRequest, pfs.API_SubscribeCommitServer) error
 type clearCommitFunc func(context.Context, *pfs.ClearCommitRequest) (*types.Empty, error)
 type createBranchFunc func(context.Context, *pfs.CreateBranchRequest) (*types.Empty, error)
@@ -1012,6 +1013,7 @@ type mockSquashCommitSet struct{ handler squashCommitSetFunc }
 type mockDropCommitSet struct{ handler dropCommitSetFunc }
 type mockInspectCommitSet struct{ handler inspectCommitSetFunc }
 type mockListCommitSet struct{ handler listCommitSetFunc }
+type mockFindCommits struct{ handler FindCommitsFunc }
 type mockSubscribeCommit struct{ handler subscribeCommitFunc }
 type mockClearCommit struct{ handler clearCommitFunc }
 type mockCreateBranch struct{ handler createBranchFunc }
@@ -1063,6 +1065,7 @@ func (mock *mockSquashCommitSet) Use(cb squashCommitSetFunc)       { mock.handle
 func (mock *mockDropCommitSet) Use(cb dropCommitSetFunc)           { mock.handler = cb }
 func (mock *mockInspectCommitSet) Use(cb inspectCommitSetFunc)     { mock.handler = cb }
 func (mock *mockListCommitSet) Use(cb listCommitSetFunc)           { mock.handler = cb }
+func (mock *mockFindCommits) Use(cb FindCommitsFunc)               { mock.handler = cb }
 func (mock *mockCreateBranch) Use(cb createBranchFunc)             { mock.handler = cb }
 func (mock *mockInspectBranch) Use(cb inspectBranchFunc)           { mock.handler = cb }
 func (mock *mockListBranch) Use(cb listBranchFunc)                 { mock.handler = cb }
@@ -1118,6 +1121,7 @@ type mockPFSServer struct {
 	DropCommitSet      mockDropCommitSet
 	InspectCommitSet   mockInspectCommitSet
 	ListCommitSet      mockListCommitSet
+	FindCommits        mockFindCommits
 	CreateBranch       mockCreateBranch
 	InspectBranch      mockInspectBranch
 	ListBranch         mockListBranch
@@ -1247,6 +1251,12 @@ func (api *pfsServerAPI) ClearCommit(ctx context.Context, req *pfs.ClearCommitRe
 		return api.mock.ClearCommit.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.ClearCommit")
+}
+func (api *pfsServerAPI) FindCommits(req *pfs.FindCommitsRequest, srv pfs.API_FindCommitsServer) error {
+	if api.mock.FindCommits.handler != nil {
+		return api.mock.FindCommits.handler(req, srv)
+	}
+	return errors.Errorf("unhandled pachd mock pfs.FindCommits")
 }
 func (api *pfsServerAPI) CreateBranch(ctx context.Context, req *pfs.CreateBranchRequest) (*types.Empty, error) {
 	if api.mock.CreateBranch.handler != nil {
@@ -1475,6 +1485,7 @@ type runLoadTestDefaultPPSFunc func(context.Context, *types.Empty) (*pps.RunLoad
 type renderTemplateFunc func(context.Context, *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error)
 type listTaskPPSFunc func(*task.ListTaskRequest, pps.API_ListTaskServer) error
 type getKubeEventsFunc func(*pps.LokiRequest, pps.API_GetKubeEventsServer) error
+type queryLokiFunc func(*pps.LokiRequest, pps.API_QueryLokiServer) error
 
 type mockInspectJob struct{ handler inspectJobFunc }
 type mockListJob struct{ handler listJobFunc }
@@ -1508,6 +1519,7 @@ type mockRunLoadTestDefaultPPS struct{ handler runLoadTestDefaultPPSFunc }
 type mockRenderTemplate struct{ handler renderTemplateFunc }
 type mockListTaskPPS struct{ handler listTaskPPSFunc }
 type mockGetKubeEvents struct{ handler getKubeEventsFunc }
+type mockQueryLoki struct{ handler queryLokiFunc }
 
 func (mock *mockInspectJob) Use(cb inspectJobFunc)                       { mock.handler = cb }
 func (mock *mockListJob) Use(cb listJobFunc)                             { mock.handler = cb }
@@ -1541,6 +1553,7 @@ func (mock *mockRunLoadTestDefaultPPS) Use(cb runLoadTestDefaultPPSFunc) { mock.
 func (mock *mockRenderTemplate) Use(cb renderTemplateFunc)               { mock.handler = cb }
 func (mock *mockListTaskPPS) Use(cb listTaskPPSFunc)                     { mock.handler = cb }
 func (mock *mockGetKubeEvents) Use(cb getKubeEventsFunc)                 { mock.handler = cb }
+func (mock *mockQueryLoki) Use(cb queryLokiFunc)                         { mock.handler = cb }
 
 type ppsServerAPI struct {
 	mock *mockPPSServer
@@ -1580,6 +1593,7 @@ type mockPPSServer struct {
 	RenderTemplate     mockRenderTemplate
 	ListTask           mockListTaskPPS
 	GetKubeEvents      mockGetKubeEvents
+	QueryLoki          mockQueryLoki
 }
 
 func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
@@ -1773,6 +1787,12 @@ func (api *ppsServerAPI) GetKubeEvents(req *pps.LokiRequest, server pps.API_GetK
 		return api.mock.GetKubeEvents.handler(req, server)
 	}
 	return errors.Errorf("unhandled pachd mock pps.GetKubeEvents")
+}
+func (api *ppsServerAPI) QueryLoki(req *pps.LokiRequest, server pps.API_QueryLokiServer) error {
+	if api.mock.QueryLoki.handler != nil {
+		return api.mock.QueryLoki.handler(req, server)
+	}
+	return errors.Errorf("unhandled pachd mock pps.QueryLoki")
 }
 
 /* Transaction Server Mocks */

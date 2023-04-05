@@ -9,8 +9,8 @@ import (
 	"github.com/gogo/protobuf/types"
 	glob "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
@@ -126,7 +126,7 @@ func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*types.Any, er
 			return errors.EnsureStack(err)
 		}
 		index := task.BaseIndex
-		return clientsdk.ForEachGlobFile(client, func(fi *pfs.FileInfo) error {
+		return grpcutil.ForEach[*pfs.FileInfo](client, func(fi *pfs.FileInfo) error {
 			g := glob.MustCompile(pfsfile.CleanPath(task.Input.Glob), '/')
 			// Remove the trailing slash to support glob replace on directory paths.
 			p := strings.TrimRight(fi.File.Path, "/")

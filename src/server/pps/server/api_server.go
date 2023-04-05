@@ -39,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
@@ -797,6 +798,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 	details.ResourceRequests = pipelineInfo.Details.ResourceRequests
 	details.ResourceLimits = pipelineInfo.Details.ResourceLimits
 	details.SidecarResourceLimits = pipelineInfo.Details.SidecarResourceLimits
+	details.SidecarResourceRequests = pipelineInfo.Details.SidecarResourceRequests
 	details.Input = ppsutil.JobInput(pipelineInfo, jobInfo.OutputCommit)
 	details.Salt = pipelineInfo.Details.Salt
 	details.DatumSetSpec = pipelineInfo.Details.DatumSetSpec
@@ -1360,6 +1362,22 @@ func (a *apiServer) GetKubeEvents(request *pps.LokiRequest, apiGetKubeEventsServ
 	}
 	return lokiutil.QueryRange(apiGetKubeEventsServer.Context(), loki, `{app="pachyderm-kube-event-tail"}`, since, time.Time{}, false, func(t time.Time, line string) error {
 		return errors.EnsureStack(apiGetKubeEventsServer.Send(&pps.LokiLogMessage{
+			Message: strings.TrimSuffix(line, "\n"),
+		}))
+	})
+}
+
+func (a *apiServer) QueryLoki(request *pps.LokiRequest, apiQueryLokiServer pps.API_QueryLokiServer) (retErr error) {
+	loki, err := a.env.GetLokiClient()
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	since := time.Time{}
+	if request.Since != nil {
+		since = time.Now().Add(-time.Duration(request.Since.Seconds) * time.Second)
+	}
+	return lokiutil.QueryRange(apiQueryLokiServer.Context(), loki, request.Query, since, time.Time{}, false, func(t time.Time, line string) error {
+		return errors.EnsureStack(apiQueryLokiServer.Send(&pps.LokiLogMessage{
 			Message: strings.TrimSuffix(line, "\n"),
 		}))
 	})
@@ -1990,7 +2008,7 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 			case input.Pfs != nil:
 				repo = new(pfs.Repo)
 				if input.Pfs.Project == "" {
-					repo.Project = pipelineInfo.Pipeline.Project
+					repo.Project = prevPipelineInfo.Pipeline.Project
 				} else {
 					repo.Project = &pfs.Project{Name: input.Pfs.Project}
 				}
@@ -1999,7 +2017,7 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 				repo = new(pfs.Repo)
 				repo.Name = input.Cron.Repo
 				if input.Cron.Project == "" {
-					repo.Project = pipelineInfo.Pipeline.Project
+					repo.Project = prevPipelineInfo.Pipeline.Project
 				} else {
 					repo.Project = &pfs.Project{Name: input.Cron.Project}
 				}
@@ -2187,32 +2205,33 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 		Pipeline: request.Pipeline,
 		Version:  1,
 		Details: &pps.PipelineInfo_Details{
-			Transform:             request.Transform,
-			TFJob:                 request.TFJob,
-			ParallelismSpec:       request.ParallelismSpec,
-			Input:                 request.Input,
-			OutputBranch:          request.OutputBranch,
-			Egress:                request.Egress,
-			CreatedAt:             now(),
-			ResourceRequests:      request.ResourceRequests,
-			ResourceLimits:        request.ResourceLimits,
-			SidecarResourceLimits: request.SidecarResourceLimits,
-			Description:           request.Description,
-			Salt:                  request.Salt,
-			Service:               request.Service,
-			Spout:                 request.Spout,
-			DatumSetSpec:          request.DatumSetSpec,
-			DatumTimeout:          request.DatumTimeout,
-			JobTimeout:            request.JobTimeout,
-			DatumTries:            request.DatumTries,
-			SchedulingSpec:        request.SchedulingSpec,
-			PodSpec:               request.PodSpec,
-			PodPatch:              request.PodPatch,
-			S3Out:                 request.S3Out,
-			Metadata:              request.Metadata,
-			ReprocessSpec:         request.ReprocessSpec,
-			Autoscaling:           request.Autoscaling,
-			Tolerations:           request.Tolerations,
+			Transform:               request.Transform,
+			TFJob:                   request.TFJob,
+			ParallelismSpec:         request.ParallelismSpec,
+			Input:                   request.Input,
+			OutputBranch:            request.OutputBranch,
+			Egress:                  request.Egress,
+			CreatedAt:               now(),
+			ResourceRequests:        request.ResourceRequests,
+			ResourceLimits:          request.ResourceLimits,
+			SidecarResourceLimits:   request.SidecarResourceLimits,
+			SidecarResourceRequests: request.SidecarResourceRequests,
+			Description:             request.Description,
+			Salt:                    request.Salt,
+			Service:                 request.Service,
+			Spout:                   request.Spout,
+			DatumSetSpec:            request.DatumSetSpec,
+			DatumTimeout:            request.DatumTimeout,
+			JobTimeout:              request.JobTimeout,
+			DatumTries:              request.DatumTries,
+			SchedulingSpec:          request.SchedulingSpec,
+			PodSpec:                 request.PodSpec,
+			PodPatch:                request.PodPatch,
+			S3Out:                   request.S3Out,
+			Metadata:                request.Metadata,
+			ReprocessSpec:           request.ReprocessSpec,
+			Autoscaling:             request.Autoscaling,
+			Tolerations:             request.Tolerations,
 		},
 	}
 
@@ -2717,20 +2736,17 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		// ensure field names and enum values match with --raw output
 		enc = serde.NewJSONEncoder(&jsonBuffer, serde.WithOrigName(true))
 	}
-	projectsFilterSet := make(map[string]bool)
+
+	// Helper func to filter out pipelines based on projects
+	projectsFilter := make(map[string]bool)
 	for _, project := range request.Projects {
-		projectsFilterSet[project.Name] = true
+		projectsFilter[project.GetName()] = true
 	}
-	keepPipelineGivenProject := func(pipelineInfo *pps.PipelineInfo) bool {
-		if len(request.Projects) == 0 {
-			return true
-		}
-		return projectsFilterSet[pipelineInfo.Pipeline.Project.Name]
-	}
-	keepPipeline := func(pipelineInfo *pps.PipelineInfo) bool {
-		if !keepPipelineGivenProject(pipelineInfo) {
+	keep := func(pipelineInfo *pps.PipelineInfo) bool {
+		if len(projectsFilter) > 0 && !projectsFilter[pipelineInfo.Pipeline.Project.GetName()] {
 			return false
 		}
+
 		if jqCode != nil {
 			jsonBuffer.Reset()
 			// convert pipelineInfo to a map[string]interface{} for use with gojq
@@ -2749,6 +2765,23 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		}
 		return true
 	}
+
+	// Helper func to check whether a user is allowed to see the given pipeline in the result.
+	// Cache the project level access because it applies to every pipeline within the same project.
+	checkProjectAccess := miscutil.CacheFunc(func(project string) error {
+		return a.env.AuthServer.CheckProjectIsAuthorized(ctx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
+	}, 100 /* size */)
+	checkAccess := func(ctx context.Context, pipeline *pps.Pipeline) error {
+		if err := checkProjectAccess(pipeline.Project.GetName()); err != nil {
+			if !errors.As(err, &auth.ErrNotAuthorized{}) {
+				return err
+			}
+			// Use the pipeline's output repo as the reference to the pipeline itself
+			return a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Name: pipeline.Name, Type: pfs.UserRepoType, Project: pipeline.Project}, auth.Permission_REPO_READ)
+		}
+		return nil
+	}
+
 	loadPipelineAtCommit := func(pi *pps.PipelineInfo, commitSetID string) error { // mutates pi
 		return a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 			key, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, pi.Pipeline, commitSetID)
@@ -2769,7 +2802,13 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		})
 	}
 	return ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(pi *pps.PipelineInfo) error {
-		if !keepPipeline(pi) {
+		if !keep(pi) {
+			return nil
+		}
+		if err := checkAccess(ctx, pi.Pipeline); err != nil {
+			if !errors.As(err, &auth.ErrNotAuthorized{}) {
+				return errors.Wrapf(err, "could not check user is authorized to list pipeline, problem with pipeline %s", pi.Pipeline)
+			}
 			return nil
 		}
 		if request.GetCommitSet().GetID() != "" {

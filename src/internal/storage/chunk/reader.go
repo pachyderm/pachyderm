@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
 
@@ -21,13 +22,13 @@ type Reader struct {
 	ctx           context.Context
 	client        Client
 	memCache      kv.GetPut
-	deduper       *miscutil.WorkDeduper
+	deduper       *miscutil.WorkDeduper[pachhash.Output]
 	dataRefs      []*DataRef
 	offsetBytes   int64
 	prefetchLimit int
 }
 
-func newReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
+func newReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper[pachhash.Output], dataRefs []*DataRef, opts ...ReaderOption) *Reader {
 	r := &Reader{
 		ctx:      ctx,
 		client:   client,
@@ -94,13 +95,13 @@ type DataReader struct {
 	ctx      context.Context
 	client   Client
 	memCache kv.GetPut
-	deduper  *miscutil.WorkDeduper
+	deduper  *miscutil.WorkDeduper[pachhash.Output]
 	dataRef  *DataRef
 	offset   int64
 	r        io.Reader
 }
 
-func newDataReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper, dataRef *DataRef, offset int64) *DataReader {
+func newDataReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper[pachhash.Output], dataRef *DataRef, offset int64) *DataReader {
 	return &DataReader{
 		ctx:      ctx,
 		client:   client,

@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/proc"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -333,7 +334,11 @@ func (d *driver) RunUserCode(
 	logger.Logf("beginning to run user code")
 	defer func(start time.Time) {
 		if retErr != nil {
-			logger.Logf("errored running user code after %v: %v", time.Since(start), retErr)
+			if ctxErr := context.Cause(ctx); ctxErr != nil {
+				logger.Errf("errored running user code after %v: %v because %v", time.Since(start), retErr, ctxErr)
+			} else {
+				logger.Errf("errored running user code after %v: %v", time.Since(start), retErr)
+			}
 		} else {
 			logger.Logf("finished running user code after %v", time.Since(start))
 		}
@@ -362,6 +367,8 @@ func (d *driver) RunUserCode(
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
+	monctx, endMonitoring := context.WithCancelCause(ctx)
+	go proc.MonitorProcessGroup(logger.Context(monctx), cmd.Process.Pid)
 	killChildren := makeProcessGroupKiller(ctx, logger, cmd.Process.Pid)
 	if ok, err := blockUntilWaitable(cmd.Process.Pid); ok {
 		// Since cmd.Process.Pid is dead, we can kill its children now.
@@ -378,6 +385,10 @@ func (d *driver) RunUserCode(
 	killChildren()
 	stdout.Close()
 	stderr.Close()
+	endMonitoring(errors.New("child exited"))
+
+	// Print final rusage metrics.
+	printRusage(logger.Context(ctx), cmd.ProcessState)
 
 	// We ignore broken pipe errors, these occur very occasionally if a user
 	// specifies Stdin but their process doesn't actually read everything from
@@ -408,7 +419,11 @@ func (d *driver) RunUserErrorHandlingCode(
 	logger.Logf("beginning to run user error handling code")
 	defer func(start time.Time) {
 		if retErr != nil {
-			logger.Logf("errored running user error handling code after %v: %v", time.Since(start), retErr)
+			if ctxErr := context.Cause(ctx); ctxErr != nil {
+				logger.Errf("errored running user error handling code after %v: %v because %v", time.Since(start), retErr, ctxErr)
+			} else {
+				logger.Errf("errored running user error handling code after %v: %v", time.Since(start), retErr)
+			}
 		} else {
 			logger.Logf("finished running user error handling code after %v", time.Since(start))
 		}
@@ -428,6 +443,8 @@ func (d *driver) RunUserErrorHandlingCode(
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
+	monctx, endMonitoring := context.WithCancelCause(ctx)
+	go proc.MonitorProcessGroup(logger.Context(monctx), cmd.Process.Pid)
 	killChildren := makeProcessGroupKiller(ctx, logger, cmd.Process.Pid)
 	if ok, err := blockUntilWaitable(cmd.Process.Pid); ok {
 		// Since cmd.Process.Pid is dead, we can kill its children now.
@@ -444,6 +461,10 @@ func (d *driver) RunUserErrorHandlingCode(
 	killChildren()
 	stdout.Close()
 	stderr.Close()
+	endMonitoring(errors.New("child exited"))
+
+	// Print final rusage metrics.
+	printRusage(logger.Context(ctx), cmd.ProcessState)
 
 	// We ignore broken pipe errors, these occur very occasionally if a user
 	// specifies Stdin but their process doesn't actually read everything from

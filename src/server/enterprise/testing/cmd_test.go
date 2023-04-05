@@ -27,7 +27,8 @@ func resetClusterState(t *testing.T, c *client.APIClient) {
 	ec.SetAuthToken(enterpriseRootToken)
 	require.NoError(t, ec.DeleteAllEnterprise())
 
-	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl config set context  --overwrite enterprise <<EOF
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	pachctl config set context  --overwrite enterprise <<EOF
 	{
 	  "source": 1,
 	  "pachd_address": "grpc://{{ .host }}:{{ .port }}",

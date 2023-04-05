@@ -4,6 +4,8 @@ import (
 	"archive/tar"
 	"bufio"
 	"compress/gzip"
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +15,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/gogo/protobuf/proto"
@@ -21,12 +24,12 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
@@ -34,6 +37,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
@@ -53,7 +57,7 @@ const (
 )
 
 // Cmds returns a slice containing pfs commands.
-func Cmds(pachCtx *config.Context) []*cobra.Command {
+func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var raw bool
@@ -62,6 +66,10 @@ func Cmds(pachCtx *config.Context) []*cobra.Command {
 
 	var fullTimestamps bool
 	timestampFlags := cmdutil.TimestampFlags(&fullTimestamps)
+
+	var timeout time.Duration
+	var limit uint32
+	var jsonOutput bool
 
 	var noPager bool
 	pagerFlags := cmdutil.PagerFlags(&noPager)
@@ -83,7 +91,7 @@ or type (e.g. csv, binary, images, etc).`,
 		Short: "Create a new repo.",
 		Long:  "Create a new repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -111,7 +119,7 @@ or type (e.g. csv, binary, images, etc).`,
 		Short: "Update a repo.",
 		Long:  "Update a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -141,7 +149,7 @@ or type (e.g. csv, binary, images, etc).`,
 		Short: "Return info about a repo.",
 		Long:  "Return info about a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -177,7 +185,7 @@ or type (e.g. csv, binary, images, etc).`,
 		Short: "Return a list of repos.",
 		Long:  "Return a list of repos. By default, hide system repos like pipeline metadata",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -233,7 +241,7 @@ or type (e.g. csv, binary, images, etc).`,
 		Short: "Delete a repo.",
 		Long:  "Delete a repo.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -318,7 +326,7 @@ $ {{alias}} test@fork -p XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := newClient("user")
+			c, err := newClient(mainCtx, pachctlCfg)
 			if err != nil {
 				return err
 			}
@@ -370,7 +378,7 @@ $ {{alias}} test@fork -p XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := newClient("user")
+			c, err := newClient(mainCtx, pachctlCfg)
 			if err != nil {
 				return err
 			}
@@ -408,7 +416,7 @@ $ {{alias}} test@fork -p XXX`,
 			} else if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -471,7 +479,7 @@ $ {{alias}} foo@master -n 20
 # return commits in repo "foo" on branch "master" since commit XXX
 $ {{alias}} foo@master --from XXX`,
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -500,7 +508,7 @@ $ {{alias}} foo@master --from XXX`,
 				if !expand {
 					if raw {
 						e := cmdutil.Encoder(output, os.Stdout)
-						return clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+						return grpcutil.ForEach[*pfs.CommitSetInfo](listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
 							if err := e.EncodeProto(commitSetInfo); err != nil {
 								return errors.EnsureStack(err)
 							}
@@ -514,7 +522,7 @@ $ {{alias}} foo@master --from XXX`,
 
 					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 						writer := tabwriter.NewWriter(w, pretty.CommitSetHeader)
-						if err := clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+						if err := grpcutil.ForEach[*pfs.CommitSetInfo](listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
 							pretty.PrintCommitSetInfo(writer, commitSetInfo, fullTimestamps)
 							count++
 							if number != 0 && count >= int(number) {
@@ -529,7 +537,7 @@ $ {{alias}} foo@master --from XXX`,
 				} else {
 					if raw {
 						e := cmdutil.Encoder(output, os.Stdout)
-						return clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+						return grpcutil.ForEach[*pfs.CommitSetInfo](listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
 							for _, commitInfo := range commitSetInfo.Commits {
 								if err := e.EncodeProto(commitInfo); err != nil {
 									return errors.EnsureStack(err)
@@ -545,7 +553,7 @@ $ {{alias}} foo@master --from XXX`,
 
 					return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 						writer := tabwriter.NewWriter(w, pretty.CommitHeader)
-						if err := clientsdk.ForEachCommitSet(listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
+						if err := grpcutil.ForEach[*pfs.CommitSetInfo](listCommitSetClient, func(commitSetInfo *pfs.CommitSetInfo) error {
 							for _, commitInfo := range commitSetInfo.Commits {
 								pretty.PrintCommitInfo(writer, commitInfo, fullTimestamps)
 								count++
@@ -634,12 +642,12 @@ $ {{alias}} foo@master --from XXX`,
 
 				if raw {
 					encoder := cmdutil.Encoder(output, os.Stdout)
-					return clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
+					return grpcutil.ForEach[*pfs.CommitInfo](listClient, func(ci *pfs.CommitInfo) error {
 						return errors.EnsureStack(encoder.EncodeProto(ci))
 					})
 				}
 				writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-				if err := clientsdk.ForEachCommit(listClient, func(ci *pfs.CommitInfo) error {
+				if err := grpcutil.ForEach[*pfs.CommitInfo](listClient, func(ci *pfs.CommitInfo) error {
 					pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 					return nil
 				}); err != nil {
@@ -674,7 +682,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 				return err
 			}
 
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -722,7 +730,7 @@ $ {{alias}} test@master --new`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -758,7 +766,7 @@ $ {{alias}} test@master --new`,
 
 			if raw {
 				encoder := cmdutil.Encoder(output, os.Stdout)
-				return clientsdk.ForEachSubscribeCommit(subscribeClient, func(ci *pfs.CommitInfo) error {
+				return grpcutil.ForEach[*pfs.CommitInfo](subscribeClient, func(ci *pfs.CommitInfo) error {
 					return errors.EnsureStack(encoder.EncodeProto(ci))
 				})
 			} else if output != "" {
@@ -771,7 +779,7 @@ $ {{alias}} test@master --new`,
 					retErr = err
 				}
 			}()
-			if err := clientsdk.ForEachSubscribeCommit(subscribeClient, func(ci *pfs.CommitInfo) error {
+			if err := grpcutil.ForEach[*pfs.CommitInfo](subscribeClient, func(ci *pfs.CommitInfo) error {
 				pretty.PrintCommitInfo(w, ci, fullTimestamps)
 				return nil
 			}); err != nil {
@@ -798,7 +806,7 @@ $ {{alias}} test@master --new`,
 The squash will fail if it includes a commit with no children`,
 
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -819,7 +827,7 @@ The squash will fail if it includes a commit with no children`,
 This operation is only supported if none of the sub-commits have children.`,
 
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -883,7 +891,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 				}
 			}
 
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -919,7 +927,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 		Short: "Return info about a branch.",
 		Long:  "Return info about a branch.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -956,7 +964,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 		Short: "Return all branches on a repo.",
 		Long:  "Return all branches on a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -968,7 +976,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 
 			if raw {
 				encoder := cmdutil.Encoder(output, os.Stdout)
-				err := clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
+				err := grpcutil.ForEach[*pfs.BranchInfo](branchClient, func(branch *pfs.BranchInfo) error {
 					return errors.EnsureStack(encoder.EncodeProto(branch))
 				})
 				return grpcutil.ScrubGRPC(err)
@@ -977,7 +985,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 			}
 
 			writer := tabwriter.NewWriter(os.Stdout, pretty.BranchHeader)
-			if err := clientsdk.ForEachBranchInfo(branchClient, func(branch *pfs.BranchInfo) error {
+			if err := grpcutil.ForEach[*pfs.BranchInfo](branchClient, func(branch *pfs.BranchInfo) error {
 				pretty.PrintBranch(writer, branch)
 				return nil
 			}); err != nil {
@@ -1000,7 +1008,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -1017,6 +1025,58 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	shell.RegisterCompletionFunc(deleteBranch, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteBranch, "delete branch", branches))
 
+	FindCommits := &cobra.Command{
+		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs> [flags]",
+		Short: "find commits with reference to <filePath> within a branch starting from <repo@commitID>",
+		Long:  "find commits with reference to <filePath> within a branch starting from <repo@commitID>",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			file, err := cmdutil.ParseFile(project, args[0])
+			if err != nil {
+				return err
+			}
+			commit := file.Commit
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			ctx := c.Ctx()
+			var cf context.CancelFunc
+			if timeout != time.Duration(0) {
+				ctx, cf = context.WithTimeout(c.Ctx(), timeout)
+				defer cf()
+			}
+			req := &pfs.FindCommitsRequest{
+				Start:    commit,
+				FilePath: file.Path,
+				Limit:    limit,
+			}
+			if jsonOutput {
+				resp, err := c.FindCommits(req)
+				if err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
+				jsonResp, err := json.Marshal(resp)
+				if err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
+				_, err = fmt.Fprintf(os.Stdout, "%s\n", string(jsonResp))
+				return grpcutil.ScrubGRPC(err)
+			}
+			findCommitClient, err := c.PfsAPIClient.FindCommits(ctx, req)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			return grpcutil.ScrubGRPC(pretty.PrintFindCommits(findCommitClient))
+		}),
+	}
+	FindCommits.Flags().BoolVar(&jsonOutput, "json", jsonOutput, "print the response in json")
+	FindCommits.Flags().Uint32Var(&limit, "limit", limit, "Number of matching commits to return")
+	FindCommits.Flags().DurationVar(&timeout, "timeout", timeout, "Search duration timeout")
+	FindCommits.Flags().StringVar(&project, "project", project, "Project in which repo is located.")
+	shell.RegisterCompletionFunc(FindCommits, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAliases(FindCommits, "find commit", commits))
+
 	projectDocs := &cobra.Command{
 		Short: "Docs for projects.",
 		Long: `Projects are the top level organizational objects in Pachyderm.
@@ -1030,7 +1090,7 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 		Short: "Create a new project.",
 		Long:  "Create a new project.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -1053,7 +1113,7 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 		Short: "Update a project.",
 		Long:  "Update a project.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -1078,7 +1138,7 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 		Short: "Inspect a project.",
 		Long:  "Inspect a project.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -1108,7 +1168,7 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 		Short: "Return all projects.",
 		Long:  "Return all projects.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -1143,18 +1203,84 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 		Short: "Delete a project.",
 		Long:  "Delete a project.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
 			defer c.Close()
+			project := args[0]
+			repoResp, err := c.PfsAPIClient.ListRepo(
+				c.Ctx(),
+				&pfs.ListRepoRequest{
+					Projects: []*pfs.Project{{Name: project}},
+					Type:     pfs.UserRepoType,
+				},
+			)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			rr, err := grpcutil.Collect[*pfs.RepoInfo](repoResp, 1000)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if len(rr) > 0 {
+				for _, r := range rr {
+					fmt.Printf("This will delete repo %s\n", r.Repo)
+				}
+				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+					return err
+				} else if !ok {
+					return errors.Errorf("cannot delete project with %d repos", len(rr))
+				}
+				for _, r := range rr {
+					if _, err := c.PfsAPIClient.DeleteRepo(c.Ctx(), &pfs.DeleteRepoRequest{Repo: r.Repo}); err != nil {
+						return grpcutil.ScrubGRPC(err)
+					}
+				}
+			}
+
+			pipelineResp, err := c.PpsAPIClient.ListPipeline(
+				c.Ctx(),
+				&pps.ListPipelineRequest{
+					Projects: []*pfs.Project{{Name: project}},
+				},
+			)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			pp, err := grpcutil.Collect[*pps.PipelineInfo](pipelineResp, 1000)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if len(pp) > 0 {
+				for _, p := range pp {
+					fmt.Printf("This will delete pipeline %s\n?", p.Pipeline)
+				}
+				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
+					return err
+				} else if !ok {
+					return errors.Errorf("cannot delete project with %d pipelines", len(pp))
+				}
+				for _, p := range pp {
+					if _, err := c.PpsAPIClient.DeletePipeline(c.Ctx(), &pps.DeletePipelineRequest{Pipeline: p.Pipeline}); err != nil {
+						return grpcutil.ScrubGRPC(err)
+					}
+				}
+			}
+
 			_, err = c.PfsAPIClient.DeleteProject(
 				c.Ctx(),
 				&pfs.DeleteProjectRequest{
 					Project: &pfs.Project{Name: args[0]},
 					Force:   force,
 				})
-			return grpcutil.ScrubGRPC(err)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if args[0] == pachCtx.Project {
+				fmt.Fprintf(os.Stderr, "warning: deleted current project %s; update context by running:\n   pachctl config update context --project PROJECT\n", pachCtx.Project)
+			}
+			return nil
 		}),
 	}
 	shell.RegisterCompletionFunc(deleteProject, shell.ProjectCompletion)
@@ -1229,7 +1355,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 			if compress {
 				opts = append(opts, client.WithGZIPCompression())
 			}
-			c, err := newClient("user", opts...)
+			c, err := newClient(mainCtx, pachctlCfg, opts...)
 			if err != nil {
 				return err
 			}
@@ -1387,7 +1513,7 @@ $ {{alias}} srcRepo@master:/file destRepo@master:/file --src-project project1 --
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user", client.WithMaxConcurrentStreams(parallelism))
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false, client.WithMaxConcurrentStreams(parallelism))
 			if err != nil {
 				return err
 			}
@@ -1445,7 +1571,7 @@ $ {{alias}} foo@master:XXX -r
 			if err != nil {
 				return err
 			}
-			c, err := newClient("user")
+			c, err := newClient(mainCtx, pachctlCfg)
 			if err != nil {
 				return err
 			}
@@ -1529,7 +1655,7 @@ $ {{alias}} foo@master:XXX -r
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -1581,7 +1707,7 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -1630,7 +1756,7 @@ $ {{alias}} "foo@master:data/*"
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -1694,7 +1820,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 					return err
 				}
 			}
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -1782,7 +1908,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -1816,7 +1942,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 		Short: "Run a file system consistency check on pfs.",
 		Long:  "Run a file system consistency check on the pachyderm file system, ensuring the correct provenance relationships are satisfied.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -1871,7 +1997,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 		Long:    "Run a PFS load test.",
 		Example: pfsload.LoadSpecification,
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
-			c, err := client.NewOnUserMachine("user")
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
@@ -1937,7 +2063,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 
 	// Add the mount commands (which aren't available on Windows, so they're in
 	// their own file)
-	commands = append(commands, mountCmds()...)
+	commands = append(commands, mountCmds(mainCtx, pachctlCfg)...)
 
 	return commands
 }
@@ -2086,17 +2212,17 @@ func forEachDiffFile(newFiles, oldFiles []*pfs.FileInfo, f func(newFile, oldFile
 	}
 }
 
-func newClient(name string, options ...client.Option) (*client.APIClient, error) {
+func newClient(ctx context.Context, pachctlCfg *pachctl.Config, options ...client.Option) (*client.APIClient, error) {
 	if inWorkerStr, ok := os.LookupEnv("PACH_IN_WORKER"); ok {
 		inWorker, err := strconv.ParseBool(inWorkerStr)
 		if err != nil {
 			return nil, errors.Wrap(err, "couldn't parse PACH_IN_WORKER")
 		}
 		if inWorker {
-			return client.NewInWorker(options...)
+			return pachctlCfg.NewInWorker(ctx, options...)
 		}
 	}
-	return client.NewOnUserMachine(name, options...)
+	return pachctlCfg.NewOnUserMachine(ctx, false, options...)
 }
 
 func parseOriginKind(input string) (pfs.OriginKind, error) {

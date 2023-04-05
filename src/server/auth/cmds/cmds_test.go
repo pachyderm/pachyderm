@@ -170,52 +170,45 @@ func TestWhoAmI(t *testing.T) {
 	).Run())
 }
 
+// TestCheckGetSetRepo tests 3 pachctl auth subcommands: check, get, and set, on repos.
+// Test both modes of `check repo`: 1) check caller's own permissions 2) check another user's permissions.
 func TestCheckGetSetRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
+
+	// alice sets up their own project and repos so that they can run the appropriate auth commands below.
 	alice, bob := tu.UniqueString("robot:alice"), tu.UniqueString("robot:bob")
-	// Test both forms of the 'pachctl auth get' command, as well as 'pachctl auth check'
+	loginAsUser(t, c, alice)
+	project, repo := tu.UniqueString("project"), tu.UniqueString("repo")
+	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create project {{.project}}`, "project", project).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create repo --project {{.project}} {{.repo}}`, "project", pfs.DefaultProjectName, "repo", repo).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create repo --project {{.project}} {{.repo}}`, "project", project, "repo", repo).Run())
 
+	// alice can check, get, and set permissions wrt their own repo
+	// but they can't check other users' permissions because they lack CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL
+	for _, project := range []string{pfs.DefaultProjectName, project} {
+		require.NoError(t, tu.PachctlBashCmd(t, c, `
+			pachctl auth check repo {{.repo}} --project {{.project}} | match repoOwner
+			pachctl auth get repo {{.repo}} --project {{.project}} | match "{{.alice}}: \[repoOwner\]"
+			pachctl auth set repo {{.repo}} repoReader {{.bob}} --project {{.project}}
+			pachctl auth get repo {{.repo}} --project {{.project}} | match "{{.bob}}: \[repoReader\]"
+			`,
+			"project", project,
+			"repo", repo,
+			"alice", alice,
+			"bob", bob,
+		).Run())
+
+		require.YesError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} {{.user}} --project {{.project}}`, "project", project, "repo", repo, "user", alice).Run())
+	}
+
+	// root user can check everyone's role bindings because they have CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL
 	loginAsUser(t, c, auth.RootUser)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create project nonDefault`).Run())
-
-	for _, project := range []string{pfs.DefaultProjectName, "nonDefault"} {
-		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl config update context --project {{.project}}`, "project", project).Run())
-
-		loginAsUser(t, c, alice)
-		require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl create repo {{.repo}}
-		pachctl auth check repo {{.repo}} | match 'Roles: \[repoOwner\]'
-		pachctl auth get repo {{.repo}} | match {{.alice}}
-		`,
-			"alice", alice,
-			"bob", bob,
-			"repo", tu.UniqueString("TestGet-repo"),
-		).Run())
-
-		repo := tu.UniqueString("TestGet-repo")
-		// Test 'pachctl auth set'
-		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create repo {{.repo}}
-		pachctl auth set repo {{.repo}} repoReader {{.bob}}
-		pachctl auth get repo {{.repo}} | match "{{.bob}}: \[repoReader\]" | match "{{.alice}}: \[repoOwner\]"
-		`,
-			"alice", alice,
-			"bob", bob,
-			"repo", repo,
-		).Run())
-
-		// Test checking another user's permissions
-		loginAsUser(t, c, auth.RootUser)
-		require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl auth check repo {{.repo}} {{.alice}} | match "Roles: \[repoOwner\]"
-		pachctl auth check repo {{.repo}} {{.bob}} | match "Roles: \[repoReader\]"
-		`,
-			"alice", alice,
-			"bob", bob,
-			"repo", repo,
-		).Run())
+	for _, project := range []string{pfs.DefaultProjectName, project} {
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} {{.user}} --project {{.project}} | match repoOwner`, "project", project, "repo", repo, "user", alice).Run())
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} {{.user}} --project {{.project}} | match repoReader`, "project", project, "repo", repo, "user", bob).Run())
 	}
 }
 
