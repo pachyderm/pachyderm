@@ -63,7 +63,8 @@ class PPSClient:
         )
 
         return json.dumps(
-            dict(message=None)  # We can send back console link here.
+            dict(message="Create pipeline request sent. You may monitor its status by running"
+                 " \"pachctl list pipelines\" in a terminal.")  # We can send back console link here.
         )
 
 
