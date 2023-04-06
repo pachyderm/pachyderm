@@ -643,9 +643,8 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 					// Avoid unnecessary subsequent Auth API calls.
 					authIsActive = false
 					return cb(projectInfo)
-				} else {
-					return errors.Wrapf(err, "error getting permissions for project %s", projectInfo.Project)
 				}
+				return errors.Wrapf(err, "error getting permissions for project %s", projectInfo.Project)
 			}
 			projectInfo.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 		}
