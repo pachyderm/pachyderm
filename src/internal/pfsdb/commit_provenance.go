@@ -28,7 +28,7 @@ func ResolveCommitProvenance(tx *pachsql.Tx, repo *pfs.Repo, commitSet string) (
 // of all the commits in this commit set.
 //
 // TODO(provenance): is 'SELECT DISTINCT commit_id' a performance concern?
-func CommitSetProvenance(tx *pachsql.Tx, id string) ([]*pfs.Commit, error) {
+func CommitSetProvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr error) {
 	q := `
           WITH RECURSIVE prov(from_id, to_id) AS (
             SELECT from_id, to_id 
@@ -46,7 +46,11 @@ func CommitSetProvenance(tx *pachsql.Tx, id string) ([]*pfs.Commit, error) {
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			retErr = multierr.Append(retErr, err)
+		}
+	}()
 	cs := make([]*pfs.Commit, 0)
 	for rows.Next() {
 		var commit string
@@ -100,14 +104,18 @@ func AddCommit(tx *pachsql.Tx, commit *pfs.Commit) error {
 	return errors.Wrapf(err, "insert commit %q into pfs.commits", CommitKey(commit))
 }
 
-func getCommitTableID(tx *pachsql.Tx, commit *pfs.Commit) (int, error) {
+func getCommitTableID(tx *pachsql.Tx, commit *pfs.Commit) (_ int, retErr error) {
 	commitKey := CommitKey(commit)
 	query := `SELECT int_id FROM pfs.commits WHERE commit_id = $1;`
 	rows, err := tx.Queryx(query, commitKey)
 	if err != nil {
 		return 0, errors.EnsureStack(err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			retErr = multierr.Append(retErr, err)
+		}
+	}()
 	var id int
 	for rows.Next() {
 		if err := rows.Scan(&id); err != nil {
