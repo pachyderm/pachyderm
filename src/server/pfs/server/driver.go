@@ -402,7 +402,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		return nil
 	}
 	if ok, err := d.canDeleteRepo(txnCtx, repo); err != nil {
-		return err
+		return errors.Wrapf(err, "error checking whether repo %q can be deleted", repo.String())
 	} else if !ok {
 		return nil
 	}
@@ -522,12 +522,12 @@ func (d *driver) canDeleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.
 		if auth.IsErrNotAuthorized(err) {
 			return false, nil
 		}
-		return false, errors.EnsureStack(err)
+		return false, errors.Wrapf(err, "check repo %q is authorized for deletion", userRepo.String())
 	}
 	if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(repo)); err == nil {
 		return false, errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
 	} else if err != nil && !errutil.IsNotFoundError(err) {
-		return false, errors.EnsureStack(err)
+		return false, errors.Wrapf(err, "inspect pipeline %q", pps.RepoPipeline(repo).String())
 	}
 	return true, nil
 }
