@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,6 +35,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
 func envWithAuth(t *testing.T) *realenv.RealEnv {
@@ -2069,6 +2071,7 @@ func TestRolesForPermission(t *testing.T) {
 // TODO: This test mirrors TestLoad in src/server/pfs/server/testing/load_test.go.
 // Need to restructure testing such that we have the implementation of this
 // test in one place while still being able to test auth enabled and disabled clusters.
+// Other tests that follow this pattern: TestPutFileURL, TestGetFileURL.
 func TestLoad(t *testing.T) {
 	t.Parallel()
 	env := envWithAuth(t)
@@ -2080,6 +2083,102 @@ func TestLoad(t *testing.T) {
 	buf := &bytes.Buffer{}
 	require.NoError(t, cmdutil.Encoder("", buf).EncodeProto(resp))
 	require.Equal(t, "", resp.Error, buf.String())
+}
+
+// TODO: Refer to TestLoad
+func TestPutFileURL(t *testing.T) {
+	t.Parallel()
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice := tu.UniqueString("robot:alice")
+	aliceClient := tu.AuthenticateClient(t, c, alice)
+	repo := "repo"
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+	objC := dockertestenv.NewTestObjClient(env.Context, t)
+	paths := []string{"files/foo", "files/bar", "files/fizz"}
+	for _, path := range paths {
+		require.NoError(t, objC.Put(aliceClient.Ctx(), path, strings.NewReader(path)))
+	}
+	bucketURL := objC.BucketURL().String()
+	for _, p := range paths {
+		objURL := bucketURL + "/" + p
+		require.NoError(t, aliceClient.PutFileURL(commit, p, objURL, false))
+	}
+	srcURL := bucketURL + "/files"
+	require.NoError(t, aliceClient.PutFileURL(commit, "recursive", srcURL, true))
+	check := func() {
+		cis, err := aliceClient.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, repo), nil, nil, 0)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(cis))
+		for _, path := range paths {
+			var b bytes.Buffer
+			require.NoError(t, aliceClient.GetFile(commit, path, &b))
+			require.Equal(t, path, b.String())
+			b.Reset()
+			require.NoError(t, aliceClient.GetFile(commit, filepath.Join("recursive", filepath.Base(path)), &b))
+			require.Equal(t, path, b.String())
+		}
+	}
+	check()
+	require.NoError(t, finishCommit(aliceClient, repo, commit.Branch.Name, commit.ID))
+	check()
+}
+
+func finishCommit(pachClient *client.APIClient, repo, branch, id string) error {
+	return finishProjectCommit(pachClient, pfs.DefaultProjectName, repo, branch, id)
+}
+
+func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id string) error {
+	if err := pachClient.FinishProjectCommit(project, repo, branch, id); err != nil {
+		if !pfsserver.IsCommitFinishedErr(err) {
+			return err
+		}
+	}
+	_, err := pachClient.WaitProjectCommit(project, repo, branch, id)
+	return err
+}
+
+// TODO: Refer to TestLoad.
+func TestGetFileURL(t *testing.T) {
+	t.Parallel()
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice := tu.UniqueString("robot:alice")
+	aliceClient := tu.AuthenticateClient(t, c, alice)
+	repo := "repo"
+	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+	paths := []string{"files/foo", "files/bar", "files/fizz"}
+	for _, path := range paths {
+		require.NoError(t, aliceClient.PutFile(commit, path, strings.NewReader(path)))
+	}
+	check := func() {
+		objC := dockertestenv.NewTestObjClient(aliceClient.Ctx(), t)
+		bucketURL := objC.BucketURL().String()
+		for _, path := range paths {
+			require.NoError(t, aliceClient.GetFileURL(commit, path, bucketURL))
+		}
+		for _, path := range paths {
+			buf := &bytes.Buffer{}
+			err := objC.Get(context.Background(), path, buf)
+			require.NoError(t, err)
+			require.True(t, bytes.Equal([]byte(path), buf.Bytes()))
+		}
+		require.NoError(t, objC.Delete(aliceClient.Ctx(), "files/*"))
+		require.NoError(t, aliceClient.GetFileURL(commit, "files/*", bucketURL))
+		for _, path := range paths {
+			buf := &bytes.Buffer{}
+			err := objC.Get(context.Background(), path, buf)
+			require.NoError(t, err)
+			require.True(t, bytes.Equal([]byte(path), buf.Bytes()))
+		}
+	}
+	check()
+	require.NoError(t, finishCommit(aliceClient, repo, commit.Branch.Name, commit.ID))
+	check()
 }
 
 // TestGetPermissions tests that GetPermissions and GetPermissionsForPrincipal work for repos and the cluster itself

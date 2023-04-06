@@ -33,6 +33,8 @@ type TaggedLogger interface {
 
 	JobID() string
 	Writer(string) io.WriteCloser
+
+	Context(context.Context) context.Context
 }
 
 // taggedLogger is a port of the legacy worker logger to one compatible with the rest of Pachyderm.
@@ -41,6 +43,12 @@ type taggedLogger struct {
 	// and we don't have enough tests for a safe refactor.
 	ctx   context.Context
 	jobID string // Yup, we also use the logger to pass around state.
+}
+
+// Context allows integration with log.* and m.* for new-style logging in the worker.  The logger
+// inside the taggedLogger is added to the provided context, and returned.
+func (l *taggedLogger) Context(ctx context.Context) context.Context {
+	return log.CombineLogger(ctx, l.ctx)
 }
 
 // New adapts context-based logging to the worker.

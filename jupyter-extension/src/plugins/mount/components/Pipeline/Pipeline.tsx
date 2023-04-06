@@ -36,6 +36,7 @@ const Pipeline: React.FC<PipelineProps> = ({
     callCreatePipeline,
     callSavePipeline,
     errorMessage,
+    responseMessage,
   } = usePipeline(metadata, notebookPath, saveNotebookMetadata);
 
   return (
@@ -82,6 +83,13 @@ const Pipeline: React.FC<PipelineProps> = ({
         data-testid="Pipeline__errorMessage"
       >
         {errorMessage}
+      </span>
+
+      <span
+        className="pachyderm-pipeline-response"
+        data-testid="Pipeline__responseMessage"
+      >
+        {responseMessage}
       </span>
 
       <div className="pachyderm-pipeline-input-wrapper">

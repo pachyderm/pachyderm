@@ -95,6 +95,10 @@ type GlobalConfiguration struct {
 	PipelineDefaultMemoryRequest  resource.Quantity `env:"PIPELINE_DEFAULT_MEMORY_REQUEST,default=256Mi"`
 	PipelineDefaultCPURequest     resource.Quantity `env:"PIPELINE_DEFAULT_CPU_REQUEST,default=1"`
 	PipelineDefaultStorageRequest resource.Quantity `env:"PIPELINE_DEFAULT_STORAGE_REQUEST,default=1Gi"`
+
+	SidecarDefaultMemoryRequest  resource.Quantity `env:"SIDECAR_DEFAULT_MEMORY_REQUEST,default=256Mi"`
+	SidecarDefaultCPURequest     resource.Quantity `env:"SIDECAR_DEFAULT_CPU_REQUEST,default=1"`
+	SidecarDefaultStorageRequest resource.Quantity `env:"SIDECAR_DEFAULT_STORAGE_REQUEST,default=1Gi"`
 }
 
 // PachdFullConfiguration contains the full pachd configuration.

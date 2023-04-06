@@ -540,7 +540,17 @@ async def test_health(mock_client, jp_fetch):
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 async def test_pps_get(jp_fetch):
-    response = await jp_fetch(f"/{NAMESPACE}/{VERSION}/pps/_create/NOT_REAL.ipynb")
+    config = dict(
+        pipeline_name="test_pipeline",
+        image="python:3.10",
+        input_spec=dict(pfs=dict(repo="test_repo", glob="/*"))
+    )
+    response = await jp_fetch(
+        f"/{NAMESPACE}/{VERSION}/pps/_create/NOT_REAL.ipynb",
+        body=json.dumps(config),
+        allow_nonstandard_methods=True,
+        # ^ Required until config read directly from notebook metadata
+    )
     assert response.code == 200
     body = json.loads(response.body)
     for expected_key in ("pipeline", "description", "transform", "input"):

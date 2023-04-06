@@ -3,7 +3,6 @@ import YAML from 'yaml';
 import {useEffect, useState} from 'react';
 import {CreatePipelineResponse, SameMetadata} from '../../../types';
 import {requestAPI} from '../../../../../handler';
-import {ReadonlyJSONObject} from '@lumino/coreutils';
 import {ServerConnection} from '@jupyterlab/services';
 
 export type usePipelineResponse = {
@@ -19,6 +18,7 @@ export type usePipelineResponse = {
   callCreatePipeline: () => Promise<void>;
   callSavePipeline: () => void;
   errorMessage: string;
+  responseMessage: string;
 };
 
 export const usePipeline = (
@@ -32,11 +32,13 @@ export const usePipeline = (
   const [inputSpec, setInputSpec] = useState('');
   const [requirements, setRequirements] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [responseMessage, setResponseMessage] = useState('');
 
   useEffect(() => {
     setImageName(metadata?.environments.default.image_tag ?? '');
     setPipelineName(metadata?.metadata.name ?? '');
     setRequirements(metadata?.notebook.requirements ?? '');
+    setResponseMessage('');
     if (metadata?.run.input) {
       const input = JSON.parse(metadata?.run.input); //TODO: Catch errors
       setInputSpec(YAML.stringify(input));
@@ -81,14 +83,34 @@ export const usePipeline = (
   const callCreatePipeline = async () => {
     setLoading(true);
     setErrorMessage('');
+    setResponseMessage('');
 
-    const sameMetadata = createSameMetadata();
+    let input: string;
+    try {
+      input = YAML.parse(inputSpec);
+    } catch (e) {
+      if (e instanceof YAML.YAMLParseError) {
+        input = JSON.parse(inputSpec);
+      } else {
+        throw e;
+      }
+    }
+
+    // const sameMetadata = createSameMetadata();
     try {
       const response = await requestAPI<CreatePipelineResponse>(
         `pps/_create/${notebookPath}`,
         'PUT',
-        sameMetadata as ReadonlyJSONObject,
+        {
+          pipeline_name: pipelineName,
+          image: imageName,
+          requirements: requirements,
+          input_spec: input,
+        },
       );
+      if (response.message !== null) {
+        setResponseMessage(response.message);
+      }
     } catch (e) {
       if (e instanceof ServerConnection.ResponseError) {
         setErrorMessage(e.message);
@@ -119,5 +141,6 @@ export const usePipeline = (
     callCreatePipeline,
     callSavePipeline,
     errorMessage,
+    responseMessage,
   };
 };
