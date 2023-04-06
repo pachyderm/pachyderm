@@ -204,6 +204,16 @@ First make sure the server extension is enabled:
 jupyter server extension list 2>&1 | grep -ie "jupyterlab_pachyderm.*OK"
 ```
 
+# Install Jupyterhub locally (Sidecar mode testing)
+
+```
+helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
+helm repo update
+helm install jhub jupyterhub/jupyterhub --version 2.0.0 --values scripts/jhub-dev-helm-values.yml
+```
+
+Note: Use any username and no password to login
+
 ### API endpoints
 
 ```
