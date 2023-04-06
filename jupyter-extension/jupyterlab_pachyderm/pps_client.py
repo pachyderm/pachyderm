@@ -1,23 +1,22 @@
 import os.path
 import json
-import subprocess
-import sys
-from pathlib import Path
-from tempfile import NamedTemporaryFile
+from dataclasses import dataclass
+from inspect import getsource
+from textwrap import dedent
+from typing import Optional
 
-from tornado.httpclient import AsyncHTTPClient
+import python_pachyderm
+from nbconvert import PythonExporter
 from tornado.web import HTTPError
 
 from .log import get_logger
-
-SAME_METADATA_FIELDS = ('apiVersion', 'environments', 'metadata', 'run', 'notebook')
 
 
 class PPSClient:
     """Client interface for the PPS extension backend."""
 
     def __init__(self):
-        self.client = AsyncHTTPClient()
+        self.nbconvert = PythonExporter()
 
     async def generate(self, path, config):
         """Generates the pipeline spec from the Notebook file specified.
@@ -27,9 +26,8 @@ class PPSClient:
             config: The PPS configuration for the Notebook file.
         """
         get_logger().debug(f"path: {path} | body: {config}")
-        # script = await self.client.fetch(f"http://localhost:8888/nbconvert/python{path}")
-        script_name = os.path.basename(path)
-        pipeline_spec = create_pipeline_spec("test_pipeline", "python:3.10", dict(pfs=dict(repo="data")), script_name)
+        config = PpsConfig.from_json(config)
+        pipeline_spec = create_pipeline_spec(config, '...')
         return json.dumps(pipeline_spec)
 
     async def create(self, path: str, config: dict):
@@ -41,72 +39,142 @@ class PPSClient:
         """
         get_logger().debug(f"path: {path} | body: {config}")
 
-        # Validate config structure.
-        # Error codes are 500, we are unable to override this.
-        for field in SAME_METADATA_FIELDS:
-            if field not in config:
-                raise HTTPError(reason=f"Bad Request: field {field} not set")
-        if 'input' not in config['run']:
-            raise HTTPError(reason=f"Bad Request: field run.input not set")
+        config = PpsConfig.from_json(config)
+        path = path.lstrip("/")
+        if not os.path.exists(path):
+            raise HTTPError(reason=f"notebook does not exist: {path}")
+        if config.requirements and not os.path.exists(config.requirements):
+            raise HTTPError(reason="requirements file does not exist")
 
-        input_spec = config['run'].pop("input")  # Input not allowed in SAME metadata.
-        # Paths are relative to the config file. Since the config is being written into
-        #  a temporary file, we need to specify an absolute path.
-        config['notebook']['path'] = os.path.join(os.getcwd(), os.path.relpath(path, '/'))
-        config['notebook']['name'] = os.path.basename(path)
+        script, _resources = self.nbconvert.from_filename(path)
 
-        if 'requirements' in config['notebook'] and not config['notebook']['requirements']:
-            # Remove requirements field if none are specified.
-            del config['notebook']['requirements']
+        client = python_pachyderm.Client()  # TODO: Auth?
+        companion_repo = f"{config.pipeline_name}__context"
+        if companion_repo not in (item.repo.name for item in client.list_repo()):
+            client.create_repo(
+                repo_name=companion_repo,
+                description=f"files for running the {config.pipeline_name} pipeline"
+            )
 
-        with NamedTemporaryFile() as temp_config:
-            Path(temp_config.name).write_text(json.dumps(config))
-            command = [sys.executable, "-m", "sameproject.main", "run"]
-            command.extend(["--same-file", temp_config.name])
-            command.extend(["--target", "pachyderm"])
-            command.extend(["--input", input_spec])
-            call = subprocess.run(command, capture_output=True)
-            if call.returncode:
-                raise HTTPError(
-                    code=500,
-                    log_message=call.stderr.decode(),
-                    reason="Internal Error: SAME could not create pipeline"
-                )
+        companion_branch = upload_environment(client, companion_repo, config, script.encode('utf-8'))
+        pipeline_spec = create_pipeline_spec(config, companion_branch)
+        client.create_pipeline_from_request(
+            python_pachyderm.parse_dict_pipeline_spec(pipeline_spec)
+        )
 
         return json.dumps(
             dict(message=None)  # We can send back console link here.
         )
 
 
-def create_pipeline_spec(
-    pipeline_name: str,
-    image: str,
-    input_spec: dict,
-    script_name: str,
-) -> dict:
-    """Generates the pipelines spec. Currently copied from """
-    companion_repo = f"{pipeline_name}__context"
-    micro_entrypoint = (
-        'print("Greetings from the Pachyderm PPS Extension"); '
-        + 'import sys; '
-        + 'from importlib import import_module; '
-        + 'from pathlib import Path; '
-        + 'from subprocess import run; '
+@dataclass
+class PpsConfig:
 
-        + 'root_module = sys.argv[1]; '
-        + f'context_dir = Path("/pfs", "{companion_repo}"); '
-        + 'reqs = context_dir / "requirements.txt"; '
-        + 'reqs.exists() and run(["pip", "--disable-pip-version-check", "install", "-r", reqs.as_posix()]); '
-        + 'sys.path.append(context_dir.as_posix()); '
-        + 'script = import_module(root_module); '
-        + 'script.root()'
+    pipeline_name: str
+    image: str
+    requirements: Optional[str]
+    input_spec: dict  # We may be able to use the pachyderm SDK to parse and validate.
+
+    @classmethod
+    def from_json(cls, config) -> "PpsConfig":
+        """Parses a config from a json object.
+
+        Raises HTTPError with 500 code if required field is not specified.
+        """
+        pipeline_name = config.get('pipeline_name', None)
+        if pipeline_name is None:
+            raise HTTPError(reason=f"Bad Request: field pipeline_name not set")
+
+        image = config.get('image', None)
+        if image is None:
+            raise HTTPError(reason=f"Bad Request: field image not set")
+
+        requirements = config.get('requirements')
+
+        input_spec = config.get('input_spec', None)
+        if input_spec is None:
+            raise HTTPError(reason=f"Bad Request: field input_spec not set")
+
+        return cls(
+            pipeline_name=pipeline_name,
+            image=image,
+            requirements=requirements,
+            input_spec=input_spec
+        )
+
+
+def create_pipeline_spec(config: PpsConfig, companion_branch: str) -> dict:
+    companion_repo = f"{config.pipeline_name}__context"
+    input_spec = dict(
+        cross=[
+            config.input_spec,
+            {'pfs': dict(repo=companion_repo, branch=companion_branch, glob="/")}
+        ]
     )
-    cmd = ["python3", "-c", micro_entrypoint, script_name]
     return dict(
-        pipeline=dict(name=pipeline_name),
+        pipeline=dict(name=config.pipeline_name),
         description="Auto-generated from notebook",
-        transform=dict(cmd=cmd, image=image),
+        transform=dict(
+            cmd=["python3", f"/pfs/{companion_repo}/entrypoint.py"],
+            image=config.image
+        ),
         input=input_spec,
         update=True,
-        reprocess=True
+        reprocess=True,
     )
+
+
+def upload_environment(
+        client: python_pachyderm.Client, repo: str, config: PpsConfig, script: bytes
+) -> str:
+    """Manages the pipeline's "environment" through a companion repo.
+
+    The companion repo contains:
+      - user_code.py     : the user's python script
+      - requirements.txt : requirements optionally specified by the user
+      - entrypoint.py    : the entrypoint for setting up and running the user code
+      and the entrypoint script to orchestrate their code.
+
+    Returns
+    -------
+        The branch name with the new commit as HEAD. We need to create a new branch
+          as a workaround because specifying a commit within a pipeline's input
+          spec is currently unsupported.
+    """
+
+    def entrypoint():
+        """Entrypoint used by the PPS extension."""
+        print("Greetings from the Pachyderm PPS Extension")
+
+        from pathlib import Path
+        from subprocess import run
+
+        reqs = Path("requirements.txt")
+        if reqs.exists():
+            run(["pip", "--disable-pip-version-check", "install", "-r", reqs.as_posix()])
+
+        import user_code  # This runs the user's code.
+
+    entrypoint_script = (
+        f'{dedent(getsource(entrypoint))}\n\n'
+        'if __name__ == "__main__":\n'
+        '    entrypoint()\n'
+    )
+
+    with client.commit(repo, "master") as commit:
+        # Remove the old files.
+        for item in client.list_file((repo, "master"), "/"):
+            client.delete_file(commit, item.file.path)
+
+        # Upload the new files.
+        client.put_file_bytes(commit, f"/user_code.py", script)
+        if config.requirements:
+            with open(config.requirements, "rb") as reqs_file:
+                client.put_file_bytes(commit, "/requirements.txt", reqs_file)
+        client.put_file_bytes(commit, "/entrypoint.py", entrypoint_script.encode('utf-8'))
+
+    # Use the commit ID in the branch name to avoid name collisions.
+    branch_name = f"commit_{commit.id}"
+    client.create_branch(repo, branch_name, commit)
+
+    return branch_name

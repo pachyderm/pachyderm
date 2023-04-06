@@ -86,6 +86,13 @@ export interface IMountPlugin {
   ready: Promise<void>;
 }
 
+export type PpsConfig = {
+  pipeline_name: string;
+  image: string;
+  requirements: string | null;
+  input_spec: any;
+};
+
 export type SameMetadata = {
   apiVersion: string;
   environments: SameEnv;

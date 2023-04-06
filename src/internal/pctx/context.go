@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
 	"go.uber.org/zap"
 )
 
@@ -24,6 +25,7 @@ func Background(process string) context.Context {
 type Option struct {
 	modifyContext func(context.Context) context.Context
 	modifyLogger  log.LogOption
+	addsFields    bool
 }
 
 // WithServerID generates a server ID and attaches it to the context.  It appears on each log
@@ -31,6 +33,7 @@ type Option struct {
 func WithServerID() Option {
 	return Option{
 		modifyLogger: log.WithServerID(),
+		addsFields:   true,
 	}
 }
 
@@ -38,6 +41,7 @@ func WithServerID() Option {
 func WithFields(fields ...zap.Field) Option {
 	return Option{
 		modifyLogger: log.WithFields(fields...),
+		addsFields:   true,
 	}
 }
 
@@ -45,6 +49,7 @@ func WithFields(fields ...zap.Field) Option {
 func WithOptions(opts ...zap.Option) Option {
 	return Option{
 		modifyLogger: log.WithOptions(opts...),
+		addsFields:   true, // it might not, but saying it does is most safe
 	}
 }
 
@@ -55,10 +60,56 @@ func WithoutRatelimit() Option {
 	}
 }
 
+// WithGauge adds an aggregated gauge metric to the context.
+func WithGauge[T any](metric string, zero T, options ...meters.Option) Option {
+	return Option{
+		modifyContext: func(ctx context.Context) context.Context {
+			return meters.NewAggregatedGauge(ctx, metric, zero, options...)
+		},
+	}
+}
+
+// WithCounter adds an aggregated counter metric to the context.
+func WithCounter[T meters.Monoid](metric string, zero T, options ...meters.Option) Option {
+	return Option{
+		modifyContext: func(ctx context.Context) context.Context {
+			return meters.NewAggregatedCounter(ctx, metric, zero, options...)
+		},
+	}
+}
+
+// WithDelta adds an aggregated delta metric to the context.
+func WithDelta[T meters.Signed](metric string, threshold T, options ...meters.Option) Option {
+	return Option{
+		modifyContext: func(ctx context.Context) context.Context {
+			return meters.NewAggregatedDelta(ctx, metric, threshold, options...)
+		},
+	}
+}
+
 // Child returns a named child context, with additional options.  The new name can be empty.
 // Options are applied in an arbitrary order.
+//
+// Calling Child with a name adds the name to the current name, separated by a dot.  For example,
+// Child(Child(Background(), "PPS"), "master") would result in logs and metrics in the PPS.master
+// namespace.  It is okay to add interesting data to these names, like
+// fmt.Sprintf("pipelineController(%s)", pipeline.Name).  We prefer camel case names, and () to
+// quote dynamic data.
 func Child(ctx context.Context, name string, opts ...Option) context.Context {
 	var logOptions []log.LogOption
+	var newAggregatesNeeded bool
+	for _, opt := range opts {
+		if opt.addsFields {
+			newAggregatesNeeded = true
+			break
+		}
+	}
+	if name != "" {
+		newAggregatesNeeded = true
+	}
+	if newAggregatesNeeded {
+		ctx = meters.WithNewFields(ctx)
+	}
 	for _, opt := range opts {
 		if o := opt.modifyLogger; o != nil {
 			logOptions = append(logOptions, o)
