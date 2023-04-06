@@ -561,19 +561,23 @@ each datum.`,
 			if err != nil {
 				return errors.Wrapf(err, "parse since(%q)", since)
 			}
-			events, err := client.GetKubeEvents(since)
-			if err != nil {
-				return err
+			request := pps.LokiRequest{
+				Since: types.DurationProto(since),
 			}
-			if raw {
-				for _, event := range events {
-					fmt.Println(event.Message)
-				}
-				return nil
+			kubeEventsClient, err := client.PpsAPIClient.GetKubeEvents(client.Ctx(), &request)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.KubeEventsHeader)
-			for _, event := range events {
-				pretty.PrintKubeEvent(writer, event.Message)
+			if err := grpcutil.ForEach[*pps.LokiLogMessage](kubeEventsClient, func(msg *pps.LokiLogMessage) error {
+				if raw {
+					fmt.Println(msg.Message)
+				} else {
+					pretty.PrintKubeEvent(writer, msg.Message)
+				}
+				return nil
+			}); err != nil {
+				return err
 			}
 			return writer.Flush()
 		}),
@@ -581,6 +585,41 @@ each datum.`,
 	kubeEvents.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
 	kubeEvents.Flags().StringVar(&since, "since", "0", "Return log messages more recent than \"since\".")
 	commands = append(commands, cmdutil.CreateAlias(kubeEvents, "kube-events"))
+
+	queryLoki := &cobra.Command{
+		Use:   "{{alias}} <query>",
+		Short: "Query the loki logs.",
+		Long:  "Query the loki logs.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			query := args[0]
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			since, err := time.ParseDuration(since)
+			if err != nil {
+				return errors.Wrapf(err, "parse since(%q)", since)
+			}
+			request := pps.LokiRequest{
+				Query: query,
+				Since: types.DurationProto(since),
+			}
+			lokiClient, err := client.PpsAPIClient.QueryLoki(client.Ctx(), &request)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if err := grpcutil.ForEach[*pps.LokiLogMessage](lokiClient, func(log *pps.LokiLogMessage) error {
+				fmt.Println(log.Message)
+				return nil
+			}); err != nil {
+				return err
+			}
+			return nil
+		}),
+	}
+	queryLoki.Flags().StringVar(&since, "since", "0", "Return log messages more recent than \"since\".")
+	commands = append(commands, cmdutil.CreateAlias(queryLoki, "loki"))
 
 	inspectDatum := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job> <datum>",
