@@ -1170,6 +1170,7 @@ func (d *driver) resolveCommit(sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.
 					}
 					return nil, pfsserver.ErrParentCommitNotFound{Commit: commit}
 				}
+				return nil, err
 			}
 			commit = cis[i%len(cis)].ParentCommit
 		}

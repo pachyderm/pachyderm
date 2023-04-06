@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"go.uber.org/multierr"
 )
 
 // returns the commit of a certain repo in a commit set.
@@ -59,7 +60,7 @@ func CommitSetProvenance(tx *pachsql.Tx, id string) ([]*pfs.Commit, error) {
 
 // CommitSetSubvenance returns all the commit IDs that contain commits in this commit set in their
 // full (transitive) provenance
-func CommitSetSubvenance(tx *pachsql.Tx, id string) ([]*pfs.Commit, error) {
+func CommitSetSubvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr error) {
 	q := `
           WITH RECURSIVE subv(from_id, to_id) AS (
             SELECT from_id, to_id 
@@ -77,7 +78,11 @@ func CommitSetSubvenance(tx *pachsql.Tx, id string) ([]*pfs.Commit, error) {
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			retErr = multierr.Append(retErr, err)
+		}
+	}()
 	cs := make([]*pfs.Commit, 0)
 	for rows.Next() {
 		var commit string

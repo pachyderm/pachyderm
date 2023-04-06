@@ -13,6 +13,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	etcd "go.etcd.io/etcd/client/v3"
+	"go.uber.org/multierr"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -399,7 +400,7 @@ func (c *postgresCollection) list(
 	opts *Options,
 	q sqlx.ExtContext,
 	f func(*model) error,
-) error {
+) (retErr error) {
 	// To avoid holding a transaction open (which holds a DB connection) for an unknown duration
 	// dictated by the client's callback, we:
 	// (1) query a limited count of SQL rows into a buffer
@@ -414,8 +415,11 @@ func (c *postgresCollection) list(
 		if err != nil {
 			return nil, false, c.mapSQLError(err, "")
 		}
-		defer rs.Close()
-
+		defer func() {
+			if err := rs.Close(); err != nil {
+				retErr = multierr.Append(retErr, c.mapSQLError(err, ""))
+			}
+		}()
 		var rowCnt int
 		rowsBuffer := make([]*model, 0, c.listBufferCapacity)
 		for rs.Next() && rowCnt < c.listBufferCapacity {
@@ -428,9 +432,6 @@ func (c *postgresCollection) list(
 		}
 		if err := rs.Err(); err != nil {
 			return nil, false, errors.EnsureStack(err)
-		}
-		if err := rs.Close(); err != nil {
-			return nil, false, c.mapSQLError(rs.Close(), "")
 		}
 		return rowsBuffer, rowCnt == c.listBufferCapacity, nil
 	}
