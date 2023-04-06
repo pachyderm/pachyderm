@@ -38,13 +38,12 @@ Start a bash session in the `pachyderm/notebooks-user` container from the top-le
 
 ```
 docker run --name jupyterlab_pachyderm_frontend_dev \
-  --net=host \
-  --rm \
+  -p 8888:8888 \
   -it -e GRANT_SUDO=yes --user root \
   --device /dev/fuse --privileged \
   -v $(pwd):/home/jovyan/extension-wd \
   -w /home/jovyan/extension-wd \
-  pachyderm/notebooks-user:77ce3a1ef2c73bf34d064cd0bdb5a64262bf3280 \
+  pachyderm/notebooks-user:<latest master SHA> \
   bash
 ```
 
@@ -74,7 +73,20 @@ Within container run:
 npm run watch
 ```
 
+Note: Once run above, you can start the dev container again in future sessions using
+
+```
+docker start <container id>
+```
+
+and then running
+
+```
+docker exec -it a40 bash
+```
+
 Iterating on the mount server, from inside a `pachyderm` checkout:
+
 ```
 CGO_ENABLED=0 make install
 docker cp /home/luke/gocode/bin/pachctl jupyterlab_pachyderm_frontend_dev:/usr/local/bin/pachctl
