@@ -18,6 +18,7 @@ export type usePipelineResponse = {
   callCreatePipeline: () => Promise<void>;
   callSavePipeline: () => void;
   errorMessage: string;
+  responseMessage: string;
 };
 
 export const usePipeline = (
@@ -31,11 +32,13 @@ export const usePipeline = (
   const [inputSpec, setInputSpec] = useState('');
   const [requirements, setRequirements] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [responseMessage, setResponseMessage] = useState('');
 
   useEffect(() => {
     setImageName(metadata?.environments.default.image_tag ?? '');
     setPipelineName(metadata?.metadata.name ?? '');
     setRequirements(metadata?.notebook.requirements ?? '');
+    setResponseMessage('');
     if (metadata?.run.input) {
       const input = JSON.parse(metadata?.run.input); //TODO: Catch errors
       setInputSpec(YAML.stringify(input));
@@ -80,6 +83,7 @@ export const usePipeline = (
   const callCreatePipeline = async () => {
     setLoading(true);
     setErrorMessage('');
+    setResponseMessage('');
 
     let input: string;
     try {
@@ -104,6 +108,9 @@ export const usePipeline = (
           input_spec: input,
         },
       );
+      if (response.message !== null) {
+        setResponseMessage(response.message);
+      }
     } catch (e) {
       if (e instanceof ServerConnection.ResponseError) {
         setErrorMessage(e.message);
@@ -134,5 +141,6 @@ export const usePipeline = (
     callCreatePipeline,
     callSavePipeline,
     errorMessage,
+    responseMessage,
   };
 };
