@@ -848,19 +848,6 @@ func (c APIClient) getLogs(projectName, pipelineName, jobID string, data []strin
 	return resp
 }
 
-func (c APIClient) GetKubeEvents(since time.Duration) ([]*pps.LokiLogMessage, error) {
-	ctx, cf := context.WithCancel(c.Ctx())
-	defer cf()
-	request := pps.LokiRequest{
-		Since: types.DurationProto(since),
-	}
-	client, err := c.PpsAPIClient.GetKubeEvents(ctx, &request)
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return grpcutil.Collect[*pps.LokiLogMessage](client, 1000)
-}
-
 // CreatePipeline creates a new pipeline, pipelines are the main computation
 // object in PPS they create a flow of data from a set of input Repos to an
 // output Repo (which has the same name as the pipeline).  Whenever new data is

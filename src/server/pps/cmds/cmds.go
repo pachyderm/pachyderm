@@ -561,19 +561,23 @@ each datum.`,
 			if err != nil {
 				return errors.Wrapf(err, "parse since(%q)", since)
 			}
-			events, err := client.GetKubeEvents(since)
-			if err != nil {
-				return err
+			request := pps.LokiRequest{
+				Since: types.DurationProto(since),
 			}
-			if raw {
-				for _, event := range events {
-					fmt.Println(event.Message)
-				}
-				return nil
+			kubeEventsClient, err := client.PpsAPIClient.GetKubeEvents(client.Ctx(), &request)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.KubeEventsHeader)
-			for _, event := range events {
-				pretty.PrintKubeEvent(writer, event.Message)
+			if err := grpcutil.ForEach[*pps.LokiLogMessage](kubeEventsClient, func(msg *pps.LokiLogMessage) error {
+				if raw {
+					fmt.Println(msg.Message)
+				} else {
+					pretty.PrintKubeEvent(writer, msg.Message)
+				}
+				return nil
+			}); err != nil {
+				return err
 			}
 			return writer.Flush()
 		}),
