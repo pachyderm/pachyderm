@@ -1869,11 +1869,11 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		}
 	}
 	if branchInfo.Branch != nil {
-		if !force {
-			if len(branchInfo.Subvenance) > 0 {
-				return errors.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
-			}
-		}
+		// if !force {
+		// 	if len(branchInfo.Subvenance) > 0 {
+		// 		return errors.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
+		// 	}
+		// }
 		// For provenant branches, remove this branch from subvenance
 		for _, provBranch := range branchInfo.Provenance {
 			provBranchInfo := &pfs.BranchInfo{}
