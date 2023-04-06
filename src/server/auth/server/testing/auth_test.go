@@ -1913,10 +1913,9 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 
 	// force-delete input and output repos
 	require.NoError(t, aliceClient.DeleteProjectRepo(pfs.DefaultProjectName, repo, true))
-	require.NoError(t, aliceClient.DeleteProjectRepo(pfs.DefaultProjectName, pipeline, true))
 
 	// Attempt to delete the pipeline--must succeed
-	require.NoError(t, aliceClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, true))
+	require.NoError(t, aliceClient.DeleteProjectPipeline(pfs.DefaultProjectName, pipeline, false))
 	pis, err := aliceClient.ListPipeline(false)
 	require.NoError(t, err)
 	for _, pi := range pis {

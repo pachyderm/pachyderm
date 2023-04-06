@@ -36,20 +36,17 @@ func (a *validatedAPIServer) DeleteRepoInTransaction(txnCtx *txncontext.Transact
 }
 
 // FinishCommitInTransaction is identical to FinishCommit except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
+// inside an existing postgres transaction.  This is not an RPC.
 func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
 	userCommit := request.Commit
 	// Validate arguments
 	if userCommit == nil {
 		return errors.New("commit cannot be nil")
 	}
-	if userCommit.Branch == nil {
-		return errors.New("commit branch cannot be nil")
-	}
-	if userCommit.Branch.Repo == nil {
+	if userCommit.Branch == nil && userCommit.Repo == nil {
 		return errors.New("commit repo cannot be nil")
 	}
-	if err := a.auth.CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Branch.Repo, auth.Permission_REPO_WRITE); err != nil {
+	if err := a.auth.CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Permission_REPO_WRITE); err != nil {
 		return errors.EnsureStack(err)
 	}
 	return a.apiServer.FinishCommitInTransaction(txnCtx, request)
@@ -60,7 +57,7 @@ func (a *validatedAPIServer) InspectFile(ctx context.Context, request *pfs.Inspe
 	if err := validateFile(request.File); err != nil {
 		return nil, err
 	}
-	if err := a.auth.CheckRepoIsAuthorized(ctx, request.File.Commit.Branch.Repo, auth.Permission_REPO_INSPECT_FILE); err != nil {
+	if err := a.auth.CheckRepoIsAuthorized(ctx, request.File.Commit.Repo, auth.Permission_REPO_INSPECT_FILE); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return a.apiServer.InspectFile(ctx, request)
@@ -71,7 +68,10 @@ func (a *validatedAPIServer) ListFile(request *pfs.ListFileRequest, server pfs.A
 	if err := validateFile(request.File); err != nil {
 		return err
 	}
-	if err := a.auth.CheckRepoIsAuthorized(server.Context(), request.File.Commit.Branch.Repo, auth.Permission_REPO_LIST_FILE); err != nil {
+	if request.File.Commit.Repo == nil {
+		request.File.Commit.Repo = request.File.Commit.Branch.Repo
+	}
+	if err := a.auth.CheckRepoIsAuthorized(server.Context(), request.File.Commit.Repo, auth.Permission_REPO_LIST_FILE); err != nil {
 		return errors.EnsureStack(err)
 	}
 	return a.apiServer.ListFile(request, server)
@@ -87,11 +87,11 @@ func (a *validatedAPIServer) WalkFile(request *pfs.WalkFileRequest, server pfs.A
 	if file.Commit == nil {
 		return errors.New("file commit cannot be nil")
 	}
-	if file.Commit.Branch == nil {
-		return errors.New("file branch cannot be nil")
+	if file.Commit.Repo == nil && file.Commit.Branch == nil {
+		return errors.New("either the branch or repo must be set on the file commit repo")
 	}
-	if file.Commit.Branch.Repo == nil {
-		return errors.New("file commit repo cannot be nil")
+	if file.Commit.Branch != nil {
+		file.Commit.Repo = file.Commit.Branch.Repo
 	}
 	if err := a.auth.CheckRepoIsAuthorized(server.Context(), file.Commit.Branch.Repo, auth.Permission_REPO_READ, auth.Permission_REPO_LIST_FILE); err != nil {
 		return errors.EnsureStack(err)
@@ -132,6 +132,9 @@ func (a *validatedAPIServer) InspectCommit(ctx context.Context, req *pfs.Inspect
 	if req.Commit == nil {
 		return nil, errors.New("commit cannot be nil")
 	}
+	if req.Commit.Repo == nil {
+		req.Commit.Repo = req.Commit.Branch.Repo
+	}
 	return a.apiServer.InspectCommit(ctx, req)
 }
 
@@ -140,6 +143,17 @@ func (a *validatedAPIServer) InspectCommitSet(request *pfs.InspectCommitSetReque
 		return errors.New("commitset cannot be nil")
 	}
 	return a.apiServer.InspectCommitSet(request, server)
+}
+
+// ListCommit implements the protobuf pfs.ListCommit RPC
+func (a *validatedAPIServer) ListCommit(req *pfs.ListCommitRequest, respServer pfs.API_ListCommitServer) (retErr error) {
+	if req.To != nil && req.To.Repo == nil {
+		req.To.Repo = req.To.Branch.Repo
+	}
+	if req.From != nil && req.From.Repo == nil {
+		req.From.Repo = req.From.Branch.Repo
+	}
+	return a.apiServer.ListCommit(req, respServer)
 }
 
 func (a *validatedAPIServer) SquashCommitSet(ctx context.Context, request *pfs.SquashCommitSetRequest) (*types.Empty, error) {
@@ -184,6 +198,9 @@ func (a *validatedAPIServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.
 func (a *validatedAPIServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.CreateBranchRequest) error {
 	if request.Head != nil && request.Branch.Repo.Name != request.Head.Branch.Repo.Name {
 		return errors.New("branch and head commit must belong to the same repo")
+	}
+	if request.Head != nil && request.Head.Repo == nil {
+		request.Head.Repo = request.Head.Branch.Repo
 	}
 	return a.apiServer.CreateBranchInTransaction(txnCtx, request)
 }
