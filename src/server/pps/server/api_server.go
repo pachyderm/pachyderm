@@ -2831,12 +2831,12 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	pipelineName := request.Pipeline.Name
 
 	// stop the pipeline to avoid interference from new jobs
-	if _, err := a.StopPipeline(ctx,
-		&pps.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil && errutil.IsNotFoundError(err) {
-		log.Error(ctx, "failed to stop pipeline, continuing with delete", zap.Error(err))
-	} else if err != nil {
-		return errors.Wrapf(err, "error stopping pipeline %s", request.Pipeline)
-	}
+	// if _, err := a.StopPipeline(ctx,
+	// 	&pps.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil && errutil.IsNotFoundError(err) {
+	// 	log.Error(ctx, "failed to stop pipeline, continuing with delete", zap.Error(err))
+	// } else if err != nil {
+	// 	return errors.Wrapf(err, "error stopping pipeline %s", request.Pipeline)
+	// }
 	// perform the rest of the deletion in a transaction
 	var deleteErr error
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
