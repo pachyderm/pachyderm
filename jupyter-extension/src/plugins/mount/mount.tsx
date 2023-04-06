@@ -1,5 +1,9 @@
 import React from 'react';
-import {ILayoutRestorer, JupyterFrontEnd} from '@jupyterlab/application';
+import {
+  ILayoutRestorer,
+  JupyterFrontEnd,
+  ILabShell,
+} from '@jupyterlab/application';
 import {INotebookTracker, NotebookPanel} from '@jupyterlab/notebook';
 import {IDocumentManager} from '@jupyterlab/docmanager';
 import {SplitPanel} from '@lumino/widgets';
@@ -8,6 +12,7 @@ import {FileBrowser, IFileBrowserFactory} from '@jupyterlab/filebrowser';
 import {settingsIcon, spreadsheetIcon} from '@jupyterlab/ui-components';
 import {Signal} from '@lumino/signaling';
 import {JSONObject} from '@lumino/coreutils';
+import {IChangedArgs} from '@jupyterlab/coreutils';
 
 import {mountLogoIcon} from '../../utils/icons';
 import {PollMounts} from './pollMounts';
@@ -262,6 +267,8 @@ export class MountPlugin implements IMountPlugin {
     this._poller.unmountedSignal.connect(this.refresh);
 
     this._tracker.currentChanged.connect(this.handleNotebookChanged, this);
+    const shell = app.shell as ILabShell;
+    shell.currentChanged.connect(this.handleShellChanged, this);
 
     this._panel = new SplitPanel();
     this._panel.orientation = 'vertical';
@@ -319,6 +326,12 @@ export class MountPlugin implements IMountPlugin {
     } else {
       await Promise.resolve();
     }
+  };
+
+  handleShellChanged = (shell: ILabShell, change: any): void => {
+    //TODO Change from 'any' to proper class
+    console.log('shell', shell);
+    console.log('change', change);
   };
 
   getNotebookMetadata = (notebook: NotebookPanel | null): any | null => {
