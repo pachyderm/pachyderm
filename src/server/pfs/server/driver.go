@@ -317,9 +317,8 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 				if errors.Is(err, auth.ErrNotActivated) {
 					authSeemsActive = false
 					return cb(proto.Clone(repoInfo).(*pfs.RepoInfo))
-				} else {
-					return errors.Wrapf(err, "error getting access level for %q", repoInfo.Repo)
 				}
+				return errors.Wrapf(err, "error getting access level for %q", repoInfo.Repo)
 			}
 			repoInfo.AuthInfo = &pfs.AuthInfo{Permissions: permissions, Roles: roles}
 		}
