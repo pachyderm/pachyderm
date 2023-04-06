@@ -7,11 +7,13 @@ import (
 	"net/url"
 
 	"github.com/docker/go-units"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 	"gocloud.dev/blob"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
@@ -186,7 +188,6 @@ func shardObjects(ctx context.Context, URL string, cb shardCallback) (retErr err
 	return nil
 }
 
-// TODO: Parallelize and decide on appropriate config.
 func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL string, file *pfs.File, basePathRange *pfs.PathRange) (int64, error) {
 	if basePathRange == nil {
 		basePathRange = &pfs.PathRange{}
@@ -201,57 +202,68 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 	})
 	var bytesWritten int64
 	eg.Go(func() error {
-		src, err := d.getFile(ctx, file, basePathRange)
-		if err != nil {
-			return err
-		}
-		pathRange := &pfs.PathRange{
-			Lower: basePathRange.Lower,
-		}
-		createTask := func() error {
-			input, err := serializeGetFileURLTask(&GetFileURLTask{
-				URL:       URL,
-				File:      file,
-				PathRange: pathRange,
-			})
+		return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+			fsID, err := d.getFileSet(ctx, file.Commit)
 			if err != nil {
 				return err
 			}
-			select {
-			case inputChan <- input:
-			case <-ctx.Done():
-				return errors.EnsureStack(ctx.Err())
+			if err := renewer.Add(ctx, *fsID); err != nil {
+				return err
 			}
-			return nil
-		}
-		var numObjects, size int64
-		if err := src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
-			if fi.FileType != pfs.FileType_FILE {
-				return nil
+			file := proto.Clone(file).(*pfs.File)
+			file.Commit = client.NewProjectRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID.HexString())
+			src, err := d.getFile(ctx, file, basePathRange)
+			if err != nil {
+				return err
 			}
-			bytesWritten += fi.SizeBytes
-			if numObjects >= int64(defaultNumObjectsThreshold) || size >= defaultSizeThreshold {
-				pathRange.Upper = file.Index().Path
-				if err := createTask(); err != nil {
+			pathRange := &pfs.PathRange{
+				Lower: basePathRange.Lower,
+			}
+			createTask := func() error {
+				input, err := serializeGetFileURLTask(&GetFileURLTask{
+					URL:       URL,
+					File:      file,
+					PathRange: pathRange,
+				})
+				if err != nil {
 					return err
 				}
-				pathRange = &pfs.PathRange{
-					Lower: file.Index().Path,
+				select {
+				case inputChan <- input:
+				case <-ctx.Done():
+					return errors.EnsureStack(ctx.Err())
 				}
-				numObjects, size = 0, 0
+				return nil
 			}
-			numObjects++
-			size += fi.SizeBytes
+			var numObjects, size int64
+			if err := src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
+				if fi.FileType != pfs.FileType_FILE {
+					return nil
+				}
+				bytesWritten += fi.SizeBytes
+				if numObjects >= int64(defaultNumObjectsThreshold) || size >= defaultSizeThreshold {
+					pathRange.Upper = file.Index().Path
+					if err := createTask(); err != nil {
+						return err
+					}
+					pathRange = &pfs.PathRange{
+						Lower: file.Index().Path,
+					}
+					numObjects, size = 0, 0
+				}
+				numObjects++
+				size += fi.SizeBytes
+				return nil
+			}); err != nil {
+				return errors.EnsureStack(err)
+			}
+			pathRange.Upper = basePathRange.Upper
+			if err := createTask(); err != nil {
+				return err
+			}
+			close(inputChan)
 			return nil
-		}); err != nil {
-			return errors.EnsureStack(err)
-		}
-		pathRange.Upper = basePathRange.Upper
-		if err := createTask(); err != nil {
-			return err
-		}
-		close(inputChan)
-		return nil
+		})
 	})
 	if err := eg.Wait(); err != nil {
 		return 0, errors.EnsureStack(err)

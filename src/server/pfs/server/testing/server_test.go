@@ -5452,12 +5452,11 @@ func TestPFS(suite *testing.T) {
 		repo := "repo"
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 		commit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
-		masterCommit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
 		require.NoError(t, err)
 		objC := dockertestenv.NewTestObjClient(env.Context, t)
 		paths := []string{"files/foo", "files/bar", "files/fizz"}
 		for _, path := range paths {
-			writeObj(t, objC, path, path)
+			require.NoError(t, objC.Put(ctx, path, strings.NewReader(path)))
 		}
 		bucketURL := objC.BucketURL().String()
 		for _, p := range paths {
@@ -5473,10 +5472,10 @@ func TestPFS(suite *testing.T) {
 
 			for _, path := range paths {
 				var b bytes.Buffer
-				require.NoError(t, env.PachClient.GetFile(masterCommit, path, &b))
+				require.NoError(t, env.PachClient.GetFile(commit, path, &b))
 				require.Equal(t, path, b.String())
 				b.Reset()
-				require.NoError(t, env.PachClient.GetFile(masterCommit, filepath.Join("recursive", filepath.Base(path)), &b))
+				require.NoError(t, env.PachClient.GetFile(commit, filepath.Join("recursive", filepath.Base(path)), &b))
 				require.Equal(t, path, b.String())
 			}
 		}
@@ -7141,11 +7140,6 @@ var (
 	randSeed = int64(0)
 	randMu   sync.Mutex
 )
-
-func writeObj(t *testing.T, c obj.Client, path, content string) {
-	err := c.Put(context.Background(), path, strings.NewReader(content))
-	require.NoError(t, err)
-}
 
 type SlowReader struct {
 	underlying io.Reader
