@@ -1,3 +1,4 @@
+import {DEFAULT_FILE_LIMIT} from '@dash-backend/constants/limits';
 import {
   MutationResolvers,
   QueryResolvers,
@@ -43,12 +44,24 @@ const fileResolver: FileResolver = {
   Query: {
     files: async (
       _parent,
-      {args: {projectId, commitId, path, branchName, repoName}},
+      {
+        args: {
+          projectId,
+          commitId,
+          path,
+          branchName,
+          repoName,
+          cursorPath,
+          limit,
+          reverse,
+        },
+      },
       {pachClient, host},
     ) => {
       let diff:
         | undefined
         | {diffTotals: Record<string, FileCommitState>; diff: Diff};
+      limit = limit || DEFAULT_FILE_LIMIT;
 
       const files = await pachClient.pfs().listFile({
         projectId,
@@ -58,6 +71,9 @@ const fileResolver: FileResolver = {
           name: branchName,
           repo: {name: repoName},
         },
+        cursorPath: cursorPath || '',
+        number: limit + 1,
+        reverse: reverse || undefined,
       });
 
       const commit = commitInfoToGQLCommit(
@@ -89,8 +105,18 @@ const fileResolver: FileResolver = {
         diff = formatDiff(diffResponse);
       }
 
+      let nextCursor = undefined;
+
+      //If files.length is not greater than limit there are no pages left
+      if (files.length > limit) {
+        files.pop(); //remove the extra file from the response
+        nextCursor = files[files.length - 1].file?.path;
+      }
+
       return {
         diff: diff?.diff,
+        cursor: nextCursor,
+        hasNextPage: !!nextCursor,
         files: files.map((file) => ({
           commitId: file.file?.commit?.id || '',
           committed: file.committed,

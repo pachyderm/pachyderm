@@ -1577,6 +1577,8 @@ export const GetFilesDocument = gql`
         downloadDisabled
         commitAction
       }
+      cursor
+      hasNextPage
     }
   }
   ${DiffFragmentFragmentDoc}

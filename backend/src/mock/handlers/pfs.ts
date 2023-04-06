@@ -246,7 +246,29 @@ const pfs = () => {
           const directories = projectId
             ? MockState.state.files[projectId.toString()]
             : MockState.state.files['Solar-Panel-Data-Sorting'];
-          const replyFiles = directories[path] || directories['/'];
+          let replyFiles = directories[path] || directories['/'];
+
+          const reverse = call.request.getReverse();
+          if (reverse) {
+            replyFiles = replyFiles.reverse();
+          }
+
+          const cursor = call.request.getPaginationmarker();
+          if (cursor) {
+            cursor.getPath;
+            const cursorIndex = replyFiles.findIndex(
+              (file) => file.getFile()?.getPath() === cursor.getPath(),
+            );
+            replyFiles = replyFiles.slice(
+              cursorIndex !== -1 ? cursorIndex + 1 : -1,
+            );
+          }
+
+          const number = call.request.getNumber();
+          if (number) {
+            replyFiles = replyFiles.slice(0, number);
+          }
+
           replyFiles.forEach((file) => call.write(file));
           call.end();
         },

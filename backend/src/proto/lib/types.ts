@@ -18,6 +18,7 @@ import {
   InspectCommitSetRequest,
   ListBranchRequest,
   ListCommitRequest,
+  ListFileRequest,
   OriginKind,
   StartCommitRequest,
   SubscribeCommitRequest,
@@ -153,6 +154,16 @@ export type ListDatumsRequestArgs = {
   number?: number;
   cursor?: string;
   projectId: string;
+};
+
+export type ListFileArgs = {
+  projectId: string;
+  commitId: string;
+  cursorPath?: string;
+  path?: string;
+  branch: BranchObject;
+  reverse?: ListFileRequest.AsObject['reverse'];
+  number?: ListFileRequest.AsObject['number'];
 };
 
 export type RenewFileSetRequestArgs = {

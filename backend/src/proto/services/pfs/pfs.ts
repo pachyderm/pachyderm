@@ -26,6 +26,7 @@ import {
   InspectCommitSetArgs,
   ListBranchRequestArgs,
   ListCommitArgs,
+  ListFileArgs,
   StartCommitRequestArgs,
   SubscribeCommitRequestArgs,
   RenewFileSetRequestArgs,
@@ -99,20 +100,43 @@ const pfs = ({
   const pfsService = {
     listFile: ({
       projectId,
-      ...params
-    }: {
-      projectId: string;
-    } & FileObject) => {
+      commitId,
+      cursorPath,
+      path,
+      branch,
+      reverse,
+      number,
+    }: ListFileArgs) => {
       const listFileRequest = new ListFileRequest();
-      const file = fileFromObject(params);
+      const baseFile = fileFromObject({commitId, path, branch});
 
-      file
+      baseFile
         .getCommit()
         ?.getBranch()
         ?.getRepo()
         ?.setProject(new Project().setName(projectId));
 
-      listFileRequest.setFile(file);
+      listFileRequest.setFile(baseFile);
+
+      if (reverse) {
+        listFileRequest.setReverse(reverse);
+      }
+
+      if (number) {
+        listFileRequest.setNumber(number);
+      }
+
+      if (cursorPath) {
+        const cursorFile = fileFromObject({commitId, path: cursorPath, branch});
+
+        cursorFile
+          .getCommit()
+          ?.getBranch()
+          ?.getRepo()
+          ?.setProject(new Project().setName(projectId));
+
+        listFileRequest.setPaginationmarker(cursorFile);
+      }
 
       const stream = client.listFile(listFileRequest, credentialMetadata, {
         deadline: Date.now() + RPC_DEADLINE_MS,

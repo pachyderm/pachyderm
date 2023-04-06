@@ -24,6 +24,8 @@ export const GET_FILES_QUERY = gql`
         downloadDisabled
         commitAction
       }
+      cursor
+      hasNextPage
     }
   }
   ${DiffFragment}

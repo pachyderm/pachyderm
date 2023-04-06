@@ -349,6 +349,9 @@ input FileQueryArgs {
   path: String
   repoName: String!
   branchName: String!
+  cursorPath: String
+  limit: Int
+  reverse: Boolean
 }
 
 type FileQueryResponse {
@@ -648,6 +651,13 @@ type PageableJobSet {
   hasNextPage: Boolean
 }
 
+type PageableFile {
+  cursor: String
+  hasNextPage: Boolean
+  diff: Diff
+  files: [File!]!
+}
+
 type Query {
   project(id: ID!): Project!
   projects: [Project!]!
@@ -660,7 +670,7 @@ type Query {
   job(args: JobQueryArgs!): Job!
   jobsByPipeline(args: JobsByPipelineQueryArgs!): [Job!]!
   dag(args: DagQueryArgs!): [Vertex!]!
-  files(args: FileQueryArgs!): FileQueryResponse!
+  files(args: FileQueryArgs!): PageableFile!
   account: Account!
   searchResults(args: SearchResultQueryArgs!): SearchResults!
   authConfig: AuthConfig!

@@ -283,9 +283,12 @@ export type FileFromUrl = {
 export type FileQueryArgs = {
   branchName: Scalars['String'];
   commitId?: InputMaybe<Scalars['String']>;
+  cursorPath?: InputMaybe<Scalars['String']>;
+  limit?: InputMaybe<Scalars['Int']>;
   path?: InputMaybe<Scalars['String']>;
   projectId: Scalars['String'];
   repoName: Scalars['String'];
+  reverse?: InputMaybe<Scalars['Boolean']>;
 };
 
 export type FileQueryResponse = {
@@ -577,6 +580,14 @@ export type PageableDatum = {
   items: Array<Datum>;
 };
 
+export type PageableFile = {
+  __typename?: 'PageableFile';
+  cursor?: Maybe<Scalars['String']>;
+  diff?: Maybe<Diff>;
+  files: Array<File>;
+  hasNextPage?: Maybe<Scalars['Boolean']>;
+};
+
 export type PageableJob = {
   __typename?: 'PageableJob';
   cursor?: Maybe<Timestamp>;
@@ -697,7 +708,7 @@ export type Query = {
   datumSearch?: Maybe<Datum>;
   datums: PageableDatum;
   enterpriseInfo: EnterpriseInfo;
-  files: FileQueryResponse;
+  files: PageableFile;
   job: Job;
   jobSet: JobSet;
   jobSets: PageableJobSet;
@@ -1124,6 +1135,7 @@ export type ResolversTypes = ResolversObject<{
   Pach: ResolverTypeWrapper<Pach>;
   PageableCommit: ResolverTypeWrapper<PageableCommit>;
   PageableDatum: ResolverTypeWrapper<PageableDatum>;
+  PageableFile: ResolverTypeWrapper<PageableFile>;
   PageableJob: ResolverTypeWrapper<PageableJob>;
   PageableJobSet: ResolverTypeWrapper<PageableJobSet>;
   Pipeline: ResolverTypeWrapper<Pipeline>;
@@ -1220,6 +1232,7 @@ export type ResolversParentTypes = ResolversObject<{
   Pach: Pach;
   PageableCommit: PageableCommit;
   PageableDatum: PageableDatum;
+  PageableFile: PageableFile;
   PageableJob: PageableJob;
   PageableJobSet: PageableJobSet;
   Pipeline: Pipeline;
@@ -1743,6 +1756,21 @@ export type PageableDatumResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type PageableFileResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['PageableFile'] = ResolversParentTypes['PageableFile'],
+> = ResolversObject<{
+  cursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  diff?: Resolver<Maybe<ResolversTypes['Diff']>, ParentType, ContextType>;
+  files?: Resolver<Array<ResolversTypes['File']>, ParentType, ContextType>;
+  hasNextPage?: Resolver<
+    Maybe<ResolversTypes['Boolean']>,
+    ParentType,
+    ContextType
+  >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type PageableJobResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['PageableJob'] = ResolversParentTypes['PageableJob'],
@@ -1941,7 +1969,7 @@ export type QueryResolvers<
     ContextType
   >;
   files?: Resolver<
-    ResolversTypes['FileQueryResponse'],
+    ResolversTypes['PageableFile'],
     ParentType,
     ContextType,
     RequireFields<QueryFilesArgs, 'args'>
@@ -2205,6 +2233,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Pach?: PachResolvers<ContextType>;
   PageableCommit?: PageableCommitResolvers<ContextType>;
   PageableDatum?: PageableDatumResolvers<ContextType>;
+  PageableFile?: PageableFileResolvers<ContextType>;
   PageableJob?: PageableJobResolvers<ContextType>;
   PageableJobSet?: PageableJobSetResolvers<ContextType>;
   Pipeline?: PipelineResolvers<ContextType>;
@@ -2811,7 +2840,9 @@ export type GetFilesQueryVariables = Exact<{
 export type GetFilesQuery = {
   __typename?: 'Query';
   files: {
-    __typename?: 'FileQueryResponse';
+    __typename?: 'PageableFile';
+    cursor?: string | null;
+    hasNextPage?: boolean | null;
     diff?: {
       __typename?: 'Diff';
       size: number;

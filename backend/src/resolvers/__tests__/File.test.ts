@@ -5,6 +5,7 @@ import {executeMutation, executeQuery} from '@dash-backend/testHelpers';
 import {
   FileQueryResponse,
   FileType,
+  GetFilesQuery,
   PutFilesFromUrLsMutation,
 } from '@graphqlTypes';
 
@@ -123,6 +124,130 @@ describe('File Resolver', () => {
       expect(files?.[0]?.path).toBe('/cats/kitten.png');
       expect(files?.[1]?.path).toBe('/cats/test.png');
       expect(files?.[1]?.downloadDisabled).toBe(true);
+    });
+  });
+
+  describe('files paging', () => {
+    it('should return the first page if no cursor is specified', async () => {
+      const {data, errors = []} = await executeQuery<GetFilesQuery>(
+        GET_FILES_QUERY,
+        {
+          args: {
+            projectId,
+            commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
+            path: '/',
+            branchName: 'master',
+            repoName: 'images',
+            limit: 3,
+            reverse: false,
+          },
+        },
+      );
+
+      expect(errors).toHaveLength(0);
+      expect(data?.files.files).toHaveLength(3);
+      expect(data?.files.cursor).toBe('/cats/');
+      expect(data?.files.hasNextPage).toBe(true);
+      expect(data?.files.files[0]).toEqual(
+        expect.objectContaining({
+          __typename: 'File',
+          commitId: 'd350c8d08a644ed5b2ee98c035ab6b33',
+          path: '/AT-AT.png',
+          repoName: 'images',
+        }),
+      );
+    });
+
+    it('should return the next page if cursor is specified', async () => {
+      const {data, errors = []} = await executeQuery<GetFilesQuery>(
+        GET_FILES_QUERY,
+        {
+          args: {
+            projectId,
+            commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
+            path: '/',
+            branchName: 'master',
+            repoName: 'images',
+            cursorPath: '/cats/',
+            limit: 3,
+            reverse: false,
+          },
+        },
+      );
+
+      expect(errors).toHaveLength(0);
+      expect(data?.files.files).toHaveLength(3);
+      expect(data?.files.cursor).toBe('/csv_tabs.csv');
+      expect(data?.files.hasNextPage).toBe(true);
+      expect(data?.files.files[0]).toEqual(
+        expect.objectContaining({
+          __typename: 'File',
+          commitId: '531f844bd184e913b050d49856e8d438',
+          path: '/carriers_list.textpb',
+          repoName: 'samples',
+        }),
+      );
+    });
+
+    it('should return no cursor if there are no more jobs after the requested page', async () => {
+      const {data, errors = []} = await executeQuery<GetFilesQuery>(
+        GET_FILES_QUERY,
+        {
+          args: {
+            projectId,
+            commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
+            path: '/',
+            branchName: 'master',
+            repoName: 'images',
+            cursorPath: '/json_object_array.json',
+            limit: 10,
+            reverse: false,
+          },
+        },
+      );
+
+      expect(errors).toHaveLength(0);
+      expect(data?.files.files).toHaveLength(7);
+      expect(data?.files.cursor).toBeNull();
+      expect(data?.files.hasNextPage).toBe(false);
+      expect(data?.files.files[0]).toEqual(
+        expect.objectContaining({
+          __typename: 'File',
+          commitId: '531f844bd184e913b050d49856e8d438',
+          path: '/json_single_field.json',
+          repoName: 'samples',
+        }),
+      );
+    });
+
+    it('should return the reverse order is reverse is true', async () => {
+      const {data, errors = []} = await executeQuery<GetFilesQuery>(
+        GET_FILES_QUERY,
+        {
+          args: {
+            projectId,
+            commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
+            path: '/',
+            branchName: 'master',
+            repoName: 'images',
+            limit: 1,
+            reverse: true,
+          },
+        },
+      );
+
+      expect(errors).toHaveLength(0);
+      expect(data?.files.files).toHaveLength(1);
+      expect(data?.files.cursor).toBe('/yml_spec.yml');
+      expect(data?.files.hasNextPage).toBe(true);
+      expect(data?.files.files[0]).toEqual(
+        expect.objectContaining({
+          __typename: 'File',
+          commitId: '531f844bd184e913b050d49856e8d438',
+          path: '/yml_spec.yml',
+          repoName: 'samples',
+        }),
+      );
     });
   });
   describe('putFilesFromURLs', () => {
