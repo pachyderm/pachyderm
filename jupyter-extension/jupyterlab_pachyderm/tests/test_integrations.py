@@ -10,7 +10,6 @@ import requests
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
 from jupyterlab_pachyderm.env import PFS_MOUNT_DIR
-from jupyterlab_pachyderm.pps_client import SAME_METADATA_FIELDS
 
 
 ADDRESS = "http://localhost:8888"
@@ -401,24 +400,21 @@ def test_pps(dev_server, simple_pachyderm_env):
     client, repo_name, pipeline_name = simple_pachyderm_env
     path = TEST_NOTEBOOK.relative_to(Path.cwd())
     image = "combinatorml/jupyterlab-tensorflow-opencv:0.9"
-    input_spec = dict(pfs=dict(repo=repo_name, glob="/*"))
     data = dict(
-        apiVersion='sameproject.ml/v1alpha1',
-        environments=dict(default=dict(image_tag=image)),
-        metadata=dict(name=pipeline_name, version='0.0.0'),
-        notebook=dict(requirements=''),
-        run=dict(name=pipeline_name, input=json.dumps(input_spec)),
+        pipeline_name=pipeline_name,
+        image=image,
+        input_spec=dict(pfs=dict(repo=repo_name, glob="/*"))
     )
     r = requests.put(f"{BASE_URL}/pps/_create/{path}", data=json.dumps(data))
     assert r.status_code == 200
     assert next(client.inspect_pipeline(pipeline_name))
 
 
-@pytest.mark.parametrize('excluded_field', SAME_METADATA_FIELDS)
+@pytest.mark.parametrize('excluded_field', ('pipeline_name', 'image', 'input_spec'))
 def test_pps_validation_errors(dev_server, excluded_field):
     path = TEST_NOTEBOOK.relative_to(Path.cwd())
     data = dict()
-    for field in SAME_METADATA_FIELDS:
+    for field in ('pipeline_name', 'image', 'input_spec'):
         if field != excluded_field:
             data[field] = dict()
 
