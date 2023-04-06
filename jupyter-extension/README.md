@@ -82,7 +82,7 @@ docker start <container id>
 and then running
 
 ```
-docker exec -it a40 bash
+docker exec -it <container id> bash
 ```
 
 Iterating on the mount server, from inside a `pachyderm` checkout:
