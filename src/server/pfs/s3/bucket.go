@@ -157,7 +157,7 @@ func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 		return err
 	}
 
-	_, err = pc.PfsAPIClient.CreateRepo(pc.Ctx(), &pfs.CreateRepoRequest{Repo: bucket.Commit.Branch.Repo})
+	_, err = pc.PfsAPIClient.CreateRepo(pc.Ctx(), &pfs.CreateRepoRequest{Repo: bucket.Commit.Repo})
 	if err != nil {
 		if errutil.IsAlreadyExistError(err) {
 			// Bucket already exists - this is not an error so long as the
@@ -232,14 +232,14 @@ func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 		return s2.InternalError(r, grpcutil.ScrubGRPC(err))
 	}
 
-	repoInfo, err := pc.PfsAPIClient.InspectRepo(pc.Ctx(), &pfs.InspectRepoRequest{Repo: bucket.Commit.Branch.Repo})
+	repoInfo, err := pc.PfsAPIClient.InspectRepo(pc.Ctx(), &pfs.InspectRepoRequest{Repo: bucket.Commit.Repo})
 	if err != nil {
 		return s2.InternalError(r, grpcutil.ScrubGRPC(err))
 	}
 
 	// delete the repo if this was the last branch
 	if len(repoInfo.Branches) == 0 {
-		_, err = pc.PfsAPIClient.DeleteRepo(pc.Ctx(), &pfs.DeleteRepoRequest{Repo: bucket.Commit.Branch.Repo})
+		_, err = pc.PfsAPIClient.DeleteRepo(pc.Ctx(), &pfs.DeleteRepoRequest{Repo: bucket.Commit.Repo})
 		if err != nil {
 			return s2.InternalError(r, grpcutil.ScrubGRPC(err))
 		}

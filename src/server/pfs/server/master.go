@@ -283,54 +283,13 @@ func (d *driver) finalizeCommit(ctx context.Context, commit *pfs.Commit, validat
 			}); err != nil {
 				return errors.EnsureStack(err)
 			}
-			if commitInfo.Commit.Branch.Repo.Type == pfs.UserRepoType {
+			if commitInfo.Commit.Repo.Type == pfs.UserRepoType {
 				txnCtx.FinishJob(commitInfo)
 			}
-			if err := d.finishAliasDescendents(txnCtx, commitInfo, totalId); err != nil {
-				return err
+			if commitInfo.Error == "" {
+				return d.triggerCommit(txnCtx, commitInfo.Commit)
 			}
-			// TODO(2.0 optional): This is a hack to ensure that commits created by triggers have the same ID as the finished commit.
-			// Creating an alias in the branch of the finished commit, then having the trigger alias that commit seems
-			// like a better model.
-			txnCtx.CommitSetID = commitInfo.Commit.ID
-			return d.triggerCommit(txnCtx, commitInfo.Commit)
+			return nil
 		})
 	})
-}
-
-// finishAliasDescendents will traverse the given commit's descendents, finding all
-// contiguous aliases and finishing them.
-func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, parentCommitInfo *pfs.CommitInfo, id *fileset.ID) error {
-	// Build the starting set of commits to consider
-	descendents := append([]*pfs.Commit{}, parentCommitInfo.ChildCommits...)
-
-	// A commit cannot have more than one parent, so no need to track visited nodes
-	for len(descendents) > 0 {
-		commit := descendents[0]
-		descendents = descendents[1:]
-		commitInfo := &pfs.CommitInfo{}
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(pfsdb.CommitKey(commit), commitInfo); err != nil {
-			return errors.EnsureStack(err)
-		}
-
-		if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
-			if commitInfo.Finishing == nil {
-				commitInfo.Finishing = txnCtx.Timestamp
-			}
-			commitInfo.Finished = txnCtx.Timestamp
-			commitInfo.Details = parentCommitInfo.Details
-			commitInfo.Error = parentCommitInfo.Error
-			if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(commit), commitInfo); err != nil {
-				return errors.EnsureStack(err)
-			}
-			if id != nil {
-				if err := d.commitStore.SetTotalFileSetTx(txnCtx.SqlTx, commitInfo.Commit, *id); err != nil {
-					return errors.EnsureStack(err)
-				}
-			}
-
-			descendents = append(descendents, commitInfo.ChildCommits...)
-		}
-	}
-	return nil
 }

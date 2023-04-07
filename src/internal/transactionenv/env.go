@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 )
 
@@ -266,42 +265,21 @@ func (t *appendTransaction) DeleteRoleBinding(original *auth.Resource) error {
 // transaction is present in the RPC context.  If an active transaction is
 // present, any calls into the Transaction are first dry-run then appended
 // to the transaction.  If there is no active transaction, the request will be
-// run directly through the selected server.  A second callback may be provided
-// to override the generated transaction ID in the case that an existing
-// transaction is not being used.
-func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transaction) error, overrideID func(*txncontext.TransactionContext) (string, error)) error {
+// run directly through the selected server.
+func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transaction) error) error {
 	activeTxn, err := client.GetTransaction(ctx)
 	if err != nil {
 		return err
 	}
-
 	if activeTxn != nil {
 		appendTxn := newAppendTransaction(ctx, activeTxn, env)
 		return cb(appendTxn)
 	}
+	return env.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		directTxn := NewDirectTransaction(env, txnCtx)
+		return cb(directTxn)
+	})
 
-	useOverride := overrideID != nil
-	for {
-		if err := env.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-			directTxn := NewDirectTransaction(env, txnCtx)
-			if useOverride {
-				id, err := overrideID(txnCtx)
-				if err != nil {
-					return err
-				}
-				if id != "" {
-					txnCtx.CommitSetID = id
-				}
-			}
-
-			return cb(directTxn)
-		}); useOverride && err != nil && errors.Is(err, pfsserver.ErrInconsistentCommit{}) {
-			// try one more time with the random transaction ID
-			useOverride = false
-		} else {
-			return err
-		}
-	}
 }
 
 func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *pachsql.Tx, cb func(*txncontext.TransactionContext) error) error {

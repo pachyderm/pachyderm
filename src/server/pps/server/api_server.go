@@ -470,7 +470,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 func (a *apiServer) UpdateJobState(ctx context.Context, request *pps.UpdateJobStateRequest) (response *types.Empty, retErr error) {
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.UpdateJobState(request))
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 
@@ -579,10 +579,10 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 	}
 
 	if err := forEachCommitInJob(pachClient, request.JobSet.ID, request.Wait, func(ci *pfs.CommitInfo) error {
-		if ci.Commit.Branch.Repo.Type != pfs.UserRepoType || ci.Origin.Kind == pfs.OriginKind_ALIAS {
+		if ci.Commit.Repo.Type != pfs.UserRepoType {
 			return nil
 		}
-		return cb(ci.Commit.Branch.Repo.Project.GetName(), ci.Commit.Branch.Repo.Name)
+		return cb(ci.Commit.Repo.Project.GetName(), ci.Commit.Repo.Name)
 	}); err != nil {
 		if pfsServer.IsCommitSetNotFoundErr(err) {
 			// There are no commits for this ID, but there may still be jobs, query
@@ -707,65 +707,37 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	return nil
 }
 
+// TODO(provenance): rewrite in terms of CommitSubvenance.
 // intersectCommitSets finds all commitsets which involve the specified commits
-// (or aliases of the specified commits)
-// TODO(global ids): this assumes that all aliases are equivalent to their first
-// ancestor non-alias commit, but that may not be true if the ancestor has been
-// squashed.  We may need to recursively squash commitsets to prevent this.
 func (a *apiServer) intersectCommitSets(ctx context.Context, commits []*pfs.Commit) (map[string]struct{}, error) {
-	walkCommits := func(startCommit *pfs.Commit) (map[string]struct{}, error) {
-		result := map[string]struct{}{} // key is the commitset id
-		queue := []*pfs.Commit{}
-
-		// Walk upwards until finding a concrete commit
-		cursor := startCommit
-		for {
-			commitInfo, err := a.resolveCommit(ctx, cursor)
-			if err != nil {
-				return nil, err
+	intersection := map[string]struct{}{}
+	if len(commits) == 0 {
+		return intersection, nil
+	}
+	listClient, err := a.env.GetPachClient(ctx).ListCommitSet(ctx, &pfs.ListCommitSetRequest{})
+	if err != nil {
+		return nil, err
+	}
+	if err := grpcutil.ForEach[*pfs.CommitSetInfo](listClient, func(cs *pfs.CommitSetInfo) error {
+		provCommits := map[string]struct{}{}
+		for _, c := range cs.Commits {
+			for _, p := range c.DirectProvenance {
+				provCommits[p.String()] = struct{}{}
 			}
-			if commitInfo.Origin.Kind != pfs.OriginKind_ALIAS || commitInfo.ParentCommit == nil {
-				result[cursor.ID] = struct{}{}
-				queue = append(queue, commitInfo.ChildCommits...)
+		}
+		allCommits := true
+		for _, c := range commits {
+			if _, ok := provCommits[c.String()]; !ok {
+				allCommits = false
 				break
 			}
-			cursor = commitInfo.ParentCommit
 		}
-
-		// Now find all descendent aliases
-		for len(queue) > 0 {
-			cursor = queue[0]
-			queue = queue[1:]
-
-			commitInfo, err := a.resolveCommit(ctx, cursor)
-			if err != nil {
-				return nil, err
-			}
-			if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
-				result[cursor.ID] = struct{}{}
-				queue = append(queue, commitInfo.ChildCommits...)
-			}
+		if allCommits {
+			intersection[cs.CommitSet.ID] = struct{}{}
 		}
-		return result, nil
-	}
-
-	var intersection map[string]struct{}
-	for _, commit := range commits {
-		result, err := walkCommits(commit)
-		if err != nil {
-			return nil, err
-		}
-		if intersection == nil {
-			intersection = result
-		} else {
-			newIntersection := map[string]struct{}{}
-			for commitsetID := range result {
-				if _, ok := intersection[commitsetID]; ok {
-					newIntersection[commitsetID] = struct{}{}
-				}
-			}
-			intersection = newIntersection
-		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	return intersection, nil
 }
@@ -788,7 +760,6 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 		pipelineInfo); err != nil {
 		return errors.EnsureStack(err)
 	}
-
 	details := &pps.JobInfo_Details{}
 	details.Transform = pipelineInfo.Details.Transform
 	details.ParallelismSpec = pipelineInfo.Details.ParallelismSpec
@@ -866,15 +837,6 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 			return errors.EnsureStack(err)
 		}
 	}
-
-	// For each specified input commit, build the set of commitset IDs which
-	// belong to all of them.
-	inputCommits := request.GetInputCommit()
-	commitsets, err := a.intersectCommitSets(ctx, inputCommits)
-	if err != nil {
-		return err
-	}
-
 	var jqCode *gojq.Code
 	var enc serde.Encoder
 	var jsonBuffer bytes.Buffer
@@ -927,14 +889,16 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 				return err
 			}
 		}
-
-		if len(inputCommits) > 0 {
+		if len(request.GetInputCommit()) > 0 {
 			// Only include the job if it's in the set of intersected commitset IDs
+			commitsets, err := a.intersectCommitSets(ctx, request.GetInputCommit())
+			if err != nil {
+				return err
+			}
 			if _, ok := commitsets[jobInfo.Job.ID]; !ok {
 				return nil
 			}
 		}
-
 		if !pipelineVersions[ppsdb.VersionKey(jobInfo.Job.Pipeline, jobInfo.PipelineVersion)] {
 			return nil
 		}
@@ -1042,7 +1006,7 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 	ensurePipelineProject(request.GetJob().GetPipeline())
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.StopJob(request))
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	clearJobCache(a.env.GetPachClient(ctx), ppsdb.JobKey(request.Job))
@@ -2186,7 +2150,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(request))
-	}, nil); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -3129,10 +3093,8 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 		return nil, errors.New("request.Pipeline cannot be nil")
 	}
 	ensurePipelineProject(request.Pipeline)
-
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		pipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
-		if err == nil {
+		if pipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline); err == nil {
 			// check if the caller is authorized to update this pipeline
 			// don't pass in the input - stopping the pipeline means they won't be read anymore,
 			// so we don't need to check any permissions
@@ -3221,41 +3183,35 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 }
 
 func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
-	commitInfos, err := a.env.PFSServer.InspectCommitSetInTransaction(txnCtx, client.NewCommitSet(txnCtx.CommitSetID))
+	commitInfos, err := a.env.PFSServer.InspectCommitSetInTransaction(txnCtx, client.NewCommitSet(txnCtx.CommitSetID), false)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-
 	for _, commitInfo := range commitInfos {
 		// Skip alias commits and any commits which have already been finished
-		if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS || commitInfo.Finishing != nil {
+		if commitInfo.Finishing != nil {
 			continue
 		}
-
 		// Skip commits from system repos
-		if commitInfo.Commit.Branch.Repo.Type != pfs.UserRepoType {
+		if commitInfo.Commit.Repo.Type != pfs.UserRepoType {
 			continue
 		}
-
 		// Skip commits from repos that have no associated pipeline
 		var pipelineInfo *pps.PipelineInfo
-		if pipelineInfo, err = a.InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commitInfo.Commit.Branch.Repo)); err != nil {
+		if pipelineInfo, err = a.InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil {
 			if col.IsErrNotFound(err) {
 				continue
 			}
 			return err
 		}
-
 		// Don't create jobs for spouts
 		if pipelineInfo.Type == pps.PipelineInfo_PIPELINE_TYPE_SPOUT {
 			continue
 		}
-
 		// Don't create jobs for commits not on the output branch.
 		if commitInfo.Commit.Branch.Name != pipelineInfo.Details.OutputBranch {
 			continue
 		}
-
 		// Check if there is an existing job for the output commit
 		job := client.NewProjectJob(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, txnCtx.CommitSetID)
 		jobInfo := &pps.JobInfo{}
@@ -3528,20 +3484,6 @@ func (a *apiServer) rcPods(ctx context.Context, pi *pps.PipelineInfo) ([]v1.Pod,
 		})
 	}
 	return pp, nil
-}
-
-func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
-	pachClient := a.env.GetPachClient(ctx)
-	ci, err := pachClient.PfsAPIClient.InspectCommit(
-		pachClient.Ctx(),
-		&pfs.InspectCommitRequest{
-			Commit: commit,
-			Wait:   pfs.CommitState_STARTED,
-		})
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return ci, nil
 }
 
 func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) map[string]string {

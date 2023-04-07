@@ -102,13 +102,12 @@ func (pj *pendingJob) load() error {
 			return errors.EnsureStack(err)
 		}
 		if metaCI.Origin.Kind == pfs.OriginKind_AUTO {
-			outputCI, err := pachClient.InspectProjectCommit(pj.baseMetaCommit.Branch.Repo.Project.GetName(), pj.baseMetaCommit.Branch.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
+			outputCI, err := pachClient.InspectProjectCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
 			// both commits must have succeeded - a validation error will only show up in the output
-			// the commit must also not be of type ALIAS, to ensure that we have a corresponding job
-			if metaCI.Error == "" && outputCI.Error == "" && outputCI.Origin.Kind != pfs.OriginKind_ALIAS {
+			if metaCI.Error == "" && outputCI.Error == "" {
 				break
 			}
 		}
@@ -274,7 +273,7 @@ func (pj *pendingJob) createSerialDatums(ctx context.Context, taskDoer task.Doer
 		return datum.CreateEmptyFileSet(pachClient)
 	}
 	// Wait for the base job to finish.
-	ci, err := pachClient.WaitProjectCommit(pj.baseMetaCommit.Branch.Repo.Project.GetName(), pj.baseMetaCommit.Branch.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
+	ci, err := pachClient.WaitProjectCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
 	if err != nil {
 		return "", err
 	}

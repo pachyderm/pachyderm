@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
 const (
@@ -382,24 +383,32 @@ func TestOpenCommit(t *testing.T) {
 	})
 }
 
+func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id string) error {
+	if err := pachClient.FinishProjectCommit(project, repo, branch, id); err != nil {
+		if !pfsserver.IsCommitFinishedErr(err) {
+			return err
+		}
+	}
+	_, err := pachClient.WaitProjectCommit(project, repo, branch, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func TestMountCommit(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, "repo"))
-	txn, err := env.PachClient.StartTransaction()
+	c1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "repo", "master")
 	require.NoError(t, err)
-	c := env.PachClient.WithTransaction(txn)
-	c1, err := c.StartProjectCommit(pfs.DefaultProjectName, "repo", "b1")
+	require.NoError(t, env.PachClient.PutFile(c1, "foo", strings.NewReader("foo")))
+	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.ID))
+	require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, "repo", "dev", "master", "", nil))
+	c2, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, "repo", "dev")
 	require.NoError(t, err)
-	c2, err := c.StartProjectCommit(pfs.DefaultProjectName, "repo", "b2")
-	require.NoError(t, err)
-	_, err = env.PachClient.FinishTransaction(txn)
-	require.NoError(t, err)
-
-	err = env.PachClient.PutFile(c1, "foo", strings.NewReader("foo"))
-	require.NoError(t, err)
-	err = env.PachClient.PutFile(c2, "bar", strings.NewReader("bar"))
-	require.NoError(t, err)
+	require.NoError(t, env.PachClient.PutFile(c2, "bar", strings.NewReader("bar")))
+	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.ID))
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
@@ -438,9 +447,9 @@ func TestMountCommit(t *testing.T) {
 
 		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
-		require.Equal(t, 1, len(files))
+		require.Equal(t, 2, len(files))
 		require.Equal(t, "bar", filepath.Base(files[0].Name()))
-
+		require.Equal(t, "foo", filepath.Base(files[1].Name()))
 		data, err := os.ReadFile(filepath.Join(mountPoint, "repo", "bar"))
 		require.NoError(t, err)
 		require.Equal(t, "bar", string(data))
