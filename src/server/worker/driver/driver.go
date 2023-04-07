@@ -542,8 +542,8 @@ func (d *driver) UserCodeEnv(
 	if jobID != "" {
 		result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
 		pipeline := &pps.Pipeline{
-			Project: outputCommit.Branch.Repo.Project,
-			Name:    outputCommit.Branch.Repo.Name,
+			Project: outputCommit.Repo.Project,
+			Name:    outputCommit.Repo.Name,
 		}
 		if ppsutil.ContainsS3Inputs(d.PipelineInfo().Details.Input) || d.PipelineInfo().Details.S3Out {
 			// TODO(msteffen) Instead of reading S3GATEWAY_PORT directly, worker/main.go

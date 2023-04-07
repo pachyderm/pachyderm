@@ -193,9 +193,9 @@ func (d *WorkerDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 	}
 
 	for _, bucket := range d.namesMap {
-		timestamp, ok := timestamps[pfsdb.RepoKey(bucket.Commit.Branch.Repo)]
+		timestamp, ok := timestamps[pfsdb.RepoKey(bucket.Commit.Repo)]
 		if !ok {
-			return errors.Errorf("worker s3gateway configuration includes repo %q, which does not exist", bucket.Commit.Branch.Repo)
+			return errors.Errorf("worker s3gateway configuration includes repo %q, which does not exist", bucket.Commit.Repo)
 		}
 		*buckets = append(*buckets, &s2.Bucket{
 			Name:         bucket.Name,

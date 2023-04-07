@@ -164,8 +164,8 @@ func logSetPipelineState(ctx context.Context, pipeline *pps.Pipeline, from []pps
 // exclusively?) called by the PPS master
 func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection col.PostgresCollection, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	pipeline := &pps.Pipeline{
-		Project: specCommit.Branch.Repo.Project,
-		Name:    specCommit.Branch.Repo.Name,
+		Project: specCommit.Repo.Project,
+		Name:    specCommit.Repo.Name,
 	}
 	logSetPipelineState(ctx, pipeline, from, to, reason)
 	var resultMessage string
@@ -369,7 +369,7 @@ func WriteJobInfo(pachClient *client.APIClient, jobInfo *pps.JobInfo) error {
 }
 
 func MetaCommit(commit *pfs.Commit) *pfs.Commit {
-	return client.NewSystemProjectRepo(commit.Branch.Repo.Project.GetName(), commit.Branch.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.ID)
+	return client.NewSystemProjectRepo(commit.Repo.Project.GetName(), commit.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.ID)
 }
 
 // ContainsS3Inputs returns 'true' if 'in' is or contains any PFS inputs with
@@ -455,18 +455,7 @@ func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, 
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	for commitInfo.Origin.Kind != pfs.OriginKind_USER {
-		curr = commitInfo.ParentCommit
-		if curr == nil {
-			return nil, errors.Wrapf(ppsServer.ErrPipelineNotFound{}, "spec commit for pipeline %s not found", pipeline)
-		}
-		if commitInfo, err = pfsServer.InspectCommitInTransaction(txnCtx,
-			&pfs.InspectCommitRequest{Commit: curr}); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-	}
-
-	return curr, nil
+	return commitInfo.Commit, nil
 }
 
 // ListPipelineInfo calls f on each pipeline in the database matching filter (on
