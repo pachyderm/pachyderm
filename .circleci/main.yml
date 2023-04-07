@@ -668,7 +668,8 @@ jobs:
     steps:
       - checkout
       - run: curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh| sh -s -- -b ./bin
-      - run: python -m pip install --upgrade black
+      # cimg:python uses pyenv, by running pip using shim, black will be added to path
+      - run: pip install --upgrade black
       - run: black --diff --quiet --check .
   jsonnet-lint:
     resource_class: small
