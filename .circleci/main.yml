@@ -46,6 +46,9 @@ parameters:
   run-core-jobs:
     type: boolean
     default: false
+  run-python-lint:
+    type: boolean
+    default: false
 executors:
   docker-go:
     docker:
@@ -660,6 +663,13 @@ jobs:
       - checkout
       - run: sudo npm install -g prettier
       - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml .circleci/main.yml
+  check-black:
+    executor: python
+    steps:
+      - checkout
+      - run: curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh| sh -s -- -b ./bin
+      - run: python -m pip install --upgrade black
+      - run: black --diff --quiet --check .
   jsonnet-lint:
     resource_class: small
     docker:
@@ -1517,6 +1527,10 @@ workflows:
             - build-pachctl-bin
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
+  python-linting:
+    when: << pipeline.parameters.run-python-lint >>
+    jobs:
+      - check-black
 
   release:
     jobs:
