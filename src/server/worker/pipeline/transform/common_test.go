@@ -40,10 +40,11 @@ func defaultPipelineInfo() *pps.PipelineInfo {
 			},
 			Input: &pps.Input{
 				Pfs: &pps.PFSInput{
-					Name:   "inputRepo",
-					Repo:   "inputRepo",
-					Branch: "master",
-					Glob:   "/*",
+					Project: pfs.DefaultProjectName,
+					Name:    "inputRepo",
+					Repo:    "inputRepo",
+					Branch:  "master",
+					Glob:    "/*",
 				},
 			},
 		},

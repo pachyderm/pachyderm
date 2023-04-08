@@ -38,13 +38,12 @@ Start a bash session in the `pachyderm/notebooks-user` container from the top-le
 
 ```
 docker run --name jupyterlab_pachyderm_frontend_dev \
-  --net=host \
-  --rm \
+  -p 8888:8888 \
   -it -e GRANT_SUDO=yes --user root \
   --device /dev/fuse --privileged \
   -v $(pwd):/home/jovyan/extension-wd \
   -w /home/jovyan/extension-wd \
-  pachyderm/notebooks-user:77ce3a1ef2c73bf34d064cd0bdb5a64262bf3280 \
+  pachyderm/notebooks-user:<latest master SHA> \
   bash
 ```
 
@@ -74,7 +73,20 @@ Within container run:
 npm run watch
 ```
 
+Note: Once run above, you can start the dev container again in future sessions using
+
+```
+docker start <container id>
+```
+
+and then running
+
+```
+docker exec -it <container id> bash
+```
+
 Iterating on the mount server, from inside a `pachyderm` checkout:
+
 ```
 CGO_ENABLED=0 make install
 docker cp /home/luke/gocode/bin/pachctl jupyterlab_pachyderm_frontend_dev:/usr/local/bin/pachctl
@@ -191,6 +203,16 @@ First make sure the server extension is enabled:
 ```
 jupyter server extension list 2>&1 | grep -ie "jupyterlab_pachyderm.*OK"
 ```
+
+# Install Jupyterhub locally (Sidecar mode testing)
+
+```
+helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
+helm repo update
+helm install jhub jupyterhub/jupyterhub --version 2.0.0 --values scripts/jhub-dev-helm-values.yml
+```
+
+Note: Use any username and no password to login
 
 ### API endpoints
 

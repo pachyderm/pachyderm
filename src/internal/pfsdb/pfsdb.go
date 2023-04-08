@@ -45,6 +45,16 @@ func RepoKey(repo *pfs.Repo) string {
 	return repo.Project.Name + "/" + repo.Name + "." + repo.Type
 }
 
+func ParseRepo(key string) *pfs.Repo {
+	slashSplit := strings.Split(key, "/")
+	dotSplit := strings.Split(slashSplit[1], ".")
+	return &pfs.Repo{
+		Project: &pfs.Project{Name: slashSplit[0]},
+		Name:    dotSplit[0],
+		Type:    dotSplit[1],
+	}
+}
+
 func repoKeyCheck(key string) error {
 	parts := strings.Split(key, ".")
 	if len(parts) < 2 || len(parts[1]) == 0 {
@@ -81,14 +91,14 @@ func Repos(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection
 var CommitsRepoIndex = &col.Index{
 	Name: "repo",
 	Extract: func(val proto.Message) string {
-		return RepoKey(val.(*pfs.CommitInfo).Commit.Branch.Repo)
+		return RepoKey(val.(*pfs.CommitInfo).Commit.Repo)
 	},
 }
 
 var CommitsBranchlessIndex = &col.Index{
 	Name: "branchless",
 	Extract: func(val proto.Message) string {
-		return CommitBranchlessKey(val.(*pfs.CommitInfo).Commit)
+		return CommitKey(val.(*pfs.CommitInfo).Commit)
 	},
 }
 
@@ -101,12 +111,16 @@ var CommitsCommitSetIndex = &col.Index{
 
 var commitsIndexes = []*col.Index{CommitsRepoIndex, CommitsBranchlessIndex, CommitsCommitSetIndex}
 
-func CommitKey(commit *pfs.Commit) string {
-	return BranchKey(commit.Branch) + "=" + commit.ID
+func ParseCommit(key string) *pfs.Commit {
+	split := strings.Split(key, "@")
+	return &pfs.Commit{
+		Repo: ParseRepo(split[0]),
+		ID:   split[1],
+	}
 }
 
-func CommitBranchlessKey(commit *pfs.Commit) string {
-	return RepoKey(commit.Branch.Repo) + "@" + commit.ID
+func CommitKey(commit *pfs.Commit) string {
+	return RepoKey(commit.Repo) + "@" + commit.ID
 }
 
 // Commits returns a collection of commits
@@ -129,6 +143,13 @@ func Commits(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollecti
 		}),
 		col.WithExistsMessage(func(key interface{}) string {
 			return pfsserver.ErrCommitExists{Commit: key.(*pfs.Commit)}.Error()
+		}),
+		col.WithPutHook(func(tx *pachsql.Tx, commitInfo interface{}) error {
+			ci := commitInfo.(*pfs.CommitInfo)
+			if ci.Commit.Repo == nil {
+				return errors.New("Commits must have the repo field populated")
+			}
+			return AddCommit(tx, ci.Commit)
 		}),
 	)
 }
