@@ -331,6 +331,28 @@ function deserialize_pfs_v2_FileInfo(buffer_arg) {
   return pfs_pfs_pb.FileInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_v2_FindCommitsRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.FindCommitsRequest)) {
+    throw new Error('Expected argument of type pfs_v2.FindCommitsRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_FindCommitsRequest(buffer_arg) {
+  return pfs_pfs_pb.FindCommitsRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_FindCommitsResponse(arg) {
+  if (!(arg instanceof pfs_pfs_pb.FindCommitsResponse)) {
+    throw new Error('Expected argument of type pfs_v2.FindCommitsResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_FindCommitsResponse(buffer_arg) {
+  return pfs_pfs_pb.FindCommitsResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pfs_v2_FinishCommitRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.FinishCommitRequest)) {
     throw new Error('Expected argument of type pfs_v2.FinishCommitRequest');
@@ -902,6 +924,18 @@ dropCommitSet: {
     requestDeserialize: deserialize_pfs_v2_DropCommitSetRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
+  },
+  // FindCommits searches for commits that reference a supplied file being modified in a branch.
+findCommits: {
+    path: '/pfs_v2.API/FindCommits',
+    requestStream: false,
+    responseStream: true,
+    requestType: pfs_pfs_pb.FindCommitsRequest,
+    responseType: pfs_pfs_pb.FindCommitsResponse,
+    requestSerialize: serialize_pfs_v2_FindCommitsRequest,
+    requestDeserialize: deserialize_pfs_v2_FindCommitsRequest,
+    responseSerialize: serialize_pfs_v2_FindCommitsResponse,
+    responseDeserialize: deserialize_pfs_v2_FindCommitsResponse,
   },
   // CreateBranch creates a new branch.
 createBranch: {

@@ -7,6 +7,7 @@
 import * as grpc from "@grpc/grpc-js";
 import * as enterprise_enterprise_pb from "../enterprise/enterprise_pb";
 import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/timestamp_pb";
+import * as protoextensions_log_pb from "../protoextensions/log_pb";
 
 interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
     activate: IAPIService_IActivate;

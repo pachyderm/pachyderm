@@ -8,6 +8,7 @@ import * as jspb from "google-protobuf";
 import * as google_protobuf_empty_pb from "google-protobuf/google/protobuf/empty_pb";
 import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/timestamp_pb";
 import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/duration_pb";
+import * as google_protobuf_wrappers_pb from "google-protobuf/google/protobuf/wrappers_pb";
 import * as gogoproto_gogo_pb from "../gogoproto/gogo_pb";
 import * as pfs_pfs_pb from "../pfs/pfs_pb";
 import * as task_task_pb from "../task/task_pb";
@@ -85,6 +86,8 @@ export class Transform extends jspb.Message {
     setDockerfile(value: string): Transform;
     getMemoryVolume(): boolean;
     setMemoryVolume(value: boolean): Transform;
+    getDatumBatching(): boolean;
+    setDatumBatching(value: boolean): Transform;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Transform.AsObject;
@@ -113,6 +116,7 @@ export namespace Transform {
         workingDir: string,
         dockerfile: string,
         memoryVolume: boolean,
+        datumBatching: boolean,
     }
 }
 
@@ -1092,6 +1096,41 @@ export namespace Pipeline {
     }
 }
 
+export class Toleration extends jspb.Message { 
+    getKey(): string;
+    setKey(value: string): Toleration;
+    getOperator(): TolerationOperator;
+    setOperator(value: TolerationOperator): Toleration;
+    getValue(): string;
+    setValue(value: string): Toleration;
+    getEffect(): TaintEffect;
+    setEffect(value: TaintEffect): Toleration;
+
+    hasTolerationSeconds(): boolean;
+    clearTolerationSeconds(): void;
+    getTolerationSeconds(): google_protobuf_wrappers_pb.Int64Value | undefined;
+    setTolerationSeconds(value?: google_protobuf_wrappers_pb.Int64Value): Toleration;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Toleration.AsObject;
+    static toObject(includeInstance: boolean, msg: Toleration): Toleration.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: Toleration, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Toleration;
+    static deserializeBinaryFromReader(message: Toleration, reader: jspb.BinaryReader): Toleration;
+}
+
+export namespace Toleration {
+    export type AsObject = {
+        key: string,
+        operator: TolerationOperator,
+        value: string,
+        effect: TaintEffect,
+        tolerationSeconds?: google_protobuf_wrappers_pb.Int64Value.AsObject,
+    }
+}
+
 export class PipelineInfo extends jspb.Message { 
 
     hasPipeline(): boolean;
@@ -1262,6 +1301,10 @@ export namespace PipelineInfo {
         setWorkerRc(value: string): Details;
         getAutoscaling(): boolean;
         setAutoscaling(value: boolean): Details;
+        clearTolerationsList(): void;
+        getTolerationsList(): Array<Toleration>;
+        setTolerationsList(value: Array<Toleration>): Details;
+        addTolerations(value?: Toleration, index?: number): Toleration;
 
         serializeBinary(): Uint8Array;
         toObject(includeInstance?: boolean): Details.AsObject;
@@ -1306,6 +1349,7 @@ export namespace PipelineInfo {
             unclaimedTasks: number,
             workerRc: string,
             autoscaling: boolean,
+            tolerationsList: Array<Toleration.AsObject>,
         }
     }
 
@@ -2026,6 +2070,10 @@ export class CreatePipelineRequest extends jspb.Message {
     setReprocessSpec(value: string): CreatePipelineRequest;
     getAutoscaling(): boolean;
     setAutoscaling(value: boolean): CreatePipelineRequest;
+    clearTolerationsList(): void;
+    getTolerationsList(): Array<Toleration>;
+    setTolerationsList(value: Array<Toleration>): CreatePipelineRequest;
+    addTolerations(value?: Toleration, index?: number): Toleration;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreatePipelineRequest.AsObject;
@@ -2067,6 +2115,7 @@ export namespace CreatePipelineRequest {
         metadata?: Metadata.AsObject,
         reprocessSpec: string,
         autoscaling: boolean,
+        tolerationsList: Array<Toleration.AsObject>,
     }
 }
 
@@ -2608,6 +2657,49 @@ export namespace RenderTemplateResponse {
     }
 }
 
+export class LokiRequest extends jspb.Message { 
+
+    hasSince(): boolean;
+    clearSince(): void;
+    getSince(): google_protobuf_duration_pb.Duration | undefined;
+    setSince(value?: google_protobuf_duration_pb.Duration): LokiRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): LokiRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: LokiRequest): LokiRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: LokiRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): LokiRequest;
+    static deserializeBinaryFromReader(message: LokiRequest, reader: jspb.BinaryReader): LokiRequest;
+}
+
+export namespace LokiRequest {
+    export type AsObject = {
+        since?: google_protobuf_duration_pb.Duration.AsObject,
+    }
+}
+
+export class LokiLogMessage extends jspb.Message { 
+    getMessage(): string;
+    setMessage(value: string): LokiLogMessage;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): LokiLogMessage.AsObject;
+    static toObject(includeInstance: boolean, msg: LokiLogMessage): LokiLogMessage.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: LokiLogMessage, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): LokiLogMessage;
+    static deserializeBinaryFromReader(message: LokiLogMessage, reader: jspb.BinaryReader): LokiLogMessage;
+}
+
+export namespace LokiLogMessage {
+    export type AsObject = {
+        message: string,
+    }
+}
+
 export enum JobState {
     JOB_STATE_UNKNOWN = 0,
     JOB_CREATED = 1,
@@ -2646,4 +2738,17 @@ export enum PipelineState {
     PIPELINE_PAUSED = 5,
     PIPELINE_STANDBY = 6,
     PIPELINE_CRASHING = 7,
+}
+
+export enum TolerationOperator {
+    EMPTY = 0,
+    EXISTS = 1,
+    EQUAL = 2,
+}
+
+export enum TaintEffect {
+    ALL_EFFECTS = 0,
+    NO_SCHEDULE = 1,
+    PREFER_NO_SCHEDULE = 2,
+    NO_EXECUTE = 3,
 }

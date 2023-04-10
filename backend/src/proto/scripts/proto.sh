@@ -26,7 +26,7 @@ echo ---------------------------------------------------------------------------
 echo
 
 rm -rf $OUT_DIR
-mkdir -p ${OUT_DIR}/license ${OUT_DIR}/enterprise ${OUT_DIR}/task ${OUT_DIR}/pfs ${OUT_DIR}/pps ${OUT_DIR}/auth ${OUT_DIR}/gogoproto ${OUT_DIR}/admin ${OUT_DIR}/version/versionpb
+mkdir -p ${OUT_DIR}/license ${OUT_DIR}/enterprise ${OUT_DIR}/task ${OUT_DIR}/pfs ${OUT_DIR}/pps ${OUT_DIR}/auth ${OUT_DIR}/gogoproto ${OUT_DIR}/admin ${OUT_DIR}/version/versionpb ${OUT_DIR}/protoextensions
 curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/src/license/license.proto > ${OUT_DIR}/license/license.proto
 curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/src/enterprise/enterprise.proto > ${OUT_DIR}/enterprise/enterprise.proto
 curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/src/task/task.proto > ${OUT_DIR}/task/task.proto
@@ -35,6 +35,7 @@ curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/
 curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/src/auth/auth.proto > ${OUT_DIR}/auth/auth.proto
 curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/src/admin/admin.proto > ${OUT_DIR}/admin/admin.proto
 curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/src/version/versionpb/version.proto > ${OUT_DIR}/version/versionpb/version.proto
+curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/src/protoextensions/log.proto > ${OUT_DIR}/protoextensions/log.proto
 curl https://raw.githubusercontent.com/gogo/protobuf/${GOGO_VERSION}/gogoproto/gogo.proto > ${OUT_DIR}/gogoproto/gogo.proto
 
 find $OUT_DIR -name "*.proto" | xargs \

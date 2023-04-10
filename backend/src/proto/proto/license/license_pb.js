@@ -27,6 +27,8 @@ var gogoproto_gogo_pb = require('../gogoproto/gogo_pb.js');
 goog.object.extend(proto, gogoproto_gogo_pb);
 var enterprise_enterprise_pb = require('../enterprise/enterprise_pb.js');
 goog.object.extend(proto, enterprise_enterprise_pb);
+var protoextensions_log_pb = require('../protoextensions/log_pb.js');
+goog.object.extend(proto, protoextensions_log_pb);
 goog.exportSymbol('proto.license_v2.ActivateRequest', null, global);
 goog.exportSymbol('proto.license_v2.ActivateResponse', null, global);
 goog.exportSymbol('proto.license_v2.AddClusterRequest', null, global);

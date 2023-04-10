@@ -4,6 +4,7 @@
 var grpc = require('@grpc/grpc-js');
 var enterprise_enterprise_pb = require('../enterprise/enterprise_pb.js');
 var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/timestamp_pb.js');
+var protoextensions_log_pb = require('../protoextensions/log_pb.js');
 
 function serialize_enterprise_v2_ActivateRequest(arg) {
   if (!(arg instanceof enterprise_enterprise_pb.ActivateRequest)) {

@@ -1071,6 +1071,76 @@ export namespace CreateBranchRequest {
     }
 }
 
+export class FindCommitsRequest extends jspb.Message { 
+
+    hasStart(): boolean;
+    clearStart(): void;
+    getStart(): Commit | undefined;
+    setStart(value?: Commit): FindCommitsRequest;
+    getFilePath(): string;
+    setFilePath(value: string): FindCommitsRequest;
+    getLimit(): number;
+    setLimit(value: number): FindCommitsRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): FindCommitsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: FindCommitsRequest): FindCommitsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: FindCommitsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): FindCommitsRequest;
+    static deserializeBinaryFromReader(message: FindCommitsRequest, reader: jspb.BinaryReader): FindCommitsRequest;
+}
+
+export namespace FindCommitsRequest {
+    export type AsObject = {
+        start?: Commit.AsObject,
+        filePath: string,
+        limit: number,
+    }
+}
+
+export class FindCommitsResponse extends jspb.Message { 
+
+    hasFoundCommit(): boolean;
+    clearFoundCommit(): void;
+    getFoundCommit(): Commit | undefined;
+    setFoundCommit(value?: Commit): FindCommitsResponse;
+
+    hasLastSearchedCommit(): boolean;
+    clearLastSearchedCommit(): void;
+    getLastSearchedCommit(): Commit | undefined;
+    setLastSearchedCommit(value?: Commit): FindCommitsResponse;
+    getCommitsSearched(): number;
+    setCommitsSearched(value: number): FindCommitsResponse;
+
+    getResultCase(): FindCommitsResponse.ResultCase;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): FindCommitsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: FindCommitsResponse): FindCommitsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: FindCommitsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): FindCommitsResponse;
+    static deserializeBinaryFromReader(message: FindCommitsResponse, reader: jspb.BinaryReader): FindCommitsResponse;
+}
+
+export namespace FindCommitsResponse {
+    export type AsObject = {
+        foundCommit?: Commit.AsObject,
+        lastSearchedCommit?: Commit.AsObject,
+        commitsSearched: number,
+    }
+
+    export enum ResultCase {
+        RESULT_NOT_SET = 0,
+        FOUND_COMMIT = 1,
+        LAST_SEARCHED_COMMIT = 2,
+    }
+
+}
+
 export class InspectBranchRequest extends jspb.Message { 
 
     hasBranch(): boolean;
@@ -1283,6 +1353,8 @@ export namespace AddFile {
         setUrl(value: string): URLSource;
         getRecursive(): boolean;
         setRecursive(value: boolean): URLSource;
+        getConcurrency(): number;
+        setConcurrency(value: number): URLSource;
 
         serializeBinary(): Uint8Array;
         toObject(includeInstance?: boolean): URLSource.AsObject;
@@ -1298,6 +1370,7 @@ export namespace AddFile {
         export type AsObject = {
             url: string,
             recursive: boolean,
+            concurrency: number,
         }
     }
 
@@ -1517,6 +1590,15 @@ export class WalkFileRequest extends jspb.Message {
     getFile(): File | undefined;
     setFile(value?: File): WalkFileRequest;
 
+    hasPaginationmarker(): boolean;
+    clearPaginationmarker(): void;
+    getPaginationmarker(): File | undefined;
+    setPaginationmarker(value?: File): WalkFileRequest;
+    getNumber(): number;
+    setNumber(value: number): WalkFileRequest;
+    getReverse(): boolean;
+    setReverse(value: boolean): WalkFileRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): WalkFileRequest.AsObject;
     static toObject(includeInstance: boolean, msg: WalkFileRequest): WalkFileRequest.AsObject;
@@ -1530,6 +1612,9 @@ export class WalkFileRequest extends jspb.Message {
 export namespace WalkFileRequest {
     export type AsObject = {
         file?: File.AsObject,
+        paginationmarker?: File.AsObject,
+        number: number,
+        reverse: boolean,
     }
 }
 

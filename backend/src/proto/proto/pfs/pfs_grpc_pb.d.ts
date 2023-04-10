@@ -31,6 +31,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     listCommitSet: IAPIService_IListCommitSet;
     squashCommitSet: IAPIService_ISquashCommitSet;
     dropCommitSet: IAPIService_IDropCommitSet;
+    findCommits: IAPIService_IFindCommits;
     createBranch: IAPIService_ICreateBranch;
     inspectBranch: IAPIService_IInspectBranch;
     listBranch: IAPIService_IListBranch;
@@ -200,6 +201,15 @@ interface IAPIService_IDropCommitSet extends grpc.MethodDefinition<pfs_pfs_pb.Dr
     requestDeserialize: grpc.deserialize<pfs_pfs_pb.DropCommitSetRequest>;
     responseSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
+}
+interface IAPIService_IFindCommits extends grpc.MethodDefinition<pfs_pfs_pb.FindCommitsRequest, pfs_pfs_pb.FindCommitsResponse> {
+    path: "/pfs_v2.API/FindCommits";
+    requestStream: false;
+    responseStream: true;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.FindCommitsRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.FindCommitsRequest>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.FindCommitsResponse>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.FindCommitsResponse>;
 }
 interface IAPIService_ICreateBranch extends grpc.MethodDefinition<pfs_pfs_pb.CreateBranchRequest, google_protobuf_empty_pb.Empty> {
     path: "/pfs_v2.API/CreateBranch";
@@ -517,6 +527,7 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     listCommitSet: grpc.handleServerStreamingCall<pfs_pfs_pb.ListCommitSetRequest, pfs_pfs_pb.CommitSetInfo>;
     squashCommitSet: grpc.handleUnaryCall<pfs_pfs_pb.SquashCommitSetRequest, google_protobuf_empty_pb.Empty>;
     dropCommitSet: grpc.handleUnaryCall<pfs_pfs_pb.DropCommitSetRequest, google_protobuf_empty_pb.Empty>;
+    findCommits: grpc.handleServerStreamingCall<pfs_pfs_pb.FindCommitsRequest, pfs_pfs_pb.FindCommitsResponse>;
     createBranch: grpc.handleUnaryCall<pfs_pfs_pb.CreateBranchRequest, google_protobuf_empty_pb.Empty>;
     inspectBranch: grpc.handleUnaryCall<pfs_pfs_pb.InspectBranchRequest, pfs_pfs_pb.BranchInfo>;
     listBranch: grpc.handleServerStreamingCall<pfs_pfs_pb.ListBranchRequest, pfs_pfs_pb.BranchInfo>;
@@ -593,6 +604,8 @@ export interface IAPIClient {
     dropCommitSet(request: pfs_pfs_pb.DropCommitSetRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     dropCommitSet(request: pfs_pfs_pb.DropCommitSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     dropCommitSet(request: pfs_pfs_pb.DropCommitSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    findCommits(request: pfs_pfs_pb.FindCommitsRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.FindCommitsResponse>;
+    findCommits(request: pfs_pfs_pb.FindCommitsRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.FindCommitsResponse>;
     createBranch(request: pfs_pfs_pb.CreateBranchRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     createBranch(request: pfs_pfs_pb.CreateBranchRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     createBranch(request: pfs_pfs_pb.CreateBranchRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
@@ -728,6 +741,8 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public dropCommitSet(request: pfs_pfs_pb.DropCommitSetRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public dropCommitSet(request: pfs_pfs_pb.DropCommitSetRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public dropCommitSet(request: pfs_pfs_pb.DropCommitSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public findCommits(request: pfs_pfs_pb.FindCommitsRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.FindCommitsResponse>;
+    public findCommits(request: pfs_pfs_pb.FindCommitsRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.FindCommitsResponse>;
     public createBranch(request: pfs_pfs_pb.CreateBranchRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public createBranch(request: pfs_pfs_pb.CreateBranchRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public createBranch(request: pfs_pfs_pb.CreateBranchRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;

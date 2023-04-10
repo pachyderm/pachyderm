@@ -129,6 +129,7 @@ export interface CreatePipelineRequestOptions
     | 'sidecarResourceLimits'
     | 'datumSetSpec'
     | 'specCommit'
+    | 'tolerationsList'
   > {
   schedulingSpec?: SchedulingSpecObject;
   pipeline: PipelineObject;

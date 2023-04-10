@@ -6,6 +6,7 @@
 
 import * as jspb from "google-protobuf";
 import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/timestamp_pb";
+import * as protoextensions_log_pb from "../protoextensions/log_pb";
 
 export class LicenseRecord extends jspb.Message { 
     getActivationCode(): string;

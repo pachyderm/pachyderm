@@ -6,6 +6,7 @@ var pps_pps_pb = require('../pps/pps_pb.js');
 var google_protobuf_empty_pb = require('google-protobuf/google/protobuf/empty_pb.js');
 var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/timestamp_pb.js');
 var google_protobuf_duration_pb = require('google-protobuf/google/protobuf/duration_pb.js');
+var google_protobuf_wrappers_pb = require('google-protobuf/google/protobuf/wrappers_pb.js');
 var gogoproto_gogo_pb = require('../gogoproto/gogo_pb.js');
 var pfs_pfs_pb = require('../pfs/pfs_pb.js');
 var task_task_pb = require('../task/task_pb.js');
@@ -272,6 +273,28 @@ function serialize_pps_v2_LogMessage(arg) {
 
 function deserialize_pps_v2_LogMessage(buffer_arg) {
   return pps_pps_pb.LogMessage.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_LokiLogMessage(arg) {
+  if (!(arg instanceof pps_pps_pb.LokiLogMessage)) {
+    throw new Error('Expected argument of type pps_v2.LokiLogMessage');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_LokiLogMessage(buffer_arg) {
+  return pps_pps_pb.LokiLogMessage.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_LokiRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.LokiRequest)) {
+    throw new Error('Expected argument of type pps_v2.LokiRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_LokiRequest(buffer_arg) {
+  return pps_pps_pb.LokiRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pps_v2_PipelineInfo(arg) {
@@ -813,6 +836,18 @@ listTask: {
     requestDeserialize: deserialize_taskapi_ListTaskRequest,
     responseSerialize: serialize_taskapi_TaskInfo,
     responseDeserialize: deserialize_taskapi_TaskInfo,
+  },
+  // GetKubeEvents returns a stream of kubernetes events
+getKubeEvents: {
+    path: '/pps_v2.API/GetKubeEvents',
+    requestStream: false,
+    responseStream: true,
+    requestType: pps_pps_pb.LokiRequest,
+    responseType: pps_pps_pb.LokiLogMessage,
+    requestSerialize: serialize_pps_v2_LokiRequest,
+    requestDeserialize: deserialize_pps_v2_LokiRequest,
+    responseSerialize: serialize_pps_v2_LokiLogMessage,
+    responseDeserialize: deserialize_pps_v2_LokiLogMessage,
   },
 };
 

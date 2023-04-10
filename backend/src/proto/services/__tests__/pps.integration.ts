@@ -187,6 +187,7 @@ describe('services/pps', () => {
       await pachClient.pps().deletePipeline({
         projectId: 'default',
         pipeline: {name: 'deletePipeline-2'},
+        force: true,
       });
 
       const updatedPipelines = await pachClient
