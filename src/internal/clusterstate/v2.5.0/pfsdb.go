@@ -48,21 +48,21 @@ func repoKeyCheck(key string) error {
 var commitsRepoIndex = &index{
 	Name: "repo",
 	Extract: func(val proto.Message) string {
-		return repoKey(val.(*pfs.CommitInfo).Commit.Branch.Repo)
+		return repoKey(val.(*CommitInfo).Commit.Branch.Repo)
 	},
 }
 
 var commitsBranchlessIndex = &index{
 	Name: "branchless",
 	Extract: func(val proto.Message) string {
-		return commitBranchlessKey(val.(*pfs.CommitInfo).Commit)
+		return commitBranchlessKey(val.(*CommitInfo).Commit)
 	},
 }
 
 var commitsCommitSetIndex = &index{
 	Name: "commitset",
 	Extract: func(val proto.Message) string {
-		return val.(*pfs.CommitInfo).Commit.ID
+		return val.(*CommitInfo).Commit.ID
 	},
 }
 
@@ -142,7 +142,7 @@ func migrateCommit(c *pfs.Commit) *pfs.Commit {
 	return c
 }
 
-func migrateCommitInfo(c *pfs.CommitInfo) *pfs.CommitInfo {
+func migrateCommitInfo(c *CommitInfo) *CommitInfo {
 	c.Commit = migrateCommit(c.Commit)
 	if c.ParentCommit != nil {
 		c.ParentCommit = migrateCommit(c.ParentCommit)
@@ -222,7 +222,7 @@ func migratePFSDB(ctx context.Context, tx *pachsql.Tx) error {
 		})); err != nil {
 		return errors.Wrap(err, "could not migrate branches")
 	}
-	var oldCommit = new(pfs.CommitInfo)
+	var oldCommit = new(CommitInfo)
 	if err := migratePostgreSQLCollection(ctx, tx, "commits", commitsIndexes, oldCommit, func(oldKey string) (newKey string, newVal proto.Message, err error) {
 		oldCommit = migrateCommitInfo(oldCommit)
 		return commitKey(oldCommit.Commit), oldCommit, nil

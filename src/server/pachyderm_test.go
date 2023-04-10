@@ -789,58 +789,6 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 }
 
-func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-
-	dataRepo := tu.UniqueString("TestMultipleInputsFromTheSameRepoDifferentBranches_data")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
-
-	branchA := "branchA"
-	branchB := "branchB"
-
-	pipeline := tu.UniqueString("pipeline")
-	// Creating this pipeline should error, because the two inputs are
-	// from the same repo but they don't specify different names.
-	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			"cat /pfs/branch-a/file >> /pfs/out/file",
-			"cat /pfs/branch-b/file >> /pfs/out/file",
-		},
-		nil,
-		client.NewCrossInput(
-			client.NewProjectPFSInputOpts("branch-a", pfs.DefaultProjectName, dataRepo, branchA, "/*", "", "", false, false, nil),
-			client.NewProjectPFSInputOpts("branch-b", pfs.DefaultProjectName, dataRepo, branchB, "/*", "", "", false, false, nil),
-		),
-		"",
-		false,
-	))
-
-	commitA, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, branchA)
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commitA, "/file", strings.NewReader("data A\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commitA.Branch.Name, commitA.ID))
-
-	commitB, err := c.StartProjectCommit(pfs.DefaultProjectName, dataRepo, branchB)
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commitB, "/file", strings.NewReader("data B\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishProjectCommit(pfs.DefaultProjectName, dataRepo, commitB.Branch.Name, commitB.ID))
-
-	commitInfos, err := c.WaitCommitSetAll(commitB.ID)
-	require.NoError(t, err)
-	require.Equal(t, 5, len(commitInfos))
-	buffer := bytes.Buffer{}
-	outputCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", commitB.ID)
-	require.NoError(t, c.GetFile(outputCommit, "file", &buffer))
-	require.Equal(t, "data A\ndata B\n", buffer.String())
-}
-
 func TestRunPipeline(t *testing.T) {
 	// TODO(2.0 optional): Run pipeline creates a dangling commit, but uses the stats branch for stats commits.
 	// Since there is no relationship between the commits created by run pipeline, there should be no
@@ -3312,7 +3260,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 
 	// Pipeline should start and create a job should succeed -- fix
 	// https://github.com/pachyderm/pachyderm/v2/issues/3934)
-	commitInfo, err := c.InspectProjectCommit(project, dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit(project, pipelineName, "master", "")
 	require.NoError(t, err)
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -3402,7 +3350,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		"",
 		true,
 	))
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipelineName, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -3660,11 +3608,11 @@ func TestAutoscalingStandby(t *testing.T) {
 		require.NoError(t, err)
 		nonAliasCommits := 0
 		for _, v := range commitInfos {
-			if v.Origin.Kind != pfs.OriginKind_ALIAS {
+			if v.Commit.ID != commitInfo.Commit.ID {
 				nonAliasCommits++
 			}
 		}
-		require.Equal(t, 3, nonAliasCommits)
+		require.Equal(t, 1, nonAliasCommits)
 		pod := ""
 		commitInfos, err = c.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline), client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", ""), nil, 0)
 		require.NoError(t, err)
@@ -3987,7 +3935,7 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 		false,
 	))
 
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipelineName, "master", "")
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -4048,7 +3996,7 @@ func TestPipelineThatSymlinks(t *testing.T) {
 			false,
 		))
 
-		commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+		commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipelineName, "master", "")
 		require.NoError(t, err)
 		commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 		require.NoError(t, err)
@@ -4154,7 +4102,7 @@ func TestChainedPipelines(t *testing.T) {
 
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 8, len(commitInfos))
+	require.Equal(t, 7, len(commitInfos))
 
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(commitInfo.Commit, "bFile", &buf))
@@ -4248,8 +4196,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 11, len(commitInfos))
-
+	require.Equal(t, 9, len(commitInfos))
 	eCommit2, err := c.StartProjectCommit(pfs.DefaultProjectName, eRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(eCommit2, "file", strings.NewReader("bar\n"), client.WithAppendPutFile()))
@@ -4257,7 +4204,8 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 
 	commitInfos, err = c.WaitCommitSetAll(eCommit2.ID)
 	require.NoError(t, err)
-	require.Equal(t, 11, len(commitInfos))
+	// here we have one more commit for e.meta
+	require.Equal(t, 10, len(commitInfos))
 
 	// Get number of jobs triggered in pipeline D
 	jobInfos, err := c.ListProjectJob(pfs.DefaultProjectName, dPipeline, nil, -1, true)
@@ -4318,7 +4266,7 @@ func TestStartInternalPipeline(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 7, len(commitInfos))
+	require.Equal(t, 6, len(commitInfos))
 	// Stop and Start a pipeline was orginal trigger of bug so "reproduce" it here.
 	require.NoError(t, c.StopProjectPipeline(pfs.DefaultProjectName, bPipeline))
 	require.NoError(t, c.StartProjectPipeline(pfs.DefaultProjectName, bPipeline))
@@ -8808,7 +8756,7 @@ func TestDatumTries(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
 	jobInfos, err := c.WaitJobSetAll(commitInfo.Commit.ID, false)
@@ -9014,94 +8962,6 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 	//		})
 }
 
-// TestDeferredCross is a repro for https://github.com/pachyderm/pachyderm/v2/issues/5172
-func TestDeferredCross(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-
-	// make repo for our dataset
-	dataSet := tu.UniqueString("dataset")
-	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataSet))
-	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataSet, "master", "")
-
-	downstreamPipeline := tu.UniqueString("downstream")
-	_, err := c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, downstreamPipeline),
-			Transform: &pps.Transform{
-				Cmd: []string{"bash"},
-				Stdin: []string{
-					fmt.Sprintf("cp /pfs/%v/* /pfs/out", dataSet),
-				},
-			},
-			Input: client.NewProjectPFSInput(pfs.DefaultProjectName, dataSet, "master"),
-
-			OutputBranch: "master",
-		})
-	require.NoError(t, err)
-
-	require.NoError(t, c.PutFile(dataCommit, "file1", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.PutFile(dataCommit, "file2", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.PutFile(dataCommit, "file3", strings.NewReader("foo"), client.WithAppendPutFile()))
-
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataSet, "master", "")
-	require.NoError(t, err)
-	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
-	require.NoError(t, err)
-
-	err = c.CreateProjectBranch(pfs.DefaultProjectName, downstreamPipeline, "other", "", "master^", nil)
-	require.NoError(t, err)
-
-	// next, create an imputation pipeline which is a cross of the dataset with the union of two different freeze branches
-	impPipeline := tu.UniqueString("imputed")
-	_, err = c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, impPipeline),
-			Transform: &pps.Transform{
-				Cmd: []string{"bash"},
-				Stdin: []string{
-					"true",
-				},
-			},
-			Input: client.NewCrossInput(
-				client.NewUnionInput(
-					client.NewProjectPFSInputOpts("a", pfs.DefaultProjectName, downstreamPipeline, "master", "/", "", "", false, false, nil),
-					client.NewProjectPFSInputOpts("b", pfs.DefaultProjectName, downstreamPipeline, "other", "/", "", "", false, false, nil),
-				),
-				client.NewProjectPFSInput(pfs.DefaultProjectName, dataSet, "/"),
-			),
-			OutputBranch: "master",
-		})
-	require.NoError(t, err)
-
-	// after all this, the imputation job should be using the master commit of the dataset repo
-	_, err = c.WaitProjectCommit(pfs.DefaultProjectName, impPipeline, "master", "")
-	require.NoError(t, err)
-
-	jobs, err := c.ListProjectJob(pfs.DefaultProjectName, impPipeline, nil, 0, true)
-	require.NoError(t, err)
-	require.Equal(t, len(jobs), 1)
-
-	jobInfo, err := c.InspectProjectJob(pfs.DefaultProjectName, jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, true)
-	require.NoError(t, err)
-
-	headCommit, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataSet, "master", "")
-	require.NoError(t, err)
-
-	require.NoError(t, pps.VisitInput(jobInfo.Details.Input, func(i *pps.Input) error {
-		if i.Pfs != nil && i.Pfs.Repo == dataSet {
-			require.Equal(t, i.Pfs.Commit, headCommit.Commit.ID)
-		}
-		return nil
-	}))
-}
-
 func TestDeferredProcessing(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -9156,15 +9016,19 @@ func TestDeferredProcessing(t *testing.T) {
 
 	require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, dataRepo, "master", "staging", "", nil))
 
+	commitInfo, err = c.InspectProjectCommit(pfs.DefaultProjectName, pipeline1, "staging", "")
+	require.NoError(t, err)
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 5, len(commitInfos))
+	require.Equal(t, 4, len(commitInfos))
 
 	require.NoError(t, c.CreateProjectBranch(pfs.DefaultProjectName, pipeline1, "master", "staging", "", nil))
 
+	commitInfo, err = c.InspectProjectCommit(pfs.DefaultProjectName, pipeline2, "master", "")
+	require.NoError(t, err)
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 9, len(commitInfos))
+	require.Equal(t, 6, len(commitInfos))
 }
 
 func TestListPipelineAtCommit(t *testing.T) {
@@ -9810,7 +9674,7 @@ func TestCopyOutToIn(t *testing.T) {
 		false,
 	))
 
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -9867,7 +9731,6 @@ func TestKeepRepo(t *testing.T) {
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 
 	pipeline := tu.UniqueString("TestKeepRepo")
-	pipelineCommit := client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"",
@@ -9882,8 +9745,7 @@ func TestKeepRepo(t *testing.T) {
 		"",
 		false,
 	))
-
-	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
@@ -9909,9 +9771,8 @@ func TestKeepRepo(t *testing.T) {
 	require.True(t, errutil.IsNotFoundError(err))
 
 	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(pipelineCommit, "file", &buf))
+	require.NoError(t, c.GetFile(client.NewProjectCommit(pfs.DefaultProjectName, pipeline, "master", ""), "file", &buf))
 	require.Equal(t, "foo", buf.String())
-
 	require.YesError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline,
 		"",
@@ -9969,7 +9830,7 @@ func TestMalformedPipeline(t *testing.T) {
 		SpecCommit: &pfs.Commit{},
 	})
 	require.YesError(t, err)
-	require.Matches(t, "cannot resolve commit with no branch", err.Error())
+	require.Matches(t, "cannot resolve commit with no repo", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline:   client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName),
@@ -10088,7 +9949,6 @@ func TestMalformedPipeline(t *testing.T) {
 func TestTrigger(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-
 	dataRepo := tu.UniqueString("TestTrigger_data")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
 	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
@@ -10141,7 +10001,9 @@ func TestTrigger(t *testing.T) {
 	// This should have given us a job, flush to let it complete.
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 5, len(commitInfos))
+	require.Equal(t, 1, len(commitInfos))
+	_, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline1, "master", "")
+	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
 		var buf bytes.Buffer
 		require.NoError(t, c.GetFile(pipelineCommit1, fmt.Sprintf("file%d", i), &buf))
@@ -10158,7 +10020,11 @@ func TestTrigger(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 9, len(commitInfos))
+	_, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline1, "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitProjectCommit(pfs.DefaultProjectName, pipeline2, "master", "")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
 	for i := 0; i < numFiles*2; i++ {
 		var buf bytes.Buffer
 		require.NoError(t, c.GetFile(pipelineCommit1, fmt.Sprintf("file%d", i), &buf))
@@ -10173,7 +10039,6 @@ func TestTrigger(t *testing.T) {
 	commitInfos, err = c.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline2), client.NewProjectCommit(pfs.DefaultProjectName, pipeline2, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
-
 	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
 		pipeline2,
 		"",
@@ -10190,31 +10055,26 @@ func TestTrigger(t *testing.T) {
 		"",
 		true,
 	))
-
 	// Make sure that updating the pipeline reuses the previous branch name
 	// rather than creating a new one.
 	bis, err := c.ListProjectBranch(pfs.DefaultProjectName, pipeline1)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(bis))
-
 	commitInfos, err = c.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline2), client.NewProjectCommit(pfs.DefaultProjectName, pipeline2, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
-
 	// Another 30 100 byte files = 3K, so the last file should trigger both pipelines.
 	for i := 2 * numFiles; i < 5*numFiles; i++ {
 		require.NoError(t, c.PutFile(dataCommit, fmt.Sprintf("file%d", i), strings.NewReader(strings.Repeat("a", fileBytes)), client.WithAppendPutFile()))
 	}
-
 	commitInfo, err = c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 	require.NoError(t, err)
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 9, len(commitInfos))
-
+	require.Equal(t, 1, len(commitInfos))
 	commitInfos, err = c.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline2), client.NewProjectCommit(pfs.DefaultProjectName, pipeline2, "master", ""), nil, 0)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(commitInfos))
+	require.Equal(t, 3, len(commitInfos))
 }
 
 func TestListDatum(t *testing.T) {
@@ -10854,19 +10714,13 @@ func TestMoveBranchTrigger(t *testing.T) {
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
-				Cmd: []string{"bash"},
-				Stdin: []string{
-					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-					"cp /pfs/trigger/* /pfs/out/",
-				},
+				Cmd:   []string{"bash"},
+				Stdin: []string{"cp /pfs/trigger/* /pfs/out/"},
 			},
-			Input: client.NewCrossInput(
-				client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
-				client.NewProjectPFSInputOpts("trigger", pfs.DefaultProjectName, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
-					Branch:  "toMove",
-					Commits: 1,
-				}),
-			),
+			Input: client.NewProjectPFSInputOpts("trigger", pfs.DefaultProjectName, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+				Branch:  "toMove",
+				Commits: 1,
+			}),
 		})
 	require.NoError(t, err)
 
