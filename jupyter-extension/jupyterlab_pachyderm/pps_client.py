@@ -80,7 +80,7 @@ class PPSClient:
         script, _resources = self.nbconvert.from_filename(str(path))
 
         client = python_pachyderm.Client()  # TODO: Auth?
-        try:
+        try:  # Verify connection to cluster.
             client.inspect_cluster()
         except Exception as e:
             raise HTTPError(reason=repr(e))
