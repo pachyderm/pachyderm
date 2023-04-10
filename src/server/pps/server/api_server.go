@@ -678,8 +678,6 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		if err != nil {
 			return err
 		}
-		number--
-
 		// Filter jobs based on projects.
 		// JobInfos can contain jobs that belong in the same project or different projects due to GlobalIDs.
 		// If the client sent no projects to filter on, then we assume they want all jobs from all projects.
@@ -696,10 +694,14 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 		if len(jobInfosFiltered) == 0 {
 			return nil
 		}
-		return errors.EnsureStack(serv.Send(&pps.JobSetInfo{
+		if err := serv.Send(&pps.JobSetInfo{
 			JobSet: client.NewJobSet(id),
 			Jobs:   jobInfosFiltered,
-		}))
+		}); err != nil {
+			return err
+		}
+		number--
+		return nil
 	}); err != nil && err != errutil.ErrBreak {
 		return errors.EnsureStack(err)
 	}
@@ -953,8 +955,11 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 				return nil
 			}
 		}
+		if err := keep(jobInfo); err != nil {
+			return err
+		}
 		number--
-		return keep(jobInfo)
+		return nil
 	}
 	opts := &col.Options{Target: col.SortByCreateRevision, Order: col.SortDescend}
 	if request.Reverse {
