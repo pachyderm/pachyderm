@@ -428,42 +428,49 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool, repoType string
 func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
 	var deleted []*pfs.Repo
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		var repoInfos []*pfs.RepoInfo
-		if err := d.listRepoInTransaction(txnCtx, false, "", projects, func(ri *pfs.RepoInfo) error {
-			ok, err := d.canDeleteRepo(txnCtx, ri.Repo)
-			if err != nil {
-				return err
-			} else if ok {
-				repoInfos = append(repoInfos, ri)
-			}
-			return nil
-		}); err != nil {
-			return errors.Wrap(err, "list repos")
-		}
-		if len(repoInfos) == 0 {
-			return nil
-		}
-		// filter out repos that cannot be deleted
-		var bis []*pfs.BranchInfo
-		for _, ri := range repoInfos {
-			bs, err := d.listRepoBranches(txnCtx, ri)
-			if err != nil {
-				return err
-			}
-			bis = append(bis, bs...)
-		}
-		if err := d.deleteBranches(txnCtx, bis, false); err != nil {
+		var err error
+		deleted, err = d.deleteReposInTransaction(txnCtx, projects)
+		return err
+	}); err != nil {
+		return nil, errors.Wrap(err, "delete repos")
+	}
+	return deleted, nil
+}
+
+func (d *driver) deleteReposInTransaction(txnCtx *txncontext.TransactionContext, projects []*pfs.Project) ([]*pfs.Repo, error) {
+	var deleted []*pfs.Repo
+	var repoInfos []*pfs.RepoInfo
+	if err := d.listRepoInTransaction(txnCtx, false, "", projects, func(ri *pfs.RepoInfo) error {
+		ok, err := d.canDeleteRepo(txnCtx, ri.Repo)
+		if err != nil {
 			return err
-		}
-		for _, ri := range repoInfos {
-			if err := d.deleteRepoInfo(txnCtx, ri); err != nil {
-				return err
-			}
-			deleted = append(deleted, ri.Repo)
+		} else if ok {
+			repoInfos = append(repoInfos, ri)
 		}
 		return nil
 	}); err != nil {
+		return nil, errors.Wrap(err, "list repos")
+	}
+	if len(repoInfos) == 0 {
+		return nil, nil
+	}
+	// filter out repos that cannot be deleted
+	var bis []*pfs.BranchInfo
+	for _, ri := range repoInfos {
+		bs, err := d.listRepoBranches(txnCtx, ri)
+		if err != nil {
+			return nil, err
+		}
+		bis = append(bis, bs...)
+	}
+	if err := d.deleteBranches(txnCtx, bis, false); err != nil {
 		return nil, err
+	}
+	for _, ri := range repoInfos {
+		if err := d.deleteRepoInfo(txnCtx, ri); err != nil {
+			return nil, err
+		}
+		deleted = append(deleted, ri.Repo)
 	}
 	return deleted, nil
 }
@@ -609,44 +616,48 @@ func (d *driver) canDeleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.
 }
 
 func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectRequest) error {
+	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return d.createProjectInTransaction(txnCtx, req)
+	})
+}
+
+func (d *driver) createProjectInTransaction(txnCtx *txncontext.TransactionContext, req *pfs.CreateProjectRequest) error {
 	if err := req.Project.ValidateName(); err != nil {
 		return errors.Wrapf(err, "invalid project name")
 	}
-	return d.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		projects := d.projects.ReadWrite(txnCtx.SqlTx)
-		projectInfo := &pfs.ProjectInfo{}
-		if req.Update {
-			return errors.EnsureStack(projects.Update(pfsdb.ProjectKey(req.Project), projectInfo, func() error {
-				projectInfo.Description = req.Description
-				return nil
-			}))
+	projects := d.projects.ReadWrite(txnCtx.SqlTx)
+	projectInfo := &pfs.ProjectInfo{}
+	if req.Update {
+		return errors.EnsureStack(projects.Update(pfsdb.ProjectKey(req.Project), projectInfo, func() error {
+			projectInfo.Description = req.Description
+			return nil
+		}))
+	}
+	// If auth is active, make caller the owner of this new project.
+	if whoAmI, err := txnCtx.WhoAmI(); err == nil {
+		if err := d.env.AuthServer.CreateRoleBindingInTransaction(
+			txnCtx,
+			whoAmI.Username,
+			[]string{auth.ProjectOwnerRole},
+			&auth.Resource{Type: auth.ResourceType_PROJECT, Name: req.Project.GetName()},
+		); err != nil && !errors.Is(err, col.ErrExists{}) {
+			return errors.Wrapf(err, "could not create role binding for new project %s", req.Project.GetName())
 		}
-		// If auth is active, make caller the owner of this new project.
-		if whoAmI, err := txnCtx.WhoAmI(); err == nil {
-			if err := d.env.AuthServer.CreateRoleBindingInTransaction(
-				txnCtx,
-				whoAmI.Username,
-				[]string{auth.ProjectOwnerRole},
-				&auth.Resource{Type: auth.ResourceType_PROJECT, Name: req.Project.GetName()},
-			); err != nil && !errors.Is(err, col.ErrExists{}) {
-				return errors.Wrapf(err, "could not create role binding for new project %s", req.Project.GetName())
+	} else if !errors.Is(err, auth.ErrNotActivated) {
+		return errors.Wrap(err, "could not get caller's username")
+	}
+	if err := projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
+		Project:     req.Project,
+		Description: req.Description,
+	}); err != nil {
+		if errors.As(err, &col.ErrExists{}) {
+			return pfsserver.ErrProjectExists{
+				Project: req.Project,
 			}
-		} else if !errors.Is(err, auth.ErrNotActivated) {
-			return errors.Wrap(err, "could not get caller's username")
 		}
-		if err := projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
-			Project:     req.Project,
-			Description: req.Description,
-		}); err != nil {
-			if errors.As(err, &col.ErrExists{}) {
-				return pfsserver.ErrProjectExists{
-					Project: req.Project,
-				}
-			}
-			return errors.Wrap(err, "could not create project")
-		}
-		return nil
-	})
+		return errors.Wrap(err, "could not create project")
+	}
+	return nil
 }
 
 func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs.ProjectInfo, error) {
@@ -757,6 +768,14 @@ func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit,
 func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
 	projectInfo := &pfs.ProjectInfo{}
 	return errors.EnsureStack(d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
+		return cb(projectInfo)
+	}))
+}
+
+// The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
+func (d *driver) listProjectInTransaction(txnCtx *txncontext.TransactionContext, cb func(*pfs.ProjectInfo) error) error {
+	projectInfo := &pfs.ProjectInfo{}
+	return errors.EnsureStack(d.projects.ReadWrite(txnCtx.SqlTx).List(projectInfo, col.DefaultOptions(), func(string) error {
 		return cb(projectInfo)
 	}))
 }
@@ -1990,28 +2009,18 @@ func (d *driver) deleteBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
-	if _, err := d.deleteRepos(ctx, nil); err != nil {
-		return errors.Wrap(err, "could not delete all repos")
-	}
-	var projectInfos []*pfs.ProjectInfo
-	if err := d.listProject(ctx, func(pi *pfs.ProjectInfo) error {
-		projectInfos = append(projectInfos, proto.Clone(pi).(*pfs.ProjectInfo))
-		return nil
-	}); err != nil {
-		return err
-	}
-	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		for _, projectInfo := range projectInfos {
-			if err := d.deleteProject(txnCtx, projectInfo.Project, true); err != nil {
-				return err
-			}
+	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		if _, err := d.deleteReposInTransaction(txnCtx, nil); err != nil {
+			return errors.Wrap(err, "could not delete all repos")
 		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	// now that the cluster is empty, recreate the default project
-	return d.createProject(ctx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: "default"}})
+		if err := d.listProjectInTransaction(txnCtx, func(pi *pfs.ProjectInfo) error {
+			return errors.Wrapf(d.deleteProject(txnCtx, pi.Project, true), "delete project %q", pi.Project.String())
+		}); err != nil {
+			return err
+		}
+		// now that the cluster is empty, recreate the default project
+		return d.createProjectInTransaction(txnCtx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: "default"}})
+	})
 }
 
 // only transform source repos and spouts get a closed commit
