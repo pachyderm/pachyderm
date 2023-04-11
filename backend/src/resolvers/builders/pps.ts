@@ -203,6 +203,8 @@ export const jobInfosToGQLJobSet = (
 
   const createdAt =
     jobs.length > 0 ? jobs.find((job) => job.createdAt)?.createdAt : null;
+  const startedAt =
+    jobs.length > 0 ? jobs.find((job) => job.startedAt)?.startedAt : null;
   const finishTimes = jobs
     .map((j) => Number(j.finishedAt))
     .filter((finishedTime) => !isNaN(finishedTime));
@@ -212,6 +214,7 @@ export const jobInfosToGQLJobSet = (
   return {
     id,
     createdAt,
+    startedAt,
     finishedAt,
     inProgress,
     state: getAggregateJobState(jobs),

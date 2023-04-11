@@ -378,6 +378,7 @@ export type JobSet = {
   id: Scalars['ID'];
   inProgress: Scalars['Boolean'];
   jobs: Array<Job>;
+  startedAt?: Maybe<Scalars['Int']>;
   state: JobState;
 };
 
@@ -1587,6 +1588,7 @@ export type JobSetResolvers<
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   inProgress?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   jobs?: Resolver<Array<ResolversTypes['Job']>, ParentType, ContextType>;
+  startedAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   state?: Resolver<ResolversTypes['JobState'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -2336,6 +2338,7 @@ export type JobSetFieldsFragment = {
   id: string;
   state: JobState;
   createdAt?: number | null;
+  startedAt?: number | null;
   finishedAt?: number | null;
   inProgress: boolean;
   jobs: Array<{
@@ -2933,6 +2936,7 @@ export type JobSetsQuery = {
       id: string;
       state: JobState;
       createdAt?: number | null;
+      startedAt?: number | null;
       finishedAt?: number | null;
       inProgress: boolean;
       jobs: Array<{
@@ -3062,6 +3066,7 @@ export type JobSetQuery = {
     id: string;
     state: JobState;
     createdAt?: number | null;
+    startedAt?: number | null;
     finishedAt?: number | null;
     inProgress: boolean;
     jobs: Array<{
@@ -3245,6 +3250,7 @@ export type ProjectDetailsQuery = {
       id: string;
       state: JobState;
       createdAt?: number | null;
+      startedAt?: number | null;
       finishedAt?: number | null;
       inProgress: boolean;
       jobs: Array<{

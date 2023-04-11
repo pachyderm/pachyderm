@@ -116,7 +116,7 @@ const JobsList: React.FC<JobsListProps> = ({
                   </Table.DataCell>
                   <Table.DataCell>{job?.id.slice(0, 6)}...</Table.DataCell>
                   <Table.DataCell>
-                    {getJobRuntime(job.createdAt, job.finishedAt)}
+                    {getJobRuntime(job.startedAt, job.finishedAt)}
                   </Table.DataCell>
                   <Table.DataCell>{job.downloadBytesDisplay}</Table.DataCell>
                   <Table.DataCell>{job.uploadBytesDisplay}</Table.DataCell>

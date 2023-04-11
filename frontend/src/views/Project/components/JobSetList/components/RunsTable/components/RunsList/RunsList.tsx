@@ -115,8 +115,8 @@ const RunsList: React.FC<RunsListProps> = ({
       <Table>
         <Table.Head sticky>
           <Table.Row>
-            <Table.HeaderCell>Run</Table.HeaderCell>
-            <Table.HeaderCell>Run Progress</Table.HeaderCell>
+            <Table.HeaderCell>Job</Table.HeaderCell>
+            <Table.HeaderCell>Job Progress</Table.HeaderCell>
             <Table.HeaderCell>Runtime</Table.HeaderCell>
             <Table.HeaderCell>ID</Table.HeaderCell>
             <Table.HeaderCell />
@@ -144,7 +144,7 @@ const RunsList: React.FC<RunsListProps> = ({
                 {getJobStateBadges(jobSet)}
               </Table.DataCell>
               <Table.DataCell>
-                {getJobRuntime(jobSet.createdAt, jobSet.finishedAt)}
+                {getJobRuntime(jobSet.startedAt, jobSet.finishedAt)}
               </Table.DataCell>
               <Table.DataCell>{jobSet?.id}</Table.DataCell>
             </Table.Row>

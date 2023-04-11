@@ -390,6 +390,7 @@ type AuthConfig {
 type JobSet {
   id: ID!
   createdAt: Int
+  startedAt: Int
   finishedAt: Int
   inProgress: Boolean!
   state: JobState!

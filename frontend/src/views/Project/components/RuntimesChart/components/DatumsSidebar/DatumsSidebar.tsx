@@ -68,7 +68,7 @@ const DatumsSidebar: React.FC<DatumsSidebarProps> = ({
           </CaptionTextSmall>
           <CaptionTextSmall className={styles.listItemText}>
             {job.dataFailed} Failed {job.dataFailed > 1 ? 'Datums' : 'Datum'};{' '}
-            {getJobRuntime(job.createdAt, job.finishedAt)} Runtime
+            {getJobRuntime(job.startedAt, job.finishedAt)} Runtime
           </CaptionTextSmall>
           <Button
             className={styles.button}

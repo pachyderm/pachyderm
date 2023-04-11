@@ -93,6 +93,7 @@ export const JobSetFieldsFragmentDoc = gql`
     id
     state
     createdAt
+    startedAt
     finishedAt
     inProgress
     jobs {

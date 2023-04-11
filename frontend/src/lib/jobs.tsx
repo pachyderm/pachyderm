@@ -91,14 +91,14 @@ export const getVisualJobState = (state: JobState): JobVisualState => {
 };
 
 export const getJobRuntime = (
-  createdAt?: number | null,
+  startedAt?: number | null,
   finishedAt?: number | null,
 ) => {
-  if (finishedAt && createdAt) {
-    return formatDurationFromSeconds(finishedAt - createdAt);
+  if (finishedAt && startedAt) {
+    return formatDurationFromSeconds(finishedAt - startedAt);
   }
-  if (createdAt) {
-    return `${formatDurationFromSecondsToNow(createdAt)} - In Progress`;
+  if (startedAt) {
+    return `${formatDurationFromSecondsToNow(startedAt)} - In Progress`;
   }
   return 'In Progress';
 };

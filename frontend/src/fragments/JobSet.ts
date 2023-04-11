@@ -7,6 +7,7 @@ export const JobSetFragment = gql`
     id
     state
     createdAt
+    startedAt
     finishedAt
     inProgress
     jobs {

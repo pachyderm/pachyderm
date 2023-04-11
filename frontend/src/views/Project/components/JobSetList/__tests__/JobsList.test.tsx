@@ -33,7 +33,7 @@ describe('JobSet SubJobs List', () => {
     expect(job).toHaveTextContent('@montage');
     expect(job).toHaveTextContent('4 Total');
     expect(job).toHaveTextContent('23b9af...');
-    expect(job).toHaveTextContent('4 s');
+    expect(job).toHaveTextContent('3 s');
     expect(job).toHaveTextContent('0 B');
   });
 

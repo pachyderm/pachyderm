@@ -104,7 +104,7 @@ describe('Pipelines Runtimes Chart', () => {
 
     expect(within(jobItem).getByText('23b9af; @montage')).toBeInTheDocument();
     expect(
-      within(jobItem).getByText('1 Failed Datum; 4 s Runtime'),
+      within(jobItem).getByText('1 Failed Datum; 3 s Runtime'),
     ).toBeInTheDocument();
     within(jobItem).getByRole('button').click();
     expect(window.location.pathname).toBe(
