@@ -517,7 +517,7 @@ func (reg *registry) processJobEgressing(pj *pendingJob) error {
 func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string, error) {
 	var failed []string
 	waitCommit := func(name string, commit *pfs.Commit) error {
-		ci, err := pachClient.WaitProjectCommit(commit.Branch.Repo.Project.GetName(), commit.Branch.Repo.Name, commit.Branch.Name, commit.ID)
+		ci, err := pachClient.WaitProjectCommit(commit.Repo.Project.GetName(), commit.Repo.Name, commit.Branch.Name, commit.ID)
 		if err != nil {
 			return errors.Wrapf(err, "error blocking on commit %s", commit)
 		}

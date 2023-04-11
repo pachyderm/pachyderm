@@ -114,12 +114,15 @@ message CommitOrigin {
 // protos)
 message Commit {
   option (gogoproto.goproto_stringer) = false;
-  Branch branch = 1;
+  Repo repo = 3;
   string id = 2 [(gogoproto.customname) = "ID"];
+  // only used by the client 
+  Branch branch = 1;  
 }
 
 // CommitInfo is the main data structure representing a commit in etcd
 message CommitInfo {
+  reserved 9;
   Commit commit = 1;
   CommitOrigin origin = 2;
   // description is a user-provided script describing this commit
@@ -129,7 +132,7 @@ message CommitInfo {
   google.protobuf.Timestamp started = 6;
   google.protobuf.Timestamp finishing = 7;
   google.protobuf.Timestamp finished = 8;
-  repeated Branch direct_provenance = 9;
+  repeated Commit direct_provenance = 13;
   string error = 10;
   int64 size_bytes_upper_bound = 11;
 

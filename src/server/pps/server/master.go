@@ -228,7 +228,7 @@ eventLoop:
 func setPipelineState(ctx context.Context, db *pachsql.DB, pipelines collection.PostgresCollection, specCommit *pfs.Commit, state pps.PipelineState, reason string) (retErr error) {
 	log.Debug(ctx, "set pipeline state", zap.String("pipeline", specCommit.GetBranch().GetRepo().GetName()), zap.Stringer("state", state))
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
-		"/pps.Master/SetPipelineState", "project", specCommit.Branch.Repo.Project.GetName(), "pipeline", specCommit.Branch.Repo.Name, "new-state", state)
+		"/pps.Master/SetPipelineState", "project", specCommit.Repo.Project.GetName(), "pipeline", specCommit.Repo.Name, "new-state", state)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)

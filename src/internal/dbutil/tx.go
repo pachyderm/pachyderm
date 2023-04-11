@@ -138,7 +138,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(tx *pachsql.Tx) error, 
 
 	txStartedMetric.Inc()
 	err := backoff.RetryUntilCancel(ctx, func() error {
-		ctx, cf := context.WithCancel(context.Background())
+		ctx, cf := context.WithCancel(ctx)
 		defer cf()
 		underlyingTxStartedMetric.Inc()
 		attempts++
