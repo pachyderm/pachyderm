@@ -22,17 +22,17 @@ BILL_TOKEN=$(pachctl auth get-robot-token bill --quiet)
 echo "$ELLIE_TOKEN" | pachctl auth use-auth-token
 pachctl create project ellie-project
 pachctl config update context --project ellie-project
-echo $(cd examples/opencv && make opencv)
+(cd examples/opencv && make opencv)
 
 echo "$JOEL_TOKEN" | pachctl auth use-auth-token
 pachctl create project joel-project
 pachctl config update context --project joel-project
-echo $(cd examples/opencv && make opencv)
+(cd examples/opencv && make opencv)
 
 echo "$BILL_TOKEN" | pachctl auth use-auth-token
 pachctl create project bill-project # part of a group w/ reader
 pachctl config update context --project bill-project
-echo $(cd examples/opencv && make opencv)
+(cd examples/opencv && make opencv)
 
 # set permissions on users
 echo "$ROOT_TOKEN" | pachctl auth use-auth-token
