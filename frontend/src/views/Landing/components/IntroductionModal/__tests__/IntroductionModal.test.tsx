@@ -7,9 +7,13 @@ import {withContextProviders, click} from '@dash-frontend/testHelpers';
 import IntroductionModalComponent from '../IntroductionModal';
 
 describe('IntroductionModal', () => {
-  const IntroductionModal = withContextProviders(({projectId}) => {
-    return <IntroductionModalComponent projectId={projectId} onClose={noop} />;
-  });
+  const IntroductionModal = withContextProviders(
+    ({projectId}: {projectId: string}) => {
+      return (
+        <IntroductionModalComponent projectId={projectId} onClose={noop} />
+      );
+    },
+  );
 
   afterEach(() => {
     localStorage.removeItem('pachyderm-console-6');

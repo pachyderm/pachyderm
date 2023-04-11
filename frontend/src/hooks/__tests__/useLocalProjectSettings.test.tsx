@@ -6,53 +6,57 @@ import {withContextProviders} from '@dash-frontend/testHelpers';
 
 import useLocalProjectSettings from '../useLocalProjectSettings';
 
-const SettingsComponent = withContextProviders(({onRender}) => {
-  const [viewSetting, setViewSetting] = useLocalProjectSettings({
-    projectId: 'default',
-    key: 'view_setting',
-  });
-  const [lastAction, setLastAction] = useLocalProjectSettings({
-    projectId: 'default',
-    key: 'last_action',
-  });
+const SettingsComponent = withContextProviders(
+  ({onRender}: {onRender: jest.Mock}) => {
+    const [viewSetting, setViewSetting] = useLocalProjectSettings({
+      projectId: 'default',
+      key: 'view_setting',
+    });
+    const [lastAction, setLastAction] = useLocalProjectSettings({
+      projectId: 'default',
+      key: 'last_action',
+    });
 
-  useEffect(() => {
-    setLastAction('recording');
-    setViewSetting('listView');
-  }, [setLastAction, setViewSetting]);
+    useEffect(() => {
+      setLastAction('recording');
+      setViewSetting('listView');
+    }, [setLastAction, setViewSetting]);
 
-  onRender();
+    onRender();
 
-  return (
-    <div>
+    return (
       <div>
-        <span>view_setting: </span>
-        <span>{viewSetting}</span>
+        <div>
+          <span>view_setting: </span>
+          <span>{viewSetting}</span>
+        </div>
+        <div>
+          <span>last_action: </span>
+          <span>{lastAction}</span>
+        </div>
+        <button onClick={() => setViewSetting('iconView')}>change view</button>
+        <button onClick={() => setLastAction('stalling')}>change action</button>
       </div>
+    );
+  },
+);
+
+const ViewComponent = withContextProviders(
+  ({onRender}: {onRender: jest.Mock}) => {
+    const [viewSetting] = useLocalProjectSettings({
+      projectId: 'default',
+      key: 'view_setting',
+    });
+
+    onRender();
+
+    return (
       <div>
-        <span>last_action: </span>
-        <span>{lastAction}</span>
+        <span>view-{viewSetting}</span>
       </div>
-      <button onClick={() => setViewSetting('iconView')}>change view</button>
-      <button onClick={() => setLastAction('stalling')}>change action</button>
-    </div>
-  );
-});
-
-const ViewComponent = withContextProviders(({onRender}) => {
-  const [viewSetting] = useLocalProjectSettings({
-    projectId: 'default',
-    key: 'view_setting',
-  });
-
-  onRender();
-
-  return (
-    <div>
-      <span>view-{viewSetting}</span>
-    </div>
-  );
-});
+    );
+  },
+);
 
 describe('useLocalProjectSettings', () => {
   it('should set and get local storage values', async () => {

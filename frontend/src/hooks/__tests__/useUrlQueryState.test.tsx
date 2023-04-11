@@ -6,60 +6,62 @@ import {withContextProviders} from '@dash-frontend/testHelpers';
 
 import useUrlQueryState from '../useUrlQueryState';
 
-const ViewStateComponent = withContextProviders(({onRender}) => {
-  const {
-    searchParams,
-    getNewSearchParamsAndGo,
-    updateSearchParamsAndGo,
-    clearSearchParamsAndGo,
-    toggleSearchParamsListEntry,
-  } = useUrlQueryState();
+const ViewStateComponent = withContextProviders(
+  ({onRender}: {onRender: jest.Mock}) => {
+    const {
+      searchParams,
+      getNewSearchParamsAndGo,
+      updateSearchParamsAndGo,
+      clearSearchParamsAndGo,
+      toggleSearchParamsListEntry,
+    } = useUrlQueryState();
 
-  onRender();
+    onRender();
 
-  return (
-    <div>
-      {Object.entries(searchParams).length === 0 && <span>Empty State</span>}
-      {Object.entries(searchParams).map(([key, value]) => (
-        <span key={key}>{`${key}: ${value}`}</span>
-      ))}
-      <button
-        onClick={() =>
-          getNewSearchParamsAndGo({
-            sortBy: 'Created: Newest',
-            globalIdFilter: '',
-          })
-        }
-      >
-        getNewSearchParamsAndGo
-      </button>
-      <button
-        onClick={() =>
-          updateSearchParamsAndGo({jobStatus: [NodeState.PAUSED], jobId: []})
-        }
-      >
-        updateSearchParamsAndGo
-      </button>
-      <button onClick={() => clearSearchParamsAndGo()}>
-        clearSearchParamsAndGo
-      </button>
-      <button
-        onClick={() =>
-          toggleSearchParamsListEntry('selectedPipelines', 'edges')
-        }
-      >
-        toggleSelectionEdges
-      </button>
-      <button
-        onClick={() =>
-          toggleSearchParamsListEntry('selectedPipelines', 'montage')
-        }
-      >
-        toggleSelectionMontage
-      </button>
-    </div>
-  );
-});
+    return (
+      <div>
+        {Object.entries(searchParams).length === 0 && <span>Empty State</span>}
+        {Object.entries(searchParams).map(([key, value]) => (
+          <span key={key}>{`${key}: ${value}`}</span>
+        ))}
+        <button
+          onClick={() =>
+            getNewSearchParamsAndGo({
+              sortBy: 'Created: Newest',
+              globalIdFilter: '',
+            })
+          }
+        >
+          getNewSearchParamsAndGo
+        </button>
+        <button
+          onClick={() =>
+            updateSearchParamsAndGo({jobStatus: [NodeState.PAUSED], jobId: []})
+          }
+        >
+          updateSearchParamsAndGo
+        </button>
+        <button onClick={() => clearSearchParamsAndGo()}>
+          clearSearchParamsAndGo
+        </button>
+        <button
+          onClick={() =>
+            toggleSearchParamsListEntry('selectedPipelines', 'edges')
+          }
+        >
+          toggleSelectionEdges
+        </button>
+        <button
+          onClick={() =>
+            toggleSearchParamsListEntry('selectedPipelines', 'montage')
+          }
+        >
+          toggleSelectionMontage
+        </button>
+      </div>
+    );
+  },
+);
 
 describe('useUrlQueryState', () => {
   it('should create, update and clear viewstate', async () => {
