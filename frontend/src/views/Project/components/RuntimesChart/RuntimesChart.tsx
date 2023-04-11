@@ -29,6 +29,7 @@ import {Form, Button} from '@pachyderm/components';
 import BarChart from './components/BarChart';
 import DatumsSidebar from './components/DatumsSidebar';
 import Tooltip from './components/Tooltip';
+import ZoomPanSlider from './components/ZoomPanSlider';
 import useRuntimesChartData from './hooks/useRuntimesChartData';
 import useRuntimesChartFilters from './hooks/useRuntimesChartFilters';
 import useRuntimesChartTooltip from './hooks/useRuntimesChartTooltip';
@@ -161,16 +162,6 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
           limits: {
             x: {min: 0, max: longestJob},
           },
-          pan: {
-            enabled: true,
-            mode: 'x',
-          },
-          zoom: {
-            wheel: {
-              enabled: true,
-            },
-            mode: 'x',
-          },
         },
       },
     }),
@@ -298,6 +289,7 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
               </div>
             </div>
           </div>
+          <ZoomPanSlider chartRef={chartRef} />
           <BarChart
             chartData={chartData}
             options={options}

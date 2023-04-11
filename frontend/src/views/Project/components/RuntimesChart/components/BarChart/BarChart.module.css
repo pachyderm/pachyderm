@@ -1,5 +1,4 @@
 .base {
-  cursor: grab;
   background-color: var(--background-grey);
   border: solid 1px var(--border-grey);
   margin-top: 2rem;
