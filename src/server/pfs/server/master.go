@@ -214,11 +214,11 @@ func (d *driver) compactCommit(ctx context.Context, compactor *compactor, doer t
 	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		// Compacting the diff before getting the total allows us to compose the
 		// total file set so that it includes the compacted diff.
-		if err := log.LogStep(ctx, "compactDiffFileSet", func(ctx context.Context) error {
-			return d.compactDiffFileSet(ctx, compactor, doer, renewer, commit)
-		}); err != nil {
-			return err
-		}
+		//if err := log.LogStep(ctx, "compactDiffFileSet", func(ctx context.Context) error {
+		//	return d.compactDiffFileSet(ctx, compactor, doer, renewer, commit)
+		//}); err != nil {
+		//	return err
+		//}
 		return log.LogStep(ctx, "compactTotalFileSet", func(ctx context.Context) error {
 			var err error
 			totalId, err = d.compactTotalFileSet(ctx, compactor, doer, renewer, commit)
