@@ -425,7 +425,7 @@ describe('Landing', () => {
         exact: false,
       });
 
-      expect(within(cell).getByText('N/A')).toBeInTheDocument();
+      expect(await within(cell).findByText('N/A')).toBeInTheDocument();
 
       // reopen it to edit and save some data
       expect(
