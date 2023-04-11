@@ -1,0 +1,16 @@
+{
+    "pipeline": {
+      "project": "ci-metrics",
+      "name": "codecoverage-merger"
+    },
+    "transform": {
+      "image": "pachyderm/codecoverge",
+      "cmd": ["go","build", "-C", "/codecoverage/merger/","&&", "/codecoverage/merger/merger", "/pfs/data", "/pfs/out"]
+    },
+    "input": {
+          "pfs": {
+              "repo": "code-coverage-source",
+              "glob": "/*"
+          }
+      }
+  }

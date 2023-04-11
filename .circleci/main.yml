@@ -119,7 +119,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
       - run: go install gotest.tools/gotestsum@latest
       - restore_cache:
           keys:
@@ -225,7 +225,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
@@ -455,7 +455,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
       - run: etc/testing/circle/install.sh
       - run:
           name: Collect node stats
@@ -465,6 +465,9 @@ jobs:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
       - run: etc/testing/circle/rootless_test.sh | ts '%Y-%m-%dT%H:%M:%S'
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: raw-test-output
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
@@ -499,7 +502,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
@@ -544,6 +547,12 @@ jobs:
           command: etc/testing/circle/kube_debug.sh
       - store_test_results:
           path: /tmp/test-results
+      - store_artifacts:
+          path: /tmp/test-results
+      - run:
+          name: Upload Code Coverage
+          when: on_success
+          command: go run etc/testing/circle/workloads/codecoverage/collector/main.go
   # build pachctl and push to GCS bucket, so that it can be bundled into the
   # Jupyter-Pachyderm extension
   build-docker-images:
@@ -581,6 +590,41 @@ jobs:
       - run:
           name: Push docker
           command: make docker-push VERSION=${CIRCLE_SHA1}
+  build-docker-images-with-coverage:
+    parameters:
+      appVersion:
+        type: string
+        default: "0.0.0"
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    resource_class: xlarge
+    steps:
+      - go/install:
+          version: << pipeline.parameters.go-version >>
+      - checkout
+      - run:
+          name: Download utilities
+          command: |
+            mkdir -p /home/circleci/bin
+            wget https://github.com/goreleaser/goreleaser/releases/download/v1.10.3/goreleaser_Linux_x86_64.tar.gz
+            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
+            rm -rf goreleaser_Linux_x86_64.tar.gz
+            sudo apt update
+            sudo apt install qemu binfmt-support qemu-user-static
+      - run:
+          name: pachydermbuildbot docker login
+          command: |
+            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: Build Docker
+          command: |
+            v=<< parameters.appVersion >>
+            additional=${v%%-*}
+            index=${#additional}
+            make docker-build-coverage VERSION=${v} VERSION_ADDITIONAL=${v:index}
+      - run:
+          name: Push docker
+          command: make docker-push VERSION=cover-${CIRCLE_SHA1}
   build-pachctl-bin:
     parameters:
       version:
@@ -1326,6 +1370,7 @@ workflows:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - build-docker-images
+      - build-docker-images-with-coverage
       #- build-pachctl-bin:
       #    version: $CIRCLE_SHA1
       #    upload: true
