@@ -95,3 +95,97 @@ func (x *SetLogLevelResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	enc.AddArray("errored_pods", zapcore.ArrayMarshalerFunc(errored_podsArrMarshaller))
 	return nil
 }
+
+func (x *PachdDump) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddBool("describe", x.Describe)
+	enc.AddBool("logs", x.Logs)
+	enc.AddBool("loki_logs", x.LokiLogs)
+	return nil
+}
+
+func (x *AppDump) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddBool("input_repos", x.InputRepos)
+	return nil
+}
+
+func (x *WorkerDump) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("pod", x.Pod)
+	return nil
+}
+
+func (x *PipelineDump) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("name", x.Name)
+	return nil
+}
+
+func (x *PipelinesDump) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	tasksArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Tasks {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("tasks", zapcore.ArrayMarshalerFunc(tasksArrMarshaller))
+	return nil
+}
+
+func (x *SystemDump) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddBool("version", x.Version)
+	enc.AddBool("helm", x.Helm)
+	enc.AddBool("profile", x.Profile)
+	return nil
+}
+
+func (x *DumpV2Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("system_dump", x.SystemDump)
+	enc.AddObject("pachd_dump", x.PachdDump)
+	enc.AddObject("pipelines_dump", x.PipelinesDump)
+	enc.AddObject("app_dump", x.AppDump)
+	return nil
+}
+
+func (x *DumpContent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	protoextensions.AddBytes(enc, "content", x.Content)
+	return nil
+}
+
+func (x *DumpProgress) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("message", x.Message)
+	return nil
+}
+
+func (x *DumpChunk) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("content", x.GetContent())
+	enc.AddObject("progress", x.GetProgress())
+	return nil
+}

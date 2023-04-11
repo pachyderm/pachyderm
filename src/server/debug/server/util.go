@@ -2,10 +2,12 @@ package server
 
 import (
 	"archive/tar"
+	"bufio"
 	"compress/gzip"
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -31,6 +33,28 @@ func withDebugWriter(w io.Writer, cb func(*tar.Writer) error) (retErr error) {
 	return cb(tw)
 }
 
+func collectDebugFileV2(dir string, name string, cb func(io.Writer) error) (retErr error) {
+	defer func() {
+		if retErr != nil {
+			retErr = writeErrorFileV2(filepath.Join(dir, name), retErr)
+		}
+	}()
+	f, err := os.Create(filepath.Join(dir, name))
+	if err != nil {
+		return errors.Wrapf(err, "create file %q", filepath.Join(dir, name))
+	}
+	defer func() {
+		err := f.Close()
+		retErr = multierr.Append(retErr, errors.Wrapf(err, "close file %q", filepath.Join(dir, name)))
+	}()
+	w := bufio.NewWriter(f)
+	defer func() {
+		err := w.Flush()
+		retErr = multierr.Append(retErr, errors.Wrapf(err, "flush file %q", filepath.Join(dir, name)))
+	}()
+	return cb(w)
+}
+
 func collectDebugFile(tw *tar.Writer, name, ext string, cb func(io.Writer) error, prefix ...string) (retErr error) {
 	if len(prefix) > 0 {
 		name = join(prefix[0], name)
@@ -50,6 +74,15 @@ func collectDebugFile(tw *tar.Writer, name, ext string, cb func(io.Writer) error
 		}
 		return writeTarFile(tw, fullName, f)
 	})
+}
+
+func writeErrorFileV2(dir string, err error) error {
+	return errors.Wrapf(
+		os.WriteFile(filepath.Join(dir, "error.txt"), []byte(err.Error()+"\n"), 0666),
+		"failed to upload error file %q with message %q",
+		filepath.Join(dir, "error.txt"),
+		err.Error(),
+	)
 }
 
 func writeErrorFile(tw *tar.Writer, err error, prefix ...string) error {

@@ -12,7 +12,7 @@ import (
 	"io"
 	"math"
 	"os"
-	"path"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"runtime/coverage"
@@ -27,6 +27,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -46,9 +47,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 )
 
 const (
@@ -87,113 +88,166 @@ type collectWorkerFunc func(context.Context, *tar.Writer, *v1.Pod, ...string) er
 type redirectFunc func(context.Context, debug.DebugClient, *debug.Filter) (io.Reader, error)
 type collectFunc func(context.Context, *tar.Writer, *client.APIClient, ...string) error
 
-func (s *debugServer) handleRedirect(
-	pachClient *client.APIClient,
+var opts []string = []string{
+	"helm",
+	"pachdLogs",
+	"inputRepos",
+	"pipelines", // should be a list of specific pipelines
+	"version",
+	"database",
+	"profile",
+	"worker", // ??
+}
+
+type taskOpts struct {
+	timeout time.Duration
+}
+
+// write whatever you want to a path
+type processTaskFunc func(ctx context.Context, path string, opts taskOpts)
+
+type task struct {
+	name string
+}
+
+func (s *debugServer) runTask(ctx context.Context, name string, dir string) (retErr error) {
+	ctx, end := log.SpanContext(ctx, "collect_"+name, zap.String("path", dir))
+	defer func() {
+		retErr = errors.Wrap(retErr, "collect_"+name)
+		end(log.Errorp(&retErr))
+	}()
+	switch name {
+	case "helm":
+		secrets, err := s.env.GetKubeClient().CoreV1().Secrets(s.env.Config().Namespace).List(ctx, metav1.ListOptions{
+			LabelSelector: "owner=helm",
+		})
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		var writeErrs error
+		for _, secret := range secrets.Items {
+			helmPath := filepath.Join(dir, "helm", secret.Name)
+			if err := handleHelmSecretV2(ctx, helmPath, secret); err != nil {
+				if err := writeErrorFileV2(helmPath, err); err != nil {
+					multierr.AppendInto(&writeErrs, errors.Wrapf(err, "%v: write error.txt", secret.Name))
+					continue
+				}
+			}
+		}
+		return writeErrs
+	case "inputRepos":
+		// Collect input repos.
+		return s.collectInputRepos(ctx, s.env.GetPachClient(ctx), filepath.Join(dir, "source-repos"), int64(0))
+	case "pachd_describe":
+		return s.collectDescribe(ctx, filepath.Join(dir, "pachd"), s.name)
+	case "pachd_logs":
+		return s.collectLogs(ctx, filepath.Join(dir, "pachd"), s.name, "pachd")
+	case "pachd_loki_logs":
+		return s.collectLogsLoki(ctx, filepath.Join(dir, "pachd"), s.name, "pachd")
+	case "database":
+		return s.collectDatabaseDump(ctx, filepath.Join(dir, databasePrefix))
+	case "version":
+		return s.collectPachdVersion(ctx, s.env.GetPachClient(ctx), dir)
+	case "dump_info":
+		return collectDump(ctx, dir)
+	case "pipelines":
+		pis, err := s.env.GetPachClient(ctx).ListPipeline(true)
+		if err != nil {
+			return errors.Wrap(err, "list pipelines")
+		}
+		for _, pi := range pis {
+			dir := filepath.Join(dir, pipelinePrefix, pi.Pipeline.Project.Name, pi.Pipeline.Name)
+			defer func() {
+				if retErr != nil {
+					retErr = writeErrorFileV2(dir, retErr)
+				}
+			}()
+			if err := s.collectPipelineV2(ctx, dir, pi, 0); err != nil {
+				return err
+			}
+			// return s.forEachWorker(ctx, pi, func(pod *v1.Pod) error {
+			// 	return s.handleWorkerRedirect(ctx, tw, pod, collectWorker, redirect, prefix)
+			// })
+		}
+		return nil
+	case "pipeline":
+		p := &pps.Pipeline{} // TODO(acohen4): fill this in
+		pi, err := s.env.GetPachClient(ctx).InspectProjectPipeline(p.Project.GetName(), p.Name, true)
+		if err != nil {
+			return errors.Wrapf(err, "inspect pipeline %q", p.String())
+		}
+		dir := filepath.Join(dir, pipelinePrefix, p.Project.Name, p.Name)
+		defer func() {
+			if retErr != nil {
+				retErr = writeErrorFileV2(dir, retErr)
+			}
+		}()
+		if err := s.collectPipelineV2(ctx, dir, pi, 0); err != nil {
+			return err
+		}
+		// return s.forEachWorker(ctx, pi, func(pod *v1.Pod) error {
+		// 	return s.handleWorkerRedirect(ctx, tw, pod, collectWorker, redirect, prefix)
+		// })
+		return nil
+	case "appLogs":
+		return s.appLogs(ctx, dir)
+	default:
+		return nil
+	}
+}
+
+func (s *debugServer) DumpV2(request *debug.DumpV2Request, server debug.Debug_DumpV2Server) error {
+	return s.dump(s.env.GetPachClient(server.Context()), nil, nil, time.Minute)
+}
+
+func (s *debugServer) dump(
+	c *client.APIClient,
 	server grpcutil.StreamingBytesServer,
-	filter *debug.Filter,
-	collectPachd collectFunc,
-	collectPipeline collectPipelineFunc,
-	collectWorker collectWorkerFunc,
-	redirect redirectFunc,
-	collect collectFunc,
-	wantAppLogs bool,
-	wantDatabase bool,
-) error {
-	ctx := pachClient.Ctx() // this context has authorization credentials we need
+	tasks []task,
+	timeout time.Duration,
+) (retErr error) {
+	ctx := c.Ctx() // this context has authorization credentials we need
+	dumpRoot := filepath.Join(os.TempDir(), uuid.NewWithoutDashes())
+	defer func() {
+		retErr = multierr.Append(retErr, os.RemoveAll(dumpRoot))
+	}()
+	ctx, cf := context.WithTimeout(ctx, timeout)
+	defer cf()
+	eg, ctx := errgroup.WithContext(ctx)
+	for _, t := range tasks {
+		eg.Go(func(t task) error {
+			// t should include info like
+			// - how long should the task run
+			// - know what path it's writing to
+			// - when run is done, it should try to write to tw
+			path := filepath.Join(dumpRoot, t.name)
+			return s.runTask(ctx, t.name, path)
+		}(t))
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
 	return grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
 		return withDebugWriter(w, func(tw *tar.Writer) error {
-			// Handle filter.
-			pachdContainerPrefix := join(pachdPrefix, s.name, "pachd")
-			if filter != nil {
-				switch f := filter.Filter.(type) {
-				case *debug.Filter_Pachd:
-					var errs error
-					if err := collectPachd(ctx, tw, pachClient, pachdContainerPrefix); err != nil {
-						multierr.AppendInto(&errs, errors.Wrap(err, "collectPachd"))
-					}
-					if wantDatabase {
-						if err := s.collectDatabaseDump(ctx, tw, databasePrefix); err != nil {
-							multierr.AppendInto(&errs, errors.Wrap(err, "collectDatabaseDump"))
-						}
-					}
-					return errs
-				case *debug.Filter_Pipeline:
-					var errs error
-					pipelineInfo, err := pachClient.InspectProjectPipeline(f.Pipeline.Project.GetName(), f.Pipeline.Name, true)
-					if err != nil {
-						multierr.AppendInto(&errs, errors.Wrapf(err, "inspectProjectPipeline(%s)", f.Pipeline))
-					}
-					if err := s.handlePipelineRedirect(ctx, tw, pachClient, pipelineInfo, collectPipeline, collectWorker, redirect); err != nil {
-						multierr.AppendInto(&errs, errors.Wrapf(err, "handlePipelineRedirect(%s)", pipelineInfo.GetPipeline()))
-					}
-					return errs
-				case *debug.Filter_Worker:
-					if f.Worker.Redirected {
-						var errs error
-						// Collect self if we're not a worker.
-						if s.sidecarClient == nil {
-							return collect(ctx, tw, pachClient, client.PPSWorkerSidecarContainerName)
-						}
-						// Collect the user container.
-						if err := collect(ctx, tw, pachClient, client.PPSWorkerUserContainerName); err != nil {
-							multierr.AppendInto(&errs, errors.Wrap(err, "collect user container"))
-						}
-						// Redirect to the storage container.
-						r, err := redirect(ctx, s.sidecarClient.DebugClient, filter)
-						if err != nil {
-							multierr.AppendInto(&errs, errors.Wrap(err, "collect storage container"))
-						}
-						if err := collectDebugStream(tw, r); err != nil {
-							multierr.AppendInto(&errs, errors.Wrap(err, "collect debug stream"))
-						}
-						return errs
-					}
-					pod, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).Get(ctx, f.Worker.Pod, metav1.GetOptions{})
-					if err != nil {
-						return errors.Wrapf(err, "getPod(%s)", f.Worker.Pod)
-					}
-					if err := s.handleWorkerRedirect(ctx, tw, pod, collectWorker, redirect); err != nil {
-						return errors.Wrapf(err, "handleWorkerRedirect(%s)", f.Worker.Pod)
-					}
-					return nil
-				case *debug.Filter_Database:
-					if wantDatabase {
-						return s.collectDatabaseDump(ctx, tw, databasePrefix)
-					}
-				}
+			ctx, cf := context.WithTimeout(ctx, timeout)
+			defer cf()
+			eg, ctx := errgroup.WithContext(ctx)
+			for _, t := range tasks {
+				eg.Go(func(t task) error {
+					// t should include info like
+					// - how long should the task run
+					// - know what path it's writing to
+					// - when run is done, it should try to write to tw
+					path := filepath.Join(dumpRoot, t.name)
+					return s.runTask(ctx, t.name, path)
+				}(t))
 			}
-
-			// No filter, return everything
-			var errs error
-			if err := collectPachd(ctx, tw, pachClient, pachdContainerPrefix); err != nil {
-				multierr.AppendInto(&errs, errors.Wrap(err, "collectPachd"))
-			}
-			pipelineInfos, err := pachClient.ListPipeline(true)
-			if err != nil {
-				multierr.AppendInto(&errs, errors.Wrap(err, "listPipelines"))
-			}
-			for _, pipelineInfo := range pipelineInfos {
-				if err := s.handlePipelineRedirect(ctx, tw, pachClient, pipelineInfo, collectPipeline, collectWorker, redirect); err != nil {
-					multierr.AppendInto(&errs, errors.Wrapf(err, "handlePipelineRedirect(%s)", pipelineInfo.GetPipeline()))
-				}
-			}
-			if wantAppLogs {
-				// All other pachyderm apps (console, pg-bouncer, etcd, pachw, etc.).
-				if err := s.appLogs(ctx, tw); err != nil {
-					multierr.AppendInto(&errs, errors.Wrap(err, "appLogs"))
-				}
-			}
-			if wantDatabase {
-				if err := s.collectDatabaseDump(ctx, tw, databasePrefix); err != nil {
-					multierr.AppendInto(&errs, errors.Wrap(err, "collectDatabaseDump"))
-				}
-			}
-			return errs
+			return eg.Wait()
 		})
 	})
 }
 
-func (s *debugServer) appLogs(ctx context.Context, tw *tar.Writer) (retErr error) {
+func (s *debugServer) appLogs(ctx context.Context, dir string) (retErr error) {
 	ctx, end := log.SpanContext(ctx, "collectAppLogs")
 	defer end(log.Errorp(&retErr))
 	ctx, c := context.WithTimeout(ctx, 10*time.Minute)
@@ -224,55 +278,21 @@ func (s *debugServer) appLogs(ctx context.Context, tw *tar.Writer) (retErr error
 	}
 	var errs error
 	for _, pod := range pods.Items {
-		podPrefix := join(pod.Labels["app"], pod.Name)
-		if err := s.collectDescribe(ctx, tw, pod.Name, podPrefix); err != nil {
+		dir := filepath.Join(dir, pod.Labels["app"], pod.Name)
+		if err := s.collectDescribe(ctx, dir, pod.Name); err != nil {
 			multierr.AppendInto(&errs, errors.Wrapf(err, "describe(%s)", pod.Name))
 		}
 		for _, container := range pod.Spec.Containers {
-			prefix := join(podPrefix, container.Name)
-			if err := s.collectLogs(ctx, tw, pod.Name, container.Name, prefix); err != nil {
+			dir := filepath.Join(dir, container.Name)
+			if err := s.collectLogs(ctx, dir, pod.Name, container.Name); err != nil {
 				multierr.AppendInto(&errs, errors.Wrapf(err, "collectLogs(%s.%s)", pod.Name, container.Name))
 			}
-			if err := s.collectLogsLoki(ctx, tw, pod.Name, container.Name, prefix); err != nil {
+			if err := s.collectLogsLoki(ctx, dir, pod.Name, container.Name); err != nil {
 				multierr.AppendInto(&errs, errors.Wrapf(err, "collectLogsLoki(%s.%s)", pod.Name, container.Name))
 			}
 		}
 	}
 	return errs
-}
-
-func (s *debugServer) handlePipelineRedirect(
-	ctx context.Context,
-	tw *tar.Writer,
-	pachClient *client.APIClient,
-	pipelineInfo *pps.PipelineInfo,
-	collectPipeline collectPipelineFunc,
-	collectWorker collectWorkerFunc,
-	redirect redirectFunc,
-) (retErr error) {
-	if pipelineInfo == nil {
-		return errors.Errorf("nil pipeline info")
-	}
-	if pipelineInfo.Pipeline == nil {
-		return errors.Errorf("nil pipeline in pipeline info")
-	}
-	if pipelineInfo.Pipeline.Project == nil {
-		return errors.Errorf("nil project in pipeline %q", pipelineInfo.Pipeline.Name)
-	}
-	prefix := join(pipelinePrefix, pipelineInfo.Pipeline.Project.Name, pipelineInfo.Pipeline.Name)
-	defer func() {
-		if retErr != nil {
-			retErr = writeErrorFile(tw, retErr, prefix)
-		}
-	}()
-	if collectPipeline != nil {
-		if err := collectPipeline(ctx, tw, pachClient, pipelineInfo, prefix); err != nil {
-			return err
-		}
-	}
-	return s.forEachWorker(ctx, pipelineInfo, func(pod *v1.Pod) error {
-		return s.handleWorkerRedirect(ctx, tw, pod, collectWorker, redirect, prefix)
-	})
 }
 
 func (s *debugServer) forEachWorker(ctx context.Context, pipelineInfo *pps.PipelineInfo, cb func(*v1.Pod) error) error {
@@ -347,65 +367,33 @@ func (s *debugServer) getLegacyWorkerPods(ctx context.Context, pipelineInfo *pps
 	return podList.Items, nil
 }
 
-func (s *debugServer) handleWorkerRedirect(ctx context.Context, tw *tar.Writer, pod *v1.Pod, collectWorker collectWorkerFunc, cb redirectFunc, prefix ...string) (retErr error) {
-	workerPrefix := join(podPrefix, pod.Name)
-	if len(prefix) > 0 {
-		workerPrefix = join(prefix[0], workerPrefix)
-	}
-
-	ctx, end := log.SpanContext(ctx, "handleWorkerRedirect", zap.String("pod", pod.Name))
+func (s *debugServer) collectWorker(ctx context.Context, dir string, pod *v1.Pod) (retErr error) {
+	ctx, end := log.SpanContext(ctx, "collectWorker", zap.String("pod", pod.Name))
 	defer end(log.Errorp(&retErr))
-
+	workerDir := filepath.Join(dir, podPrefix, pod.Name)
 	defer func() {
 		if retErr != nil {
-			retErr = writeErrorFile(tw, retErr, workerPrefix)
+			retErr = writeErrorFileV2(workerDir, retErr)
 		}
 	}()
-	if collectWorker != nil {
-		if err := collectWorker(ctx, tw, pod, workerPrefix); err != nil {
-			return err
-		}
-	}
-	if pod.Status.Phase != v1.PodRunning {
-		return errors.Errorf("pod in phase %v, must be in phase %v to collect debug information", pod.Status.Phase, v1.PodRunning)
-	}
-	c, err := workerserver.NewClient(pod.Status.PodIP)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := c.Close(); err != nil {
-			log.Error(ctx, "errored closing worker client", zap.Error(err))
-		}
-	}()
-	r, err := cb(ctx, c.DebugClient, &debug.Filter{
-		Filter: &debug.Filter_Worker{
-			Worker: &debug.Worker{
-				Pod:        pod.Name,
-				Redirected: true,
-			},
-		},
-	})
-	if err != nil {
-		return err
-	}
-	return collectDebugStream(tw, r, workerPrefix)
+
 }
 
 func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_ProfileServer) error {
-	pachClient := s.env.GetPachClient(server.Context())
-	return s.handleRedirect(
-		pachClient,
-		server,
-		request.Filter,
-		collectProfileFunc(request.Profile),  /* collectPachd */
-		nil,                                  /* collectPipeline */
-		nil,                                  /* collectWorker */
-		redirectProfileFunc(request.Profile), /* redirect */
-		collectProfileFunc(request.Profile),  /* collect */
-		false,
-		false,
-	)
+	//pachClient := s.env.GetPachClient(server.Context())
+	return errors.New("TODO")
+	// return s.handleRedirect(
+	// 	pachClient,
+	// 	server,
+	// 	request.Filter,
+	// 	collectProfileFunc(request.Profile),  /* collectPachd */
+	// 	nil,                                  /* collectPipeline */
+	// 	nil,                                  /* collectWorker */
+	// 	redirectProfileFunc(request.Profile), /* redirect */
+	// 	collectProfileFunc(request.Profile),  /* collect */
+	// 	false,
+	// 	false,
+	// )
 }
 
 func collectProfileFunc(profile *debug.Profile) collectFunc {
@@ -441,10 +429,10 @@ func collectProfileFunc(profile *debug.Profile) collectFunc {
 	}
 }
 
-func collectProfile(ctx context.Context, tw *tar.Writer, profile *debug.Profile, prefix ...string) error {
-	return collectDebugFile(tw, profile.Name, "", func(w io.Writer) error {
+func collectProfile(ctx context.Context, dir string, profile *debug.Profile) error {
+	return collectDebugFileV2(dir, profile.Name, func(w io.Writer) error {
 		return writeProfile(ctx, w, profile)
-	}, prefix...)
+	})
 }
 
 func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) (retErr error) {
@@ -480,33 +468,21 @@ func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) (ret
 	return errors.EnsureStack(p.WriteTo(w, 0))
 }
 
-func redirectProfileFunc(profile *debug.Profile) redirectFunc {
-	return func(ctx context.Context, c debug.DebugClient, filter *debug.Filter) (io.Reader, error) {
-		profileC, err := c.Profile(ctx, &debug.ProfileRequest{
-			Profile: profile,
-			Filter:  filter,
-		})
-		if err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-		return grpcutil.NewStreamingBytesReader(profileC, nil), nil
-	}
-}
-
 func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_BinaryServer) error {
-	pachClient := s.env.GetPachClient(server.Context())
-	return s.handleRedirect(
-		pachClient,
-		server,
-		request.Filter,
-		collectBinary,  /* collectPachd */
-		nil,            /* collectPipeline */
-		nil,            /* collectWorker */
-		redirectBinary, /* redirect */
-		collectBinary,  /* collect */
-		false,
-		false,
-	)
+	// pachClient := s.env.GetPachClient(server.Context())
+	// return s.handleRedirect(
+	// 	pachClient,
+	// 	server,
+	// 	request.Filter,
+	// 	collectBinary,  /* collectPachd */
+	// 	nil,            /* collectPipeline */
+	// 	nil,            /* collectWorker */
+	// 	redirectBinary, /* redirect */
+	// 	collectBinary,  /* collect */
+	// 	false,
+	// 	false,
+	// )
+	return errors.New("TODO")
 }
 
 func collectBinary(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
@@ -552,11 +528,11 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 		pachClient,
 		server,
 		request.Filter,
-		s.collectPachdDumpFunc(request.Limit),    /* collectPachd */
-		s.collectPipelineDumpFunc(request.Limit), /* collectPipeline */
-		s.collectWorkerDump,                      /* collectWorker */
-		redirectDump,                             /* redirect */
-		collectDump,                              /* collect */
+		s.collectPachdDumpFunc(request.Limit), /* collectPachd */
+		nil,                                   /* collectPipeline */
+		s.collectWorkerDump,                   /* collectWorker */
+		redirectDump,                          /* redirect */
+		collectDump,                           /* collect */
 		true,
 		true,
 	)
@@ -564,46 +540,11 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 
 func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
 	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, prefix ...string) (retErr error) {
-		ctx, end := log.SpanContext(ctx, "collectPachdDump")
-		defer end(log.Errorp(&retErr))
-
-		var errs error
-		// Collect helm info.
-		if err := s.helmReleases(ctx, tw); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "helmReleases"))
-		}
-		// Collect input repos.
-		if err := s.collectInputRepos(ctx, tw, pachClient, limit); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "collectInputRepos"))
-		}
-		// Collect the pachd version.
-		if err := s.collectPachdVersion(ctx, tw, pachClient, prefix...); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "collectPachdVersion"))
-		}
-		// Collect the pachd describe output.
-		if err := s.collectDescribe(ctx, tw, s.name, prefix...); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "collectDescribe"))
-		}
-		// Collect the pachd container logs.
-		if err := s.collectLogs(ctx, tw, s.name, "pachd", prefix...); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "collectLogs"))
-		}
-		// Collect the pachd container logs from loki.
-		lctx, c := context.WithTimeout(ctx, time.Minute)
-		defer c()
-		if err := s.collectLogsLoki(lctx, tw, s.name, "pachd", prefix...); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "collectLogsLoki"))
-		}
-		// Collect the pachd container dump.
-		if err := collectDump(ctx, tw, pachClient, prefix...); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "collectDump"))
-		}
-		return errs
+		return nil
 	}
 }
 
-func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, limit int64) (retErr error) {
-	defer log.Span(ctx, "collectInputRepos")(log.Errorp(&retErr))
+func (s *debugServer) collectInputRepos(ctx context.Context, pachClient *client.APIClient, dir string, limit int64) (retErr error) {
 	repoInfos, err := pachClient.ListRepo()
 	if err != nil {
 		return err
@@ -616,9 +557,9 @@ func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pac
 		}
 		if _, err := pachClient.InspectProjectPipeline(repoInfo.Repo.Project.Name, repoInfo.Repo.Name, true); err != nil {
 			if errutil.IsNotFoundError(err) {
-				repoPrefix := join("source-repos", repoInfo.Repo.Project.Name, repoInfo.Repo.Name)
-				if err := s.collectCommits(ctx, tw, pachClient, repoInfo.Repo, limit, repoPrefix); err != nil {
-					multierr.AppendInto(&errs, errors.Wrapf(err, "collectCommits(%s:%s)", repoInfo.GetRepo(), repoPrefix))
+				dir := filepath.Join(dir, repoInfo.Repo.Project.Name, repoInfo.Repo.Name)
+				if err := s.collectCommits(ctx, pachClient, dir, repoInfo.Repo, limit); err != nil {
+					multierr.AppendInto(&errs, errors.Wrapf(err, "collectCommits(%s:%s)", repoInfo.GetRepo(), dir))
 				}
 				continue
 			}
@@ -628,7 +569,7 @@ func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pac
 	return errs
 }
 
-func (s *debugServer) collectCommits(rctx context.Context, tw *tar.Writer, pachClient *client.APIClient, repo *pfs.Repo, limit int64, prefix ...string) error {
+func (s *debugServer) collectCommits(rctx context.Context, pachClient *client.APIClient, dir string, repo *pfs.Repo, limit int64) error {
 	compacting := chart.ContinuousSeries{
 		Name: "compacting",
 		Style: chart.Style{
@@ -650,7 +591,7 @@ func (s *debugServer) collectCommits(rctx context.Context, tw *tar.Writer, pachC
 			StrokeColor: chart.GetDefaultColor(2).WithAlpha(255),
 		},
 	}
-	if err := collectDebugFile(tw, "commits", "json", func(w io.Writer) error {
+	if err := collectDebugFileV2(dir, "commits.json", func(w io.Writer) error {
 		ctx, cancel := context.WithCancel(rctx)
 		defer cancel()
 		client, err := pachClient.PfsAPIClient.ListCommit(ctx, &pfs.ListCommitRequest{
@@ -689,13 +630,13 @@ func (s *debugServer) collectCommits(rctx context.Context, tw *tar.Writer, pachC
 			}
 			return errors.EnsureStack(s.marshaller.Marshal(w, ci))
 		})
-	}, prefix...); err != nil {
+	}); err != nil {
 		return err
 	}
 	// Reverse the x values since we collect them from newest to oldest.
 	// TODO: It would probably be better to support listing jobs in reverse order.
 	reverseContinuousSeries(compacting, validating, finishing)
-	return collectGraph(tw, "commits-chart.png", "number of commits", []chart.Series{compacting, validating, finishing}, prefix...)
+	return collectGraph(dir, "commits-chart.png", "number of commits", []chart.Series{compacting, validating, finishing})
 }
 
 func reverseContinuousSeries(series ...chart.ContinuousSeries) {
@@ -706,8 +647,8 @@ func reverseContinuousSeries(series ...chart.ContinuousSeries) {
 	}
 }
 
-func collectGraph(tw *tar.Writer, name, XAxisName string, series []chart.Series, prefix ...string) error {
-	return collectDebugFile(tw, name, "", func(w io.Writer) error {
+func collectGraph(dir, name, XAxisName string, series []chart.Series, prefix ...string) error {
+	return collectDebugFileV2(dir, name, func(w io.Writer) error {
 		graph := chart.Chart{
 			Title: name,
 			TitleStyle: chart.Style{
@@ -745,11 +686,11 @@ func collectGraph(tw *tar.Writer, name, XAxisName string, series []chart.Series,
 			chart.Legend(&graph),
 		}
 		return errors.EnsureStack(graph.Render(chart.PNG, w))
-	}, prefix...)
+	})
 }
 
-func collectGoInfo(tw *tar.Writer, prefix ...string) error {
-	return collectDebugFile(tw, "go_info", "txt", func(w io.Writer) error {
+func collectGoInfo(dir string) error {
+	return collectDebugFileV2(dir, "go_info.txt", func(w io.Writer) error {
 		fmt.Fprintf(w, "build info: ")
 		info, ok := runtimedebug.ReadBuildInfo()
 		if ok {
@@ -759,23 +700,22 @@ func collectGoInfo(tw *tar.Writer, prefix ...string) error {
 		}
 		fmt.Fprintf(w, "GOOS: %v\nGOARCH: %v\nGOMAXPROCS: %v\nNumCPU: %v\n", runtime.GOOS, runtime.GOARCH, runtime.GOMAXPROCS(0), runtime.NumCPU())
 		return nil
-	}, prefix...)
+	})
 }
 
-func (s *debugServer) collectPachdVersion(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, prefix ...string) error {
-	return collectDebugFile(tw, "version", "txt", func(w io.Writer) (retErr error) {
-		defer log.Span(ctx, "collectPachdVersion")(log.Errorp(&retErr))
+func (s *debugServer) collectPachdVersion(ctx context.Context, pachClient *client.APIClient, dir string) error {
+	return collectDebugFileV2(dir, "version.txt", func(w io.Writer) (retErr error) {
 		version, err := pachClient.Version()
 		if err != nil {
 			return err
 		}
 		_, err = io.Copy(w, strings.NewReader(version+"\n"))
 		return errors.EnsureStack(err)
-	}, prefix...)
+	})
 }
 
-func (s *debugServer) collectDescribe(ctx context.Context, tw *tar.Writer, pod string, prefix ...string) error {
-	return collectDebugFile(tw, "describe", "txt", func(output io.Writer) (retErr error) {
+func (s *debugServer) collectDescribe(ctx context.Context, dir string, pod string) error {
+	return collectDebugFileV2(dir, "describe.txt", func(output io.Writer) (retErr error) {
 		// Gate the total time of "describe".
 		ctx, c := context.WithTimeout(ctx, 2*time.Minute)
 		defer c()
@@ -808,11 +748,11 @@ func (s *debugServer) collectDescribe(ctx context.Context, tw *tar.Writer, pod s
 			return errors.EnsureStack(err)
 		}
 		return nil
-	}, prefix...)
+	})
 }
 
-func (s *debugServer) collectLogs(ctx context.Context, tw *tar.Writer, pod, container string, prefix ...string) error {
-	if err := collectDebugFile(tw, "logs", "txt", func(w io.Writer) (retErr error) {
+func (s *debugServer) collectLogs(ctx context.Context, dir string, pod, container string) error {
+	if err := collectDebugFileV2(dir, "logs.txt", func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogs", zap.String("pod", pod), zap.String("container", container))(log.Errorp(&retErr))
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream(ctx)
 		if err != nil {
@@ -825,10 +765,10 @@ func (s *debugServer) collectLogs(ctx context.Context, tw *tar.Writer, pod, cont
 		}()
 		_, err = io.Copy(w, stream)
 		return errors.EnsureStack(err)
-	}, prefix...); err != nil {
+	}); err != nil {
 		return err
 	}
-	return collectDebugFile(tw, "logs-previous", "txt", func(w io.Writer) (retErr error) {
+	return collectDebugFileV2(dir, "logs-previous.txt", func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogs.previous", zap.String("pod", pod), zap.String("container", container))(log.Errorp(&retErr))
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream(ctx)
 		if err != nil {
@@ -841,7 +781,7 @@ func (s *debugServer) collectLogs(ctx context.Context, tw *tar.Writer, pod, cont
 		}()
 		_, err = io.Copy(w, stream)
 		return errors.EnsureStack(err)
-	}, prefix...)
+	})
 }
 
 func (s *debugServer) hasLoki() bool {
@@ -849,11 +789,11 @@ func (s *debugServer) hasLoki() bool {
 	return err == nil
 }
 
-func (s *debugServer) collectLogsLoki(ctx context.Context, tw *tar.Writer, pod, container string, prefix ...string) error {
+func (s *debugServer) collectLogsLoki(ctx context.Context, dir, pod, container string) error {
 	if !s.hasLoki() {
 		return nil
 	}
-	return collectDebugFile(tw, "logs-loki", "txt", func(w io.Writer) (retErr error) {
+	return collectDebugFileV2(dir, "logs-loki.txt", func(w io.Writer) (retErr error) {
 		defer log.Span(ctx, "collectLogsLoki", zap.String("pod", pod), zap.String("container", container))(log.Errorp(&retErr))
 		queryStr := `{pod="` + pod
 		if container != "" {
@@ -884,85 +824,71 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, tw *tar.Writer, pod, 
 			}
 		}
 		return nil
-	}, prefix...)
+	})
 }
 
 // collectDump is done on the pachd side, AND by the workers by them.
-func collectDump(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) (retErr error) {
-	defer log.Span(ctx, "collectDump", zap.Strings("prefix", prefix))(log.Errorp(&retErr))
-
+func collectDump(ctx context.Context, dir string) (retErr error) {
+	defer log.Span(ctx, "collectDump", zap.String("path", dir))(log.Errorp(&retErr))
 	// Collect go info.
-	if err := collectGoInfo(tw, prefix...); err != nil {
+	if err := collectGoInfo(dir); err != nil {
 		return err
 	}
-
 	// Goroutine profile.
-	if err := collectProfile(ctx, tw, &debug.Profile{Name: "goroutine"}, prefix...); err != nil {
+	if err := collectProfile(ctx, dir, &debug.Profile{Name: "goroutine"}); err != nil {
 		return err
 	}
-
 	// Heap profile.
-	if err := collectProfile(ctx, tw, &debug.Profile{Name: "heap"}, prefix...); err != nil {
+	if err := collectProfile(ctx, dir, &debug.Profile{Name: "heap"}); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
-	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, prefix ...string) (retErr error) {
-		ctx, end := log.SpanContext(ctx, "collectPipelineDump", zap.Stringer("pipeline", pipelineInfo.GetPipeline()))
-		defer end(log.Errorp(&retErr))
-
-		if err := validatePipelineInfo(pipelineInfo); err != nil {
-			return errors.Wrap(err, "collectPipelineDumpFunc: invalid pipeline info")
+func (s *debugServer) collectPipelineV2(ctx context.Context, dir string, pi *pps.PipelineInfo, limit int64) (retErr error) {
+	ctx, end := log.SpanContext(ctx, "collectPipelineDump", zap.Stringer("pipeline", pi.GetPipeline()))
+	defer end(log.Errorp(&retErr))
+	if err := validatePipelineInfo(pi); err != nil {
+		return errors.Wrap(err, "collectPipelineDumpFunc: invalid pipeline info")
+	}
+	var errs error
+	if err := collectDebugFileV2(dir, "spec.json", func(w io.Writer) error {
+		fullPipelineInfos, err := s.env.GetPachClient(ctx).ListProjectPipelineHistory(pi.Pipeline.Project.Name, pi.Pipeline.Name, -1, true)
+		if err != nil {
+			return err
 		}
-		var errs error
-		if err := collectDebugFile(tw, "spec", "json", func(w io.Writer) error {
-			fullPipelineInfos, err := pachClient.ListProjectPipelineHistory(pipelineInfo.Pipeline.Project.Name, pipelineInfo.Pipeline.Name, -1, true)
-			if err != nil {
-				return err
-			}
-			var pipelineErrs error
-			for _, fullPipelineInfo := range fullPipelineInfos {
-				if err := s.marshaller.Marshal(w, fullPipelineInfo); err != nil {
-					multierr.AppendInto(&pipelineErrs, errors.Wrapf(err, "marshalFullPipelineInfo(%s)", fullPipelineInfo.GetPipeline()))
-				}
-			}
-			return nil
-		}, prefix...); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "listProjectPipelineHistory"))
-		}
-		if err := s.collectCommits(ctx, tw, pachClient, client.NewProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "collectCommits"))
-		}
-		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline, limit, prefix...); err != nil {
-			multierr.AppendInto(&errs, errors.Wrap(err, "collectJobs"))
-		}
-		if s.hasLoki() {
-			if err := s.forEachWorkerLoki(ctx, pipelineInfo, func(pod string) (retErr error) {
-				ctx, end := log.SpanContext(ctx, "forEachWorkerLoki.worker", zap.String("pod", pod))
-				defer end(log.Errorp(&retErr))
-
-				workerPrefix := join(podPrefix, pod)
-				if len(prefix) > 0 {
-					workerPrefix = join(prefix[0], workerPrefix)
-				}
-				userPrefix := join(workerPrefix, client.PPSWorkerUserContainerName)
-				if err := s.collectLogsLoki(ctx, tw, pod, client.PPSWorkerUserContainerName, userPrefix); err != nil {
-					return err
-				}
-				sidecarPrefix := join(workerPrefix, client.PPSWorkerSidecarContainerName)
-				return s.collectLogsLoki(ctx, tw, pod, client.PPSWorkerSidecarContainerName, sidecarPrefix)
-			}); err != nil {
-				name := "loki"
-				if len(prefix) > 0 {
-					name = join(prefix[0], name)
-				}
-				return writeErrorFile(tw, err, name)
+		var pipelineErrs error
+		for _, fullPipelineInfo := range fullPipelineInfos {
+			if err := s.marshaller.Marshal(w, fullPipelineInfo); err != nil {
+				multierr.AppendInto(&pipelineErrs, errors.Wrapf(err, "marshalFullPipelineInfo(%s)", fullPipelineInfo.GetPipeline()))
 			}
 		}
 		return nil
+	}); err != nil {
+		multierr.AppendInto(&errs, errors.Wrap(err, "listProjectPipelineHistory"))
 	}
+	if err := s.collectCommits(ctx, s.env.GetPachClient(ctx), dir, client.NewProjectRepo(pi.Pipeline.Project.GetName(), pi.Pipeline.Name), limit); err != nil {
+		multierr.AppendInto(&errs, errors.Wrap(err, "collectCommits"))
+	}
+	if err := s.collectJobs(s.env.GetPachClient(ctx), dir, pi.Pipeline, limit); err != nil {
+		multierr.AppendInto(&errs, errors.Wrap(err, "collectJobs"))
+	}
+	if s.hasLoki() {
+		if err := s.forEachWorkerLoki(ctx, pi, func(pod string) (retErr error) {
+			ctx, end := log.SpanContext(ctx, "forEachWorkerLoki.worker", zap.String("pod", pod))
+			defer end(log.Errorp(&retErr))
+			workerDir := filepath.Join(dir, podPrefix, pod)
+			userDir := filepath.Join(workerDir, client.PPSWorkerUserContainerName)
+			if err := s.collectLogsLoki(ctx, userDir, pod, client.PPSWorkerUserContainerName); err != nil {
+				return err
+			}
+			sidecarDir := filepath.Join(workerDir, client.PPSWorkerSidecarContainerName)
+			return s.collectLogsLoki(ctx, sidecarDir, pod, client.PPSWorkerSidecarContainerName)
+		}); err != nil {
+			return writeErrorFileV2(filepath.Join(dir, "loki"), err)
+		}
+	}
+	return errs
 }
 
 func (s *debugServer) forEachWorkerLoki(ctx context.Context, pipelineInfo *pps.PipelineInfo, cb func(string) error) error {
@@ -1113,7 +1039,7 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) (retResult
 	return result, nil
 }
 
-func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, pipeline *pps.Pipeline, limit int64, prefix ...string) error {
+func (s *debugServer) collectJobs(pachClient *client.APIClient, dir string, pipeline *pps.Pipeline, limit int64, prefix ...string) error {
 	download := chart.ContinuousSeries{
 		Name: "download",
 		Style: chart.Style{
@@ -1135,7 +1061,7 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 			StrokeColor: chart.GetDefaultColor(2).WithAlpha(255),
 		},
 	}
-	if err := collectDebugFile(tw, "jobs", "json", func(w io.Writer) error {
+	if err := collectDebugFileV2(dir, "jobs.json", func(w io.Writer) error {
 		// TODO: The limiting should eventually be a feature of list job.
 		var count int64
 		return pachClient.ListProjectJobF(pipeline.Project.Name, pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
@@ -1165,34 +1091,30 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 			}
 			return errors.EnsureStack(s.marshaller.Marshal(w, ji))
 		})
-	}, prefix...); err != nil {
+	}); err != nil {
 		return err
 	}
 	// Reverse the x values since we collect them from newest to oldest.
 	// TODO: It would probably be better to support listing jobs in reverse order.
 	reverseContinuousSeries(download, process, upload)
-	return collectGraph(tw, "jobs-chart.png", "number of jobs", []chart.Series{download, process, upload}, prefix...)
+	return collectGraph(dir, "jobs-chart.png", "number of jobs", []chart.Series{download, process, upload}, prefix...)
 }
 
 // collectWorkerDump is something to do for each worker, on the pachd side.
-func (s *debugServer) collectWorkerDump(ctx context.Context, tw *tar.Writer, pod *v1.Pod, prefix ...string) (retErr error) {
+func (s *debugServer) collectWorkerDump(ctx context.Context, dir string, pod *v1.Pod, prefix ...string) (retErr error) {
 	defer log.Span(ctx, "collectWorkerDump")(log.Errorp(&retErr))
 	// Collect the worker describe output.
-	if err := s.collectDescribe(ctx, tw, pod.Name, prefix...); err != nil {
+	if err := s.collectDescribe(ctx, dir, pod.Name); err != nil {
 		return err
 	}
 	// Collect the worker user and storage container logs.
-	userPrefix := client.PPSWorkerUserContainerName
-	sidecarPrefix := client.PPSWorkerSidecarContainerName
-	if len(prefix) > 0 {
-		userPrefix = join(prefix[0], userPrefix)
-		sidecarPrefix = join(prefix[0], sidecarPrefix)
-	}
+	userDir := filepath.Join(dir, client.PPSWorkerUserContainerName)
+	sidecarDir := filepath.Join(dir, client.PPSWorkerSidecarContainerName)
 	var errs error
-	if err := s.collectLogs(ctx, tw, pod.Name, client.PPSWorkerUserContainerName, userPrefix); err != nil {
+	if err := s.collectLogs(ctx, userDir, pod.Name, client.PPSWorkerUserContainerName); err != nil {
 		multierr.AppendInto(&errs, errors.Wrap(err, "userContainerLogs"))
 	}
-	if err := s.collectLogs(ctx, tw, pod.Name, client.PPSWorkerSidecarContainerName, sidecarPrefix); err != nil {
+	if err := s.collectLogs(ctx, sidecarDir, pod.Name, client.PPSWorkerSidecarContainerName); err != nil {
 		multierr.AppendInto(&errs, errors.Wrap(err, "storageContainerLogs"))
 	}
 	return errs
@@ -1207,9 +1129,7 @@ func redirectDump(ctx context.Context, c debug.DebugClient, filter *debug.Filter
 	return grpcutil.NewStreamingBytesReader(dumpC, nil), nil
 }
 
-// handleHelmSecret decodes a helm release secret into its various components.  A returned error
-// should be written into error.txt.
-func handleHelmSecret(ctx context.Context, tw *tar.Writer, secret v1.Secret) error {
+func handleHelmSecretV2(ctx context.Context, path string, secret v1.Secret) error {
 	var errs error
 	name := secret.Name
 	if got, want := string(secret.Type), "helm.sh/release.v1"; got != want {
@@ -1224,10 +1144,9 @@ func handleHelmSecret(ctx context.Context, tw *tar.Writer, secret v1.Secret) err
 		log.Info(ctx, "secret data doesn't have a release key", zap.String("secretName", name), zap.Strings("keys", maps.Keys(secret.Data)))
 		return nil
 	}
-
 	// There are a few labels that helm adds that are interesting (the "release
 	// status").  Grab those and write to metadata.json.
-	if err := collectDebugFile(tw, path.Join("helm", name, "metadata"), "json", func(w io.Writer) error {
+	if err := collectDebugFileV2(path, "metadata.json", func(w io.Writer) error {
 		text, err := json.Marshal(secret.ObjectMeta)
 		if err != nil {
 			return errors.Wrap(err, "marshal ObjectMeta")
@@ -1244,7 +1163,7 @@ func handleHelmSecret(ctx context.Context, tw *tar.Writer, secret v1.Secret) err
 
 	// Get the text of the release and write it to release.json.
 	var releaseJSON []byte
-	if err := collectDebugFile(tw, path.Join("helm", name, "release"), "json", func(w io.Writer) error {
+	if err := collectDebugFileV2(path, "release.json", func(w io.Writer) error {
 		// The helm release data is base64-encoded gzipped JSON-marshalled protobuf.
 		// The base64 encoding is IN ADDITION to the base64 encoding that k8s does
 		// when serving secrets through the API; client-go removes that for us.
@@ -1299,7 +1218,7 @@ func handleHelmSecret(ctx context.Context, tw *tar.Writer, secret v1.Secret) err
 	}
 
 	// Write the manifest YAML.
-	if err := collectDebugFile(tw, path.Join("helm", name, "manifest"), "yaml", func(w io.Writer) error {
+	if err := collectDebugFileV2(path, "manifest.yaml", func(w io.Writer) error {
 		// Helm adds a newline at the end of the manifest.
 		if _, err := fmt.Fprintf(w, "%s", release.Manifest); err != nil {
 			return errors.Wrap(err, "print manifest")
@@ -1311,7 +1230,126 @@ func handleHelmSecret(ctx context.Context, tw *tar.Writer, secret v1.Secret) err
 	}
 
 	// Write values.yaml.
-	if err := collectDebugFile(tw, path.Join("helm", name, "values"), "yaml", func(w io.Writer) error {
+	if err := collectDebugFileV2(path, "values.yaml", func(w io.Writer) error {
+		b, err := yaml.Marshal(release.Config)
+		if err != nil {
+			return errors.Wrap(err, "marshal values to yaml")
+		}
+		if _, err := w.Write(b); err != nil {
+			return errors.Wrap(err, "print values")
+		}
+		return nil
+	}); err != nil {
+		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: write values.yaml", name))
+	}
+	return errs
+}
+
+// handleHelmSecret decodes a helm release secret into its various components.  A returned error
+// should be written into error.txt.
+func handleHelmSecret(ctx context.Context, tw *tar.Writer, secret v1.Secret) error {
+	var errs error
+	name := secret.Name
+	if got, want := string(secret.Type), "helm.sh/release.v1"; got != want {
+		return errors.Errorf("helm-owned secret of unknown version; got %v want %v", got, want)
+	}
+	if secret.Data == nil {
+		log.Info(ctx, "skipping helm secret with no data", zap.String("secretName", name))
+		return nil
+	}
+	releaseData, ok := secret.Data["release"]
+	if !ok {
+		log.Info(ctx, "secret data doesn't have a release key", zap.String("secretName", name), zap.Strings("keys", maps.Keys(secret.Data)))
+		return nil
+	}
+
+	// There are a few labels that helm adds that are interesting (the "release
+	// status").  Grab those and write to metadata.json.
+	if err := collectDebugFile(tw, filepath.Join("helm", name, "metadata"), "json", func(w io.Writer) error {
+		text, err := json.Marshal(secret.ObjectMeta)
+		if err != nil {
+			return errors.Wrap(err, "marshal ObjectMeta")
+		}
+		if _, err := w.Write(text); err != nil {
+			return errors.Wrap(err, "write ObjectMeta json")
+		}
+		return nil
+	}); err != nil {
+		// We can still try to get the release JSON if the metadata doesn't marshal
+		// or write cleanly.
+		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: collect metadata", name))
+	}
+
+	// Get the text of the release and write it to release.json.
+	var releaseJSON []byte
+	if err := collectDebugFile(tw, filepath.Join("helm", name, "release"), "json", func(w io.Writer) error {
+		// The helm release data is base64-encoded gzipped JSON-marshalled protobuf.
+		// The base64 encoding is IN ADDITION to the base64 encoding that k8s does
+		// when serving secrets through the API; client-go removes that for us.
+		var err error
+		releaseJSON, err = base64.StdEncoding.DecodeString(string(releaseData))
+		if err != nil {
+			releaseJSON = nil
+			return errors.Wrap(err, "decode base64")
+		}
+
+		// Older versions of helm do not compress the data; this check is for the
+		// gzip header; if deteced, decompress.
+		if len(releaseJSON) > 3 && bytes.Equal(releaseJSON[0:3], []byte{0x1f, 0x8b, 0x08}) {
+			gz, err := gzip.NewReader(bytes.NewReader(releaseJSON))
+			if err != nil {
+				return errors.Wrap(err, "create gzip reader")
+			}
+			releaseJSON, err = io.ReadAll(gz)
+			if err != nil {
+				return errors.Wrap(err, "decompress")
+			}
+			if err := gz.Close(); err != nil {
+				return errors.Wrap(err, "close gzip reader")
+			}
+		}
+
+		// Write out the raw release JSON, so fields we don't pick out in the next
+		// phase can be parsed out by the person analyzing the dump if necessary.
+		if _, err := w.Write(releaseJSON); err != nil {
+			return errors.Wrap(err, "write release")
+		}
+		return nil
+	}); err != nil {
+		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: collect release", name))
+		// The next steps need the release JSON, so we have to give up if any of
+		// this failed.  Technically if the write fails, we could continue, but it
+		// doesn't seem worth the effort because the next writes are also likely to
+		// fail.
+		return errs
+	}
+
+	// Unmarshal the release JSON, and start writing files for each interesting part.
+	var release struct {
+		// Config is the merged values.yaml that aren't in the chart.
+		Config map[string]any `json:"config"`
+		// Manifest is the rendered manifest that was applied to the cluster.
+		Manifest string `json:"manifest"`
+	}
+	if err := json.Unmarshal(releaseJSON, &release); err != nil {
+		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: unmarshal release json", name))
+		return errs
+	}
+
+	// Write the manifest YAML.
+	if err := collectDebugFile(tw, filepath.Join("helm", name, "manifest"), "yaml", func(w io.Writer) error {
+		// Helm adds a newline at the end of the manifest.
+		if _, err := fmt.Fprintf(w, "%s", release.Manifest); err != nil {
+			return errors.Wrap(err, "print manifest")
+		}
+		return nil
+	}); err != nil {
+		multierr.AppendInto(&errs, errors.Wrapf(err, "%v: write manifest.yaml", name))
+		// We can try the next step if this fails.
+	}
+
+	// Write values.yaml.
+	if err := collectDebugFile(tw, filepath.Join("helm", name, "values"), "yaml", func(w io.Writer) error {
 		b, err := yaml.Marshal(release.Config)
 		if err != nil {
 			return errors.Wrap(err, "marshal values to yaml")
@@ -1341,7 +1379,7 @@ func (s *debugServer) helmReleases(ctx context.Context, tw *tar.Writer) (retErr 
 	var writeErrs error
 	for _, secret := range secrets.Items {
 		if err := handleHelmSecret(ctx, tw, secret); err != nil {
-			if err := writeErrorFile(tw, err, path.Join("helm", secret.Name)); err != nil {
+			if err := writeErrorFile(tw, err, filepath.Join("helm", secret.Name)); err != nil {
 				multierr.AppendInto(&writeErrs, errors.Wrapf(err, "%v: write error.txt", secret.Name))
 				continue
 			}

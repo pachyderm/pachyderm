@@ -63,9 +63,60 @@ message SetLogLevelResponse {
     repeated string errored_pods = 2;
 }
 
+message PachdDump {
+  bool describe = 1;
+  bool logs = 2;
+  bool loki_logs = 3;
+}
+
+message AppDump {
+  bool input_repos = 1;
+}
+
+message WorkerDump {
+  string pod = 1;
+}
+
+message PipelineDump {
+  string name = 1;
+}
+
+message PipelinesDump {
+  repeated PipelineDump tasks = 1;
+}
+
+message SystemDump {
+  bool version = 1;
+  bool helm = 2;
+  bool profile = 3;
+}
+
+message DumpV2Request {
+  SystemDump system_dump = 1;
+  PachdDump pachd_dump = 2;
+  PipelinesDump pipelines_dump = 3;
+  AppDump app_dump = 4;
+}
+
+message DumpContent {
+  bytes content = 1;
+}
+
+message DumpProgress {
+  string message = 1;
+}
+
+message DumpChunk {
+  oneof chunk {
+    DumpContent content = 1;
+    DumpProgress progress = 2;
+  }
+}
+
 service Debug {
   rpc Profile(ProfileRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Binary(BinaryRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Dump(DumpRequest) returns (stream google.protobuf.BytesValue) {}
   rpc SetLogLevel(SetLogLevelRequest) returns (SetLogLevelResponse) {}
+  rpc DumpV2(DumpV2Request) returns (stream DumpChunk) {}
 }
