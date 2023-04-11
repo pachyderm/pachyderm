@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	terraTest "github.com/gruntwork-io/terratest/modules/testing"
@@ -23,7 +24,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -36,6 +39,7 @@ const (
 	helmChartPublishedPath = "pachyderm/pachyderm"
 	localImage             = "local"
 	licenseKeySecretName   = "enterprise-license-key-secret"
+	coverageFolder         = "/tmp/test-results" //DNJ TODO - parameterize? local testing?
 )
 
 const (
@@ -560,7 +564,61 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.WaitSeconds > 0 {
 		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
 	}
-	return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
+	pClient := pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
+	collectMinikubeCodeCoverage(t, pClient, opts.ValueOverrides)
+	return pClient
+}
+
+func collectMinikubeCodeCoverage(t testing.TB, pachClient *client.APIClient, valueOverrides map[string]string) {
+	// sha version is ok, since it generally means later version
+	//DNJ TODO - can we check vor 'cover' in version? why is 0.0.0 used?
+	coverageFilePath := filepath.Join(coverageFolder,
+		fmt.Sprintf("%s-cover.tgz",
+			strings.ReplaceAll(filepath.ToSlash(t.Name()), "/", "-")), // ToSlash for hypothetical different os
+	)
+
+	if _, err := os.Stat(coverageFilePath); errors.Is(err, os.ErrNotExist) {
+		if err := os.MkdirAll(coverageFolder, os.ModePerm); err != nil {
+			t.Logf("Error creating code coverage folder: %v", err)
+			return
+		}
+	} else if err := os.Remove(coverageFilePath); err != nil {
+		t.Logf("Error deleting old code coverage file: %v", err) // TODO just skip getting coverage for perf?
+		return
+	}
+
+	covFile, err := os.Create(coverageFilePath)
+	if err != nil {
+		t.Logf("Error creating code coverage file: %v", err)
+		return
+	}
+	defer func() {
+		if err := covFile.Close(); err != nil {
+			t.Logf("Error closing code coverage file: %v", err)
+			return
+		}
+	}()
+
+	if err = pachClient.Profile(&debug.Profile{
+		Name:     "cover",
+		Duration: types.DurationProto(30 * time.Minute), // no test should be longer than 30 minutes
+	}, &debug.Filter{}, covFile); errors.Is(err, auth.ErrNotSignedIn) { // DNJ TODO  - clean up mess
+		token, ok := valueOverrides["pachd.rootToken"]
+		if !ok {
+			token = testutil.RootToken
+		}
+
+		pachClient.SetAuthToken(token)
+		err = pachClient.Profile(&debug.Profile{
+			Name:     "cover",
+			Duration: types.DurationProto(30 * time.Minute), // no test should be longer than 30 minutes
+		}, &debug.Filter{}, covFile)
+	}
+	if err != nil {
+		t.Logf("Failed debug call attempting to retrieve code coverage: %v", err)
+	} else {
+		t.Logf("Successfully output minikube code coverage to file: %v", coverageFilePath)
+	}
 }
 
 func PutNamespace(t testing.TB, namespace string) {

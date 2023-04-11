@@ -209,8 +209,10 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	var assigned string
 	t.Cleanup(func() {
 		clusterFactory.mu.Lock()
-		if *cleanupDataAfter {
-			if mc := clusterFactory.managedClusters[assigned]; mc != nil {
+		mc := clusterFactory.managedClusters[assigned]
+		if mc != nil {
+			collectMinikubeCodeCoverage(t, mc.client, mc.settings.ValueOverrides) // DNJ TODO - should this be a separate cleanup only when UpgradeRelease is not called?
+			if *cleanupDataAfter {
 				deleteAll(t, mc.client)
 			}
 		}
