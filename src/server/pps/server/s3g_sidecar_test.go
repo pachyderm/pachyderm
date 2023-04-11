@@ -15,6 +15,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -836,4 +838,58 @@ func TestS3SkippedDatums(t *testing.T) {
 		require.NoError(t, c.CreateProject(projectName))
 		testS3SkippedDatums(t, c, userToken, ns, projectName, func(p, r string) string { return r + "." + p })
 	})
+}
+
+// TestDontDownloadData tests that when a pipeline sets `S3: true` on an input,
+// the worker binary doesn't download any datums from that input to the worker.
+// This test limits the size of the worker pod's disk to a smaller size than the
+// input data exposed via a `S3: true` input. When the worker binary attempts to
+// download all 10GB of input, the test times out.
+func TestDontDownloadData(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _, _ := initPachClient(t)
+
+	repo := tu.UniqueString(t.Name() + "_data")
+	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	masterCommit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	for i := 0; i < 100; i++ {
+		// require.NoError(t, c.PutFile(masterCommit, fmt.Sprintf("%02d", i), io.LimitReader(strings.NewReader("ooooooo"), 2)))
+		require.NoError(t, c.PutFile(masterCommit, fmt.Sprintf("%02d", i), io.LimitReader(
+			rand.New(rand.NewSource(0)), 100000000 /* 100 MB x 100 = 10 GB */)))
+	}
+
+	pipeline := tu.UniqueString("Pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+		Transform: &pps.Transform{
+			Cmd:   []string{"bash", "-x"},
+			Stdin: []string{"exit 0"},
+		},
+		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
+		Input: &pps.Input{
+			Pfs: &pps.PFSInput{
+				Project: pfs.DefaultProjectName,
+				Repo:    repo,
+				Name:    "input_repo",
+				Branch:  "master",
+				S3:      true,
+				Glob:    "/",
+			},
+		},
+		ResourceLimits: &pps.ResourceSpec{
+			// Big enough to hold the file cache (700-800 MiB, experimentally), but
+			// small enough to break if all 10 GiB of input are downloaded
+			Disk: "1GiB",
+		},
+	})
+	require.NoError(t, err)
+
+	commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	require.NoError(t, err)
+
+	jobInfo, err := c.WaitProjectJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 }
