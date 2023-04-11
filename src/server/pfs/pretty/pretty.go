@@ -176,7 +176,9 @@ Trigger: {{printTrigger .Trigger}} {{end}}
 func PrintDetailedProjectInfo(projectInfo *pfs.ProjectInfo) error {
 	template, err := template.New("ProjectInfo").Funcs(funcMap).Parse(
 		`Name: {{.Project.Name}}{{if .Description}}
-Description: {{ .Description}} {{end}}
+Description: {{ .Description}} {{end}}{{if .AuthInfo}}
+Roles: {{.AuthInfo.Roles | commafy}}
+Permissions: {{.AuthInfo.Permissions | commafy}}{{end}}
 `)
 	if err != nil {
 		return errors.EnsureStack(err)

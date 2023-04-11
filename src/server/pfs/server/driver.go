@@ -577,6 +577,14 @@ func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs
 	if err := d.projects.ReadOnly(ctx).Get(pfsdb.ProjectKey(project), pi); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: project.AuthResource()})
+	if err != nil {
+		if errors.Is(err, auth.ErrNotActivated) {
+			return pi, nil
+		}
+		return nil, errors.Wrapf(err, "error getting permissions for project %s", project)
+	}
+	pi.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 	return pi, nil
 }
 
