@@ -1,4 +1,5 @@
-import {NodeState, PipelineState, JobState} from '@graphqlTypes';
+import {JobState as ProtoJobState} from '@dash-backend/proto';
+import {NodeState, PipelineState, InputMaybe, JobState} from '@graphqlTypes';
 
 export const gqlPipelineStateToNodeState = (pipelineState: PipelineState) => {
   switch (pipelineState) {
@@ -34,5 +35,28 @@ export const gqlJobStateToNodeState = (jobState: JobState) => {
       return NodeState.ERROR;
     default:
       return NodeState.IDLE;
+  }
+};
+
+export const nodeStateToJobStateEnum = (nodeState: InputMaybe<NodeState>) => {
+  switch (nodeState) {
+    case NodeState.SUCCESS:
+      return [ProtoJobState.JOB_SUCCESS];
+    case NodeState.RUNNING:
+      return [
+        ProtoJobState.JOB_CREATED,
+        ProtoJobState.JOB_RUNNING,
+        ProtoJobState.JOB_EGRESSING,
+        ProtoJobState.JOB_STARTING,
+        ProtoJobState.JOB_FINISHING,
+      ];
+    case NodeState.ERROR:
+      return [
+        ProtoJobState.JOB_FAILURE,
+        ProtoJobState.JOB_KILLED,
+        ProtoJobState.JOB_UNRUNNABLE,
+      ];
+    default:
+      return [ProtoJobState.JOB_STATE_UNKNOWN];
   }
 };

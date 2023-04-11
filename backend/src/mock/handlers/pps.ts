@@ -110,8 +110,8 @@ const pps = () => {
           if (cursor) {
             const cursorIndex = replyJobs.findIndex(
               (job) =>
-                job.getStarted()?.getNanos() === cursor.getNanos() &&
-                job.getStarted()?.getSeconds() === cursor.getSeconds(),
+                job.getCreated()?.getNanos() === cursor.getNanos() &&
+                job.getCreated()?.getSeconds() === cursor.getSeconds(),
             );
             replyJobs = replyJobs.slice(cursorIndex + 1);
           }

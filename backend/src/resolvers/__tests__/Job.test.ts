@@ -116,6 +116,55 @@ describe('Jobs', () => {
       expect(data?.jobs.items[0].id).toBe(expectedJobs[0].getJob()?.getId());
     });
 
+    it('should find jobs for multiple given node states', async () => {
+      const {data, errors = []} = await executeQuery<JobsQuery>(JOBS_QUERY, {
+        args: {
+          projectId: 'Solar-Panel-Data-Sorting',
+          nodeStateFilter: ['SUCCESS', 'ERROR'],
+        },
+      });
+
+      expect(errors).toHaveLength(0);
+      expect(data?.jobs.items).toHaveLength(4);
+      expect(data?.jobs.items[0].state).toBe('JOB_SUCCESS');
+      expect(data?.jobs.items[1].state).toBe('JOB_SUCCESS');
+      expect(data?.jobs.items[2].state).toBe('JOB_FAILURE');
+      expect(data?.jobs.items[3].state).toBe('JOB_KILLED');
+    });
+
+    it('should find jobs for multiple filters', async () => {
+      const {data: successJobs} = await executeQuery<JobsQuery>(JOBS_QUERY, {
+        args: {
+          projectId: 'Solar-Panel-Data-Sorting',
+          nodeStateFilter: ['SUCCESS'],
+        },
+      });
+      expect(successJobs?.jobs.items).toHaveLength(2);
+
+      const {data: montageJobs} = await executeQuery<JobsQuery>(JOBS_QUERY, {
+        args: {
+          projectId: 'Solar-Panel-Data-Sorting',
+          pipelineIds: ['montage'],
+        },
+      });
+      expect(montageJobs?.jobs.items).toHaveLength(4);
+
+      const {data: crossFilterJobs, errors = []} =
+        await executeQuery<JobsQuery>(JOBS_QUERY, {
+          args: {
+            projectId: 'Solar-Panel-Data-Sorting',
+            nodeStateFilter: ['SUCCESS'],
+            pipelineIds: ['montage'],
+          },
+        });
+
+      expect(errors).toHaveLength(0);
+      expect(crossFilterJobs?.jobs.items).toHaveLength(1);
+      expect(crossFilterJobs?.jobs.items[0].id).toBe(
+        '23b9af7d5d4343219bc8e02ff44cd55a',
+      );
+    });
+
     it('should return an empty set if no records exist', async () => {
       const {data, errors = []} = await executeQuery<JobsQuery>(JOBS_QUERY, {
         args: {
@@ -223,7 +272,7 @@ describe('Jobs', () => {
       expect(data?.jobs.items).toHaveLength(3);
       expect(data?.jobs.cursor).toEqual(
         expect.objectContaining({
-          seconds: 1614126191,
+          seconds: 1614126190,
           nanos: 100,
         }),
       );
@@ -245,7 +294,7 @@ describe('Jobs', () => {
           projectId,
           limit: 2,
           cursor: {
-            seconds: 1614126190,
+            seconds: 1614126191,
             nanos: 100,
           },
         },
@@ -255,7 +304,7 @@ describe('Jobs', () => {
       expect(data?.jobs.items).toHaveLength(2);
       expect(data?.jobs.cursor).toEqual(
         expect.objectContaining({
-          seconds: 1614125000,
+          seconds: 1614126189,
           nanos: 100,
         }),
       );
@@ -268,7 +317,7 @@ describe('Jobs', () => {
           projectId,
           limit: 3,
           cursor: {
-            seconds: 1614126191,
+            seconds: 1614126190,
             nanos: 100,
           },
         },

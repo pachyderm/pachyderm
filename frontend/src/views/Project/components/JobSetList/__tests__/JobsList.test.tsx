@@ -80,8 +80,8 @@ describe('JobSet SubJobs List', () => {
 
     let jobs = screen.getAllByTestId('JobsList__row');
     expect(jobs[0]).toHaveTextContent('23b9af...');
-    expect(jobs[1]).toHaveTextContent('23b9af...');
-    expect(jobs[2]).toHaveTextContent('33b9af...');
+    expect(jobs[1]).toHaveTextContent('33b9af...');
+    expect(jobs[2]).toHaveTextContent('23b9af...');
     expect(jobs[3]).toHaveTextContent('7798fh...');
     expect(jobs[4]).toHaveTextContent('o90du4...');
 

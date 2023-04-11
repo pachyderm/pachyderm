@@ -417,6 +417,7 @@ export type JobsQueryArgs = {
   cursor?: InputMaybe<TimestampInput>;
   jobSetIds?: InputMaybe<Array<InputMaybe<Scalars['String']>>>;
   limit?: InputMaybe<Scalars['Int']>;
+  nodeStateFilter?: InputMaybe<Array<InputMaybe<NodeState>>>;
   pipelineId?: InputMaybe<Scalars['String']>;
   pipelineIds?: InputMaybe<Array<InputMaybe<Scalars['String']>>>;
   projectId: Scalars['ID'];

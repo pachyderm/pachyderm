@@ -288,6 +288,7 @@ input JobsQueryArgs {
   pipelineId: String
   pipelineIds: [String]
   jobSetIds: [String]
+  nodeStateFilter: [NodeState]
   cursor: TimestampInput 
   reverse: Boolean
 }

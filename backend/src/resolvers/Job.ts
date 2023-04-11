@@ -3,6 +3,9 @@ import {ApolloError} from 'apollo-server-errors';
 import {DEFAULT_JOBS_LIMIT} from '@dash-backend/constants/limits';
 import {QueryResolvers} from '@dash-backend/generated/types';
 import getJobsFromJobSet from '@dash-backend/lib/getJobsFromJobSet';
+import {nodeStateToJobStateEnum} from '@dash-backend/lib/nodeStateMappers';
+
+import {jqSelect, jqIn, jqCombine} from '../lib/jqHelpers';
 
 import {
   jobInfosToGQLJobSet,
@@ -38,6 +41,7 @@ const pipelineJobResolver: PipelineJobResolver = {
           pipelineId,
           pipelineIds,
           jobSetIds,
+          nodeStateFilter,
           projectId,
           cursor,
           reverse,
@@ -60,15 +64,21 @@ const pipelineJobResolver: PipelineJobResolver = {
       }
 
       if (jobSetIds && jobSetIds.length > 0) {
-        jqFilter = `select(${jobSetIds
-          .map((jobSetId) => `.job.id == "${jobSetId}"`)
-          .join(' or ')})`;
+        jqFilter = jqCombine(jqFilter, jqSelect(jqIn('.job.id', jobSetIds)));
       }
 
       if (pipelineIds && pipelineIds.length > 0) {
-        jqFilter = `select(${pipelineIds
-          .map((pipeline) => `.job.pipeline.name == "${pipeline}"`)
-          .join(' or ')})`;
+        jqFilter = jqCombine(
+          jqFilter,
+          jqSelect(jqIn('.job.pipeline.name', pipelineIds)),
+        );
+      }
+
+      if (nodeStateFilter && nodeStateFilter.length > 0) {
+        const jobsStates = nodeStateFilter
+          .map((nodeState) => nodeStateToJobStateEnum(nodeState))
+          .flat();
+        jqFilter = jqCombine(jqFilter, jqSelect(jqIn('.state', jobsStates)));
       }
 
       const jobs = await pachClient.pps().listJobs({
@@ -85,7 +95,7 @@ const pipelineJobResolver: PipelineJobResolver = {
       //If jobs.length is not greater than limit there are no pages left
       if (jobs.length > limit) {
         jobs.pop(); //remove the extra job from the response
-        nextCursor = jobs[jobs.length - 1].started;
+        nextCursor = jobs[jobs.length - 1].created;
       }
 
       return {
@@ -145,7 +155,7 @@ const pipelineJobResolver: PipelineJobResolver = {
       //If jobSets.length is not greater than limit there are no pages left
       if (jobSets.length > limit) {
         jobSets.pop(); //remove the extra job from the response
-        nextCursor = jobSets[jobSets.length - 1].jobsList[0].started;
+        nextCursor = jobSets[jobSets.length - 1].jobsList[0].created;
       }
 
       return {

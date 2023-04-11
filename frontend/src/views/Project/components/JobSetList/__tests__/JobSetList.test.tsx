@@ -26,9 +26,9 @@ describe('JobSet Jobs List', () => {
     );
 
     const jobs = screen.getAllByTestId('RunsList__row');
-    expect(jobs[0]).toHaveTextContent('23b9af7d5d4343219bc8e02ff44cd55a');
-    expect(jobs[0]).toHaveTextContent('27 d 20 h 35 mins');
-    expect(jobs[0]).toHaveTextContent('2 Jobs Total');
+    expect(jobs[1]).toHaveTextContent('23b9af7d5d4343219bc8e02ff44cd55a');
+    expect(jobs[1]).toHaveTextContent('27 d 20 h 35 mins');
+    expect(jobs[1]).toHaveTextContent('2 Jobs Total');
   });
 
   it('should allow the user to select a subset of jobs', async () => {
@@ -64,7 +64,7 @@ describe('JobSet Jobs List', () => {
     );
 
     expect(window.location.search).toBe(
-      '?globalIdFilter=23b9af7d5d4343219bc8e02ff44cd55a',
+      '?globalIdFilter=33b9af7d5d4343219bc8e02ff44cd55a',
     );
   });
 
@@ -76,8 +76,8 @@ describe('JobSet Jobs List', () => {
     );
 
     let jobs = screen.getAllByTestId('RunsList__row');
-    expect(jobs[0]).toHaveTextContent('23b9af7d5d4343219bc8e02ff44cd55a');
-    expect(jobs[1]).toHaveTextContent('33b9af7d5d4343219bc8e02ff44cd55a');
+    expect(jobs[0]).toHaveTextContent('33b9af7d5d4343219bc8e02ff44cd55a');
+    expect(jobs[1]).toHaveTextContent('23b9af7d5d4343219bc8e02ff44cd55a');
     expect(jobs[2]).toHaveTextContent('7798fhje5d4343219bc8e02ff4acd33a');
     expect(jobs[3]).toHaveTextContent('o90du4js5d4343219bc8e02ff4acd33a');
 
