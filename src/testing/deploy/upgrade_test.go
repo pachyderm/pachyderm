@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -62,6 +63,88 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, fromVer
 			t.Logf("postUpgrade done")
 		})
 	}
+}
+
+func TestUpgradeTrigger(t *testing.T) {
+	if skip {
+		t.Skip("Skipping upgrade test")
+	}
+	fromVersions := []string{
+		"2.4.6",
+		"2.5.0",
+	}
+	dataRepo := "TestTrigger_data"
+	dataCommit := client.NewProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	upgradeTest(t, context.Background(), false /* parallelOK */, fromVersions,
+		func(t *testing.T, c *client.APIClient) { /* preUpgrade */
+			require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+			pipeline1 := "TestTrigger1"
+			pipeline2 := "TestTrigger2"
+			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+				pipeline1,
+				"",
+				[]string{"bash"},
+				[]string{
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+				&pps.ParallelismSpec{
+					Constant: 1,
+				},
+				client.NewProjectPFSInputOpts(dataRepo, pfs.DefaultProjectName, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
+					Branch:  "master",
+					Commits: 1,
+				}),
+				"",
+				false,
+			))
+			require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+				pipeline2,
+				"",
+				[]string{"bash"},
+				[]string{
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipeline1),
+				},
+				&pps.ParallelismSpec{
+					Constant: 1,
+				},
+				client.NewProjectPFSInputOpts(pipeline1, pfs.DefaultProjectName, pipeline1, "", "/*", "", "", false, false, &pfs.Trigger{
+					Commits: 2,
+				}),
+				"",
+				false,
+			))
+			for i := 0; i < 10; i++ {
+				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
+			}
+			ci, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+			require.NoError(t, err)
+			_, err = c.WaitCommitSetAll(ci.Commit.ID)
+			require.NoError(t, err)
+		},
+		func(t *testing.T, c *client.APIClient) { /* postUpgrade */
+			for i := 0; i < 10; i++ {
+				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
+			}
+			latestDataCI, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+			require.NoError(t, err)
+			require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+				ci, err := c.InspectProjectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
+				require.NoError(t, err)
+				aliasCI, err := c.InspectProjectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.ID)
+				require.NoError(t, err)
+				if aliasCI.Commit.ID != latestDataCI.Commit.ID {
+					return errors.New("not ready")
+				}
+				return nil
+			})
+			require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
+				if resp.Error != "" {
+					return errors.Errorf(resp.Error)
+				}
+				return nil
+			}))
+		},
+	)
 }
 
 // pre-upgrade:
@@ -125,7 +208,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montage)) {
+				if proto.Equal(info.Commit.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montage)) {
 					require.NoError(t, c.GetFile(info.Commit, "montage.png", &buf))
 				}
 			}
@@ -150,7 +233,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 
 			var buf bytes.Buffer
 			for _, info := range commitInfos {
-				if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montage)) {
+				if proto.Equal(info.Commit.Repo, client.NewProjectRepo(pfs.DefaultProjectName, montage)) {
 					require.NoError(t, c.GetFile(info.Commit, "montage.png", &buf))
 				}
 			}
@@ -164,8 +247,8 @@ func TestUpgradeLoad(t *testing.T) {
 	}
 	fromVersions := []string{"2.3.9", "2.4.6"}
 	dagSpec := `
-default-load-test-source:
-default-load-test-pipeline: default-load-test-source
+default-load-test-source-1:
+default-load-test-pipeline-1: default-load-test-source-1
 `
 	loadSpec := `
 count: 5

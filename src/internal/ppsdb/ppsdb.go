@@ -78,13 +78,13 @@ func ParsePipelineKey(key string) (projectName, pipelineName, id string, err err
 }
 
 func pipelineCommitKey(commit *pfs.Commit) (string, error) {
-	if commit.Branch.Repo.Type != pfs.SpecRepoType {
+	if commit.Repo.Type != pfs.SpecRepoType {
 		return "", errors.Errorf("commit %s is not from a spec repo", commit)
 	}
-	if projectName := commit.Branch.Repo.Project.GetName(); projectName != "" {
-		return fmt.Sprintf("%s/%s@%s", projectName, commit.Branch.Repo.Name, commit.ID), nil
+	if projectName := commit.Repo.Project.GetName(); projectName != "" {
+		return fmt.Sprintf("%s/%s@%s", projectName, commit.Repo.Name, commit.ID), nil
 	}
-	return fmt.Sprintf("%s@%s", commit.Branch.Repo.Name, commit.ID), nil
+	return fmt.Sprintf("%s@%s", commit.Repo.Name, commit.ID), nil
 }
 
 // Pipelines returns a PostgresCollection of pipelines

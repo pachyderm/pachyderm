@@ -100,8 +100,8 @@ func (sd *stateDriver) SetState(ctx context.Context, specCommit *pfs.Commit, sta
 func (sd *stateDriver) TransitionState(ctx context.Context, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/TransitionPipelineState",
-		"project", specCommit.Branch.Repo.Project.GetName(),
-		"pipeline", specCommit.Branch.Repo.Name,
+		"project", specCommit.Repo.Project.GetName(),
+		"pipeline", specCommit.Repo.Name,
 		"from-state", from,
 		"to-state", to)
 	defer func() {

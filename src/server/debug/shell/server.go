@@ -196,8 +196,7 @@ func (d *debugDump) listCommit(req *pfs.ListCommitRequest, srv pfs.API_ListCommi
 	var ci pfs.CommitInfo
 	if found, err := d.globTarProtos(glob, &ci, func() error {
 		if req.All ||
-			(req.OriginKind != pfs.OriginKind_ORIGIN_KIND_UNKNOWN && ci.Origin.Kind == req.OriginKind) ||
-			ci.Origin.Kind != pfs.OriginKind_ALIAS {
+			(req.OriginKind != pfs.OriginKind_ORIGIN_KIND_UNKNOWN && ci.Origin.Kind == req.OriginKind) {
 			return srv.Send(&ci)
 		}
 		return nil
@@ -220,7 +219,7 @@ func (d *debugDump) inspectCommit(_ context.Context, req *pfs.InspectCommitReque
 	} else if !uuid.IsUUIDWithoutDashes(targetID) {
 		targetBranch = targetID
 	}
-	glob := fmt.Sprintf(commitPatternFormatString, req.Commit.Branch.Repo.Name)
+	glob := fmt.Sprintf(commitPatternFormatString, req.Commit.Repo.Name)
 	var info pfs.CommitInfo
 	var foundCommit bool
 	if found, err := d.globTarProtos(glob, &info, func() error {
@@ -247,7 +246,7 @@ func (d *debugDump) inspectCommit(_ context.Context, req *pfs.InspectCommitReque
 	}); err != nil {
 		return nil, err
 	} else if !found {
-		return nil, pfsserver.ErrRepoNotFound{Repo: req.Commit.Branch.Repo}
+		return nil, pfsserver.ErrRepoNotFound{Repo: req.Commit.Repo}
 	}
 	if !foundCommit {
 		return nil, pfsserver.ErrCommitNotFound{Commit: req.Commit}
@@ -369,9 +368,9 @@ func (d *debugDump) listBranch(req *pfs.ListBranchRequest, srv pfs.API_ListBranc
 		}
 		branchSet[ci.Commit.Branch.Name] = struct{}{}
 		return srv.Send(&pfs.BranchInfo{
-			Branch:           ci.Commit.Branch,
-			Head:             ci.Commit,
-			DirectProvenance: ci.DirectProvenance,
+			Branch: ci.Commit.Branch,
+			Head:   ci.Commit,
+			//			DirectProvenance: ci.OldDirectProvenance,
 		})
 	}); err != nil {
 		return err
@@ -390,9 +389,9 @@ func (d *debugDump) inspectBranch(_ context.Context, req *pfs.InspectBranchReque
 			return nil
 		}
 		bi = &pfs.BranchInfo{
-			Branch:           ci.Commit.Branch,
-			Head:             ci.Commit, // will be inaccurate if the head is moved to an old commit
-			DirectProvenance: ci.DirectProvenance,
+			Branch: ci.Commit.Branch,
+			Head:   ci.Commit, // will be inaccurate if the head is moved to an old commit
+			//			DirectProvenance: ci.OldDirectProvenance,
 		}
 		return errutil.ErrBreak
 	}); err != nil {
