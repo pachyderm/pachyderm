@@ -19,9 +19,7 @@ func main() {
 
 	inputFolder := os.Args[1]
 	outputFolder := os.Args[2]
-	// inputCommit := os.Getenv("code-coverage-source_COMMIT") // DNJ TODO - parameterize
 
-	// check for 'consumed' file intially?
 	files := []string{}
 	logger.Printf("About to walk Input: %s \nFiles: %v \nOutput: %s \n", inputFolder, files, outputFolder)
 	out, _ := exec.Command("ls", "..").CombinedOutput()

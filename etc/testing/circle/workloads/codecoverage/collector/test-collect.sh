@@ -9,4 +9,6 @@ export COV_PACHD_ADDRESS='grpc://localhost:30650'
 pachctl create project ci-metrics
 pachctl create repo codecoverage-source --project ci-metrics
 pachctl create pipeline -f etc/testing/circle/workloads/codecoverage/extractor/extractor.json --project ci-metrics
+pachctl create pipeline -f etc/testing/circle/workloads/codecoverage/merger/merger.json --project ci-metrics
+
 go run etc/testing/circle/workloads/codecoverage/collector/main.go
