@@ -57,7 +57,7 @@ export const usePipeline = (
       setResponseMessage('');
       try {
         const response = await requestAPI<CreatePipelineResponse>(
-          `pps/_create/${notebook.path}`,
+          `pps/_create/${encodeURI(notebook.path)}`,
           'PUT',
           {last_modified_time: notebook.last_modified},
         );
