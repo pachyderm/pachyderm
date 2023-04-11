@@ -17,8 +17,8 @@ opencv:
 
 
 # Generates the following DAG for testing
-# 	I-default	  I-staging
-#    |   	\    /       | \ 
+#    I-default	  I-staging
+#    |      \    /       | \ 
 #    | edges-u-default   |  edges-staging
 #    |       |           |       |
 #    montage-default     montage-staging
