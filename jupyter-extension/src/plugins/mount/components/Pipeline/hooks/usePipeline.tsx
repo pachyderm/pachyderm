@@ -17,6 +17,7 @@ export type usePipelineResponse = {
   setRequirements: (input: string) => void;
   callCreatePipeline: () => Promise<void>;
   callSavePipeline: () => void;
+  currentNotebook: string;
   errorMessage: string;
   responseMessage: string;
 };
@@ -111,6 +112,7 @@ export const usePipeline = (
     };
     saveNotebookMetaData(sameMetadata);
   };
+  const currentNotebook = ppsContext?.notebookModel?.name ?? 'None';
 
   return {
     loading,
@@ -124,6 +126,7 @@ export const usePipeline = (
     setRequirements,
     callCreatePipeline,
     callSavePipeline,
+    currentNotebook,
     errorMessage,
     responseMessage,
   };
