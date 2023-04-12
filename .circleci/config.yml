@@ -156,7 +156,6 @@ jobs:
       - checkout
       - node-install-all
       - run-pachyderm-ce
-      - activate-pachyderm-enterprise
       - run: touch .env.development.local
       - run:
           name: Run Community Edition Cypress tests
@@ -306,7 +305,6 @@ jobs:
             \`\`\`
             </details>
             "
-
 
   test-docker-console-can-render:
     resource_class: xlarge
