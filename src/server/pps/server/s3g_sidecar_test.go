@@ -844,7 +844,7 @@ func TestS3SkippedDatums(t *testing.T) {
 // the worker binary doesn't download any datums from that input to the worker.
 // This test limits the size of the worker pod's disk to a smaller size than the
 // input data exposed via a `S3: true` input. When the worker binary attempts to
-// download all 10GB of input, the test times out.
+// download all 2GB of input, the test times out.
 func TestDontDownloadData(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -854,10 +854,9 @@ func TestDontDownloadData(t *testing.T) {
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	masterCommit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
-	for i := 0; i < 100; i++ {
-		// require.NoError(t, c.PutFile(masterCommit, fmt.Sprintf("%02d", i), io.LimitReader(strings.NewReader("ooooooo"), 2)))
+	for i := 0; i < 20; i++ {
 		require.NoError(t, c.PutFile(masterCommit, fmt.Sprintf("%02d", i), io.LimitReader(
-			rand.New(rand.NewSource(0)), 100000000 /* 100 MB x 100 = 10 GB */)))
+			rand.New(rand.NewSource(0)), 100000000 /* 100 MB x 20 = 2 GB */)))
 	}
 
 	pipeline := tu.UniqueString("Pipeline")
@@ -879,8 +878,8 @@ func TestDontDownloadData(t *testing.T) {
 			},
 		},
 		ResourceLimits: &pps.ResourceSpec{
-			// Big enough to hold the file cache (700-800 MiB, experimentally), but
-			// small enough to break if all 10 GiB of input are downloaded
+			// Big enough to hold the file cache (700-800 MB, experimentally), but
+			// small enough to break if all 2 GB of input are downloaded
 			Disk: "1GiB",
 		},
 	})
