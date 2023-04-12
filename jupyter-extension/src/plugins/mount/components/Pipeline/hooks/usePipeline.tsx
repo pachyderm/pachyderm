@@ -1,9 +1,9 @@
 import YAML from 'yaml';
-
 import {useEffect, useState} from 'react';
-import {CreatePipelineResponse, SameMetadata} from '../../../types';
-import {requestAPI} from '../../../../../handler';
 import {ServerConnection} from '@jupyterlab/services';
+
+import {CreatePipelineResponse, PpsContext, SameMetadata} from '../../../types';
+import {requestAPI} from '../../../../../handler';
 
 export type usePipelineResponse = {
   loading: boolean;
@@ -22,9 +22,8 @@ export type usePipelineResponse = {
 };
 
 export const usePipeline = (
-  metadata: SameMetadata | undefined,
-  notebookPath: string | undefined,
-  saveNotebookMetaData: (metadata: any) => void,
+  ppsContext: PpsContext | undefined,
+  saveNotebookMetaData: (metadata: SameMetadata) => void,
 ): usePipelineResponse => {
   const [loading, setLoading] = useState(false);
   const [pipelineName, setPipelineName] = useState('');
@@ -35,19 +34,51 @@ export const usePipeline = (
   const [responseMessage, setResponseMessage] = useState('');
 
   useEffect(() => {
-    setImageName(metadata?.environments.default.image_tag ?? '');
-    setPipelineName(metadata?.metadata.name ?? '');
-    setRequirements(metadata?.notebook.requirements ?? '');
+    setImageName(ppsContext?.config?.environments.default.image_tag ?? '');
+    setPipelineName(ppsContext?.config?.metadata.name ?? '');
+    setRequirements(ppsContext?.config?.notebook.requirements ?? '');
     setResponseMessage('');
-    if (metadata?.run.input) {
-      const input = JSON.parse(metadata?.run.input); //TODO: Catch errors
+    if (ppsContext?.config?.run.input) {
+      const input = JSON.parse(ppsContext.config.run.input); //TODO: Catch errors
       setInputSpec(YAML.stringify(input));
     } else {
       setInputSpec('');
     }
-  }, [metadata]);
+  }, [ppsContext]);
 
-  const createSameMetadata = (): SameMetadata => {
+  let callCreatePipeline: () => Promise<void>;
+  if (ppsContext?.notebookModel) {
+    const notebook = ppsContext.notebookModel;
+    callCreatePipeline = async () => {
+      setLoading(true);
+      setErrorMessage('');
+      setResponseMessage('');
+      try {
+        const response = await requestAPI<CreatePipelineResponse>(
+          `pps/_create/${encodeURI(notebook.path)}`,
+          'PUT',
+          {last_modified_time: notebook.last_modified},
+        );
+        if (response.message !== null) {
+          setResponseMessage(response.message);
+        }
+      } catch (e) {
+        if (e instanceof ServerConnection.ResponseError) {
+          setErrorMessage(e.message);
+        } else {
+          throw e;
+        }
+      }
+      setLoading(false);
+    };
+  } else {
+    // If no notebookModel is defined, we cannot create a pipeline.
+    callCreatePipeline = async () => {
+      setErrorMessage('Error: No notebook in focus');
+    };
+  }
+
+  const callSavePipeline = async () => {
     let input: string;
     try {
       input = YAML.parse(inputSpec);
@@ -59,7 +90,7 @@ export const usePipeline = (
       }
     }
 
-    return {
+    const sameMetadata = {
       apiVersion: 'sameproject.ml/v1alpha1',
       environments: {
         default: {
@@ -78,54 +109,7 @@ export const usePipeline = (
         input: JSON.stringify(input),
       },
     };
-  };
-
-  const callCreatePipeline = async () => {
-    setLoading(true);
-    setErrorMessage('');
-    setResponseMessage('');
-
-    let input: string;
-    try {
-      input = YAML.parse(inputSpec);
-    } catch (e) {
-      if (e instanceof YAML.YAMLParseError) {
-        input = JSON.parse(inputSpec);
-      } else {
-        throw e;
-      }
-    }
-
-    // const sameMetadata = createSameMetadata();
-    try {
-      const response = await requestAPI<CreatePipelineResponse>(
-        `pps/_create/${notebookPath}`,
-        'PUT',
-        {
-          pipeline_name: pipelineName,
-          image: imageName,
-          requirements: requirements,
-          input_spec: input,
-        },
-      );
-      if (response.message !== null) {
-        setResponseMessage(response.message);
-      }
-    } catch (e) {
-      if (e instanceof ServerConnection.ResponseError) {
-        setErrorMessage(e.message);
-      } else {
-        throw e;
-      }
-    }
-    console.log('create pipeline called');
-    setLoading(false);
-  };
-
-  const callSavePipeline = async () => {
-    const sameMetadata = createSameMetadata();
     saveNotebookMetaData(sameMetadata);
-    console.log('save pipeline called');
   };
 
   return {
