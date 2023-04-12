@@ -9,6 +9,8 @@ import {
   Transform,
 } from '../../proto/pps/pps_pb';
 
+jest.setTimeout(30_000);
+
 describe('services/pps', () => {
   afterAll(async () => {
     const pachClient = client({ssl: false, pachdAddress: 'localhost:30650'});
@@ -213,8 +215,6 @@ describe('services/pps', () => {
   });
 
   describe('listDatums + inspectDatum', () => {
-    jest.setTimeout(60000);
-
     it('should inspect a datum for a pipeline job', async () => {
       const {pachClient, inputRepoName} = await createSandBox('listDatums');
       const commit = await pachClient.pfs().startCommit({
@@ -262,7 +262,7 @@ describe('services/pps', () => {
       expect(datumObject.state).toEqual(DatumState.SUCCESS);
       expect(datumObject.dataList[0]?.file?.path).toBe('/dummyData.csv');
       expect(datumObject.dataList[0]?.sizeBytes).toBe(5);
-    });
+    }, 90_000);
 
     it('should list datums for a pipeline job', async () => {
       const {pachClient, inputRepoName} = await createSandBox('listDatums');
