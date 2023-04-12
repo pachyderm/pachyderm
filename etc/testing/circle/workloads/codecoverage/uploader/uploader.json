@@ -1,0 +1,29 @@
+{
+  "pipeline": {
+    "name": "codecoverage-uploader"
+  },
+  "transform": {
+    "image": "pachyderm/codecoverage:local",
+    "cmd": [
+      "/go/uploader/uploader",
+      "/pfs/codecoverage-merger",
+      "/pfs/out"
+    ],
+    "env": {
+      "LOG_LEVEL": "DEBUG"
+    },
+    "secrets": [
+      {
+        "name": "codecov-token",
+        "env_var": "CODECOV_TOKEN",
+        "key": "token"
+      }
+    ]
+  },
+  "input": {
+    "pfs": {
+      "repo": "codecoverage-merger",
+      "glob": "/*"
+    }
+  }
+}

@@ -5,5 +5,6 @@ set -euxo pipefail
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -C ./collector
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -C ./extractor
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -C ./merger
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -C ./uploader
 
 docker build . -t pachyderm/codecoverage:local

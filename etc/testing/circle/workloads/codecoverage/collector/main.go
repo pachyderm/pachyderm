@@ -15,9 +15,8 @@ import (
 )
 
 const (
-	coverageFolder = "/tmp/test-results" //DNJ TODO - can we put this in an environment variable? should we?
-	projectName    = "ci-metrics"
-	repoName       = "codecoverage-source"
+	projectName = "ci-metrics"
+	repoName    = "codecoverage-source"
 )
 
 var pachdAddress = findPachdAddress()
@@ -41,7 +40,10 @@ func main() {
 	logger := log.Default()
 	ctx := context.Background()
 	robotToken := os.Getenv("PACHOPS_PACHYDERM_ROBOT_TOKEN")
-
+	coverageFolder := os.Getenv("TEST_RESULTS")
+	if len(coverageFolder) == 0 {
+		logger.Fatal("TEST_RESULTS needs to be populated to find the test results folder.")
+	}
 	branch := sanitizeName(os.Getenv("CIRCLE_BRANCH"))
 	if len(branch) == 0 {
 		logger.Fatal("CIRCLE_BRANCH needs to be populated to upload code coverage.")

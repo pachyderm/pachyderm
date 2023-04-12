@@ -1,3 +1,5 @@
 extractor/extractor
 merger/merger
 collector/collector
+uploader/uploader
+uploader/codecov-token.yml

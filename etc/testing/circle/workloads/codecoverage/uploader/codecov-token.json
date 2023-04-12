@@ -1,0 +1,11 @@
+{
+    "apiVersion": "v1",
+    "kind": "Secret",
+    "metadata": {
+       "name": "codecov-token"
+    },
+    "type": "Opaque",
+    "stringData": {
+       "token": "zzzzz"
+    }
+ }
