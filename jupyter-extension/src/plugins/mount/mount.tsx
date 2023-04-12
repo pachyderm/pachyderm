@@ -1,13 +1,19 @@
 import React from 'react';
 import {ILayoutRestorer, JupyterFrontEnd} from '@jupyterlab/application';
-import {INotebookTracker, NotebookPanel} from '@jupyterlab/notebook';
-import {IDocumentManager} from '@jupyterlab/docmanager';
-import {SplitPanel} from '@lumino/widgets';
 import {ReactWidget, UseSignal} from '@jupyterlab/apputils';
+import {IDocumentManager} from '@jupyterlab/docmanager';
+import {DocumentRegistry} from '@jupyterlab/docregistry';
 import {FileBrowser, IFileBrowserFactory} from '@jupyterlab/filebrowser';
+import {
+  INotebookModel,
+  INotebookTracker,
+  NotebookPanel,
+} from '@jupyterlab/notebook';
+import {Contents} from '@jupyterlab/services';
 import {settingsIcon, spreadsheetIcon} from '@jupyterlab/ui-components';
-import {Signal} from '@lumino/signaling';
 import {JSONObject} from '@lumino/coreutils';
+import {Signal} from '@lumino/signaling';
+import {SplitPanel} from '@lumino/widgets';
 
 import {mountLogoIcon} from '../../utils/icons';
 import {PollMounts} from './pollMounts';
@@ -22,6 +28,7 @@ import {
   ListMountsResponse,
   CrossInputSpec,
   SameMetadata,
+  PpsContext,
 } from './types';
 import Config from './components/Config/Config';
 import Datum from './components/Datum/Datum';
@@ -63,7 +70,7 @@ export class MountPlugin implements IMountPlugin {
     this,
   );
   private _showPipelineSignal = new Signal<this, boolean>(this);
-  private _showMetadataSignal = new Signal<this, SameMetadata>(this);
+  private _ppsContextSignal = new Signal<this, PpsContext>(this);
 
   constructor(
     app: JupyterFrontEnd,
@@ -226,18 +233,13 @@ export class MountPlugin implements IMountPlugin {
     this._datum.addClass('pachyderm-mount-datum-wrapper');
 
     this._pipeline = ReactWidget.create(
-      <UseSignal signal={this._showMetadataSignal}>
-        {(_, metadata) => (
-          <>
-            <Pipeline
-              setShowPipeline={this.setShowPipeline}
-              notebookPath={
-                this.getActiveNotebook()?.sessionContext?.session?.path
-              }
-              saveNotebookMetadata={this.saveNotebookMetaData}
-              metadata={metadata}
-            />
-          </>
+      <UseSignal signal={this._ppsContextSignal}>
+        {(_, context) => (
+          <Pipeline
+            ppsContext={context}
+            setShowPipeline={this.setShowPipeline}
+            saveNotebookMetadata={this.saveNotebookMetadata}
+          />
         )}
       </UseSignal>,
     );
@@ -310,22 +312,43 @@ export class MountPlugin implements IMountPlugin {
     notebook: NotebookPanel | null,
   ): Promise<void> => {
     // Set the current notebook and wait for the session to be ready
+    let context: PpsContext;
     if (notebook) {
       await notebook.sessionContext.ready;
-      const md = notebook?.model?.metadata.get(METADATA_KEY);
-
-      this._showMetadataSignal.emit(md as SameMetadata);
-      await Promise.resolve();
+      notebook.context.fileChanged.connect(this.handleNotebookReload);
+      context = {
+        config: this.getNotebookMetadata(notebook),
+        notebookModel: notebook.context.contentsModel,
+      };
     } else {
-      await Promise.resolve();
+      context = {config: null, notebookModel: null};
     }
+    this._ppsContextSignal.emit(context);
+    await Promise.resolve();
   };
 
-  getNotebookMetadata = (notebook: NotebookPanel | null): any | null => {
+  /**
+   * This handles when a ContentModel of NotebookPanel is changed.
+   * This occurs when a notebook file is saved and reloaded from disk.
+   */
+  handleNotebookReload = async (
+    _docContext: DocumentRegistry.IContext<INotebookModel>,
+    model: Contents.IModel,
+  ): Promise<void> => {
+    const context: PpsContext = {
+      config: this.getNotebookMetadata(),
+      notebookModel: model,
+    };
+    this._ppsContextSignal.emit(context);
+    await Promise.resolve();
+  };
+
+  getNotebookMetadata = (notebook?: NotebookPanel | null): any | null => {
+    notebook = notebook ?? this.getActiveNotebook();
     return notebook?.model?.metadata.get(METADATA_KEY);
   };
 
-  saveNotebookMetaData = (metadata: any): void => {
+  saveNotebookMetadata = (metadata: SameMetadata): void => {
     const currentNotebook = this.getActiveNotebook();
 
     if (currentNotebook !== null) {
