@@ -2,7 +2,12 @@ import YAML from 'yaml';
 import {useEffect, useState} from 'react';
 import {ServerConnection} from '@jupyterlab/services';
 
-import {CreatePipelineResponse, PpsContext, PpsMetadata} from '../../../types';
+import {
+  CreatePipelineResponse,
+  Pipeline,
+  PpsContext,
+  PpsMetadata,
+} from '../../../types';
 import {requestAPI} from '../../../../../handler';
 import {ReadonlyJSONObject} from '@lumino/coreutils';
 
@@ -10,8 +15,8 @@ export const PPS_VERSION = 'v1.0.0';
 
 export type usePipelineResponse = {
   loading: boolean;
-  pipelineName: string;
-  setPipelineName: (input: string) => void;
+  pipeline: Pipeline;
+  setPipeline: (input: string) => void;
   imageName: string;
   setImageName: (input: string) => void;
   inputSpec: string;
@@ -29,16 +34,31 @@ export const usePipeline = (
   saveNotebookMetaData: (metadata: PpsMetadata) => void,
 ): usePipelineResponse => {
   const [loading, setLoading] = useState(false);
-  const [pipelineName, setPipelineName] = useState('');
+  const [pipeline, _setPipeline] = useState({name: ''} as Pipeline);
   const [imageName, setImageName] = useState('');
   const [inputSpec, setInputSpec] = useState('');
   const [requirements, setRequirements] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [responseMessage, setResponseMessage] = useState('');
 
+  const setPipeline = (input: string) => {
+    if (input === '') {
+      _setPipeline({name: ''} as Pipeline);
+      return;
+    }
+    const parts = input.split(/\/(.*)/s, 2);
+    if (parts.length === 1) {
+      _setPipeline({name: input} as Pipeline);
+    } else {
+      _setPipeline({name: parts[1], project: {name: parts[0]}} as Pipeline);
+    }
+  };
+
   useEffect(() => {
     setImageName(ppsContext?.metadata?.config.image ?? '');
-    setPipelineName(ppsContext?.metadata?.config.pipeline_name ?? '');
+    _setPipeline(
+      ppsContext?.metadata?.config.pipeline ?? ({name: ''} as Pipeline),
+    );
     setRequirements(ppsContext?.metadata?.config.requirements ?? '');
     setResponseMessage('');
     if (ppsContext?.metadata?.config.input_spec) {
@@ -100,7 +120,7 @@ export const usePipeline = (
     const ppsMetadata: PpsMetadata = {
       version: PPS_VERSION,
       config: {
-        pipeline_name: pipelineName,
+        pipeline: pipeline,
         image: imageName,
         requirements: requirements,
         input_spec: inputSpecJson,
@@ -111,8 +131,8 @@ export const usePipeline = (
 
   return {
     loading,
-    pipelineName,
-    setPipelineName,
+    pipeline,
+    setPipeline,
     imageName,
     setImageName,
     inputSpec,

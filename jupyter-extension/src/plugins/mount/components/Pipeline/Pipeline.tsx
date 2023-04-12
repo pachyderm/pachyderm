@@ -23,8 +23,8 @@ const Pipeline: React.FC<PipelineProps> = ({
 }) => {
   const {
     loading,
-    pipelineName,
-    setPipelineName,
+    pipeline,
+    setPipeline,
     imageName,
     setImageName,
     inputSpec,
@@ -101,9 +101,13 @@ const Pipeline: React.FC<PipelineProps> = ({
           className="pachyderm-pipeline-input"
           data-testid="Pipeline__inputPipelineName"
           name="pipelineName"
-          value={pipelineName}
+          value={
+            pipeline.project?.name
+              ? `${pipeline.project.name}/${pipeline.name}`
+              : pipeline.name
+          }
           onChange={(e: any) => {
-            setPipelineName(e.target.value);
+            setPipeline(e.target.value);
           }}
           disabled={loading}
         ></input>
@@ -171,7 +175,9 @@ const Pipeline: React.FC<PipelineProps> = ({
           style={{backgroundColor: '#80808080'}}
           data-testid="Pipeline__specPreview"
           name="specPreview"
-          value={`name: ${pipelineName}
+          value={`pipeline:
+  name: ${pipeline.name}
+  project: ${pipeline.project?.name ?? 'default'}
 transform:
   image: ${imageName}
 input:

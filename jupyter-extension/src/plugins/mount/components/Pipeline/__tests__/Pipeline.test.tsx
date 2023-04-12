@@ -7,7 +7,11 @@ import {mockedRequestAPI} from 'utils/testUtils';
 import Pipeline from '../Pipeline';
 jest.mock('../../../../../handler');
 import {PPS_VERSION} from '../hooks/usePipeline';
-import {PpsContext, PpsMetadata} from '../../../types';
+import {
+  Pipeline as PipelineType,
+  PpsContext,
+  PpsMetadata,
+} from '../../../types';
 
 describe('PPS screen', () => {
   let setShowPipeline = jest.fn();
@@ -15,7 +19,7 @@ describe('PPS screen', () => {
   const metadata: PpsMetadata = {
     version: PPS_VERSION,
     config: {
-      pipeline_name: '',
+      pipeline: {name: ''} as PipelineType,
       image: '',
       requirements: '',
       input_spec: {},
@@ -43,7 +47,7 @@ describe('PPS screen', () => {
       const inputPipelineName = await findByTestId(
         'Pipeline__inputPipelineName',
       );
-      userEvent.type(inputPipelineName, 'ThisPipelineIsNamedFred');
+      userEvent.type(inputPipelineName, 'test_project/ThisPipelineIsNamedFred');
 
       const inputImageName = await findByTestId('Pipeline__inputImageName');
       userEvent.type(inputImageName, 'ThisImageIsNamedLucy');
@@ -66,7 +70,9 @@ describe('PPS screen', () => {
 
       const specPreview = getByTestId('Pipeline__specPreview');
       expect(specPreview).toHaveValue(
-        `name: ThisPipelineIsNamedFred
+        `pipeline:
+  name: ThisPipelineIsNamedFred
+  project: test_project
 transform:
   image: ThisImageIsNamedLucy
 input:

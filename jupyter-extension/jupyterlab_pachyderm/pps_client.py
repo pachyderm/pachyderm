@@ -1,6 +1,6 @@
 import json
 import os.path
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from datetime import datetime
 from inspect import getsource
 from pathlib import Path
@@ -8,6 +8,8 @@ from textwrap import dedent
 from typing import Optional, Union
 
 import python_pachyderm
+from python_pachyderm.experimental.proto.v2.pps_v2 import Pipeline
+from python_pachyderm.experimental.proto.v2.pfs_v2 import Project
 from nbconvert import PythonExporter
 from tornado.web import HTTPError
 
@@ -82,11 +84,12 @@ class PPSClient:
             client.inspect_cluster()
         except Exception as e:
             raise HTTPError(reason=repr(e))
-        companion_repo = f"{config.pipeline_name}__context"
+        companion_repo = f"{config.pipeline.name}__context"
         if companion_repo not in (item.repo.name for item in client.list_repo()):
             client.create_repo(
                 repo_name=companion_repo,
-                description=f"files for running the {config.pipeline_name} pipeline"
+                project_name=config.pipeline.project.name,
+                description=f"files for running the {config.pipeline.name} pipeline"
             )
 
         companion_branch = upload_environment(client, companion_repo, config, script.encode('utf-8'))
@@ -105,7 +108,7 @@ class PPSClient:
 class PpsConfig:
 
     notebook_path: Path
-    pipeline_name: str
+    pipeline: Pipeline
     image: str
     requirements: Optional[str]
     input_spec: dict  # We may be able to use the pachyderm SDK to parse and validate.
@@ -127,9 +130,12 @@ class PpsConfig:
         if config is None:
             raise ValueError(f"{METADATA_KEY}.config not specified in notebook metadata")
 
-        pipeline_name = config.get('pipeline_name')
-        if pipeline_name is None:
-            raise ValueError("field pipeline_name not set")
+        pipeline_data = config.get('pipeline')
+        if pipeline_data is None:
+            raise ValueError("field pipeline not set")
+        pipeline = Pipeline(name=pipeline_data.get('name'))
+        if 'project' in pipeline_data:
+            pipeline.project = Project(name=pipeline_data['project'].get('name'))
 
         image = config.get('image')
         if image is None:
@@ -143,23 +149,38 @@ class PpsConfig:
 
         return cls(
             notebook_path=notebook_path,
-            pipeline_name=pipeline_name,
+            pipeline=pipeline,
             image=image,
             requirements=requirements,
             input_spec=input_spec
         )
 
+    def to_dict(self):
+        data = asdict(self)
+        del data['notebook_path']
+        return data
+
 
 def create_pipeline_spec(config: PpsConfig, companion_branch: str) -> dict:
-    companion_repo = f"{config.pipeline_name}__context"
+    companion_repo = f"{config.pipeline.name}__context"
     input_spec = dict(
         cross=[
             config.input_spec,
-            {'pfs': dict(repo=companion_repo, branch=companion_branch, glob="/")}
+            dict(
+                pfs=dict(
+                    project=config.pipeline.project.name,
+                    repo=companion_repo,
+                    branch=companion_branch,
+                    glob="/"
+                )
+            )
         ]
     )
+    pipeline = dict(name=config.pipeline.name)
+    if config.pipeline.project and config.pipeline.project.name:
+        pipeline['project'] = dict(name=config.pipeline.project.name)
     return dict(
-        pipeline=dict(name=config.pipeline_name),
+        pipeline=pipeline,
         description="Auto-generated from notebook",
         transform=dict(
             cmd=["python3", f"/pfs/{companion_repo}/entrypoint.py"],
@@ -207,10 +228,10 @@ def upload_environment(
         'if __name__ == "__main__":\n'
         '    entrypoint()\n'
     )
-
-    with client.commit(repo, "master") as commit:
+    project = config.pipeline.project.name
+    with client.commit(repo, "master", project_name=project) as commit:
         # Remove the old files.
-        for item in client.list_file((repo, "master"), "/"):
+        for item in client.list_file(commit, "/"):
             client.delete_file(commit, item.file.path)
 
         # Upload the new files.
@@ -222,6 +243,6 @@ def upload_environment(
 
     # Use the commit ID in the branch name to avoid name collisions.
     branch_name = f"commit_{commit.id}"
-    client.create_branch(repo, branch_name, commit)
+    client.create_branch(repo, branch_name, commit, project_name=project)
 
     return branch_name

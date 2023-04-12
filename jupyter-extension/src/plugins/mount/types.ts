@@ -87,13 +87,31 @@ export interface IMountPlugin {
   ready: Promise<void>;
 }
 
+export type Project = {
+  name: string;
+};
+
+export type Pipeline = {
+  name: string;
+  project: Project | null;
+};
+
+export type PipelineSpec = {
+  pipeline: Pipeline;
+  description: string | null;
+  transform: any;
+  input: any;
+  update: boolean;
+  reprocess: boolean;
+};
+
 export type PpsMetadata = {
   version: string;
   config: PpsConfig;
 };
 
 export type PpsConfig = {
-  pipeline_name: string;
+  pipeline: Pipeline;
   image: string;
   requirements: string | null;
   input_spec: ReadonlyJSONObject;
