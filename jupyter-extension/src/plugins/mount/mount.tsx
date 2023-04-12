@@ -322,7 +322,6 @@ export class MountPlugin implements IMountPlugin {
         notebookModel: notebook.context.contentsModel,
       };
     } else {
-      console.log('handleNotebookChanged called without notebook value');
       context = {config: null, notebookModel: null};
     }
     this._ppsContextSignal.emit(context);
@@ -337,7 +336,6 @@ export class MountPlugin implements IMountPlugin {
     _docContext: DocumentRegistry.IContext<INotebookModel>,
     model: Contents.IModel,
   ): Promise<void> => {
-    console.log('handleNotebookReload called');
     const context: PpsContext = {
       config: this.getNotebookMetadata(),
       notebookModel: model,

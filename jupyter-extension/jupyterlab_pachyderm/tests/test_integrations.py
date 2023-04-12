@@ -439,7 +439,6 @@ class TestPpsClient:
         last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
         data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
         r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data))
-        print(r.json())
         assert r.status_code == 200
         assert next(client.inspect_pipeline(pipeline_name))
         assert r.json()["message"] == ("Create pipeline request sent. You may monitor its "

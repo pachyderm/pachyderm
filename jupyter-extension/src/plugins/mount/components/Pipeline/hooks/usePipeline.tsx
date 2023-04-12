@@ -71,11 +71,9 @@ export const usePipeline = (
           throw e;
         }
       }
-      console.log('create pipeline called');
       setLoading(false);
     };
   } else {
-    console.log('No notebookModel');
     // If no notebookModel is defined, we cannot create a pipeline.
     callCreatePipeline = async () => {
       setErrorMessage('Error: No notebook in focus');
@@ -114,7 +112,6 @@ export const usePipeline = (
       },
     };
     saveNotebookMetaData(sameMetadata);
-    console.log('save pipeline called');
   };
 
   return {
