@@ -46,7 +46,7 @@ def pachyderm_resources():
     yield repos, branches, files
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="class")
 def dev_server(request):
     """If you are having trouble with this fixture,
     consider running the mount-server locally.
