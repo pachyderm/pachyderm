@@ -53,6 +53,20 @@ To switch between mock accounts use our devtools in the JS console of the browse
    make launch-dev
    ```
 
+## Logs
+
+If you want pretty server logs [use the bunyan cli tool](https://github.com/trentm/node-bunyan#cli-usage).
+
+While in the root folder run:
+
+```bash
+make launch-dev | make bunyan
+```
+
+You can filter only records above a certain level by adding `-l warn` to the bunyan make reference:
+
+Inside of root the root Makefile, find the entry for bunyan. Change it to `npm exec --prefix backend bunyan -- -l warn`.
+
 ## Testing
 
 ### What tests do we have?

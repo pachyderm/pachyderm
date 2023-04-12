@@ -21,6 +21,9 @@ endif
 
 .PHONY: launch-dev launch-prod setup-auth test graphql install build ci prune-deps circle-docker-build circle-docker-manifest e2e
 
+bunyan:
+	npm exec --prefix backend bunyan
+
 launch-dev:
 	npm run start:dev --prefix ./backend & npm run start --prefix ./frontend
 
