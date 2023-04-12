@@ -98,6 +98,21 @@ func writeErrorFile(tw *tar.Writer, err error, prefix ...string) error {
 	})
 }
 
+func writeTarFileV2(tw *tar.Writer, name string, fi os.FileInfo) error {
+	hdr := &tar.Header{
+		Name: name,
+		Size: fi.Size(),
+		Mode: 0777,
+	}
+	f, err := os.Open(fi.Name())
+	if err := tw.WriteHeader(hdr); err != nil {
+		return errors.EnsureStack(err)
+	}
+	_, err = io.Copy(tw, f)
+	return errors.EnsureStack(err)
+
+}
+
 func writeTarFile(tw *tar.Writer, name string, f *os.File) error {
 	fi, err := os.Stat(f.Name())
 	if err != nil {

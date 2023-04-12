@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -227,22 +228,17 @@ func (s *debugServer) dump(
 	if err := eg.Wait(); err != nil {
 		return err
 	}
+	// note - where is recursion handles
+	//
 	return grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
 		return withDebugWriter(w, func(tw *tar.Writer) error {
-			ctx, cf := context.WithTimeout(ctx, timeout)
-			defer cf()
-			eg, ctx := errgroup.WithContext(ctx)
-			for _, t := range tasks {
-				eg.Go(func(t task) error {
-					// t should include info like
-					// - how long should the task run
-					// - know what path it's writing to
-					// - when run is done, it should try to write to tw
-					path := filepath.Join(dumpRoot, t.name)
-					return s.runTask(ctx, t.name, path)
-				}(t))
-			}
-			return eg.Wait()
+			return filepath.Walk(dumpRoot, func(path string, fi fs.FileInfo, err error) error {
+				if fi.IsDir() {
+					return nil
+				}
+				path = strings.TrimPrefix(path, dumpRoot)
+				return writeTarFileV2(tw, path, fi)
+			})
 		})
 	})
 }
@@ -344,6 +340,7 @@ func (s *debugServer) getWorkerPods(ctx context.Context, pipelineInfo *pps.Pipel
 	return podList.Items, nil
 }
 
+// DELETE THIS
 func (s *debugServer) getLegacyWorkerPods(ctx context.Context, pipelineInfo *pps.PipelineInfo) ([]v1.Pod, error) {
 	podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(
 		ctx,

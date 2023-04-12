@@ -79,6 +79,7 @@ message WorkerDump {
 
 message PipelineDump {
   string name = 1;
+  repeated WorkerDump tasks = 2;
 }
 
 message PipelinesDump {
