@@ -1,3 +1,5 @@
 config:
   aws:region: us-west-2
   eksNodeInstanceType: m5.2xlarge
+  core:pgBouncerDefaultPoolSize: "100"
+  core:pgBouncerMaxConnections: "1500"
