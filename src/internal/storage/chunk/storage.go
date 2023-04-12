@@ -63,7 +63,8 @@ func NewStorage(objC obj.Client, memCache kv.GetPut, db *pachsql.DB, tracker tra
 // NewReader creates a new Reader.
 func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
 	client := NewClient(s.store, s.db, s.tracker, nil)
-	return newReader(ctx, client, s.memCache, s.deduper, s.prefetchLimit, dataRefs, opts...)
+	defaultOpts := []ReaderOption{WithPrefetchLimit(s.prefetchLimit)}
+	return newReader(ctx, client, s.memCache, s.deduper, dataRefs, append(defaultOpts, opts...)...)
 }
 
 func (s *Storage) NewDataReader(ctx context.Context, dataRef *DataRef) *DataReader {

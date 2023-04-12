@@ -45,7 +45,7 @@ func (s *Storage) NewBatcher(ctx context.Context, name string, threshold int, op
 	b := &Batcher{
 		client:    client,
 		threshold: threshold,
-		taskChain: taskchain.New(ctx, semaphore.NewWeighted(chunkParallelism)),
+		taskChain: taskchain.New(ctx, semaphore.NewWeighted(taskParallelism)),
 	}
 	for _, opt := range opts {
 		opt(b)
