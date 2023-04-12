@@ -259,7 +259,7 @@ func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 			}),
 		}
 		if input.S3 {
-			opts = append(opts, pfssync.WithS3())
+			continue // don't download any data or create any files at all
 		}
 		if input.Lazy {
 			opts = append(opts, pfssync.WithLazy())

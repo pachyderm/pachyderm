@@ -66,8 +66,8 @@ func (d *downloader) closePipes() (retErr error) {
 }
 
 type downloadConfig struct {
-	lazy, empty, s3 bool
-	headerCallback  func(*tar.Header) error
+	lazy, empty    bool
+	headerCallback func(*tar.Header) error
 }
 
 // Download a PFS file to a location on the local filesystem.
@@ -78,9 +78,6 @@ func (d *downloader) Download(storageRoot string, file *pfs.File, opts ...Downlo
 	dc := &downloadConfig{}
 	for _, opt := range opts {
 		opt(dc)
-	}
-	if dc.s3 {
-		return nil // don't download any data or create any files
 	}
 	if dc.lazy || dc.empty {
 		return d.downloadInfo(storageRoot, file, dc)
