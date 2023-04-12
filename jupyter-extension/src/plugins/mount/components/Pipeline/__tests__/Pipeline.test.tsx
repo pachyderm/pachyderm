@@ -7,12 +7,13 @@ import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
 import Pipeline from '../Pipeline';
 jest.mock('../../../../../handler');
-import {PpsContext, SameMetadata} from '../../../types';
+import {SameMetadata} from '../../../types';
 
 describe('PPS screen', () => {
   let setShowPipeline = jest.fn();
   const saveNotebookMetaData = jest.fn();
   const testNotebookName = 'NotARealNotebook.ipynb';
+  const notebookModel = {name: testNotebookName} as Contents.IModel;
   const md: SameMetadata = {
     apiVersion: '',
     environments: {
@@ -30,13 +31,8 @@ describe('PPS screen', () => {
       name: '',
     },
   };
-  const context: PpsContext = {
-    config: md,
-    notebookModel: {name: testNotebookName} as Contents.IModel,
-  };
 
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
-
   beforeEach(() => {
     setShowPipeline = jest.fn();
     mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI({}));
@@ -44,9 +40,10 @@ describe('PPS screen', () => {
 
   describe('spec preview', () => {
     it('proper preview', async () => {
+      const ppsContext = {config: md, notebookModel};
       const {getByTestId, findByTestId} = render(
         <Pipeline
-          ppsContext={context}
+          ppsContext={ppsContext}
           setShowPipeline={setShowPipeline}
           saveNotebookMetadata={saveNotebookMetaData}
         />,
@@ -96,11 +93,11 @@ input:
   });
 
   describe('no notebook', () => {
-    context.notebookModel = null;
+    const ppsContext = {config: md, notebookModel: null};
     it('currentNotebook is None', async () => {
       const {findByTestId} = render(
         <Pipeline
-          ppsContext={context}
+          ppsContext={ppsContext}
           setShowPipeline={setShowPipeline}
           saveNotebookMetadata={saveNotebookMetaData}
         />,
