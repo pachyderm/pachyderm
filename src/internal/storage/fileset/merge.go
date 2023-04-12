@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
@@ -120,22 +119,16 @@ func (mfr *MergeFileReader) Hash(ctx context.Context) ([]byte, error) {
 	var hashes [][]byte
 	size := index.SizeBytes(mfr.idx)
 	if size >= DefaultBatchThreshold {
-		// TODO: Optimize to handle large files that can mostly be copy by reference?
-		if err := miscutil.WithPipe(func(w io.Writer) error {
-			r := mfr.chunks.NewReader(ctx, mfr.idx.File.DataRefs)
-			return r.Get(w)
-		}, func(r io.Reader) error {
-			uploader := mfr.chunks.NewUploader(ctx, "chunk-uploader-resolver", true, func(_ interface{}, dataRefs []*chunk.DataRef) error {
-				for _, dataRef := range dataRefs {
-					hashes = append(hashes, dataRef.Hash)
-				}
-				return nil
-			})
-			if err := uploader.Upload(nil, r); err != nil {
-				return err
+		uploader := mfr.chunks.NewUploader(ctx, "chunk-uploader-resolver", true, func(_ interface{}, dataRefs []*chunk.DataRef) error {
+			for _, dataRef := range dataRefs {
+				hashes = append(hashes, dataRef.Hash)
 			}
-			return uploader.Close()
-		}); err != nil {
+			return nil
+		})
+		if err := uploader.Copy(nil, mfr.idx.File.DataRefs); err != nil {
+			return nil, err
+		}
+		if err := uploader.Close(); err != nil {
 			return nil, err
 		}
 	} else {
