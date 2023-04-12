@@ -1,4 +1,5 @@
 import json
+import yaml
 import os.path
 from dataclasses import dataclass, asdict
 from datetime import datetime
@@ -42,7 +43,13 @@ class PPSClient:
         except ValueError as err:
             raise HTTPError(reason=f"Bad Request: {err}")
 
-        pipeline_spec = create_pipeline_spec(config, '...')
+        try:
+            pipeline_spec = create_pipeline_spec(config, '...')
+        except Exception as e:
+            raise HTTPError(
+                status_code=400,
+                reason="couldn't parse pipeline input: {repr(e)}"
+            )
         return json.dumps(pipeline_spec)
 
     async def create(self, path: str, body: dict):
@@ -77,8 +84,19 @@ class PPSClient:
         if config.requirements and not os.path.exists(config.requirements):
             raise HTTPError(reason="requirements file does not exist")
 
-        script, _resources = self.nbconvert.from_filename(str(path))
+        # Common error: user input spec isn't valid. Check that *before*
+        # creating the companion repo/branch (which would remain in case of a
+        # syntax error in the spec). As this is just for validation, don't store
+        # the result.
+        try:
+            create_pipeline_spec(config, '...')
+        except Exception as e:
+            raise HTTPError(
+                status_code=400,
+                reason=f"couldn't parse pipeline input: {repr(e)}"
+            )
 
+        script, _resources = self.nbconvert.from_filename(str(path))
         client = python_pachyderm.Client()  # TODO: Auth?
         try:  # Verify connection to cluster.
             client.inspect_cluster()
@@ -93,10 +111,25 @@ class PPSClient:
             )
 
         companion_branch = upload_environment(client, companion_repo, config, script.encode('utf-8'))
-        pipeline_spec = create_pipeline_spec(config, companion_branch)
-        client.create_pipeline_from_request(
-            python_pachyderm.parse_dict_pipeline_spec(pipeline_spec)
-        )
+        try:
+            pipeline_spec = create_pipeline_spec(config, companion_branch)
+        except Exception as e:
+            raise HTTPError(
+                status_code=500,  # shouldn't error after validation above
+                reason=f"error creating valid pipeline spec: {repr(e)}"
+            )
+        try:
+            client.create_pipeline_from_request(
+                python_pachyderm.parse_dict_pipeline_spec(pipeline_spec)
+            )
+        except Exception as e:
+            if hasattr(e, "details"):
+                # Common case: pull error message out of Pachyderm RPC response
+                raise HTTPError(status_code=400, reason=e.details())
+            raise HTTPError(
+                status_code=500,
+                reason=f"error creating pipeline: {repr(e)}"
+            )
 
         return json.dumps(
             dict(message="Create pipeline request sent. You may monitor its status by running"
@@ -165,7 +198,7 @@ def create_pipeline_spec(config: PpsConfig, companion_branch: str) -> dict:
     companion_repo = f"{config.pipeline.name}__context"
     input_spec = dict(
         cross=[
-            config.input_spec,
+            yaml.safe_load(config.input_spec),
             dict(
                 pfs=dict(
                     project=config.pipeline.project.name,

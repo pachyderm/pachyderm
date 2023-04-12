@@ -35,7 +35,6 @@ const Pipeline: React.FC<PipelineProps> = ({
     requirements,
     setRequirements,
     callCreatePipeline,
-    callSavePipeline,
     currentNotebook,
     errorMessage,
     responseMessage,
@@ -184,14 +183,6 @@ ${inputSpec
           onClick={callCreatePipeline}
         >
           Publish Pipeline
-        </button>
-        &nbsp;
-        <button
-          data-testid="Pipeline__save_pipeline"
-          className="pachyderm-button"
-          onClick={callSavePipeline}
-        >
-          Save
         </button>
       </div>
       <span

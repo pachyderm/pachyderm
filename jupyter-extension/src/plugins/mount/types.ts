@@ -118,7 +118,7 @@ export type PpsConfig = {
   pipeline: Pipeline;
   image: string;
   requirements: string | null;
-  input_spec: ReadonlyJSONObject;
+  input_spec: string;
 };
 
 export type PpsContext = {
