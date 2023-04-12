@@ -84,7 +84,10 @@ const Pipeline: React.FC<PipelineProps> = ({
         >
           Current Notebook:{'  '}
         </label>
-        <span className="pachyderm-pipeline-current-notebook-value">
+        <span
+          className="pachyderm-pipeline-current-notebook-value"
+          data-testid="Pipeline__currentNotebookValue"
+        >
           {currentNotebook}
         </span>
       </div>

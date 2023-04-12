@@ -1,6 +1,7 @@
 import React from 'react';
 import {render} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import {Contents} from '@jupyterlab/services';
 
 import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
@@ -11,6 +12,7 @@ import {PpsContext, SameMetadata} from '../../../types';
 describe('PPS screen', () => {
   let setShowPipeline = jest.fn();
   const saveNotebookMetaData = jest.fn();
+  const testNotebookName = 'NotARealNotebook.ipynb';
   const md: SameMetadata = {
     apiVersion: '',
     environments: {
@@ -28,7 +30,10 @@ describe('PPS screen', () => {
       name: '',
     },
   };
-  const context: PpsContext = {config: md, notebookModel: null};
+  const context: PpsContext = {
+    config: md,
+    notebookModel: {name: testNotebookName} as Contents.IModel,
+  };
 
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
 
@@ -46,6 +51,11 @@ describe('PPS screen', () => {
           saveNotebookMetadata={saveNotebookMetaData}
         />,
       );
+
+      const valueCurrentNotebook = await findByTestId(
+        'Pipeline__currentNotebookValue',
+      );
+      expect(valueCurrentNotebook).toHaveTextContent(testNotebookName);
 
       const inputPipelineName = await findByTestId(
         'Pipeline__inputPipelineName',
@@ -82,6 +92,24 @@ input:
     glob: /
 `,
       );
+    });
+  });
+
+  describe('no notebook', () => {
+    context.notebookModel = null;
+    it('currentNotebook is None', async () => {
+      const {findByTestId} = render(
+        <Pipeline
+          ppsContext={context}
+          setShowPipeline={setShowPipeline}
+          saveNotebookMetadata={saveNotebookMetaData}
+        />,
+      );
+
+      const valueCurrentNotebook = await findByTestId(
+        'Pipeline__currentNotebookValue',
+      );
+      expect(valueCurrentNotebook).toHaveTextContent('None');
     });
   });
 });
