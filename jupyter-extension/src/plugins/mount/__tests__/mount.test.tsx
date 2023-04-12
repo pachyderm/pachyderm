@@ -140,4 +140,16 @@ describe('mount plugin', () => {
     expect(plugin.layout.widgets[6]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[7]).toBeInstanceOf(ReactWidget);
   });
+
+  it('return from pipeline view to the correct layout', async () => {
+    const plugin = new MountPlugin(app, docManager, factory, restorer, tracker);
+    const fileBrowser = plugin.layout.widgets[4];
+    expect(fileBrowser).toBeInstanceOf(FileBrowser);
+    plugin.setShowConfig(false);
+    expect(fileBrowser.isHidden).toBe(false);
+    plugin.setShowPipeline(true);
+    expect(fileBrowser.isHidden).toBe(true);
+    plugin.setShowPipeline(false);
+    expect(fileBrowser.isHidden).toBe(false);
+  });
 });
