@@ -13,6 +13,8 @@ from tornado.web import HTTPError
 
 from .log import get_logger
 
+METADATA_KEY = 'pachyderm_pps'
+
 
 class PPSClient:
     """Client interface for the PPS extension backend."""
@@ -76,6 +78,10 @@ class PPSClient:
         script, _resources = self.nbconvert.from_filename(str(path))
 
         client = python_pachyderm.Client()  # TODO: Auth?
+        try:
+            client.inspect_cluster()
+        except Exception as e:
+            raise HTTPError(reason=repr(e))
         companion_repo = f"{config.pipeline_name}__context"
         if companion_repo not in (item.repo.name for item in client.list_repo()):
             client.create_repo(
@@ -113,24 +119,27 @@ class PpsConfig:
         notebook_path = Path(notebook_path)
         notebook_data = json.loads(notebook_path.read_bytes())
 
-        config = notebook_data['metadata'].get('same_config')
-        if config is None:
-            raise ValueError("pps_config not specified in notebook metadata")
+        metadata = notebook_data['metadata'].get(METADATA_KEY)
+        if metadata is None:
+            raise ValueError(f"{METADATA_KEY} not specified in notebook metadata")
 
-        pipeline_name = config['metadata'].get('name', None)
+        config = metadata.get('config')
+        if config is None:
+            raise ValueError(f"{METADATA_KEY}.config not specified in notebook metadata")
+
+        pipeline_name = config.get('pipeline_name')
         if pipeline_name is None:
             raise ValueError("field pipeline_name not set")
 
-        image = config['environments']['default'].get('image_tag', None)
+        image = config.get('image')
         if image is None:
             raise ValueError("field image not set")
 
-        requirements = config['notebook'].get('requirements')
+        requirements = config.get('requirements')
 
-        input_spec = config['run'].get('input', None)
+        input_spec = config.get('input_spec')
         if input_spec is None:
             raise ValueError("field input_spec not set")
-        input_spec = json.loads(input_spec)
 
         return cls(
             notebook_path=notebook_path,

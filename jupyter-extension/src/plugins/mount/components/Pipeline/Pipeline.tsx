@@ -1,12 +1,12 @@
 import React from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
 import {usePipeline} from './hooks/usePipeline';
-import {PpsContext, SameMetadata} from '../../types';
+import {PpsContext, PpsMetadata} from '../../types';
 
 type PipelineProps = {
   ppsContext: PpsContext | undefined;
   setShowPipeline: (shouldShow: boolean) => void;
-  saveNotebookMetadata: (metadata: SameMetadata) => void;
+  saveNotebookMetadata: (metadata: PpsMetadata) => void;
 };
 
 const placeholderInputSpec = `pfs:

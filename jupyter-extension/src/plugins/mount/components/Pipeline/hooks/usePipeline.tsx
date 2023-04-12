@@ -2,8 +2,11 @@ import YAML from 'yaml';
 import {useEffect, useState} from 'react';
 import {ServerConnection} from '@jupyterlab/services';
 
-import {CreatePipelineResponse, PpsContext, SameMetadata} from '../../../types';
+import {CreatePipelineResponse, PpsContext, PpsMetadata} from '../../../types';
 import {requestAPI} from '../../../../../handler';
+import {ReadonlyJSONObject} from '@lumino/coreutils';
+
+export const PPS_VERSION = 'v1.0.0';
 
 export type usePipelineResponse = {
   loading: boolean;
@@ -23,7 +26,7 @@ export type usePipelineResponse = {
 
 export const usePipeline = (
   ppsContext: PpsContext | undefined,
-  saveNotebookMetaData: (metadata: SameMetadata) => void,
+  saveNotebookMetaData: (metadata: PpsMetadata) => void,
 ): usePipelineResponse => {
   const [loading, setLoading] = useState(false);
   const [pipelineName, setPipelineName] = useState('');
@@ -34,13 +37,17 @@ export const usePipeline = (
   const [responseMessage, setResponseMessage] = useState('');
 
   useEffect(() => {
-    setImageName(ppsContext?.config?.environments.default.image_tag ?? '');
-    setPipelineName(ppsContext?.config?.metadata.name ?? '');
-    setRequirements(ppsContext?.config?.notebook.requirements ?? '');
+    setImageName(ppsContext?.metadata?.config.image ?? '');
+    setPipelineName(ppsContext?.metadata?.config.pipeline_name ?? '');
+    setRequirements(ppsContext?.metadata?.config.requirements ?? '');
     setResponseMessage('');
-    if (ppsContext?.config?.run.input) {
-      const input = JSON.parse(ppsContext.config.run.input); //TODO: Catch errors
-      setInputSpec(YAML.stringify(input));
+    if (ppsContext?.metadata?.config.input_spec) {
+      try {
+        setInputSpec(YAML.stringify(ppsContext.metadata.config.input_spec));
+      } catch (_e) {
+        setInputSpec('');
+        setErrorMessage('error parsing input spec'); // This error might confuse user.
+      }
     } else {
       setInputSpec('');
     }
@@ -64,7 +71,7 @@ export const usePipeline = (
         }
       } catch (e) {
         if (e instanceof ServerConnection.ResponseError) {
-          setErrorMessage(e.message);
+          setErrorMessage('Error creating pipeline');
         } else {
           throw e;
         }
@@ -79,37 +86,27 @@ export const usePipeline = (
   }
 
   const callSavePipeline = async () => {
-    let input: string;
+    setErrorMessage('');
+
+    let inputSpecJson;
     try {
-      input = YAML.parse(inputSpec);
+      inputSpecJson = parseInputSpec(inputSpec);
     } catch (e) {
-      if (e instanceof YAML.YAMLParseError) {
-        input = JSON.parse(inputSpec);
-      } else {
-        throw e;
-      }
+      // TODO: More helpful error reporting.
+      setErrorMessage('error parsing input spec -- saving aborted');
+      return;
     }
 
-    const sameMetadata = {
-      apiVersion: 'sameproject.ml/v1alpha1',
-      environments: {
-        default: {
-          image_tag: imageName,
-        },
-      },
-      metadata: {
-        name: pipelineName,
-        version: '0.0.0',
-      },
-      notebook: {
+    const ppsMetadata: PpsMetadata = {
+      version: PPS_VERSION,
+      config: {
+        pipeline_name: pipelineName,
+        image: imageName,
         requirements: requirements,
-      },
-      run: {
-        name: pipelineName,
-        input: JSON.stringify(input),
+        input_spec: inputSpecJson,
       },
     };
-    saveNotebookMetaData(sameMetadata);
+    saveNotebookMetaData(ppsMetadata);
   };
 
   return {
@@ -127,4 +124,22 @@ export const usePipeline = (
     errorMessage,
     responseMessage,
   };
+};
+
+/*
+parseInputSpec attempts to convert the entry within the InputSpec text area
+  into a JSON serializable format. Throws an error if not possible
+ */
+const parseInputSpec = (spec: string): ReadonlyJSONObject => {
+  let input;
+  try {
+    input = YAML.parse(spec);
+  } catch (e) {
+    if (e instanceof YAML.YAMLParseError) {
+      input = JSON.parse(spec);
+    } else {
+      throw e;
+    }
+  }
+  return input as ReadonlyJSONObject;
 };

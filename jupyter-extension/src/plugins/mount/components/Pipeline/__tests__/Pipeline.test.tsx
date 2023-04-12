@@ -6,29 +6,22 @@ import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
 import Pipeline from '../Pipeline';
 jest.mock('../../../../../handler');
-import {PpsContext, SameMetadata} from '../../../types';
+import {PPS_VERSION} from '../hooks/usePipeline';
+import {PpsContext, PpsMetadata} from '../../../types';
 
 describe('PPS screen', () => {
   let setShowPipeline = jest.fn();
   const saveNotebookMetaData = jest.fn();
-  const md: SameMetadata = {
-    apiVersion: '',
-    environments: {
-      default: {
-        image_tag: '',
-      },
-    },
-    metadata: {
-      name: '',
-    },
-    notebook: {
+  const metadata: PpsMetadata = {
+    version: PPS_VERSION,
+    config: {
+      pipeline_name: '',
+      image: '',
       requirements: '',
-    },
-    run: {
-      name: '',
+      input_spec: {},
     },
   };
-  const context: PpsContext = {config: md, notebookModel: null};
+  const context: PpsContext = {metadata: metadata, notebookModel: null};
 
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
 
@@ -61,6 +54,7 @@ describe('PPS screen', () => {
       userEvent.type(inputRequirements, './requirements.txt');
 
       const inputInputSpec = await findByTestId('Pipeline__inputSpecInput');
+      userEvent.clear(inputInputSpec);
       userEvent.type(
         inputInputSpec,
         `pfs:
