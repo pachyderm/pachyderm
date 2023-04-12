@@ -258,6 +258,9 @@ func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 				return nil
 			}),
 		}
+		if input.S3 {
+			opts = append(opts, pfssync.WithS3())
+		}
 		if input.Lazy {
 			opts = append(opts, pfssync.WithLazy())
 		}

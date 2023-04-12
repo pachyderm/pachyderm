@@ -25,3 +25,11 @@ func WithHeaderCallback(cb func(*tar.Header) error) DownloadOption {
 		dc.headerCallback = cb
 	}
 }
+
+// WithS3 configures the download call to exit early (we download nothing for S3
+// inputs)
+func WithS3() DownloadOption {
+	return func(dc *downloadConfig) {
+		dc.s3 = true
+	}
+}
