@@ -572,19 +572,21 @@ func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectReques
 	})
 }
 
-func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs.ProjectInfo, error) {
+func (d *driver) inspectProject(ctx context.Context, project *pfs.Project, includeAuth bool) (*pfs.ProjectInfo, error) {
 	pi := &pfs.ProjectInfo{}
 	if err := d.projects.ReadOnly(ctx).Get(pfsdb.ProjectKey(project), pi); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: project.AuthResource()})
-	if err != nil {
-		if errors.Is(err, auth.ErrNotActivated) {
-			return pi, nil
+	if includeAuth {
+		resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: project.AuthResource()})
+		if err != nil {
+			if errors.Is(err, auth.ErrNotActivated) {
+				return pi, nil
+			}
+			return nil, errors.Wrapf(err, "error getting permissions for project %s", project)
 		}
-		return nil, errors.Wrapf(err, "error getting permissions for project %s", project)
+		pi.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 	}
-	pi.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 	return pi, nil
 }
 
@@ -685,11 +687,11 @@ func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit,
 }
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
-func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
+func (d *driver) listProject(ctx context.Context, includeAuth bool, cb func(*pfs.ProjectInfo) error) error {
 	authIsActive := true
 	projectInfo := &pfs.ProjectInfo{}
 	return errors.Wrap(d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
-		if authIsActive {
+		if includeAuth && authIsActive {
 			resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: projectInfo.GetProject().AuthResource()})
 			if err != nil {
 				if errors.Is(err, auth.ErrNotActivated) {
@@ -1938,7 +1940,7 @@ func (d *driver) deleteAll(ctx context.Context) error {
 		return errors.Wrap(err, "could not delete all repos")
 	}
 	var projectInfos []*pfs.ProjectInfo
-	if err := d.listProject(ctx, func(pi *pfs.ProjectInfo) error {
+	if err := d.listProject(ctx, false /* includeAuth */, func(pi *pfs.ProjectInfo) error {
 		projectInfos = append(projectInfos, proto.Clone(pi).(*pfs.ProjectInfo))
 		return nil
 	}); err != nil {

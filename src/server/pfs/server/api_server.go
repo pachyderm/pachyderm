@@ -418,12 +418,12 @@ func (a *apiServer) CreateProject(ctx context.Context, request *pfs.CreateProjec
 
 // InspectProject implements the protobuf pfs.InspectProject RPC
 func (a *apiServer) InspectProject(ctx context.Context, request *pfs.InspectProjectRequest) (*pfs.ProjectInfo, error) {
-	return a.driver.inspectProject(ctx, request.Project)
+	return a.driver.inspectProject(ctx, request.Project, true /* includeAuth */)
 }
 
 // ListProject implements the protobuf pfs.ListProject RPC
 func (a *apiServer) ListProject(request *pfs.ListProjectRequest, srv pfs.API_ListProjectServer) error {
-	return a.driver.listProject(srv.Context(), srv.Send)
+	return a.driver.listProject(srv.Context(), true /* includeAuth */, srv.Send)
 }
 
 // DeleteProject implements the protobuf pfs.DeleteProject RPC
