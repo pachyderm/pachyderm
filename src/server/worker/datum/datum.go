@@ -248,6 +248,9 @@ func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 	d.meta.Stats.DownloadBytes = 0
 	var mu sync.Mutex
 	for _, input := range d.meta.Inputs {
+		if input.S3 {
+			continue // don't download any data or create any files at all
+		}
 		// TODO: Need some validation to catch lazy & empty since they are incompatible.
 		// Probably should catch this at the input validation during pipeline creation?
 		opts := []pfssync.DownloadOption{
@@ -257,9 +260,6 @@ func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 				d.meta.Stats.DownloadBytes += hdr.Size
 				return nil
 			}),
-		}
-		if input.S3 {
-			continue // don't download any data or create any files at all
 		}
 		if input.Lazy {
 			opts = append(opts, pfssync.WithLazy())
