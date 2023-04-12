@@ -1636,6 +1636,13 @@ workflows:
           filters: *only-alpha-tags
           requires:
             - aws-prerelease-testing-env-3
+      - cust-prerelease-testing:
+          name: krs-testing
+          customer: krs
+          env: qa4
+          filters: *only-alpha-tags
+          requires:
+            - aws-prerelease-testing-env-3
       - pulumi-aws-test-env:
           name: destroy-aws-prerelease-testing-env-1
           env: qa1
@@ -1643,20 +1650,6 @@ workflows:
           filters: *only-release-tags
           requires:
             - aws-testing
-      - pulumi-aws-test-env:
-          name: destroy-aws-prerelease-testing-env-2
-          env: qa2
-          action: destroy
-          filters: *only-alpha-tags
-          requires:
-            - wp-testing
-      - pulumi-aws-test-env:
-          name: destroy-aws-prerelease-testing-env-3
-          env: qa3
-          action: destroy
-          filters: *only-alpha-tags
-          requires:
-            - btl-testing
       - console-release-draft:
           filters: *only-release-tags
           requires:

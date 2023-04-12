@@ -37,6 +37,10 @@ func DeployCluster(ctx *pulumi.Context) (*kubernetes.Provider, *iam.Role, error)
 	if err != nil {
 		eksNodeInstanceType = "t2.medium"
 	}
+	nodeRootVolumeSize, err := cfg.TryInt("nodeRootVolumeSize")
+	if err != nil {
+		nodeRootVolumeSize = 20
+	}
 	vpcNetworkCidr, err := cfg.Try("vpcNetworkCidr")
 	if err != nil {
 		vpcNetworkCidr = "10.0.0.0/16"
@@ -70,10 +74,11 @@ func DeployCluster(ctx *pulumi.Context) (*kubernetes.Provider, *iam.Role, error)
 		// Private subnets will be used for cluster nodes
 		PrivateSubnetIds: eksVpc.PrivateSubnetIds,
 		// Change configuration values above to change any of the following settings
-		InstanceType:    pulumi.String(eksNodeInstanceType),
-		DesiredCapacity: pulumi.Int(desiredClusterSize),
-		MinSize:         pulumi.Int(minClusterSize),
-		MaxSize:         pulumi.Int(maxClusterSize),
+		InstanceType:       pulumi.String(eksNodeInstanceType),
+		DesiredCapacity:    pulumi.Int(desiredClusterSize),
+		MinSize:            pulumi.Int(minClusterSize),
+		MaxSize:            pulumi.Int(maxClusterSize),
+		NodeRootVolumeSize: pulumi.Int(nodeRootVolumeSize),
 		// Do not give the worker nodes a public IP address
 		NodeAssociatePublicIpAddress: pulumi.BoolRef(false),
 		// Uncomment the next two lines for a private cluster (VPN access required)
