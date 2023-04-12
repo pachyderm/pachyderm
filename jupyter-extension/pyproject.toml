@@ -15,3 +15,6 @@ npm = ["npm"]
 
 [tool.check-manifest]
 ignore = ["jupyterlab_pachyderm/labextension/**", ".*", "package-lock.json"]
+
+[tool.pytest.ini_options]
+markers = ["mount_server"]

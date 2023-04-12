@@ -46,8 +46,17 @@ def pachyderm_resources():
     yield repos, branches, files
 
 
-@pytest.fixture()
-def dev_server():
+@pytest.fixture(scope="module")
+def dev_server(request):
+    """If you are having trouble with this fixture,
+    consider running the mount-server locally.
+
+    Tests can set the marker mount_server to value False if they do not
+      require the mount-server as a dependency.
+    """
+    marker = request.node.get_closest_marker("mount_server")
+    use_mount_server = marker is None or marker.args[0]
+
     print("starting development server...")
     p = subprocess.Popen(
         [sys.executable, "-m", "jupyterlab_pachyderm.dev_server"],
@@ -55,29 +64,30 @@ def dev_server():
         stdout=subprocess.PIPE,
     )
     # Give time for python test server to start
-    time.sleep(3)
+    time.sleep(1)
 
-    r = requests.put(
-        f"{BASE_URL}/config", data=json.dumps({"pachd_address": "localhost:30650"})
-    )
+    if use_mount_server:
+        requests.put(
+            f"{BASE_URL}/config",
+            data=json.dumps({"pachd_address": "localhost:30650"})
+        )
 
-    # Give time for mount server to start
-    running = False
-    for _ in range(15):
-        try:
-            r = requests.get(f"{BASE_URL}/config", timeout=1)
-            if r.status_code == 200 and r.json()["cluster_status"] != "INVALID":
-                running = True
-                break
-        except Exception:
-            pass
-        time.sleep(1)
+        # Give time for mount server to start
+        for _ in range(15):
+            try:
+                r = requests.get(f"{BASE_URL}/config", timeout=1)
+                if r.status_code == 200 and r.json()["cluster_status"] != "INVALID":
+                    break
+            except Exception:
+                pass
+            time.sleep(1)
+        else:  # If the for-loop isn't escaped.
+            subprocess.run(["pkill", "-f", "mount-server"])
+            raise RuntimeError("mount server is having issues starting up")
 
-    if running:
-        yield
+    yield
 
     print("killing development server...")
-
     subprocess.run(["pkill", "-f", "mount-server"])
     subprocess.run(
         ["bash", "-c", f"umount {PFS_MOUNT_DIR}"],
@@ -86,10 +96,6 @@ def dev_server():
     )
     p.terminate()
     p.wait()
-    time.sleep(1)
-
-    if not running:
-        raise RuntimeError("mount server is having issues starting up")
 
 
 def test_list_repos(pachyderm_resources, dev_server):
@@ -423,18 +429,24 @@ def notebook_path(simple_pachyderm_env) -> Path:
         notebook_path.unlink()
 
 
-def test_pps(dev_server, simple_pachyderm_env, notebook_path):
-    client, repo_name, pipeline_name = simple_pachyderm_env
-    last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
-    data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
-    r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data))
-    assert r.status_code == 200
-    assert next(client.inspect_pipeline(pipeline_name))
-    assert r.json()["message"] == ("Create pipeline request sent. You may monitor its "
-    "status by running \"pachctl list pipelines\" in a terminal.")
+@pytest.mark.mount_server(False)
+@pytest.mark.usefixtures('dev_server')
+class TestPpsClient:
 
+    @staticmethod
+    def test_pps(simple_pachyderm_env, notebook_path):
+        client, repo_name, pipeline_name = simple_pachyderm_env
+        last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
+        data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
+        r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data))
+        print(r.json())
+        assert r.status_code == 200
+        assert next(client.inspect_pipeline(pipeline_name))
+        assert r.json()["message"] == ("Create pipeline request sent. You may monitor its "
+        "status by running \"pachctl list pipelines\" in a terminal.")
 
-def test_pps_validation_errors(dev_server, notebook_path):
-    r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps({}))
-    assert r.status_code == 500
-    assert r.json()['reason'] == f"Bad Request: last_modified_time not specified"
+    @staticmethod
+    def test_pps_validation_errors(notebook_path):
+        r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps({}))
+        assert r.status_code == 500
+        assert r.json()['reason'] == f"Bad Request: last_modified_time not specified"
