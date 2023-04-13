@@ -75,7 +75,7 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: |-
-            GOMAXPROCS=8 CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
+            GOCOVERDIR=${TEST_RESULTS} GOMAXPROCS=8 CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             gotestsum \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --rerun-fails \
@@ -83,7 +83,7 @@ jobs:
             -- \
             -tags=unit_test \
             -count=1 \
-            -test.gocoverdir=${TEST_RESULTS} -covermode=atomic -coverpkg=./...
+            -cover-covermode=atomic -coverpkg=./...
       - store_artifacts: # upload test summary for display in Artifacts
           path: /tmp/test-results
           destination: raw-test-output
