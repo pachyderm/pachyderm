@@ -2833,8 +2833,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		if !errors.Is(deleteErr, errIncompleteDeletion) {
 			return deleteErr
 		}
-		a.env.PFSServer.DeleteReposInTransaction(txnCtx, deleteRepos)
-		return nil
+		return a.env.PFSServer.DeleteReposInTransaction(txnCtx, deleteRepos)
 	}); err != nil {
 		return err
 	}
