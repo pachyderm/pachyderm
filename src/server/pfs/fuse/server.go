@@ -896,6 +896,22 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		w.Write(marshalled) //nolint:errcheck
 	})
+	router.Methods("GET").Path("/token").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		cfg, err := config.Read(false, false)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		_, context, err := cfg.ActiveContext(true)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var token []byte = []byte(context.SessionToken)
+		w.Write(token)
+	})
 
 	// TODO: switch http server for gRPC server and bind to a unix socket not a
 	// TCP port (just for convenient manual testing with curl for now...)
