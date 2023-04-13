@@ -206,6 +206,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
+      TEST_RESULTS: /tmp/test-results
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
     steps:
@@ -479,6 +480,8 @@ jobs:
         default: amd64
     resource_class: << parameters.resource_class >>
     parallelism: 4
+    environment:
+      TEST_RESULTS: /tmp/test-results
     machine:
       image: << pipeline.parameters.machine_image >>
     steps:
