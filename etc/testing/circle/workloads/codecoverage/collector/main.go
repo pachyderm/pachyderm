@@ -20,6 +20,7 @@ const (
 )
 
 var pachdAddress = findPachdAddress()
+var logger = log.Default()
 
 func findPachdAddress() string {
 	env := os.Getenv("COV_PACHD_ADDRESS")
@@ -37,7 +38,6 @@ func sanitizeName(s string) string {
 }
 
 func main() {
-	logger := log.Default()
 	ctx := context.Background()
 	robotToken := os.Getenv("PACHOPS_PACHYDERM_ROBOT_TOKEN")
 	coverageFolder := os.Getenv("TEST_RESULTS")

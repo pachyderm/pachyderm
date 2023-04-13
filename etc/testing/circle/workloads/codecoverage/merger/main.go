@@ -10,12 +10,14 @@ import (
 	"strings"
 )
 
+var logger = log.Default()
+
 func main() {
-	logger := log.Default()
 	logger.Println("Running merger code")
 	inputFolder := os.Args[1]
 	outputFolder := os.Args[2]
 
+	mergeArgs := []string{"tool", "covdata", "merge", "-pcombine", "-i"}
 	formatArgs := []string{"tool", "covdata", "textfmt", "-i"}
 
 	sym, err := filepath.EvalSymlinks(inputFolder)
@@ -29,6 +31,8 @@ func main() {
 			if canonPath != inputFolder {
 				files = append(files, strings.Replace(path, sym, inputFolder, 1))
 			}
+			out, _ := exec.Command("ls", canonPath).CombinedOutput() // DNJ TODO - delete
+			logger.Printf("%s folder ls: %s \n", canonPath, string(out))
 		}
 		return nil
 	})
@@ -37,20 +41,43 @@ func main() {
 		strings.TrimLeft(files[0], string(filepath.Separator)),
 		string(filepath.Separator),
 	)[2] // /pfs/repo-name/branch
+
+	// merge coverage
+	mergeOutputFolder := filepath.Join(outputFolder, branch, "raw")
+	err = os.MkdirAll(mergeOutputFolder, fs.ModePerm)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	mergeArgs = append(mergeArgs, strings.Join(files, ","), "-o", mergeOutputFolder)
+	_, err = runGoCommand(mergeArgs)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// format coverage as text file
 	err = os.MkdirAll(filepath.Join(outputFolder, branch), fs.ModePerm)
 	if err != nil {
 		logger.Fatal(err)
 	}
-	formatArgs = append(formatArgs, strings.Join(files, ","), "-o", filepath.Join(outputFolder, branch, "profile.txt"))
-	// DNJ TODO - do we need explicit merge call
-	cmd := exec.Command("go", formatArgs...)
-	fmt.Println("Running command: ", cmd.String())
-	if out, err := cmd.CombinedOutput(); err != nil {
-		logger.Printf("Command failed: %v \n", string(out))
+	out, _ := exec.Command("ls", mergeOutputFolder).CombinedOutput() // DNJ TODO - delete
+	logger.Printf("%s folder ls: %s \n", mergeOutputFolder, string(out))
+	formatArgs = append(formatArgs, mergeOutputFolder, "-o", filepath.Join(outputFolder, branch, "profile.txt"))
+	_, err = runGoCommand(formatArgs)
+	if err != nil {
 		log.Fatal(err)
+	}
+}
+
+func runGoCommand(args []string) ([]byte, error) {
+	cmd := exec.Command("go", args...)
+	fmt.Println("Running command: ", cmd.String())
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		logger.Printf("Command failed: %v \n", string(out))
+		return nil, err
 	} else {
 		logger.Printf("Command succeeded: %v \n", string(out))
 	}
-	// check for consumed file right before save
-	// put cov file in codecov - deferred pipeline pushes to codecov
+	return out, nil
 }

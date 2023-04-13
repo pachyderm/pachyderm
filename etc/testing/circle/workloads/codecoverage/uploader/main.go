@@ -9,8 +9,9 @@ import (
 	"strings"
 )
 
+var logger = log.Default()
+
 func main() {
-	logger := log.Default()
 	logger.Println("Running uploader code")
 	inputFolder := os.Args[1]
 	// outputFolder := os.Args[2]

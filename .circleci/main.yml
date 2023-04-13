@@ -23,7 +23,6 @@ orbs:
   go: circleci/go@1.7.1
   gcp-cli: circleci/gcp-cli@2.4.1
   gh: circleci/github-cli@2.1
-  codecov: codecov/codecov@1.1.0
   pulumi: pulumi/pulumi@2.1.0
   aws-cli: circleci/aws-cli@3.1.1
   node: circleci/node@5.0.2
@@ -84,14 +83,12 @@ jobs:
             -- \
             -tags=unit_test \
             -count=1 \
-            -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
+            -test.coverdir=${TEST_RESULTS} -covermode=atomic -coverpkg=./...
       - store_artifacts: # upload test summary for display in Artifacts
           path: /tmp/test-results
           destination: raw-test-output
       - store_test_results: # upload test results for display in Test Summary
           path: /tmp/test-results
-      - codecov/upload:
-          file: /tmp/test-results/coverage.txt
       - save_cache:
           key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
           paths:
@@ -192,7 +189,7 @@ jobs:
               -run ${test_regex} \
               -tags="${test_tags}" \
               -count=1 \
-              -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
+              -test.coverdir=${TEST_RESULTS}-covermode=atomic -coverpkg=./...
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
