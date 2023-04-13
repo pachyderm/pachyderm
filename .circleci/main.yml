@@ -80,6 +80,7 @@ jobs:
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --rerun-fails \
             --packages="./..." \
+            --debug
             -- \
             -tags=unit_test \
             -count=1 \
