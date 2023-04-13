@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	// DefaultPachdNodePort is the pachd kubernetes service's default
-	// NodePort.Port setting
+	// DefaultPachdNodePort is the pachd kubernetes service's default NodePort.Port setting,
+	// ignoring situations where the proxy is used.
 	DefaultPachdNodePort = 30650
 )
 
@@ -59,8 +59,19 @@ func ParsePachdAddress(value string) (*PachdAddress, error) {
 		return nil, errors.Wrapf(err, "could not parse pachd address")
 	}
 
+	var port uint16
+	var secured bool
 	switch u.Scheme {
-	case "grpc", "grpcs", "http", "https":
+	case "grpc":
+		port = DefaultPachdNodePort
+	case "grpcs":
+		port = DefaultPachdNodePort
+		secured = true
+	case "http":
+		port = 80
+	case "https":
+		port = 443
+		secured = true
 	case "unix":
 		return &PachdAddress{UnixSocket: value}, nil
 	default:
@@ -78,7 +89,6 @@ func ParsePachdAddress(value string) (*PachdAddress, error) {
 		return nil, errors.New("pachd address should not include a fragment")
 	}
 
-	port := uint16(DefaultPachdNodePort)
 	if strport := u.Port(); strport != "" {
 		maybePort, err := strconv.ParseUint(strport, 10, 16)
 		if err != nil {
@@ -88,7 +98,7 @@ func ParsePachdAddress(value string) (*PachdAddress, error) {
 	}
 
 	return &PachdAddress{
-		Secured: u.Scheme == "grpcs" || u.Scheme == "https",
+		Secured: secured,
 		Host:    u.Hostname(),
 		Port:    port,
 	}, nil
