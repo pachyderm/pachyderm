@@ -89,7 +89,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		false,
 	)
 	require.YesError(t, err)
-	require.Matches(t, "input commit is not supported at the PPS Spec level", err.Error())
+	require.Matches(t, "input cannot come from a commit", err.Error())
 }
 
 // Make sure that pipeline validation checks that all inputs exist

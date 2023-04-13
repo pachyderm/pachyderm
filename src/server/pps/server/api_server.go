@@ -213,7 +213,7 @@ func (a *apiServer) validateInput(pipeline *pps.Pipeline, input *pps.Input) erro
 					"'empty_files', as 's3' requires input data to be accessed via " +
 					"Pachyderm's S3 gateway rather than the file system")
 			case input.Pfs.Commit != "":
-				return errors.Errorf("input commit is not supported at the PPS Spec level")
+				return errors.Errorf("input cannot come from a commit; make a branch with head pointing to the commit and use the branch instead")
 			}
 		}
 		if input.Cross != nil {
