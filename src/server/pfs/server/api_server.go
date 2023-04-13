@@ -134,16 +134,16 @@ func (a *apiServer) InspectRepoInTransaction(txnCtx *txncontext.TransactionConte
 func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
 	request.Repo.EnsureProject()
 	var repoInfo *pfs.RepoInfo
-	err := a.env.TxnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	var size int64
+	if err := a.env.TxnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
 		repoInfo, err = a.InspectRepoInTransaction(txnCtx, request)
+		if err != nil {
+			return err
+		}
+		size, err = a.driver.repoSize(txnCtx, repoInfo.Repo)
 		return err
-	})
-	if err != nil {
-		return nil, err
-	}
-	size, err := a.driver.repoSize(ctx, repoInfo.Repo)
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	if repoInfo.Details == nil {
@@ -429,7 +429,7 @@ func (a *apiServer) ListProject(request *pfs.ListProjectRequest, srv pfs.API_Lis
 // DeleteProject implements the protobuf pfs.DeleteProject RPC
 func (a *apiServer) DeleteProject(ctx context.Context, request *pfs.DeleteProjectRequest) (*types.Empty, error) {
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.driver.deleteProject(ctx, txnCtx, request.Project, request.Force)
+		return a.driver.deleteProject(txnCtx, request.Project, request.Force)
 	}); err != nil {
 		return nil, err
 	}
