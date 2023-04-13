@@ -440,12 +440,7 @@ func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*p
 func (d *driver) deleteReposInTransaction(txnCtx *txncontext.TransactionContext, projects []*pfs.Project) ([]*pfs.Repo, error) {
 	var ris []*pfs.RepoInfo
 	if err := d.listRepoInTransaction(txnCtx, false, "", projects, func(ri *pfs.RepoInfo) error {
-		ok, err := d.canDeleteRepo(txnCtx, ri.Repo)
-		if err != nil {
-			return err
-		} else if ok {
-			ris = append(ris, ri)
-		}
+		ris = append(ris, ri)
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, "list repos")
