@@ -95,7 +95,7 @@ const Pipeline: React.FC<PipelineProps> = ({
           className="pachyderm-pipeline-input-label"
           htmlFor="pipelineName"
         >
-          *Name:{'  '}
+          *Pipeline Name:{'  '}
         </label>
         <input
           className="pachyderm-pipeline-input"
@@ -110,7 +110,7 @@ const Pipeline: React.FC<PipelineProps> = ({
       </div>
       <div className="pachyderm-pipeline-input-wrapper">
         <label className="pachyderm-pipeline-input-label" htmlFor="imageName">
-          *Image:{'  '}
+          *Container Image Name:{'  '}
         </label>
         <input
           className="pachyderm-pipeline-input"
@@ -128,7 +128,7 @@ const Pipeline: React.FC<PipelineProps> = ({
           className="pachyderm-pipeline-input-label"
           htmlFor="requirements"
         >
-          Requirements:{'  '}
+          Requirements File:{'  '}
         </label>
         <input
           className="pachyderm-pipeline-input"
@@ -147,7 +147,7 @@ const Pipeline: React.FC<PipelineProps> = ({
           className="pachyderm-pipeline-textarea-label"
           htmlFor="inputSpec"
         >
-          Input Spec
+          Pipeline Input Spec:
         </label>
         <textarea
           className="pachyderm-pipeline-textarea pachyderm-input"
