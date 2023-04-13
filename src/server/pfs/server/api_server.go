@@ -204,7 +204,6 @@ func (a *apiServer) StartCommitInTransaction(txnCtx *txncontext.TransactionConte
 // StartCommit implements the protobuf pfs.StartCommit RPC
 func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
 	var err error
-	request.GetParent().GetRepo().EnsureProject()
 	request.GetBranch().GetRepo().EnsureProject()
 	commit := &pfs.Commit{}
 	if err = a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
@@ -315,8 +314,6 @@ func (a *apiServer) DropCommitSet(ctx context.Context, request *pfs.DropCommitSe
 // SubscribeCommit implements the protobuf pfs.SubscribeCommit RPC
 func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
 	request.GetRepo().EnsureProject()
-	request.GetFrom().GetBranch().GetRepo().EnsureProject()
-	request.GetFrom().GetRepo().EnsureProject()
 	return a.driver.subscribeCommit(stream.Context(), request.Repo, request.Branch, request.From, request.State, request.All, request.OriginKind, stream.Send)
 }
 
@@ -429,10 +426,6 @@ func (a *apiServer) ModifyFile(server pfs.API_ModifyFileServer) (retErr error) {
 	commit, err := readCommit(server)
 	if err != nil {
 		return err
-	}
-	// ensure commit.Repo is always populated
-	if commit.Repo == nil {
-		commit.Repo = commit.Branch.Repo
 	}
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		var bytesRead int64
@@ -951,8 +944,8 @@ func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
 	}
 	switch x := msg.Body.(type) {
 	case *pfs.ModifyFileRequest_SetCommit:
-		if projectName := x.SetCommit.Branch.Repo.Project.GetName(); projectName == "" {
-			x.SetCommit.Branch.Repo.Project = &pfs.Project{Name: pfs.DefaultProjectName}
+		if err := checkCommit(x.SetCommit); err != nil {
+			return nil, err
 		}
 		return x.SetCommit, nil
 	default:

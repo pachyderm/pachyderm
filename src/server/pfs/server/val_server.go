@@ -86,7 +86,7 @@ func (a *validatedAPIServer) WalkFile(request *pfs.WalkFileRequest, server pfs.A
 	if err := validateFile(file); err != nil {
 		return err
 	}
-	if err := a.auth.CheckRepoIsAuthorized(server.Context(), file.Commit.Branch.Repo, auth.Permission_REPO_READ, auth.Permission_REPO_LIST_FILE); err != nil {
+	if err := a.auth.CheckRepoIsAuthorized(server.Context(), file.Commit.Repo, auth.Permission_REPO_READ, auth.Permission_REPO_LIST_FILE); err != nil {
 		return errors.EnsureStack(err)
 	}
 	return a.apiServer.WalkFile(request, server)
@@ -99,18 +99,17 @@ func (a *validatedAPIServer) GlobFile(request *pfs.GlobFileRequest, server pfs.A
 	if err := checkCommit(commit); err != nil {
 		return err
 	}
-	if err := a.auth.CheckRepoIsAuthorized(server.Context(), commit.Branch.Repo, auth.Permission_REPO_READ, auth.Permission_REPO_LIST_FILE); err != nil {
+	if err := a.auth.CheckRepoIsAuthorized(server.Context(), commit.Repo, auth.Permission_REPO_READ, auth.Permission_REPO_LIST_FILE); err != nil {
 		return errors.EnsureStack(err)
 	}
 	return a.apiServer.GlobFile(request, server)
 }
 
 func (a *validatedAPIServer) ClearCommit(ctx context.Context, req *pfs.ClearCommitRequest) (*types.Empty, error) {
-
 	if err := checkCommit(req.Commit); err != nil {
 		return nil, err
 	}
-	if err := a.auth.CheckRepoIsAuthorized(ctx, req.Commit.Branch.Repo, auth.Permission_REPO_WRITE); err != nil {
+	if err := a.auth.CheckRepoIsAuthorized(ctx, req.Commit.Repo, auth.Permission_REPO_WRITE); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return a.apiServer.ClearCommit(ctx, req)
@@ -171,7 +170,7 @@ func (a *validatedAPIServer) CreateBranchInTransaction(txnCtx *txncontext.Transa
 		if err := checkCommit(request.Head); err != nil {
 			return err
 		}
-		if request.Branch.Repo.Name != request.Head.Branch.Repo.Name {
+		if request.Branch.Repo.Name != request.Head.Repo.Name {
 			return errors.New("branch and head commit must belong to the same repo")
 		}
 	}
@@ -208,6 +207,22 @@ func (a *validatedAPIServer) AddFileSet(ctx context.Context, req *pfs.AddFileSet
 		return nil, err
 	}
 	return a.apiServer.AddFileSet(ctx, req)
+}
+
+func (a *validatedAPIServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
+	if err := checkCommit(request.From); err != nil {
+		return err
+	}
+	return a.apiServer.SubscribeCommit(request, stream)
+}
+
+func (a *validatedAPIServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
+	if request.Parent != nil {
+		if err := checkCommit(request.Parent); err != nil {
+			return nil, err
+		}
+	}
+	return a.apiServer.StartCommit(ctx, request)
 }
 
 func validateFile(file *pfs.File) error {
