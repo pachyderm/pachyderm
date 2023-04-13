@@ -213,6 +213,26 @@ func (a *validatedAPIServer) Egress(ctx context.Context, request *pfs.EgressRequ
 	return a.apiServer.Egress(ctx, request)
 }
 
+func (a *validatedAPIServer) DiffFile(request *pfs.DiffFileRequest, server pfs.API_DiffFileServer) error {
+	if request.NewFile == nil {
+		return errors.New("file cannot be nil")
+	}
+	if request.NewFile.Commit == nil {
+		return errors.New("file commit cannot be nil")
+	}
+	request.NewFile.Commit.Repo = request.NewFile.Commit.AccessRepo()
+	if request.NewFile.Commit.Repo == nil {
+		return errors.Errorf("new file's commit must have a repo")
+	}
+	if request.OldFile != nil {
+		request.OldFile.Commit.Repo = request.OldFile.Commit.AccessRepo()
+		if request.OldFile.Commit.Repo == nil {
+			return errors.Errorf("old file's commit must have a repo")
+		}
+	}
+	return a.apiServer.DiffFile(request, server)
+}
+
 func validateFile(file *pfs.File) error {
 	if file == nil {
 		return errors.New("file cannot be nil")
