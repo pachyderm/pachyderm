@@ -1633,6 +1633,67 @@ export type GetFilesQueryResult = Apollo.QueryResult<
   Types.GetFilesQuery,
   Types.GetFilesQueryVariables
 >;
+export const FindCommitsDocument = gql`
+  query findCommits($args: FindCommitsQueryArgs!) {
+    findCommits(args: $args) {
+      commits {
+        ...CommitFragment
+      }
+      cursor
+      hasNextPage
+    }
+  }
+  ${CommitFragmentFragmentDoc}
+`;
+
+/**
+ * __useFindCommitsQuery__
+ *
+ * To run a query within a React component, call `useFindCommitsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useFindCommitsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useFindCommitsQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useFindCommitsQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.FindCommitsQuery,
+    Types.FindCommitsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<
+    Types.FindCommitsQuery,
+    Types.FindCommitsQueryVariables
+  >(FindCommitsDocument, options);
+}
+export function useFindCommitsLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.FindCommitsQuery,
+    Types.FindCommitsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.FindCommitsQuery,
+    Types.FindCommitsQueryVariables
+  >(FindCommitsDocument, options);
+}
+export type FindCommitsQueryHookResult = ReturnType<typeof useFindCommitsQuery>;
+export type FindCommitsLazyQueryHookResult = ReturnType<
+  typeof useFindCommitsLazyQuery
+>;
+export type FindCommitsQueryResult = Apollo.QueryResult<
+  Types.FindCommitsQuery,
+  Types.FindCommitsQueryVariables
+>;
 export const JobDocument = gql`
   query job($args: JobQueryArgs!) {
     job(args: $args) {

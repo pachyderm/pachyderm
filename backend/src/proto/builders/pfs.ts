@@ -167,6 +167,12 @@ export const commitFromObject = ({branch, id}: CommitObject) => {
         .setName(branch.name)
         .setRepo(new Repo().setName(branch.repo?.name || '').setType('user')),
     );
+    if (branch.repo?.project?.name) {
+      commit
+        .getBranch()
+        ?.getRepo()
+        ?.setProject(new Project().setName(branch.repo?.project?.name));
+    }
   }
   commit.setId(id);
 

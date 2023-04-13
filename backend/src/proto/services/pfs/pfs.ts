@@ -32,6 +32,7 @@ import {
   RenewFileSetRequestArgs,
   AddFileSetRequestArgs,
   CreateProjectRequestArgs,
+  FindCommitsArgs,
 } from '../../lib/types';
 import {APIClient} from '../../proto/pfs/pfs_grpc_pb';
 import {
@@ -76,6 +77,8 @@ import {
   CreateProjectRequest,
   DeleteReposRequest,
   DeleteProjectRequest,
+  FindCommitsResponse,
+  FindCommitsRequest,
 } from '../../proto/pfs/pfs_pb';
 import streamToObjectArray from '../../utils/streamToObjectArray';
 import {RPC_DEADLINE_MS} from '../constants/rpc';
@@ -531,6 +534,27 @@ const pfs = ({
           return resolve({});
         });
       });
+    },
+    findCommits: ({commit, path, limit}: FindCommitsArgs) => {
+      const findCommitsRequest = new FindCommitsRequest();
+      findCommitsRequest.setStart(commitFromObject(commit));
+      findCommitsRequest.setFilePath(path);
+      if (limit) {
+        findCommitsRequest.setLimit(limit);
+      }
+
+      const stream = client.findCommits(
+        findCommitsRequest,
+        credentialMetadata,
+        {
+          deadline: Date.now() + RPC_DEADLINE_MS,
+        },
+      );
+
+      return streamToObjectArray<
+        FindCommitsResponse,
+        FindCommitsResponse.AsObject
+      >(stream);
     },
     createBranch: ({
       head,

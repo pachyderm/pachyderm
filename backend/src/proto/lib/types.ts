@@ -181,3 +181,9 @@ export type CreateProjectRequestArgs = {
   description?: string;
   update?: boolean;
 };
+
+export type FindCommitsArgs = {
+  commit: CommitObject;
+  path: string;
+  limit?: number;
+};

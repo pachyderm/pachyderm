@@ -660,6 +660,21 @@ type PageableFile {
   files: [File!]!
 }
 
+input FindCommitsQueryArgs {
+  projectId: String!
+  repoId: String!
+  filePath: String!
+  commitId: String
+  branchId: String
+  limit: Int
+}
+
+type PageableFoundCommits {
+  commits: [Commit!]!
+  cursor: String
+  hasNextPage: Boolean
+}
+
 type Query {
   project(id: ID!): Project!
   projects: [Project!]!
@@ -683,6 +698,7 @@ type Query {
   commit(args: CommitQueryArgs!): Commit
   commitSearch(args: CommitSearchQueryArgs!): Commit
   commits(args: CommitsQueryArgs!): PageableCommit!
+  findCommits(args: FindCommitsQueryArgs!): PageableFoundCommits!
   branch(args: BranchQueryArgs!): Branch!
   branches(args: BranchesQueryArgs!): [Branch]!
   datum(args: DatumQueryArgs!): Datum!

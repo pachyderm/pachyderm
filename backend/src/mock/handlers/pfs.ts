@@ -65,6 +65,7 @@ const pfs = () => {
       | 'inspectRepo'
       | 'inspectCommit'
       | 'listCommit'
+      | 'findCommits'
       | 'listFile'
       | 'diffFile'
       | 'createRepo'
@@ -238,6 +239,9 @@ const pfs = () => {
           }
           commits.forEach((commit) => call.write(commit));
 
+          call.end();
+        },
+        findCommits: (call) => {
           call.end();
         },
         listFile: (call) => {

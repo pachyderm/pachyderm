@@ -1,6 +1,9 @@
 import {ApolloError} from 'apollo-server-errors';
 
-import {DEFAULT_COMMITS_LIMIT} from '@dash-backend/constants/limits';
+import {
+  DEFAULT_COMMITS_LIMIT,
+  DEFAULT_FIND_COMMITS_LIMIT,
+} from '@dash-backend/constants/limits';
 import {UUID_WITHOUT_DASHES_REGEX} from '@dash-backend/constants/pachCore';
 import formatDiff from '@dash-backend/lib/formatDiff';
 import {toProtoCommitOrigin} from '@dash-backend/lib/gqlEnumMappers';
@@ -20,6 +23,7 @@ interface CommitResolver {
     commits: QueryResolvers['commits'];
     commit: QueryResolvers['commit'];
     commitSearch: QueryResolvers['commitSearch'];
+    findCommits: QueryResolvers['findCommits'];
   };
   Mutation: {
     startCommit: MutationResolvers['startCommit'];
@@ -223,6 +227,73 @@ const commitResolver: CommitResolver = {
         }
         throw e;
       }
+    },
+    findCommits: async (
+      _parent,
+      {args: {projectId, repoId, commitId, branchId, filePath, limit}},
+      {pachClient},
+    ) => {
+      if (!commitId && !branchId) {
+        throw new ApolloError(
+          `Need to specify commitId and or branchId`,
+          'INVALID_ARGUMENT',
+        );
+      }
+
+      const commits = await pachClient.pfs().findCommits({
+        commit: {
+          id: commitId || '',
+          branch: {
+            name: branchId || '',
+            repo: {name: repoId, project: {name: projectId}},
+          },
+        },
+        path: filePath,
+        limit: limit || DEFAULT_FIND_COMMITS_LIMIT,
+      });
+
+      const foundCommitIds: string[] = [];
+      let lastCommitSearched = '';
+
+      commits.forEach((c) => {
+        if (c.foundCommit) {
+          foundCommitIds.push(c.foundCommit.id);
+        } else if (c.lastSearchedCommit) {
+          lastCommitSearched = c.lastSearchedCommit.id;
+        }
+      });
+
+      const commitInfos = await Promise.all(
+        foundCommitIds.map((commit) =>
+          pachClient.pfs().inspectCommit({
+            projectId,
+            wait: CommitState.COMMIT_STATE_UNKNOWN,
+            commit: {
+              id: commit,
+              branch: {name: '', repo: {name: repoId}},
+            },
+          }),
+        ),
+      );
+
+      let cursor = '';
+      if (lastCommitSearched) {
+        const lastCommitInfo = await pachClient.pfs().inspectCommit({
+          projectId,
+          wait: CommitState.COMMIT_STATE_UNKNOWN,
+          commit: {
+            id: lastCommitSearched,
+            branch: {name: '', repo: {name: repoId}},
+          },
+        });
+        cursor = lastCommitInfo.parentCommit?.id || '';
+      }
+
+      return {
+        commits: commitInfos.map((c) => commitInfoToGQLCommit(c)),
+        cursor: cursor,
+        hasNextPage: !!cursor,
+      };
     },
   },
   Mutation: {

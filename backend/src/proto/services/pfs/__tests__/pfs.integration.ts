@@ -158,6 +158,61 @@ describe('services/pfs', () => {
       expect(commits).toHaveLength(1);
     });
   });
+
+  describe('findCommits', () => {
+    it('should return the commit history for the specified path in the repo', async () => {
+      const client = await createSandbox('findCommits');
+
+      const fileClient1 = await client.pfs().modifyFile();
+      const commit1 = await client.pfs().startCommit({
+        projectId: 'default',
+        branch: {name: 'master', repo: {name: 'findCommits'}},
+      });
+      await fileClient1
+        .setCommit(commit1)
+        .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
+        .end();
+      await client.pfs().finishCommit({projectId: 'default', commit: commit1});
+      await client.pfs().inspectCommit({
+        projectId: 'default',
+        commit: commit1,
+        wait: CommitState.FINISHED,
+      });
+
+      const fileClient2 = await client.pfs().modifyFile();
+      const commit2 = await client.pfs().startCommit({
+        projectId: 'default',
+        branch: {name: 'master', repo: {name: 'findCommits'}},
+      });
+      await fileClient2
+        .setCommit(commit2)
+        .putFileFromURL('at-at.png', 'http://imgur.com/46Q8nDz.png')
+        .end();
+      await client.pfs().finishCommit({projectId: 'default', commit: commit2});
+      await client.pfs().inspectCommit({
+        projectId: 'default',
+        commit: commit2,
+        wait: CommitState.FINISHED,
+      });
+
+      const commits = await client.pfs().findCommits({
+        commit: {
+          id: '',
+          branch: {
+            name: 'master',
+            repo: {name: 'findCommits', project: {name: 'default'}},
+          },
+        },
+        path: '/at-at.png',
+      });
+
+      expect(commits).toHaveLength(3);
+      expect(commits[0].foundCommit?.id).toEqual(commit2.id);
+      expect(commits[1].foundCommit?.id).toEqual(commit1.id);
+      expect(commits[2].lastSearchedCommit?.id).toEqual(commit1.id);
+    });
+  });
+
   describe('inspectCommitSet', () => {
     it('should return details about a commit set', async () => {
       const client = await createSandbox('inspectCommitSet');

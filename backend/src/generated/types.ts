@@ -303,6 +303,15 @@ export enum FileType {
   RESERVED = 'RESERVED',
 }
 
+export type FindCommitsQueryArgs = {
+  branchId?: InputMaybe<Scalars['String']>;
+  commitId?: InputMaybe<Scalars['String']>;
+  filePath: Scalars['String'];
+  limit?: InputMaybe<Scalars['Int']>;
+  projectId: Scalars['String'];
+  repoId: Scalars['String'];
+};
+
 export type FinishCommitArgs = {
   commit: OpenCommitInput;
   projectId: Scalars['String'];
@@ -590,6 +599,13 @@ export type PageableFile = {
   hasNextPage?: Maybe<Scalars['Boolean']>;
 };
 
+export type PageableFoundCommits = {
+  __typename?: 'PageableFoundCommits';
+  commits: Array<Commit>;
+  cursor?: Maybe<Scalars['String']>;
+  hasNextPage?: Maybe<Scalars['Boolean']>;
+};
+
 export type PageableJob = {
   __typename?: 'PageableJob';
   cursor?: Maybe<Timestamp>;
@@ -711,6 +727,7 @@ export type Query = {
   datums: PageableDatum;
   enterpriseInfo: EnterpriseInfo;
   files: PageableFile;
+  findCommits: PageableFoundCommits;
   job: Job;
   jobSet: JobSet;
   jobSets: PageableJobSet;
@@ -767,6 +784,10 @@ export type QueryDatumsArgs = {
 
 export type QueryFilesArgs = {
   args: FileQueryArgs;
+};
+
+export type QueryFindCommitsArgs = {
+  args: FindCommitsQueryArgs;
 };
 
 export type QueryJobArgs = {
@@ -1107,6 +1128,7 @@ export type ResolversTypes = ResolversObject<{
   FileQueryArgs: FileQueryArgs;
   FileQueryResponse: ResolverTypeWrapper<FileQueryResponse>;
   FileType: FileType;
+  FindCommitsQueryArgs: FindCommitsQueryArgs;
   FinishCommitArgs: FinishCommitArgs;
   Float: ResolverTypeWrapper<Scalars['Float']>;
   GitInput: ResolverTypeWrapper<GitInput>;
@@ -1138,6 +1160,7 @@ export type ResolversTypes = ResolversObject<{
   PageableCommit: ResolverTypeWrapper<PageableCommit>;
   PageableDatum: ResolverTypeWrapper<PageableDatum>;
   PageableFile: ResolverTypeWrapper<PageableFile>;
+  PageableFoundCommits: ResolverTypeWrapper<PageableFoundCommits>;
   PageableJob: ResolverTypeWrapper<PageableJob>;
   PageableJobSet: ResolverTypeWrapper<PageableJobSet>;
   Pipeline: ResolverTypeWrapper<Pipeline>;
@@ -1209,6 +1232,7 @@ export type ResolversParentTypes = ResolversObject<{
   FileFromURL: FileFromUrl;
   FileQueryArgs: FileQueryArgs;
   FileQueryResponse: FileQueryResponse;
+  FindCommitsQueryArgs: FindCommitsQueryArgs;
   FinishCommitArgs: FinishCommitArgs;
   Float: Scalars['Float'];
   GitInput: GitInput;
@@ -1235,6 +1259,7 @@ export type ResolversParentTypes = ResolversObject<{
   PageableCommit: PageableCommit;
   PageableDatum: PageableDatum;
   PageableFile: PageableFile;
+  PageableFoundCommits: PageableFoundCommits;
   PageableJob: PageableJob;
   PageableJobSet: PageableJobSet;
   Pipeline: Pipeline;
@@ -1774,6 +1799,20 @@ export type PageableFileResolvers<
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type PageableFoundCommitsResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['PageableFoundCommits'] = ResolversParentTypes['PageableFoundCommits'],
+> = ResolversObject<{
+  commits?: Resolver<Array<ResolversTypes['Commit']>, ParentType, ContextType>;
+  cursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  hasNextPage?: Resolver<
+    Maybe<ResolversTypes['Boolean']>,
+    ParentType,
+    ContextType
+  >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type PageableJobResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['PageableJob'] = ResolversParentTypes['PageableJob'],
@@ -1976,6 +2015,12 @@ export type QueryResolvers<
     ParentType,
     ContextType,
     RequireFields<QueryFilesArgs, 'args'>
+  >;
+  findCommits?: Resolver<
+    ResolversTypes['PageableFoundCommits'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryFindCommitsArgs, 'args'>
   >;
   job?: Resolver<
     ResolversTypes['Job'],
@@ -2237,6 +2282,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   PageableCommit?: PageableCommitResolvers<ContextType>;
   PageableDatum?: PageableDatumResolvers<ContextType>;
   PageableFile?: PageableFileResolvers<ContextType>;
+  PageableFoundCommits?: PageableFoundCommitsResolvers<ContextType>;
   PageableJob?: PageableJobResolvers<ContextType>;
   PageableJobSet?: PageableJobSetResolvers<ContextType>;
   Pipeline?: PipelineResolvers<ContextType>;
@@ -2880,6 +2926,32 @@ export type GetFilesQuery = {
         nanos: number;
         seconds: number;
       } | null;
+    }>;
+  };
+};
+
+export type FindCommitsQueryVariables = Exact<{
+  args: FindCommitsQueryArgs;
+}>;
+
+export type FindCommitsQuery = {
+  __typename?: 'Query';
+  findCommits: {
+    __typename?: 'PageableFoundCommits';
+    cursor?: string | null;
+    hasNextPage?: boolean | null;
+    commits: Array<{
+      __typename?: 'Commit';
+      repoName: string;
+      description?: string | null;
+      originKind?: OriginKind | null;
+      id: string;
+      started: number;
+      finished: number;
+      sizeBytes: number;
+      sizeDisplay: string;
+      hasLinkedJob: boolean;
+      branch?: {__typename?: 'Branch'; name: string} | null;
     }>;
   };
 };

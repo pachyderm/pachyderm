@@ -3,6 +3,7 @@ import {START_COMMIT_MUTATION} from '@dash-frontend/mutations/StartCommit';
 import {GET_COMMIT_QUERY} from '@dash-frontend/queries/GetCommitQuery';
 import {COMMIT_SEARCH_QUERY} from '@dash-frontend/queries/GetCommitSearchQuery';
 import {GET_COMMITS_QUERY} from '@dash-frontend/queries/GetCommitsQuery';
+import {FIND_COMMITS_QUERY} from '@dash-frontend/queries/GetFindCommitsQuery';
 
 import {executeMutation, executeQuery} from '@dash-backend/testHelpers';
 import {
@@ -11,6 +12,7 @@ import {
   CommitQuery,
   StartCommitMutation,
   CommitSearchQuery,
+  FindCommitsQuery,
 } from '@graphqlTypes';
 
 describe('resolvers/Commits', () => {
@@ -128,6 +130,67 @@ describe('resolvers/Commits', () => {
 
       expect(errors).toHaveLength(0);
       expect(data?.commitSearch).toBeNull();
+    });
+  });
+
+  describe('findCommits', () => {
+    it('should return error if request is missing both commitId and branchId parameters', async () => {
+      const projectId = 'Solar-Power-Data-Logger-Team-Collab';
+      const repoId = 'cron';
+
+      const {data, errors = []} = await executeQuery<FindCommitsQuery>(
+        FIND_COMMITS_QUERY,
+        {
+          args: {
+            projectId,
+            repoId,
+            filePath: '/kitten.png',
+          },
+        },
+      );
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0].extensions.code).toBe('INVALID_ARGUMENT');
+      expect(data?.findCommits.commits).toBeUndefined();
+    });
+
+    it('should search by commitId', async () => {
+      const projectId = 'Solar-Power-Data-Logger-Team-Collab';
+      const repoId = 'cron';
+      const branchId = 'master';
+
+      const {errors = []} = await executeQuery<FindCommitsQuery>(
+        FIND_COMMITS_QUERY,
+        {
+          args: {
+            projectId,
+            repoId,
+            branchId,
+            filePath: '/kitten.png',
+          },
+        },
+      );
+
+      expect(errors).toHaveLength(0);
+    });
+    it('should search by branchId', async () => {
+      const projectId = 'Solar-Power-Data-Logger-Team-Collab';
+      const repoId = 'cron';
+      const commitId = '2d5daa0918ac4c43a412386e3bb5e88e';
+
+      const {errors = []} = await executeQuery<FindCommitsQuery>(
+        FIND_COMMITS_QUERY,
+        {
+          args: {
+            projectId,
+            repoId,
+            commitId,
+            filePath: '/kitten.png',
+          },
+        },
+      );
+
+      expect(errors).toHaveLength(0);
     });
   });
 
