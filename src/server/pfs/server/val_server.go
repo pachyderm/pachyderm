@@ -210,8 +210,10 @@ func (a *validatedAPIServer) AddFileSet(ctx context.Context, req *pfs.AddFileSet
 }
 
 func (a *validatedAPIServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
-	if err := checkCommit(request.From); err != nil {
-		return err
+	if request.From != nil {
+		if err := checkCommit(request.From); err != nil {
+			return err
+		}
 	}
 	return a.apiServer.SubscribeCommit(request, stream)
 }
