@@ -183,7 +183,7 @@ jobs:
             test_regex="$(IFS=\|; echo "${tests[*]:start:bucket_size}")"
 
             echo $test_regex
-
+            export GOCOVERDIR=${TEST_RESULTS}
             gotestsum \
               --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
               --rerun-fails \
@@ -193,7 +193,7 @@ jobs:
               -run ${test_regex} \
               -tags="${test_tags}" \
               -count=1 \
-              -test.gocoverdir=${TEST_RESULTS} -covermode=atomic -coverpkg=./...
+              -cover -covermode=atomic -coverpkg=./...
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
