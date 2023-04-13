@@ -1,5 +1,7 @@
 import json
+import os
 import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -8,6 +10,7 @@ import tornado
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
 from jupyterlab_pachyderm.pachyderm import MountInterface
 
+from . import TEST_NOTEBOOK
 
 pytest_plugins = ["jupyter_server.pytest_plugin"]
 
@@ -538,19 +541,9 @@ async def test_health(mock_client, jp_fetch):
     assert json.loads(r.body) == {"status": "running"}
 
 
-@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 async def test_pps_get(jp_fetch):
-    config = dict(
-        pipeline_name="test_pipeline",
-        image="python:3.10",
-        input_spec=dict(pfs=dict(repo="test_repo", glob="/*"))
-    )
-    response = await jp_fetch(
-        f"/{NAMESPACE}/{VERSION}/pps/_create/NOT_REAL.ipynb",
-        body=json.dumps(config),
-        allow_nonstandard_methods=True,
-        # ^ Required until config read directly from notebook metadata
-    )
+    notebook_path = TEST_NOTEBOOK.relative_to(os.getcwd())
+    response = await jp_fetch(f"/{NAMESPACE}/{VERSION}/pps/_create/{notebook_path}")
     assert response.code == 200
     body = json.loads(response.body)
     for expected_key in ("pipeline", "description", "transform", "input"):

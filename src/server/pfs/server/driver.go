@@ -693,7 +693,6 @@ func (d *driver) deleteProject(ctx context.Context, txnCtx *txncontext.Transacti
 	if err := d.env.AuthServer.CheckProjectIsAuthorizedInTransaction(txnCtx, project, auth.Permission_PROJECT_DELETE, auth.Permission_PROJECT_MODIFY_BINDINGS); err != nil {
 		return errors.Wrapf(err, "user is not authorized to delete project %q", project)
 	}
-
 	var errs error
 	if err := d.listRepo(ctx, false /* includeAuth */, "" /* repoType */, []*pfs.Project{project} /* projectsFilter */, func(repoInfo *pfs.RepoInfo) error {
 		errs = multierror.Append(errs, fmt.Errorf("repo %v still exists", repoInfo.GetRepo()))
@@ -1057,7 +1056,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 
 // resolveCommitWithAuth is like resolveCommit, but it does some pre-resolution checks like repo authorization.
 func (d *driver) resolveCommitWithAuth(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
-	if commit.Branch.Repo.Name == fileSetsRepo {
+	if commit.Repo.Name == fileSetsRepo {
 		cinfo := &pfs.CommitInfo{
 			Commit:      commit,
 			Description: "FileSet - Virtual Commit",
@@ -1068,7 +1067,7 @@ func (d *driver) resolveCommitWithAuth(ctx context.Context, commit *pfs.Commit) 
 	if commit == nil {
 		return nil, errors.Errorf("cannot inspect nil commit")
 	}
-	if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, commit.Branch.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+	if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, commit.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	// Resolve the commit in case it specifies a branch head or commit ancestry
