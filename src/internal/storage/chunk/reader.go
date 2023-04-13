@@ -28,22 +28,13 @@ type Reader struct {
 	prefetchLimit int
 }
 
-type ReaderOption func(*Reader)
-
-func WithOffsetBytes(offsetBytes int64) ReaderOption {
-	return func(r *Reader) {
-		r.offsetBytes = offsetBytes
-	}
-}
-
-func newReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper[pachhash.Output], prefetchLimit int, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
+func newReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper[pachhash.Output], dataRefs []*DataRef, opts ...ReaderOption) *Reader {
 	r := &Reader{
-		ctx:           ctx,
-		client:        client,
-		memCache:      memCache,
-		deduper:       deduper,
-		prefetchLimit: prefetchLimit,
-		dataRefs:      dataRefs,
+		ctx:      ctx,
+		client:   client,
+		memCache: memCache,
+		deduper:  deduper,
+		dataRefs: dataRefs,
 	}
 	for _, opt := range opts {
 		opt(r)

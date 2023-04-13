@@ -127,7 +127,7 @@ func (w *Writer) Delete(path, datum string) error {
 func (w *Writer) Copy(file File, datum string) error {
 	idx := file.Index()
 	size := index.SizeBytes(idx)
-	if size >= int64(w.batchThreshold) && chunk.StableDataRefs(idx.File.DataRefs) {
+	if size >= int64(w.batchThreshold) {
 		if err := w.checkIndex(w.idx, idx); err != nil {
 			return err
 		}
@@ -138,6 +138,9 @@ func (w *Writer) Copy(file File, datum string) error {
 				Datum: datum,
 			},
 		}
+		if _, ok := file.(*FileReader); ok {
+			return w.uploader.CopyByReference(copyIdx, idx.File.DataRefs)
+		}
 		return w.uploader.Copy(copyIdx, idx.File.DataRefs)
 	}
 	if len(idx.File.DataRefs) == 0 {
@@ -147,7 +150,6 @@ func (w *Writer) Copy(file File, datum string) error {
 		r := w.storage.ChunkStorage().NewDataReader(w.ctx, idx.File.DataRefs[0])
 		return w.Add(idx.Path, datum, r)
 	}
-	// TODO: Optimize to handle large files that can mostly be copy by reference?
 	return miscutil.WithPipe(func(w2 io.Writer) error {
 		r := w.storage.ChunkStorage().NewReader(w.ctx, idx.File.DataRefs)
 		return r.Get(w2)

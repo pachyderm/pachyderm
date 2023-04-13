@@ -73,3 +73,17 @@ func WithEntryCallback(cb EntryFunc) BatcherOption {
 		b.entryFunc = cb
 	}
 }
+
+type ReaderOption func(*Reader)
+
+func WithOffsetBytes(offsetBytes int64) ReaderOption {
+	return func(r *Reader) {
+		r.offsetBytes = offsetBytes
+	}
+}
+
+func WithPrefetchLimit(limit int) ReaderOption {
+	return func(r *Reader) {
+		r.prefetchLimit = limit
+	}
+}
