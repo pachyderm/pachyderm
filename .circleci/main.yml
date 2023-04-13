@@ -83,7 +83,7 @@ jobs:
             -- \
             -tags=unit_test \
             -count=1 \
-            -cover-covermode=atomic -coverpkg=./...
+            -cover -covermode=atomic -coverpkg=./...
       - store_artifacts: # upload test summary for display in Artifacts
           path: /tmp/test-results
           destination: raw-test-output
