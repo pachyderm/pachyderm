@@ -226,8 +226,6 @@ func (a *apiServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionCont
 
 // FinishCommit implements the protobuf pfs.FinishCommit RPC
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
-	request.GetCommit().GetBranch().GetRepo().EnsureProject()
-	request.GetCommit().GetRepo().EnsureProject()
 	if err := a.env.TxnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.FinishCommit(request))
 	}); err != nil {
@@ -245,18 +243,12 @@ func (a *apiServer) InspectCommitInTransaction(txnCtx *txncontext.TransactionCon
 
 // InspectCommit implements the protobuf pfs.InspectCommit RPC
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
-	request.GetCommit().GetBranch().GetRepo().EnsureProject()
-	request.GetCommit().GetRepo().EnsureProject()
 	return a.driver.inspectCommit(ctx, request.Commit, request.Wait)
 }
 
 // ListCommit implements the protobuf pfs.ListCommit RPC
 func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.API_ListCommitServer) (retErr error) {
 	request.GetRepo().EnsureProject()
-	request.GetFrom().GetBranch().GetRepo().EnsureProject()
-	request.GetFrom().GetRepo().EnsureProject()
-	request.GetTo().GetBranch().GetRepo().EnsureProject()
-	request.GetTo().GetRepo().EnsureProject()
 	return a.driver.listCommit(respServer.Context(), request.Repo, request.To, request.From, request.StartedTime, request.Number, request.Reverse, request.All, request.OriginKind, func(ci *pfs.CommitInfo) error {
 		return errors.EnsureStack(respServer.Send(ci))
 	})
@@ -330,8 +322,6 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 
 // ClearCommit deletes all data in the commit.
 func (a *apiServer) ClearCommit(ctx context.Context, request *pfs.ClearCommitRequest) (_ *types.Empty, retErr error) {
-	request.GetCommit().GetBranch().GetRepo().EnsureProject()
-	request.GetCommit().GetRepo().EnsureProject()
 	return &types.Empty{}, a.driver.clearCommit(ctx, request.Commit)
 }
 
@@ -348,7 +338,6 @@ func (a *apiServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionCont
 
 // CreateBranch implements the protobuf pfs.CreateBranch RPC
 func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
-	request.GetHead().GetBranch().GetRepo().EnsureProject()
 	request.GetBranch().GetRepo().EnsureProject()
 	for _, b := range request.Provenance {
 		b.GetRepo().EnsureProject()
@@ -527,8 +516,6 @@ func deleteFile(ctx context.Context, uw *fileset.UnorderedWriter, request *pfs.D
 
 // GetFileTAR implements the protobuf pfs.GetFileTAR RPC
 func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFileTARServer) (retErr error) {
-	request.GetFile().GetCommit().GetBranch().Repo.EnsureProject()
-	request.GetFile().GetCommit().Repo.EnsureProject()
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
 		if request.URL != "" {
@@ -552,8 +539,6 @@ func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFi
 
 // GetFile implements the protobuf pfs.GetFile RPC
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileServer) (retErr error) {
-	request.GetFile().GetCommit().GetBranch().GetRepo().EnsureProject()
-	request.GetFile().GetCommit().GetRepo().EnsureProject()
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
 		if request.URL != "" {
@@ -622,8 +607,6 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 
 // ListFile implements the protobuf pfs.ListFile RPC
 func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFileServer) (retErr error) {
-	request.GetFile().GetCommit().GetBranch().GetRepo().EnsureProject()
-	request.GetFile().GetCommit().GetRepo().EnsureProject()
 	return a.driver.listFile(server.Context(), request.File, request.PaginationMarker, request.Number, request.Reverse, func(fi *pfs.FileInfo) error {
 		return errors.EnsureStack(server.Send(fi))
 	})
@@ -631,8 +614,6 @@ func (a *apiServer) ListFile(request *pfs.ListFileRequest, server pfs.API_ListFi
 
 // WalkFile implements the protobuf pfs.WalkFile RPC
 func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFileServer) (retErr error) {
-	request.GetFile().GetCommit().GetBranch().GetRepo().EnsureProject()
-	request.GetFile().GetCommit().GetRepo().EnsureProject()
 	return a.driver.walkFile(server.Context(), request.File, request.PaginationMarker, request.Number, request.Reverse, func(fi *pfs.FileInfo) error {
 		return errors.EnsureStack(server.Send(fi))
 	})
@@ -640,8 +621,6 @@ func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFi
 
 // GlobFile implements the protobuf pfs.GlobFile RPC
 func (a *apiServer) GlobFile(request *pfs.GlobFileRequest, respServer pfs.API_GlobFileServer) (retErr error) {
-	request.GetCommit().GetBranch().GetRepo().EnsureProject()
-	request.GetCommit().GetRepo().EnsureProject()
 	return a.driver.globFile(respServer.Context(), request.Commit, request.Pattern, request.PathRange, func(fi *pfs.FileInfo) error {
 		return errors.EnsureStack(respServer.Send(fi))
 	})
@@ -649,10 +628,6 @@ func (a *apiServer) GlobFile(request *pfs.GlobFileRequest, respServer pfs.API_Gl
 
 // DiffFile implements the protobuf pfs.DiffFile RPC
 func (a *apiServer) DiffFile(request *pfs.DiffFileRequest, server pfs.API_DiffFileServer) (retErr error) {
-	request.GetNewFile().GetCommit().GetBranch().GetRepo().EnsureProject()
-	request.GetNewFile().GetCommit().GetRepo().EnsureProject()
-	request.GetOldFile().GetCommit().GetBranch().GetRepo().EnsureProject()
-	request.GetOldFile().GetCommit().GetRepo().EnsureProject()
 	return a.driver.diffFile(server.Context(), request.OldFile, request.NewFile, func(oldFi, newFi *pfs.FileInfo) error {
 		return errors.EnsureStack(server.Send(&pfs.DiffFileResponse{
 			OldFile: oldFi,
@@ -722,8 +697,6 @@ func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr er
 }
 
 func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) (resp *pfs.CreateFileSetResponse, retErr error) {
-	req.GetCommit().GetBranch().GetRepo().EnsureProject()
-	req.GetCommit().GetRepo().EnsureProject()
 	filesetID, err := a.driver.getFileSet(ctx, req.Commit)
 	if err != nil {
 		return nil, err
@@ -748,8 +721,6 @@ func (a *apiServer) ShardFileSet(ctx context.Context, req *pfs.ShardFileSetReque
 }
 
 func (a *apiServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (_ *types.Empty, retErr error) {
-	req.GetCommit().GetBranch().GetRepo().EnsureProject()
-	req.GetCommit().GetRepo().EnsureProject()
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.AddFileSetInTransaction(txnCtx, req)
 	}); err != nil {
