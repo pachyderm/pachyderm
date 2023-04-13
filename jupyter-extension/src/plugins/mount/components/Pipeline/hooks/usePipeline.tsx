@@ -23,7 +23,10 @@ export type usePipelineResponse = {
 
 export const usePipeline = (
   ppsContext: PpsContext | undefined,
-  saveNotebookMetaData: (metadata: SameMetadata) => void,
+  saveNotebookMetaData: (
+    metadata: SameMetadata,
+    toDisk: boolean,
+  ) => Promise<void>,
 ): usePipelineResponse => {
   const [loading, setLoading] = useState(false);
   const [pipelineName, setPipelineName] = useState('');
@@ -46,39 +49,11 @@ export const usePipeline = (
     }
   }, [ppsContext]);
 
-  let callCreatePipeline: () => Promise<void>;
-  if (ppsContext?.notebookModel) {
-    const notebook = ppsContext.notebookModel;
-    callCreatePipeline = async () => {
-      setLoading(true);
-      setErrorMessage('');
-      setResponseMessage('');
-      try {
-        const response = await requestAPI<CreatePipelineResponse>(
-          `pps/_create/${encodeURI(notebook.path)}`,
-          'PUT',
-          {last_modified_time: notebook.last_modified},
-        );
-        if (response.message !== null) {
-          setResponseMessage(response.message);
-        }
-      } catch (e) {
-        if (e instanceof ServerConnection.ResponseError) {
-          setErrorMessage(e.message);
-        } else {
-          throw e;
-        }
-      }
-      setLoading(false);
-    };
-  } else {
-    // If no notebookModel is defined, we cannot create a pipeline.
-    callCreatePipeline = async () => {
-      setErrorMessage('Error: No notebook in focus');
-    };
-  }
-
   const callSavePipeline = async () => {
+    return callSavePipelineInternal(false);
+  };
+
+  const callSavePipelineInternal = async (toDisk: boolean) => {
     let input: string;
     try {
       input = YAML.parse(inputSpec);
@@ -109,8 +84,41 @@ export const usePipeline = (
         input: JSON.stringify(input),
       },
     };
-    saveNotebookMetaData(sameMetadata);
+    saveNotebookMetaData(sameMetadata, false);
   };
+
+  let callCreatePipeline: () => Promise<void>;
+  if (ppsContext?.notebookModel) {
+    callSavePipelineInternal(true);
+    const notebook = ppsContext.notebookModel;
+    callCreatePipeline = async () => {
+      setLoading(true);
+      setErrorMessage('');
+      setResponseMessage('');
+      try {
+        const response = await requestAPI<CreatePipelineResponse>(
+          `pps/_create/${encodeURI(notebook.path)}`,
+          'PUT',
+          {last_modified_time: notebook.last_modified},
+        );
+        if (response.message !== null) {
+          setResponseMessage(response.message);
+        }
+      } catch (e) {
+        if (e instanceof ServerConnection.ResponseError) {
+          setErrorMessage(e.message);
+        } else {
+          throw e;
+        }
+      }
+      setLoading(false);
+    };
+  } else {
+    // If no notebookModel is defined, we cannot create a pipeline.
+    callCreatePipeline = async () => {
+      setErrorMessage('Error: No notebook in focus');
+    };
+  }
 
   return {
     loading,

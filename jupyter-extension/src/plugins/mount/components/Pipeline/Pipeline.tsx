@@ -6,7 +6,10 @@ import {PpsContext, SameMetadata} from '../../types';
 type PipelineProps = {
   ppsContext: PpsContext | undefined;
   setShowPipeline: (shouldShow: boolean) => void;
-  saveNotebookMetadata: (metadata: SameMetadata) => void;
+  saveNotebookMetadata: (
+    metadata: SameMetadata,
+    toDisk: boolean,
+  ) => Promise<void>;
 };
 
 const placeholderInputSpec = `pfs:

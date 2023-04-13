@@ -315,7 +315,7 @@ export class MountPlugin implements IMountPlugin {
     let context: PpsContext;
     if (notebook) {
       await notebook.sessionContext.ready;
-      notebook.context.fileChanged.connect(this.handleNotebookReload);
+      notebook.context.fileChanged.connect(this.handleNotebookReload); //This might leak memory? (connect inside of a handler)
       context = {
         config: this.getNotebookMetadata(notebook),
         notebookModel: notebook.context.contentsModel,
@@ -348,12 +348,19 @@ export class MountPlugin implements IMountPlugin {
     return notebook?.model?.metadata.get(METADATA_KEY);
   };
 
-  saveNotebookMetadata = (metadata: SameMetadata): void => {
+  saveNotebookMetadata = async (
+    metadata: SameMetadata,
+    toDisk: boolean,
+  ): Promise<void> => {
     const currentNotebook = this.getActiveNotebook();
 
     if (currentNotebook !== null) {
       currentNotebook?.model?.metadata.set(METADATA_KEY, metadata);
       console.log('notebook metadata saved');
+      if (toDisk) {
+        await currentNotebook.context.ready;
+        return currentNotebook.context.save();
+      }
     } else {
       console.log('No active notebook');
     }
