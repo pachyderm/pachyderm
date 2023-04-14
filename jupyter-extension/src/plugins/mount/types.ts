@@ -16,6 +16,10 @@ export type clusterStatus = 'INVALID' | 'AUTH_DISABLED' | 'AUTH_ENABLED';
 
 export type authorization = 'off' | 'none' | 'read' | 'write';
 
+export type MountSettings = {
+  defaultPipelineImage: string;
+};
+
 export type Mount = {
   name: string;
   repo: string;
