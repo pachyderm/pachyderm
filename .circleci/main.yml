@@ -77,11 +77,12 @@ jobs:
           command: |-
             GOMAXPROCS=8 CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             gotestsum \
+            --raw-command
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --rerun-fails \
-            --packages="./..." \
             --debug \
             -- \
+            go test ./... -json \
             -tags=unit_test \
             -count=1 \
             -cover -test.gocoverdir=$TEST_RESULTS -covermode=atomic -coverpkg=./...
