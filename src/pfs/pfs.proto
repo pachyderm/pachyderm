@@ -176,7 +176,6 @@ message Project {
 message ProjectInfo {
   Project project = 1;
   string description = 2;
-
   AuthInfo auth_info = 3; 
 }
 

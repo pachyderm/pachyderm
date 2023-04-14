@@ -660,21 +660,19 @@ func (d *driver) createProjectInTransaction(txnCtx *txncontext.TransactionContex
 	return nil
 }
 
-func (d *driver) inspectProject(ctx context.Context, project *pfs.Project, includeAuth bool) (*pfs.ProjectInfo, error) {
+func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs.ProjectInfo, error) {
 	pi := &pfs.ProjectInfo{}
 	if err := d.projects.ReadOnly(ctx).Get(pfsdb.ProjectKey(project), pi); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	if includeAuth {
-		resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: project.AuthResource()})
-		if err != nil {
-			if errors.Is(err, auth.ErrNotActivated) {
-				return pi, nil
-			}
-			return nil, errors.Wrapf(err, "error getting permissions for project %s", project)
+	resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: project.AuthResource()})
+	if err != nil {
+		if errors.Is(err, auth.ErrNotActivated) {
+			return pi, nil
 		}
-		pi.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
+		return nil, errors.Wrapf(err, "error getting permissions for project %s", project)
 	}
+	pi.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
 	return pi, nil
 }
 
@@ -775,11 +773,11 @@ func (d *driver) isPathModifiedInCommit(ctx context.Context, commit *pfs.Commit,
 }
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
-func (d *driver) listProject(ctx context.Context, includeAuth bool, cb func(*pfs.ProjectInfo) error) error {
+func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
 	authIsActive := true
 	projectInfo := &pfs.ProjectInfo{}
 	return errors.Wrap(d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
-		if includeAuth && authIsActive {
+		if authIsActive {
 			resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: projectInfo.GetProject().AuthResource()})
 			if err != nil {
 				if errors.Is(err, auth.ErrNotActivated) {
