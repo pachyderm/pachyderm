@@ -2895,9 +2895,7 @@ func TestListProjectWithAuth(t *testing.T) {
 			projectInfos, err := tc.client.ListProject()
 			require.NoError(t, err)
 			for _, projectInfo := range projectInfos {
-				if expected, ok := tc.expected[projectInfo.Project.Name]; ok {
-					require.ElementsEqual(t, expected.Roles, projectInfo.AuthInfo.Roles)
-				}
+				require.ElementsEqual(t, tc.expected[projectInfo.Project.Name].Roles, projectInfo.AuthInfo.Roles)
 			}
 		})
 	}
