@@ -15,8 +15,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -854,17 +852,20 @@ func TestDontDownloadData(t *testing.T) {
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	masterCommit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
-	for i := 0; i < 20; i++ {
-		require.NoError(t, c.PutFile(masterCommit, fmt.Sprintf("%02d", i), io.LimitReader(
-			rand.New(rand.NewSource(0)), 100000000 /* 100 MB x 20 = 2 GB */)))
-	}
+	require.NoError(t, c.PutFile(masterCommit, "test.txt", strings.NewReader("This is a test")))
 
 	pipeline := tu.UniqueString("Pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
 		Transform: &pps.Transform{
-			Cmd:   []string{"bash", "-x"},
-			Stdin: []string{"exit 0"},
+			Cmd: []string{"bash", "-x"},
+			Stdin: []string{
+				"if find /pfs/.scratch -type f | xargs grep --with-filename \"This is a test\"; then",
+				"  exit 1", // The data shouldn't be downloaded; this means it was
+				"else",
+				"  exit 0", // No data == success
+				"fi",
+			},
 		},
 		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 		Input: &pps.Input{
@@ -876,11 +877,6 @@ func TestDontDownloadData(t *testing.T) {
 				S3:      true,
 				Glob:    "/",
 			},
-		},
-		ResourceLimits: &pps.ResourceSpec{
-			// Big enough to hold the file cache (700-800 MB, experimentally), but
-			// small enough to break if all 2 GB of input are downloaded
-			Disk: "1GiB",
 		},
 	})
 	require.NoError(t, err)
