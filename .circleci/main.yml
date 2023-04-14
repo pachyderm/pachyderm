@@ -37,6 +37,9 @@ parameters:
   go-version:
     type: string
     default: "1.20.3"
+  go-releaser-version:
+    type: string
+    default: "1.17.1"
   run_load_tests:
     type: boolean
     default: false
@@ -72,6 +75,7 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
+      - install-go-releaser
       - run: etc/testing/circle/install.sh
       - run:
           no_output_timeout: 20m
@@ -124,6 +128,7 @@ jobs:
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+      - install-go-releaser
       - run: etc/testing/circle/install.sh
       - go/install:
           version: << pipeline.parameters.go-version >>
@@ -229,6 +234,7 @@ jobs:
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
+      - install-go-releaser
       - run: etc/testing/circle/install.sh
       - save_cache:
           key: pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
@@ -427,6 +433,7 @@ jobs:
       - install-pulumi-deps
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - install-go-releaser
       - run:
           command: etc/testing/circle/run_all_load_tests.sh
           no_output_timeout: 1h
@@ -456,6 +463,7 @@ jobs:
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
             echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+      - install-go-releaser
       - run: etc/testing/circle/install.sh
       - run:
           name: Collect node stats
@@ -503,6 +511,7 @@ jobs:
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
+      - install-go-releaser
       - run: etc/testing/circle/install.sh
       - run:
           name: Collect node stats
@@ -558,13 +567,10 @@ jobs:
       - go/install:
           version: << pipeline.parameters.go-version >>
       - checkout
+      - install-go-releaser
       - run:
           name: Download utilities
           command: |
-            mkdir -p /home/circleci/bin
-            wget https://github.com/goreleaser/goreleaser/releases/download/v1.17.1/goreleaser_Linux_x86_64.tar.gz
-            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
-            rm -rf goreleaser_Linux_x86_64.tar.gz
             sudo apt update
             sudo apt install qemu binfmt-support qemu-user-static
       - run:
@@ -597,9 +603,6 @@ jobs:
           name: Download utilities
           command: |
             mkdir -p /home/circleci/bin
-            wget https://github.com/goreleaser/goreleaser/releases/download/v1.17.1/goreleaser_Linux_x86_64.tar.gz
-            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
-            rm -rf goreleaser_Linux_x86_64.tar.gz
             wget https://github.com/chainlink/gcsupload/releases/download/v0.2.0/gcsupload_0.2.0_Linux_x86_64.tar.gz
             tar zxvf gcsupload_0.2.0_Linux_x86_64.tar.gz -C /home/circleci/bin gcsupload
             rm -rf gcsupload_0.2.0_Linux_x86_64.tar.gz
@@ -611,6 +614,7 @@ jobs:
           keys:
             - pachctl-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
             - pachctl-build-cache-v1-master-{{ checksum "current_week" }}
+      - install-go-releaser
       - when:
           condition:
             and:
@@ -1824,6 +1828,17 @@ commands:
       - pulumi/login
       - run: |
           pulumi plugin install resource eks v0.40.0
+  install-go-releaser:
+    steps:
+      - run:
+          name: install-go-releaser
+          command: |
+            if [ ! -f cached-deps/goreleaser ]; then
+              GORELEASER_VERSION=<< pipeline.parameters.go-releaser-version >>
+              curl -L https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_Linux_x86_64.tar.gz \
+                | tar xzf - -C cached-deps goreleaser
+            fi
+            goreleaser -v
   wait-for-docker:
     steps:
       - run:
