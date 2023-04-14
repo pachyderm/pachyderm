@@ -75,8 +75,8 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
-      - install-go-releaser
       - run: etc/testing/circle/install.sh
+      - install-go-releaser
       - run:
           no_output_timeout: 20m
           command: |-
@@ -128,8 +128,8 @@ jobs:
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
-      - install-go-releaser
       - run: etc/testing/circle/install.sh
+      - install-go-releaser
       - go/install:
           version: << pipeline.parameters.go-version >>
       - wait-for-docker
@@ -234,8 +234,8 @@ jobs:
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
-      - install-go-releaser
       - run: etc/testing/circle/install.sh
+      - install-go-releaser
       - save_cache:
           key: pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
           paths:
@@ -433,10 +433,10 @@ jobs:
       - install-pulumi-deps
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      - install-go-releaser
       - run:
           command: etc/testing/circle/run_all_load_tests.sh
           no_output_timeout: 1h
+      - install-go-releaser
       - run:
           name: Destroy test env on fail
           command: |
@@ -463,8 +463,8 @@ jobs:
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
             echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
-      - install-go-releaser
       - run: etc/testing/circle/install.sh
+      - install-go-releaser
       - run:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
@@ -511,8 +511,8 @@ jobs:
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
-      - install-go-releaser
       - run: etc/testing/circle/install.sh
+      - install-go-releaser
       - run:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
@@ -567,12 +567,15 @@ jobs:
       - go/install:
           version: << pipeline.parameters.go-version >>
       - checkout
-      - install-go-releaser
       - run:
           name: Download utilities
           command: |
             sudo apt update
             sudo apt install qemu binfmt-support qemu-user-static
+      - run:
+          command: |
+            mkdir -p cached-deps
+      - install-go-releaser
       - run:
           name: pachydermbuildbot docker login
           command: |
@@ -614,6 +617,9 @@ jobs:
           keys:
             - pachctl-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
             - pachctl-build-cache-v1-master-{{ checksum "current_week" }}
+      - run:
+          command: |
+            mkdir -p cached-deps
       - install-go-releaser
       - when:
           condition:
