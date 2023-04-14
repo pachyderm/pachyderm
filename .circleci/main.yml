@@ -77,7 +77,7 @@ jobs:
           command: |-
             GOMAXPROCS=8 CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             gotestsum \
-            --raw-command
+            --raw-command \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --rerun-fails \
             --debug \
