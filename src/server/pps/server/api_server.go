@@ -2816,7 +2816,6 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 
 func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) error {
 	pipelineName := request.Pipeline.Name
-
 	// stop the pipeline to avoid interference from new jobs
 	if _, err := a.StopPipeline(ctx,
 		&pps.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil && errutil.IsNotFoundError(err) {
@@ -2830,7 +2829,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		var deleteRepos []*pfs.Repo
 		deleteRepos, deleteErr = a.deletePipelineInTransaction(txnCtx, request)
 		// we still want deletion to succeed if it was merely incomplete, but warn the caller
-		if !errors.Is(deleteErr, errIncompleteDeletion) {
+		if deleteErr != nil && !errors.Is(deleteErr, errIncompleteDeletion) {
 			return deleteErr
 		}
 		return a.env.PFSServer.DeleteReposInTransaction(txnCtx, deleteRepos)
