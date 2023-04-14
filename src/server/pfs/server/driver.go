@@ -701,7 +701,7 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 				return err
 			}
 			if inCommit {
-				log.Info(ctx, "found target", zap.String("commit", commit.ID), zap.String("branch", commit.Branch.String()), zap.String("target", request.FilePath))
+				log.Info(ctx, "found target", zap.String("commit", commit.ID), zap.String("repo", commit.Repo.String()), zap.String("target", request.FilePath))
 				found = commit
 				foundCommits++
 				if err := cb(makeResp(found, commitsSearched, nil)); err != nil {
@@ -715,7 +715,7 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 			}
 			commit = inspectCommitResp.ParentCommit
 			return nil
-		}, zap.String("commit", commit.ID), zap.String("branch", commit.Branch.String()), zap.String("target", request.FilePath)); err != nil {
+		}, zap.String("commit", commit.ID), zap.String("branch", commit.GetBranch().String()), zap.String("repo", commit.Repo.String()), zap.String("target", request.FilePath)); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return errors.EnsureStack(cb(makeResp(nil, commitsSearched, commit)))
 			}
@@ -1335,7 +1335,7 @@ func (d *driver) listCommit(
 	if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, repo, auth.Permission_REPO_LIST_COMMIT); err != nil {
 		return errors.EnsureStack(err)
 	}
-	if from != nil && !proto.Equal(from.Branch.Repo, repo) || to != nil && !proto.Equal(to.Branch.Repo, repo) {
+	if from != nil && !proto.Equal(from.Repo, repo) || to != nil && !proto.Equal(to.Repo, repo) {
 		return errors.Errorf("`from` and `to` commits need to be from repo %s", repo)
 	}
 	// Make sure that the repo exists
@@ -1483,7 +1483,7 @@ func (d *driver) subscribeCommit(
 	if repo == nil {
 		return errors.New("repo cannot be nil")
 	}
-	if from != nil && !proto.Equal(from.Branch.Repo, repo) {
+	if from != nil && !proto.Equal(from.Repo, repo) {
 		return errors.Errorf("the `from` commit needs to be from repo %s", repo)
 	}
 
