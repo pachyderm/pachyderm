@@ -227,6 +227,15 @@ func (a *validatedAPIServer) StartCommit(ctx context.Context, request *pfs.Start
 	return a.apiServer.StartCommit(ctx, request)
 }
 
+func (a *validatedAPIServer) FindCommits(request *pfs.FindCommitsRequest, srv pfs.API_FindCommitsServer) error {
+	if request.Start != nil {
+		if err := checkCommit(request.Start); err != nil {
+			return err
+		}
+	}
+	return a.apiServer.FindCommits(request, srv)
+}
+
 func validateFile(file *pfs.File) error {
 	if file == nil {
 		return errors.New("file cannot be nil")
