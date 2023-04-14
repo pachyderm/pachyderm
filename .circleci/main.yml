@@ -572,9 +572,6 @@ jobs:
           command: |
             sudo apt update
             sudo apt install qemu binfmt-support qemu-user-static
-      - run:
-          command: |
-            mkdir -p cached-deps
       - install-go-releaser
       - run:
           name: pachydermbuildbot docker login
@@ -617,9 +614,6 @@ jobs:
           keys:
             - pachctl-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
             - pachctl-build-cache-v1-master-{{ checksum "current_week" }}
-      - run:
-          command: |
-            mkdir -p cached-deps
       - install-go-releaser
       - when:
           condition:
@@ -1839,11 +1833,10 @@ commands:
       - run:
           name: install-go-releaser
           command: |
-            if [ ! -f cached-deps/goreleaser ]; then
-              GORELEASER_VERSION=<< pipeline.parameters.go-releaser-version >>
-              curl -L https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_Linux_x86_64.tar.gz \
-                | tar xzf - -C cached-deps goreleaser
-            fi
+            mkdir -p /home/circleci/bin
+            wget https://github.com/goreleaser/goreleaser/releases/download/v1.17.1/goreleaser_Linux_x86_64.tar.gz
+            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
+            rm -rf goreleaser_Linux_x86_64.tar.gz
             goreleaser -v
   wait-for-docker:
     steps:
