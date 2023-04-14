@@ -2,6 +2,8 @@ import subprocess
 import time
 import platform
 import json
+import asyncio
+import os
 
 from tornado.httpclient import AsyncHTTPClient, HTTPClientError
 from tornado import locks
@@ -12,6 +14,7 @@ from .env import SIDECAR_MODE, MOUNT_SERVER_LOG_DIR
 
 lock = locks.Lock()
 MOUNT_SERVER_PORT = 9002
+PACH_CONFIG_DIR = '/home/jovyan/.pachyderm/config.json'
 
 
 class MountServerClient(MountInterface):
@@ -179,6 +182,21 @@ class MountServerClient(MountInterface):
         response = await self.client.fetch(
             f"{self.address}/auth/_login", method="PUT", body="{}"
         )
+
+        resp_json = json.loads(response.body.decode())
+        # may bubble exception up to handler if oidc_state not in response
+        oidc = resp_json['oidc_state']
+
+        asyncio.create_task(self.auth_login_token(oidc))
+        return response.body
+
+    async def auth_login_token(self, oidc):
+        response = await self.client.fetch(
+            f"{self.address}/auth/_login_token", method="PUT", body=f'{oidc}'
+        )
+        os.makedirs(os.path.dirname(PACH_CONFIG_DIR), exist_ok=True)
+        with open(PACH_CONFIG_DIR, 'w') as f:
+            f.write(response.body.decode())
         return response.body
 
     async def auth_logout(self):
