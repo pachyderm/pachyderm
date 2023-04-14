@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/archiveserver"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -368,6 +369,11 @@ func (b *builder) initS3Server(ctx context.Context) error {
 		clientFactory: b.env.GetPachClient,
 		port:          b.env.Config().S3GatewayPort,
 	}
+	return nil
+}
+
+func (b *builder) initDownloadServer(ctx context.Context) error {
+	b.daemon.download = archiveserver.NewHTTP(b.env.Config().DownloadPort, b.env.GetPachClient)
 	return nil
 }
 

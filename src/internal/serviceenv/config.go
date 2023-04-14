@@ -22,6 +22,7 @@ type GlobalConfiguration struct {
 	PrometheusPort                 uint16 `env:"PROMETHEUS_PORT,default=1656"`
 	PeerPort                       uint16 `env:"PEER_PORT,default=1653"`
 	S3GatewayPort                  uint16 `env:"S3GATEWAY_PORT,default=1600"`
+	DownloadPort                   uint16 `env:"DOWNLOAD_PORT,default=1659"`
 	PPSEtcdPrefix                  string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
 	Namespace                      string `env:"PACH_NAMESPACE,default=default"`
 	StorageRoot                    string `env:"PACH_ROOT,default=/pach"`

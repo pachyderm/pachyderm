@@ -28,7 +28,12 @@ func AddLoggerToHTTPServer(rctx context.Context, name string, s *http.Server) {
 				requestID = append(requestID, uuid(interactiveTrace).String())
 			}
 			id := zap.Strings("x-request-id", requestID)
-			Info(ctx, "incoming http request", zap.Stringer("url", r.URL), zap.String("method", r.Method), zap.String("host", r.Host), id)
+
+			if ua := r.Header.Get("user-agent"); ua != "Envoy/HC" {
+				// Print info about the request if this is not an Envoy health check.
+				Info(ctx, "incoming http request", zap.Stringer("url", r.URL), zap.String("method", r.Method), zap.String("host", r.Host), id)
+			}
+
 			ctx = ChildLogger(ctx, "", WithFields(id))
 			ctx = metadata.NewOutgoingContext(ctx, metadata.MD{"x-request-id": requestID})
 			r = r.WithContext(ctx)
