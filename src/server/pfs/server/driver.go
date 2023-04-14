@@ -1590,21 +1590,17 @@ func (d *driver) fillNewBranches(txnCtx *txncontext.TransactionContext, branch *
 // This algorithm updates every branch in branchInfo's Subvenance, new Provenance, and old Provenance.
 // Complexity is O(m*n*log(n)) where m is the complete Provenance of branchInfo, and n is the Subvenance of branchInfo
 func (d *driver) computeBranchProvenance(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo, oldDirectProvenance []*pfs.Branch) error {
-	branchInfoCache := map[string]*pfs.BranchInfo{pfsdb.BranchKey(branchInfo.Branch): branchInfo}
-	getBranchInfo := func(b *pfs.Branch) (*pfs.BranchInfo, error) {
-		if bi, ok := branchInfoCache[pfsdb.BranchKey(b)]; ok {
-			return bi, nil
-		}
+	branchLoader := NewFetchCache(pfsdb.BranchKey, func(b *pfs.Branch) (*pfs.BranchInfo, error) {
 		bi := &pfs.BranchInfo{}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
 			return nil, errors.Wrapf(err, "get branch info")
 		}
-		branchInfoCache[pfsdb.BranchKey(b)] = bi
 		return bi, nil
-	}
+	})
+	branchLoader.Set(branchInfo.Branch, branchInfo)
 	toUpdate := []*pfs.BranchInfo{branchInfo}
 	for _, sb := range branchInfo.Subvenance {
-		sbi, err := getBranchInfo(sb)
+		sbi, err := branchLoader.Fetch(sb)
 		if err != nil {
 			return err
 		}
@@ -1620,7 +1616,7 @@ func (d *driver) computeBranchProvenance(txnCtx *txncontext.TransactionContext, 
 		bi.Provenance = make([]*pfs.Branch, 0)
 		for _, directProv := range bi.DirectProvenance {
 			add(&bi.Provenance, directProv)
-			directProvBI, err := getBranchInfo(directProv)
+			directProvBI, err := branchLoader.Fetch(directProv)
 			if err != nil {
 				return err
 			}
@@ -1631,7 +1627,7 @@ func (d *driver) computeBranchProvenance(txnCtx *txncontext.TransactionContext, 
 	}
 	// add branchInfo and its subvenance to the subvenance of all of its provenance branches
 	for _, p := range branchInfo.Provenance {
-		pbi, err := getBranchInfo(p)
+		pbi, err := branchLoader.Fetch(p)
 		if err != nil {
 			return err
 		}
@@ -1645,7 +1641,7 @@ func (d *driver) computeBranchProvenance(txnCtx *txncontext.TransactionContext, 
 		if !has(&branchInfo.Provenance, odp) {
 			add(&oldProvenance, odp)
 			oldProvenance = append(oldProvenance, odp)
-			opbi, err := getBranchInfo(odp)
+			opbi, err := branchLoader.Fetch(odp)
 			if err != nil {
 				return err
 			}
@@ -1655,7 +1651,7 @@ func (d *driver) computeBranchProvenance(txnCtx *txncontext.TransactionContext, 
 		}
 	}
 	for _, op := range oldProvenance {
-		opbi, err := getBranchInfo(op)
+		opbi, err := branchLoader.Fetch(op)
 		if err != nil {
 			return err
 		}
@@ -1666,7 +1662,7 @@ func (d *driver) computeBranchProvenance(txnCtx *txncontext.TransactionContext, 
 		}
 	}
 	// now that all Provenance + Subvenance fields are up to date, save all the branches
-	for _, updateBi := range branchInfoCache {
+	for _, updateBi := range branchLoader.Fetched() {
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Put(updateBi.Branch, updateBi); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -1676,35 +1672,24 @@ func (d *driver) computeBranchProvenance(txnCtx *txncontext.TransactionContext, 
 
 // for a DAG to be valid, it may not have a multiple branches from the same repo
 // reachable by traveling edges bidirectionally. The reason is that this would complicate resolving
-func (d *driver) validateDAGStructure(txnCtx *txncontext.TransactionContext, bi *pfs.BranchInfo) error {
-	branchInfoCache := map[string]*pfs.BranchInfo{pfsdb.BranchKey(bi.Branch): bi}
-	getBranchInfo := func(b *pfs.Branch) (*pfs.BranchInfo, error) {
-		if bi, ok := branchInfoCache[pfsdb.BranchKey(b)]; ok {
-			return bi, nil
-		}
-		bi := &pfs.BranchInfo{}
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
-			return nil, errors.Wrapf(err, "get branch info")
-		}
-		branchInfoCache[pfsdb.BranchKey(b)] = bi
-		return bi, nil
-	}
+func validateDAGStructure(bi *pfs.BranchInfo, branchFetcher *FetchCache[*pfs.Branch, *pfs.BranchInfo]) error {
+	branchFetcher.Set(bi.Branch, bi)
 	expanded := make(map[string]struct{}) // expanded branches
 	for {
 		hasExpanded := false
-		for _, bi := range branchInfoCache {
+		for _, bi := range branchFetcher.Fetched() {
 			if _, ok := expanded[bi.Branch.String()]; ok {
 				continue
 			}
 			hasExpanded = true
 			expanded[bi.Branch.String()] = struct{}{}
 			for _, b := range bi.Provenance {
-				if _, err := getBranchInfo(b); err != nil {
+				if _, err := branchFetcher.Fetch(b); err != nil {
 					return err
 				}
 			}
 			for _, b := range bi.Subvenance {
-				if _, err := getBranchInfo(b); err != nil {
+				if _, err := branchFetcher.Fetch(b); err != nil {
 					return err
 				}
 			}
@@ -1714,13 +1699,52 @@ func (d *driver) validateDAGStructure(txnCtx *txncontext.TransactionContext, bi 
 		}
 	}
 	foundRepos := make(map[string]struct{})
-	for _, bi := range branchInfoCache {
+	for _, bi := range branchFetcher.Fetched() {
 		if _, ok := foundRepos[bi.Branch.Repo.String()]; ok {
 			return &pfsserver.ErrInvalidProvenanceStructure{Branch: bi.Branch}
 		}
 		foundRepos[bi.Branch.Repo.String()] = struct{}{}
 	}
 	return nil
+}
+
+type FetchCache[K any, V any] struct {
+	cache    map[string]V
+	keyMaker func(k K) string
+	fetcher  func(k K) (V, error)
+}
+
+func NewFetchCache[K any, V any](keyMaker func(k K) string, fetcher func(k K) (V, error)) *FetchCache[K, V] {
+	return &FetchCache[K, V]{
+		cache:    make(map[string]V),
+		keyMaker: keyMaker,
+		fetcher:  fetcher,
+	}
+}
+
+func (fc *FetchCache[K, V]) Fetch(k K) (V, error) {
+	if v, ok := fc.cache[fc.keyMaker(k)]; ok {
+		return v, nil
+	}
+	v, err := fc.fetcher(k)
+	if err != nil {
+		var zero V
+		return zero, err
+	}
+	fc.cache[fc.keyMaker(k)] = v
+	return v, err
+}
+
+func (fc *FetchCache[K, V]) Set(k K, v V) {
+	fc.cache[fc.keyMaker(k)] = v
+}
+
+func (fc *FetchCache[K, V]) Fetched() []V {
+	var vs []V
+	for _, v := range fc.cache {
+		vs = append(vs, v)
+	}
+	return vs
 }
 
 func newUserCommitInfo(txnCtx *txncontext.TransactionContext, branch *pfs.Branch) *pfs.CommitInfo {
@@ -1830,7 +1854,13 @@ func (d *driver) createBranch(txnCtx *txncontext.TransactionContext, branch *pfs
 		return err
 	}
 	// validate the DAG now that it's updated
-	if err := d.validateDAGStructure(txnCtx, branchInfo); err != nil {
+	if err := validateDAGStructure(branchInfo, NewFetchCache(pfsdb.BranchKey, func(b *pfs.Branch) (*pfs.BranchInfo, error) {
+		bi := &pfs.BranchInfo{}
+		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
+			return nil, errors.Wrapf(err, "get branch info")
+		}
+		return bi, nil
+	})); err != nil {
 		return errors.Wrapf(err, "validate DAG with branch %q", branchInfo.Branch.String())
 	}
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
