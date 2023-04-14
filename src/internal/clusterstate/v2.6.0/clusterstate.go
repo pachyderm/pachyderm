@@ -38,6 +38,9 @@ func Migrate(state migrations.State) migrations.State {
 			}
 			return nil
 		}).
+		Apply("validate existing DAGs", func(ctx context.Context, env migrations.Env) error {
+			return validateExistingDAGs(ctx, env.Tx)
+		}).
 		Apply("Add commit_provenance table", func(ctx context.Context, env migrations.Env) error {
 			return pfsdb.SetupCommitProvenanceV0(ctx, env.Tx)
 		}).

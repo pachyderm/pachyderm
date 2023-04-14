@@ -73,6 +73,61 @@ func convertCommitInfoToV2_6_0(ci *v2_5_0.CommitInfo) *pfs.CommitInfo {
 	}
 }
 
+func validateExistingDAGs(ctx context.Context, tx *pachsql.Tx) error {
+	bis, err := listCollectionProtos(ctx, tx, "branches", &pfs.BranchInfo{})
+	if err != nil {
+		return err
+	}
+	biMap := make(map[string]*pfs.BranchInfo) // for quick access
+	for _, bi := range bis {
+		biMap[branchKey(bi.Branch)] = bi
+	}
+	seenBranches := make(map[string]struct{})
+	for k, bi := range biMap {
+		// if a branch has been seen, it means we already evaluated all of the branches in its DAG
+		if _, ok := seenBranches[branchKey(bi.Branch)]; ok {
+			continue
+		}
+		expanded := make(map[string]*pfs.BranchInfo) // expanded branches
+		expanded[k] = bi
+		for {
+			hasExpanded := false
+			for _, bi := range expanded {
+				if _, ok := expanded[branchKey(bi.Branch)]; ok {
+					continue
+				}
+				hasExpanded = true
+				expanded[branchKey(bi.Branch)] = bi
+				for _, b := range bi.Provenance {
+					prov, ok := biMap[branchKey(b)]
+					if !ok {
+						continue // how to handle this?
+					}
+					expanded[branchKey(b)] = prov
+				}
+				for _, b := range bi.Subvenance {
+					subv, ok := biMap[branchKey(b)]
+					if !ok {
+						continue // how to handle this?
+					}
+					expanded[branchKey(b)] = subv
+				}
+			}
+			if !hasExpanded {
+				break
+			}
+		}
+		foundRepos := make(map[string]struct{})
+		for _, bi := range expanded {
+			if _, ok := foundRepos[bi.Branch.Repo.String()]; ok {
+				return errors.Errorf("multiple branches from repo %q participate in a DAG", repoKey(bi.Branch.Repo))
+			}
+			foundRepos[bi.Branch.Repo.String()] = struct{}{}
+		}
+	}
+	return nil
+}
+
 func removeAliasCommits(ctx context.Context, tx *pachsql.Tx) error {
 	var oldCIs []*v2_5_0.CommitInfo
 	var err error
