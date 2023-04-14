@@ -445,10 +445,10 @@ func (d *driver) deleteReposInTransaction(txnCtx *txncontext.TransactionContext,
 	}); err != nil {
 		return nil, errors.Wrap(err, "list repos")
 	}
-	return d.deleteReposHelper(txnCtx, ris)
+	return d.deleteReposHelper(txnCtx, ris, false)
 }
 
-func (d *driver) deleteReposHelper(txnCtx *txncontext.TransactionContext, ris []*pfs.RepoInfo) ([]*pfs.Repo, error) {
+func (d *driver) deleteReposHelper(txnCtx *txncontext.TransactionContext, ris []*pfs.RepoInfo, force bool) ([]*pfs.Repo, error) {
 	if len(ris) == 0 {
 		return nil, nil
 	}
@@ -472,7 +472,7 @@ func (d *driver) deleteReposHelper(txnCtx *txncontext.TransactionContext, ris []
 		}
 		bis = append(bis, bs...)
 	}
-	if err := d.deleteBranches(txnCtx, bis, false); err != nil {
+	if err := d.deleteBranches(txnCtx, bis, force); err != nil {
 		return nil, err
 	}
 	for _, ri := range ris {

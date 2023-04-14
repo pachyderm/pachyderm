@@ -166,7 +166,7 @@ func (a *apiServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContex
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *apiServer) DeleteReposInTransaction(txnCtx *txncontext.TransactionContext, repos []*pfs.Repo) error {
+func (a *apiServer) DeleteReposInTransaction(txnCtx *txncontext.TransactionContext, repos []*pfs.Repo, force bool) error {
 	var ris []*pfs.RepoInfo
 	for _, r := range repos {
 		ri, err := a.driver.inspectRepo(txnCtx, r, false) // evaluate auth in d.deleteReposHelper()
@@ -175,7 +175,7 @@ func (a *apiServer) DeleteReposInTransaction(txnCtx *txncontext.TransactionConte
 		}
 		ris = append(ris, ri)
 	}
-	if _, err := a.driver.deleteReposHelper(txnCtx, ris); err != nil {
+	if _, err := a.driver.deleteReposHelper(txnCtx, ris, force); err != nil {
 		return err
 	}
 	return nil
