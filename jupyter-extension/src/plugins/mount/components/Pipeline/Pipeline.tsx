@@ -1,13 +1,12 @@
 import React from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
 import {usePipeline} from './hooks/usePipeline';
-import {SameMetadata} from '../../types';
+import {PpsContext, SameMetadata} from '../../types';
 
 type PipelineProps = {
+  ppsContext: PpsContext | undefined;
   setShowPipeline: (shouldShow: boolean) => void;
-  notebookPath: string | undefined;
-  saveNotebookMetadata: (metadata: any) => void;
-  metadata: SameMetadata | undefined;
+  saveNotebookMetadata: (metadata: SameMetadata) => void;
 };
 
 const placeholderInputSpec = `pfs:
@@ -18,10 +17,9 @@ const placeholderInputSpec = `pfs:
 const placeholderRequirements = './requirements.txt';
 
 const Pipeline: React.FC<PipelineProps> = ({
+  ppsContext,
   setShowPipeline,
-  notebookPath,
   saveNotebookMetadata,
-  metadata,
 }) => {
   const {
     loading,
@@ -37,7 +35,7 @@ const Pipeline: React.FC<PipelineProps> = ({
     callSavePipeline,
     errorMessage,
     responseMessage,
-  } = usePipeline(metadata, notebookPath, saveNotebookMetadata);
+  } = usePipeline(ppsContext, saveNotebookMetadata);
 
   return (
     <div className="pachyderm-mount-pipeline-base">
@@ -97,7 +95,7 @@ const Pipeline: React.FC<PipelineProps> = ({
           className="pachyderm-pipeline-input-label"
           htmlFor="pipelineName"
         >
-          *Name:{'  '}
+          *Pipeline Name:{'  '}
         </label>
         <input
           className="pachyderm-pipeline-input"
@@ -112,7 +110,7 @@ const Pipeline: React.FC<PipelineProps> = ({
       </div>
       <div className="pachyderm-pipeline-input-wrapper">
         <label className="pachyderm-pipeline-input-label" htmlFor="imageName">
-          *Image:{'  '}
+          *Container Image Name:{'  '}
         </label>
         <input
           className="pachyderm-pipeline-input"
@@ -130,7 +128,7 @@ const Pipeline: React.FC<PipelineProps> = ({
           className="pachyderm-pipeline-input-label"
           htmlFor="requirements"
         >
-          Requirements:{'  '}
+          Requirements File:{'  '}
         </label>
         <input
           className="pachyderm-pipeline-input"
@@ -149,7 +147,7 @@ const Pipeline: React.FC<PipelineProps> = ({
           className="pachyderm-pipeline-textarea-label"
           htmlFor="inputSpec"
         >
-          Input Spec
+          Pipeline Input Spec:
         </label>
         <textarea
           className="pachyderm-pipeline-textarea pachyderm-input"

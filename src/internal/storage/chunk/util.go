@@ -30,24 +30,6 @@ func FullRef(dataRef *DataRef) *DataRef {
 	return chunkDataRef
 }
 
-// StableDataRefs checks whether the provided data references would be stable
-// if the referenced data was run through the content-defined chunking
-// algorithm. This check lets the above layers know if they can copy this data
-// by reference.
-func StableDataRefs(dataRefs []*DataRef) bool {
-	for i, dataRef := range dataRefs {
-		// Edge chunks in the middle are not stable since they were not created by content-defined chunking.
-		if i != 0 && i != len(dataRefs)-1 && dataRef.Ref.Edge {
-			return false
-		}
-		// Each data reference should refer to the full chunk.
-		if dataRef.OffsetBytes != 0 || dataRef.SizeBytes != dataRef.Ref.SizeBytes {
-			return false
-		}
-	}
-	return true
-}
-
 func NewDataRef(chunkRef *DataRef, chunkBytes []byte, offset, size int64) *DataRef {
 	dataRef := &DataRef{}
 	dataRef.Ref = chunkRef.Ref

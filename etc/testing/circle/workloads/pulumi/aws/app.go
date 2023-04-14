@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 
@@ -10,7 +11,9 @@ import (
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/s3"
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes"
 	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/core/v1"
+	secret "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/core/v1"
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/helm/v3"
+	metav1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/meta/v1"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 )
@@ -23,23 +26,86 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 	}
 	awsSAkey := os.Getenv("AWS_ACCESS_KEY_ID")
 	awsSAsecret := os.Getenv("AWS_SECRET_ACCESS_KEY")
-
+	metricCreds := os.Getenv("BIGQUERY_AUTH_JSON")
+	if metricCreds == "" {
+		return errors.WithStack(fmt.Errorf("need to supply env var BIGQUERY_AUTH_JSON"))
+	}
+	jsonKey := []byte(metricCreds)
+	encoded := base64.StdEncoding.EncodeToString(jsonKey)
+	wpCloudFlareLoadTestAWSKeyID := os.Getenv("CF_WP_LOADTEST_AWSKEYID")
+	if wpCloudFlareLoadTestAWSKeyID == "" {
+		return errors.WithStack(fmt.Errorf("need to supply env var cloudflare loadtest aws access key id."))
+	}
+	wpCloudFlareLoadTestEndpoint := os.Getenv("CF_WP_LOADTEST_ENDPOINT_URL")
+	if wpCloudFlareLoadTestEndpoint == "" {
+		return errors.WithStack(fmt.Errorf("need to supply env var cloudflare loadtest endpoint."))
+	}
+	wpCloudFlareLoadTestSecretAccessKey := os.Getenv("CF_WP_LOADTEST_AWSACCESSKEY")
+	if wpCloudFlareLoadTestSecretAccessKey == "" {
+		return errors.WithStack(fmt.Errorf("need to supply env var cloudflare loadtest aws access key."))
+	}
 	pachdImageTag, err := cfg.Try("pachdVersion")
 	if err != nil {
-		pachdImageTag = "2.4.4"
+		pachdImageTag = "2.5.3"
 	}
 	helmChartVersion, err := cfg.Try("helmChartVersion")
 	if err != nil {
 		helmChartVersion = ""
 	}
-
+	pgBouncerMaxConnections, err := cfg.TryInt("pgBouncerMaxConnections")
+	if err != nil {
+		pgBouncerMaxConnections = 1000
+	}
+	pgBouncerDefaultPoolSize, err := cfg.TryInt("pgBouncerDefaultPoolSize")
+	if err != nil {
+		pgBouncerMaxConnections = 20
+	}
+	etcdStorageClass, err := cfg.Try("etcdStorageClass")
+	if err != nil {
+		etcdStorageClass = ""
+	}
+	etcdResourceRequestsCPU, err := cfg.TryInt("etcdResourceLimitsRequestsCPU")
+	if err != nil {
+		etcdResourceRequestsCPU = 4
+	}
+	etcdResourceRequestsMemory, err := cfg.Try("etcdResourceLimitsRequestsMemory")
+	if err != nil {
+		etcdResourceRequestsMemory = "4Gi"
+	}
 	namespace, err := corev1.NewNamespace(ctx, "test-ns", &corev1.NamespaceArgs{},
 		pulumi.Provider(k8sProvider))
 
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("error occurred while attempting to create test-ns: %w", err))
 	}
-
+	_, err = secret.NewSecret(ctx, "metrics-secret", &secret.SecretArgs{
+		Metadata: &metav1.ObjectMetaArgs{
+			Name:      pulumi.String("metrics-secret"),
+			Namespace: namespace.Metadata.Elem().Name(),
+		},
+		Data: pulumi.StringMap{
+			"creds": pulumi.String(encoded),
+		},
+		Type: pulumi.String("Opaque"),
+	}, pulumi.Provider(k8sProvider))
+	if err != nil {
+		return errors.WithStack(fmt.Errorf("error creating metric secret: %w", err))
+	}
+	_, err = secret.NewSecret(ctx, " transfer-config", &secret.SecretArgs{
+		Metadata: &metav1.ObjectMetaArgs{
+			Name:      pulumi.String("transfer-config"),
+			Namespace: namespace.Metadata.Elem().Name(),
+		},
+		Data: pulumi.StringMap{
+			"access_key_id":     pulumi.String(wpCloudFlareLoadTestAWSKeyID),
+			"endpoint_url":      pulumi.String(wpCloudFlareLoadTestEndpoint),
+			"secret_access_key": pulumi.String(wpCloudFlareLoadTestSecretAccessKey),
+		},
+		Type: pulumi.String("Opaque"),
+	}, pulumi.Provider(k8sProvider))
+	if err != nil {
+		return errors.WithStack(fmt.Errorf("error creating metric secret: %w", err))
+	}
 	values := pulumi.Map{
 		"proxy": pulumi.Map{
 			"enabled": pulumi.Bool(true),
@@ -83,6 +149,19 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 		},
 		"postgresql": pulumi.Map{
 			"enabled": pulumi.Bool(false),
+		},
+		"pgbouncer": pulumi.Map{
+			"maxConnections":  pulumi.Int(pgBouncerMaxConnections),
+			"defaultPoolSize": pulumi.Int(pgBouncerDefaultPoolSize),
+		},
+		"etcd": pulumi.Map{
+			"resources": pulumi.Map{
+				"requests": pulumi.Map{
+					"cpu":    pulumi.Int(etcdResourceRequestsCPU),
+					"memory": pulumi.String(etcdResourceRequestsMemory),
+				},
+			},
+			"storageClass": pulumi.String(etcdStorageClass),
 		},
 	}
 
