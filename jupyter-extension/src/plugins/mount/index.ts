@@ -1,11 +1,11 @@
 import {
+  ILabShell,
   ILayoutRestorer,
   JupyterFrontEnd,
   JupyterFrontEndPlugin,
 } from '@jupyterlab/application';
 import {IDocumentManager} from '@jupyterlab/docmanager';
 import {IFileBrowserFactory} from '@jupyterlab/filebrowser';
-import {INotebookTracker} from '@jupyterlab/notebook';
 
 import {MountPlugin} from './mount';
 import {IMountPlugin} from './types';
@@ -13,20 +13,15 @@ import {IMountPlugin} from './types';
 const mount: JupyterFrontEndPlugin<IMountPlugin> = {
   id: 'jupyterlab-pachyderm:mount',
   autoStart: true,
-  requires: [
-    IDocumentManager,
-    IFileBrowserFactory,
-    ILayoutRestorer,
-    INotebookTracker,
-  ],
+  requires: [IDocumentManager, IFileBrowserFactory, ILayoutRestorer, ILabShell],
   activate: (
     app: JupyterFrontEnd,
     manager: IDocumentManager,
     factory: IFileBrowserFactory,
     restorer: ILayoutRestorer,
-    tracker: INotebookTracker,
+    widgetTracker: ILabShell,
   ): IMountPlugin => {
-    return new MountPlugin(app, manager, factory, restorer, tracker);
+    return new MountPlugin(app, manager, factory, restorer, widgetTracker);
   },
 };
 
