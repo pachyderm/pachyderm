@@ -384,7 +384,7 @@ func TestDeletePipelines(t *testing.T) {
 		"",   /* output */
 		true, /* update */
 	))
-	// update pipelien 1
+	// update pipeline 1; this helps verify that internally, we delete pipelines topologically
 	require.NoError(t, env.PachClient.CreateProjectPipeline(
 		pfs.DefaultProjectName,
 		pipeline1,
