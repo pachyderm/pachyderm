@@ -1833,7 +1833,7 @@ commands:
           name: install-go-releaser
           command: |
             mkdir -p /home/circleci/bin
-            wget https://github.com/goreleaser/goreleaser/releases/download/v1.17.1/goreleaser_Linux_x86_64.tar.gz
+            wget https://github.com/goreleaser/goreleaser/releases/download/v<< pipeline.parameters.go-releaser-version >>/goreleaser_Linux_x86_64.tar.gz
             tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
             rm -rf goreleaser_Linux_x86_64.tar.gz
             goreleaser -v
