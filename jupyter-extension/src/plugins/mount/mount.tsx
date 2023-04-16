@@ -10,7 +10,7 @@ import {
   NotebookPanel,
 } from '@jupyterlab/notebook';
 import {Contents} from '@jupyterlab/services';
-import {settingsIcon, spreadsheetIcon} from '@jupyterlab/ui-components';
+import {settingsIcon} from '@jupyterlab/ui-components';
 import {JSONObject} from '@lumino/coreutils';
 import {Signal} from '@lumino/signaling';
 import {SplitPanel} from '@lumino/widgets';
@@ -31,6 +31,7 @@ import {
   PpsContext,
   Display,
 } from './types';
+import TabBar from './components/TabBar/TabBar';
 import Config from './components/Config/Config';
 import Datum from './components/Datum/Datum';
 import Pipeline from './components/Pipeline/Pipeline';
@@ -45,6 +46,7 @@ export const METADATA_KEY = 'same_config';
 
 export class MountPlugin implements IMountPlugin {
   private _app: JupyterFrontEnd<JupyterFrontEnd.IShell, 'desktop' | 'mobile'>;
+  private _tabbar: ReactWidget;
   private _loader: ReactWidget;
   private _fullPageError: ReactWidget;
   private _config: ReactWidget;
@@ -60,6 +62,7 @@ export class MountPlugin implements IMountPlugin {
   // _display must start undefined, so that the first call to setDisplay
   // doesn't short-circuit and unhides the mount view.
   private _display: Display | undefined = undefined;
+  private _displaySignal = new Signal<this, Display>(this);
 
   private _showConfig = false;
   private _showConfigSignal = new Signal<this, boolean>(this);
@@ -109,25 +112,35 @@ export class MountPlugin implements IMountPlugin {
 
     this._readyPromise = this.setup();
 
+    this._tabbar = ReactWidget.create(
+      <UseSignal signal={this._displaySignal}>
+        {(_, display) => (
+          <UseSignal signal={this._poller.statusSignal}>
+            {(_, status) => (
+              <TabBar
+                display={display ? display : this._display}
+                setDisplay={this.setDisplay}
+                reposStatus={status ? status.code : this._poller.status.code}
+              />
+            )}
+          </UseSignal>
+        )}
+      </UseSignal>,
+    );
+    this._tabbar.addClass('pachyderm-tabbar');
+
     this._config = ReactWidget.create(
       <UseSignal signal={this._showConfigSignal}>
         {(_, showConfig) => (
           <UseSignal signal={this._poller.configSignal}>
             {(_, authConfig) => (
-              <UseSignal signal={this._poller.statusSignal}>
-                {(_, status) => (
-                  <Config
-                    showConfig={showConfig ? showConfig : this._showConfig}
-                    setShowConfig={this.setShowConfig}
-                    reposStatus={
-                      status ? status.code : this._poller.status.code
-                    }
-                    updateConfig={this.updateConfig}
-                    authConfig={authConfig ? authConfig : this._poller.config}
-                    refresh={this._poller.refresh}
-                  />
-                )}
-              </UseSignal>
+              <Config
+                showConfig={showConfig ? showConfig : this._showConfig}
+                setShowConfig={this.setShowConfig}
+                updateConfig={this.updateConfig}
+                authConfig={authConfig ? authConfig : this._poller.config}
+                refresh={this._poller.refresh}
+              />
             )}
           </UseSignal>
         )}
@@ -142,40 +155,6 @@ export class MountPlugin implements IMountPlugin {
             <div className="pachyderm-mount-config-container">
               <div className="pachyderm-mount-base-title">
                 Mounted Repositories
-              </div>
-              <div style={{display: 'flex'}}>
-                <button
-                  className="pachyderm-button-link"
-                  onClick={() => this.setShowPipeline(true)}
-                >
-                  Pipeline{' '}
-                  <spreadsheetIcon.react
-                    tag="span"
-                    className="pachyderm-mount-icon-padding"
-                  />
-                </button>
-                <button
-                  className="pachyderm-button-link"
-                  data-testid="Datum__mode"
-                  onClick={() => this.setShowDatum(true)}
-                  style={{marginRight: '0.25rem'}}
-                >
-                  Datum{' '}
-                  <spreadsheetIcon.react
-                    tag="span"
-                    className="pachyderm-mount-icon-padding"
-                  />
-                </button>
-                <button
-                  className="pachyderm-button-link"
-                  onClick={() => this.setShowConfig(true)}
-                >
-                  Config{' '}
-                  <settingsIcon.react
-                    tag="span"
-                    className="pachyderm-mount-icon-padding"
-                  />
-                </button>
               </div>
             </div>
             <SortableList
@@ -276,12 +255,13 @@ export class MountPlugin implements IMountPlugin {
     this._panel.title.icon = mountLogoIcon;
     this._panel.title.caption = 'Pachyderm Mount';
     this._panel.id = 'pachyderm-mount';
+    this._panel.addWidget(this._tabbar);
     this._panel.addWidget(this._mountedList);
     this._panel.addWidget(this._unmountedList);
     this._panel.addWidget(this._datum);
     this._panel.addWidget(this._pipeline);
     this._panel.addWidget(this._mountBrowser);
-    this._panel.setRelativeSizes([1, 1, 3, 3]);
+    this._panel.setRelativeSizes([0, 1, 1, 3, 3]);
 
     this._panel.addWidget(this._loader);
     this._panel.addWidget(this._config);
@@ -478,7 +458,13 @@ export class MountPlugin implements IMountPlugin {
     if (this._display === toDisplay) {
       return; // no-op
     }
-
+    /*
+     * For Datum back:
+     *   await callUnmountAll();
+     *   saveInputSpec();
+     *   setKeepMounted(false);
+     *   await setShowDatum(false);
+     */
     this._mountedList.setHidden(toDisplay !== Display.Explore);
     this._unmountedList.setHidden(toDisplay !== Display.Explore);
     const shouldShowFileBrowser =
@@ -503,7 +489,7 @@ export class MountPlugin implements IMountPlugin {
     // emit signals for whatever value(s) changed after all booleans are correct.
     // TODO(msteffen) this code is mostly for backwards compatibility.
     this._display = toDisplay; // already checked that these are different
-    const emitCalls = [];
+    const emitCalls = [() => this._displaySignal.emit(toDisplay)];
     const shouldShowDatum = toDisplay === Display.Test;
     if (shouldShowDatum !== this._showDatum) {
       this._showDatum = shouldShowDatum;

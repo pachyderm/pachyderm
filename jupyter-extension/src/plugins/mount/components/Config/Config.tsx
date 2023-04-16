@@ -52,22 +52,6 @@ const Config: React.FC<ConfigProps> = ({
   return (
     <>
       <div className="pachyderm-mount-config-form-base">
-        {reposStatus === 200 && (
-          <div className="pachyderm-mount-config-back">
-            <button
-              data-testid="Config__back"
-              className="pachyderm-button-link"
-              onClick={() => setShowConfig(false)}
-            >
-              Back{' '}
-              <closeIcon.react
-                tag="span"
-                className="pachyderm-mount-icon-padding"
-              />
-            </button>
-          </div>
-        )}
-
         <div className="pachyderm-mount-config-heading">
           Pachyderm
           <span className="pachyderm-mount-config-subheading">

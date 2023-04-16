@@ -39,25 +39,6 @@ const Pipeline: React.FC<PipelineProps> = ({
 
   return (
     <div className="pachyderm-mount-pipeline-base">
-      <div className="pachyderm-mount-pipeline-back">
-        <button
-          data-testid="Pipeline__back"
-          className="pachyderm-button-link"
-          onClick={async () => {
-            setShowPipeline(false);
-          }}
-        >
-          Back{' '}
-          <closeIcon.react
-            tag="span"
-            className="pachyderm-mount-icon-padding"
-          />
-        </button>
-      </div>
-      <span className="pachyderm-mount-pipeline-subheading">
-        Notebook-to-Pipeline
-      </span>
-
       <div className="pachyderm-pipeline-buttons">
         <button
           data-testid="Pipeline__save"

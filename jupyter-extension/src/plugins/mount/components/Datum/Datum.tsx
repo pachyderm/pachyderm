@@ -61,27 +61,7 @@ const Datum: React.FC<DatumProps> = ({
 
   return (
     <div className="pachyderm-mount-datum-base">
-      <div className="pachyderm-mount-datum-back">
-        <button
-          data-testid="Datum__back"
-          className="pachyderm-button-link"
-          onClick={async () => {
-            await callUnmountAll();
-            saveInputSpec();
-            setKeepMounted(false);
-            await setShowDatum(false);
-          }}
-        >
-          Back{' '}
-          <closeIcon.react
-            tag="span"
-            className="pachyderm-mount-icon-padding"
-          />
-        </button>
-      </div>
-
       <span className="pachyderm-mount-datum-subheading">Test Datums</span>
-
       <div className="pachyderm-mount-datum-input-wrapper">
         <label className="pachyderm-mount-datum-label" htmlFor="inputSpec">
           Input spec
