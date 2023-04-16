@@ -16,6 +16,14 @@ export type clusterStatus = 'INVALID' | 'AUTH_DISABLED' | 'AUTH_ENABLED';
 
 export type authorization = 'off' | 'none' | 'read' | 'write';
 
+export enum Display {
+  Explore = 'explore',
+  Test = 'test',
+  Publish = 'publish',
+  Settings = 'settings',
+  FullPageError = 'full-page-error',
+}
+
 export type Mount = {
   name: string;
   repo: string;

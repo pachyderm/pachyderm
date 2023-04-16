@@ -29,6 +29,7 @@ import {
   CrossInputSpec,
   SameMetadata,
   PpsContext,
+  Display,
 } from './types';
 import Config from './components/Config/Config';
 import Datum from './components/Datum/Datum';
@@ -55,6 +56,10 @@ export class MountPlugin implements IMountPlugin {
   private _poller: PollMounts;
   private _panel: SplitPanel;
   private _tracker: INotebookTracker;
+
+  // _display must start undefined, so that the first call to setDisplay
+  // doesn't short-circuit and unhides the mount view.
+  private _display: Display | undefined = undefined;
 
   private _showConfig = false;
   private _showConfigSignal = new Signal<this, boolean>(this);
@@ -387,23 +392,7 @@ export class MountPlugin implements IMountPlugin {
   };
 
   setShowDatum = async (shouldShow: boolean): Promise<void> => {
-    if (shouldShow) {
-      this._datum.setHidden(false);
-      this._mountedList.setHidden(true);
-      this._unmountedList.setHidden(true);
-      this.saveMountedReposList();
-    } else {
-      this._datum.setHidden(true);
-      this._mountedList.setHidden(false);
-      this._unmountedList.setHidden(false);
-      await this.restoreMountedReposList();
-    }
-    this._mountBrowser.setHidden(false);
-    this._config.setHidden(true);
-    this._pipeline.setHidden(true);
-    this._fullPageError.setHidden(true);
-    this._showDatum = shouldShow;
-    this._showDatumSignal.emit(shouldShow);
+    await this.setDisplay(shouldShow ? Display.Test : Display.Explore);
   };
 
   saveMountedReposList = (): void => {
@@ -485,66 +474,70 @@ export class MountPlugin implements IMountPlugin {
     this.open('');
   };
 
-  setShowPipeline = (shouldShow: boolean): void => {
-    if (shouldShow) {
-      this._pipeline.setHidden(false);
-      this._mountedList.setHidden(true);
-      this._unmountedList.setHidden(true);
-      this._mountBrowser.setHidden(true);
-    } else {
-      this._pipeline.setHidden(true);
-      this._mountedList.setHidden(false);
-      this._unmountedList.setHidden(false);
-      this._mountBrowser.setHidden(false);
+  setDisplay = async (toDisplay: Display): Promise<void> => {
+    if (this._display === toDisplay) {
+      return; // no-op
     }
-    this._config.setHidden(true);
-    this._datum.setHidden(true);
-    this._fullPageError.setHidden(true);
-    this._showPipeline = shouldShow;
-    this._showPipelineSignal.emit(shouldShow);
+
+    this._mountedList.setHidden(toDisplay !== Display.Explore);
+    this._unmountedList.setHidden(toDisplay !== Display.Explore);
+    const shouldShowFileBrowser =
+      toDisplay === Display.Explore || toDisplay === Display.Test;
+    this._mountBrowser.setHidden(!shouldShowFileBrowser);
+
+    this._pipeline.setHidden(toDisplay !== Display.Publish);
+    this._datum.setHidden(toDisplay !== Display.Test);
+    this._config.setHidden(toDisplay !== Display.Settings);
+    this._fullPageError.setHidden(toDisplay !== Display.FullPageError);
+
+    if (this._display === Display.Explore && toDisplay === Display.Test) {
+      this.saveMountedReposList();
+    } else if (
+      this._display === Display.Test &&
+      toDisplay === Display.Explore
+    ) {
+      await this.restoreMountedReposList();
+    }
+
+    // Now that the state has been updated, update the relevant booleans and
+    // emit signals for whatever value(s) changed after all booleans are correct.
+    // TODO(msteffen) this code is mostly for backwards compatibility.
+    this._display = toDisplay; // already checked that these are different
+    const emitCalls = [];
+    const shouldShowDatum = toDisplay === Display.Test;
+    if (shouldShowDatum !== this._showDatum) {
+      this._showDatum = shouldShowDatum;
+      emitCalls.push(() => this._showDatumSignal.emit(shouldShowDatum));
+    }
+    const shouldShowPipeline = toDisplay === Display.Publish;
+    if (shouldShowPipeline !== this._showPipeline) {
+      this._showPipeline = shouldShowPipeline;
+      emitCalls.push(() => this._showPipelineSignal.emit(shouldShowPipeline));
+    }
+    const shouldShowConfig = toDisplay === Display.Settings;
+    if (shouldShowConfig !== this._showConfig) {
+      this._showConfig = shouldShowConfig;
+      emitCalls.push(() => this._showConfigSignal.emit(shouldShowConfig));
+    }
+    for (const emit of emitCalls) {
+      emit();
+    }
+  };
+
+  setShowPipeline = async (shouldShow: boolean): Promise<void> => {
+    this.setDisplay(shouldShow ? Display.Publish : Display.Explore);
   };
 
   setKeepMounted = (keep: boolean): void => {
     this._keepMounted = keep;
   };
 
-  setShowConfig = (shouldShow: boolean): void => {
-    if (shouldShow) {
-      this._config.setHidden(false);
-      this._mountedList.setHidden(true);
-      this._unmountedList.setHidden(true);
-      this._mountBrowser.setHidden(true);
-    } else {
-      this._config.setHidden(true);
-      this._mountedList.setHidden(false);
-      this._unmountedList.setHidden(false);
-      this._mountBrowser.setHidden(false);
-    }
-    this._datum.setHidden(true);
-    this._pipeline.setHidden(true);
-    this._fullPageError.setHidden(true);
-    this._showConfig = shouldShow;
-    this._showConfigSignal.emit(shouldShow);
+  setShowConfig = async (shouldShow: boolean): Promise<void> => {
+    await this.setDisplay(shouldShow ? Display.Settings : Display.Explore);
   };
 
-  setShowFullPageError = (shouldShow: boolean): void => {
-    if (shouldShow) {
-      this._fullPageError.setHidden(false);
-      this._config.setHidden(true);
-      this._datum.setHidden(true);
-      this._mountedList.setHidden(true);
-      this._unmountedList.setHidden(true);
-      this._mountBrowser.setHidden(true);
-      this._pipeline.setHidden(true);
-    } else {
-      this._fullPageError.setHidden(true);
-      this._config.setHidden(false);
-      this._datum.setHidden(false);
-      this._mountedList.setHidden(false);
-      this._unmountedList.setHidden(false);
-      this._mountBrowser.setHidden(false);
-      this._pipeline.setHidden(false);
-    }
+  setShowFullPageError = async (shouldShow: boolean): Promise<void> => {
+    await this.setDisplay(shouldShow ? Display.FullPageError : Display.Explore);
   };
 
   updateConfig = (config: AuthConfig): void => {

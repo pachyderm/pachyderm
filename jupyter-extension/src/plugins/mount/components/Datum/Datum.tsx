@@ -10,7 +10,7 @@ import {
 
 type DatumProps = {
   showDatum: boolean;
-  setShowDatum: (shouldShow: boolean) => Promise<void>;
+  setShowDatum: (shouldShow: boolean) => void;
   keepMounted: boolean;
   setKeepMounted: (keep: boolean) => void;
   open: (path: string) => void;
