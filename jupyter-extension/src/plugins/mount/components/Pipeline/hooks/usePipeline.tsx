@@ -33,6 +33,7 @@ export const usePipeline = (
   const [requirements, setRequirements] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [responseMessage, setResponseMessage] = useState('');
+  const [currentNotebook, setCurrentNotebook] = useState('None');
 
   useEffect(() => {
     setImageName(ppsContext?.config?.environments.default.image_tag ?? '');
@@ -45,6 +46,7 @@ export const usePipeline = (
     } else {
       setInputSpec('');
     }
+    setCurrentNotebook(ppsContext?.notebookModel?.name ?? 'None');
   }, [ppsContext]);
 
   let callCreatePipeline: () => Promise<void>;
@@ -112,7 +114,6 @@ export const usePipeline = (
     };
     saveNotebookMetaData(sameMetadata);
   };
-  const currentNotebook = ppsContext?.notebookModel?.name ?? 'None';
 
   return {
     loading,
