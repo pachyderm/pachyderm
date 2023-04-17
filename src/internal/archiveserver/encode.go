@@ -21,7 +21,7 @@ const (
 func EncodeV1(paths []string) (string, error) {
 	buf := new(bytes.Buffer)
 	b64 := base64.NewEncoder(base64.RawURLEncoding, buf)
-	if _, err := b64.Write([]byte{0x01}); err != nil { // V1
+	if _, err := b64.Write([]byte{EncodingVersion1}); err != nil { // V1
 		return "", errors.Wrap(err, "write version")
 	}
 	cmp, err := zstd.NewWriter(b64, zstd.WithEncoderLevel(zstd.SpeedBestCompression))
