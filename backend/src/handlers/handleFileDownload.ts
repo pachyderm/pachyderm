@@ -2,11 +2,7 @@ import {ApolloError} from 'apollo-server-errors';
 import {Request, Response} from 'express';
 import {lookup} from 'mime-types';
 
-import loggingPlugin from '@dash-backend/grpc/plugins/loggingPlugin';
-import getPachClient from '@dash-backend/lib/getPachClient';
-import log from '@dash-backend/lib/log';
-import {pachydermClient} from '@dash-backend/proto';
-const {GRPC_SSL} = process.env;
+import getPachClientAndAttachHeaders from '@dash-backend/lib/getPachClient';
 
 const handleFileDownload = async (req: Request, res: Response) => {
   const authToken = req.cookies.dashAuthToken;
@@ -23,9 +19,14 @@ const handleFileDownload = async (req: Request, res: Response) => {
       .status(401);
   }
 
+  const pachClient = getPachClientAndAttachHeaders({
+    requestId: req.header('x-request-id') || '',
+    authToken,
+  });
+
   if (!isTest && !authToken && pachdAddress) {
     try {
-      await getPachClient(pachdAddress, authToken).auth().whoAmI();
+      await pachClient.auth().whoAmI();
     } catch (e) {
       const {code} = (e as ApolloError).extensions;
       if (code !== 'UNIMPLEMENTED') {
@@ -41,19 +42,17 @@ const handleFileDownload = async (req: Request, res: Response) => {
   let data;
 
   try {
-    data = await pachydermClient({
-      pachdAddress,
+    const pachClient = getPachClientAndAttachHeaders({
+      requestId: req.header('x-request-id') || '',
       authToken,
-      plugins: [loggingPlugin(log)],
-      ssl: GRPC_SSL === 'true',
-    })
-      .pfs()
-      .getFile({
-        projectId,
-        commitId,
-        path,
-        branch: {name: branchName, repo: {name: repoName}},
-      });
+      projectId,
+    });
+    data = await pachClient.pfs().getFile({
+      projectId,
+      commitId,
+      path,
+      branch: {name: branchName, repo: {name: repoName}},
+    });
   } catch (err) {
     data = '';
   }

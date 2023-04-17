@@ -1,9 +1,10 @@
 import {operation} from 'retry';
 
-import {pachydermClient} from '@dash-backend/proto';
 import {enterpriseInfoToGQLInfo} from '@dash-backend/resolvers/builders/enterprise';
 import {EnterpriseState} from '@graphqlTypes';
 
+import {generateConsoleTraceUuid} from './generateTrace';
+import getPachClientAndAttachHeaders from './getPachClient';
 interface retryAnalyticsContextResponse {
   anonymousId?: string;
   expiration?: number;
@@ -19,9 +20,8 @@ async function retryAnalyticsContext() {
   return new Promise<retryAnalyticsContextResponse>((resolve, reject) => {
     retryObj.attempt(async () => {
       try {
-        const pachClient = pachydermClient({
-          pachdAddress: process.env.PACHD_ADDRESS,
-          ssl: false,
+        const pachClient = getPachClientAndAttachHeaders({
+          requestId: generateConsoleTraceUuid(),
         });
 
         const [clusterInfo, enterpriseInfo] = await Promise.all([

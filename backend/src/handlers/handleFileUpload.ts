@@ -6,20 +6,15 @@ import cors from 'cors';
 import {NextFunction, Request, Response, Router} from 'express';
 import PQueue from 'p-queue';
 
-import loggingPlugin from '@dash-backend/grpc/plugins/loggingPlugin';
 import isServiceError from '@dash-backend/grpc/utils/isServiceError';
 import {GRPC_MAX_MESSAGE_LENGTH} from '@dash-backend/lib/constants';
 import FileUploads, {upload} from '@dash-backend/lib/FileUploads';
-import getPachClient from '@dash-backend/lib/getPachClient';
+import getPachClientAndAttachHeaders from '@dash-backend/lib/getPachClient';
 import baseLogger from '@dash-backend/lib/log';
-import {
-  Commit,
-  pachydermClient,
-  STREAM_OVERHEAD_LENGTH,
-} from '@dash-backend/proto';
+import {Commit, STREAM_OVERHEAD_LENGTH} from '@dash-backend/proto';
 import {FileSet} from '@dash-backend/proto/services/pfs/clients/FileSet';
 
-const {GRPC_SSL, PACHD_ADDRESS} = process.env;
+const {PACHD_ADDRESS} = process.env;
 
 type FileUploadBody = {
   deleteFile: boolean;
@@ -63,7 +58,12 @@ const uploadStart = async (
 
   if (!isTest && !authToken && PACHD_ADDRESS) {
     try {
-      await getPachClient(PACHD_ADDRESS, authToken).auth().whoAmI();
+      const pachClient = getPachClientAndAttachHeaders({
+        requestId: req.header('x-request-id') || '',
+        authToken,
+        projectId,
+      });
+      await pachClient.auth().whoAmI();
     } catch (e) {
       const {code} = (e as ApolloError).extensions;
       if (code !== 'UNIMPLEMENTED') {
@@ -105,19 +105,17 @@ const uploadFinish = async (
     next('You do not have permission to upload files');
   }
 
-  const pachClient = pachydermClient({
-    pachdAddress: PACHD_ADDRESS,
+  const pachClient = getPachClientAndAttachHeaders({
+    requestId: req.header('x-request-id') || '',
     authToken,
-    plugins: [loggingPlugin()],
-    ssl: GRPC_SSL === 'true',
   });
 
   if (!isTest && !authToken) {
     try {
       await pachClient.auth().whoAmI();
     } catch (e) {
-      const {code} = e as ServiceError;
-      if (code !== Status.UNIMPLEMENTED) {
+      const {code} = (e as ApolloError).extensions;
+      if (code !== 'UNIMPLEMENTED') {
         res.status(401);
         next('You do not have permission to upload files');
       }
@@ -214,19 +212,17 @@ const uploadChunk = async (
     return res.status(401).send('You do not have permission to upload files');
   }
 
-  const pachClient = pachydermClient({
-    pachdAddress: PACHD_ADDRESS,
+  const pachClient = getPachClientAndAttachHeaders({
+    requestId: req.header('x-request-id') || '',
     authToken,
-    plugins: [loggingPlugin()],
-    ssl: GRPC_SSL === 'true',
   });
 
   if (!isTest && !authToken) {
     try {
       await pachClient.auth().whoAmI();
     } catch (e) {
-      const {code} = e as ServiceError;
-      if (code !== Status.UNIMPLEMENTED) {
+      const {code} = (e as ApolloError).extensions;
+      if (code !== 'UNIMPLEMENTED') {
         return res
           .status(401)
           .send('You do not have permission to upload files');

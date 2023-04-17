@@ -30,14 +30,16 @@ const createWebsocketServer = (server: Server) => {
     {
       schema,
 
-      onConnect: () => {
+      onConnect: (ctx) => {
         log.info({
+          requestId: ctx.extra.request.headers?.['x-request-id'] || '',
           EventSource: 'Websocket',
           Event: 'Connect',
         });
       },
       onSubscribe: async (ctx, msg) => {
         log.info({
+          requestId: ctx.extra.request.headers?.['x-request-id'] || '',
           EventSource: 'Websocket',
           Event: 'Subscribe',
           meta: {
@@ -47,21 +49,29 @@ const createWebsocketServer = (server: Server) => {
           },
         });
       },
-      onNext: (_ctx, msg) => {
+      onNext: (ctx, msg) => {
         log.info({
+          requestId: ctx.extra.request.headers?.['x-request-id'] || '',
           EventSource: 'Websocket',
           Event: 'Next',
           meta: {id: msg.id, type: msg.type},
         });
       },
-      onError: (_ctx, msg, errors) => {
+      onError: (ctx, msg, errors) => {
         Sentry.captureException(
           `[WebSocketServer error]: Message: ${msg}, Errors: ${errors}`,
         );
-        log.error({EventSource: 'Websocket', Event: 'Error', errors, msg});
+        log.error({
+          requestId: ctx.extra.request.headers?.['x-request-id'] || '',
+          EventSource: 'Websocket',
+          Event: 'Error',
+          errors,
+          msg,
+        });
       },
-      onComplete: (_ctx, msg) => {
+      onComplete: (ctx, msg) => {
         log.info({
+          requestId: ctx.extra.request.headers?.['x-request-id'] || '',
           EventSource: 'Websocket',
           Event: 'Complete',
           meta: {id: msg.id, type: msg.type},
@@ -77,7 +87,10 @@ const createWebsocketServer = (server: Server) => {
         const projectId: string =
           (args.variableValues?.args as Record<string, string> | undefined)
             ?.projectId || '';
-        return createContext({idToken, authToken, projectId});
+        let requestId = ctx.extra.request.headers?.['x-request-id'] || '';
+        if (Array.isArray(requestId)) requestId = requestId[0];
+
+        return createContext({idToken, authToken, projectId, requestId});
       },
     },
     websocketServer,

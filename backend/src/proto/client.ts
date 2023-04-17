@@ -146,12 +146,8 @@ const client = ({
       );
       return authService;
     },
-    attachCredentials: ({
-      authToken = '',
-      projectId = '',
-    }: Pick<ClientArgs, 'authToken' | 'projectId'>) => {
-      credentialMetadata.set('authn-token', authToken);
-      credentialMetadata.set('project-id', projectId);
+    attachCredentials: (header: string, value: string) => {
+      credentialMetadata.set(header, value);
     },
     admin: () => {
       if (adminService) return adminService;

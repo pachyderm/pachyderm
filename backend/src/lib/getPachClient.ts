@@ -1,38 +1,46 @@
-import memoize from 'lodash/memoize';
-
 import errorPlugin from '@dash-backend/grpc/plugins/errorPlugin';
 import loggingPlugin from '@dash-backend/grpc/plugins/loggingPlugin';
 import baseLogger from '@dash-backend/lib/log';
 import {pachydermClient} from '@dash-backend/proto';
 
-const memo = memoize(
-  (ssl: string, pachdAddress: string, projectId: string, authToken: string) => {
-    const grpcLogger = baseLogger.child({
-      eventSource: 'grpc client',
-      pachdAddress,
-    });
+import {generateConsoleTraceUuid} from './generateTrace';
 
-    grpcLogger.info('Creating pach client');
+const getPachClient = (requestId: string) => {
+  const grpcLogger = baseLogger.child({
+    requestId,
+    eventSource: 'grpc client',
+    pachdAddress: process.env.PACHD_ADDRESS,
+  });
 
-    const pachClient = pachydermClient({
-      pachdAddress: pachdAddress,
-      plugins: [loggingPlugin(grpcLogger), errorPlugin],
-      ssl: ssl === 'true',
-    });
+  grpcLogger.info('Creating pach client');
 
-    pachClient.attachCredentials({projectId, authToken});
+  const pachClient = pachydermClient({
+    pachdAddress: process.env.PACHD_ADDRESS,
+    plugins: [loggingPlugin(grpcLogger), errorPlugin],
+    ssl: process.env.GRPC_SSL === 'true',
+  });
 
-    return pachClient;
-  },
-  (a, b, c, d) => a + b + c + d,
-);
+  return pachClient;
+};
 
-const getPachClient = (projectId: string, authToken: string) =>
-  memo(
-    process.env.GRPC_SSL || '',
-    process.env.PACHD_ADDRESS || '',
-    projectId,
-    authToken,
-  );
+const getPachClientAndAttachHeaders = ({
+  requestId,
+  authToken,
+  projectId,
+}: {
+  requestId: string;
+  authToken?: string;
+  projectId?: string; // this can be removed
+}) => {
+  if (!requestId) requestId = generateConsoleTraceUuid();
 
-export default getPachClient;
+  const pachClient = getPachClient(requestId);
+
+  pachClient.attachCredentials('x-request-id', requestId);
+  if (authToken) pachClient.attachCredentials('authn-token', authToken);
+  if (projectId) pachClient.attachCredentials('project-id', projectId);
+
+  return pachClient;
+};
+
+export default getPachClientAndAttachHeaders;

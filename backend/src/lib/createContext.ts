@@ -1,28 +1,35 @@
 import {ApolloError} from 'apollo-server-errors';
-import {v4 as uuid} from 'uuid';
 
 import baseLogger from '@dash-backend/lib/log';
 import {Account} from '@graphqlTypes';
 
 import {getAccountFromIdToken} from './auth';
-import getPachClient from './getPachClient';
+import {generateConsoleTraceUuid} from './generateTrace';
+import getPachClientAndAttachHeaders from './getPachClient';
 
 type createContextProps = {
   idToken: string;
   authToken: string;
   projectId: string;
   host?: string;
+  requestId: string;
 };
 
 const createContext = async ({
   idToken,
   authToken,
   projectId,
+  requestId,
   host = '',
 }: createContextProps) => {
   let account: Account | undefined;
+  if (!requestId) requestId = generateConsoleTraceUuid();
 
-  const pachClient = getPachClient(projectId, authToken);
+  const pachClient = getPachClientAndAttachHeaders({
+    requestId,
+    authToken,
+    projectId,
+  });
 
   if (idToken) {
     account = undefined;
@@ -46,8 +53,8 @@ const createContext = async ({
 
   const pachdAddress = process.env.PACHD_ADDRESS;
   const log = baseLogger.child({
+    requestId,
     pachdAddress,
-    operationId: uuid(),
     account: {
       id: account?.id,
       email: account?.email,

@@ -17,7 +17,8 @@ const gqlServer = new ApolloServer({
     const authToken = req.header('auth-token') || '';
     const projectId: string = req.body?.variables?.args?.projectId || '';
     const host = `//${req.get('host')}` || '';
-    return createContext({idToken, authToken, projectId, host});
+    const requestId = req.header('x-request-id') || '';
+    return createContext({idToken, authToken, projectId, host, requestId});
   },
   // TODO: Maybe move this and add global error messaging
   formatError: (error) => {
