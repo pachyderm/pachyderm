@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -13,9 +14,8 @@ import (
 
 // HTTP is an http.Server that serves the archiveserver endpoints.
 type HTTP struct {
-	handler *Server        // For testing.
-	mux     *http.ServeMux // For testing.
-	server  *http.Server   // For ListenAndServe.
+	mux    http.Handler // For testing.
+	server *http.Server // For ListenAndServe.
 }
 
 // NewHTTP creates a new Archive Server and an HTTP server to serve it on.
@@ -30,12 +30,40 @@ func NewHTTP(port uint16, pachClientFactory func(ctx context.Context) *client.AP
 		w.Write([]byte("healthy\n")) //nolint:errcheck
 	}))
 	return &HTTP{
-		handler: handler,
-		mux:     mux,
+		mux: CSRFWrapper(mux),
 		server: &http.Server{
 			Addr:    fmt.Sprintf(":%d", port),
-			Handler: mux,
+			Handler: CSRFWrapper(mux),
 		},
+	}
+}
+
+// CSRFWrapper is an http.Handler that provides CSRF protection to the underlying handler.
+func CSRFWrapper(h http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("origin")
+		if origin == "" {
+			if r := r.Header.Get("referer"); r != "" {
+				u, err := url.Parse(r)
+				if err != nil {
+					origin = "error: " + err.Error() // We must deny in this case.
+				} else {
+					origin = u.Host
+				}
+			}
+		}
+		if origin == "" {
+			log.Debug(r.Context(), "csrf: no origin or referer header; assuming cli; allow")
+			h.ServeHTTP(w, r)
+			return
+		}
+		if origin != r.Host {
+			log.Debug(r.Context(), "csrf: origin/host mismatch; deny", zap.Strings("origin", r.Header.Values("origin")), zap.Strings("referer", r.Header.Values("referer")), zap.String("host", r.Host))
+			http.Error(w, "csrf: origin/host mismatch", http.StatusForbidden)
+			return
+		}
+		// Origin and Host match; allow.
+		h.ServeHTTP(w, r)
 	}
 }
 
