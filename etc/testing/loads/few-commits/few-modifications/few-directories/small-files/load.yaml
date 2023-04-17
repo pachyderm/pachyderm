@@ -1,6 +1,6 @@
-count: 5 
+count: 10
 modifications:
-  - count: 5
+  - count: 10
     putFile:
       count: 10000 
       source: "random"
@@ -18,4 +18,4 @@ fileSources:
           prob: 100 
 validator:
   frequency:
-    count: 5 
+    count: 10
