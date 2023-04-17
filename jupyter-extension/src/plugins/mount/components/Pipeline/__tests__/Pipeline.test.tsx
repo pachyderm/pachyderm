@@ -6,29 +6,13 @@ import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
 import Pipeline from '../Pipeline';
 jest.mock('../../../../../handler');
-import {PpsContext, SameMetadata} from '../../../types';
+import {MountSettings, PpsContext} from '../../../types';
 
 describe('PPS screen', () => {
   let setShowPipeline = jest.fn();
   const saveNotebookMetaData = jest.fn();
-  const md: SameMetadata = {
-    apiVersion: '',
-    environments: {
-      default: {
-        image_tag: '',
-      },
-    },
-    metadata: {
-      name: '',
-    },
-    notebook: {
-      requirements: '',
-    },
-    run: {
-      name: '',
-    },
-  };
-  const context: PpsContext = {config: md, notebookModel: null};
+  const settings: MountSettings = {defaultPipelineImage: 'DefaultImage:Tag'};
+  const context: PpsContext = {config: null, notebookModel: null};
 
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
 
@@ -42,6 +26,7 @@ describe('PPS screen', () => {
       const {getByTestId, findByTestId} = render(
         <Pipeline
           ppsContext={context}
+          settings={settings}
           setShowPipeline={setShowPipeline}
           saveNotebookMetadata={saveNotebookMetaData}
         />,
@@ -53,6 +38,8 @@ describe('PPS screen', () => {
       userEvent.type(inputPipelineName, 'ThisPipelineIsNamedFred');
 
       const inputImageName = await findByTestId('Pipeline__inputImageName');
+      expect(inputImageName).toHaveValue(settings.defaultPipelineImage);
+      userEvent.clear(inputImageName);
       userEvent.type(inputImageName, 'ThisImageIsNamedLucy');
 
       const inputRequirements = await findByTestId(

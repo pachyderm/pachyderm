@@ -1,10 +1,11 @@
 import React from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
 import {usePipeline} from './hooks/usePipeline';
-import {PpsContext, SameMetadata} from '../../types';
+import {PpsContext, SameMetadata, MountSettings} from '../../types';
 
 type PipelineProps = {
   ppsContext: PpsContext | undefined;
+  settings: MountSettings;
   setShowPipeline: (shouldShow: boolean) => void;
   saveNotebookMetadata: (metadata: SameMetadata) => void;
 };
@@ -18,6 +19,7 @@ const placeholderRequirements = './requirements.txt';
 
 const Pipeline: React.FC<PipelineProps> = ({
   ppsContext,
+  settings,
   setShowPipeline,
   saveNotebookMetadata,
 }) => {
@@ -35,7 +37,7 @@ const Pipeline: React.FC<PipelineProps> = ({
     callSavePipeline,
     errorMessage,
     responseMessage,
-  } = usePipeline(ppsContext, saveNotebookMetadata);
+  } = usePipeline(ppsContext, settings, saveNotebookMetadata);
 
   return (
     <div className="pachyderm-mount-pipeline-base">
