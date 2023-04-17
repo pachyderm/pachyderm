@@ -84,7 +84,7 @@ export const usePipeline = (
         input: JSON.stringify(input),
       },
     };
-    saveNotebookMetaData(sameMetadata, false);
+    saveNotebookMetaData(sameMetadata, toDisk);
   };
 
   let callCreatePipeline: () => Promise<void>;
