@@ -1,14 +1,9 @@
 package archiveserver
 
 import (
-	"bufio"
-	"bytes"
-	"encoding/base64"
 	"net/url"
 	"strings"
 
-	"github.com/go-git/go-git/v5/utils/binary"
-	"github.com/klauspost/compress/zstd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
@@ -67,35 +62,18 @@ func ArchiveFromURL(u *url.URL) (*ArchiveRequest, error) {
 
 // ForEachPath calls the callback with each requested file.
 func (req *ArchiveRequest) ForEachPath(cb func(path string) error) error {
-	base := strings.NewReader(req.rawFiles)
-	b64 := base64.NewDecoder(base64.RawURLEncoding, base)
-
-	var version uint8
-	if err := binary.Read(b64, &version); err != nil {
-		return errors.Wrap(err, "read version")
+	r, version, err := Decode(strings.NewReader(req.rawFiles))
+	if err != nil {
+		return errors.Wrap(err, "create base decoder")
 	}
-	if got, want := version, uint8(0x01); got != want {
+	if got, want := version, EncodingVersion1; got != want {
 		return errors.Errorf("unknown version; got 0x%x want 0x%x", got, want)
 	}
 	// This is a version 1 format URL.
-	dcmp, err := zstd.NewReader(b64)
+	s, err := DecodeV1(r)
 	if err != nil {
-		return errors.Wrap(err, "zstd.NewReader")
+		return errors.Wrap(err, "create v1 decoder")
 	}
-	s := bufio.NewScanner(dcmp)
-	s.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		if atEOF && len(data) == 0 {
-			return 0, nil, nil
-		}
-		if i := bytes.IndexByte(data, 0x00); i >= 0 {
-			return i + 1, data[0:i], nil
-		}
-		if atEOF {
-			return len(data), data, nil
-		}
-		// Request more data.
-		return 0, nil, nil
-	})
 	for s.Scan() {
 		path := s.Text()
 		if err := cb(path); err != nil {

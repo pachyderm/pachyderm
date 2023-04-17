@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 
@@ -31,7 +32,12 @@ func AddLoggerToHTTPServer(rctx context.Context, name string, s *http.Server) {
 
 			if ua := r.Header.Get("user-agent"); ua != "Envoy/HC" {
 				// Print info about the request if this is not an Envoy health check.
-				Info(ctx, "incoming http request", zap.Stringer("url", r.URL), zap.String("method", r.Method), zap.String("host", r.Host), id)
+				url := r.URL.String()
+				if len(url) > 16384 {
+					url = url[:16384]
+					url += fmt.Sprintf("... (%d bytes)", len(url))
+				}
+				Info(ctx, "incoming http request", zap.String("url", url), zap.String("method", r.Method), zap.String("host", r.Host), id)
 			}
 
 			ctx = ChildLogger(ctx, "", WithFields(id))

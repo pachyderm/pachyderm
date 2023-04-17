@@ -109,3 +109,19 @@ func TestArchiveRequest(t *testing.T) {
 		})
 	}
 }
+
+func FuzzArchiveRequest(f *testing.F) {
+	f.Add("https://pachyderm.example.com/download/ASi1L_0EaHUBAEQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOi8AbW9udGFnZS5wbmcAAxQEBQPYsGPLbFDb.zip")
+	f.Add("https://pachyderm.example.com/download/ASi1L_0EAK0BALQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOi8AbW9udGFnZW1vbnRhZ2UucG5nAAIQBFwMS4wBy2xQ2w.zip")
+	f.Fuzz(func(t *testing.T, in string) {
+		u, err := url.Parse(in)
+		if err != nil {
+			return
+		}
+		a, err := ArchiveFromURL(u)
+		if err != nil {
+			return
+		}
+		a.ForEachPath(func(path string) error { return nil }) //nolint:errcheck // We only care about not panicking.
+	})
+}
