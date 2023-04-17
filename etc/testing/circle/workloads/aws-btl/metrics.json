@@ -6,7 +6,7 @@
   "input": {
     "pfs": {
       "glob": "/",
-      "repo": "width_estimation"
+      "repo": "prt_location_asset_assignment"
     }
   },
   "transform": {
@@ -29,7 +29,7 @@
     "image": "pachyderm/metric-collector:v4",
     "env": {
       "LOG_LEVEL": "DEBUG",
-      "WORKLOAD_ID": "wp"
+      "WORKLOAD_ID": "btl"
     }
   }
 }

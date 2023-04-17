@@ -66,6 +66,30 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	)
 	require.YesError(t, err)
 	require.Matches(t, "glob", err.Error())
+
+	// Create pipeline with input commit
+	err = c.CreateProjectPipeline(projectName,
+		pipelineName,
+		"",
+		cmd,
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		&pps.Input{
+			Pfs: &pps.PFSInput{
+				Name:    "input",
+				Project: projectName,
+				Repo:    dataRepo,
+				Glob:    "/*",
+				Commit:  "not_supported",
+			},
+		},
+		"master",
+		false,
+	)
+	require.YesError(t, err)
+	require.Matches(t, "input cannot come from a commit", err.Error())
 }
 
 // Make sure that pipeline validation checks that all inputs exist

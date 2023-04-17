@@ -1,4 +1,4 @@
-# QA 3 Stack
+# QA 4 Stack
 
 > Used as customer mock alpha test envs.
 
@@ -6,4 +6,4 @@
 
 | cloud | instance count |
 |-- | --|
-| `aws` | 4 |
+| `aws` | 3 |

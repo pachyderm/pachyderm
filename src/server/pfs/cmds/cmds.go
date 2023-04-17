@@ -1188,7 +1188,11 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.ProjectHeader)
+			header := pretty.ProjectHeader
+			if len(pis) > 0 && pis[0].AuthInfo != nil {
+				header = pretty.ProjectAuthHeader
+			}
+			writer := tabwriter.NewWriter(os.Stdout, header)
 			for _, pi := range pis {
 				pretty.PrintProjectInfo(writer, pi, &pfs.Project{Name: pachCtx.Project})
 			}

@@ -246,16 +246,22 @@ func TestStableHash(t *testing.T) {
 			},
 		},
 	}
-	for _, td := range tds {
-		msg := fmt.Sprint("seed: ", strconv.FormatInt(td.seed, 10))
-		output, err := pachhash.ParseHex([]byte(td.expected[0]))
-		require.NoError(t, err)
-		random := rand.New(rand.NewSource(td.seed))
-		testStableHash(ctx, t, oldRandomBytes(random, 100*units.KB), output[:], msg)
-		output, err = pachhash.ParseHex([]byte(td.expected[1]))
-		require.NoError(t, err)
-		random = rand.New(rand.NewSource(td.seed))
-		testStableHash(ctx, t, oldRandomBytes(random, 100*units.MB), output[:], msg)
+	for i, td := range tds {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			msg := fmt.Sprint("seed: ", strconv.FormatInt(td.seed, 10))
+			output, err := pachhash.ParseHex([]byte(td.expected[0]))
+			require.NoError(t, err)
+			random := rand.New(rand.NewSource(td.seed))
+			testStableHash(ctx, t, oldRandomBytes(random, 100*units.KB), output[:], msg, false)
+			random = rand.New(rand.NewSource(td.seed))
+			testStableHash(ctx, t, oldRandomBytes(random, 100*units.KB), output[:], msg, true)
+			output, err = pachhash.ParseHex([]byte(td.expected[1]))
+			require.NoError(t, err)
+			random = rand.New(rand.NewSource(td.seed))
+			testStableHash(ctx, t, oldRandomBytes(random, 100*units.MB), output[:], msg, false)
+			random = rand.New(rand.NewSource(td.seed))
+			testStableHash(ctx, t, oldRandomBytes(random, 100*units.MB), output[:], msg, true)
+		})
 	}
 }
 
@@ -264,8 +270,10 @@ func TestStableHashFuzz(t *testing.T) {
 	seed := time.Now().UTC().UnixNano()
 	msg := fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
 	random := rand.New(rand.NewSource(seed))
-	testStableHash(ctx, t, randutil.Bytes(random, 100*units.KB), nil, msg)
-	testStableHash(ctx, t, randutil.Bytes(random, 100*units.MB), nil, msg)
+	testStableHash(ctx, t, randutil.Bytes(random, 100*units.KB), nil, msg, false)
+	testStableHash(ctx, t, randutil.Bytes(random, 100*units.KB), nil, msg, true)
+	testStableHash(ctx, t, randutil.Bytes(random, 100*units.MB), nil, msg, false)
+	testStableHash(ctx, t, randutil.Bytes(random, 100*units.MB), nil, msg, true)
 }
 
 var letters = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -280,7 +288,7 @@ func oldRandomBytes(random *rand.Rand, n int) []byte {
 	return bs
 }
 
-func testStableHash(ctx context.Context, t *testing.T, data, expected []byte, msg string) {
+func testStableHash(ctx context.Context, t *testing.T, data, expected []byte, msg string, compact bool) {
 	storage := newTestStorage(ctx, t)
 	var ids []ID
 	write := func(data []byte) {
@@ -291,6 +299,14 @@ func testStableHash(ctx context.Context, t *testing.T, data, expected []byte, ms
 		ids = append(ids, *id)
 	}
 	getHash := func() []byte {
+		if compact {
+			compactFunc := func(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
+				return storage.Compact(ctx, ids, ttl)
+			}
+			id, err := storage.CompactLevelBased(ctx, ids, 10, time.Minute, compactFunc)
+			require.NoError(t, err)
+			ids = []ID{*id}
+		}
 		fs, err := storage.Open(ctx, ids)
 		require.NoError(t, err, msg)
 		var found bool

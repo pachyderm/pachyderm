@@ -275,16 +275,15 @@ class PPSCreateHandler(BaseHandler):
     @tornado.web.authenticated
     async def get(self, path):
         """Get the pipeline spec for the specified notebook."""
-        body = self.get_json_body()
-        response = await self.pps_client.generate(path, body)
-        self.finish(response)
+        response = await self.pps_client.generate(path)
+        await self.finish(response)
 
     @tornado.web.authenticated
     async def put(self, path):
         """Create the pipeline for the specified notebook."""
         body = self.get_json_body()
         response = await self.pps_client.create(path, body)
-        self.finish(response)
+        await self.finish(response)
 
 
 def setup_handlers(web_app):
