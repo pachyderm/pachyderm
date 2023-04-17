@@ -3,12 +3,14 @@ package archiveserver
 import (
 	"archive/tar"
 	"archive/zip"
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
@@ -76,90 +78,101 @@ func (fakePFS) GetFileTAR(ctx context.Context, req *pfs.GetFileRequest, opts ...
 	return &getFileTARClient{files: files}, nil
 }
 
-func TestHTTP(t *testing.T) {
-	testData := []struct {
-		name      string
-		method    string
-		url       string
-		wantCode  int
-		wantFiles map[string]string
-	}{
-		{
-			name:     "unknown route",
-			method:   "GET",
-			url:      "http://pachyderm.example.com/what-is-this?",
-			wantCode: http.StatusNotFound,
-		},
-		{
-			name:     "health",
-			method:   "GET",
-			url:      "http://pachyderm.example.com/healthz",
-			wantCode: http.StatusOK,
-		},
-		{
-			name:      "empty download",
-			method:    "GET",
-			url:       "http://pachyderm.example.com/download/AQ.zip",
-			wantCode:  http.StatusOK,
-			wantFiles: map[string]string{},
-		},
-		{
-			name:      "empty download with auth token",
-			method:    "GET",
-			url:       "http://pachyderm.example.com/download/AQ.zip?authn-token=foobar",
-			wantCode:  http.StatusOK,
-			wantFiles: map[string]string{},
-		},
-		{
-			name:     "invalid output format",
-			method:   "GET",
-			url:      "http://pachyderm.example.com/download/AQ.tar.bz2",
-			wantCode: http.StatusBadRequest,
-		},
-		{
-			name:     "unknown method",
-			method:   "HEAD",
-			url:      "http://pachyderm.example.com/download/AQ.zip",
-			wantCode: http.StatusMethodNotAllowed,
-		},
-		{
-			name:     "download with some content",
-			method:   "GET",
-			url:      "https://pachyderm.example.com/download/ASi1L_0EaHUBAEQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOi8AbW9udGFnZS5wbmcAAxQEBQPYsGPLbFDb.zip",
-			wantCode: http.StatusOK,
-			wantFiles: map[string]string{
-				"default/images/master/hello.txt":         "hello",
-				"default/images/master/a/nested/file.txt": "i'm nested!",
-				"default/montage/master/montage.png":      "beautiful artwork is here",
-			},
-		},
-		{
-			name:     "download with an error reading files",
-			method:   "GET",
-			url:      "https://pachyderm.example.com/download/ASi1L_0EaPkAAGRlZmF1bHQvdGVzdEBtYXN0ZXI6L2Vycm9yLnR4dABwDhIY.zip",
-			wantCode: http.StatusOK,
-			wantFiles: map[string]string{
-				"@error.txt": "path callback: path default/test@master:/error.txt: read TAR header: error reading from the server\n",
-			},
-		},
-	}
-
+// so TestHTTP and FuzzHTTP can share the implementation
+func doTest(t *testing.T, method, url string) (int, *bytes.Buffer) {
 	fake := &client.APIClient{}
 	fake.PfsAPIClient = &fakePFS{}
 
+	ctx := pctx.TestContext(t)
 	s := NewHTTP(0, func(ctx context.Context) *client.APIClient { return fake.WithCtx(ctx) })
+
+	req := httptest.NewRequest(method, url, nil)
+	req = req.WithContext(ctx)
+
+	rec := httptest.NewRecorder()
+	s.mux.ServeHTTP(rec, req)
+	return rec.Code, rec.Body
+}
+
+// These URLs should be fetched by both TestHTTP (deep validation) and FuzzHTTP (good starting
+// points for fuzzing).
+var testData = []struct {
+	name      string
+	method    string
+	url       string
+	wantCode  int
+	wantFiles map[string]string
+}{
+	{
+		name:     "unknown route",
+		method:   "GET",
+		url:      "http://pachyderm.example.com/what-is-this?",
+		wantCode: http.StatusNotFound,
+	},
+	{
+		name:     "health",
+		method:   "GET",
+		url:      "http://pachyderm.example.com/healthz",
+		wantCode: http.StatusOK,
+	},
+	{
+		name:      "empty download",
+		method:    "GET",
+		url:       "http://pachyderm.example.com/download/AQ.zip",
+		wantCode:  http.StatusOK,
+		wantFiles: map[string]string{},
+	},
+	{
+		name:      "empty download with auth token",
+		method:    "GET",
+		url:       "http://pachyderm.example.com/download/AQ.zip?authn-token=foobar",
+		wantCode:  http.StatusOK,
+		wantFiles: map[string]string{},
+	},
+	{
+		name:     "invalid output format",
+		method:   "GET",
+		url:      "http://pachyderm.example.com/download/AQ.tar.bz2",
+		wantCode: http.StatusBadRequest,
+	},
+	{
+		name:     "unknown method",
+		method:   "HEAD",
+		url:      "http://pachyderm.example.com/download/AQ.zip",
+		wantCode: http.StatusMethodNotAllowed,
+	},
+	{
+		name:     "download with some content",
+		method:   "GET",
+		url:      "https://pachyderm.example.com/download/ASi1L_0EaHUBAEQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOi8AbW9udGFnZS5wbmcAAxQEBQPYsGPLbFDb.zip",
+		wantCode: http.StatusOK,
+		wantFiles: map[string]string{
+			"default/images/master/hello.txt":         "hello",
+			"default/images/master/a/nested/file.txt": "i'm nested!",
+			"default/montage/master/montage.png":      "beautiful artwork is here",
+		},
+	},
+	{
+		name:     "download with an error reading files",
+		method:   "GET",
+		url:      "https://pachyderm.example.com/download/ASi1L_0EaPkAAGRlZmF1bHQvdGVzdEBtYXN0ZXI6L2Vycm9yLnR4dABwDhIY.zip",
+		wantCode: http.StatusOK,
+		wantFiles: map[string]string{
+			"@error.txt": "path callback: path default/test@master:/error.txt: read TAR header: error reading from the server\n",
+		},
+	},
+}
+
+func TestHTTP(t *testing.T) {
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := pctx.TestContext(t)
-			req := httptest.NewRequest(test.method, test.url, nil)
-			req = req.WithContext(ctx)
-			rec := httptest.NewRecorder()
-			s.mux.ServeHTTP(rec, req)
-			if got, want := rec.Code, test.wantCode; got != want {
+			code, body := doTest(t, test.method, test.url)
+			if got, want := code, test.wantCode; got != want {
 				t.Errorf("response code:\n  got: %v\n want: %v", got, want)
 			}
+
 			if test.wantFiles != nil {
-				bs := rec.Body.Bytes() // zip needs a ReaderAt, which Body isn't.
+				bs := body.Bytes() // zip needs a ReaderAt, which Body isn't.
 				r, err := zip.NewReader(bytes.NewReader(bs), int64(len(bs)))
 				if err != nil {
 					t.Fatalf("create zip reader: %v", err)
@@ -182,4 +195,19 @@ func TestHTTP(t *testing.T) {
 			}
 		})
 	}
+}
+
+func FuzzHTTP(f *testing.F) {
+	for _, test := range testData {
+		f.Add(test.url)
+		f.Log(test.url)
+	}
+	f.Fuzz(func(t *testing.T, u string) {
+		// Skip the invalid URLs it generates.
+		if _, err := http.ReadRequest(bufio.NewReader(strings.NewReader("GET " + u + " HTTP/1.0\r\n\r\n"))); err != nil {
+			return
+		}
+		// Then use the normal testing machinery.
+		doTest(t, "GET", u)
+	})
 }
