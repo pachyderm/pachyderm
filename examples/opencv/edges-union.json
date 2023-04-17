@@ -1,0 +1,30 @@
+{
+  "pipeline": {
+    "name": "edges"
+  },
+  "description": "A union pipeline that performs image edge detection by using the OpenCV library.",
+  "input": {
+    "union": [
+      {
+        "pfs": {
+          "glob": "/*",
+          "repo": "images"
+        }
+      },
+      {
+        "pfs": {
+          "glob": "/*",
+          "repo": "images",
+          "project": "staging"
+        }
+      }
+    ]
+  },
+  "transform": {
+    "cmd": [
+      "python3",
+      "/edges.py"
+    ],
+    "image": "pachyderm/opencv:1.0"
+  }
+}

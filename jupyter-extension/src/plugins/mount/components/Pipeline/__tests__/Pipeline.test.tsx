@@ -6,7 +6,7 @@ import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
 import Pipeline from '../Pipeline';
 jest.mock('../../../../../handler');
-import {SameMetadata} from '../../../types';
+import {PpsContext, SameMetadata} from '../../../types';
 
 describe('PPS screen', () => {
   let setShowPipeline = jest.fn();
@@ -28,6 +28,7 @@ describe('PPS screen', () => {
       name: '',
     },
   };
+  const context: PpsContext = {config: md, notebookModel: null};
 
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
 
@@ -40,9 +41,8 @@ describe('PPS screen', () => {
     it('proper preview', async () => {
       const {getByTestId, findByTestId} = render(
         <Pipeline
-          metadata={md}
+          ppsContext={context}
           setShowPipeline={setShowPipeline}
-          notebookPath={'FakeNotebook.ipynb'}
           saveNotebookMetadata={saveNotebookMetaData}
         />,
       );

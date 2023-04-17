@@ -1,3 +1,4 @@
+import {Contents} from '@jupyterlab/services';
 import {SplitPanel} from '@lumino/widgets';
 import {JSONObject} from '@lumino/coreutils';
 
@@ -91,6 +92,11 @@ export type PpsConfig = {
   image: string;
   requirements: string | null;
   input_spec: any;
+};
+
+export type PpsContext = {
+  config: SameMetadata | null;
+  notebookModel: Contents.IModel | null;
 };
 
 export type SameMetadata = {

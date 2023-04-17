@@ -6,7 +6,7 @@
   "input": {
     "pfs": {
       "glob": "/",
-      "repo": "width_estimation"
+      "repo": "montage"
     }
   },
   "transform": {
@@ -16,9 +16,9 @@
     ],
     "secrets": [
       {
-        "name": "metrics-secret",
-        "env_var": "BIGQUERY_AUTH_JSON",
-        "key": "creds"
+      "name": "metrics-secret",
+      "env_var": "BIGQUERY_AUTH_JSON",
+      "key": "creds"
       },
       {
         "name": "pachyderm-auth",
@@ -26,10 +26,10 @@
         "key": "root-token"
       }
     ],
-    "image": "pachyderm/metric-collector:v4",
+    "image": "pachyderm/metric-collector:v9",
     "env": {
       "LOG_LEVEL": "DEBUG",
-      "WORKLOAD_ID": "wp"
+      "WORKLOAD_ID": "opencv"
     }
   }
 }

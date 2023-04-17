@@ -1,9 +1,11 @@
-import os.path
 import json
+import os.path
 from dataclasses import dataclass
+from datetime import datetime
 from inspect import getsource
+from pathlib import Path
 from textwrap import dedent
-from typing import Optional
+from typing import Optional, Union
 
 import python_pachyderm
 from nbconvert import PythonExporter
@@ -18,35 +20,60 @@ class PPSClient:
     def __init__(self):
         self.nbconvert = PythonExporter()
 
-    async def generate(self, path, config):
+    @staticmethod
+    async def generate(path):
         """Generates the pipeline spec from the Notebook file specified.
 
         Args:
             path: The path (within Jupyter) to the Notebook file.
-            config: The PPS configuration for the Notebook file.
         """
-        get_logger().debug(f"path: {path} | body: {config}")
-        config = PpsConfig.from_json(config)
+        get_logger().debug(f"path: {path}")
+
+        path = Path(path.lstrip("/"))
+        if not path.exists():
+            raise HTTPError(reason=f"notebook does not exist: {path}")
+
+        try:
+            config = PpsConfig.from_notebook(path)
+        except ValueError as err:
+            raise HTTPError(reason=f"Bad Request: {err}")
+
         pipeline_spec = create_pipeline_spec(config, '...')
         return json.dumps(pipeline_spec)
 
-    async def create(self, path: str, config: dict):
+    async def create(self, path: str, body: dict):
         """Creates the pipeline from the Notebook file specified.
 
         Args:
             path: The path (within Jupyter) to the Notebook file.
-            config: The PPS configuration for the Notebook file.
+            body: The body of the request.
         """
-        get_logger().debug(f"path: {path} | body: {config}")
+        get_logger().debug(f"path: {path} | body: {body}")
 
-        config = PpsConfig.from_json(config)
-        path = path.lstrip("/")
-        if not os.path.exists(path):
+        path = Path(path.lstrip("/"))
+        if not path.exists():
             raise HTTPError(reason=f"notebook does not exist: {path}")
+
+        check = body.get('last_modified_time')
+        if not check:
+            raise HTTPError(reason="Bad Request: last_modified_time not specified")
+        check = datetime.fromisoformat(check.rstrip('Z'))
+
+        last_modified = datetime.utcfromtimestamp(os.path.getmtime(path))
+        get_logger().error(f"{check}, {last_modified}")
+        if check != last_modified:
+            raise HTTPError(
+                reason=f"notebook verification failed: {check} != {last_modified}"
+            )
+        try:
+            config = PpsConfig.from_notebook(path)
+        except ValueError as err:
+            raise HTTPError(reason=f"Bad Request: {err}")
+
         if config.requirements and not os.path.exists(config.requirements):
             raise HTTPError(reason="requirements file does not exist")
 
-        script, _resources = self.nbconvert.from_filename(path)
+        script, _resources = self.nbconvert.from_filename(str(path))
 
         client = python_pachyderm.Client()  # TODO: Auth?
         companion_repo = f"{config.pipeline_name}__context"
@@ -71,32 +98,42 @@ class PPSClient:
 @dataclass
 class PpsConfig:
 
+    notebook_path: Path
     pipeline_name: str
     image: str
     requirements: Optional[str]
     input_spec: dict  # We may be able to use the pachyderm SDK to parse and validate.
 
     @classmethod
-    def from_json(cls, config) -> "PpsConfig":
-        """Parses a config from a json object.
+    def from_notebook(cls, notebook_path: Union[str, Path]) -> "PpsConfig":
+        """Parses a config from the metadata of a notebook file.
 
-        Raises HTTPError with 500 code if required field is not specified.
+        Raises ValueError if required field is not specified.
         """
-        pipeline_name = config.get('pipeline_name', None)
+        notebook_path = Path(notebook_path)
+        notebook_data = json.loads(notebook_path.read_bytes())
+
+        config = notebook_data['metadata'].get('same_config')
+        if config is None:
+            raise ValueError("pps_config not specified in notebook metadata")
+
+        pipeline_name = config['metadata'].get('name', None)
         if pipeline_name is None:
-            raise HTTPError(reason=f"Bad Request: field pipeline_name not set")
+            raise ValueError("field pipeline_name not set")
 
-        image = config.get('image', None)
+        image = config['environments']['default'].get('image_tag', None)
         if image is None:
-            raise HTTPError(reason=f"Bad Request: field image not set")
+            raise ValueError("field image not set")
 
-        requirements = config.get('requirements')
+        requirements = config['notebook'].get('requirements')
 
-        input_spec = config.get('input_spec', None)
+        input_spec = config['run'].get('input', None)
         if input_spec is None:
-            raise HTTPError(reason=f"Bad Request: field input_spec not set")
+            raise ValueError("field input_spec not set")
+        input_spec = json.loads(input_spec)
 
         return cls(
+            notebook_path=notebook_path,
             pipeline_name=pipeline_name,
             image=image,
             requirements=requirements,
