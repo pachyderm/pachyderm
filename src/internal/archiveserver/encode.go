@@ -4,10 +4,10 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/base64"
+	"encoding/binary"
 	"io"
 	"sort"
 
-	"github.com/go-git/go-git/v5/utils/binary"
 	"github.com/klauspost/compress/zstd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -53,7 +53,7 @@ func Decode(r io.Reader) (io.Reader, uint8, error) {
 	b64 := base64.NewDecoder(base64.RawURLEncoding, r)
 
 	var version uint8
-	if err := binary.Read(b64, &version); err != nil {
+	if err := binary.Read(b64, binary.BigEndian, &version); err != nil {
 		return nil, 0, errors.Wrap(err, "read version")
 	}
 	return b64, version, nil
