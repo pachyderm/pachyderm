@@ -490,12 +490,13 @@ export class MountPlugin implements IMountPlugin {
       this._pipeline.setHidden(false);
       this._mountedList.setHidden(true);
       this._unmountedList.setHidden(true);
+      this._mountBrowser.setHidden(true);
     } else {
       this._pipeline.setHidden(true);
       this._mountedList.setHidden(false);
       this._unmountedList.setHidden(false);
+      this._mountBrowser.setHidden(false);
     }
-    this._mountBrowser.setHidden(true);
     this._config.setHidden(true);
     this._datum.setHidden(true);
     this._fullPageError.setHidden(true);

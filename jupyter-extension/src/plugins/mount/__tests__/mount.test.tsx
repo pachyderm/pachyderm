@@ -20,6 +20,7 @@ import {MountPlugin} from '../mount';
 import * as requestAPI from '../../../handler';
 import {waitFor} from '@testing-library/react';
 import {INotebookTracker, NotebookTracker} from '@jupyterlab/notebook';
+import Pipeline from '../components/Pipeline/Pipeline';
 
 jest.mock('../../../handler');
 
@@ -139,5 +140,24 @@ describe('mount plugin', () => {
     expect(plugin.layout.widgets[5]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[6]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[7]).toBeInstanceOf(ReactWidget);
+  });
+
+  it('return from pipeline view to the correct layout', async () => {
+    const plugin = new MountPlugin(app, docManager, factory, restorer, tracker);
+    const pipeline = plugin.layout.widgets[3];
+    const fileBrowser = plugin.layout.widgets[4];
+    expect(fileBrowser).toBeInstanceOf(FileBrowser);
+
+    plugin.setShowConfig(false);
+    expect(pipeline.isHidden).toBe(true);
+    expect(fileBrowser.isHidden).toBe(false);
+
+    plugin.setShowPipeline(true);
+    expect(pipeline.isHidden).toBe(false);
+    expect(fileBrowser.isHidden).toBe(true);
+
+    plugin.setShowPipeline(false);
+    expect(pipeline.isHidden).toBe(true);
+    expect(fileBrowser.isHidden).toBe(false);
   });
 });
