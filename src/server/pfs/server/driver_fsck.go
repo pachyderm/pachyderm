@@ -143,9 +143,13 @@ func checkBranchProvenances(bi *pfs.BranchInfo, branchInfos map[string]*pfs.Bran
 	for _, directProvenance := range direct {
 		directProvenanceInfo := branchInfos[pfsdb.BranchKey(directProvenance)]
 		union = append(union, directProvenance)
-		if directProvenanceInfo != nil {
-			union = append(union, directProvenanceInfo.Provenance...)
+		if directProvenanceInfo == nil {
+			if err := onError(ErrBranchInfoNotFound{Branch: directProvenance}); err != nil {
+				return err
+			}
+			continue
 		}
+		union = append(union, directProvenanceInfo.Provenance...)
 	}
 
 	if !equalBranches(append(bi.Provenance, bi.Branch), union) {
@@ -178,33 +182,30 @@ func checkBranchSubvenances(bi *pfs.BranchInfo, branchInfos map[string]*pfs.Bran
 
 func checkMissingHead(bi *pfs.BranchInfo, branchInfos map[string]*pfs.BranchInfo, commitInfos map[string]*pfs.CommitInfo, onError func(error) error) error {
 	if bi.Head == nil {
-		if err := onError(ErrMissingBranchHead{
+		return onError(ErrMissingBranchHead{
 			Branch: bi.Branch,
-		}); err != nil {
-			return err
-		}
-	} else {
-		// we expect the branch's provenance to equal the HEAD commit's provenance
-		// i.e branch.Provenance contains the branch provBranch and
-		// provBranch.Head != nil implies branch.Head.Provenance contains
-		// provBranch.Head
-		for _, provBranch := range bi.Provenance {
-			provBranchInfo, ok := branchInfos[pfsdb.BranchKey(provBranch)]
-			if !ok {
-				if err := onError(ErrBranchInfoNotFound{Branch: provBranch}); err != nil {
-					return err
-				}
-				continue
+		})
+	}
+	// we expect the branch's provenance to equal the HEAD commit's provenance
+	// i.e branch.Provenance contains the branch provBranch and
+	// provBranch.Head != nil implies branch.Head.Provenance contains
+	// provBranch.Head
+	for _, provBranch := range bi.Provenance {
+		provBranchInfo, ok := branchInfos[pfsdb.BranchKey(provBranch)]
+		if !ok {
+			if err := onError(ErrBranchInfoNotFound{Branch: provBranch}); err != nil {
+				return err
 			}
-			if provBranchInfo.Head != nil {
-				// in this case, the headCommit Provenance should contain provBranch.Head
-				if _, ok := commitInfos[pfsdb.CommitKey(bi.Head)]; !ok {
-					if err := onError(ErrCommitInfoNotFound{
-						Location: "head commit provenance (=>)",
-						Commit:   bi.Head,
-					}); err != nil {
-						return err
-					}
+			continue
+		}
+		if provBranchInfo.Head != nil {
+			// in this case, the headCommit Provenance should contain provBranch.Head
+			if _, ok := commitInfos[pfsdb.CommitKey(bi.Head)]; !ok {
+				if err := onError(ErrCommitInfoNotFound{
+					Location: "head commit provenance (=>)",
+					Commit:   bi.Head,
+				}); err != nil {
+					return err
 				}
 			}
 		}
