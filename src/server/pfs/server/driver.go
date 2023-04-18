@@ -798,7 +798,12 @@ func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit
 		if commitInfo.Finished != nil {
 			return errors.Errorf("cannot get compacted diff file set for commit %s that is not finished", commit.ID)
 		}
+		// Remove finishing metadata will fire an event so that the PFS master picks up the commit.
+		commitInfo.Finished = nil
 		if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+			if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(commit, commitInfo); err != nil {
+				return errors.EnsureStack(err)
+			}
 			return d.finishCommit(txnCtx, commit, "", "", false)
 		}); err != nil {
 			return errors.EnsureStack(err)
