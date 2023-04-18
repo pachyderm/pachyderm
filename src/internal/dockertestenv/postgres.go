@@ -158,13 +158,14 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 
 	if err := ensureContainer(ctx, dclient, "pach_test_pgbouncer", containerSpec{
 		Env: map[string]string{
-			"PGBOUNCER_AUTH_TYPE":       "any",
-			"POSTGRESQL_USERNAME":       "pachyderm",
-			"POSTGRESQL_PASSWORD":       "password",
-			"POSTGRESQL_HOST":           postgresIP,
-			"POSTGRESQL_PORT":           "5432",
-			"PGBOUNCER_MAX_CLIENT_CONN": "1000",
-			"PGBOUNCER_POOL_MODE":       "transaction",
+			"PGBOUNCER_AUTH_TYPE":                 "any",
+			"POSTGRESQL_USERNAME":                 "pachyderm",
+			"POSTGRESQL_PASSWORD":                 "password",
+			"POSTGRESQL_HOST":                     postgresIP,
+			"POSTGRESQL_PORT":                     "5432",
+			"PGBOUNCER_MAX_CLIENT_CONN":           "1000",
+			"PGBOUNCER_POOL_MODE":                 "transaction",
+			"PGBOUNCER_IGNORE_STARTUP_PARAMETERS": "extra_float_digits",
 		},
 		PortMap: map[uint16]uint16{
 			30229: 5432,
