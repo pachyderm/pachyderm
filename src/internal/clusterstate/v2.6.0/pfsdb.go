@@ -577,23 +577,18 @@ func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
 	if cis, err = listCollectionProtos(ctx, tx, "commits", &pfs.CommitInfo{}); err != nil {
 		return err
 	}
-	for _, ci := range cis {
-		oldKey := oldCommitKey(ci.Commit)
-		newKey := commitBranchlessKey(ci.Commit)
-		if _, err := tx.ExecContext(ctx, `UPDATE pfs.commits SET commit_id=$1 WHERE commit_id=$2;`, newKey, oldKey); err != nil {
-			return errors.Wrapf(err, "update pfs.commits for old key %q and new key %q", oldKey, newKey)
-		}
-		if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_totals SET commit_id=$1 WHERE commit_id=$2;`, newKey, oldKey); err != nil {
-			return errors.Wrapf(err, "update pfs.commit_totals for old key %q and new key %q", oldKey, newKey)
-		}
-		if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_diffs SET commit_id=$1 WHERE commit_id=$2;`, newKey, oldKey); err != nil {
-			return errors.Wrapf(err, "update pfs.commit_diffs for old key %q and new key %q", oldKey, newKey)
-		}
-		fromPattern := fmt.Sprintf("^commit/%v/(.*)", oldKey)
-		toPattern := fmt.Sprintf("commit/%v/\\1", newKey)
-		if _, err := tx.ExecContext(ctx, `UPDATE storage.tracker_objects SET str_id = regexp_replace(str_id, $1, $2);`, fromPattern, toPattern); err != nil {
-			return errors.Wrapf(err, "update storage.tracker_objects for old key %q and new key %q", oldKey, newKey)
-		}
+	// map <project>/<repo>@<branch>=<id> -> <project>/<repo>@<id>; basically replace '@[-a-zA-Z0-9_]+)=' -> '@'
+	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commits SET commit_id = regexp_replace(commit_id, '@([-a-zA-Z0-9_]+)=', '@');`); err != nil {
+		return errors.Wrapf(err, "update pfs.commits to branchless commit ids")
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_totals SET commit_id = regexp_replace(commit_id, '@([-a-zA-Z0-9_]+)=', '@');`); err != nil {
+		return errors.Wrap(err, "update pfs.commit_totals to branchless commit ids")
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_diffs SET commit_id = regexp_replace(commit_id, '@([-a-zA-Z0-9_]+)=', '@');`); err != nil {
+		return errors.Wrap(err, "update pfs.commit_diffs to branchless commits ids")
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE storage.tracker_objects SET str_id = regexp_replace(str_id, '@([-a-zA-Z0-9_]+)=', '@') WHERE str_id ~ '^commit/';`); err != nil {
+		return errors.Wrap(err, "update storage.tracker_objects to branchless commit ids")
 	}
 	return nil
 }
