@@ -59,7 +59,9 @@ export const usePipeline = (
   };
 
   useEffect(() => {
-    setImageName(ppsContext?.metadata?.config.image ?? settings.defaultPipelineImage);
+    setImageName(
+      ppsContext?.metadata?.config.image ?? settings.defaultPipelineImage,
+    );
     _setPipeline(
       ppsContext?.metadata?.config.pipeline ?? ({name: ''} as Pipeline),
     );

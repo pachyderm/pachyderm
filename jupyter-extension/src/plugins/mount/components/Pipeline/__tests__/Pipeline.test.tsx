@@ -7,13 +7,7 @@ import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
 import Pipeline from '../Pipeline';
 jest.mock('../../../../../handler');
-import {PPS_VERSION} from '../hooks/usePipeline';
-import {
-  MountSettings,
-  Pipeline as PipelineType,
-  PpsContext,
-  PpsMetadata,
-} from '../../../types';
+import {MountSettings} from '../../../types';
 
 describe('PPS screen', () => {
   let setShowPipeline = jest.fn();
@@ -31,7 +25,7 @@ describe('PPS screen', () => {
 
   describe('spec preview', () => {
     it('proper preview', async () => {
-      const ppsContext = {config: null, notebookModel};
+      const ppsContext = {metadata: null, notebookModel};
       const {getByTestId, findByTestId} = render(
         <Pipeline
           ppsContext={ppsContext}
@@ -90,7 +84,7 @@ input:
   });
 
   describe('no notebook', () => {
-    const ppsContext = {config: null, notebookModel: null};
+    const ppsContext = {metadata: null, notebookModel: null};
     it('currentNotebook is None', async () => {
       const {findByTestId} = render(
         <Pipeline
