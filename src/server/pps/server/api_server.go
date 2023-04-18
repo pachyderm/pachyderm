@@ -844,11 +844,11 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 	for _, project := range request.GetProjects() {
 		filter[project.GetName()] = true
 	}
-	keep := func(j *pps.JobInfo) error {
+	applyFilter := func(j *pps.JobInfo) (bool, error) {
 		if len(filter) == 0 || filter[j.Job.Pipeline.Project.GetName()] {
-			return errors.Wrap(resp.Send(j), "could not send filtered job")
+			return false, errors.Wrap(resp.Send(j), "could not send filtered job")
 		}
-		return nil
+		return true, nil
 	}
 
 	ctx := resp.Context()
@@ -955,10 +955,13 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 				return nil
 			}
 		}
-		if err := keep(jobInfo); err != nil {
+		filtered, err := applyFilter(jobInfo)
+		if err != nil {
 			return err
 		}
-		number--
+		if !filtered {
+			number--
+		}
 		return nil
 	}
 	opts := &col.Options{Target: col.SortByCreateRevision, Order: col.SortDescend}
