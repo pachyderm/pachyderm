@@ -21,6 +21,9 @@ import {mockedRequestAPI} from 'utils/testUtils';
 import {MountPlugin} from '../mount';
 import * as requestAPI from '../../../handler';
 import {waitFor} from '@testing-library/react';
+import {INotebookTracker, NotebookTracker} from '@jupyterlab/notebook';
+import Pipeline from '../components/Pipeline/Pipeline';
+import {MountSettings} from '../types';
 
 jest.mock('../../../handler');
 
@@ -39,6 +42,7 @@ const items = {
 
 describe('mount plugin', () => {
   let app: JupyterLab;
+  let settings: MountSettings;
   let docManager: IDocumentManager;
   let docRegistry: DocumentRegistry;
   let manager: ServiceManager;
@@ -55,6 +59,7 @@ describe('mount plugin', () => {
     };
 
     app = new JupyterLab();
+    settings = {defaultPipelineImage: ''};
     docRegistry = new DocumentRegistry();
     manager = new ServiceManager();
     docManager = new DocumentManager({
@@ -107,6 +112,7 @@ describe('mount plugin', () => {
       );
     const plugin = new MountPlugin(
       app,
+      settings,
       docManager,
       factory,
       restorer,
@@ -135,6 +141,7 @@ describe('mount plugin', () => {
   it('should generate the correct layout', async () => {
     const plugin = new MountPlugin(
       app,
+      settings,
       docManager,
       factory,
       restorer,
@@ -158,6 +165,7 @@ describe('mount plugin', () => {
   it('return from pipeline view to the correct layout', async () => {
     const plugin = new MountPlugin(
       app,
+      settings,
       docManager,
       factory,
       restorer,

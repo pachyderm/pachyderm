@@ -1,10 +1,11 @@
 import React from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
 import {usePipeline} from './hooks/usePipeline';
-import {PpsContext, SameMetadata} from '../../types';
+import {PpsContext, SameMetadata, MountSettings} from '../../types';
 
 type PipelineProps = {
   ppsContext: PpsContext | undefined;
+  settings: MountSettings;
   setShowPipeline: (shouldShow: boolean) => void;
   saveNotebookMetadata: (metadata: SameMetadata) => void;
 };
@@ -18,6 +19,7 @@ const placeholderRequirements = './requirements.txt';
 
 const Pipeline: React.FC<PipelineProps> = ({
   ppsContext,
+  settings,
   setShowPipeline,
   saveNotebookMetadata,
 }) => {
@@ -33,9 +35,10 @@ const Pipeline: React.FC<PipelineProps> = ({
     setRequirements,
     callCreatePipeline,
     callSavePipeline,
+    currentNotebook,
     errorMessage,
     responseMessage,
-  } = usePipeline(ppsContext, saveNotebookMetadata);
+  } = usePipeline(ppsContext, settings, saveNotebookMetadata);
 
   return (
     <div className="pachyderm-mount-pipeline-base">
@@ -74,6 +77,21 @@ const Pipeline: React.FC<PipelineProps> = ({
         >
           Create Pipeline
         </button>
+      </div>
+
+      <div className="pachyderm-pipeline-current-notebook-wrapper">
+        <label
+          className="pachyderm-pipeline-current-notebook-label"
+          htmlFor="currentNotebook"
+        >
+          Current Notebook:{'  '}
+        </label>
+        <span
+          className="pachyderm-pipeline-current-notebook-value"
+          data-testid="Pipeline__currentNotebookValue"
+        >
+          {currentNotebook}
+        </span>
       </div>
 
       <span

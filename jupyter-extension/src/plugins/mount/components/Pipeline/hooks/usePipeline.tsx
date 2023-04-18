@@ -2,7 +2,12 @@ import YAML from 'yaml';
 import {useEffect, useState} from 'react';
 import {ServerConnection} from '@jupyterlab/services';
 
-import {CreatePipelineResponse, PpsContext, SameMetadata} from '../../../types';
+import {
+  CreatePipelineResponse,
+  MountSettings,
+  PpsContext,
+  SameMetadata,
+} from '../../../types';
 import {requestAPI} from '../../../../../handler';
 
 export type usePipelineResponse = {
@@ -17,12 +22,14 @@ export type usePipelineResponse = {
   setRequirements: (input: string) => void;
   callCreatePipeline: () => Promise<void>;
   callSavePipeline: () => void;
+  currentNotebook: string;
   errorMessage: string;
   responseMessage: string;
 };
 
 export const usePipeline = (
   ppsContext: PpsContext | undefined,
+  settings: MountSettings,
   saveNotebookMetaData: (metadata: SameMetadata) => void,
 ): usePipelineResponse => {
   const [loading, setLoading] = useState(false);
@@ -32,9 +39,13 @@ export const usePipeline = (
   const [requirements, setRequirements] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [responseMessage, setResponseMessage] = useState('');
+  const [currentNotebook, setCurrentNotebook] = useState('None');
 
   useEffect(() => {
-    setImageName(ppsContext?.config?.environments.default.image_tag ?? '');
+    setImageName(
+      ppsContext?.config?.environments.default.image_tag ??
+        settings.defaultPipelineImage,
+    );
     setPipelineName(ppsContext?.config?.metadata.name ?? '');
     setRequirements(ppsContext?.config?.notebook.requirements ?? '');
     setResponseMessage('');
@@ -44,6 +55,7 @@ export const usePipeline = (
     } else {
       setInputSpec('');
     }
+    setCurrentNotebook(ppsContext?.notebookModel?.name ?? 'None');
   }, [ppsContext]);
 
   let callCreatePipeline: () => Promise<void>;
@@ -124,6 +136,7 @@ export const usePipeline = (
     setRequirements,
     callCreatePipeline,
     callSavePipeline,
+    currentNotebook,
     errorMessage,
     responseMessage,
   };
