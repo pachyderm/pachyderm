@@ -1799,8 +1799,8 @@ commands:
       - run:
           name: Install pachctl and mount-server
           command: |
-            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64/pachctl /usr/local/bin/pachctl
-            sudo mv ./dist-pach/mount-server/mount-server_linux_amd64/mount-server /usr/local/bin/mount-server
+            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
+            sudo mv ./dist-pach/mount-server/mount-server_linux_amd64_v1/mount-server /usr/local/bin/mount-server
       - run:
           name: Start kind
           command: kind create cluster && kubectl config set current-context kind-kind
