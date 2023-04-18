@@ -304,6 +304,9 @@ func deleteCommit(ctx context.Context, tx *pachsql.Tx, c *pfs.Commit, ancestor *
 	if _, err = tx.ExecContext(ctx, `DELETE FROM pfs.commit_totals WHERE commit_id=$1;`, key); err != nil {
 		return errors.Wrapf(err, "delete from pfs.commit_totals for commit_id %q", key)
 	}
+	if _, err = tx.ExecContext(ctx, `DELETE FROM storage.tracker_objects WHERE str_id LIKE $1;`, "commit/"+key+"%"); err != nil {
+		return errors.Wrapf(err, "delete from pfs.commit_totals for commit_id %q", key)
+	}
 	return nil
 }
 
