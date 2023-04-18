@@ -26,7 +26,7 @@ describe('PPS screen', () => {
 
   describe('spec preview', () => {
     it('proper preview', async () => {
-      const ppsContext = {config: md, notebookModel};
+      const ppsContext = {config: null, notebookModel};
       const {getByTestId, findByTestId} = render(
         <Pipeline
           ppsContext={ppsContext}
@@ -82,11 +82,12 @@ input:
   });
 
   describe('no notebook', () => {
-    const ppsContext = {config: md, notebookModel: null};
+    const ppsContext = {config: null, notebookModel: null};
     it('currentNotebook is None', async () => {
       const {findByTestId} = render(
         <Pipeline
           ppsContext={ppsContext}
+          settings={settings}
           setShowPipeline={setShowPipeline}
           saveNotebookMetadata={saveNotebookMetaData}
         />,
