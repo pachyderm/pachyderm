@@ -20,6 +20,8 @@ import {MountPlugin} from '../mount';
 import * as requestAPI from '../../../handler';
 import {waitFor} from '@testing-library/react';
 import {INotebookTracker, NotebookTracker} from '@jupyterlab/notebook';
+import Pipeline from '../components/Pipeline/Pipeline';
+import {MountSettings} from '../types';
 
 jest.mock('../../../handler');
 
@@ -38,6 +40,7 @@ const items = {
 
 describe('mount plugin', () => {
   let app: JupyterLab;
+  let settings: MountSettings;
   let docManager: IDocumentManager;
   let docRegistry: DocumentRegistry;
   let manager: ServiceManager;
@@ -54,6 +57,7 @@ describe('mount plugin', () => {
     };
 
     app = new JupyterLab();
+    settings = {defaultPipelineImage: ''};
     docRegistry = new DocumentRegistry();
     manager = new ServiceManager();
     docManager = new DocumentManager({
@@ -104,7 +108,14 @@ describe('mount plugin', () => {
           ],
         }),
       );
-    const plugin = new MountPlugin(app, docManager, factory, restorer, tracker);
+    const plugin = new MountPlugin(
+      app,
+      settings,
+      docManager,
+      factory,
+      restorer,
+      tracker,
+    );
 
     await plugin.ready;
 
@@ -126,7 +137,14 @@ describe('mount plugin', () => {
   });
 
   it('should generate the correct layout', async () => {
-    const plugin = new MountPlugin(app, docManager, factory, restorer, tracker);
+    const plugin = new MountPlugin(
+      app,
+      settings,
+      docManager,
+      factory,
+      restorer,
+      tracker,
+    );
     expect(plugin.layout.title.caption).toBe('Pachyderm Mount');
     expect(plugin.layout.id).toBe('pachyderm-mount');
     expect(plugin.layout.orientation).toBe('vertical');
@@ -139,5 +157,31 @@ describe('mount plugin', () => {
     expect(plugin.layout.widgets[5]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[6]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[7]).toBeInstanceOf(ReactWidget);
+  });
+
+  it('return from pipeline view to the correct layout', async () => {
+    const plugin = new MountPlugin(
+      app,
+      settings,
+      docManager,
+      factory,
+      restorer,
+      tracker,
+    );
+    const pipeline = plugin.layout.widgets[3];
+    const fileBrowser = plugin.layout.widgets[4];
+    expect(fileBrowser).toBeInstanceOf(FileBrowser);
+
+    plugin.setShowConfig(false);
+    expect(pipeline.isHidden).toBe(true);
+    expect(fileBrowser.isHidden).toBe(false);
+
+    plugin.setShowPipeline(true);
+    expect(pipeline.isHidden).toBe(false);
+    expect(fileBrowser.isHidden).toBe(true);
+
+    plugin.setShowPipeline(false);
+    expect(pipeline.isHidden).toBe(true);
+    expect(fileBrowser.isHidden).toBe(false);
   });
 });

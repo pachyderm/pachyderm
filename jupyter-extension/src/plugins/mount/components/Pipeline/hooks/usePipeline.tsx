@@ -2,7 +2,12 @@ import YAML from 'yaml';
 import {useEffect, useState} from 'react';
 import {ServerConnection} from '@jupyterlab/services';
 
-import {CreatePipelineResponse, PpsContext, SameMetadata} from '../../../types';
+import {
+  CreatePipelineResponse,
+  MountSettings,
+  PpsContext,
+  SameMetadata,
+} from '../../../types';
 import {requestAPI} from '../../../../../handler';
 
 export type usePipelineResponse = {
@@ -24,6 +29,7 @@ export type usePipelineResponse = {
 
 export const usePipeline = (
   ppsContext: PpsContext | undefined,
+  settings: MountSettings,
   saveNotebookMetaData: (metadata: SameMetadata) => void,
 ): usePipelineResponse => {
   const [loading, setLoading] = useState(false);
@@ -36,7 +42,10 @@ export const usePipeline = (
   const [currentNotebook, setCurrentNotebook] = useState('None');
 
   useEffect(() => {
-    setImageName(ppsContext?.config?.environments.default.image_tag ?? '');
+    setImageName(
+      ppsContext?.config?.environments.default.image_tag ??
+        settings.defaultPipelineImage,
+    );
     setPipelineName(ppsContext?.config?.metadata.name ?? '');
     setRequirements(ppsContext?.config?.notebook.requirements ?? '');
     setResponseMessage('');

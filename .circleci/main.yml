@@ -1589,6 +1589,18 @@ workflows:
             - build-pachctl-bin
             - publish-chart-preview
             - release-github-draft
+      - pulumi-aws-test-env:
+          name: aws-prerelease-testing-env-4
+          env: qa4
+          action: update
+          pachdVersion: $CIRCLE_SHA1
+          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
+          filters: *only-alpha-tags
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+            - publish-chart-preview
+            - release-github-draft
       - aws-prerelease-testing:
           name: aws-testing
           filters: *only-release-tags
@@ -1614,7 +1626,7 @@ workflows:
           env: qa4
           filters: *only-alpha-tags
           requires:
-            - aws-prerelease-testing-env-3
+            - aws-prerelease-testing-env-4
       - pulumi-aws-test-env:
           name: destroy-aws-prerelease-testing-env-1
           env: qa1

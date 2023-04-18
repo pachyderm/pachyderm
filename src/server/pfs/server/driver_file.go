@@ -96,7 +96,7 @@ func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *fileset
 }
 
 func (d *driver) withUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
-	opts = append([]fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer), fileset.WithValidator(validate)}, opts...)
+	opts = append([]fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer), fileset.WithValidator(ValidateFilename)}, opts...)
 	uw, err := d.storage.NewUnorderedWriter(ctx, opts...)
 	if err != nil {
 		return nil, err
@@ -451,27 +451,13 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, 
 }
 
 func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb func(oldFi, newFi *pfs.FileInfo) error) error {
-	// TODO: move validation to the Validating API Server
-	// Validation
-	if newFile == nil {
-		return errors.New("file cannot be nil")
-	}
-	if newFile.Commit == nil {
-		return errors.New("file commit cannot be nil")
-	}
-	if newFile.Commit.Branch == nil {
-		return errors.New("file commit branch cannot be nil")
-	}
-	if newFile.Commit.Branch.Repo == nil {
-		return errors.New("file commit repo cannot be nil")
-	}
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
 		if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, oldFile.Commit.Repo, auth.Permission_REPO_READ); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
-	if newFile != nil && newFile.Commit != nil {
+	if newFile.Commit != nil {
 		if err := d.env.AuthServer.CheckRepoIsAuthorized(ctx, newFile.Commit.Repo, auth.Permission_REPO_READ); err != nil {
 			return errors.EnsureStack(err)
 		}
