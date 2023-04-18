@@ -6,7 +6,6 @@ import {
 } from '@jupyterlab/application';
 import {IDocumentManager} from '@jupyterlab/docmanager';
 import {IFileBrowserFactory} from '@jupyterlab/filebrowser';
-import {INotebookTracker} from '@jupyterlab/notebook';
 import {ISettingRegistry} from '@jupyterlab/settingregistry';
 
 import {MountPlugin} from './mount';
@@ -43,7 +42,14 @@ const mount: JupyterFrontEndPlugin<IMountPlugin> = {
         registry.changed.connect(loadSettings);
       },
     );
-    return new MountPlugin(app, settings, manager, factory, restorer, widgetTracker);
+    return new MountPlugin(
+      app,
+      settings,
+      manager,
+      factory,
+      restorer,
+      widgetTracker,
+    );
   },
 };
 

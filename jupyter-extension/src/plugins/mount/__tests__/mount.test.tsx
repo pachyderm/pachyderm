@@ -21,8 +21,6 @@ import {mockedRequestAPI} from 'utils/testUtils';
 import {MountPlugin} from '../mount';
 import * as requestAPI from '../../../handler';
 import {waitFor} from '@testing-library/react';
-import {INotebookTracker, NotebookTracker} from '@jupyterlab/notebook';
-import Pipeline from '../components/Pipeline/Pipeline';
 import {MountSettings} from '../types';
 
 jest.mock('../../../handler');

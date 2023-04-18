@@ -16,7 +16,6 @@ describe('PPS screen', () => {
   const testNotebookName = 'NotARealNotebook.ipynb';
   const notebookModel = {name: testNotebookName} as Contents.IModel;
   const settings: MountSettings = {defaultPipelineImage: 'DefaultImage:Tag'};
-  const context: PpsContext = {config: null, notebookModel: null};
 
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
   beforeEach(() => {
