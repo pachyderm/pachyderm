@@ -1,19 +1,19 @@
 import React from 'react';
-import {ILayoutRestorer, JupyterFrontEnd} from '@jupyterlab/application';
+import {
+  ILabShell,
+  ILayoutRestorer,
+  JupyterFrontEnd,
+} from '@jupyterlab/application';
 import {ReactWidget, UseSignal} from '@jupyterlab/apputils';
 import {IDocumentManager} from '@jupyterlab/docmanager';
 import {DocumentRegistry} from '@jupyterlab/docregistry';
 import {FileBrowser, IFileBrowserFactory} from '@jupyterlab/filebrowser';
-import {
-  INotebookModel,
-  INotebookTracker,
-  NotebookPanel,
-} from '@jupyterlab/notebook';
+import {INotebookModel, NotebookPanel} from '@jupyterlab/notebook';
 import {Contents} from '@jupyterlab/services';
 import {settingsIcon, spreadsheetIcon} from '@jupyterlab/ui-components';
 import {JSONObject} from '@lumino/coreutils';
 import {Signal} from '@lumino/signaling';
-import {SplitPanel} from '@lumino/widgets';
+import {SplitPanel, Widget} from '@lumino/widgets';
 
 import {mountLogoIcon} from '../../utils/icons';
 import {PollMounts} from './pollMounts';
@@ -34,6 +34,7 @@ import {
 import Config from './components/Config/Config';
 import Datum from './components/Datum/Datum';
 import Pipeline from './components/Pipeline/Pipeline';
+import PipelineSplash from './components/Pipeline/Splash';
 import SortableList from './components/SortableList/SortableList';
 import LoadingDots from '../../utils/components/LoadingDots/LoadingDots';
 import FullPageError from './components/FullPageError/FullPageError';
@@ -49,13 +50,14 @@ export class MountPlugin implements IMountPlugin {
   private _fullPageError: ReactWidget;
   private _config: ReactWidget;
   private _pipeline: ReactWidget;
+  private _pipelineSplash: ReactWidget;
   private _mountedList: ReactWidget;
   private _unmountedList: ReactWidget;
   private _datum: ReactWidget;
   private _mountBrowser: FileBrowser;
   private _poller: PollMounts;
   private _panel: SplitPanel;
-  private _tracker: INotebookTracker;
+  private _widgetTracker: ILabShell;
 
   private _showConfig = false;
   private _showConfigSignal = new Signal<this, boolean>(this);
@@ -79,12 +81,12 @@ export class MountPlugin implements IMountPlugin {
     manager: IDocumentManager,
     factory: IFileBrowserFactory,
     restorer: ILayoutRestorer,
-    tracker: INotebookTracker,
+    widgetTracker: ILabShell,
   ) {
     this._app = app;
     this._poller = new PollMounts('PollMounts');
     this._repoViewInputSpec = {};
-    this._tracker = tracker;
+    this._widgetTracker = widgetTracker;
 
     // This is used to detect if the config goes bad (pachd address changes)
     this._poller.configSignal.connect((_, config) => {
@@ -246,7 +248,13 @@ export class MountPlugin implements IMountPlugin {
         )}
       </UseSignal>,
     );
+
+    this._pipelineSplash = ReactWidget.create(
+      <PipelineSplash setShowPipeline={this.setShowPipeline} />,
+    );
+
     this._pipeline.addClass('pachyderm-mount-pipeline-wrapper');
+    this._pipelineSplash.addClass('pachyderm-mount-pipeline-wrapper');
 
     this._loader = ReactWidget.create(<LoadingDots />);
 
@@ -266,7 +274,7 @@ export class MountPlugin implements IMountPlugin {
     this._poller.mountedSignal.connect(this.refresh);
     this._poller.unmountedSignal.connect(this.refresh);
 
-    this._tracker.currentChanged.connect(this.handleNotebookChanged, this);
+    this._widgetTracker.currentChanged.connect(this.handleWidgetChanged, this);
 
     this._panel = new SplitPanel();
     this._panel.orientation = 'vertical';
@@ -277,6 +285,7 @@ export class MountPlugin implements IMountPlugin {
     this._panel.addWidget(this._mountedList);
     this._panel.addWidget(this._unmountedList);
     this._panel.addWidget(this._datum);
+    this._panel.addWidget(this._pipelineSplash);
     this._panel.addWidget(this._pipeline);
     this._panel.addWidget(this._mountBrowser);
     this._panel.setRelativeSizes([1, 1, 3, 3]);
@@ -291,6 +300,7 @@ export class MountPlugin implements IMountPlugin {
     this._mountedList.setHidden(true);
     this._unmountedList.setHidden(true);
     this._datum.setHidden(true);
+    this._pipelineSplash.setHidden(true);
     this._pipeline.setHidden(true);
     this._mountBrowser.setHidden(true);
 
@@ -302,30 +312,48 @@ export class MountPlugin implements IMountPlugin {
     app.shell.add(this._panel, 'left', {rank: 100});
   }
 
+  /**
+   * Checks if the widget currently in focus is a NotebookPanel.
+   * @param widget is an optionally-provided Widget that will be type narrowed.
+   */
+  isCurrentWidgetNotebook = (
+    widget?: Widget | null,
+  ): widget is NotebookPanel => {
+    widget = widget ?? this._widgetTracker.currentWidget;
+    return widget instanceof NotebookPanel;
+  };
+
   getActiveNotebook = (): NotebookPanel | null => {
-    return this._tracker.currentWidget;
+    const currentWidget = this._widgetTracker.currentWidget;
+    return this.isCurrentWidgetNotebook(currentWidget) ? currentWidget : null;
+  };
+
+  /**
+   * This handles when the focus is switched to another widget.
+   * The parameters are automatically passed from the signal when a switch occurs.
+   */
+  handleWidgetChanged = async (
+    _widgetTracker: ILabShell,
+    widget: ILabShell.IChangedArgs,
+  ): Promise<void> => {
+    if (this.isCurrentWidgetNotebook(widget.newValue)) {
+      await this.handleNotebookChanged(widget.newValue);
+    }
+    this.setShowPipeline(this._showPipeline);
+    await Promise.resolve();
   };
 
   /**
    * This handles when a notebook is switched to another notebook.
-   * The parameters are automatically passed from the signal when a switch occurs.
    */
-  handleNotebookChanged = async (
-    tracker: INotebookTracker,
-    notebook: NotebookPanel | null,
-  ): Promise<void> => {
+  handleNotebookChanged = async (notebook: NotebookPanel): Promise<void> => {
     // Set the current notebook and wait for the session to be ready
-    let context: PpsContext;
-    if (notebook) {
-      await notebook.sessionContext.ready;
-      notebook.context.fileChanged.connect(this.handleNotebookReload);
-      context = {
-        config: this.getNotebookMetadata(notebook),
-        notebookModel: notebook.context.contentsModel,
-      };
-    } else {
-      context = {config: null, notebookModel: null};
-    }
+    await notebook.sessionContext.ready;
+    notebook.context.fileChanged.connect(this.handleNotebookReload);
+    const context: PpsContext = {
+      config: this.getNotebookMetadata(notebook),
+      notebookModel: notebook.context.contentsModel,
+    };
     this._ppsContextSignal.emit(context);
     await Promise.resolve();
   };
@@ -490,12 +518,22 @@ export class MountPlugin implements IMountPlugin {
 
   setShowPipeline = (shouldShow: boolean): void => {
     if (shouldShow) {
-      this._pipeline.setHidden(false);
-      this._mountedList.setHidden(true);
-      this._unmountedList.setHidden(true);
-      this._mountBrowser.setHidden(true);
+      if (this.isCurrentWidgetNotebook()) {
+        this._pipeline.setHidden(false);
+        this._pipelineSplash.setHidden(true);
+        this._mountedList.setHidden(true);
+        this._unmountedList.setHidden(true);
+        this._mountBrowser.setHidden(true);
+      } else {
+        this._pipeline.setHidden(true);
+        this._pipelineSplash.setHidden(false);
+        this._mountedList.setHidden(true);
+        this._unmountedList.setHidden(true);
+        this._mountBrowser.setHidden(true);
+      }
     } else {
       this._pipeline.setHidden(true);
+      this._pipelineSplash.setHidden(true);
       this._mountedList.setHidden(false);
       this._unmountedList.setHidden(false);
       this._mountBrowser.setHidden(false);

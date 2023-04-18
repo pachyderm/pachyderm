@@ -1,7 +1,9 @@
 import {ReactWidget, WidgetTracker} from '@jupyterlab/apputils';
 import {
+  ILabShell,
   ILayoutRestorer,
   JupyterLab,
+  LabShell,
   LayoutRestorer,
 } from '@jupyterlab/application';
 import {IDocumentManager, DocumentManager} from '@jupyterlab/docmanager';
@@ -19,8 +21,6 @@ import {mockedRequestAPI} from 'utils/testUtils';
 import {MountPlugin} from '../mount';
 import * as requestAPI from '../../../handler';
 import {waitFor} from '@testing-library/react';
-import {INotebookTracker, NotebookTracker} from '@jupyterlab/notebook';
-import Pipeline from '../components/Pipeline/Pipeline';
 import {MountSettings} from '../types';
 
 jest.mock('../../../handler');
@@ -47,7 +47,7 @@ describe('mount plugin', () => {
   let factory: IFileBrowserFactory;
   let fileBrowser: FileBrowser;
   let restorer: ILayoutRestorer;
-  let tracker: INotebookTracker;
+  let widgetTracker: ILabShell;
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
   beforeEach(() => {
     mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI(items));
@@ -74,7 +74,7 @@ describe('mount plugin', () => {
       defaultBrowser: fileBrowser,
       tracker: new WidgetTracker<FileBrowser>({namespace: 'test'}),
     };
-    tracker = new NotebookTracker({namespace: 'test'});
+    widgetTracker = new LabShell();
     restorer = new LayoutRestorer({
       connector: new StateDB(),
       first: Promise.resolve<void>(void 0),
@@ -114,7 +114,7 @@ describe('mount plugin', () => {
       docManager,
       factory,
       restorer,
-      tracker,
+      widgetTracker,
     );
 
     await plugin.ready;
@@ -143,20 +143,21 @@ describe('mount plugin', () => {
       docManager,
       factory,
       restorer,
-      tracker,
+      widgetTracker,
     );
     expect(plugin.layout.title.caption).toBe('Pachyderm Mount');
     expect(plugin.layout.id).toBe('pachyderm-mount');
     expect(plugin.layout.orientation).toBe('vertical');
-    expect(plugin.layout.widgets).toHaveLength(8);
+    expect(plugin.layout.widgets).toHaveLength(9);
     expect(plugin.layout.widgets[0]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[1]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[2]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[3]).toBeInstanceOf(ReactWidget);
-    expect(plugin.layout.widgets[4]).toBeInstanceOf(FileBrowser);
-    expect(plugin.layout.widgets[5]).toBeInstanceOf(ReactWidget);
+    expect(plugin.layout.widgets[4]).toBeInstanceOf(ReactWidget);
+    expect(plugin.layout.widgets[5]).toBeInstanceOf(FileBrowser);
     expect(plugin.layout.widgets[6]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[7]).toBeInstanceOf(ReactWidget);
+    expect(plugin.layout.widgets[8]).toBeInstanceOf(ReactWidget);
   });
 
   it('return from pipeline view to the correct layout', async () => {
@@ -166,22 +167,22 @@ describe('mount plugin', () => {
       docManager,
       factory,
       restorer,
-      tracker,
+      widgetTracker,
     );
-    const pipeline = plugin.layout.widgets[3];
-    const fileBrowser = plugin.layout.widgets[4];
+    const pipelineSplash = plugin.layout.widgets[3];
+    const fileBrowser = plugin.layout.widgets[5];
     expect(fileBrowser).toBeInstanceOf(FileBrowser);
 
     plugin.setShowConfig(false);
-    expect(pipeline.isHidden).toBe(true);
+    expect(pipelineSplash.isHidden).toBe(true);
     expect(fileBrowser.isHidden).toBe(false);
 
     plugin.setShowPipeline(true);
-    expect(pipeline.isHidden).toBe(false);
+    expect(pipelineSplash.isHidden).toBe(false);
     expect(fileBrowser.isHidden).toBe(true);
 
     plugin.setShowPipeline(false);
-    expect(pipeline.isHidden).toBe(true);
+    expect(pipelineSplash.isHidden).toBe(true);
     expect(fileBrowser.isHidden).toBe(false);
   });
 });

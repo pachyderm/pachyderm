@@ -393,6 +393,18 @@ textarea {
   color: var(--jp-error-color0);
 }
 
+.pachyderm-mount-pipeline-splash {
+  display: flex;
+  height: 100%;
+  text-align: center;
+}
+
+.pachyderm-mount-pipeline-splash span {
+  font-size: x-large;
+  font-weight: 500;
+  margin: auto;
+}
+
 .pachyderm-pipeline-current-notebook-wrapper {
   display: flex;
   align-content: center;
