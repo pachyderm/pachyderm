@@ -29,6 +29,7 @@ import {
   CrossInputSpec,
   SameMetadata,
   PpsContext,
+  MountSettings,
 } from './types';
 import Config from './components/Config/Config';
 import Datum from './components/Datum/Datum';
@@ -74,6 +75,7 @@ export class MountPlugin implements IMountPlugin {
 
   constructor(
     app: JupyterFrontEnd,
+    settings: MountSettings,
     manager: IDocumentManager,
     factory: IFileBrowserFactory,
     restorer: ILayoutRestorer,
@@ -237,6 +239,7 @@ export class MountPlugin implements IMountPlugin {
         {(_, context) => (
           <Pipeline
             ppsContext={context}
+            settings={settings}
             setShowPipeline={this.setShowPipeline}
             saveNotebookMetadata={this.saveNotebookMetadata}
           />
