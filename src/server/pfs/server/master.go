@@ -212,6 +212,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoKey string) error {
 func (d *driver) compactCommit(ctx context.Context, compactor *compactor, doer task.Doer, commit *pfs.Commit) (*fileset.ID, error) {
 	var totalId *fileset.ID
 	if err := d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		var err error
 		// Compacting the diff before getting the total allows us to compose the
 		// total file set so that it includes the compacted diff.
 		if err := log.LogStep(ctx, "compactDiffFileSet", func(ctx context.Context) error {
@@ -219,8 +220,17 @@ func (d *driver) compactCommit(ctx context.Context, compactor *compactor, doer t
 		}); err != nil {
 			return err
 		}
+		// A commit may have a compacted total file set, but an uncompacted diff file set.
+		// If a total exists, this commit has been through total file set compaction before
+		// and the rest of the compaction steps can be skipped.
+		totalId, err = d.commitStore.GetTotalFileSet(ctx, commit)
+		if err == nil {
+			return nil
+		}
+		if err != nil && !errors.Is(err, errNoTotalFileSet) {
+			return errors.EnsureStack(err)
+		}
 		return log.LogStep(ctx, "compactTotalFileSet", func(ctx context.Context) error {
-			var err error
 			totalId, err = d.compactTotalFileSet(ctx, compactor, doer, renewer, commit)
 			if err != nil {
 				return err

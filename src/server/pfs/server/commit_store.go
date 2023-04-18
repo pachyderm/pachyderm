@@ -30,7 +30,7 @@ type commitStore interface {
 	SetDiffFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error
 	// SetDiffFileSetTx is like SetDiffFileSet, but in a transaction
 	SetDiffFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, id fileset.ID) error
-	// GetTotalFileSet returns the total fil eset for a commit.
+	// GetTotalFileSet returns the total file set for a commit.
 	GetTotalFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error)
 	// GetTotalFileSetTx is like GetTotalFileSet, but in a transaction
 	GetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Commit) (*fileset.ID, error)
