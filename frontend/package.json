@@ -129,7 +129,7 @@
     "react-dev-utils": "^12.0.1",
     "rollup-plugin-analyzer": "^4.0.0",
     "rollup-plugin-copy": "3.4.0",
-    "serve": "14.1.2",
+    "serve": "14.2.0",
     "start-server-and-test": "1.14.0",
     "stylelint": "^14.15.0",
     "stylelint-config-prettier": "^9.0.4",
