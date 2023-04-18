@@ -35,6 +35,7 @@ const Pipeline: React.FC<PipelineProps> = ({
     setRequirements,
     callCreatePipeline,
     callSavePipeline,
+    currentNotebook,
     errorMessage,
     responseMessage,
   } = usePipeline(ppsContext, settings, saveNotebookMetadata);
@@ -76,6 +77,21 @@ const Pipeline: React.FC<PipelineProps> = ({
         >
           Create Pipeline
         </button>
+      </div>
+
+      <div className="pachyderm-pipeline-current-notebook-wrapper">
+        <label
+          className="pachyderm-pipeline-current-notebook-label"
+          htmlFor="currentNotebook"
+        >
+          Current Notebook:{'  '}
+        </label>
+        <span
+          className="pachyderm-pipeline-current-notebook-value"
+          data-testid="Pipeline__currentNotebookValue"
+        >
+          {currentNotebook}
+        </span>
       </div>
 
       <span
