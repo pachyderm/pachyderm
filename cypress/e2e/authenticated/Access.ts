@@ -39,7 +39,15 @@ describe('Access', () => {
       cy.findByText('Repositories', {timeout: 30000}).click();
       const edges = cy.findByText('edges');
       edges.click();
-      cy.get('Detailed info').should("not.exist");
+      cy.get('Detailed info').should('not.exist');
     });
+  });
+});
+
+describe('Header', () => {
+  it('when in Enterprise Edition the header shows the correct app name', () => {
+    cy.visit('/');
+    cy.visit('/');
+    cy.findByRole('banner').findByRole('heading', {name: 'HPE MLDM'});
   });
 });

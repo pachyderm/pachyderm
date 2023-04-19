@@ -1,5 +1,6 @@
 import React from 'react';
 
+import * as HPESvg from '../HPE';
 import * as IconsSVG from '../Icons';
 import * as PachydermSVG from '../Pachyderm';
 
@@ -20,15 +21,24 @@ const SVGWrapper: React.FC<SVGWrapperProps> = ({title, children}) => {
   );
 };
 
+export const HPE = () => {
+  return (
+    <div className={styles.wrapper}>
+      <div className={styles.grid}>
+        <SVGWrapper title="LogoHpe">
+          <HPESvg.LogoHpe />
+        </SVGWrapper>
+      </div>
+    </div>
+  );
+};
+
 export const Pachyderm = () => {
   return (
     <div className={styles.wrapper}>
       <div className={styles.grid}>
-        <SVGWrapper title="BoxSVG">
-          <PachydermSVG.BoxSVG />
-        </SVGWrapper>
-        <SVGWrapper title="CubeSVG">
-          <PachydermSVG.CubeSVG />
+        <SVGWrapper title="LogoElephant">
+          <PachydermSVG.LogoElephant />
         </SVGWrapper>
         <SVGWrapper title="DrawerElephantSVG">
           <PachydermSVG.DrawerElephantSVG viewBox="0 0 235 298" />

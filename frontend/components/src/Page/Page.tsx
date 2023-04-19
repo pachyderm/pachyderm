@@ -2,7 +2,6 @@ import classnames from 'classnames';
 import React from 'react';
 import {Helmet} from 'react-helmet';
 
-import {PageHeading} from './components/PageHeading';
 import styles from './Page.module.css';
 
 export interface PageProps {
@@ -37,4 +36,4 @@ const Page: React.FC<PageProps> = ({
   );
 };
 
-export default Object.assign(Page, {Heading: PageHeading});
+export default Page;

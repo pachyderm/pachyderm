@@ -44,7 +44,7 @@ const TableViewHeader: React.FC<TableViewHeaderProps> = ({
         children
       ) : (
         <>
-          <Page.Heading>{heading}</Page.Heading>
+          <h2 className={styles.heading}>{heading}</h2>
           {!headerButtonHidden && (
             <TableViewHeaderButton
               onClick={headerButtonAction}

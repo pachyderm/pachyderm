@@ -2,3 +2,7 @@
   white-space: nowrap;
   margin-left: auto;
 }
+
+.heading {
+  padding-left: 1.875rem;
+}
