@@ -324,7 +324,15 @@ func (a *apiServer) ClearCommit(ctx context.Context, request *pfs.ClearCommitReq
 
 // FindCommits searches for commits that reference a supplied file being modified in a branch.
 func (a *apiServer) FindCommits(request *pfs.FindCommitsRequest, srv pfs.API_FindCommitsServer) error {
-	return a.driver.findCommits(srv.Context(), request, srv.Send)
+	var cancel context.CancelFunc
+	ctx := srv.Context()
+	deadline, ok := srv.Context().Deadline()
+	if ok {
+		// new context's deadline is shorter to give time to return last searched commit.
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(float64(time.Until(deadline))*0.85))
+		defer cancel()
+	}
+	return a.driver.findCommits(ctx, request, srv.Send)
 }
 
 // CreateBranchInTransaction is identical to CreateBranch except that it can run
