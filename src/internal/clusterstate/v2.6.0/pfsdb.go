@@ -577,9 +577,6 @@ func branchlessCommitsPFS(ctx context.Context, tx *pachsql.Tx) error {
 			return errors.Wrapf(err, "could not migrate branch %q", branchKey(bi.Branch))
 		}
 	}
-	if cis, err = listCollectionProtos(ctx, tx, "commits", &pfs.CommitInfo{}); err != nil {
-		return err
-	}
 	// map <project>/<repo>@<branch>=<id> -> <project>/<repo>@<id>; basically replace '@[-a-zA-Z0-9_]+)=' -> '@'
 	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commits SET commit_id = regexp_replace(commit_id, '@([-a-zA-Z0-9_]+)=', '@');`); err != nil {
 		return errors.Wrapf(err, "update pfs.commits to branchless commit ids")
