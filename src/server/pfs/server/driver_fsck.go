@@ -135,27 +135,27 @@ func (e ErrMissingBranchHead) Error() string {
 }
 
 func checkBranchProvenances(bi *pfs.BranchInfo, branchInfos map[string]*pfs.BranchInfo, onError func(error) error) error {
-	// we expect the branch's provenance to equal the union of the provenances of the branch's direct provenances
-	// i.e. union(branch, branch.Provenance) = union(branch, branch.DirectProvenance, branch.DirectProvenance.Provenance)
+	// we expect the branch's provenance to be the same as the provenances of the branch's direct provenances
+	// i.e. followedProvenances(branch, branch.Provenance) = followedProvenances(branch, branch.DirectProvenance, branch.DirectProvenance.Provenance)
 	direct := bi.DirectProvenance
-	union := []*pfs.Branch{bi.Branch}
+	followedProvenances := []*pfs.Branch{bi.Branch}
 
 	for _, directProvenance := range direct {
 		directProvenanceInfo := branchInfos[pfsdb.BranchKey(directProvenance)]
-		union = append(union, directProvenance)
 		if directProvenanceInfo == nil {
 			if err := onError(ErrBranchInfoNotFound{Branch: directProvenance}); err != nil {
 				return err
 			}
 			continue
 		}
-		union = append(union, directProvenanceInfo.Provenance...)
+		followedProvenances = append(followedProvenances, directProvenance)
+		followedProvenances = append(followedProvenances, directProvenanceInfo.Provenance...)
 	}
 
-	if !equalBranches(append(bi.Provenance, bi.Branch), union) {
+	if !equalBranches(append(bi.Provenance, bi.Branch), followedProvenances) {
 		if err := onError(ErrBranchProvenanceTransitivity{
 			BranchInfo:     bi,
-			FullProvenance: union,
+			FullProvenance: followedProvenances,
 		}); err != nil {
 			return err
 		}
