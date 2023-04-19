@@ -24,7 +24,7 @@ const PipelineSplash: React.FC<PipelineSplashProps> = ({setShowPipeline}) => {
         </button>
       </div>
       <span className="pachyderm-mount-pipeline-subheading">
-        Publish Notebook as Pipeline
+        Publish as Pipeline
       </span>
       <div className="pachyderm-mount-pipeline-splash">
         <span>Open a notebook to create a pipeline</span>

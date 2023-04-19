@@ -41,10 +41,7 @@ const Pipeline: React.FC<PipelineProps> = ({
   } = usePipeline(ppsContext, settings, saveNotebookMetadata);
 
   return (
-    <div
-      className="pachyderm-mount-pipeline-base"
-      style={{overscrollY: 'auto'}}
-    >
+    <div className="pachyderm-mount-pipeline-base">
       <div className="pachyderm-mount-pipeline-back">
         <button
           data-testid="Pipeline__back"
@@ -61,7 +58,7 @@ const Pipeline: React.FC<PipelineProps> = ({
         </button>
       </div>
       <span className="pachyderm-mount-pipeline-subheading">
-        Publish Notebook as Pipeline
+        Publish as Pipeline
       </span>
 
       <div className="pachyderm-pipeline-current-notebook-wrapper">

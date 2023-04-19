@@ -354,6 +354,7 @@
   flex-direction: column;
   margin: 0.25rem 16px;
   height: 100%;
+  overflow: auto;
 }
 
 .pachyderm-mount-pipeline-back {
