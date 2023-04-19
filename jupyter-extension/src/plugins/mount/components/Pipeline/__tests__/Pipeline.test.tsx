@@ -1,37 +1,23 @@
 import React from 'react';
 import {render} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import {Contents} from '@jupyterlab/services';
 
 import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
 import Pipeline from '../Pipeline';
 jest.mock('../../../../../handler');
-import {PpsContext, SameMetadata} from '../../../types';
+import {MountSettings, PpsContext} from '../../../types';
 
 describe('PPS screen', () => {
   let setShowPipeline = jest.fn();
   const saveNotebookMetaData = jest.fn();
-  const md: SameMetadata = {
-    apiVersion: '',
-    environments: {
-      default: {
-        image_tag: '',
-      },
-    },
-    metadata: {
-      name: '',
-    },
-    notebook: {
-      requirements: '',
-    },
-    run: {
-      name: '',
-    },
-  };
-  const context: PpsContext = {config: md, notebookModel: null};
+
+  const testNotebookName = 'NotARealNotebook.ipynb';
+  const notebookModel = {name: testNotebookName} as Contents.IModel;
+  const settings: MountSettings = {defaultPipelineImage: 'DefaultImage:Tag'};
 
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
-
   beforeEach(() => {
     setShowPipeline = jest.fn();
     mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI({}));
@@ -39,13 +25,20 @@ describe('PPS screen', () => {
 
   describe('spec preview', () => {
     it('proper preview', async () => {
+      const ppsContext = {config: null, notebookModel};
       const {getByTestId, findByTestId} = render(
         <Pipeline
-          ppsContext={context}
+          ppsContext={ppsContext}
+          settings={settings}
           setShowPipeline={setShowPipeline}
           saveNotebookMetadata={saveNotebookMetaData}
         />,
       );
+
+      const valueCurrentNotebook = await findByTestId(
+        'Pipeline__currentNotebookValue',
+      );
+      expect(valueCurrentNotebook).toHaveTextContent(testNotebookName);
 
       const inputPipelineName = await findByTestId(
         'Pipeline__inputPipelineName',
@@ -53,6 +46,8 @@ describe('PPS screen', () => {
       userEvent.type(inputPipelineName, 'ThisPipelineIsNamedFred');
 
       const inputImageName = await findByTestId('Pipeline__inputImageName');
+      expect(inputImageName).toHaveValue(settings.defaultPipelineImage);
+      userEvent.clear(inputImageName);
       userEvent.type(inputImageName, 'ThisImageIsNamedLucy');
 
       const inputRequirements = await findByTestId(
@@ -82,6 +77,25 @@ input:
     glob: /
 `,
       );
+    });
+  });
+
+  describe('no notebook', () => {
+    const ppsContext = {config: null, notebookModel: null};
+    it('currentNotebook is None', async () => {
+      const {findByTestId} = render(
+        <Pipeline
+          ppsContext={ppsContext}
+          settings={settings}
+          setShowPipeline={setShowPipeline}
+          saveNotebookMetadata={saveNotebookMetaData}
+        />,
+      );
+
+      const valueCurrentNotebook = await findByTestId(
+        'Pipeline__currentNotebookValue',
+      );
+      expect(valueCurrentNotebook).toHaveTextContent('None');
     });
   });
 });
