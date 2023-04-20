@@ -2643,7 +2643,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 	pipeline.Name = pipelineName
 	commit, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, pipeline, "")
 	if err != nil {
-		return nil, errors.Wrapf(err, "pipeline not found: couldn't find up to date spec for pipeline %q", pipeline)
+		return nil, errors.Wrapf(err, "pipeline was not inspected: couldn't find up to date spec for pipeline %q", pipeline)
 	}
 
 	pipelineInfo := &pps.PipelineInfo{}

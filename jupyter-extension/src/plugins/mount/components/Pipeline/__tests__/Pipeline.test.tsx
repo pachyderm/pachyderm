@@ -6,8 +6,10 @@ import {Contents} from '@jupyterlab/services';
 import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
 import Pipeline from '../Pipeline';
+import {splitAtFirstSlash} from '../hooks/usePipeline';
+
 jest.mock('../../../../../handler');
-import {MountSettings, PpsContext} from '../../../types';
+import {MountSettings} from '../../../types';
 
 describe('PPS screen', () => {
   let setShowPipeline = jest.fn();
@@ -25,7 +27,7 @@ describe('PPS screen', () => {
 
   describe('spec preview', () => {
     it('proper preview', async () => {
-      const ppsContext = {config: null, notebookModel};
+      const ppsContext = {metadata: null, notebookModel};
       const {getByTestId, findByTestId} = render(
         <Pipeline
           ppsContext={ppsContext}
@@ -43,7 +45,7 @@ describe('PPS screen', () => {
       const inputPipelineName = await findByTestId(
         'Pipeline__inputPipelineName',
       );
-      userEvent.type(inputPipelineName, 'ThisPipelineIsNamedFred');
+      userEvent.type(inputPipelineName, 'test_project/ThisPipelineIsNamedFred');
 
       const inputImageName = await findByTestId('Pipeline__inputImageName');
       expect(inputImageName).toHaveValue(settings.defaultPipelineImage);
@@ -56,6 +58,7 @@ describe('PPS screen', () => {
       userEvent.type(inputRequirements, './requirements.txt');
 
       const inputInputSpec = await findByTestId('Pipeline__inputSpecInput');
+      userEvent.clear(inputInputSpec);
       userEvent.type(
         inputInputSpec,
         `pfs:
@@ -67,7 +70,9 @@ describe('PPS screen', () => {
 
       const specPreview = getByTestId('Pipeline__specPreview');
       expect(specPreview).toHaveValue(
-        `name: ThisPipelineIsNamedFred
+        `pipeline:
+  name: ThisPipelineIsNamedFred
+  project: test_project
 transform:
   image: ThisImageIsNamedLucy
 input:
@@ -81,7 +86,7 @@ input:
   });
 
   describe('no notebook', () => {
-    const ppsContext = {config: null, notebookModel: null};
+    const ppsContext = {metadata: null, notebookModel: null};
     it('currentNotebook is None', async () => {
       const {findByTestId} = render(
         <Pipeline
@@ -97,5 +102,19 @@ input:
       );
       expect(valueCurrentNotebook).toHaveTextContent('None');
     });
+  });
+});
+
+describe('unit tests for helper functions', () => {
+  it('splitAtFirstSlash', () => {
+    expect(splitAtFirstSlash('name')).toStrictEqual(['name']);
+    expect(splitAtFirstSlash('first/second')).toStrictEqual([
+      'first',
+      'second',
+    ]);
+    expect(splitAtFirstSlash('first/second/third')).toStrictEqual([
+      'first',
+      'second/third',
+    ]);
   });
 });

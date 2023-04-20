@@ -1,6 +1,6 @@
 import {Contents} from '@jupyterlab/services';
 import {SplitPanel} from '@lumino/widgets';
-import {JSONObject} from '@lumino/coreutils';
+import {JSONObject, ReadonlyJSONObject} from '@lumino/coreutils';
 
 export type mountState =
   | 'unmounting'
@@ -91,47 +91,39 @@ export interface IMountPlugin {
   ready: Promise<void>;
 }
 
+export type Project = {
+  name: string;
+};
+
+export type Pipeline = {
+  name: string;
+  project: Project | null;
+};
+
+export type PipelineSpec = {
+  pipeline: Pipeline;
+  description: string | null;
+  transform: any;
+  input: any;
+  update: boolean;
+  reprocess: boolean;
+};
+
+export type PpsMetadata = {
+  version: string;
+  config: PpsConfig;
+};
+
 export type PpsConfig = {
-  pipeline_name: string;
+  pipeline: Pipeline;
   image: string;
   requirements: string | null;
-  input_spec: any;
+  input_spec: ReadonlyJSONObject;
 };
 
 export type PpsContext = {
-  config: SameMetadata | null;
+  metadata: PpsMetadata | null;
   notebookModel: Contents.IModel | null;
-};
-
-export type SameMetadata = {
-  apiVersion: string;
-  environments: SameEnv;
-  metadata: SameMetaMetadata;
-  notebook: SameNotebookMetadata;
-  run: SameRunMetadata;
-};
-
-export type SameEnv = {
-  default: DefaultSameEnv;
-};
-
-export type DefaultSameEnv = {
-  image_tag: string;
-};
-export type SameMetaMetadata = {
-  labels?: string[];
-  name: string;
-  version?: string;
-};
-
-export type SameNotebookMetadata = {
-  // Note: name and path are filled in when you pass the notebook to SAME
-  requirements: string;
-};
-
-export type SameRunMetadata = {
-  name: string;
-  input?: string; //Note: SAME doesn't actually read this field when reading from the notebook and instead expects you to pass it on the command line
 };
 
 export type CreatePipelineResponse = {
