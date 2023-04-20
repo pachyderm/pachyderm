@@ -91,8 +91,19 @@ export const usePipeline = (
       setLoading(true);
       setErrorMessage('');
       setResponseMessage('');
-      await callSavePipeline();
+
+      let ppsMetadata;
+      try {
+        ppsMetadata = buildMetadata();
+      } catch (e) {
+        setErrorMessage(
+          'error parsing input spec -- pipeline creation aborted',
+        );
+        return;
+      }
+      saveNotebookMetaData(ppsMetadata);
       await saveNotebookToDisk();
+
       try {
         const response = await requestAPI<CreatePipelineResponse>(
           `pps/_create/${encodeURI(notebook.path)}`,
@@ -118,19 +129,9 @@ export const usePipeline = (
     };
   }
 
-  const callSavePipeline = async () => {
-    setErrorMessage('');
-
-    let inputSpecJson;
-    try {
-      inputSpecJson = parseInputSpec(inputSpec);
-    } catch (e) {
-      // TODO: More helpful error reporting.
-      setErrorMessage('error parsing input spec -- saving aborted');
-      return;
-    }
-
-    const ppsMetadata: PpsMetadata = {
+  const buildMetadata = (): PpsMetadata => {
+    const inputSpecJson = parseInputSpec(inputSpec);
+    return {
       version: PPS_VERSION,
       config: {
         pipeline: pipeline,
@@ -139,6 +140,20 @@ export const usePipeline = (
         input_spec: inputSpecJson,
       },
     };
+  };
+
+  const callSavePipeline = async () => {
+    setErrorMessage('');
+
+    let ppsMetadata;
+    try {
+      ppsMetadata = buildMetadata();
+    } catch (e) {
+      // TODO: More helpful error reporting.
+      setErrorMessage('error parsing input spec -- saving aborted');
+      return;
+    }
+
     saveNotebookMetaData(ppsMetadata);
   };
 

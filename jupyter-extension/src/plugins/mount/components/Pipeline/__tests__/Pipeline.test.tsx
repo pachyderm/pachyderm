@@ -14,6 +14,7 @@ import {MountSettings} from '../../../types';
 describe('PPS screen', () => {
   let setShowPipeline = jest.fn();
   const saveNotebookMetaData = jest.fn();
+  const saveNotebookToDisk = jest.fn();
 
   const testNotebookName = 'NotARealNotebook.ipynb';
   const notebookModel = {name: testNotebookName} as Contents.IModel;
@@ -34,6 +35,7 @@ describe('PPS screen', () => {
           settings={settings}
           setShowPipeline={setShowPipeline}
           saveNotebookMetadata={saveNotebookMetaData}
+          saveNotebookToDisk={saveNotebookToDisk}
         />,
       );
 
@@ -94,6 +96,7 @@ input:
           settings={settings}
           setShowPipeline={setShowPipeline}
           saveNotebookMetadata={saveNotebookMetaData}
+          saveNotebookToDisk={saveNotebookToDisk}
         />,
       );
 
