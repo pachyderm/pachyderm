@@ -171,7 +171,7 @@ ${inputSpec
       </div>
 
       <div className="pachyderm-pipeline-buttons">
-      <button
+        <button
           data-testid="Pipeline__create_pipeline"
           className="pachyderm-button"
           onClick={callCreatePipeline}
@@ -179,7 +179,7 @@ ${inputSpec
           Run
         </button>
         &nbsp;
-      <button
+        <button
           data-testid="Pipeline__save_pipeline"
           className="pachyderm-button"
           onClick={callSavePipeline}
