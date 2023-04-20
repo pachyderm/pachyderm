@@ -6,6 +6,8 @@ import {Contents} from '@jupyterlab/services';
 import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
 import Pipeline from '../Pipeline';
+import {splitAtFirstSlash} from '../hooks/usePipeline';
+
 jest.mock('../../../../../handler');
 import {MountSettings} from '../../../types';
 
@@ -100,5 +102,19 @@ input:
       );
       expect(valueCurrentNotebook).toHaveTextContent('None');
     });
+  });
+});
+
+describe('unit tests for helper functions', () => {
+  it('splitAtFirstSlash', () => {
+    expect(splitAtFirstSlash('name')).toStrictEqual(['name']);
+    expect(splitAtFirstSlash('first/second')).toStrictEqual([
+      'first',
+      'second',
+    ]);
+    expect(splitAtFirstSlash('first/second/third')).toStrictEqual([
+      'first',
+      'second/third',
+    ]);
   });
 });

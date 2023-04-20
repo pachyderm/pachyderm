@@ -37,7 +37,7 @@ export const usePipeline = (
   saveNotebookMetaData: (metadata: PpsMetadata) => void,
 ): usePipelineResponse => {
   const [loading, setLoading] = useState(false);
-  const [pipeline, _setPipeline] = useState({name: ''} as Pipeline);
+  const [pipeline, setPipeline] = useState({name: ''} as Pipeline);
   const [imageName, setImageName] = useState('');
   const [inputSpec, setInputSpec] = useState('');
   const [requirements, setRequirements] = useState('');
@@ -45,16 +45,19 @@ export const usePipeline = (
   const [responseMessage, setResponseMessage] = useState('');
   const [currentNotebook, setCurrentNotebook] = useState('None');
 
-  const setPipeline = (input: string) => {
+  const setPipelineFromString = (input: string) => {
     if (input === '') {
-      _setPipeline({name: ''} as Pipeline);
+      setPipeline({name: ''} as Pipeline);
       return;
     }
-    const parts = input.split(/\/(.*)/s, 2);
+    const parts = splitAtFirstSlash(input);
     if (parts.length === 1) {
-      _setPipeline({name: input} as Pipeline);
+      setPipeline({name: input} as Pipeline);
     } else {
-      _setPipeline({name: parts[1], project: {name: parts[0]}} as Pipeline);
+      setPipeline({
+        name: parts[1],
+        project: {name: parts[0]},
+      } as Pipeline);
     }
   };
 
@@ -62,7 +65,7 @@ export const usePipeline = (
     setImageName(
       ppsContext?.metadata?.config.image ?? settings.defaultPipelineImage,
     );
-    _setPipeline(
+    setPipeline(
       ppsContext?.metadata?.config.pipeline ?? ({name: ''} as Pipeline),
     );
     setRequirements(ppsContext?.metadata?.config.requirements ?? '');
@@ -139,7 +142,7 @@ export const usePipeline = (
   return {
     loading,
     pipeline,
-    setPipeline,
+    setPipeline: setPipelineFromString,
     imageName,
     setImageName,
     inputSpec,
@@ -152,6 +155,15 @@ export const usePipeline = (
     errorMessage,
     responseMessage,
   };
+};
+
+/*
+splitAtFirstSlash splits a string into two components if it contains a backslash.
+  For example test/name => [test, name]. If the text does not contain a backslash
+  then text is returned as a one element array, name => [name].
+ */
+export const splitAtFirstSlash = (text: string): string[] => {
+  return text.split(/\/(.*)/s, 2);
 };
 
 /*
