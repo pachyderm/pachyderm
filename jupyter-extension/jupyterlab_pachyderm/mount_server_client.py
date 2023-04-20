@@ -14,7 +14,6 @@ from .env import SIDECAR_MODE, MOUNT_SERVER_LOG_DIR
 
 lock = locks.Lock()
 MOUNT_SERVER_PORT = 9002
-PACH_CONFIG_DIR = '/home/jovyan/.pachyderm/config.json'
 
 
 class MountServerClient(MountInterface):
@@ -194,8 +193,10 @@ class MountServerClient(MountInterface):
         response = await self.client.fetch(
             f"{self.address}/auth/_login_token", method="PUT", body=f'{oidc}'
         )
-        os.makedirs(os.path.dirname(PACH_CONFIG_DIR), exist_ok=True)
-        with open(PACH_CONFIG_DIR, 'w') as f:
+        user = os.getenv('NB_USER', default='jovyan')
+        pach_config_dir = f'/home/{user}/.pachyderm/config.json'
+        os.makedirs(os.path.dirname(pach_config_dir), exist_ok=True)
+        with open(pach_config_dir, 'w') as f:
             f.write(response.body.decode())
         return response.body
 
