@@ -122,6 +122,9 @@ func getCommitTableID(tx *pachsql.Tx, commit *pfs.Commit) (_ int, retErr error) 
 			return 0, errors.EnsureStack(err)
 		}
 	}
+	if err = rows.Err(); err != nil {
+		return 0, errors.EnsureStack(err)
+	}
 	return id, nil
 }
 
