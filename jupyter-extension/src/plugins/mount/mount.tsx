@@ -27,7 +27,7 @@ import {
   PfsInput,
   ListMountsResponse,
   CrossInputSpec,
-  SameMetadata,
+  PpsMetadata,
   PpsContext,
   MountSettings,
 } from './types';
@@ -42,7 +42,7 @@ import {requestAPI} from '../../handler';
 
 export const MOUNT_BROWSER_NAME = 'mount-browser:';
 
-export const METADATA_KEY = 'same_config';
+export const METADATA_KEY = 'pachyderm_pps';
 
 export class MountPlugin implements IMountPlugin {
   private _app: JupyterFrontEnd<JupyterFrontEnd.IShell, 'desktop' | 'mobile'>;
@@ -351,7 +351,7 @@ export class MountPlugin implements IMountPlugin {
     await notebook.sessionContext.ready;
     notebook.context.fileChanged.connect(this.handleNotebookReload);
     const context: PpsContext = {
-      config: this.getNotebookMetadata(notebook),
+      metadata: this.getNotebookMetadata(notebook),
       notebookModel: notebook.context.contentsModel,
     };
     this._ppsContextSignal.emit(context);
@@ -367,7 +367,7 @@ export class MountPlugin implements IMountPlugin {
     model: Contents.IModel,
   ): Promise<void> => {
     const context: PpsContext = {
-      config: this.getNotebookMetadata(),
+      metadata: this.getNotebookMetadata(),
       notebookModel: model,
     };
     this._ppsContextSignal.emit(context);
@@ -379,7 +379,7 @@ export class MountPlugin implements IMountPlugin {
     return notebook?.model?.metadata.get(METADATA_KEY);
   };
 
-  saveNotebookMetadata = (metadata: SameMetadata): void => {
+  saveNotebookMetadata = (metadata: PpsMetadata): void => {
     const currentNotebook = this.getActiveNotebook();
 
     if (currentNotebook !== null) {
