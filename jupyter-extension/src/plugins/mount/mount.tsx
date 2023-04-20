@@ -244,6 +244,7 @@ export class MountPlugin implements IMountPlugin {
             settings={settings}
             setShowPipeline={this.setShowPipeline}
             saveNotebookMetadata={this.saveNotebookMetadata}
+            saveNotebookToDisk={this.saveNotebookToDisk}
           />
         )}
       </UseSignal>,
@@ -387,6 +388,14 @@ export class MountPlugin implements IMountPlugin {
       console.log('notebook metadata saved');
     } else {
       console.log('No active notebook');
+    }
+  };
+
+  saveNotebookToDisk = async (): Promise<void> => {
+    const currentNotebook = this.getActiveNotebook();
+    if (currentNotebook !== null) {
+      await currentNotebook.context.ready;
+      return currentNotebook.context.save();
     }
   };
 

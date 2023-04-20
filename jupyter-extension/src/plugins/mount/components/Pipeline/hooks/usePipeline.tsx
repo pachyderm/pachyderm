@@ -35,6 +35,7 @@ export const usePipeline = (
   ppsContext: PpsContext | undefined,
   settings: MountSettings,
   saveNotebookMetaData: (metadata: PpsMetadata) => void,
+  saveNotebookToDisk: () => Promise<void>,
 ): usePipelineResponse => {
   const [loading, setLoading] = useState(false);
   const [pipeline, setPipeline] = useState({name: ''} as Pipeline);
@@ -90,6 +91,8 @@ export const usePipeline = (
       setLoading(true);
       setErrorMessage('');
       setResponseMessage('');
+      await callSavePipeline();
+      await saveNotebookToDisk();
       try {
         const response = await requestAPI<CreatePipelineResponse>(
           `pps/_create/${encodeURI(notebook.path)}`,
