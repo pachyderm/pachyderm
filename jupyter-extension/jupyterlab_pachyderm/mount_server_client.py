@@ -186,6 +186,10 @@ class MountServerClient(MountInterface):
         # may bubble exception up to handler if oidc_state not in response
         oidc = resp_json['oidc_state']
 
+        # we explicitly send the login_token request and do not await here.
+        # the reason for this is that we want the user to be redirected to
+        # the login page without awaiting the result of the login before
+        # doing so.
         asyncio.create_task(self.auth_login_token(oidc))
         return response.body
 
