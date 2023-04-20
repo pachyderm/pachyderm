@@ -469,7 +469,7 @@ describe('Landing', () => {
         exact: false,
       });
 
-      expect(within(cell2).getByText('new desc')).toBeInTheDocument();
+      expect(await within(cell2).findByText('new desc')).toBeInTheDocument();
     });
   });
 

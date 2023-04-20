@@ -122,7 +122,7 @@ jobs:
     steps:
       - checkout
       - node-install-frontend-backend
-      - run: cd frontend && npm run components:test -- --collect-coverage
+      - run: cd frontend && npm run test:components -- --collect-coverage
       - codecov/upload:
           file: frontend/coverage/lcov.info
   test-frontend-react:
@@ -130,7 +130,7 @@ jobs:
     steps:
       - checkout
       - node-install-frontend-backend
-      - run: cd frontend && npm run frontend:test -- --collect-coverage
+      - run: cd frontend && npm run test:frontend:base -- --runInBand --collect-coverage
       - codecov/upload:
           file: frontend/coverage/lcov.info
 
